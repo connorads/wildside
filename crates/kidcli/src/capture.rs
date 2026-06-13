@@ -87,6 +87,8 @@ pub(crate) struct GameplayState {
     #[serde(default)]
     pub(crate) game_paused: bool,
     #[serde(default)]
+    pub(crate) pause_menu_option: u8,
+    #[serde(default)]
     pub(crate) options_controls_scheme: u16,
     #[serde(default)]
     pub(crate) options_speed_button_fast: bool,
@@ -377,6 +379,7 @@ pub(crate) fn gameplay_state_from_probe(
         character_movement: Some(snapshot.character_movement),
         kid_collision_type: Some(snapshot.kid_collision_type),
         game_paused: snapshot.game_paused,
+        pause_menu_option: snapshot.pause_menu_option,
         options_controls_scheme: snapshot.options_controls_scheme,
         options_speed_button_fast: snapshot.options_speed_button_fast,
         invulnerable_frames: Some(snapshot.invulnerable_frames),
@@ -475,6 +478,7 @@ pub(crate) fn gameplay_state_from_native_trace(snapshot: &NativeTraceFrame) -> G
         character_movement: snapshot.character_movement.or(hidden_player.then_some(0)),
         kid_collision_type: None,
         game_paused: snapshot.paused,
+        pause_menu_option: snapshot.pause_menu_option,
         // ASM variables.asm: Options_Suboption_Controls = $FFFFFDCA and
         // Options_Suboption_Speed = $FFFFFDC9. #305 interactive probes need
         // these in the shared capture instead of buried in native-only traces.
@@ -790,6 +794,7 @@ mod tests {
             frame_index: 120,
             game_mode_value: 0x000c,
             paused: true,
+            pause_menu_option: 1,
             options_controls_scheme: 4,
             options_speed_button_fast: true,
             ..NativeTraceFrame::default()
@@ -798,6 +803,7 @@ mod tests {
         let state = gameplay_state_from_native_trace(&trace);
 
         assert!(state.game_paused);
+        assert_eq!(state.pause_menu_option, 1);
         assert_eq!(state.options_controls_scheme, 4);
         assert!(state.options_speed_button_fast);
     }

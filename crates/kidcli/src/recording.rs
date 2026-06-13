@@ -2528,6 +2528,7 @@ mod tests {
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
             paused: false,
+            pause_menu_option: 0,
             kid_x_pos: Some(0x20_0000),
             kid_y_pos: Some(0x50_0000),
             kid_x_velocity: Some(0),

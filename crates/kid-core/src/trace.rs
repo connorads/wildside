@@ -6454,6 +6454,11 @@ impl NativeRuntime {
                 self.helmet.red_stealth_airborne_slash_counter
             },
             paused: self.paused || self.demo_1_late_controller_pause_active(),
+            pause_menu_option: if self.paused {
+                self.pause_menu_option
+            } else {
+                0
+            },
             kid_x_pos: player_state.map(|state| state.x_pos),
             kid_y_pos: player_state.map(|state| state.y_pos),
             kid_x_velocity,

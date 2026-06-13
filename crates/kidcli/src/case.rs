@@ -3664,6 +3664,7 @@ mod tests {
             character_movement: Some(2),
             kid_collision_type: Some(0),
             game_paused: false,
+            pause_menu_option: 0,
             options_controls_scheme: 0,
             options_speed_button_fast: false,
             invulnerable_frames: Some(0),

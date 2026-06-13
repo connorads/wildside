@@ -2949,11 +2949,16 @@ fn push_pause_menu_text_loc_69d2(commands: &mut Vec<DrawCommand>, trace: &Native
     };
 
     // ASM loc_6A84 seeds Pause_Option=0 and writes the upper cursor command at
-    // Camera_X+$68, Camera_Y+$48. Native trace does not expose the live cursor
-    // value yet, so this render hook mirrors the entry/default selection.
+    // Camera_X+$68, Camera_Y+$48; Game_Paused_Loop loc_6B0E moves it to the
+    // lower row at Camera_Y+$58 for Restart Round / Give Up.
+    let cursor_y = if trace.pause_menu_option == 0 {
+        PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT
+    } else {
+        PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT
+    };
     commands.push(text(
         PAUSE_MENU_CURSOR_X_LOC_6A84,
-        PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT,
+        cursor_y,
         ">",
         [255, 224, 96],
         1,

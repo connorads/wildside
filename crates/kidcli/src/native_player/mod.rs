@@ -2628,6 +2628,7 @@ mod tests {
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
             paused: false,
+            pause_menu_option: 0,
             kid_x_pos: Some(0x0020_0000),
             kid_y_pos: Some(0x010F_0000),
             kid_x_velocity: Some(0),
@@ -9117,6 +9118,31 @@ mod tests {
                 "ASM DrawOptText1..4 loc_1CE3A/loc_1CEB2/loc_1CF78/loc_1CFFE option row `{text}` should fit inside the native fallback frame"
             );
         }
+    }
+
+    #[test]
+    fn pause_menu_cursor_uses_live_pause_option_loc_6b0e() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.paused = true;
+        trace.pause_menu_option = 1;
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let cursor_rows: Vec<i32> = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Text { x, y, text, .. } if *x == 0x68 && text == ">" => Some(*y),
+                _ => None,
+            })
+            .collect();
+
+        assert_eq!(
+            cursor_rows,
+            vec![0x58],
+            "ASM Game_Paused_Loop loc_6B0E stores Pause_Option=1 for Restart Round / Give Up, so the pause cursor should render on the lower row"
+        );
     }
 
     #[test]

@@ -31,6 +31,7 @@ const CAMERA_Y_POS_ADDR: u32 = 0x00FF_F820;
 const NUMBER_OBJECTS_ADDR: u32 = 0x00FF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: u32 = 0x00FF_F85C;
 const GAME_PAUSED_ADDR: u32 = 0x00FF_FAD0;
+const PAUSE_OPTION_ADDR: u32 = 0x00FF_FAD1;
 const DEMO_MODE_FLAG_ADDR: u32 = 0x00FF_FBC9;
 const GAME_MODE_ADDR: u32 = 0x00FF_FBCA;
 const CURRENT_PLAYER_ADDR: u32 = 0x00FF_FC39;
@@ -143,6 +144,7 @@ pub struct CpuProbe {
     pub character_movement: u16,
     pub kid_collision_type: u16,
     pub game_paused: bool,
+    pub pause_menu_option: u8,
     pub options_controls_scheme: u16,
     pub options_speed_button_fast: bool,
     pub invulnerable_frames: u8,
@@ -689,6 +691,7 @@ pub fn probe_rom_with_script(
         character_movement: runtime.core.mem.read_work_ram_word(CHARACTER_MOVEMENT_ADDR),
         kid_collision_type: runtime.core.mem.read_work_ram_word(KID_COLLISION_TYPE_ADDR),
         game_paused: runtime.core.mem.read_work_ram_byte(GAME_PAUSED_ADDR) != 0,
+        pause_menu_option: runtime.core.mem.read_work_ram_byte(PAUSE_OPTION_ADDR),
         // ASM variables.asm: Options_Suboption_Controls = $FFFFFDCA and
         // Options_Suboption_Speed = $FFFFFDC9.
         options_controls_scheme: runtime
@@ -905,6 +908,7 @@ impl MdRuntime {
             character_movement: self.core.mem.read_work_ram_word(CHARACTER_MOVEMENT_ADDR),
             kid_collision_type: self.core.mem.read_work_ram_word(KID_COLLISION_TYPE_ADDR),
             game_paused: self.core.mem.read_work_ram_byte(GAME_PAUSED_ADDR) != 0,
+            pause_menu_option: self.core.mem.read_work_ram_byte(PAUSE_OPTION_ADDR),
             // ASM variables.asm: Options_Suboption_Controls = $FFFFFDCA and
             // Options_Suboption_Speed = $FFFFFDC9.
             options_controls_scheme: self

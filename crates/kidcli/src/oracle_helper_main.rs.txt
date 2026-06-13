@@ -357,6 +357,8 @@ struct OracleState {
     number_objects: u16,
     number_gfx_objects: u16,
     game_paused: bool,
+    #[serde(default)]
+    pause_menu_option: u8,
     active_enemies: Vec<OracleEnemyState>,
     #[serde(default)]
     score: u32,
@@ -398,6 +400,7 @@ struct OracleState {
 
 const GAME_MODE_ADDR: usize = 0xFF_FBCA;
 const GAME_PAUSED_ADDR: usize = 0xFF_FAD0;
+const PAUSE_OPTION_ADDR: usize = 0xFF_FAD1;
 const OPTIONS_SUBOPTION_SPEED_ADDR: usize = 0xFF_FDC9;
 const OPTIONS_SUBOPTION_CONTROLS_ADDR: usize = 0xFF_FDCA;
 const CTRL_1_HELD_ADDR: usize = 0xFF_F80D;
@@ -1155,6 +1158,7 @@ fn capture_state(
     let game_mode = read_wram_u16(&work_ram, GAME_MODE_ADDR);
     let currently_transforming = read_wram_u8(&work_ram, CURRENTLY_TRANSFORMING_ADDR) != 0;
     let game_paused = read_wram_u8(&work_ram, GAME_PAUSED_ADDR) != 0;
+    let pause_menu_option = read_wram_u8(&work_ram, PAUSE_OPTION_ADDR);
     // ASM variables.asm: Options_Suboption_Speed = $FFFFFDC9 and
     // Options_Suboption_Controls = $FFFFFDCA. These are demo-skipped
     // gameplay inputs for #305 interactive-lane probes.
@@ -1167,6 +1171,7 @@ fn capture_state(
     }
     if game_paused {
         gameplay_debug_fields.insert("game_paused".into(), "true".into());
+        gameplay_debug_fields.insert("pause_menu_option".into(), pause_menu_option.to_string());
     }
     if options_controls_scheme != 0 {
         gameplay_debug_fields.insert(
@@ -1265,6 +1270,7 @@ fn capture_state(
         number_objects: read_wram_u16(&work_ram, NUMBER_OBJECTS_ADDR),
         number_gfx_objects: read_wram_u16(&work_ram, NUMBER_GFX_OBJECTS_ADDR),
         game_paused,
+        pause_menu_option,
         active_enemies: capture_enemy_states(&work_ram, rom.as_ref()),
         score: read_wram_u32(&work_ram, SCORE_ADDR),
         number_lives: read_wram_u16(&work_ram, NUMBER_LIVES_ADDR),

@@ -1175,6 +1175,10 @@ pub struct NativeTraceFrame {
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub red_stealth_airborne_slash_counter: u8,
     pub paused: bool,
+    /// ROM `Pause_Option` (`$FFFFFAD1`): 0 = Continue, 1 = Restart Round/Give Up.
+    /// Advisory/render-only; `paused` remains the gameplay gate.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub pause_menu_option: u8,
     pub kid_x_pos: Option<u32>,
     pub kid_y_pos: Option<u32>,
     pub kid_x_velocity: Option<i32>,
@@ -1446,6 +1450,7 @@ impl Default for NativeTraceFrame {
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
             paused: false,
+            pause_menu_option: 0,
             kid_x_pos: None,
             kid_y_pos: None,
             kid_x_velocity: None,
