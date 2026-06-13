@@ -120,6 +120,7 @@ pub struct NativeRuntime {
     drilled_blocks: Vec<DrilledBlockLoc3BE78>,
     active_platforms: Vec<ActivePlatform>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
+    active_platform_standing_on: Option<usize>,
     platform_script_table: Option<kid_data::PlatformScriptTable>,
     block_grid: Option<terrain::BlockGrid>,
     block_list: Option<terrain::BlockList>,
@@ -1356,6 +1357,7 @@ impl NativeRuntime {
             drilled_blocks: Vec::new(),
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),
+            active_platform_standing_on: None,
             platform_script_table: None,
             block_grid: None,
             block_list: None,
@@ -3841,8 +3843,9 @@ impl NativeRuntime {
                 platform.step_script(script_table);
             }
         }
-        let platform_standing_before = find_standing_platform_index_loc_8ED0(
+        let platform_standing_before = standing_platform_index_loc_8ED0(
             &self.active_platforms,
+            self.active_platform_standing_on,
             slice.player,
             self.progression.current_form,
             platform_support_crawling,
@@ -3865,17 +3868,32 @@ impl NativeRuntime {
         {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::PlatformCollision;
         }
-        if platform_collision_outcome == PlatformCollisionOutcome::CrushDeath {
-            self.opening_slice = Some(slice);
-            self.begin_death_windup();
-            return;
+        match platform_collision_outcome {
+            PlatformCollisionOutcome::CrushDeath => {
+                self.opening_slice = Some(slice);
+                self.begin_death_windup();
+                return;
+            }
+            PlatformCollisionOutcome::StandingOn(platform_index) => {
+                self.active_platform_standing_on = Some(platform_index);
+            }
+            PlatformCollisionOutcome::None => {
+                self.active_platform_standing_on = standing_platform_index_loc_8ED0(
+                    &self.active_platforms,
+                    self.active_platform_standing_on,
+                    slice.player,
+                    self.progression.current_form,
+                    platform_support_crawling,
+                );
+            }
         }
         self.exit_iron_knight_climb_on_platform_landing_loc_A9AA(
             player_before_platform_collision,
             &slice,
         );
-        if let Some(platform_index) = find_standing_platform_index_loc_8ED0(
+        if let Some(platform_index) = standing_platform_index_loc_8ED0(
             &self.active_platforms,
+            self.active_platform_standing_on,
             slice.player,
             self.progression.current_form,
             platform_support_crawling,
@@ -3907,10 +3925,13 @@ impl NativeRuntime {
         {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LiftPlatform;
         }
-        if lift_collision_outcome == PlatformCollisionOutcome::CrushDeath {
-            self.opening_slice = Some(slice);
-            self.begin_death_windup();
-            return;
+        match lift_collision_outcome {
+            PlatformCollisionOutcome::CrushDeath => {
+                self.opening_slice = Some(slice);
+                self.begin_death_windup();
+                return;
+            }
+            PlatformCollisionOutcome::StandingOn(_) | PlatformCollisionOutcome::None => {}
         }
 
         // ASM loc_787E (kid.asm:7924): when the standing-still platform block
@@ -4022,8 +4043,9 @@ impl NativeRuntime {
             || !self.helmet.iron_knight_climbing
             || player_before_platform_collision.on_ground
             || !slice.player.on_ground
-            || find_standing_platform_index_loc_8ED0(
+            || standing_platform_index_loc_8ED0(
                 &self.active_platforms,
+                self.active_platform_standing_on,
                 slice.player,
                 self.progression.current_form,
                 false,

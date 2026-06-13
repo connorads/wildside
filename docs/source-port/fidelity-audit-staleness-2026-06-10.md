@@ -238,7 +238,6 @@ Still-open gaps (remain authoritative in the original doc):
 - Platform loader — offset/list helpers modelled but never wired into live roster build
 - Layout indexing — platform index sign-extension (`ext.l`) not modelled; unsigned add only (no base-ROM effect)
 - Scripted movement — global freeze gate `$FFFFFA64` not modelled in live caller
-- `find_standing_platform_index_loc_8ED0` adds vertical-proximity logic not in `sub_8ED0` (re-derives standing platform each frame)
 - SoftPlatform — launch velocity sampled post-physics instead of frame-start (one-tick timing nuance)
 - SoftPlatform — `soft_platform_settled_step_loc_4160` is a dead/test-only helper (logic inlined elsewhere)
 - Lift platform — `sfx_Elevator_block` sound never played

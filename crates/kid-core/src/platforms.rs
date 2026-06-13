@@ -680,6 +680,7 @@ pub(crate) fn apply_platform_collision(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PlatformCollisionOutcome {
     None,
+    StandingOn(usize),
     CrushDeath,
 }
 
@@ -704,7 +705,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     // below: unsupported platforms are skipped (Kid gets no carry velocity,
     // eventually falls off via normal gravity/floor logic).
     if slice.player.on_ground {
-        for platform in platforms {
+        for (platform_index, platform) in platforms.iter().enumerate() {
             if platform.x_velocity == 0 && platform.y_velocity == 0 {
                 continue;
             }
@@ -795,7 +796,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
             {
                 return PlatformCollisionOutcome::CrushDeath;
             }
-            return PlatformCollisionOutcome::None;
+            return PlatformCollisionOutcome::StandingOn(platform_index);
         }
         return PlatformCollisionOutcome::None;
     }
@@ -805,7 +806,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
         return PlatformCollisionOutcome::None;
     }
 
-    for platform in platforms {
+    for (platform_index, platform) in platforms.iter().enumerate() {
         let plat_x_px = (platform.x_pos >> 16) as i32;
         let plat_y_px = (platform.y_pos >> 16) as i32;
         let plat_right = plat_x_px + i32::from(platform.width_px);
@@ -904,15 +905,16 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
             slice.player.on_ground = true;
             slice.player.y_velocity = 0;
             slice.terrain.floor_y_pos = floor_y_fp;
-            return PlatformCollisionOutcome::None;
+            return PlatformCollisionOutcome::StandingOn(platform_index);
         }
     }
     PlatformCollisionOutcome::None
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn find_standing_platform_index_loc_8ED0(
+pub(crate) fn standing_platform_index_loc_8ED0(
     platforms: &[ActivePlatform],
+    standing_platform_index: Option<usize>,
     player: PlayerState,
     current_form: PlayerForm,
     crawling: bool,
@@ -920,21 +922,16 @@ pub(crate) fn find_standing_platform_index_loc_8ED0(
     if !player.on_ground {
         return None;
     }
-    let player_foot_y_px = (player.y_pos >> 16) as i32;
-    platforms.iter().position(|platform| {
-        if platform_support_check_sub_8ED0(
-            Some(platform),
-            player.x_pos,
-            current_form.half_width(),
-            current_form,
-            crawling,
-        ) {
-            return false;
-        }
-        let platform_top_px = (platform.y_pos >> 16) as i32;
-        player.y_pos.abs_diff(platform.y_pos) <= GROUND_SNAP_TOLERANCE_FP
-            || player_foot_y_px.abs_diff(platform_top_px) <= 2
-    })
+    let platform_index = standing_platform_index?;
+    let platform = platforms.get(platform_index)?;
+    (!platform_support_check_sub_8ED0(
+        Some(platform),
+        player.x_pos,
+        current_form.half_width(),
+        current_form,
+        crawling,
+    ))
+    .then_some(platform_index)
 }
 
 #[allow(non_snake_case)]

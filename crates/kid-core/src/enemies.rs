@@ -41884,6 +41884,7 @@ impl NativeRuntime {
         self.active_enemy_roster.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.active_platform_standing_on = None;
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
             self.pending_dragon_death_children.clear();
@@ -42077,6 +42078,10 @@ impl NativeRuntime {
                 .active_platforms(platform_layout, platform_window);
             let script_table = self.platform_script_table.as_ref();
             let previous_platforms = self.active_platforms.clone();
+            let previous_standing_layout_index = self
+                .active_platform_standing_on
+                .and_then(|platform_index| previous_platforms.get(platform_index))
+                .and_then(|platform| platform.layout_index);
             self.active_platforms = platform_layout
                 .placements
                 .iter()
@@ -42097,6 +42102,12 @@ impl NativeRuntime {
                         })
                 })
                 .collect();
+            self.active_platform_standing_on =
+                previous_standing_layout_index.and_then(|standing_layout_index| {
+                    self.active_platforms
+                        .iter()
+                        .position(|platform| platform.layout_index == Some(standing_layout_index))
+                });
             self.opening_slice = Some(OpeningSliceState { objects, ..slice });
         }
 

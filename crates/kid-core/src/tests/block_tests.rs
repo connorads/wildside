@@ -13214,14 +13214,15 @@ mod chunk_04 {
     }
 
     #[test]
-    fn find_standing_platform_index_loc_8ed0_uses_crawling_width_override() {
+    fn standing_platform_index_loc_8ed0_uses_stored_platform_and_crawling_width_override() {
         let platform = make_test_platform(40, 100, 2, 0);
         let mut player = make_airborne_slice(32, 100).player;
         player.on_ground = true;
 
         assert_eq!(
-            find_standing_platform_index_loc_8ED0(
+            standing_platform_index_loc_8ED0(
                 &[platform],
+                Some(0),
                 player,
                 PlayerForm::Juggernaut,
                 false
@@ -13230,14 +13231,26 @@ mod chunk_04 {
             "ASM loc_8EFA: standing Juggernaut uses the supplied 23px half-width and still overlaps the platform edge",
         );
         assert_eq!(
-            find_standing_platform_index_loc_8ED0(
+            standing_platform_index_loc_8ED0(
                 &[platform],
+                Some(0),
                 player,
                 PlayerForm::Juggernaut,
                 true
             ),
             None,
             "ASM sub_8ED0 (kid.asm:10288-10294): MoveID_Crawling clamps non-Kid support to 7px, so x=32 drops support at the left edge",
+        );
+        assert_eq!(
+            standing_platform_index_loc_8ED0(
+                &[platform],
+                None,
+                player,
+                PlayerForm::Juggernaut,
+                false
+            ),
+            None,
+            "ASM sub_8ED0 reads Addr_PlatformStandingOn first and must not discover a nearby platform when that pointer is zero",
         );
     }
 
