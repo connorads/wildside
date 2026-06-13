@@ -25016,6 +25016,45 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_a28a_attach_hibernate_advances_camera_follow() {
+        let mut rt = iron_knight_runtime_with_wall();
+        rt.boot_state = BootState::InGame;
+        rt.physics_order = PhysicsOrder::AsmFaithful;
+        rt.block_grid = Some(grid_with_wall(3, 0, 30, 17));
+
+        let mut slice = airborne_slice();
+        // Keep Kid past the 160px camera follow offset while preserving the
+        // ASM `loc_7696`/`sub_922C` right-wall attach geometry.
+        slice.player.x_pos = 264 << 16;
+        slice.player.y_pos = 32 << 16;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+        slice.camera.x_pos = 0;
+        rt.opening_slice = Some(slice);
+
+        rt.refresh_opening_slice(
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+            false,
+        );
+
+        let slice = rt.opening_slice.expect("opening slice after attach frame");
+        assert!(rt.helmet.iron_knight_climbing);
+        assert_eq!(
+            rt.last_kid_frame_motion_branch,
+            KidFrameMotionBranch::IronKnightAttachHibernate,
+        );
+        assert_eq!(
+            slice.camera.x_pos,
+            8 << 16,
+            "ASM loc_A28A (kid.asm:12580-12583) runs sub_71E4 before the attach hibernate, so camera follow should advance one 8px smooth-step on the attach frame",
+        );
+    }
+
+    #[test]
     fn iron_knight_loc_7696_attach_uses_integer_foot_y_for_wall_scan() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::IronKnight;

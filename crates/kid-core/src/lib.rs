@@ -3368,7 +3368,8 @@ impl NativeRuntime {
                 // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
                 // `Hibernate_Object_1Frame` stops Kid immediately. The attach
                 // frame preserves position while the new upward velocity becomes
-                // visible in object state.
+                // visible in object state. `loc_A28A` still runs `sub_71E4`, so
+                // camera follow advances once on the hibernated attach frame.
                 self.last_kid_frame_motion_branch = KidFrameMotionBranch::IronKnightAttachHibernate;
                 if self.trace_physics {
                     slice.physics_trace = Some(PhysicsTrace {
@@ -3387,6 +3388,7 @@ impl NativeRuntime {
                         ..PhysicsTrace::default()
                     });
                 }
+                slice.update_camera_follow(self.y_look_offset);
             } else if iron_knight_climb_step == IronKnightClimbStep::ExitHibernate {
                 // ORIGINAL_QUIRK: `loc_A2E2`/`loc_A2F6` flip facing and jump
                 // into `loc_A6F8`, which hibernates the release frame before
