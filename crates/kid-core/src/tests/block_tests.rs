@@ -14026,6 +14026,46 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_active_roster_loc_23ae_caps_at_17_slots() {
+        let window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement; 18],
+        };
+        let state = PlatformLoaderState {
+            next_index: layout.placements.len(),
+        };
+
+        let active = state.active_platforms(&layout, window);
+
+        assert_eq!(
+            active.len(),
+            17,
+            "ASM Allocate_PlatformSlot loc_23AE returns when the 17-slot free list is empty, so the 18th in-range platform must not materialise",
+        );
+    }
+
+    #[test]
     fn find_active_platform_by_layout_offset_sub_2728_returns_the_first_matching_slot() {
         assert_eq!(
             find_active_platform_by_layout_offset_sub_2728(

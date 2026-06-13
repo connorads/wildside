@@ -1,5 +1,7 @@
 use super::*;
 
+pub(crate) const PLATFORM_SLOT_CAPACITY_LOC_231C: usize = 17;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ActivePlatformHandleSub2728 {
@@ -603,6 +605,7 @@ impl PlatformLoaderState {
             .iter()
             .take(self.next_index)
             .filter(|placement| platform_is_active(placement, window))
+            .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
             .map(|placement| NativeObjectSnapshot {
                 kind: NativeObjectKind::Platform {
                     kind: placement.kind,

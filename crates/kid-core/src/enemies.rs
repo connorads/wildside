@@ -42088,6 +42088,7 @@ impl NativeRuntime {
                 .enumerate()
                 .take(objects.platform_loader.next_index)
                 .filter(|(_, p)| platform_is_active(p, platform_window))
+                .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
                 .map(|(layout_index, placement)| {
                     previous_platforms
                         .iter()
