@@ -830,6 +830,36 @@ fn enemy_palette_for_damage_flash(palette: &Palette, damage_flash: bool) -> Pale
     flash_palette
 }
 
+fn enemy_palette_for_heady_metal_sub_379e8(
+    palette: &Palette,
+    object: &NativeObjectSnapshot,
+    object_type: u8,
+) -> Palette {
+    let mut palette = palette.clone();
+    if object_type != 0x20 {
+        return palette;
+    }
+
+    let Some(raw_word) = object
+        .debug_fields
+        .get("heady_metal_palette_word_5e_sub_379e8")
+        .and_then(|word| {
+            word.strip_prefix("0x")
+                .and_then(|hex| u16::from_str_radix(hex, 16).ok())
+                .or_else(|| word.parse::<u16>().ok())
+        })
+    else {
+        return palette;
+    };
+
+    if let Some(slot) = palette.colours.get_mut(15) {
+        // ASM sub_379E8 (kid.asm:39865): write `unk_379A8[d2]` to
+        // Palette_Buffer+$5E, i.e. palette line 2 colour slot 15.
+        *slot = MdColour::from_word(raw_word);
+    }
+    palette
+}
+
 fn select_waited_sequence_frame(remaining: u16, sequence: &[(u16, usize)]) -> Option<usize> {
     let mut rest = sequence.iter().map(|(duration, _)| *duration).sum::<u16>();
     for &(duration, frame_index) in sequence {
@@ -1374,10 +1404,12 @@ pub(super) fn push_enemy_sprite(
 
     let frame = select_enemy_frame(trace, enemy_visuals, object);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
-    let palette = enemy_palette_for_damage_flash(
+    let palette = enemy_palette_for_heady_metal_sub_379e8(
         select_enemy_palette(enemy_visuals, object.palette_variant),
-        object.damage_flash,
+        object,
+        object_type,
     );
+    let palette = enemy_palette_for_damage_flash(&palette, object.damage_flash);
     commands.push(DrawCommand::Sprite {
         x: draw_x,
         y: draw_y,

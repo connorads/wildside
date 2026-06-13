@@ -10733,6 +10733,56 @@ mod tests {
     }
 
     #[test]
+    fn heady_metal_sprite_consumes_palette_buffer_slot_5e_sub_379e8() {
+        let trace = sample_trace(GameMode::InGame);
+        let mut visuals = sample_level_visuals();
+        visuals.enemies.families.insert(
+            0x20,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: (0..16).map(MdColour::from_word).collect(),
+                },
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(201, 32, 32)],
+                frame_duration: 6,
+            },
+        );
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x20 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0030_0000,
+            layout_index: Some(0),
+            x_velocity: None,
+            y_velocity: None,
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(30),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: [(
+                "heady_metal_palette_word_5e_sub_379e8".to_string(),
+                "0x020a".to_string(),
+            )]
+            .into(),
+        };
+        let mut commands = Vec::new();
+
+        sprites::push_enemy_sprite(&mut commands, &object, &trace, &visuals, 0x20);
+
+        assert_eq!(
+            sprite_palette(&commands[0]).colours[15],
+            MdColour::from_word(0x020A),
+            "ASM sub_379E8 writes `unk_379A8[d2]` to Palette_Buffer+$5E, so live HeadyMetal sprites must render with that slot-15 colour"
+        );
+    }
+
+    #[test]
     fn rock_tank_child_turret_inherits_parent_damage_flash_palette() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = 30;
