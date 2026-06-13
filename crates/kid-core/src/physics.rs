@@ -570,12 +570,10 @@ pub fn update_skycutter_horizontal_velocity_sub_9A20(
         Direction::Right => !input.left,
         Direction::Left => input.right,
     };
-    let next_facing = if input.right {
+    let next_facing = if facing_right {
         Direction::Right
-    } else if input.left {
-        Direction::Left
     } else {
-        facing
+        Direction::Left
     };
 
     let next_vel = if facing_right {
@@ -1305,6 +1303,25 @@ mod tests {
     fn skycutter_sub_9a20_pressing_away_flips_facing_and_uses_left_branch() {
         let (vel, dir) =
             update_skycutter_horizontal_velocity_sub_9A20(0, Direction::Right, left_walk());
+
+        assert_eq!(vel, -0x2000);
+        assert_eq!(dir, Direction::Left);
+    }
+
+    #[test]
+    fn skycutter_sub_9a20_raw_both_held_uses_current_direction_branch_order() {
+        // ASM sub_9A20 (kid.asm:11589-11594): when x_direction is clear
+        // (facing Right), Ctrl_Left_Held is tested before the forward loc_9A32
+        // path. Raw simultaneous input therefore flips left and uses loc_9A90.
+        let (vel, dir) = update_skycutter_horizontal_velocity_sub_9A20(
+            0,
+            Direction::Right,
+            HorizontalInput {
+                left: true,
+                right: true,
+                run: false,
+            },
+        );
 
         assert_eq!(vel, -0x2000);
         assert_eq!(dir, Direction::Left);

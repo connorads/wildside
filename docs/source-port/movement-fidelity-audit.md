@@ -30,7 +30,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Landing / floor-support & platform riding | partial | 2 |
 | Wall-hit + ceiling-hit collision response | partial | 1 |
 | Damage recoil / knockback & Berzerker charge | partial | 3 |
-| Skycutter form-specific horizontal movement | partial | 1 |
+| Skycutter form-specific horizontal movement | full | 0 |
 
 Original totals: 15 move-states audited, 3 full (no gaps), 12 partial. **26 confirmed gaps** (5 high, 9 medium, 12 low; 23 wiring, 3 hygiene). The `$14/$18` compound corner is the remaining duplicated defect surfaced by different auditors (main-object-update + wall/ceiling); the former airborne Skycutter `sub_9A20` duplicate is fixed below.
 
@@ -114,8 +114,8 @@ ROM hard-reseats `y_pos` to `platform_y − 1` each frame; native only does addi
 **Damage — `clear_special_movement_state_sub_DB22` is test-only** *(hygiene → #209)* (`sub_DB22` @kid.asm:17170)
 `#[cfg(test)]` helper (`helmets.rs:4180-4207`); not a behavioural gap (production clears flags via `refresh_grounded_helmet_state_sub_78E8`) but the ASM symbol resolves only to a test fixture, so an auditor searching this symbol finds no live wiring.
 
-**Skycutter — both-direction-held facing flip diverges from `sub_9A20`'s sequential branch** (`sub_9A20` `loc_9A84`/`loc_9A32` @kid.asm:11589-11594,11631-11635)
-ROM tests left-first when facing right, so both-held → LEFT; native `next_facing` tests right-first → RIGHT (`physics.rs:573-579`). Velocity branch agrees; only reported facing differs, and only under simultaneous L+R. Edge-only.
+**FIXED 2026-06-13 — Skycutter raw both-direction-held facing follows `sub_9A20` branch order** (`sub_9A20` `loc_9A84`/`loc_9A32` @kid.asm:11589-11594,11631-11635)
+`update_skycutter_horizontal_velocity_sub_9A20` now derives `next_facing` from the same branch selector used for velocity (`physics.rs:569-579`): facing Right with raw Left+Right held flips left and takes `loc_9A90`, matching the ROM's left-first test. Regression `skycutter_sub_9a20_raw_both_held_uses_current_direction_branch_order` locks the edge case; live movement paths still resolve Left+Right earlier via `loc_7464`.
 
 ## Relationship to existing backlog
 
