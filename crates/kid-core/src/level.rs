@@ -17999,6 +17999,10 @@ impl NativeRuntime {
         self.death_shell_snapshot = None;
         self.death_respawn_trace_profile = None;
         self.level_complete_gfx_snapshot = None;
+        // ASM Load_InGame -> Manage_EnemyLoading loc_368A8: respawn reloads the
+        // current level and runs enemy loading during the hidden settle window.
+        // Native floor-snap collapses that window, so replay it after reset clears.
+        self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
     }
 
     pub(crate) fn death_respawn_trace_profile_for_route(&self) -> Option<DeathRespawnTraceProfile> {

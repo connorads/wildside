@@ -10647,6 +10647,36 @@ mod chunk_02 {
         );
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_368A8_respawn_reset_primes_enemy_loading_window() {
+        let mut manifest = manifest_with_levels(3);
+        let enemy_layout = manifest.levels[0]
+            .enemy_layout_metadata
+            .as_mut()
+            .expect("test manifest should include an enemy layout");
+        enemy_layout.objects[0].x = 0x0750;
+        enemy_layout.objects[0].y = 0x00E0;
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        start_level(&mut runtime);
+        runtime.active_enemies.clear();
+        runtime.active_enemy_roster.clear();
+        runtime.enemy_status_words.fill(0);
+
+        runtime.reset_current_level_runtime_state_for_respawn();
+
+        assert!(
+            !runtime.active_enemies.is_empty(),
+            "ASM Load_InGame re-enters Manage_EnemyLoading loc_368A8 during the hidden respawn settle, so the live reset should not leave the spawn window empty"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            runtime.active_enemies.len(),
+            "respawn loc_368A8 priming should rebuild the active roster with the spawned enemies"
+        );
+    }
+
     /// ASM Teleport sets FC36 before the cross-level resume shell, so the
     /// `maybe_begin_pending_level_skip_resume` path must clear the same bonus
     /// flags as death/continue respawn.
