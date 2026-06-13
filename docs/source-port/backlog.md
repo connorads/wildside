@@ -248,7 +248,21 @@ and stop — never commit churn.
   left the best live/nonzero-HP candidate at `(456,543) dx=+6 dy=-19 @488`,
   worse than the baseline, while closer right-side passes were HP-zero or
   `LevelTransition`. Do not repeat these first-jump/early-sling/pre-360
-  vertical setup probes unless the base route changes.
+  vertical setup probes unless the base route changes. 2026-06-13 follow-up on
+  the same current b-jump climb seed: `probe-record-scenario-file-batch` found
+  a small improvement by holding `170..260 B+Left`, reaching `(584,543)`
+  healthy `dx=-4 dy=-17 @513` (manhattan 21, better than the old 23px miss).
+  Focused `probe-record-scenario-file --input 170-260:b+left --target-projectile
+  drips-surface-crawler` shows the crawler window is still at y `$0250` and the
+  closest Kid/crawler separation is `dx=+13 dy=+21 @509`; Kid reaches HP 0 by
+  the tail. A follow-up continuation sweep from that brake shape found
+  `500..620 Left`/`B+Left` improves the healthy target score to `(584,543)`
+  `dx=+1 dy=-18 @515` with HP 2, but focused probing still leaves crawler
+  separation at `dx=-5 dy=+21 @521`; tighter `480..620`/`490..590`/`510..610`
+  left/B+Left windows either keep the same manhattan-19 miss or collapse back
+  to the old floor pass. Treat this as another route-shape near-miss, not
+  metal-block proof, and do not repeat the `170..260 B+Left` plus `500..620
+  Left/B+Left` brake axis unchanged.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
