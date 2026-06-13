@@ -1349,9 +1349,9 @@ impl NativeRuntime {
         &self,
         slice: &mut OpeningSliceState,
         form: PlayerForm,
-    ) {
+    ) -> Option<u32> {
         if self.block_state.shooter_blocks.is_empty() {
-            return;
+            return None;
         }
 
         let x_px = (slice.player.x_pos >> 16) as i32;
@@ -1371,7 +1371,17 @@ impl NativeRuntime {
             .map(|entry| (entry.col, entry.row, entry.directions))
             .collect::<Vec<_>>();
         let support_rects = Self::shooter_collision_rects_sub_F568(kid_hitbox, &shooter_blocks);
-        if support_overlap_detected_sub_1F52(kid_hitbox, &support_rects) {
+        let support_floor_y_fp = support_rects
+            .iter()
+            .find(|candidate| {
+                candidate.left_px != 0
+                    && candidate.left_px <= kid_hitbox.right_px
+                    && candidate.right_px >= kid_hitbox.left_px
+                    && candidate.top_px <= kid_hitbox.bottom_px
+                    && candidate.bottom_px >= kid_hitbox.top_px
+            })
+            .map(|candidate| (candidate.bottom_px.max(0) as u32) << 16);
+        if support_floor_y_fp.is_some() {
             // ASM sub_F568 + sub_1F52: live shooter-barrel rectangles write
             // `colid_kidbelow` ($28). Native turns that collision latch into
             // the same grounded support state used by terrain/platform floors.
@@ -1383,6 +1393,11 @@ impl NativeRuntime {
             slice.terrain.slope_walk_kind = None;
             slice.terrain.slope_sliding = false;
         }
+        debug_assert_eq!(
+            support_floor_y_fp.is_some(),
+            support_overlap_detected_sub_1F52(kid_hitbox, &support_rects)
+        );
+        support_floor_y_fp
     }
 
     // Oracle-backed sub_1007A timing for demo 0x1B:

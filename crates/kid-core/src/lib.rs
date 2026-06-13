@@ -3359,7 +3359,29 @@ impl NativeRuntime {
             slice.wall_cling_release_probe = None;
             slice.kid_flip_follow_on_stages = None;
             slice.kid_jump_gravity_probe = None;
-            self.apply_shooter_barrel_support_sub_1f52(&mut slice, self.progression.current_form);
+            let shooter_barrel_support_floor_y = self
+                .apply_shooter_barrel_support_sub_1f52(&mut slice, self.progression.current_form);
+            let shooter_damage_landing_handoff = shooter_barrel_support_floor_y.filter(|_| {
+                self.previous_kid_frame_post_motion_mutator
+                    == KidFramePostMotionMutator::ProjectileDamage
+                    && self.block_grid.as_ref().is_none_or(|grid| {
+                        let x_px = (slice.player.x_pos >> 16) as i32;
+                        let y_px = (pre_physics_y_pos >> 16) as i32;
+                        let half_width = self.progression.current_form.half_width();
+                        let row = ((y_px + 1) >> 4).max(0) as u16;
+                        let left_col = ((x_px - half_width) >> 4).max(0) as u16;
+                        let right_col = ((x_px + half_width) >> 4)
+                            .max(0)
+                            .min(grid.width_cells as i32 - 1)
+                            as u16;
+                        !(left_col..=right_col).any(|col| {
+                            matches!(
+                                grid.cell_at(col, row).collision,
+                                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                            )
+                        })
+                    })
+            });
 
             if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
                 // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
@@ -3410,6 +3432,59 @@ impl NativeRuntime {
                         final_vel: (slice.player.x_velocity, slice.player.y_velocity),
                         ..PhysicsTrace::default()
                     });
+                }
+                slice.update_camera_follow(self.y_look_offset);
+            } else if let Some(support_floor_y) = shooter_damage_landing_handoff {
+                self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
+                self.begin_kid_grounded_release_probe(
+                    slice.player,
+                    movement_input,
+                    jump_pressed,
+                    custom_gravity,
+                );
+                let jump_profile = physics::JUMP_AIR_PROFILES
+                    [usize::from(self.progression.current_form.helmet_id())];
+                let pre_handoff_x_velocity = slice.player.x_velocity;
+                let (x_velocity, facing) = physics::update_jump_horizontal_velocity(
+                    slice.player.x_velocity,
+                    slice.player.facing,
+                    physics::HorizontalInput {
+                        left: movement_input.left,
+                        right: movement_input.right,
+                        run: movement_input.a,
+                    },
+                    jump_profile,
+                );
+                // ASM Mode_Level calls sub_1F52 after the Kid/projectile
+                // collision passes. If ShooterBlock damage consumed the prior
+                // frame, the late `colid_kidbelow` latch is visible as the
+                // next frame's landing handoff, not as loc_B5F6's one-pixel
+                // walking release from the old airborne Y.
+                slice.player.x_velocity = x_velocity;
+                slice.player.facing = facing;
+                slice.player.y_pos = support_floor_y;
+                slice.player.y_velocity = 0;
+                slice.player.on_ground = true;
+                slice.player.on_spikes = false;
+                slice.player.wall_cling_direction = None;
+                slice.terrain.floor_y_pos = support_floor_y;
+                slice.terrain.floor_terrain_type = TerrainType::Normal;
+                slice.terrain.slope_walk_kind = None;
+                slice.terrain.slope_sliding = false;
+                slice.player.jump_buffer_frames = 0;
+                if let Some(ref mut t) = slice.physics_trace {
+                    t.pre_horizontal = (frame_start_x_pos, pre_handoff_x_velocity);
+                    t.post_horizontal = (frame_start_x_pos, x_velocity);
+                    t.horizontal_step_applied = false;
+                    t.pre_vertical = (pre_physics_y_pos, pre_physics_y_velocity);
+                    t.post_vertical = (support_floor_y, 0);
+                    t.pre_gravity_y_vel = pre_physics_y_velocity;
+                    t.post_gravity_y_vel = 0;
+                    t.gravity_applied = false;
+                    t.on_ground_before = false;
+                    t.on_ground_after = true;
+                    t.final_pos = (slice.player.x_pos, slice.player.y_pos);
+                    t.final_vel = (slice.player.x_velocity, slice.player.y_velocity);
                 }
                 slice.update_camera_follow(self.y_look_offset);
             } else if iron_knight_climb_step == IronKnightClimbStep::ResumeClimb {

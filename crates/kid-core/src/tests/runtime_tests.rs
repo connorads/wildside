@@ -12113,7 +12113,8 @@ mod chunk_09 {
         );
         let slice_after = rt.opening_slice.expect("damage should store slice");
         assert_eq!(
-            slice_after.player.y_pos, 0x0007_4000 + (100 << 16),
+            slice_after.player.y_pos,
+            0x0007_4000 + (100 << 16),
             "issue-277 ShooterBlock damage should preserve the airborne post-gravity Y instead of the native same-frame floor snap"
         );
         assert_eq!(slice_after.player.y_velocity, 0x0007_4000);
@@ -12126,6 +12127,68 @@ mod chunk_09 {
         assert!(
             !slice_after.player.on_ground,
             "ShooterBlock damage before terrain snap should leave Kid airborne for this frame"
+        );
+    }
+
+    #[test]
+    fn shooter_damage_late_sub_1f52_lands_next_frame_issue_277() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(grid_with_cells(120, 24, &[(97, 19, 0xE8, 0x01)]));
+        rt.block_state.shooter_blocks = vec![ShooterBlockEntry {
+            col: 97,
+            row: 19,
+            directions: 0x01,
+            supported_by_neighbour: false,
+            restored_touch_shooter: false,
+            age: 1,
+        }];
+        start_level(&mut rt);
+        rt.progression.invulnerable_frames = 8;
+        rt.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ProjectileDamage;
+        rt.previous_input = FrameInput {
+            left: true,
+            ..FrameInput::default()
+        };
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 2048,
+            height_pixels: 384,
+        });
+        slice.player.x_pos = 0x0614_b800;
+        slice.player.y_pos = 0x012c_bd00;
+        slice.player.x_velocity = -0x0002_9800;
+        slice.player.y_velocity = 0x0007_7d00;
+        slice.player.facing = Direction::Left;
+        slice.player.on_ground = false;
+        rt.opening_slice = Some(slice);
+
+        let trace = rt.step_frame(FrameInput {
+            left: true,
+            ..FrameInput::default()
+        });
+        let landed = rt
+            .opening_slice
+            .expect("frame should keep live gameplay slice")
+            .player;
+
+        assert_eq!(
+            landed.y_pos, 0x012f_0000,
+            "ASM Mode_Level calls sub_1F52 after projectile collision; issue-277 oracle frame 91 consumes the late shooter support as a landing handoff at the shooter rectangle bottom"
+        );
+        assert_eq!(
+            landed.x_pos, 0x0614_b800,
+            "loc_A94E -> loc_A99E updates the walking handoff without spending an extra horizontal position step on this frame"
+        );
+        assert_eq!(
+            landed.x_velocity, -0x0002_9700,
+            "the handoff should still apply the next jump-air leftward velocity sample before entering walking"
+        );
+        assert_eq!(landed.y_velocity, 0);
+        assert!(landed.on_ground);
+        assert_eq!(
+            trace.character_movement,
+            Some(2),
+            "the frame should export MoveID_Walking rather than the dropped MoveID_Jump state"
         );
     }
 
