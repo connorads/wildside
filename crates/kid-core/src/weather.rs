@@ -2284,6 +2284,11 @@ impl NativeRuntime {
     /// camera window: snap Camera_X_pos.w to the wall when overtaken, or clamp
     /// MurderWall_X_pos.w to Camera_X_pos.w - d1 when the camera leads too far.
     pub(crate) fn step_murder_wall(&mut self, camera_x: &mut u32) {
+        let camera_max_x = i64::from(
+            self.level_bounds(self.current_level)
+                .width_pixels
+                .saturating_sub(physics::VIEWPORT_WIDTH as u16),
+        );
         let Some(wall) = self.murder_wall.as_mut() else {
             return;
         };
@@ -2306,6 +2311,12 @@ impl NativeRuntime {
         } else {
             // ASM loc_7334 (kid.asm:7464): `add.l d7,(MurderWall_X_pos).w`
             wall.x_pos += i64::from(wall.speed);
+            // ASM loc_7334 (kid.asm:7465-7468): clamp only the integer word
+            // to Camera_max_X_pos, preserving MurderWall_X_pos's fractional
+            // low word before loc_7346 evaluates the camera gap.
+            if wall.x_pos >> 16 >= camera_max_x {
+                wall.x_pos = (camera_max_x << 16) | (wall.x_pos & 0xFFFF);
+            }
             // ASM loc_7316/loc_7346: d1 is `$80` for normal forward walls and
             // `$100` for Hills of the Warrior 1 (`L_Hills_of_the_Warrior_1`).
             let gap_threshold_px = if self.current_level == LevelId(0x08) {

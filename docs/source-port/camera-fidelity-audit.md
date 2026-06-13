@@ -2,7 +2,7 @@
 
 # Camera & Scroll Fidelity Audit
 
-Adversarially-verified per-unit audit of the Kid Chameleon source-port camera and scroll subsystem. The core X/Y follow mathematics (`sub_71E4` target clamp, ±1 edge nudges, `(target-camera+4)>>3` smooth step clamped to ±8, the post-velocity defensive re-clamp, and the page-snap level seed) are faithful and reachable on the live path. The dominant failure pattern is instead a cluster of unmodelled *accumulator and clamp interactions at the edges of the camera routine*: the `$FFFFFB58` look-down accumulator still has a one-frame reference-Y timing skew, the forward MurderWall path drops its `loc_7334` `Camera_max_X_pos` right-bound clamp so the camera scrolls past the level's rightmost column, and the respawn path has an invented +2px carry. The old `.min(30)` cap that made the down-look pan inert has been removed, so remaining look-offset mismatches are small but no longer hidden by that cap.
+Adversarially-verified per-unit audit of the Kid Chameleon source-port camera and scroll subsystem. The core X/Y follow mathematics (`sub_71E4` target clamp, ±1 edge nudges, `(target-camera+4)>>3` smooth step clamped to ±8, the post-velocity defensive re-clamp, and the page-snap level seed) are faithful and reachable on the live path. The remaining failure pattern is a small set of edge-case camera interactions: the `$FFFFFB58` look-down accumulator still has a one-frame reference-Y timing skew, and the respawn path has an invented +2px carry. The old `.min(30)` cap that made the down-look pan inert has been removed, so remaining look-offset mismatches are small but no longer hidden by that cap.
 
 ## Coverage summary
 
@@ -13,13 +13,13 @@ Adversarially-verified per-unit audit of the Kid Chameleon source-port camera an
 | look-down-accumulator | full | 0 |
 | look-offset-ceiling-pullbacks | full | 1 |
 | follow-call-site-coverage | full | 0 |
-| murder-wall-left-bound-advance | partial | 1 |
-| level-bound-camera-clamping | full | 1 |
+| murder-wall-left-bound-advance | full | 0 |
+| level-bound-camera-clamping | full | 0 |
 | warp-teleport-camera-entry | partial | 0 |
 | death-respawn-camera-convergence | full | 1 |
 | bg-parallax-and-demo-camera | full | 0 |
 
-Totals: 10 units audited, 7 full, 3 partial, 0 stub. 4 confirmed gaps (0 high, 1 medium, 3 low). 2 high/medium claims were refuted and dropped (the high `.min(30)` look-down cap, refuted as a duplicate of an already-tracked, already-medium `terrain-fidelity-audit.md` gap with over-stated severity; the cross-level teleporter dest-discard, refuted as an already-tracked recombination with no reachability evidence).
+Totals: 10 units audited, 8 full, 2 partial, 0 stub. 2 confirmed gaps (0 high, 0 medium, 2 low). 2 high/medium claims were refuted and dropped (the high `.min(30)` look-down cap, refuted as a duplicate of an already-tracked, already-medium `terrain-fidelity-audit.md` gap with over-stated severity; the cross-level teleporter dest-discard, refuted as an already-tracked recombination with no reachability evidence).
 
 ## Confirmed gaps
 
@@ -29,13 +29,15 @@ None.
 
 ### Medium severity
 
-**`loc_7334` `Camera_max_X_pos` right-bound wall clamp is absent from the live `step_murder_wall`** (`loc_7334` / `loc_7316` / `loc_7346`)
-In the ROM, after the forward MurderWall advances (`add.l d7,(MurderWall_X_pos).w`), `loc_7334` clamps the wall's pixel X to `Camera_max_X_pos` (= level width in pixels − `$140`, the rightmost camera column): `move.w (Camera_max_X_pos).w,d0; cmp.w (MurderWall_X_pos).w,d0; bgt.s loc_7346; move.w d0,(MurderWall_X_pos).w` (kid.asm:7464-7468). The native forward branch does `wall.x_pos += speed`, computes the `$80`/`$100` gap threshold, then calls `forward_murder_wall_camera_push_loc_7346` without ever applying the `Camera_max_X_pos` clamp — `MurderWallState` carries no level-width/`Camera_max_X` field and `step_murder_wall` is never passed one, so the clamp exists only as a doc-comment quote (weather.rs:2275-2278) and is never executed. Near a forward MurderWall level's right edge (e.g. Hills of the Warrior 1, level `0x08`, also the `$100`-gap special case), native `wall.x_pos` accelerates unbounded past `Camera_max_X_pos`; the `loc_7364` snap in the forward push helper then writes `Camera_X_pos = MurderWall_X_pos`. Camera follow runs at lib.rs:3240/3588 (clamping the camera to `[0, width−$140]`) *before* `resolve_frame_hazards` calls `step_murder_wall` at combat.rs:10970, and the frame ends with no camera re-clamp, so the wall step's out-of-bounds write persists — a player/TAS-observable positional scroll-past the level's rightmost column at level end. The reverse path's own floor-clamp-to-0 is correctly ported. Severity is medium rather than high because the consequence is a bounded camera/positional scroll-past at level end (Kid is already at the kill line by then), not a wrong death or lifecycle outcome. No `// DEVIATION`/`// ORIGINAL_QUIRK` marker; the regression test `loc_7334_forward_wall_position_advances_by_speed` (combat_tests.rs:15749) quotes the clamp in its doc-comment but pins only the un-clamped `wall.x_pos == initial_x + speed`. Kind: missing. `crates/kid-core/src/weather.rs:2306-2323`, `crates/kid-core/src/weather.rs:2275-2278`, `crates/kid-core/src/types.rs:2645-2654`, `crates/kid-core/src/combat.rs:10970`.
+None.
 
 ### Low severity
 
 **Look-down increment not gated on `KidGrabbedByHand` (native increments the accumulator while a Hand grabs Kid)** (`loc_7772` / `loc_8C12` / `loc_8CB6`)
 Fixed 2026-06-13: the merged native look-offset branch now keeps Down-held as a no-decay case, but only applies the `addq.w #1` equivalent while `kid_grabbed_by_hand` is false. Regression: `loc_8c70_grabbed_kid_down_held_freezes_look_offset`.
+
+**`loc_7334` `Camera_max_X_pos` right-bound wall clamp fixed** (`loc_7334` / `loc_7316` / `loc_7346`)
+Fixed 2026-06-13: the forward MurderWall path now clamps `MurderWall_X_pos.w` to `Camera_max_X_pos` (`level width - $140`) immediately after the accelerated `add.l d7,(MurderWall_X_pos).w` and before the `loc_7346` camera-gap push. The clamp preserves the fixed-point fractional low word, matching the ROM's word write. Regression: `loc_7334_forward_wall_clamps_to_camera_max_x_before_push`.
 
 **`loc_726C` reference (`$FFFFFA2E`) stored from pre-physics Y, but the ROM stores post-collision Y** (`loc_726C` / `loc_75D4` / `loc_8218` / `loc_8BF0` / `sub_71E4`)
 The `loc_726C` ceiling pull-back compares Kid's current Y against `$FFFFFA2E` (last_kid_y). In the ROM, `$FFFFFA2E` is written at `loc_75D4`/crawl `loc_8218`/walk `loc_8BF0` from `y_pos(a3)` *after* `Character_CheckCollision` — the post-collision Y at the end of the movement step (walk `loc_8BF0` kid.asm:10046-10048; crawl `loc_8218` kid.asm:9002-9004; standing `loc_75D4` kid.asm:7712-7714). The native stores `camera_last_kid_y` (lib.rs:3160) from the pre-physics `kid_y` captured at the start of the look-offset block (lib.rs:3141), and reads it again next frame. Because position carries over between frames, the ROM effectively compares this-frame pre-physics Y against last-frame post-collision Y, whereas native compares it against last-frame pre-physics Y; the two references differ by one frame's physics+collision delta, so the `-2` pull-back's trigger condition (`kid_y < last_kid_y`) fires under different conditions than the ROM. Consequence is limited to how fast `y_look_offset` settles toward 0 around upward ceiling/top-viewport motion, but after the removed `.min(30)` cap it can affect visible down-look camera recovery. Kind: deviating. `crates/kid-core/src/lib.rs:3140-3161`, `crates/kid-core/src/physics.rs:974-980`.
@@ -62,7 +64,7 @@ Fixed 2026-06-13: the `AttachHibernate` branch now runs the native `sub_71E4` ca
 
 | # | Status | Pri | System | Summary | Verify |
 |---|---|---|---|---|---|
-| NEW | [ ] | P2 | camera | Forward MurderWall drops the `loc_7334` `Camera_max_X_pos` right-bound clamp; thread level width into `MurderWallState`/`step_murder_wall` and clamp `wall.x_pos` to `width−$140` before the `loc_7346` push (`weather.rs:2306`) | On Hills of the Warrior 1 (level `0x08`) drive the forward wall to the level's right edge; assert `Camera_X_pos` never exceeds `width−$140` (oracle/position probe) |
+| NEW | [x] | P2 | camera | Fixed 2026-06-13: forward MurderWall clamps `MurderWall_X_pos.w` to `Camera_max_X_pos` before the `loc_7346` camera push | `loc_7334_forward_wall_clamps_to_camera_max_x_before_push` |
 | NEW | [x] | P3 | camera | Fixed 2026-06-13: Iron Knight wall-climb attach now runs the `loc_A28A` / `sub_71E4` camera-follow equivalent before hibernating | `loc_a28a_attach_hibernate_advances_camera_follow` |
 | NEW | [x] | P3 | camera | Fixed before this audit refresh: `loc_728C` floor-clamp accumulator decrement is modelled by `camera_y_bottom_look_adjust_loc_728c` | `loc_728c_bottom_bound_decrements_look_offset_before_down_increment` |
 | NEW | [x] | P3 | camera | Fixed 2026-06-13: look-down increment now honours the `KidGrabbedByHand` gate from `loc_7772`/`loc_8C70` while preserving Down-held no-decay | `loc_8c70_grabbed_kid_down_held_freezes_look_offset` |

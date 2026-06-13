@@ -17928,6 +17928,54 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn loc_7334_forward_wall_clamps_to_camera_max_x_before_push() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_level = LevelId(0);
+        let camera_max_x = i64::from(
+            runtime
+                .level_bounds(runtime.current_level)
+                .width_pixels
+                .saturating_sub(physics::VIEWPORT_WIDTH as u16),
+        );
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: (camera_max_x << 16) | 0xFF00,
+            speed: MURDER_WALL_ACCELERATION,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+
+        let mut cam = ((camera_max_x as u32).saturating_sub(4) << 16) | 0x4000;
+        runtime.step_murder_wall(&mut cam);
+        let wall = runtime.murder_wall.as_ref().unwrap();
+
+        assert_eq!(
+            wall.speed,
+            MURDER_WALL_ACCELERATION * 2,
+            "ASM loc_7316: speed accelerates before loc_7334 clamps position"
+        );
+        assert_eq!(
+            wall.x_pos >> 16,
+            camera_max_x,
+            "ASM loc_7334 (kid.asm:7464-7468): MurderWall_X_pos.w clamps to Camera_max_X_pos before loc_7346"
+        );
+        assert_eq!(
+            wall.x_pos & 0xFFFF,
+            0x0100,
+            "ASM loc_7334 uses move.w to clamp only the high word, preserving fractional carry"
+        );
+        assert_eq!(
+            cam >> 16,
+            camera_max_x as u32,
+            "ASM loc_7364: loc_7346 sees the clamped wall and snaps Camera_X_pos.w to it"
+        );
+        assert_eq!(
+            cam & 0xFFFF,
+            0x4000,
+            "ASM loc_7364 move.w preserves Camera_X_pos fractional word"
+        );
+    }
+
     // --- loc_7346: forward murder wall camera push ---
 
     /// ASM loc_7364 (kid.asm:7482): when the forward wall catches or passes
