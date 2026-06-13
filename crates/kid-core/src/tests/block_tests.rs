@@ -15079,7 +15079,7 @@ mod chunk_04 {
             })),
         );
 
-        platform.step_soft_platform_loc_40E2(true);
+        platform.step_special_platform_loc_40D2(true, 0);
         assert_eq!(
             platform.y_pos,
             ((128u32 << 4) + 2) << 16,
@@ -15088,7 +15088,7 @@ mod chunk_04 {
         assert_eq!(platform.y_velocity, 0x0001_9000);
 
         for _ in 0..16 {
-            platform.step_soft_platform_loc_40E2(true);
+            platform.step_special_platform_loc_40D2(true, 0);
         }
         assert_eq!(platform.y_pos, (128u32 << 4) << 16);
         assert_eq!(platform.y_velocity, 0);
@@ -15098,6 +15098,161 @@ mod chunk_04 {
                 original_y_pos: (128u32 << 4) << 16,
                 phase: SoftPlatformPhase::Settled,
             })),
+        );
+    }
+
+    #[test]
+    fn special_platform_dispatch_loc_2876_uses_off_40d2_indices() {
+        let trap_down = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("4"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+        assert_eq!(
+            trap_down.special,
+            Some(PlatformSpecialState::TrapDown(TrapPlatformDownState {
+                phase: TrapPlatformDownPhase::Wait,
+            })),
+            "ASM loc_2876/off_40D2 (kid.asm:4799/5195): pp=4 dispatches to TrapPlatformDown_Init",
+        );
+
+        let trap_up = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("8"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+        assert_eq!(
+            trap_up.special,
+            Some(PlatformSpecialState::TrapUp(TrapPlatformUpState {
+                phase: TrapPlatformUpPhase::Wait,
+            })),
+            "ASM loc_2876/off_40D2: pp=8 dispatches to TrapPlatformUp_Init",
+        );
+    }
+
+    #[test]
+    fn trap_platform_down_loc_4182_launches_from_kid_velocity_and_falls() {
+        assert_eq!(
+            trap_platform_down_launch_velocity_loc_4182(0x0008_0000),
+            0x0002_0000,
+            "ASM TrapPlatformDown_WaitLoop loc_4182 divides sampled Kid y velocity by 4",
+        );
+
+        let mut platform = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("4"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+
+        platform.trigger_special_platform_standing_loc_40D2(0x0008_0000, PlayerForm::TheKid);
+        assert_eq!(platform.y_velocity, 0x0002_0000);
+        assert_eq!(
+            platform.special,
+            Some(PlatformSpecialState::TrapDown(TrapPlatformDownState {
+                phase: TrapPlatformDownPhase::Falling,
+            })),
+        );
+
+        platform.step_special_platform_loc_40D2(true, (platform.y_pos >> 16) as i16);
+        assert_eq!(
+            platform.y_pos,
+            ((128u32 << 4) + 2) << 16,
+            "ASM TrapPlatformDown_Move adds platform `$E(a3)` into platform `6(a3)`",
+        );
+        assert_eq!(platform.y_velocity, 0x0002_4000);
+    }
+
+    #[test]
+    fn trap_platform_down_loc_4182_preserves_original_velocity_clamp_bug() {
+        let result = trap_platform_down_move_step_loc_4182(0x0003_C000, 128, 0);
+        assert_eq!(
+            result.new_y_velocity, 0x0002_0000,
+            "ORIGINAL_QUIRK: shipped ROM clamps >= $40000 to $20000, not the commented bug-fix $40000",
+        );
+        assert!(
+            result.continue_moving,
+            "platform_y - Kid_y = 128, still less than $E0",
+        );
+    }
+
+    #[test]
+    fn trap_platform_up_loc_420a_enters_rise_loop_when_kid_stands_on_it() {
+        let mut platform = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("8"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+
+        platform.trigger_special_platform_standing_loc_40D2(0x0008_0000, PlayerForm::TheKid);
+        assert_eq!(platform.y_velocity, 0);
+        assert_eq!(
+            platform.special,
+            Some(PlatformSpecialState::TrapUp(TrapPlatformUpState {
+                phase: TrapPlatformUpPhase::Rising,
+            })),
+            "ASM TrapPlatformUp_Loop enters loc_4230 after Kid stands on this platform",
+        );
+
+        platform.step_special_platform_loc_40D2(true, (platform.y_pos >> 16) as i16);
+        assert_eq!(
+            platform.y_velocity, -0x4000,
+            "ASM loc_4230 starts from zero velocity, then subtracts $4000 after the first move",
         );
     }
 

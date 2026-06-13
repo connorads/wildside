@@ -1396,6 +1396,46 @@ pub(crate) fn soft_platform_next_bounce_velocity_loc_4140(y_velocity: i32) -> i3
     (y_velocity - 0x7000).max(-0x1_8000)
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn trap_platform_down_launch_velocity_loc_4182(kid_y_velocity: i32) -> i32 {
+    // ASM TrapPlatformDown_WaitLoop loc_4182 (kid.asm:5279): when Kid stands
+    // on this platform, `asr.l #2,d1` divides the sampled Kid y velocity by 4
+    // before storing it into platform `$E(a3)`.
+    kid_y_velocity >> 2
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TrapPlatformDownMoveStepLoc4182 {
+    /// Updated y velocity after the original game's acceleration/clamp quirk.
+    pub(crate) new_y_velocity: i32,
+    /// `true` while the platform has not yet fallen `$E0` pixels below Kid.
+    pub(crate) continue_moving: bool,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn trap_platform_down_move_step_loc_4182(
+    y_velocity: i32,
+    platform_y_px: i16,
+    kid_y_px: i16,
+) -> TrapPlatformDownMoveStepLoc4182 {
+    // ASM TrapPlatformDown_MoveLoop loc_4182 (kid.asm:5287): after moving the
+    // platform, add `$4000` to y velocity. ORIGINAL_QUIRK: the shipped ROM
+    // clamps values >= `$40000` down to `$20000`; the commented source notes
+    // this should have been `$40000`, but `minorBugFixes=0` preserves `$20000`.
+    let accelerated = y_velocity.wrapping_add(0x4000);
+    let clamped = if accelerated < 0x40000 {
+        accelerated
+    } else {
+        0x20000
+    };
+    let relative_y = platform_y_px.wrapping_sub(kid_y_px);
+    TrapPlatformDownMoveStepLoc4182 {
+        new_y_velocity: clamped,
+        continue_moving: relative_y < 0xE0,
+    }
+}
+
 impl ActivePlatform {
     #[allow(non_snake_case)]
     pub(crate) fn trigger_soft_platform_bounce_loc_40E2(
@@ -1414,8 +1454,74 @@ impl ActivePlatform {
     }
 
     #[allow(non_snake_case)]
-    pub(crate) fn step_soft_platform_loc_40E2(&mut self, kid_standing_on_this_platform: bool) {
+    pub(crate) fn trigger_special_platform_standing_loc_40D2(
+        &mut self,
+        kid_y_velocity: i32,
+        current_form: PlayerForm,
+    ) {
+        match self.special {
+            Some(PlatformSpecialState::Soft(_)) => {
+                self.trigger_soft_platform_bounce_loc_40E2(kid_y_velocity, current_form);
+            }
+            Some(PlatformSpecialState::TrapDown(ref mut state))
+                if state.phase == TrapPlatformDownPhase::Wait =>
+            {
+                self.y_velocity = trap_platform_down_launch_velocity_loc_4182(kid_y_velocity);
+                state.phase = TrapPlatformDownPhase::Falling;
+            }
+            Some(PlatformSpecialState::TrapUp(ref mut state))
+                if state.phase == TrapPlatformUpPhase::Wait =>
+            {
+                state.phase = TrapPlatformUpPhase::Rising;
+            }
+            _ => {}
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn step_special_platform_loc_40D2(
+        &mut self,
+        kid_standing_on_this_platform: bool,
+        kid_y_px: i16,
+    ) {
         let Some(PlatformSpecialState::Soft(ref mut state)) = self.special else {
+            match self.special {
+                Some(PlatformSpecialState::TrapDown(ref mut state)) => match state.phase {
+                    TrapPlatformDownPhase::Wait | TrapPlatformDownPhase::PostFall => {}
+                    TrapPlatformDownPhase::Falling => {
+                        self.y_pos = (self.y_pos as i32).wrapping_add(self.y_velocity) as u32;
+                        let step = trap_platform_down_move_step_loc_4182(
+                            self.y_velocity,
+                            (self.y_pos >> 16) as i16,
+                            kid_y_px,
+                        );
+                        self.y_velocity = step.new_y_velocity;
+                        if !step.continue_moving {
+                            self.y_velocity = 0;
+                            self.x_pos = 0x800;
+                            state.phase = TrapPlatformDownPhase::PostFall;
+                        }
+                    }
+                },
+                Some(PlatformSpecialState::TrapUp(ref mut state)) => match state.phase {
+                    TrapPlatformUpPhase::Wait | TrapPlatformUpPhase::PostRise => {}
+                    TrapPlatformUpPhase::Rising => {
+                        self.y_pos = (self.y_pos as i32).wrapping_add(self.y_velocity) as u32;
+                        let step = trap_platform_up_move_step_loc_4230(
+                            self.y_velocity,
+                            (self.y_pos >> 16) as i16,
+                            kid_y_px,
+                        );
+                        self.y_velocity = step.new_y_velocity;
+                        if !step.continue_moving {
+                            self.y_velocity = 0;
+                            self.x_pos = 0x800;
+                            state.phase = TrapPlatformUpPhase::PostRise;
+                        }
+                    }
+                },
+                _ => {}
+            }
             return;
         };
         match state.phase {

@@ -3850,8 +3850,12 @@ impl NativeRuntime {
             self.progression.current_form,
             platform_support_crawling,
         );
+        let kid_y_px = (slice.player.y_pos >> 16) as i16;
         for (platform_index, platform) in self.active_platforms.iter_mut().enumerate() {
-            platform.step_soft_platform_loc_40E2(platform_standing_before == Some(platform_index));
+            platform.step_special_platform_loc_40D2(
+                platform_standing_before == Some(platform_index),
+                kid_y_px,
+            );
         }
 
         // Platform collision: player can stand on top of platforms
@@ -3891,7 +3895,7 @@ impl NativeRuntime {
             player_before_platform_collision,
             &slice,
         );
-        self.trigger_standing_soft_platform_bounce_loc_40E2(&slice, platform_support_crawling);
+        self.trigger_standing_special_platform_loc_40D2(&slice, platform_support_crawling);
         self.active_platform_roster = self
             .active_platforms
             .iter()
@@ -4052,7 +4056,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    fn trigger_standing_soft_platform_bounce_loc_40E2(
+    fn trigger_standing_special_platform_loc_40D2(
         &mut self,
         slice: &OpeningSliceState,
         platform_support_crawling: bool,
@@ -4069,11 +4073,21 @@ impl NativeRuntime {
             // $2A(a2),d1` samples Kid's y velocity before the platform
             // hibernates for this frame, so use the native pre-gravity sample
             // rather than the post-platform-collision velocity.
-            platform.trigger_soft_platform_bounce_loc_40E2(
+            platform.trigger_special_platform_standing_loc_40D2(
                 slice.pre_gravity_y_vel,
                 self.progression.current_form,
             );
         }
+    }
+
+    #[cfg(test)]
+    #[allow(non_snake_case)]
+    fn trigger_standing_soft_platform_bounce_loc_40E2(
+        &mut self,
+        slice: &OpeningSliceState,
+        platform_support_crawling: bool,
+    ) {
+        self.trigger_standing_special_platform_loc_40D2(slice, platform_support_crawling);
     }
 
     pub(crate) fn trigger_skycutter_top_boundary_bounce_loc_9114(

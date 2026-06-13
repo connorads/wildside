@@ -2216,6 +2216,8 @@ pub(crate) struct ActivePlatform {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PlatformSpecialState {
     Soft(SoftPlatformState),
+    TrapDown(TrapPlatformDownState),
+    TrapUp(TrapPlatformUpState),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2229,6 +2231,30 @@ pub(crate) enum SoftPlatformPhase {
     Wait,
     Bounce,
     Settled,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TrapPlatformDownState {
+    pub(crate) phase: TrapPlatformDownPhase,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TrapPlatformDownPhase {
+    Wait,
+    Falling,
+    PostFall,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TrapPlatformUpState {
+    pub(crate) phase: TrapPlatformUpPhase,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum TrapPlatformUpPhase {
+    Wait,
+    Rising,
+    PostRise,
 }
 
 impl ActivePlatform {
@@ -2261,13 +2287,18 @@ impl ActivePlatform {
                 remaining_duration: first_cmd.duration,
             });
         let y_pos = crate::platforms::platform_layout_coord_fixed_loc_2762(placement.y);
-        let special = if placement.kind == 8 && placement.script.raw.trim() == "0" {
-            Some(PlatformSpecialState::Soft(SoftPlatformState {
+        let special = match (placement.kind, placement.script.raw.trim()) {
+            (8, "0") => Some(PlatformSpecialState::Soft(SoftPlatformState {
                 original_y_pos: y_pos,
                 phase: SoftPlatformPhase::Wait,
-            }))
-        } else {
-            None
+            })),
+            (8, "4") => Some(PlatformSpecialState::TrapDown(TrapPlatformDownState {
+                phase: TrapPlatformDownPhase::Wait,
+            })),
+            (8, "8") => Some(PlatformSpecialState::TrapUp(TrapPlatformUpState {
+                phase: TrapPlatformUpPhase::Wait,
+            })),
+            _ => None,
         };
         let mut height_px = u16::from(placement.v_variant) * 16 + 15;
         if placement.kind & 0x7F == 0 {
