@@ -551,6 +551,41 @@ fn fireball_main_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn emo_rock_live_contact_uses_rom_collision_size_row_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 88 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let emo_rock = test_enemy(EnemyFamily::EmoRock, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&emo_rock.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-14, 14, -28, 0),
+        "ASM Emo_Rock.asm visible live frames LnkTo_unk_C7F38/C7F40/C7F58/C7F60 index CollisionSize row unk_31DD6 through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &emo_rock.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Emo Rock live row reaches horizontally beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn diamond_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 87 << 16;

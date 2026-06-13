@@ -11012,6 +11012,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         }
         NativeObjectKind::Enemy { object_type: 0x18 } => tornado_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x1A } => driller_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x1B } => emo_rock_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x1C } => EnemyContactBounds {
             left_px: -MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
             right_px: MINI_HOPPING_SKULL_CONTACT_HALF_WIDTH,
@@ -11073,6 +11074,21 @@ fn fireball_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds 
         right_px: 4,
         top_px: -4,
         bottom_px: 4,
+    }
+}
+
+fn emo_rock_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    // ASM Emo_Rock.asm settled/drop-visible frames `LnkTo_unk_C7F38`,
+    // `LnkTo_unk_C7F40`, `LnkTo_unk_C7F58`, and `LnkTo_unk_C7F60` route through
+    // GfxObjects_CollisionKid loc_1BCE to `unk_31DD6`: `dc.w -$E,$1C,-$1C,$1C`.
+    // Native does not expose the exact sprite link here yet, so keep the
+    // nonzero live row and leave disappear/death zero rows `unk_31DE0`
+    // unmodelled.
+    EnemyContactBounds {
+        left_px: -14,
+        right_px: 14,
+        top_px: -28,
+        bottom_px: 0,
     }
 }
 
