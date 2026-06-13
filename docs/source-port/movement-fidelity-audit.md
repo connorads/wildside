@@ -5,7 +5,7 @@
 
 Adversarially-verified audit of the Kid Chameleon source-port's **player** movement, comparing each native move-state to the `kid.asm` player object-update routines.
 
-The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. 18 of the 26 confirmed gaps are this "modelled-but-unwired" shape (`with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `initiate_jump_with_hand_grab`, `update_skycutter_horizontal_velocity_sub_9A20` for the air path, the discarded `sub_7A10.blocked`).
+The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape (`with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `initiate_jump_with_hand_grab`, the discarded `sub_7A10.blocked`); the airborne Skycutter `sub_9A20` instance is now fixed and test-locked.
 
 Two findings are player-specific and do **not** fit that mould:
 
@@ -23,16 +23,16 @@ Two findings are player-specific and do **not** fit that mould:
 | Duck / crawl (`MoveID_Crawling=1`) | partial | 3 |
 | Jump initiation (ground launch velocity) | partial | 2 |
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
-| Airborne horizontal control | partial | 2 |
+| Airborne horizontal control | partial | 1 |
 | Secondary airborne path (`sub_8506`) | full | 0 |
 | Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | partial | 2 |
 | Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 5 |
 | Landing / floor-support & platform riding | partial | 2 |
 | Wall-hit + ceiling-hit collision response | partial | 1 |
 | Damage recoil / knockback & Berzerker charge | partial | 3 |
-| Skycutter form-specific horizontal movement | partial | 2 |
+| Skycutter form-specific horizontal movement | partial | 1 |
 
-Totals: 15 move-states audited, 3 full (no gaps), 12 partial. **26 confirmed gaps** (5 high, 9 medium, 12 low; 23 wiring, 3 hygiene). Two pairs of gaps are the same underlying defect surfaced by different auditors — the `$14/$18` compound corner (main-object-update + wall/ceiling) and the airborne Skycutter `sub_9A20` (airborne-control + Skycutter-form) — and are noted as such below.
+Original totals: 15 move-states audited, 3 full (no gaps), 12 partial. **26 confirmed gaps** (5 high, 9 medium, 12 low; 23 wiring, 3 hygiene). The `$14/$18` compound corner is the remaining duplicated defect surfaced by different auditors (main-object-update + wall/ceiling); the former airborne Skycutter `sub_9A20` duplicate is fixed below.
 
 ## Confirmed gaps
 
@@ -44,8 +44,8 @@ Totals: 15 move-states audited, 3 full (no gaps), 12 partial. **26 confirmed gap
 **Crawl — stand-up wall escape (`sub_81B4`) implemented and tested but never called** (`sub_81B4` @kid.asm:8952, from crawl stand-up `loc_8270` @9033)
 ROM stand-up runs `sub_DAA6` (overhead platform) → `sub_B43A` (floor) → Skycutter gate → `sub_81B4` (wall escape): probes 16px above the feet at `x±$E`; both sides solid → stay crawling (wedged); one side open → restore standing half-width and snap `x_pos` flush to the tile boundary. Native `crawl_wall_escape_sub_81B4` (`movement.rs:6431`, `#[allow(dead_code)]`) ports all of this but the only callers are tests; the live gate (`lib.rs:2516-2536`) consults only `sub_DAA6`. Missing: (1) Kid wedged in a 1-tile gap can wrongly stand; (2) the deterministic flush x-snap as the standing box re-expands.
 
-**Airborne control — Skycutter air-jump does not delegate to `sub_9A20`** (`sub_B084` @kid.asm:13921-13927; `sub_9A20` @11588) *(same defect as the Skycutter-form gap below)*
-`sub_B084`'s first action: `cmpi.w #Skycutter,(Current_Helmet); bne loc_B09E; move.l x_vel,d0; bsr sub_9A20` — airborne Skycutter **bypasses** the `unk_A4B2`/`unk_A4C6` air tables and uses `sub_9A20` (caps `$20000` walk/`$40000` run, `$2000`/`$4000` accel, two-tier cruise-decel). Native dispatches the air path unconditionally to `update_jump_horizontal_velocity` with `JUMP_AIR_PROFILES[helmet_id]`; for Skycutter (id=1) that is `{accel:0x3400, max:0x32000}` — ROM **dead data** never reached for Skycutter. `update_skycutter_horizontal_velocity_sub_9A20` (`physics.rs:561`) exists and is wired for the *grounded* path (`movement.rs:4474,4766`) but not the airborne one (`movement.rs:4521-4531`). Skycutter flight control diverges.
+**FIXED 2026-06-13 — Airborne control delegates Skycutter air-jump to `sub_9A20`** (`sub_B084` @kid.asm:13921-13927; `sub_9A20` @11588)
+`sub_B084`'s first action: `cmpi.w #Skycutter,(Current_Helmet); bne loc_B09E; move.l x_vel,d0; bsr sub_9A20` — airborne Skycutter **bypasses** the `unk_A4B2`/`unk_A4C6` air tables and uses `sub_9A20` (caps `$20000` walk/`$40000` run, `$2000`/`$4000` accel, two-tier cruise-decel). Native now mirrors that in both `update_horizontal_velocity_only` (`movement.rs:5244-5251`) and the full horizontal motion helper (`movement.rs:5590-5597`). Regression `sub_b084_airborne_skycutter_uses_sub_9a20_velocity` (`movement_tests.rs:4728-4790`) proves both live paths apply `$2000` from `sub_9A20` instead of the generic Skycutter jump-air table's `$3400`.
 
 **Slope walking — Up-held / Down-held do not drive uphill/downhill acceleration** (`loc_9DAA` @kid.asm:11986-11995, `loc_9DC0`/`loc_9DF2`)
 `loc_9DAA` dispatches slope accel on **four** inputs: Right→uphill, Left→downhill, **Up→uphill**, **Down→downhill**; only with none held does it fall to neutral `loc_9E2E`. Native `update_level_one_slope_ground_velocity` (`movement.rs:6154-6231`) derives `uphill_pressed`/`downhill_pressed` from `input.left`/`input.right` only, and `HorizontalInput` (`physics.rs:517-521`) has no up/down field, so holding only Up/Down on a slope falls to neutral-decel instead of climbing/descending.
@@ -87,8 +87,8 @@ ROM skips crawl entry when held by a Hand; native gate (`lib.rs:2968-2974`) omit
 **Jump — `sfx_Jump` not emitted on launch** (`sub_A432`/`loc_A480` @kid.asm:12821-12822)
 ROM plays `sfx_Jump` as part of launch; the native `initiate_jump` comment defers sound "to call sites" (`physics.rs:765-766`) but the call sites (`movement.rs:4549-4586`) emit none. Audio-only; the deferral note is unfulfilled.
 
-**Airborne control — Skycutter wrongly gets the 1.5× run-accel multiplier** (`sub_B084` `loc_B09E` @kid.asm:13935-13939)
-Secondary consequence of the unwired `sub_9A20` air branch: the 1.5× `Ctrl_A` multiplier (`physics.rs:297-301`) is correct for the nine helmets that reach `loc_B09E`, but is also applied to Skycutter (which should use `sub_9A20`'s flat `+$4000` step). No separate fix beyond wiring `sub_9A20`.
+**FIXED 2026-06-13 — Airborne Skycutter bypasses the 1.5× run-accel multiplier** (`sub_B084` `loc_B09E` @kid.asm:13935-13939)
+This was the low-severity consequence of the unwired `sub_9A20` air branch. Because the live airborne Skycutter paths now branch before `loc_B09E`, the generic `Ctrl_A` multiplier remains limited to the nine helmets that actually reach the ROM table path; Skycutter gets `sub_9A20`'s flat `+$4000` run step.
 
 **Slope walking — steady frame does not mirror `y_vel = ±x_vel`** (`loc_9D22` @kid.asm:11942-11949)
 ROM sets `y_vel = -x_vel` (SlopeUp) / `+x_vel` (SlopeDown) every grounded-slope frame; native sets it only on fresh recontact (`apply_immediate_slope_recontact` `movement.rs:5902-5903`) and otherwise re-snaps `y_pos` from `x_px` directly. Position is faithful; only the stored `y_velocity` is stale — near-non-observable.
