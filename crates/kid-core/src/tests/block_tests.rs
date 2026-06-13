@@ -13776,18 +13776,17 @@ mod chunk_04 {
     // Each test name references the line/mutation it catches.
 
     #[test]
-    fn advance_to_window_stops_at_exact_preload_limit() {
+    fn advance_to_window_loc_2762_consumes_exact_left_buffer_edge() {
         let window = ActivationWindow {
             x_min: 0,
-            x_max: 100,
+            x_max: 96,
             y_min: 0,
             y_max: 224,
         };
-        let preload_limit = 100u32.saturating_add(PLATFORM_PRELOAD_X_PADDING);
         let placement = PlatformPlacement {
             x: 100,
             y: 50,
-            buffer_left: (preload_limit / 32) as u8,
+            buffer_left: 3,
             buffer_right: 0,
             buffer_top: 0,
             buffer_bottom: 0,
@@ -13807,24 +13806,22 @@ mod chunk_04 {
         state.advance_to_window(&layout, window);
         assert_eq!(
             state.next_index, 1,
-            "ASM loc_2762 compares Kid/player pixels against absolute buffer edges scaled by 32; an exact preload edge should be consumed"
+            "ASM loc_2762 compares Kid/player pixels against absolute buffer edges scaled by 32; equality does not take the `bgt` out-of-range branch"
         );
     }
 
     #[test]
-    fn advance_to_window_stops_past_preload_limit() {
-        // Verify a placement PAST the limit is not consumed
+    fn advance_to_window_loc_2762_stops_past_left_buffer_edge() {
         let window = ActivationWindow {
             x_min: 0,
-            x_max: 100,
+            x_max: 96,
             y_min: 0,
             y_max: 224,
         };
-        let preload_limit = 100u32.saturating_add(PLATFORM_PRELOAD_X_PADDING);
         let placement = PlatformPlacement {
             x: 100,
             y: 50,
-            buffer_left: ((preload_limit / 32) + 1) as u8,
+            buffer_left: 4,
             buffer_right: 0,
             buffer_top: 0,
             buffer_bottom: 0,
@@ -13844,7 +13841,7 @@ mod chunk_04 {
         state.advance_to_window(&layout, window);
         assert_eq!(
             state.next_index, 0,
-            "a platform whose absolute left buffer edge is past the preloaded player window should not be consumed"
+            "ASM loc_2762 branches out of range when the absolute left buffer edge is greater than Kid/player X"
         );
     }
 

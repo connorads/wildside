@@ -586,8 +586,7 @@ impl PlatformLoaderState {
         for (placement_index, placement) in
             layout.placements.iter().enumerate().skip(self.next_index)
         {
-            let preload_limit = window.x_max.saturating_add(PLATFORM_PRELOAD_X_PADDING);
-            if platform_buffer_edge_px_loc_2762(placement.buffer_left) > preload_limit {
+            if platform_buffer_edge_px_loc_2762(placement.buffer_left) > window.x_max {
                 break;
             }
             self.next_index = placement_index + 1;

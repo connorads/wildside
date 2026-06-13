@@ -552,7 +552,6 @@ pub(crate) const ACTIVATION_WINDOW_Y_LEAD: u32 = 0x160;
 pub(crate) const ACTIVATION_WINDOW_PADDING: u32 = 0x80;
 pub(crate) const FLYER_RETENTION_X_PADDING: u32 = 512;
 pub(crate) const FLYER_RETENTION_Y_PADDING: u32 = 96;
-pub(crate) const PLATFORM_PRELOAD_X_PADDING: u32 = 64;
 
 // === Player hitbox ===
 
