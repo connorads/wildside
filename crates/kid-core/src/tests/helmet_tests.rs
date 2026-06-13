@@ -4144,6 +4144,15 @@ mod chunk_08 {
     }
 
     #[test]
+    fn loc_11d8e_selects_the_distinct_plethora_cave_palette() {
+        assert_eq!(
+            classify_foreground_palette_override_loc_11D8E(0x05),
+            ForegroundPaletteOverrideLoc11D8E::PlethoraCave,
+            "ASM pre-loc_11D8E (kid.asm:23946) should route `M_Plethora = 5` to `Pal_12CBC`, not the alternative cave palette at loc_11D8E",
+        );
+    }
+
+    #[test]
     fn loc_11d92_routes_deadly_skyscrapers_and_elsewhere_30_into_the_removed_palette_path() {
         assert_eq!(
             classify_foreground_palette_override_loc_11D8E(0x1C),
@@ -4189,6 +4198,14 @@ mod chunk_08 {
             0x0246,
             "ASM loc_11D9E's ordinary fallthrough should also leave the current theme palette untouched"
         );
+        assert_eq!(
+            apply_foreground_palette_override_loc_11D9E(
+                0x12CB,
+                ForegroundPaletteOverrideLoc11D8E::PlethoraCave,
+            ),
+            0x12CB,
+            "ASM loc_11D9E should preserve the `Pal_12CBC` Plethora palette selected before loc_11D8E when no removed-special branch overrides it",
+        );
     }
 
     #[test]
@@ -4229,6 +4246,15 @@ mod chunk_08 {
             ),
             0x0246,
             "ASM loc_11DAC should leave the current theme palette untouched when the `$1A/$1B` branch was not taken"
+        );
+        assert_eq!(
+            apply_foreground_palette_override_loc_11DAC(
+                0x12CB,
+                0x0ACE,
+                ForegroundPaletteOverrideLoc11D8E::PlethoraCave,
+            ),
+            0x12CB,
+            "ASM loc_11DAC should keep the earlier Plethora `Pal_12CBC` selection unless the `$1A/$1B` late branch fires",
         );
     }
 

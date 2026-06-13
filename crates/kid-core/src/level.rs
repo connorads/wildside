@@ -8543,6 +8543,7 @@ pub(crate) fn flag_position_loc_11BEC(flag_position: (u16, u16)) -> (u16, u16) {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ForegroundPaletteOverrideLoc11D8E {
     None,
+    PlethoraCave,
     AlternativeCave,
     RemovedSpecialPaletteNoop,
     LateAlternativePalette,
@@ -8553,6 +8554,11 @@ pub(crate) enum ForegroundPaletteOverrideLoc11D8E {
 pub(crate) fn classify_foreground_palette_override_loc_11D8E(
     map_id: u8,
 ) -> ForegroundPaletteOverrideLoc11D8E {
+    // ASM pre-loc_11D8E (kid.asm:23946): Plethora replaces `a1` with
+    // `Pal_12CBC` before continuing through the later override checks.
+    if map_id == 0x05 {
+        return ForegroundPaletteOverrideLoc11D8E::PlethoraCave;
+    }
     // ASM loc_11D8E (kid.asm:23951): after the default theme palette lookup,
     // Stairway to Oblivion (`#3`) and Elsewhere 23 (`#23`) replace `a1` with
     // the alternative cave palette before the later override checks run.
@@ -8585,6 +8591,7 @@ pub(crate) fn apply_foreground_palette_override_loc_11D9E(
     // the ordinary fallthrough keep the already selected theme palette.
     match override_kind {
         ForegroundPaletteOverrideLoc11D8E::None
+        | ForegroundPaletteOverrideLoc11D8E::PlethoraCave
         | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => selected_theme_palette,
         ForegroundPaletteOverrideLoc11D8E::AlternativeCave
         | ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => selected_theme_palette,
@@ -8604,6 +8611,7 @@ pub(crate) fn apply_foreground_palette_override_loc_11DAC(
     match override_kind {
         ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => late_alternative_palette,
         ForegroundPaletteOverrideLoc11D8E::None
+        | ForegroundPaletteOverrideLoc11D8E::PlethoraCave
         | ForegroundPaletteOverrideLoc11D8E::AlternativeCave
         | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => selected_theme_palette,
     }
