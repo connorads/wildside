@@ -580,6 +580,23 @@ was `right_tail`/`right_b_tail` at `(456,543) dx=+2 dy=-23 @587`, ending in
 @580`. Right target remained far below/left (`(584,543) dx=+66 dy=-48 @430`).
 Do not repeat this 700-frame midbrake tail family unchanged.
 
+Follow-up 2026-06-13 for #260 route search with hitbox-cell scoring: current
+best cache seed `.cache/recordings/issue-260-drips-b-jump-climb-seed-current/scenario.json`
+was rescored with `--target-cell-hitbox 36,32 --target-cell-hitbox 28,32`,
+which compares Kid's ASM `loc_902A`/`unk_B408` hitbox bounds to the `EC2D`
+16x16 cells. A late-climb route-shape batch over the seed found
+`430..620 none`, `460..520 B+Right`, `521..560 Left`, `561..620 Right` as the
+best comparable survivor: native stays `InGame` at HP 1 and reaches the right
+cell `36,32` at hitbox `dx=0 dy=-2 @483`, improving the previous baseline
+`dx=+1 dy=-2`. Materialised overlay
+`.cache/debug/issue260-hitbox-near-contact-left-exit/oracle-frame-scenario.json`
+passes enemy-frontier oracle verification for frames `430..520` and `520..620`.
+Focused native probing still rejects it as metal-block proof: the nearest live
+DripsSurfaceCrawler contact is only `dx=-58 dy=+1 @575`, long after the
+near-cell pass, so the route is a better oracle-comparable near miss rather
+than the reported slime/metal-block mutation. Do not repeat this exact
+late-climb clear/left-exit axis unchanged.
+
 Follow-up 2026-06-11 for #260 visual-source classification: the latest
 playtest noted that the Drips source now looks like a prize block rather than a
 metal block. On the current known route this is ROM-matching, not a native

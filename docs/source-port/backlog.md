@@ -277,7 +277,14 @@ and stop — never commit churn.
   503; `early_br440_540`, `early_br450_550`, and `neutral430_jump470` improve
   only to manhattan 2 and all end HP 0. Treat the seed as a confirmed
   near-contact route, not metal-block proof, and do not reject it based on
-  origin-only cell scoring.
+  origin-only cell scoring. A follow-up late-climb reshape that clears
+  `430..620`, applies `460..520 B+Right`, exits `521..560 Left`, then restores
+  `561..620 Right` stays alive at HP 1, improves the right `EC2D` cell hitbox
+  score to `dx=0 dy=-2 @483`, and verifies oracle-clean on the materialised
+  cache scenario through frames 430..620. It is the best current comparable
+  near-contact route, but focused probing still leaves the DripsSurfaceCrawler
+  far away (`dx=-58 dy=+1 @575`), so it is not the reported slime/metal-block
+  contact.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
