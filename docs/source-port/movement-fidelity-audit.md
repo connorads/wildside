@@ -1,11 +1,11 @@
 <!-- Generated 2026-05-30 by the `player-movement-fidelity-audit` workflow (1 read-only Explore scout enumerated 15 player move-states; one read-only Explore auditor per move-state compared native to kid.asm; every gap adversarially verified by an independent refuter — defaulting to refuted — before inclusion). 44 agents total. This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
-<!-- Staleness-checked 2026-06-10: of 25 gaps, 15 fixed, 2 partially fixed, 8 still open — verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. Still-open entries below remain authoritative; fixed entries are superseded. -->
+<!-- Staleness-checked 2026-06-10: verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. Maintained 2026-06-13 as stale entries are fixed or reclassified below. -->
 
 # Player Movement Fidelity Audit
 
 Adversarially-verified audit of the Kid Chameleon source-port's **player** movement, comparing each native move-state to the `kid.asm` player object-update routines.
 
-The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape (`initiate_jump_with_hand_grab` remains the clearest open case); the airborne Skycutter `sub_9A20`, `with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, and `sub_7A10.blocked` instances are now fixed and test-locked.
+The recurring failure mode is the same one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path**, so the runtime falls back to a generic profile, a hardcoded `false`, or simply omits the behaviour. The original audit found 18 of 26 confirmed gaps in this "modelled-but-unwired" shape; the airborne Skycutter `sub_9A20`, `with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `sub_7A10.blocked`, and grounded `initiate_jump_with_hand_grab` instances are now fixed and test-locked.
 
 Two findings are player-specific and do **not** fit that mould:
 
@@ -21,7 +21,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Ground walk/run horizontal acceleration | partial | 1 |
 | Braking / skid / turn-around | full | 0 |
 | Duck / crawl (`MoveID_Crawling=1`) | partial | 1 |
-| Jump initiation (ground launch velocity) | partial | 2 |
+| Jump initiation (ground launch velocity) | partial | 1 |
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
 | Airborne horizontal control | partial | 1 |
 | Secondary airborne path (`sub_8506`) | full | 0 |
@@ -64,8 +64,8 @@ ROM clears Right once per frame when both are held, so both-held resolves to **L
 **FIXED 2026-06-13 — Crawl entry honours `sub_7A10` `blocked` result** (`loc_8C70` @kid.asm:10092; `sub_7A10` `loc_7A90` @8143)
 ROM gates crawl entry: `bsr sub_7A10; bne loc_8CB6` — when blocked (both head-height side probes solid after the snap) Kid stays walking and uses the walk table. Native now calls `align_player_for_down_hold_sub_7A10` in the live walking-state crawl transition and clears `movement_input.down` when `DownHoldAlignmentSub7A10.blocked` is true (`lib.rs:3331-3352`). Regression `loc_8c70_sub_7a10_blocked_keeps_walking_velocity_path` verifies the blocked frame uses walking decel rather than the crawl air table.
 
-**Jump — `KidGrabbedByHand` `+$20000` weakening modelled but unwired** (`sub_A432`/`loc_A466` @kid.asm:12799-12801)
-ROM adds `$20000` to the (negated) `y_vel` when grabbed, shortening a jump made while held by a Hand. `initiate_jump_with_hand_grab` (`physics.rs:726-761`) ports the arithmetic, but every live caller goes through the `initiate_jump` wrapper that hardcodes `false` (`physics.rs:718-720`; callers `movement.rs:4555,4581,4947,4962,5009,5025`). The `KidGrabbedByHand` RAM flag is never plumbed from the Hand machinery into jump init. (Part of the cross-cutting "grab flag never surfaced" theme; see also the crawl-gate and climb-jump-off lows.)
+**FIXED 2026-06-13 — Grounded jump honours `KidGrabbedByHand` `+$20000` weakening** (`sub_A432`/`loc_A466` @kid.asm:12799-12801)
+ROM adds `$20000` to the negated launch `y_vel` when `KidGrabbedByHand` is set, shortening a jump made while held by a Hand. Native live jump paths now call `initiate_jump_with_hand_grab` with the slice flag (`movement.rs:5346-5352`, `5796-5800`, `5816-5820`, `5868-5872`, `5889-5893`), and the Hand enemy step surfaces `HandState::Grabbing` onto `kid_grabbed_by_hand` before the player slice runs (`enemies.rs:42115-42130`). Regression `loc_A466_kid_grabbed_by_hand_weakens_live_grounded_jump` verifies the grounded player consumer, and `refresh_active_roster_surfaces_hand_grab_onto_slice_loc_32906` verifies the live Hand producer. The separate Iron Knight climb B-press jump-off still uses the plain helper and remains tracked below.
 
 **Landing — moving-platform carry bypasses the `sub_8F26`/`sub_902A` move-and-collide passes** (`loc_8D72` @kid.asm:10150, `loc_82D8` @9063)
 ROM inherits platform motion into the player's **velocity** then re-runs the collision passes, so the carried displacement is wall/floor/ceiling-clamped. Native (`platforms.rs:780-783`) adds `platform.x_velocity`/`y_velocity` straight onto `x_pos`/`y_pos` with no wall pass on the carried X delta, so a platform pushing a grounded Kid into a wall drives him through it. Falls under #208 (platform physics).
