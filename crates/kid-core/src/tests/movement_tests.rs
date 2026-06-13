@@ -6081,6 +6081,40 @@ mod chunk_11 {
         );
     }
 
+    #[test]
+    fn loc_8c70_grabbed_kid_down_held_freezes_look_offset() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_floor_at_row(6));
+        runtime.y_look_offset = 30;
+        runtime.camera_last_kid_y = 96;
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 6 * 20 * 16,
+            height_pixels: 4 * 14 * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 96 << 16;
+        slice.camera.y_pos = 64 << 16;
+        slice.set_kid_grabbed_by_hand(true);
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(
+            FrameInput {
+                down: true,
+                ..FrameInput::default()
+            },
+            false,
+        );
+
+        assert_eq!(
+            runtime.y_look_offset, 30,
+            "ASM loc_8C70/loc_7772 (kid.asm:10082,7832): nonzero KidGrabbedByHand skips the Down-held addq.w #1 to $FFFFFB58",
+        );
+    }
+
     /// ASM loc_8C12: walking-state clamp to 0 when decrement goes negative.
     #[test]
     fn loc_8c12_walking_offset_clamp_to_zero() {

@@ -3795,12 +3795,15 @@ impl NativeRuntime {
         // held; `subi.w #8,($FFFFFB58); bge.s loc_8C26` decrements, clamp to 0.
         //
         // ASM loc_7772/loc_82D8/loc_8C70: grounded Down-held paths run
-        // `addq.w #1,($FFFFFB58)` with no cap; sub_71E4 loc_728C treats
-        // `$1E` as the camera-shift threshold, not a maximum accumulator.
+        // `addq.w #1,($FFFFFB58)` with no cap only while `KidGrabbedByHand`
+        // is clear; sub_71E4 loc_728C treats `$1E` as the camera-shift
+        // threshold, not a maximum accumulator.
         // ASM loc_7650 (kid.asm:7741-7746): same offset decay in other
         // movement states. Native merges the increment/decay paths here.
-        if input.down && slice.player.on_ground {
-            self.y_look_offset += 1;
+        if input.down {
+            if slice.player.on_ground && !slice.kid_grabbed_by_hand {
+                self.y_look_offset += 1;
+            }
         } else if self.y_look_offset > 0 {
             self.y_look_offset = (self.y_look_offset - 8).max(0);
         }
