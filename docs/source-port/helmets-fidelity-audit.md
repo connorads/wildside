@@ -119,7 +119,7 @@ The ROM gates `sub_7EB2` behind the `$FFFFFA64` dying flag, so the death helmet-
 `Kid_Transform` calls `sub_DB22` to clear a specific set of transient flags. The faithful `clear_special_movement_state_sub_DB22` (`helmets.rs:4220`) is `#[cfg(test)]` and never compiled into the runtime; the live path calls `self.helmet.reset()` (`combat.rs:8497`) = full `HelmetState::default()`, a superset. Benign, but the dead helper is the canonical failure-mode shape.
 
 **Transform SFX — per-helmet transform sound (`unk_7ED8`), `sfx_Replenish_Health`, and `sfx_Voice_bummer` now core-queued** (`unk_7ED8`, `loc_7E14/loc_7E40`, `loc_7C76`)
-The ROM transform plays three sounds (per-helmet transform, voice-bummer back to Kid, replenish-health on same-helmet pickup). Native now queues those via `resolve_pending_form_change` and `transform_sound_effect_loc_7cd0`; demo-mode suppression of the per-helmet transform cue remains a live-trace fidelity wrinkle because the historical native-player fallback was not demo-gated.
+The ROM transform plays three sounds (per-helmet transform, voice-bummer back to Kid, replenish-health on same-helmet pickup). Native now queues those via `resolve_pending_form_change` and `transform_sound_effect_loc_7cd0`, including the `Demo_Mode_flag` branch that skips the per-helmet cue before `loc_7CFE`.
 
 **Music-speed selection (`unk_7ECC` / `MusicSpeed_Murderwall`) now queued for native audio** (`loc_7E14/loc_7E26`, `unk_7ECC`)
 The ROM selects a post-transform music-speed byte by theme (or murderwall) and applies it via the GEMS driver (`kid.asm:8562-8567`). Native now records the byte in `played_music_speed_updates` and native-player replays it as the GEMS `FF 05 <speed>; FF 0D` sequence.

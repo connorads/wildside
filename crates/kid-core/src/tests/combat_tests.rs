@@ -8404,20 +8404,28 @@ mod chunk_03 {
         );
     }
 
-    /// ASM loc_7CFE (kid.asm:8439): when Demo_Mode_flag is set, loc_7CD0
-    /// branches directly to loc_7CFE (`bne.s loc_7CFE`), skipping the
+    /// ASM loc_7CD0/loc_7CFE (kid.asm:8426-8439): when Demo_Mode_flag is set,
+    /// loc_7CD0 branches directly to loc_7CFE (`bne.s loc_7CFE`), skipping the
     /// sub_E1334 call and per-helmet transform sound. The forward animation
-    /// table indexing still runs identically. Verify the frame count is
-    /// unchanged regardless of demo mode (native has no demo mode gating).
+    /// table indexing still runs identically.
     #[test]
-    fn loc_7cfe_demo_mode_skip_sound_same_frame_count() {
+    fn loc_7cfe_demo_mode_skips_transform_sound_but_keeps_frame_count() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: 0,
+            data_index: 0,
+            use_demo_2: false,
+        };
 
         // Transform TheKid → Cyclone: 0 reverse + 72 forward (stru_7F30) + 1 cleanup = 73.
         runtime.queue_form_change(PlayerForm::Cyclone);
         runtime.resolve_pending_form_change();
 
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "ASM loc_7CD0: Demo_Mode_flag branches to loc_7CFE before sub_E1334/j_PlaySound"
+        );
         assert_eq!(
             runtime.progression.form_change_flash_frames, 73,
             "ASM loc_7CFE: frame count should match forward table regardless of demo mode path"

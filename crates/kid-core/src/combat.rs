@@ -9632,10 +9632,14 @@ impl NativeRuntime {
             //
             // ASM loc_7CD0 (kid.asm:8426): `move.w (Current_Helmet_Available).w,
             // (Current_Helmet).w` — put-on-new-helmet phase. Sets Current_Helmet to
-            // the target, plays per-helmet transform sound (unk_7ED8), then walks
-            // the new helmet's off_7EE2 table forward via loc_7D0A/loc_7D22.
+            // the target, plays per-helmet transform sound (unk_7ED8) unless
+            // Demo_Mode_flag branches straight to loc_7CFE, then walks the new
+            // helmet's off_7EE2 table forward via loc_7D0A/loc_7D22.
             // Native sets current_form above; frame counting below covers both phases.
-            if let Some(transform_sound) = transform_sound_effect_loc_7cd0(form) {
+            let demo_mode_active = matches!(self.boot_state, BootState::DemoPlay { .. });
+            if !demo_mode_active
+                && let Some(transform_sound) = transform_sound_effect_loc_7cd0(form)
+            {
                 self.played_sound_effects.push(transform_sound);
             }
             let old_frames = transform_anim_frames(old_form);

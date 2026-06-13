@@ -2364,9 +2364,10 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         sound_ids.push(gems_sfx::VOICE_DIE);
     }
 
-    // Form change (helmet ID changed). ASM unk_7ED8 indexes this table by
-    // Current_Helmet, whose order differs from the extracted art order.
-    if curr.current_helmet_id != prev.current_helmet_id {
+    // Form change (helmet ID changed). ASM loc_7CD0 skips the unk_7ED8 cue in
+    // Demo_Mode_flag, otherwise indexes this table by Current_Helmet whose
+    // order differs from the extracted art order.
+    if curr.game_mode != GameMode::DemoPlay && curr.current_helmet_id != prev.current_helmet_id {
         if let Some(id) = transform_sound_for_helmet_id_loc_7cd0(curr.current_helmet_id)
             && !queued_sound_ids.contains(&id)
         {
@@ -14561,6 +14562,20 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::RED_STEALTH_TRANSFORM],
             "ASM loc_7CD0 transform SFX now arrives from the core trace; play-native must not add the legacy helmet-id fallback twice"
+        );
+    }
+
+    #[test]
+    fn play_native_demo_transform_skips_legacy_fallback_loc_7cd0() {
+        let mut prev = sample_trace(GameMode::DemoPlay);
+        let mut curr = sample_trace(GameMode::DemoPlay);
+        prev.current_helmet_id = PlayerForm::TheKid.helmet_id();
+        curr.current_helmet_id = PlayerForm::Cyclone.helmet_id();
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            Vec::<u8>::new(),
+            "ASM loc_7CD0 branches on Demo_Mode_flag before unk_7ED8, so legacy helmet-id fallback must stay silent in demo traces"
         );
     }
 
