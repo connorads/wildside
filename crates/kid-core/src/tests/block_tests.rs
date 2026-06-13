@@ -13112,6 +13112,59 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_collision_horizontal_escape_carries_signed_platform_velocity_loc_26b6() {
+        let mut platform = make_test_platform(40, 100, 2, 0);
+        platform.x_velocity = -0x2_0000;
+        let mut slice = make_airborne_slice(40, 110);
+
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert_eq!(
+            slice.player.x_velocity, -0x2_0000,
+            "ASM loc_26B6/loc_26C0 should carry the negative `$A(a2)` platform velocity into `$26(a0)` after a leftward side escape",
+        );
+    }
+
+    #[test]
+    fn platform_collision_horizontal_escape_carries_signed_platform_velocity_loc_26a2() {
+        let mut platform = make_test_platform(40, 100, 2, 0);
+        platform.x_velocity = 0x1_8000;
+        let mut slice = make_airborne_slice(92, 100);
+
+        apply_platform_collision(&mut slice, &[platform]);
+
+        assert_eq!(
+            slice.player.x_velocity, 0x1_8000,
+            "ASM loc_26A2 should carry the positive `$A(a2)` platform velocity into `$26(a0)` after a rightward side escape",
+        );
+    }
+
+    #[test]
+    fn platform_collision_horizontal_escape_clamps_opposite_velocity_loc_26a2_26b6() {
+        let mut right_escape_platform = make_test_platform(40, 100, 2, 0);
+        right_escape_platform.x_velocity = -0x1_8000;
+        let mut right_escape = make_airborne_slice(92, 100);
+
+        apply_platform_collision(&mut right_escape, &[right_escape_platform]);
+
+        assert_eq!(
+            right_escape.player.x_velocity, 0,
+            "ASM loc_26A2 should clamp negative `$A(a2)` to zero after a rightward side escape",
+        );
+
+        let mut left_escape_platform = make_test_platform(40, 100, 2, 0);
+        left_escape_platform.x_velocity = 0x1_8000;
+        let mut left_escape = make_airborne_slice(40, 110);
+
+        apply_platform_collision(&mut left_escape, &[left_escape_platform]);
+
+        assert_eq!(
+            left_escape.player.x_velocity, 0,
+            "ASM loc_26B6 should clamp positive `$A(a2)` to zero after a leftward side escape",
+        );
+    }
+
+    #[test]
     fn platform_support_check_sub_8ed0_reports_unsupported_without_a_platform() {
         assert!(
             platform_support_check_sub_8ED0(None, 50u32 << 16, 7, PlayerForm::RedStealth, false),

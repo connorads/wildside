@@ -875,6 +875,15 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                     player_x_px as i16,
                     push_x_px,
                 );
+                // ASM loc_26A2/loc_26B6: side escapes copy only platform
+                // velocity travelling in the escape direction into `$26(a0)`.
+                slice.player.x_velocity = if pushed.takes_negative_branch {
+                    negative_platform_carry_loc_26B6(platform.x_velocity, false)
+                        .carried_x_velocity_fp
+                } else {
+                    positive_platform_carry_loc_26A2(platform.x_velocity, false)
+                        .carried_x_velocity_fp
+                };
                 slice.player.x_pos = (i32::from(pushed.kid_gfx_x_px).max(0) as u32) << 16;
                 slice.player.on_ground = false;
                 return PlatformCollisionOutcome::None;
