@@ -999,8 +999,7 @@ fn enter_debug_hotkey_level(
     *session_assets = next_assets;
     runtime.set_block_grid(session_assets.block_grid.clone());
     *trace = runtime.enter_level_debug_title_card(level_id);
-    let has_renderable_title_card =
-        level_has_generated_title_card(manifest, level_id) && runtime.vdp_state().is_some();
+    let has_renderable_title_card = level_has_generated_title_card(manifest, level_id);
 
     debug_hotkey_level_presentation(has_renderable_title_card)
 }
@@ -9779,10 +9778,13 @@ mod tests {
         );
         assert_eq!(trace.current_level_name.as_deref(), Some("Hotkey Target"));
         assert_eq!(
-            presentation.debug_level_card_fallback_frames_remaining, LEVEL_CARD_HOLD_FRAMES,
-            "the hotkey must render the explicit debug name card before gameplay"
+            presentation.debug_level_card_fallback_frames_remaining, 0,
+            "generated Load_TitleCard data should keep native hotkeys on the ROM title-card path even if this tiny fixture lacks live VDP state"
         );
-        assert_eq!(presentation.level_card_frames_remaining, 0);
+        assert_eq!(
+            presentation.level_card_frames_remaining,
+            LEVEL_CARD_HOLD_FRAMES
+        );
         assert!(presentation.wait_for_live_input_release);
         assert!(!presentation.suppress_level_card_for_debug_warp);
         assert!(native_level_card_hold_active(
@@ -9791,7 +9793,7 @@ mod tests {
         ));
         assert!(
             runtime.vdp_state().is_none(),
-            "the tiny unit fixture lacks extracted title-card art; live extracted manifests exercise the ROM-card branch"
+            "the tiny unit fixture lacks extracted title-card art, but the presentation choice is keyed by generated title-card data so play-native never flashes the debug fallback before the ROM intro"
         );
     }
 
@@ -9801,66 +9803,76 @@ mod tests {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
-        let start_assets =
-            load_native_session_assets(&manifest, 0x00).expect("Blue Lake Woods 1 session assets");
-        let target_assets =
-            load_native_session_assets(&manifest, 0x01).expect("Blue Lake Woods 2 session assets");
-        let mut runtime = NativeRuntime::new(manifest.clone());
-        let mut session_assets = start_assets;
-        runtime.set_block_grid(session_assets.block_grid.clone());
-        let mut trace = runtime.enter_level_playtest(LevelId(0x00));
 
-        let presentation = enter_debug_hotkey_level(
-            &manifest,
-            &mut runtime,
-            &mut trace,
-            &mut session_assets,
-            LevelId(0x01),
-            target_assets,
-        );
+        for (start_level, target_level, route_name) in [
+            (0x00, 0x01, "Blue Lake Woods 1 -> Blue Lake Woods 2"),
+            (0x01, 0x02, "Blue Lake Woods 2 -> Highwater Pass 1"),
+        ] {
+            let start_assets = load_native_session_assets(&manifest, start_level)
+                .unwrap_or_else(|_| panic!("{route_name} start session assets"));
+            let target_assets = load_native_session_assets(&manifest, target_level)
+                .unwrap_or_else(|_| panic!("{route_name} target session assets"));
+            let mut runtime = NativeRuntime::new(manifest.clone());
+            let mut session_assets = start_assets;
+            runtime.set_block_grid(session_assets.block_grid.clone());
+            let mut trace = runtime.enter_level_playtest(LevelId(start_level));
 
-        assert_eq!(trace.game_mode, GameMode::LevelTransition);
-        assert_eq!(
-            presentation.level_card_frames_remaining,
-            LEVEL_CARD_HOLD_FRAMES
-        );
-        assert_eq!(
-            presentation.debug_level_card_fallback_frames_remaining, 0,
-            "generated title-card targets should show the actual ROM level intro, not the debug fallback"
-        );
-        assert!(runtime.vdp_state().is_some());
-        assert!(
-            !trace.active_objects.iter().any(|object| {
-                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
-                    && object.debug_fields.contains_key("glyph")
-            }),
-            "ASM loc_6E2/Load_TitleCard can expose the VDP shell before loc_1AB26 title workers surface",
-        );
+            let presentation = enter_debug_hotkey_level(
+                &manifest,
+                &mut runtime,
+                &mut trace,
+                &mut session_assets,
+                LevelId(target_level),
+                target_assets,
+            );
 
-        assert!(should_step_runtime_during_level_card_hold(
-            presentation.level_card_frames_remaining,
-            presentation.debug_level_card_fallback_frames_remaining
-        ));
-        assert!(
-            runtime.vdp_state().is_some(),
-            "the first visible hotkey frame should come from the ROM VDP title-card shell"
-        );
-        let mut title_workers_visible = false;
-        for _ in 0..LEVEL_CARD_HOLD_FRAMES {
-            let advanced = runtime.step_frame(FrameInput::default());
-            title_workers_visible = advanced.active_objects.iter().any(|object| {
-                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
-                    && object.debug_fields.contains_key("glyph")
-            });
-            if title_workers_visible {
-                break;
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name} should enter ASM loc_6E2/Load_TitleCard"
+            );
+            assert_eq!(
+                presentation.level_card_frames_remaining, LEVEL_CARD_HOLD_FRAMES,
+                "{route_name} should hold the ROM title-card shell"
+            );
+            assert_eq!(
+                presentation.debug_level_card_fallback_frames_remaining, 0,
+                "{route_name} generated title-card target should show the actual ROM level intro, not the debug fallback"
+            );
+            assert!(runtime.vdp_state().is_some(), "{route_name} VDP shell");
+            assert!(
+                !trace.active_objects.iter().any(|object| {
+                    matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
+                        && object.debug_fields.contains_key("glyph")
+                }),
+                "ASM loc_6E2/Load_TitleCard can expose the VDP shell before loc_1AB26 title workers surface for {route_name}",
+            );
+
+            assert!(should_step_runtime_during_level_card_hold(
+                presentation.level_card_frames_remaining,
+                presentation.debug_level_card_fallback_frames_remaining
+            ));
+            assert!(
+                runtime.vdp_state().is_some(),
+                "the first visible hotkey frame should come from the ROM VDP title-card shell for {route_name}"
+            );
+            let mut title_workers_visible = false;
+            for _ in 0..LEVEL_CARD_HOLD_FRAMES {
+                let advanced = runtime.step_frame(FrameInput::default());
+                title_workers_visible = advanced.active_objects.iter().any(|object| {
+                    matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
+                        && object.debug_fields.contains_key("glyph")
+                });
+                if title_workers_visible {
+                    break;
+                }
             }
-        }
 
-        assert!(
-            title_workers_visible,
-            "play-native N/P must keep stepping with neutral input until ASM loc_1AB26 exposes title-card workers before the hold expires",
-        );
+            assert!(
+                title_workers_visible,
+                "play-native N/P must keep stepping with neutral input until ASM loc_1AB26 exposes title-card workers before the hold expires for {route_name}",
+            );
+        }
     }
 
     #[test]
