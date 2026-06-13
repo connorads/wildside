@@ -9499,6 +9499,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #308
 
 - Filed 2026-06-11 umbrella: combat-fidelity-audit.md (21 gaps; #294 promoted separately). Largest item: per-sprite-frame `CollisionSize_Index` hitboxes vs the invented fixed 8x16 contact box used for every non-special family; also colid word delivery collapse and the Berzerker reflect keyed to the wrong `object_meta` bit.
+- Follow-up 2026-06-13 contact-box audit: FireDemon/Diamond/Robot/Armadillo/TarMonster/Sphere/Archer/DragonFlying/Cloud/Fireball/EmoRock/Hand/Orca/Crab/UFO/Tornado/Goat/Ninja/Lion/Scorpion/SpinningTwins/Driller/BigHoppingSkull now have explicit ROM-backed contact bounds. Do not patch the remaining Drips/MiniHoppingSkull/HeadyMetal gaps with a broad family fallback: Drips parents are hidden and visible crawlers route through projectile snapshots (`Drips.asm loc_33424/loc_33488/loc_33550`), MiniHoppingSkull uses special scream/overlap handling around `LnkTo_unk_C8040`, and HeadyMetal `unk_C84xx` labels are graphics mappings for composite workers rather than direct collision-size rows exposed by `ActiveEnemy::snapshot`. Next useful slice needs sprite-link-aware contact modelling or a concrete oracle route, not another fixed 8x16 replacement.
 
 ### #309
 
