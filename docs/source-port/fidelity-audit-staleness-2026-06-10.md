@@ -205,7 +205,7 @@ Pattern: nearly every fix landed in the theme-art/background subsystem and was a
 
 ## platforms-fidelity-audit.md (2026-05-31)
 
-Re-checked all 40 gaps on 2026-06-10: 32 remain still-open, 5 fixed, 3 partially-fixed, and 0 overturned by the confirmer. Follow-up 2026-06-13: crawl-on-platform `sub_8ED0` width wiring, type-0 platform height decode, and scripted-position wrapping are fixed, leaving 28 still-open from this audit.
+Re-checked all 40 gaps on 2026-06-10: 32 remain still-open, 5 fixed, 3 partially-fixed, and 0 overturned by the confirmer. Follow-up 2026-06-13: crawl-on-platform `sub_8ED0` width wiring, type-0 platform height decode, scripted-position wrapping, and lift ceiling crush are fixed, leaving 27 still-open from this audit.
 
 | Gap | Sev | Verdict | Evidence |
 | --- | --- | --- | --- |
@@ -235,7 +235,6 @@ Still-open gaps (remain authoritative in the original doc):
 - `Platforms_CheckCollision` — single-pass full-slot loop with epilogue decomposed into multiple recomputed passes
 - Walk/crawl platform crush — additive carry instead of ROM snap-to-(platform_y-1)+copy-y_vel; d7==2 ceiling-up path approximated
 - TrapPlatform — deactivation flag `$12(a3)` not modelled for special platforms
-- Lift block — ceiling-crush while riding upward (loc_78A8) omitted
 - Platform loader — offset/list helpers modelled but never wired into live roster build
 - Layout indexing — platform index sign-extension (`ext.l`) not modelled; unsigned add only (no base-ROM effect)
 - Layout indexing — `map_order` out-of-range fallback differs from ROM unconditional table read

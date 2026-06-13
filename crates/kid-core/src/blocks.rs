@@ -3366,7 +3366,11 @@ impl NativeRuntime {
         }
     }
 
-    pub(crate) fn step_lift_platforms(&mut self, slice: &mut OpeningSliceState) {
+    pub(crate) fn step_lift_platforms(
+        &mut self,
+        slice: &mut OpeningSliceState,
+    ) -> PlatformCollisionOutcome {
+        let mut outcome = PlatformCollisionOutcome::None;
         self.block_state.lift_platforms.retain_mut(|lift| {
             if !lift.block_erased {
                 if let Some(grid) = &mut self.block_grid {
@@ -3416,11 +3420,29 @@ impl NativeRuntime {
                     .clamp(0, i64::from(u32::MAX)) as u32;
                     slice.terrain.floor_y_pos =
                         (((slice.player.y_pos >> 16) as i32).max(0) as u32) << 16;
+                    if lift.y_velocity < 0
+                        && self.block_grid.as_ref().is_some_and(|grid| {
+                            terrain::probe_ceiling(
+                                grid,
+                                (slice.player.x_pos >> 16) as i32,
+                                (slice.player.y_pos >> 16) as i32,
+                                self.progression.current_form.half_width(),
+                                self.progression.current_form.ceiling_probe_height(),
+                            )
+                            .hit
+                        })
+                    {
+                        // ASM loc_78A8/loc_78C0 (kid.asm:7943-7954): an
+                        // upward platform y_vel after ceiling contact routes
+                        // directly to `Death` with d7=0.
+                        outcome = PlatformCollisionOutcome::CrushDeath;
+                    }
                 }
             }
 
             true
         });
+        outcome
     }
 
     #[allow(non_snake_case)]

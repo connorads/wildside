@@ -10905,7 +10905,8 @@ mod chunk_09 {
         slice.player.on_ground = true;
         slice.terrain.floor_y_pos = lift_y;
 
-        rt.step_lift_platforms(&mut slice);
+        let outcome = rt.step_lift_platforms(&mut slice);
+        assert_eq!(outcome, PlatformCollisionOutcome::None);
         assert_eq!(
             rt.block_state.lift_platforms[0].y_pos, lift_y,
             "ASM sub_FCA6 should leave `6(a3)` unchanged on the first frame because `$E(a3)` starts at zero",
@@ -10916,7 +10917,8 @@ mod chunk_09 {
             "grounded riders should still inherit the newly updated `$E(a3)` even before the integer `6(a3)` word changes",
         );
 
-        rt.step_lift_platforms(&mut slice);
+        let outcome = rt.step_lift_platforms(&mut slice);
+        assert_eq!(outcome, PlatformCollisionOutcome::None);
         let expected_lift_y = 0x0063_F8F8;
         assert_eq!(
             rt.block_state.lift_platforms[0].y_pos, expected_lift_y as u32,
@@ -10925,6 +10927,39 @@ mod chunk_09 {
         assert!(
             slice.player.y_pos < lift_y,
             "player should be carried upward with the lift"
+        );
+    }
+
+    #[test]
+    fn lift_platform_loc_78a8_crushes_rider_into_ceiling() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::TheKid;
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8));
+        rt.block_state.lift_platforms.push(LiftPlatform {
+            x_pos: 32 << 16,
+            y_pos: 30 << 16,
+            y_velocity: -0x0001_0000,
+            age: 0,
+            last_integer_y: 30,
+            moved_y_steps: 0,
+            width_px: 16,
+            source_col: 2,
+            source_row: 6,
+            block_erased: true,
+        });
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 30 << 16;
+        slice.player.on_ground = true;
+        slice.terrain.floor_y_pos = 30 << 16;
+
+        let outcome = rt.step_lift_platforms(&mut slice);
+
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::CrushDeath,
+            "ASM loc_78A8/loc_78C0: upward lift platform y_vel after ceiling contact should route to Death",
         );
     }
 

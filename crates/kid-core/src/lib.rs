@@ -3901,11 +3901,16 @@ impl NativeRuntime {
 
         // Lift platforms: step movement and collision
         let player_before_lift_platforms = slice.player;
-        self.step_lift_platforms(&mut slice);
+        let lift_collision_outcome = self.step_lift_platforms(&mut slice);
         if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
             && slice.player != player_before_lift_platforms
         {
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LiftPlatform;
+        }
+        if lift_collision_outcome == PlatformCollisionOutcome::CrushDeath {
+            self.opening_slice = Some(slice);
+            self.begin_death_windup();
+            return;
         }
 
         // ASM loc_787E (kid.asm:7924): when the standing-still platform block
