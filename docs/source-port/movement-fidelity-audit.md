@@ -25,7 +25,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
 | Airborne horizontal control | partial | 1 |
 | Secondary airborne path (`sub_8506`) | full | 0 |
-| Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | partial | 2 |
+| Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | partial | 1 |
 | Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 5 |
 | Landing / floor-support & platform riding | partial | 2 |
 | Wall-hit + ceiling-hit collision response | partial | 1 |
@@ -47,8 +47,8 @@ ROM stand-up runs `sub_DAA6` (overhead platform) → `sub_B43A` (floor) → Skyc
 **FIXED 2026-06-13 — Airborne control delegates Skycutter air-jump to `sub_9A20`** (`sub_B084` @kid.asm:13921-13927; `sub_9A20` @11588)
 `sub_B084`'s first action: `cmpi.w #Skycutter,(Current_Helmet); bne loc_B09E; move.l x_vel,d0; bsr sub_9A20` — airborne Skycutter **bypasses** the `unk_A4B2`/`unk_A4C6` air tables and uses `sub_9A20` (caps `$20000` walk/`$40000` run, `$2000`/`$4000` accel, two-tier cruise-decel). Native now mirrors that in both `update_horizontal_velocity_only` (`movement.rs:5244-5251`) and the full horizontal motion helper (`movement.rs:5590-5597`). Regression `sub_b084_airborne_skycutter_uses_sub_9a20_velocity` (`movement_tests.rs:4728-4790`) proves both live paths apply `$2000` from `sub_9A20` instead of the generic Skycutter jump-air table's `$3400`.
 
-**Slope walking — Up-held / Down-held do not drive uphill/downhill acceleration** (`loc_9DAA` @kid.asm:11986-11995, `loc_9DC0`/`loc_9DF2`)
-`loc_9DAA` dispatches slope accel on **four** inputs: Right→uphill, Left→downhill, **Up→uphill**, **Down→downhill**; only with none held does it fall to neutral `loc_9E2E`. Native `update_level_one_slope_ground_velocity` (`movement.rs:6154-6231`) derives `uphill_pressed`/`downhill_pressed` from `input.left`/`input.right` only, and `HorizontalInput` (`physics.rs:517-521`) has no up/down field, so holding only Up/Down on a slope falls to neutral-decel instead of climbing/descending.
+**FIXED 2026-06-13 — Slope walking honours Up-held / Down-held acceleration** (`loc_9DAA` @kid.asm:11986-11995, `loc_9DC0`/`loc_9DF2`)
+`loc_9DAA` dispatches slope accel on **four** inputs: Right→uphill, Left→downhill, **Up→uphill**, **Down→downhill**; only with none held does it fall to neutral `loc_9E2E`. Native now maps vertical-only commands to the equivalent slope-relative horizontal command in `slope_horizontal_input_loc_9DAA` (`movement.rs:7378-7410`) before `update_level_one_slope_ground_velocity` runs. Regressions `slope_up_held_only_drives_uphill_accel_loc_9daa` and `slope_down_held_only_drives_downhill_accel_loc_9daa` verify the live `OpeningSliceState` path branches to `loc_9DC0` and `loc_9DF2`.
 
 ### Medium severity
 
