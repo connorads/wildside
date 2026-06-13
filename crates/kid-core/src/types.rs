@@ -2269,6 +2269,12 @@ impl ActivePlatform {
         } else {
             None
         };
+        let mut height_px = u16::from(placement.v_variant) * 16 + 15;
+        if placement.kind & 0x7F == 0 {
+            // ASM loc_2822 (kid.asm:4744-4746): after `bclr #7,d7`, decoded
+            // type zero shrinks `$1C(a3)` by 2 px before the art lookup.
+            height_px = height_px.saturating_sub(2);
+        }
 
         Self {
             layout_index: None,
@@ -2277,7 +2283,7 @@ impl ActivePlatform {
             x_pos: crate::platforms::platform_layout_coord_fixed_loc_2762(placement.x),
             y_pos,
             width_px: u16::from(placement.h_variant) * 16 + 15,
-            height_px: u16::from(placement.v_variant) * 16 + 15,
+            height_px,
             x_velocity: 0,
             y_velocity: 0,
             script,

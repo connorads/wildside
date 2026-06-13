@@ -13358,8 +13358,8 @@ mod chunk_04 {
             "ASM loc_2822 (kid.asm:4748) only swaps the platform art word after the size fields are ready, so the native gameplay model should preserve the collision width from `h_variant` while omitting `$18(a3)`",
         );
         assert_eq!(
-            platform.height_px, 15,
-            "ASM loc_2822 should leave the collision height established before the art lookup intact; the gameplay port tracks that height even though it does not model the VRAM art pointer",
+            platform.height_px, 13,
+            "ASM loc_2822 (kid.asm:4744-4746) should subtract 2px from decoded type-0 platform height before the art lookup",
         );
         assert_eq!(
             platform.script, None,
@@ -13374,6 +13374,33 @@ mod chunk_04 {
             platform.y_pos,
             (25u32 << 4) << 16,
             "ASM loc_2762 (kid.asm:4721) should scale the `ptfm` y word by 16 before native collision uses fixed-point world pixels",
+        );
+
+        let non_zero_type = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                kind: 1,
+                ..PlatformPlacement {
+                    x: 24,
+                    y: 25,
+                    buffer_left: 0,
+                    buffer_right: 40,
+                    buffer_top: 0,
+                    buffer_bottom: 19,
+                    kind: 0,
+                    subtype: 2,
+                    h_variant: 3,
+                    v_variant: 0,
+                    script: PlatformScriptRef {
+                        raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                        relative_offset: None,
+                    },
+                }
+            },
+            None,
+        );
+        assert_eq!(
+            non_zero_type.height_px, 15,
+            "ASM loc_2822 should only apply the `subq.w #2,$1C(a3)` height quirk when the decoded type byte is zero",
         );
     }
 

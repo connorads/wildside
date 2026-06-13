@@ -205,7 +205,7 @@ Pattern: nearly every fix landed in the theme-art/background subsystem and was a
 
 ## platforms-fidelity-audit.md (2026-05-31)
 
-Re-checked all 40 gaps on 2026-06-10: 32 remain still-open, 5 fixed, 3 partially-fixed, and 0 overturned by the confirmer. Follow-up 2026-06-13: crawl-on-platform `sub_8ED0` width wiring is fixed, leaving 31 still-open from this audit.
+Re-checked all 40 gaps on 2026-06-10: 32 remain still-open, 5 fixed, 3 partially-fixed, and 0 overturned by the confirmer. Follow-up 2026-06-13: crawl-on-platform `sub_8ED0` width wiring and type-0 platform height decode are fixed, leaving 29 still-open from this audit.
 
 | Gap | Sev | Verdict | Evidence |
 | --- | --- | --- | --- |
@@ -229,9 +229,7 @@ Still-open gaps (remain authoritative in the original doc):
 - Special-platform dispatch keys off `raw=="0"` instead of the `off_40D2` index (pp/4)
 - Lift platform — ride/carry bypasses the `sub_8ED0` framework (bespoke ±[−2..4] foot snap)
 - Slot pool — 17-slot capacity / `Number_Platforms` cap counter not modelled
-- Platform loader — type-0 platform Y-size `subq.w #2,$1C(a3)` adjustment not modelled
 - Platform loader — architecture mismatch: ROM one-record-per-frame cursor vs native full-rescan; dedicated helpers dead
-- Field decode — type-0 height −2 quirk (loc_2746) omitted
 - Field decode — art selection bypasses `PlatformArtAddr_Table`; render-flag vs type nibble conflated
 - `Platforms_CheckCollision` — invented `GROUND_SNAP_TOLERANCE_FP` replaces exact AABB overlap test
 - `Platforms_CheckCollision` — single-pass full-slot loop with epilogue decomposed into multiple recomputed passes
