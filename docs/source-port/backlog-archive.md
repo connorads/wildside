@@ -9512,6 +9512,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #303
 
 - Filed 2026-06-11 from shell-fidelity-audit.md (mediums folded). CONTINUE? accepts A/B/C (`any_button`, boot.rs:7782) where ROM `loc_D350`/`loc_D3AA` test Start only (`bmi` on bit 7); the second 239-frame `loc_D3AA` Start window is dropped entirely (CONTINUE_COUNTDOWN_FRAMES=319). Oracle repro: interactive-only; pair with #305.
+- Closed 2026-06-13: native `ContinueCountdown` now polls Start only, preserves the input-first `loc_D350` branch into `Use_Continue`, and keeps the `loc_D3AA` 239-frame second Start window before title return. The continue reset clears form/diamonds/extra HP per `Use_Continue`. Verification: `cargo test -q -p kid-core loc_d350_ -- --nocapture`; `cargo test -q -p kid-core loc_d3aa_ -- --nocapture`; `cargo test -q -p kid-core use_continue_clears_extra_hitpoint_slots_loc_d3c4 -- --nocapture`; `cargo test -q -p kidcli continue_countdown -- --nocapture`.
 
 ### #304
 
