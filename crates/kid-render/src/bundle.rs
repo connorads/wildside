@@ -15,7 +15,7 @@ use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use kid_data::{
     AssetFile, AssetManifest, DecodedAssetFile, EnemyLayout, decode_enigma, decode_saxman,
-    ensure_generated_bundle_contract, load_level_asset_bundle,
+    ensure_generated_bundle_contract, load_level_asset_bundle, resource_level_id,
 };
 use sha1::{Digest, Sha1};
 use std::fs;
@@ -152,6 +152,7 @@ pub struct TitleCardLettersVisuals {
 pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<NativeLevelVisuals> {
     ensure_generated_bundle_contract(manifest)?;
     let level_bundle = load_level_asset_bundle(manifest, level_id)?;
+    let resource_level_id = resource_level_id(manifest, level_id);
     let header = level_bundle
         .parsed_header
         .as_ref()
@@ -159,7 +160,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     let decoded = manifest
         .decoded_levels
         .iter()
-        .find(|d| d.level_id == level_id);
+        .find(|d| d.level_id == resource_level_id);
 
     let foreground_theme = resolve_theme_name(header.level_theme)
         .ok_or_else(|| anyhow!("unsupported foreground theme id {}", header.level_theme))?;
@@ -174,21 +175,27 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         Some(asset) => decode_level_saxman_asset(asset, "foreground layout")?,
         None => match decoded {
             Some(d) => read_decoded_file(manifest, &d.foreground, "foreground layout")?,
-            None => bail!("level 0x{level_id:02X} has no foreground layout data"),
+            None => bail!(
+                "level 0x{level_id:02X} resource 0x{resource_level_id:02X} has no foreground layout data"
+            ),
         },
     };
     let block_layout = match level_bundle.block.as_ref() {
         Some(asset) => asset.bytes.clone(),
         None => match decoded {
             Some(d) => read_decoded_file(manifest, &d.block, "block layout")?,
-            None => bail!("level 0x{level_id:02X} has no block layout data"),
+            None => bail!(
+                "level 0x{level_id:02X} resource 0x{resource_level_id:02X} has no block layout data"
+            ),
         },
     };
     let background_layout = match level_bundle.background.as_ref() {
         Some(asset) => asset.bytes.clone(),
         None => match decoded {
             Some(d) => read_decoded_file(manifest, &d.background, "background layout")?,
-            None => bail!("level 0x{level_id:02X} has no background layout data"),
+            None => bail!(
+                "level 0x{level_id:02X} resource 0x{resource_level_id:02X} has no background layout data"
+            ),
         },
     };
     let parsed_foreground_layout = ForegroundLayout::parse(

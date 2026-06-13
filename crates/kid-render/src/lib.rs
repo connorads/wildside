@@ -678,6 +678,27 @@ mod tests {
         assert_eq!(background.rows[0].tiles[32].tile_index, 1);
     }
 
+    #[test]
+    fn load_level_visuals_uses_resource_decoded_layouts_for_aliased_levels() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        let resource_foreground = vec![0x04; 6 * 4 * 20 * 14];
+        fixture
+            .enable_decoded_resource_alias(0x01, 0x4B, &resource_foreground)
+            .expect("resource alias fixture");
+
+        let visuals =
+            load_level_visuals(&fixture.manifest, 0x01).expect("aliased visuals should load");
+
+        // ASM Load_InGame loc_11A50 resolves Current_LevelID through
+        // MapOrder_Index before reading the map header and layout pointers.
+        assert_eq!(visuals.level.level_id, 0x01);
+        assert_eq!(visuals.level.foreground_layout_bytes, resource_foreground);
+        assert_eq!(
+            visuals.level.block_layout_bytes,
+            vec![0x4B, 0x4C, 0x4D, 0x4E]
+        );
+    }
+
     struct TestBundle {
         root: TempDir,
         manifest: AssetManifest,
@@ -1580,6 +1601,102 @@ mod tests {
                 asset_file(self.root.path(), "theme/palette_bg/forest.bin"),
                 asset_file(self.root.path(), "theme/bg_chunks/forest_eni_00.bin"),
                 asset_file(self.root.path(), "theme/bg_chunks/forest_eni_01.bin"),
+            ]);
+
+            Ok(())
+        }
+
+        fn enable_decoded_resource_alias(
+            &mut self,
+            logical_level_id: u8,
+            resource_level_id: u8,
+            resource_foreground: &[u8],
+        ) -> anyhow::Result<()> {
+            write_file(
+                self.root.path(),
+                "decoded/level/01/foreground.bin",
+                &vec![0x01; 6 * 4 * 20 * 14],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/foreground.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/block.bin",
+                &[0x01, 0x02, 0x03, 0x04],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/block.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/background.bin",
+                &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/background.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/foreground.bin",
+                resource_foreground,
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/foreground.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/block.bin",
+                &[0x4B, 0x4C, 0x4D, 0x4E],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/block.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/background.bin",
+                &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/background.bin.png",
+                b"preview",
+            )?;
+
+            let base_level = self.manifest.levels[0].clone();
+            let mut logical_level = base_level.clone();
+            logical_level.level_id = logical_level_id;
+            logical_level.display_name = Some(String::from("Blue Lake Woods 2"));
+            let mut resource_level = base_level;
+            resource_level.level_id = resource_level_id;
+            resource_level.display_name = Some(String::from("Blue Lake Woods 2 resources"));
+            self.manifest.levels.extend([logical_level, resource_level]);
+            self.manifest.map_order = vec![LEVEL_ID, resource_level_id];
+            self.manifest.decoded_levels.extend([
+                DecodedLevelAssets {
+                    contract_version: DECODED_LEVEL_ASSET_VERSION,
+                    level_id: logical_level_id,
+                    foreground: decoded_asset(self.root.path(), "decoded/level/01/foreground.bin"),
+                    block: decoded_asset(self.root.path(), "decoded/level/01/block.bin"),
+                    background: decoded_asset(self.root.path(), "decoded/level/01/background.bin"),
+                },
+                DecodedLevelAssets {
+                    contract_version: DECODED_LEVEL_ASSET_VERSION,
+                    level_id: resource_level_id,
+                    foreground: decoded_asset(self.root.path(), "decoded/level/4B/foreground.bin"),
+                    block: decoded_asset(self.root.path(), "decoded/level/4B/block.bin"),
+                    background: decoded_asset(self.root.path(), "decoded/level/4B/background.bin"),
+                },
             ]);
 
             Ok(())
