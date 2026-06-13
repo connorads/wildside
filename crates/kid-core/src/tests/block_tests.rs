@@ -13180,6 +13180,36 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_collision_bottom_face_carries_y_velocity_bias_loc_26fe() {
+        let mut platform = make_test_platform(40, 100, 2, 0);
+        platform.y_velocity = 0x2_8000;
+        let mut slice = make_airborne_slice(63, 132);
+        slice.player.y_velocity = -0x1_0000;
+        slice.pre_gravity_y_vel = -0x1_0000;
+
+        let outcome = apply_platform_collision(&mut slice, &[platform]);
+
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::None,
+            "ASM loc_26FE should branch back to loc_2590 for MoveID_Jump after an underside platform carry, not record platform support",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            147u32 << 16,
+            "ASM loc_26D4 should first push Kid below the platform bottom before loc_26FE carries y velocity",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x2_C000,
+            "ASM loc_26FE should copy `$E(a2)+$4000` into Kid y_vel after a bottom-face hit",
+        );
+        assert!(
+            !slice.player.on_ground,
+            "ASM loc_26FE bottom-face carry must not set Addr_PlatformStandingOn",
+        );
+    }
+
+    #[test]
     fn platform_support_check_sub_8ed0_reports_unsupported_without_a_platform() {
         assert!(
             platform_support_check_sub_8ED0(None, 50u32 << 16, 7, PlayerForm::RedStealth, false),

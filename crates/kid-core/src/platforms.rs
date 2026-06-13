@@ -801,13 +801,9 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
         return PlatformCollisionOutcome::None;
     }
 
-    if slice.player.y_velocity < 0 {
-        // Moving upward — don't land on platforms from below
-        return PlatformCollisionOutcome::None;
-    }
-
     let mut touched_left_side = false;
     let mut touched_right_side = false;
+    let mut touched_bottom_face = false;
     let mut scan_restarts = 0usize;
     loop {
         let player_x_px = (slice.player.x_pos >> 16) as i32;
@@ -877,6 +873,55 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                 };
                 let horizontal_magnitude = push_x_px.unsigned_abs();
                 let vertical_magnitude = vertical_push_magnitude_loc_266A(push_y_px).magnitude_word;
+                if vertical_magnitude < horizontal_magnitude {
+                    // ASM loc_26D4/loc_26FE: when vertical escape wins, apply
+                    // the signed y push first.  A negative push is top support;
+                    // a non-negative push hits the platform bottom, copies
+                    // `$E(a2)+$4000` into Kid y_vel, and restarts the slot scan
+                    // while Character_Movement is Jump.
+                    let landing = platform_landing_loc_26D4(
+                        kid_top_px,
+                        kid_bottom_px,
+                        player_foot_y_px as i16,
+                        push_y_px,
+                        platform_index as u16,
+                        touched_bottom_face,
+                    );
+                    let new_y_px = i32::from(landing.kid_gfx_y_px).max(0) as u32;
+                    if push_y_px < 0 {
+                        if slice.player.y_velocity < 0 {
+                            continue;
+                        }
+                        if landing.escalates_to_loc_271_a {
+                            return PlatformCollisionOutcome::CrushDeath;
+                        }
+                        if slice.pre_gravity_y_vel >= 0 {
+                            slice.player.y_pos =
+                                (new_y_px << 16) | (slice.player.y_pos & 0x0000_FFFF);
+                        } else {
+                            slice.player.y_pos = new_y_px << 16;
+                        }
+                        slice.player.on_ground = true;
+                        slice.player.y_velocity = landing.kid_y_velocity_fp;
+                        slice.terrain.floor_y_pos = new_y_px << 16;
+                        return PlatformCollisionOutcome::StandingOn(platform_index);
+                    }
+
+                    slice.player.y_pos = (new_y_px << 16) | (slice.player.y_pos & 0x0000_FFFF);
+                    let carry = bottom_platform_carry_loc_26FE(
+                        platform.y_velocity,
+                        slice.player.y_velocity < 0 || slice.pre_gravity_y_vel < 0,
+                    );
+                    slice.player.on_ground = false;
+                    slice.player.y_velocity = carry.carried_y_velocity_fp;
+                    touched_bottom_face = carry.touched_bottom_face;
+                    if carry.escalates_to_loc_271_a {
+                        return PlatformCollisionOutcome::CrushDeath;
+                    }
+                    restart_scan = true;
+                    break;
+                }
+
                 if vertical_magnitude >= horizontal_magnitude {
                     let pushed = apply_horizontal_platform_push_loc_2686(
                         kid_left_px,
