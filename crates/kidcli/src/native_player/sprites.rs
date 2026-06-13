@@ -223,6 +223,36 @@ fn boss_head_death_frame_loc_39ebe(remaining: u16) -> usize {
     4
 }
 
+fn boss_head_death_facing_loc_39ebe(facing: Direction, remaining: u16) -> Direction {
+    let elapsed =
+        usize::from(BOSS_HEAD_DEATH_ANIMATION_FRAMES_LOC_39EBE.saturating_sub(remaining));
+    // ASM loc_39EE2/loc_39F7A toggles x_direction with `eori.b #$FF,x_direction(a3)`
+    // between the death animation scripts; no extra toggle happens at the loop tail.
+    let toggled = match elapsed {
+        0..30 => false,
+        30..70 => true,
+        70..96 => false,
+        96..112 => true,
+        112..120 => false,
+        _ => {
+            let spin_elapsed = (elapsed - 120) % 17;
+            (5..13).contains(&spin_elapsed)
+        }
+    };
+    if toggled {
+        opposite_direction(facing)
+    } else {
+        facing
+    }
+}
+
+fn opposite_direction(facing: Direction) -> Direction {
+    match facing {
+        Direction::Right => Direction::Left,
+        Direction::Left => Direction::Right,
+    }
+}
+
 const ROCK_TANK_SHOOTING_SLOW_STRU_3B4F6: [TankTurretFrameSpec; 8] = [
     TankTurretFrameSpec {
         duration_frames: 0x37,
@@ -1367,14 +1397,16 @@ pub(super) fn push_enemy_sprite(
     };
 
     let (screen_x, screen_y) = player_screen_position(object, trace);
-    let facing = object.facing.unwrap_or(Direction::Right);
+    let mut facing = object.facing.unwrap_or(Direction::Right);
+    if object_type == 0x22 && object.hit_points == Some(0)
+        && let Some(remaining) = object.wait_timer
+    {
+        facing = boss_head_death_facing_loc_39ebe(facing, remaining);
+    }
     // Enemy VRAM art is stored facing left (the ROM uses the H-flip bit to
     // show right-facing sprites). Invert the facing for rendering so that
     // Direction::Right flips the left-facing art to face right.
-    let render_facing = match facing {
-        Direction::Right => Direction::Left,
-        Direction::Left => Direction::Right,
-    };
+    let render_facing = opposite_direction(facing);
 
     if is_rock_tank_child_snapshot(object_type, object, trace) {
         if let Some(turret_frame) =

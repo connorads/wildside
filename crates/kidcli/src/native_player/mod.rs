@@ -11714,6 +11714,65 @@ mod tests {
     }
 
     #[test]
+    fn boss_head_death_snapshot_flips_loc_39ebe_x_direction() {
+        let visuals = sample_level_visuals();
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x22 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(0),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: true,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(120 + 10 * 17),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let trace = sample_trace(GameMode::InGame);
+        let mut commands = Vec::new();
+
+        let mut first_flip_x = |remaining| {
+            object.wait_timer = Some(remaining);
+            commands.clear();
+            sprites::push_enemy_sprite(&mut commands, &object, &trace, &visuals, 0x22);
+            sprite_tiles(commands.first().expect("boss head sprite"))[0]
+                .tile
+                .flip_x
+        };
+
+        let baseline = first_flip_x(120 + 10 * 17);
+        assert!(
+            baseline,
+            "enemy art is stored left-facing, so a right-facing boss head renders with H-flip"
+        );
+
+        for (remaining, expected_flip_x) in [
+            (120 + 10 * 17 - 30, !baseline),
+            (120 + 10 * 17 - 69, !baseline),
+            (120 + 10 * 17 - 70, baseline),
+            (120 + 10 * 17 - 96, !baseline),
+            (120 + 10 * 17 - 112, baseline),
+            (10 * 17, baseline),
+            (10 * 17 - 5, !baseline),
+            (10 * 17 - 13, baseline),
+        ] {
+            assert_eq!(
+                first_flip_x(remaining),
+                expected_flip_x,
+                "ASM loc_39EE2/loc_39F7A should render boss-head H-flip from each `eori.b #$FF,x_direction(a3)` phase"
+            );
+        }
+    }
+
+    #[test]
     fn goat_death_snapshot_selects_stru_3c9ea_frames() {
         let visuals = sample_level_visuals();
         let goat_visuals = visuals.enemies.families.get(&0x10).expect("goat visuals");
