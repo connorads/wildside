@@ -63,6 +63,7 @@ pub(crate) enum QueuedSoundEffect {
     AnkhPrize,
     ClockPrize,
     CoinPrize,
+    Teleport,
     DripsDripping,
     TarMonsterDisappears,
     TarMonsterAppears,
@@ -145,6 +146,10 @@ impl QueuedSoundEffect {
             // `Number_Continues` and plays `sfx_Coin_prize = $2C` when the Kid
             // collects a Continue prize object.
             Self::CoinPrize => 0x2C,
+            // ASM Teleport (kid.asm:14775-14779) plays `sfx_Teleport = $76`
+            // only when the caller passes d6=-5; teleporter blocks do so at
+            // loc_BCF6.
+            Self::Teleport => 0x76,
             // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping = $58`
             // when the falling child reaches floor collision before loc_33488.
             Self::DripsDripping => 0x58,
@@ -11964,6 +11969,7 @@ impl NativeRuntime {
         // `moveq #-5,d6; bra Teleport` (d6=-5 triggers sfx_Teleport sound).
         if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(slice) {
             self.opening_slice = Some(*slice);
+            self.played_sound_effects.push(QueuedSoundEffect::Teleport);
             // Same-level teleport: reposition. Cross-level: trigger level skip.
             if dest_map == self.current_level.0 {
                 if let Some(ref mut s) = self.opening_slice {

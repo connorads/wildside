@@ -1467,6 +1467,12 @@ fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
         runtime.last_kid_frame_post_motion_mutator,
         KidFramePostMotionMutator::Teleporter
     );
+    assert_eq!(
+        runtime.played_sound_effects,
+        vec![QueuedSoundEffect::Teleport],
+        "ASM loc_BCF6 passes d6=-5 into Teleport, which plays sfx_Teleport"
+    );
+    assert_eq!(QueuedSoundEffect::Teleport.sound_id(), 0x76);
 }
 
 #[test]
