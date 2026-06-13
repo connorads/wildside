@@ -312,6 +312,12 @@ and stop — never commit churn.
   scratch route (`lower-left-wall-b-current`) is also not the repro: native
   keeps the held-left wall/jump path, while the
   first oracle split is a Drips controller/object-count mismatch at frame 103;
+  a 2026-06-13 current-HEAD stair-route audit rejects
+  `.cache/recordings/issue277-blw2-stair-jump-right-current/scenario.json`
+  because it passes frames 0..180, and rejects the paired left route as an
+  input signal because the first authoritative split is native
+  ShooterBlock/stomp-bounce handling at frame 88/90, before it can prove a
+  dropped-left jump.
   #291 stale #249 gate assertion re-derived (tail sample is airborne after walking off support).
 - **Gates**: verify-slice-fast green. Full published TAS
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
