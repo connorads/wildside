@@ -10964,6 +10964,40 @@ mod chunk_09 {
     }
 
     #[test]
+    fn lift_platform_support_uses_current_form_width_sub_8ed0() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        rt.block_state.lift_platforms.push(LiftPlatform {
+            x_pos: 32 << 16,
+            y_pos: 100 << 16,
+            y_velocity: 0,
+            age: 0,
+            last_integer_y: 100,
+            moved_y_steps: 0,
+            width_px: 16,
+            source_col: 2,
+            source_row: 6,
+            block_erased: true,
+        });
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        // The Kid's hardcoded half-width 5 would miss this platform
+        // horizontally, but Juggernaut's ASM sub_8ED0 width overlaps it.
+        slice.player.x_pos = 60 << 16;
+        slice.player.y_pos = 100 << 16;
+        slice.player.y_velocity = 0;
+        slice.player.on_ground = false;
+
+        let outcome = rt.step_lift_platforms(&mut slice);
+
+        assert_eq!(outcome, PlatformCollisionOutcome::None);
+        assert!(
+            slice.player.on_ground,
+            "ASM sub_8ED0 uses Current_Helmet width, so Juggernaut should still be supported by this lift",
+        );
+    }
+
+    #[test]
     fn lift_block_bob_deltas_sub_fb3e_match_the_three_hibernating_passes() {
         let deltas = NativeRuntime::lift_block_bob_deltas_sub_FB3E();
 

@@ -3392,8 +3392,12 @@ impl NativeRuntime {
             let plat_y_px = (lift.y_pos >> 16) as i32;
             let player_x_px = (slice.player.x_pos >> 16) as i32;
             let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
-            let player_left = player_x_px - PLAYER_HALF_WIDTH;
-            let player_right = player_x_px + PLAYER_HALF_WIDTH;
+            // ASM sub_8ED0 (kid.asm:10282-10306): lift workers install real
+            // platform slots, so support width comes from Current_Helmet via
+            // the shared platform-support path rather than fixed Kid width.
+            let player_half_width = self.progression.current_form.half_width();
+            let player_left = player_x_px - player_half_width;
+            let player_right = player_x_px + player_half_width;
             let plat_right = plat_x_px + i32::from(lift.width_px);
 
             if player_right >= plat_x_px
