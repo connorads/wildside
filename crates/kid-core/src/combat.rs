@@ -8272,6 +8272,43 @@ impl NativeRuntime {
                 right_worker_x_velocity_delta: cleanup.right_worker_x_velocity_delta,
                 far_right_worker_x_velocity_delta: cleanup.far_right_worker_x_velocity_delta,
                 cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
+                pieces: [
+                    HeadyMetalDeathPieceState {
+                        slot_offset: 0xFB72,
+                        x_pos,
+                        y_pos,
+                        x_velocity: cleanup.current_x_velocity_delta,
+                        y_velocity: 0,
+                    },
+                    HeadyMetalDeathPieceState {
+                        slot_offset: 0xFB76,
+                        x_pos,
+                        y_pos,
+                        x_velocity: cleanup.left_worker_x_velocity_delta,
+                        y_velocity: 0,
+                    },
+                    HeadyMetalDeathPieceState {
+                        slot_offset: 0xFB7A,
+                        x_pos,
+                        y_pos,
+                        x_velocity: 0,
+                        y_velocity: cleanup.centre_worker_y_velocity_delta,
+                    },
+                    HeadyMetalDeathPieceState {
+                        slot_offset: 0xFBAE,
+                        x_pos,
+                        y_pos,
+                        x_velocity: cleanup.right_worker_x_velocity_delta,
+                        y_velocity: 0,
+                    },
+                    HeadyMetalDeathPieceState {
+                        slot_offset: 0xFBB2,
+                        x_pos,
+                        y_pos,
+                        x_velocity: cleanup.far_right_worker_x_velocity_delta,
+                        y_velocity: 0,
+                    },
+                ],
             }),
         });
     }

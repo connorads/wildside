@@ -1752,6 +1752,16 @@ pub(crate) struct HeadyMetalDeathEffectSplit {
     pub(crate) right_worker_x_velocity_delta: i32,
     pub(crate) far_right_worker_x_velocity_delta: i32,
     pub(crate) cleanup_worker_slot_offsets: [u16; 5],
+    pub(crate) pieces: [HeadyMetalDeathPieceState; 5],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalDeathPieceState {
+    pub(crate) slot_offset: u16,
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1763,6 +1773,16 @@ pub struct HeadyMetalDeathSplitTrace {
     pub right_worker_x_velocity_delta: i32,
     pub far_right_worker_x_velocity_delta: i32,
     pub cleanup_worker_slot_offsets: [u16; 5],
+    pub pieces: Vec<HeadyMetalDeathPieceTrace>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeadyMetalDeathPieceTrace {
+    pub slot_offset: u16,
+    pub x_pos: u32,
+    pub y_pos: u32,
+    pub x_velocity: i32,
+    pub y_velocity: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -8639,6 +8639,43 @@ mod chunk_04 {
         assert!(stomped, "should register a stomp kill");
         assert!(runtime.active_enemies.is_empty(), "boss should be removed");
         assert_eq!(runtime.enemy_death_effects.len(), 1);
+        let expected_pieces = [
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFB72,
+                x_pos: 100 << 16,
+                y_pos: 120 << 16,
+                x_velocity: -0x0002_6D18,
+                y_velocity: 0,
+            },
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFB76,
+                x_pos: 100 << 16,
+                y_pos: 120 << 16,
+                x_velocity: 0x0002_6D18,
+                y_velocity: 0,
+            },
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFB7A,
+                x_pos: 100 << 16,
+                y_pos: 120 << 16,
+                x_velocity: 0,
+                y_velocity: 0x0001_3880,
+            },
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFBAE,
+                x_pos: 100 << 16,
+                y_pos: 120 << 16,
+                x_velocity: -0x0002_6D18,
+                y_velocity: 0,
+            },
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFBB2,
+                x_pos: 100 << 16,
+                y_pos: 120 << 16,
+                x_velocity: 0x0002_6D18,
+                y_velocity: 0,
+            },
+        ];
         assert_eq!(
             runtime.enemy_death_effects[0].remaining,
             HEADYMETAL_DEATH_EFFECT_FRAMES
@@ -8653,6 +8690,7 @@ mod chunk_04 {
                 right_worker_x_velocity_delta: -0x0002_6D18,
                 far_right_worker_x_velocity_delta: 0x0002_6D18,
                 cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
+                pieces: expected_pieces,
             }),
             "ASM sub_378C8 loc_378D6 applies these per-worker split impulses before loc_37922 deletes the cached HeadyMetal workers"
         );
@@ -8666,6 +8704,16 @@ mod chunk_04 {
                 right_worker_x_velocity_delta: -0x0002_6D18,
                 far_right_worker_x_velocity_delta: 0x0002_6D18,
                 cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
+                pieces: expected_pieces
+                    .iter()
+                    .map(|piece| HeadyMetalDeathPieceTrace {
+                        slot_offset: piece.slot_offset,
+                        x_pos: piece.x_pos,
+                        y_pos: piece.y_pos,
+                        x_velocity: piece.x_velocity,
+                        y_velocity: piece.y_velocity,
+                    })
+                    .collect(),
             }],
             "trace_frame should expose the live HeadyMetal sub_378C8 split impulse for oracle/debug comparisons"
         );

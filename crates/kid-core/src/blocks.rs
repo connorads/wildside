@@ -4394,11 +4394,37 @@ impl NativeRuntime {
         });
 
         for e in &mut self.enemy_death_effects {
-            if e.heady_metal_split.is_some() {
+            if let Some(split) = &mut e.heady_metal_split {
                 // ASM sub_378C8 loc_37922: once the shared HeadyMetal hit
                 // latch is set, `$42(a3)` decrements to zero and then clears
                 // the five cached breakup worker slots.
-                e.remaining = heady_metal_cleanup_sub_378C8(true, e.remaining).next_countdown_42;
+                let cleanup = heady_metal_cleanup_sub_378C8(true, e.remaining);
+                e.remaining = cleanup.next_countdown_42;
+                if !cleanup.should_cleanup_workers {
+                    // ASM sub_378C8 loc_378D6: the same split impulse is
+                    // added to the cached workers while the countdown
+                    // survives; native keeps their positions on the shell
+                    // until the full composite renderer exists.
+                    split.pieces[0].x_velocity = split.pieces[0]
+                        .x_velocity
+                        .wrapping_add(cleanup.current_x_velocity_delta);
+                    split.pieces[1].x_velocity = split.pieces[1]
+                        .x_velocity
+                        .wrapping_add(cleanup.left_worker_x_velocity_delta);
+                    split.pieces[2].y_velocity = split.pieces[2]
+                        .y_velocity
+                        .wrapping_add(cleanup.centre_worker_y_velocity_delta);
+                    split.pieces[3].x_velocity = split.pieces[3]
+                        .x_velocity
+                        .wrapping_add(cleanup.right_worker_x_velocity_delta);
+                    split.pieces[4].x_velocity = split.pieces[4]
+                        .x_velocity
+                        .wrapping_add(cleanup.far_right_worker_x_velocity_delta);
+                    for piece in &mut split.pieces {
+                        piece.x_pos = piece.x_pos.wrapping_add(piece.x_velocity as u32);
+                        piece.y_pos = piece.y_pos.wrapping_add(piece.y_velocity as u32);
+                    }
+                }
             } else {
                 e.remaining = e.remaining.saturating_sub(1);
             }

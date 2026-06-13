@@ -10897,6 +10897,43 @@ mod chunk_09 {
     #[test]
     fn heady_metal_death_effect_uses_loc_37922_cleanup_when_countdown_reaches_zero() {
         let mut rt = NativeRuntime::new(manifest());
+        let pieces = [
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFB72,
+                x_pos: 100,
+                y_pos: 200,
+                x_velocity: -0x0002_6D18,
+                y_velocity: 0,
+            },
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFB76,
+                x_pos: 100,
+                y_pos: 200,
+                x_velocity: 0x0002_6D18,
+                y_velocity: 0,
+            },
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFB7A,
+                x_pos: 100,
+                y_pos: 200,
+                x_velocity: 0,
+                y_velocity: 0x0001_3880,
+            },
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFBAE,
+                x_pos: 100,
+                y_pos: 200,
+                x_velocity: -0x0002_6D18,
+                y_velocity: 0,
+            },
+            HeadyMetalDeathPieceState {
+                slot_offset: 0xFBB2,
+                x_pos: 100,
+                y_pos: 200,
+                x_velocity: 0x0002_6D18,
+                y_velocity: 0,
+            },
+        ];
         rt.enemy_death_effects.push(EnemyDeathEffect {
             x_pos: 100,
             y_pos: 200,
@@ -10909,6 +10946,7 @@ mod chunk_09 {
                 right_worker_x_velocity_delta: -0x0002_6D18,
                 far_right_worker_x_velocity_delta: 0x0002_6D18,
                 cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
+                pieces,
             }),
         });
 
@@ -10917,6 +10955,41 @@ mod chunk_09 {
         assert!(
             rt.enemy_death_effects.is_empty(),
             "ASM sub_378C8 loc_37922 deletes and clears the five HeadyMetal cached workers once the latched `$42(a3)` countdown reaches zero"
+        );
+    }
+
+    #[test]
+    fn heady_metal_death_effect_applies_loc_378d6_piece_impulse_while_countdown_survives() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.spawn_enemy_death_effect(EnemyFamily::HeadyMetal, 100, 200);
+
+        rt.step_visual_effects();
+
+        let split = rt.enemy_death_effects[0]
+            .heady_metal_split
+            .expect("HeadyMetal death shell should retain split piece state");
+        assert_eq!(
+            rt.enemy_death_effects[0].remaining,
+            HEADYMETAL_DEATH_EFFECT_FRAMES - 1,
+            "ASM sub_378C8 decrements `$42(a3)` once while the final HeadyMetal breakup shell survives",
+        );
+        assert_eq!(
+            split.pieces[0].x_velocity, -0x0004_DA30,
+            "ASM loc_378D6 should add `#-$26D18` to `$FFFFFB72`'s x velocity on each surviving cleanup tick",
+        );
+        assert_eq!(
+            split.pieces[0].x_pos,
+            100u32.wrapping_add((-0x0004_DA30i32) as u32),
+            "native shell should advance the first HeadyMetal death piece with the updated fixed-point velocity",
+        );
+        assert_eq!(
+            split.pieces[2].y_velocity, 0x0002_7100,
+            "ASM loc_378D6 should add `#$13880` to `$FFFFFB7A`'s y velocity on each surviving cleanup tick",
+        );
+        assert_eq!(
+            split.pieces[2].y_pos,
+            200u32.wrapping_add(0x0002_7100),
+            "native shell should advance the centre HeadyMetal death piece with the updated fixed-point velocity",
         );
     }
 

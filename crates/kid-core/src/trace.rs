@@ -6763,6 +6763,17 @@ impl NativeRuntime {
                         right_worker_x_velocity_delta: split.right_worker_x_velocity_delta,
                         far_right_worker_x_velocity_delta: split.far_right_worker_x_velocity_delta,
                         cleanup_worker_slot_offsets: split.cleanup_worker_slot_offsets,
+                        pieces: split
+                            .pieces
+                            .iter()
+                            .map(|piece| HeadyMetalDeathPieceTrace {
+                                slot_offset: piece.slot_offset,
+                                x_pos: piece.x_pos,
+                                y_pos: piece.y_pos,
+                                x_velocity: piece.x_velocity,
+                                y_velocity: piece.y_velocity,
+                            })
+                            .collect(),
                     })
                 })
                 .collect(),
