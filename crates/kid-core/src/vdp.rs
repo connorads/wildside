@@ -1386,8 +1386,11 @@ const INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0: [usize; 5] = [
     39, // ASM sub_1B988 allocates IntroText4 before sub_1C204, so the text has already advanced when the fade shell exposes the corridor.
     58, // ASM loc_1BA28 allocates IntroText5 before sub_1C204; oracle frame 1980 shows `THIS IS` but not `THE`.
 ];
-const INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28: usize =
-    INTRO_TEXT_WORKER_START_ELAPSED_LOC_1C7A0[4];
+// ASM Load_IntroSequence5 allocates loc_1BA28 and loc_1BCD0 before entering
+// the shared sub_1C204 fade shell. The text worker is allocated earlier, but
+// oracle frame 1934 still presents black; the first visible cold-boot frame is
+// frame 1980, at local elapsed 104.
+const INTRO_SEQUENCE_5_VISIBLE_ELAPSED_LOC_1BA28: usize = 104;
 
 fn intro_text_script_loc_1c7a0(segment: usize) -> Option<IntroTextScriptLoc1C7A0> {
     // ASM IntroText1-5 (kid.asm:31380-31396): headers are
@@ -3431,6 +3434,19 @@ mod tests {
             vram_word(&before, 0xE000),
             0,
             "ASM loc_1BA28/sub_1C204 should not expose the alley nametable before the visible loop; oracle frame 1920 has blank VRAM at elapsed 44",
+        );
+
+        let old_visible_edge =
+            build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 4, 1, 58, 1);
+        assert_eq!(
+            cram_word(&old_visible_edge, 1),
+            0,
+            "ASM loc_1BA28/sub_1C204 should still present black at local elapsed 58; oracle frame 1934 has not exposed the alley/Kid shell yet",
+        );
+        assert_eq!(
+            vram_word(&old_visible_edge, 0xE000),
+            0,
+            "ASM loc_1BA28/sub_1C204 should not expose MapEni_2E154 at local elapsed 58; this guards the early bottom-left intro artefact seen before frame 1980",
         );
 
         let visible = build_intro_sequence_vdp_with_title_variant_at_elapsed(
