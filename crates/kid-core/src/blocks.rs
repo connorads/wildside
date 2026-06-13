@@ -1,5 +1,5 @@
 use super::*;
-use crate::combat::CollisionRectSub1F52;
+use crate::combat::{CollisionRectSub1F52, heady_metal_cleanup_sub_378C8};
 
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -4394,7 +4394,14 @@ impl NativeRuntime {
         });
 
         for e in &mut self.enemy_death_effects {
-            e.remaining = e.remaining.saturating_sub(1);
+            if e.heady_metal_split.is_some() {
+                // ASM sub_378C8 loc_37922: once the shared HeadyMetal hit
+                // latch is set, `$42(a3)` decrements to zero and then clears
+                // the five cached breakup worker slots.
+                e.remaining = heady_metal_cleanup_sub_378C8(true, e.remaining).next_countdown_42;
+            } else {
+                e.remaining = e.remaining.saturating_sub(1);
+            }
         }
         self.enemy_death_effects.retain(|e| e.remaining > 0);
 

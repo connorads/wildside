@@ -8652,6 +8652,7 @@ mod chunk_04 {
                 centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index"),
                 right_worker_x_velocity_delta: -0x0002_6D18,
                 far_right_worker_x_velocity_delta: 0x0002_6D18,
+                cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
             }),
             "ASM sub_378C8 loc_378D6 applies these per-worker split impulses before loc_37922 deletes the cached HeadyMetal workers"
         );
@@ -8664,6 +8665,7 @@ mod chunk_04 {
                 centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index".to_owned()),
                 right_worker_x_velocity_delta: -0x0002_6D18,
                 far_right_worker_x_velocity_delta: 0x0002_6D18,
+                cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
             }],
             "trace_frame should expose the live HeadyMetal sub_378C8 split impulse for oracle/debug comparisons"
         );

@@ -6762,6 +6762,7 @@ impl NativeRuntime {
                             .map(str::to_owned),
                         right_worker_x_velocity_delta: split.right_worker_x_velocity_delta,
                         far_right_worker_x_velocity_delta: split.far_right_worker_x_velocity_delta,
+                        cleanup_worker_slot_offsets: split.cleanup_worker_slot_offsets,
                     })
                 })
                 .collect(),

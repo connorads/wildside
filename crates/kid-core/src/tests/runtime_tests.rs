@@ -10894,6 +10894,32 @@ mod chunk_09 {
         );
     }
 
+    #[test]
+    fn heady_metal_death_effect_uses_loc_37922_cleanup_when_countdown_reaches_zero() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.enemy_death_effects.push(EnemyDeathEffect {
+            x_pos: 100,
+            y_pos: 200,
+            remaining: 1,
+            heady_metal_split: Some(HeadyMetalDeathEffectSplit {
+                current_x_velocity_delta: -0x0002_6D18,
+                left_worker_x_velocity_delta: 0x0002_6D18,
+                centre_worker_y_velocity_delta: 0x0001_3880,
+                centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index"),
+                right_worker_x_velocity_delta: -0x0002_6D18,
+                far_right_worker_x_velocity_delta: 0x0002_6D18,
+                cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
+            }),
+        });
+
+        rt.step_visual_effects();
+
+        assert!(
+            rt.enemy_death_effects.is_empty(),
+            "ASM sub_378C8 loc_37922 deletes and clears the five HeadyMetal cached workers once the latched `$42(a3)` countdown reaches zero"
+        );
+    }
+
     // --- Evanescent blocks: max entries cap ---
 
     #[test]

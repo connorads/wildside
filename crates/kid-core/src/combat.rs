@@ -8271,6 +8271,7 @@ impl NativeRuntime {
                 centre_worker_sprite_label: cleanup.centre_worker_sprite_label,
                 right_worker_x_velocity_delta: cleanup.right_worker_x_velocity_delta,
                 far_right_worker_x_velocity_delta: cleanup.far_right_worker_x_velocity_delta,
+                cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
             }),
         });
     }
