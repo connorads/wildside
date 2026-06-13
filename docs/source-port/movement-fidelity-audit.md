@@ -20,7 +20,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Standing / idle (`MoveID_Standingstill=0`) | full | 0 |
 | Ground walk/run horizontal acceleration | full | 0 |
 | Braking / skid / turn-around | full | 0 |
-| Duck / crawl (`MoveID_Crawling=1`) | partial | 1 |
+| Duck / crawl (`MoveID_Crawling=1`) | full | 0 |
 | Jump initiation (ground launch velocity) | partial | 1 |
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
 | Airborne horizontal control | partial | 1 |
@@ -65,7 +65,7 @@ ROM clears Right once per frame when both are held, so both-held resolves to **L
 ROM gates crawl entry: `bsr sub_7A10; bne loc_8CB6` — when blocked (both head-height side probes solid after the snap) Kid stays walking and uses the walk table. Native now calls `align_player_for_down_hold_sub_7A10` in the live walking-state crawl transition and clears `movement_input.down` when `DownHoldAlignmentSub7A10.blocked` is true (`lib.rs:3331-3352`). Regression `loc_8c70_sub_7a10_blocked_keeps_walking_velocity_path` verifies the blocked frame uses walking decel rather than the crawl air table.
 
 **FIXED 2026-06-13 — Grounded jump honours `KidGrabbedByHand` `+$20000` weakening** (`sub_A432`/`loc_A466` @kid.asm:12799-12801)
-ROM adds `$20000` to the negated launch `y_vel` when `KidGrabbedByHand` is set, shortening a jump made while held by a Hand. Native live jump paths now call `initiate_jump_with_hand_grab` with the slice flag (`movement.rs:5346-5352`, `5796-5800`, `5816-5820`, `5868-5872`, `5889-5893`), and the Hand enemy step surfaces `HandState::Grabbing` onto `kid_grabbed_by_hand` before the player slice runs (`enemies.rs:42115-42130`). Regression `loc_A466_kid_grabbed_by_hand_weakens_live_grounded_jump` verifies the grounded player consumer, and `refresh_active_roster_surfaces_hand_grab_onto_slice_loc_32906` verifies the live Hand producer. The separate Iron Knight climb B-press jump-off still uses the plain helper and remains tracked below.
+ROM adds `$20000` to the negated launch `y_vel` when `KidGrabbedByHand` is set, shortening a jump made while held by a Hand. Native live jump paths now call `initiate_jump_with_hand_grab` with the slice flag (`movement.rs:5346-5352`, `5796-5800`, `5816-5820`, `5868-5872`, `5889-5893`), and the Hand enemy step surfaces `HandState::Grabbing` onto `kid_grabbed_by_hand` before the player slice runs (`enemies.rs:42115-42130`). Regression `loc_A466_kid_grabbed_by_hand_weakens_live_grounded_jump` verifies the grounded player consumer, and `refresh_active_roster_surfaces_hand_grab_onto_slice_loc_32906` verifies the live Hand producer.
 
 **Landing — moving-platform carry bypasses the `sub_8F26`/`sub_902A` move-and-collide passes** (`loc_8D72` @kid.asm:10150, `loc_82D8` @9063)
 ROM inherits platform motion into the player's **velocity** then re-runs the collision passes, so the carried displacement is wall/floor/ceiling-clamped. Native (`platforms.rs:780-783`) adds `platform.x_velocity`/`y_velocity` straight onto `x_pos`/`y_pos` with no wall pass on the carried X delta, so a platform pushing a grounded Kid into a wall drives him through it. Falls under #208 (platform physics).
@@ -81,8 +81,8 @@ ROM negates `x_vel` on a charging side-contact only when bit 15 of the enemy `ob
 **FIXED 2026-06-13 — Removed stale `not(test)` dead_code attr from wired `grounded_surface_type_sub_8600`** (`sub_8600`)
 `grounded_surface_type_sub_8600` is live-called from movement terrain refresh paths (`movement.rs:3142`, `5103`, `6837`, `6872`, `7026`, `7047`) and covered by the `sub_8600` rubber/ice regressions. The stale `#[cfg_attr(not(test), allow(dead_code))]` annotation has been removed; the function itself remains faithful, including the `loc_8688` rubber-wins-ties quirk.
 
-**Crawl — `KidGrabbedByHand` not checked in the entry gate** *(grab-flag theme)* (`loc_8C70` @kid.asm:10084)
-ROM skips crawl entry when held by a Hand; native gate (`lib.rs:2968-2974`) omits the flag, which is never surfaced to the player path. Narrow (the grab pins position).
+**FIXED 2026-06-13 — Crawl entry checks `KidGrabbedByHand` before taking Down-held crawl path** (`loc_8C70` @kid.asm:10084)
+ROM skips crawl entry while held by a Hand via `tst.b (KidGrabbedByHand).w; bne.w loc_8CB6`. Native now suppresses the Down-held crawl/air-control path when `slice.kid_grabbed_by_hand` is set and also freezes the Down-look accumulator while grabbed (`lib.rs:3802-3810`). Regression `loc_8c70_crawl_entry_suppressed_while_grabbed_by_hand` verifies the velocity branch stays on the walking table instead of the crawl table, and `loc_8c70_grabbed_kid_down_held_freezes_look_offset` verifies the camera-look side effect.
 
 **Jump — `sfx_Jump` not emitted on launch** (`sub_A432`/`loc_A480` @kid.asm:12821-12822)
 ROM plays `sfx_Jump` as part of launch; the native `initiate_jump` comment defers sound "to call sites" (`physics.rs:765-766`) but the call sites (`movement.rs:4549-4586`) emit none. Audio-only; the deferral note is unfulfilled.
