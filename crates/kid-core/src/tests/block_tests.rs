@@ -14970,6 +14970,60 @@ mod chunk_04 {
     }
 
     #[test]
+    fn soft_platform_wait_loop_loc_40e2_samples_pre_hibernate_kid_y_velocity() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::TheKid;
+
+        let mut platform = ActivePlatform::from_placement(
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("0"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+        platform.layout_index = Some(0);
+        runtime.active_platforms = vec![platform];
+        runtime.active_platform_standing_on = Some(0);
+
+        let bounds = runtime.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.x_pos = platform.x_pos + (16 << 16);
+        slice.player.y_pos = platform.y_pos;
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0x0008_0000;
+        slice.pre_gravity_y_vel = 0x0004_0000;
+
+        // ASM SoftPlatform_WaitLoop loc_40E2 (kid.asm:5206): Kid y velocity is
+        // copied into d1 before the hibernate frame; native stores that sample
+        // in pre_gravity_y_vel, while player.y_velocity is already post-physics.
+        runtime.trigger_standing_soft_platform_bounce_loc_40E2(&slice, false);
+
+        assert_eq!(
+            runtime.active_platforms[0].y_velocity, 0x0002_0000,
+            "TheKid divides the pre-hibernate sample by 2; using post-physics y_velocity would yield 0x0004_0000",
+        );
+        assert_eq!(
+            runtime.active_platforms[0].special,
+            Some(PlatformSpecialState::Soft(SoftPlatformState {
+                original_y_pos: platform.y_pos,
+                phase: SoftPlatformPhase::Bounce,
+            })),
+        );
+    }
+
+    #[test]
     fn soft_platform_bounce_loop_loc_4140_applies_upward_acceleration_and_clamp() {
         // ASM SoftPlatform_BounceLoop loc_4140 (kid.asm:5225): subtract
         // `$7000`, then clamp any value <= -$18000 to exactly -$18000.

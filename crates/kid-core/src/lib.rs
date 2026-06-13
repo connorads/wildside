@@ -3891,19 +3891,7 @@ impl NativeRuntime {
             player_before_platform_collision,
             &slice,
         );
-        if let Some(platform_index) = standing_platform_index_loc_8ED0(
-            &self.active_platforms,
-            self.active_platform_standing_on,
-            slice.player,
-            self.progression.current_form,
-            platform_support_crawling,
-        ) && let Some(platform) = self.active_platforms.get_mut(platform_index)
-        {
-            platform.trigger_soft_platform_bounce_loc_40E2(
-                player_before_platform_collision.y_velocity,
-                self.progression.current_form,
-            );
-        }
+        self.trigger_standing_soft_platform_bounce_loc_40E2(&slice, platform_support_crawling);
         self.active_platform_roster = self
             .active_platforms
             .iter()
@@ -4061,6 +4049,31 @@ impl NativeRuntime {
         self.helmet.iron_knight_climbing = false;
         self.helmet.iron_knight_climb_accel = 0;
         self.helmet.iron_knight_climb_pose_accum = 0;
+    }
+
+    #[allow(non_snake_case)]
+    fn trigger_standing_soft_platform_bounce_loc_40E2(
+        &mut self,
+        slice: &OpeningSliceState,
+        platform_support_crawling: bool,
+    ) {
+        if let Some(platform_index) = standing_platform_index_loc_8ED0(
+            &self.active_platforms,
+            self.active_platform_standing_on,
+            slice.player,
+            self.progression.current_form,
+            platform_support_crawling,
+        ) && let Some(platform) = self.active_platforms.get_mut(platform_index)
+        {
+            // ASM SoftPlatform_WaitLoop loc_40E2 (kid.asm:5206): `move.l
+            // $2A(a2),d1` samples Kid's y velocity before the platform
+            // hibernates for this frame, so use the native pre-gravity sample
+            // rather than the post-platform-collision velocity.
+            platform.trigger_soft_platform_bounce_loc_40E2(
+                slice.pre_gravity_y_vel,
+                self.progression.current_form,
+            );
+        }
     }
 
     pub(crate) fn trigger_skycutter_top_boundary_bounce_loc_9114(
