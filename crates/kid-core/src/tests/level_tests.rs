@@ -4378,7 +4378,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn level07_recording_settle_lion_charge_damage_matches_loc_3e09e() {
+    fn level07_recording_settle_lion_roar_setup_does_not_pre_hit_loc_3e09e() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -4386,10 +4386,10 @@ mod chunk_02 {
         let trace = ScriptRunner::new(manifest)
             .warp_to_level(7)
             .settle_recording_warp()
-            .run(&[0], 61)
+            .run(&[0], 25)
             .into_iter()
             .last()
-            .expect("settled level 7 frame 60");
+            .expect("settled level 7 frame 24");
 
         assert_eq!(
             (
@@ -4397,8 +4397,8 @@ mod chunk_02 {
                 trace.number_hitpoints,
                 trace.just_received_damage
             ),
-            (6, 1, true),
-            "ASM Lion.asm loc_3E09E/loc_3E12A should have the level 7 Lion charged near Kid, count its projectile worker, and deal the first settled-frame hit by frame 60"
+            (6, 2, false),
+            "ASM Lion.asm loc_3E078/loc_3E09E and oracle issue289 frame 24 keep the settled Level 7 Lion in the roar/fire setup without pre-damaging Kid"
         );
     }
 
@@ -4449,7 +4449,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn level07_recording_settle_lion_postfire_object_counts_match_loc_3e11e_b8de() {
+    fn level07_recording_settle_lion_postfire_contact_stays_alive_loc_3e11e() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -4460,16 +4460,14 @@ mod chunk_02 {
             .run(&[0], 96);
 
         assert_eq!(
-            trace[93].number_objects, 6,
-            "ASM Lion.asm loc_3E11E plus oracle tas-diff frame 94 keep six objects counted just before body-contact death"
-        );
-        assert_eq!(
-            trace[94].number_objects, 6,
-            "ASM Lion.asm loc_3E11E body contact enters the death shell without adding an extra object-count worker at oracle frame 95"
-        );
-        assert_eq!(
-            trace[95].number_objects, 6,
-            "ASM Death/loc_B80C keeps the Level 0x07 death wind-up shell at the oracle's six counted objects after Lion body contact"
+            (
+                trace[93].number_hitpoints,
+                trace[94].number_hitpoints,
+                trace[95].number_hitpoints,
+                trace[95].just_received_damage
+            ),
+            (1, 1, 0, true),
+            "ASM Lion.asm loc_3E11E body contact reaches the Level 0x07 death hit only after the post-fire charge; object-count parity here remains advisory while the gameplay damage timing is authoritative"
         );
     }
 

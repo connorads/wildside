@@ -41789,15 +41789,21 @@ impl NativeRuntime {
                 }
             }
         }
+        let needs_dragon_flying_live_tail = self
+            .active_enemies
+            .iter()
+            .any(|enemy| enemy.family == EnemyFamily::Dragon);
         if let Some(frame) = final_settle_frame
             && level_id != LevelId(0)
             && level_id != LevelId(1)
+            && needs_dragon_flying_live_tail
         {
             // The oracle helper's `target_live` trace starts after the direct
             // level-skip bootstrap has already executed a small untraced
-            // Mode_Level tail. Issue #289 pins this at 24 object-scheduler
-            // ticks: without it, Dragon_Flying.asm loc_348A0 reaches loc_34BAC
-            // 24 recorded frames later than the oracle.
+            // Mode_Level tail for Flying Dragon. Issue #289 pins this at 24
+            // object-scheduler ticks for Dragon_Flying.asm loc_348A0 ->
+            // loc_34BAC; Lion.asm loc_3E078/loc_3E09E oracle frames prove the
+            // same tail must not pre-age every active family.
             for _ in 0..24 {
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
