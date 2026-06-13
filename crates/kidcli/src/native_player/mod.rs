@@ -997,11 +997,6 @@ fn should_step_runtime_during_level_card_hold(
     level_card_frames_remaining: usize,
     debug_level_card_fallback_frames_remaining: usize,
 ) -> bool {
-    // ASM Load_TitleCard loc_1AB26/loc_1AC70 owns the ROM title-card animation.
-    // When N/P overlays the deterministic debug name card, generated VDP
-    // title-card targets still advance underneath with neutral input so the
-    // core remains on the ROM loc_6E2 path instead of freezing the first,
-    // often blank, transition frame.
     let _ = debug_level_card_fallback_frames_remaining;
     level_card_frames_remaining > 0
 }
@@ -1014,10 +1009,9 @@ fn debug_level_card_fallback_frames(manifest: &AssetManifest, level_id: LevelId)
 
 fn debug_hotkey_level_card_hold_frames() -> usize {
     // `N`/`P` are native-only debug hotkeys, not ROM input. The core still
-    // enters ASM `loc_6E2`/`Load_TitleCard`; play-native holds renderable ROM
-    // title-card targets, but does not invent a second tool-only LEVEL card for
-    // missing-title data targets.
-    LEVEL_CARD_HOLD_FRAMES
+    // enters ASM `loc_6E2`/`Load_TitleCard`; play-native must not add a native
+    // hold in front of that path, or debug skips show a duplicate level intro.
+    0
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1050,12 +1044,9 @@ fn debug_hotkey_level_presentation(
     has_renderable_title_card: bool,
 ) -> DebugHotkeyLevelPresentation {
     let hold_frames = debug_hotkey_level_card_hold_frames();
+    let _ = has_renderable_title_card;
     DebugHotkeyLevelPresentation {
-        level_card_frames_remaining: if has_renderable_title_card {
-            hold_frames
-        } else {
-            0
-        },
+        level_card_frames_remaining: hold_frames,
         debug_level_card_fallback_frames_remaining: 0,
         fade_alpha: 0,
         fading_in: false,
@@ -9846,16 +9837,16 @@ mod tests {
     }
 
     #[test]
-    fn debug_hotkey_level_skip_uses_rom_card_when_renderable() {
+    fn debug_hotkey_level_skip_uses_rom_card_without_native_hold() {
         assert_eq!(
             debug_hotkey_level_card_hold_frames(),
-            LEVEL_CARD_HOLD_FRAMES,
-            "native-only N/P debug skips should hold the ROM title-card shell for renderable targets"
+            0,
+            "native-only N/P debug skips should rely on ASM loc_6E2/Load_TitleCard instead of prepending a native hold"
         );
         assert_eq!(
             debug_hotkey_level_presentation(true).level_card_frames_remaining,
-            LEVEL_CARD_HOLD_FRAMES,
-            "renderable Load_TitleCard targets should hold the ROM title-card shell"
+            0,
+            "renderable Load_TitleCard targets should not get a second native card before the ROM intro"
         );
         assert_eq!(
             debug_hotkey_level_presentation(true).debug_level_card_fallback_frames_remaining,
@@ -9886,7 +9877,7 @@ mod tests {
     }
 
     #[test]
-    fn debug_hotkey_level_skip_enters_visible_card_hold_before_gameplay() {
+    fn debug_hotkey_level_skip_enters_rom_card_without_native_hold() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         let mut target = fixture.manifest.levels[0].clone();
         target.level_id = 0x01;
@@ -9935,11 +9926,12 @@ mod tests {
         );
         assert_eq!(
             presentation.level_card_frames_remaining,
-            LEVEL_CARD_HOLD_FRAMES
+            0,
+            "debug hotkeys should not prepend a native hold before ASM loc_6E2/Load_TitleCard"
         );
         assert!(presentation.wait_for_live_input_release);
         assert!(!presentation.suppress_level_card_for_debug_warp);
-        assert!(native_level_card_hold_active(
+        assert!(!native_level_card_hold_active(
             presentation.level_card_frames_remaining,
             presentation.debug_level_card_fallback_frames_remaining
         ));
@@ -9984,8 +9976,8 @@ mod tests {
                 "{route_name} should enter ASM loc_6E2/Load_TitleCard"
             );
             assert_eq!(
-                presentation.level_card_frames_remaining, LEVEL_CARD_HOLD_FRAMES,
-                "{route_name} should hold the ROM title-card shell"
+                presentation.level_card_frames_remaining, 0,
+                "{route_name} should not prepend a native hold before the ROM title-card shell"
             );
             assert_eq!(
                 presentation.debug_level_card_fallback_frames_remaining, 0,
@@ -10000,7 +9992,7 @@ mod tests {
                 "ASM loc_6E2/Load_TitleCard can expose the VDP shell before loc_1AB26 title workers surface for {route_name}",
             );
 
-            assert!(should_step_runtime_during_level_card_hold(
+            assert!(!should_step_runtime_during_level_card_hold(
                 presentation.level_card_frames_remaining,
                 presentation.debug_level_card_fallback_frames_remaining
             ));
