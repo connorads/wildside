@@ -33,7 +33,7 @@ const FRAME_HEIGHT: u32 = 224;
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const LEVEL_CARD_HOLD_FRAMES: usize = 60;
 const AUDIO_SAMPLES_PER_FRAME: usize = 735;
-const AUDIO_QUEUE_TARGET_FRAMES: usize = 1;
+const AUDIO_QUEUE_TARGET_FRAMES: usize = 3;
 const SDL_AUDIO_CALLBACK_SAMPLES: u16 = 512;
 #[cfg(test)]
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
@@ -13502,20 +13502,22 @@ mod tests {
     fn play_native_audio_queue_cap_is_measured_in_generated_frames() {
         let generated_stereo_samples = AUDIO_SAMPLES_PER_FRAME * 2;
         let one_generated_frame_bytes = generated_stereo_samples * std::mem::size_of::<f32>();
+        let target_generated_frame_bytes =
+            one_generated_frame_bytes.saturating_mul(AUDIO_QUEUE_TARGET_FRAMES);
 
         assert!(
             should_queue_audio_frame(
-                u32::try_from(one_generated_frame_bytes - 1).expect("fits u32"),
+                u32::try_from(target_generated_frame_bytes - 1).expect("fits u32"),
                 generated_stereo_samples,
             ),
-            "SDL_GetQueuedAudioSize reports bytes; just under one generated frame should accept the next low-latency audio frame"
+            "SDL_GetQueuedAudioSize reports bytes; just under the live queue target should accept the next audio frame"
         );
         assert!(
             !should_queue_audio_frame(
-                u32::try_from(one_generated_frame_bytes).expect("fits u32"),
+                u32::try_from(target_generated_frame_bytes).expect("fits u32"),
                 generated_stereo_samples,
             ),
-            "play-native should not keep multiple generated frames queued ahead, because pickup and block SFX then lag behind the visual frame"
+            "play-native should cap the SDL queue at the configured target so pickup and block SFX do not drift far behind the visual frame"
         );
     }
 
