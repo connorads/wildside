@@ -25,7 +25,7 @@ Two findings are player-specific and do **not** fit that mould:
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
 | Airborne horizontal control | partial | 1 |
 | Secondary airborne path (`sub_8506`) | full | 0 |
-| Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | partial | 1 |
+| Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | full | 0 |
 | Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 3 |
 | Landing / floor-support & platform riding | partial | 2 |
 | Wall-hit + ceiling-hit collision response | partial | 1 |
@@ -90,8 +90,8 @@ ROM plays `sfx_Jump` as part of launch; the native `initiate_jump` comment defer
 **FIXED 2026-06-13 — Airborne Skycutter bypasses the 1.5× run-accel multiplier** (`sub_B084` `loc_B09E` @kid.asm:13935-13939)
 This was the low-severity consequence of the unwired `sub_9A20` air branch. Because the live airborne Skycutter paths now branch before `loc_B09E`, the generic `Ctrl_A` multiplier remains limited to the nine helmets that actually reach the ROM table path; Skycutter gets `sub_9A20`'s flat `+$4000` run step.
 
-**Slope walking — steady frame does not mirror `y_vel = ±x_vel`** (`loc_9D22` @kid.asm:11942-11949)
-ROM sets `y_vel = -x_vel` (SlopeUp) / `+x_vel` (SlopeDown) every grounded-slope frame; native sets it only on fresh recontact (`apply_immediate_slope_recontact` `movement.rs:5902-5903`) and otherwise re-snaps `y_pos` from `x_px` directly. Position is faithful; only the stored `y_velocity` is stale — near-non-observable.
+**FIXED 2026-06-13 — Slope walking mirrors `y_vel = ±x_vel` on steady frames** (`loc_9D22` @kid.asm:11942-11949)
+ROM stores the diagonal slope velocity every `loc_9D22` frame: `y_vel = -x_vel` for SlopeUp and `+x_vel` for SlopeDown. Native now mirrors that before and after the grounded slope gravity/position phases (`movement.rs:3394-3441`), preserves the diagonal value through slope floor handling (`movement.rs:6849-6858`), and still installs it on fresh recontact (`movement.rs:7171-7177`). Regressions `asm_faithful_loc_9d22_canonicalises_slope_y_velocity_from_x_velocity`, `asm_faithful_loc_9d22_preserves_slope_y_velocity_after_floor_snap`, and `asm_faithful_floor_collision_preserves_grounded_slope_y_velocity` cover the stored velocity against ASM `loc_9D22`.
 
 **Climb — wall-end release omits the −4 px/frame pop + jump-state handoff** (`loc_A2F6`/`loc_A30A` @kid.asm:12610-12625)
 At the top of a wall ROM sets `y_vel=$FFFC0000` (−4.0 px upward) and hands off to the jump state (`loc_A6F8`). Native resume (`helmets.rs:4765-4771`) just clears `iron_knight_climbing` with no `y_vel` write, so the climber keeps only the clamped climb velocity (≤−1.5 px) and drops into normal physics. The accel-ramp, detach, B-jump-off and entry seed are faithful; only this branch is approximated.
