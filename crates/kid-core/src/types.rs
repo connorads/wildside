@@ -932,8 +932,9 @@ impl PlayerForm {
     /// ASM loc_9AE0 (kid.asm:11673): sub_9A0A enters the generic ground
     /// table path by loading the normal table, then swapping in ice/rubber
     /// tables before applying Micromax/Juggernaut form offsets.
-    /// ASM loc_9AF2 (kid.asm:11680): terrain type 1 replaces the current
-    /// table pointer with the rubber table (`unk_9CCE`).
+    /// ASM sub_8600 (kid.asm:9489/9497) stores code 1 for ice blocks and code
+    /// 2 for rubber blocks, but loc_9AE0 maps code 2 to `unk_9C7A` and
+    /// loc_9AF2 maps code 1 to `unk_9CCE`.
     /// ASM loc_9AFC (kid.asm:11685): Micromax advances the selected terrain
     /// table pointer by `$1C`, one `SpeedTable` entry.
     /// ASM loc_9B08 (kid.asm:11690): Juggernaut advances the selected terrain
@@ -945,14 +946,16 @@ impl PlayerForm {
     ) -> &'static crate::physics::SpeedTable {
         match (self, terrain_type) {
             (Self::Micromax, TerrainType::Normal) => &crate::physics::NORMAL_MICROMAX,
-            (Self::Micromax, TerrainType::Ice) => &crate::physics::ICE_MICROMAX,
-            (Self::Micromax, TerrainType::Rubber) => &crate::physics::RUBBER_MICROMAX,
+            // ORIGINAL_QUIRK: ASM sub_8600 names the surface by block type,
+            // but loc_9AE0/loc_9AF2 cross-wire the numeric terrain codes.
+            (Self::Micromax, TerrainType::Ice) => &crate::physics::RUBBER_MICROMAX,
+            (Self::Micromax, TerrainType::Rubber) => &crate::physics::ICE_MICROMAX,
             (Self::Juggernaut, TerrainType::Normal) => &crate::physics::NORMAL_JUGGERNAUT,
-            (Self::Juggernaut, TerrainType::Ice) => &crate::physics::ICE_JUGGERNAUT,
-            (Self::Juggernaut, TerrainType::Rubber) => &crate::physics::RUBBER_JUGGERNAUT,
+            (Self::Juggernaut, TerrainType::Ice) => &crate::physics::RUBBER_JUGGERNAUT,
+            (Self::Juggernaut, TerrainType::Rubber) => &crate::physics::ICE_JUGGERNAUT,
             (_, TerrainType::Normal) => &crate::physics::NORMAL_KID,
-            (_, TerrainType::Ice) => &crate::physics::ICE_KID,
-            (_, TerrainType::Rubber) => &crate::physics::RUBBER_KID,
+            (_, TerrainType::Ice) => &crate::physics::RUBBER_KID,
+            (_, TerrainType::Rubber) => &crate::physics::ICE_KID,
         }
     }
 

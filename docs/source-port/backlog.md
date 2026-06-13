@@ -561,7 +561,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 215 | [b] | P2 | render | 2026-05-30 playtest: water/foreground priority layering wrong in Level 02 | INVESTIGATED 2026-06-03, BLOCKED:needs-repro. The native sprite-vs-plane… |
 | 216 | [?] | P2 | audio | 2026-05-30 playtest: SFX timing/level-complete sound still lag or cut off | Evidence source: human playtest after pushed commits. Symptoms: block break and… |
 | 217 | [?] | P1 | player | Wire ASM-faithful player move-state helpers into the live step (systemic root cause, movement layer) | Player-movement fidelity audit 2026-05-30… |
-| 218 | [?] | P1 | player | Ground speed tables inverted: ice plays grippy, rubber plays slippery (ROM cross-wire undone) | `sub_8600` writes terrain index 1 for ice blocks / 2 for rubber; selector… |
+| 218 | [x] | P1 | player | FIXED 2026-06-13: Ground speed tables inverted: ice plays grippy, rubber plays slippery (ROM cross-wire undone) | Commit "Cross-wire ice rubber ground speed tables": `PlayerForm::ground_speed_table` now preserves ASM `sub_8600` + `loc_9AE0`/`loc_9AF2` cross-wire centrally, and the old movement-local rubber hand-off was removed. Regression coverage: `speed_table_`, `level00_frame_731_flat_rubber_span_uses_refreshed_code_two_table_loc_8e16`, `ground_speed_table_selects_by_form_and_terrain`, and `mise run verify-slice-fast`. |
 | 219 | [x] | P2 | player | `KidGrabbedByHand` RAM flag never surfaced… | archived |
 | 220 | [x] | P2 | player | Crawl stand-up & entry gating incomplete… | archived |
 | 221 | [x] | P2 | player | Airborne Skycutter uses generic jump-air… | archived |

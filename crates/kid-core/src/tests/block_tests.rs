@@ -12891,19 +12891,19 @@ mod chunk_04 {
         );
         assert_eq!(
             PlayerForm::TheKid.ground_speed_table(TerrainType::Ice),
-            &physics::ICE_KID
-        );
-        assert_eq!(
-            PlayerForm::TheKid.ground_speed_table(TerrainType::Rubber),
             &physics::RUBBER_KID
         );
         assert_eq!(
+            PlayerForm::TheKid.ground_speed_table(TerrainType::Rubber),
+            &physics::ICE_KID
+        );
+        assert_eq!(
             PlayerForm::Micromax.ground_speed_table(TerrainType::Ice),
-            &physics::ICE_MICROMAX
+            &physics::RUBBER_MICROMAX
         );
         assert_eq!(
             PlayerForm::Juggernaut.ground_speed_table(TerrainType::Rubber),
-            &physics::RUBBER_JUGGERNAUT
+            &physics::ICE_JUGGERNAUT
         );
     }
 

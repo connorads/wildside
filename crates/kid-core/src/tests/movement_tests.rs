@@ -12637,21 +12637,22 @@ mod chunk_12 {
     /// `cmpi.w #1,d2; bne.s loc_9AFC; lea unk_9CCE(pc),a0`.
     /// After loc_9AE0 loads default normal table (unk_9C0A) and checks d2==2
     /// (ice/unk_9C7A), loc_9AF2 checks d2==1 → rubber table (unk_9CCE).
-    /// Native: `ground_speed_table(TerrainType::Rubber)` returns RUBBER_* tables.
+    /// Native stores semantic block terrain, so `TerrainType::Ice` carries the
+    /// ROM's code 1 into this selector and must return the `unk_9CCE` table.
     #[test]
     #[allow(non_snake_case)]
-    fn speed_table_terrain_rubber_select_loc_9AF2() {
-        // Terrain type 1 → rubber table. TheKid on rubber has walk_accel=$200
+    fn speed_table_terrain_ice_block_selects_code_one_table_loc_9AF2() {
+        // Terrain code 1 → rubber table. TheKid on an ice block has walk_accel=$200
         // (unk_9CCE offset $04), distinct from normal ($1000) and ice ($2000).
-        let table = PlayerForm::TheKid.ground_speed_table(TerrainType::Rubber);
+        let table = PlayerForm::TheKid.ground_speed_table(TerrainType::Ice);
         assert_eq!(
             table,
             &physics::RUBBER_KID,
-            "ASM loc_9AF2: d2==1 → unk_9CCE (rubber)"
+            "ASM sub_8600 + loc_9AF2: ice block code 1 → unk_9CCE"
         );
         assert_eq!(
             table.walk_accel, 0x200,
-            "ASM loc_9AF2: rubber kid walk_accel=$200"
+            "ASM loc_9AF2: code 1 kid walk_accel=$200"
         );
     }
 
@@ -12696,20 +12697,20 @@ mod chunk_12 {
         );
     }
 
-    /// ASM loc_9AFC: Micromax on ice terrain.
+    /// ASM loc_9AFC: Micromax on rubber block terrain.
     /// loc_9AE0 d2==2 → unk_9C7A (ice), then loc_9AFC lea $1C → ice micromax.
     #[test]
     #[allow(non_snake_case)]
-    fn speed_table_micromax_ice_loc_9AFC() {
-        let table = PlayerForm::Micromax.ground_speed_table(TerrainType::Ice);
+    fn speed_table_micromax_rubber_block_loc_9AFC() {
+        let table = PlayerForm::Micromax.ground_speed_table(TerrainType::Rubber);
         assert_eq!(
             table,
             &physics::ICE_MICROMAX,
-            "ASM loc_9AFC: ice + Micromax → unk_9C7A+$1C"
+            "ASM sub_8600 + loc_9AFC: rubber block code 2 + Micromax → unk_9C7A+$1C"
         );
         assert_eq!(
             table.walk_accel, 0x1000,
-            "ASM loc_9AFC: ice micromax walk_accel=$1000"
+            "ASM loc_9AFC: code 2 micromax walk_accel=$1000"
         );
     }
 
@@ -12735,20 +12736,20 @@ mod chunk_12 {
         );
     }
 
-    /// ASM loc_9B08: Juggernaut on rubber terrain.
+    /// ASM loc_9B08: Juggernaut on ice block terrain.
     /// loc_9AF2 d2==1 → unk_9CCE (rubber), then loc_9B08 lea $38 → rubber juggernaut.
     #[test]
     #[allow(non_snake_case)]
-    fn speed_table_juggernaut_rubber_loc_9B08() {
-        let table = PlayerForm::Juggernaut.ground_speed_table(TerrainType::Rubber);
+    fn speed_table_juggernaut_ice_block_loc_9B08() {
+        let table = PlayerForm::Juggernaut.ground_speed_table(TerrainType::Ice);
         assert_eq!(
             table,
             &physics::RUBBER_JUGGERNAUT,
-            "ASM loc_9B08: rubber + Juggernaut → unk_9CCE+$38"
+            "ASM sub_8600 + loc_9B08: ice block code 1 + Juggernaut → unk_9CCE+$38"
         );
         assert_eq!(
             table.walk_accel, 0x400,
-            "ASM loc_9B08: rubber juggernaut walk_accel=$400"
+            "ASM loc_9B08: code 1 juggernaut walk_accel=$400"
         );
     }
 

@@ -3145,16 +3145,7 @@ impl OpeningSliceState {
                         || (self.terrain.floor_terrain_type != TerrainType::Normal
                             && refreshed == TerrainType::Normal)
                     {
-                        // ASM loc_9AE0 maps terrain code 2 to `unk_9C7A`.
-                        // Native's semantic TerrainType names predate that
-                        // selector distinction, so keep this hand-off local
-                        // while the broader table model is still covered by
-                        // the Level 1 rubber/death regressions.
-                        self.terrain.floor_terrain_type = if refreshed == TerrainType::Rubber {
-                            TerrainType::Ice
-                        } else {
-                            refreshed
-                        };
+                        self.terrain.floor_terrain_type = refreshed;
                     }
                 }
 
