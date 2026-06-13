@@ -265,6 +265,41 @@ fn hand_body_contact_uses_rom_zero_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn dragon_flying_contact_uses_rom_collision_size_union_loc_1bce() {
+    let mut slice = combat_slice();
+    slice.player.x_pos = 88 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    let dragon = test_enemy(EnemyFamily::Dragon, 101 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&dragon.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-14, 14, -28, 0),
+        "ASM Dragon_Flying.asm main/descent parent frames LnkTo_unk_C75EE..C7636 index nonzero CollisionSize rows unk_31DD6/unk_31A60 through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &dragon.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::Damage,
+        "the ROM Dragon Flying parent row reaches horizontally beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
 fn cloud_parent_contact_uses_rom_collision_size_union_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
