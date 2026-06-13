@@ -4294,6 +4294,10 @@ mod chunk_02 {
         let cases = [
             (0xADE8, 11, 8, terrain::PrizeContent::RedStealth),
             (0xADEA, 12, 8, terrain::PrizeContent::RedStealth),
+            (0xB19C, 5, 12, terrain::PrizeContent::Skycutter),
+            (0xB19E, 6, 12, terrain::PrizeContent::RedStealth),
+            (0xB1A0, 7, 12, terrain::PrizeContent::RedStealth),
+            (0xB1A2, 8, 12, terrain::PrizeContent::Juggernaut),
             (0xBF3A, 68, 26, terrain::PrizeContent::Eyeclops),
             (0xBF3E, 70, 26, terrain::PrizeContent::Eyeclops),
         ];
