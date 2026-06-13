@@ -9115,7 +9115,7 @@ pub(crate) fn select_level_start_music_loc_11FD2(
     murder_wall_flag: bool,
     foreground_theme: u16,
 ) -> LevelStartMusicCommandLoc11FD2 {
-    const BGM_MURDERWALL_LOC_11FD2: u16 = 0x0084;
+    const BGM_MURDERWALL_LOC_11FD2: u16 = 0x0009;
 
     // ASM loc_11FD2 (kid.asm:24175): after the shared post-load init calls, a
     // non-zero `MurderWall_flag` forces `d0 = bgm_Murderwall` and returns
@@ -9137,7 +9137,7 @@ pub(crate) fn select_foreground_theme_music_loc_12004(
     foreground_theme: u16,
 ) -> ForegroundThemeMusicLoc12004 {
     const FOREGROUND_THEME_BGM_TABLE_LOC_12004: [u16; 11] = [
-        0x0080, 0x0081, 0x0082, 0x0083, 0x0085, 0x0086, 0x0087, 0x0080, 0x0088, 0x0089, 0x008A,
+        0x0000, 0x0002, 0x0003, 0x0004, 0x0008, 0x0001, 0x000A, 0x0000, 0x0007, 0x0006, 0x0065,
     ];
 
     // ASM loc_12004 (kid.asm:24190): load `Foreground_theme` into `d1`, index
