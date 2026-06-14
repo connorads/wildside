@@ -39,7 +39,28 @@ and stop — never commit churn.
   P2s, #305 interactive-lane verification, #306-#320 per-doc umbrellas. Per-gap
   evidence lives in the audit docs (each ends with backlog-candidate rows), not the
   archive; the staleness report carries fixed/still-open verdicts with file:line.
-- **Next**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
+- **Latest playtest, 2026-06-14**: latest pushed build still has several human-visible
+  failures despite green focused gates. Most urgent: first-level stair/slope jump
+  behaviour is still wrong in both directions (holding right into right stairs then
+  jumping fires Kid up/right about 45 degrees; holding left into left stairs barely
+  moves left after a delay). Treat this as fresh #258/#277 evidence and build a
+  human-equivalent oracle route before another narrow helper patch. Other
+  reconfirmed items: intro jacket appears before throw-off (#288/#161), level starts
+  flicker / Kid briefly appears in the air (#122/#238/#289), block/diamond/helmet SFX
+  still lag or deform music (#264/#272), Heavy Man top metal-block ding may be missing
+  (#272/#297), helmet-guy hitting Dragon still appears to leave HP at 4 (#276/#271
+  recheck), EOL countdown sound continues past zero until BLW2 intro (#265), BLW2
+  RockTanks render half through floor near tunnel/teleporter (#259/#252), same-level
+  teleporter visibly shows loader instead of only the teleporter effect (#298/#300),
+  Samurai transform/attack audio is weak (#272/#287), Highwater Rhino/Berzerker still
+  draws in front of water/foreground (#256/#215), Highwater Pass 2 hands flicker and
+  diamond enemies are harmless (#185/#177), Level 0x08 death wall now appears but
+  overlays the timer and continue screen is off-centre (#266/#303), death-wall level
+  still has dark-green/cloud overlay artefacts (#280/#289), and later intro/Cyclone
+  prize route still gives a Diamond and blocks progress (#284/#274/#273).
+- **Next**: #258/#277 first-level stair/slope jump repro, then #284/#274 Cyclone prize
+  if the movement route does not yield an actionable oracle split.
+- **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still
   need a route that reaches the reported live slime/metal-block contact. Current clean
