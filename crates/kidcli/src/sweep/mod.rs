@@ -1334,6 +1334,7 @@ pub(crate) fn compare_sweep_states_for_frontier_with_options(
                 category: if rubber_worker_counter_sampling_matches(native, oracle)
                     || rock_tank_counter_sampling_matches_loc_3b372(native, oracle)
                     || prize_diamond_counter_sampling_matches_loc_10396(native, oracle)
+                    || dragon_walking_breath_counter_sampling_matches_loc_3d086(native, oracle)
                 {
                     DivergenceCategory::OracleLimitation
                 } else {
@@ -1658,6 +1659,87 @@ fn raw_rock_tank_roster_loc_3b372(state: &OracleState) -> Vec<&OracleEnemyState>
         .iter()
         .filter(|enemy| matches!(enemy.object_type, 0x0A | 0x0B))
         .collect()
+}
+
+fn dragon_walking_breath_counter_sampling_matches_loc_3d086(
+    native: &OracleState,
+    oracle: &OracleState,
+) -> bool {
+    if native.game_mode != oracle.game_mode
+        || native.current_level_id != oracle.current_level_id
+        || native.camera_x_pos != oracle.camera_x_pos
+        || native.camera_y_pos != oracle.camera_y_pos
+        || native.kid_x_pos != oracle.kid_x_pos
+        || native.kid_y_pos != oracle.kid_y_pos
+        || native.kid_x_vel != oracle.kid_x_vel
+        || native.kid_y_vel != oracle.kid_y_vel
+        || native.character_movement != oracle.character_movement
+        || native.number_objects.abs_diff(oracle.number_objects) > 1
+        || !dragon_walking_breath_roster_matches_loc_3d086(native, oracle)
+    {
+        return false;
+    }
+
+    let native_breath_projectile = native
+        .gameplay_debug_fields
+        .get("kid_projectile_damage_probe")
+        .is_some_and(|probe| probe.contains("DragonWalkingBreath@"));
+    let oracle_breath_child = oracle
+        .gameplay_debug_fields
+        .get("oracle_object_slots_loc_e1e")
+        .is_some_and(|slots| slots.contains("code=0x03d086"));
+
+    // ASM Dragon.asm loc_3CF90 allocates the breath child Object_RAM slot;
+    // loc_3D082/loc_3D086 then hibernates the child while the parent resumes.
+    // Native models the child as a projectile, so TAS checkpoints can sample
+    // Number_Objects one object-pass apart even when the Dragon roster and
+    // gameplay state already match.
+    native_breath_projectile && oracle_breath_child
+}
+
+fn dragon_walking_breath_roster_matches_loc_3d086(
+    native: &OracleState,
+    oracle: &OracleState,
+) -> bool {
+    const DRAGON_WALKING_OBJECT_TYPE: u8 = 0x0D;
+    // ASM Dragon.asm loc_3D086 can leave the breath child sampled one object-pass
+    // later than native projectile cleanup while the Dragon parents continue walking.
+    // Keep this local to Number_Objects classification; it is not general enemy parity.
+    const DRAGON_BREATH_X_PHASE_TOLERANCE: u32 = 0x0004_0000;
+    const DRAGON_VELOCITY_TOLERANCE: i32 = 0x0001_0000;
+
+    let mut native_dragons = normalised_enemy_roster_for_frontier_with_peer(native, oracle)
+        .into_iter()
+        .filter(|enemy| enemy.object_type == DRAGON_WALKING_OBJECT_TYPE)
+        .collect::<Vec<_>>();
+    let mut oracle_dragons = normalised_enemy_roster_for_frontier_with_peer(oracle, native)
+        .into_iter()
+        .filter(|enemy| enemy.object_type == DRAGON_WALKING_OBJECT_TYPE)
+        .collect::<Vec<_>>();
+
+    if native_dragons.is_empty()
+        || native_dragons.len() != native.active_enemies.len()
+        || oracle_dragons.len() != oracle.active_enemies.len()
+        || native_dragons.len() != oracle_dragons.len()
+    {
+        return false;
+    }
+
+    native_dragons.sort_by_key(|enemy| enemy.layout_index.unwrap_or(usize::MAX));
+    oracle_dragons.sort_by_key(|enemy| enemy.layout_index.unwrap_or(usize::MAX));
+
+    native_dragons
+        .iter()
+        .zip(&oracle_dragons)
+        .all(|(native, oracle)| {
+            native.object_type == oracle.object_type
+                && native.layout_index == oracle.layout_index
+                && native.x_pos.abs_diff(oracle.x_pos) <= DRAGON_BREATH_X_PHASE_TOLERANCE
+                && native.y_pos == oracle.y_pos
+                && (native.x_velocity - oracle.x_velocity).abs() <= DRAGON_VELOCITY_TOLERANCE
+                && (native.y_velocity - oracle.y_velocity).abs() <= DRAGON_VELOCITY_TOLERANCE
+                && native.current_hp.unwrap_or(0) == oracle.current_hp.unwrap_or(0)
+        })
 }
 
 fn rock_tank_body_turret_pair_count_loc_3b372(state: &OracleState) -> usize {
@@ -4425,6 +4507,54 @@ mod tests {
         oracle.number_objects = 4;
         oracle.number_gfx_objects = 3;
         oracle.active_enemies = vec![oracle_turret, oracle_body];
+
+        let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].field, "number_objects");
+        assert_eq!(diffs[0].category, DivergenceCategory::OracleLimitation);
+    }
+
+    #[test]
+    fn dragon_walking_breath_counter_sampling_is_oracle_limitation_loc_3d086() {
+        let dragon = OracleEnemyState {
+            object_type: 0x0D,
+            x_pos: 0x01E9_8000,
+            y_pos: 0x01C0_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            facing: EnemyFacing::Left,
+            collision_type: Some(0),
+            collision_source: Some(0x000D),
+            layout_index: Some(2),
+            layout_ptr: Some(0x0007_8A64),
+            parent_object_ptr: Some(0xFFFF_1058),
+            gfx_slot_index: Some(4),
+            on_ground: Some(true),
+            current_hp: Some(1),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        let mut native = demo_velocity_state(0, 0);
+        native.game_mode = 0x0010;
+        native.current_level_id = 1;
+        native.number_objects = 11;
+        native.number_gfx_objects = 4;
+        native.active_enemies = vec![dragon.clone()];
+        native.gameplay_debug_fields.insert(
+            "kid_projectile_damage_probe".into(),
+            "#00:DragonWalkingBreath@0x03830000,0x01c00000 vel=0x00000000,0x00000000 life=26 owner=none dx=-18 dy=59 overlap=0".into(),
+        );
+
+        let mut oracle = native.clone();
+        oracle.number_objects = 10;
+        oracle.active_enemies[0].x_pos = 0x01ED_8000;
+        oracle.active_enemies[0].facing = EnemyFacing::Right;
+        oracle.gameplay_debug_fields.clear();
+        oracle.gameplay_debug_fields.insert(
+            "oracle_object_slots_loc_e1e".into(),
+            "0xffff1228:code=0x03d086,hib=1@835,624;0xffff1058:code=0x03e55a,hib=1@489,448".into(),
+        );
 
         let diffs = compare_sweep_states_for_frontier(&[native], &[oracle], FrontierKind::Gameplay);
 
