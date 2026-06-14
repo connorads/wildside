@@ -276,7 +276,14 @@ and stop — never commit churn.
   `Destroy`, no active projectile in the bounce frame, and Drips layout #08 is
   still `pre_drop:0x800a` with no child; the nearest enemy support/contact probe
   is separated from Kid. Treat this as clean Kid/block-bounce evidence only,
-  not the reported slime/block destruction route.
+  not the reported slime/block destruction route. Delaying the same shape with
+  `426..500 none` materialises
+  `.cache/recordings/issue-260-p11-mb-hold-none/scenario.json` and also verifies
+  clean for frames `490..520`; it shifts the bounce to `cell 37,32 @511` while a
+  falling `DripsDrop` is active, but that drop remains in cell `36,33`, no
+  `Destroy` occurs, and the enemy contact/support probes are still separated.
+  Do not repeat this delayed p11 bounce axis as a block-destruction lead unless
+  a new route moves the active drop/crawler onto the row-32 block itself.
   A
   follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
