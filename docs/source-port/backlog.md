@@ -144,8 +144,19 @@ and stop — never commit churn.
   smoke batch on the current seed ranks DripsDrop vs cell `36,32` and shows the
   drop already reaches `dx=0 dy=-3 @381` independent of the late overlays, so
   the next useful search axis is Kid timing around that early drop/cell window,
-  not more post-390 drop positioning. A first bounded Kid-timing batch around
-  that window found `300..450 none,330..370 Right,371..420 B+Right,421..450 Left`
+  not more post-390 drop positioning. A 2026-06-14 pre-climb route-shape batch
+  on the same seed found a stronger live near-contact prefix: clearing
+  `390..440`, then `441..480 Right`, `481..510 B+Right`, `511..565 Left`,
+  `566..700 none` keeps final mode `InGame` with HP 1 while preserving
+  Kid/DripsDrop `dx=-3 dy=-2 @483` and Kid/cell `36,32` hitbox
+  `dx=-1 dy=-3 @488`; sibling exits (`pre390_left520`, `pre390_shortjump`)
+  have the same closest frames. This is still not reported slime/metal-block
+  proof: Kid spends HP at frame 465 before the row-32 pass and no live
+  crawler/block mutation is demonstrated. Use this as the current refreshed
+  survivor prefix, but do not treat the `pre390_*` exit trims as a Drips/block
+  patch lead without a materialised oracle-comparable contact route. A first
+  bounded Kid-timing batch around that window found
+  `300..450 none,330..370 Right,371..420 B+Right,421..450 Left`
   gets Kid's healthy hitbox to `dx=-5 dy=-3 @379` against cell `36,32`, but it
   is still not contact proof: focused probing reports closest Kid/DripsDrop
   separation `dx=-23 dy=-30 @381`, no DripsSurfaceCrawler in frames 330..520,
