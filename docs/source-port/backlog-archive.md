@@ -9446,7 +9446,12 @@ Column of origin shown in brackets; text is verbatim.
   to reach the frame cap on this host. A fresh dummy-SDL run
   `.cache/recordings/issue284-live-dummy-attract-current-3900/` is
   native-replayable, but terminated/saved at frame 3260 before `DemoPlay`, so it
-  also does not cover the reported prize.
+  also does not cover the reported prize. A follow-up dummy-SDL live capture
+  `.cache/recordings/issue284-live-dummy-attract-current-4500/` also stopped
+  early: its trace has 1749 frames, final frame 1748 is still
+  `IntroSequence4`, and `floating_items` is empty throughout. This is another
+  capture-tooling/live-path limit, not evidence for the Diamond-fallback
+  hypothesis.
 
 - [Verify] 2026-06-14 deterministic cold-idle route still rejects the generic
   Diamond-fallback hypothesis on current HEAD. `verify-tas --scenario
