@@ -390,6 +390,9 @@ enum Commands {
         /// Score candidates by closest healthy Kid hitbox approach to these 16x16 level cells.
         #[arg(long, value_parser = parse_target_cell)]
         target_cell_hitbox: Vec<TargetCell>,
+        /// Score candidates by closest healthy Kid approach to typed projectiles.
+        #[arg(long)]
+        target_projectile: Vec<TargetProjectileKind>,
         /// Score candidates by closest projectile approach to a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_projectile_cell)]
         target_projectile_cell: Vec<BatchTargetProjectileCell>,
@@ -1356,6 +1359,7 @@ fn main() -> Result<()> {
             target_point,
             target_cell,
             target_cell_hitbox,
+            target_projectile,
             target_projectile_cell,
             score_frame_start,
             limit,
@@ -1370,10 +1374,11 @@ fn main() -> Result<()> {
             if target_point.is_empty()
                 && target_cell.is_empty()
                 && target_cell_hitbox.is_empty()
+                && target_projectile.is_empty()
                 && target_projectile_cell.is_empty()
             {
                 bail!(
-                    "at least one --target-point, --target-cell, --target-cell-hitbox, or --target-projectile-cell is required for batch scoring"
+                    "at least one --target-point, --target-cell, --target-cell-hitbox, --target-projectile, or --target-projectile-cell is required for batch scoring"
                 );
             }
             if let Some(level) = base.warp_to_level {
@@ -1386,6 +1391,7 @@ fn main() -> Result<()> {
                 &target_point,
                 &target_cell,
                 &target_cell_hitbox,
+                &target_projectile.iter().copied().map(Into::into).collect::<Vec<_>>(),
                 &target_projectile_cell,
                 score_frame_start,
                 limit,
@@ -2996,6 +3002,7 @@ fn probe_dynamic_record_scenario_batch(
     target_points: &[TargetPoint],
     target_cells: &[TargetCell],
     target_cell_hitboxes: &[TargetCell],
+    target_projectiles: &[ActiveProjectileKind],
     target_projectile_cells: &[BatchTargetProjectileCell],
     score_frame_start: usize,
     limit: usize,
@@ -3032,6 +3039,7 @@ fn probe_dynamic_record_scenario_batch(
             target_points.len()
                 + target_cells.len()
                 + target_cell_hitboxes.len()
+                + target_projectiles.len()
                 + target_projectile_cells.len(),
         );
         for (index, target_point) in target_points.iter().copied().enumerate() {
@@ -3122,6 +3130,33 @@ fn probe_dynamic_record_scenario_batch(
             });
             target_summaries.push(summary);
         }
+        for (index, target_projectile) in target_projectiles.iter().copied().enumerate() {
+            let summary = target_projectile_kid_approach_from_frame(
+                &trace,
+                target_projectile,
+                true,
+                score_frame_start,
+            )
+            .map(|approach| {
+                if target_points.is_empty()
+                    && target_cells.is_empty()
+                    && target_cell_hitboxes.is_empty()
+                    && index == 0
+                {
+                    first_target_score = Some(approach.manhattan_px);
+                }
+                format!(
+                    "projectile {:?} healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{}",
+                    target_projectile,
+                    approach.dx_px,
+                    approach.dy_px,
+                    approach.manhattan_px,
+                    approach.replay_frame,
+                )
+            })
+            .unwrap_or_else(|| format!("projectile {target_projectile:?} healthy kid <none>"));
+            target_summaries.push(summary);
+        }
         for (index, target_projectile_cell) in target_projectile_cells.iter().copied().enumerate() {
             let summary = target_projectile_cell_approach_from_frame(
                 &trace,
@@ -3133,6 +3168,7 @@ fn probe_dynamic_record_scenario_batch(
                 if target_points.is_empty()
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
+                    && target_projectiles.is_empty()
                     && index == 0
                 {
                     first_target_score = Some(approach.manhattan_px);

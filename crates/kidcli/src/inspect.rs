@@ -1445,11 +1445,11 @@ struct TargetProjectileActivation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct TargetProjectileClosestApproach {
-    replay_frame: usize,
-    dx_px: i64,
-    dy_px: i64,
-    manhattan_px: i64,
+pub(crate) struct TargetProjectileClosestApproach {
+    pub(crate) replay_frame: usize,
+    pub(crate) dx_px: i64,
+    pub(crate) dy_px: i64,
+    pub(crate) manhattan_px: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1483,6 +1483,43 @@ fn target_projectile_closest_approach(
         dy_px,
         manhattan_px: dx_px.abs().saturating_add(dy_px.abs()),
     })
+}
+
+pub(crate) fn target_projectile_kid_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+    require_healthy_kid: bool,
+    frame_start: usize,
+) -> Option<TargetProjectileClosestApproach> {
+    let mut closest = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if replay_frame < frame_start {
+            continue;
+        }
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+        if require_healthy_kid && (frame.number_hitpoints == 0 || frame.death_windup_elapsed > 0) {
+            continue;
+        }
+        for projectile in &frame.active_projectile_details {
+            if projectile.kind != kind {
+                continue;
+            }
+            retain_closest_projectile_approach(
+                &mut closest,
+                target_projectile_closest_approach(
+                    replay_frame,
+                    frame.kid_x_pos,
+                    frame.kid_y_pos,
+                    projectile,
+                ),
+            );
+        }
+    }
+
+    closest
 }
 
 fn retain_closest_projectile_approach(
@@ -2893,6 +2930,86 @@ mod tests {
                 0,
             ),
             None
+        );
+    }
+
+    #[test]
+    fn target_projectile_kid_approach_scores_healthy_kid_to_projectile() {
+        let mut trace = vec![
+            target_projectile_frame(
+                10,
+                ActiveProjectileKind::DripsDrop,
+                0x0248_0000,
+                0x0212_0000,
+                0x0000_2000,
+                0,
+            ),
+            target_projectile_frame(
+                11,
+                ActiveProjectileKind::DripsDrop,
+                0x0248_0000,
+                0x0212_0000,
+                0x0000_4000,
+                0,
+            ),
+        ];
+        trace[0].kid_x_pos = Some(0x0240_0000);
+        trace[0].kid_y_pos = Some(0x0200_0000);
+        trace[0].number_hitpoints = 1;
+        trace[1].kid_x_pos = Some(0x0249_0000);
+        trace[1].kid_y_pos = Some(0x0210_0000);
+        trace[1].number_hitpoints = 1;
+
+        assert_eq!(
+            target_projectile_kid_approach_from_frame(
+                &trace,
+                ActiveProjectileKind::DripsDrop,
+                true,
+                0,
+            ),
+            Some(TargetProjectileClosestApproach {
+                replay_frame: 1,
+                dx_px: -1,
+                dy_px: 2,
+                manhattan_px: 3,
+            }),
+            "issue #260 batch route scans need to rank Kid/drop proximity directly"
+        );
+    }
+
+    #[test]
+    fn target_projectile_kid_approach_can_require_healthy_kid() {
+        let mut trace = vec![target_projectile_frame(
+            10,
+            ActiveProjectileKind::DripsDrop,
+            0x0248_0000,
+            0x0212_0000,
+            0x0000_2000,
+            0,
+        )];
+        trace[0].kid_x_pos = Some(0x0248_0000);
+        trace[0].kid_y_pos = Some(0x0212_0000);
+        trace[0].number_hitpoints = 0;
+        trace[0].death_windup_elapsed = 1;
+
+        assert_eq!(
+            target_projectile_kid_approach_from_frame(
+                &trace,
+                ActiveProjectileKind::DripsDrop,
+                true,
+                0,
+            ),
+            None
+        );
+        assert_eq!(
+            target_projectile_kid_approach_from_frame(
+                &trace,
+                ActiveProjectileKind::DripsDrop,
+                false,
+                0,
+            )
+            .map(|approach| approach.manhattan_px),
+            Some(0)
         );
     }
 
