@@ -2214,6 +2214,18 @@ impl RomRandomState {
         0x6C, 0x50, 0xFD, 0x99, 0x5F, 0x92, 0xD8, 0xD0, 0x90, 0x68,
     ];
 
+    pub(crate) fn from_raw_parts(ram: [u8; Self::RAM_LENGTH], offset_word: u16) -> Self {
+        let index = i32::from(offset_word as i16) + Self::RAM_LENGTH as i32;
+        assert!(
+            (0..Self::RAM_LENGTH as i32).contains(&index),
+            "RNG offset word {offset_word:#06X} must point inside the ROM RNG ring",
+        );
+        Self {
+            ram,
+            index: index as usize,
+        }
+    }
+
     pub(crate) fn next_byte(&mut self) -> u8 {
         self.index = (self.index + 1) % Self::RAM_LENGTH;
         let tap_index = (self.index + Self::TAP_OFFSET) % Self::RAM_LENGTH;

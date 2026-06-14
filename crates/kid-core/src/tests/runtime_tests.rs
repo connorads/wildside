@@ -6485,6 +6485,11 @@ mod chunk_09 {
             Some(0xFFCF),
             "Drips.asm loc_3340E consumes the two Level 1 controller RNG words on scenario frame 0; over-settling by two frames starts #260 probes at $FFD7 instead",
         );
+        assert_eq!(
+            first_recorded_frame.rng_last_byte,
+            Some(0x09),
+            "oracle-probe --capture-settle-trace for issue260_p11 ends Level 1 target_live step 59 at RNG $FFCB/$32, then Drips.asm loc_3340E advances frame 0 to $FFCF/$09",
+        );
     }
 
     #[test]
@@ -7712,7 +7717,7 @@ mod chunk_09 {
 
     #[test]
     fn metal_block_push_left_delete_gate_loc_11328_continues_only_while_the_left_neighbour_is_open()
-     {
+    {
         assert!(
             NativeRuntime::metal_block_push_left_delete_gate_loc_11328(
                 3,

@@ -189,7 +189,13 @@ and stop — never commit churn.
   settle tracing for the same p11 scenario ends `target_live` step 59 at
   `rng_offset=$FFCB`, `rng_last_byte=$32`, and scenario frame 0 advances to
   `$FFCF/$09`; native's settled-warp ring must be aligned to that hidden state
-  before Drips timing can be trusted. A
+  before Drips timing can be trusted. 2026-06-14 native now injects that Level 1
+  recording-settle ring: `tas-diff --rng-trace --frame-start 0 --frame-end 5`
+  matches oracle bytes through frame 4 (`$FFCF/$09`, `$FFD3/$00`, `$FFD7/$7F`,
+  `$FFDB/$E8`, `$FFDF/$92`). The p11 HP divergence remains at frame 396, and
+  `--drips-trace --frame-start 173 --frame-end 175` still shows a frame-174
+  Drips phase split (`native_rng=$FFF4`, `oracle_rng=$FFF5`), so continue from
+  Drips.asm `loc_33424`/`loc_3345C` timing rather than the settled RNG ring. A
   follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at

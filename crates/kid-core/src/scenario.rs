@@ -7,6 +7,17 @@ use super::*;
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
+const LEVEL_ONE_RECORDING_SETTLE_RNG_OFFSET: u16 = 0xFFCB;
+// Oracle `issue260_p11` settle tracing reaches Level 1 target_live step 59 at
+// RNG $FFCB/$32. The first scenario frame then runs the two controller RNG
+// words through Get_RandomNumber_byte (kid.asm:1181) before Drips.asm
+// loc_3340E sees $FFCF/$09.
+const LEVEL_ONE_RECORDING_SETTLE_RNG_RING: [u8; 55] = [
+    0xF8, 0x5C, 0x32, 0x1D, 0xA6, 0xA1, 0xDA, 0xE0, 0xF3, 0x21, 0x05, 0xB3, 0xE5, 0x5E, 0x22, 0x59,
+    0x9B, 0x3F, 0xFA, 0xE6, 0x27, 0x5E, 0xA7, 0x64, 0x9C, 0xB7, 0x36, 0x64, 0x5B, 0xBC, 0xDA, 0x11,
+    0xB2, 0xE6, 0xAC, 0xED, 0x40, 0xD1, 0xE6, 0x9F, 0x61, 0x05, 0xC3, 0x78, 0x00, 0xA3, 0xC5, 0x89,
+    0x96, 0x12, 0xE1, 0x8E, 0x29, 0x15, 0x4A,
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SettleWarpMode {
@@ -172,6 +183,12 @@ impl NativeRuntime {
             RECORDING_SETTLED_WARP_LIVE_FRAMES
         };
         self.settle_target_level_live_window(level_id, target_live_frames);
+        if level_id == LevelId(1) {
+            self.rom_random = RomRandomState::from_raw_parts(
+                LEVEL_ONE_RECORDING_SETTLE_RNG_RING,
+                LEVEL_ONE_RECORDING_SETTLE_RNG_OFFSET,
+            );
+        }
     }
 }
 
