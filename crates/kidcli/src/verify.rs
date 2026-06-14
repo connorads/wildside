@@ -590,6 +590,12 @@ pub(crate) fn verify_audio_output(
     manifest: &AssetManifest,
     scenario: Scenario,
 ) -> Result<()> {
+    if !scenario.supports_static_audio_oracle() {
+        bail!(
+            "static verify-audio-output does not support {}; use verify-native-audio-output-file with a state-gated DynamicScenario for gameplay SFX",
+            scenario.slug()
+        );
+    }
     let comparison = capture_oracle_pair(repo_root, rom_path, rom_bytes, manifest, scenario)?;
     compare_audio_against_oracle(&comparison)
 }

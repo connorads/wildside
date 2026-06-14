@@ -2025,6 +2025,10 @@ impl Scenario {
         }
     }
 
+    pub fn supports_static_audio_oracle(self) -> bool {
+        matches!(self, Self::BootTitleIdle10s | Self::BootTitleStartLevel1)
+    }
+
     pub fn script(self) -> Vec<u8> {
         let mut script = vec![0; self.frame_count().saturating_add(1)];
         match self {
@@ -3121,6 +3125,25 @@ mod tests {
         assert_eq!(script[720], 1 << 4);
         assert_eq!(script[723], 1 << 4);
         assert_eq!(script[724], 0);
+    }
+
+    #[test]
+    fn static_audio_oracle_supports_only_boot_and_title_routes() {
+        assert!(Scenario::BootTitleIdle10s.supports_static_audio_oracle());
+        assert!(Scenario::BootTitleStartLevel1.supports_static_audio_oracle());
+
+        for scenario in [
+            Scenario::BootTitleStartLevel1MoveRight5s,
+            Scenario::Level1EnemyWindow,
+            Scenario::WalkRight3s,
+            Scenario::JumpFromStandstill,
+        ] {
+            assert!(
+                !scenario.supports_static_audio_oracle(),
+                "{} must use a state-gated DynamicScenario audio probe",
+                scenario.slug()
+            );
+        }
     }
 
     #[test]
