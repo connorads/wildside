@@ -43,6 +43,65 @@ fn test_dragon(variant: u8, x: u32, y: u32) -> ActiveEnemy {
 }
 
 #[test]
+fn dragon_flying_descent_tail_resumes_next_script_command_loc_3488a_d8f1() {
+    let mut dragon = test_dragon(0, 0x0052_0000, 0x001F_0000);
+    dragon.dragon_phase = DragonFlyingState::Descending;
+    dragon.dragon_script_cmd = 1;
+    dragon.dragon_descent_index = 17;
+    dragon.dragon_descent_frames = 0;
+    dragon.x_velocity = 0;
+    dragon.y_velocity = 0;
+
+    let mut projectiles = Vec::new();
+    let mut projectile_shell = Some(&mut projectiles);
+    step_dragon(&mut dragon, None, None, None, &mut projectile_shell);
+
+    assert_eq!(
+        dragon.dragon_script_cmd, 2,
+        "ASM Dragon_Flying.asm loc_3488A `$D8F1` branches to loc_346C4, preserving main-script `a0` after the descent command instead of reloading from `$48(a5)`",
+    );
+    assert_eq!(
+        dragon.dragon_phase,
+        DragonFlyingState::Drifting,
+        "variant-0 script byte after the descent command is `0x5004`, which dispatches to loc_34776 drift for 0x50 frames",
+    );
+    assert_eq!(dragon.dragon_phase_frames, 0x50);
+    assert_eq!(dragon.x_velocity, -0x800);
+}
+
+#[test]
+fn dragon_flying_descent_tail_preserves_player_facing_for_next_command_loc_3488a_d8f1() {
+    let mut dragon = test_dragon(2, 0x0052_0000, 0x001F_0000);
+    dragon.dragon_phase = DragonFlyingState::Descending;
+    dragon.dragon_script_cmd = 1;
+    dragon.dragon_descent_index = 17;
+    dragon.dragon_descent_frames = 0;
+    dragon.facing = Direction::Left;
+    dragon.x_velocity = 0;
+    dragon.y_velocity = 0;
+
+    let player_x_pos = Some(0x0060_0000);
+    let mut projectiles = Vec::new();
+    let mut projectile_shell = Some(&mut projectiles);
+    step_dragon(
+        &mut dragon,
+        None,
+        player_x_pos,
+        None,
+        &mut projectile_shell,
+    );
+
+    assert_eq!(
+        dragon.dragon_script_cmd, 3,
+        "ASM Dragon_Flying.asm loc_3488A `$D8F1` resumes at current main-script `a0`; variant 2 then executes loc_3473A FacePlayer before the next DriftWithFire command",
+    );
+    assert_eq!(dragon.dragon_phase, DragonFlyingState::DriftingWithFire);
+    assert_eq!(dragon.dragon_phase_frames, 0x50);
+    assert_eq!(dragon.facing, Direction::Right);
+    assert_eq!(dragon.x_velocity, 0x800);
+}
+
+#[test]
 fn rock_tank_contact_uses_rom_width_at_oracle_frame_143_loc_3b31e() {
     let mut slice = combat_slice();
     slice.player.x_pos = 0x00AF_4000;

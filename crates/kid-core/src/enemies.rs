@@ -14284,7 +14284,7 @@ pub(crate) fn step_dragon(
             }
         }
         DragonFlyingState::Descending => {
-            step_dragon_descent(enemy, projectiles);
+            step_dragon_descent(enemy, player_x_pos, projectiles);
             dragon_apply_velocity(enemy);
             if let Some(grid) = block_grid
                 && let Some(collision_type) = dragon_flying_terrain_collision_type(enemy, grid)
@@ -14682,6 +14682,7 @@ fn dragon_enter_descent(enemy: &mut ActiveEnemy) {
 /// spawn fire, flip direction, or restart the main script.
 fn step_dragon_descent(
     enemy: &mut ActiveEnemy,
+    player_x_pos: Option<u32>,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
 ) {
     loop {
@@ -14768,8 +14769,14 @@ fn step_dragon_descent(
                 // Immediate — continue.
             }
             DragonDiveAction::RestartScript => {
-                // Descent complete: restart main flight script. ASM $D8F1.
-                dragon_restart_script(enemy);
+                // ASM Dragon_Flying.asm loc_3488A `$D8F1` branches to
+                // loc_346C4, which reinitialises animation and falls through
+                // to loc_346DA with the current main-script `a0`. It does not
+                // reload `$48(a5)`, so native must continue after the descent
+                // command rather than restart at script index 0.
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                dragon_advance_script(enemy, player_x_pos, projectiles);
                 return;
             }
         }
