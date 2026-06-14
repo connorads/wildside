@@ -497,6 +497,15 @@ and stop — never commit churn.
   the closest useful survivor crawler remains on the lower floor (`dy=-65`
   from cell `28,32`). Do not repeat this `prebl-longr` `360..470`
   pre-splash axis unchanged.
+  2026-06-14 early-bootstrap check on the same seed (`0..120` / split
+  `0..70,71..140` with `None`, `Right`, `B+Right`, `Left`, `B+Left`, `B`)
+  also failed to create metal-block evidence. `early_none` and `early_r`
+  reproduce a Kid/cell `dx=0 dy=-1` near-miss, but the Drips child is either
+  shifted to the right-side column (`DripsDrop cell 28,32 dx=-121`) or remains
+  the baseline lower-line splash (`dy=-3`). Split variants can bring a crawler
+  close to Kid on the lower floor (`split_l_r` crawler `dx=0 dy=+1 @669`) but
+  still leave it `dy=-65` from row-32 cells. Do not repeat this `prebl-longr`
+  early-bootstrap cycle axis unchanged.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
