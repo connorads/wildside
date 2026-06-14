@@ -8794,6 +8794,61 @@ mod tests {
     }
 
     #[test]
+    fn transform_hibernate_suppresses_hp_pips_loc_bdc0() {
+        let mut trace = sample_trace(GameMode::DemoPlay);
+        trace.number_hitpoints = 3;
+        trace.current_helmet_id = PlayerForm::Cyclone.helmet_id();
+        let visuals = sample_level_visuals();
+        let transform_frames = visuals
+            .player
+            .forms
+            .get(&PlayerForm::Cyclone.helmet_id())
+            .expect("sample Cyclone visuals")
+            .transform_steps
+            .iter()
+            .map(|step| step.duration_frames)
+            .sum::<usize>() as u8;
+
+        trace.form_change_flash_frames = transform_frames;
+        let first_hibernate_scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            first_hibernate_scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { tile_sheet, .. }
+                        if tile_sheet.as_ref() == &visuals.hud.hitpoint_sheet
+                )
+            }),
+            "ASM Mode_Level transfers the previous Sprite_Table before Make_SpriteAttr_HUD loc_BDC0 skips HP pips, so the first hibernated Cyclone frame still shows them"
+        );
+
+        trace.form_change_flash_frames = transform_frames - 1;
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { tile_sheet, .. }
+                        if tile_sheet.as_ref() == &visuals.hud.hitpoint_sheet
+                )
+            }),
+            "ASM Make_SpriteAttr_HUD loc_BDC0 branches to loc_BE82 while Currently_transforming is set, skipping the HP pip sprites"
+        );
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { tile_sheet, .. }
+                        if tile_sheet.tiles.len() == visuals.hud.digits.tiles.len()
+                )
+            }),
+            "ASM Make_SpriteAttr_HUD loc_BE82 continues through the timer/lives/diamond HUD paths after skipping HP pips"
+        );
+    }
+
+    #[test]
     fn forest_parallax_uses_asm_scroll_divisor() {
         let trace = sample_trace(GameMode::InGame);
         let camera_x_px = 307;

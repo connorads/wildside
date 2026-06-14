@@ -151,6 +151,32 @@ fn push_hud_hitpoint_sprite(
     }
 }
 
+fn hud_hitpoints_visible_loc_bdc0(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> bool {
+    if trace.form_change_flash_frames == 0 {
+        return true;
+    }
+    let Some(form_visuals) = level_visuals.player.forms.get(&trace.current_helmet_id) else {
+        return true;
+    };
+    let transform_frames = form_visuals
+        .transform_steps
+        .iter()
+        .map(|step| step.duration_frames)
+        .sum::<usize>();
+    if transform_frames == 0 {
+        return true;
+    }
+
+    // ASM Mode_Level uploads the previous Sprite_Table before
+    // Make_SpriteAttr_HUD loc_BDC0 sees Currently_transforming and branches to
+    // loc_BE82. The first hibernated transform frame therefore still displays
+    // the old HP pips; subsequent transform frames do not.
+    usize::from(trace.form_change_flash_frames) >= transform_frames
+}
+
 pub(super) fn push_hud_icon(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -332,22 +358,24 @@ pub(super) fn push_game_hud(
         PlayerForm::max_hitpoints,
     ) as i32
         + i32::from(trace.extra_hitpoint_slots);
-    for (i, hitpoint_tile) in hud_hitpoint_tiles(trace.number_hitpoints, max_hp as u16)
-        .iter()
-        .enumerate()
-    {
-        let pip_tile = match hitpoint_tile {
-            HudHitpointTile::Full => level_visuals.hud.hitpoint_tiles[0],
-            HudHitpointTile::Half => level_visuals.hud.hitpoint_tiles[1],
-            HudHitpointTile::Empty => level_visuals.hud.hitpoint_tiles[2],
-        };
-        push_hud_hitpoint_sprite(
-            commands,
-            level_visuals,
-            pip_tile,
-            HUD_HITPOINT_START_X + i as i32 * HUD_HITPOINT_SPACING_X,
-            HUD_HITPOINT_Y,
-        );
+    if hud_hitpoints_visible_loc_bdc0(trace, level_visuals) {
+        for (i, hitpoint_tile) in hud_hitpoint_tiles(trace.number_hitpoints, max_hp as u16)
+            .iter()
+            .enumerate()
+        {
+            let pip_tile = match hitpoint_tile {
+                HudHitpointTile::Full => level_visuals.hud.hitpoint_tiles[0],
+                HudHitpointTile::Half => level_visuals.hud.hitpoint_tiles[1],
+                HudHitpointTile::Empty => level_visuals.hud.hitpoint_tiles[2],
+            };
+            push_hud_hitpoint_sprite(
+                commands,
+                level_visuals,
+                pip_tile,
+                HUD_HITPOINT_START_X + i as i32 * HUD_HITPOINT_SPACING_X,
+                HUD_HITPOINT_Y,
+            );
+        }
     }
 
     let timer_seconds = hud_timer_seconds_loc_c070(trace);
