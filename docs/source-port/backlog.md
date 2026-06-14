@@ -171,7 +171,18 @@ and stop — never commit churn.
   at frame 395, while native still has the same child at `y=541`, `vel=$1C000`.
   Do not patch this as a generic falling-drop damage toggle; first align the
   `loc_3340E`/`loc_3345C` fall timing for layout #08 or choose a route that
-  avoids that pre-contact phase drift. A follow-up over the clean
+  avoids that pre-contact phase drift. 2026-06-14 follow-up isolated the first
+  timing split earlier: at p11 frame 174 native layout #08 splash reseeds with
+  RNG byte `$2C` and raw previous-frame Kid physics X `$02A0`, producing
+  wait `$00AB`, while oracle Drips `loc_3340E` has `d0=$00A2` at `a0=$33522`;
+  since `$2C>>2=$0B`, oracle is reading `(Addr_GfxObject_Kid).x_pos` low byte
+  `$A9`. Native/oracle player physics and RNG offsets match around frames
+  170..175, so the missing state is Kid's visible gfx-object X at splash-reseed
+  time, not RNG order, table order, or falling-drop damage. Rejected patch:
+  using the existing initial-seed `drips_kid_gfx_x_pos_loc_3340e` (+16px) for
+  splash reseeds worsens p11 (#08 wait `$003D` vs oracle `$0024` at frame 300);
+  the correct fix must model the frame/pose-specific Kid gfx object instead of
+  applying a universal +16 adjustment. A follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
   frame 490, but still leaves the DripsSurfaceCrawler `dx=+102 dy=+1 @512`;
