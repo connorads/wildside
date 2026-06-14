@@ -134,6 +134,18 @@ and stop — never commit churn.
   y-velocity window (`$8000+`); `verify-tas` frames `350..390` now passes all
   40 enemy-frontier checkpoints. This is contact-timing evidence only, not the
   row-32 block destruction route.
+  2026-06-14 follow-up after materialising
+  `.cache/recordings/issue260-dlb-tail-b-row32-bounce/`: targeted
+  same-frame conjunction batches around the `431..500` neutral tail and late
+  B+Left timing still fail to produce a live Drips/row-32 metal-block event.
+  Best healthy candidate from the first pass was `rb471_500`
+  (`471..500 Right+B,501..570 Left+B`), but it only scores 64 against
+  `DripsDrop:36,32` at frame 640 (Kid `dx=+28 dy=-33`, drop `dx=0 dy=-3`)
+  and has no Bounce/Destroy. The tighter follow-up found `rb451_500` with Kid
+  and drop horizontally aligned to cell `36,32`, but Kid is still `dy=-33`,
+  finishes at HP 0, and has no row-32 Bounce/Destroy. Do not repeat this
+  `rb451..500`/late B+Left tail timing axis; it confirms the child can be near
+  the cell horizontally, but not vertically or as a block-mutating contact.
   Named route
   `issue260-drips-drop-contact-probe` promotes the `l528/b530/r536` tail and
   reaches exact native DripsDrop overlap at frame 535; oracle diff for frames
