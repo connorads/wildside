@@ -212,6 +212,21 @@ and stop — never commit churn.
   lets `DripsDrop` hurt Kid without consuming the child. `verify-tas` passes
   p11 frames `390..430`, and `tas-diff --drips-trace --frame-start 388
   --frame-end 402` confirms the oracle `$28` window on frames 394-399. A
+  refreshed p11 route probe now verifies enemy-frontier clean through frames
+  `360..430`; native p11 remains route-shape evidence only, not the human
+  slime/metal-block proof. `probe-record-scenario-file --target-cell-hitbox
+  36,32 --target-projectile drips-drop` reports Kid within `dx=0 dy=-1` of the
+  cell at frame 400 and `dx=+5 dy=-1` from the DripsDrop at frame 395, but the
+  run later enters death/`LevelTransition`. Post-contact tail variants can keep
+  the route alive (`426..700 Left` ends `InGame` with HP 1), but that survivor
+  retreats far left and leaves the nearest DripsSurfaceCrawler `dx=+208 dy=+1`.
+  Early handoff batches around `356..425` also failed to improve the proof:
+  the best direct drop branches either keep p11's `dx=+5 dy=-1` or trade it for
+  `dx=+2 dy=-11`, and all still end in `LevelTransition`. Do not repeat this
+  p11 early-handoff/post-contact tail axis unchanged; the next useful #260
+  search needs a different route shape that aligns Kid, the live Drips child,
+  and the row-32 metal block in the same frame window.
+  A
   follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
