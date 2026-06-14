@@ -144,6 +144,7 @@ struct OracleSettleTraceRow {
     game_mode: u16,
     current_level_id: u16,
     rng_offset: u16,
+    rng_last_byte: u8,
     paused: bool,
     camera_x_pos: u32,
     camera_y_pos: u32,
@@ -2740,6 +2741,7 @@ fn capture_settle_trace_row(
         game_mode: read_emulator_wram_u16(emulator, GAME_MODE_ADDR),
         current_level_id: read_emulator_wram_u16(emulator, CURRENT_LEVEL_ID_ADDR),
         rng_offset: read_emulator_wram_u16(emulator, RNG_OFFSET_ADDR),
+        rng_last_byte: rng_last_byte_from_emulator(emulator),
         paused: read_emulator_wram_u8(emulator, GAME_PAUSED_ADDR) != 0,
         camera_x_pos: read_emulator_wram_u32(emulator, CAMERA_X_POS_ADDR),
         camera_y_pos: read_emulator_wram_u32(emulator, CAMERA_Y_POS_ADDR),
@@ -2772,6 +2774,11 @@ fn read_number_objects(emulator: &mut GenesisEmulator) -> u16 {
 fn read_emulator_wram_u8(emulator: &mut GenesisEmulator, address: usize) -> u8 {
     let mem = emulator.debug().memory_view(GenesisMemoryArea::WorkingRam);
     mem.read(work_ram_index(address))
+}
+
+fn rng_last_byte_from_emulator(emulator: &mut GenesisEmulator) -> u8 {
+    let rng_offset = read_emulator_wram_u16(emulator, RNG_OFFSET_ADDR) as i16 as isize;
+    read_emulator_wram_u8(emulator, (RNG_RAM_END_ADDR as isize + rng_offset) as usize)
 }
 
 fn read_emulator_wram_u16(emulator: &mut GenesisEmulator, address: usize) -> u16 {

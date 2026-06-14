@@ -121,6 +121,8 @@ pub struct OracleSettleTraceRow {
     pub game_mode: u16,
     pub current_level_id: u16,
     pub rng_offset: u16,
+    #[serde(default)]
+    pub rng_last_byte: u8,
     pub paused: bool,
     pub camera_x_pos: u32,
     pub camera_y_pos: u32,

@@ -185,7 +185,11 @@ and stop — never commit churn.
   patching Drips timing. Follow-up typed `--rng-trace` byte columns show this
   ring-content drift already exists at p11 scenario frame 0 (`native_rng=$FFCF`
   byte `$31`, oracle byte `$09`, with matching cursor), so inspect the settled
-  Level 1 warp/bootstrap RNG ring state before touching Drips again. A
+  Level 1 warp/bootstrap RNG ring state before touching Drips again. Oracle
+  settle tracing for the same p11 scenario ends `target_live` step 59 at
+  `rng_offset=$FFCB`, `rng_last_byte=$32`, and scenario frame 0 advances to
+  `$FFCF/$09`; native's settled-warp ring must be aligned to that hidden state
+  before Drips timing can be trusted. A
   follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at

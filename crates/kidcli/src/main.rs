@@ -2468,16 +2468,17 @@ fn main() -> Result<()> {
 
             if !oracle_manifest.settle_trace.is_empty() {
                 println!(
-                    "settle_phase,settle_step,game_mode,current_level_id,rng_offset,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects"
+                    "settle_phase,settle_step,game_mode,current_level_id,rng_offset,rng_last_byte,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects"
                 );
                 for row in &oracle_manifest.settle_trace {
                     println!(
-                        "{},{},0x{:04X},0x{:04X},0x{:04X},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{}",
+                        "{},{},0x{:04X},0x{:04X},0x{:04X},0x{:02X},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{}",
                         row.phase,
                         row.step,
                         row.game_mode,
                         row.current_level_id,
                         row.rng_offset,
+                        row.rng_last_byte,
                         row.paused,
                         row.camera_x_pos,
                         row.camera_y_pos,
