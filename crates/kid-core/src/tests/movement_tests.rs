@@ -18898,6 +18898,7 @@ mod chunk_12 {
                 x_velocity: Some(0x0001_0000),
                 post_vertical_y_pos: Some(0x003f_5000),
                 compound_loc_a4ee: false,
+                buffered_jump_edge: false,
             },
         );
 
@@ -18960,6 +18961,7 @@ mod chunk_12 {
                 x_velocity: Some(0x0001_0000),
                 post_vertical_y_pos: Some(0x003f_0800),
                 compound_loc_a4ee: false,
+                buffered_jump_edge: false,
             },
         );
 
@@ -19276,6 +19278,71 @@ mod chunk_12 {
         assert_eq!(
             slice.player.x_velocity, 0x0002_4e00,
             "ASM loc_9D22 should keep the oracle frame 478 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the fresh #258
+    /// right-slope tap route lands on Level 00 cell 48,13 after the jump edge
+    /// has already been consumed. Oracle frame 453 keeps the slope-walk
+    /// velocity but snaps one pixel left/lower than native previously did.
+    #[test]
+    fn level00_frame_453_right_slope_tap_recontact_matches_oracle_loc_a99e() {
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let Some(mut grid) = runtime.block_grid_for_level(LevelId(0)) else {
+            return;
+        };
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02fd_8300;
+        slice.player.y_pos = 0x00dc_c000;
+        slice.player.x_velocity = 0x0002_7a00;
+        slice.player.y_velocity = 0x0002_8000;
+        slice.player.jump_buffer_frames = 6;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::from_mask(0x18),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("ASM loc_A99E focused case should retain physics trace");
+        assert_eq!(
+            trace.post_vertical.0, 0x00df_8000,
+            "ASM sub_902A post-vertical fraction 0x8000 reaches the row-13 SlopeUp surface",
+        );
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_pos, 0x0301_3900,
+            "ASM loc_A99E/loc_8BF0 should match oracle #258 right-slope tap frame 453 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00de_0000,
+            "ASM loc_9D22 should match oracle #258 right-slope tap frame 453 y_pos",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_3900,
+            "ASM loc_9D22 should keep the oracle frame 453 post-slope x_vel",
         );
         assert_eq!(
             slice.player.y_velocity, -slice.player.x_velocity,

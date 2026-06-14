@@ -3859,6 +3859,10 @@ impl OpeningSliceState {
                             x_velocity: handoff_x_velocity,
                             post_vertical_y_pos: Some(post_vertical_y_pos),
                             compound_loc_a4ee: compound_slope_recontact_loc_a4ee,
+                            buffered_jump_edge: self
+                                .kid_jump_gravity_probe
+                                .as_ref()
+                                .is_some_and(|probe| probe.jump_buffer_frames_after > 0),
                         },
                     );
                 }
@@ -7149,7 +7153,10 @@ impl OpeningSliceState {
             let applies_solid_edge_high_borrow = if is_4082_6024_seam {
                 post_vertical_frac <= 0x0800 || red_stealth_high_fraction_4082_handoff
             } else if is_406d_606e_seam {
-                form == PlayerForm::IronKnight && post_vertical_frac >= 0x4000
+                (form == PlayerForm::IronKnight && post_vertical_frac >= 0x4000)
+                    || (form == PlayerForm::TheKid
+                        && handoff.buffered_jump_edge
+                        && post_vertical_frac >= 0x8000)
             } else {
                 post_vertical_frac >= 0x4000
             };
@@ -7174,6 +7181,13 @@ impl OpeningSliceState {
                 // unborrowed high word instead. Blue Lake Woods 2 frame 181
                 // hits the 405C/605D seam at 0x0800 and only takes the
                 // low-word handoff, keeping the airborne handoff's high word.
+                // Issue #258's right-slope tap route hits `$406D/$606E` as
+                // The Kid after the fresh B edge has been consumed by
+                // loc_9F18; native's jump buffer preserves that one-frame
+                // provenance and oracle takes the high borrow at
+                // post-vertical fraction 0x8000. The Blue Lake Woods 2
+                // `$406D/$606E` RockTank route has no buffered jump edge and
+                // keeps the unborrowed high word.
                 // Earlier frame 428 hits the 4082/6024 seam at post-vertical
                 // fraction 0xAC00 as The Kid and keeps the unborrowed high word;
                 // only the low-word handoff applies there. Red Stealth reaches
@@ -7318,6 +7332,7 @@ pub(crate) struct SlopeRecontactHandoff {
     pub(crate) x_velocity: Option<i32>,
     pub(crate) post_vertical_y_pos: Option<u32>,
     pub(crate) compound_loc_a4ee: bool,
+    pub(crate) buffered_jump_edge: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
