@@ -169,9 +169,17 @@ and stop — never commit churn.
   fall-phase mismatch before contact: oracle writes `colid_kidbelow` (`$28`) on
   the right falling child by frame 394 (`xy=584,564`, `vel=$2E000`) and HP drops
   at frame 395, while native still has the same child at `y=541`, `vel=$1C000`.
-  Do not patch this as a generic falling-drop damage toggle; first align the
-  `loc_3340E`/`loc_3345C` fall timing for layout #08 or choose a route that
-  avoids that pre-contact phase drift. 2026-06-14 follow-up isolated the first
+  Do not patch from this stale p11 trace as a generic falling-drop damage toggle;
+  first align the `loc_3340E`/`loc_3345C` fall timing for layout #08 or choose a
+  route that avoids that pre-contact phase drift. A later 2026-06-14
+  left-wall-bounce route on
+  `.cache/debug/issue260-phase-delay-br470-20260614/oracle-frame-scenario.json`
+  did provide clean proof: native spent HP on a visible `DripsDrop` overlap at
+  frame 478 while oracle stayed at HP 2, and `Drips.asm loc_3345C` only waits
+  for floor collision before `loc_33488`/`loc_335D8` creates splash/crawler
+  state. Native now keeps falling drops out of generic player-damage/FA75
+  contact, and the materialised route verifies with no authoritative
+  divergences through frames `450..520`. 2026-06-14 follow-up isolated the first
   timing split earlier: at p11 frame 174 native layout #08 splash reseeds with
   RNG byte `$2C` and previous-frame Kid X word `$02A0`, producing wait `$00AB`;
   oracle is already in `Drips.asm loc_33424` after the one-frame hibernate with

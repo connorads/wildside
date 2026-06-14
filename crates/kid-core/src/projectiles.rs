@@ -3293,6 +3293,9 @@ impl NativeRuntime {
             {
                 return false;
             }
+            if p.kind == EnemyProjectileKind::DripsDrop {
+                return false;
+            }
             if p.friendly {
                 return false;
             }
@@ -3338,6 +3341,14 @@ impl NativeRuntime {
                 // ASM Drips.asm loc_335D8 finishes `stru_33FA6` before
                 // `st is_moved(a3)` and before loc_33650's live Kid collision
                 // path, so the startup shell is visible but not hostile.
+                return true;
+            }
+            if p.kind == EnemyProjectileKind::DripsDrop {
+                // ASM Drips.asm loc_3345C only hibernates, checks range,
+                // applies gravity, and waits for terrain collision `$0C`
+                // before loc_33488/loc_335D8 creates the splash/crawler path.
+                // Oracle issue-260 frame 478 confirms overlapping falling
+                // drops do not route through Character_CheckCollision/off_B640.
                 return true;
             }
             if p.friendly {
@@ -3414,12 +3425,11 @@ impl NativeRuntime {
                 } else if p.kind == EnemyProjectileKind::FireDemonDeathTrail
                     || p.kind == EnemyProjectileKind::FireballTrail
                     || p.kind == EnemyProjectileKind::DragonWalkingBreath
-                    || p.kind == EnemyProjectileKind::DripsDrop
                 {
-                    // ASM Fire_Demon loc_3A6CA, Fireball.asm loc_33110,
-                    // Dragon.asm loc_3D082, and Drips.asm loc_3345C: these
-                    // child hazards keep their own loops after hurting Kid;
-                    // player collision does not delete the child object.
+                    // ASM Fire_Demon loc_3A6CA, Fireball.asm loc_33110, and
+                    // Dragon.asm loc_3D082: these child hazards keep their own
+                    // loops after hurting Kid; player collision does not
+                    // delete the child object.
                     true
                 } else {
                     if let Some(owner) = p.owner {
