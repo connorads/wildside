@@ -9418,6 +9418,34 @@ Column of origin shown in brackets; text is verbatim.
 - [Evidence] 2026-06-13 Level `0x20` row-12 grounded variant rejected: removing the injected upward velocity from `.cache/debug/issue284-level20-row12-redstealth-direct.json` and probing with input overlay `30..110:B` gives a valid native pickup route, but not a Diamond fallback. `probe-record-scenario-file --scenario .cache/debug/issue284-level20-row12-skycutter-grounded.json --input 30-110:b --summary-only --player-motion --target-point 88,191` lands on the row-19 floor, jumps normally, reports `objects 5/5` at frame 100, and ends with HP `3/3`; this is the first row-12 `Skycutter id 0x2 layout $B19C` prize, not content id `0`. The synthetic direct warp is still not oracle-comparable: `verify-tas --scenario .cache/debug/issue284-level20-row12-skycutter-grounded.json --frame-start 0 --frame-end 140 --checkpoint-interval 1 --frontier-kind gameplay --bisect` first diverges at frame 0 on `number_objects` (`native: 6`, `oracle: 4`), and `tas-diff` frames 90..140 all diverge because the oracle is not in the same gameplay state. Do not retry this grounded row-12 Skycutter shape unchanged; #284 still needs an exact display-backed SDL capture from the human path or a natural oracle-comparable later-level route that spawns content id `0` where the ROM expects a helmet.
 - [Evidence] 2026-06-13 current-HEAD attract refresh after the IntroSequence5 visibility fix: recaptured `.cache/recordings/issue284-live-dummy-attract-4500/scenario.json` at frames 3480, 3491, and 3840 into `.cache/debug/issue284-current-head-prize-refresh/`. Frame 3491 visibly shows the Cyclone/spin-form helmet item; frame 3840 shows a later, separate real Diamond after the first prize window. This reconfirms that the dummy-SDL attract route is not the reported "first demo helmet prize becomes Diamond" repro on current HEAD. Do not rework generic prize-content or renderer mapping from this route; #284 still needs the exact live display path/frame or a different later-level route whose first expected helmet item is content id `0`.
 
+- [Evidence] 2026-06-14 current-HEAD refresh for #284: the old dummy-SDL bundle
+  `.cache/recordings/issue284-live-dummy-attract-4500` is now stale and must not
+  be reused as green evidence; `verify-recording --slug
+  issue284-live-dummy-attract-4500 --native-only` drifts at frame 3491, exactly
+  the old prize window. A display-backed Xvfb `play-native` attempt was too slow
+  to reach the frame cap on this host. A fresh dummy-SDL run
+  `.cache/recordings/issue284-live-dummy-attract-current-3900/` is
+  native-replayable, but terminated/saved at frame 3260 before `DemoPlay`, so it
+  also does not cover the reported prize.
+
+- [Verify] 2026-06-14 deterministic cold-idle route still rejects the generic
+  Diamond-fallback hypothesis on current HEAD. `verify-tas --scenario
+  .cache/debug/issue-210/cold_boot_idle_demo_loop_long.json --frame-start 3448
+  --frame-end 3495 --checkpoint-interval 1 --frontier-kind gameplay --bisect`
+  passes all 3495 frames by CRC, and `tas-diff` for the same window reports
+  `47 match, 0 diverge`. Refreshed trace bundle
+  `.cache/recordings/issue-284-cold-idle-trace-current-20260614/` shows the
+  first DemoPlay level `0x1B` floating item window as frames `3456..3490`,
+  helmet `0`, content id `3` (`PrizeContent::Cyclone`); later windows start at
+  `3832..3872`, helmet `2`, content id `0` (`PrizeContent::Diamond`). Refreshed
+  native/oracle frames in `.cache/debug/issue284-current-cold-idle-refresh/` and
+  `.cache/debug/issue284-current-cold-idle-refresh-oracle/` show the same shape:
+  frame 3480/3491 is the Cyclone/spin item, and frame 3840 is a separate later
+  real Diamond. Remaining repro still needs the exact display-backed live SDL
+  path/frame where the human sees the first expected helmet item as a Diamond,
+  or a natural later-level route whose trace emits content id `0` while the ROM
+  block list expects a helmet.
+
 ### #285
 
 - [Verify] Evidence source: human playtest. The lifecycle is now correct (drip -> splash -> moving crawler, see #260 progress); only the sprite/animation selection for the crawler is wrong. Check off_33520 pool sprites and stru_33FA6/stru_33F14 animation wiring in the native renderer.
