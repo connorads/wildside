@@ -427,6 +427,18 @@ and stop — never commit churn.
   is `dx=-5 dy=-36 @529`, and the only DripsSurfaceCrawler frame is at 559
   with `dx=-67 dy=+1`. Do not repeat this `floor_sling` hand-off family
   unchanged unless a new bootstrap changes the Drips/Kid phase.
+  2026-06-14 follow-up route rejection:
+  `.cache/debug/issue260-prebl-r330-bl390-20260614/oracle/oracle-frame-scenario.json`
+  (`240..470 none,250..320 B+Left,321..370 Right,371..430 B+Left,
+  470..530 B+Right,531..560 Left,561..620 Right`) verifies enemy-frontier
+  clean through frames `300..680`, and advisory `tas-diff` frames `640..680`
+  reports 40/40 matches. It is a useful different route shape but still not
+  the reported slime/metal-block proof: Kid reaches cell `28,32` at healthy
+  `dx=-4 dy=-1 @380`, DripsDrop is only `dx=+8 dy=-11 @401`, and the later
+  DripsSurfaceCrawler reaches Kid at `dx=+1 dy=+1 @665` on the lower floor
+  while remaining `dy=-65` from row-32 cells. Do not repeat this
+  pre-250/B+Left sling plus late B+Right/Left/Right tail as metal-block proof
+  without changing the Drips cycle or vertical route.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
