@@ -9369,6 +9369,17 @@ Column of origin shown in brackets; text is verbatim.
   `form_change_flash_frames > 0` worsened current-HEAD frame 3491 strict AE
   from `419` to `595` against oracle, with frame 3494 unchanged at `143`.
   The residual is not fixed by a broad shared line-3 transform-palette swap.
+- [Reject] 2026-06-14 retained-mask base-palette hypothesis: a narrower
+  renderer experiment composed the first `Kid_Transform loc_7CD0` forward-frame
+  retained Cyclone mask from Kid's base palette plus `PrizeHelmetCyclone_Init
+  loc_104AE` slots `$D..$F`. A synthetic scene test proved the branch could fire,
+  but regenerating native frame 3491 from
+  `.cache/debug/issue284-frame-refresh-oracle-20260614/oracle-frame-scenario.json`
+  produced a byte-identical PNG to the pre-experiment native frame, and strict AE
+  versus oracle stayed `419`. The 3491 residual is therefore not in the
+  `trace.floating_items` retained-mask palette path; next work should inspect the
+  player transform sprite/frame/palette selected by `stru_7F30` or the ROM VDP
+  sprite table for object slot `$FFFF0E14`.
 
 ### #275
 
