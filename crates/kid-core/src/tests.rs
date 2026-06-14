@@ -349,11 +349,20 @@ fn live_pause_menu_restart_round_spends_life_and_restarts_loc_6b46() {
         ..FrameInput::default()
     });
     runtime.step_frame(FrameInput::default());
-    let trace = runtime.step_frame(FrameInput {
+    let selected_restart = runtime.step_frame(FrameInput {
         start: true,
         ..FrameInput::default()
     });
+    let trace = runtime.step_frame(FrameInput::default());
 
+    assert_eq!(
+        selected_restart.number_lives, 3,
+        "ASM Game_Paused_ChkStart reaches the restart shell before the next traced life-spend frame"
+    );
+    assert!(
+        selected_restart.paused,
+        "ASM loc_6B5E jumps through loc_6E2 without clearing Game_Paused immediately"
+    );
     assert_eq!(
         trace.number_lives, 2,
         "ASM Game_Paused_ChkStart loc_6B46 subtracts one Number_Lives before restarting"
@@ -373,8 +382,8 @@ fn live_pause_menu_restart_round_spends_life_and_restarts_loc_6b46() {
         "ASM loc_6B4A clears Extra_hitpoint_slots on pause-menu restart"
     );
     assert!(
-        !trace.paused,
-        "ASM loc_6C3E clears Game_Paused after restart"
+        trace.paused,
+        "ASM loc_6E2 keeps Game_Paused set while the restart reload shell runs"
     );
     assert_eq!(trace.game_mode, GameMode::InGame);
 }

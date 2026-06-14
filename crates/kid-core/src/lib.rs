@@ -82,6 +82,7 @@ pub struct NativeRuntime {
     paused: bool,
     pause_menu_option: u8,
     pause_toggle_pending: bool,
+    pending_pause_restart_round: Option<PauseRestartRoundState>,
     allow_pausing: bool,
     allow_pausing_fade_frames: u8,
     pending_level_skip: Option<LevelId>,
@@ -642,6 +643,18 @@ pub struct NativeRuntime {
     /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
     last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PauseRestartRoundState {
+    remaining_lives: u16,
+    elapsed_frames: u8,
+    level_state_cleared: bool,
+}
+
+const PAUSE_RESTART_APPLY_LIFE_FRAME_LOC_6B46: u8 = 1;
+const PAUSE_RESTART_ZERO_KID_FRAME_LOC_6E2: u8 = 29;
+const PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2: u8 = 33;
+const PAUSE_RESTART_REBUILD_LEVEL_STATE_FRAME_LOC_6E2: u8 = 71;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -1356,6 +1369,7 @@ impl NativeRuntime {
             paused: false,
             pause_menu_option: 0,
             pause_toggle_pending: false,
+            pending_pause_restart_round: None,
             allow_pausing: false,
             allow_pausing_fade_frames: 0,
             pending_level_skip: None,
@@ -1620,24 +1634,19 @@ impl NativeRuntime {
                 self.paused = false;
                 self.pause_menu_option = 0;
                 self.pause_toggle_pending = false;
+                self.pending_pause_restart_round = None;
             }
             boot::PauseMenuStartResult::RestartLevel { remaining_lives } => {
                 // ASM Game_Paused_ChkStart (kid.asm:6865-6876): after
                 // `subi.w #1,(Number_Lives).w`, the restart branch clears
                 // Extra_hitpoint_slots and Current_Helmet, restores Kid HP,
                 // sets the restart flag, then jumps through loc_6E2.
-                self.paused = false;
-                self.pause_menu_option = 0;
                 self.pause_toggle_pending = false;
-                self.boot_to_level(self.current_level);
-                self.progression.number_lives = remaining_lives;
-                self.progression.extra_hitpoint_slots = 0;
-                self.progression.current_form = PlayerForm::TheKid;
-                self.progression.pending_form = None;
-                self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
-                self.progression.form_change_flash_frames = 0;
-                self.progression.form_width_delta = 0;
-                self.helmet.reset();
+                self.pending_pause_restart_round = Some(PauseRestartRoundState {
+                    remaining_lives,
+                    elapsed_frames: 0,
+                    level_state_cleared: false,
+                });
             }
             boot::PauseMenuStartResult::LastLifeGameOver => {
                 if let boot::PauseMenuUnpauseExitLoc6C0A::LastLifeGameOver {
@@ -1655,10 +1664,85 @@ impl NativeRuntime {
                     self.paused = false;
                     self.pause_menu_option = 0;
                     self.pause_toggle_pending = false;
+                    self.pending_pause_restart_round = None;
                     self.allow_pausing = false;
                     self.allow_pausing_fade_frames = 0;
                 }
             }
+        }
+    }
+
+    fn apply_pause_restart_life_spend_loc_6b46(&mut self, remaining_lives: u16) {
+        // ASM Game_Paused_ChkStart loc_6B46-loc_6B5E: the restart path spends
+        // one life, clears Extra_hitpoint_slots/Current_Helmet, restores Kid's
+        // base hitpoints, sets the restart flag, then jumps to loc_6E2.
+        self.progression.number_lives = remaining_lives;
+        self.progression.extra_hitpoint_slots = 0;
+        self.progression.current_form = PlayerForm::TheKid;
+        self.progression.pending_form = None;
+        self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        self.progression.form_change_flash_frames = 0;
+        self.progression.form_width_delta = 0;
+        self.helmet.reset();
+    }
+
+    fn clear_pause_restart_level_state_loc_6e2(&mut self) {
+        // ASM loc_6E2 enters the Load_InGame reload shell before loc_6C3E
+        // finally clears Game_Paused. Oracle WRAM exposes a short blank object
+        // window here rather than live gameplay continuing under the menu.
+        self.opening_slice = None;
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.active_platform_standing_on = None;
+        self.projectiles.clear();
+        self.floating_items.clear();
+        self.enemy_death_effects.clear();
+        self.pending_prize_diamond_awards.clear();
+        self.pending_prize_diamond_hud_flights.clear();
+        self.clear_block_object_workers_loc_6e2();
+    }
+
+    fn finish_pause_restart_round_loc_6c3e(&mut self) {
+        self.reset_current_level_runtime_state_for_respawn();
+        // ASM loc_6C3E clears Game_Paused after the loc_6E2 restart shell.
+        self.paused = false;
+        self.pause_menu_option = 0;
+        self.pause_toggle_pending = false;
+        self.pending_pause_restart_round = None;
+        self.allow_pausing = false;
+        self.allow_pausing_fade_frames = 0;
+    }
+
+    fn step_pause_restart_round_shell_loc_6b46(&mut self) {
+        let Some(mut state) = self.pending_pause_restart_round else {
+            return;
+        };
+
+        state.elapsed_frames = state.elapsed_frames.saturating_add(1);
+        if state.elapsed_frames == PAUSE_RESTART_APPLY_LIFE_FRAME_LOC_6B46 {
+            self.apply_pause_restart_life_spend_loc_6b46(state.remaining_lives);
+        }
+        if state.elapsed_frames >= PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2
+            && !state.level_state_cleared
+        {
+            self.clear_pause_restart_level_state_loc_6e2();
+            state.level_state_cleared = true;
+        }
+        if state.elapsed_frames == PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2 {
+            // ASM loc_6C3E clears Game_Paused while the loc_6E2 reload shell
+            // is still blank; the live level state is rebuilt later.
+            self.paused = false;
+            self.pause_menu_option = 0;
+            self.pause_toggle_pending = false;
+        }
+        if state.elapsed_frames >= PAUSE_RESTART_REBUILD_LEVEL_STATE_FRAME_LOC_6E2 {
+            self.finish_pause_restart_round_loc_6c3e();
+        } else {
+            self.pending_pause_restart_round = Some(state);
         }
     }
 
@@ -2120,7 +2204,10 @@ impl NativeRuntime {
         let start_pressed = input.start && !self.previous_input.start;
         let apply_pending_pause_toggle = self.pause_toggle_pending;
         self.pause_toggle_pending = false;
-        if self.paused {
+        self.step_pause_restart_round_shell_loc_6b46();
+        if self.pending_pause_restart_round.is_some() {
+            self.pause_toggle_pending = false;
+        } else if self.paused {
             self.apply_pause_menu_frame_loc_6ae0(input, start_pressed);
         } else {
             self.handle_start_press(input, start_pressed);
@@ -2239,6 +2326,7 @@ impl NativeRuntime {
             if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
                 && gameplay_slice_active
                 && !self.paused
+                && self.pending_pause_restart_round.is_none()
             {
                 // ASM Mode_Level calls DiamondPower_Run before ReadJoypad.
                 // In native's post-step trace indexing, the ROM `Ctrl_Held`
@@ -2247,7 +2335,7 @@ impl NativeRuntime {
                 // movement sees for this traced frame.
                 self.step_diamond_power(self.prior_input);
             }
-            if gameplay_slice_active {
+            if gameplay_slice_active && !self.paused && self.pending_pause_restart_round.is_none() {
                 if matches!(self.boot_state, BootState::InGame)
                     || (self.demo_gameplay_active() && self.opening_slice.is_some())
                 {

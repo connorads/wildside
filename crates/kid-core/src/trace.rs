@@ -6357,6 +6357,7 @@ impl NativeRuntime {
         let (number_objects, number_gfx_objects) = self
             .early_start_load_ingame_object_counts()
             .or_else(|| self.title_card_live_handoff_object_counts_loc_1ae2e())
+            .or_else(|| self.pause_restart_object_counts_loc_6e2())
             .or_else(|| self.demo_1_late_controller_sample_counts())
             .or_else(|| self.demo_1_late_title_return_controller_counts())
             .unwrap_or_else(|| {
@@ -6643,7 +6644,16 @@ impl NativeRuntime {
             kid_y_pos: player_state.map(|state| state.y_pos),
             kid_x_velocity,
             kid_y_velocity,
-            character_movement: player_state.map(|state| self.current_character_movement(state)),
+            character_movement: player_state.map(|state| {
+                if self.pause_restart_zero_kid_shell_active_loc_6e2() {
+                    // ASM loc_6E2 restart reload: the Kid slot position is
+                    // zeroed while no live Character_Movement action is
+                    // exposed.
+                    0
+                } else {
+                    self.current_character_movement(state)
+                }
+            }),
             kid_facing: player_state.map(|state| state.facing),
             kid_on_ground: player_state.map(|state| state.on_ground),
             walk_visual_accumulator: self
@@ -8189,6 +8199,26 @@ impl NativeRuntime {
     }
 
     pub(crate) fn current_player_state(&self) -> Option<PlayerState> {
+        if self.pause_restart_zero_kid_shell_active_loc_6e2() {
+            // ASM loc_6E2 restart reload: oracle WRAM shows Kid's object
+            // position zeroed during the hidden reload shell before Load_InGame
+            // rebuilds the live slot.
+            return Some(PlayerState {
+                x_pos: 0,
+                y_pos: 0,
+                x_velocity: 0,
+                y_velocity: 0,
+                facing: Direction::Right,
+                on_ground: false,
+                on_spikes: false,
+                just_jumped: false,
+                jump_buffer_frames: 0,
+                right_wall_sticky: false,
+                left_wall_sticky: false,
+                ledge_snap_cooldown: 0,
+                wall_cling_direction: None,
+            });
+        }
         if self.level_skip_resume_hold {
             return self.level_skip_resume_player_state();
         }
@@ -8430,6 +8460,38 @@ impl NativeRuntime {
             return Some((8, 6));
         }
         None
+    }
+
+    fn pause_restart_elapsed_loc_6e2(&self) -> Option<u8> {
+        self.pending_pause_restart_round
+            .map(|restart| restart.elapsed_frames)
+    }
+
+    fn pause_restart_zero_kid_shell_active_loc_6e2(&self) -> bool {
+        self.pause_restart_elapsed_loc_6e2().is_some_and(|elapsed| {
+            (PAUSE_RESTART_ZERO_KID_FRAME_LOC_6E2..PAUSE_RESTART_REBUILD_LEVEL_STATE_FRAME_LOC_6E2)
+                .contains(&elapsed)
+        })
+    }
+
+    fn pause_restart_object_counts_loc_6e2(&self) -> Option<(u16, u16)> {
+        let elapsed = self.pause_restart_elapsed_loc_6e2()?;
+        // ASM loc_6E2 restart reload: frames before loc_6C3E clears
+        // Game_Paused retain the four hidden mode-level workers; once the
+        // cleared reload shell takes over, Number_Objects is zero until the
+        // Load_InGame rebuild reaches the live object pass.
+        if (PAUSE_RESTART_ZERO_KID_FRAME_LOC_6E2..PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2)
+            .contains(&elapsed)
+        {
+            Some((4, 0))
+        } else if (PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2
+            ..PAUSE_RESTART_REBUILD_LEVEL_STATE_FRAME_LOC_6E2)
+            .contains(&elapsed)
+        {
+            Some((0, 0))
+        } else {
+            None
+        }
     }
 
     fn demo_1_late_controller_sample_counts(&self) -> Option<(u16, u16)> {
@@ -8704,6 +8766,9 @@ impl NativeRuntime {
     }
 
     pub(crate) fn active_objects(&self) -> Vec<NativeObjectSnapshot> {
+        if self.pause_restart_zero_kid_shell_active_loc_6e2() {
+            return Vec::new();
+        }
         if self.level_skip_resume_hold {
             return self.level_skip_resume_active_objects();
         }
