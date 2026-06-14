@@ -316,6 +316,21 @@ plain debug fallback remains for targets without title-card data. Verification:
 red/green `cargo test -q -p kidcli debug_hotkey_level_skip -- --nocapture`,
 `cargo fmt --check`, and `git diff --check`.
 
+Closed 2026-06-14 for #282: current `play-native` hotkeys no longer create the
+synthetic `LEVEL xx` card. ASM check: `loc_74E0` increments `Current_LevelID`,
+sets `Game_Mode=8`, then jumps through `loc_6E2`; `loc_6E2` clears VRAM and
+dispatches `Load_TitleCard`, whose title workers are `loc_1AB26`/`loc_1AC70`.
+The native hotkey path now follows that ROM title-card shell with zero native
+hold and zero fallback frames. Verification: `cargo test -q -p kidcli
+debug_hotkey_level_skip -- --nocapture` (3 passed, 1 ignored), `cargo test -q
+-p kid-core debug_level_change_enters_title_card_not_live_gameplay_loc_1ae2e --
+--nocapture`, and `cargo test -q -p kidcli
+debug_hotkey_level_skip_with_generated_assets_animates_rom_title_card -- --
+ignored --nocapture`. The generated-assets regression covers BLW1→BLW2 and
+BLW2→Highwater Pass: both enter `GameMode::LevelTransition`, have no native hold
+or fallback card, expose VDP state on the first hotkey frame, and surface ROM
+title workers under neutral stepping.
+
 Follow-up 2026-06-11 for #274/#284 after the latest play-native report:
 current generated prize content still does not reproduce the visible Diamond
 fallback. `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p kid-core
