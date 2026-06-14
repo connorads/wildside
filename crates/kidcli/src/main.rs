@@ -116,6 +116,12 @@ impl From<TargetProjectileKind> for ActiveProjectileKind {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum TargetBlockEventKind {
+    Bounce,
+    Destroy,
+}
+
 #[derive(Debug, Parser)]
 #[command(name = "kidcli")]
 #[command(about = "Contained tooling for the Kid Chameleon PC-port workspace")]
@@ -399,6 +405,9 @@ enum Commands {
         /// Score candidates by closest projectile approach to a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_projectile_cell)]
         target_projectile_cell: Vec<BatchTargetProjectileCell>,
+        /// Score candidates by exact block event at a 16x16 level cell, formatted kind:col,row.
+        #[arg(long, value_parser = parse_batch_target_block_event)]
+        target_block_event: Vec<BatchTargetBlockEvent>,
         /// Ignore earlier frames when scoring closest target approach.
         #[arg(long, default_value_t = 0)]
         score_frame_start: usize,
@@ -1367,6 +1376,7 @@ fn main() -> Result<()> {
             target_cell_hitbox,
             target_projectile,
             target_projectile_cell,
+            target_block_event,
             score_frame_start,
             limit,
             rom,
@@ -1382,9 +1392,10 @@ fn main() -> Result<()> {
                 && target_cell_hitbox.is_empty()
                 && target_projectile.is_empty()
                 && target_projectile_cell.is_empty()
+                && target_block_event.is_empty()
             {
                 bail!(
-                    "at least one --target-point, --target-cell, --target-cell-hitbox, --target-projectile, or --target-projectile-cell is required for batch scoring"
+                    "at least one --target-point, --target-cell, --target-cell-hitbox, --target-projectile, --target-projectile-cell, or --target-block-event is required for batch scoring"
                 );
             }
             if let Some(level) = base.warp_to_level {
@@ -1403,6 +1414,7 @@ fn main() -> Result<()> {
                     .map(Into::into)
                     .collect::<Vec<_>>(),
                 &target_projectile_cell,
+                &target_block_event,
                 score_frame_start,
                 limit,
             )?;
@@ -2947,6 +2959,12 @@ struct BatchTargetProjectileCell {
     cell: TargetCell,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BatchTargetBlockEvent {
+    kind: TargetBlockEventKind,
+    cell: TargetCell,
+}
+
 fn parse_batch_target_projectile_cell(spec: &str) -> Result<BatchTargetProjectileCell> {
     let (kind, cell) = spec
         .split_once(':')
@@ -2955,6 +2973,18 @@ fn parse_batch_target_projectile_cell(spec: &str) -> Result<BatchTargetProjectil
         .map_err(|message| anyhow!(message))?;
     Ok(BatchTargetProjectileCell {
         kind: kind.into(),
+        cell: parse_target_cell(cell)?,
+    })
+}
+
+fn parse_batch_target_block_event(spec: &str) -> Result<BatchTargetBlockEvent> {
+    let (kind, cell) = spec
+        .split_once(':')
+        .ok_or_else(|| anyhow!("target block event must be KIND:COL,ROW, got {spec}"))?;
+    let kind =
+        TargetBlockEventKind::from_str(kind.trim(), true).map_err(|message| anyhow!(message))?;
+    Ok(BatchTargetBlockEvent {
+        kind,
         cell: parse_target_cell(cell)?,
     })
 }
@@ -2996,6 +3026,11 @@ struct BatchProbeResult {
     target_summaries: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BlockEventMatch {
+    replay_frame: usize,
+}
+
 fn sorted_batch_probe_results(mut results: Vec<BatchProbeResult>) -> Vec<BatchProbeResult> {
     results.sort_by(|left, right| {
         left.first_target_score
@@ -3004,6 +3039,38 @@ fn sorted_batch_probe_results(mut results: Vec<BatchProbeResult>) -> Vec<BatchPr
             .then_with(|| left.label.cmp(&right.label))
     });
     results
+}
+
+fn target_block_event_from_frame(
+    trace: &[NativeTraceFrame],
+    kind: TargetBlockEventKind,
+    target_cell: TargetCell,
+    score_frame_start: usize,
+) -> Option<BlockEventMatch> {
+    trace
+        .iter()
+        .enumerate()
+        .skip(score_frame_start)
+        .find(|(_replay_frame, frame)| match kind {
+            TargetBlockEventKind::Bounce => {
+                frame
+                    .block_bounces
+                    .iter()
+                    .any(|&(col, row, _remaining, _y_offset)| {
+                        i64::from(col) == target_cell.col && i64::from(row) == target_cell.row
+                    })
+            }
+            TargetBlockEventKind::Destroy => {
+                frame
+                    .block_destroy_effects
+                    .iter()
+                    .any(|&(x_px, y_px, _remaining, _direction)| {
+                        i64::from(x_px / 16) == target_cell.col
+                            && i64::from(y_px / 16) == target_cell.row
+                    })
+            }
+        })
+        .map(|(replay_frame, _frame)| BlockEventMatch { replay_frame })
 }
 
 fn probe_dynamic_record_scenario_batch(
@@ -3015,6 +3082,7 @@ fn probe_dynamic_record_scenario_batch(
     target_cell_hitboxes: &[TargetCell],
     target_projectiles: &[ActiveProjectileKind],
     target_projectile_cells: &[BatchTargetProjectileCell],
+    target_block_events: &[BatchTargetBlockEvent],
     score_frame_start: usize,
     limit: usize,
 ) -> Result<()> {
@@ -3051,7 +3119,8 @@ fn probe_dynamic_record_scenario_batch(
                 + target_cells.len()
                 + target_cell_hitboxes.len()
                 + target_projectiles.len()
-                + target_projectile_cells.len(),
+                + target_projectile_cells.len()
+                + target_block_events.len(),
         );
         for (index, target_point) in target_points.iter().copied().enumerate() {
             let summary = target_point_approach_from_frame(
@@ -3203,6 +3272,41 @@ fn probe_dynamic_record_scenario_batch(
                     target_projectile_cell.kind,
                     target_projectile_cell.cell.col,
                     target_projectile_cell.cell.row,
+                )
+            });
+            target_summaries.push(summary);
+        }
+        for (index, target_block_event) in target_block_events.iter().copied().enumerate() {
+            let summary = target_block_event_from_frame(
+                &trace,
+                target_block_event.kind,
+                target_block_event.cell,
+                score_frame_start,
+            )
+            .map(|event| {
+                if target_points.is_empty()
+                    && target_cells.is_empty()
+                    && target_cell_hitboxes.is_empty()
+                    && target_projectiles.is_empty()
+                    && target_projectile_cells.is_empty()
+                    && index == 0
+                {
+                    first_target_score = Some(0);
+                }
+                format!(
+                    "block {:?} cell {},{} @{}",
+                    target_block_event.kind,
+                    target_block_event.cell.col,
+                    target_block_event.cell.row,
+                    event.replay_frame,
+                )
+            })
+            .unwrap_or_else(|| {
+                format!(
+                    "block {:?} cell {},{} <none>",
+                    target_block_event.kind,
+                    target_block_event.cell.col,
+                    target_block_event.cell.row,
                 )
             });
             target_summaries.push(summary);
@@ -3841,19 +3945,20 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        BatchProbeResult, BatchTargetProjectileCell, DynamicCheckpoint, DynamicScenario,
-        GameplayCapture, GameplayScenario, GameplayState, PlayerForm, RecordScenarioKind,
-        ReferenceName, TargetCell, analyse_audio_samples, apply_dynamic_scenario_input_overlays,
-        audio_envelope_similarity, build_controller_script, build_record_scenario,
-        capture_native_gameplay_run, capture_native_gameplay_scenario,
+        BatchProbeResult, BatchTargetBlockEvent, BatchTargetProjectileCell, DynamicCheckpoint,
+        DynamicScenario, GameplayCapture, GameplayScenario, GameplayState, PlayerForm,
+        RecordScenarioKind, ReferenceName, TargetBlockEventKind, TargetCell, analyse_audio_samples,
+        apply_dynamic_scenario_input_overlays, audio_envelope_similarity, build_controller_script,
+        build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
         dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
         ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
         native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_batch_probe_candidate,
-        parse_batch_target_projectile_cell, parse_button_mask, parse_input_spec,
-        prepare_generated_assets_with, record_scenario_command, record_scenario_file_command,
-        recording_scenario_manifest, recording_start_for_dynamic_scenario,
-        selected_reference_repos, sorted_batch_probe_results,
+        parse_batch_target_block_event, parse_batch_target_projectile_cell, parse_button_mask,
+        parse_input_spec, prepare_generated_assets_with, record_scenario_command,
+        record_scenario_file_command, recording_scenario_manifest,
+        recording_start_for_dynamic_scenario, selected_reference_repos, sorted_batch_probe_results,
+        target_block_event_from_frame,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -6615,6 +6720,62 @@ AddrTbl_LevelNames:
         assert!(
             parse_batch_target_projectile_cell("drips-surface-crawler").is_err(),
             "batch projectile-cell targets must include both projectile kind and cell"
+        );
+    }
+
+    #[test]
+    fn batch_target_block_event_parser_accepts_kind_and_cell() {
+        assert_eq!(
+            parse_batch_target_block_event("bounce:37,32")
+                .expect("block-event target should parse"),
+            BatchTargetBlockEvent {
+                kind: TargetBlockEventKind::Bounce,
+                cell: TargetCell { col: 37, row: 32 },
+            }
+        );
+        assert!(
+            parse_batch_target_block_event("destroy").is_err(),
+            "batch block-event targets must include both event kind and cell"
+        );
+    }
+
+    #[test]
+    fn target_block_event_finds_bounce_or_destroy_at_cell() {
+        let mut trace = vec![NativeTraceFrame::default(); 13];
+        trace[10].frame_index = 1110;
+        trace[10].block_bounces = vec![(37, 32, 31, 0)];
+        trace[12].frame_index = 1112;
+        trace[12].block_destroy_effects = vec![(37 * 16, 32 * 16, 2, 1)];
+
+        assert_eq!(
+            target_block_event_from_frame(
+                &trace,
+                TargetBlockEventKind::Bounce,
+                TargetCell { col: 37, row: 32 },
+                0,
+            )
+            .map(|event| event.replay_frame),
+            Some(10)
+        );
+        assert_eq!(
+            target_block_event_from_frame(
+                &trace,
+                TargetBlockEventKind::Destroy,
+                TargetCell { col: 37, row: 32 },
+                11,
+            )
+            .map(|event| event.replay_frame),
+            Some(12)
+        );
+        assert!(
+            target_block_event_from_frame(
+                &trace,
+                TargetBlockEventKind::Bounce,
+                TargetCell { col: 37, row: 32 },
+                11,
+            )
+            .is_none(),
+            "score-frame-start should filter earlier block events"
         );
     }
 }
