@@ -12350,6 +12350,58 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_falling_drop_side_contact_damages_before_fall_step_loc_3345c_issue_260() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 100 << 16,
+            y_pos: 72 << 16,
+            y_velocity: 0x0000_8000,
+            lifetime: DRIPS_DROP_LIFETIME,
+            terrain_kill: true,
+            owner: Some(EnemyProjectileOwner {
+                segment_index: 0,
+                layout_index: 7,
+                token: 0,
+            }),
+            ..Default::default()
+        });
+        rt.progression.invulnerable_frames = 0;
+        rt.kid_is_invulnerable = false;
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        slice.player.on_ground = false;
+        rt.opening_slice = Some(slice);
+        let hitpoints_before = rt.progression.number_hitpoints;
+
+        assert!(
+            rt.resolve_frame_hazards(
+                &mut slice,
+                FrameInput::default(),
+                0,
+                100 << 16,
+                100 << 16,
+                100 << 16,
+            ),
+            "ASM Drips.asm loc_3345C ignores Kid collision for the child worker, but GfxObjects_CollisionKid still writes Kid `$38=$28`; oracle issue-260 frame 372 damages Kid before the drop advances"
+        );
+        assert_eq!(rt.progression.number_hitpoints, hitpoints_before - 1);
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "loc_3345C only consumes terrain `$0C`; Kid `$28` damage must not delete the falling child"
+        );
+        assert_eq!(rt.projectiles[0].kind, EnemyProjectileKind::DripsDrop);
+        assert!(
+            rt.last_projectile_damage_probe
+                .as_deref()
+                .is_some_and(|probe| probe.starts_with("hit:DripsDropObject@")),
+            "the regression should identify the object-collision path, not generic projectile overlap"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_trail_hits_player_without_consuming_child_loc_3a6ca() {
         let mut rt = NativeRuntime::new(manifest());
         rt.fire_demon_trails.push(FireDemonTrailChild {

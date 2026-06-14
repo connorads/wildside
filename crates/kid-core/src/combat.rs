@@ -8889,23 +8889,30 @@ impl NativeRuntime {
         for (projectile_index, projectile) in self.projectiles.iter().enumerate() {
             if !matches!(
                 projectile.kind,
-                EnemyProjectileKind::DripsSurfaceCrawler
+                EnemyProjectileKind::DripsDrop
+                    | EnemyProjectileKind::DripsSurfaceCrawler
                     | EnemyProjectileKind::DripsSurfaceCrawlerBurst
             ) {
                 continue;
             }
             // ASM Drips.asm loc_335D8 drives the surface crawler as a real
-            // GfxObject child with `object_meta=$16` and Kid collision
-            // enabled. Only crawler states call loc_33550 before branching to
-            // loc_338F8; the falling loc_3345C drop loop never touches the
-            // off_33520 splash table on Kid collision.
-            if projectile.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8 {
+            // GfxObject child with `object_meta=$16` and Kid collision enabled.
+            // The falling loc_3345C child uses the same object collision path
+            // for Kid's `$38` handoff, but its own worker only consumes floor
+            // `$0C` before loc_33488.
+            if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler
+                && projectile.drips_surface_crawler_state
+                    == DripsSurfaceCrawlerState::StartupLoc335D8
+            {
                 // ASM Drips.asm loc_335D8 runs `stru_33FA6` before `st
                 // is_moved(a3)` and before the first loc_33650 collision
                 // probe, so the startup shell is not a Kid-facing stomp target.
                 continue;
             }
             let target = match projectile.kind {
+                EnemyProjectileKind::DripsDrop => {
+                    StompContactTarget::DripsDropProjectile(projectile_index)
+                }
                 EnemyProjectileKind::DripsSurfaceCrawler => {
                     StompContactTarget::DripsSurfaceCrawlerProjectile(projectile_index)
                 }
@@ -8916,26 +8923,7 @@ impl NativeRuntime {
             };
             candidates.push(StompContactCandidate {
                 target,
-                snapshot: NativeObjectSnapshot {
-                    kind: NativeObjectKind::Enemy { object_type: 0x16 },
-                    x_pos: projectile.x_pos,
-                    y_pos: projectile.y_pos,
-                    layout_index: projectile.owner.map(|owner| owner.layout_index),
-                    x_velocity: Some(projectile.x_velocity),
-                    y_velocity: Some(projectile.y_velocity),
-                    facing: None,
-                    on_ground: Some(false),
-                    hit_points: Some(1),
-                    damage_flash: false,
-                    palette_variant: 0,
-                    stationary: false,
-                    shared_walker_state: None,
-                    shared_walker_patrol_timer: None,
-                    shared_walker_patrol_short_next: None,
-                    walk_phase: None,
-                    wait_timer: Some(projectile.lifetime),
-                    debug_fields: std::collections::BTreeMap::new(),
-                },
+                snapshot: drips_projectile_object_snapshot_loc_3345c(projectile),
             });
         }
         candidates
@@ -8955,6 +8943,7 @@ impl NativeRuntime {
             .map(|candidate| {
                 let debug_index = match candidate.target {
                     StompContactTarget::ActiveEnemy(index)
+                    | StompContactTarget::DripsDropProjectile(index)
                     | StompContactTarget::DripsSurfaceCrawlerProjectile(index)
                     | StompContactTarget::DripsSurfaceCrawlerBurstProjectile(index) => index,
                 };
@@ -8993,6 +8982,9 @@ impl NativeRuntime {
         for (order, candidate) in self.stomp_contact_candidates().into_iter().enumerate() {
             let (target_label, debug_index) = match candidate.target {
                 StompContactTarget::ActiveEnemy(index) => (format!("active_enemy[{index}]"), index),
+                StompContactTarget::DripsDropProjectile(index) => {
+                    (format!("drips_drop[{index}]"), index)
+                }
                 StompContactTarget::DripsSurfaceCrawlerProjectile(index) => {
                     (format!("drips_crawler[{index}]"), index)
                 }
@@ -9054,6 +9046,65 @@ impl NativeRuntime {
             || self.hostile_projectile_overlaps_player_for_fa75_loc_1c18(slice)
     }
 
+    fn drips_drop_player_damage_contact_loc_3345c(
+        &mut self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+    ) -> bool {
+        let half_width = self.progression.current_form.half_width() as i64;
+        for (projectile_index, projectile) in self.projectiles.iter().enumerate() {
+            if projectile.kind != EnemyProjectileKind::DripsDrop {
+                continue;
+            }
+            if projectile.y_velocity < 0x0000_8000 {
+                // ASM Drips.asm loc_3345C enters through a hibernated child
+                // loop. Oracle issue-260 frames 368-371 keep the just-spawned
+                // right drop's `$38` clear at y_vel 0..$6000; frame 372 first
+                // exposes the `$28` Kid damage contact at y_vel=$8000.
+                continue;
+            }
+            let snapshot = drips_projectile_object_snapshot_loc_3345c(projectile);
+            if classify_enemy_contact_with_half_width_inner(
+                slice.player,
+                &snapshot,
+                pre_physics_y_velocity,
+                slice.player.y_pos,
+                half_width,
+                true,
+            ) != EnemyContactResult::Damage
+            {
+                continue;
+            }
+            let px = (slice.player.x_pos >> 16) as i32;
+            let py = (slice.player.y_pos >> 16) as i32;
+            let prx = (projectile.x_pos >> 16) as i32;
+            let pry = (projectile.y_pos >> 16) as i32;
+            let owner = projectile.owner.map_or_else(
+                || String::from("none"),
+                |owner| {
+                    format!(
+                        "{}:{}:{:#04x}",
+                        owner.segment_index, owner.layout_index, owner.token
+                    )
+                },
+            );
+            self.last_projectile_damage_probe = Some(format!(
+                "hit:DripsDropObject@{:#010x},{:#010x} vel={:#010x},{:#010x} life={} owner={} index={} dx={} dy={}",
+                projectile.x_pos,
+                projectile.y_pos,
+                projectile.x_velocity as u32,
+                projectile.y_velocity as u32,
+                projectile.lifetime,
+                owner,
+                projectile_index,
+                prx - px,
+                pry - py,
+            ));
+            return true;
+        }
+        false
+    }
+
     /// ASM loc_1CE4 (kid.asm:3479) + GfxObjects_CollisionKid_Collide
     /// (kid.asm:3384): the `$2C` kidabove stomp colid is only written on a
     /// FRESH contact frame (`$FFFFFA74` clear) while `Character_Movement` is
@@ -9104,6 +9155,7 @@ impl NativeRuntime {
                     StompContactTarget::ActiveEnemy(active_index) => {
                         stomped_indices.push(active_index);
                     }
+                    StompContactTarget::DripsDropProjectile(_) => {}
                     StompContactTarget::DripsSurfaceCrawlerProjectile(projectile_index) => {
                         stomped_drips_surface_crawler_indices.push(projectile_index);
                     }
@@ -12140,6 +12192,35 @@ fn player_latches_enemy_collision_with_half_width_loc_1cf2(
     )
 }
 
+fn drips_projectile_object_snapshot_loc_3345c(
+    projectile: &EnemyProjectile,
+) -> NativeObjectSnapshot {
+    // ASM Drips.asm loc_33424/loc_3345C updates the linked visible child `a1`
+    // through the GfxObject path with object meta `$16`; Kid collision can
+    // therefore write `$38=$28` even though the child worker only consumes
+    // terrain `$0C` before loc_33488.
+    NativeObjectSnapshot {
+        kind: NativeObjectKind::Enemy { object_type: 0x16 },
+        x_pos: projectile.x_pos,
+        y_pos: projectile.y_pos,
+        layout_index: projectile.owner.map(|owner| owner.layout_index),
+        x_velocity: Some(projectile.x_velocity),
+        y_velocity: Some(projectile.y_velocity),
+        facing: None,
+        on_ground: Some(false),
+        hit_points: Some(1),
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: Some(projectile.lifetime),
+        debug_fields: std::collections::BTreeMap::new(),
+    }
+}
+
 impl NativeRuntime {
     /// Check all frame hazards in priority order. Returns true if the frame was
     /// consumed by a hazard (damage, death, level transition) — caller should
@@ -12218,6 +12299,20 @@ impl NativeRuntime {
         // ordering tests.
         if kid_damage_invulnerable {
             self.projectile_hits_player_during_invulnerability(slice);
+        }
+
+        if !kid_damage_invulnerable
+            && self.drips_drop_player_damage_contact_loc_3345c(slice, pre_physics_y_velocity)
+        {
+            // ASM Drips.asm loc_3345C hibernates and then only reacts to
+            // floor `$0C`, but GfxObjects_CollisionKid has already copied a
+            // side/below `$28` collision to Kid. Oracle issue-260 frame 372
+            // shows that Kid damage happens before the falling child advances
+            // to its next gravity sample.
+            self.opening_slice = Some(*slice);
+            self.apply_damage();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ProjectileDamage;
+            return true;
         }
 
         self.step_projectiles();

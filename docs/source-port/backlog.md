@@ -113,6 +113,14 @@ and stop — never commit churn.
   `mid_g` second-jump timing sweep (`mg_j220..mg_j270`) does not improve the
   vertical miss: best remains score 36 with `kid_dy=-33`, and no Destroy/Bounce
   proof appears. Do not repeat this `mid_g` second-jump timing axis unchanged.
+  2026-06-14 `issue-260-early-jump-r360-conjunction` exposed the same
+  falling-child contact timing on a shorter route: before the fix native kept
+  HP at 2 while oracle took Drips `$28` damage at frame 372, then an over-broad
+  first pass damaged frames 368-371. The committed fix gates DripsDrop
+  object-collision damage until `loc_3345C` has reached the oracle-visible
+  y-velocity window (`$8000+`); `verify-tas` frames `350..390` now passes all
+  40 enemy-frontier checkpoints. This is contact-timing evidence only, not the
+  row-32 block destruction route.
   Named route
   `issue260-drips-drop-contact-probe` promotes the `l528/b530/r536` tail and
   reaches exact native DripsDrop overlap at frame 535; oracle diff for frames

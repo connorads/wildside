@@ -1348,6 +1348,7 @@ struct PendingEnemyCollision {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum StompContactTarget {
     ActiveEnemy(usize),
+    DripsDropProjectile(usize),
     DripsSurfaceCrawlerProjectile(usize),
     DripsSurfaceCrawlerBurstProjectile(usize),
 }
