@@ -406,7 +406,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 316 | [ ] | P2 | form | Umbrella: helmets-fidelity-audit.md — 25 of 38 still open after the staleness check | Per-gap rows in doc; staleness report verdicts |
 | 317 | [ ] | P3 | weather | Umbrella: weather-fidelity-audit.md — 16 of 33 still open after the staleness check | Per-gap rows in doc |
 | 318 | [ ] | P3 | player | Umbrella: movement-fidelity-audit.md — 8 of 25 still open after the staleness check | Per-gap rows in doc |
-| 319 | [ ] | P3 | audio | Umbrella: audio-triggers-fidelity-audit.md — 20 trigger gaps; loop already wired Ankh/evanescent/ice-block prize SFX (89280c99..9973af5c) | Per-gap rows in doc; tick off as wired |
+| 319 | [ ] | P3 | audio | Umbrella: audio-triggers-fidelity-audit.md — remaining low/stub trigger gaps after Ankh/evanescent/ice-block/no-time and later enemy/BGM follow-ups; timeout `$51`/`$60` path is already live-tested | Per-gap rows in doc; tick off as wired |
 | 320 | [ ] | P3 | camera | Umbrella: camera-fidelity-audit.md — 6 gaps, none high | Per-gap rows in doc |
 | 321 | [?] | P1 | level | Fixed candidate: death respawn now clears `Extra_hitpoint_slots` on the ROM `Death`/`lose_life` path before restoring base The Kid HP | Die after earning extra HP slots; respawn/next helmet pickup must use base+0 slots, not stale DP slots |
 | 291 | [x] | P1 | player | NOT A BUG: BLW2 no-jump left-pit wall gate was asserting the tail frame after the route walked off support; contact/hold frames stay out of loc_ABA4 ledge snap and do not inject upward velocity | cargo test -p kidcli gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut -- --nocapture |

@@ -10,7 +10,7 @@ Adversarially-verified per-unit audit of the Kid Chameleon source-port audio-tri
 |---|---|---|
 | sfx-id-mapping-table | full | 0 |
 | trigger-dispatch-wiring | partial | 2 |
-| player-action-triggers | partial | 2 |
+| player-action-triggers | full | 0 |
 | block-and-prize-triggers | partial | 6 |
 | enemy-and-boss-triggers | full | 3 |
 | level-flow-triggers | partial | 1 |
@@ -19,7 +19,7 @@ Adversarially-verified per-unit audit of the Kid Chameleon source-port audio-tri
 | music-speed-modulation | stub | 1 |
 | playsound-vs-playsound2-priority | full | 1 |
 
-Totals: 10 units audited, 2 full (1 with no gaps), 6 partial, 2 stub. 19 confirmed gaps (1 medium, 18 low) after duplicate merges. 4 high/medium claims were refuted and dropped (the brick-smash `sfx_Destroy_block` $11, prize-block-headbutt `sfx_Block_hit` $D, Coin/Continue `sfx_Coin_prize` $2C, and reveal-hidden `sfx_Reveal_Hidden_block` $12 cues - all already emitted via the player-layer delta channel or already tracked). Five auditor high/medium claims were corrected down by the refuter: the Tar Monster SFX (high->low), the ice-block `sfx_Prize_block` (medium->low), the clock-prize cue (medium->low, also already-tracked), and the MurderWall BGM override (high->medium, also already-tracked). 2026-06-12 follow-up: the Continue/coin $2C cue is now trace-backed too; `PrizeContent::Continue` queues `QueuedSoundEffect::CoinPrize` on the same frame it increments continues.
+Totals: 10 units audited, 3 full (2 with no gaps), 5 partial, 2 stub. 19 confirmed gaps (1 medium, 18 low) after duplicate merges. 4 high/medium claims were refuted and dropped (the brick-smash `sfx_Destroy_block` $11, prize-block-headbutt `sfx_Block_hit` $D, Coin/Continue `sfx_Coin_prize` $2C, and reveal-hidden `sfx_Reveal_Hidden_block` $12 cues - all already emitted via the player-layer delta channel or already tracked). Five auditor high/medium claims were corrected down by the refuter: the Tar Monster SFX (high->low), the ice-block `sfx_Prize_block` (medium->low), the clock-prize cue (medium->low, also already-tracked), and the MurderWall BGM override (high->medium, also already-tracked). 2026-06-12 follow-up: the Continue/coin $2C cue is now trace-backed too; `PrizeContent::Continue` queues `QueuedSoundEffect::CoinPrize` on the same frame it increments continues. 2026-06-14 follow-up: the earlier player-action no-time row was a stale duplicate of the resolved timeout-death entry; live timer expiry already queues `$51` before `$60` and has focused tests.
 
 ## Confirmed gaps
 
@@ -61,9 +61,6 @@ ASM `CharacterCollision_TouchCoin` (kid.asm:14903-14910) sets the no-prize flag,
 **RESOLVED 2026-06-11: Ledge-grab pull-up queues `sfx_The_Kid_pullup` ($64)** (`loc_ABF0` / `loc_AC42 (kid_flip pull-up)` / `sfx_The_Kid_pullup` / `stru_8BB4`)
 The Kid's wall-grab ledge pull-up is fully implemented live (`try_snap_wall_sticky_ledge`, called from three wall-cling paths at movement.rs:2932/3006/4047), snapping the player onto the ledge and setting `ledge_snap_cooldown = LEDGE_SNAP_PULLUP_FRAMES` (21), the native model of `Init_Animation(stru_8BB4)`. In the ROM, immediately after that `Init_Animation` call, `kid_flip` plays `sfx_The_Kid_pullup` ($64) before `Hibernate_UntilAnimFinished` (kid.asm:13461-13467). Native now queues `QueuedSoundEffect::KidPullup` at the runtime boundary when `ledge_snap_cooldown` starts at `LEDGE_SNAP_PULLUP_FRAMES`, and native-player replays the trace id. Kind: resolved-missing. `crates/kid-core/src/movement.rs:5074`, `crates/kid-core/src/lib.rs:2631-2648`, `crates/kid-core/src/lib.rs:3277-3305`, `crates/kidcli/src/native_player/mod.rs:14050-14070`.
 
-**Out-of-time warning `sfx_Voice_no_time` ($51) and time-death are entirely unwired (timer countdown test-only)** (`Decrease_Time_Left (kid.asm:15482)` / `sfx_Voice_no_time` / `End_Decrease_Time_Left`)
-ASM `Decrease_Time_Left` counts `Time_SubSeconds`/digits down each frame; when all reach zero it sets `move.w #4,collision_type(a3)` on the Kid object (the authoritative time-death consequence, routed through `Character_CheckCollision` to a kill) and plays `sfx_Voice_no_time` ($51) (kid.asm:15498-15503). In native the timer-countdown helpers (`hud_timer_low_time_check_end_decrease_time_left`, `hud_timer_digit_tiles_loc_BEE8`, `hud_timer_sprite_layout_sub_BD0A`) are referenced only from tests.rs:28-29 — there is no live per-frame `Time_SubSeconds` countdown in the frame step, no `collision_type=4` write on expiry, and no `NoTime` SFX variant. Both the warning cue and the time-death itself are absent in live play; the SFX is audio-only (low), while the missing `collision_type=4` consequence belongs to the broader unwired level-timer mechanic. Kind: helper-unwired. `crates/kid-core/src/boot.rs:666`, `crates/kid-core/src/boot.rs:632`, `crates/kid-core/src/boot.rs:417`, `crates/kid-core/src/tests.rs:28-29`.
-
 **RESOLVED 2026-06-11: Ice-block smash queues `sfx_Prize_block` ($11) in the live path** (`IceBlock_SmashAndLoadBullets` / `sub_10F44`)
 ASM `IceBlock_SmashAndLoadBullets` plays `sfx_Prize_block` ($11) unconditionally on entry, before `IceBlock_LoadBullets` and the sub_10F9C shard worker (kid.asm:22849-22852); this $11 is the ice-specific sound (the Prize arm `off_BB80[1]` plays `sfx_Block_hit` $0D instead). Native now pushes `QueuedSoundEffect::PrizeBlock` from the live `ice_block_hit` branch before spawning bullets and the shard effect. native-player replays the core trace id and suppresses the older block-destroy-effect `$11` delta on that same frame, avoiding a duplicate cue. Kind: resolved-missing. `crates/kid-core/src/blocks.rs:3531-3564`, `crates/kid-core/src/combat.rs:42-64`, `crates/kidcli/src/native_player/mod.rs:2128-2250`.
 
@@ -96,7 +93,7 @@ ASM `PlaySound` (`sub_E151C`, `moveq #$10`) and `PlaySound2` (`sub_E153E`, `move
 | # | Status | Pri | System | Summary | Verify |
 |---|---|---|---|---|---|
 
-The remaining low gaps are not worth backlog rows: the global decorative-label premise (a documented architecture fact, not a per-trigger fix); the out-of-time warning cue (folds into the unwired level-timer mechanic); enemy-fire and boss eye-pop/die/groan cues (broad enemy/boss audio-wiring areas under umbrella P0 #160, not discrete bugs on the current placeholder backend); the StopMusic and BGM-start/transition absences (remaining core-trace architecture gaps while native-player derives playback separately); and the PlaySound/PlaySound2 $10/$12 channel distinction (GEMS-internal routing with no consumer today).
+The remaining low gaps are not worth backlog rows: the global decorative-label premise (a documented architecture fact, not a per-trigger fix); enemy-fire and boss eye-pop/die/groan cues (broad enemy/boss audio-wiring areas under umbrella P0 #160, not discrete bugs on the current placeholder backend); the StopMusic and BGM-start/transition absences (remaining core-trace architecture gaps while native-player derives playback separately); and the PlaySound/PlaySound2 $10/$12 channel distinction (GEMS-internal routing with no consumer today).
 
 ## Not audited
 
@@ -113,7 +110,6 @@ Scout exclusions (out of scope by design, owned elsewhere):
 
 Units with ambiguity needing oracle probes:
 
-- **player-action-triggers** — partial because the timer-countdown live path that would host `sfx_Voice_no_time` is simply absent; the warning cue and `collision_type=4` time-death cannot be confirmed value-for-value against ASM (only test-only helpers exist).
 - **music-speed-modulation** — the transform path now queues `FF 05 <speed>` / `FF 0D` into the live native GEMS driver, matching the direct ROM queue payload. Still needs an oracle/audio probe before confirming whether #264's audible slowdown was this missing tempo command, a frame-budget artefact, or both.
 - **playsound-vs-playsound2-priority** — would warrant re-rating above low only if a future consumer of `played_sound_effect_ids` needs channel/priority for audio-mixing fidelity; no such consumer exists today.
 - **bgm-level-selection** — theme indices >10 return `None` in native (no bounds in ASM, which would index past the 11-byte `unk_1201E` table); not flagged because `Foreground_theme` is masked to a valid theme upstream, but the unreachable-edge assumption is unconfirmed by probe.
