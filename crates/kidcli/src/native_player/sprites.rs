@@ -993,6 +993,27 @@ fn select_live_rock_tank_body_frame<'a>(
     Some(&enemy_visuals.frames[phase])
 }
 
+fn select_live_diamond_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a kid_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x01 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 5
+    {
+        return None;
+    }
+
+    // ASM Diamond.asm Enemy01_Diamond_Init installs `stru_3ACA8`: five
+    // six-tick live frames, then dispatch selector 2 rewinds to the start.
+    // The later extracted frames are hurt/death-only (`stru_3ACBE`/`stru_3ACC4`),
+    // so live Diamonds must not cycle the whole sheet or desynchronise by
+    // layout index.
+    let phase = (trace.frame_index / 6) % 5;
+    Some(&enemy_visuals.frames[phase])
+}
+
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
@@ -1408,6 +1429,9 @@ pub(super) fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_rock_tank_body_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_diamond_frame(trace, enemy_visuals, object) {
         return frame;
     }
     // Offset animation by layout_index so enemies of the same type don't

@@ -6527,6 +6527,15 @@ mod tests {
             first.tile_sheet.tiles[0].pixels, second.tile_sheet.tiles[0].pixels,
             "ASM Diamond.asm `stru_3ACA8` advances every 6 ticks even though the low-HP Diamond uses the shared ledge-walker path"
         );
+
+        trace.frame_index = 120;
+        let mut later_layout = object.clone();
+        later_layout.layout_index = Some(8);
+        let later = sprites::select_enemy_frame(&trace, diamond_visuals, &later_layout);
+        assert_eq!(
+            later.tile_base_index, 0x02F,
+            "ASM Diamond.asm `stru_3ACA8` loops over the five live frames only; layout-index desync shows C8180 on issue289 level 0D frame 120 instead of the oracle's first crystal frame"
+        );
     }
 
     fn sample_foreground_layout_bytes() -> Vec<u8> {
