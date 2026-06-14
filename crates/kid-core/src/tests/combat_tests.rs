@@ -2142,6 +2142,35 @@ fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
 }
 
 #[test]
+fn live_heady_metal_late_breakup_spawns_from_selected_worker_slot_sub_37708() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 13);
+    boss.boss_movement_delay_counter = HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264;
+    runtime.active_enemies = vec![boss];
+    runtime.active_enemy_roster = runtime
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+
+    let collision_target = runtime.active_enemies[0];
+    runtime.queue_pending_enemy_collision(&collision_target, 0x002C);
+    runtime.apply_pending_enemy_collisions();
+
+    let attack = runtime
+        .projectiles
+        .iter()
+        .find(|projectile| projectile.kind == EnemyProjectileKind::BossEyeAttack)
+        .expect("ASM sub_37708 loc_37778 should spawn the paired sub_37332 eye attack");
+    assert_eq!(
+        (attack.x_pos, attack.y_pos),
+        (0x0074_0000, 0x003A_0000),
+        "ASM sub_37708 loc_37778 indexes unk_3795E from `$FFFFFB7A`; phase `$18->$19` selects `$FFFFFB82`, the second body worker at x-0x0C/y-0x46, not the boss centre"
+    );
+}
+
+#[test]
 fn live_heady_metal_early_breakup_queues_boss_eye_pop_sfx_loc_3772a() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

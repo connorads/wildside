@@ -18,7 +18,9 @@ pub(crate) mod types;
 pub mod vdp;
 mod weather;
 
-use combat::{PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect};
+use combat::{
+    HeadyMetalBreakupPieceSub37708, PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect,
+};
 use constants::*;
 use enemies::*;
 use kid_data::{
@@ -62,6 +64,33 @@ pub use weather::{
     MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
     compile_murder_wall_warning_sprites_sub_5E02, lava_geyser_sprite_chunks_loc_14BE8,
 };
+
+#[allow(non_snake_case)]
+fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
+    anchor_x: u16,
+    anchor_y: u16,
+) -> [Option<HeadyMetalBreakupPieceSub37708>; 13] {
+    // ASM Enemy20_HeadyMetal_Init loc_39247 seeds `$FFFFFB7A` at y+$1F,
+    // then `sub_37680` installs the twelve body-piece workers through loc_39266.
+    let mut slots = [None; 13];
+    slots[0] = Some(HeadyMetalBreakupPieceSub37708 {
+        sprite_word_y: 0,
+        x_pos: anchor_x,
+        y_pos: anchor_y.wrapping_add(0x001F),
+    });
+    for (index, (x_offset, y_offset)) in HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266
+        .iter()
+        .copied()
+        .enumerate()
+    {
+        slots[index + 1] = Some(HeadyMetalBreakupPieceSub37708 {
+            sprite_word_y: 0,
+            x_pos: anchor_x.wrapping_add_signed(x_offset),
+            y_pos: anchor_y.wrapping_add_signed(y_offset),
+        });
+    }
+    slots
+}
 
 #[derive(Debug, Clone)]
 pub struct NativeRuntime {
@@ -133,6 +162,10 @@ pub struct NativeRuntime {
     game_complete: bool,
     block_state: BlockInteractionState,
     projectiles: Vec<EnemyProjectile>,
+    /// ASM Enemy20_HeadyMetal_Init installs the `$FFFFFB7A..$FFFFFBAA`
+    /// breakup workers once; sub_37708 then mutates and clears those slots.
+    pub(crate) heady_metal_breakup_slots_sub_37708:
+        Option<[Option<HeadyMetalBreakupPieceSub37708>; 13]>,
     /// ASM `$FFFFFB4E`: multi-head boss death counter. Shared death entry
     /// `loc_39EBE` increments it; Shishkaboss skewer pieces launch once it is 3.
     pub(crate) multi_head_boss_death_count_fb4e: u8,
@@ -1405,6 +1438,7 @@ impl NativeRuntime {
             game_complete: false,
             block_state: BlockInteractionState::default(),
             projectiles: Vec::new(),
+            heady_metal_breakup_slots_sub_37708: None,
             multi_head_boss_death_count_fb4e: 0,
             diamond_power_rain_slots: Vec::new(),
             diamond_power_circle_slots: Vec::new(),
@@ -1699,6 +1733,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
         self.projectiles.clear();
+        self.heady_metal_breakup_slots_sub_37708 = None;
         self.floating_items.clear();
         self.enemy_death_effects.clear();
         self.pending_prize_diamond_awards.clear();

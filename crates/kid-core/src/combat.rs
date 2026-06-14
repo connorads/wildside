@@ -8036,8 +8036,8 @@ impl NativeRuntime {
 
             let berzerker_charging = matches!(self.progression.current_form, PlayerForm::Berzerker)
                 && self.helmet.berzerker_charging;
-            let enemy = &mut self.active_enemies[active_idx];
-            if enemy.death_animation_active && enemy_death_animation_frames(enemy.family).is_some()
+            if self.active_enemies[active_idx].death_animation_active
+                && enemy_death_animation_frames(self.active_enemies[active_idx].family).is_some()
             {
                 // ASM Dragon.asm loc_3CEFC and sibling death tails are inside
                 // j_Hibernate_UntilAnimFinished; freshly written collision
@@ -8045,26 +8045,37 @@ impl NativeRuntime {
                 // object.
                 continue;
             }
-            if matches!(enemy.family, EnemyFamily::HeadyMetal) {
-                let phase_counter = 37u16.saturating_sub(u16::from(enemy.hit_points));
-                let piece = HeadyMetalBreakupPieceSub37708 {
-                    sprite_word_y: 0,
-                    x_pos: (enemy.x_pos >> 16) as u16,
-                    y_pos: (enemy.y_pos >> 16) as u16,
-                };
+            if matches!(
+                self.active_enemies[active_idx].family,
+                EnemyFamily::HeadyMetal
+            ) {
+                let anchor_x = (self.active_enemies[active_idx].x_pos >> 16) as u16;
+                let anchor_y = (self.active_enemies[active_idx].y_pos >> 16) as u16;
+                let phase_counter =
+                    37u16.saturating_sub(u16::from(self.active_enemies[active_idx].hit_points));
+                let remaining_scatter_frames = self.active_enemies[active_idx].wait_timer;
+                let piece_slots = self.heady_metal_breakup_slots_sub_37708.get_or_insert_with(
+                    || {
+                        heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
+                            anchor_x, anchor_y,
+                        )
+                    },
+                );
                 let result = heady_metal_breakup_step_sub_37708(
                     true,
                     collision.collision_type as i16,
                     phase_counter,
-                    enemy.wait_timer,
+                    remaining_scatter_frames,
                     self.frame_index as u16,
-                    [Some(piece); 13],
+                    *piece_slots,
                 );
+                self.heady_metal_breakup_slots_sub_37708 = Some(result.piece_slots);
 
                 if result.next_phase_counter != phase_counter {
                     // ASM sub_37708 loc_3772A increments `$3E(a3)` for
                     // collision `$2C`; native stores the inverse as remaining
                     // HeadyMetal HP.
+                    let enemy = &mut self.active_enemies[active_idx];
                     enemy.hit_points = 37u16
                         .saturating_sub(result.next_phase_counter)
                         .min(u16::from(u8::MAX)) as u8;
@@ -8081,6 +8092,7 @@ impl NativeRuntime {
                     let init = boss_eye_pop_effect_init_sub_3729E(x_pos, y_pos);
                     // ASM sub_3729E increments `$FFFFFB4F`; loc_375D4 freezes
                     // HeadyMetal while any of these workers are alive.
+                    let enemy = &mut self.active_enemies[active_idx];
                     enemy.boss_movement_script_index =
                         enemy.boss_movement_script_index.saturating_add(1);
                     self.projectiles.push(EnemyProjectile {
@@ -8098,9 +8110,7 @@ impl NativeRuntime {
                     let kid_x = self
                         .opening_slice
                         .as_ref()
-                        .map_or((enemy.x_pos >> 16) as u16, |slice| {
-                            (slice.player.x_pos >> 16) as u16
-                        });
+                        .map_or(anchor_x, |slice| (slice.player.x_pos >> 16) as u16);
                     let init = boss_eye_attack_init_sub_37332(x_pos, y_pos, kid_x);
                     self.projectiles.push(EnemyProjectile {
                         x_pos: u32::from(init.x_pos) << 16,
@@ -8119,6 +8129,7 @@ impl NativeRuntime {
 
                 continue;
             }
+            let enemy = &mut self.active_enemies[active_idx];
             if is_multi_head_boss(enemy.family) {
                 let result = boss_collision_palette_sub_3A292(
                     collision.collision_type,
