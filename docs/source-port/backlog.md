@@ -267,7 +267,16 @@ and stop — never commit churn.
   Drips child writing `$28` contact at frames 392..399 before the native bounce
   route can prove anything. Treat this as a phase-shifted native near-miss, not
   metal-block proof; do not repeat this `slbr` pre-approach plus right-recovery
-  family unchanged.
+  family unchanged. Follow-up route proof: `mb_left_long` on the same p11 base
+  (`150..230 Left`, `231..320 B+Right`, `321..390 Right`, `391..425 B+Left`)
+  materialises as `.cache/recordings/issue-260-p11-mb-left-long/scenario.json`
+  and is oracle-comparable for the block window:
+  `verify-tas --frame-start 450 --frame-end 505 --frontier-kind enemy --bisect`
+  passes. It produces native/oracle-matched `Bounce cell 37,32 @490`, but no
+  `Destroy`, no active projectile in the bounce frame, and Drips layout #08 is
+  still `pre_drop:0x800a` with no child; the nearest enemy support/contact probe
+  is separated from Kid. Treat this as clean Kid/block-bounce evidence only,
+  not the reported slime/block destruction route.
   A
   follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
