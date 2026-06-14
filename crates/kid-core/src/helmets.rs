@@ -4422,7 +4422,7 @@ fn friendly_projectile_enemy_hit_extents(projectile: &EnemyProjectile) -> (i32, 
 }
 
 fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObjectSnapshot> {
-    if matches!(enemy.family, EnemyFamily::Diamond) || enemy.hit_points == 0 {
+    if enemy.hit_points == 0 {
         return None;
     }
 
@@ -4440,9 +4440,9 @@ fn helmet_enemy_berzerker_damage_target_snapshot(
     enemy: &ActiveEnemy,
 ) -> Option<NativeObjectSnapshot> {
     if matches!(enemy.family, EnemyFamily::Diamond) {
-        // ASM Diamond.asm loc_3AE84/loc_3AF24: Diamond ignores generic helmet
-        // hurt routing, but charging Berzerker side contact is still a live
-        // Kid/enemy collision word that enters the Diamond launch gate.
+        // ASM Diamond.asm loc_3AE84/loc_3AF24: charging Berzerker side contact
+        // is a live Kid/enemy collision word that enters the Diamond launch
+        // gate instead of the ordinary `colid_hurt` HP path.
         return (enemy.hit_points != 0).then(|| enemy.snapshot());
     }
     if matches!(enemy.family, EnemyFamily::Robot) {
@@ -4465,7 +4465,7 @@ fn berzerker_charge_reflects_player_velocity_loc_b678(enemy: &ActiveEnemy) -> bo
 fn helmet_enemy_projectile_damage_target_snapshots(
     enemy: &ActiveEnemy,
 ) -> Vec<NativeObjectSnapshot> {
-    if matches!(enemy.family, EnemyFamily::Diamond) || enemy.hit_points == 0 {
+    if enemy.hit_points == 0 {
         return Vec::new();
     }
 

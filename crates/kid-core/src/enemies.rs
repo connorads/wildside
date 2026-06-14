@@ -8667,6 +8667,31 @@ impl ActiveEnemy {
     }
 
     pub(crate) fn take_colid_hurt_or_queue_death(&mut self, player_x_pos: Option<u32>) -> bool {
+        if matches!(self.family, EnemyFamily::Diamond) {
+            match diamond_low_hp_collision_dispatch_loc_3aec4(
+                DIAMOND_COLID_HURT as i16,
+                u16::from(self.hit_points),
+            ) {
+                DiamondLowHpCollisionRouteLoc3AEC4::HurtAnimation { remaining_hp } => {
+                    // ASM Diamond.asm loc_3AEC4 -> loc_3AEF8: generic
+                    // `colid_hurt` decrements `$44(a3)`, plays the Diamond
+                    // hurt script, clears collision, and resumes the base
+                    // walker path. Native records the observable hibernate
+                    // via the standard damage flash while preserving HP.
+                    self.hit_points = remaining_hp as u8;
+                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    return false;
+                }
+                DiamondLowHpCollisionRouteLoc3AEC4::DeathAnimation => {
+                    // ASM Diamond.asm loc_3AEE6: terminal `colid_hurt`
+                    // initialises `stru_3ACC4` and waits for the Diamond
+                    // death animation before the shared delete tail.
+                    return true;
+                }
+                DiamondLowHpCollisionRouteLoc3AEC4::ResumeSharedWalker { .. }
+                | DiamondLowHpCollisionRouteLoc3AEC4::BerzerkerSideGate => return false,
+            }
+        }
         if matches!(self.family, EnemyFamily::Crab)
             && let Some(player_x_pos) = player_x_pos
         {
