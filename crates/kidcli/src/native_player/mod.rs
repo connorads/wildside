@@ -8160,6 +8160,92 @@ mod tests {
     }
 
     #[test]
+    fn murder_wall_warning_strip_clears_priority_before_hud_loc_80c_bee8() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 10;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.level_timer_seconds = 179;
+        trace.murder_wall_x = Some(16 << 16);
+        let mut visuals = sample_level_visuals();
+        visuals.level.murder_wall_flags = 2;
+        visuals.murder_wall = Some(kid_render::MurderWallVisuals {
+            palette: Palette {
+                colours: (0..48)
+                    .map(|index| {
+                        if index == 0x11 {
+                            colour(220, 20, 20)
+                        } else {
+                            colour(0, 0, 0)
+                        }
+                    })
+                    .collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [1; 64] }; 0x90],
+            },
+            vram_base_tile_index: 0x02FB,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: true,
+            },
+        );
+        let wall_index = scene
+            .commands
+            .iter()
+            .position(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, tiles, .. }
+                        if tile_sheet.tiles.len() == 0x90
+                            && tiles.iter().any(|tile| tile.tile.priority)
+                )
+            })
+            .expect("murder-wall strip command");
+        let clear_index = scene
+            .commands
+            .iter()
+            .position(|command| {
+                matches!(
+                    command,
+                    DrawCommand::ClearPriorityRect { x: 0, y: 0, width, height }
+                        if *width == FRAME_WIDTH as i32 && *height >= 48
+                )
+            })
+            .expect("HUD priority clear");
+        let hud_index = scene
+            .commands
+            .iter()
+            .position(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { tile_sheet, .. }
+                        if tile_sheet.tiles.len() == 12
+                )
+            })
+            .expect("HUD timer digit");
+
+        assert!(
+            wall_index < clear_index && clear_index < hud_index,
+            "ASM Mode_Level loc_80C runs sub_5E02 after Make_SpriteAttr_HUD, but native-player must clear its local priority mask before the fixed HUD overlay so the loc_BEE8 timer remains visible"
+        );
+    }
+
+    #[test]
     fn build_game_scene_murder_wall_fallback_is_visible_warning_strip() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = 240;

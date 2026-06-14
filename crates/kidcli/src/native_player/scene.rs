@@ -4593,6 +4593,16 @@ fn build_game_scene_filtered(
     }
 
     if !eol_hologram_visible && filter.hud {
+        // ASM Mode_Level calls Make_SpriteAttr_HUD before sub_5E02 but the
+        // HUD occupies the fixed top overlay in native-player. Clear native's
+        // local high-priority mask so later murder-wall/weather sprites cannot
+        // occlude the timer/lives/diamond HUD row.
+        commands.push(DrawCommand::ClearPriorityRect {
+            x: 0,
+            y: 0,
+            width: FRAME_WIDTH as i32,
+            height: 48,
+        });
         push_game_hud(&mut commands, trace, level_visuals);
     }
 
