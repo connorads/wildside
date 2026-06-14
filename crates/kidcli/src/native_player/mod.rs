@@ -3273,6 +3273,78 @@ mod tests {
 
     #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn highwater_priority_foreground_masks_low_priority_sprites_loc_3034a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let session_assets =
+            load_native_session_assets(&manifest, 0x02).expect("Highwater Pass session assets");
+        assert_eq!(
+            session_assets.block_grid.raw_word_at(26, 77) & 0x8100,
+            0x0100,
+            "generated Highwater Level_Layout should preserve the ROM foreground priority bit near the lower waterfall-front mask"
+        );
+
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_level = LevelId(0x02);
+        trace.camera_x_pos = (24 * 16) << 16;
+        trace.camera_y_pos = (72 * 16) << 16;
+
+        let mut scene = build_scene(
+            &trace,
+            false,
+            Some(&session_assets.level_visuals),
+            Some(&session_assets.block_grid),
+        );
+        let sample_pixels = (0usize..80)
+            .flat_map(|x| (0usize..192).map(move |y| (x, y)))
+            .collect();
+        let priority_pixel = sample_scene_pixel_provenance(&scene, &sample_pixels)
+            .into_iter()
+            .find(|diagnostic| diagnostic.final_high_priority)
+            .expect("Highwater priority foreground should contribute visible pixels in this viewport");
+
+        let sprite_colour = [220, 20, 20];
+        scene.commands.push(DrawCommand::Sprite {
+            x: priority_pixel.x as i32,
+            y: priority_pixel.y as i32,
+            tile_sheet: Arc::new(TileSheet {
+                tiles: vec![make_tile(&[(0, 0, 1)])],
+            }),
+            palette: Arc::new(Palette {
+                colours: vec![colour(220, 20, 20)],
+            }),
+            tiles: vec![SpriteTile {
+                offset_x: 0,
+                offset_y: 0,
+                tile: TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+            }],
+        });
+        let sample = sample_scene_pixel_provenance(
+            &scene,
+            &[(priority_pixel.x, priority_pixel.y)].into_iter().collect(),
+        )
+        .into_iter()
+        .next()
+        .expect("priority sample");
+
+        assert!(sample.final_high_priority);
+        assert!(
+            sample.writes.iter().any(|write| {
+                write.kind == "sprite_tile" && write.rgb == Some(sprite_colour) && !write.accepted
+            }),
+            "ASM sub_3034A/sub_302F6 priority terrain must mask ordinary low-priority sprite tiles in live Highwater art, not only synthetic layouts"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn highwater_live_trace_shooter_projectile_renders_real_spike_tile_loc_ef62() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
@@ -11727,6 +11799,23 @@ mod tests {
             },
             palette: Arc::clone(&low_palette),
         });
+        priority_scene.commands.push(DrawCommand::Sprite {
+            x: 0,
+            y: 64,
+            tile_sheet: Arc::clone(&low_tile_sheet),
+            palette: Arc::clone(&low_palette),
+            tiles: vec![SpriteTile {
+                offset_x: 0,
+                offset_y: 0,
+                tile: TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+            }],
+        });
         let priority_sample = sample_scene_pixel_provenance(
             &priority_scene,
             &[(0usize, 64usize)].into_iter().collect(),
@@ -11745,13 +11834,20 @@ mod tests {
                 .any(|write| write.kind == "indexed_tile" && write.rgb == Some([220, 20, 20]) && !write.accepted),
             "later ordinary Kid sprites are low priority, so Highwater foreground/water mask cells must reject them"
         );
+        assert!(
+            priority_sample
+                .writes
+                .iter()
+                .any(|write| write.kind == "sprite_tile" && write.rgb == Some([220, 20, 20]) && !write.accepted),
+            "ordinary enemy/player DrawCommand::Sprite tiles must follow the same foreground-priority mask, not just terrain-tile commands"
+        );
 
         let low_grid = BlockGrid::from_level_layout(&[0; 1 * 5 * 2], 1, 5);
         let mut low_scene = build_scene(&trace, false, Some(&visuals), Some(&low_grid));
         low_scene.commands.push(DrawCommand::IndexedTile {
             x: 0,
             y: 64,
-            tile_sheet: low_tile_sheet,
+            tile_sheet: Arc::clone(&low_tile_sheet),
             tile: TileRef {
                 tile_index: 0,
                 palette_line: 0,
@@ -11760,6 +11856,25 @@ mod tests {
                 flip_y: false,
             },
             palette: low_palette,
+        });
+        low_scene.commands.push(DrawCommand::Sprite {
+            x: 0,
+            y: 64,
+            tile_sheet: Arc::clone(&low_tile_sheet),
+            palette: Arc::new(Palette {
+                colours: vec![colour(20, 220, 20)],
+            }),
+            tiles: vec![SpriteTile {
+                offset_x: 0,
+                offset_y: 0,
+                tile: TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+            }],
         });
         let low_sample = sample_scene_pixel_provenance(
             &low_scene,
@@ -11774,6 +11889,13 @@ mod tests {
                 .iter()
                 .any(|write| write.kind == "indexed_tile" && write.rgb == Some([220, 20, 20]) && write.accepted),
             "ordinary terrain cells stay low priority; this regression only covers the ROM `$0100` foreground mask bit"
+        );
+        assert!(
+            low_sample
+                .writes
+                .iter()
+                .any(|write| write.kind == "sprite_tile" && write.rgb == Some([20, 220, 20]) && write.accepted),
+            "sprite tiles should still draw normally when the foreground cell has no ROM priority bit"
         );
     }
 
