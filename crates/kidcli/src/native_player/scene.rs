@@ -841,6 +841,16 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         // the next frame's Make_SpriteAttr_HUD/sub_BDC0-built symbol becomes
         // visible, so the HUD diamond page is latched from the previous trace.
         render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
+        if trace.form_change_flash_frames > 0 && previous_trace.form_change_flash_frames > 0 {
+            // ASM Kid_Transform loc_7CD0 hibernates the player coroutine while
+            // Mode_Level still reaches loc_80C/sub_44DC. Oracle frames show
+            // the visible HUD diamond page remains one `unk_461C` art slot
+            // behind that post-update trace value during those repeated
+            // transform hibernates.
+            render_trace.hud_diamond_frame_offset = previous_trace
+                .hud_diamond_frame_offset
+                .map(previous_hud_diamond_frame_offset_loc_45ee);
+        }
         if trace.form_change_flash_frames > 0 && previous_trace.form_change_flash_frames == 0 {
             // ASM Kid_Transform loc_7C40/loc_7CD0 starts after the frame's
             // sprite attributes have already been built. The first visible
@@ -869,6 +879,16 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         }
     }
     render_trace
+}
+
+fn previous_hud_diamond_frame_offset_loc_45ee(offset: u8) -> u8 {
+    match offset {
+        0 => 6,
+        2 => 0,
+        4 => 2,
+        6 => 4,
+        _ => offset.saturating_sub(2),
+    }
 }
 
 pub(crate) fn build_scene_filtered(

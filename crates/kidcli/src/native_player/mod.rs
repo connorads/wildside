@@ -8728,6 +8728,26 @@ mod tests {
     }
 
     #[test]
+    fn transform_hibernate_render_uses_prior_hud_diamond_page_loc_45ee() {
+        let mut previous = sample_trace(GameMode::DemoPlay);
+        previous.current_level = LevelId(0x00);
+        previous.hud_diamond_frame_offset = Some(6);
+        previous.form_change_flash_frames = 72;
+
+        let mut trace = previous.clone();
+        trace.hud_diamond_frame_offset = Some(0);
+        trace.form_change_flash_frames = 71;
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+
+        assert_eq!(
+            render_trace.hud_diamond_frame_offset,
+            Some(4),
+            "ASM Kid_Transform loc_7CD0 hibernates gameplay while Mode_Level loc_80C still reaches sub_44DC; oracle frames keep the visible HUD diamond one unk_461C page behind the post-update previous trace"
+        );
+    }
+
+    #[test]
     fn first_transform_frame_latches_previous_player_visual_state_loc_7c40() {
         let mut previous = sample_trace(GameMode::DemoPlay);
         previous.current_level = LevelId(0x00);
