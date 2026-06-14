@@ -7295,14 +7295,57 @@ mod chunk_04 {
         );
         assert_eq!(sound_effects[0].sound_id(), 0x25);
         assert!(
+            enemy.on_ground,
+            "ASM Emo_Rock.asm loc_36320 hibernates through stru_36456 before restarting loc_361F4",
+        );
+        assert_eq!(
+            enemy.grounded_frames,
+            EMO_ROCK_DISAPPEAR_ANIMATION_FRAMES_LOC_36320
+        );
+        assert_eq!(enemy.wait_timer, 0);
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+
+        for _ in 1..EMO_ROCK_DISAPPEAR_ANIMATION_FRAMES_LOC_36320 {
+            step_emo_rock_with_rng(
+                &mut enemy,
+                Some(&grid),
+                Some(player_x),
+                Some(0x00E0_0000),
+                &mut rng,
+                Some(&mut sound_effects),
+            );
+            assert!(
+                enemy.on_ground,
+                "stru_36456 should keep hibernating until its final frame"
+            );
+            assert_eq!(enemy.wait_timer, 0);
+        }
+
+        step_emo_rock_with_rng(
+            &mut enemy,
+            Some(&grid),
+            Some(player_x),
+            Some(0x00E0_0000),
+            &mut rng,
+            Some(&mut sound_effects),
+        );
+
+        assert!(
             !enemy.on_ground,
             "loc_36320 branches back to the airborne hover cycle, not a ground walk",
         );
+        assert_eq!(enemy.grounded_frames, 0);
         assert_eq!(enemy.x_velocity, 0);
         assert_eq!(enemy.y_velocity, 0);
         assert!(
             (0x003C..=0x00BB).contains(&enemy.wait_timer),
             "ASM Emo_Rock.asm loc_361F4 seeds the restarted hover wait from $3C plus a masked RNG byte",
+        );
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::EmoRockDisappears],
+            "loc_36320 should only play the disappear cue once per animation"
         );
     }
 

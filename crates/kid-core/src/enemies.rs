@@ -25272,6 +25272,9 @@ pub(crate) const EMO_ROCK_VELOCITY_CAP: i32 = 0x4_0000;
 /// sends Emo Rock to `loc_36320`.
 pub(crate) const EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4: u16 = 0x0088;
 
+/// Frames in `stru_36456`, the disappear animation hibernated by `loc_36320`.
+pub(crate) const EMO_ROCK_DISAPPEAR_ANIMATION_FRAMES_LOC_36320: u8 = 0x10;
+
 pub(crate) const EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A: u16 = 0x3630;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25772,6 +25775,19 @@ pub(crate) fn step_emo_rock_with_rng(
         // of entering a pacer-style ground walk.
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
+        if enemy.grounded_frames > 0 {
+            enemy.grounded_frames -= 1;
+            if enemy.grounded_frames != 0 {
+                return;
+            }
+
+            // ASM Emo_Rock.asm loc_36320: after `stru_36456` finishes, clear
+            // addroffset_sprite and branch back to loc_361F4's hover delay.
+            enemy.on_ground = false;
+            enemy.wait_timer =
+                emo_rock_wait_timer_with_rng(rng, player_x_pos.unwrap_or(enemy.x_pos));
+            return;
+        }
         if enemy.wait_timer > 0 {
             enemy.wait_timer =
                 emo_rock_wait_countdown_loc_36212(enemy.wait_timer).remaining_wait_timer;
@@ -25788,12 +25804,10 @@ pub(crate) fn step_emo_rock_with_rng(
                 // before `stru_36456` hibernates and branches to loc_361F4.
                 sound_effects.push(QueuedSoundEffect::EmoRockDisappears);
             }
-            enemy.on_ground = false;
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
             if disappear.has_kid_collision {
-                enemy.wait_timer =
-                    emo_rock_wait_timer_with_rng(rng, player_x_pos.unwrap_or(enemy.x_pos));
+                enemy.grounded_frames = EMO_ROCK_DISAPPEAR_ANIMATION_FRAMES_LOC_36320;
             }
         }
         return;
@@ -25856,6 +25870,7 @@ pub(crate) fn step_emo_rock_with_rng(
             enemy.y_velocity = 0;
             enemy.on_ground = true;
             enemy.wait_timer = EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4;
+            enemy.grounded_frames = 0;
             if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
                 enemy.facing = dir;
             }
