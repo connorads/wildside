@@ -72,6 +72,19 @@ and stop — never commit churn.
   on the split frame. Next investigation should trace the one-pixel earlier
   oracle slope phase / `loc_AA22` entry rather than broadening slope-as-wall
   collision.
+- **#258/#277 follow-up (2026-06-14)**: the direct Level 00 probe is not clean
+  movement evidence yet. `tas-diff` shows native/oracle already offset before
+  the jump, and a 3x3 start-position nudge matrix over `(759..761,230..232)`
+  still diverges at frame 0 with native Kid X consistently `$2000` subpixels
+  behind the oracle sample. Natural routes are cleaner: Level 00 right-slope
+  jump timings `428`, `432`, `437`, and the one-frame B pulse all pass
+  `verify-tas` through the jump window; BLW2 stair-jump right-current and
+  right late-B `76/84/90` all have no authoritative gameplay divergence; BLW2
+  left early-tap also passes. BLW2 left-current diverges first in
+  `number_objects` at frame 90, with later camera/object drift from the
+  RockTank/ShooterBlock lifecycle, not Kid movement fields. Next movement work
+  needs an exact live input recording or a fixed direct-probe bootstrap before
+  patching slope/jump physics.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still
