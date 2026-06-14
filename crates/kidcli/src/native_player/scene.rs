@@ -817,6 +817,7 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
         render_trace.number_lives = previous_trace.number_lives;
         render_trace.diamond_count = previous_trace.diamond_count;
+        render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
         render_trace.level_timer_seconds = previous_trace.level_timer_seconds;
     }
     if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
@@ -836,6 +837,10 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         // loc_B700, so the visible HP pips are also a pre-update latch.
         render_trace.number_hitpoints = previous_trace.number_hitpoints;
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
+        // ASM sub_44DC loc_45EE updates the diamond DMA script offset before
+        // the next frame's Make_SpriteAttr_HUD/sub_BDC0-built symbol becomes
+        // visible, so the HUD diamond page is latched from the previous trace.
+        render_trace.hud_diamond_frame_offset = previous_trace.hud_diamond_frame_offset;
         if trace.form_change_flash_frames > 0 && previous_trace.form_change_flash_frames == 0 {
             // ASM Kid_Transform loc_7C40/loc_7CD0 starts after the frame's
             // sprite attributes have already been built. The first visible

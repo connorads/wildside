@@ -9364,6 +9364,14 @@ Column of origin shown in brackets; text is verbatim.
   ASM `Kid_Transform loc_7CD0` / `stru_7F30` says this is the first Cyclone
   transform frame. Treat this as a demo transform-render timing lead, not
   evidence that the prize content became a Diamond.
+- [Evidence] 2026-06-14 HUD diamond page latch refinement: after latching the
+  first `Kid_Transform loc_7C40/loc_7CD0` entry render state, frame 3491's
+  remaining residual narrowed to the top-right HUD diamond icon
+  (`10x11+290+34`, AE `39`). Latching `hud_diamond_frame_offset` from the
+  previous trace, matching ASM `sub_44DC loc_45EE` upload ordering relative to
+  `Make_SpriteAttr_HUD/sub_BDC0`, makes frame 3491 pixel-perfect (`AE 0`).
+  Frames 3492/3493/3494 still have HUD-row residuals (`39/143/143`), so this is
+  a proposed fix for the transform-entry frame only, not live closure of #274.
 - [Reject] 2026-06-14 palette-tint hypothesis: changing the floating Cyclone
   helmet sprite to use Cyclone's transform palette while
   `form_change_flash_frames > 0` worsened current-HEAD frame 3491 strict AE

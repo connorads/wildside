@@ -8538,6 +8538,38 @@ mod tests {
     }
 
     #[test]
+    fn gameplay_render_uses_previous_hud_diamond_page_latch_loc_45ee() {
+        let mut previous = sample_trace(GameMode::DemoPlay);
+        previous.current_level = LevelId(0x00);
+        previous.hud_diamond_frame_offset = Some(4);
+        previous.kid_x_pos = Some(0x004A_0000);
+
+        let mut trace = previous.clone();
+        trace.hud_diamond_frame_offset = Some(6);
+        trace.kid_x_pos = Some(0x004B_0000);
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+
+        assert_eq!(
+            render_trace.hud_diamond_frame_offset, previous.hud_diamond_frame_offset,
+            "ASM sub_44DC loc_45EE advances the diamond DMA page before Make_SpriteAttr_HUD/sub_BDC0's next visible symbol latch, so render keeps the previous HUD diamond page"
+        );
+        assert_eq!(
+            render_trace.kid_x_pos, trace.kid_x_pos,
+            "only the HUD/VDP latch is delayed; gameplay object state stays on the current trace"
+        );
+
+        let mut next = trace.clone();
+        next.hud_diamond_frame_offset = Some(0);
+        let next_render_trace = render_trace_with_vdp_latched_state(&next, Some(&trace));
+
+        assert_eq!(
+            next_render_trace.hud_diamond_frame_offset, trace.hud_diamond_frame_offset,
+            "the loc_45EE HUD diamond page latch advances one trace at a time"
+        );
+    }
+
+    #[test]
     fn first_transform_frame_latches_previous_player_visual_state_loc_7c40() {
         let mut previous = sample_trace(GameMode::DemoPlay);
         previous.current_level = LevelId(0x00);
