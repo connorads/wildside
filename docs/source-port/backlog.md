@@ -489,6 +489,14 @@ and stop — never commit churn.
   `468..482` shows #07 falling through cells `28,34`/`28,35`/`28,36`, then
   splashing at frame 477 and reseeding at frame 478; the row-32 score is only
   a Kid/cell proximity metric, not a `$0C` splash on the reported block line.
+  2026-06-14 follow-up on the same clean alive seed: a pre-splash/cycle batch
+  over frames `360..470` (`B`, `B+Left`, `B+Right`, `Left`, `Right`, and
+  split `B` then direction variants) still produced no row-32 block event.
+  Baseline and right-biased survivors remain best for Kid/cell at
+  `dx=0 dy=-1`, but DripsDrop still only reaches cell `28,32` at `dy=-3 @373`;
+  the closest useful survivor crawler remains on the lower floor (`dy=-65`
+  from cell `28,32`). Do not repeat this `prebl-longr` `360..470`
+  pre-splash axis unchanged.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
