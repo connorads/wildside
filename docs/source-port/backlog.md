@@ -152,9 +152,12 @@ and stop — never commit churn.
   `dx=-1 dy=-3 @488`; sibling exits (`pre390_left520`, `pre390_shortjump`)
   have the same closest frames. This is still not reported slime/metal-block
   proof: Kid spends HP at frame 465 before the row-32 pass and no live
-  crawler/block mutation is demonstrated. Use this as the current refreshed
-  survivor prefix, but do not treat the `pre390_*` exit trims as a Drips/block
-  patch lead without a materialised oracle-comparable contact route. A first
+  crawler/block mutation is demonstrated. The materialised survivor bundle
+  `.cache/recordings/issue-260-pre390-survivor-current/scenario.json`
+  verifies enemy-frontier clean for frames `450..520`, so use it as the current
+  refreshed comparable prefix; do not treat the `pre390_*` exit trims as a
+  Drips/block patch lead without a follow-on route that actually mutates the
+  metal block. A first
   bounded Kid-timing batch around that window found
   `300..450 none,330..370 Right,371..420 B+Right,421..450 Left`
   gets Kid's healthy hitbox to `dx=-5 dy=-3 @379` against cell `36,32`, but it

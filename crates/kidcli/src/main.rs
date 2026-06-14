@@ -270,6 +270,9 @@ enum Commands {
         /// Path to the DynamicScenario JSON to replay.
         #[arg(long)]
         scenario: PathBuf,
+        /// Overlay input ranges, e.g. `60-600:right+c` or `120:b`.
+        #[arg(long)]
+        input: Vec<String>,
         /// Optional ROM path (defaults to repo-root resolution).
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -1229,6 +1232,7 @@ fn main() -> Result<()> {
         Commands::RecordScenarioFile {
             slug,
             scenario,
+            input,
             rom,
             dir,
         } => {
@@ -1237,6 +1241,7 @@ fn main() -> Result<()> {
             let upstream_dir = resolve_upstream_dir(&repo_root, dir);
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             let dynamic = load_record_scenario_file(&scenario)?;
+            let dynamic = apply_dynamic_scenario_input_overlays(dynamic, &input)?;
             if let Some(level) = dynamic.warp_to_level {
                 ensure_level_layouts(&rom_path, &manifest, &[level])?;
             }
@@ -1249,7 +1254,8 @@ fn main() -> Result<()> {
                 recording::build_recording(&manifest, &slug, start, dynamic.script.clone(), trace)?;
             let mut recording = recording;
             recording.manifest.scenario = recording_scenario_manifest(dynamic, start);
-            recording.manifest.record_command = record_scenario_file_command(&slug, &scenario);
+            recording.manifest.record_command =
+                record_scenario_file_command(&slug, &scenario, &input);
             recording::save_recording_with_artifacts(
                 &record_to,
                 &recording,
@@ -1391,7 +1397,11 @@ fn main() -> Result<()> {
                 &target_point,
                 &target_cell,
                 &target_cell_hitbox,
-                &target_projectile.iter().copied().map(Into::into).collect::<Vec<_>>(),
+                &target_projectile
+                    .iter()
+                    .copied()
+                    .map(Into::into)
+                    .collect::<Vec<_>>(),
                 &target_projectile_cell,
                 score_frame_start,
                 limit,
@@ -3551,11 +3561,17 @@ fn record_scenario_command(
     command
 }
 
-fn record_scenario_file_command(slug: &str, scenario: &Path) -> String {
-    format!(
+fn record_scenario_file_command(slug: &str, scenario: &Path, input_specs: &[String]) -> String {
+    let mut command = format!(
         "cargo run --release -p kidcli -- record-scenario-file --slug {slug} --scenario {}",
         scenario.display()
-    )
+    );
+    for input in input_specs {
+        use std::fmt::Write;
+
+        let _ = write!(command, " --input {input}");
+    }
+    command
 }
 
 fn gameplay_move_right_script() -> Result<Vec<u8>> {
@@ -3825,10 +3841,11 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        BatchProbeResult, DynamicCheckpoint, DynamicScenario, GameplayCapture, GameplayScenario,
-        GameplayState, PlayerForm, RecordScenarioKind, ReferenceName, analyse_audio_samples,
-        apply_dynamic_scenario_input_overlays, audio_envelope_similarity, build_controller_script,
-        build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
+        BatchProbeResult, BatchTargetProjectileCell, DynamicCheckpoint, DynamicScenario,
+        GameplayCapture, GameplayScenario, GameplayState, PlayerForm, RecordScenarioKind,
+        ReferenceName, TargetCell, analyse_audio_samples, apply_dynamic_scenario_input_overlays,
+        audio_envelope_similarity, build_controller_script, build_record_scenario,
+        capture_native_gameplay_run, capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
         dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
         ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
@@ -3836,7 +3853,7 @@ mod tests {
         parse_batch_target_projectile_cell, parse_button_mask, parse_input_spec,
         prepare_generated_assets_with, record_scenario_command, record_scenario_file_command,
         recording_scenario_manifest, recording_start_for_dynamic_scenario,
-        selected_reference_repos, sorted_batch_probe_results, BatchTargetProjectileCell, TargetCell,
+        selected_reference_repos, sorted_batch_probe_results,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -6559,11 +6576,29 @@ AddrTbl_LevelNames:
         let command = record_scenario_file_command(
             "issue-143-tas-route",
             Path::new("tests/data/tas/kc_any_percent_2024/scenario.json"),
+            &[],
         );
 
         assert_eq!(
             command,
             "cargo run --release -p kidcli -- record-scenario-file --slug issue-143-tas-route --scenario tests/data/tas/kc_any_percent_2024/scenario.json"
+        );
+    }
+
+    #[test]
+    fn record_scenario_file_command_preserves_input_overlays() {
+        let command = record_scenario_file_command(
+            "issue-260-pre390",
+            Path::new(".cache/recordings/issue-260/scenario.json"),
+            &[
+                String::from("390-440:none"),
+                String::from("481-510:right+b"),
+            ],
+        );
+
+        assert_eq!(
+            command,
+            "cargo run --release -p kidcli -- record-scenario-file --slug issue-260-pre390 --scenario .cache/recordings/issue-260/scenario.json --input 390-440:none --input 481-510:right+b"
         );
     }
 
