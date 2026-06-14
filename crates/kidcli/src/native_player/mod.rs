@@ -2283,6 +2283,21 @@ fn is_explicit_block_sound_id(sound_id: u8) -> bool {
     )
 }
 
+fn is_transform_sound_id(sound_id: u8) -> bool {
+    matches!(
+        sound_id,
+        gems_sfx::IRON_KNIGHT_TRANSFORM
+            | gems_sfx::MANIAXE_TRANSFORM
+            | gems_sfx::RED_STEALTH_TRANSFORM
+            | gems_sfx::BERZERKER_TRANSFORM
+            | gems_sfx::SKYCUTTER_TRANSFORM
+            | gems_sfx::EYECLOPS_TRANSFORM
+            | gems_sfx::CYCLONE_TRANSFORM
+            | gems_sfx::MICROMAX_TRANSFORM
+            | gems_sfx::JUGGERNAUT_TRANSFORM
+    )
+}
+
 fn transform_sound_for_helmet_id_loc_7cd0(helmet_id: u16) -> Option<u8> {
     // ASM loc_7CD0 (kid.asm:8426): `unk_7ED8[Current_Helmet]` maps helmet ids
     // to transform SFX. Keep this fallback for older traces; current core
@@ -2298,6 +2313,79 @@ fn transform_sound_for_helmet_id_loc_7cd0(helmet_id: u16) -> Option<u8> {
         8 => Some(gems_sfx::MANIAXE_TRANSFORM),
         9 => Some(gems_sfx::MICROMAX_TRANSFORM),
         _ => None,
+    }
+}
+
+fn play_fallback_transform_sfx(sfx: &mut SfxEngine) {
+    sfx.play(392.0, 60, 0.12);
+    sfx.play(523.0, 60, 0.12);
+    sfx.play(659.0, 80, 0.12);
+}
+
+fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
+    match sound_id {
+        gems_sfx::SCORE_COUNTER => {
+            sfx.play(784.0, 45, 0.1);
+            sfx.play(1047.0, 55, 0.1);
+        }
+        gems_sfx::BLOCK_HIT => {
+            sfx.play(1100.0, 30, 0.08);
+            sfx.play(550.0, 40, 0.06);
+        }
+        gems_sfx::CLOCK_PRIZE => {
+            sfx.play(698.0, 60, 0.12);
+            sfx.play(880.0, 80, 0.12);
+        }
+        gems_sfx::DESTROY_BLOCK => {
+            sfx.play(700.0, 35, 0.08);
+            sfx.play(350.0, 50, 0.07);
+        }
+        gems_sfx::METAL_BLOCK => {
+            sfx.play(740.0, 45, 0.09);
+            sfx.play(370.0, 55, 0.07);
+        }
+        gems_sfx::EVANESCENT | gems_sfx::SHIFTING | gems_sfx::ELEVATOR => {
+            sfx.play(440.0, 45, 0.08);
+            sfx.play(660.0, 65, 0.08);
+        }
+        gems_sfx::JUMP => sfx.play(440.0, 40, 0.1),
+        gems_sfx::DIAMOND_POWER_AVAILABLE => {
+            sfx.play(523.0, 60, 0.18);
+            sfx.play(784.0, 60, 0.18);
+            sfx.play(1047.0, 120, 0.2);
+        }
+        gems_sfx::ANKH_PRIZE
+        | gems_sfx::REPLENISH_HEALTH
+        | gems_sfx::COIN_PRIZE
+        | gems_sfx::DIAMOND_PRIZE => sfx.play(880.0, 60, 0.15),
+        gems_sfx::JUMP_ON_ENEMY => sfx.play(587.0, 50, 0.1),
+        gems_sfx::VOICE_NO_TIME
+        | gems_sfx::VOICE_DIE
+        | gems_sfx::VOICE_OUCH
+        | gems_sfx::VOICE_BUMMER
+        | gems_sfx::VOICE_OUCH_1
+        | gems_sfx::VOICE_OUCH_2
+        | gems_sfx::VOICE_OUCH_3 => sfx.play(220.0, 150, 0.2),
+        gems_sfx::VOICE_DIAMOND => sfx.play(1047.0, 90, 0.14),
+        gems_sfx::KID_PULLUP => sfx.play(392.0, 45, 0.09),
+        gems_sfx::RUBBER_BLOCK => {
+            sfx.play(294.0, 55, 0.08);
+            sfx.play(196.0, 70, 0.06);
+        }
+        gems_sfx::DRIPS_DRIPPING => sfx.play(196.0, 90, 0.05),
+        gems_sfx::TELEPORT => {
+            sfx.play(330.0, 80, 0.1);
+            sfx.play(440.0, 80, 0.1);
+            sfx.play(550.0, 120, 0.1);
+        }
+        gems_sfx::RED_STEALTH_ATTACK_DOWN
+        | gems_sfx::MANIAXE_THROW
+        | gems_sfx::RED_STEALTH_SWORD
+        | gems_sfx::MICROMAX_STICK
+        | gems_sfx::EYECLOPS_BEAM
+        | gems_sfx::RED_STEALTH_HITTING_TARGET => sfx.play(659.0, 45, 0.09),
+        id if is_transform_sound_id(id) => play_fallback_transform_sfx(sfx),
+        _ => {}
     }
 }
 
@@ -2533,35 +2621,40 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
     let gameplay_sfx_fallback_active =
         matches!(curr.game_mode, GameMode::InGame | GameMode::DemoPlay);
 
+    for sound_id in queued_sound_ids {
+        play_fallback_queued_sfx_id(sfx, *sound_id);
+    }
+
     // Jump (left ground with upward velocity)
     if gameplay_sfx_fallback_active
+        && !queued_sound_ids.contains(&gems_sfx::JUMP)
         && prev.kid_on_ground == Some(true)
         && curr.kid_on_ground == Some(false)
         && curr.kid_y_velocity.is_some_and(|v| v < 0)
     {
         sfx.play(440.0, 40, 0.1);
     }
-    // Diamond collected
-    if curr.diamond_count > prev.diamond_count {
-        sfx.play(880.0, 60, 0.15);
-    }
+    // ASM PrizeDiamondCollected_Init (kid.asm:21103) plays the diamond cue on
+    // contact. The delayed visible count increment is intentionally silent.
     // Enemy killed (score jumped by 1000+)
     if curr.score >= prev.score + 1000 && curr.diamond_count == prev.diamond_count {
         sfx.play(523.0, 80, 0.12);
         sfx.play(659.0, 80, 0.12);
     }
     // Took damage (HP decreased)
-    if curr.number_hitpoints < prev.number_hitpoints && prev.number_hitpoints > 0 {
+    if !queued_sound_ids.iter().copied().any(is_ouch_sound_id)
+        && curr.number_hitpoints < prev.number_hitpoints
+        && prev.number_hitpoints > 0
+    {
         sfx.play(220.0, 150, 0.2);
     }
     // Form change (helmet changed)
     if curr.current_helmet_id != prev.current_helmet_id
         && curr.game_mode == prev.game_mode
         && !curr.game_over
+        && !queued_sound_ids.iter().copied().any(is_transform_sound_id)
     {
-        sfx.play(392.0, 60, 0.12); // G4
-        sfx.play(523.0, 60, 0.12); // C5
-        sfx.play(659.0, 80, 0.12); // E5
+        play_fallback_transform_sfx(sfx);
     }
     // Level complete
     if curr.level_complete && !prev.level_complete {
@@ -2594,14 +2687,8 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(550.0, 120, 0.1);
     }
     // Stomp bounce (direct trace flag)
-    if curr.stomped_this_frame {
+    if curr.stomped_this_frame && !queued_sound_ids.contains(&gems_sfx::JUMP_ON_ENEMY) {
         sfx.play(587.0, 50, 0.1); // D5 bounce tone
-    }
-    // Rubber contact. ASM loc_10DA4 plays `sfx_Rubber_block = $56`; keep the
-    // fallback distinct from the metallic block-headbutt cue below.
-    if queued_sound_ids.contains(&gems_sfx::RUBBER_BLOCK) {
-        sfx.play(294.0, 55, 0.08);
-        sfx.play(196.0, 70, 0.06);
     }
     // Block hit SFX (metallic clang for block headbutts). ASM loc_10DA4 and
     // loc_110D0 already supplied exact rubber/metal block cues for this frame.
@@ -2631,7 +2718,9 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(1047.0, 120, 0.2); // C6
     }
     // Timer bonus (clock pickup — seconds jumped up)
-    if curr.level_timer_seconds > prev.level_timer_seconds + 1 {
+    if !queued_sound_ids.contains(&gems_sfx::CLOCK_PRIZE)
+        && curr.level_timer_seconds > prev.level_timer_seconds + 1
+    {
         sfx.play(698.0, 60, 0.12); // F5
         sfx.play(880.0, 80, 0.12); // A5
     }
@@ -14513,6 +14602,85 @@ mod tests {
         assert!(
             sfx.active_tones.is_empty(),
             "ASM loc_1AE2E title-card hibernate must suppress the non-GEMS jump-tone fallback as well as the GEMS jump cue"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_emits_diamond_prize_from_contact_not_count_loc_2510c() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut contact = sample_trace(GameMode::InGame);
+        contact.played_sound_effect_ids = vec![gems_sfx::DIAMOND_PRIZE];
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &contact, &mut sfx);
+
+        assert_eq!(
+            sfx.active_tones.len(),
+            1,
+            "ASM loc_2510C queues sfx_Diamond_prize on contact; the fallback mixer must not wait for Number_Diamonds"
+        );
+
+        let mut count_increment = sample_trace(GameMode::InGame);
+        count_increment.diamond_count = prev.diamond_count + 1;
+        let mut delayed_sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &count_increment, &mut delayed_sfx);
+
+        assert!(
+            delayed_sfx.active_tones.is_empty(),
+            "the delayed Number_Diamonds increment is not a second fallback SFX trigger"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_replays_clock_prize_without_timer_duplicate_loc_ff92() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![gems_sfx::CLOCK_PRIZE];
+        curr.level_timer_seconds = prev.level_timer_seconds + 180;
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &curr, &mut sfx);
+
+        assert_eq!(
+            sfx.active_tones.len(),
+            2,
+            "ASM PrizeClock_Init (kid.asm:21999) queues sfx_Clock_prize once; fallback must not add the old timer-jump duplicate"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_replays_metal_block_without_generic_block_crunch_loc_110d0() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.blocks_hit_this_frame = 1;
+        curr.played_sound_effect_ids = vec![gems_sfx::METAL_BLOCK];
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &curr, &mut sfx);
+
+        assert_eq!(
+            sfx.active_tones.len(),
+            2,
+            "ASM loc_110D0 queues sfx_Metal_block for springy blocks; fallback must play that exact cue and suppress generic sfx_Block_hit"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_uses_core_transform_without_legacy_duplicate_loc_7cd0() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        prev.current_helmet_id = PlayerForm::TheKid.helmet_id();
+        curr.current_helmet_id = PlayerForm::RedStealth.helmet_id();
+        curr.played_sound_effect_ids = vec![gems_sfx::RED_STEALTH_TRANSFORM];
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &curr, &mut sfx);
+
+        assert_eq!(
+            sfx.active_tones.len(),
+            3,
+            "ASM loc_7CD0 queues the transform SFX in core traces; fallback must not layer the legacy helmet-id heuristic over it"
         );
     }
 
