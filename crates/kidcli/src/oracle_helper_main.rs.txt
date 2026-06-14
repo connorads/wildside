@@ -391,6 +391,8 @@ struct OracleState {
     #[serde(default)]
     rng_offset: Option<u16>,
     #[serde(default)]
+    rng_last_byte: Option<u8>,
+    #[serde(default)]
     level_special_effects: Option<u16>,
     #[serde(default)]
     gameplay_debug_fields: BTreeMap<String, String>,
@@ -1307,6 +1309,7 @@ fn capture_state(
         invulnerable_frames: Some(read_wram_u8(&work_ram, INVULNERABLE_FRAMES_ADDR)),
         currently_transforming: Some(currently_transforming),
         rng_offset: Some(read_wram_u16(&work_ram, RNG_OFFSET_ADDR)),
+        rng_last_byte: Some(rng_last_byte(&work_ram)),
         level_special_effects: Some(read_wram_u16(&work_ram, LEVEL_SPECIAL_EFFECTS_ADDR)),
         gameplay_debug_fields,
         cpu_registers: cpu_regs,
@@ -1461,8 +1464,7 @@ fn drips_object_slots_debug_loc_33488(work_ram: &[u8]) -> String {
     // ASM Drips.asm loc_33488/loc_335D8 and Tar_Monster.asm loc_325B6:
     // Drips stores pending helper handoff values in Object_RAM offsets
     // $44/$46/$48 before converting them into gfx-object x/y/x velocity.
-    let rng_offset = read_wram_u16(work_ram, RNG_OFFSET_ADDR) as i16 as isize;
-    let rng_last_byte = read_wram_u8(work_ram, (RNG_RAM_END_ADDR as isize + rng_offset) as usize);
+    let rng_last_byte = rng_last_byte(work_ram);
     let mut slots = Vec::new();
     let mut object_addr = read_wram_u32(work_ram, ADDR_FIRST_OBJECT_SLOT_ADDR) as usize;
     let mut guard = 0usize;
@@ -2206,6 +2208,11 @@ fn read_wram_u16(memory: &[u8], address: usize) -> u16 {
 fn read_wram_u32(memory: &[u8], address: usize) -> u32 {
     (u32::from(read_wram_u16(memory, address)) << 16)
         | u32::from(read_wram_u16(memory, address + 2))
+}
+
+fn rng_last_byte(work_ram: &[u8]) -> u8 {
+    let rng_offset = read_wram_u16(work_ram, RNG_OFFSET_ADDR) as i16 as isize;
+    read_wram_u8(work_ram, (RNG_RAM_END_ADDR as isize + rng_offset) as usize)
 }
 
 fn read_wram_i32(memory: &[u8], address: usize) -> i32 {

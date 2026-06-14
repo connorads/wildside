@@ -182,7 +182,11 @@ and stop — never commit churn.
   patch: using the existing initial-seed `drips_kid_gfx_x_pos_loc_3340e` (+16px)
   for splash reseeds worsens p11 (#08 wait `$003D` vs oracle `$0024` at frame
   300); the correct fix must find the pre-174 RNG-ring content drift before
-  patching Drips timing. A follow-up over the clean
+  patching Drips timing. Follow-up typed `--rng-trace` byte columns show this
+  ring-content drift already exists at p11 scenario frame 0 (`native_rng=$FFCF`
+  byte `$31`, oracle byte `$09`, with matching cursor), so inspect the settled
+  Level 1 warp/bootstrap RNG ring state before touching Drips again. A
+  follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
   frame 490, but still leaves the DripsSurfaceCrawler `dx=+102 dy=+1 @512`;

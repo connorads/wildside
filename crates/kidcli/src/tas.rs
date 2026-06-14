@@ -1694,6 +1694,7 @@ mod tests {
             invulnerable_frames: Some(0),
             currently_transforming: Some(false),
             rng_offset: Some(0),
+            rng_last_byte: None,
             level_special_effects: Some(0),
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             cpu_registers: None,

@@ -294,6 +294,8 @@ pub struct OracleState {
     #[serde(default)]
     pub rng_offset: Option<u16>,
     #[serde(default)]
+    pub rng_last_byte: Option<u8>,
+    #[serde(default)]
     pub level_special_effects: Option<u16>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub gameplay_debug_fields: BTreeMap<String, String>,

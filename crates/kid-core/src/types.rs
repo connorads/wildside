@@ -1275,6 +1275,8 @@ pub struct NativeTraceFrame {
     pub number_objects: u16,
     pub number_gfx_objects: u16,
     pub rng_offset: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rng_last_byte: Option<u8>,
     pub level_complete: bool,
     /// Elapsed frames in the current collapsed end-of-level sequence.
     /// Used by native rendering to replay ASM `loc_D770` score-counter
@@ -1539,6 +1541,7 @@ impl Default for NativeTraceFrame {
             number_objects: 0,
             number_gfx_objects: 0,
             rng_offset: None,
+            rng_last_byte: None,
             level_complete: false,
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,
@@ -2233,6 +2236,10 @@ impl RomRandomState {
 
     pub(crate) fn offset_word(&self) -> u16 {
         ((self.index as i32) - (Self::RAM_LENGTH as i32)) as i16 as u16
+    }
+
+    pub(crate) fn last_byte(&self) -> u8 {
+        self.ram[self.index]
     }
 }
 

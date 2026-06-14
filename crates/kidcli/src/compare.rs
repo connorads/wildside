@@ -1118,6 +1118,7 @@ pub(crate) fn native_trace_to_oracle_state(
         // RAM flag.
         currently_transforming: Some(frame.form_change_flash_frames > 1),
         rng_offset: frame.rng_offset,
+        rng_last_byte: frame.rng_last_byte,
         level_special_effects: None,
         gameplay_debug_fields: frame.gameplay_debug_fields.clone(),
         cpu_registers: None,
@@ -1594,6 +1595,7 @@ mod tests {
             invulnerable_frames: Some(0),
             currently_transforming: Some(false),
             rng_offset: None,
+            rng_last_byte: None,
             level_special_effects: None,
             gameplay_debug_fields: BTreeMap::new(),
             cpu_registers: None,

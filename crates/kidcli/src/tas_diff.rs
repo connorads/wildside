@@ -91,7 +91,7 @@ pub fn run_tas_diff(
     )?;
 
     if rng_trace {
-        println!("frame native_rng native_delta oracle_rng oracle_delta");
+        println!("frame native_rng native_byte native_delta oracle_rng oracle_byte oracle_delta");
         let mut previous_native_rng = None;
         let mut previous_oracle_rng = None;
         for frame_idx in start..end {
@@ -99,18 +99,29 @@ pub fn run_tas_diff(
             let native_rng_offset = native_trace
                 .get(frame_idx)
                 .and_then(|frame| frame.rng_offset);
+            let native_rng_last_byte = native_trace
+                .get(frame_idx)
+                .and_then(|frame| frame.rng_last_byte);
             let oracle_rng_offset =
                 checkpoint_state(&oracle.states, &label).and_then(|state| state.rng_offset);
+            let oracle_rng_last_byte =
+                checkpoint_state(&oracle.states, &label).and_then(|state| state.rng_last_byte);
             let native_delta = format_rng_delta(previous_native_rng, native_rng_offset);
             let oracle_delta = format_rng_delta(previous_oracle_rng, oracle_rng_offset);
             let native_rng = native_rng_offset
                 .map(|offset| format!("{offset:#06x}"))
                 .unwrap_or_else(|| "-".to_owned());
+            let native_byte = native_rng_last_byte
+                .map(|byte| format!("{byte:#04x}"))
+                .unwrap_or_else(|| "-".to_owned());
             let oracle_rng = oracle_rng_offset
                 .map(|offset| format!("{offset:#06x}"))
                 .unwrap_or_else(|| "-".to_owned());
+            let oracle_byte = oracle_rng_last_byte
+                .map(|byte| format!("{byte:#04x}"))
+                .unwrap_or_else(|| "-".to_owned());
             println!(
-                "{frame_idx:>5} {native_rng:>10} {native_delta:>12} {oracle_rng:>10} {oracle_delta:>12}"
+                "{frame_idx:>5} {native_rng:>10} {native_byte:>11} {native_delta:>12} {oracle_rng:>10} {oracle_byte:>11} {oracle_delta:>12}"
             );
             previous_native_rng = native_rng_offset;
             previous_oracle_rng = oracle_rng_offset;
@@ -966,6 +977,7 @@ mod tests {
             invulnerable_frames: None,
             currently_transforming: None,
             rng_offset: None,
+            rng_last_byte: None,
             level_special_effects: None,
             gameplay_debug_fields,
             cpu_registers: None,
@@ -1051,6 +1063,7 @@ mod tests {
             number_objects: 1,
             number_gfx_objects: 0,
             rng_offset: None,
+            rng_last_byte: None,
             level_complete: false,
             level_complete_elapsed_frames: 0,
             level_complete_score_rows_elapsed_frames: 0,

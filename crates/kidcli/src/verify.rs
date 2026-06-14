@@ -1294,6 +1294,7 @@ pub(crate) fn native_state_to_oracle_state(state: &CapturedState) -> OracleState
         invulnerable_frames: None,
         currently_transforming: None,
         rng_offset: None,
+        rng_last_byte: None,
         level_special_effects: None,
         gameplay_debug_fields: BTreeMap::new(),
         cpu_registers: None,
