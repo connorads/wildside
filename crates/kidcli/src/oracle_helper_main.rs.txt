@@ -426,6 +426,7 @@ const KID_X_DIRECTION_ADDR: usize = 0xFF_24F6;
 const NUMBER_OBJECTS_ADDR: usize = 0xFF_F84A;
 const NUMBER_GFX_OBJECTS_ADDR: usize = 0xFF_F85C;
 const ADDR_FIRST_OBJECT_SLOT_ADDR: usize = 0xFF_F842;
+const RNG_RAM_END_ADDR: usize = 0xFF_FC11;
 const SCORE_ADDR: usize = 0xFF_FC4C;
 const NUMBER_LIVES_ADDR: usize = 0xFF_FC3E;
 const NUMBER_DIAMONDS_ADDR: usize = 0xFF_FC42;
@@ -1460,6 +1461,8 @@ fn drips_object_slots_debug_loc_33488(work_ram: &[u8]) -> String {
     // ASM Drips.asm loc_33488/loc_335D8 and Tar_Monster.asm loc_325B6:
     // Drips stores pending helper handoff values in Object_RAM offsets
     // $44/$46/$48 before converting them into gfx-object x/y/x velocity.
+    let rng_offset = read_wram_u16(work_ram, RNG_OFFSET_ADDR) as i16 as isize;
+    let rng_last_byte = read_wram_u8(work_ram, (RNG_RAM_END_ADDR as isize + rng_offset) as usize);
     let mut slots = Vec::new();
     let mut object_addr = read_wram_u32(work_ram, ADDR_FIRST_OBJECT_SLOT_ADDR) as usize;
     let mut guard = 0usize;
@@ -1523,7 +1526,7 @@ fn drips_object_slots_debug_loc_33488(work_ram: &[u8]) -> String {
                 String::from("gfx=-")
             };
             slots.push(format!(
-                "{object_addr:#08x}:code={code:#08x},hib={hibernate},regs=d0:{reg_d0:#010x}/d3:{reg_d3:#010x}/a0:{reg_a0:#010x}/a1:{reg_a1:#010x}/a2:{reg_a2:#010x}/a3:{reg_a3:#010x},child={child_a:#08x}/{child_b:#08x},obj44/46/48={obj44:#06x}/{obj46:#06x}/{obj48:#010x},a1gfx={},a2gfx={},a3gfx={},{gfx}",
+                "{object_addr:#08x}:code={code:#08x},hib={hibernate},rng_last={rng_last_byte:#04x},regs=d0:{reg_d0:#010x}/d3:{reg_d3:#010x}/a0:{reg_a0:#010x}/a1:{reg_a1:#010x}/a2:{reg_a2:#010x}/a3:{reg_a3:#010x},child={child_a:#08x}/{child_b:#08x},obj44/46/48={obj44:#06x}/{obj46:#06x}/{obj48:#010x},a1gfx={},a2gfx={},a3gfx={},{gfx}",
                 gfx_object(reg_a1),
                 gfx_object(reg_a2),
                 gfx_object(reg_a3)

@@ -168,7 +168,9 @@ pub fn run_tas_diff(
     }
 
     if drips_trace {
-        println!("frame native_rng oracle_rng native_lifecycle native_reseed oracle_slots");
+        println!(
+            "frame native_rng oracle_rng native_kid_x oracle_kid_x native_lifecycle native_reseed oracle_slots"
+        );
         for frame_idx in start..end {
             let label = format!("frame_{frame_idx}");
             let native_frame = native_trace.get(frame_idx);
@@ -181,8 +183,15 @@ pub fn run_tas_diff(
                 .and_then(|state| state.rng_offset)
                 .map(|offset| format!("{offset:#06x}"))
                 .unwrap_or_else(|| "-".to_owned());
+            let native_kid_x = native_frame
+                .and_then(|frame| frame.kid_x_pos)
+                .map(|x_pos| format!("{x_pos:#010x}"))
+                .unwrap_or_else(|| "-".to_owned());
+            let oracle_kid_x = oracle_state
+                .map(|state| format!("{:#010x}", state.kid_x_pos))
+                .unwrap_or_else(|| "-".to_owned());
             println!(
-                "{frame_idx:>5} {native_rng:>10} {oracle_rng:>10} {} {} {}",
+                "{frame_idx:>5} {native_rng:>10} {oracle_rng:>10} {native_kid_x:>12} {oracle_kid_x:>12} {} {} {}",
                 native_gameplay_field(native_frame, "drips_lifecycle_probe"),
                 native_gameplay_field(native_frame, "drips_splash_reseed_probe"),
                 oracle_gameplay_field(oracle_state, "oracle_drips_object_slots_loc_33488")

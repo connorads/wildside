@@ -173,16 +173,16 @@ and stop — never commit churn.
   `loc_3340E`/`loc_3345C` fall timing for layout #08 or choose a route that
   avoids that pre-contact phase drift. 2026-06-14 follow-up isolated the first
   timing split earlier: at p11 frame 174 native layout #08 splash reseeds with
-  RNG byte `$2C` and raw previous-frame Kid physics X `$02A0`, producing
-  wait `$00AB`, while oracle Drips `loc_3340E` has `d0=$00A2` at `a0=$33522`;
-  since `$2C>>2=$0B`, oracle is reading `(Addr_GfxObject_Kid).x_pos` low byte
-  `$A9`. Native/oracle player physics and RNG offsets match around frames
-  170..175, so the missing state is Kid's visible gfx-object X at splash-reseed
-  time, not RNG order, table order, or falling-drop damage. Rejected patch:
-  using the existing initial-seed `drips_kid_gfx_x_pos_loc_3340e` (+16px) for
-  splash reseeds worsens p11 (#08 wait `$003D` vs oracle `$0024` at frame 300);
-  the correct fix must model the frame/pose-specific Kid gfx object instead of
-  applying a universal +16 adjustment. A follow-up over the clean
+  RNG byte `$2C` and previous-frame Kid X word `$02A0`, producing wait `$00AB`;
+  oracle is already in `Drips.asm loc_33424` after the one-frame hibernate with
+  `d0=$00A2` at `a0=$33522`, current `(Addr_GfxObject_Kid).x_pos=$02A1FA00`,
+  and the last generated RNG ring byte `$0A`. Native/oracle RNG offsets both
+  read `$FFF5`, so the split is the RNG ring contents before this reseed, not
+  table order, falling-drop damage, or a universal Kid gfx X offset. Rejected
+  patch: using the existing initial-seed `drips_kid_gfx_x_pos_loc_3340e` (+16px)
+  for splash reseeds worsens p11 (#08 wait `$003D` vs oracle `$0024` at frame
+  300); the correct fix must find the pre-174 RNG-ring content drift before
+  patching Drips timing. A follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
   frame 490, but still leaves the DripsSurfaceCrawler `dx=+102 dy=+1 @512`;
