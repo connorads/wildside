@@ -4439,6 +4439,12 @@ fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObje
 fn helmet_enemy_berzerker_damage_target_snapshot(
     enemy: &ActiveEnemy,
 ) -> Option<NativeObjectSnapshot> {
+    if matches!(enemy.family, EnemyFamily::Diamond) {
+        // ASM Diamond.asm loc_3AE84/loc_3AF24: Diamond ignores generic helmet
+        // hurt routing, but charging Berzerker side contact is still a live
+        // Kid/enemy collision word that enters the Diamond launch gate.
+        return (enemy.hit_points != 0).then(|| enemy.snapshot());
+    }
     if matches!(enemy.family, EnemyFamily::Robot) {
         // ASM Robot.asm loc_3A8AE: charging-Berzerker `$20/$24` side
         // contacts are read from the linked head collision word `$38(a2)`.
@@ -6117,6 +6123,24 @@ impl NativeRuntime {
                     enemy.on_ground = false;
                     enemy.crab_frozen = false;
                     enemy.crab_berzerker_knockback = true;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Diamond)
+                    && let DiamondLowHpBerzerkerSideGateRouteLoc3AF24::Launch(launch) =
+                        diamond_low_hp_berzerker_side_gate_loc_3af24(
+                            true,
+                            matches!(enemy.facing, Direction::Right),
+                        )
+                {
+                    // ASM Diamond.asm loc_3AF24: charging Berzerker side
+                    // contact disables level collision, keeps Kid collision,
+                    // freezes the displayed Diamond frame, and enters the
+                    // upward loc_3AF50 loop instead of generic HP damage.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
                     enemy.damage_flash_frames = 0;
                     changed_enemy_state = true;
                     continue;

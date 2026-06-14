@@ -9004,6 +9004,36 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Diamond.asm loc_3AF24: charging Berzerker side contact disables the
+    /// walking terrain loop and launches Diamond upward instead of consuming HP
+    /// through the generic hurt/death path.
+    #[test]
+    fn berzerker_charge_launches_diamond_instead_of_damaging_loc_3af24() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::Diamond,
+            0x0040_0000,
+            0x0040_0000,
+            2,
+        ));
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let diamond = rt.active_enemies[0];
+        assert_eq!(diamond.hit_points, 2);
+        assert_eq!(diamond.x_velocity, 0);
+        assert_eq!(diamond.y_velocity, -0x0004_8000);
+        assert!(!diamond.on_ground);
+        assert!(!diamond.death_animation_active);
+    }
+
     /// ASM Fire_Demon.asm loc_3A5E4: charging Berzerker side contact disables
     /// the walking terrain loop and launches the demon upward instead of
     /// routing through generic HP damage/death.
