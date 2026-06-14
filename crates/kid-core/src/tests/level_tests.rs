@@ -3903,6 +3903,62 @@ mod chunk_02 {
     }
 
     #[test]
+    fn generated_hell_level_layout_applies_blank_top_rows_sub_140f6() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        let (level_id, header) = (0..=u8::MAX)
+            .map(LevelId)
+            .find_map(|level_id| {
+                runtime.level_header(level_id).and_then(|header| {
+                    (terrain::blank_top_rows_from_height_flag_bits_sub_140F6(
+                        header.height_flag_bits,
+                    ) > 0)
+                        .then_some((level_id, header.clone()))
+                })
+            })
+            .expect("generated bundle should contain at least one runtime-resolved blank-top level");
+        let height_screens = header.height_screens;
+        let blank_top_rows =
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits);
+        assert!(
+            blank_top_rows > 0,
+            "test fixture should use a generated level with Number_blank_top_rows set",
+        );
+
+        runtime.reload_block_grid_for_level(level_id);
+
+        let grid = runtime
+            .block_grid
+            .as_ref()
+            .expect("generated blank-top level should load its collision grid");
+        assert_eq!(
+            grid.height_cells,
+            u16::from(height_screens)
+                .saturating_mul(14)
+                .saturating_add(blank_top_rows),
+            "ASM Load_LevelData + sub_140F6 should expand generated blank-top levels to include Number_blank_top_rows",
+        );
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("generated blank-top level should load its extracted block-list asset");
+        assert!(
+            block_list.prize_blocks.iter().any(|entry| {
+                entry.row >= blank_top_rows
+                    && entry.layout_addr
+                        == terrain::BlockList::level_layout_low_word_addr(
+                            entry.col,
+                            entry.row,
+                            grid.width_cells,
+                        )
+            }),
+            "ASM loc_141EE should shift prize rows and Level_Layout low-word addresses by Number_blank_top_rows",
+        );
+    }
+
+    #[test]
     fn generated_demo_level_visible_prize_ceiling_uses_cyclone_block_list_entry() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

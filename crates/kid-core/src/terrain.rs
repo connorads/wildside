@@ -376,6 +376,26 @@ impl BlockGrid {
         }
     }
 
+    #[allow(non_snake_case)]
+    pub(crate) fn with_blank_top_rows_sub_140F6(&self, blank_top_rows: u16) -> Self {
+        // ASM sub_140F6 / loc_14138 copies the populated Level_Layout rows
+        // downward by Number_blank_top_rows, then loc_14156 clears the inserted
+        // top rows. Generated layout fixtures are captured before this runtime
+        // shift, so normalise them when loading.
+        if blank_top_rows == 0 || self.width_cells == 0 {
+            return self.clone();
+        }
+
+        let blank_cells = usize::from(blank_top_rows) * usize::from(self.width_cells);
+        let mut cells = vec![Cell::from_be_bytes(0, 0); blank_cells];
+        cells.extend_from_slice(&self.cells);
+        Self {
+            width_cells: self.width_cells,
+            height_cells: self.height_cells.saturating_add(blank_top_rows),
+            cells,
+        }
+    }
+
     /// Look up the cell at grid coordinates. Returns empty cell if out of bounds.
     pub fn cell_at(&self, col: u16, row: u16) -> Cell {
         if col >= self.width_cells || row >= self.height_cells {
@@ -688,6 +708,46 @@ impl BlockList {
 
     pub fn from_raw_with_level_layout(data: &[u8], layout_width: u16, grid: &BlockGrid) -> Self {
         Self::from_raw_with_grid(data, layout_width, Some(grid))
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn with_blank_top_rows_sub_140F6(
+        mut self,
+        blank_top_rows: u16,
+        level_width_blocks: u16,
+    ) -> Self {
+        if blank_top_rows == 0 {
+            return self;
+        }
+
+        let layout_delta = blank_top_rows.wrapping_mul(level_width_blocks.wrapping_mul(2));
+
+        for entry in &mut self.prize_blocks {
+            // ASM loc_141EE: add Number_blank_top_rows * Level_width_tiles to
+            // the Level_Layout low-word address, and Number_blank_top_rows to
+            // the stored row word.
+            entry.layout_addr = entry.layout_addr.wrapping_add(layout_delta);
+            entry.row = entry.row.wrapping_add(blank_top_rows);
+        }
+        for entry in &mut self.ghost_blocks {
+            // Ghost rows are stored in the same post-sub_140F6 co-ordinate
+            // space. The parsed native struct does not retain the ghost
+            // section's layout word, so only the exposed row needs normalising.
+            entry.row = entry.row.wrapping_add(blank_top_rows);
+        }
+        for entry in &mut self.teleporters {
+            // ASM loc_1421E handles the 10-byte custom/teleporter records with
+            // the same layout-address and row adjustment as loc_141EE.
+            entry.layout_addr = entry.layout_addr.wrapping_add(layout_delta);
+            entry.row = entry.row.wrapping_add(blank_top_rows);
+        }
+        for entry in &mut self.hidden_blocks {
+            // ASM loc_14236 adjusts the 8-byte hidden/background block records.
+            entry.layout_addr = entry.layout_addr.wrapping_add(layout_delta);
+            entry.row = entry.row.wrapping_add(blank_top_rows);
+        }
+
+        self
     }
 
     fn from_raw_with_grid(data: &[u8], layout_width: u16, grid: Option<&BlockGrid>) -> Self {

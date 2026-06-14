@@ -18489,7 +18489,14 @@ impl NativeRuntime {
         if let Some(grid) = self.load_block_grid_for_level(level_id) {
             let mut grid = grid;
             let width = grid.width_cells;
-            let block_list = self.load_block_list_for_level(level_id, width, &grid);
+            let header_blank_top_rows = self.blank_top_rows_for_level_sub_140F6(level_id);
+            let grid_blank_top_rows =
+                self.blank_top_rows_for_unshifted_loaded_grid_sub_140F6(level_id, grid.height_cells);
+            if grid_blank_top_rows != 0 {
+                grid = grid.with_blank_top_rows_sub_140F6(grid_blank_top_rows);
+            }
+            let block_list =
+                self.load_block_list_for_level(level_id, width, &grid, header_blank_top_rows);
             if let Some(block_list) = block_list.as_ref() {
                 reconcile_prize_block_cells_loc_123DC(&mut grid, block_list);
             }
@@ -18521,6 +18528,39 @@ impl NativeRuntime {
             self.block_list = None;
             self.block_state.ghost_groups.clear();
             self.block_grid_source = BlockGridSource::None;
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn blank_top_rows_for_level_sub_140F6(&self, level_id: LevelId) -> u16 {
+        self.level_header(level_id).map_or(0, |header| {
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits)
+        })
+    }
+
+    #[allow(non_snake_case)]
+    fn blank_top_rows_for_unshifted_loaded_grid_sub_140F6(
+        &self,
+        level_id: LevelId,
+        loaded_height_cells: u16,
+    ) -> u16 {
+        let Some(header) = self.level_header(level_id) else {
+            return 0;
+        };
+        let blank_top_rows =
+            terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits);
+        if blank_top_rows == 0 {
+            return 0;
+        }
+
+        let base_height_blocks = u16::from(header.height_screens).saturating_mul(14);
+        let shifted_height_blocks = base_height_blocks.saturating_add(blank_top_rows);
+        if loaded_height_cells == base_height_blocks {
+            blank_top_rows
+        } else if loaded_height_cells == shifted_height_blocks {
+            0
+        } else {
+            0
         }
     }
 
@@ -18726,6 +18766,7 @@ impl NativeRuntime {
         level_id: LevelId,
         layout_width: u16,
         grid: &terrain::BlockGrid,
+        blank_top_rows: u16,
     ) -> Option<terrain::BlockList> {
         let layout_dir = self.assets.output_root.join("level-layout");
         let logical_path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
@@ -18736,11 +18777,10 @@ impl NativeRuntime {
             layout_dir.join(format!("{resource_level:02X}.blocklist.bin"))
         };
         let data = fs::read(path).ok()?;
-        Some(terrain::BlockList::from_raw_with_level_layout(
-            &data,
-            layout_width,
-            grid,
-        ))
+        Some(
+            terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid)
+                .with_blank_top_rows_sub_140F6(blank_top_rows, layout_width),
+        )
     }
 
     pub(crate) fn level_respawn_slice(&self, level_id: LevelId) -> OpeningSliceState {
