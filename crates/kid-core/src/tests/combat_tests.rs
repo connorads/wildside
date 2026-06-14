@@ -1955,6 +1955,10 @@ fn live_heady_metal_eye_uses_sub_37332_up_launch_without_homing() {
         "ASM sub_37332 allocates the boss-eye attack child, not the generic homing projectile"
     );
     assert_eq!(
+        projectile.boss_eye_sprite_mapping_label, "LnkTo_unk_C8488-Data_Index",
+        "ASM sub_37332 should seed the boss-eye attack child with the initial sprite mapping before loc_3739C refreshes it"
+    );
+    assert_eq!(
         projectile.x_velocity, -0x0000_7FFF,
         "ASM sub_37332 launches left with `$FFFF8001` when the eye starts left of Kid"
     );
@@ -2139,6 +2143,38 @@ fn boss_eye_attack_sub_37332_deletes_only_below_level_height() {
     assert!(
         runtime.projectiles.is_empty(),
         "ASM sub_37332 deletes the boss-eye attack only after y_pos is strictly past Level_height_pixels"
+    );
+}
+
+#[test]
+fn boss_eye_attack_loc_3739c_refreshes_live_sprite_mapping_each_frame() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x0050_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::BossEyeAttack,
+        x_pos: 0x0040_0000,
+        y_pos: 0x0040_0000,
+        x_velocity: 0,
+        y_velocity: 0,
+        gravity: 0x0000_0BB8,
+        lifetime: 0,
+        boss_eye_sprite_mapping_label: "stale",
+        ..Default::default()
+    });
+
+    runtime.step_projectiles();
+
+    assert_eq!(
+        runtime.projectiles.len(),
+        1,
+        "ASM loc_373BE should keep the boss-eye attack alive while the refreshed worker is still inside the level"
+    );
+    assert_eq!(
+        runtime.projectiles[0].boss_eye_sprite_mapping_label, "LnkTo_unk_C84B0-Data_Index",
+        "ASM sub_37332 loc_3739C/sub_37ABC should rewrite `addroffset_sprite(a3)` from the current eye/Kid relation each frame"
     );
 }
 

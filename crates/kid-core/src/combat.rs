@@ -8096,6 +8096,7 @@ impl NativeRuntime {
                         gravity: 0x0BB8,
                         friendly: false,
                         kind: EnemyProjectileKind::BossEyeAttack,
+                        boss_eye_sprite_mapping_label: init.sprite_mapping_label,
                         ..Default::default()
                     });
                     changed_enemy_state = true;

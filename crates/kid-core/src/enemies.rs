@@ -10679,6 +10679,7 @@ fn cloud_projectile_spawn_loc_35df0(
         tar_monster_collision_response_budget: 0,
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
+        boss_eye_sprite_mapping_label: "",
     }
 }
 
@@ -25885,6 +25886,7 @@ pub(crate) fn step_archer(
         tar_monster_collision_response_budget: 0,
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
+        boss_eye_sprite_mapping_label: "",
     });
     if let Some(sound_effects) = played_sound_effects {
         // ASM Archer.asm loc_34266: `Enemy07_ArcherArrow_Init` plays
@@ -26845,6 +26847,7 @@ pub(crate) fn step_boss_fire(
                 speed_cap: 0,
                 wall_bounce: false,
                 kind: EnemyProjectileKind::BossEyeAttack,
+                boss_eye_sprite_mapping_label: init.sprite_mapping_label,
                 ..Default::default()
             });
         }

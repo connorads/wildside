@@ -2817,6 +2817,9 @@ pub(crate) struct EnemyProjectile {
     pub(crate) dragon_flying_descent_fire_state: DragonFlyingDescentFireState,
     /// Dragon_Flying.asm loc_34C26 DBF counter or loc_34C4A hibernate count.
     pub(crate) dragon_flying_descent_fire_counter: u16,
+    /// HeadyMetal boss-eye `addroffset_sprite(a3)` label selected by ASM
+    /// `sub_37332 loc_3739C` and refreshed by parent `sub_37ABC`.
+    pub(crate) boss_eye_sprite_mapping_label: &'static str,
 }
 
 impl EnemyProjectile {

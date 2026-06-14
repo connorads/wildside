@@ -2405,6 +2405,9 @@ impl NativeRuntime {
         let tracking_rain_scan_enabled = self.progression.diamond_power_type
             == crate::helmets::DiamondPowerType::TrackingRain
             && (self.frame_index & 7) == 1;
+        let diamond_power_active = self.progression.diamond_power_frames > 0
+            || !self.diamond_power_invuln_haze_slots.is_empty();
+        let v_int_counter_fff809 = self.frame_index as u8;
         let rain_target_candidates: Vec<SnakeTargetCandidate> = self
             .active_enemies
             .iter()
@@ -2847,7 +2850,27 @@ impl NativeRuntime {
 
             p.x_pos = (p.x_pos as i64 + i64::from(x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
-            if is_boss_eye_attack || is_boss_skewer {
+            if is_boss_eye_attack {
+                let step = crate::combat::boss_eye_attack_step_sub_37332(
+                    p.y_velocity,
+                    crate::combat::BossEyeAttackFrameInputsSub37332 {
+                        effect_x: (p.x_pos >> 16) as u16,
+                        effect_y: (p.y_pos >> 16) as u16,
+                        kid_x: (player_x.unwrap_or(p.x_pos) >> 16) as u16,
+                        kid_y: (player_y.unwrap_or(p.y_pos) >> 16) as u16,
+                        diamond_power_active,
+                        v_int_counter_fff809,
+                        level_height_pixels: level_bounds.height_pixels,
+                    },
+                );
+                // ASM sub_37332 loc_3739C/sub_37ABC: the live eye worker rewrites
+                // `addroffset_sprite(a3)` every frame from the current eye/Kid
+                // relation. Native keeps movement timing unchanged and stores the
+                // refreshed mapping for gameplay/trace consumers.
+                p.boss_eye_sprite_mapping_label = step.sprite_mapping;
+                return !step.delete_current_object;
+            }
+            if is_boss_skewer {
                 let y_pos_word = (p.y_pos >> 16) as u16;
                 // ASM sub_37332 loc_3739C/loc_373BE and skewer
                 // loc_384F6..loc_388E6: after hibernated movement, delete
