@@ -9503,6 +9503,19 @@ Column of origin shown in brackets; text is verbatim.
   `Kid_Transform` worsened frame 3491 exact AE `419 -> 595` against the oracle
   and did not change frame 3494. This rejects the simple line-3 palette
   overwrite theory for the #274/#284 cold-idle residual.
+- [Evidence] 2026-06-14 fresh live dummy-SDL capture reached the first attract
+  prize window instead of stopping early. Bundle
+  `.cache/recordings/issue284-live-dummy-attract-current-3600-20260614/` was
+  recorded from clean `c6cacf34` with `--record-frames 3600`; native replay
+  verification passes. Full `verify-recording` reports `trace_match=true` and
+  `oracle_state_match=true`, while `oracle_frame_match=false` due visual
+  checkpoint diffs beginning at frame 3300. The trace's first non-empty
+  `floating_items` window is frames `3456..3491` in `DemoPlay` level `0x1B`,
+  content id `3` (`Cyclone`), with `current_helmet_id` switching from `0` to
+  `2` at frame 3491. This live path still rejects the Diamond-prize-content
+  hypothesis; the remaining visible issue belongs under #274 transform/demo
+  render timing unless a different route emits content id `0` where ASM
+  `loc_10342` expects a helmet.
 
 ### #285
 
