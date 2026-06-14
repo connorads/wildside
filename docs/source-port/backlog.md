@@ -553,6 +553,18 @@ and stop — never commit churn.
   close to Kid on the lower floor (`split_l_r` crawler `dx=0 dy=+1 @669`) but
   still leave it `dy=-65` from row-32 cells. Do not repeat this `prebl-longr`
   early-bootstrap cycle axis unchanged.
+  A cache-local form-axis check on the same seed also failed to produce a
+  metal-block proof. Red Stealth (`playtest_form=3`), Juggernaut (`5`), and
+  Iron Knight (`6`) variants all stayed InGame, but none produced row-32
+  `Destroy`/`Bounce` on cells `28,32`/`29,32` from a live Drips child.
+  Juggernaut changed Kid's vertical route enough to keep healthy row-32 hitbox
+  proximity at `dx=0 dy=-1 @405..407`, but the closest DripsDrop was still far
+  from Kid/cell (`dx=-34 dy=-11 @178`; cell `28,32` `dx=-121 dy=-3 @332`)
+  and the crawler still emerged on the lower floor (`dx=+16 dy=+1 @662` from
+  Kid, `dy=-65` from row-32 cells). A bounded Juggernaut `300..430` timing
+  batch preserved the same separation and reported no target block events, so
+  do not repeat simple form swaps on this seed without a new Drips cycle or
+  vertical route.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
