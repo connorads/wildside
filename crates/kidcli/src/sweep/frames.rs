@@ -94,7 +94,7 @@ pub(crate) fn capture_scenario_frames(
 ) -> Result<()> {
     use native_player::{
         NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene_filtered, load_session_assets,
-        render_scene, render_vdp_trace_overlay,
+        render_scene, render_trace_with_vdp_latched_state, render_vdp_trace_overlay,
     };
 
     fs::create_dir_all(output_dir)
@@ -167,6 +167,7 @@ pub(crate) fn capture_scenario_frames(
             .and_then(|index| scenario.script.get(index))
             .copied()
             .unwrap_or(0);
+        let previous_trace = runtime.trace_frame();
         let trace = runtime.step_frame(FrameInput::from_mask(buttons));
 
         if !requested.peek().is_some_and(|&&wanted| wanted == frame_idx) {
@@ -193,8 +194,10 @@ pub(crate) fn capture_scenario_frames(
                 kid_md::render_vdp_into(&snapshot, &mut rgb);
                 render_vdp_trace_overlay(&trace, &level_visuals, &mut rgb);
             } else {
+                let render_trace =
+                    render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
                 let scene = build_scene_filtered(
-                    &trace,
+                    &render_trace,
                     false,
                     Some(&level_visuals),
                     Some(capture_frame_block_grid(&runtime, &block_grid)),

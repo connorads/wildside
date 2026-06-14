@@ -836,6 +836,32 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         // loc_B700, so the visible HP pips are also a pre-update latch.
         render_trace.number_hitpoints = previous_trace.number_hitpoints;
         render_trace.extra_hitpoint_slots = previous_trace.extra_hitpoint_slots;
+        if trace.form_change_flash_frames > 0 && previous_trace.form_change_flash_frames == 0 {
+            // ASM Kid_Transform loc_7C40/loc_7CD0 starts after the frame's
+            // sprite attributes have already been built. The first visible
+            // transform frame therefore keeps Kid's previous visual state
+            // even though the post-update trace has already entered the
+            // transform coroutine and adjusted the new form's collision width.
+            render_trace.current_helmet_id = previous_trace.current_helmet_id;
+            render_trace.kid_facing = previous_trace.kid_facing;
+            render_trace.kid_on_ground = previous_trace.kid_on_ground;
+            render_trace.kid_on_slope = previous_trace.kid_on_slope;
+            render_trace.kid_x_velocity = previous_trace.kid_x_velocity;
+            render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
+            render_trace.form_change_flash_frames = previous_trace.form_change_flash_frames;
+            if let Some(previous_player) = previous_trace
+                .active_objects
+                .iter()
+                .find(|object| object.kind == NativeObjectKind::Player)
+                .cloned()
+                && let Some(render_player) = render_trace
+                    .active_objects
+                    .iter_mut()
+                    .find(|object| object.kind == NativeObjectKind::Player)
+            {
+                *render_player = previous_player;
+            }
+        }
     }
     render_trace
 }

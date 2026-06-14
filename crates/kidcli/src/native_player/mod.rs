@@ -8538,6 +8538,72 @@ mod tests {
     }
 
     #[test]
+    fn first_transform_frame_latches_previous_player_visual_state_loc_7c40() {
+        let mut previous = sample_trace(GameMode::DemoPlay);
+        previous.current_level = LevelId(0x00);
+        previous.form_change_flash_frames = 0;
+        previous.current_helmet_id = PlayerForm::TheKid.helmet_id();
+        previous.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Player,
+            x_pos: 0x004A_0000,
+            y_pos: 0x0290_0000,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+
+        let mut trace = previous.clone();
+        trace.current_helmet_id = PlayerForm::Cyclone.helmet_id();
+        trace.form_change_flash_frames = 73;
+        trace.active_objects[0].x_pos = 0x0048_0000;
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+
+        assert_eq!(
+            render_trace.current_helmet_id,
+            PlayerForm::TheKid.helmet_id(),
+            "ASM Kid_Transform loc_7C40 starts after sprite attributes are built, so the entry frame still renders the previous form"
+        );
+        assert_eq!(
+            render_trace.form_change_flash_frames, 0,
+            "ASM Kid_Transform loc_7C40 entry should not expose the forward transform table until the next visible hibernate"
+        );
+        assert_eq!(
+            render_trace.active_objects[0].x_pos, previous.active_objects[0].x_pos,
+            "the entry frame also keeps Kid's previous GFX-object position"
+        );
+
+        let mut next = trace.clone();
+        next.form_change_flash_frames = 72;
+        let next_render_trace = render_trace_with_vdp_latched_state(&next, Some(&trace));
+        assert_eq!(
+            (
+                next_render_trace.current_helmet_id,
+                next_render_trace.form_change_flash_frames,
+                next_render_trace.active_objects[0].x_pos
+            ),
+            (
+                next.current_helmet_id,
+                next.form_change_flash_frames,
+                next.active_objects[0].x_pos
+            ),
+            "only the first Kid_Transform entry frame keeps the previous player visual state"
+        );
+    }
+
+    #[test]
     fn forest_parallax_uses_asm_scroll_divisor() {
         let trace = sample_trace(GameMode::InGame);
         let camera_x_px = 307;
