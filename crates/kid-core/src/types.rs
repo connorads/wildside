@@ -1348,6 +1348,10 @@ pub struct NativeTraceFrame {
     /// Prize-block spawn flash effects: (x_px, y_px, remaining_frames).
     #[serde(default)]
     pub prize_block_spawn_flashes: Vec<(u16, u16, u8)>,
+    /// ASM `loc_1F08` hit spark helper spawned by pass-0 Kid projectile hits:
+    /// (x_px, y_px, remaining_frames).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kid_projectile_hit_sparks: Vec<(u16, u16, u8)>,
     /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
     pub floating_items: Vec<(u16, u16, u16, u8)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
@@ -1530,6 +1534,7 @@ impl Default for NativeTraceFrame {
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
+            kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
@@ -1664,6 +1669,13 @@ pub(crate) struct PrizeBlockWorkerTail {
 
 #[derive(Debug, Clone)]
 pub(crate) struct PrizeBlockSpawnFlash {
+    pub(crate) x_px: u16,
+    pub(crate) y_px: u16,
+    pub(crate) remaining: u8,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct KidProjectileHitSparkLoc1F08 {
     pub(crate) x_px: u16,
     pub(crate) y_px: u16,
     pub(crate) remaining: u8,

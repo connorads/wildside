@@ -4402,6 +4402,7 @@ AddrTbl_LevelNames:
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
+            kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),

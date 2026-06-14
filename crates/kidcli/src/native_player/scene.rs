@@ -40,6 +40,8 @@ const PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT: i32 = 0x58;
 const PAUSE_MENU_CURSOR_X_LOC_6A84: i32 = 0x68;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
+const KID_PROJECTILE_HIT_SPARK_FRAMES_STRU_1F40: [(u8, u16); 4] =
+    [(1, 0x02CF), (1, 0x02D8), (1, 0x02E1), (1, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
 const BLOCK_DEBRIS_BASE_X_SUB_292E: [i16; 5] = [0, 0, 8, 8, 4];
 const BLOCK_DEBRIS_BASE_Y_SUB_292E: [i16; 5] = [0, 8, 8, 0, 4];
@@ -3265,6 +3267,51 @@ fn push_prize_block_spawn_flash_loc_102b8(
     true
 }
 
+fn push_kid_projectile_hit_spark_loc_1f08(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    x: i32,
+    y: i32,
+    remaining: u8,
+) {
+    let elapsed = 4_u8.saturating_sub(remaining);
+    let mut frame_start = 0_u8;
+    // ASM loc_1F08/stru_1F40 (kid.asm:3716,3730): four one-frame 24x24
+    // mappings from the same `$2CF/$2D8/$2E1/$2EA` block-art VRAM range used
+    // by the prize-block flash family, but with palette line 3.
+    for (duration, vram_tile) in KID_PROJECTILE_HIT_SPARK_FRAMES_STRU_1F40 {
+        let frame_end = frame_start.saturating_add(duration);
+        if elapsed < frame_end || frame_end == 4 {
+            let Some(tile_base_index) = vram_tile.checked_sub(BLOCK_TILE_VRAM_BASE) else {
+                break;
+            };
+            if usize::from(tile_base_index.saturating_add(8)) < level_visuals.block_tiles.tiles.len()
+            {
+                let frame = kid_render::SpriteFrame {
+                    origin_x: 0x0C,
+                    origin_y: 0x0C,
+                    width_px: 0x18,
+                    height_px: 0x18,
+                    tile_base_index,
+                    tile_sheet: level_visuals.block_tiles.clone(),
+                };
+                push_sprite_frame(commands, &frame, &level_visuals.palettes.foreground, x, y);
+                return;
+            }
+            break;
+        }
+        frame_start = frame_end;
+    }
+
+    commands.push(DrawCommand::Rect {
+        x: x - 3,
+        y: y - 3,
+        width: 6,
+        height: 6,
+        colour: [255, 240, 96],
+    });
+}
+
 pub(super) fn push_level_layout_terrain(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
@@ -4331,6 +4378,20 @@ fn build_game_scene_filtered(
             let screen_x = i32::from(x_px) - camera_x_px;
             let screen_y = i32::from(y_px) - camera_y_px;
             push_prize_block_spawn_flash_loc_102b8(
+                &mut commands,
+                level_visuals,
+                screen_x,
+                screen_y,
+                remaining,
+            );
+        }
+
+        for &(x_px, y_px, remaining) in &trace.kid_projectile_hit_sparks {
+            let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+            let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+            let screen_x = i32::from(x_px) - camera_x_px;
+            let screen_y = i32::from(y_px) - camera_y_px;
+            push_kid_projectile_hit_spark_loc_1f08(
                 &mut commands,
                 level_visuals,
                 screen_x,

@@ -160,6 +160,9 @@ pub struct NativeRuntime {
     /// ASM loc_102B8 flash workers spawned by sub_1007A. Their position comes
     /// from `cell_x * 16 + 8`, `cell_y * 16 - 8`, matching the ROM object.
     prize_block_spawn_flashes: Vec<PrizeBlockSpawnFlash>,
+    /// ASM `sub_1D84 loc_1E5E` allocates a `loc_1F08` hit-spark helper for
+    /// pass-0 Kid projectile/sword hits, copying the worker's `$1A/$1E`.
+    kid_projectile_hit_sparks: Vec<KidProjectileHitSparkLoc1F08>,
     /// ASM sub_E446 hidden-block reveal workers queued by EyeClops beam strip
     /// scans, one `$12C`-frame worker plus foreground-cell upload per reveal.
     pub(crate) hidden_block_fg_update_workers: Vec<terrain::HiddenBlockColumnUpdateSubE446>,
@@ -1387,6 +1390,7 @@ impl NativeRuntime {
             block_bounces: Vec::new(),
             prize_block_worker_tails: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
+            kid_projectile_hit_sparks: Vec::new(),
             hidden_block_fg_update_workers: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_swarms: Vec::new(),

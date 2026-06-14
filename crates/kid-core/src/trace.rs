@@ -6846,6 +6846,11 @@ impl NativeRuntime {
                 .iter()
                 .map(|f| (f.x_px, f.y_px, f.remaining))
                 .collect(),
+            kid_projectile_hit_sparks: self
+                .kid_projectile_hit_sparks
+                .iter()
+                .map(|spark| (spark.x_px, spark.y_px, spark.remaining))
+                .collect(),
             floating_items: self
                 .floating_items
                 .iter()
@@ -9416,6 +9421,7 @@ impl NativeRuntime {
         (self.block_bounces.len()
             + self.count_visible_prize_block_worker_tails()
             + self.prize_block_spawn_flashes.len()
+            + self.kid_projectile_hit_sparks.len()
             + self.hidden_block_fg_update_workers.len()
             + self.block_state.metal_block_push_workers.len()
             + self.block_destroy_effects.len()

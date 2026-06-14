@@ -2774,6 +2774,15 @@ mod chunk_06 {
             rt.active_enemies[0].hit_points, 1,
             "enemy should take 1 damage"
         );
+        let (sword_x, sword_y) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        assert_eq!(
+            rt.kid_projectile_hit_sparks
+                .iter()
+                .map(|spark| (spark.x_px, spark.y_px, spark.remaining))
+                .collect::<Vec<_>>(),
+            vec![((sword_x >> 16) as u16, (sword_y >> 16) as u16, 4)],
+            "ASM sub_1D84 loc_1E5E installs loc_1F08 at the sword worker `$1A/$1E` before the four-frame `stru_1F40` spark"
+        );
     }
 
     #[test]
@@ -4378,6 +4387,14 @@ mod chunk_06 {
         assert!(
             rt.projectiles.is_empty(),
             "ASM loc_8ABC: axe should be deleted after hitting an enemy (collision_type != 0)"
+        );
+        assert_eq!(
+            rt.kid_projectile_hit_sparks
+                .iter()
+                .map(|spark| (spark.x_px, spark.y_px, spark.remaining))
+                .collect::<Vec<_>>(),
+            vec![(100, 100, 4)],
+            "ASM sub_1D84 loc_1E5E installs loc_1F08 at the pass-0 axe worker `$1A/$1E` before deleting the projectile"
         );
     }
 

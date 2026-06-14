@@ -4404,6 +4404,12 @@ impl NativeRuntime {
         self.prize_block_spawn_flashes
             .retain(|flash| flash.remaining > 0);
 
+        for spark in &mut self.kid_projectile_hit_sparks {
+            spark.remaining = spark.remaining.saturating_sub(1);
+        }
+        self.kid_projectile_hit_sparks
+            .retain(|spark| spark.remaining > 0);
+
         for worker in &mut self.hidden_block_fg_update_workers {
             worker.duration_frames = worker.duration_frames.saturating_sub(1);
         }

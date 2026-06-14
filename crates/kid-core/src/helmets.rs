@@ -70,6 +70,17 @@ pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
     }
 }
 
+fn kid_projectile_hit_spark_loc_1_f08(x_pos: u32, y_pos: u32) -> KidProjectileHitSparkLoc1F08 {
+    // ASM loc_1E5E (kid.asm:3642) allocates a helper and installs `loc_1F08`;
+    // loc_1F08 (kid.asm:3716) copies `$44/$46` to the gfx object and runs the
+    // four-frame `stru_1F40` script (`E0F2E/E0F36/E0F3E/E0F46`) before delete.
+    KidProjectileHitSparkLoc1F08 {
+        x_px: (x_pos >> 16) as u16,
+        y_px: (y_pos >> 16) as u16,
+        remaining: 4,
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_screen_origin_loc_E4C4(
@@ -5941,6 +5952,7 @@ impl NativeRuntime {
                 // counter first reaches `$10`.
                 self.played_sound_effects
                     .push(QueuedSoundEffect::RedStealthHittingTarget);
+                self.spawn_kid_projectile_hit_spark_loc_1_f08(sword_x_fp, sword_y_fp);
                 self.helmet.red_stealth_sword_timer = 0;
                 break;
             }
@@ -5963,6 +5975,7 @@ impl NativeRuntime {
     pub(crate) fn process_friendly_projectile_hits(&mut self) {
         let mut kill_indices = Vec::new();
         let mut projectile_consumed = Vec::new();
+        let mut hit_sparks = Vec::new();
         let player_x_pos = self.opening_slice.as_ref().map(|slice| slice.player.x_pos);
 
         for (pi, proj) in self.projectiles.iter().enumerate() {
@@ -5986,10 +5999,13 @@ impl NativeRuntime {
                     dx <= hit_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
                         && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
                 }) {
+                    let spark_x_pos = proj.x_pos;
+                    let spark_y_pos = proj.y_pos;
                     let enemy = &mut self.active_enemies[ei];
                     if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
                         kill_indices.push(ei);
                     }
+                    hit_sparks.push((spark_x_pos, spark_y_pos));
                     // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:
                     // rain slots are removed by screen cull, not by enemy
                     // collision. Generic helmet attacks such as Maniaxe
@@ -6017,10 +6033,13 @@ impl NativeRuntime {
                     dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
                         && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
                 }) {
+                    let spark_x_pos = slot.x_pos;
+                    let spark_y_pos = slot.y_pos;
                     let enemy = &mut self.active_enemies[ei];
                     if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
                         kill_indices.push(ei);
                     }
+                    hit_sparks.push((spark_x_pos, spark_y_pos));
                     // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:
                     // rain slots stay in the DP list after enemy contact and
                     // are removed only by the screen-cull path.
@@ -6034,6 +6053,10 @@ impl NativeRuntime {
             self.projectiles.remove(pi);
         }
 
+        for (x_pos, y_pos) in hit_sparks {
+            self.spawn_kid_projectile_hit_spark_loc_1_f08(x_pos, y_pos);
+        }
+
         // Remove dead enemies, spawn death effects, and award points
         for &idx in kill_indices.iter().rev() {
             self.remove_dead_enemy(idx);
@@ -6041,6 +6064,11 @@ impl NativeRuntime {
         if !kill_indices.is_empty() || !projectile_consumed.is_empty() {
             self.rebuild_active_enemy_roster();
         }
+    }
+
+    fn spawn_kid_projectile_hit_spark_loc_1_f08(&mut self, x_pos: u32, y_pos: u32) {
+        self.kid_projectile_hit_sparks
+            .push(kid_projectile_hit_spark_loc_1_f08(x_pos, y_pos));
     }
 
     /// When Berzerker is charging, side contact with enemies damages them.

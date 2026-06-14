@@ -2946,6 +2946,7 @@ mod tests {
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
+            kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
@@ -8711,6 +8712,45 @@ mod tests {
                 }
             )),
             "HeadyMetal wobble should not fall back to the generic burst rectangles"
+        );
+    }
+
+    #[test]
+    fn build_effects_scene_renders_kid_projectile_hit_spark_loc_1f08() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 80 << 16;
+        trace.camera_y_pos = 48 << 16;
+        trace.flag_x = None;
+        trace.flag_y = None;
+        trace.kid_projectile_hit_sparks = vec![(100, 72, 4)];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter::solo("effects"),
+        );
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { x, y, tiles, .. }
+                        if *x == 8 && *y == 12 && tiles.len() == 9
+                ) || matches!(
+                    command,
+                    DrawCommand::Rect {
+                        x,
+                        y,
+                        width: 6,
+                        height: 6,
+                        colour: [255, 240, 96],
+                    } if *x == 17 && *y == 21
+                )
+            }),
+            "ASM loc_1F08/stru_1F40 should render the pass-0 hit spark at the helper `$44/$46` coordinates"
         );
     }
 
