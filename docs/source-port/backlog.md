@@ -162,7 +162,10 @@ and stop — never commit churn.
   exits report `Bounce cell 37,32 @489`, but all tested `p370..p410`
   pre-climb/exit variants report `Destroy cell 37,32 <none>`. Do not mine the
   pre390 exit trims for the reported block break unless a new route shape
-  produces an actual destroy event. A first
+  produces an actual destroy event. A broader re-score of the current documented
+  route families (`seed_survivor`, `phase_delay`, `pre390`, `earlyB`, `kH`,
+  `p11`, `wait390`, `left400`) likewise finds no `Destroy` at cells `36,32` or
+  `37,32`; only `earlyB` (`Bounce cell 37,32 @380`) and `pre390` bounce. A first
   bounded Kid-timing batch around that window found
   `300..450 none,330..370 Right,371..420 B+Right,421..450 Left`
   gets Kid's healthy hitbox to `dx=-5 dy=-3 @379` against cell `36,32`, but it
