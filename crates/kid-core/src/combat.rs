@@ -8377,6 +8377,51 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::FireDemon) {
+                match fire_demon_collision_dispatch_loc_3a586(
+                    collision.collision_type as i16,
+                    u16::from(enemy.hit_points),
+                ) {
+                    FireDemonCollisionRouteLoc3A586::Death { .. } => {
+                        // ASM Fire_Demon.asm loc_3A586 routes signed-negative
+                        // words and terminal `colid_hurt` through loc_3A5A6,
+                        // which hibernates on `stru_3A378` before deleting.
+                        kill_indices.push(active_idx);
+                    }
+                    FireDemonCollisionRouteLoc3A586::Hurt { remaining_hp, .. } => {
+                        // ASM Fire_Demon.asm loc_3A586 -> loc_3A5BE:
+                        // decrement `$44(a3)`, play `stru_3A34E`, then
+                        // restore the saved walk animation after hibernate.
+                        enemy.hit_points = remaining_hp as u8;
+                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        changed_enemy_state = true;
+                    }
+                    FireDemonCollisionRouteLoc3A586::BerzerkerSideGate => {
+                        if let FireDemonBerzerkerSideGateLoc3A5E4::Launch(launch) =
+                            fire_demon_berzerker_side_gate_loc_3a5e4(
+                                berzerker_charging,
+                                enemy.facing,
+                            )
+                        {
+                            // ASM Fire_Demon.asm loc_3A5E4: charging
+                            // Berzerker side contact disables terrain
+                            // collision, freezes animation, and enters the
+                            // upward loc_3A610 loop instead of HP damage.
+                            enemy.x_velocity = launch.x_velocity;
+                            enemy.y_velocity = launch.y_velocity;
+                            enemy.on_ground = false;
+                            enemy.wait_timer = FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610;
+                            enemy.damage_flash_frames = 0;
+                            changed_enemy_state = true;
+                        }
+                    }
+                    FireDemonCollisionRouteLoc3A586::ResumeSharedWalker { .. } => {}
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::DragonWalking)
                 && collision.collision_type == DRAGON_COLID_KIDABOVE
             {

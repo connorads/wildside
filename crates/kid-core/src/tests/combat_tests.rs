@@ -12411,6 +12411,150 @@ mod chunk_03 {
     }
 
     #[test]
+    fn fire_demon_pending_hurt_collision_enters_loc_3a5be_hibernate() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 4);
+        demon.layout_index = 21;
+        demon.x_velocity = 0x0001_8000;
+        demon.y_velocity = 0x0000_4000;
+        runtime.active_enemies = vec![demon];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: demon.segment_index,
+                layout_index: demon.layout_index,
+                collision_type: FIRE_DEMON_COLID_HURT as u16,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let demon = runtime.active_enemies[0];
+        assert_eq!(
+            demon.hit_points, 3,
+            "ASM Fire_Demon.asm loc_3A586 decrements `$44(a3)` once before the nonfatal loc_3A5BE route"
+        );
+        assert_eq!(
+            demon.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
+            "native damage flash represents the loc_3A5BE `stru_3A34E` hibernate window"
+        );
+        assert_eq!(demon.x_velocity, 0);
+        assert_eq!(demon.y_velocity, 0);
+        assert!(!demon.death_animation_active);
+    }
+
+    #[test]
+    fn fire_demon_pending_terminal_hurt_collision_enters_loc_3a5a6_death() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);
+        demon.layout_index = 22;
+        let killed_identity = (demon.segment_index, demon.layout_index);
+        runtime.active_enemies = vec![demon];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: demon.segment_index,
+                layout_index: demon.layout_index,
+                collision_type: FIRE_DEMON_COLID_HURT as u16,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Fire_Demon.asm loc_3A5A6 keeps the object alive until `stru_3A378` finishes"
+        );
+        let demon = runtime.active_enemies[0];
+        assert_eq!(demon.hit_points, 0);
+        assert_eq!(demon.wait_timer, FIRE_DEMON_DEATH_ANIMATION_FRAMES);
+        assert!(
+            demon.death_animation_active,
+            "terminal colid_hurt should enter the same loc_3A5A6 animation as signed-negative collision"
+        );
+        assert!(
+            runtime.fire_demon_trails.is_empty(),
+            "ASM loc_3A63C trail child is a delete-tail effect, not immediate collision handling"
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn fire_demon_pending_side_collision_without_charge_resumes_loc_3a5d4() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = false;
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 4);
+        demon.layout_index = 23;
+        demon.x_velocity = -0x0001_8000;
+        demon.y_velocity = 0;
+        demon.on_ground = true;
+        runtime.active_enemies = vec![demon];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: demon.segment_index,
+                layout_index: demon.layout_index,
+                collision_type: FIRE_DEMON_COLID_KIDRIGHT as u16,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let demon = runtime.active_enemies[0];
+        assert_eq!(
+            demon.hit_points, 4,
+            "ASM Fire_Demon.asm loc_3A5E4 branches to loc_3A5D4 without HP damage when Berzerker_charging is clear"
+        );
+        assert_eq!(demon.x_velocity, -0x0001_8000);
+        assert_eq!(demon.y_velocity, 0);
+        assert!(demon.on_ground);
+        assert_eq!(demon.wait_timer, 0);
+        assert!(!demon.death_animation_active);
+    }
+
+    #[test]
+    fn fire_demon_pending_side_collision_enters_loc_3a610_berzerker_launch() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 4);
+        demon.layout_index = 24;
+        demon.x_velocity = 0x0001_8000;
+        demon.y_velocity = 0;
+        demon.on_ground = true;
+        runtime.active_enemies = vec![demon];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: demon.segment_index,
+                layout_index: demon.layout_index,
+                collision_type: FIRE_DEMON_COLID_KIDLEFT as u16,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let demon = runtime.active_enemies[0];
+        assert_eq!(
+            demon.hit_points, 4,
+            "ASM Fire_Demon.asm loc_3A5E4 preserves HP for charging-Berzerker side contact"
+        );
+        assert_eq!(demon.x_velocity, 0);
+        assert_eq!(
+            demon.y_velocity, -0x0004_8000,
+            "ASM Fire_Demon.asm loc_3A5E4 seeds the upward velocity before loc_3A610 gravity"
+        );
+        assert!(!demon.on_ground);
+        assert_eq!(
+            demon.wait_timer, FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610,
+            "pending side collision should enter the same loc_3A610 loop as direct Berzerker contact"
+        );
+        assert_eq!(demon.damage_flash_frames, 0);
+    }
+
+    #[test]
     fn armadillo_death_waits_for_stru_3c69a_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut armadillo = test_enemy(EnemyFamily::Armadillo, 0x0080_0000, 0x0040_0000, 1);
