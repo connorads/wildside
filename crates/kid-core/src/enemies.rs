@@ -8692,6 +8692,42 @@ impl ActiveEnemy {
                 | DiamondLowHpCollisionRouteLoc3AEC4::BerzerkerSideGate => return false,
             }
         }
+        if matches!(self.family, EnemyFamily::Armadillo) {
+            let saved_walk_speed = if self.walk_speed_override != 0 {
+                self.walk_speed_override
+            } else {
+                pacer_walk_speed(self.family, self.hit_points)
+            };
+            match armadillo_damage_response_loc_3c848(
+                u16::from(self.hit_points),
+                self.shared_walker_state,
+                saved_walk_speed,
+            ) {
+                ArmadilloDamageResponseLoc3C848::RecoilActiveResume { current_hp } => {
+                    // ASM Armadillo.asm loc_3C848: positive `$42(a3)` branches
+                    // straight to loc_3C91A, so the projectile is consumed but
+                    // HP, recoil state, and flash state are left untouched.
+                    self.hit_points = current_hp as u8;
+                    return false;
+                }
+                ArmadilloDamageResponseLoc3C848::Death => return true,
+                ArmadilloDamageResponseLoc3C848::Hurt {
+                    remaining_hp,
+                    recoil_state_word,
+                    restored_walk_speed,
+                    ..
+                } => {
+                    // ASM Armadillo.asm loc_3C848: after the hurt animation
+                    // finishes, `$42(a3)` is seeded with `$FF88`, `$50(a5)`
+                    // is restored from `$5E(a5)`, and patrol resumes.
+                    self.hit_points = remaining_hp as u8;
+                    self.shared_walker_state = recoil_state_word;
+                    self.walk_speed_override = restored_walk_speed;
+                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    return false;
+                }
+            }
+        }
         if matches!(self.family, EnemyFamily::Crab)
             && let Some(player_x_pos) = player_x_pos
         {
