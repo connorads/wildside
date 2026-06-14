@@ -139,7 +139,12 @@ and stop — never commit churn.
   `dx=+10 dy=-12 @409`, exits through `LevelTransition`, leaves the closest
   DripsSurfaceCrawler `dx=-148 dy=+1 @494`, and closest DripsDrop
   `dx=+22 dy=+10 @409`. Do not repeat this staggered right/B/right phase axis
-  without changing the bootstrap or target Drips cycle. A follow-up over the clean
+  without changing the bootstrap or target Drips cycle. Tooling follow-up added
+  `probe-record-scenario-file-batch --target-projectile-cell KIND:COL,ROW`; a
+  smoke batch on the current seed ranks DripsDrop vs cell `36,32` and shows the
+  drop already reaches `dx=0 dy=-3 @381` independent of the late overlays, so
+  the next useful search axis is Kid timing around that early drop/cell window,
+  not more post-390 drop positioning. A follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
   frame 490, but still leaves the DripsSurfaceCrawler `dx=+102 dy=+1 @512`;

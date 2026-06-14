@@ -1452,6 +1452,16 @@ struct TargetProjectileClosestApproach {
     manhattan_px: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TargetProjectileCellApproach {
+    pub(crate) replay_frame: usize,
+    pub(crate) projectile_x: u32,
+    pub(crate) projectile_y: u32,
+    pub(crate) dx_px: i64,
+    pub(crate) dy_px: i64,
+    pub(crate) manhattan_px: i64,
+}
+
 fn fixed_delta_px(to: u32, from: u32) -> i64 {
     (i64::from(to) - i64::from(from)) >> 16
 }
@@ -1595,6 +1605,54 @@ pub(crate) fn describe_target_projectile_activation(
             |frame| describe_target_projectile_details(frame, kind),
         ),
     )
+}
+
+pub(crate) fn target_projectile_cell_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+    target_cell: TargetCell,
+    frame_start: usize,
+) -> Option<TargetProjectileCellApproach> {
+    let left_px = target_cell.col << 4;
+    let right_px = left_px + 15;
+    let top_px = target_cell.row << 4;
+    let bottom_px = top_px + 15;
+    let mut closest: Option<TargetProjectileCellApproach> = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if replay_frame < frame_start {
+            continue;
+        }
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+        for projectile in &frame.active_projectile_details {
+            if projectile.kind != kind {
+                continue;
+            }
+            let projectile_x_px = i64::from(projectile.x_pos) >> 16;
+            let projectile_y_px = i64::from(projectile.y_pos) >> 16;
+            let dx_px = axis_distance_to_closed_range(projectile_x_px, left_px, right_px);
+            let dy_px = axis_distance_to_closed_range(projectile_y_px, top_px, bottom_px);
+            let candidate = TargetProjectileCellApproach {
+                replay_frame,
+                projectile_x: projectile.x_pos,
+                projectile_y: projectile.y_pos,
+                dx_px,
+                dy_px,
+                manhattan_px: dx_px.abs().saturating_add(dy_px.abs()),
+            };
+            match &closest {
+                Some(existing)
+                    if existing.manhattan_px < candidate.manhattan_px
+                        || (existing.manhattan_px == candidate.manhattan_px
+                            && existing.replay_frame <= candidate.replay_frame) => {}
+                _ => closest = Some(candidate),
+            }
+        }
+    }
+
+    closest
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2764,6 +2822,77 @@ mod tests {
         assert_eq!(
             describe_target_projectile_activation(&[transition], ActiveProjectileKind::DripsDrop),
             "target projectile DripsDrop: absent"
+        );
+    }
+
+    #[test]
+    fn target_projectile_cell_approach_scores_projectile_against_cell_rectangle() {
+        let trace = vec![
+            target_projectile_frame(
+                10,
+                ActiveProjectileKind::DripsDrop,
+                0x0248_0000,
+                0x0212_0000,
+                0x0000_2000,
+                0,
+            ),
+            target_projectile_frame(
+                11,
+                ActiveProjectileKind::DripsDrop,
+                0x0240_0000,
+                0x0208_0000,
+                0x0000_4000,
+                0,
+            ),
+            target_projectile_frame(
+                12,
+                ActiveProjectileKind::DripsSurfaceCrawler,
+                0x0240_0000,
+                0x0208_0000,
+                0,
+                0,
+            ),
+        ];
+
+        assert_eq!(
+            target_projectile_cell_approach_from_frame(
+                &trace,
+                ActiveProjectileKind::DripsDrop,
+                TargetCell { col: 36, row: 32 },
+                0,
+            ),
+            Some(TargetProjectileCellApproach {
+                replay_frame: 1,
+                projectile_x: 0x0240_0000,
+                projectile_y: 0x0208_0000,
+                dx_px: 0,
+                dy_px: 0,
+                manhattan_px: 0,
+            }),
+            "issue #260 route scans need to score Drips children against the metal-block cell, not just Kid's hitbox"
+        );
+    }
+
+    #[test]
+    fn target_projectile_cell_approach_ignores_transition_stale_projectiles() {
+        let mut transition = target_projectile_frame(
+            21,
+            ActiveProjectileKind::DripsDrop,
+            0x0240_0000,
+            0x0208_0000,
+            0x0000_2000,
+            0,
+        );
+        transition.game_mode = GameMode::LevelTransition;
+
+        assert_eq!(
+            target_projectile_cell_approach_from_frame(
+                &[transition],
+                ActiveProjectileKind::DripsDrop,
+                TargetCell { col: 36, row: 32 },
+                0,
+            ),
+            None
         );
     }
 
