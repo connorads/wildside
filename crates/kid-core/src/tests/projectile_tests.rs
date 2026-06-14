@@ -4670,6 +4670,52 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Big_Hopping_Skull.asm loc_365D8 -> loc_3664E: terminal `colid_hurt`
+    /// plays `sfx_Big_Hopping_Skull_dies=$26` before `stru_367FA`.
+    #[test]
+    fn maniaxe_axe_colid_hurt_queues_big_hopping_skull_death_sfx_loc_3664e() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::BigHoppingSkull,
+            100 << 16,
+            100 << 16,
+            1,
+        ));
+        rt.active_enemy_roster = rt
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+
+        rt.process_friendly_projectile_hits();
+
+        assert!(rt.projectiles.is_empty());
+        assert_eq!(rt.active_enemies.len(), 1);
+        assert_eq!(rt.active_enemies[0].hit_points, 0);
+        assert!(rt.active_enemies[0].death_animation_active);
+        assert_eq!(
+            rt.active_enemies[0].wait_timer, BIG_HOPPING_SKULL_DEATH_ANIMATION_FRAMES,
+            "ASM Big_Hopping_Skull.asm loc_3664E should use `stru_367FA` before deletion"
+        );
+        assert_eq!(
+            rt.played_sound_effects,
+            vec![QueuedSoundEffect::BigHoppingSkullDies],
+            "ASM Big_Hopping_Skull.asm loc_3664E should queue the skull-specific death sound"
+        );
+        assert_eq!(QueuedSoundEffect::BigHoppingSkullDies.sound_id(), 0x26);
+    }
+
     #[test]
     fn maniaxe_axe_respects_crab_frozen_immunity_loc_3b048() {
         let mut rt = NativeRuntime::new(manifest());

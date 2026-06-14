@@ -87,6 +87,7 @@ pub(crate) enum QueuedSoundEffect {
     VoiceNoTime,
     KidPullup,
     BigHoppingSkullGroan,
+    BigHoppingSkullDies,
     BossEyePops,
     BossDies,
     #[cfg_attr(not(test), allow(dead_code))]
@@ -212,6 +213,9 @@ impl QueuedSoundEffect {
             // ASM sub_3A292 loc_3A2C0 (kid.asm:43356): boss-head hits reuse
             // `sfx_Big_Hopping_Skull_groan = $5C`.
             Self::BigHoppingSkullGroan => 0x5C,
+            // ASM Big_Hopping_Skull.asm loc_3664E plays
+            // `sfx_Big_Hopping_Skull_dies = $26` before `stru_367FA`.
+            Self::BigHoppingSkullDies => 0x26,
             // ASM sub_37002/sub_393B2/sub_37708 loc_3772A play
             // `sfx_Boss_eye_pops = $48` when boss eye pieces pop/detach.
             Self::BossEyePops => 0x48,
@@ -8483,6 +8487,9 @@ impl NativeRuntime {
         let layout_index = enemy.layout_index;
         let spinning_twins_phase = enemy.spinning_twins_phase;
         let shared_walker_state = enemy.shared_walker_state;
+        let x_pos = enemy.x_pos;
+        let y_pos = enemy.y_pos;
+        let is_armadillo_parent_spawned_child = enemy.is_armadillo_parent_spawned_child();
         if matches!(family, EnemyFamily::UFO) && enemy.hit_points != 0 {
             let hurt_tail = ufo_hurt_tail_loc_35174(enemy.x_velocity, enemy.ufo_beam_segments != 0);
             let enemy = &mut self.active_enemies[idx];
@@ -8512,10 +8519,10 @@ impl NativeRuntime {
                 false
             };
             if should_launch_shishkaboss_skewers {
-                self.spawn_shishkaboss_skewer_fan_loc_384d6(enemy.x_pos, enemy.y_pos);
+                self.spawn_shishkaboss_skewer_fan_loc_384d6(x_pos, y_pos);
             }
-            let enemy = &mut self.active_enemies[idx];
-            if enemy.is_armadillo_parent_spawned_child() {
+            if is_armadillo_parent_spawned_child {
+                let enemy = &mut self.active_enemies[idx];
                 let route = armadillo_death_route_loc_3c87e(true);
                 if let ArmadilloDeathRouteLoc3C87E::SpawnedChildFallBeforeDeath {
                     x_velocity,
@@ -8541,6 +8548,12 @@ impl NativeRuntime {
             // final damage calls j_Init_Animation for the death script even
             // if the live state had a nonzero hibernate/patrol timer, then
             // waits for that animation before reaching the shared delete tail.
+            if matches!(family, EnemyFamily::BigHoppingSkull) {
+                // ASM Big_Hopping_Skull.asm loc_3664E: terminal damage plays
+                // the skull-specific death cue before initialising `stru_367FA`.
+                self.queue_play_sound(QueuedSoundEffect::BigHoppingSkullDies);
+            }
+            let enemy = &mut self.active_enemies[idx];
             enemy.hit_points = 0;
             enemy.death_animation_active = true;
             enemy.x_velocity = 0;
@@ -8549,8 +8562,6 @@ impl NativeRuntime {
             self.rebuild_active_enemy_roster();
             return;
         }
-        let x_pos = enemy.x_pos;
-        let y_pos = enemy.y_pos;
         let spinning_twins_status_route = if matches!(family, EnemyFamily::SpinningTwins) {
             Some(spinning_twins_death_status_route_loc_3bc78(
                 enemy.layout_index as u8,
