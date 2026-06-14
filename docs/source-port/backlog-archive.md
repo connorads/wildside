@@ -612,6 +612,23 @@ near-cell pass, so the route is a better oracle-comparable near miss rather
 than the reported slime/metal-block mutation. Do not repeat this exact
 late-climb clear/left-exit axis unchanged.
 
+Follow-up 2026-06-14 for #260 phase-delay route search: a bounded batch over
+`.cache/recordings/issue-260-drips-b-jump-climb-seed-current/scenario.json`
+changed the pre-climb/lift timing instead of repeating the archived
+late-climb axis. The best raw row-32 pass was `coast_then_lift`
+(`400..620 none,430..455 Right,456..515 B+Right,516..550 Left,551..620 Right`):
+Kid's ASM `loc_902A`/`unk_B408` hitbox reaches right `EC2D` cell `36,32` at
+healthy `dx=0 dy=-1 @465`, but the route dies into `LevelTransition` and the
+nearest DripsSurfaceCrawler is still `dx=-78 dy=+1 @563`; DripsDrop is
+`dx=+48 dy=-11 @409`. The best live survivor was `phase_delay_br470`
+(`430..620 none,470..530 B+Right,531..560 Left,561..620 Right`): it stays
+`InGame`/HP 1, verifies enemy-frontier clean with
+`verify-tas --scenario .cache/debug/issue260-phase-delay-br470-20260614/oracle-frame-scenario.json --frame-start 430 --frame-end 620 --checkpoint-interval 1 --bisect --frontier-kind enemy`,
+and reaches cell `36,32` at healthy `dx=0 dy=-2 @493`, but focused probing
+still leaves DripsSurfaceCrawler at `dx=-52 dy=+1 @539` and DripsDrop at
+`dx=+48 dy=-11 @409`. Reject this phase-delay/late-lift family as another
+oracle-comparable near-miss, not the reported live slime/metal-block contact.
+
 Follow-up 2026-06-11 for #260 visual-source classification: the latest
 playtest noted that the Drips source now looks like a prize block rather than a
 metal block. On the current known route this is ROM-matching, not a native

@@ -115,6 +115,19 @@ and stop — never commit churn.
   no authoritative divergences through frames `0..700`. This is a fixed
   sub-case only: it removes the stale centre-`EC2D` false-prize branch, but it is
   still not the reported live slime/metal-block contact repro.
+  2026-06-14 route follow-up: a fresh phase-delay batch over
+  `.cache/recordings/issue-260-drips-b-jump-climb-seed-current/scenario.json`
+  found one stronger raw `EC2D` hitbox pass, but not a usable repro. Candidate
+  `400..620 none,430..455 Right,456..515 B+Right,516..550 Left,551..620 Right`
+  reaches cell `36,32` at healthy `dx=0 dy=-1 @465`, then dies into
+  `LevelTransition`; its closest DripsSurfaceCrawler is still `dx=-78 dy=+1 @563`.
+  The best live survivor,
+  `430..620 none,470..530 B+Right,531..560 Left,561..620 Right`, verifies
+  enemy-frontier clean through frames `430..620` but only reaches
+  `dx=0 dy=-2 @493`, with the closest crawler still `dx=-52 dy=+1 @539` and
+  DripsDrop `dx=+48 dy=-11 @409`. Do not repeat this phase-delay/late-lift axis
+  unchanged; it is another oracle-comparable near-miss, not the slime/metal-block
+  contact.
   2026-06-12 current-route approach-offset batch around frames `430..477`
   found no usable centre-`EC2D` contact. The most interesting right-side
   candidate, `approach_br448_465`, reaches `(584,543)` raw `dx=-10 dy=-1`
