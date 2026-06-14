@@ -4416,13 +4416,24 @@ fn build_game_scene_filtered(
             });
         }
 
-        // Enemy death effect: only HeadyMetal spawns one. ASM
-        // Enemy20_HeadyMetal_Init seeds the $01C2-frame wobble worker
-        // (sub_37708/sub_3787C/sub_378A2); `Jump_On_Enemy` (kid.asm:14607)
-        // plays sfx_Jump_on_enemy and deletes the GfxObject without
-        // emitting any per-stomp death sprite.
-        for &(ex, ey, remaining) in &trace.enemy_death_effects {
-            push_heady_metal_death_wobble(&mut commands, trace, level_visuals, ex, ey, remaining);
+        if trace.heady_metal_death_splits.is_empty() {
+            // Enemy death effect: only HeadyMetal spawns one. ASM
+            // Enemy20_HeadyMetal_Init seeds the $01C2-frame wobble worker
+            // (sub_37708/sub_3787C/sub_378A2); `Jump_On_Enemy` (kid.asm:14607)
+            // plays sfx_Jump_on_enemy and deletes the GfxObject without
+            // emitting any per-stomp death sprite.
+            for &(ex, ey, remaining) in &trace.enemy_death_effects {
+                push_heady_metal_death_wobble(
+                    &mut commands,
+                    trace,
+                    level_visuals,
+                    ex,
+                    ey,
+                    remaining,
+                );
+            }
+        } else {
+            push_heady_metal_death_split_pieces(&mut commands, trace, level_visuals);
         }
     }
 
@@ -4884,6 +4895,32 @@ fn push_heady_metal_death_wobble(
         Direction::Left,
         false,
     );
+}
+
+fn push_heady_metal_death_split_pieces(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
+    for split in &trace.heady_metal_death_splits {
+        for piece in &split.pieces {
+            // ASM sub_378C8 loc_378D6 mutates the five cached HeadyMetal
+            // workers at $FB72/$FB76/$FB7A/$FBAE/$FBB2; loc_37922 later
+            // deletes the same slots. Core trace positions are already the
+            // post-impulse worker positions, so render them directly.
+            let screen_x = (piece.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+            let screen_y = (piece.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+            push_effect_enemy_sprite(
+                commands,
+                level_visuals,
+                0x21,
+                screen_x,
+                screen_y,
+                Direction::Right,
+                false,
+            );
+        }
+    }
 }
 
 fn push_effect_enemy_sprite(

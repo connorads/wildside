@@ -8715,6 +8715,77 @@ mod tests {
     }
 
     #[test]
+    fn build_effects_scene_renders_headymetal_split_worker_positions_loc_378d6() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.flag_x = None;
+        trace.flag_y = None;
+        trace.enemy_death_effects = Vec::new();
+        trace.heady_metal_death_splits = vec![kid_core::HeadyMetalDeathSplitTrace {
+            current_x_velocity_delta: -0x0002_6D18,
+            left_worker_x_velocity_delta: 0x0002_6D18,
+            centre_worker_y_velocity_delta: 0x0001_3880,
+            centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index".to_owned()),
+            right_worker_x_velocity_delta: -0x0002_6D18,
+            far_right_worker_x_velocity_delta: 0x0002_6D18,
+            cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
+            pieces: vec![
+                kid_core::HeadyMetalDeathPieceTrace {
+                    slot_offset: 0xFB72,
+                    x_pos: 100 << 16,
+                    y_pos: 120 << 16,
+                    x_velocity: -0x0002_6D18,
+                    y_velocity: 0,
+                },
+                kid_core::HeadyMetalDeathPieceTrace {
+                    slot_offset: 0xFB76,
+                    x_pos: 120 << 16,
+                    y_pos: 124 << 16,
+                    x_velocity: 0x0002_6D18,
+                    y_velocity: 0,
+                },
+                kid_core::HeadyMetalDeathPieceTrace {
+                    slot_offset: 0xFB7A,
+                    x_pos: 140 << 16,
+                    y_pos: 128 << 16,
+                    x_velocity: 0,
+                    y_velocity: 0x0001_3880,
+                },
+                kid_core::HeadyMetalDeathPieceTrace {
+                    slot_offset: 0xFBAE,
+                    x_pos: 160 << 16,
+                    y_pos: 132 << 16,
+                    x_velocity: -0x0002_6D18,
+                    y_velocity: 0,
+                },
+                kid_core::HeadyMetalDeathPieceTrace {
+                    slot_offset: 0xFBB2,
+                    x_pos: 180 << 16,
+                    y_pos: 136 << 16,
+                    x_velocity: 0x0002_6D18,
+                    y_velocity: 0,
+                },
+            ],
+        }];
+        let visuals = sample_level_visuals();
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter::solo("effects"),
+        );
+
+        assert_eq!(
+            sprite_positions(&scene, 71),
+            vec![(92, 120), (112, 124), (132, 128), (152, 132), (172, 136)],
+            "ASM sub_378C8 loc_378D6 mutates the five cached HeadyMetal workers; the renderer should draw those traced worker positions instead of collapsing back to the old three-sprite wobble"
+        );
+    }
+
+    #[test]
     fn build_effects_scene_steps_headymetal_wobble_at_each_timer_boundary() {
         let visuals = sample_level_visuals();
         let cases = [
