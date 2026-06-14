@@ -132,7 +132,14 @@ and stop — never commit churn.
   `dx=0 dy=-2 @493`, with the closest crawler still `dx=-52 dy=+1 @539` and
   DripsDrop `dx=+48 dy=-11 @409`. Do not repeat this phase-delay/late-lift axis
   unchanged; it is another oracle-comparable near-miss, not the slime/metal-block
-  contact. A follow-up over the clean
+  contact. A 2026-06-14 refinement on the same seed, clearing `360..620` and
+  trying staggered `390..575` right/B/right/left/right phases, was worse than
+  the known 1px row-32 miss: best candidate `390..430 B+Right,431..500 Right,
+  501..545 B+Right,546..575 Left,576..620 Right` reaches cell `36,32` at only
+  `dx=+10 dy=-12 @409`, exits through `LevelTransition`, leaves the closest
+  DripsSurfaceCrawler `dx=-148 dy=+1 @494`, and closest DripsDrop
+  `dx=+22 dy=+10 @409`. Do not repeat this staggered right/B/right phase axis
+  without changing the bootstrap or target Drips cycle. A follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
   frame 490, but still leaves the DripsSurfaceCrawler `dx=+102 dy=+1 @512`;
