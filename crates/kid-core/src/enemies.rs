@@ -2910,6 +2910,9 @@ pub(crate) enum MiniHoppingSkullMediumLoadGateLoc3F304 {
 pub(crate) const BIG_SKULL_INIT_X_SPEED: i32 = 0x0001_0000;
 pub(crate) const BIG_SKULL_INIT_Y_SPEED: i32 = -0x0002_0000;
 pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_vel
+/// ASM Big_Hopping_Skull.asm loc_36580 initialises `stru_367AE` (`$50` ticks),
+/// then loc_366B6 plays `stru_367B4` (`$0C + 1` ticks) before loc_366D0 relaunches.
+pub(crate) const BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580: u16 = 0x50 + 0x0C + 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -13982,6 +13985,19 @@ pub(crate) fn step_big_hopping_skull(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
 ) {
+    if enemy.wait_timer > 0 {
+        enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
+        if enemy.wait_timer == 0 {
+            // ASM Big_Hopping_Skull.asm loc_366D0: after the loc_36580 floor
+            // contact and loc_366B6 relaunch animations, restore saved d0 into
+            // x_vel and write only y_vel's high word to $FFFE.
+            enemy.x_velocity = enemy.target_x_velocity;
+            enemy.y_velocity = write_velocity_high_word(enemy.y_velocity, -2);
+            enemy.on_ground = false;
+        }
+        return;
+    }
+
     // Apply gravity (ASM loc_36540: addi.l #$FA0,y_vel)
     enemy.y_velocity = enemy.y_velocity.saturating_add(BIG_SKULL_GRAVITY);
 
@@ -14021,8 +14037,16 @@ pub(crate) fn step_big_hopping_skull(
             let floor_y_fp = (floor.floor_y_px as u32) << 16;
             if enemy.y_pos >= floor_y_fp {
                 enemy.y_pos = floor_y_fp;
-                enemy.x_velocity = saved_x_velocity;
-                enemy.y_velocity = write_velocity_high_word(enemy.y_velocity, -2);
+                // ASM Big_Hopping_Skull.asm loc_36580: floor contact saves
+                // d0=x_vel, clears both velocities, disables level collision,
+                // and hibernates through `stru_367AE` before loc_366B6 can
+                // relaunch. Native stores saved d0 in target_x_velocity while
+                // wait_timer carries the two animation waits.
+                enemy.target_x_velocity = saved_x_velocity;
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                enemy.on_ground = true;
+                enemy.wait_timer = BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580;
             }
 
             // Slope deflection: check if floor cell is a slope

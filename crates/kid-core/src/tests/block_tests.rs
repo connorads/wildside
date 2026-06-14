@@ -6095,7 +6095,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn big_hopping_skull_live_floor_contact_relaunches_like_loc_366d0() {
+    fn big_hopping_skull_live_floor_contact_stops_like_loc_36580() {
         let grid = grid_with_floor_at_row(14);
         let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x0050_0000, 0x00DF_0000, 3);
         skull.x_velocity = 0x0001_2222;
@@ -6106,14 +6106,41 @@ mod chunk_04 {
 
         assert_eq!(skull.y_pos, 0x00E0_0000);
         assert_eq!(
+            skull.x_velocity, 0,
+            "ASM Big_Hopping_Skull.asm loc_36580 should clear x_vel during the floor contact wait",
+        );
+        assert_eq!(skull.y_velocity, 0);
+        assert_eq!(
+            skull.target_x_velocity, 0x0001_2222,
+            "ASM Big_Hopping_Skull.asm loc_36580 should preserve d0=x_vel for loc_366D0",
+        );
+        assert_eq!(
+            skull.wait_timer, BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580,
+            "ASM Big_Hopping_Skull.asm loc_36580/loc_366B6 should hibernate through the contact and relaunch animations",
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_live_floor_contact_timer_relaunches_like_loc_366d0() {
+        let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x0050_0000, 0x00E0_0000, 3);
+        skull.x_velocity = 0;
+        skull.y_velocity = 0x0000_0001;
+        skull.target_x_velocity = 0x0001_2222;
+        skull.wait_timer = 1;
+        skull.facing = Direction::Right;
+
+        enemies::step_big_hopping_skull(&mut skull, None);
+
+        assert_eq!(
             skull.x_velocity, 0x0001_2222,
-            "ASM Big_Hopping_Skull.asm loc_36580 saves d0=x_vel before the floor wait; loc_366D0 restores it on relaunch",
+            "ASM Big_Hopping_Skull.asm loc_366D0 should restore d0=x_vel after the floor wait",
         );
         assert_eq!(
             skull.y_velocity,
             i32::from_ne_bytes(0xFFFE_0001_u32.to_ne_bytes()),
-            "ASM Big_Hopping_Skull.asm loc_366D0 should write only y_vel's high word to $FFFE, not negate the falling velocity",
+            "ASM Big_Hopping_Skull.asm loc_366D0 should write only y_vel's high word to $FFFE",
         );
+        assert_eq!(skull.wait_timer, 0);
     }
 
     #[test]
