@@ -3833,6 +3833,13 @@ mod tests {
                 2,
                 "unk_C75DE",
             ),
+            (
+                DragonFlyingDescentFireState::CleanupSecondLoc34C4A,
+                0x115,
+                17,
+                13,
+                "unk_C75E6",
+            ),
         ];
 
         for (state, tile_index, expected_x, expected_y, label) in cases {
@@ -3854,13 +3861,22 @@ mod tests {
             let scene = build_scene(&trace, false, Some(&visuals), None);
 
             let fire_sprite = scene.commands.iter().find_map(|command| match command {
-                DrawCommand::Sprite { x, y, tiles, .. } if *x == expected_x && *y == expected_y => {
-                    Some(tiles)
+                DrawCommand::Sprite { x, y, tiles, .. }
+                    if tiles
+                        .first()
+                        .is_some_and(|tile| tile.tile.tile_index == tile_index) =>
+                {
+                    Some((*x, *y, tiles))
                 }
                 _ => None,
             });
-            let tiles = fire_sprite
+            let (x, y, tiles) = fire_sprite
                 .expect("ASM Dragon_Flying.asm loc_34BAC should render descent fire as ROM child sprite frames");
+            assert_eq!(
+                (x, y),
+                (expected_x, expected_y),
+                "ASM Dragon_Flying.asm {label}: descent fire ROM frame should keep the expected origin",
+            );
             assert_eq!(
                 tiles[0].tile.tile_index, tile_index,
                 "ASM Dragon_Flying.asm {label}: descent fire should select the ROM frame descriptor",

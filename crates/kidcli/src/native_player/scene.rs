@@ -253,21 +253,20 @@ fn dragon_flying_descent_fire_child_frame(
     projectile: &ActiveProjectileSnapshot,
 ) -> Option<kid_render::SpriteFrame> {
     let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
-    let (tile_base_index, origin_x, origin_y, width_px, height_px) = match projectile
-        .dragon_flying_descent_fire_state
-    {
-        // ASM Dragon_Flying.asm loc_34BAC/loc_34C26 installs
-        // LnkTo_unk_C75CE for the first DBF loop.
-        DragonFlyingDescentFireState::FirstAnimationLoc34C26 => (0x0EC, 0x05, 0x05, 0x13, 0x18),
-        // ASM Dragon_Flying.asm loc_34C3A switches to LnkTo_unk_C75D6 for
-        // the travelling flame after the startup counter underflows.
-        DragonFlyingDescentFireState::TravelAnimationLoc34C3A
-        | DragonFlyingDescentFireState::None => (0x0F5, 0x06, 0x07, 0x1B, 0x1F),
-        // ASM Dragon_Flying.asm loc_34C4A uses LnkTo_unk_C75DE for both
-        // three-frame cleanup hibernation loops before deleting the child.
-        DragonFlyingDescentFireState::CleanupFirstLoc34C4A
-        | DragonFlyingDescentFireState::CleanupSecondLoc34C4A => (0x105, 0x0D, 0x05, 0x1F, 0x1B),
-    };
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) =
+        match projectile.dragon_flying_descent_fire_state {
+            // ASM Dragon_Flying.asm loc_34BAC/loc_34C26 installs
+            // LnkTo_unk_C75CE for the first DBF loop.
+            DragonFlyingDescentFireState::FirstAnimationLoc34C26 => (0x0EC, 0x05, 0x05, 0x13, 0x18),
+            // ASM Dragon_Flying.asm loc_34C3A switches to LnkTo_unk_C75D6 for
+            // the travelling flame after the startup counter underflows.
+            DragonFlyingDescentFireState::TravelAnimationLoc34C3A
+            | DragonFlyingDescentFireState::None => (0x0F5, 0x06, 0x07, 0x1B, 0x1F),
+            // ASM Dragon_Flying.asm loc_34C4A uses LnkTo_unk_C75DE for the
+            // first cleanup hibernation loop before switching to LnkTo_unk_C75E6.
+            DragonFlyingDescentFireState::CleanupFirstLoc34C4A => (0x105, 0x0D, 0x05, 0x1F, 0x1B),
+            DragonFlyingDescentFireState::CleanupSecondLoc34C4A => (0x115, 0x0F, 0x05, 0x20, 0x10),
+        };
     Some(kid_render::SpriteFrame {
         origin_x,
         origin_y,
