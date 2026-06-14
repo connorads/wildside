@@ -370,8 +370,17 @@ and stop — never commit churn.
   allowed the rightward mirror. Regression
   `level00_airborne_leading_edge_slope_down_left_recontact_enters_loc_9d22_same_frame`
   now lands the leftward SlopeDown case without weakening the existing
-  trailing-edge guard. `mise run verify-slice-fast` is green; keep #277 open
-  for live stair/wall validation.
+  trailing-edge guard. 2026-06-14 rerun keeps that conclusion: the focused
+  held-left input and leftward SlopeDown regressions pass; the paired direct
+  stair routes split exactly as before. Right route
+  `.cache/recordings/issue277-blw2-stair-jump-right-current/scenario.json`
+  verifies frames `0..180` with no authoritative divergence, while left route
+  `.cache/recordings/issue277-blw2-stair-jump-left-current/scenario.json`
+  first diverges at frame 90 on `number_objects` plus camera after native
+  ShooterBlock damage; `tas-diff` frames `86..94` shows frames 86..89 as
+  non-authoritative object-count oracle limitations before the damage path.
+  Keep #277 open for a fresh human-equivalent stair/wall route, not another
+  patch from this blocked direct left-stair fixture.
   #291 stale #249 gate assertion re-derived (tail sample is airborne after walking off support).
 - **Gates**: verify-slice-fast green. Full published TAS
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
