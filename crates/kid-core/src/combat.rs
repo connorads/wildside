@@ -9414,10 +9414,6 @@ impl NativeRuntime {
         }
 
         self.active_enemies.iter().find_map(|enemy| {
-            // All enemies damage on contact except collectible diamonds
-            if matches!(enemy.family, EnemyFamily::Diamond) {
-                return None;
-            }
             if matches!(enemy.family, EnemyFamily::Drips) && enemy.drips_attached {
                 // ASM Drips.asm loc_33424/loc_33488 keeps the attached
                 // parent/controller internal after the ceiling attach phase;

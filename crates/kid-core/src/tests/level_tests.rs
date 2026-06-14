@@ -18470,8 +18470,10 @@ mod chunk_02 {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(14));
         start_level(&mut runtime);
+        advance_past_level_entry_damage_grace(&mut runtime);
 
         let diamonds_before = runtime.progression.diamond_count;
+        let hp_before = runtime.progression.number_hitpoints;
 
         // Activate Diamond
         if let Some(ref mut slice) = runtime.opening_slice {
@@ -18496,10 +18498,16 @@ mod chunk_02 {
             slice.camera.y_pos = 0;
         }
         runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput::default());
 
         assert_eq!(
             runtime.progression.diamond_count, diamonds_before,
             "ASM Diamond.asm loc_3AD16 creates an HP enemy, not a prize diamond counter award"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            hp_before - 1,
+            "ASM Diamond.asm loc_3AEC4 keeps Diamond in the enemy collision path, so overlap should damage Kid on the next Character_CheckCollision pass"
         );
         assert!(
             runtime
