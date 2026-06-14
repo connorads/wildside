@@ -12463,6 +12463,14 @@ mod chunk_09 {
         );
     }
 
+    fn supported_fire_demon_trail_grid_loc_3a63c() -> terrain::BlockGrid {
+        let mut data = vec![0u8; 5 * 5 * 2];
+        for col in 1..=3 {
+            data[(2 * 5 + col) * 2] = 0x60;
+        }
+        terrain::BlockGrid::from_level_layout(&data, 5, 5)
+    }
+
     #[test]
     fn dragon_walking_breath_hits_player_without_consuming_child_loc_3d082() {
         let mut rt = NativeRuntime::new(manifest());
@@ -12563,6 +12571,99 @@ mod chunk_09 {
             "ASM loc_3A63C: y_pos += $F, then align down with $FFF0"
         );
         assert_eq!(rt.fire_demon_trails[0].remaining_frames, 0x96);
+    }
+
+    #[test]
+    fn fire_demon_walking_trail_spawns_typed_child_loc_3a542_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_grid = Some(supported_fire_demon_trail_grid_loc_3a63c());
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0020_0000, 0x0020_0000, 3);
+        demon.on_ground = true;
+        rt.active_enemies.push(demon);
+
+        rt.spawn_fire_demon_walking_trails_loc_3a542();
+
+        assert_eq!(rt.fire_demon_trails.len(), 1);
+        assert_eq!(rt.fire_demon_trails[0].x_pos, 0x0020_0000);
+        assert_eq!(
+            rt.fire_demon_trails[0].y_pos, 0x0020_0000,
+            "ASM Fire_Demon.asm loc_3A63C applies y += $F then aligns down with $FFF0 for walking fire trails too"
+        );
+        assert_eq!(rt.fire_demon_trails[0].remaining_frames, 0x96);
+        assert_eq!(
+            rt.active_enemies[0].grounded_frames, 1,
+            "ASM Fire_Demon.asm loc_3A542 advances through the saved walking animation after the allocation gate"
+        );
+    }
+
+    #[test]
+    fn fire_demon_walking_trail_respects_seven_child_cap_loc_3a564() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_grid = Some(supported_fire_demon_trail_grid_loc_3a63c());
+        rt.fire_demon_trails = vec![
+            FireDemonTrailChild {
+                x_pos: 0x0020_0000,
+                y_pos: 0x0020_0000,
+                remaining_frames: 0x96,
+            };
+            7
+        ];
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0020_0000, 0x0020_0000, 3);
+        demon.on_ground = true;
+        rt.active_enemies.push(demon);
+
+        rt.spawn_fire_demon_walking_trails_loc_3a542();
+
+        assert_eq!(
+            rt.fire_demon_trails.len(),
+            7,
+            "ASM Fire_Demon.asm loc_3A564 does not allocate when Number_of_Fire_Trails is already 7"
+        );
+        assert_eq!(
+            rt.active_enemies[0].grounded_frames, 1,
+            "ASM Fire_Demon.asm loc_3A542 still advances the parent animation when allocation is capped"
+        );
+    }
+
+    #[test]
+    fn fire_demon_walking_trail_skips_unsupported_floor_loc_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_grid = Some(terrain::BlockGrid::from_level_layout(
+            &vec![0u8; 5 * 5 * 2],
+            5,
+            5,
+        ));
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0020_0000, 0x0020_0000, 3);
+        demon.on_ground = true;
+        rt.active_enemies.push(demon);
+
+        rt.spawn_fire_demon_walking_trails_loc_3a542();
+
+        assert!(
+            rt.fire_demon_trails.is_empty(),
+            "ASM Fire_Demon.asm loc_3A63C falls through to loc_3A6DA before the child is observable when the floor probes do not all mask to `$6000`"
+        );
+        assert_eq!(rt.active_enemies[0].grounded_frames, 1);
+    }
+
+    #[test]
+    fn fire_demon_walking_trail_uses_raw_level_two_saved_walk_cadence_loc_3a542() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_grid = Some(supported_fire_demon_trail_grid_loc_3a63c());
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0020_0000, 0x0020_0000, 5);
+        demon.enemy_level = 2;
+        demon.on_ground = true;
+        demon.grounded_frames = 18;
+        rt.active_enemies.push(demon);
+
+        rt.spawn_fire_demon_walking_trails_loc_3a542();
+
+        assert_eq!(
+            rt.fire_demon_trails.len(),
+            1,
+            "ASM Fire_Demon.asm loc_3A542 uses raw enemy_level 2's saved stru_3A334 cadence even if current HP later differs"
+        );
+        assert_eq!(rt.active_enemies[0].grounded_frames, 1);
     }
 
     #[test]

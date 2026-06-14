@@ -71,7 +71,7 @@ pub(crate) fn kid_projectile_collision_passes_sub_1D76() -> [KidProjectileCollis
     ]
 }
 
-fn fire_demon_trail_has_floor_support_loc_3a63c(
+pub(crate) fn fire_demon_trail_has_floor_support_loc_3a63c(
     grid: &terrain::BlockGrid,
     x_pos: u32,
     y_pos: u32,

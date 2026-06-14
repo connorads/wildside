@@ -11,6 +11,7 @@ use crate::combat::{
     heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
     QueuedSoundEffect,
 };
+use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
 pub(crate) const MINI_SKULL_JUMP_X_SPEED_FP: i32 = 0x0001_8000;
@@ -5160,6 +5161,43 @@ pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
             spawns_fire_trail: false,
             next_fire_trail_count: fire_trail_count,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct FireDemonWalkingTrailStepLoc3A542 {
+    pub(crate) spawns_fire_trail: bool,
+    pub(crate) next_fire_trail_count: u16,
+    pub(crate) next_animation_phase: u8,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn fire_demon_walking_trail_step_loc_3a542(
+    raw_enemy_level: u16,
+    animation_phase: u8,
+    fire_trail_count: u16,
+) -> FireDemonWalkingTrailStepLoc3A542 {
+    // ASM Fire_Demon.asm loc_3A542 runs while the saved walking script from
+    // `$62(a5)` is live. `stru_3A31A` uses six-frame entries; raw level 2
+    // saved `stru_3A334`, whose entries last three frames. Only the first
+    // timer tick of the first `LnkTo_unk_C771E` frame reaches allocation.
+    let frame_duration = if raw_enemy_level == 2 { 3 } else { 6 };
+    let loop_frames = frame_duration * 6;
+    let phase = u16::from(animation_phase) % loop_frames;
+    let sprite_is_trail_frame = phase < frame_duration;
+    let animation_timer = frame_duration - (phase % frame_duration);
+    let gate = fire_demon_fire_trail_gate_loc_3a542(
+        sprite_is_trail_frame,
+        raw_enemy_level,
+        animation_timer,
+        fire_trail_count,
+    );
+
+    FireDemonWalkingTrailStepLoc3A542 {
+        spawns_fire_trail: gate.spawns_fire_trail,
+        next_fire_trail_count: gate.next_fire_trail_count,
+        next_animation_phase: ((phase + 1) % loop_frames) as u8,
     }
 }
 
@@ -42107,6 +42145,49 @@ pub(crate) fn enemy_gfx_slot_init_loc_3219E(
 }
 
 impl NativeRuntime {
+    pub(crate) fn spawn_fire_demon_walking_trails_loc_3a542(&mut self) {
+        let grid = self.block_grid.as_ref();
+        let mut fire_trail_count = self.fire_demon_trails.len().min(usize::from(u16::MAX)) as u16;
+        let mut spawned_trails = Vec::new();
+
+        for enemy in &mut self.active_enemies {
+            if !matches!(enemy.family, EnemyFamily::FireDemon)
+                || !enemy.on_ground
+                || enemy.death_animation_active
+                || enemy.damage_flash_frames > 0
+                || enemy.wait_timer == FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
+            {
+                continue;
+            }
+
+            let step = fire_demon_walking_trail_step_loc_3a542(
+                u16::from(enemy.enemy_level),
+                enemy.grounded_frames,
+                fire_trail_count,
+            );
+            enemy.grounded_frames = step.next_animation_phase;
+            if !step.spawns_fire_trail {
+                continue;
+            }
+
+            let trail = fire_demon_death_trail_child_loc_3a63c(enemy.x_pos, enemy.y_pos);
+            if grid.is_some_and(|grid| {
+                !fire_demon_trail_has_floor_support_loc_3a63c(grid, trail.x_pos, trail.y_pos)
+            }) {
+                // ASM Fire_Demon.asm loc_3A63C immediately reaches loc_3A6DA
+                // when the three sampled floor cells fail the `$6000` support
+                // checks, undoing the allocation count before the child can be
+                // observed.
+                continue;
+            }
+
+            fire_trail_count = step.next_fire_trail_count;
+            spawned_trails.push(trail);
+        }
+
+        self.fire_demon_trails.extend(spawned_trails);
+    }
+
     pub(crate) fn prime_respawn_settle_enemy_loading_loc_368a8(&mut self, level_id: LevelId) {
         if !self.enemy_loading_enabled() {
             return;
@@ -42175,6 +42256,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     None,
                 );
+                self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
                 for drilled_block in drilled_blocks {
@@ -42216,6 +42298,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     None,
                 );
+                self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
                 for drilled_block in drilled_blocks {
@@ -42396,6 +42479,7 @@ impl NativeRuntime {
                 for effect in played_enemy_sound_effects {
                     self.queue_play_sound(effect);
                 }
+                self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let mut death_animation_hibernated_indices = Vec::new();
                 let mut death_animation_sound_indices = Vec::new();

@@ -4025,6 +4025,64 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_walking_trail_step_loc_3a542_uses_saved_walk_cadence() {
+        assert_eq!(
+            fire_demon_walking_trail_step_loc_3a542(0, 0, 0),
+            FireDemonWalkingTrailStepLoc3A542 {
+                spawns_fire_trail: true,
+                next_fire_trail_count: 1,
+                next_animation_phase: 1,
+            },
+            "ASM Fire_Demon.asm loc_3A542 allocates on the first timer tick of the first LnkTo_unk_C771E frame; stru_3A31A uses six-frame entries"
+        );
+        assert_eq!(
+            fire_demon_walking_trail_step_loc_3a542(0, 1, 0),
+            FireDemonWalkingTrailStepLoc3A542 {
+                spawns_fire_trail: false,
+                next_fire_trail_count: 0,
+                next_animation_phase: 2,
+            },
+            "ASM Fire_Demon.asm loc_3A542 skips the remaining ticks of the same visible fire frame because animation_timer is below 6"
+        );
+        assert_eq!(
+            fire_demon_walking_trail_step_loc_3a542(0, 35, 0),
+            FireDemonWalkingTrailStepLoc3A542 {
+                spawns_fire_trail: false,
+                next_fire_trail_count: 0,
+                next_animation_phase: 0,
+            },
+            "ASM Fire_Demon.asm stru_3A31A is a six-frame loop with six ticks per frame"
+        );
+        assert_eq!(
+            fire_demon_walking_trail_step_loc_3a542(2, 0, 0),
+            FireDemonWalkingTrailStepLoc3A542 {
+                spawns_fire_trail: true,
+                next_fire_trail_count: 1,
+                next_animation_phase: 1,
+            },
+            "ASM Fire_Demon.asm loc_3A542 uses raw enemy_level 2's saved stru_3A334, whose frame timer reaches 3 instead of 6"
+        );
+        assert_eq!(
+            fire_demon_walking_trail_step_loc_3a542(2, 1, 0),
+            FireDemonWalkingTrailStepLoc3A542 {
+                spawns_fire_trail: false,
+                next_fire_trail_count: 0,
+                next_animation_phase: 2,
+            },
+            "ASM Fire_Demon.asm loc_3A55C only lets raw level 2 allocate while animation_timer is exactly 3"
+        );
+        assert_eq!(
+            fire_demon_walking_trail_step_loc_3a542(0, 0, 7),
+            FireDemonWalkingTrailStepLoc3A542 {
+                spawns_fire_trail: false,
+                next_fire_trail_count: 7,
+                next_animation_phase: 1,
+            },
+            "ASM Fire_Demon.asm loc_3A564 enforces Number_of_Fire_Trails < 7 while animation continues"
+        );
+    }
+
+    #[test]
     fn fire_demon_collision_loc_3a564_allocates_while_trail_count_below_seven() {
         assert_eq!(
             fire_demon_fire_trail_allocation_loc_3a564(6),
