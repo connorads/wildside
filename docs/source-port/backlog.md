@@ -439,6 +439,18 @@ and stop — never commit churn.
   while remaining `dy=-65` from row-32 cells. Do not repeat this
   pre-250/B+Left sling plus late B+Right/Left/Right tail as metal-block proof
   without changing the Drips cycle or vertical route.
+  Follow-up survivor seed:
+  `.cache/debug/issue260-prebl-longr-left-right-tail-20260614/oracle/oracle-frame-scenario.json`
+  (`240..470 none,250..320 B+Left,321..390 Right,391..430 B+Left,
+  470..530 B+Right,500..530 Left,531..700 Right`) verifies enemy-frontier clean
+  through frames `450..700`, remains InGame with HP 1, and improves the live
+  close-window evidence: DripsDrop separation is `dx=+1 dy=+2 @475` while Kid
+  reaches cell `28,32` at healthy `dx=0 dy=-1 @480`. This is still not the
+  reported slime/metal-block proof because the crawler only appears at frame
+  700 on the lower floor, `dx=-55 dy=+1` from Kid and still vertically separated
+  from row-32 cells. Use this as the current clean alive route seed; the next
+  useful search needs to alter the Drips cycle or vertical route so the child
+  reaches the row-32 block line, not just keep trimming the post-500 recovery.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
