@@ -6144,6 +6144,31 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_live_relaunch_applies_patrol_bounds_like_loc_36770() {
+        let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x00C0_0000, 0x00E0_0000, 3);
+        skull.x_velocity = 0;
+        skull.y_velocity = 0x0000_0001;
+        skull.target_x_velocity = 0x0001_2222;
+        skull.wait_timer = 1;
+        skull.facing = Direction::Right;
+
+        enemies::step_big_hopping_skull_with_bounds(&mut skull, None, 0x0040, 0x00C0);
+
+        assert_eq!(
+            skull.x_velocity,
+            i32::from_ne_bytes(0xFFFF_2222_u32.to_ne_bytes()),
+            "ASM Big_Hopping_Skull.asm loc_36798 should force leftward relaunch at the stored right patrol bound",
+        );
+        assert_eq!(
+            skull.y_velocity,
+            i32::from_ne_bytes(0xFFFE_0001_u32.to_ne_bytes()),
+            "ASM Big_Hopping_Skull.asm loc_36798 should still write y_vel high word $FFFE at the corridor edge",
+        );
+        assert_eq!(skull.facing, Direction::Left);
+        assert_eq!(skull.wait_timer, 0);
+    }
+
+    #[test]
     fn big_hopping_skull_collision_dispatch_matches_loc_3674e() {
         assert_eq!(
             enemies::big_hopping_skull_collision_dispatch_loc_3674e(0),

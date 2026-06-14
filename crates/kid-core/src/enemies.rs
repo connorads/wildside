@@ -6480,6 +6480,8 @@ pub(crate) struct ActiveEnemy {
     /// Tornado reuses this as the next `loc_359F2` pattern index from `unk_35A0C`.
     pub(crate) dragon_script_cmd: u8,
     /// Dragon Flying: anchor Y position (FP16.16) — initial spawn Y to return to.
+    /// Big Hopping Skull reuses this as packed `loc_364A0` patrol bounds because
+    /// that family never reads the Dragon Flying anchor state.
     pub(crate) dragon_anchor_y: u32,
     /// Dragon Flying: descent sub-script entry index.
     pub(crate) dragon_descent_index: u8,
@@ -8560,6 +8562,8 @@ const DRAGON_DIVE_SCRIPT: &[DragonDiveAction] = &[
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct EnemyLayoutView<'a> {
     pub(crate) segment_index: usize,
+    pub(crate) lower_bound: u16,
+    pub(crate) upper_bound: u16,
     pub(crate) enemy_type_slots: &'a [u16],
     pub(crate) objects: &'a [EnemyLayoutObject],
 }
@@ -9597,7 +9601,14 @@ fn activate_enemies_with_rng_inner(
                 dragon_phase_frames: 0,
                 dragon_script_variant: dragon_variant,
                 dragon_script_cmd: 0,
-                dragon_anchor_y: head_y,
+                dragon_anchor_y: if matches!(family, EnemyFamily::BigHoppingSkull) {
+                    big_hopping_skull_pack_patrol_bounds_loc_364a0(
+                        view.lower_bound,
+                        view.upper_bound,
+                    )
+                } else {
+                    head_y
+                },
                 dragon_descent_index: 0,
                 dragon_descent_frames: 0,
                 ninja_state: NinjaState::Stealth,
@@ -9806,7 +9817,14 @@ pub(crate) fn step_active_enemies_with_rng(
             EnemyArchetype::Inert => {}
             EnemyArchetype::Bouncer => {
                 if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
-                    step_big_hopping_skull(enemy, block_grid);
+                    let (left_bound_word, right_bound_word) =
+                        big_hopping_skull_unpack_patrol_bounds_loc_364a0(enemy.dragon_anchor_y);
+                    step_big_hopping_skull_with_bounds(
+                        enemy,
+                        block_grid,
+                        left_bound_word,
+                        right_bound_word,
+                    );
                 } else {
                     step_bouncer_with_rng(
                         enemy,
@@ -13981,9 +13999,19 @@ pub(crate) fn fireball_main_loop_y_velocity_loc_32c1a(enemy: &ActiveEnemy) -> i3
 /// Gravity $FA0/frame, deflects off all surfaces. No ground delay.
 /// Floor: relaunch with y_vel high word $FFFE. Wall: backup 2x, negate x_vel, clear y_vel.
 /// Ceiling: negate y_vel. Slope up: swap+negate both. Slope down: swap only.
+#[cfg(test)]
 pub(crate) fn step_big_hopping_skull(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
+) {
+    step_big_hopping_skull_with_bounds(enemy, block_grid, i16::MIN, i16::MAX);
+}
+
+pub(crate) fn step_big_hopping_skull_with_bounds(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    left_bound_word: i16,
+    right_bound_word: i16,
 ) {
     if enemy.wait_timer > 0 {
         enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
@@ -13993,6 +14021,17 @@ pub(crate) fn step_big_hopping_skull(
             // x_vel and write only y_vel's high word to $FFFE.
             enemy.x_velocity = enemy.target_x_velocity;
             enemy.y_velocity = write_velocity_high_word(enemy.y_velocity, -2);
+            let corrected = big_hopping_skull_bounds_correction_loc_36770(
+                (enemy.x_pos >> 16) as i16,
+                left_bound_word,
+                right_bound_word,
+                enemy.x_velocity,
+                enemy.y_velocity,
+                enemy.facing,
+            );
+            enemy.x_velocity = corrected.x_velocity;
+            enemy.y_velocity = corrected.y_velocity;
+            enemy.facing = corrected.facing;
             enemy.on_ground = false;
         }
         return;
@@ -14072,6 +14111,28 @@ pub(crate) fn step_big_hopping_skull(
         if ceil.hit && enemy.y_velocity < 0 {
             enemy.y_velocity = -enemy.y_velocity;
         }
+    }
+}
+
+const BIG_HOPPING_SKULL_UNBOUNDED_PATROL_BOUNDS: u32 = 0;
+
+fn big_hopping_skull_pack_patrol_bounds_loc_364a0(
+    lower_bound: u16,
+    upper_bound: u16,
+) -> u32 {
+    // ASM Big_Hopping_Skull.asm loc_364A0: copy the active enemy header
+    // thresholds into `$3E/$40`, then add `$40` to the previous threshold
+    // and subtract `$40` from the current threshold before loc_36770.
+    let left_bound = lower_bound.wrapping_add(0x0040);
+    let right_bound = upper_bound.wrapping_sub(0x0040);
+    (u32::from(left_bound) << 16) | u32::from(right_bound)
+}
+
+fn big_hopping_skull_unpack_patrol_bounds_loc_364a0(packed: u32) -> (i16, i16) {
+    if packed == BIG_HOPPING_SKULL_UNBOUNDED_PATROL_BOUNDS {
+        (i16::MIN, i16::MAX)
+    } else {
+        ((packed >> 16) as u16 as i16, packed as u16 as i16)
     }
 }
 
@@ -41138,6 +41199,8 @@ pub(crate) fn enemy_layout_view(
     if layout.segments.is_empty() {
         return EnemyLayoutView {
             segment_index: 0,
+            lower_bound: 0,
+            upper_bound: u16::MAX,
             enemy_type_slots: &layout.enemy_type_slots,
             objects: &layout.objects,
         };
@@ -41160,6 +41223,8 @@ pub(crate) fn enemy_layout_view(
     let segment = &layout.segments[selected_index];
     EnemyLayoutView {
         segment_index: selected_index,
+        lower_bound: segment.lower_bound,
+        upper_bound: segment.upper_bound,
         enemy_type_slots: &segment.enemy_type_slots,
         objects: &segment.objects,
     }
