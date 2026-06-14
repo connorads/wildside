@@ -20072,6 +20072,40 @@ mod chunk_02 {
     }
 
     #[test]
+    fn collected_cyclone_prize_renders_on_first_forward_transform_frame_loc_104ae_7cd0() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.floating_items.push(FloatingItem {
+            x_pos: 72 << 16,
+            y_pos: i64::from(624 << 16),
+            y_velocity: 0,
+            remaining: 0x0300,
+            spawn_delay: 0,
+            level_col: 0,
+            level_row: 0,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Cyclone,
+            collected: false,
+            collision_latched: false,
+        });
+        let mut slice = make_airborne_slice(74, 655);
+
+        runtime.collect_floating_items(&mut slice);
+        assert!(!runtime.handle_pending_form_change_sub_7acc(&mut slice));
+        assert_eq!(runtime.progression.current_form, PlayerForm::Cyclone);
+        assert_eq!(
+            runtime.progression.form_change_flash_frames,
+            (crate::combat::transform_anim_frames(PlayerForm::Cyclone) + 1) as u8
+        );
+
+        assert_eq!(
+            runtime.trace_frame().floating_items,
+            vec![(72, 624, 0x0300, terrain::PrizeContent::Cyclone.to_id())],
+            "ASM PrizeHelmetCyclone_Init loc_104AE deletes through Kid_Transform loc_7CD0's first forward frame; oracle still draws the picked-up mask for that one render frame"
+        );
+    }
+
+    #[test]
     fn collecting_clock_preserves_item_coords_until_visual_cleanup() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.floating_items.push(FloatingItem {
