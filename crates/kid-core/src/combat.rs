@@ -8553,6 +8553,12 @@ impl NativeRuntime {
                 // the skull-specific death cue before initialising `stru_367FA`.
                 self.queue_play_sound(QueuedSoundEffect::BigHoppingSkullDies);
             }
+            if matches!(family, EnemyFamily::EmoRock) {
+                // ASM Emo_Rock.asm loc_36346: after the first break-animation
+                // hibernate, play `sfx_Prize_block` before waiting for
+                // `stru_36468` to finish and applying the status tail.
+                self.queue_play_sound(QueuedSoundEffect::PrizeBlock);
+            }
             let enemy = &mut self.active_enemies[idx];
             enemy.hit_points = 0;
             enemy.death_animation_active = true;
@@ -8585,6 +8591,17 @@ impl NativeRuntime {
                 // ASM Big_Hopping_Skull.asm loc_366A4: after `stru_367FA`
                 // finishes, positive `$42(a5)` writes `$2168` before the
                 // common loc_366B2 delete tail.
+                *word = marker.word_value;
+            }
+        }
+        if matches!(family, EnemyFamily::EmoRock) {
+            let status = emo_rock_death_status_loc_3639A(layout_index as u8);
+            if let EmoRockDeathStatusRouteLoc3639A::WriteRespawnMarker(marker) =
+                status.status_route
+                && let Some(word) = self.enemy_status_words.get_mut(marker.index)
+            {
+                // ASM Emo_Rock.asm loc_3638C: after `stru_36468` finishes,
+                // positive `$42(a5)` writes `$2168` before loc_3639A deletes.
                 *word = marker.word_value;
             }
         }

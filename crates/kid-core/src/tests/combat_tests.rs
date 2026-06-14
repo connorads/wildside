@@ -14045,7 +14045,7 @@ mod chunk_03 {
     fn emo_rock_death_waits_for_stru_36468_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut emo_rock = test_enemy(EnemyFamily::EmoRock, 0x0080_0000, 0x0040_0000, 1);
-        emo_rock.layout_index = 30;
+        emo_rock.layout_index = 29;
         let killed_identity = (emo_rock.segment_index, emo_rock.layout_index);
         runtime.active_enemies = vec![emo_rock];
 
@@ -14061,6 +14061,15 @@ mod chunk_03 {
             runtime.active_enemies[0].wait_timer,
             EMO_ROCK_DEATH_ANIMATION_FRAMES
         );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::PrizeBlock],
+            "ASM Emo_Rock.asm loc_36346 should play `sfx_Prize_block` when the break animation starts"
+        );
+        assert_eq!(
+            runtime.enemy_status_words[29], 0,
+            "ASM Emo_Rock.asm loc_3638C should not write the respawn marker until `stru_36468` finishes"
+        );
         assert!(!runtime.killed_enemies.contains(&killed_identity));
 
         runtime.active_enemies[0].wait_timer = 0;
@@ -14068,6 +14077,10 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[29], 0x2168,
+            "ASM Emo_Rock.asm loc_3638C writes `$2168` into EnemyStatus_Table after the death animation finishes"
+        );
     }
 
     #[test]
