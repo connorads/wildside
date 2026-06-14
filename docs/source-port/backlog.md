@@ -451,6 +451,10 @@ and stop — never commit churn.
   from row-32 cells. Use this as the current clean alive route seed; the next
   useful search needs to alter the Drips cycle or vertical route so the child
   reaches the row-32 block line, not just keep trimming the post-500 recovery.
+  Drips-trace clarification: on this seed `tas-diff --drips-trace` frames
+  `468..482` shows #07 falling through cells `28,34`/`28,35`/`28,36`, then
+  splashing at frame 477 and reseeding at frame 478; the row-32 score is only
+  a Kid/cell proximity metric, not a `$0C` splash on the reported block line.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
