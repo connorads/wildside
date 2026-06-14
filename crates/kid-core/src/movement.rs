@@ -7145,6 +7145,11 @@ impl OpeningSliceState {
             let next_cell = grid.cell_at(next_col, row);
             let post_vertical_frac = post_vertical_y_pos & 0x0000_FFFF;
             let is_4082_6024_seam = current_cell.skin == 0x82 && next_cell.skin == 0x24;
+            let is_4082_solid_edge = current_cell.skin == 0x82
+                && matches!(
+                    next_cell.collision,
+                    terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                );
             let is_406d_606e_seam = current_cell.skin == 0x6D && next_cell.skin == 0x6E;
             let red_stealth_high_fraction_4082_handoff =
                 form == PlayerForm::RedStealth && is_4082_6024_seam && post_vertical_frac >= 0x4000;
@@ -7152,6 +7157,8 @@ impl OpeningSliceState {
                 post_vertical_frac <= 0x1000 || post_vertical_frac >= 0x4000;
             let applies_solid_edge_high_borrow = if is_4082_6024_seam {
                 post_vertical_frac <= 0x0800 || red_stealth_high_fraction_4082_handoff
+            } else if is_4082_solid_edge {
+                false
             } else if is_406d_606e_seam {
                 (form == PlayerForm::IronKnight && post_vertical_frac >= 0x4000)
                     || (form == PlayerForm::TheKid
@@ -7194,7 +7201,9 @@ impl OpeningSliceState {
                 // the same seam through loc_9E94/loc_9EA4; oracle #211 frame
                 // 606 proves that high-fraction special-form branch keeps the
                 // post-loc_9F18 composition directly after borrowing the high
-                // word.
+                // word. The natural #258 frame 451 route reaches a
+                // `$4082/$607F` edge at fraction 0x8000; unlike the non-4082
+                // generic solid edge, oracle keeps the unborrowed high word.
                 let corrected_high = if applies_solid_edge_high_borrow {
                     (future_x_pos & 0xFFFF_0000).saturating_sub(0x0001_0000)
                 } else {

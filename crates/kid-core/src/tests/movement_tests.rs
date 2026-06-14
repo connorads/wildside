@@ -19350,6 +19350,72 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the natural #258
+    /// right+B window starting at frame 428 recontacts the first Level 00
+    /// SlopeUp/Solid edge at frame 451. Oracle enters the slope-walk handoff
+    /// one pixel farther right/up than native previously did, fixing the
+    /// visible right-stair jump launcher path without using the direct-start
+    /// probe's contaminated setup phase.
+    #[test]
+    fn level00_frame_451_natural_right_slope_jump_recontact_matches_oracle_loc_a99e() {
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let Some(mut grid) = runtime.block_grid_for_level(LevelId(0)) else {
+            return;
+        };
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02f8_8e00;
+        slice.player.y_pos = 0x00df_8000;
+        slice.player.x_velocity = 0x0002_7c00;
+        slice.player.y_velocity = 0x0002_c000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::from_mask(0x18),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("ASM loc_A99E focused case should retain physics trace");
+        assert_eq!(
+            trace.post_vertical.0, 0x00e2_8000,
+            "ASM sub_902A post-vertical lands on the natural #258 SlopeUp/Solid edge",
+        );
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_pos, 0x02fd_3b00,
+            "ASM loc_A99E/loc_8BF0 should match oracle #258 natural frame 451 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00e2_0000,
+            "ASM loc_9D22 should match oracle #258 natural frame 451 y_pos",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_3b00,
+            "ASM loc_9D22 should keep the oracle frame 451 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
     /// ASM sub_A4EE -> loc_B9A2 -> loc_9D58: Red Stealth reaches the Level 00
     /// row-12 SlopeUp through the compound x/y object-collision pass before
     /// sub_902A's old-X vertical scan can report a floor contact. Oracle #269
