@@ -83,7 +83,7 @@ use scenarios::{
     issue_271_level00_dragon_stomp_damage_audit_scenario,
     issue_271_level01_rock_tank_stomp_route_audit_scenario,
     issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
-    level_00_slope_right_probe_iron_knight_scenario,
+    level_00_slope_right_jump_probe_scenario, level_00_slope_right_probe_iron_knight_scenario,
     level_00_slope_right_probe_juggernaut_scenario,
     level_00_slope_right_probe_red_stealth_scenario, level_00_slope_right_probe_scenario,
     prize_block_scenario, run_native_dynamic_scenario, stomp_enemy_scenario,
@@ -148,6 +148,8 @@ enum RecordScenarioKind {
     Issue216PrizeAudioAudit,
     /// start on Blue Lake Woods 1's first `$4000` slope and hold Right.
     Level00SlopeRightProbe,
+    /// start on Blue Lake Woods 1's first `$4000` slope, hold Right, then jump.
+    Level00SlopeRightJumpProbe,
     /// start Red Stealth/Samurai on Blue Lake Woods 1's first `$4000` slope and hold Right.
     Level00SlopeRightProbeRedStealth,
     /// start Iron Knight on Blue Lake Woods 1's first `$4000` slope and hold Right.
@@ -3451,6 +3453,9 @@ fn build_record_scenario(
         RecordScenarioKind::PrizeBlock => prize_block_scenario(level),
         RecordScenarioKind::Issue216PrizeAudioAudit => issue_216_prize_audio_audit_scenario(),
         RecordScenarioKind::Level00SlopeRightProbe => level_00_slope_right_probe_scenario(),
+        RecordScenarioKind::Level00SlopeRightJumpProbe => {
+            level_00_slope_right_jump_probe_scenario()
+        }
         RecordScenarioKind::Level00SlopeRightProbeRedStealth => {
             level_00_slope_right_probe_red_stealth_scenario()
         }
@@ -3584,6 +3589,7 @@ fn record_scenario_command(
         RecordScenarioKind::PrizeBlock => "prize-block",
         RecordScenarioKind::Issue216PrizeAudioAudit => "issue216-prize-audio-audit",
         RecordScenarioKind::Level00SlopeRightProbe => "level00-slope-right-probe",
+        RecordScenarioKind::Level00SlopeRightJumpProbe => "level00-slope-right-jump-probe",
         RecordScenarioKind::Level00SlopeRightProbeRedStealth => {
             "level00-slope-right-probe-red-stealth"
         }
@@ -5745,6 +5751,36 @@ AddrTbl_LevelNames:
             scenario.script.first(),
             Some(&(1 << 3)),
             "ASM loc_9D22/loc_9F18 consume held Right while slope collision is active"
+        );
+        assert_eq!(scenario.playtest_form, None);
+        assert_eq!(
+            scenario
+                .start_position
+                .map(|position| (position.x, position.y)),
+            Some((760, 231))
+        );
+    }
+
+    #[test]
+    fn build_record_scenario_level_00_slope_jump_probe_uses_named_window() {
+        let scenario =
+            build_record_scenario(RecordScenarioKind::Level00SlopeRightJumpProbe, 0x05, None);
+
+        assert_eq!(scenario.slug, "level_00_slope_right_jump_probe");
+        assert_eq!(
+            scenario.warp_to_level,
+            Some(0x00),
+            "named Level 00 slope jump probe must not accidentally follow the generic --level argument"
+        );
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.script[0], 0,
+            "explicit probe starts need one neutral frame before native/oracle input comparison"
+        );
+        assert_eq!(
+            scenario.script[13],
+            (1 << 3) | (1 << 4),
+            "ASM loc_9F18 should see a held-Right B press on the active slope window"
         );
         assert_eq!(scenario.playtest_form, None);
         assert_eq!(

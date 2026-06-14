@@ -60,6 +60,18 @@ and stop — never commit churn.
   prize route still gives a Diamond and blocks progress (#284/#274/#273).
 - **Next**: #258/#277 first-level stair/slope jump repro, then #284/#274 Cyclone prize
   if the movement route does not yield an actionable oracle split.
+- **#258/#277 repro update (2026-06-14)**: added named probe
+  `level00-slope-right-jump-probe` / recording
+  `.cache/recordings/issue258-slope-right-jump-probe/scenario.json`. It starts
+  at BLW1 `(760,231)`, holds Right after one neutral explicit-start frame, and
+  pulses B on frame 13. Native/oracle diverge around the slope jump: at frame 15
+  native keeps `kid_x_vel=0x6000` and frame 17 reaches `0xB600`, while oracle
+  enters the `loc_AA22` jump/wall loop with `kid_x_vel=0` at frame 15 and only
+  `0x2B00` by frame 17. Rejected hypothesis: this is not the slope-walk
+  side-clamp guard suppressing `sub_8F26`; the native wall probe reports no hit
+  on the split frame. Next investigation should trace the one-pixel earlier
+  oracle slope phase / `loc_AA22` entry rather than broadening slope-as-wall
+  collision.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still

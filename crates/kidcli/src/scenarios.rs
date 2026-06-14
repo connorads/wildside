@@ -625,6 +625,60 @@ pub fn level_00_slope_right_probe_scenario() -> DynamicScenario {
     level_00_slope_right_probe_scenario_for("level_00_slope_right_probe", None)
 }
 
+/// Focused #258/#277 playtest repro for jumping while holding Right on the
+/// first Blue Lake Woods 1 `$4000` slope.
+///
+/// ASM loc_9D22/loc_9F18 handles held horizontal input on slopes and consumes
+/// `Ctrl_Pressed.Button_B` at loc_9F18 to enter the jump path. The pulse below
+/// uses one neutral prefix frame so native and oracle agree on the explicit
+/// probe write before input movement begins. It then keeps Right held through
+/// the same proven start window and presses B once while slope collision is
+/// active so native/oracle can compare the reported 45-degree launch behaviour.
+pub fn level_00_slope_right_jump_probe_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 120;
+    const RIGHT: u8 = 1 << 3;
+    const BUTTON_B: u8 = 1 << 4;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 1, FRAME_COUNT.saturating_sub(1), RIGHT);
+    apply_range(&mut script, 13, 13, RIGHT | BUTTON_B);
+
+    DynamicScenario {
+        slug: "level_00_slope_right_jump_probe".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "slope_jump_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "pre_jump_slope_contact".into(),
+                frame_index: 12,
+            },
+            DynamicCheckpoint {
+                label: "jump_press".into(),
+                frame_index: 13,
+            },
+            DynamicCheckpoint {
+                label: "post_jump_launch".into(),
+                frame_index: 20,
+            },
+            DynamicCheckpoint {
+                label: "slope_jump_tail".into(),
+                frame_index: FRAME_COUNT.saturating_sub(1),
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 760, y: 231 }),
+        start_velocity: None,
+        camera_position: Some(DynamicStartPosition { x: 608, y: 32 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x00),
+        settle_oracle_warp: true,
+    }
+}
+
 /// ASM GfxObjects_Collision_UpSlope (`$4000` cells) feeds Kid movement through
 /// loc_9D22/loc_9F18; these form variants keep that exact window but seed the
 /// playtest helmet IDs so animation latches can be compared per form.
@@ -2386,9 +2440,9 @@ mod tests {
         issue_271_level00_dragon_stomp_damage_audit_scenario,
         issue_271_level01_rock_tank_stomp_route_audit_scenario,
         issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
-        level_00_slope_right_probe_scenario, prize_block_scenario, stomp_enemy_scenario,
-        walk_right_iron_knight_scenario, walk_right_juggernaut_scenario,
-        walk_right_red_stealth_scenario, walk_right_scenario,
+        level_00_slope_right_jump_probe_scenario, level_00_slope_right_probe_scenario,
+        prize_block_scenario, stomp_enemy_scenario, walk_right_iron_knight_scenario,
+        walk_right_juggernaut_scenario, walk_right_red_stealth_scenario, walk_right_scenario,
     };
 
     #[test]
@@ -3523,6 +3577,68 @@ mod tests {
                 "slope_anim_window",
                 "slope_mid",
                 "slope_tail",
+            ]
+        );
+    }
+
+    #[test]
+    fn level_00_slope_right_jump_probe_presses_b_while_holding_right() {
+        let scenario = level_00_slope_right_jump_probe_scenario();
+
+        assert_eq!(scenario.slug, "level_00_slope_right_jump_probe");
+        assert_eq!(scenario.warp_to_level, Some(0x00));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 760, y: 231 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 608, y: 32 })
+        );
+        assert_eq!(scenario.frame_count, 120);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+        assert_eq!(
+            scenario.script[0], 0,
+            "explicit probe starts need one neutral frame before native/oracle input comparison"
+        );
+        assert!(
+            scenario
+                .script
+                .iter()
+                .take(scenario.frame_count)
+                .skip(1)
+                .all(|buttons| buttons & (1 << 3) != 0),
+            "slope jump probe must keep Right held after the neutral prefix frame"
+        );
+        assert_eq!(
+            scenario.script[13],
+            (1 << 3) | (1 << 4),
+            "ASM loc_9F18 consumes Ctrl_Pressed.Button_B while loc_9D22 keeps Right-held slope motion live"
+        );
+        assert!(
+            scenario
+                .script
+                .iter()
+                .take(scenario.frame_count)
+                .enumerate()
+                .filter(|(_, buttons)| *buttons & (1 << 4) != 0)
+                .map(|(frame, _)| frame)
+                .eq([13]),
+            "jump probe should contain one clean B press"
+        );
+        assert_eq!(
+            scenario
+                .checkpoints
+                .iter()
+                .map(|checkpoint| checkpoint.label.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "slope_jump_start",
+                "pre_jump_slope_contact",
+                "jump_press",
+                "post_jump_launch",
+                "slope_jump_tail",
             ]
         );
     }
