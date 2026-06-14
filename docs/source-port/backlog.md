@@ -119,7 +119,11 @@ and stop — never commit churn.
   now preserves non-prize live `Level_Layout` cells and the route verifies with
   no authoritative divergences through frames `0..700`. This is a fixed
   sub-case only: it removes the stale centre-`EC2D` false-prize branch, but it is
-  still not the reported live slime/metal-block contact repro. A brakehop-seed
+  still not the reported live slime/metal-block contact repro. Success criteria
+  on these centre cells should not be "find `Destroy`": raw `$EC2D` is a type-C
+  Drill/shooter cell, and ROM `off_BB80[$C]` is a headbutt no-op. Prefer probes
+  that show the reported red projectile/type-C route or a live Drips child
+  occupying the same row-32 cell window while Kid contacts the cell. A brakehop-seed
   tail branch, `.cache/recordings/issue-260-brakehop-b450-l485/scenario.json`
   (`300..430 Right`, `431..449 none`, `450..484 B`, `485..520 Left`), verifies
   enemy-frontier clean for frames `450..510` and `tas-diff` reports 57 matched
