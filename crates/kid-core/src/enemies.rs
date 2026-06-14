@@ -9,6 +9,7 @@ use crate::combat::{
     boss_eye_attack_init_sub_37332, boss_head_movement_step_for_family_sub_39846,
     boss_head_projectile_spawn_sub_397E4, heady_metal_palette_cycle_sub_379E8,
     heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
+    QueuedSoundEffect,
 };
 
 // MiniHoppingSkull hopper constants recovered from the enemy module.
@@ -9911,7 +9912,14 @@ pub(crate) fn step_active_enemies_with_rng(
                     step_hopper(enemy, block_grid, player_x_pos);
                 }
             }
-            EnemyArchetype::Hoverer => step_emo_rock(enemy, block_grid, player_x_pos, player_y_pos),
+            EnemyArchetype::Hoverer => step_emo_rock_with_rng(
+                enemy,
+                block_grid,
+                player_x_pos,
+                player_y_pos,
+                rng,
+                played_sound_effects.as_deref_mut(),
+            ),
             EnemyArchetype::Pacer => {
                 if matches!(enemy.family, EnemyFamily::Ninja) {
                     if enemy.wait_timer == NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C {
@@ -25260,6 +25268,10 @@ pub(crate) const EMO_ROCK_GRAVITY: [i32; 3] = [0x4000, 0x6000, 0x8000];
 pub(crate) const EMO_ROCK_VELOCITY_THRESHOLD: i32 = 0x6_0000;
 pub(crate) const EMO_ROCK_VELOCITY_CAP: i32 = 0x4_0000;
 
+/// Frames in the first `stru_363FE` landing animation script before `$18(a3)`
+/// sends Emo Rock to `loc_36320`.
+pub(crate) const EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4: u16 = 0x0088;
+
 pub(crate) const EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A: u16 = 0x3630;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25729,12 +25741,25 @@ pub(crate) fn emo_rock_death_status_loc_3639A(
 /// Step an EmoRock enemy through its state machine:
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
-/// - on_ground: walk like a pacer
+/// - on_ground: play the landing animation, disappear, then restart hover wait
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_emo_rock(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+) {
+    let mut rng = RomRandomState::default();
+    step_emo_rock_with_rng(enemy, block_grid, player_x_pos, player_y_pos, &mut rng, None);
+}
+
+pub(crate) fn step_emo_rock_with_rng(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    rng: &mut RomRandomState,
+    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     if enemy.wait_timer == EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A {
         step_emo_rock_berzerker_airborne(enemy);
@@ -25747,6 +25772,30 @@ pub(crate) fn step_emo_rock(
         // of entering a pacer-style ground walk.
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
+        if enemy.wait_timer > 0 {
+            enemy.wait_timer =
+                emo_rock_wait_countdown_loc_36212(enemy.wait_timer).remaining_wait_timer;
+            if enemy.wait_timer != 0 {
+                return;
+            }
+        }
+
+        let settled = emo_rock_settled_wait_loc_362b6(true, 0, false);
+        if matches!(settled.route, EmoRockSettledWaitRouteLoc362B6::Disappear) {
+            let disappear = emo_rock_disappear_loc_36320();
+            if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+                // ASM Emo_Rock.asm loc_36320: play `sfx_Emo_Rock_disappears`
+                // before `stru_36456` hibernates and branches to loc_361F4.
+                sound_effects.push(QueuedSoundEffect::EmoRockDisappears);
+            }
+            enemy.on_ground = false;
+            enemy.x_velocity = 0;
+            enemy.y_velocity = 0;
+            if disappear.has_kid_collision {
+                enemy.wait_timer =
+                    emo_rock_wait_timer_with_rng(rng, player_x_pos.unwrap_or(enemy.x_pos));
+            }
+        }
         return;
     }
 
@@ -25801,10 +25850,12 @@ pub(crate) fn step_emo_rock(
         let cy = (enemy.y_pos >> 16) as i32;
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground {
-            // Land: snap to floor, enter walking state.
+            // ASM Emo_Rock.asm loc_362A4: snap to floor, clear vertical
+            // velocity, then let `stru_363FE` run before loc_36320.
             enemy.y_pos = (floor.floor_y_px as u32) << 16;
             enemy.y_velocity = 0;
             enemy.on_ground = true;
+            enemy.wait_timer = EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4;
             if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
                 enemy.facing = dir;
             }

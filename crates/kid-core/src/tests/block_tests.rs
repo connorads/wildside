@@ -7219,6 +7219,10 @@ mod chunk_04 {
             }
         }
         assert!(enemy.on_ground, "should have landed on the floor");
+        assert_eq!(
+            enemy.wait_timer, EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4,
+            "ASM Emo_Rock.asm loc_362A4 starts the first stru_363FE landing script"
+        );
 
         // Once on ground, ASM loc_362B6 waits in place instead of walking.
         let x_before = enemy.x_pos;
@@ -7226,6 +7230,10 @@ mod chunk_04 {
         assert_eq!(enemy.facing, Direction::Right, "landing should face Kid");
         assert_eq!(enemy.x_pos, x_before, "settled wait should not walk");
         assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(
+            enemy.wait_timer,
+            EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4 - 1
+        );
     }
 
     #[test]
@@ -7233,7 +7241,7 @@ mod chunk_04 {
         let grid = grid_with_floor_at_row(14);
         let mut enemy = test_enemy(EnemyFamily::EmoRock, 0x0064_0000, 0x00E0_0000, 1);
         enemy.on_ground = true;
-        enemy.wait_timer = 0;
+        enemy.wait_timer = 2;
         enemy.facing = Direction::Left;
 
         step_emo_rock(
@@ -7250,9 +7258,51 @@ mod chunk_04 {
         assert_eq!(enemy.x_velocity, 0);
         assert_eq!(enemy.y_velocity, 0);
         assert_eq!(
+            enemy.wait_timer, 1,
+            "ASM Emo_Rock.asm loc_362B6 only exits once the landing animation-finished byte is set",
+        );
+        assert_eq!(
             enemy.facing,
             Direction::Left,
             "ASM Emo_Rock.asm loc_36274 chooses facing at landing; loc_362B6 does not re-face Kid each frame",
+        );
+    }
+
+    #[test]
+    fn emo_rock_settled_wait_disappears_and_restarts_hover_loc_36320() {
+        let grid = grid_with_floor_at_row(14);
+        let player_x = 0x00C8_0000;
+        let mut enemy = test_enemy(EnemyFamily::EmoRock, 0x0064_0000, 0x00E0_0000, 1);
+        enemy.on_ground = true;
+        enemy.wait_timer = 1;
+        enemy.facing = Direction::Left;
+        let mut rng = RomRandomState::default();
+        let mut sound_effects = Vec::new();
+
+        step_emo_rock_with_rng(
+            &mut enemy,
+            Some(&grid),
+            Some(player_x),
+            Some(0x00E0_0000),
+            &mut rng,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::EmoRockDisappears],
+            "ASM Emo_Rock.asm loc_36320 plays sfx_Emo_Rock_disappears before restarting loc_361F4",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x25);
+        assert!(
+            !enemy.on_ground,
+            "loc_36320 branches back to the airborne hover cycle, not a ground walk",
+        );
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+        assert!(
+            (0x003C..=0x00BB).contains(&enemy.wait_timer),
+            "ASM Emo_Rock.asm loc_361F4 seeds the restarted hover wait from $3C plus a masked RNG byte",
         );
     }
 

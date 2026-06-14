@@ -52,6 +52,7 @@ pub(crate) enum QueuedSoundEffect {
     MetalBlock,
     BerzerkerMovingBlock,
     PrizeBlock,
+    EmoRockDisappears,
     EvanescentBlock,
     ShiftingBlock,
     ElevatorBlock,
@@ -128,6 +129,9 @@ impl QueuedSoundEffect {
             // ASM IceBlock_SmashAndLoadBullets (kid.asm:22849) plays
             // `sfx_Prize_block = $11` before loading bullets and sub_10F9C.
             Self::PrizeBlock => 0x11,
+            // ASM Emo_Rock.asm loc_36320 / constants.asm:
+            // `sfx_Emo_Rock_disappears = $25`.
+            Self::EmoRockDisappears => 0x25,
             // ASM EvanescentBlock_Trigger (kid.asm:17283) plays
             // `sfx_Evanescent_block = $14` before the free-slot bailout.
             Self::EvanescentBlock => 0x14,
