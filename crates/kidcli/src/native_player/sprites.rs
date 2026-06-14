@@ -1856,3 +1856,43 @@ pub(crate) fn render_dynamic_gameplay_frame_evidence_for_level(
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn synthetic_player_frame() -> kid_render::SpriteFrame {
+        kid_render::SpriteFrame {
+            origin_x: 8,
+            origin_y: 0,
+            width_px: 16,
+            height_px: 16,
+            tile_base_index: 0,
+            tile_sheet: kid_render::TileSheet {
+                tiles: vec![
+                    kid_render::Tile { pixels: [0; 64] },
+                    kid_render::Tile { pixels: [0; 64] },
+                    kid_render::Tile { pixels: [0; 64] },
+                    kid_render::Tile { pixels: [0; 64] },
+                ],
+            },
+        }
+    }
+
+    #[test]
+    fn player_sprite_priority_stays_low_except_flagpole_override_loc_c070() {
+        let frame = synthetic_player_frame();
+
+        let ordinary_tiles = build_player_sprite_tiles_with_flip(&frame, false, None);
+        assert!(
+            ordinary_tiles.iter().all(|tile| !tile.tile.priority),
+            "ASM player sprite descriptors do not encode a global high-priority bit; normal Kid priority stays low"
+        );
+
+        let flagpole_tiles = build_player_sprite_tiles_with_flip(&frame, false, Some(true));
+        assert!(
+            flagpole_tiles.iter().all(|tile| tile.tile.priority),
+            "ASM CharacterCollision_TouchFlagpole loc_C070 is the narrow first-frame priority override"
+        );
+    }
+}
