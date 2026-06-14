@@ -2419,6 +2419,61 @@ pub fn issue_260_drips_drop_contact_probe_scenario() -> DynamicScenario {
     }
 }
 
+/// #260 oracle-comparable row-32 metal-block bounce near-miss.
+///
+/// This extends the p11 Kid/drop near-contact route with the `dlb_tail_b`
+/// overlay found on 2026-06-14. It produces a matched `Bounce` on Level 01
+/// cell 37,32 around frame 511 while Drips children remain active, but it does
+/// not destroy the block and still does not prove the reported slime/metal-block
+/// interaction. Keep it as a durable route-search checkpoint, not as a fix.
+pub fn issue_260_dlb_tail_b_row32_bounce_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 700;
+    const LEFT: u8 = 1 << 2;
+    const RIGHT: u8 = 1 << 3;
+    const B: u8 = 1 << 4;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 150, 250, LEFT);
+    apply_range(&mut script, 251, 350, B | RIGHT);
+    apply_range(&mut script, 351, 430, RIGHT);
+    apply_range(&mut script, 501, 570, B | LEFT);
+
+    DynamicScenario {
+        slug: "issue_260_dlb_tail_b_row32_bounce_01".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "p11_route_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "pre_drop_alignment".into(),
+                frame_index: 330,
+            },
+            DynamicCheckpoint {
+                label: "row32_bounce_window".into(),
+                frame_index: 511,
+            },
+            DynamicCheckpoint {
+                label: "surface_crawler_window".into(),
+                frame_index: 525,
+            },
+            DynamicCheckpoint {
+                label: "tail".into(),
+                frame_index: FRAME_COUNT,
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        start_velocity: None,
+        camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x01),
+        settle_oracle_warp: true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -2433,8 +2488,8 @@ mod tests {
         issue_249_blw2_left_pit_wall_red_stealth_no_jump_audit_scenario,
         issue_249_juggernaut_wall_jump_audit_scenario,
         issue_249_juggernaut_wall_no_jump_audit_scenario, issue_249_wall_no_jump_audit_scenario,
-        issue_260_drips_b_jump_climb_seed_scenario, issue_260_drips_cleaner_prefix_audit_scenario,
-        issue_260_drips_drop_contact_probe_scenario,
+        issue_260_dlb_tail_b_row32_bounce_scenario, issue_260_drips_b_jump_climb_seed_scenario,
+        issue_260_drips_cleaner_prefix_audit_scenario, issue_260_drips_drop_contact_probe_scenario,
         issue_260_drips_early_jump_close_probe_scenario,
         issue_260_drips_iron_knight_climb_probe_scenario,
         issue_271_level00_dragon_stomp_damage_audit_scenario,
@@ -2789,6 +2844,59 @@ mod tests {
         assert_eq!(
             labels,
             vec!["pre_damage", "native_drop_contact", "post_drop", "tail"]
+        );
+    }
+
+    #[test]
+    fn issue_260_dlb_tail_b_row32_bounce_preserves_route_search_near_miss() {
+        let scenario = issue_260_dlb_tail_b_row32_bounce_scenario();
+
+        assert_eq!(scenario.slug, "issue_260_dlb_tail_b_row32_bounce_01");
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 344, y: 575 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 192, y: 352 })
+        );
+        assert_eq!(scenario.frame_count, 700);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+
+        const LEFT: u8 = 1 << 2;
+        const RIGHT: u8 = 1 << 3;
+        const B: u8 = 1 << 4;
+        assert_eq!(scenario.script[149], 0);
+        assert_eq!(scenario.script[150], LEFT);
+        assert_eq!(scenario.script[250], LEFT);
+        assert_eq!(scenario.script[251], B | RIGHT);
+        assert_eq!(scenario.script[350], B | RIGHT);
+        assert_eq!(scenario.script[351], RIGHT);
+        assert_eq!(scenario.script[430], RIGHT);
+        assert_eq!(
+            scenario.script[431], 0,
+            "the row-32 bounce route deliberately leaves the 431..500 tail neutral",
+        );
+        assert_eq!(scenario.script[501], B | LEFT);
+        assert_eq!(scenario.script[570], B | LEFT);
+        assert_eq!(scenario.script[571], 0);
+
+        let labels: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "p11_route_start",
+                "pre_drop_alignment",
+                "row32_bounce_window",
+                "surface_crawler_window",
+                "tail"
+            ]
         );
     }
 

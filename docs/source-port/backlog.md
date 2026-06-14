@@ -83,7 +83,18 @@ and stop — never commit churn.
   the slime/metal-block repro: the closest DripsSurfaceCrawler remains
   `dx=+102 dy=+1 @512`, and the active DripsDrop is still far right. Do not
   repeat this late B-lift window unchanged; it is a Kid/block-line near-miss
-  only, not a live enemy/block contact. Named route
+  only, not a live enemy/block contact. 2026-06-14 follow-up added durable
+  route-search scenario `issue260-dlb-tail-b-row32-bounce`: it preserves the
+  `dlb_tail_b` p11 overlay (`150..250 Left`, `251..350 B+Right`, `351..430 Right`,
+  neutral `431..500`, `501..570 B+Left`) and verifies enemy-frontier clean through
+  frames `450..530`; `tas-diff` frames `500..516` has `16 match, 0 diverge`.
+  It produces a matched Bounce on Level 01 cell `37,32` at frame 511, with Kid's
+  healthy hitbox `dx=0 dy=-1`; DripsDrop is still closest to Kid at `dx=0 dy=-1
+  @519`, and the crawler appears later at `dx=+12 dy=-1 @577`. No Destroy occurs,
+  so this is a better oracle-comparable row-32 bounce near-miss, not the reported
+  slime/block destruction route. Next search should move the live Drips child onto
+  the row-32 block line before/at the bounce instead of repeating Kid-only bounce
+  tails. Named route
   `issue260-drips-drop-contact-probe` promotes the `l528/b530/r536` tail and
   reaches exact native DripsDrop overlap at frame 535; oracle diff for frames
   520..545 has only the known non-authoritative `number_objects` limitation. It
