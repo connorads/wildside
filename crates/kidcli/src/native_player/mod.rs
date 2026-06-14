@@ -12643,7 +12643,7 @@ mod tests {
             hit_points: Some(1),
             damage_flash: false,
             palette_variant: 0,
-            stationary: false,
+            stationary: true,
             shared_walker_state: None,
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,

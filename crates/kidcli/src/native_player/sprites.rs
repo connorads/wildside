@@ -1442,11 +1442,6 @@ pub(super) fn select_enemy_frame<'a>(
         let death_frame = if remaining > 0x1E { 6 } else { 7 };
         return &enemy_visuals.frames[death_frame];
     }
-    let diamond_base_animation =
-        matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x01 });
-    if object.stationary && !diamond_base_animation {
-        return &enemy_visuals.frames[0];
-    }
     if let Some(frame) = select_live_walking_dragon_frame(trace, enemy_visuals, object) {
         return frame;
     }
@@ -1458,6 +1453,15 @@ pub(super) fn select_enemy_frame<'a>(
     }
     if let Some(frame) = select_live_flying_dragon_frame(trace, enemy_visuals, object) {
         return frame;
+    }
+    let keeps_base_animation = matches!(
+        object.kind,
+        NativeObjectKind::Enemy {
+            object_type: 0x01 | 0x0C
+        }
+    );
+    if object.stationary && !keeps_base_animation {
+        return &enemy_visuals.frames[0];
     }
     // Offset animation by layout_index so enemies of the same type don't
     // animate in lockstep. ASM uses per-object animation counters at
