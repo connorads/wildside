@@ -94,7 +94,26 @@ and stop — never commit churn.
   so this is a better oracle-comparable row-32 bounce near-miss, not the reported
   slime/block destruction route. Next search should move the live Drips child onto
   the row-32 block line before/at the bounce instead of repeating Kid-only bounce
-  tails. Named route
+  tails. 2026-06-14 follow-up route batches on the same committed scenario reject
+  the obvious early-right acceleration axis: cleared-script `fast_*` routes overshoot
+  into `LevelTransition` and lose DripsDrop/DripsSurfaceCrawler sightings entirely,
+  while intermediate `mid_*` routes preserve Drips but leave Kid horizontally near
+  row 32 while vertically separated (`dy=-33` or worse) and still report no
+  Destroy/Bounce at cells `36,32`/`37,32`. Longer jump-hold `lift_*` variants can
+  make an early Kid/block bounce (`lift_a`, `Bounce cell 37,32 @260`) but again have
+  no live Drips projectile in the scored window. Do not repeat early-right/long-B
+  acceleration from this base unchanged; the useful next axis needs a route that
+  preserves the Drips child and raises Kid into row 32 without advancing into the
+  early transition/bounce-only branch. Tooling now supports
+  `probe-record-scenario-file-batch --target-projectile-cell-conjunction KIND:COL,ROW`
+  to rank same-frame healthy Kid hitbox + projectile proximity to a cell. Re-scoring
+  the intermediate branch shows `mid_g` is the real best same-frame lead
+  (`drips-drop:36,32` score 36 at frame 308: Kid `dx=0 dy=-33`, drop
+  `dx=0 dy=-3`), while `lift_a` is only a no-Drips early bounce. A tighter
+  `mid_g` second-jump timing sweep (`mg_j220..mg_j270`) does not improve the
+  vertical miss: best remains score 36 with `kid_dy=-33`, and no Destroy/Bounce
+  proof appears. Do not repeat this `mid_g` second-jump timing axis unchanged.
+  Named route
   `issue260-drips-drop-contact-probe` promotes the `l528/b530/r536` tail and
   reaches exact native DripsDrop overlap at frame 535; oracle diff for frames
   520..545 has only the known non-authoritative `number_objects` limitation. It

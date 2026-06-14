@@ -1462,6 +1462,20 @@ pub(crate) struct TargetProjectileCellApproach {
     pub(crate) manhattan_px: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TargetProjectileCellConjunction {
+    pub(crate) replay_frame: usize,
+    pub(crate) kid_x: u32,
+    pub(crate) kid_y: u32,
+    pub(crate) projectile_x: u32,
+    pub(crate) projectile_y: u32,
+    pub(crate) kid_dx_px: i64,
+    pub(crate) kid_dy_px: i64,
+    pub(crate) projectile_dx_px: i64,
+    pub(crate) projectile_dy_px: i64,
+    pub(crate) manhattan_px: i64,
+}
+
 fn fixed_delta_px(to: u32, from: u32) -> i64 {
     (i64::from(to) - i64::from(from)) >> 16
 }
@@ -1678,6 +1692,83 @@ pub(crate) fn target_projectile_cell_approach_from_frame(
                 dx_px,
                 dy_px,
                 manhattan_px: dx_px.abs().saturating_add(dy_px.abs()),
+            };
+            match &closest {
+                Some(existing)
+                    if existing.manhattan_px < candidate.manhattan_px
+                        || (existing.manhattan_px == candidate.manhattan_px
+                            && existing.replay_frame <= candidate.replay_frame) => {}
+                _ => closest = Some(candidate),
+            }
+        }
+    }
+
+    closest
+}
+
+pub(crate) fn target_projectile_cell_conjunction_from_frame(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+    target_cell: TargetCell,
+    frame_start: usize,
+) -> Option<TargetProjectileCellConjunction> {
+    let left_px = target_cell.col << 4;
+    let right_px = left_px + 15;
+    let top_px = target_cell.row << 4;
+    let bottom_px = top_px + 15;
+    let mut closest: Option<TargetProjectileCellConjunction> = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if replay_frame < frame_start {
+            continue;
+        }
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+        if frame.number_hitpoints == 0 || frame.death_windup_elapsed > 0 {
+            continue;
+        }
+        let (Some(kid_x), Some(kid_y)) = (frame.kid_x_pos, frame.kid_y_pos) else {
+            continue;
+        };
+        let kid_x_px = i64::from(kid_x) >> 16;
+        let kid_y_px = i64::from(kid_y) >> 16;
+        let half_width = half_width_for_helmet_id_loc_b408(frame.current_helmet_id);
+        let height = player_height_for_helmet_id_loc_902a(frame.current_helmet_id);
+        let kid_dx_px = range_distance_to_closed_range(
+            kid_x_px - half_width,
+            kid_x_px + half_width,
+            left_px,
+            right_px,
+        );
+        let kid_dy_px =
+            range_distance_to_closed_range(kid_y_px - height, kid_y_px, top_px, bottom_px);
+
+        for projectile in &frame.active_projectile_details {
+            if projectile.kind != kind {
+                continue;
+            }
+            let projectile_x_px = i64::from(projectile.x_pos) >> 16;
+            let projectile_y_px = i64::from(projectile.y_pos) >> 16;
+            let projectile_dx_px =
+                axis_distance_to_closed_range(projectile_x_px, left_px, right_px);
+            let projectile_dy_px =
+                axis_distance_to_closed_range(projectile_y_px, top_px, bottom_px);
+            let candidate = TargetProjectileCellConjunction {
+                replay_frame,
+                kid_x,
+                kid_y,
+                projectile_x: projectile.x_pos,
+                projectile_y: projectile.y_pos,
+                kid_dx_px,
+                kid_dy_px,
+                projectile_dx_px,
+                projectile_dy_px,
+                manhattan_px: kid_dx_px
+                    .abs()
+                    .saturating_add(kid_dy_px.abs())
+                    .saturating_add(projectile_dx_px.abs())
+                    .saturating_add(projectile_dy_px.abs()),
             };
             match &closest {
                 Some(existing)
@@ -2934,6 +3025,55 @@ mod tests {
                 0,
             ),
             None
+        );
+    }
+
+    #[test]
+    fn target_projectile_cell_conjunction_scores_same_frame_kid_projectile_and_cell() {
+        let mut far_kid = target_projectile_frame(
+            10,
+            ActiveProjectileKind::DripsDrop,
+            0x0240_0000,
+            0x0208_0000,
+            0x0000_2000,
+            0,
+        );
+        far_kid.kid_x_pos = Some(0x0200_0000);
+        far_kid.kid_y_pos = Some(0x0240_0000);
+        far_kid.number_hitpoints = 2;
+
+        let mut close_both = target_projectile_frame(
+            11,
+            ActiveProjectileKind::DripsDrop,
+            0x0248_0000,
+            0x0208_0000,
+            0x0000_2000,
+            0,
+        );
+        close_both.kid_x_pos = Some(0x0240_0000);
+        close_both.kid_y_pos = Some(0x0227_0000);
+        close_both.number_hitpoints = 2;
+
+        assert_eq!(
+            target_projectile_cell_conjunction_from_frame(
+                &[far_kid, close_both],
+                ActiveProjectileKind::DripsDrop,
+                TargetCell { col: 36, row: 32 },
+                0,
+            ),
+            Some(TargetProjectileCellConjunction {
+                replay_frame: 1,
+                kid_x: 0x0240_0000,
+                kid_y: 0x0227_0000,
+                projectile_x: 0x0248_0000,
+                projectile_y: 0x0208_0000,
+                kid_dx_px: 0,
+                kid_dy_px: 0,
+                projectile_dx_px: 0,
+                projectile_dy_px: 0,
+                manhattan_px: 0,
+            }),
+            "issue #260 needs same-frame Kid, Drips child, and metal-block cell scoring"
         );
     }
 

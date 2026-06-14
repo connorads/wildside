@@ -410,6 +410,9 @@ enum Commands {
         /// Score candidates by closest projectile approach to a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_projectile_cell)]
         target_projectile_cell: Vec<BatchTargetProjectileCell>,
+        /// Score candidates by same-frame healthy Kid hitbox and projectile approach to a 16x16 level cell, formatted kind:col,row.
+        #[arg(long, value_parser = parse_batch_target_projectile_cell)]
+        target_projectile_cell_conjunction: Vec<BatchTargetProjectileCell>,
         /// Score candidates by exact block event at a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_block_event)]
         target_block_event: Vec<BatchTargetBlockEvent>,
@@ -1381,6 +1384,7 @@ fn main() -> Result<()> {
             target_cell_hitbox,
             target_projectile,
             target_projectile_cell,
+            target_projectile_cell_conjunction,
             target_block_event,
             score_frame_start,
             limit,
@@ -1397,10 +1401,11 @@ fn main() -> Result<()> {
                 && target_cell_hitbox.is_empty()
                 && target_projectile.is_empty()
                 && target_projectile_cell.is_empty()
+                && target_projectile_cell_conjunction.is_empty()
                 && target_block_event.is_empty()
             {
                 bail!(
-                    "at least one --target-point, --target-cell, --target-cell-hitbox, --target-projectile, --target-projectile-cell, or --target-block-event is required for batch scoring"
+                    "at least one --target-point, --target-cell, --target-cell-hitbox, --target-projectile, --target-projectile-cell, --target-projectile-cell-conjunction, or --target-block-event is required for batch scoring"
                 );
             }
             if let Some(level) = base.warp_to_level {
@@ -1419,6 +1424,7 @@ fn main() -> Result<()> {
                     .map(Into::into)
                     .collect::<Vec<_>>(),
                 &target_projectile_cell,
+                &target_projectile_cell_conjunction,
                 &target_block_event,
                 score_frame_start,
                 limit,
@@ -3087,6 +3093,7 @@ fn probe_dynamic_record_scenario_batch(
     target_cell_hitboxes: &[TargetCell],
     target_projectiles: &[ActiveProjectileKind],
     target_projectile_cells: &[BatchTargetProjectileCell],
+    target_projectile_cell_conjunctions: &[BatchTargetProjectileCell],
     target_block_events: &[BatchTargetBlockEvent],
     score_frame_start: usize,
     limit: usize,
@@ -3125,6 +3132,7 @@ fn probe_dynamic_record_scenario_batch(
                 + target_cell_hitboxes.len()
                 + target_projectiles.len()
                 + target_projectile_cells.len()
+                + target_projectile_cell_conjunctions.len()
                 + target_block_events.len(),
         );
         for (index, target_point) in target_points.iter().copied().enumerate() {
@@ -3281,6 +3289,54 @@ fn probe_dynamic_record_scenario_batch(
             });
             target_summaries.push(summary);
         }
+        for (index, target_projectile_cell) in target_projectile_cell_conjunctions
+            .iter()
+            .copied()
+            .enumerate()
+        {
+            let summary = target_projectile_cell_conjunction_from_frame(
+                &trace,
+                target_projectile_cell.kind,
+                target_projectile_cell.cell,
+                score_frame_start,
+            )
+            .map(|approach| {
+                if target_points.is_empty()
+                    && target_cells.is_empty()
+                    && target_cell_hitboxes.is_empty()
+                    && target_projectiles.is_empty()
+                    && target_projectile_cells.is_empty()
+                    && index == 0
+                {
+                    first_target_score = Some(approach.manhattan_px);
+                }
+                format!(
+                    "projectile {:?} cell conjunction {},{} kid_dx_px {:+} kid_dy_px {:+} projectile_dx_px {:+} projectile_dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X} projectile {:08X},{:08X}",
+                    target_projectile_cell.kind,
+                    target_projectile_cell.cell.col,
+                    target_projectile_cell.cell.row,
+                    approach.kid_dx_px,
+                    approach.kid_dy_px,
+                    approach.projectile_dx_px,
+                    approach.projectile_dy_px,
+                    approach.manhattan_px,
+                    approach.replay_frame,
+                    approach.kid_x,
+                    approach.kid_y,
+                    approach.projectile_x,
+                    approach.projectile_y,
+                )
+            })
+            .unwrap_or_else(|| {
+                format!(
+                    "projectile {:?} cell conjunction {},{} <none>",
+                    target_projectile_cell.kind,
+                    target_projectile_cell.cell.col,
+                    target_projectile_cell.cell.row,
+                )
+            });
+            target_summaries.push(summary);
+        }
         for (index, target_block_event) in target_block_events.iter().copied().enumerate() {
             let summary = target_block_event_from_frame(
                 &trace,
@@ -3294,6 +3350,7 @@ fn probe_dynamic_record_scenario_batch(
                     && target_cell_hitboxes.is_empty()
                     && target_projectiles.is_empty()
                     && target_projectile_cells.is_empty()
+                    && target_projectile_cell_conjunctions.is_empty()
                     && index == 0
                 {
                     first_target_score = Some(0);
