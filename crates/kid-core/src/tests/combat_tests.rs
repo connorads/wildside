@@ -13686,6 +13686,10 @@ mod chunk_03 {
             runtime.active_enemies[0].wait_timer,
             BIG_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
         );
+        assert_eq!(
+            runtime.enemy_status_words[21], 0,
+            "ASM Big_Hopping_Skull.asm loc_3664E/loc_36664 should not reach loc_366A4 until stru_367FA finishes"
+        );
         assert!(!runtime.killed_enemies.contains(&killed_identity));
 
         runtime.active_enemies[0].wait_timer = 0;
@@ -13693,6 +13697,10 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[21], 0x2168,
+            "ASM Big_Hopping_Skull.asm loc_366A4 writes `$2168` into EnemyStatus_Table after the death animation finishes"
+        );
     }
 
     #[test]

@@ -8579,6 +8579,15 @@ impl NativeRuntime {
         };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
+        if matches!(family, EnemyFamily::BigHoppingSkull) {
+            let marker = big_hopping_skull_respawn_marker_loc_366a4(layout_index as u8);
+            if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                // ASM Big_Hopping_Skull.asm loc_366A4: after `stru_367FA`
+                // finishes, positive `$42(a5)` writes `$2168` before the
+                // common loc_366B2 delete tail.
+                *word = marker.word_value;
+            }
+        }
         if matches!(family, EnemyFamily::SpinningTwins)
             && matches!(spinning_twins_phase, SpinningTwinsPhase::Walking)
             && shared_walker_state == 0
