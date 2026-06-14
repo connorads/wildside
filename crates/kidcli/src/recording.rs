@@ -47,14 +47,29 @@ pub(crate) struct RecordingArtifactManifest {
     pub(crate) kind: String,
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RecordingBundleArtifacts {
     pub(crate) user_notes: Option<String>,
     pub(crate) final_frame_rgb: Option<Vec<u8>>,
     pub(crate) audio_samples: Option<Vec<f32>>,
+    pub(crate) audio_sample_rate: u32,
     pub(crate) audio_channels: u16,
     pub(crate) audio_events: Vec<String>,
     pub(crate) audio_diagnostics: Vec<String>,
+}
+
+impl Default for RecordingBundleArtifacts {
+    fn default() -> Self {
+        Self {
+            user_notes: None,
+            final_frame_rgb: None,
+            audio_samples: None,
+            audio_sample_rate: 44_100,
+            audio_channels: 0,
+            audio_events: Vec::new(),
+            audio_diagnostics: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2195,8 +2210,13 @@ fn write_recording_artifacts(
 
     if let Some(audio_samples) = &artifacts.audio_samples {
         let audio_path = record_to.join(RECORDING_AUDIO_FILENAME);
-        write_wav_with_channels(&audio_path, 44_100, artifacts.audio_channels, audio_samples)
-            .with_context(|| format!("failed to write {}", audio_path.display()))?;
+        write_wav_with_channels(
+            &audio_path,
+            artifacts.audio_sample_rate,
+            artifacts.audio_channels,
+            audio_samples,
+        )
+        .with_context(|| format!("failed to write {}", audio_path.display()))?;
         manifest_entries.push(RecordingArtifactManifest {
             path: String::from(RECORDING_AUDIO_FILENAME),
             kind: String::from("audio"),
@@ -3488,6 +3508,7 @@ mod tests {
                         * 3
                 ]),
                 audio_samples: Some(vec![0.25, -0.25, 0.5, -0.5]),
+                audio_sample_rate: 44_100,
                 audio_channels: 2,
                 audio_events: vec![String::from(
                     "frame=0 mode=IntroSequence1 active_after=TitleShell command=StopMusicThenStart(3)",

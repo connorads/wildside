@@ -433,6 +433,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     );
     let mut final_frame_rgb = options.record_to.as_ref().map(|_| frame.clone());
     let mut audio_queue_priming = audio_queue.is_some();
+    let audio_recording_sample_rate = if audio_queue.is_some() {
+        audio_output_sample_rate
+    } else {
+        AUDIO_SAMPLE_RATE
+    };
     if let Some(ref aq) = audio_queue {
         aq.pause();
         audio_diagnostics.record_queue_prime();
@@ -758,11 +763,11 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let should_capture_audio = options.record_to.is_some();
         let should_step_audio = should_capture_audio || audio_queue.is_some();
         if should_step_audio {
-            let audio_samples_this_frame = if audio_queue.is_some() && !should_capture_audio {
-                audio_sample_clock.next_frame_samples()
-            } else {
-                AUDIO_SAMPLES_PER_FRAME
-            };
+            let audio_generation = native_audio_generation_plan(
+                audio_queue.is_some(),
+                audio_output_sample_rate,
+                &mut audio_sample_clock,
+            );
             let maybe_samples = if let Some(ref mut gems) = gems_engine {
                 if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
                     gems.play_sound(bgm);
@@ -771,16 +776,16 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     detect_gems_events(&prev_trace, &trace, gems);
                 }
                 gems.step_frame();
-                if audio_queue.is_some() && !should_capture_audio {
-                    Some(gems.generate_samples_at_rate(
-                        audio_output_sample_rate,
-                        audio_samples_this_frame,
-                    ))
+                if audio_generation.sample_rate == AUDIO_SAMPLE_RATE {
+                    Some(gems.generate_samples(audio_generation.samples_per_frame))
                 } else {
-                    Some(gems.generate_samples(audio_samples_this_frame))
+                    Some(gems.generate_samples_at_rate(
+                        audio_generation.sample_rate,
+                        audio_generation.samples_per_frame,
+                    ))
                 }
             } else {
-                Some(sfx_engine.generate(audio_samples_this_frame))
+                Some(sfx_engine.generate(audio_generation.samples_per_frame))
             };
             if let Some(samples) = maybe_samples {
                 audio_diagnostics.record_generated_frame(samples.len());
@@ -917,6 +922,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         final_frame_rgb,
         trace,
         audio_channels,
+        audio_recording_sample_rate,
     )?;
 
     Ok(())
@@ -1138,6 +1144,7 @@ fn save_native_recording_bundle(
     final_frame_rgb: Option<Vec<u8>>,
     current_trace: NativeTraceFrame,
     audio_channels: u8,
+    audio_sample_rate: u32,
 ) -> Result<()> {
     let Some(record_to) = &options.record_to else {
         return Ok(());
@@ -1188,6 +1195,7 @@ fn save_native_recording_bundle(
         user_notes: options.record_notes.clone(),
         final_frame_rgb,
         audio_samples: Some(recorded_audio),
+        audio_sample_rate,
         audio_channels: u16::from(audio_channels),
         audio_events: recorded_audio_events,
         audio_diagnostics,
@@ -1651,6 +1659,30 @@ impl AudioSampleClock {
         let samples = total / AUDIO_FRAME_RATE_HZ;
         self.remainder = total % AUDIO_FRAME_RATE_HZ;
         usize::try_from(samples).unwrap_or(usize::MAX)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NativeAudioGenerationPlan {
+    sample_rate: u32,
+    samples_per_frame: usize,
+}
+
+fn native_audio_generation_plan(
+    sdl_queue_present: bool,
+    audio_output_sample_rate: u32,
+    audio_sample_clock: &mut AudioSampleClock,
+) -> NativeAudioGenerationPlan {
+    if sdl_queue_present {
+        NativeAudioGenerationPlan {
+            sample_rate: audio_output_sample_rate.max(1),
+            samples_per_frame: audio_sample_clock.next_frame_samples(),
+        }
+    } else {
+        NativeAudioGenerationPlan {
+            sample_rate: AUDIO_SAMPLE_RATE,
+            samples_per_frame: AUDIO_SAMPLES_PER_FRAME,
+        }
     }
 }
 
@@ -10609,6 +10641,7 @@ mod tests {
             Some(final_frame),
             trace.clone(),
             1,
+            AUDIO_SAMPLE_RATE,
         )
         .expect("save freeze repro");
 
@@ -14375,6 +14408,32 @@ mod tests {
         assert_eq!(
             samples, 44_117,
             "fractional device rates must distribute the remainder across frames without long-term drift"
+        );
+    }
+
+    #[test]
+    fn play_native_recording_audio_generation_uses_obtained_sdl_rate_when_queueing() {
+        let mut host_clock = AudioSampleClock::new(48_000);
+        let plan = native_audio_generation_plan(true, 48_000, &mut host_clock);
+
+        assert_eq!(
+            plan,
+            NativeAudioGenerationPlan {
+                sample_rate: 48_000,
+                samples_per_frame: 800,
+            },
+            "recorded play-native sessions still feed SDL; generating a 44.1 kHz frame for a 48 kHz queue stretches live capture audio slow/low"
+        );
+
+        let mut deterministic_clock = AudioSampleClock::new(48_000);
+        let plan = native_audio_generation_plan(false, 48_000, &mut deterministic_clock);
+        assert_eq!(
+            plan,
+            NativeAudioGenerationPlan {
+                sample_rate: AUDIO_SAMPLE_RATE,
+                samples_per_frame: AUDIO_SAMPLES_PER_FRAME,
+            },
+            "offline recording/audio artefact generation without SDL should keep the oracle-compatible 44.1 kHz frame cadence"
         );
     }
 
