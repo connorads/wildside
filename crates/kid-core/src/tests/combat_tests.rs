@@ -14084,6 +14084,118 @@ mod chunk_03 {
     }
 
     #[test]
+    fn emo_rock_settled_side_contact_waits_when_berzerker_is_not_charging_loc_362b6() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut emo_rock = test_enemy(EnemyFamily::EmoRock, 0x0080_0000, 0x0040_0000, 1);
+        emo_rock.layout_index = 30;
+        emo_rock.on_ground = true;
+        emo_rock.wait_timer = EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4;
+        emo_rock.x_velocity = 0;
+        emo_rock.y_velocity = 0;
+        runtime.active_enemies = vec![emo_rock];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: emo_rock.segment_index,
+                layout_index: emo_rock.layout_index,
+                collision_type: 0x0020,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(runtime.active_enemies.len(), 1);
+        assert!(runtime.active_enemies[0].on_ground);
+        assert_eq!(runtime.active_enemies[0].hit_points, 1);
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0);
+        assert_eq!(runtime.active_enemies[0].y_velocity, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4,
+            "ASM Emo_Rock.asm loc_362EE branches back to loc_362B6 while Berzerker_charging is clear"
+        );
+    }
+
+    #[test]
+    fn emo_rock_settled_side_contact_launches_for_charging_berzerker_loc_362ee() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        if let Some(slice) = runtime.opening_slice.as_mut() {
+            slice.player.x_velocity = 0x0001_8000;
+        }
+        let mut emo_rock = test_enemy(EnemyFamily::EmoRock, 0x0080_0000, 0x0040_0000, 1);
+        emo_rock.layout_index = 31;
+        emo_rock.on_ground = true;
+        emo_rock.wait_timer = EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4;
+        runtime.active_enemies = vec![emo_rock];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: emo_rock.segment_index,
+                layout_index: emo_rock.layout_index,
+                collision_type: 0x0024,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(runtime.active_enemies.len(), 1);
+        assert!(!runtime.active_enemies[0].on_ground);
+        assert_eq!(
+            runtime.active_enemies[0].x_velocity, 0x0001_8000,
+            "ASM Emo_Rock.asm loc_362EE copies Kid x_vel into x_vel(a3)"
+        );
+        assert_eq!(runtime.active_enemies[0].y_velocity, -0x0003_0000);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "charging side contact launches the settled rock without HP damage"
+        );
+    }
+
+    #[test]
+    fn emo_rock_settled_hurt_collision_enters_break_death_loc_362b6_36346() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut emo_rock = test_enemy(EnemyFamily::EmoRock, 0x0080_0000, 0x0040_0000, 1);
+        emo_rock.layout_index = 28;
+        emo_rock.on_ground = true;
+        emo_rock.wait_timer = EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4;
+        runtime.active_enemies = vec![emo_rock];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: emo_rock.segment_index,
+                layout_index: emo_rock.layout_index,
+                collision_type: 0x001C,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Emo_Rock.asm loc_36346 keeps the object alive through the break animation"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert!(runtime.active_enemies[0].death_animation_active);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            EMO_ROCK_DEATH_ANIMATION_FRAMES
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::PrizeBlock],
+            "ASM Emo_Rock.asm loc_36346 plays sfx_Prize_block after the first hibernate"
+        );
+    }
+
+    #[test]
     fn drips_death_waits_for_stru_33f06_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut drips = test_enemy(EnemyFamily::Drips, 0x0080_0000, 0x0040_0000, 1);

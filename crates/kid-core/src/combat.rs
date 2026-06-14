@@ -8343,6 +8343,40 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::EmoRock) && enemy.on_ground {
+                let route = emo_rock_settled_wait_loc_362b6(
+                    false,
+                    collision.collision_type as i16,
+                    berzerker_charging,
+                );
+                match route.route {
+                    EmoRockSettledWaitRouteLoc362B6::Death => {
+                        // ASM Emo_Rock.asm loc_362B6: signed-negative,
+                        // `colid_hurt`, and `colid_kidabove` route to
+                        // loc_36346 while the landed animation is still live.
+                        kill_indices.push(active_idx);
+                    }
+                    EmoRockSettledWaitRouteLoc362B6::BerzerkerSideHit => {
+                        let player_x_velocity = self
+                            .opening_slice
+                            .as_ref()
+                            .map_or(0, |slice| slice.player.x_velocity);
+                        let launch = emo_rock_berzerker_launch_loc_362ee(player_x_velocity);
+                        // ASM Emo_Rock.asm loc_362EE: charging Berzerker side
+                        // contact re-enables Kid collision, disables terrain
+                        // collision, copies Kid x_vel, and seeds y_vel=$FFFD0000.
+                        enemy.x_velocity = launch.x_velocity;
+                        enemy.y_velocity = launch.y_velocity;
+                        enemy.on_ground = false;
+                        enemy.wait_timer = EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A;
+                        changed_enemy_state = true;
+                    }
+                    EmoRockSettledWaitRouteLoc362B6::ContinueWait
+                    | EmoRockSettledWaitRouteLoc362B6::Disappear => {}
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::DragonWalking)
                 && collision.collision_type == DRAGON_COLID_KIDABOVE
             {
