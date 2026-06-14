@@ -403,7 +403,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         );
     }
     let mut audio_sample_clock = AudioSampleClock::new(audio_output_sample_rate);
-    let mut sfx_engine = SfxEngine::new();
+    let mut sfx_engine = SfxEngine::new(audio_output_sample_rate);
 
     let mut runtime = initialise_runtime(manifest, &session_assets, options);
     let mut trace = runtime.trace_frame();
@@ -1595,8 +1595,6 @@ fn on_off(value: bool) -> &'static str {
 // Simple SFX synthesiser: generates square-wave tones for game events.
 // ---------------------------------------------------------------------------
 
-const SFX_SAMPLE_RATE: f32 = 44_100.0;
-
 #[derive(Debug, Clone, Copy)]
 struct SfxTone {
     frequency: f32,
@@ -2482,19 +2480,21 @@ fn detect_gems_events(
 
 struct SfxEngine {
     active_tones: Vec<SfxTone>,
+    sample_rate: f32,
 }
 
 impl SfxEngine {
-    fn new() -> Self {
+    fn new(sample_rate: u32) -> Self {
         Self {
             active_tones: Vec::new(),
+            sample_rate: sample_rate.max(1) as f32,
         }
     }
 
     fn play(&mut self, frequency: f32, duration_ms: u32, volume: f32) {
         self.active_tones.push(SfxTone {
             frequency,
-            remaining_samples: (SFX_SAMPLE_RATE * duration_ms as f32 / 1000.0) as u32,
+            remaining_samples: (self.sample_rate * duration_ms as f32 / 1000.0) as u32,
             phase: 0.0,
             volume,
         });
@@ -2503,7 +2503,7 @@ impl SfxEngine {
     fn generate(&mut self, sample_count: usize) -> Vec<f32> {
         let mut samples = vec![0.0f32; sample_count];
         self.active_tones.retain_mut(|tone| {
-            let phase_inc = tone.frequency / SFX_SAMPLE_RATE;
+            let phase_inc = tone.frequency / self.sample_rate;
             for sample in &mut samples {
                 if tone.remaining_samples == 0 {
                     return false;
@@ -13811,6 +13811,24 @@ mod tests {
     }
 
     #[test]
+    fn play_native_fallback_sfx_uses_obtained_sdl_rate() {
+        let mut sfx = SfxEngine::new(48_000);
+        sfx.play(440.0, 1_000, 0.1);
+
+        assert_eq!(
+            sfx.active_tones[0].remaining_samples, 48_000,
+            "fallback SFX must use SDL's obtained sample rate; fixed 44.1 kHz tones play slow/low on 48 kHz devices"
+        );
+
+        let samples = sfx.generate(800);
+        assert_eq!(samples.len(), 800);
+        assert_eq!(
+            sfx.active_tones[0].remaining_samples, 47_200,
+            "a 48 kHz live frame should consume the generated 800 samples from the fallback tone"
+        );
+    }
+
+    #[test]
     fn play_native_audio_diagnostics_record_generated_and_queued_frames() {
         let mut diagnostics = NativeAudioDiagnostics::new(true, true, 2, 48_000);
 
@@ -14488,7 +14506,7 @@ mod tests {
         prev.kid_on_ground = Some(true);
         curr.kid_on_ground = Some(false);
         curr.kid_y_velocity = Some(-0x40000);
-        let mut sfx = SfxEngine::new();
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
 
         detect_sfx_events(&prev, &curr, &mut sfx);
 
