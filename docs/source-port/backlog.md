@@ -157,7 +157,14 @@ and stop — never commit churn.
   (`300..350 B,351..390 B+Right,391..430 Left`) as the best branch, but it is
   still only `dx=-9 dy=-11 @409` from DripsDrop while the drop/cell best remains
   `dx=0 dy=-3 @381`; this is closer than `earlyB` but still not a contact or
-  block-mutation repro. A follow-up over the clean
+  block-mutation repro. A tighter local search found native-live `p11`
+  (`300..355 B,356..390 Right,391..425 B+Left`) with HP 1, closest Kid/DripsDrop
+  `dx=+1 dy=-1 @402`, and Kid/cell hitbox `dx=0 dy=-1 @400`, but it is still not
+  valid proof: a materialised `.cache/debug/issue260-p11/scenario.json`
+  `verify-tas --frame-start 390 --frame-end 430 --frontier-kind enemy --bisect`
+  first diverges at frame 396 on HP (`native=2`, `oracle=1`). Treat `p11` as a
+  useful native route-shape lead only; fix or avoid the pre-396 HP divergence
+  before using it for slime/metal-block contact evidence. A follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
   frame 490, but still leaves the DripsSurfaceCrawler `dx=+102 dy=+1 @512`;
