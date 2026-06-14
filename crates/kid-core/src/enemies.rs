@@ -2913,6 +2913,12 @@ pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_ve
 /// ASM Big_Hopping_Skull.asm loc_36580 initialises `stru_367AE` (`$50` ticks),
 /// then loc_366B6 plays `stru_367B4` (`$0C + 1` ticks) before loc_366D0 relaunches.
 pub(crate) const BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580: u16 = 0x50 + 0x0C + 1;
+/// ASM Big_Hopping_Skull.asm loc_365D8 initialises `stru_367CC`.
+/// Durations: $18,$0C,6,$0C,6,$0C,6,$0C,6,$10,$0C.
+pub(crate) const BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8: u8 = 0x7C;
+const BIG_HOPPING_SKULL_HIT_GROAN_ELAPSED_FRAMES_LOC_365F2: [u8; 4] =
+    [0x24, 0x36, 0x48, 0x5A];
+const BIG_HOPPING_SKULL_HIT_VOICE_ELAPSED_FRAMES_LOC_36616: u8 = 0x70;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -8826,6 +8832,15 @@ impl ActiveEnemy {
         if self.hit_points <= 1 {
             return true;
         }
+        if matches!(self.family, EnemyFamily::BigHoppingSkull) {
+            self.hit_points -= 1;
+            self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            // ASM Big_Hopping_Skull.asm loc_365D8: nonfatal damage starts
+            // `stru_367CC`; loc_365F2/loc_36616 hibernate the object until
+            // the hit animation finishes before returning to loc_366B6.
+            self.grounded_frames = BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8;
+            return false;
+        }
         if matches!(self.family, EnemyFamily::UFO) {
             let first_hurt = ufo_first_hurt_survive_loc_35228(self.y_velocity);
             self.hit_points = 1;
@@ -9817,6 +9832,26 @@ pub(crate) fn step_active_enemies_with_rng(
             EnemyArchetype::Inert => {}
             EnemyArchetype::Bouncer => {
                 if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
+                    if enemy.grounded_frames > 0 {
+                        enemy.grounded_frames = enemy.grounded_frames.saturating_sub(1);
+                        let elapsed = BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8
+                            .saturating_sub(enemy.grounded_frames);
+                        if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+                            // ASM Big_Hopping_Skull.asm loc_365F2/loc_36616:
+                            // after each hit-animation hibernate, play the
+                            // groan on `C7FB0` timer 6 and Voice_die on
+                            // `C7FE0` timer $C.
+                            if BIG_HOPPING_SKULL_HIT_GROAN_ELAPSED_FRAMES_LOC_365F2
+                                .contains(&elapsed)
+                            {
+                                sound_effects.push(QueuedSoundEffect::BigHoppingSkullGroan);
+                            }
+                            if elapsed == BIG_HOPPING_SKULL_HIT_VOICE_ELAPSED_FRAMES_LOC_36616 {
+                                sound_effects.push(QueuedSoundEffect::VoiceDie);
+                            }
+                        }
+                        continue;
+                    }
                     let (left_bound_word, right_bound_word) =
                         big_hopping_skull_unpack_patrol_bounds_loc_364a0(enemy.dragon_anchor_y);
                     step_big_hopping_skull_with_bounds(

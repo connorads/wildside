@@ -6169,6 +6169,91 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_nonfatal_damage_enters_stru_367cc_hibernate() {
+        let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x0080_0000, 0x00E0_0000, 3);
+
+        assert!(!skull.take_damage_or_queue_death());
+
+        assert_eq!(skull.hit_points, 2);
+        assert_eq!(
+            skull.grounded_frames, BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8,
+            "ASM Big_Hopping_Skull.asm loc_365D8 should hibernate through `stru_367CC` on nonfatal damage",
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_hit_animation_queues_stru_367cc_sounds_like_loc_365f2() {
+        let mut enemies = [test_enemy(
+            EnemyFamily::BigHoppingSkull,
+            0x0080_0000,
+            0x00E0_0000,
+            2,
+        )];
+        enemies[0].grounded_frames = BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8 - 0x23;
+        enemies[0].x_velocity = 0x0001_0000;
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::BigHoppingSkullGroan],
+            "ASM Big_Hopping_Skull.asm loc_365F2 should play the groan when `stru_367CC` reaches C7FB0 timer 6",
+        );
+        assert_eq!(
+            enemies[0].x_pos, 0x0080_0000,
+            "ASM loc_365F2 hibernates the object during the hit animation instead of advancing movement",
+        );
+
+        enemies[0].grounded_frames = BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8 - 0x6F;
+        sound_effects.clear();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::VoiceDie],
+            "ASM Big_Hopping_Skull.asm loc_36616 should play Voice_die when `stru_367CC` reaches C7FE0 timer $C",
+        );
+    }
+
+    #[test]
     fn big_hopping_skull_collision_dispatch_matches_loc_3674e() {
         assert_eq!(
             enemies::big_hopping_skull_collision_dispatch_loc_3674e(0),
