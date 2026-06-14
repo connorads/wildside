@@ -256,6 +256,18 @@ and stop — never commit churn.
   p11 early-handoff/post-contact tail axis unchanged; the next useful #260
   search needs a different route shape that aligns Kid, the live Drips child,
   and the row-32 metal block in the same frame window.
+  2026-06-14 route follow-up: a pre-approach timing batch on `.cache/debug/issue260-p11/scenario.json`
+  found `250..290 Left,291..330 B+Right` as a stronger native route shape:
+  Kid reaches DripsDrop `dx=+1 dy=-1 @395` and cell `37,32` `dx=+1 dy=-1 @400`.
+  Adding `426..700 Right` materialises `.cache/recordings/issue-260-slbr-right426/scenario.json`
+  and produces `Bounce cell 37,32 @501`, but this is not oracle-comparable:
+  `verify-tas --frame-start 390 --frame-end 520 --frontier-kind enemy --bisect`
+  first diverges at frame 393 on HP (`native=2`, `oracle=1`). `tas-diff
+  --drips-trace --frame-start 388 --frame-end 402` shows oracle's right falling
+  Drips child writing `$28` contact at frames 392..399 before the native bounce
+  route can prove anything. Treat this as a phase-shifted native near-miss, not
+  metal-block proof; do not repeat this `slbr` pre-approach plus right-recovery
+  family unchanged.
   A
   follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
