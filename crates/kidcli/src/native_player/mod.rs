@@ -12628,6 +12628,50 @@ mod tests {
     }
 
     #[test]
+    fn flying_dragon_live_snapshot_uses_stru_34600_sequence() {
+        let visuals = sample_level_visuals();
+        let dragon_visuals = visuals.enemies.families.get(&0x0C).expect("dragon visuals");
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0C },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+
+        for (frame_index, signature) in [
+            (0, 141),
+            (21, 144),
+            (28, 141),
+            (84, 145),
+            (91, 142),
+            (112, 145),
+            (119, 142),
+        ] {
+            trace.frame_index = frame_index;
+            let frame = sprites::select_enemy_frame(&trace, dragon_visuals, &object);
+            assert_eq!(
+                frame.tile_sheet.tiles[0].pixels[0], signature,
+                "ASM Dragon_Flying.asm stru_34600 should not use a simple five-frame loop"
+            );
+        }
+    }
+
+    #[test]
     fn sphere_death_snapshot_selects_enemy06_kill_frames() {
         let visuals = sample_level_visuals();
         let sphere_visuals = visuals.enemies.families.get(&0x06).expect("sphere visuals");

@@ -1014,6 +1014,28 @@ fn select_live_diamond_frame<'a>(
     Some(&enemy_visuals.frames[phase])
 }
 
+fn select_live_flying_dragon_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a kid_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0C })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 5
+    {
+        return None;
+    }
+
+    // ASM Dragon_Flying.asm loc_346DA runs `stru_34600`, whose visible
+    // sequence repeats C75EE/C75F6/C75FE/C7606 before occasionally showing
+    // C760E. It is not the simple five-frame loop used by the fallback path.
+    const STRU_34600_FRAME_SEQUENCE: [usize; 20] =
+        [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3];
+    let phase =
+        (trace.frame_index / enemy_visuals.frame_duration.max(1)) % STRU_34600_FRAME_SEQUENCE.len();
+    Some(&enemy_visuals.frames[STRU_34600_FRAME_SEQUENCE[phase]])
+}
+
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
@@ -1432,6 +1454,9 @@ pub(super) fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_diamond_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_flying_dragon_frame(trace, enemy_visuals, object) {
         return frame;
     }
     // Offset animation by layout_index so enemies of the same type don't
