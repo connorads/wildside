@@ -11733,15 +11733,15 @@ mod chunk_09 {
         });
 
         let mut slice = OpeningSliceState::new(default_bounds());
-        // Diamond box: item_left = 100-7 = 93, item_right = 100+7 = 107
+        // ASM PrizeDiamond_Init loc_10396 uses CollisionSize_Index unk_31D5E:
+        // item_left = 100-5 = 95, item_right = 100+5 = 105.
         // Player half_width = 5, so player_left = x-5, player_right = x+5
-        // For inclusive overlap: player_left <= item_right → x-5 <= 107 → x <= 112
-        // AND player_right >= item_left → x+5 >= 93 → x >= 88
-        // Test exactly at boundary: player_right == item_left (x+5 = 93 → x = 88)
-        slice.player.x_pos = 88 << 16;
-        // Diamond item_top = 100 - PLAYER_HEIGHT = 100 - 31 = 69, item_bottom = 100
-        // Inclusive: player_top <= item_bottom → (y-31) <= 100 → y <= 131
-        // AND player_y >= item_top → y >= 69
+        // For inclusive overlap: player_left <= item_right -> x-5 <= 105 -> x <= 110
+        // AND player_right >= item_left -> x+5 >= 95 -> x >= 90.
+        // Test exactly at boundary: player_right == item_left (x+5 = 95 -> x = 90).
+        slice.player.x_pos = 90 << 16;
+        // Diamond item_top = 100 - 10 = 90, item_bottom = 100.
+        // Inclusive: player_top <= item_bottom and player_y >= item_top.
         slice.player.y_pos = 100 << 16;
 
         rt.collect_floating_items(&mut slice);

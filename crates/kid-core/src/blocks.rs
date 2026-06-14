@@ -1419,13 +1419,15 @@ impl NativeRuntime {
         block_col: u16,
         block_row: u16,
         layout_width: u16,
-    ) -> terrain::PrizeContent {
+    ) -> Option<terrain::PrizeContent> {
         let prize_layout_addr =
             terrain::BlockList::level_layout_low_word_addr(block_col, block_row, layout_width);
-        block_list
-            .and_then(|list| list.prize_block_by_layout_addr_loc_10342(prize_layout_addr))
-            .map(|entry| entry.content)
-            .unwrap_or(terrain::PrizeContent::Diamond)
+        match block_list {
+            Some(list) => list
+                .prize_block_by_layout_addr_loc_10342(prize_layout_addr)
+                .map(|entry| entry.content),
+            None => Some(terrain::PrizeContent::Diamond),
+        }
     }
 
     #[allow(non_snake_case)]
@@ -1436,14 +1438,20 @@ impl NativeRuntime {
         block_bounces: &mut Vec<BlockBounceAnim>,
         block_col: u16,
         block_row: u16,
-    ) -> terrain::PrizeContent {
+    ) -> Option<terrain::PrizeContent> {
         let restore_cell = grid.cell_at(block_col, block_row);
-        let content = Self::prize_content_for_block_cell_loc_10342(
+        let Some(content) = Self::prize_content_for_block_cell_loc_10342(
             block_list,
             block_col,
             block_row,
             grid.width_cells,
-        );
+        ) else {
+            // ASM loc_10342 walks the ROM prize Block List by exact
+            // Level_Layout address. Native-only fixture grids have no list and
+            // keep the Diamond fallback above, but real levels must not invent
+            // a prize object from an unmatched block-like tile.
+            return None;
+        };
         // ASM loc_1002E/sub_1007A (kid.asm:21317,21345): prize block impacts
         // write only the high byte `$6F`, preserving the original skin byte,
         // then the worker restores the prize cell before writing `$E001`.
@@ -1471,7 +1479,7 @@ impl NativeRuntime {
             metal_direction: 0,
             y_offset_px: 0,
         });
-        content
+        Some(content)
     }
 
     #[allow(non_snake_case)]
@@ -3791,14 +3799,6 @@ impl NativeRuntime {
     }
 
     /// Check player overlap with floating prize items and collect on contact.
-    /// ASM spawns prize items as separate objects — the player must physically
-    /// touch them. The native previously applied prizes immediately at block-hit
-    /// time, causing spurious form changes.
-    /// Check player overlap with floating prize items and collect on contact.
-    /// ASM spawns prize items as separate objects — the player must physically
-    /// touch them. The native previously applied prizes immediately at block-hit
-    /// time, causing spurious form changes.
-    /// Check player overlap with floating prize items and collect on contact.
     /// ASM uses GfxObjects_Collision (collision_type field) to detect player
     /// contact each frame. The collision check uses the standard sprite bounding
     /// box overlap from the object system.
@@ -3807,8 +3807,16 @@ impl NativeRuntime {
         const PLAYER_PRIZE_PICKUP_HEIGHT: i32 = (PLAYER_HEIGHT + 1) / 2;
         const HELMET_OBJECT_COLLISION_MIN_DY_PX: i32 = -17;
 
-        let player_x_px = (slice.player.x_pos >> 16) as i32;
-        let player_y_px = (slice.player.y_pos >> 16) as i32;
+        let collision_anchor = self
+            .last_kid_frame_collision_handoff_probe
+            .map(|probe| (probe.anchor_x_pos, probe.anchor_y_pos))
+            .unwrap_or((slice.player.x_pos, slice.player.y_pos));
+        // ASM GfxObjects_CollisionKid (kid.asm:3310) reads Kid_hitbox_* from
+        // the collision handoff that precedes native's later post-motion prize
+        // collection point. Using the current post-physics Kid position lets
+        // edge contacts collect a falling PrizeDiamond one frame too early.
+        let player_x_px = (collision_anchor.0 >> 16) as i32;
+        let player_y_px = (collision_anchor.1 >> 16) as i32;
         let player_left = player_x_px - PLAYER_HALF_WIDTH;
         let player_right = player_x_px + PLAYER_HALF_WIDTH;
 
@@ -3822,14 +3830,14 @@ impl NativeRuntime {
             let item_y_px = (item.y_pos >> 16) as i32;
             let (player_top, item_left, item_right, item_top, item_bottom, inclusive_overlap) =
                 if item.content == terrain::PrizeContent::Diamond {
-                    // PrizeDiamond_Init uses the standard gfx-object collision path,
-                    // with `y_pos` anchored at the object's bottom edge rather than
-                    // the top of a tiny 16px sprite box.
+                    // ASM PrizeDiamond_Init loc_10396 uses GfxObjects_CollisionKid
+                    // against CollisionSize_Index entry unk_31D5E for
+                    // LnkTo[1-4]_unk_E0E66: x-5,width=10,y-10,height=10.
                     (
                         player_y_px - PLAYER_HEIGHT,
-                        item_x_px - 7,
-                        item_x_px + 7,
-                        item_y_px - PLAYER_HEIGHT,
+                        item_x_px - 5,
+                        item_x_px + 5,
+                        item_y_px - 10,
                         item_y_px,
                         true,
                     )
@@ -5079,6 +5087,51 @@ mod tests {
     }
 
     #[test]
+    fn prize_diamond_collection_uses_rom_collision_handoff_anchor_loc_10396() {
+        // ASM PrizeDiamond_Init loc_10396 tests `collision_type(a3)` written by
+        // GfxObjects_CollisionKid, whose Kid hitbox still uses the handoff
+        // anchor for this pass. The #260 BLW2 brakehop trace reaches an edge
+        // where post-physics Kid overlaps the Diamond at x=456,y=594, but the
+        // handoff anchor is outside and must not queue collection.
+        let mut runtime = runtime_for_block_tests();
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 1024,
+            height_pixels: 768,
+        });
+        slice.player.x_pos = 0x01D2_0000;
+        slice.player.y_pos = 0x024F_0000;
+        runtime.last_kid_frame_collision_handoff_probe = Some(KidCollisionHandoffProbe {
+            anchor_x_pos: 0x01D5_2A00,
+            anchor_y_pos: 0x024F_0000,
+            ..KidCollisionHandoffProbe::default()
+        });
+        runtime.floating_items = vec![FloatingItem {
+            x_pos: 456 << 16,
+            y_pos: 594 << 16,
+            y_velocity: 0,
+            remaining: 0x00D5,
+            spawn_delay: 0,
+            level_col: 28,
+            level_row: 37,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Diamond,
+            collected: false,
+            collision_latched: false,
+        }];
+
+        runtime.collect_floating_items(&mut slice);
+
+        assert!(
+            !runtime.floating_items[0].collected,
+            "post-physics Kid overlaps, but ASM GfxObjects_CollisionKid still uses the pre-motion handoff hitbox",
+        );
+        assert!(
+            runtime.pending_prize_diamond_awards.is_empty(),
+            "no PrizeDiamondCollected_Init award should be queued until the handoff hitbox overlaps",
+        );
+    }
+
+    #[test]
     fn floating_prize_graphics_specs_match_asm_prize_initialisers() {
         // ASM PrizeDiamond_Init and PrizeHelmet* initialisers choose the
         // content-specific sprite scripts before the shared fall/collision
@@ -5311,7 +5364,7 @@ mod tests {
 
         assert_eq!(
             content,
-            terrain::PrizeContent::Berzerker,
+            Some(terrain::PrizeContent::Berzerker),
             "ASM Prize_Init loc_10342 should resolve the floor-hit prize by layout address, not fall back to Diamond",
         );
         assert_eq!(
@@ -5333,6 +5386,41 @@ mod tests {
             block_bounces[0].prize_content,
             Some(terrain::PrizeContent::Berzerker)
         );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn start_prize_block_wobble_sub_1007A_requires_real_level_block_list_match_loc_10342() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0xE1, 0x02], 1, 1);
+        let block_list = terrain::BlockList {
+            prize_blocks: Vec::new(),
+            ghost_blocks: Vec::new(),
+            teleporters: Vec::new(),
+            hidden_blocks: Vec::new(),
+        };
+        let mut deferred_ceiling_clears = Vec::new();
+        let mut block_bounces = Vec::new();
+
+        let content = NativeRuntime::start_prize_block_wobble_sub_1007A(
+            &mut grid,
+            Some(&block_list),
+            &mut deferred_ceiling_clears,
+            &mut block_bounces,
+            0,
+            0,
+        );
+
+        assert_eq!(
+            content, None,
+            "ASM loc_10342 must not fall back to Diamond when a real level's block list has no exact layout-address match",
+        );
+        assert_eq!(
+            grid.cell_at(0, 0),
+            terrain::Cell::from_be_bytes(0xE1, 0x02),
+            "unmatched real-level cells must not enter sub_1007A's deleted-cell phase",
+        );
+        assert!(deferred_ceiling_clears.is_empty());
+        assert!(block_bounces.is_empty());
     }
 
     #[test]

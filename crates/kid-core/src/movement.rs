@@ -6363,28 +6363,38 @@ impl OpeningSliceState {
                         probe.cell_y,
                         grid.width_cells,
                     );
-                    let content = block_list
-                        .and_then(|bl| bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr))
-                        .map(|entry| entry.content)
-                        .unwrap_or(terrain::PrizeContent::Diamond);
-                    let reveal_only = block_list
-                        .and_then(|bl| bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr))
-                        .is_some_and(|entry| entry.disguised);
-                    let block_x_px = probe.cell_x * 16;
-                    let block_y_px = probe.cell_y * 16;
-                    self.prize_block_hit = Some((content, block_x_px, block_y_px));
-                    // ASM sub_1007A: keep cell Solid, clear has_block
-                    grid.set_cell_at(
-                        probe.cell_x,
-                        probe.cell_y,
-                        terrain::Cell::from_be_bytes(0x6F, probe.cell.skin),
-                    );
-                    self.ceiling_prize_clear = Some(PrizeCeilingClear {
-                        col: probe.cell_x,
-                        row: probe.cell_y,
-                        restore_cell: probe.cell,
-                        reveal_only,
-                    });
+                    let prize_entry = block_list
+                        .and_then(|bl| bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr));
+                    if block_list.is_none() || prize_entry.is_some() {
+                        // ASM loc_10342 walks the ROM prize Block List by exact
+                        // Level_Layout address. Native-only fixture grids have no
+                        // list, so keep their Diamond fallback, but real levels must
+                        // not invent a prize from an unmatched block-like tile.
+                        let content = prize_entry
+                            .map(|entry| entry.content)
+                            .unwrap_or(terrain::PrizeContent::Diamond);
+                        // ASM sub_1007A/loc_101D8 (kid.asm:21345,21459):
+                        // the worker branches to reveal-only by testing the
+                        // selected Level_Layout cell's low byte (`cmpi.b #1,
+                        // 1(a0)`), not the durable block-list prize metadata.
+                        let reveal_only = probe.cell.skin == 0x01
+                            || prize_entry.is_some_and(|entry| entry.disguised);
+                        let block_x_px = probe.cell_x * 16;
+                        let block_y_px = probe.cell_y * 16;
+                        self.prize_block_hit = Some((content, block_x_px, block_y_px));
+                        // ASM sub_1007A: keep cell Solid, clear has_block
+                        grid.set_cell_at(
+                            probe.cell_x,
+                            probe.cell_y,
+                            terrain::Cell::from_be_bytes(0x6F, probe.cell.skin),
+                        );
+                        self.ceiling_prize_clear = Some(PrizeCeilingClear {
+                            col: probe.cell_x,
+                            row: probe.cell_y,
+                            restore_cell: probe.cell,
+                            reveal_only,
+                        });
+                    }
                 }
             }
 
@@ -6436,56 +6446,70 @@ impl OpeningSliceState {
                             block_dispatch_probe.cell_y,
                             grid.width_cells,
                         );
-                        let content = block_list
-                            .and_then(|bl| {
-                                bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr)
-                            })
-                            .map(|entry| entry.content)
-                            .unwrap_or(terrain::PrizeContent::Diamond);
-                        let reveal_only = block_list
-                            .and_then(|bl| {
-                                bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr)
-                            })
-                            .is_some_and(|entry| entry.disguised);
-                        let block_x_px = block_dispatch_probe.cell_x * 16;
-                        let block_y_px = block_dispatch_probe.cell_y * 16;
-                        self.prize_block_hit = Some((content, block_x_px, block_y_px));
-                        // ASM sub_1007A writes $6F to the cell: Solid collision,
-                        // has_block=false, block_type=Deleted. The tile stays solid
-                        // as structural ceiling for ~32 frames (bounce animation),
-                        // then clears. Without this, Cyclone flight near a Prize
-                        // ceiling clears the tile to Empty immediately, letting
-                        // the player fly through.
-                        grid.set_cell_at(
-                            block_dispatch_probe.cell_x,
-                            block_dispatch_probe.cell_y,
-                            terrain::Cell::from_be_bytes(0x6F, block_dispatch_probe.cell.skin),
-                        );
-                        self.ceiling_prize_clear = Some(PrizeCeilingClear {
-                            col: block_dispatch_probe.cell_x,
-                            row: block_dispatch_probe.cell_y,
-                            restore_cell: block_dispatch_probe.cell,
-                            reveal_only,
+                        let prize_entry = block_list.and_then(|bl| {
+                            bl.prize_block_by_layout_addr_loc_10342(prize_layout_addr)
                         });
-                        // ASM sub_914A scans ALL tiles across player width, so
-                        // adjacent Smash blocks are cleared on the same frame.
-                        // probe_ceiling returns on the first hit, missing the
-                        // other edge. Clear adjacent Smash blocks now.
-                        let top_y = y_px - collision_height;
-                        let tile_row = (top_y / 16).max(0) as u16;
-                        for &edge_x in &[x_px - collision_hw, x_px + collision_hw] {
-                            let col = (edge_x / 16).max(0) as u16;
-                            if col == block_dispatch_probe.cell_x
-                                && tile_row == block_dispatch_probe.cell_y
-                            {
-                                continue;
-                            }
-                            let cell = grid.cell_at(col, tile_row);
-                            if cell.collision == terrain::CollisionKind::Solid
-                                && cell.has_block
-                                && cell.block_type == terrain::BlockType::Smash
-                            {
-                                grid.set_cell_at(col, tile_row, terrain::Cell::from_be_bytes(0, 0));
+                        if block_list.is_none() || prize_entry.is_some() {
+                            // ASM loc_10342 walks the ROM prize Block List by exact
+                            // Level_Layout address. Native-only fixture grids have no
+                            // list, so keep their Diamond fallback, but real levels must
+                            // not invent a prize from an unmatched block-like tile.
+                            let content = prize_entry
+                                .map(|entry| entry.content)
+                                .unwrap_or(terrain::PrizeContent::Diamond);
+                            // ASM sub_1007A/loc_101D8 (kid.asm:21345,21459):
+                            // `$E101` cells reveal into `$E102` without
+                            // running Prize_Init; this decision comes from
+                            // the selected Level_Layout low byte.
+                            let reveal_only = block_dispatch_probe.cell.skin == 0x01
+                                || prize_entry.is_some_and(|entry| entry.disguised);
+                            let block_x_px = block_dispatch_probe.cell_x * 16;
+                            let block_y_px = block_dispatch_probe.cell_y * 16;
+                            self.prize_block_hit = Some((content, block_x_px, block_y_px));
+                            // ASM sub_1007A writes $6F to the cell: Solid collision,
+                            // has_block=false, block_type=Deleted. The tile stays solid
+                            // as structural ceiling for ~32 frames (bounce animation),
+                            // then clears. Without this, Cyclone flight near a Prize
+                            // ceiling clears the tile to Empty immediately, letting
+                            // the player fly through.
+                            grid.set_cell_at(
+                                block_dispatch_probe.cell_x,
+                                block_dispatch_probe.cell_y,
+                                terrain::Cell::from_be_bytes(
+                                    0x6F,
+                                    block_dispatch_probe.cell.skin,
+                                ),
+                            );
+                            self.ceiling_prize_clear = Some(PrizeCeilingClear {
+                                col: block_dispatch_probe.cell_x,
+                                row: block_dispatch_probe.cell_y,
+                                restore_cell: block_dispatch_probe.cell,
+                                reveal_only,
+                            });
+                            // ASM sub_914A scans ALL tiles across player width, so
+                            // adjacent Smash blocks are cleared on the same frame.
+                            // probe_ceiling returns on the first hit, missing the
+                            // other edge. Clear adjacent Smash blocks now.
+                            let top_y = y_px - collision_height;
+                            let tile_row = (top_y / 16).max(0) as u16;
+                            for &edge_x in &[x_px - collision_hw, x_px + collision_hw] {
+                                let col = (edge_x / 16).max(0) as u16;
+                                if col == block_dispatch_probe.cell_x
+                                    && tile_row == block_dispatch_probe.cell_y
+                                {
+                                    continue;
+                                }
+                                let cell = grid.cell_at(col, tile_row);
+                                if cell.collision == terrain::CollisionKind::Solid
+                                    && cell.has_block
+                                    && cell.block_type == terrain::BlockType::Smash
+                                {
+                                    grid.set_cell_at(
+                                        col,
+                                        tile_row,
+                                        terrain::Cell::from_be_bytes(0, 0),
+                                    );
+                                }
                             }
                         }
                     }

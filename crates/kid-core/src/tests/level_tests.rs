@@ -4216,7 +4216,8 @@ mod chunk_02 {
                     prize.row,
                 );
                 assert_eq!(
-                    content, prize.content,
+                    content,
+                    Some(prize.content),
                     "ASM loc_10342 should dispatch generated level {:02X} prize ({},{}) as {:?}, not the Diamond fallback",
                     level.0, prize.col, prize.row, prize.content,
                 );
@@ -4328,7 +4329,8 @@ mod chunk_02 {
                 row,
             );
             assert_eq!(
-                content, expected_content,
+                content,
+                Some(expected_content),
                 "ASM sub_1007A -> loc_10342 should resolve Level 0x20 cell ({col},{row}) from layout ${layout_addr:04X} as {expected_content:?}, not Diamond",
             );
 
@@ -19393,6 +19395,61 @@ mod chunk_02 {
     }
 
     #[test]
+    fn visible_prize_ceiling_requires_matching_block_list_entry_loc_10342() {
+        let w = 40u16;
+        let h = 34u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 28, 32, 0xE1, 0x01);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let block_list = terrain::BlockList {
+            prize_blocks: vec![terrain::PrizeBlockEntry {
+                layout_addr: terrain::BlockList::level_layout_low_word_addr(27, 32, w),
+                col: 27,
+                row: 32,
+                content: terrain::PrizeContent::Diamond,
+                disguised: false,
+            }],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 640,
+            height_pixels: 544,
+        });
+        slice.player.x_pos = (28 * 16 + 8) << 16;
+        slice.player.y_pos = (32 * 16 + 31) << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            Some(&block_list),
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "the block-like ceiling cell should still stop upward Kid motion",
+        );
+        assert!(
+            slice.prize_block_hit.is_none(),
+            "ASM loc_10342 walks exact Level_Layout addresses; an unmatched visible prize-looking cell must not default to a Diamond",
+        );
+        assert!(
+            slice.ceiling_prize_clear.is_none(),
+            "without a loc_10342 match, native must not queue sub_1007A or later spawn a fake floating prize",
+        );
+        assert_eq!(grid.cell_at(28, 32), terrain::Cell::from_be_bytes(0xE1, 0x01));
+    }
+
+    #[test]
     fn disguised_prize_ceiling_queues_reveal_only_loc_101d8() {
         let w = 6u16;
         let h = 5u16;
@@ -19446,6 +19503,110 @@ mod chunk_02 {
             Some((terrain::PrizeContent::Eyeclops, 32, 32)),
             "the queued worker should still remember the matching block-list content for the later visible hit"
         );
+    }
+
+    #[test]
+    fn e101_prize_cell_reveals_only_even_when_block_list_says_visible_loc_101d8() {
+        let w = 6u16;
+        let h = 5u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+            let offset = (row * usize::from(w) + col) * 2;
+            data[offset] = hi;
+            data[offset + 1] = lo;
+        };
+        set_cell(&mut data, 2, 2, 0xE1, 0x01);
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let block_list = terrain::BlockList {
+            prize_blocks: vec![terrain::PrizeBlockEntry {
+                layout_addr: terrain::BlockList::level_layout_low_word_addr(2, 2, w),
+                col: 2,
+                row: 2,
+                content: terrain::PrizeContent::Diamond,
+                disguised: false,
+            }],
+            ghost_blocks: vec![],
+            teleporters: vec![],
+            hidden_blocks: vec![],
+        };
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 40 << 16;
+        slice.player.y_pos = 63 << 16;
+        slice.player.y_velocity = -0x0011_0000;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            Some(&block_list),
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        let clear = slice
+            .ceiling_prize_clear
+            .expect("E101 prize cell should still queue the sub_1007A worker");
+        assert!(
+            clear.reveal_only,
+            "ASM sub_1007A/loc_101D8 tests the selected Level_Layout low byte (#1), so stale/visible block-list metadata must not spawn a Diamond"
+        );
+        assert_eq!(clear.restore_cell, terrain::Cell::from_be_bytes(0xE1, 0x01));
+    }
+
+    #[test]
+    fn generated_blw2_prize_list_does_not_rewrite_type_c_cell_at_ce8a_loc_bbe2() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.reload_block_grid_for_level(LevelId(0x01));
+        let block_list = runtime
+            .block_list
+            .as_ref()
+            .expect("BLW2 should load its generated block list");
+        let mut grid = runtime
+            .block_grid
+            .as_ref()
+            .expect("BLW2 should load its generated collision grid")
+            .clone();
+        let layout_addr = terrain::BlockList::level_layout_low_word_addr(28, 32, grid.width_cells);
+        assert_eq!(layout_addr, 0xCE8A);
+        assert_eq!(
+            block_list
+                .prize_block_by_layout_addr_loc_10342(layout_addr)
+                .map(|entry| entry.content),
+            Some(terrain::PrizeContent::Diamond),
+            "the stale/broad Block List entry is present and must not be enough to rewrite the live cell",
+        );
+        assert_eq!(
+            grid.cell_at(28, 32),
+            terrain::Cell::from_be_bytes(0xEC, 0x2D),
+            "ASM sub_BBE2/loc_BC26 dispatches from the live Level_Layout word; BLW2 centre cell 0xCE8A must stay type-C, not be reconciled to E102",
+        );
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.x_pos = (456u32) << 16;
+        slice.player.y_pos = (561u32) << 16;
+        slice.player.y_velocity = -0x0003_E400;
+
+        slice.apply_ceiling_collision(
+            Some(&mut grid),
+            Some(block_list),
+            PlayerForm::TheKid,
+            PLAYER_HALF_WIDTH,
+            &[],
+        );
+
+        assert!(
+            slice.prize_block_hit.is_none(),
+            "ASM off_BB80 index C returns immediately, so the BLW2 ceiling stop must not queue sub_1007A or spawn a Diamond",
+        );
+        assert!(slice.ceiling_prize_clear.is_none());
     }
 
     #[test]

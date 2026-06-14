@@ -61,8 +61,10 @@ fn floating_diamond_in_player_horizontal_band_loc_10396(
     let player_left = player_x_px - PLAYER_HALF_WIDTH;
     let player_right = player_x_px + PLAYER_HALF_WIDTH;
     let item_x_px = (item.x_pos >> 16) as i32;
-    let item_left = item_x_px - 7;
-    let item_right = item_x_px + 7;
+    // ASM PrizeDiamond_Init loc_10396 uses CollisionSize_Index unk_31D5E
+    // through LnkTo[1-4]_unk_E0E66: x-5,width=10.
+    let item_left = item_x_px - 5;
+    let item_right = item_x_px + 5;
 
     // ASM PrizeDiamond_Init loc_10396 reaches the standard gfx-object
     // collision path. In the published demo trace the extra old-worker count
@@ -4124,7 +4126,7 @@ mod tests {
             .cloned()
             .unwrap_or_else(|| panic!("trace frame should emit floating-diamond candidates"));
 
-        let expected_debug = "diamond@100,100 dx=4 dy=0 gap_x=0 gap_y=0 overlap_x=1 overlap_y=1 spawn=0 rem=500 collected=0; diamond@95,90 dx=-1 dy=-10 gap_x=0 gap_y=0 overlap_x=1 overlap_y=1 spawn=0 rem=500 collected=0; diamond@74,100 dx=-22 dy=0 gap_x=10 gap_y=0 overlap_x=0 overlap_y=1 spawn=0 rem=500 collected=0; diamond@112,50 dx=16 dy=-50 gap_x=4 gap_y=19 overlap_x=0 overlap_y=0 spawn=0 rem=500 collected=0";
+        let expected_debug = "diamond@100,100 dx=4 dy=0 gap_x=0 gap_y=0 overlap_x=1 overlap_y=1 spawn=0 rem=500 collected=0; diamond@95,90 dx=-1 dy=-10 gap_x=0 gap_y=0 overlap_x=1 overlap_y=1 spawn=0 rem=500 collected=0; diamond@74,100 dx=-22 dy=0 gap_x=12 gap_y=0 overlap_x=0 overlap_y=1 spawn=0 rem=500 collected=0; diamond@112,50 dx=16 dy=-50 gap_x=6 gap_y=19 overlap_x=0 overlap_y=0 spawn=0 rem=500 collected=0";
         assert_eq!(
             diamond_debug, expected_debug,
             "floating-diamond candidates should be sorted by Manhattan pixel distance",
@@ -4136,12 +4138,12 @@ mod tests {
         );
         assert!(
             diamond_debug
-                .contains("diamond@74,100 dx=-22 dy=0 gap_x=10 gap_y=0 overlap_x=0 overlap_y=1"),
+                .contains("diamond@74,100 dx=-22 dy=0 gap_x=12 gap_y=0 overlap_x=0 overlap_y=1"),
             "left-side gap should use the player's left edge, got {diamond_debug}",
         );
         assert!(
             diamond_debug
-                .contains("diamond@112,50 dx=16 dy=-50 gap_x=4 gap_y=19 overlap_x=0 overlap_y=0"),
+                .contains("diamond@112,50 dx=16 dy=-50 gap_x=6 gap_y=19 overlap_x=0 overlap_y=0"),
             "vertical gap should use the player's top edge, got {diamond_debug}",
         );
     }
@@ -7706,8 +7708,12 @@ impl NativeRuntime {
     fn floating_diamond_contact_candidates(&self, player: PlayerState) -> Option<String> {
         use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
 
-        let player_x_px = (player.x_pos >> 16) as i32;
-        let player_y_px = (player.y_pos >> 16) as i32;
+        let collision_anchor = self
+            .last_kid_frame_collision_handoff_probe
+            .map(|probe| (probe.anchor_x_pos, probe.anchor_y_pos))
+            .unwrap_or((player.x_pos, player.y_pos));
+        let player_x_px = (collision_anchor.0 >> 16) as i32;
+        let player_y_px = (collision_anchor.1 >> 16) as i32;
         let player_left = player_x_px - PLAYER_HALF_WIDTH;
         let player_right = player_x_px + PLAYER_HALF_WIDTH;
         let player_bottom = player_y_px;
@@ -7720,9 +7726,12 @@ impl NativeRuntime {
             let item_x_px = (item.x_pos >> 16) as i32;
             let item_y_px = (item.y_pos >> 16) as i32;
             let player_top = player_y_px - PLAYER_HEIGHT;
-            let item_left = item_x_px - 7;
-            let item_right = item_x_px + 7;
-            let item_top = item_y_px - PLAYER_HEIGHT;
+            // ASM PrizeDiamond_Init loc_10396 reaches GfxObjects_CollisionKid
+            // with the LnkTo[1-4]_unk_E0E66 sprite, whose CollisionSize_Index
+            // entry unk_31D5E is x-5,width=10,y-10,height=10.
+            let item_left = item_x_px - 5;
+            let item_right = item_x_px + 5;
+            let item_top = item_y_px - 10;
             let item_bottom = item_y_px;
             let overlap_x = player_left <= item_right && player_right >= item_left;
             let overlap_y = player_top <= item_bottom && player_bottom >= item_top;

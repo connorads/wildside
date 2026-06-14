@@ -4500,6 +4500,16 @@ fn reconcile_prize_block_cells_loc_123DC(
             continue;
         }
 
+        let current_cell = grid.cell_at(col, row);
+        if current_cell.has_block && current_cell.block_type != terrain::BlockType::Prize {
+            // ASM sub_BBE2/loc_BC26 dispatches from the live Level_Layout word,
+            // not from the durable prize Block List. BLW2 has a block-list entry
+            // at 0xCE8A, but the actual cell is `$EC2D`; rewriting that to
+            // `$E102` makes native spawn a false Diamond where the ROM treats it
+            // as a type-C no-op ceiling block.
+            continue;
+        }
+
         // ASM loc_123DC/loc_12408 writes `$E102` for visible prize cells and
         // `$E101` for disguised ones while building Level_Layout. Some generated
         // RAM fixtures preserve the prize list but capture a later Level_Layout
