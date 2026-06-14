@@ -9355,6 +9355,14 @@ Column of origin shown in brackets; text is verbatim.
 - [Summary] 2026-06-09 playtest: attract-mode intro demo — Kid grabs the Cyclops/Eyeclops but a prize-box diamond emerges instead of the Cyclops grab/spin sequence
 - [Verify] Watch attract demo; confirm Kid grabs Cyclops and spins (no prize-box diamond) RECONFIRMED 2026-06-10 playtest (post 325e8622 build): the intro-demo Cyclops prize still emerges as a diamond. Generalised by new #284: later-level prize blocks appear to award diamonds instead of their configured helmets, blocking form progression.
 - [Evidence] 2026-06-11 trace refinement: `generated_demo_level_visible_prize_ceiling_uses_cyclone_block_list_entry` proves generated demo level `0x1B` resolves the visible ceiling prize at col 4,row 36 as `PrizeContent::Cyclone` through live block-list lookup, and `published_demo_exposes_cyclone_prize_before_later_diamonds` proves the published demo trace exposes Cyclone content around frames 1021/1022/1045 before later real Diamond prize events. The human-visible bug remains open, but the next investigation should capture/compare the rendered intro frames rather than reworking generic block-list fallback.
+- [Evidence] 2026-06-14 current-HEAD cold-idle frame refresh: native/oracle PNGs at
+  3488/3491/3494 give exact AE `0/419/143`. The player-area crop at 3491
+  isolates the residual to the first transform render, while the 3494
+  player/prize crop is pixel-perfect. Trace and oracle state agree at 3491
+  (`current_helmet_id=2`, Kid/camera positions equal, transforming true), and
+  ASM `Kid_Transform loc_7CD0` / `stru_7F30` says this is the first Cyclone
+  transform frame. Treat this as a demo transform-render timing lead, not
+  evidence that the prize content became a Diamond.
 
 ### #275
 
@@ -9472,6 +9480,18 @@ Column of origin shown in brackets; text is verbatim.
   path/frame where the human sees the first expected helmet item as a Diamond,
   or a natural later-level route whose trace emits content id `0` while the ROM
   block list expects a helmet.
+
+- [Evidence] 2026-06-14 transform-vs-content refinement: fresh native frames in
+  `.cache/debug/issue284-frame-refresh-native-20260614/` and oracle frames in
+  `.cache/debug/issue284-frame-refresh-oracle-20260614/` compare as exact AE
+  `3488=0`, `3491=419`, `3494=143`. Cropping the player/prize area shows the
+  purple Cyclone prize matches and frame 3494 is pixel-perfect in that crop;
+  only frame 3491's first transform render differs. Native/oracle state and
+  camera still match at 3491, and ASM `Kid_Transform loc_7CD0` / `stru_7F30`
+  confirms native is in the first Cyclone transform frame after content id `3`
+  collection. Do not reopen generic prize-block parsing from this evidence;
+  chase transform render ordering under #274 or capture a different live route
+  where native trace actually emits content id `0` for a ROM helmet prize.
 
 ### #285
 
