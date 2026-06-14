@@ -119,7 +119,15 @@ and stop — never commit churn.
   now preserves non-prize live `Level_Layout` cells and the route verifies with
   no authoritative divergences through frames `0..700`. This is a fixed
   sub-case only: it removes the stale centre-`EC2D` false-prize branch, but it is
-  still not the reported live slime/metal-block contact repro.
+  still not the reported live slime/metal-block contact repro. A brakehop-seed
+  tail branch, `.cache/recordings/issue-260-brakehop-b450-l485/scenario.json`
+  (`300..430 Right`, `431..449 none`, `450..484 B`, `485..520 Left`), verifies
+  enemy-frontier clean for frames `450..510` and `tas-diff` reports 57 matched
+  frames. It bounces `cell 37,32 @460` and later gets a `DripsSurfaceCrawler`
+  overlap with Kid (`dx=0 dy=+1 @505`), but these are separate events: the
+  crawler is down at `cell 36,37`, `block_destroy_effects=[]`, and the row-32
+  block only bounces. Treat this as clean separation evidence, not the reported
+  slime/metal-block destruction route.
   2026-06-14 route follow-up: a fresh phase-delay batch over
   `.cache/recordings/issue-260-drips-b-jump-climb-seed-current/scenario.json`
   found one stronger raw `EC2D` hitbox pass, but not a usable repro. Candidate
