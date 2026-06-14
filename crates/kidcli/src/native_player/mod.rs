@@ -1912,6 +1912,7 @@ enum NativeBgmCue {
     Options,
     Level(LevelId),
     ScoreBoard,
+    Ending,
     StoppedForTransition,
 }
 
@@ -1923,6 +1924,22 @@ enum NativeBgmPlaybackCommand {
 }
 
 fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
+    match (trace.game_mode, trace.played_bgm_ids.last().copied()) {
+        // ASM Score_Board loc_C238 (kid.asm:15812): core queues the exact
+        // `bgm_Score_Board` command once the EOL path reaches the BGM frame.
+        (GameMode::InGame | GameMode::DemoPlay, Some(gems_bgm::SCORE_BOARD))
+            if trace.level_complete =>
+        {
+            return Some(NativeBgmCue::ScoreBoard);
+        }
+        // ASM End_Credits loc_D824 (kid.asm:16924): core queues
+        // `bgm_Ending` after the `$28` StopMusic pause.
+        (GameMode::EndingSequence, Some(gems_bgm::ENDING)) => {
+            return Some(NativeBgmCue::Ending);
+        }
+        _ => {}
+    }
+
     match trace.game_mode {
         // ASM Load_IntroSequence1 / Load_TitleScreen both queue `bgm_Ice` via
         // `j_PlaySound`; later intro/title-shell modes inherit that cue. Native
@@ -2236,6 +2253,7 @@ fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8>
             resolved_level_header(manifest, level.0).and_then(level_start_bgm)
         }
         NativeBgmCue::ScoreBoard => Some(gems_bgm::SCORE_BOARD),
+        NativeBgmCue::Ending => Some(gems_bgm::ENDING),
         NativeBgmCue::StoppedForTransition => None,
     }
 }
@@ -2920,6 +2938,7 @@ mod tests {
             options_cursor: None,
             sound_test_track: None,
             played_sound_effect_ids: Vec::new(),
+            played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             two_player: false,
             options_two_player_two_controllers: false,
@@ -10125,8 +10144,7 @@ mod tests {
             "generated Load_TitleCard data should keep native hotkeys on the ROM title-card path even if this tiny fixture lacks live VDP state"
         );
         assert_eq!(
-            presentation.level_card_frames_remaining,
-            0,
+            presentation.level_card_frames_remaining, 0,
             "debug hotkeys should not prepend a native hold before ASM loc_6E2/Load_TitleCard"
         );
         assert!(presentation.wait_for_live_input_release);
@@ -15190,6 +15208,21 @@ mod tests {
                 .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
             Some(gems_bgm::SCORE_BOARD),
             "ASM Score_Board should queue bgm_Score_Board for the EOL sequence"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn ending_bgm_uses_core_trace_cue_loc_d824() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut trace = sample_trace(GameMode::EndingSequence);
+        trace.played_bgm_ids = vec![gems_bgm::ENDING];
+
+        assert_eq!(
+            native_bgm_cue_for_trace(&trace)
+                .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
+            Some(gems_bgm::ENDING),
+            "ASM End_Credits loc_D824 should drive bgm_Ending from the core trace"
         );
         Ok(())
     }

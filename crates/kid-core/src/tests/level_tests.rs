@@ -10583,6 +10583,46 @@ mod chunk_02 {
 
     #[test]
     #[allow(non_snake_case)]
+    fn loc_C238_level_complete_trace_queues_score_board_bgm_at_asm_frame() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            runtime.trace_frame().level_complete,
+            "flag touch should enter the ASM level-complete path"
+        );
+
+        let score_board_bgm_frame = crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
+            + runtime.level_complete_scoreboard_reveal_frames_loc_C21E()
+            + crate::level::EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E;
+
+        for _ in 0..score_board_bgm_frame.saturating_sub(1) {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert!(
+            runtime.trace_frame().played_bgm_ids.is_empty(),
+            "ASM Score_Board loc_C238 should not queue bgm_Score_Board before the loc_C21E reveal and `$14` wait finish"
+        );
+
+        let trace = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            trace.played_bgm_ids,
+            vec![BGM_SCORE_BOARD_LOC_C238],
+            "ASM Score_Board loc_C238 (kid.asm:15812) queues bgm_Score_Board=$74 at the EOL BGM boundary"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
     fn loc_D774_initial_oracle_stalls_hold_visible_score_counter() {
         assert_eq!(
             crate::level::eol_score_counter_transfer_frames_from_trace_loc_D770(4),

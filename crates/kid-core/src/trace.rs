@@ -6719,6 +6719,7 @@ impl NativeRuntime {
                 .iter()
                 .map(|effect| effect.sound_id())
                 .collect(),
+            played_bgm_ids: self.played_bgm_ids.clone(),
             played_music_speed_updates: self.played_music_speed_updates.clone(),
             two_player: self.two_player,
             options_two_player_two_controllers: self.options_two_player_two_controllers,

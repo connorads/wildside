@@ -673,6 +673,11 @@ pub(crate) const LAVA_GEYSER_ERUPT_SPEED: u16 = 4; // pixels per frame
 pub(crate) const ENDING_PAUSE_FRAMES: usize = 40; // Sleep 0x28
 pub(crate) const ENDING_MUSIC_DELAY_FRAMES: usize = 200; // Sleep 0xC8
 pub(crate) const ENDING_FADE_OUT_FRAMES: usize = 256; // fade counter 0x100
+
+// GEMS BGM ids from upstream constants.asm. These are traced from core when an
+// ASM-backed path reaches a `j_PlaySound` music command.
+pub(crate) const BGM_ENDING_LOC_D824: u8 = 0x05;
+pub(crate) const BGM_SCORE_BOARD_LOC_C238: u8 = 0x74;
 /// Each credits screen: 112 frames scroll + 200 frames display.
 pub(crate) const CREDITS_SCROLL_FRAMES: usize = 112;
 pub(crate) const CREDITS_DISPLAY_FRAMES: usize = 200;

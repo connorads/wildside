@@ -202,6 +202,8 @@ pub struct NativeRuntime {
     pending_sound_effects: Vec<PendingSoundEffect>,
     /// Internal log used by focused sound-worker tests.
     played_sound_effects: Vec<QueuedSoundEffect>,
+    /// Internal log of ASM `j_PlaySound` BGM command bytes.
+    played_bgm_ids: Vec<u8>,
     /// Internal log of ASM sub_E1330/sub_E1338 music-speed command bytes.
     played_music_speed_updates: Vec<u8>,
     /// Enemy death particle effects.
@@ -1404,6 +1406,7 @@ impl NativeRuntime {
             pending_prize_diamond_hud_flights: Vec::new(),
             pending_sound_effects: Vec::new(),
             played_sound_effects: Vec::new(),
+            played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             enemy_death_effects: Vec::new(),
             pending_dragon_death_children: Vec::new(),

@@ -7441,6 +7441,12 @@ impl NativeRuntime {
             }
             BootState::EndingSequence { elapsed } => {
                 *elapsed += 1;
+                if *elapsed == ENDING_PAUSE_FRAMES {
+                    // ASM End_Credits loc_D7FA/loc_D824 (kid.asm:16910,
+                    // 16924): StopMusic, hibernate `$28`, then queue
+                    // `bgm_Ending` before the `$C8` pre-fade hibernate.
+                    self.played_bgm_ids.push(BGM_ENDING_LOC_D824);
+                }
                 let total_ending_frames = ENDING_PAUSE_FRAMES
                     + ENDING_MUSIC_DELAY_FRAMES
                     + ENDING_FADE_OUT_FRAMES
@@ -7806,6 +7812,16 @@ impl NativeRuntime {
                 total_frames,
             } => {
                 self.clear_flagpole_deleted_objects_loc_C070();
+                let elapsed_after_step = total_frames.saturating_sub(remaining_frames) + 1;
+                let score_board_bgm_frame = crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
+                    + self.level_complete_scoreboard_reveal_frames_loc_C21E()
+                    + crate::level::EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E;
+                if elapsed_after_step == score_board_bgm_frame {
+                    // ASM Score_Board loc_C238 (kid.asm:15812): after
+                    // loc_C21E reveal and the `$14` wait, queue
+                    // `bgm_Score_Board` before loc_D468 row setup.
+                    self.played_bgm_ids.push(BGM_SCORE_BOARD_LOC_C238);
+                }
                 if remaining_frames > 1 {
                     self.player_lifecycle = PlayerLifecycle::LevelComplete {
                         remaining_frames: remaining_frames - 1,

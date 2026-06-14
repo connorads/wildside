@@ -2477,6 +2477,28 @@ mod chunk_01 {
         );
     }
 
+    #[test]
+    #[allow(non_snake_case)]
+    fn loc_D824_ending_trace_queues_bgm_after_stop_music_pause() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.boot_state = BootState::EndingSequence {
+            elapsed: ENDING_PAUSE_FRAMES - 2,
+        };
+
+        let before = runtime.step_frame(FrameInput::default());
+        assert!(
+            before.played_bgm_ids.is_empty(),
+            "ASM End_Credits loc_D7FA should hibernate `$28` frames after StopMusic before bgm_Ending"
+        );
+
+        let trace = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            trace.played_bgm_ids,
+            vec![BGM_ENDING_LOC_D824],
+            "ASM End_Credits loc_D824 (kid.asm:16924) queues bgm_Ending=$05 after the `$28` pause"
+        );
+    }
+
     /// ASM loc_C21E: an empty 320x224 screen rectangle is 20x14 tiles, and
     /// empty cells cost 2 budget units. With `d7=$C`, each outer hibernate
     /// pass reveals seven empty cells, so 280 cells take 40 frames.
