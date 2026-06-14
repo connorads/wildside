@@ -6842,6 +6842,8 @@ impl NativeRuntime {
                     boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
                         p.boss_eye_sprite_mapping_label,
                     ),
+                    dragon_flying_descent_fire_state: p.dragon_flying_descent_fire_state,
+                    dragon_flying_descent_fire_counter: p.dragon_flying_descent_fire_counter,
                 })
                 .chain(
                     self.diamond_power_rain_slots
@@ -6856,6 +6858,8 @@ impl NativeRuntime {
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::Generic,
                             boss_eye_sprite_mapping_index: 0,
+                            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                            dragon_flying_descent_fire_counter: 0,
                         }),
                 )
                 .chain(
@@ -6871,6 +6875,8 @@ impl NativeRuntime {
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::FireDemonDeathTrail,
                             boss_eye_sprite_mapping_index: 0,
+                            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                            dragon_flying_descent_fire_counter: 0,
                         }),
                 )
                 .collect(),
@@ -7087,13 +7093,14 @@ impl NativeRuntime {
         // ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) stores the twelve
         // `sub_37680` body-piece workers immediately after `$FFFFFB7A`; ASM
         // sub_37ABC then refreshes that `$FFFFFB7E..$FFFFFBAA` window.
-        let slots = HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266.map(|(x_offset, y_offset)| {
-            Some(BossEyeSpriteRefreshSlotSub37ABC {
-                x_pos: boss_x.wrapping_add_signed(x_offset),
-                y_pos: boss_y.wrapping_add_signed(y_offset),
-                sprite_mapping: "stale",
-            })
-        });
+        let slots =
+            HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266.map(|(x_offset, y_offset)| {
+                Some(BossEyeSpriteRefreshSlotSub37ABC {
+                    x_pos: boss_x.wrapping_add_signed(x_offset),
+                    y_pos: boss_y.wrapping_add_signed(y_offset),
+                    sprite_mapping: "stale",
+                })
+            });
         let refreshed = boss_eye_refresh_attack_sprites_sub_37ABC(
             slots,
             self.progression.diamond_power_frames > 0

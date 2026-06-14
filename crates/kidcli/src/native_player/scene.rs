@@ -17,6 +17,7 @@ const MURDER_WALL_FALLBACK_SHADOW_COLOUR: [u8; 3] = [65, 10, 10];
 const MURDER_WALL_FALLBACK_HIGHLIGHT_COLOUR: [u8; 3] = [255, 160, 70];
 const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const ROBOT_OBJECT_TYPE: u8 = 0x03;
+const FLYING_DRAGON_OBJECT_TYPE: u8 = 0x0C;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
@@ -236,6 +237,36 @@ fn dragon_walking_breath_child_frame(
     } else {
         // ASM Dragon.asm `stru_3CCC8`: alternating frame `LnkTo_unk_C7586`.
         (0x040, 0x0A, 0x00, 0x20, 0x16)
+    };
+    Some(kid_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
+fn dragon_flying_descent_fire_child_frame(
+    visuals: &kid_render::AnimatedSpriteVisual,
+    projectile: &ActiveProjectileSnapshot,
+) -> Option<kid_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) = match projectile
+        .dragon_flying_descent_fire_state
+    {
+        // ASM Dragon_Flying.asm loc_34BAC/loc_34C26 installs
+        // LnkTo_unk_C75CE for the first DBF loop.
+        DragonFlyingDescentFireState::FirstAnimationLoc34C26 => (0x0EC, 0x05, 0x05, 0x13, 0x18),
+        // ASM Dragon_Flying.asm loc_34C3A switches to LnkTo_unk_C75D6 for
+        // the travelling flame after the startup counter underflows.
+        DragonFlyingDescentFireState::TravelAnimationLoc34C3A
+        | DragonFlyingDescentFireState::None => (0x0F5, 0x06, 0x07, 0x1B, 0x1F),
+        // ASM Dragon_Flying.asm loc_34C4A uses LnkTo_unk_C75DE for both
+        // three-frame cleanup hibernation loops before deleting the child.
+        DragonFlyingDescentFireState::CleanupFirstLoc34C4A
+        | DragonFlyingDescentFireState::CleanupSecondLoc34C4A => (0x105, 0x0D, 0x05, 0x1F, 0x1B),
     };
     Some(kid_render::SpriteFrame {
         origin_x,
@@ -3285,7 +3316,8 @@ fn push_kid_projectile_hit_spark_loc_1f08(
             let Some(tile_base_index) = vram_tile.checked_sub(BLOCK_TILE_VRAM_BASE) else {
                 break;
             };
-            if usize::from(tile_base_index.saturating_add(8)) < level_visuals.block_tiles.tiles.len()
+            if usize::from(tile_base_index.saturating_add(8))
+                < level_visuals.block_tiles.tiles.len()
             {
                 let frame = kid_render::SpriteFrame {
                     origin_x: 0x0C,
@@ -3973,6 +4005,8 @@ fn build_game_scene_filtered(
                         animation_elapsed_frames: 0,
                         kind: ActiveProjectileKind::Generic,
                         boss_eye_sprite_mapping_index: 0,
+                        dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                        dragon_flying_descent_fire_counter: 0,
                     })
                     .collect()
             } else {
@@ -4210,13 +4244,34 @@ fn build_game_scene_filtered(
                     }
                 }
                 ActiveProjectileKind::DragonFlyingDescentFire => {
-                    commands.push(DrawCommand::Rect {
-                        x: sx - 3,
-                        y: sy - 3,
-                        width: 6,
-                        height: 6,
-                        colour: [255, 110, 30],
-                    });
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&FLYING_DRAGON_OBJECT_TYPE)
+                        .and_then(|dragon_visuals| {
+                            let frame = dragon_flying_descent_fire_child_frame(
+                                dragon_visuals,
+                                &projectile,
+                            )?;
+                            push_sprite_frame(
+                                &mut commands,
+                                &frame,
+                                &dragon_visuals.palette,
+                                sx,
+                                sy,
+                            );
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 3,
+                            y: sy - 3,
+                            width: 6,
+                            height: 6,
+                            colour: [255, 110, 30],
+                        });
+                    }
                 }
                 ActiveProjectileKind::DripsDrop
                 | ActiveProjectileKind::DripsSurfaceCrawler

@@ -151,6 +151,10 @@ pub struct ActiveProjectileSnapshot {
     pub kind: ActiveProjectileKind,
     #[serde(default)]
     pub boss_eye_sprite_mapping_index: u8,
+    #[serde(default)]
+    pub dragon_flying_descent_fire_state: DragonFlyingDescentFireState,
+    #[serde(default)]
+    pub dragon_flying_descent_fire_counter: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -2743,8 +2747,8 @@ pub(crate) enum DripsSurfaceCrawlerState {
     DiagonalLoc33892,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub(crate) enum DragonFlyingDescentFireState {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum DragonFlyingDescentFireState {
     #[default]
     None,
     FirstAnimationLoc34C26,

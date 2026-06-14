@@ -2437,8 +2437,8 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
 mod tests {
     use super::*;
     use kid_core::{
-        ActiveProjectileKind, ActiveProjectileSnapshot, GameMode, NativeObjectKind,
-        NativeObjectSnapshot,
+        ActiveProjectileKind, ActiveProjectileSnapshot, DragonFlyingDescentFireState, GameMode,
+        NativeObjectKind, NativeObjectSnapshot,
     };
     use std::path::PathBuf;
 
@@ -2739,6 +2739,8 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind,
                 boss_eye_sprite_mapping_index: 0,
+                dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                dragon_flying_descent_fire_counter: 0,
             });
         frame
     }
@@ -2805,6 +2807,8 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DripsDrop,
                 boss_eye_sprite_mapping_index: 0,
+                dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                dragon_flying_descent_fire_counter: 0,
             });
 
         assert_eq!(

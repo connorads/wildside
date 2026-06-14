@@ -6,9 +6,10 @@ use crate::scenarios::{DynamicScenario, DynamicStartPosition, GameplayCheckpoint
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    ActiveProjectileKind, ActiveProjectileSnapshot, DiamondPowerSpriteSnapshot, FrameInput,
-    GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand,
-    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
+    ActiveProjectileKind, ActiveProjectileSnapshot, DiamondPowerSpriteSnapshot,
+    DragonFlyingDescentFireState, FrameInput, GameMode, LevelId, NativeObjectKind,
+    NativeObjectSnapshot, NativeRuntime, NativeSoundCommand, NativeTraceFrame, PlayerForm,
+    physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader, resource_level_id, resource_level_record};
 use kid_md::GemsAudioEngine;
@@ -3087,6 +3088,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_ingame_scene(&trace, false, None);
@@ -3124,6 +3127,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::BossEyeAttack,
             boss_eye_sprite_mapping_index: 5,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_ingame_scene(&trace, false, None);
@@ -3161,6 +3166,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3411,6 +3418,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TankBullet,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3448,6 +3457,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TarMonsterGlob,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3489,6 +3500,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TarMonsterBurstChild,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3585,6 +3598,8 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::RobotShotImpact,
                 boss_eye_sprite_mapping_index: 0,
+                dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                dragon_flying_descent_fire_counter: 0,
             }];
 
             let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3626,6 +3641,8 @@ mod tests {
                 animation_elapsed_frames,
                 kind: ActiveProjectileKind::RobotShot,
                 boss_eye_sprite_mapping_index: 0,
+                dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                dragon_flying_descent_fire_counter: 0,
             }];
 
             let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3669,6 +3686,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3700,6 +3719,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3733,6 +3754,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DragonWalkingBreath,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3751,6 +3774,70 @@ mod tests {
             !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
             "walking-dragon breath should not render as the generic enemy projectile dot",
         );
+    }
+
+    #[test]
+    fn dragon_flying_descent_fire_uses_rom_child_sprite_frames_loc_34bac() {
+        let visuals = sample_level_visuals();
+        let cases = [
+            (
+                DragonFlyingDescentFireState::FirstAnimationLoc34C26,
+                0x0EC,
+                27,
+                5,
+                "unk_C75CE",
+            ),
+            (
+                DragonFlyingDescentFireState::TravelAnimationLoc34C3A,
+                0x0F5,
+                26,
+                0,
+                "unk_C75D6",
+            ),
+            (
+                DragonFlyingDescentFireState::CleanupFirstLoc34C4A,
+                0x105,
+                19,
+                2,
+                "unk_C75DE",
+            ),
+        ];
+
+        for (state, tile_index, expected_x, expected_y, label) in cases {
+            let mut trace = sample_trace(GameMode::InGame);
+            trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+                x_pos: 0x0030_0000,
+                y_pos: 0x0020_0000,
+                x_velocity: 1 << 16,
+                y_velocity: 3 << 16,
+                friendly: false,
+                remaining_frames: 0,
+                animation_elapsed_frames: 0,
+                kind: ActiveProjectileKind::DragonFlyingDescentFire,
+                boss_eye_sprite_mapping_index: 0,
+                dragon_flying_descent_fire_state: state,
+                dragon_flying_descent_fire_counter: 0,
+            }];
+
+            let scene = build_scene(&trace, false, Some(&visuals), None);
+
+            let fire_sprite = scene.commands.iter().find_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. } if *x == expected_x && *y == expected_y => {
+                    Some(tiles)
+                }
+                _ => None,
+            });
+            let tiles = fire_sprite
+                .expect("ASM Dragon_Flying.asm loc_34BAC should render descent fire as ROM child sprite frames");
+            assert_eq!(
+                tiles[0].tile.tile_index, tile_index,
+                "ASM Dragon_Flying.asm {label}: descent fire should select the ROM frame descriptor",
+            );
+            assert!(
+                !has_rect(&scene, 29, 21, 6, 6, [255, 110, 30]),
+                "Flying Dragon descent fire should not collapse to the placeholder rect",
+            );
+        }
     }
 
     #[test]
@@ -3787,6 +3874,8 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DragonWalkingBreath,
                 boss_eye_sprite_mapping_index: 0,
+                dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                dragon_flying_descent_fire_counter: 0,
             }];
             trace
         }
@@ -3850,6 +3939,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsDrop,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3883,6 +3974,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3919,6 +4012,8 @@ mod tests {
             animation_elapsed_frames: 31,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3949,6 +4044,8 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawlerFinish,
             boss_eye_sprite_mapping_index: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -15272,8 +15369,8 @@ mod tests {
     }
 
     #[test]
-    fn scripted_recording_audio_events_label_loc_d7f4_score_counter_as_playsound2(
-    ) -> anyhow::Result<()> {
+    fn scripted_recording_audio_events_label_loc_d7f4_score_counter_as_playsound2()
+    -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let mut draining = sample_trace(GameMode::InGame);
         draining.level_complete = true;
@@ -15286,8 +15383,10 @@ mod tests {
         let events = native_audio_events_for_trace(&fixture.manifest, &[draining, drained]);
 
         assert!(
-            events.iter().any(|event| event
-                .contains(&format!("command=PlaySound2({})", gems_sfx::SCORE_COUNTER))),
+            events
+                .iter()
+                .any(|event| event
+                    .contains(&format!("command=PlaySound2({})", gems_sfx::SCORE_COUNTER))),
             "recording audio events should preserve ASM loc_D7F4's j_PlaySound2 command byte `$12`, not just the reused score-counter id"
         );
         Ok(())
