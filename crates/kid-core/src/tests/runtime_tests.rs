@@ -12315,7 +12315,8 @@ mod chunk_09 {
     }
 
     #[test]
-    fn drips_falling_drop_overlap_does_not_damage_player_loc_3345c_issue_260() {
+    fn drips_falling_drop_kidbelow_contact_damages_player_without_consuming_child_loc_3345c_issue_260()
+     {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {
             kind: EnemyProjectileKind::DripsDrop,
@@ -12338,12 +12339,16 @@ mod chunk_09 {
         let slice = rt.opening_slice.unwrap();
 
         assert!(
-            !rt.projectile_hits_player(&slice),
-            "ASM Drips.asm loc_3345C falling child waits for floor collision `$0C`; issue-260 oracle keeps Kid HP unchanged while the child overlaps before loc_33650 crawler collision"
+            rt.projectile_hits_player(&slice),
+            "ASM Drips.asm loc_3345C falling child ignores `colid_kidbelow` ($28) and keeps waiting for floor `$0C`, but Kid's Character_CheckCollision off_B640 still routes `$28` through Check_for_recent_damge"
         );
         assert_eq!(rt.projectiles.len(), 1);
         assert_eq!(rt.projectiles[0].kind, EnemyProjectileKind::DripsDrop);
-        assert!(rt.last_projectile_damage_probe.is_none());
+        assert!(
+            rt.last_projectile_damage_probe
+                .as_deref()
+                .is_some_and(|probe| probe.starts_with("hit:DripsDrop@"))
+        );
     }
 
     #[test]

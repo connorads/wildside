@@ -205,7 +205,13 @@ and stop — never commit churn.
   --frame-start 390 --frame-end 430 --frontier-kind enemy --bisect` still
   first diverges at frame 396 on HP. The remaining p11 split is now the
   projectile/player damage path: oracle writes `colid_kidbelow` (`$28`) on the
-  falling Drips child at frames 394-396 while native keeps HP at 2. A
+  falling Drips child at frames 394-396 while native keeps HP at 2. 2026-06-14
+  follow-up fixed that split: Drips.asm `loc_3345C` leaves the falling child
+  alive until floor `$0C`, but Kid's `Character_CheckCollision` `off_B640`
+  still routes the same `$28` through `Check_for_recent_damge`; native now
+  lets `DripsDrop` hurt Kid without consuming the child. `verify-tas` passes
+  p11 frames `390..430`, and `tas-diff --drips-trace --frame-start 388
+  --frame-end 402` confirms the oracle `$28` window on frames 394-399. A
   follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at

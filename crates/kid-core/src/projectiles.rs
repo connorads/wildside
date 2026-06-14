@@ -3281,9 +3281,6 @@ impl NativeRuntime {
         let py = (slice.player.y_pos >> 16) as i32;
         let half = PROJECTILE_HITBOX_HALF;
         self.projectiles.iter().any(|p| {
-            if p.kind == EnemyProjectileKind::DripsDrop {
-                return false;
-            }
             if matches!(
                 p.kind,
                 EnemyProjectileKind::DripsSurfaceCrawlerBurst
@@ -3300,9 +3297,8 @@ impl NativeRuntime {
                 return false;
             }
             if p.kind == EnemyProjectileKind::ShooterBlock {
-                return shooter_block_can_damage_player_loc_edfa(
-                    (p.y_pos >> 16) as i32 - py,
-                ) && projectile_overlaps_player_loc_1c18(p, px, py, half);
+                return shooter_block_can_damage_player_loc_edfa((p.y_pos >> 16) as i32 - py)
+                    && projectile_overlaps_player_loc_1c18(p, px, py, half);
             }
             projectile_overlaps_player_loc_1c18(p, px, py, half)
         }) || self.fire_demon_trails.iter().any(|trail| {
@@ -3325,12 +3321,6 @@ impl NativeRuntime {
         let stomp_registration_blocked = self.stomp_registration_blocked_loc_1ce4(slice.player);
         self.last_projectile_damage_probe = None;
         self.projectiles.retain_mut(|p| {
-            if p.kind == EnemyProjectileKind::DripsDrop {
-                // ASM Drips.asm loc_3345C only advances the falling child and
-                // waits for floor collision `$0C`; live Kid collision starts
-                // later when loc_33650 calls loc_33550 for the surface crawler.
-                return true;
-            }
             if matches!(
                 p.kind,
                 EnemyProjectileKind::DripsSurfaceCrawlerBurst
@@ -3424,11 +3414,12 @@ impl NativeRuntime {
                 } else if p.kind == EnemyProjectileKind::FireDemonDeathTrail
                     || p.kind == EnemyProjectileKind::FireballTrail
                     || p.kind == EnemyProjectileKind::DragonWalkingBreath
+                    || p.kind == EnemyProjectileKind::DripsDrop
                 {
-                    // ASM Fire_Demon loc_3A6CA, Fireball.asm loc_33110, and
-                    // Dragon.asm loc_3D082: these child hazards keep their own
-                    // animation/lifetime loops after hurting Kid; player
-                    // collision does not delete the child object.
+                    // ASM Fire_Demon loc_3A6CA, Fireball.asm loc_33110,
+                    // Dragon.asm loc_3D082, and Drips.asm loc_3345C: these
+                    // child hazards keep their own loops after hurting Kid;
+                    // player collision does not delete the child object.
                     true
                 } else {
                     if let Some(owner) = p.owner {
