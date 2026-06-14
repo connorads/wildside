@@ -2595,6 +2595,21 @@ pub(crate) struct HeadyMetalPaletteCycleSub379E8 {
     pub(crate) palette_word: u16,
 }
 
+pub(crate) const HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266: [(i16, i16); 12] = [
+    (-0x000C, -0x0056),
+    (-0x000C, -0x0046),
+    (-0x000C, -0x0036),
+    (-0x000C, -0x0026),
+    (-0x000C, -0x0016),
+    (-0x000C, -0x0006),
+    (0x000C, -0x0056),
+    (0x000C, -0x0046),
+    (0x000C, -0x0036),
+    (0x000C, -0x0026),
+    (0x000C, -0x0016),
+    (0x000C, -0x0006),
+];
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_init_sub_370D2(

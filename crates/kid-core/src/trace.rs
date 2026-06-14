@@ -1,7 +1,7 @@
 use super::*;
 use crate::combat::{
-    BossEyeSpriteRefreshSlotSub37ABC, boss_eye_refresh_attack_sprites_sub_37ABC,
-    enemy_contact_bounds,
+    BossEyeSpriteRefreshSlotSub37ABC, HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266,
+    boss_eye_refresh_attack_sprites_sub_37ABC, enemy_contact_bounds,
 };
 use std::collections::BTreeMap;
 
@@ -6478,10 +6478,7 @@ impl NativeRuntime {
             gameplay_debug_fields.insert("highwater_shooter_barrier_probe".into(), summary);
         }
         if let Some(summary) = self.heady_metal_composite_refresh_probe_sub_37abc() {
-            gameplay_debug_fields.insert(
-                "heady_metal_synthetic_sub_37abc_refresh".into(),
-                summary,
-            );
+            gameplay_debug_fields.insert("heady_metal_sub_37abc_refresh".into(), summary);
         }
         let level_complete_elapsed_frames = match self.player_lifecycle {
             PlayerLifecycle::LevelComplete {
@@ -7076,14 +7073,16 @@ impl NativeRuntime {
             .find(|enemy| matches!(enemy.family, EnemyFamily::HeadyMetal))?;
         let boss_x = (boss.x_pos >> 16) as u16;
         let boss_y = (boss.y_pos >> 16) as u16;
-        // ASM loc_3763A calls sub_37ABC over HeadyMetal's `$FFFFFB7E`
-        // worker table. Native still has a single boss enemy, so mark this
-        // as synthetic until the composite workers are modelled.
-        let slots = [Some(BossEyeSpriteRefreshSlotSub37ABC {
-            x_pos: boss_x,
-            y_pos: boss_y,
-            sprite_mapping: "synthetic",
-        }); 12];
+        // ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) stores the twelve
+        // `sub_37680` body-piece workers immediately after `$FFFFFB7A`; ASM
+        // sub_37ABC then refreshes that `$FFFFFB7E..$FFFFFBAA` window.
+        let slots = HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266.map(|(x_offset, y_offset)| {
+            Some(BossEyeSpriteRefreshSlotSub37ABC {
+                x_pos: boss_x.wrapping_add_signed(x_offset),
+                y_pos: boss_y.wrapping_add_signed(y_offset),
+                sprite_mapping: "stale",
+            })
+        });
         let refreshed = boss_eye_refresh_attack_sprites_sub_37ABC(
             slots,
             self.progression.diamond_power_frames > 0
@@ -7092,11 +7091,17 @@ impl NativeRuntime {
             (slice.player.x_pos >> 16) as u16,
             (slice.player.y_pos >> 16) as u16,
         );
-        let first = refreshed[0]?.sprite_mapping;
-        let last = refreshed[11]?.sprite_mapping;
+        let first = refreshed[0]?;
+        let last = refreshed[11]?;
 
         Some(format!(
-            "source=synthetic_single_enemy slots=12 x={boss_x:#06x} y={boss_y:#06x} first={first} last={last}"
+            "source=enemy20_init_sub_37680 slots=12 anchor={boss_x:#06x},{boss_y:#06x} first={:#06x},{:#06x}:{} last={:#06x},{:#06x}:{}",
+            first.x_pos,
+            first.y_pos,
+            first.sprite_mapping,
+            last.x_pos,
+            last.y_pos,
+            last.sprite_mapping
         ))
     }
 
