@@ -144,7 +144,14 @@ and stop — never commit churn.
   smoke batch on the current seed ranks DripsDrop vs cell `36,32` and shows the
   drop already reaches `dx=0 dy=-3 @381` independent of the late overlays, so
   the next useful search axis is Kid timing around that early drop/cell window,
-  not more post-390 drop positioning. A follow-up over the clean
+  not more post-390 drop positioning. A first bounded Kid-timing batch around
+  that window found `300..450 none,330..370 Right,371..420 B+Right,421..450 Left`
+  gets Kid's healthy hitbox to `dx=-5 dy=-3 @379` against cell `36,32`, but it
+  is still not contact proof: focused probing reports closest Kid/DripsDrop
+  separation `dx=-23 dy=-30 @381`, no DripsSurfaceCrawler in frames 330..520,
+  and the run exits through `LevelTransition`. Do not repeat this `earlyB`
+  timing unchanged; use it only as evidence that Kid/cell and drop/cell are
+  near at adjacent frames but not mutually aligned. A follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
   frame 490, but still leaves the DripsSurfaceCrawler `dx=+102 dy=+1 @512`;
