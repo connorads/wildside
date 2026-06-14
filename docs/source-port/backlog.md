@@ -164,7 +164,14 @@ and stop — never commit churn.
   `verify-tas --frame-start 390 --frame-end 430 --frontier-kind enemy --bisect`
   first diverges at frame 396 on HP (`native=2`, `oracle=1`). Treat `p11` as a
   useful native route-shape lead only; fix or avoid the pre-396 HP divergence
-  before using it for slime/metal-block contact evidence. A follow-up over the clean
+  before using it for slime/metal-block contact evidence. Follow-up `tas-diff
+  --drips-trace --frame-start 390 --frame-end 405` shows the split is a Drips
+  fall-phase mismatch before contact: oracle writes `colid_kidbelow` (`$28`) on
+  the right falling child by frame 394 (`xy=584,564`, `vel=$2E000`) and HP drops
+  at frame 395, while native still has the same child at `y=541`, `vel=$1C000`.
+  Do not patch this as a generic falling-drop damage toggle; first align the
+  `loc_3340E`/`loc_3345C` fall timing for layout #08 or choose a route that
+  avoids that pre-contact phase drift. A follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at
   frame 490, but still leaves the DripsSurfaceCrawler `dx=+102 dy=+1 @512`;
