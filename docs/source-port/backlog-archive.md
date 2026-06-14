@@ -9363,6 +9363,11 @@ Column of origin shown in brackets; text is verbatim.
   ASM `Kid_Transform loc_7CD0` / `stru_7F30` says this is the first Cyclone
   transform frame. Treat this as a demo transform-render timing lead, not
   evidence that the prize content became a Diamond.
+- [Reject] 2026-06-14 palette-tint hypothesis: changing the floating Cyclone
+  helmet sprite to use Cyclone's transform palette while
+  `form_change_flash_frames > 0` worsened current-HEAD frame 3491 strict AE
+  from `419` to `595` against oracle, with frame 3494 unchanged at `143`.
+  The residual is not fixed by a broad shared line-3 transform-palette swap.
 
 ### #275
 
@@ -9492,6 +9497,11 @@ Column of origin shown in brackets; text is verbatim.
   collection. Do not reopen generic prize-block parsing from this evidence;
   chase transform render ordering under #274 or capture a different live route
   where native trace actually emits content id `0` for a ROM helmet prize.
+- [Reject] 2026-06-14 transform palette experiment: applying the target
+  helmet transform palette to the retained collected helmet sprite during
+  `Kid_Transform` worsened frame 3491 exact AE `419 -> 595` against the oracle
+  and did not change frame 3494. This rejects the simple line-3 palette
+  overwrite theory for the #274/#284 cold-idle residual.
 
 ### #285
 
