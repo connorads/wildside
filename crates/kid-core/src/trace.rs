@@ -166,6 +166,52 @@ fn trace_cell_for_fixed_pos(grid: &terrain::BlockGrid, x_pos: u32, y_pos: u32) -
     )
 }
 
+fn collected_latched_helmet_prize(item: &FloatingItem) -> bool {
+    item.collected
+        && item.collision_latched
+        && matches!(
+            item.content,
+            terrain::PrizeContent::Skycutter
+                | terrain::PrizeContent::Cyclone
+                | terrain::PrizeContent::RedStealth
+                | terrain::PrizeContent::Eyeclops
+                | terrain::PrizeContent::Juggernaut
+                | terrain::PrizeContent::IronKnight
+                | terrain::PrizeContent::Berzerker
+                | terrain::PrizeContent::Maniaxe
+                | terrain::PrizeContent::Micromax
+        )
+}
+
+fn collected_helmet_first_forward_transform_frame(
+    item: &FloatingItem,
+    current_form: PlayerForm,
+    form_change_flash_frames: u8,
+) -> bool {
+    let Some(item_form) = prize_helmet_form(item.content) else {
+        return false;
+    };
+    item.collected
+        && item_form == current_form
+        && u16::from(form_change_flash_frames)
+            == crate::combat::transform_anim_frames(item_form) + 1
+}
+
+fn prize_helmet_form(content: terrain::PrizeContent) -> Option<PlayerForm> {
+    match content {
+        terrain::PrizeContent::Skycutter => Some(PlayerForm::Skycutter),
+        terrain::PrizeContent::Cyclone => Some(PlayerForm::Cyclone),
+        terrain::PrizeContent::RedStealth => Some(PlayerForm::RedStealth),
+        terrain::PrizeContent::Eyeclops => Some(PlayerForm::Eyeclops),
+        terrain::PrizeContent::Juggernaut => Some(PlayerForm::Juggernaut),
+        terrain::PrizeContent::IronKnight => Some(PlayerForm::IronKnight),
+        terrain::PrizeContent::Berzerker => Some(PlayerForm::Berzerker),
+        terrain::PrizeContent::Maniaxe => Some(PlayerForm::Maniaxe),
+        terrain::PrizeContent::Micromax => Some(PlayerForm::Micromax),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3469,6 +3515,43 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_keeps_collected_helmet_visible_on_first_forward_transform_frame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.progression.current_form = PlayerForm::Cyclone;
+        runtime.progression.form_change_flash_frames =
+            (crate::combat::transform_anim_frames(PlayerForm::Cyclone) + 1) as u8;
+        runtime.floating_items.push(FloatingItem {
+            x_pos: 72 << 16,
+            y_pos: 766 << 16,
+            y_velocity: 0,
+            remaining: 0x0300,
+            spawn_delay: 0,
+            level_col: 4,
+            level_row: 36,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Cyclone,
+            collected: true,
+            collision_latched: false,
+        });
+
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.floating_items,
+            vec![(72, 766, 0x0300, terrain::PrizeContent::Cyclone.to_id())],
+            "ASM PrizeHelmetCyclone_Init loc_104AE and Kid_Transform loc_7CD0 overlap for one forward-transform frame, so the picked-up mask remains drawable when Cyclone's stru_7F30 starts"
+        );
+
+        runtime.progression.form_change_flash_frames =
+            crate::combat::transform_anim_frames(PlayerForm::Cyclone) as u8;
+        assert!(
+            runtime.trace_frame().floating_items.is_empty(),
+            "ASM Kid_Transform loc_7D22 should advance past the one-frame picked-up mask hold after the first forward frame"
+        );
+    }
+
+    #[test]
     fn demo_play_object_counts_include_dragon_breath_object_only_child_loc_3cf90() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::DemoPlay {
@@ -6766,7 +6849,15 @@ impl NativeRuntime {
             floating_items: self
                 .floating_items
                 .iter()
-                .filter(|f| !f.collected)
+                .filter(|f| {
+                    !f.collected
+                        || collected_latched_helmet_prize(f)
+                        || collected_helmet_first_forward_transform_frame(
+                            f,
+                            self.progression.current_form,
+                            self.progression.form_change_flash_frames,
+                        )
+                })
                 .map(|f| {
                     let x_px = (f.x_pos >> 16) as u16;
                     let y_px = (f.y_pos >> 16) as u16;
