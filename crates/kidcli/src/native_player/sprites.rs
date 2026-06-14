@@ -750,6 +750,46 @@ pub(super) fn player_screen_position(
     )
 }
 
+pub(super) fn boss_eye_attack_highlight_offset_sub_37abc(mapping_index: u8) -> (i32, i32) {
+    match mapping_index & 0x07 {
+        0 => (-4, -4),
+        1 => (0, -5),
+        2 => (4, -4),
+        3 => (-5, 0),
+        4 => (5, 0),
+        5 => (-4, 4),
+        6 => (0, 5),
+        _ => (4, 4),
+    }
+}
+
+pub(super) fn push_boss_eye_attack_marker_sub_37abc(
+    commands: &mut Vec<DrawCommand>,
+    sx: i32,
+    sy: i32,
+    mapping_index: u8,
+) {
+    // ASM sub_37332/loc_3739C and sub_37ABC select one of
+    // `unk_C8488..unk_C84C0`, all decoded as 16x16 HeadyMetal eye frames.
+    // Until those boss-head tiles are available in native play, keep the ROM
+    // footprint and expose the selected frame with a small indexed highlight.
+    commands.push(DrawCommand::Rect {
+        x: sx - 8,
+        y: sy - 8,
+        width: 16,
+        height: 16,
+        colour: [120, 200, 255],
+    });
+    let (dx, dy) = boss_eye_attack_highlight_offset_sub_37abc(mapping_index);
+    commands.push(DrawCommand::Rect {
+        x: sx + dx - 2,
+        y: sy + dy - 2,
+        width: 4,
+        height: 4,
+        colour: [255, 255, 255],
+    });
+}
+
 pub(super) fn push_player_sprite_with_priority_override(
     commands: &mut Vec<DrawCommand>,
     object: &NativeObjectSnapshot,
@@ -1449,6 +1489,9 @@ pub(super) fn push_enemy_sprite(
         palette: Arc::new(palette),
         tiles: build_sprite_tiles(frame, render_facing, 0),
     });
+    if object_type == 0x20 {
+        push_heady_metal_sub_37abc_body_piece_markers(commands, object, trace);
+    }
 
     if is_rock_tank_parent_without_child_snapshot(object_type, object, trace)
         && let Some(turret_frame) =
@@ -1470,6 +1513,63 @@ pub(super) fn push_enemy_sprite(
             palette: Arc::new(palette),
             tiles: build_sprite_tiles(&turret_frame, render_facing, 0),
         });
+    }
+}
+
+fn push_heady_metal_sub_37abc_body_piece_markers(
+    commands: &mut Vec<DrawCommand>,
+    object: &NativeObjectSnapshot,
+    trace: &NativeTraceFrame,
+) {
+    let anchor_x = (object.x_pos >> 16) as u16;
+    let anchor_y = (object.y_pos >> 16) as u16;
+    let kid_x = trace.kid_x_pos.map(|x| (x >> 16) as u16).unwrap_or(anchor_x);
+    let kid_y = trace.kid_y_pos.map(|y| (y >> 16) as u16).unwrap_or(anchor_y);
+    let camera_x = (trace.camera_x_pos >> 16) as i32;
+    let camera_y = (trace.camera_y_pos >> 16) as i32;
+
+    for &(x_offset, y_offset) in &kid_core::HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266 {
+        // ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) seeds the twelve
+        // `$FFFFFB7E` body-piece workers with these offsets. ASM sub_37ABC
+        // then refreshes each worker's mapping every `loc_3763A` loop.
+        let piece_x = anchor_x.wrapping_add_signed(x_offset);
+        let piece_y = anchor_y.wrapping_add_signed(y_offset);
+        let mapping_index = heady_metal_sub_37abc_mapping_index(piece_x, piece_y, kid_x, kid_y);
+        push_boss_eye_attack_marker_sub_37abc(
+            commands,
+            i32::from(piece_x) - camera_x,
+            i32::from(piece_y) - camera_y,
+            mapping_index,
+        );
+    }
+}
+
+fn heady_metal_sub_37abc_mapping_index(
+    piece_x: u16,
+    piece_y: u16,
+    kid_x: u16,
+    kid_y: u16,
+) -> u8 {
+    if kid_y > piece_y.saturating_add(4) {
+        if kid_x < piece_x.saturating_sub(4) {
+            3
+        } else if kid_x > piece_x.saturating_add(4) {
+            5
+        } else {
+            4
+        }
+    } else if kid_y < piece_y.saturating_sub(4) {
+        if kid_x < piece_x.saturating_sub(4) {
+            1
+        } else if kid_x > piece_x.saturating_add(4) {
+            7
+        } else {
+            0
+        }
+    } else if kid_x < piece_x.saturating_sub(8) {
+        2
+    } else {
+        6
     }
 }
 

@@ -710,46 +710,6 @@ fn shooter_block_projectile_sprite_tail_loc_ef62(
     }
 }
 
-fn boss_eye_attack_highlight_offset_sub_37abc(mapping_index: u8) -> (i32, i32) {
-    match mapping_index & 0x07 {
-        0 => (-4, -4),
-        1 => (0, -5),
-        2 => (4, -4),
-        3 => (-5, 0),
-        4 => (5, 0),
-        5 => (-4, 4),
-        6 => (0, 5),
-        _ => (4, 4),
-    }
-}
-
-fn push_boss_eye_attack_marker_sub_37abc(
-    commands: &mut Vec<DrawCommand>,
-    sx: i32,
-    sy: i32,
-    mapping_index: u8,
-) {
-    // ASM sub_37332/loc_3739C and sub_37ABC select one of
-    // `unk_C8488..unk_C84C0`, all decoded as 16x16 HeadyMetal eye frames.
-    // Until those boss-head tiles are available in native play, keep the ROM
-    // footprint and expose the selected frame with a small indexed highlight.
-    commands.push(DrawCommand::Rect {
-        x: sx - 8,
-        y: sy - 8,
-        width: 16,
-        height: 16,
-        colour: [120, 200, 255],
-    });
-    let (dx, dy) = boss_eye_attack_highlight_offset_sub_37abc(mapping_index);
-    commands.push(DrawCommand::Rect {
-        x: sx + dx - 2,
-        y: sy + dy - 2,
-        width: 4,
-        height: 4,
-        colour: [255, 255, 255],
-    });
-}
-
 fn push_shooter_block_projectile_sprite_loc_ef62(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
@@ -4073,7 +4033,7 @@ fn build_game_scene_filtered(
                     });
                 }
                 ActiveProjectileKind::BossEyeAttack => {
-                    push_boss_eye_attack_marker_sub_37abc(
+                    sprites::push_boss_eye_attack_marker_sub_37abc(
                         &mut commands,
                         sx,
                         sy,

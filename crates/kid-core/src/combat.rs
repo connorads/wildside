@@ -2595,7 +2595,7 @@ pub(crate) struct HeadyMetalPaletteCycleSub379E8 {
     pub(crate) palette_word: u16,
 }
 
-pub(crate) const HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266: [(i16, i16); 12] = [
+pub const HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266: [(i16, i16); 12] = [
     (-0x000C, -0x0056),
     (-0x000C, -0x0046),
     (-0x000C, -0x0036),

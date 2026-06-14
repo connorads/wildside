@@ -3018,7 +3018,18 @@ mod tests {
     }
 
     fn has_rect(scene: &Scene, x: i32, y: i32, width: i32, height: i32, colour: [u8; 3]) -> bool {
-        scene.commands.iter().any(|command| {
+        has_rect_command(&scene.commands, x, y, width, height, colour)
+    }
+
+    fn has_rect_command(
+        commands: &[DrawCommand],
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        colour: [u8; 3],
+    ) -> bool {
+        commands.iter().any(|command| {
             matches!(
                 command,
                 DrawCommand::Rect {
@@ -11081,6 +11092,59 @@ mod tests {
             sprite_palette(&commands[0]).colours[15],
             MdColour::from_word(0x020A),
             "ASM sub_379E8 writes `unk_379A8[d2]` to Palette_Buffer+$5E, so live HeadyMetal sprites must render with that slot-15 colour"
+        );
+    }
+
+    #[test]
+    fn heady_metal_renderer_marks_sub_37abc_body_piece_positions() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.kid_x_pos = Some(0x0050_0000);
+        trace.kid_y_pos = Some(0x0050_0000);
+        let mut visuals = sample_level_visuals();
+        visuals.enemies.families.insert(
+            0x20,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: (0..16).map(MdColour::from_word).collect(),
+                },
+                extra_palettes: vec![],
+                frames: vec![sample_object_frame(201, 32, 32)],
+                frame_duration: 6,
+            },
+        );
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x20 },
+            x_pos: 0x0040_0000,
+            y_pos: 0x00A0_0000,
+            layout_index: Some(0),
+            x_velocity: None,
+            y_velocity: None,
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(30),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let mut commands = Vec::new();
+
+        sprites::push_enemy_sprite(&mut commands, &object, &trace, &visuals, 0x20);
+
+        assert!(
+            has_rect_command(&commands, 44, 66, 16, 16, [120, 200, 255]),
+            "ASM Enemy20_HeadyMetal_Init seeds the first `$FFFFFB7E` body piece at anchor+(-$C,-$56), and sub_37ABC refreshes it as a visible 16x16 worker"
+        );
+        assert!(
+            has_rect_command(&commands, 68, 146, 16, 16, [120, 200, 255]),
+            "ASM Enemy20_HeadyMetal_Init seeds the twelfth `$FFFFFBAA` body piece at anchor+(+$C,-6), and sub_37ABC scans all twelve workers"
         );
     }
 
