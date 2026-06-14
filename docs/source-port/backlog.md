@@ -195,7 +195,17 @@ and stop — never commit churn.
   `$FFDB/$E8`, `$FFDF/$92`). The p11 HP divergence remains at frame 396, and
   `--drips-trace --frame-start 173 --frame-end 175` still shows a frame-174
   Drips phase split (`native_rng=$FFF4`, `oracle_rng=$FFF5`), so continue from
-  Drips.asm `loc_33424`/`loc_3345C` timing rather than the settled RNG ring. A
+  Drips.asm `loc_33424`/`loc_3345C` timing rather than the settled RNG ring.
+  2026-06-14 follow-up: `GfxObject_Animate` (`kid.asm loc_1158/sub_1194`) makes
+  Drips.asm `stru_33F90`'s raw `$A,$A,8,6,1` script effectively 31 frames, not
+  35, because entry-load frames consume one tick and the duration-1 final entry
+  finishes as soon as the terminator is visible. With that native timing,
+  `tas-diff --drips-trace --frame-start 145 --frame-end 178` lines up the #08
+  fall/splash reseed (`rng_last=$0A` at frame 174), but `verify-tas
+  --frame-start 390 --frame-end 430 --frontier-kind enemy --bisect` still
+  first diverges at frame 396 on HP. The remaining p11 split is now the
+  projectile/player damage path: oracle writes `colid_kidbelow` (`$28`) on the
+  falling Drips child at frames 394-396 while native keeps HP at 2. A
   follow-up over the clean
   `.cache/debug/issue260-tail-grid/l524_b530_540.json` tail found `480..540 B`
   gets Kid's healthy hitbox within 1 px of row-32 cells `32,32`/`33,32` at

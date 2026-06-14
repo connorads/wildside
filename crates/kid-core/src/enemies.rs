@@ -22566,9 +22566,12 @@ pub(crate) const DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E: u16 = u16::MAX - 1;
 pub(crate) const DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E: u16 = u16::MAX - 2;
 const DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E: u16 = u16::MAX - 3;
 /// ASM Drips.asm loc_33424 initialises `stru_33F90` and waits until the
-/// animation finishes before exposing the falling child. The script has
-/// frame durations `$A,$A,8,6,1`.
-pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 = 0x0A + 0x0A + 0x08 + 0x06 + 0x01;
+/// animation finishes before exposing the falling child. The script durations
+/// are `$A,$A,8,6,1`, but ASM GfxObject_Animate loc_1158/sub_1194 consumes the
+/// frame that loads each entry and the final duration-1 entry finishes
+/// immediately when the terminator is visible.
+pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 =
+    0x0A + 0x0A + 0x08 + 0x06 + 0x01 - 4;
 const DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424: u16 = 0x8000;
 /// ASM Drips.asm loc_33488 initialises `stru_33332` (`anim_frame 1,1` — a
 /// single one-frame entry) and hibernates until it finishes before `off_33520`
@@ -33844,6 +33847,10 @@ mod tests {
             drips_wait_timer_loc_3340e(0xD5, 0x0168),
             0x005D,
             "ASM Drips.asm loc_3340E reads the visible Kid gfx X; oracle #260's right Drips seed uses the `$68` low byte derived from frame-local physics x `$58` plus 16px"
+        );
+        assert_eq!(
+            DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424, 31,
+            "ASM GfxObject_Animate loc_1158/sub_1194 counts the frame that loads each `stru_33F90` entry, and the final duration-1 entry finishes immediately when the terminator is visible"
         );
     }
 
