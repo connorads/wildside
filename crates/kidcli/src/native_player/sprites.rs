@@ -1026,6 +1026,10 @@ fn select_live_flying_dragon_frame<'a>(
         return None;
     }
 
+    if let Some(frame) = select_flying_dragon_dive_frame(enemy_visuals, object) {
+        return Some(frame);
+    }
+
     // ASM Dragon_Flying.asm loc_346DA runs `stru_34600`, whose visible
     // sequence repeats C75EE/C75F6/C75FE/C7606 before occasionally showing
     // C760E. It is not the simple five-frame loop used by the fallback path.
@@ -1034,6 +1038,32 @@ fn select_live_flying_dragon_frame<'a>(
     let phase =
         (trace.frame_index / enemy_visuals.frame_duration.max(1)) % STRU_34600_FRAME_SEQUENCE.len();
     Some(&enemy_visuals.frames[STRU_34600_FRAME_SEQUENCE[phase]])
+}
+
+fn select_flying_dragon_dive_frame<'a>(
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a kid_render::SpriteFrame> {
+    if enemy_visuals.frames.len() < 9 {
+        return None;
+    }
+    let x_px = object.x_velocity? / 0x0001_0000;
+    let y_px = object.y_velocity? / 0x0001_0000;
+    let facing = object.facing?;
+
+    // ASM Dragon_Flying.asm loc_348CE reads the dive script's sprite byte and
+    // indexes `off_345F6`: C75FE, C7616, C761E, C762E, C7636. Native does not
+    // yet expose the script pointer, so match the exact pixel/frame velocity
+    // bands from `unk_34554`.
+    let frame_index = match (x_px.abs(), y_px, facing) {
+        (1, 1, _) | (2, 1..=3, _) => 5,                   // LnkTo_unk_C7616
+        (1, 2..=4, _) => 6,                               // LnkTo_unk_C761E
+        (2, 0, _) => 2,                                   // LnkTo_unk_C75FE
+        (2, -3..=-1, _) | (1, -1, _) => 7,                // LnkTo_unk_C762E
+        (1, -4, _) | (1, -3..=-2, Direction::Right) => 8, // LnkTo_unk_C7636
+        _ => return None,
+    };
+    Some(&enemy_visuals.frames[frame_index])
 }
 
 pub(super) fn select_enemy_frame<'a>(

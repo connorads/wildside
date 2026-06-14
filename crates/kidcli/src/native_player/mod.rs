@@ -6051,6 +6051,10 @@ mod tests {
                     sample_object_frame(143, 24, 24),
                     sample_object_frame(144, 24, 24),
                     sample_object_frame(145, 24, 24),
+                    sample_object_frame(146, 24, 24),
+                    sample_object_frame(147, 24, 24),
+                    sample_object_frame(148, 24, 24),
+                    sample_object_frame(149, 24, 24),
                 ],
                 frame_duration: 7,
             },
@@ -12669,6 +12673,53 @@ mod tests {
                 "ASM Dragon_Flying.asm stru_34600 should not use a simple five-frame loop"
             );
         }
+    }
+
+    #[test]
+    fn flying_dragon_dive_snapshot_uses_off_345f6_body_frame() {
+        let visuals = sample_level_visuals();
+        let dragon_visuals = visuals.enemies.families.get(&0x0C).expect("dragon visuals");
+        let mut object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0C },
+            x_pos: 0x0041_0000,
+            y_pos: 0x006D_0000,
+            layout_index: Some(0),
+            x_velocity: Some(-0x0002_0000),
+            y_velocity: Some(-0x0003_0000),
+            facing: Some(Direction::Left),
+            on_ground: None,
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 60;
+
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, dragon_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            148,
+            "ASM Dragon_Flying.asm loc_348CE should map `unk_34554` velocity -2,-3 through `off_345F6+$0006` to `LnkTo_unk_C762E`, not anonymous `unk_C7626`"
+        );
+
+        object.y_velocity = Some(0);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, dragon_visuals, &object)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            143,
+            "ASM Dragon_Flying.asm loc_348CE should map the horizontal dive band through `off_345F6+$0000` to `LnkTo_unk_C75FE`"
+        );
     }
 
     #[test]
