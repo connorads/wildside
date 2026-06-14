@@ -2295,15 +2295,15 @@ mod chunk_09 {
     }
 
     #[test]
-    fn published_tas_prize_diamond_queue_is_counting_down_on_frame_1407() {
+    fn published_tas_prize_diamond_queue_is_counting_down_on_frame_1408() {
         let Some((mut runtime, script)) = cached_any_percent_published_runtime_and_script() else {
             return;
         };
         let mut pending_debug = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_408) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_409) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
-            if frame_index == 1_407 {
+            if frame_index == 1_408 {
                 pending_debug = trace
                     .gameplay_debug_fields
                     .get("pending_prize_diamond_awards")
@@ -2314,8 +2314,8 @@ mod chunk_09 {
 
         assert_eq!(
             pending_debug.as_deref(),
-            Some("[33]"),
-            "ASM PrizeDiamondCollected_Init should be queued on frame 1407, before its HUD-flight hibernate loop has counted down",
+            Some("[32]"),
+            "ASM PrizeDiamondCollected_Init should be queued on frame 1408, before its HUD-flight hibernate loop has counted down",
         );
     }
 
@@ -5501,16 +5501,16 @@ mod chunk_09 {
     }
 
     #[test]
-    fn demo_diamond_prize_queues_collection_on_frame_1405_without_awarding_score() {
+    fn demo_diamond_prize_queues_collection_on_frame_1406_without_awarding_score() {
         let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
             return;
         };
-        let mut frame_1405 = None;
+        let mut frame_1406 = None;
 
-        for (frame_index, mask) in script.iter().copied().enumerate().take(1_406) {
+        for (frame_index, mask) in script.iter().copied().enumerate().take(1_407) {
             let trace = runtime.step_frame(FrameInput::from_mask(mask));
-            if frame_index == 1_405 {
-                frame_1405 = Some((
+            if frame_index == 1_406 {
+                frame_1406 = Some((
                     trace.score,
                     trace.diamond_count,
                     trace
@@ -5523,8 +5523,8 @@ mod chunk_09 {
         }
 
         assert_eq!(
-            frame_1405,
-            Some((0, 0, Some("[33]".into()))),
+            frame_1406,
+            Some((0, 0, Some("[32]".into()))),
             "ASM PrizeDiamondCollected_Init should be queued on the diamond collision frame before its HUD-flight hibernate loop has counted down",
         );
     }

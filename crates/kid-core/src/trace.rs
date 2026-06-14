@@ -54,12 +54,11 @@ const LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y: [u32; 26] = [
 fn floating_diamond_in_player_horizontal_band_loc_10396(
     item: &FloatingItem,
     player: PlayerState,
+    player_half_width: i32,
 ) -> bool {
-    use crate::constants::PLAYER_HALF_WIDTH;
-
     let player_x_px = (player.x_pos >> 16) as i32;
-    let player_left = player_x_px - PLAYER_HALF_WIDTH;
-    let player_right = player_x_px + PLAYER_HALF_WIDTH;
+    let player_left = player_x_px - player_half_width;
+    let player_right = player_x_px + player_half_width;
     let item_x_px = (item.x_pos >> 16) as i32;
     // ASM PrizeDiamond_Init loc_10396 uses CollisionSize_Index unk_31D5E
     // through LnkTo[1-4]_unk_E0E66: x-5,width=10.
@@ -426,21 +425,27 @@ mod tests {
         // diamond object is inside Kid's inclusive horizontal collision band.
         let diamond = diamond_at_x(100);
 
+        let cyclone_half_width = PlayerForm::Cyclone.half_width();
+
         assert!(floating_diamond_in_player_horizontal_band_loc_10396(
             &diamond,
-            player_at_x(88)
+            player_at_x(88),
+            cyclone_half_width,
         ));
         assert!(floating_diamond_in_player_horizontal_band_loc_10396(
             &diamond,
-            player_at_x(112)
+            player_at_x(112),
+            cyclone_half_width,
         ));
         assert!(!floating_diamond_in_player_horizontal_band_loc_10396(
             &diamond,
-            player_at_x(87)
+            player_at_x(87),
+            cyclone_half_width,
         ));
         assert!(!floating_diamond_in_player_horizontal_band_loc_10396(
             &diamond,
-            player_at_x(113)
+            player_at_x(113),
+            cyclone_half_width,
         ));
     }
 
@@ -4164,7 +4169,7 @@ mod tests {
         runtime.floating_items.push(lower_diamond);
 
         // ASM PrizeDiamond_Init loc_10396 feeds item bounds through the shared
-        // object collision path; item_top is item_y - Kid height, not scaled.
+        // object collision path; unk_31D5E's vertical range is y-10..y.
         let diamond_debug = runtime
             .trace_frame()
             .gameplay_debug_fields
@@ -4174,8 +4179,8 @@ mod tests {
 
         assert_eq!(
             diamond_debug,
-            "diamond@120,150 dx=24 dy=50 gap_x=12 gap_y=19 overlap_x=0 overlap_y=0 spawn=0 rem=500 collected=0",
-            "lower vertical gap should use the diamond's top edge",
+            "diamond@120,150 dx=24 dy=50 gap_x=14 gap_y=40 overlap_x=0 overlap_y=0 spawn=0 rem=500 collected=0",
+            "lower vertical gap should use unk_31D5E's y-10 diamond top edge",
         );
     }
 
@@ -7706,7 +7711,7 @@ impl NativeRuntime {
     }
 
     fn floating_diamond_contact_candidates(&self, player: PlayerState) -> Option<String> {
-        use crate::constants::{PLAYER_HALF_WIDTH, PLAYER_HEIGHT};
+        use crate::constants::PLAYER_HEIGHT;
 
         let collision_anchor = self
             .last_kid_frame_collision_handoff_probe
@@ -7714,8 +7719,9 @@ impl NativeRuntime {
             .unwrap_or((player.x_pos, player.y_pos));
         let player_x_px = (collision_anchor.0 >> 16) as i32;
         let player_y_px = (collision_anchor.1 >> 16) as i32;
-        let player_left = player_x_px - PLAYER_HALF_WIDTH;
-        let player_right = player_x_px + PLAYER_HALF_WIDTH;
+        let player_half_width = self.progression.current_form.half_width();
+        let player_left = player_x_px - player_half_width;
+        let player_right = player_x_px + player_half_width;
         let player_bottom = player_y_px;
         let mut candidates = Vec::new();
 
@@ -7726,9 +7732,9 @@ impl NativeRuntime {
             let item_x_px = (item.x_pos >> 16) as i32;
             let item_y_px = (item.y_pos >> 16) as i32;
             let player_top = player_y_px - PLAYER_HEIGHT;
-            // ASM PrizeDiamond_Init loc_10396 reaches GfxObjects_CollisionKid
-            // with the LnkTo[1-4]_unk_E0E66 sprite, whose CollisionSize_Index
-            // entry unk_31D5E is x-5,width=10,y-10,height=10.
+            // ASM Mode_Level calls sub_21F8 before GfxObjects_CollisionKid
+            // (kid.asm:909,939), so PrizeDiamond_Init loc_10396 uses Kid's
+            // current form hitbox against unk_31D5E's x-5,width=10,y-10,height=10.
             let item_left = item_x_px - 5;
             let item_right = item_x_px + 5;
             let item_top = item_y_px - 10;
@@ -9351,7 +9357,11 @@ impl NativeRuntime {
                 let suppressed_by_own_distant_diamond = tail.content
                     == Some(terrain::PrizeContent::Diamond)
                     && own_live_diamond().is_some_and(|item| {
-                        !floating_diamond_in_player_horizontal_band_loc_10396(item, player)
+                        !floating_diamond_in_player_horizontal_band_loc_10396(
+                            item,
+                            player,
+                            self.progression.current_form.half_width(),
+                        )
                     });
                 // ASM PrizeDiamond_Init (kid.asm:21604) creates the
                 // count-visible diamond object through the standard collision

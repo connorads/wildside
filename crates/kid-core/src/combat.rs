@@ -7891,10 +7891,9 @@ impl NativeRuntime {
         transfer_frames >= counter.counter_frames
     }
 
-    // PrizeDiamondCollected_Init runs a 32-step HUD fly-to-counter loop after
-    // the contact frame, so the queued native award needs to survive 33 frame
-    // starts before the diamond count increments.
-    pub(crate) const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 33;
+    // ASM PrizeDiamondCollected_Init loc_FE3E seeds d2=$1F and DBFs through 32
+    // hibernated ticks before incrementing Number_Diamonds.
+    pub(crate) const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 32;
     pub(crate) const PRIZE_DIAMOND_HUD_TARGET_X_FP_LOC_FE3E: i32 = 0x0126_0000;
     pub(crate) const PRIZE_DIAMOND_HUD_TARGET_Y_FP_LOC_FE3E: i32 = 0x0030_0000;
     const MINI_HOPPING_SKULL_SCREAM_DELAY_FRAMES: u8 = 15;

@@ -3817,8 +3817,10 @@ impl NativeRuntime {
         // edge contacts collect a falling PrizeDiamond one frame too early.
         let player_x_px = (collision_anchor.0 >> 16) as i32;
         let player_y_px = (collision_anchor.1 >> 16) as i32;
-        let player_left = player_x_px - PLAYER_HALF_WIDTH;
-        let player_right = player_x_px + PLAYER_HALF_WIDTH;
+        let base_player_left = player_x_px - PLAYER_HALF_WIDTH;
+        let base_player_right = player_x_px + PLAYER_HALF_WIDTH;
+        let form_player_left = player_x_px - self.progression.current_form.half_width();
+        let form_player_right = player_x_px + self.progression.current_form.half_width();
 
         let mut collected_contents = Vec::new();
         let mut collected_prize_diamonds = Vec::new();
@@ -3853,6 +3855,16 @@ impl NativeRuntime {
                         false,
                     )
                 };
+
+            let (player_left, player_right) = if item.content == terrain::PrizeContent::Diamond {
+                // ASM Mode_Level calls sub_21F8 (kid.asm:4036) before
+                // GfxObjects_CollisionKid. PrizeDiamond_Init loc_10396 then
+                // tests collision_type(a3), so diamond pickup uses Kid's
+                // current form hitbox, not TheKid's fixed 5px width.
+                (form_player_left, form_player_right)
+            } else {
+                (base_player_left, base_player_right)
+            };
 
             let overlap_x = if inclusive_overlap {
                 player_left <= item_right && player_right >= item_left

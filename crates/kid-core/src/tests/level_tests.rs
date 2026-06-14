@@ -18469,7 +18469,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn diamond_prize_block_lifecycle_spawns_item_on_restored_wake_prizediamond_init() {
+    fn visible_prize_block_lifecycle_reveals_without_spawning_loc_101d8() {
         let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
         runtime.set_block_grid(grid_with_blocks());
         runtime.boot_state = BootState::InGame;
@@ -18493,27 +18493,30 @@ mod chunk_02 {
             runtime.step_frame(FrameInput::default());
         }
 
-        // ASM sub_1007A line 21411: prize block becomes Smash block ($E001)
-        // after prize spawns, NOT empty. Player can smash it on a second headbutt.
+        // The generic fixture uses an `$E101` visible-prize-looking cell with
+        // no matching block-list entry. ASM loc_101D8 reveals `$E102` for that
+        // path and does not run PrizeDiamond_Init.
         let post_prize_cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
         assert_eq!(post_prize_cell.collision, terrain::CollisionKind::Solid);
         assert!(post_prize_cell.has_block);
-        assert_eq!(post_prize_cell.block_type, terrain::BlockType::Smash);
-        assert_eq!(runtime.floating_items.len(), 1);
+        assert_eq!(post_prize_cell.block_type, terrain::BlockType::Prize);
+        assert!(runtime.floating_items.is_empty());
+        assert_eq!(runtime.progression.diamond_count, diamonds_before);
+
+        runtime.step_frame(FrameInput::default());
+        let visible_prize_cell = runtime.block_grid.as_ref().unwrap().cell_at(2, 2);
         assert_eq!(
-            runtime.floating_items[0].content,
-            terrain::PrizeContent::Diamond
+            visible_prize_cell,
+            terrain::Cell::from_be_bytes(0xE1, 0x02),
+            "ASM loc_101D8 writes visible $E102 without running Prize_Init",
         );
-        assert_eq!(
-            runtime.floating_items[0].spawn_delay,
-            NativeRuntime::PRIZE_ITEM_INITIAL_DORMANT_FRAMES
-        );
+        assert!(runtime.floating_items.is_empty());
         assert_eq!(runtime.progression.diamond_count, diamonds_before);
 
         runtime.step_frame(FrameInput::default());
         assert_eq!(
             runtime.progression.diamond_count, diamonds_before,
-            "the spawned prize object should not auto-collect on its spawn frame"
+            "the reveal-only visible prize path must not auto-award a diamond"
         );
     }
 
