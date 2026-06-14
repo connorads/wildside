@@ -11694,6 +11694,90 @@ mod tests {
     }
 
     #[test]
+    fn priority_foreground_terrain_masks_later_low_priority_sprites_loc_3034a() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        let mut visuals = sample_level_visuals();
+        visuals.foreground_tiles.tiles[0].pixels = [1; 64];
+        visuals.palettes.foreground = Palette {
+            colours: vec![colour(20, 30, 40), colour(180, 190, 200)],
+        };
+        let low_tile_sheet = Arc::new(TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 1)])],
+        });
+        let low_palette = Arc::new(Palette {
+            colours: vec![colour(220, 20, 20)],
+        });
+
+        let mut priority_layout = [0; 1 * 5 * 2];
+        priority_layout[4 * 2] = 0x01;
+        let priority_grid = BlockGrid::from_level_layout(&priority_layout, 1, 5);
+        let mut priority_scene = build_scene(&trace, false, Some(&visuals), Some(&priority_grid));
+        priority_scene.commands.push(DrawCommand::IndexedTile {
+            x: 0,
+            y: 64,
+            tile_sheet: Arc::clone(&low_tile_sheet),
+            tile: TileRef {
+                tile_index: 0,
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+            palette: Arc::clone(&low_palette),
+        });
+        let priority_sample = sample_scene_pixel_provenance(
+            &priority_scene,
+            &[(0usize, 64usize)].into_iter().collect(),
+        )
+        .into_iter()
+        .next()
+        .expect("priority sample");
+        assert!(
+            priority_sample.final_high_priority,
+            "ASM sub_3034A/sub_302F6 OR `$8000` into terrain tile words when Level_Layout carries bit `$0100`"
+        );
+        assert!(
+            priority_sample
+                .writes
+                .iter()
+                .any(|write| write.kind == "indexed_tile" && write.rgb == Some([220, 20, 20]) && !write.accepted),
+            "later ordinary Kid sprites are low priority, so Highwater foreground/water mask cells must reject them"
+        );
+
+        let low_grid = BlockGrid::from_level_layout(&[0; 1 * 5 * 2], 1, 5);
+        let mut low_scene = build_scene(&trace, false, Some(&visuals), Some(&low_grid));
+        low_scene.commands.push(DrawCommand::IndexedTile {
+            x: 0,
+            y: 64,
+            tile_sheet: low_tile_sheet,
+            tile: TileRef {
+                tile_index: 0,
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+            palette: low_palette,
+        });
+        let low_sample = sample_scene_pixel_provenance(
+            &low_scene,
+            &[(0usize, 64usize)].into_iter().collect(),
+        )
+        .into_iter()
+        .next()
+        .expect("low-priority sample");
+        assert!(
+            low_sample
+                .writes
+                .iter()
+                .any(|write| write.kind == "indexed_tile" && write.rgb == Some([220, 20, 20]) && write.accepted),
+            "ordinary terrain cells stay low priority; this regression only covers the ROM `$0100` foreground mask bit"
+        );
+    }
+
+    #[test]
     fn block_grid_only_draws_visible_block_overrides() {
         let mut trace = sample_trace(GameMode::InGame);
         // Camera at (320px, 0) — first 20 columns offscreen

@@ -3249,6 +3249,27 @@ pub(super) fn push_tile_quad(
     }
 }
 
+fn push_tile_quad_with_priority_override(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    foreground_palette: &Palette,
+    x: i32,
+    y: i32,
+    quad: &kid_render::TileQuad,
+    priority_override: Option<bool>,
+) {
+    match priority_override {
+        Some(priority) => {
+            let mut quad = quad.clone();
+            for tile in &mut quad.tiles {
+                tile.priority = priority;
+            }
+            push_tile_quad(commands, level_visuals, foreground_palette, x, y, &quad);
+        }
+        None => push_tile_quad(commands, level_visuals, foreground_palette, x, y, quad),
+    }
+}
+
 fn prize_block_wobble_frame_sub_1007a(
     level_visuals: &NativeLevelVisuals,
     remaining: u8,
@@ -3378,6 +3399,7 @@ pub(super) fn push_level_layout_terrain(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
+    block_grid: Option<&BlockGrid>,
 ) {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
@@ -3393,17 +3415,28 @@ pub(super) fn push_level_layout_terrain(
 
     for row in row_start..row_end {
         for col in col_start..col_end {
-            let skin = layout.skin_at(col, row);
+            let raw_word = block_grid.map(|grid| grid.raw_word_at(col, row));
+            let grid_cell = block_grid.map(|grid| grid.cell_at(col, row));
+            let priority_override = raw_word
+                .filter(|word| word & 0x8100 == 0x0100)
+                .map(|_| true);
+            let skin = grid_cell
+                .filter(|cell| !cell.has_block)
+                .map_or_else(|| layout.skin_at(col, row), |cell| cell.skin);
             let Some(resolved) = level_visuals.level.block_mapping.resolve(skin, None) else {
                 continue;
             };
-            push_tile_quad(
+            // ASM sub_302F6/sub_3034A ORs `$8000` into Scroll A tile
+            // words when the raw Level_Layout terrain cell carries bit
+            // `$0100`; Cell remains the collision-normalised view.
+            push_tile_quad_with_priority_override(
                 commands,
                 level_visuals,
                 &foreground_palette,
                 i32::from(col) * 16 - camera_x_px,
                 i32::from(row) * 16 - camera_y_px,
                 resolved.quad,
+                priority_override,
             );
         }
     }
@@ -3817,7 +3850,7 @@ fn build_game_scene_filtered(
         push_background_tiles(&mut commands, trace, level_visuals);
     }
     if filter.terrain {
-        push_level_layout_terrain(&mut commands, trace, level_visuals);
+        push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);
     }
     if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);

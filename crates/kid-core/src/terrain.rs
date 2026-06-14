@@ -156,6 +156,7 @@ pub struct BlockGrid {
     pub width_cells: u16,
     pub height_cells: u16,
     cells: Vec<Cell>,
+    raw_words: Vec<u16>,
 }
 
 /// Result of probing terrain at a point.
@@ -355,24 +356,31 @@ impl BlockGrid {
         let expected = usize::from(width_cells) * usize::from(height_cells) * 2;
         let cell_count = usize::from(width_cells) * usize::from(height_cells);
         let mut cells = Vec::with_capacity(cell_count);
+        let mut raw_words = Vec::with_capacity(cell_count);
         for i in 0..cell_count {
             let byte_offset = i * 2;
             if byte_offset + 1 < data.len() {
+                let raw_word =
+                    (u16::from(data[byte_offset]) << 8) | u16::from(data[byte_offset + 1]);
+                raw_words.push(raw_word);
                 cells.push(Cell::from_be_bytes(
                     data[byte_offset],
                     data[byte_offset + 1],
                 ));
             } else {
+                raw_words.push(0);
                 cells.push(Cell::from_be_bytes(0, 0));
             }
         }
         // Pad if data was shorter than expected
         cells.resize(cell_count, Cell::from_be_bytes(0, 0));
+        raw_words.resize(cell_count, 0);
         let _ = expected; // suppress unused warning
         Self {
             width_cells,
             height_cells,
             cells,
+            raw_words,
         }
     }
 
@@ -389,10 +397,13 @@ impl BlockGrid {
         let blank_cells = usize::from(blank_top_rows) * usize::from(self.width_cells);
         let mut cells = vec![Cell::from_be_bytes(0, 0); blank_cells];
         cells.extend_from_slice(&self.cells);
+        let mut raw_words = vec![0; blank_cells];
+        raw_words.extend_from_slice(&self.raw_words);
         Self {
             width_cells: self.width_cells,
             height_cells: self.height_cells.saturating_add(blank_top_rows),
             cells,
+            raw_words,
         }
     }
 
@@ -402,6 +413,13 @@ impl BlockGrid {
             return Cell::from_be_bytes(0, 0);
         }
         self.cells[usize::from(row) * usize::from(self.width_cells) + usize::from(col)]
+    }
+
+    pub fn raw_word_at(&self, col: u16, row: u16) -> u16 {
+        if col >= self.width_cells || row >= self.height_cells {
+            return 0;
+        }
+        self.raw_words[usize::from(row) * usize::from(self.width_cells) + usize::from(col)]
     }
 
     /// Level width in pixels.
@@ -419,7 +437,9 @@ impl BlockGrid {
         if col >= self.width_cells || row >= self.height_cells {
             return;
         }
-        self.cells[usize::from(row) * usize::from(self.width_cells) + usize::from(col)] = cell;
+        let index = usize::from(row) * usize::from(self.width_cells) + usize::from(col);
+        self.cells[index] = cell;
+        self.raw_words[index] = cell.to_word();
     }
 }
 
