@@ -1,5 +1,8 @@
 use super::*;
-use crate::combat::enemy_contact_bounds;
+use crate::combat::{
+    BossEyeSpriteRefreshSlotSub37ABC, boss_eye_refresh_attack_sprites_sub_37ABC,
+    enemy_contact_bounds,
+};
 use std::collections::BTreeMap;
 
 const FLOATING_DIAMOND_CANDIDATE_LIMIT: usize = 4;
@@ -6474,6 +6477,12 @@ impl NativeRuntime {
         if let Some(summary) = self.highwater_shooter_barrier_probe_debug() {
             gameplay_debug_fields.insert("highwater_shooter_barrier_probe".into(), summary);
         }
+        if let Some(summary) = self.heady_metal_composite_refresh_probe_sub_37abc() {
+            gameplay_debug_fields.insert(
+                "heady_metal_synthetic_sub_37abc_refresh".into(),
+                summary,
+            );
+        }
         let level_complete_elapsed_frames = match self.player_lifecycle {
             PlayerLifecycle::LevelComplete {
                 remaining_frames,
@@ -7056,6 +7065,38 @@ impl NativeRuntime {
             projectiles,
             shooter_cells,
             barrier_cells
+        ))
+    }
+
+    fn heady_metal_composite_refresh_probe_sub_37abc(&self) -> Option<String> {
+        let slice = self.opening_slice?;
+        let boss = self
+            .active_enemies
+            .iter()
+            .find(|enemy| matches!(enemy.family, EnemyFamily::HeadyMetal))?;
+        let boss_x = (boss.x_pos >> 16) as u16;
+        let boss_y = (boss.y_pos >> 16) as u16;
+        // ASM loc_3763A calls sub_37ABC over HeadyMetal's `$FFFFFB7E`
+        // worker table. Native still has a single boss enemy, so mark this
+        // as synthetic until the composite workers are modelled.
+        let slots = [Some(BossEyeSpriteRefreshSlotSub37ABC {
+            x_pos: boss_x,
+            y_pos: boss_y,
+            sprite_mapping: "synthetic",
+        }); 12];
+        let refreshed = boss_eye_refresh_attack_sprites_sub_37ABC(
+            slots,
+            self.progression.diamond_power_frames > 0
+                || !self.diamond_power_invuln_haze_slots.is_empty(),
+            self.frame_index as u8,
+            (slice.player.x_pos >> 16) as u16,
+            (slice.player.y_pos >> 16) as u16,
+        );
+        let first = refreshed[0]?.sprite_mapping;
+        let last = refreshed[11]?.sprite_mapping;
+
+        Some(format!(
+            "source=synthetic_single_enemy slots=12 x={boss_x:#06x} y={boss_y:#06x} first={first} last={last}"
         ))
     }
 

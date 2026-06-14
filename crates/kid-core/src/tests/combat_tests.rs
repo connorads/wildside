@@ -2179,6 +2179,37 @@ fn boss_eye_attack_loc_3739c_refreshes_live_sprite_mapping_each_frame() {
 }
 
 #[test]
+fn trace_exposes_synthetic_heady_metal_sub_37abc_refresh_probe() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x0050_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::HeadyMetal,
+        0x0040_0000,
+        0x0040_0000,
+        30,
+    )];
+
+    let trace = runtime.trace_frame();
+
+    let summary = trace
+        .gameplay_debug_fields
+        .get("heady_metal_synthetic_sub_37abc_refresh")
+        .expect(
+            "ASM loc_3763A calls sub_37ABC on HeadyMetal's composite worker table; native exposes the current synthetic single-enemy probe until that table is ported",
+        );
+    assert!(summary.contains("source=synthetic_single_enemy"));
+    assert!(summary.contains("slots=12"));
+    assert!(summary.contains("x=0x0040"));
+    assert!(summary.contains("y=0x0040"));
+    assert!(summary.contains("first=LnkTo_unk_C84B0-Data_Index"));
+    assert!(summary.contains("last=LnkTo_unk_C84B0-Data_Index"));
+}
+
+#[test]
 fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.projectiles.push(EnemyProjectile {
