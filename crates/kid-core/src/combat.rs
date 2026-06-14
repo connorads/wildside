@@ -8515,6 +8515,27 @@ impl NativeRuntime {
                 self.spawn_shishkaboss_skewer_fan_loc_384d6(enemy.x_pos, enemy.y_pos);
             }
             let enemy = &mut self.active_enemies[idx];
+            if enemy.is_armadillo_parent_spawned_child() {
+                let route = armadillo_death_route_loc_3c87e(true);
+                if let ArmadilloDeathRouteLoc3C87E::SpawnedChildFallBeforeDeath {
+                    x_velocity,
+                    y_velocity,
+                    ..
+                } = route
+                {
+                    // ASM Armadillo.asm loc_3C87E -> loc_3C93C: `$5C(a5)`
+                    // children fall until loc_3C954 observes `colid_floor`;
+                    // only then does loc_3C886 run the death animation.
+                    enemy.hit_points = 0;
+                    enemy.death_animation_active = false;
+                    enemy.x_velocity = x_velocity;
+                    enemy.y_velocity = y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954;
+                    self.rebuild_active_enemy_roster();
+                    return;
+                }
+            }
             // ASM Goat.asm loc_3CB64, Ninja.asm loc_3DB4E, Crab.asm loc_3B094,
             // Dragon.asm loc_3CEFC, and Mini_Hopping_Skull.asm loc_3F158:
             // final damage calls j_Init_Animation for the death script even

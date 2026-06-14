@@ -6565,6 +6565,8 @@ pub(crate) struct ActiveEnemy {
 }
 
 pub(crate) const DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
+pub(crate) const ARMADILLO_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
+pub(crate) const ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954: u16 = 0xC954;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PendingDragonDeathChild {
@@ -8619,6 +8621,16 @@ impl ActiveEnemy {
             && self.dragon_script_variant & DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG != 0
     }
 
+    pub(crate) fn is_armadillo_parent_spawned_child(&self) -> bool {
+        matches!(self.family, EnemyFamily::Armadillo)
+            && self.dragon_script_variant & ARMADILLO_PARENT_SPAWNED_CHILD_FLAG != 0
+    }
+
+    pub(crate) fn is_armadillo_spawned_child_fall_waiting(&self) -> bool {
+        matches!(self.family, EnemyFamily::Armadillo)
+            && self.wait_timer == ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954
+    }
+
     pub(crate) fn has_pending_dragon_walking_breath_child_loc_3ce90(&self) -> bool {
         // ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and falls through to
         // loc_3CF6E/loc_3CF90 in the same object pass when the stored timer
@@ -9967,6 +9979,10 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.wait_timer == ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC
                     {
                         step_armadillo_berzerker_launch(enemy);
+                        continue;
+                    }
+                    if enemy.is_armadillo_spawned_child_fall_waiting() {
+                        step_armadillo_spawned_child_fall_wait_loc_3c954(enemy, block_grid);
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::Scorpion)
@@ -26216,6 +26232,50 @@ fn step_armadillo_berzerker_launch(enemy: &mut ActiveEnemy) {
     enemy.y_velocity =
         armadillo_berzerker_launch_loop_tick_loc_3c8cc(enemy.y_velocity).next_y_velocity;
     enemy.on_ground = false;
+}
+
+fn step_armadillo_spawned_child_fall_wait_loc_3c954(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    // ASM Armadillo.asm loc_3C954: after loc_3C93C seeds the fall, the child
+    // hibernates one frame, applies movement/collision, and enters loc_3C886
+    // only when the post-hibernate collision word is `colid_floor`.
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    let collision_type = if let Some(grid) = block_grid {
+        let cx = (enemy.x_pos >> 16) as i32;
+        let cy = (enemy.y_pos >> 16) as i32;
+        let floor = terrain::probe_floor(grid, cx, cy);
+        if floor.on_ground && enemy.y_velocity >= 0 {
+            let floor_y_fp = (floor.floor_y_px as u32) << 16;
+            if enemy.y_pos >= floor_y_fp {
+                enemy.y_pos = floor_y_fp;
+                ARMADILLO_COLID_FLOOR
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    } else {
+        0
+    };
+
+    let wait = armadillo_spawned_child_fall_wait_loc_3c954(collision_type, enemy.y_velocity);
+    enemy.x_velocity = 0;
+    enemy.y_velocity = wait.y_velocity;
+    enemy.on_ground = !wait.has_level_collision;
+    if matches!(
+        wait.route,
+        ArmadilloSpawnedChildFallWaitRouteLoc3C954::DeathAnimation { .. }
+    ) {
+        enemy.death_animation_active = true;
+        enemy.wait_timer = ARMADILLO_DEATH_ANIMATION_FRAMES;
+    } else {
+        enemy.wait_timer = ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954;
+    }
 }
 
 fn step_scorpion_berzerker_knockback(enemy: &mut ActiveEnemy) {

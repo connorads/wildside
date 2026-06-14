@@ -12967,6 +12967,67 @@ mod chunk_03 {
         );
     }
 
+    /// ASM Armadillo.asm loc_3C87E -> loc_3C93C: `$5C(a5)` spawned children
+    /// fall with `$2C000` y_vel before the death animation tail.
+    #[test]
+    fn armadillo_spawned_child_terminal_damage_falls_before_death_loc_3c87e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut armadillo = test_enemy(EnemyFamily::Armadillo, 100 << 16, 120 << 16, 1);
+        armadillo.dragon_script_variant = ARMADILLO_PARENT_SPAWNED_CHILD_FLAG;
+        runtime.active_enemies = vec![armadillo];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(runtime.active_enemies.len(), 1);
+        let armadillo = runtime.active_enemies[0];
+        assert_eq!(armadillo.hit_points, 0);
+        assert!(!armadillo.death_animation_active);
+        assert_eq!(
+            armadillo.wait_timer, ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954,
+            "native marker keeps the child in ASM Armadillo.asm loc_3C954 until floor contact"
+        );
+        assert_eq!(armadillo.x_velocity, 0);
+        assert_eq!(armadillo.y_velocity, 0x0002_C000);
+        assert!(!armadillo.on_ground);
+    }
+
+    /// ASM Armadillo.asm loc_3C954: only `colid_floor` exits the spawned-child
+    /// fall loop and enters `stru_3C69A` at loc_3C886.
+    #[test]
+    fn armadillo_spawned_child_floor_contact_starts_death_tail_loc_3c954() {
+        let grid = grid_with_floor_at_row(8);
+        let mut armadillo = test_enemy(EnemyFamily::Armadillo, 100 << 16, 127 << 16, 0);
+        armadillo.dragon_script_variant = ARMADILLO_PARENT_SPAWNED_CHILD_FLAG;
+        armadillo.wait_timer = ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954;
+        armadillo.x_velocity = 0;
+        armadillo.y_velocity = 0x0002_C000;
+        armadillo.on_ground = false;
+        let mut active = vec![armadillo];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+
+        let armadillo = active[0];
+        assert_eq!(armadillo.hit_points, 0);
+        assert!(armadillo.death_animation_active);
+        assert_eq!(armadillo.x_velocity, 0);
+        assert_eq!(armadillo.y_velocity, 0);
+        assert_eq!(
+            armadillo.wait_timer, ARMADILLO_DEATH_ANIMATION_FRAMES,
+            "ASM Armadillo.asm loc_3C954 should enter loc_3C886 only after floor contact"
+        );
+    }
+
     #[test]
     fn stomp_kill_keeps_walking_dragon_visible_for_loc_3cefc_death_animation() {
         let mut runtime = NativeRuntime::new(manifest());
