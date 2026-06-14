@@ -7,8 +7,8 @@ use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
     ActiveProjectileKind, ActiveProjectileSnapshot, DiamondPowerSpriteSnapshot, FrameInput,
-    GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeTraceFrame,
-    PlayerForm, physics::Direction, terrain::BlockGrid,
+    GameMode, LevelId, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand,
+    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader, resource_level_id, resource_level_record};
 use kid_md::GemsAudioEngine;
@@ -2061,8 +2061,8 @@ fn native_audio_events_for_trace_with_initial_bgm(
                 native_bgm_command_suppresses_same_frame_sfx(command, trace)
             });
             if !suppress_sfx_this_frame {
-                for sound_id in gems_event_sound_ids(prev, trace) {
-                    events.push(format_native_sound_event(frame_index, trace, sound_id));
+                for command in gems_event_sound_commands(prev, trace) {
+                    events.push(format_native_sound_event(frame_index, trace, command));
                 }
                 for speed in gems_event_music_speed_updates(prev, trace) {
                     events.push(format_native_music_speed_event(frame_index, trace, speed));
@@ -2226,9 +2226,15 @@ fn format_native_bgm_event(
     )
 }
 
-fn format_native_sound_event(frame_index: usize, trace: &NativeTraceFrame, sound_id: u8) -> String {
+fn format_native_sound_event(
+    frame_index: usize,
+    trace: &NativeTraceFrame,
+    command: NativeSoundCommand,
+) -> String {
+    let command_name = command.command_name();
+    let sound_id = command.sound_id;
     format!(
-        "frame={frame_index} mode={:?} level={:02X} command=PlaySound({sound_id})",
+        "frame={frame_index} mode={:?} level={:02X} command={command_name}({sound_id})",
         trace.game_mode, trace.current_level.0
     )
 }
@@ -2266,6 +2272,25 @@ fn queued_gems_sound_ids_since<'a>(
         &curr.played_sound_effect_ids[prev.played_sound_effect_ids.len()..]
     } else {
         &curr.played_sound_effect_ids
+    }
+}
+
+fn queued_gems_sound_commands_since(
+    prev: &NativeTraceFrame,
+    curr: &NativeTraceFrame,
+) -> Vec<NativeSoundCommand> {
+    if curr.played_sound_commands.is_empty() {
+        return queued_gems_sound_ids_since(prev, curr)
+            .iter()
+            .copied()
+            .map(NativeSoundCommand::play_sound)
+            .collect();
+    }
+
+    if curr.played_sound_commands.len() >= prev.played_sound_commands.len() {
+        curr.played_sound_commands[prev.played_sound_commands.len()..].to_vec()
+    } else {
+        curr.played_sound_commands.clone()
     }
 }
 
@@ -2408,8 +2433,18 @@ fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
 }
 
 fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec<u8> {
+    gems_event_sound_commands(prev, curr)
+        .into_iter()
+        .map(|command| command.sound_id)
+        .collect()
+}
+
+fn gems_event_sound_commands(
+    prev: &NativeTraceFrame,
+    curr: &NativeTraceFrame,
+) -> Vec<NativeSoundCommand> {
     let queued_sound_ids = queued_gems_sound_ids_since(prev, curr);
-    let mut sound_ids = queued_sound_ids.to_vec();
+    let mut sound_commands = queued_gems_sound_commands_since(prev, curr);
     let gameplay_sfx_fallback_active =
         matches!(curr.game_mode, GameMode::InGame | GameMode::DemoPlay);
 
@@ -2417,7 +2452,7 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
     if curr.sound_test_play_pending
         && let Some(track) = curr.sound_test_track
     {
-        sound_ids.push(track);
+        sound_commands.push(NativeSoundCommand::play_sound(track));
     }
 
     // Jump
@@ -2427,7 +2462,7 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         && curr.kid_on_ground == Some(false)
         && curr.kid_y_velocity.is_some_and(|v| v < 0)
     {
-        sound_ids.push(gems_sfx::JUMP);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::JUMP));
     }
 
     // Stomp enemy is now driven by the core trace. ASM Jump_On_Enemy
@@ -2451,12 +2486,12 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         && curr.number_hitpoints < prev.number_hitpoints
         && prev.number_hitpoints > 0
     {
-        sound_ids.push(gems_sfx::VOICE_OUCH);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::VOICE_OUCH));
     }
 
     // Death (lives decreased)
     if curr.number_lives < prev.number_lives {
-        sound_ids.push(gems_sfx::VOICE_DIE);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::VOICE_DIE));
     }
 
     // Form change (helmet ID changed). ASM loc_7CD0 skips the unk_7ED8 cue in
@@ -2466,13 +2501,15 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         if let Some(id) = transform_sound_for_helmet_id_loc_7cd0(curr.current_helmet_id)
             && !queued_sound_ids.contains(&id)
         {
-            sound_ids.push(id);
+            sound_commands.push(NativeSoundCommand::play_sound(id));
         }
     }
 
     // Diamond Power activation
     if curr.diamond_power_active && !prev.diamond_power_active {
-        sound_ids.push(gems_sfx::DIAMOND_POWER_AVAILABLE);
+        sound_commands.push(NativeSoundCommand::play_sound(
+            gems_sfx::DIAMOND_POWER_AVAILABLE,
+        ));
     }
 
     // ASM loc_D752/loc_D770: Score_Board BGM and EOL rows appear before the
@@ -2481,7 +2518,7 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         && curr.level_complete_score_counter_elapsed_frames > 0
         && prev.level_complete_score_counter_elapsed_frames == 0
     {
-        sound_ids.push(gems_sfx::SCORE_COUNTER);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::SCORE_COUNTER));
     }
 
     // ASM loc_D7F4 (kid.asm:16906-16908): when the counter finishes draining,
@@ -2494,7 +2531,7 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
         && curr.level_complete_score_counter_drained
         && !prev.level_complete_score_counter_drained
     {
-        sound_ids.push(gems_sfx::SCORE_COUNTER);
+        sound_commands.push(NativeSoundCommand::play_sound2(gems_sfx::SCORE_COUNTER));
     }
 
     // Block headbutt. ASM loc_10DA4 queues rubber blocks as
@@ -2507,7 +2544,7 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
             .copied()
             .any(is_explicit_block_sound_id)
     {
-        sound_ids.push(gems_sfx::BLOCK_HIT);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::BLOCK_HIT));
     }
 
     // Block destroyed (new destroy effects appeared). ASM ice blocks queue
@@ -2516,27 +2553,27 @@ fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec
     if !queued_sound_ids.contains(&gems_sfx::DESTROY_BLOCK)
         && curr.block_destroy_effects.len() > prev.block_destroy_effects.len()
     {
-        sound_ids.push(gems_sfx::DESTROY_BLOCK);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::DESTROY_BLOCK));
     }
 
     // Lava geyser erupted (new geysers appeared)
     if curr.active_geysers.len() > prev.active_geysers.len() {
-        sound_ids.push(gems_sfx::LAVA_GEYSER);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::LAVA_GEYSER));
     }
 
     // Game complete — ending music
     if curr.game_complete && !prev.game_complete {
-        sound_ids.push(gems_bgm::ENDING);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_bgm::ENDING));
     }
 
     // Clock pickup (timer jumped up)
     if !queued_sound_ids.contains(&gems_sfx::CLOCK_PRIZE)
         && curr.level_timer_seconds > prev.level_timer_seconds + 5
     {
-        sound_ids.push(gems_sfx::CLOCK_PRIZE);
+        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::CLOCK_PRIZE));
     }
 
-    sound_ids
+    sound_commands
 }
 
 /// Map level theme ID to GEMS BGM ID.
@@ -2938,6 +2975,7 @@ mod tests {
             options_cursor: None,
             sound_test_track: None,
             played_sound_effect_ids: Vec::new(),
+            played_sound_commands: Vec::new(),
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             two_player: false,
@@ -15070,6 +15108,11 @@ mod tests {
             vec![gems_sfx::SCORE_COUNTER],
             "ASM loc_D752 queues `sfx_Score_counter` immediately before loc_D770 starts draining the score rows"
         );
+        assert_eq!(
+            gems_event_sound_commands(&scoreboard_setup, &counter_started),
+            vec![NativeSoundCommand::play_sound(gems_sfx::SCORE_COUNTER)],
+            "ASM loc_D752 reaches `j_PlaySound`, whose GEMS command byte is `$10`"
+        );
     }
 
     #[test]
@@ -15093,6 +15136,11 @@ mod tests {
             vec![gems_sfx::SCORE_COUNTER],
             "ASM loc_D7F4 replays sfx_Score_counter when the EOL counter finishes draining"
         );
+        assert_eq!(
+            gems_event_sound_commands(&draining, &drained),
+            vec![NativeSoundCommand::play_sound2(gems_sfx::SCORE_COUNTER)],
+            "ASM loc_D7F4 reaches `j_PlaySound2`, whose GEMS command byte is `$12`"
+        );
 
         // The cue must fire exactly once: the next frame is still drained.
         let mut still_drained = drained.clone();
@@ -15101,6 +15149,28 @@ mod tests {
             !gems_event_sound_ids(&drained, &still_drained).contains(&gems_sfx::SCORE_COUNTER),
             "the loc_D7F4 cue is a single replay, not a per-frame repeat"
         );
+    }
+
+    #[test]
+    fn scripted_recording_audio_events_label_loc_d7f4_score_counter_as_playsound2(
+    ) -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut draining = sample_trace(GameMode::InGame);
+        draining.level_complete = true;
+        draining.level_complete_score_counter_elapsed_frames = 10;
+
+        let mut drained = draining.clone();
+        drained.level_complete_score_counter_elapsed_frames = 11;
+        drained.level_complete_score_counter_drained = true;
+
+        let events = native_audio_events_for_trace(&fixture.manifest, &[draining, drained]);
+
+        assert!(
+            events.iter().any(|event| event
+                .contains(&format!("command=PlaySound2({})", gems_sfx::SCORE_COUNTER))),
+            "recording audio events should preserve ASM loc_D7F4's j_PlaySound2 command byte `$12`, not just the reused score-counter id"
+        );
+        Ok(())
     }
 
     #[test]

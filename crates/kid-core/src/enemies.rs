@@ -41941,7 +41941,7 @@ impl NativeRuntime {
         {
             // ASM loc_39EE2: `sfx_Boss_dies` plays after the first eight
             // hibernate-until-finished scripts, immediately before loc_39F7A.
-            self.played_sound_effects.push(QueuedSoundEffect::BossDies);
+            self.queue_play_sound(QueuedSoundEffect::BossDies);
         }
     }
 
@@ -42044,6 +42044,7 @@ impl NativeRuntime {
                     );
                 }
                 self.apply_pending_enemy_collisions();
+                let mut played_enemy_sound_effects = Vec::new();
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
@@ -42062,8 +42063,11 @@ impl NativeRuntime {
                     Some(&mut self.projectiles),
                     &mut self.rom_random,
                     &mut self.drilled_blocks,
-                    Some(&mut self.played_sound_effects),
+                    Some(&mut played_enemy_sound_effects),
                 );
+                for effect in played_enemy_sound_effects {
+                    self.queue_play_sound(effect);
+                }
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let mut death_animation_hibernated_indices = Vec::new();
                 let mut death_animation_sound_indices = Vec::new();

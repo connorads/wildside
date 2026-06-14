@@ -2569,6 +2569,7 @@ mod tests {
             ending_elapsed: None,
             options_cursor: None,
             played_sound_effect_ids: Vec::new(),
+            played_sound_commands: Vec::new(),
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             sound_test_track: None,

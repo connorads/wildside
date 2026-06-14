@@ -18,7 +18,7 @@ pub(crate) mod types;
 pub mod vdp;
 mod weather;
 
-use combat::{PendingSoundEffect, QueuedSoundEffect};
+use combat::{PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect};
 use constants::*;
 use enemies::*;
 use kid_data::{
@@ -202,6 +202,8 @@ pub struct NativeRuntime {
     pending_sound_effects: Vec<PendingSoundEffect>,
     /// Internal log used by focused sound-worker tests.
     played_sound_effects: Vec<QueuedSoundEffect>,
+    /// Internal log preserving ASM `j_PlaySound`/`j_PlaySound2` command bytes.
+    played_sound_commands: Vec<QueuedSoundCommand>,
     /// Internal log of ASM `j_PlaySound` BGM command bytes.
     played_bgm_ids: Vec<u8>,
     /// Internal log of ASM sub_E1330/sub_E1338 music-speed command bytes.
@@ -1314,6 +1316,20 @@ enum PendingEnemyCollisionTarget {
 }
 
 impl NativeRuntime {
+    pub(crate) fn queue_play_sound(&mut self, effect: QueuedSoundEffect) {
+        self.queue_sound_command(QueuedSoundCommand::PlaySound(effect));
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn queue_play_sound2(&mut self, effect: QueuedSoundEffect) {
+        self.queue_sound_command(QueuedSoundCommand::PlaySound2(effect));
+    }
+
+    pub(crate) fn queue_sound_command(&mut self, command: QueuedSoundCommand) {
+        self.played_sound_effects.push(command.effect());
+        self.played_sound_commands.push(command);
+    }
+
     pub fn new(assets: AssetManifest) -> Self {
         let sega_screen_data = vdp::load_sega_screen_data(&assets).ok();
         let intro_sub_1b850_data = vdp::load_intro_sub_1b850_data(&assets).ok();
@@ -1406,6 +1422,7 @@ impl NativeRuntime {
             pending_prize_diamond_hud_flights: Vec::new(),
             pending_sound_effects: Vec::new(),
             played_sound_effects: Vec::new(),
+            played_sound_commands: Vec::new(),
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             enemy_death_effects: Vec::new(),
@@ -2798,7 +2815,7 @@ impl NativeRuntime {
             self.helmet.red_stealth_jump_threshold_y_velocity = Some(probe.y_velocity_after);
             // ASM sub_A432 loc_A480 plays `sfx_Jump` after the launch velocity
             // is stored and x_vel is scaled by 3/4.
-            self.played_sound_effects.push(QueuedSoundEffect::Jump);
+            self.queue_play_sound(QueuedSoundEffect::Jump);
         }
     }
 
@@ -2807,7 +2824,7 @@ impl NativeRuntime {
             // ASM kid_flip loc_ABF0 (kid.asm:13458-13467) initialises
             // `stru_8BB4`, then plays sfx_The_Kid_pullup before hibernating
             // until the pull-up animation finishes.
-            self.played_sound_effects.push(QueuedSoundEffect::KidPullup);
+            self.queue_play_sound(QueuedSoundEffect::KidPullup);
         }
     }
 

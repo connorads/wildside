@@ -255,6 +255,30 @@ pub(crate) fn transform_music_speed_byte_loc_7e26(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum QueuedSoundCommand {
+    PlaySound(QueuedSoundEffect),
+    #[allow(dead_code)]
+    PlaySound2(QueuedSoundEffect),
+}
+
+impl QueuedSoundCommand {
+    pub(crate) fn effect(self) -> QueuedSoundEffect {
+        match self {
+            Self::PlaySound(effect) | Self::PlaySound2(effect) => effect,
+        }
+    }
+
+    pub(crate) fn trace_command(self) -> NativeSoundCommand {
+        match self {
+            // ASM PlaySound (kid.asm:49733) writes GEMS command byte `$10`.
+            Self::PlaySound(effect) => NativeSoundCommand::play_sound(effect.sound_id()),
+            // ASM PlaySound2 (kid.asm:49742) writes GEMS command byte `$12`.
+            Self::PlaySound2(effect) => NativeSoundCommand::play_sound2(effect.sound_id()),
+        }
+    }
+}
+
 pub(crate) fn transform_sound_effect_loc_7cd0(form: PlayerForm) -> Option<QueuedSoundEffect> {
     // ASM loc_7CD0 (kid.asm:8426): after `Current_Helmet_Available` becomes
     // `Current_Helmet`, non-demo transforms index `unk_7ED8` by helmet id and
@@ -7931,8 +7955,7 @@ impl NativeRuntime {
         slice.player.on_ground = false;
         // ASM Jump_On_Enemy (kid.asm:14607) plays `sfx_Jump_on_enemy = $4C`
         // before entering the loc_B6DA bounce mechanics modelled above.
-        self.played_sound_effects
-            .push(QueuedSoundEffect::JumpOnEnemy);
+        self.queue_play_sound(QueuedSoundEffect::JumpOnEnemy);
         self.stomped_this_frame = true;
         if pending.causes_contact_damage
             && self.progression.invulnerable_frames == 0
@@ -7986,6 +8009,7 @@ impl NativeRuntime {
         let pending = std::mem::take(&mut self.pending_enemy_collisions);
         let mut kill_indices = Vec::new();
         let mut changed_enemy_state = false;
+        let mut queued_sound_effects = Vec::new();
 
         for collision in pending {
             let Some(active_idx) = self.active_enemies.iter().position(|enemy| {
@@ -8034,8 +8058,7 @@ impl NativeRuntime {
                 if result.played_sound_effect == Some("sfx_Boss_eye_pops") {
                     // ASM sub_37708 loc_3772A plays `sfx_Boss_eye_pops`
                     // while raising early breakup piece sprite order.
-                    self.played_sound_effects
-                        .push(QueuedSoundEffect::BossEyePops);
+                    queued_sound_effects.push(QueuedSoundEffect::BossEyePops);
                     changed_enemy_state = true;
                 }
 
@@ -8096,8 +8119,7 @@ impl NativeRuntime {
                 }
                 enemy.damage_flash_frames = result.next_flash_timer;
                 if result.hit {
-                    self.played_sound_effects
-                        .push(QueuedSoundEffect::BigHoppingSkullGroan);
+                    queued_sound_effects.push(QueuedSoundEffect::BigHoppingSkullGroan);
                     changed_enemy_state = true;
                 }
                 if result.head_dead {
@@ -8301,6 +8323,9 @@ impl NativeRuntime {
 
         kill_indices.sort_unstable();
         kill_indices.dedup();
+        for effect in queued_sound_effects {
+            self.queue_play_sound(effect);
+        }
         for idx in kill_indices.into_iter().rev() {
             self.remove_dead_enemy(idx);
         }
@@ -8323,7 +8348,7 @@ impl NativeRuntime {
         }
         let cleanup = heady_metal_cleanup_sub_378C8(false, HEADYMETAL_DEATH_EFFECT_FRAMES);
         if cleanup.played_sound_effect == Some("sfx_Boss_dies") {
-            self.played_sound_effects.push(QueuedSoundEffect::BossDies);
+            self.queue_play_sound(QueuedSoundEffect::BossDies);
         }
         self.enemy_death_effects.push(EnemyDeathEffect {
             x_pos,
@@ -9179,8 +9204,7 @@ impl NativeRuntime {
         // cue here keeps the SFX aligned with the contact frame instead of the
         // delayed count increment (#216 "diamond collection sounds are
         // delayed").
-        self.played_sound_effects
-            .push(QueuedSoundEffect::DiamondPrize);
+        self.queue_play_sound(QueuedSoundEffect::DiamondPrize);
         self.pending_prize_diamond_awards
             .push(Self::PRIZE_DIAMOND_AWARD_DELAY_FRAMES);
     }
@@ -9246,7 +9270,9 @@ impl NativeRuntime {
         // the transient worker always jumps to `j_Delete_CurrentObject`.
         self.pending_sound_effects
             .retain(|pending| pending.delay_frames > 0);
-        self.played_sound_effects.extend(played_effects);
+        for effect in played_effects {
+            self.queue_play_sound(effect);
+        }
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -9254,8 +9280,7 @@ impl NativeRuntime {
     pub(crate) fn play_thunderstorm_sound_sub_1B36C(&mut self, d0: u16) -> u16 {
         // ASM sub_1B36C (kid.asm:29577-29583) saves d0 on the stack, plays
         // `sfx_Thunderstorm`, then restores d0 before returning.
-        self.played_sound_effects
-            .push(QueuedSoundEffect::Thunderstorm);
+        self.queue_play_sound(QueuedSoundEffect::Thunderstorm);
         d0
     }
 
@@ -9264,8 +9289,7 @@ impl NativeRuntime {
     pub(crate) fn play_navigate_jingle_sub_1BC26(&mut self, d0: u16) -> u16 {
         // ASM sub_1BC26 (kid.asm:30506-30512) saves d0 on the stack, plays
         // `sfx_Navigate_jingle`, then restores d0 before returning.
-        self.played_sound_effects
-            .push(QueuedSoundEffect::NavigateJingle);
+        self.queue_play_sound(QueuedSoundEffect::NavigateJingle);
         d0
     }
 
@@ -9282,22 +9306,21 @@ impl NativeRuntime {
                 }
             }
             terrain::PrizeContent::Clock => {
-                self.played_sound_effects
-                    .push(QueuedSoundEffect::ClockPrize);
+                self.queue_play_sound(QueuedSoundEffect::ClockPrize);
                 self.level_timer.add_clock_bonus();
                 // ASM loc_10002 (kid.asm:21298) increments `Clocks_collected`
                 // after the timer bonus/sub-second reset path completes.
                 self.clocks_collected += 1;
             }
             terrain::PrizeContent::Continue => {
-                self.played_sound_effects.push(QueuedSoundEffect::CoinPrize);
+                self.queue_play_sound(QueuedSoundEffect::CoinPrize);
                 self.progression.number_continues =
                     self.progression.number_continues.saturating_add(1);
             }
             terrain::PrizeContent::Ankh => {
                 // ASM CharacterCollision_TouchAnkh (kid.asm:14883) plays
                 // `sfx_Ankh_prize` before PrizeAnkhCollected_Init grants the life.
-                self.played_sound_effects.push(QueuedSoundEffect::AnkhPrize);
+                self.queue_play_sound(QueuedSoundEffect::AnkhPrize);
                 self.add_life();
             }
             terrain::PrizeContent::Points10000 => {
@@ -9500,7 +9523,7 @@ impl NativeRuntime {
             self.progression.score = applied.score;
             if applied.awards_extra_life {
                 self.add_life();
-                self.played_sound_effects.push(QueuedSoundEffect::AnkhPrize);
+                self.queue_play_sound(QueuedSoundEffect::AnkhPrize);
             }
         }
     }
@@ -9608,8 +9631,7 @@ impl NativeRuntime {
             // ASM loc_7C76 (kid.asm:8387): equal Current_Helmet and
             // Current_Helmet_Available plays Replenish_Health, then branches
             // directly to loc_7E14 cleanup without reverse or forward tables.
-            self.played_sound_effects
-                .push(QueuedSoundEffect::ReplenishHealth);
+            self.queue_play_sound(QueuedSoundEffect::ReplenishHealth);
             self.progression.form_change_flash_frames = 0;
         } else {
             // ASM loc_7C96 (kid.asm:8399): `addq.w #1,d7; add.w d7,d7` — remove-
@@ -9645,7 +9667,7 @@ impl NativeRuntime {
             if !demo_mode_active
                 && let Some(transform_sound) = transform_sound_effect_loc_7cd0(form)
             {
-                self.played_sound_effects.push(transform_sound);
+                self.queue_play_sound(transform_sound);
             }
             let old_frames = transform_anim_frames(old_form);
             let new_frames = transform_anim_frames(form);
@@ -9676,8 +9698,7 @@ impl NativeRuntime {
             // ASM loc_7E26/loc_7E40 (kid.asm:8564-8574): after the
             // post-transform music-speed update, `Current_Helmet == 0`
             // queues `sfx_Voice_bummer`.
-            self.played_sound_effects
-                .push(QueuedSoundEffect::VoiceBummer);
+            self.queue_play_sound(QueuedSoundEffect::VoiceBummer);
         }
 
         // ASM loc_7E48 (kid.asm:8575): cleanup after the optional
@@ -9793,8 +9814,7 @@ impl NativeRuntime {
         // last-pip TheKid contact jumps to Death and never reaches loc_B73C.
         // Helmet loss still branches back to loc_B73C, so it keeps the ouch.
         if !fatal_thekid_hit {
-            self.played_sound_effects
-                .push(contact_damage_ouch_sound_loc_b73c(enemy_family));
+            self.queue_play_sound(contact_damage_ouch_sound_loc_b73c(enemy_family));
         }
         self.apply_damage_without_ouch();
     }
@@ -9852,7 +9872,7 @@ impl NativeRuntime {
 
         if self.progression.number_hitpoints > 0 {
             if let Some(ouch_sound) = ouch_sound {
-                self.played_sound_effects.push(ouch_sound);
+                self.queue_play_sound(ouch_sound);
             }
             self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
             return;
@@ -9887,7 +9907,7 @@ impl NativeRuntime {
                 self.progression.extra_hitpoint_slots,
             );
             if let Some(ouch_sound) = ouch_sound {
-                self.played_sound_effects.push(ouch_sound);
+                self.queue_play_sound(ouch_sound);
             }
             self.progression.invulnerable_frames = PLAYER_DAMAGE_INVULNERABLE_FRAMES;
             return;
@@ -9907,7 +9927,7 @@ impl NativeRuntime {
     fn begin_death_windup_path(&mut self, path: DeathWindupPath) {
         // ASM Death (kid.asm:14714): the death routine plays sfx_Voice_die
         // before clearing extra hitpoints and switching lifecycle state.
-        self.played_sound_effects.push(QueuedSoundEffect::VoiceDie);
+        self.queue_play_sound(QueuedSoundEffect::VoiceDie);
         self.paused = false;
         self.pause_toggle_pending = false;
         self.allow_pausing = false;
@@ -11987,8 +12007,7 @@ impl NativeRuntime {
         let level_timer_expired = self.level_timer.tick();
         if level_timer_expired {
             self.progression.number_hitpoints = 0;
-            self.played_sound_effects
-                .push(QueuedSoundEffect::VoiceNoTime);
+            self.queue_play_sound(QueuedSoundEffect::VoiceNoTime);
         }
 
         // ASM loc_9142 (kid.asm:10549): sub_902A downward floor probe path
@@ -12143,7 +12162,7 @@ impl NativeRuntime {
         // `moveq #-5,d6; bra Teleport` (d6=-5 triggers sfx_Teleport sound).
         if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(slice) {
             self.opening_slice = Some(*slice);
-            self.played_sound_effects.push(QueuedSoundEffect::Teleport);
+            self.queue_play_sound(QueuedSoundEffect::Teleport);
             // ASM loc_BCB2 writes PlayerStart_X/Y from the teleporter record;
             // loc_BCF6 then branches through Teleport even when the destination
             // level equals Current_LevelID. Native reuses the loc_11BD2 start

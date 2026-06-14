@@ -1143,6 +1143,39 @@ impl FrameInput {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NativeSoundCommand {
+    pub command_byte: u8,
+    pub sound_id: u8,
+}
+
+impl NativeSoundCommand {
+    pub const PLAY_SOUND_COMMAND_BYTE: u8 = 0x10;
+    pub const PLAY_SOUND2_COMMAND_BYTE: u8 = 0x12;
+
+    pub const fn play_sound(sound_id: u8) -> Self {
+        Self {
+            command_byte: Self::PLAY_SOUND_COMMAND_BYTE,
+            sound_id,
+        }
+    }
+
+    pub const fn play_sound2(sound_id: u8) -> Self {
+        Self {
+            command_byte: Self::PLAY_SOUND2_COMMAND_BYTE,
+            sound_id,
+        }
+    }
+
+    pub fn command_name(self) -> &'static str {
+        match self.command_byte {
+            Self::PLAY_SOUND_COMMAND_BYTE => "PlaySound",
+            Self::PLAY_SOUND2_COMMAND_BYTE => "PlaySound2",
+            _ => "SoundCommand",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NativeTraceFrame {
@@ -1285,6 +1318,13 @@ pub struct NativeTraceFrame {
     /// Cumulative GEMS sound ids queued through ASM-backed native core paths.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub played_sound_effect_ids: Vec<u8>,
+    /// Cumulative GEMS sound commands queued through ASM-backed native core paths.
+    ///
+    /// ASM `j_PlaySound` writes command byte `$10`; `j_PlaySound2` writes
+    /// `$12`. Several routines reuse the same sound id through different
+    /// command paths, so this cannot be reconstructed from ids alone.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub played_sound_commands: Vec<NativeSoundCommand>,
     /// Cumulative GEMS BGM ids queued through ASM-backed native core paths.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub played_bgm_ids: Vec<u8>,
@@ -1512,6 +1552,7 @@ impl Default for NativeTraceFrame {
             options_cursor: None,
             sound_test_track: None,
             played_sound_effect_ids: Vec::new(),
+            played_sound_commands: Vec::new(),
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             two_player: false,
