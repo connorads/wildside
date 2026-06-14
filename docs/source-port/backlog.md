@@ -534,6 +534,16 @@ and stop — never commit churn.
   the closest useful survivor crawler remains on the lower floor (`dy=-65`
   from cell `28,32`). Do not repeat this `prebl-longr` `360..470`
   pre-splash axis unchanged.
+  A mid-bootstrap batch on the same clean alive seed over `120..260` also
+  failed to create metal-block evidence. Candidate `mid_b140_240` was
+  materialised as `.cache/recordings/issue-260-prebl-longr-mid-b140-240/scenario.json`
+  and verifies clean for the block and crawler windows (`verify-tas` frames
+  `450..500` and `620..670`, enemy frontier). It keeps the route alive at HP 1,
+  reaches row-32 cells `28,32`/`29,32` at hitbox `dx=0 dy=-1 @480`, and bounces
+  `cell 29,32 @480`, but `Destroy` is absent, the closest DripsDrop is still
+  `dx=-17 dy=-11 @432`, and the crawler only reaches Kid later on the lower
+  floor (`dx=+16 dy=+1 @649`, still vertically separated from row-32 cells).
+  Do not repeat this `prebl-longr` `120..260` mid-bootstrap axis unchanged.
   2026-06-14 early-bootstrap check on the same seed (`0..120` / split
   `0..70,71..140` with `None`, `Right`, `B+Right`, `Left`, `B+Left`, `B`)
   also failed to create metal-block evidence. `early_none` and `early_r`
