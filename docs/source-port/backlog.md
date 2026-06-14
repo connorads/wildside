@@ -157,7 +157,12 @@ and stop — never commit churn.
   verifies enemy-frontier clean for frames `450..520`, so use it as the current
   refreshed comparable prefix; do not treat the `pre390_*` exit trims as a
   Drips/block patch lead without a follow-on route that actually mutates the
-  metal block. A first
+  metal block. Follow-up block-event scoring (`--target-block-event`) confirms
+  this family only bounces the row-32 metal block: `pre390_l510` and sibling
+  exits report `Bounce cell 37,32 @489`, but all tested `p370..p410`
+  pre-climb/exit variants report `Destroy cell 37,32 <none>`. Do not mine the
+  pre390 exit trims for the reported block break unless a new route shape
+  produces an actual destroy event. A first
   bounded Kid-timing batch around that window found
   `300..450 none,330..370 Right,371..420 B+Right,421..450 Left`
   gets Kid's healthy hitbox to `dx=-5 dy=-3 @379` against cell `36,32`, but it
