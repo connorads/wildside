@@ -3074,6 +3074,7 @@ mod tests {
             remaining_frames: 120,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_ingame_scene(&trace, false, None);
@@ -3099,6 +3100,37 @@ mod tests {
     }
 
     #[test]
+    fn boss_eye_attack_uses_mapping_index_marker_sub_37abc() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: 120,
+            animation_elapsed_frames: 0,
+            kind: ActiveProjectileKind::BossEyeAttack,
+            boss_eye_sprite_mapping_index: 5,
+        }];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            has_rect(&scene, 24, 16, 16, 16, [120, 200, 255]),
+            "ASM sub_37ABC selects one of the 16x16 `unk_C8488..unk_C84C0` boss-eye frames"
+        );
+        assert!(
+            has_rect(&scene, 26, 26, 4, 4, [255, 255, 255]),
+            "mapping index 5 (`LnkTo_unk_C84B0`) should visibly select the lower-left boss-eye frame marker"
+        );
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
+            "HeadyMetal boss-eye attacks should not collapse to the generic enemy projectile dot"
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn highwater_shooter_block_projectile_resolves_real_rom_spike_tile_loc_ef62() {
         let Some(manifest) = cached_generated_manifest() else {
@@ -3116,6 +3148,7 @@ mod tests {
             remaining_frames: 120,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3365,6 +3398,7 @@ mod tests {
             remaining_frames: u16::MAX,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TankBullet,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3401,6 +3435,7 @@ mod tests {
             remaining_frames: 120,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TarMonsterGlob,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3441,6 +3476,7 @@ mod tests {
             remaining_frames: 60,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TarMonsterBurstChild,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3536,6 +3572,7 @@ mod tests {
                 remaining_frames,
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::RobotShotImpact,
+                boss_eye_sprite_mapping_index: 0,
             }];
 
             let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3576,6 +3613,7 @@ mod tests {
                 remaining_frames: 60,
                 animation_elapsed_frames,
                 kind: ActiveProjectileKind::RobotShot,
+                boss_eye_sprite_mapping_index: 0,
             }];
 
             let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3618,6 +3656,7 @@ mod tests {
             remaining_frames: 45,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3648,6 +3687,7 @@ mod tests {
             remaining_frames: 45,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3680,6 +3720,7 @@ mod tests {
             remaining_frames: 68,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DragonWalkingBreath,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3733,6 +3774,7 @@ mod tests {
                 remaining_frames: 68,
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DragonWalkingBreath,
+                boss_eye_sprite_mapping_index: 0,
             }];
             trace
         }
@@ -3795,6 +3837,7 @@ mod tests {
             remaining_frames: 200,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsDrop,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3827,6 +3870,7 @@ mod tests {
             remaining_frames: u16::MAX,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3862,6 +3906,7 @@ mod tests {
             remaining_frames: 200,
             animation_elapsed_frames: 31,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
@@ -3891,6 +3936,7 @@ mod tests {
             remaining_frames: 60,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawlerFinish,
+            boss_eye_sprite_mapping_index: 0,
         }];
 
         let scene = build_scene(&trace, false, Some(&visuals), None);

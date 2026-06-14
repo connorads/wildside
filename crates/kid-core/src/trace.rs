@@ -121,6 +121,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::BossSkewer {
         return ActiveProjectileKind::BossSkewer;
     }
+    if projectile.kind == EnemyProjectileKind::BossEyeAttack {
+        return ActiveProjectileKind::BossEyeAttack;
+    }
     if projectile.kind == EnemyProjectileKind::TarMonsterStraightGlob {
         return ActiveProjectileKind::TarMonsterGlob;
     }
@@ -140,6 +143,22 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
         ActiveProjectileKind::FireDemonDeathTrail
     } else {
         ActiveProjectileKind::Generic
+    }
+}
+
+fn boss_eye_sprite_mapping_index(label: &str) -> u8 {
+    match label {
+        // ASM sub_37ABC indexes off_37AE0, whose entries point at the eight
+        // `unk_C8488..unk_C84C0` 16x16 boss-eye attack frames.
+        "LnkTo_unk_C8488-Data_Index" => 0,
+        "LnkTo_unk_C8490-Data_Index" => 1,
+        "LnkTo_unk_C8498-Data_Index" => 2,
+        "LnkTo_unk_C84A0-Data_Index" => 3,
+        "LnkTo_unk_C84A8-Data_Index" => 4,
+        "LnkTo_unk_C84B0-Data_Index" => 5,
+        "LnkTo_unk_C84B8-Data_Index" => 6,
+        "LnkTo_unk_C84C0-Data_Index" => 7,
+        _ => 0,
     }
 }
 
@@ -274,6 +293,26 @@ mod tests {
             active_projectile_kind(&impact),
             ActiveProjectileKind::RobotShotImpact,
             "ASM Robot.asm loc_3AC92 initialises `stru_3A762`; trace must preserve that render state"
+        );
+    }
+
+    #[test]
+    fn trace_reports_boss_eye_attack_mapping_sub_37abc() {
+        let eye = EnemyProjectile {
+            kind: EnemyProjectileKind::BossEyeAttack,
+            boss_eye_sprite_mapping_label: "LnkTo_unk_C84B0-Data_Index",
+            ..EnemyProjectile::default()
+        };
+
+        assert_eq!(
+            active_projectile_kind(&eye),
+            ActiveProjectileKind::BossEyeAttack,
+            "ASM sub_37332 initialises HeadyMetal eye attacks as visible boss-eye workers"
+        );
+        assert_eq!(
+            boss_eye_sprite_mapping_index(eye.boss_eye_sprite_mapping_label),
+            5,
+            "ASM sub_37ABC indexes off_37AE0 so `LnkTo_unk_C84B0` must survive trace as frame index 5"
         );
     }
 
@@ -6783,6 +6822,9 @@ impl NativeRuntime {
                     remaining_frames: p.lifetime,
                     animation_elapsed_frames: p.animation_elapsed_frames,
                     kind: active_projectile_kind(p),
+                    boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
+                        p.boss_eye_sprite_mapping_label,
+                    ),
                 })
                 .chain(
                     self.diamond_power_rain_slots
@@ -6796,6 +6838,7 @@ impl NativeRuntime {
                             remaining_frames: 0,
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::Generic,
+                            boss_eye_sprite_mapping_index: 0,
                         }),
                 )
                 .chain(
@@ -6810,6 +6853,7 @@ impl NativeRuntime {
                             remaining_frames: trail.remaining_frames,
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::FireDemonDeathTrail,
+                            boss_eye_sprite_mapping_index: 0,
                         }),
                 )
                 .collect(),

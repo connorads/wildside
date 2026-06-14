@@ -2643,6 +2643,7 @@ mod tests {
                 remaining_frames,
                 animation_elapsed_frames: 0,
                 kind,
+                boss_eye_sprite_mapping_index: 0,
             });
         frame
     }
@@ -2708,6 +2709,7 @@ mod tests {
                 remaining_frames: 0,
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DripsDrop,
+                boss_eye_sprite_mapping_index: 0,
             });
 
         assert_eq!(

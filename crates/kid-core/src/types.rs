@@ -120,6 +120,9 @@ pub enum ActiveProjectileKind {
     /// Shishkaboss skewer piece: ASM `loc_384E8..loc_388D8` launches the
     /// `$FFFFFB4E==3` upward fan and deletes after falling below level height.
     BossSkewer,
+    /// HeadyMetal eye attack: ASM `sub_37332`/`sub_37ABC` selects one of the
+    /// eight `unk_C8488..unk_C84C0` 16x16 eye frames from the eye-to-Kid angle.
+    BossEyeAttack,
     /// Tar Monster straight glob: ASM `Tar_Monster.asm loc_3247E`/`loc_324D0`
     /// shoots a horizontal child using sprite `LnkTo_unk_C781E`
     /// (`sprite_frame_vram $0BC,$04,$04,$1E,$08`) — a dark tar comet, not a
@@ -146,6 +149,8 @@ pub struct ActiveProjectileSnapshot {
     pub animation_elapsed_frames: u16,
     #[serde(default)]
     pub kind: ActiveProjectileKind,
+    #[serde(default)]
+    pub boss_eye_sprite_mapping_index: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
