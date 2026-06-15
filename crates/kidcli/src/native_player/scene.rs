@@ -3648,13 +3648,17 @@ pub(super) fn push_block_grid_overrides(
         if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
             continue;
         }
-        let skin = block_grid
-            .map(|grid| grid.cell_at(col, row))
-            .filter(|cell| cell.has_block)
-            .map_or_else(
-                || level_visuals.level.foreground_layout.skin_at(col, row),
-                |cell| cell.skin,
-            );
+        let skin = block_grid.map_or_else(
+            || level_visuals.level.foreground_layout.skin_at(col, row),
+            |grid| {
+                let word = grid.raw_word_at(col, row);
+                if word & 0xFF00 == 0x6F00 {
+                    (word as u8).saturating_sub(1)
+                } else {
+                    (word & 0x00FF) as u8
+                }
+            },
+        );
         let Some(resolved) = level_visuals
             .level
             .block_mapping

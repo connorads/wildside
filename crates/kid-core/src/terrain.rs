@@ -482,6 +482,15 @@ impl BlockGrid {
         self.cells[index] = cell;
         self.raw_words[index] = cell.to_word();
     }
+
+    pub fn set_raw_word_at(&mut self, col: u16, row: u16, word: u16) {
+        if col >= self.width_cells || row >= self.height_cells {
+            return;
+        }
+        let index = usize::from(row) * usize::from(self.width_cells) + usize::from(col);
+        self.cells[index] = Cell::from_be_bytes((word >> 8) as u8, word as u8);
+        self.raw_words[index] = word;
+    }
 }
 
 #[allow(non_snake_case)]

@@ -7407,14 +7407,48 @@ mod tests {
             kind: BlockBounceTraceKind::Prize,
         }];
         let visuals = sample_level_visuals();
-        let data = vec![0u8; 20 * 14 * 2];
-        let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
-        grid.set_cell_at(1, 0, Cell::from_be_bytes(0x6F, 0x01));
+        let mut data = vec![0u8; 20 * 14 * 2];
+        data[2] = 0x6F;
+        data[3] = 0x02;
+        let grid = BlockGrid::from_level_layout(&data, 20, 14);
 
         let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
 
+        let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                x: 16,
+                y: -2,
+                tile_sheet,
+                tiles,
+                ..
+            } if tile_sheet.tiles.len() == 0x200 => Some(tiles),
+            _ => None,
+        }) else {
+            panic!(
+                "late sub_1007A block_bounces entry should draw the copied prize-block art from `$220/$229`, not vanish after the temporary `$6Fxx` cell write"
+            );
+        };
+        assert_eq!(
+            copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
+            Some(0x00D),
+            "late sub_1007A block_bounces entry should draw the copied prize-block art from `$220/$229`, not the temporary `$6Fxx` terrain-restore skin",
+        );
         assert!(
-            scene.commands.iter().any(|command| matches!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite {
+                    x: 16,
+                    y: -2,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if tile_sheet.tiles.len() == 0x200
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x011)
+            )),
+            "ASM sub_1007A uses the copied `$220/$229` VRAM pair; native must not resolve `$6F02` as skin `$02` and add the frame offset a second time"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Sprite {
                     x: 16,
@@ -7425,7 +7459,7 @@ mod tests {
                 } if tile_sheet.tiles.len() == 0x200
                     && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x015)
             )),
-            "late sub_1007A block_bounces entry should draw the ASM wobble sprite from the original layout skin copied into `$220/$229`, not the temporary `$6Fxx` cell skin",
+            "ASM sub_1007A draws the copied block art, so native must not fall back to the immutable foreground layout skin while `$6Fxx` is live"
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(

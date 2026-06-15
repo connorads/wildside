@@ -1455,10 +1455,10 @@ impl NativeRuntime {
         // ASM loc_1002E/sub_1007A (kid.asm:21317,21345): prize block impacts
         // write only the high byte `$6F`, preserving the original skin byte,
         // then the worker restores the prize cell before writing `$E001`.
-        grid.set_cell_at(
+        grid.set_raw_word_at(
             block_col,
             block_row,
-            terrain::Cell::from_be_bytes(0x6F, restore_cell.skin),
+            0x6F00 | u16::from(restore_cell.skin),
         );
         deferred_ceiling_clears.push(DeferredCeilingClear {
             col: block_col,
@@ -5427,6 +5427,11 @@ mod tests {
             grid.cell_at(1, 0),
             terrain::Cell::from_be_bytes(0x6F, 0x02),
             "ASM loc_1002E/sub_1007A should leave floor prize blocks collision-solid instead of erasing support under Kid"
+        );
+        assert_eq!(
+            grid.raw_word_at(1, 0),
+            0x6F02,
+            "ASM loc_1002E/sub_1007A writes raw `$6Fxx`; renderers must not see the normalised `$60xx` terrain word"
         );
         assert_eq!(deferred_ceiling_clears.len(), 1);
         assert_eq!(
