@@ -355,6 +355,17 @@ and stop — never commit churn.
   with HP 0. Do not repeat the direct `480..520 B`/`B+Right`/Right/Left tail on
   this prefix as block-destruction proof; the next useful axis must move the
   active drop/crawler onto row 32 or delay the block contact without losing HP.
+  A follow-up delay sweep found a cleaner survivor lead,
+  `.cache/recordings/issue-260-pre390-br508-538/scenario.json`
+  (`470..590 none`, `508..538 B+Right`), verified enemy-frontier clean for
+  frames `500..530`. It improves the same-frame Kid/drop/cell conjunction to
+  Kid `dx=+5 dy=-1`, DripsDrop `dx=+8 dy=-3` at frame 520 and ends InGame with
+  HP 1, but it still has no Bounce/Destroy at `37,32`. Post-538 nudges
+  (`Right`, `B`, `B+Right`, `Left`, `B+Left`, and right-then-B continuations)
+  preserve the same frame-520 lead or regress into `LevelTransition`; none
+  creates a block event. Do not repeat post-538 tail nudges on this branch
+  unchanged; the next useful axis is a pre-508 approach change that keeps the
+  frame-520 alignment but pushes Kid into the block.
   Follow-up tooling added
   batch `--target-projectile` scoring for closest healthy Kid/projectile
   proximity. Re-scoring the same early timing family shows `kH`
