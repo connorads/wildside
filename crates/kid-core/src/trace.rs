@@ -5837,7 +5837,7 @@ impl NativeRuntime {
         }
     }
 
-    fn current_character_movement(&self, player: PlayerState) -> u16 {
+    pub(crate) fn current_character_movement(&self, player: PlayerState) -> u16 {
         const MOVE_STANDINGSTILL: u16 = 0;
         const MOVE_CRAWLING: u16 = 1;
         const MOVE_WALKING: u16 = 2;

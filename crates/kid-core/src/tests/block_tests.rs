@@ -2849,6 +2849,24 @@ mod chunk_04 {
             "grounded movement IDs fail the loc_1CE4 MoveID_Jump gate"
         );
 
+        let mut stale_jump_runtime = NativeRuntime::new(manifest_with_static_skull());
+        stale_jump_runtime.probe_start_slope_settle_frames = 1;
+        let stale_jump_player = PlayerState {
+            on_ground: true,
+            just_jumped: false,
+            y_velocity: 0,
+            ..player
+        };
+        assert_eq!(
+            stale_jump_runtime.current_character_movement(stale_jump_player),
+            3,
+            "test setup should expose stale Character_Movement=MoveID_Jump"
+        );
+        assert!(
+            !stale_jump_runtime.stomp_registration_blocked_loc_1ce4(stale_jump_player),
+            "ASM loc_1CE4 gates on the WRAM Character_Movement word, not native on_ground"
+        );
+
         let mut latched = NativeRuntime::new(manifest_with_static_skull());
         latched.kid_touched_enemy_last_frame_loc_fa74 = true;
         assert!(

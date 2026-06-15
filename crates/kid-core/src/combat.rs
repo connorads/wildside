@@ -9116,10 +9116,10 @@ impl NativeRuntime {
         if self.kid_touched_enemy_last_frame_loc_fa74 {
             return true;
         }
-        // Character_Movement == MoveID_Jump whenever the Kid is airborne
-        // (loc_A6F8 writes MoveID_Jump on jump/fall entry); grounded movement
-        // IDs (standing/crawling/walking/slope) all fail the loc_1CE4 gate.
-        player.on_ground && !player.just_jumped
+        // ASM loc_1CE4 reads Character_Movement directly. Native used to
+        // approximate this as "airborne or just jumped", but oracle-exported
+        // stale movement windows can keep MoveID_Jump after a grounded snap.
+        self.current_character_movement(player) != 3
     }
 
     /// Check for stomp-kills: player landing on enemies from above.
