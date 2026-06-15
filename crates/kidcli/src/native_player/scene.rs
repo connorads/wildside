@@ -829,9 +829,14 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         // ASM Transfer_ScrollDataToVRAM loc_300BA writes Camera_X_pos and
         // Camera_Y_pos to VDP scroll before the next gameplay update becomes
         // visible. Trace state is post-update, so render with the previous
-        // scroll latch while keeping current gameplay objects.
+        // scroll latch. ASM Mode_Level also calls Transfer_SpriteAndKidToVRAM
+        // before Execute_Objects/GfxObjects_MoveAndAnimate, then rebuilds the
+        // next Sprite_Table at Make_SpritesFromGfxObjects near the end of the
+        // frame. Non-player GfxObject sprites therefore present the previous
+        // trace while current gameplay state remains authoritative.
         render_trace.camera_x_pos = previous_trace.camera_x_pos;
         render_trace.camera_y_pos = previous_trace.camera_y_pos;
+        latch_previous_gfxobject_sprite_sources_loc_901(&mut render_trace, previous_trace);
         // ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before the later
         // GfxObjects_CollisionKid path can reach Check_for_recent_damge
         // loc_B700, so the visible HP pips are also a pre-update latch.
@@ -879,6 +884,29 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         }
     }
     render_trace
+}
+
+fn latch_previous_gfxobject_sprite_sources_loc_901(
+    render_trace: &mut NativeTraceFrame,
+    previous_trace: &NativeTraceFrame,
+) {
+    let current_players = render_trace
+        .active_objects
+        .iter()
+        .filter(|object| object.kind == NativeObjectKind::Player)
+        .cloned();
+    let previous_non_players = previous_trace
+        .active_objects
+        .iter()
+        .filter(|object| object.kind != NativeObjectKind::Player)
+        .cloned();
+    render_trace.active_objects = current_players.chain(previous_non_players).collect();
+    render_trace
+        .active_projectiles
+        .clone_from(&previous_trace.active_projectiles);
+    render_trace
+        .active_projectile_details
+        .clone_from(&previous_trace.active_projectile_details);
 }
 
 fn previous_hud_diamond_frame_offset_loc_45ee(offset: u8) -> u8 {

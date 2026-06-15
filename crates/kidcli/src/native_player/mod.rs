@@ -8664,6 +8664,90 @@ mod tests {
     }
 
     #[test]
+    fn gameplay_render_uses_previous_gfxobject_sprite_latch_mode_level_loc_901() {
+        let mut previous = sample_trace(GameMode::InGame);
+        previous.current_level = LevelId(0x06);
+        previous.camera_x_pos = 0x0010_0000;
+        previous.camera_y_pos = 0x0040_0000;
+        previous.active_objects = vec![
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Player,
+                x_pos: 0x0020_0000,
+                y_pos: 0x0080_0000,
+                layout_index: None,
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: Some(Direction::Right),
+                on_ground: Some(true),
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
+            },
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x0C },
+                x_pos: 0x0044_0000,
+                y_pos: 0x006D_0000,
+                layout_index: Some(0),
+                x_velocity: Some(-0x0002_0000),
+                y_velocity: Some(-0x0003_0000),
+                facing: Some(Direction::Left),
+                on_ground: Some(false),
+                hit_points: Some(1),
+                damage_flash: false,
+                palette_variant: 0,
+                stationary: false,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields: std::collections::BTreeMap::new(),
+            },
+        ];
+        previous.active_projectiles = vec![(0x004C_0000, 0x00A1_0000, false)];
+
+        let mut trace = previous.clone();
+        trace.frame_index = previous.frame_index + 1;
+        trace.kid_x_pos = Some(0x0021_0000);
+        trace.active_objects[0].x_pos = 0x0021_0000;
+        trace.active_objects[1].x_pos = 0x0042_0000;
+        trace.active_objects[1].y_pos = 0x006B_0000;
+        trace.active_projectiles = vec![(0x004B_0000, 0x00A4_0000, false)];
+
+        let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous));
+        let rendered_player = render_trace
+            .active_objects
+            .iter()
+            .find(|object| object.kind == NativeObjectKind::Player)
+            .expect("current Kid sprite source should remain visible");
+        let rendered_dragon = render_trace
+            .active_objects
+            .iter()
+            .find(|object| matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x0C }))
+            .expect("previous Dragon sprite source should be retained");
+
+        assert_eq!(
+            rendered_player.x_pos, trace.active_objects[0].x_pos,
+            "ASM Mode_Level keeps Kid on the current Kid transfer path while GfxObject sprites are still the prior Sprite_Table"
+        );
+        assert_eq!(
+            rendered_dragon.x_pos, previous.active_objects[1].x_pos,
+            "ASM Mode_Level loc_901 transfers Sprite_Table before Execute_Objects/GfxObjects_MoveAndAnimate, so enemy GfxObject pixels display the previous trace"
+        );
+        assert_eq!(
+            render_trace.active_projectiles, previous.active_projectiles,
+            "ASM Mode_Level loc_901 presents the previous non-Kid sprite table for projectile workers as well"
+        );
+    }
+
+    #[test]
     fn gameplay_render_uses_previous_hitpoint_hud_latch_loc_bdc0() {
         let mut previous = sample_trace(GameMode::InGame);
         previous.current_level = LevelId(0x00);
