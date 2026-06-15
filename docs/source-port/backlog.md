@@ -745,7 +745,17 @@ and stop — never commit churn.
   bounce `cell 37,32 @590`; `431..500` setup/turn variants either reproduce
   the baseline (`late_right`, score 17, bounce `cell 37,32 @610`) or move Kid
   far away/enter `LevelTransition`. Do not retry this gr-pulse setup/tail axis
-  without changing the Drips cycle or vertical route.
+  without changing the Drips cycle or vertical route. 2026-06-15 follow-up:
+  an earlier pre-431 route-shape batch over the same `issue260-gr-pulse600`
+  seed also failed. Replacing `300..430` or `330..430` with `none`, `B`,
+  `Right`, `B+Right`, `Left`, `B+Left`, and short split direction/jump windows
+  either reproduced the baseline exactly (`pre300_b`/`pre300_br`/`pre300_r`:
+  cell `37,32` Kid `dx=0 dy=-1 @610`, DripsDrop still `dy=-9 @650`, final
+  HP 0) or kept Kid alive only by moving him far left of the target
+  (`split_l_br` best alive score 107). This confirms the current near-miss is
+  not sensitive to simple pre-431 input replacement; next useful work needs a
+  different bootstrap/Drips cycle or new live recording, not more pre-300/pre-330
+  trims on `issue260-gr-pulse600`.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
