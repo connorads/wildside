@@ -7409,9 +7409,23 @@ mod tests {
                     tiles,
                     ..
                 } if tile_sheet.tiles.len() == 0x200
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x00D)
+            )),
+            "late sub_1007A block_bounces entry should draw the ASM wobble sprite using the deleted cell's skin, not the sheet's skin-zero tile",
+        );
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite {
+                    x: 16,
+                    y: -2,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if tile_sheet.tiles.len() == 0x200
                     && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x009)
             )),
-            "late sub_1007A block_bounces entry should draw the ASM wobble sprite over deleted `$6Fxx`, not leak a mapped block tile",
+            "ASM `$220/$229` are temporary VRAM slots for copied block art; native must not render them as absolute skin-zero sheet indices"
         );
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 16, -2, 0x200).is_none(),

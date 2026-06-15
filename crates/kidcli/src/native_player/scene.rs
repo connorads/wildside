@@ -3345,12 +3345,37 @@ fn prize_block_wobble_frame_sub_1007a(
 fn push_prize_block_wobble_sub_1007a(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
+    quad: &kid_render::TileQuad,
     x: i32,
     y: i32,
     remaining: u8,
 ) {
     let frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
-    push_sprite_frame_top_left(commands, &frame, &level_visuals.palettes.foreground, x, y);
+    let use_second_frame = frame.tile_base_index == 0x009;
+    let tiles = quad
+        .tiles
+        .iter()
+        .copied()
+        .enumerate()
+        .filter_map(|(index, mut tile)| {
+            tile.tile_index = tile
+                .tile_index
+                .checked_sub(BLOCK_TILE_VRAM_BASE)?
+                .saturating_add(if use_second_frame { 0x009 } else { 0 });
+            Some(SpriteTile {
+                offset_x: if index % 2 == 0 { 0 } else { 8 },
+                offset_y: if index < 2 { 0 } else { 8 },
+                tile,
+            })
+        })
+        .collect();
+    commands.push(DrawCommand::Sprite {
+        x,
+        y,
+        tile_sheet: Arc::new(level_visuals.block_tiles.clone()),
+        palette: Arc::new(level_visuals.palettes.foreground.clone()),
+        tiles,
+    });
 }
 
 fn prize_block_spawn_flash_frame_loc_102b8(
@@ -3615,9 +3640,20 @@ pub(super) fn push_block_grid_overrides(
         if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
             continue;
         }
+        let skin = block_grid
+            .map(|grid| grid.cell_at(col, row).skin)
+            .unwrap_or_else(|| level_visuals.level.foreground_layout.skin_at(col, row));
+        let Some(resolved) = level_visuals
+            .level
+            .block_mapping
+            .resolve(skin, Some(kid_core::terrain::BlockType::Prize as u8))
+        else {
+            continue;
+        };
         push_prize_block_wobble_sub_1007a(
             commands,
             level_visuals,
+            resolved.quad,
             i32::from(col) * 16 - camera_x_px,
             i32::from(row) * 16 - camera_y_px + i32::from(y_offset),
             remaining,
