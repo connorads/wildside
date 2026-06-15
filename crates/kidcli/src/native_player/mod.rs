@@ -14897,6 +14897,36 @@ mod tests {
     }
 
     #[test]
+    fn build_game_scene_selects_platform_art_from_mapping_word_loc_2548() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_objects = vec![platform_snapshot(
+            0x04,
+            0x00,
+            0x0010,
+            0x0018,
+            std::collections::BTreeMap::from([
+                ("platform_width_px".to_string(), "31".to_string()),
+                ("platform_height_px".to_string(), "15".to_string()),
+                ("platform_render_flags".to_string(), "64".to_string()),
+                ("platform_mapping_addr_word".to_string(), "1710".to_string()),
+            ]),
+        )];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            has_sprite_signature(&scene, 41),
+            "ASM loc_244C/loc_2548 should render from `$18(a2)`/PlatformArtAddr_Table, so nonzero platform kinds with mapping word $06AE still use the horizontal platform art",
+        );
+        assert!(
+            !has_sprite_signature(&scene, 51),
+            "platform kind is not the ROM art selector; `$18(a2)` is",
+        );
+    }
+
+    #[test]
     fn build_game_scene_culls_platforms_outside_loc_244c_viewport() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0x0200_0000;

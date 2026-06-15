@@ -1,5 +1,6 @@
 use super::*;
 use crate::scenarios::DynamicCheckpoint;
+use kid_render::SpriteFrame;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TankTurretFrameSpec {
@@ -1824,13 +1825,15 @@ pub(super) fn push_platform_tiles(
 ) {
     let variant = platform_snapshot_u8(object, "platform_render_flags")
         .and_then(PlatformRenderVariantLoc244C::from_render_flags);
-    let frame = match variant {
-        Some(PlatformRenderVariantLoc244C::Loc251C) => &level_visuals.platforms.vertical,
-        _ => match kind {
-            0x00 => &level_visuals.platforms.horizontal,
-            _ => &level_visuals.platforms.vertical,
+    let frame = platform_frame_for_mapping_word_loc_2548(object, level_visuals).unwrap_or_else(
+        || match variant {
+            Some(PlatformRenderVariantLoc244C::Loc251C) => &level_visuals.platforms.vertical,
+            _ => match kind {
+                0x00 => &level_visuals.platforms.horizontal,
+                _ => &level_visuals.platforms.vertical,
+            },
         },
-    };
+    );
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let width_px = platform_snapshot_dimension_px(object, "platform_width_px");
     let height_px = platform_snapshot_dimension_px(object, "platform_height_px");
@@ -1937,6 +1940,25 @@ fn platform_snapshot_u8(object: &NativeObjectSnapshot, key: &str) -> Option<u8> 
         .debug_fields
         .get(key)
         .and_then(|value| value.parse::<u8>().ok())
+}
+
+#[allow(non_snake_case)]
+fn platform_frame_for_mapping_word_loc_2548<'a>(
+    object: &NativeObjectSnapshot,
+    level_visuals: &'a NativeLevelVisuals,
+) -> Option<&'a SpriteFrame> {
+    // ASM loc_244C/loc_2548 (kid.asm:4352,4452): `$18(a2)` is copied into the
+    // sprite mapping word. `PlatformArtAddr_Table` at loc_2822 chooses that word
+    // independently of the platform kind nibble.
+    match object
+        .debug_fields
+        .get("platform_mapping_addr_word")
+        .and_then(|value| value.parse::<u16>().ok())?
+    {
+        0x06AE => Some(&level_visuals.platforms.horizontal),
+        0x0094 | 0x025A => Some(&level_visuals.platforms.vertical),
+        _ => None,
+    }
 }
 
 pub(crate) fn render_gameplay_frame_evidence(
