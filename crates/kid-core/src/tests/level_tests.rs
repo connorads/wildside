@@ -2899,6 +2899,39 @@ mod chunk_02 {
     }
 
     #[test]
+    fn begin_level_entry_queues_level_bgm_from_loc_11fd2() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.begin_level_entry(LevelId(0));
+
+        assert_eq!(
+            runtime.trace_frame().played_bgm_ids,
+            vec![0x07],
+            "ASM Load_InGame loc_11FD2 falls through to loc_12004; fixture foreground theme 8 should queue bgm_Cave=$07 from unk_1201E"
+        );
+    }
+
+    #[test]
+    fn begin_level_entry_queues_murderwall_bgm_before_theme_lookup_loc_11fd2() {
+        let mut assets = manifest();
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x09;
+        header.murder_wall_flags = 0b10;
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.begin_level_entry(LevelId(0));
+
+        assert_eq!(
+            runtime.trace_frame().played_bgm_ids,
+            vec![0x09],
+            "ASM loc_11FD2 checks MurderWall_flag before loc_12004, so Forest's bgm_Forest=$06 must be bypassed by bgm_Murderwall=$09"
+        );
+    }
+
+    #[test]
     fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
