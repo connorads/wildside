@@ -18284,7 +18284,12 @@ impl NativeRuntime {
     /// controls that change level while live play is running.
     pub fn enter_level_debug_title_card(&mut self, level_id: LevelId) -> NativeTraceFrame {
         self.begin_level_entry(level_id);
-        // ASM loc_74E0 debug level changes re-enter loc_6E2/Load_TitleCard.
+        // ASM loc_74E0 debug level changes re-enter loc_6E2/Load_TitleCard,
+        // but they are native tooling jumps from an already-live scene. Keep
+        // the ROM title-card shell, then expose the freshly settled target
+        // spawn when loc_1AE2E releases instead of replaying the Fast Action
+        // title-start WRAM carry window.
+        self.debug_level_entry_suppresses_title_card_live_handoff = true;
         // play-native can hold that first transition frame without stepping the
         // core, so refresh the VDP shell immediately instead of leaving the old
         // gameplay VDP latched until the next frame.
@@ -18333,6 +18338,7 @@ impl NativeRuntime {
         self.level_complete_gfx_snapshot = None;
         self.level_entry_camera_handoff = None;
         self.level_entry_player_handoff = None;
+        self.debug_level_entry_suppresses_title_card_live_handoff = false;
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
         self.level_skip_transition = None;

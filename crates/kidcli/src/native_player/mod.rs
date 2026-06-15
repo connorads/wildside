@@ -11118,6 +11118,8 @@ mod tests {
             let kid_y = trace
                 .kid_y_pos
                 .unwrap_or_else(|| panic!("{route_name} live spawn should expose Kid y"));
+            let kid_x_px = kid_x >> 16;
+            let kid_y_px = kid_y >> 16;
 
             assert_eq!(trace.current_level, LevelId(target_level), "{route_name}");
             assert_eq!(
@@ -11125,11 +11127,21 @@ mod tests {
                 "{route_name} should not die while handing off from ASM Load_TitleCard to Load_InGame"
             );
             assert!(
-                (kid_x >> 16) < target_width_px,
+                kid_x_px.abs_diff(u32::from(target_header.player_start_x)) <= 32,
+                "{route_name} ASM loc_74E0 debug skip should release loc_1AE2E near PlayerStart_X {:#06x}, not the old title-card slot-2 pose; x={kid_x:#010x}",
+                target_header.player_start_x
+            );
+            assert!(
+                kid_y_px.abs_diff(u32::from(target_header.player_start_y)) <= 32,
+                "{route_name} ASM loc_74E0 debug skip should release near PlayerStart_Y {:#06x}; y={kid_y:#010x}",
+                target_header.player_start_y
+            );
+            assert!(
+                kid_x_px < target_width_px,
                 "{route_name} live spawn x {kid_x:#010x} should be inside target level width {target_width_px}"
             );
             assert!(
-                (kid_y >> 16) < target_height_px,
+                kid_y_px < target_height_px,
                 "{route_name} live spawn y {kid_y:#010x} should be inside target level height {target_height_px}"
             );
             if target_header.murder_wall_flags == 0 {

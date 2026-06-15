@@ -7424,12 +7424,16 @@ impl NativeRuntime {
                         // progressed slice and just discard the title workers
                         // once gameplay input makes the live state visible.
                         self.starting_level_title_workers.clear();
-                        // ASM loc_1AE2E -> loc_6E2 -> Load_InGame: oracle
-                        // #305 shows `Game_Mode=$000C` immediately, while
-                        // Kid/camera/object WRAM still carries the old
-                        // title-card/load bootstrap for the first live frames.
-                        self.title_card_live_handoff_frames =
-                            TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E;
+                        if !self.debug_level_entry_suppresses_title_card_live_handoff {
+                            // ASM loc_1AE2E -> loc_6E2 -> Load_InGame:
+                            // oracle #305 shows `Game_Mode=$000C`
+                            // immediately, while Kid/camera/object WRAM still
+                            // carries the old title-card/load bootstrap for
+                            // the first live frames.
+                            self.title_card_live_handoff_frames =
+                                TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E;
+                        }
+                        self.debug_level_entry_suppresses_title_card_live_handoff = false;
                     }
                     self.boot_state = BootState::InGame;
                     self.teleport_warp_colour_fbcc = 0;
