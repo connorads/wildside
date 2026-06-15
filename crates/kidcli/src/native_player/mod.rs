@@ -2480,6 +2480,23 @@ fn play_fallback_transform_sfx(sfx: &mut SfxEngine) {
     sfx.play(740.0, 150, 0.18);
 }
 
+fn play_fallback_jump_on_enemy_sfx(sfx: &mut SfxEngine) {
+    // ASM Jump_On_Enemy loc_B6DA queues sfx_Jump_on_enemy=$4C. In fallback
+    // mode keep it brighter and shorter than the ordinary jump cue so stomps
+    // do not read as a slow rubber thud.
+    sfx.play(784.0, 34, 0.13);
+    sfx.play(1175.0, 48, 0.11);
+}
+
+fn play_fallback_rubber_block_sfx(sfx: &mut SfxEngine) {
+    // ASM loc_10DA4 queues sfx_Rubber_block=$56 before the skin-swap worker.
+    // The no-GEMS fallback is intentionally elastic rather than bass-heavy;
+    // the previous 294/196 Hz pair sounded like a slowed generic thud.
+    sfx.play(392.0, 36, 0.10);
+    sfx.play(784.0, 58, 0.12);
+    sfx.play(523.0, 82, 0.08);
+}
+
 fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
     match sound_id {
         gems_sfx::SCORE_COUNTER => {
@@ -2516,7 +2533,7 @@ fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
         | gems_sfx::REPLENISH_HEALTH
         | gems_sfx::COIN_PRIZE
         | gems_sfx::DIAMOND_PRIZE => sfx.play(880.0, 60, 0.15),
-        gems_sfx::JUMP_ON_ENEMY => sfx.play(587.0, 50, 0.1),
+        gems_sfx::JUMP_ON_ENEMY => play_fallback_jump_on_enemy_sfx(sfx),
         gems_sfx::VOICE_NO_TIME
         | gems_sfx::VOICE_DIE
         | gems_sfx::VOICE_OUCH
@@ -2526,10 +2543,7 @@ fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
         | gems_sfx::VOICE_OUCH_3 => sfx.play(220.0, 150, 0.2),
         gems_sfx::VOICE_DIAMOND => sfx.play(1047.0, 90, 0.14),
         gems_sfx::KID_PULLUP => sfx.play(392.0, 45, 0.09),
-        gems_sfx::RUBBER_BLOCK => {
-            sfx.play(294.0, 55, 0.08);
-            sfx.play(196.0, 70, 0.06);
-        }
+        gems_sfx::RUBBER_BLOCK => play_fallback_rubber_block_sfx(sfx),
         gems_sfx::DRIPS_DRIPPING => sfx.play(196.0, 90, 0.05),
         gems_sfx::TELEPORT => {
             sfx.play(330.0, 80, 0.1);
@@ -2872,7 +2886,7 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
     }
     // Stomp bounce (direct trace flag)
     if curr.stomped_this_frame && !queued_sound_ids.contains(&gems_sfx::JUMP_ON_ENEMY) {
-        sfx.play(587.0, 50, 0.1); // D5 bounce tone
+        play_fallback_jump_on_enemy_sfx(sfx);
     }
     // Block hit SFX (metallic clang for block headbutts). ASM loc_10DA4 and
     // loc_110D0 already supplied exact rubber/metal block cues for this frame.
@@ -16656,6 +16670,64 @@ mod tests {
                 (740, 6615, 18),
             ],
             "ASM loc_B350/sub_868E/loc_7CD0 queue separate Samurai attack, sword-hit, and transform cues; fallback audio should not collapse them into one weak blip"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_gives_rubber_block_elastic_shape_loc_10da4() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.blocks_hit_this_frame = 1;
+        curr.played_sound_effect_ids = vec![gems_sfx::RUBBER_BLOCK];
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &curr, &mut sfx);
+
+        let tones: Vec<(u32, u32, u32)> = sfx
+            .active_tones
+            .iter()
+            .map(|tone| {
+                (
+                    tone.frequency.round() as u32,
+                    tone.remaining_samples,
+                    (tone.volume * 100.0).round() as u32,
+                )
+            })
+            .collect();
+
+        assert_eq!(
+            tones,
+            vec![(392, 1587, 10), (784, 2557, 12), (523, 3616, 8)],
+            "ASM loc_10DA4 queues sfx_Rubber_block=$56; fallback should sound like a quick elastic bounce, not the old low brick-thud pair"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_gives_jump_on_enemy_distinct_bounce_shape_loc_b6da() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.stomped_this_frame = true;
+        curr.played_sound_effect_ids = vec![gems_sfx::JUMP_ON_ENEMY];
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &curr, &mut sfx);
+
+        let tones: Vec<(u32, u32, u32)> = sfx
+            .active_tones
+            .iter()
+            .map(|tone| {
+                (
+                    tone.frequency.round() as u32,
+                    tone.remaining_samples,
+                    (tone.volume * 100.0).round() as u32,
+                )
+            })
+            .collect();
+
+        assert_eq!(
+            tones,
+            vec![(784, 1499, 13), (1175, 2116, 11)],
+            "ASM Jump_On_Enemy loc_B6DA queues sfx_Jump_on_enemy=$4C; fallback should be brighter than the ordinary jump cue and should not add the legacy stomp heuristic duplicate"
         );
     }
 
