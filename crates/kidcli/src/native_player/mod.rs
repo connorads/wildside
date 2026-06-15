@@ -11037,6 +11037,13 @@ mod tests {
                 0x07,
                 "Under Skull Mountain 1 -> Isle of the Lion Lord",
             ),
+            (0x03, 0x06, "Highwater Pass 2 -> Under Skull Mountain 3"),
+            (
+                0x06,
+                0x07,
+                "Under Skull Mountain 3 -> Isle of the Lion Lord",
+            ),
+            (0x00, 0x1B, "Blue Lake Woods 1 -> Skydragon Castle 1"),
             (
                 0x07,
                 0x08,
@@ -11103,7 +11110,7 @@ mod tests {
                     live_trace = Some(trace.clone());
                 }
             }
-            let trace =
+            let mut trace =
                 live_trace.unwrap_or_else(|| panic!("{route_name} did not reach live gameplay"));
             let kid_x = trace
                 .kid_x_pos
@@ -11125,6 +11132,21 @@ mod tests {
                 (kid_y >> 16) < target_height_px,
                 "{route_name} live spawn y {kid_y:#010x} should be inside target level height {target_height_px}"
             );
+            if target_header.murder_wall_flags == 0 {
+                for frame in 0..180 {
+                    trace = runtime.step_frame(FrameInput::default());
+                    assert_eq!(
+                        trace.number_lives, starting_lives,
+                        "{route_name} should not die {frame} frames after live handoff"
+                    );
+                    if let Some(kid_y) = trace.kid_y_pos {
+                        assert!(
+                            (kid_y >> 16) < target_height_px,
+                            "{route_name} should keep Kid inside the target level height {target_height_px} after live handoff; frame {frame} y={kid_y:#010x}"
+                        );
+                    }
+                }
+            }
         }
     }
 
