@@ -3509,12 +3509,13 @@ pub(super) fn push_level_layout_terrain(
             // ASM loc_11542 rebuilds a non-block Level_Layout word with the
             // decoded foreground skin after a block is erased. Blank runtime
             // cells must not punch holes through immutable art, but restored
-            // solid terrain cells should render their live skin.
+            // cells with collision or visible skin should render their live skin.
             let skin = block_grid
                 .map(|grid| grid.cell_at(col, row))
                 .filter(|cell| {
                     !cell.has_block
-                        && cell.collision != kid_core::terrain::CollisionKind::Empty
+                        && (cell.collision != kid_core::terrain::CollisionKind::Empty
+                            || cell.skin != 0)
                 })
                 .map_or_else(|| layout.skin_at(col, row), |cell| cell.skin);
             let Some(resolved) = level_visuals.level.block_mapping.resolve(skin, None) else {
