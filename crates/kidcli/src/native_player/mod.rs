@@ -6,10 +6,10 @@ use crate::scenarios::{DynamicScenario, DynamicStartPosition, GameplayCheckpoint
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind, DiamondPowerSpriteSnapshot,
-    DragonFlyingDescentFireState, FrameInput, GameMode, LevelId, NativeObjectKind,
-    NativeObjectSnapshot, NativeRuntime, NativeSoundCommand, NativeTraceFrame, PlayerForm,
-    physics::Direction, terrain::BlockGrid,
+    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
+    DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, FrameInput, GameMode, LevelId,
+    NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand, NativeTraceFrame,
+    PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader, resource_level_id, resource_level_record};
 use kid_md::GemsAudioEngine;
@@ -3429,7 +3429,9 @@ mod tests {
         let priority_pixel = sample_scene_pixel_provenance(&scene, &sample_pixels)
             .into_iter()
             .find(|diagnostic| diagnostic.final_high_priority)
-            .expect("Highwater priority foreground should contribute visible pixels in this viewport");
+            .expect(
+                "Highwater priority foreground should contribute visible pixels in this viewport",
+            );
 
         let sprite_colour = [220, 20, 20];
         scene.commands.push(DrawCommand::Sprite {
@@ -7515,14 +7517,10 @@ mod tests {
         let scene = build_scene(&render_trace, false, Some(&visuals), Some(&grid));
 
         assert!(
-            scene.commands.iter().any(|command| matches!(
-                command,
-                DrawCommand::Sprite {
-                    x: 64,
-                    y: 87,
-                    ..
-                }
-            )),
+            scene
+                .commands
+                .iter()
+                .any(|command| matches!(command, DrawCommand::Sprite { x: 64, y: 87, .. })),
             "ASM sub_1007A prize wobble at level cell (4,36) should draw over the prior Camera_Y_pos latch, not vanish while the `$6Fxx` cell is live"
         );
         let sample_pixels = (64usize..80)
@@ -11330,6 +11328,15 @@ mod tests {
                 .unwrap_or_else(|_| panic!("{route_name} start session assets"));
             let target_assets = load_native_session_assets(&manifest, target_level)
                 .unwrap_or_else(|_| panic!("{route_name} target session assets"));
+            let target_visual_level = target_assets.level_visuals.level.level_id;
+            let target_visual_themes = (
+                target_assets.level_visuals.level.foreground_theme_id,
+                target_assets.level_visuals.level.background_theme_id,
+            );
+            let target_block_grid_dims = (
+                target_assets.block_grid.width_cells,
+                target_assets.block_grid.height_cells,
+            );
             let target_header = resolved_level_header(&manifest, target_level)
                 .unwrap_or_else(|| panic!("{route_name} target header"));
             let target_width_px = u32::from(target_header.width_screens) * FRAME_WIDTH;
@@ -11350,6 +11357,26 @@ mod tests {
                 target_assets,
             );
 
+            assert_eq!(
+                session_assets.level_visuals.level.level_id, target_visual_level,
+                "{route_name} should swap the render bundle to the target logical level immediately"
+            );
+            assert_eq!(
+                (
+                    session_assets.level_visuals.level.foreground_theme_id,
+                    session_assets.level_visuals.level.background_theme_id,
+                ),
+                target_visual_themes,
+                "{route_name} should not keep the previous level's foreground/background themes after the hotkey"
+            );
+            assert_eq!(
+                (
+                    session_assets.block_grid.width_cells,
+                    session_assets.block_grid.height_cells,
+                ),
+                target_block_grid_dims,
+                "{route_name} should pair target visuals with the target generated block grid"
+            );
             assert_eq!(
                 presentation.level_card_frames_remaining, 0,
                 "{route_name} should let ASM loc_6E2/Load_TitleCard own the generated title-card timing"
@@ -11455,6 +11482,15 @@ mod tests {
             .unwrap_or_else(|_| panic!("{route_name} mid session assets"));
         let target_assets = load_native_session_assets(&manifest, target_level)
             .unwrap_or_else(|_| panic!("{route_name} target session assets"));
+        let target_visual_level = target_assets.level_visuals.level.level_id;
+        let target_visual_themes = (
+            target_assets.level_visuals.level.foreground_theme_id,
+            target_assets.level_visuals.level.background_theme_id,
+        );
+        let target_block_grid_dims = (
+            target_assets.block_grid.width_cells,
+            target_assets.block_grid.height_cells,
+        );
         let target_header = resolved_level_header(&manifest, target_level)
             .unwrap_or_else(|| panic!("{route_name} target header"));
 
@@ -11495,6 +11531,26 @@ mod tests {
         assert_eq!(second.level_card_frames_remaining, 0);
         assert_eq!(trace.current_level, LevelId(target_level));
         assert_eq!(trace.game_mode, GameMode::LevelTransition);
+        assert_eq!(
+            session_assets.level_visuals.level.level_id, target_visual_level,
+            "{route_name} chained hotkey should swap render visuals to the final target"
+        );
+        assert_eq!(
+            (
+                session_assets.level_visuals.level.foreground_theme_id,
+                session_assets.level_visuals.level.background_theme_id,
+            ),
+            target_visual_themes,
+            "{route_name} chained hotkey should not keep the intermediate level's themes"
+        );
+        assert_eq!(
+            (
+                session_assets.block_grid.width_cells,
+                session_assets.block_grid.height_cells,
+            ),
+            target_block_grid_dims,
+            "{route_name} chained hotkey should pair target visuals with the target generated block grid"
+        );
 
         for _ in 0..360 {
             let _ = runtime.step_frame(FrameInput::default());
@@ -11551,6 +11607,15 @@ mod tests {
         for target_level in 0x01..=0x07 {
             let target_assets = load_native_session_assets(&manifest, target_level)
                 .unwrap_or_else(|_| panic!("{route_name} target 0x{target_level:02X} assets"));
+            let target_visual_level = target_assets.level_visuals.level.level_id;
+            let target_visual_themes = (
+                target_assets.level_visuals.level.foreground_theme_id,
+                target_assets.level_visuals.level.background_theme_id,
+            );
+            let target_block_grid_dims = (
+                target_assets.block_grid.width_cells,
+                target_assets.block_grid.height_cells,
+            );
             let presentation = enter_debug_hotkey_level(
                 &manifest,
                 &mut runtime,
@@ -11573,6 +11638,26 @@ mod tests {
                 trace.game_mode,
                 GameMode::LevelTransition,
                 "{route_name}: repeated hotkeys should stay in the ASM Load_TitleCard shell"
+            );
+            assert_eq!(
+                session_assets.level_visuals.level.level_id, target_visual_level,
+                "{route_name}: repeated hotkey target 0x{target_level:02X} should swap render visuals"
+            );
+            assert_eq!(
+                (
+                    session_assets.level_visuals.level.foreground_theme_id,
+                    session_assets.level_visuals.level.background_theme_id,
+                ),
+                target_visual_themes,
+                "{route_name}: repeated hotkey target 0x{target_level:02X} should use target visual themes"
+            );
+            assert_eq!(
+                (
+                    session_assets.block_grid.width_cells,
+                    session_assets.block_grid.height_cells,
+                ),
+                target_block_grid_dims,
+                "{route_name}: repeated hotkey target 0x{target_level:02X} should use target generated block grid"
             );
 
             for _ in 0..20 {
@@ -11825,8 +11910,7 @@ mod tests {
 
         assert_eq!(trace.current_level, LevelId(2));
         assert_eq!(
-            trace.game_mode,
-            pre_asset_swap_trace.game_mode,
+            trace.game_mode, pre_asset_swap_trace.game_mode,
             "direct live level-change asset swaps must preserve the core-owned transition shell instead of replaying ASM loc_6E2/Load_TitleCard"
         );
         assert_eq!(
@@ -12963,14 +13047,18 @@ mod tests {
             priority_sample
                 .writes
                 .iter()
-                .any(|write| write.kind == "indexed_tile" && write.rgb == Some([220, 20, 20]) && !write.accepted),
+                .any(|write| write.kind == "indexed_tile"
+                    && write.rgb == Some([220, 20, 20])
+                    && !write.accepted),
             "later ordinary Kid sprites are low priority, so Highwater foreground/water mask cells must reject them"
         );
         assert!(
             priority_sample
                 .writes
                 .iter()
-                .any(|write| write.kind == "sprite_tile" && write.rgb == Some([220, 20, 20]) && !write.accepted),
+                .any(|write| write.kind == "sprite_tile"
+                    && write.rgb == Some([220, 20, 20])
+                    && !write.accepted),
             "ordinary enemy/player DrawCommand::Sprite tiles must follow the same foreground-priority mask, not just terrain-tile commands"
         );
 
@@ -13008,25 +13096,27 @@ mod tests {
                 },
             }],
         });
-        let low_sample = sample_scene_pixel_provenance(
-            &low_scene,
-            &[(0usize, 64usize)].into_iter().collect(),
-        )
-        .into_iter()
-        .next()
-        .expect("low-priority sample");
+        let low_sample =
+            sample_scene_pixel_provenance(&low_scene, &[(0usize, 64usize)].into_iter().collect())
+                .into_iter()
+                .next()
+                .expect("low-priority sample");
         assert!(
             low_sample
                 .writes
                 .iter()
-                .any(|write| write.kind == "indexed_tile" && write.rgb == Some([220, 20, 20]) && write.accepted),
+                .any(|write| write.kind == "indexed_tile"
+                    && write.rgb == Some([220, 20, 20])
+                    && write.accepted),
             "ordinary terrain cells stay low priority; this regression only covers the ROM `$0100` foreground mask bit"
         );
         assert!(
             low_sample
                 .writes
                 .iter()
-                .any(|write| write.kind == "sprite_tile" && write.rgb == Some([20, 220, 20]) && write.accepted),
+                .any(|write| write.kind == "sprite_tile"
+                    && write.rgb == Some([20, 220, 20])
+                    && write.accepted),
             "sprite tiles should still draw normally when the foreground cell has no ROM priority bit"
         );
     }
@@ -13086,7 +13176,8 @@ mod tests {
             panic!("expected foreground terrain after the block override was cleared");
         };
         assert_eq!(
-            tile.tile_index, 3 * 4,
+            tile.tile_index,
+            3 * 4,
             "clearing a live block cell must reveal immutable foreground skin 3, not the cleared cell's skin 0"
         );
     }
