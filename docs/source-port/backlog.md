@@ -85,12 +85,18 @@ and stop — never commit churn.
   RockTank/ShooterBlock lifecycle, not Kid movement fields. Next movement work
   needs an exact live input recording or a fixed direct-probe bootstrap before
   patching slope/jump physics.
-- **#258/#277 follow-up (2026-06-15)**: after the direct-probe bootstrap fix,
-  `verify-tas` on `.cache/recordings/issue258-slope-right-jump-probe/scenario.json`
-  passes frames `0..30`, but `tas-diff` still reports a pre-jump frame-4
-  `character_movement` split (`native=0`, `oracle=6`) before the B pulse. Keep
-  this fixture rejected as a slope-jump patch source; it is useful only after
-  the movement-state bootstrap is aligned.
+- **#258/#277 follow-up (2026-06-15)**: the direct Level 00 slope-jump bootstrap
+  is now trace-clean for its checked window. Native now reports the same
+  `Character_Movement=6` slope-walk export as oracle when `loc_9D22` has written
+  MoveID 6 and same-frame `loc_9F18` clamps the slope velocity to zero. Focused
+  checks on `.cache/recordings/issue258-slope-right-jump-probe/scenario.json`
+  report `tas-diff --include-advisory --include-physics-trace` `30 match, 0
+  diverge` and `verify-tas --frame-start 0 --frame-end 30 --checkpoint-interval
+  1 --frontier-kind gameplay --bisect` passes. This unblocks using the direct
+  probe as a bootstrap sanity check, but it still does not reproduce the latest
+  human right/left stair launch complaint; next #258/#277 work needs a
+  human-equivalent stair route or live input capture before changing jump
+  physics.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still

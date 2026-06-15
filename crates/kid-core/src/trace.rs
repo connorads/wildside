@@ -2675,6 +2675,33 @@ mod tests {
     }
 
     #[test]
+    fn current_character_movement_keeps_slope_walk_when_loc_9f18_zeros_velocity() {
+        let mut player = PlayerState::title_pose();
+        player.x_pos = 40 << 16;
+        player.y_pos = 32 << 16;
+        player.x_velocity = 0;
+        player.on_ground = true;
+
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.trace_input.right = true;
+        runtime.last_kid_frame_grounded_release_probe = Some(KidGroundedReleaseProbe {
+            on_ground_before: true,
+            release_triggered: true,
+            ..KidGroundedReleaseProbe::default()
+        });
+        let mut grid = terrain::BlockGrid::from_level_layout(&[], 5, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+        runtime.set_block_grid(grid);
+
+        assert_eq!(
+            runtime.current_character_movement(player),
+            6,
+            "ASM loc_9D22 writes MoveID 6 before loc_9F18 may clamp slope velocity to zero on the same frame"
+        );
+    }
+
+    #[test]
     fn current_character_movement_keeps_skycutter_walking_on_zero_velocity_wall_hit() {
         let mut player = PlayerState::title_pose();
         player.x_pos = 40 << 16;
@@ -5939,17 +5966,6 @@ impl NativeRuntime {
         // held-left motion enters sub_8F26 with non-zero x_vel, the boundary
         // clamp clears x_vel, and the negative/NE return keeps the walking
         // continuation at loc_8E74.
-        let held_left_boundary_clamp_kept_walking_loc_8ff8 = self.trace_input.left
-            && !self.trace_input.right
-            && player.on_ground
-            && (player.x_pos >> 16) as i32 <= self.progression.current_form.half_width();
-        if player.x_velocity == 0
-            && self.progression.current_form != PlayerForm::Skycutter
-            && !self.current_frame_kept_walking_after_wall_snap_loc_8e74()
-            && !held_left_boundary_clamp_kept_walking_loc_8ff8
-        {
-            return MOVE_STANDINGSTILL;
-        }
         let half_width = self.progression.current_form.half_width();
         let x_px = (player.x_pos >> 16) as i32;
         let y_px = (player.y_pos >> 16) as i32;
@@ -5973,12 +5989,30 @@ impl NativeRuntime {
             let was_grounded_before_step = self
                 .last_kid_frame_grounded_release_probe
                 .is_some_and(|probe| probe.on_ground_before);
+            let slope_walk_input = self.trace_input.left
+                || self.trace_input.right
+                || self.trace_input.up
+                || self.trace_input.down;
+            let core_slope_walk =
+                core_slope && (player.x_velocity != 0 || slope_walk_input || slope_release);
             // ASM loc_9D22 writes MoveID 6 once `sub_9386` finds core slope
             // support.  Left/right-edge-only slope contact keeps MoveID 6 only
             // through the seam frame where the previous grounded path released
             // before flat support was reacquired.
-            core_slope || (was_grounded_before_step && edge_slope && slope_release)
+            core_slope_walk || (was_grounded_before_step && edge_slope && slope_release)
         });
+        let held_left_boundary_clamp_kept_walking_loc_8ff8 = self.trace_input.left
+            && !self.trace_input.right
+            && player.on_ground
+            && x_px <= half_width;
+        if player.x_velocity == 0
+            && self.progression.current_form != PlayerForm::Skycutter
+            && !self.current_frame_kept_walking_after_wall_snap_loc_8e74()
+            && !held_left_boundary_clamp_kept_walking_loc_8ff8
+            && !on_slope
+        {
+            return MOVE_STANDINGSTILL;
+        }
         if on_slope {
             return MOVE_UPHILL_DOWNHILL;
         }
