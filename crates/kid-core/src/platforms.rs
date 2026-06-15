@@ -834,7 +834,14 @@ pub(crate) fn apply_platform_collision(
     slice: &mut OpeningSliceState,
     platforms: &[ActivePlatform],
 ) -> PlatformCollisionOutcome {
-    apply_platform_collision_with_ceiling_probe(slice, platforms, None, PlayerForm::TheKid, false)
+    apply_platform_collision_with_ceiling_probe(
+        slice,
+        platforms,
+        None,
+        PlayerForm::TheKid,
+        false,
+        Some(0),
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -850,9 +857,8 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     block_grid: Option<&terrain::BlockGrid>,
     current_form: PlayerForm,
     crawling: bool,
+    standing_platform_index: Option<usize>,
 ) -> PlatformCollisionOutcome {
-    let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
-
     // ASM loc_7886 (kid.asm:7929): after sub_902A finds floor while Kid
     // stands on a platform, the ROM calls sub_8ED0 to check whether Kid's
     // hitbox still overlaps the platform span.  If unsupported (NE), the ROM
@@ -862,104 +868,58 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     // below: unsupported platforms are skipped (Kid gets no carry velocity,
     // eventually falls off via normal gravity/floor logic).
     if slice.player.on_ground {
-        for (platform_index, platform) in platforms.iter().enumerate() {
-            if platform.x_velocity == 0 && platform.y_velocity == 0 {
-                continue;
-            }
-            let plat_y_px = (platform.y_pos >> 16) as i32;
-            if platform_support_check_sub_8ED0(
-                Some(platform),
-                slice.player.x_pos,
-                current_form.half_width(),
-                current_form,
-                crawling,
-            ) {
-                continue;
-            }
-            // Player feet within snap distance of platform top → riding it
-            let within_snap =
-                slice.player.y_pos.abs_diff(platform.y_pos) <= GROUND_SNAP_TOLERANCE_FP;
-            if !within_snap && player_foot_y_px.abs_diff(plat_y_px) > 2 {
-                continue;
-            }
-
-            // ASM loc_78A8 (kid.asm:7943): when sub_902A returns negative
-            // (ceiling collision while being carried by a platform), the ROM
-            // checks the platform's y_vel ($E(a4)).  If y_vel < 0 (platform
-            // moving upward), Kid is crushed → loc_78C0 (kid.asm:7952):
-            // `moveq #0,d7 / bra.w Death`.  If y_vel >= 0 (platform moving
-            // down or stationary), the ROM clears Addr_PlatformStandingOn and
-            // enters walking (sub_942A → loc_8BF0).
-            //
-            // ASM loc_8DA0 (kid.asm:10164): walking-on-platform post-wall-
-            // collision y tracking — `move.w (Addr_PlatformStandingOn),a4;
-            // move.l $E(a4),y_vel(a3); move.l 6(a4),y_pos(a3); subq.w #1,
-            // y_pos(a3)` — snaps y_pos to platform_y - 1, copies y_vel.
-            // Then `bsr.w sub_902A`: if EQ → loc_8DD4 (support check), if
-            // d7==2 → loc_8DF6 (kid.asm:10193): `moveq #0,d7; bra.w Death`
-            // (platform crush death), if NE → detach (clr Addr_PlatformStandingOn,
-            // clr y_vel, sub_942A, bra loc_8BF0).
-            //
-            // ASM loc_8DD4 (kid.asm:10179): walking-on-platform support test
-            // — `bsr.w sub_8ED0`: if NE (unsupported) → `move.w #MoveID_Jump;
-            // bsr.w sub_B270; bra.w loc_A6F8` (become airborne).  If EQ
-            // (supported) → loc_8DEA: `move.l ($FFFFFA98),d0; bsr.w sub_942A;
-            // bra.w loc_8BF0` (continue walking on platform).
-            // Native: `platform_support_check_sub_8ED0` decides skip/carry;
-            // unsupported platforms are skipped so Kid falls via gravity.
-            // Native uses the same ceiling probe as sub_902A when a block grid
-            // is available, then lets the runtime shell route CrushDeath to the
-            // existing generic death windup.
-            //
-            // ASM loc_8306 (kid.asm:9077): crawling-on-platform y tracking —
-            // `move.w (Addr_PlatformStandingOn).w,a4; move.l $E(a4),y_vel(a3);
-            // move.l 6(a4),y_pos(a3); subq.w #1,y_pos(a3)` — snaps Kid's
-            // y_pos to platform top minus 1, copies platform y_vel. Then
-            // `bsr.w sub_902A`: if d7==2 → Death (loc_837C crush); if NE
-            // (ceiling hit) → detach + re-enter crawl (loc_8218); if EQ →
-            // loc_833E floor/edge check.
-            // Native: platform carry applies velocity additively rather than
-            // snapping to platform_y - 1; the ceiling crush branch uses the
-            // same post-carry probe as the standing path.
-            //
-            // ASM loc_833E (kid.asm:9093): crawl-on-platform floor/edge
-            // check — `bsr.w sub_8ED0` (platform support test): if EQ
-            // (supported) → loc_8370 (continue crawling with $FFFFFA98
-            // accumulated velocity). If NE (unsupported), `bsr.w sub_B43A`
-            // floor probe: if floor → loc_818A (walking→airborne exit); else
-            // detach + re-enter crawl (loc_8218).
-            // Native: `platform_support_check_sub_8ED0` (below) mirrors
-            // sub_8ED0; unsupported platforms are skipped (no carry), so Kid
-            // falls off via normal gravity.
-            //
-            // Carry player with platform velocity.
-            //
-            // ASM loc_8DA0/loc_8306: horizontal carry is applied through
-            // `sub_8F26`, then the vertical seat is hard-copied from platform
-            // `6(a4)` and the integer word is decremented by one pixel.
-            slice.player.x_pos = (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
-                .clamp(0, i64::from(u32::MAX)) as u32;
-            slice.player.y_velocity = platform.y_velocity;
-            slice.player.y_pos = platform.y_pos.wrapping_sub(0x0001_0000);
-            let floor_y_px = (slice.player.y_pos >> 16) as i32;
-            slice.terrain.floor_y_pos = (floor_y_px.max(0) as u32) << 16;
-            if platform.y_velocity < 0
-                && block_grid.is_some_and(|grid| {
-                    terrain::probe_ceiling(
-                        grid,
-                        (slice.player.x_pos >> 16) as i32,
-                        floor_y_px,
-                        current_form.half_width(),
-                        current_form.ceiling_probe_height(),
-                    )
-                    .hit
-                })
-            {
-                return PlatformCollisionOutcome::CrushDeath;
-            }
-            return PlatformCollisionOutcome::StandingOn(platform_index);
+        let Some(platform_index) = standing_platform_index else {
+            return PlatformCollisionOutcome::None;
+        };
+        let Some(platform) = platforms.get(platform_index) else {
+            return PlatformCollisionOutcome::None;
+        };
+        if platform.x_velocity == 0 && platform.y_velocity == 0 {
+            return PlatformCollisionOutcome::None;
         }
-        return PlatformCollisionOutcome::None;
+        if platform_support_check_sub_8ED0(
+            Some(platform),
+            slice.player.x_pos,
+            current_form.half_width(),
+            current_form,
+            crawling,
+        ) {
+            return PlatformCollisionOutcome::None;
+        }
+
+        // ASM loc_78A8 (kid.asm:7943): when sub_902A returns negative
+        // (ceiling collision while being carried by a platform), the ROM
+        // checks the platform's y_vel ($E(a4)). If y_vel < 0 (platform
+        // moving upward), Kid is crushed; otherwise it clears
+        // Addr_PlatformStandingOn and enters walking.
+        //
+        // ASM loc_8DA0 (kid.asm:10164) / loc_8306 (kid.asm:9077): walking
+        // and crawling on a stored platform copy `$E(a4)` into Kid y_vel,
+        // copy `6(a4)` into y_pos, then subtract one pixel from y_pos.
+        // Native mirrors that stored-platform path here; if no stored
+        // platform index exists, the no-platform sub_8ED0 branch above
+        // returns without using terrain-style snap tolerance.
+        slice.player.x_pos = (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
+            .clamp(0, i64::from(u32::MAX)) as u32;
+        slice.player.y_velocity = platform.y_velocity;
+        slice.player.y_pos = platform.y_pos.wrapping_sub(0x0001_0000);
+        let floor_y_px = (slice.player.y_pos >> 16) as i32;
+        slice.terrain.floor_y_pos = (floor_y_px.max(0) as u32) << 16;
+        if platform.y_velocity < 0
+            && block_grid.is_some_and(|grid| {
+                terrain::probe_ceiling(
+                    grid,
+                    (slice.player.x_pos >> 16) as i32,
+                    floor_y_px,
+                    current_form.half_width(),
+                    current_form.ceiling_probe_height(),
+                )
+                .hit
+            })
+        {
+            return PlatformCollisionOutcome::CrushDeath;
+        }
+        return PlatformCollisionOutcome::StandingOn(platform_index);
     }
 
     let mut touched_left_side = false;

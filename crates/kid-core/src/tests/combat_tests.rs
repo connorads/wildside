@@ -16459,6 +16459,7 @@ mod chunk_05 {
             Some(&grid),
             PlayerForm::TheKid,
             false,
+            Some(0),
         );
 
         assert_eq!(
@@ -24124,8 +24125,7 @@ mod chunk_05 {
             "ASM loc_1498C should stay in the collapse branch while a visible row remains"
         );
         assert_eq!(
-            geyser.current_height,
-            LAVA_GEYSER_ROW_HEIGHT_PX,
+            geyser.current_height, LAVA_GEYSER_ROW_HEIGHT_PX,
             "ASM loc_1498C collapse step should subtract one 16px sprite row"
         );
         assert_eq!(

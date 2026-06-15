@@ -13715,6 +13715,7 @@ mod chunk_04 {
             None,
             PlayerForm::RedStealth,
             false,
+            Some(0),
         );
 
         assert_eq!(
@@ -16375,21 +16376,21 @@ mod chunk_04 {
 
     #[test]
     fn platform_collision_riding_snap_distance_check() {
-        // Mutants: lines 100-101 — within_snap and abs_diff > 2 checks for riding
         let mut platform = make_test_platform(40, 100, 2, 0);
         platform.x_velocity = 0x1_0000;
-        // Grounded player 7px away — beyond FP snap tolerance (0x6_0000 = 6px) AND pixel > 2 → NOT carried
+        // ASM loc_8DA0/loc_8306 follows Addr_PlatformStandingOn and does not
+        // recheck terrain's snap tolerance before reseating to platform_y - 1.
         let mut slice = make_airborne_slice(50, 93);
         slice.player.on_ground = true;
         slice.player.y_velocity = 0;
         let x_before = slice.player.x_pos;
         apply_platform_collision(&mut slice, &[platform]);
-        assert_eq!(
-            slice.player.x_pos, x_before,
-            "grounded player 7px from platform should NOT be carried (outside snap and > 2px)"
+        assert!(
+            slice.player.x_pos > x_before,
+            "stored platform support should carry even when Kid's current feet are outside the old terrain snap tolerance"
         );
+        assert_eq!(slice.player.y_pos, 99 << 16);
 
-        // Grounded player 2px away — within FP snap, abs_diff ≤ 2 → carried
         let mut slice = make_airborne_slice(50, 98);
         slice.player.on_ground = true;
         slice.player.y_velocity = 0;
@@ -16398,6 +16399,35 @@ mod chunk_04 {
         assert!(
             slice.player.x_pos > x_before,
             "grounded player 2px from platform should be carried"
+        );
+    }
+
+    #[test]
+    fn platform_collision_grounded_carry_requires_stored_platform_loc_8ed0() {
+        let mut platform = make_test_platform(40, 100, 2, 0);
+        platform.x_velocity = 0x1_0000;
+        let mut slice = make_airborne_slice(50, 100);
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+        let x_before = slice.player.x_pos;
+
+        let outcome = apply_platform_collision_with_ceiling_probe(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::TheKid,
+            false,
+            None,
+        );
+
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::None,
+            "ASM sub_8ED0 loc_8F1C reports unsupported when Addr_PlatformStandingOn is zero"
+        );
+        assert_eq!(
+            slice.player.x_pos, x_before,
+            "grounded carry must not discover a nearby platform via terrain-style snap tolerance"
         );
     }
 

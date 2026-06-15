@@ -4206,6 +4206,7 @@ impl NativeRuntime {
             self.block_grid.as_ref(),
             self.progression.current_form,
             platform_support_crawling,
+            platform_standing_before,
         );
         if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
             && slice.player != player_before_platform_collision
