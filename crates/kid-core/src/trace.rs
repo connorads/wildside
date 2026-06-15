@@ -6825,6 +6825,14 @@ impl NativeRuntime {
                 .collect(),
             played_bgm_ids: self.played_bgm_ids.clone(),
             played_music_speed_updates: self.played_music_speed_updates.clone(),
+            teleport_warp_colour: if matches!(
+                self.boot_state,
+                BootState::StartingLevel { .. } | BootState::LevelSkipHold
+            ) {
+                self.teleport_warp_colour_fbcc
+            } else {
+                0
+            },
             two_player: self.two_player,
             options_two_player_two_controllers: self.options_two_player_two_controllers,
             options_controls_scheme: self.options_controls_scheme,

@@ -4761,6 +4761,7 @@ AddrTbl_LevelNames:
             played_sound_commands: Vec::new(),
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
+            teleport_warp_colour: 0,
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,

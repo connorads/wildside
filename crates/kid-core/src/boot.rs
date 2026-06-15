@@ -7431,6 +7431,7 @@ impl NativeRuntime {
                             TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E;
                     }
                     self.boot_state = BootState::InGame;
+                    self.teleport_warp_colour_fbcc = 0;
                     self.level_start_frame = Some(self.frame_index);
                 }
             }
@@ -7552,6 +7553,7 @@ impl NativeRuntime {
         }
         self.pending_level_skip_resume = false;
         self.boot_state = BootState::InGame;
+        self.teleport_warp_colour_fbcc = 0;
         self.level_start_frame = Some(self.frame_index);
         self.level_skip_transition = None;
         self.level_skip_resume_hold = true;

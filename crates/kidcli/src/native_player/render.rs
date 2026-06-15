@@ -58,6 +58,7 @@ pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
                 *height,
                 *colour,
             ),
+            DrawCommand::Tint { colour, alpha } => tint_frame(rgb, *colour, *alpha),
             DrawCommand::ClearPriorityRect {
                 x,
                 y,
@@ -151,6 +152,18 @@ pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
     }
 }
 
+fn tint_frame(rgb: &mut [u8], colour: [u8; 3], alpha: u8) {
+    let alpha = u16::from(alpha);
+    let inverse = 255u16.saturating_sub(alpha);
+    for pixel in rgb.chunks_exact_mut(3) {
+        for channel in 0..3 {
+            pixel[channel] = ((u16::from(pixel[channel]) * inverse
+                + u16::from(colour[channel]) * alpha)
+                / 255) as u8;
+        }
+    }
+}
+
 pub(crate) fn sample_scene_pixel_provenance(
     scene: &Scene,
     pixels: &BTreeSet<(usize, usize)>,
@@ -221,6 +234,27 @@ fn command_pixel_write(
             prior_high_priority: false,
             accepted: false,
         }),
+        DrawCommand::Tint { colour, .. } => {
+            ((0..FRAME_WIDTH as i32).contains(&x) && (0..FRAME_HEIGHT as i32).contains(&y)).then(
+                || FinalScenePixelWrite {
+                    command_index,
+                    kind: "tint".to_owned(),
+                    origin_x: Some(0),
+                    origin_y: Some(0),
+                    width: Some(FRAME_WIDTH as i32),
+                    height: Some(FRAME_HEIGHT as i32),
+                    tile_index: None,
+                    palette_line: None,
+                    palette_index: None,
+                    source_x: None,
+                    source_y: None,
+                    rgb: Some(*colour),
+                    priority: None,
+                    prior_high_priority: false,
+                    accepted: false,
+                },
+            )
+        }
         DrawCommand::ClearPriorityRect {
             x: cx,
             y: cy,
@@ -933,6 +967,19 @@ mod tests {
             rgb,
             vec![109, 109, 72, 36, 36, 0, 0],
             "ASM Pause_DarkenPalette loc_6C70 halves each 3-bit MD colour channel before re-expansion"
+        );
+    }
+
+    #[test]
+    fn tint_frame_blends_teleport_colour_loc_bcf6() {
+        let mut rgb = vec![0, 0, 0, 255, 255, 255];
+
+        tint_frame(&mut rgb, [255, 255, 0], 96);
+
+        assert_eq!(
+            rgb,
+            vec![96, 96, 0, 255, 255, 159],
+            "ASM loc_BCF6 seeds `$FFFFFBCC=$00EE`; native-player blends that fade colour over the transition frame",
         );
     }
 }

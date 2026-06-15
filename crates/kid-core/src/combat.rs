@@ -12422,6 +12422,7 @@ impl NativeRuntime {
         if let Some((dest_map, dest_x, dest_y)) = self.check_teleporter_contact(slice) {
             self.opening_slice = Some(*slice);
             self.queue_play_sound(QueuedSoundEffect::Teleport);
+            self.teleport_warp_colour_fbcc = 0x00EE;
             // ASM loc_BCB2 writes PlayerStart_X/Y from the teleporter record;
             // loc_BCF6 then branches through Teleport even when the destination
             // level equals Current_LevelID. Native reuses the loc_11BD2 start

@@ -955,6 +955,7 @@ pub(super) fn build_transition_scene(
     });
 
     commands.extend(build_title_card_worker_overlay_scene(trace, level_visuals).commands);
+    push_teleport_warp_tint_loc_bcf6(&mut commands, trace);
 
     Scene {
         background: [0, 0, 0],
@@ -4892,11 +4893,24 @@ fn build_game_scene_filtered(
         }
     }
 
+    push_teleport_warp_tint_loc_bcf6(&mut commands, trace);
+
     Scene {
         background,
         commands,
         pause_palette_darken: trace.paused,
     }
+}
+
+fn push_teleport_warp_tint_loc_bcf6(commands: &mut Vec<DrawCommand>, trace: &NativeTraceFrame) {
+    if trace.teleport_warp_colour == 0 {
+        return;
+    }
+    let colour = MdColour::from_word(trace.teleport_warp_colour);
+    commands.push(DrawCommand::Tint {
+        colour: [colour.red, colour.green, colour.blue],
+        alpha: 96,
+    });
 }
 
 fn floating_prize_sprite_visible_loc_103b2(

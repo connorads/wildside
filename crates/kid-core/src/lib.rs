@@ -117,6 +117,10 @@ pub struct NativeRuntime {
     allow_pausing_fade_frames: u8,
     pending_level_skip: Option<LevelId>,
     pending_level_skip_resume: bool,
+    /// ASM `$FFFFFBCC`: palette fade target colour. Teleporter `loc_BCF6`
+    /// seeds `$00EE` before branching through `Teleport`; the level-entry
+    /// fade shell copies this word into `Palette_Buffer_3`.
+    teleport_warp_colour_fbcc: u16,
     /// ASM loc_DA4A writes PlayerStart_X/Y and sets `$FFFFFC29` before the
     /// Teleport tail. Load_InGame's loc_11BD2 then preserves those start words
     /// instead of reading the destination level header pair.
@@ -1411,6 +1415,7 @@ impl NativeRuntime {
             allow_pausing_fade_frames: 0,
             pending_level_skip: None,
             pending_level_skip_resume: false,
+            teleport_warp_colour_fbcc: 0,
             pending_player_start_override_loc_11bd2: None,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,

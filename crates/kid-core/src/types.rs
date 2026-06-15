@@ -1342,6 +1342,10 @@ pub struct NativeTraceFrame {
     /// Cumulative GEMS music-speed bytes queued through ASM-backed native core paths.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub played_music_speed_updates: Vec<u8>,
+    /// ROM `$FFFFFBCC`: palette fade target colour. Teleporter `loc_BCF6`
+    /// writes `$00EE` before entering the shared `Teleport` fade shell.
+    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    pub teleport_warp_colour: u16,
     pub two_player: bool,
     pub options_two_player_two_controllers: bool,
     pub options_controls_scheme: u8,
@@ -1570,6 +1574,7 @@ impl Default for NativeTraceFrame {
             played_sound_commands: Vec::new(),
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
+            teleport_warp_colour: 0,
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,

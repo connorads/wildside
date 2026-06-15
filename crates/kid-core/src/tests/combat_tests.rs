@@ -1531,6 +1531,10 @@ fn live_teleporter_pending_skip_uses_map_order_index_loc_bcd6() {
         vec![QueuedSoundEffect::Teleport],
         "ASM loc_BCF6 passes d6=-5 into Teleport, which plays sfx_Teleport"
     );
+    assert_eq!(
+        runtime.teleport_warp_colour_fbcc, 0x00EE,
+        "ASM loc_BCF6 writes `$00EE` to `$FFFFFBCC` before branching through Teleport"
+    );
     assert_eq!(QueuedSoundEffect::Teleport.sound_id(), 0x76);
 }
 
@@ -1582,6 +1586,11 @@ fn live_same_level_teleporter_reloads_level_entry_loc_bcf6() {
         runtime.played_sound_effects,
         vec![QueuedSoundEffect::Teleport],
         "ASM loc_BCF6 passes d6=-5 into Teleport for sfx_Teleport"
+    );
+    assert_eq!(
+        runtime.trace_frame().teleport_warp_colour,
+        0x00EE,
+        "ASM loc_BCF6 keeps `$FFFFFBCC=$00EE` visible to the level-entry fade shell"
     );
 }
 
