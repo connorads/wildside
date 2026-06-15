@@ -34,6 +34,24 @@
       "promotion_trigger": "Promote if platform dimensions become part of typed render/frontier parity rather than temporary object debug metadata."
     },
     {
+      "key": "platform_render_flags",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "platform-render-tiling",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native active-platform `$1F(a3)` render/type byte after the retail `bclr #7` decode, used to choose the `off_24AC` platform sprite-strip branch.",
+      "promotion_trigger": "Promote if platform render dispatch becomes part of typed render/frontier parity rather than temporary object debug metadata."
+    },
+    {
+      "key": "platform_mapping_addr_word",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "platform-render-tiling",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native active-platform `$18(a3)` mapping/art word selected from ASM `PlatformArtAddr_Table` after the render/type byte decode.",
+      "promotion_trigger": "Promote if exact platform art-table selection is wired into typed render output or checked-in visual parity."
+    },
+    {
       "key": "currently_transforming",
       "scope": "frame",
       "status": "exploratory",

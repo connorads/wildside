@@ -608,6 +608,37 @@ pub(crate) fn expand_platform_chain_segments_loc_428C(
     }
 }
 
+pub(crate) fn platform_size_words_loc_2814(kind: u8, h_variant: u8, v_variant: u8) -> (u16, u16) {
+    // ASM loc_2814/loc_2822 (kid.asm:4727-4749): the second size byte stores
+    // `(h << 4) | v`.  Width is `(h + 1) * 16 - 1`; height is `(v + 1) * 16 - 1`,
+    // then type zero applies the original `subq.w #2,$1C(a3)` collision-height
+    // quirk before the platform-art word is selected.
+    let width_px = u16::from(h_variant) * 16 + 15;
+    let mut height_px = u16::from(v_variant) * 16 + 15;
+    if kind & 0x7F == 0 {
+        height_px = height_px.saturating_sub(2);
+    }
+    (width_px, height_px)
+}
+
+pub(crate) fn platform_render_flags_loc_2814(kind: u8, subtype: u8) -> u8 {
+    // ASM macro `ptfm` packs `(t << 4) | s` into the `$1F(a3)` byte.  The
+    // retail build has `platforms_newtype = 0`, so loc_2822/loc_244C clear bit 7
+    // before using the byte for art and strip dispatch.
+    ((kind << 4) | (subtype & 0x0F)) & 0x7F
+}
+
+pub(crate) fn platform_mapping_addr_word_loc_2822(render_flags: u8) -> u16 {
+    // ASM PlatformArtAddr_Table (kid.asm:4755): `move.w table(pc,d7.w),$18(a3)`.
+    // Retail platform subtypes are even byte offsets into the word table.
+    match render_flags & 0x06 {
+        0x00 => 0x06AE,
+        0x02 => 0x0094,
+        0x04 => 0x06AE,
+        _ => 0x025A,
+    }
+}
+
 #[allow(non_snake_case)]
 fn platform_buffer_edge_px_loc_2762(buffer_edge: u8) -> u32 {
     // ASM loc_2762 (kid.asm:4690): activation-buffer bytes are absolute edges
@@ -695,14 +726,23 @@ impl PlatformLoaderState {
             .filter(|placement| platform_is_active(placement, window))
             .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
             .map(|placement| {
+                let (width_px, height_px) = platform_size_words_loc_2814(
+                    placement.kind,
+                    placement.h_variant,
+                    placement.v_variant,
+                );
+                let render_flags =
+                    platform_render_flags_loc_2814(placement.kind, placement.subtype);
                 let mut debug_fields = std::collections::BTreeMap::new();
+                debug_fields.insert("platform_width_px".to_string(), width_px.to_string());
+                debug_fields.insert("platform_height_px".to_string(), height_px.to_string());
                 debug_fields.insert(
-                    "platform_width_px".to_string(),
-                    (u16::from(placement.h_variant) * 16 + 15).to_string(),
+                    "platform_render_flags".to_string(),
+                    render_flags.to_string(),
                 );
                 debug_fields.insert(
-                    "platform_height_px".to_string(),
-                    (u16::from(placement.v_variant) * 16 + 15).to_string(),
+                    "platform_mapping_addr_word".to_string(),
+                    platform_mapping_addr_word_loc_2822(render_flags).to_string(),
                 );
                 NativeObjectSnapshot {
                     kind: NativeObjectKind::Platform {

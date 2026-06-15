@@ -13894,6 +13894,27 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_render_metadata_follows_loc_2814_and_platform_art_table() {
+        let (width_px, height_px) = platform_size_words_loc_2814(0, 3, 0);
+        assert_eq!(
+            (width_px, height_px),
+            (63, 13),
+            "ASM loc_2814/loc_2822 decodes `(h << 4) | v` into size words and applies the type-zero `subq.w #2,$1C(a3)` height quirk",
+        );
+
+        let render_flags = platform_render_flags_loc_2814(8, 6);
+        assert_eq!(
+            render_flags, 6,
+            "ASM loc_2822/loc_244C clears only bit 7 of the packed `$1F(a3)` byte in the retail `platforms_newtype = 0` build",
+        );
+        assert_eq!(
+            platform_mapping_addr_word_loc_2822(render_flags),
+            0x025A,
+            "ASM PlatformArtAddr_Table indexes by the post-`bclr #7` byte offset, so shipped `t8 s6` special platforms use the fourth art word",
+        );
+    }
+
+    #[test]
     fn active_platform_from_placement_loc_2822_keeps_collision_shape_without_modelling_art_words() {
         let platform = ActivePlatform::from_placement(
             &PlatformPlacement {

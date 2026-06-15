@@ -12674,6 +12674,35 @@ mod tests {
             .any(|command| has_command_signature(command, signature))
     }
 
+    fn platform_snapshot(
+        kind: u8,
+        subtype: u8,
+        x_px: u32,
+        y_px: u32,
+        debug_fields: std::collections::BTreeMap<String, String>,
+    ) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Platform { kind, subtype },
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields,
+        }
+    }
+
     #[test]
     fn build_game_scene_emits_enemy_sprite_commands_for_visible_level1_families() {
         let mut trace = sample_trace(GameMode::InGame);
@@ -14170,31 +14199,11 @@ mod tests {
         let platform_debug_fields = std::collections::BTreeMap::from([
             ("platform_width_px".to_string(), "31".to_string()),
             ("platform_height_px".to_string(), "15".to_string()),
+            ("platform_render_flags".to_string(), "0".to_string()),
+            ("platform_mapping_addr_word".to_string(), "1710".to_string()),
         ]);
         trace.active_objects = vec![
-            NativeObjectSnapshot {
-                kind: NativeObjectKind::Platform {
-                    kind: 0x00,
-                    subtype: 0x00,
-                },
-                x_pos: 0x0010_0000,
-                y_pos: 0x0018_0000,
-                layout_index: None,
-                x_velocity: None,
-                y_velocity: None,
-                facing: None,
-                on_ground: None,
-                hit_points: None,
-                damage_flash: false,
-                palette_variant: 0,
-                stationary: false,
-                shared_walker_state: None,
-                shared_walker_patrol_timer: None,
-                shared_walker_patrol_short_next: None,
-                walk_phase: None,
-                wait_timer: None,
-                debug_fields: platform_debug_fields,
-            },
+            platform_snapshot(0x00, 0x00, 0x0010, 0x0018, platform_debug_fields),
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
                 x_pos: 0x0028_0000,
@@ -14239,6 +14248,68 @@ mod tests {
         assert!(!scene.commands.iter().any(|command| {
             matches!(command, DrawCommand::Rect { colour, .. } if *colour == PLATFORM_COLOUR)
         }));
+    }
+
+    #[test]
+    fn build_game_scene_uses_platform_off_24ac_strip_variant() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_objects = vec![platform_snapshot(
+            0x00,
+            0x02,
+            0x0010,
+            0x0018,
+            std::collections::BTreeMap::from([
+                ("platform_width_px".to_string(), "79".to_string()),
+                ("platform_height_px".to_string(), "15".to_string()),
+                ("platform_render_flags".to_string(), "2".to_string()),
+                ("platform_mapping_addr_word".to_string(), "148".to_string()),
+            ]),
+        )];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            scene
+                .commands
+                .iter()
+                .filter(|command| has_command_signature(command, 51))
+                .count(),
+            1,
+            "ASM off_24AC index 2 routes to loc_251C, which emits a vertical strip from height only instead of width-tiling the platform",
+        );
+    }
+
+    #[test]
+    fn build_game_scene_culls_platforms_outside_loc_244c_viewport() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0x0200_0000;
+        trace.camera_y_pos = 0;
+        trace.active_objects = vec![platform_snapshot(
+            0x00,
+            0x00,
+            0x0010,
+            0x0018,
+            std::collections::BTreeMap::from([
+                ("platform_width_px".to_string(), "31".to_string()),
+                ("platform_height_px".to_string(), "15".to_string()),
+                ("platform_render_flags".to_string(), "0".to_string()),
+                ("platform_mapping_addr_word".to_string(), "1710".to_string()),
+            ]),
+        )];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            scene
+                .commands
+                .iter()
+                .filter(|command| has_command_signature(command, 41))
+                .count(),
+            0,
+            "ASM loc_244C skips platforms whose trailing edge is still left of Camera_X_pos",
+        );
     }
 
     #[test]

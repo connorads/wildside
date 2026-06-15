@@ -2477,12 +2477,11 @@ impl ActivePlatform {
             })),
             _ => None,
         };
-        let mut height_px = u16::from(placement.v_variant) * 16 + 15;
-        if placement.kind & 0x7F == 0 {
-            // ASM loc_2822 (kid.asm:4744-4746): after `bclr #7,d7`, decoded
-            // type zero shrinks `$1C(a3)` by 2 px before the art lookup.
-            height_px = height_px.saturating_sub(2);
-        }
+        let (width_px, height_px) = crate::platforms::platform_size_words_loc_2814(
+            placement.kind,
+            placement.h_variant,
+            placement.v_variant,
+        );
 
         let mut platform = Self {
             layout_index: None,
@@ -2490,7 +2489,7 @@ impl ActivePlatform {
             subtype: placement.subtype,
             x_pos: crate::platforms::platform_layout_coord_fixed_loc_2762(placement.x),
             y_pos,
-            width_px: u16::from(placement.h_variant) * 16 + 15,
+            width_px,
             height_px,
             x_velocity: 0,
             y_velocity: 0,
@@ -2570,9 +2569,19 @@ impl ActivePlatform {
     }
 
     pub(crate) fn snapshot(&self) -> NativeObjectSnapshot {
+        let render_flags =
+            crate::platforms::platform_render_flags_loc_2814(self.kind, self.subtype);
         let mut debug_fields = std::collections::BTreeMap::new();
         debug_fields.insert("platform_width_px".to_string(), self.width_px.to_string());
         debug_fields.insert("platform_height_px".to_string(), self.height_px.to_string());
+        debug_fields.insert(
+            "platform_render_flags".to_string(),
+            render_flags.to_string(),
+        );
+        debug_fields.insert(
+            "platform_mapping_addr_word".to_string(),
+            crate::platforms::platform_mapping_addr_word_loc_2822(render_flags).to_string(),
+        );
         NativeObjectSnapshot {
             kind: NativeObjectKind::Platform {
                 kind: self.kind,

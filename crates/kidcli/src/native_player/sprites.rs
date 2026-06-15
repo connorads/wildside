@@ -1822,28 +1822,104 @@ pub(super) fn push_platform_tiles(
     level_visuals: &NativeLevelVisuals,
     kind: u8,
 ) {
-    let frame = match kind {
-        0x00 => &level_visuals.platforms.horizontal,
-        _ => &level_visuals.platforms.vertical,
+    let variant = platform_snapshot_u8(object, "platform_render_flags")
+        .and_then(PlatformRenderVariantLoc244C::from_render_flags);
+    let frame = match variant {
+        Some(PlatformRenderVariantLoc244C::Loc251C) => &level_visuals.platforms.vertical,
+        _ => match kind {
+            0x00 => &level_visuals.platforms.horizontal,
+            _ => &level_visuals.platforms.vertical,
+        },
     };
     let (screen_x, screen_y) = player_screen_position(object, trace);
+    let width_px = platform_snapshot_dimension_px(object, "platform_width_px");
+    let height_px = platform_snapshot_dimension_px(object, "platform_height_px");
+    if !platform_visible_loc_244C(screen_x, screen_y, width_px, height_px) {
+        return;
+    }
     let width_cells = platform_snapshot_dimension_cells(object, "platform_width_px");
     let height_cells = platform_snapshot_dimension_cells(object, "platform_height_px");
     let tile_sheet = Arc::new(frame.tile_sheet.clone());
     let palette = Arc::new(level_visuals.platforms.palette.clone());
     let tiles = build_sprite_tiles(frame, Direction::Right, 0);
-    for row in 0..height_cells {
-        for column in 0..width_cells {
-            commands.push(DrawCommand::Sprite {
-                x: screen_x - i32::from(frame.origin_x) + i32::from(column) * 16,
-                y: screen_y - i32::from(frame.height_px) + i32::from(frame.origin_y)
-                    + i32::from(row) * 16,
-                tile_sheet: Arc::clone(&tile_sheet),
-                palette: Arc::clone(&palette),
-                tiles: tiles.clone(),
-            });
+    for (column, row, y_bias) in platform_sprite_cells_loc_24AC(variant, width_cells, height_cells)
+    {
+        commands.push(DrawCommand::Sprite {
+            x: screen_x - i32::from(frame.origin_x) + i32::from(column) * 16,
+            y: screen_y - i32::from(frame.height_px)
+                + i32::from(frame.origin_y)
+                + y_bias
+                + i32::from(row) * 16,
+            tile_sheet: Arc::clone(&tile_sheet),
+            palette: Arc::clone(&palette),
+            tiles: tiles.clone(),
+        });
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PlatformRenderVariantLoc244C {
+    Loc24CC,
+    Loc24F0,
+    Loc251C,
+    Loc24D4,
+    Loc24C0,
+}
+
+impl PlatformRenderVariantLoc244C {
+    fn from_render_flags(render_flags: u8) -> Option<Self> {
+        // ASM loc_244C (kid.asm:4357-4364): retail clears bit 7 of `$1F(a2)`,
+        // doubles the remaining dispatch byte, then jumps through `off_24AC`.
+        match render_flags & 0x0F {
+            0 => Some(Self::Loc24CC),
+            1 => Some(Self::Loc24F0),
+            2 => Some(Self::Loc251C),
+            3 => Some(Self::Loc24D4),
+            4 => Some(Self::Loc24C0),
+            _ => None,
         }
     }
+}
+
+#[allow(non_snake_case)]
+fn platform_sprite_cells_loc_24AC(
+    variant: Option<PlatformRenderVariantLoc244C>,
+    width_cells: u16,
+    height_cells: u16,
+) -> Vec<(u16, u16, i32)> {
+    match variant {
+        Some(PlatformRenderVariantLoc244C::Loc24CC) => {
+            (0..width_cells).map(|column| (column, 0, -2)).collect()
+        }
+        Some(PlatformRenderVariantLoc244C::Loc24F0) => {
+            (0..width_cells).map(|column| (column, 0, 0)).collect()
+        }
+        Some(PlatformRenderVariantLoc244C::Loc251C) => {
+            (0..height_cells).map(|row| (0, row, 0)).collect()
+        }
+        Some(PlatformRenderVariantLoc244C::Loc24D4) | None => (0..height_cells)
+            .flat_map(|row| (0..width_cells).map(move |column| (column, row, 0)))
+            .collect(),
+        Some(PlatformRenderVariantLoc244C::Loc24C0) => vec![(0, 0, 0)],
+    }
+}
+
+#[allow(non_snake_case)]
+fn platform_visible_loc_244C(screen_x: i32, screen_y: i32, width_px: u16, height_px: u16) -> bool {
+    // ASM loc_244C (kid.asm:4333-4349): cull when the platform origin is beyond
+    // the 320x224 viewport, or when the trailing edge is still negative.
+    screen_x < 0x0140
+        && screen_x + i32::from(width_px) >= 0
+        && screen_y < 0x00E0
+        && screen_y + i32::from(height_px) >= 0
+}
+
+fn platform_snapshot_dimension_px(object: &NativeObjectSnapshot, key: &str) -> u16 {
+    object
+        .debug_fields
+        .get(key)
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(15)
 }
 
 fn platform_snapshot_dimension_cells(object: &NativeObjectSnapshot, key: &str) -> u16 {
@@ -1854,6 +1930,13 @@ fn platform_snapshot_dimension_cells(object: &NativeObjectSnapshot, key: &str) -
         .map(|pixels| pixels.saturating_add(1).div_ceil(16))
         .filter(|cells| *cells > 0)
         .unwrap_or(1)
+}
+
+fn platform_snapshot_u8(object: &NativeObjectSnapshot, key: &str) -> Option<u8> {
+    object
+        .debug_fields
+        .get(key)
+        .and_then(|value| value.parse::<u8>().ok())
 }
 
 pub(crate) fn render_gameplay_frame_evidence(
