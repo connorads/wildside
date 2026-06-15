@@ -899,6 +899,18 @@ impl BlockList {
             let row = u16::from_be_bytes([data[offset + 4], data[offset + 5]]);
             let block_type = data[offset + 6];
             let block_setting = data[offset + 7];
+            if enforce_level_layout_addr_bounds
+                && (!is_level_layout_low_word_addr(layout_addr)
+                    || layout_addr != Self::level_layout_low_word_addr(col, row, layout_width)
+                    || grid
+                        .map(|grid| grid.cell_at(col, row).collision != CollisionKind::HiddenBlock)
+                        .unwrap_or(false))
+            {
+                // ASM loc_11CF6 bounds generated hidden/background records by
+                // `$FFFFF8EA << 3`; without the live count, native stops when a
+                // record no longer points at a hidden Level_Layout cell.
+                break;
+            }
             hidden_blocks.push(HiddenBlockEntry {
                 layout_addr,
                 col,
@@ -5221,6 +5233,59 @@ mod tests {
         assert_eq!(bl.hidden_blocks[0].row, 0);
         assert_eq!(bl.hidden_blocks[0].block_type, 0x0A);
         assert_eq!(bl.hidden_blocks[0].block_setting, 0x02);
+    }
+
+    #[test]
+    fn block_list_from_raw_generated_ram_dump_stops_hidden_before_footer_spill_loc_11cf6() {
+        // ASM loc_11CF6 bounds the 8-byte hidden/background section by
+        // `$FFFFF8EA << 3`; a generated RAM dump may contain non-section bytes
+        // after the last real hidden record. The parser must not accept those
+        // bytes as another hidden block just because their first word is
+        // non-zero.
+        let mut data = Vec::new();
+        data.extend_from_slice(&[
+            0xD4, 0x8A, // teleporter layout_addr for col 156,row 36 at width 160
+            0x00, 0x9C, // col
+            0x00, 0x24, // row
+            0x4B, // dest_map_id
+            0x09, // dest_y
+            0x00, 0x1C, // dest_x
+        ]);
+        data.extend_from_slice(&[
+            0xA6, 0x5A, // hidden layout_addr for col 4,row 0
+            0x00, 0x04, // col
+            0x00, 0x00, // row
+            0x0A, // hidden block type
+            0x02, // hidden block setting
+        ]);
+        data.extend_from_slice(&[
+            0xB2, 0xD4, // Level 0x07-style valid address for a non-hidden cell
+            0x00, 0x01, // col
+            0x00, 0x14, // row
+            0x67, 0x32,
+        ]);
+        data.extend_from_slice(&[
+            0x00, 0x03, // invalid Level_Layout address, not a hidden record
+            0xB2, 0xD4, // footer/spill bytes that previously became a huge col
+            0x00, 0x01, 0x14, 0x00,
+        ]);
+
+        let mut layout = vec![0u8; 160 * 40 * 2];
+        let teleporter_offset = ((36 * 160) + 156) * 2;
+        layout[teleporter_offset] = 0xE4;
+        layout[teleporter_offset + 1] = 0x07;
+        let hidden_offset = 4 * 2;
+        layout[hidden_offset] = 0xA0;
+        layout[hidden_offset + 1] = 0x02;
+        let grid = BlockGrid::from_level_layout(&layout, 160, 40);
+
+        let bl = BlockList::from_raw_with_level_layout(&data, 160, &grid);
+
+        assert_eq!(bl.teleporters.len(), 1);
+        assert_eq!(bl.hidden_blocks.len(), 1);
+        assert_eq!(bl.hidden_blocks[0].layout_addr, 0xA65A);
+        assert_eq!(bl.hidden_blocks[0].col, 4);
+        assert_eq!(bl.hidden_blocks[0].row, 0);
     }
 
     #[test]
