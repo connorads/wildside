@@ -7137,6 +7137,19 @@ impl NativeRuntime {
         };
         let boss_x = (boss.x_pos >> 16) as u16;
         let boss_y = (boss.y_pos >> 16) as u16;
+
+        if let Some(piece_slots) = self.heady_metal_breakup_slots_sub_37708 {
+            let slots = std::array::from_fn(|index| {
+                let piece = piece_slots[index + 1];
+                piece.map(|piece| BossEyeSpriteRefreshSlotSub37ABC {
+                    x_pos: piece.x_pos,
+                    y_pos: piece.y_pos.wrapping_add_signed(piece.sprite_word_y),
+                    sprite_mapping: "stale",
+                })
+            });
+            return self.refreshed_heady_metal_body_pieces_sub_37abc(slots, &slice);
+        }
+
         // ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) stores the twelve
         // `sub_37680` body-piece workers immediately after `$FFFFFB7A`; ASM
         // sub_37ABC then refreshes that `$FFFFFB7E..$FFFFFBAA` window.
@@ -7148,6 +7161,14 @@ impl NativeRuntime {
                     sprite_mapping: "stale",
                 })
             });
+        self.refreshed_heady_metal_body_pieces_sub_37abc(slots, &slice)
+    }
+
+    fn refreshed_heady_metal_body_pieces_sub_37abc(
+        &self,
+        slots: [Option<BossEyeSpriteRefreshSlotSub37ABC>; 12],
+        slice: &OpeningSliceState,
+    ) -> Vec<HeadyMetalBodyPieceTraceSub37ABC> {
         let refreshed = boss_eye_refresh_attack_sprites_sub_37ABC(
             slots,
             self.progression.diamond_power_frames > 0

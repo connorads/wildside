@@ -2314,6 +2314,47 @@ fn trace_exposes_heady_metal_sub_37abc_body_piece_workers() {
 }
 
 #[test]
+fn trace_uses_live_heady_metal_breakup_slots_for_sub_37abc_body_pieces() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x0050_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::HeadyMetal,
+        0x0040_0000,
+        0x00A0_0000,
+        30,
+    )];
+    let mut piece_slots = [None; 13];
+    piece_slots[1] = Some(HeadyMetalBreakupPieceSub37708 {
+        sprite_word_y: 2,
+        x_pos: 0x0034,
+        y_pos: 0x004A,
+    });
+    runtime.heady_metal_breakup_slots_sub_37708 = Some(piece_slots);
+
+    let trace = runtime.trace_frame();
+
+    assert_eq!(
+        trace.heady_metal_body_pieces_sub_37abc.len(),
+        1,
+        "ASM sub_37708 loc_37778 clears selected `$FFFFFB7E..$FFFFFBAA` worker pointers, so sub_37ABC must skip empty body-piece slots",
+    );
+    assert_eq!(
+        (
+            trace.heady_metal_body_pieces_sub_37abc[0].slot_offset,
+            trace.heady_metal_body_pieces_sub_37abc[0].x_pos,
+            trace.heady_metal_body_pieces_sub_37abc[0].y_pos,
+            trace.heady_metal_body_pieces_sub_37abc[0].sprite_mapping_index,
+        ),
+        (0x000C, 0x0034, 0x004C, 6),
+        "ASM sub_37708 loc_3772A mutates `$A(a3)` before loc_3763A/sub_37ABC refreshes the live worker's sprite mapping",
+    );
+}
+
+#[test]
 fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.projectiles.push(EnemyProjectile {
