@@ -18688,6 +18688,10 @@ impl NativeRuntime {
             .output_root
             .join(&terrain.foreground.relative_path);
         let terrain_bytes = fs::read(terrain_path).ok()?;
+        let expected_cells = usize::from(width_blocks) * usize::from(height_blocks);
+        if terrain_bytes.len() < expected_cells {
+            return None;
+        }
         let collision_dir = self.assets.output_root.join("theme").join("collision");
         let collision_index = theme_collision_table_loc_11C36(&collision_dir, header.level_theme)?;
         Some(level_layout_cells_loc_11C34(

@@ -9480,6 +9480,50 @@ mod chunk_08 {
     }
 
     #[test]
+    fn later_debug_warps_floor_snap_reported_hell_and_lion_levels() {
+        // 2026-06-15 playtest still reported direct/skip entry into Under
+        // Skull Mountain, Isle of the Lion Lord, and later hell-theme levels
+        // appearing at the top and then falling. Guard the exact later levels,
+        // not just the older Blue Lake Woods 2 regression, against exposing the
+        // raw loc_7526 PlayerStart_Y-1 pose after ASM loc_74E0/loc_6E2 setup.
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        for level in [LevelId(0x06), LevelId(0x07), LevelId(0x0D)] {
+            runtime.warp_to_level(level);
+            let warp_opening = runtime
+                .opening_slice
+                .expect("warp must seed an opening slice");
+            let raw = runtime.level_respawn_slice(level);
+            let settled = runtime.level_respawn_slice_with_floor_snap(level);
+            assert_eq!(
+                warp_opening.player.y_pos, settled.player.y_pos,
+                "debug warp into level {:#04X} should expose the settled floor-snap pose, not the raw header/top fall",
+                level.0
+            );
+            assert!(warp_opening.player.on_ground);
+            if raw.player.y_pos != settled.player.y_pos {
+                assert!(
+                    settled.player.on_ground,
+                    "level {:#04X} settled floor probe should land before visible gameplay",
+                    level.0
+                );
+            }
+
+            runtime.enter_level_skip_hold(level);
+            let hold_player = runtime
+                .level_skip_player_state()
+                .expect("visible level-skip hold should expose Kid");
+            assert_eq!(
+                hold_player.y_pos, settled.player.y_pos,
+                "ASM loc_74E0 hold for level {:#04X} should show the settled floor pose before gameplay",
+                level.0
+            );
+        }
+    }
+
+    #[test]
     fn level_skip_highwater_animation_uses_loaded_hold_pose_not_stale_top_route() {
         // ASM loc_74E0 runs after the destination load shell has rebuilt the
         // level. The old native Level 0x02 special route was a stale synthetic
