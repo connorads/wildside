@@ -6956,6 +6956,15 @@ impl NativeRuntime {
                     state.lower_phase_d1,
                 )
             }),
+            rotate_palette_lava_water_state_loc_1223c: self
+                .rotate_palette_lava_water_loc_1223c
+                .map(|state| {
+                    (
+                        state.countdown_d0,
+                        state.reload_delay_d2,
+                        state.completed_rotations,
+                    )
+                }),
             block_bounces: self
                 .block_bounces
                 .iter()

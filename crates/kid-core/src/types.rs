@@ -741,6 +741,17 @@ pub(crate) struct IslandShoreCycleStateLoc1202A {
     pub(crate) lower_phase_d1: u16,
 }
 
+/// ASM `RotatePalette_Lava_Water` object state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RotatePaletteLavaWaterStateLoc1223C {
+    /// ASM `d0`: frames remaining before the next palette rotation.
+    pub(crate) countdown_d0: u16,
+    /// ASM `d2`: reload delay copied back to d0 after each rotation.
+    pub(crate) reload_delay_d2: u16,
+    /// Number of completed `loc_1223C` rotations since level entry.
+    pub(crate) completed_rotations: u16,
+}
+
 /// Per-helmet ability state, reset on form change or death.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct HelmetState {
@@ -1417,6 +1428,9 @@ pub struct NativeTraceFrame {
     /// ASM `loc_1202A` object counters/phases: `$44,$46,$48,d3,d2,d1`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub island_shore_cycle_state_loc_1202a: Option<(u16, u16, u16, u16, u16, u16)>,
+    /// ASM `RotatePalette_Lava_Water` counters: `d0,d2,completed_rotations`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotate_palette_lava_water_state_loc_1223c: Option<(u16, u16, u16)>,
     /// Block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
     /// Kept for legacy trace compatibility; new renderers should prefer
     /// `block_bounce_details` when they need the ASM worker kind.
@@ -1626,6 +1640,7 @@ impl Default for NativeTraceFrame {
             active_geysers: Vec::new(),
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
+            rotate_palette_lava_water_state_loc_1223c: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),

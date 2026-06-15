@@ -2999,6 +2999,77 @@ mod chunk_02 {
     }
 
     #[test]
+    fn begin_level_entry_spawns_lava_water_rotator_for_cave_loc_11f96_1223a() {
+        let mut assets = manifest();
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x08;
+        header.background_theme = 0x04;
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.begin_level_entry(LevelId(0));
+
+        let trace = runtime.trace_frame();
+        assert_eq!(
+            trace.rotate_palette_lava_water_state_loc_1223c,
+            Some((0x0008, 0x0008, 0x0000)),
+            "ASM loc_11F96 allocates RotatePalette_Lava_Water for Cave before loc_11FB0 can allocate the Island shore object; loc_1223A adds 3 to the non-Mountain delay"
+        );
+        assert!(
+            !trace.island_shore_cycle_active,
+            "ASM loc_11F96 branches around loc_11FB0 after allocating the Cave lava/water rotator"
+        );
+    }
+
+    #[test]
+    fn begin_level_entry_spawns_lava_water_rotator_for_mountain_loc_11f86_1223a() {
+        let mut assets = manifest();
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x07;
+        header.background_theme = 0x08;
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.begin_level_entry(LevelId(0));
+
+        assert_eq!(
+            runtime
+                .trace_frame()
+                .rotate_palette_lava_water_state_loc_1223c,
+            Some((0x0005, 0x0005, 0x0000)),
+            "ASM loc_11F86 allocates RotatePalette_Lava_Water for Mountain foregrounds and loc_1223A keeps the five-frame delay"
+        );
+    }
+
+    #[test]
+    fn step_lava_water_rotator_reloads_after_loc_1223c_rotation() {
+        let mut assets = manifest();
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x07;
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.begin_level_entry(LevelId(0));
+
+        for _ in 0..5 {
+            runtime.step_rotate_palette_lava_water_loc_1223c();
+        }
+
+        assert_eq!(
+            runtime
+                .trace_frame()
+                .rotate_palette_lava_water_state_loc_1223c,
+            Some((0x0005, 0x0005, 0x0001)),
+            "ASM loc_1223C decrements d0 to zero, performs one Palette_Buffer+$E..+$14 rotation, then reloads d0 from d2"
+        );
+    }
+
+    #[test]
     fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

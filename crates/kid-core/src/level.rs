@@ -9091,17 +9091,22 @@ pub(crate) fn classify_post_load_object_routine_loc_11F96(
     foreground_theme: u16,
     background_theme: u16,
 ) -> Option<PostLoadObjectRoutineLoc11F96> {
+    const FOREGROUND_THEME_MOUNTAIN_LOC_11F86: u16 = 0x0007;
     const FOREGROUND_THEME_CAVE_LOC_11F96: u16 = 0x0008;
     const ROTATE_PALETTE_OBJECT_SLOT_SEED_LOC_11F96: u16 = 0xA000;
     const ISLAND_OBJECT_SLOT_SEED_LOC_11FB0: u16 = 0x0000;
     const ISLAND_OBJECT_ROUTINE_ADDR_LOC_11FB0: u32 = 0x0001_202A;
 
-    // ASM loc_11F96 (kid.asm:24154): when the earlier Mountain compare at
-    // `loc_11F86` falls through, Cave foregrounds allocate the same `$A000`
-    // palette-rotation object. The shared tail then checks `Background_theme`
-    // for Island and, if matched, allocates slot `0` and seeds `4(a0)` with
-    // `loc_1202A`.
-    if foreground_theme == FOREGROUND_THEME_CAVE_LOC_11F96 {
+    // ASM loc_11F86 (kid.asm:24146): Mountain foregrounds allocate the
+    // `RotatePalette_Lava_Water` object before control reaches loc_11F96.
+    if foreground_theme == FOREGROUND_THEME_MOUNTAIN_LOC_11F86 {
+        Some(PostLoadObjectRoutineLoc11F96::RotatePaletteLavaWater {
+            object_slot_seed: ROTATE_PALETTE_OBJECT_SLOT_SEED_LOC_11F96,
+        })
+    } else if foreground_theme == FOREGROUND_THEME_CAVE_LOC_11F96 {
+        // ASM loc_11F96 (kid.asm:24154): when the earlier Mountain compare
+        // falls through, Cave foregrounds allocate the same `$A000`
+        // palette-rotation object.
         Some(PostLoadObjectRoutineLoc11F96::RotatePaletteLavaWater {
             object_slot_seed: ROTATE_PALETTE_OBJECT_SLOT_SEED_LOC_11F96,
         })
@@ -18300,28 +18305,57 @@ impl NativeRuntime {
 
     fn init_post_load_object_routine_loc_11f96(&mut self, level_id: LevelId) {
         self.island_shore_cycle_loc_1202a = None;
+        self.rotate_palette_lava_water_loc_1223c = None;
         let Some(header) = self.level_header(level_id) else {
             return;
         };
 
-        if matches!(
-            classify_post_load_object_routine_loc_11F96(
-                u16::from(header.level_theme),
-                u16::from(header.background_theme),
-            ),
-            Some(PostLoadObjectRoutineLoc11F96::IslandPaletteCycle { .. })
+        match classify_post_load_object_routine_loc_11F96(
+            u16::from(header.level_theme),
+            u16::from(header.background_theme),
         ) {
-            // ASM loc_1202A (kid.asm:24216-24233): after the one-shot shore
-            // art upload, the object seeds d3=d2=d1=1 and countdown words
-            // `$44/$46/$48` to 9/$F/$19 before entering the band coroutines.
-            self.island_shore_cycle_loc_1202a = Some(IslandShoreCycleStateLoc1202A {
-                primary_countdown_44: 0x0009,
-                mid_countdown_46: 0x000F,
-                lower_countdown_48: 0x0019,
-                primary_phase_d3: 0x0001,
-                mid_phase_d2: 0x0001,
-                lower_phase_d1: 0x0001,
-            });
+            Some(PostLoadObjectRoutineLoc11F96::RotatePaletteLavaWater { .. }) => {
+                let delay = compute_rotate_palette_delay_loc_1223A(u16::from(header.level_theme));
+                // ASM RotatePalette_Lava_Water loc_1223A (kid.asm:24366-24372):
+                // d0 starts at 5, non-Mountain foregrounds add 3, then d2
+                // stores the reload value consumed by loc_1223C's loop.
+                self.rotate_palette_lava_water_loc_1223c =
+                    Some(RotatePaletteLavaWaterStateLoc1223C {
+                        countdown_d0: delay.delay_frames,
+                        reload_delay_d2: delay.delay_frames,
+                        completed_rotations: 0,
+                    });
+            }
+            Some(PostLoadObjectRoutineLoc11F96::IslandPaletteCycle { .. }) => {
+                // ASM loc_1202A (kid.asm:24216-24233): after the one-shot shore
+                // art upload, the object seeds d3=d2=d1=1 and countdown words
+                // `$44/$46/$48` to 9/$F/$19 before entering the band coroutines.
+                self.island_shore_cycle_loc_1202a = Some(IslandShoreCycleStateLoc1202A {
+                    primary_countdown_44: 0x0009,
+                    mid_countdown_46: 0x000F,
+                    lower_countdown_48: 0x0019,
+                    primary_phase_d3: 0x0001,
+                    mid_phase_d2: 0x0001,
+                    lower_phase_d1: 0x0001,
+                });
+            }
+            None => {}
+        }
+    }
+
+    pub(crate) fn step_rotate_palette_lava_water_loc_1223c(&mut self) {
+        let Some(state) = self.rotate_palette_lava_water_loc_1223c.as_mut() else {
+            return;
+        };
+
+        // ASM loc_1223C (kid.asm:24373-24384): after hibernating one frame,
+        // decrement d0. Non-zero loops; zero rotates Palette_Buffer+$E..+$14,
+        // reloads d0 from d2, and loops again. Native records the rotation
+        // count until a live Palette_Buffer owns the actual CRAM words.
+        state.countdown_d0 = state.countdown_d0.wrapping_sub(1);
+        if state.countdown_d0 == 0 {
+            state.countdown_d0 = state.reload_delay_d2;
+            state.completed_rotations = state.completed_rotations.wrapping_add(1);
         }
     }
 
