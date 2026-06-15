@@ -23,6 +23,22 @@
       "checkpoint_interval": 1,
       "total_frames": 37759,
       "status": "verified"
+    },
+    "issue305_fast_action_gameplay_probe": {
+      "scenario": "tests/data/dynamic-scenarios/issue-305-fast-action-gameplay-probe.json",
+      "frame_start": 2600,
+      "frontier_frame": 2805,
+      "checkpoint_interval": 1,
+      "total_frames": 3300,
+      "status": "verified"
+    },
+    "issue305_options_remap_a_jump_probe": {
+      "scenario": "tests/data/dynamic-scenarios/issue-305-options-remap-a-jump-probe.json",
+      "frame_start": 2600,
+      "frontier_frame": 2695,
+      "checkpoint_interval": 1,
+      "total_frames": 3300,
+      "status": "verified"
     }
   }
 }
