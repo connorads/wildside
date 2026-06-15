@@ -18495,13 +18495,22 @@ impl NativeRuntime {
             if grid_blank_top_rows != 0 {
                 grid = grid.with_blank_top_rows_sub_140F6(grid_blank_top_rows);
             }
-            let block_list =
-                self.load_block_list_for_level(level_id, width, &grid, header_blank_top_rows);
-            if let Some(block_list) = block_list.as_ref() {
-                reconcile_prize_block_cells_loc_123DC(&mut grid, block_list);
-            }
+            let Some(block_list) =
+                self.load_block_list_for_level(level_id, width, &grid, header_blank_top_rows)
+            else {
+                // Generated/live levels need the ROM block-list sidecar for
+                // `Prize_Init loc_10342`. Running with terrain but no list
+                // would put later helmet prizes through the native-only
+                // Diamond fallback used by small fixture grids.
+                self.block_grid = None;
+                self.block_list = None;
+                self.block_state.ghost_groups.clear();
+                self.block_grid_source = BlockGridSource::None;
+                return;
+            };
+            reconcile_prize_block_cells_loc_123DC(&mut grid, &block_list);
             self.block_grid = Some(grid);
-            self.block_list = block_list;
+            self.block_list = Some(block_list);
             self.block_state.ghost_groups = self
                 .block_list
                 .as_ref()

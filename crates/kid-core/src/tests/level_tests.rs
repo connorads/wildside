@@ -327,6 +327,24 @@ fn write_generated_level_layout(
         serde_json::to_vec(&metadata).expect("layout metadata should serialise"),
     )
     .expect("layout metadata should be writable");
+    fs::write(layout_dir.join(format!("{level_id:02X}.blocklist.bin")), [0x00, 0x00])
+        .expect("layout block list should be writable");
+}
+
+fn write_generated_level_layout_without_block_list(
+    output_root: &std::path::Path,
+    level_id: u8,
+    width_blocks: u16,
+    height_blocks: u16,
+    data: &[u8],
+) {
+    write_generated_level_layout(output_root, level_id, width_blocks, height_blocks, data);
+    fs::remove_file(
+        output_root
+            .join("level-layout")
+            .join(format!("{level_id:02X}.blocklist.bin")),
+    )
+    .expect("layout block list should be removable");
 }
 
 /// Helper: build a block grid with solid floor at row 17 and spikes
@@ -6084,6 +6102,27 @@ mod chunk_02 {
 
         assert!(floor.on_ground);
         assert_eq!(floor.cell.collision, terrain::CollisionKind::Solid);
+
+        fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
+    }
+
+    #[test]
+    fn generated_level_layout_requires_block_list_sidecar_for_prize_fidelity() {
+        let output_root = unique_temp_path("generated-layout-missing-block-list");
+        let mut manifest = manifest();
+        manifest.output_root = output_root.clone();
+
+        let mut data = vec![0u8; 2 * 2 * 2];
+        data[4] = 0xE1;
+        data[5] = 0x03;
+        write_generated_level_layout_without_block_list(&output_root, 0, 2, 2, &data);
+
+        let runtime = NativeRuntime::new(manifest);
+
+        assert!(
+            runtime.block_grid().is_none(),
+            "generated/live layouts must not run without <level>.blocklist.bin; otherwise Prize_Init loc_10342 cannot resolve helmet prizes and native falls back to Diamond fixture mode",
+        );
 
         fs::remove_dir_all(output_root).expect("temp layout dir should be removable");
     }
