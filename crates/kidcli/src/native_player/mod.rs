@@ -1090,10 +1090,13 @@ fn debug_hotkey_level_presentation(
 }
 
 fn level_has_generated_title_card(manifest: &AssetManifest, level_id: LevelId) -> bool {
-    manifest
-        .levels
-        .iter()
-        .find(|level| level.level_id == level_id.0)
+    resource_level_record(manifest, level_id.0)
+        .or_else(|| {
+            manifest
+                .levels
+                .iter()
+                .find(|level| level.level_id == level_id.0)
+        })
         .and_then(|level| level.title_card.as_ref())
         .is_some()
 }
@@ -10877,6 +10880,28 @@ mod tests {
             debug_level_card_fallback_frames(&fixture.manifest, LevelId(1)),
             0,
             "targets with generated Load_TitleCard script data should stay on the ROM VDP/title-worker path, not the debug fallback card"
+        );
+    }
+
+    #[test]
+    fn generated_title_card_check_uses_map_order_resource_record() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        fixture.manifest.levels[0].title_card = Some(kid_data::LevelTitleCard {
+            script_bytes: vec![b'R', 0xFF],
+            line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        let mut alias = fixture.manifest.levels[0].clone();
+        alias.level_id = 0x06;
+        alias.display_name = Some(String::from("Aliased Level"));
+        alias.title_card = None;
+        fixture.manifest.levels.push(alias);
+        fixture.manifest.map_order = vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+
+        assert!(
+            level_has_generated_title_card(&fixture.manifest, LevelId(0x06)),
+            "ASM Load_TitleCard resolves logical levels through MapOrder_Index, so play-native debug skips must see resource title-card data for aliases"
         );
     }
 

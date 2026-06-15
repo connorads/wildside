@@ -2952,6 +2952,28 @@ mod chunk_02 {
     }
 
     #[test]
+    fn aliased_level_entry_uses_resource_title_card_loc_6e2() {
+        let mut manifest = manifest_with_levels_and_playable_spawn(2);
+        manifest.map_order = vec![0x00, 0x00];
+        manifest.levels[0].title_card = Some(kid_data::LevelTitleCard {
+            script_bytes: vec![b'A', 0xFF],
+            line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        manifest.levels[1].title_card = None;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.enter_level_playtest(LevelId(0));
+        runtime.enter_level_debug_title_card(LevelId(1));
+
+        assert!(
+            !runtime.starting_level_title_workers.is_empty(),
+            "ASM loc_6E2/Load_TitleCard resolves Current_LevelID through MapOrder_Index, so aliased levels must keep resource title-card workers instead of taking the no-card start path"
+        );
+    }
+
+    #[test]
     fn death_respawn_exposes_load_title_card_vdp_shell_loc_b8de() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

@@ -19638,7 +19638,12 @@ impl NativeRuntime {
     }
 
     pub(crate) fn level_has_title_card(&self, level_id: LevelId) -> bool {
-        self.level_record(level_id)
+        // ASM Load_TitleCard resolves Current_LevelID through MapOrder_Index
+        // before reading the title-card script. Logical aliases such as
+        // Under Skull Mountain 3 (0x06 -> resource 0x02) must therefore use
+        // the resource record, not only the logical shell record.
+        self.resource_level_record(level_id)
+            .or_else(|| self.level_record(level_id))
             .and_then(|level| level.title_card.as_ref())
             .is_some()
     }
