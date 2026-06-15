@@ -1068,7 +1068,7 @@ fn apply_live_level_change_session_assets(
     next_assets: NativeSessionAssets,
 ) {
     *session_assets = next_assets;
-    runtime.set_block_grid(session_assets.block_grid.clone());
+    runtime.set_level_entry_block_grid(session_assets.block_grid.clone());
     if requested_level != resolved_level {
         *trace = runtime.enter_level_debug_title_card(resolved_level);
     }
@@ -11532,6 +11532,19 @@ mod tests {
         target.level_id = 0x02;
         target.display_name = Some(String::from("Direct Live Target"));
         target.title_text_id = Some(0x2D);
+        target.header_metadata = Some(LevelHeader {
+            width_screens: 1,
+            height_screens: 1,
+            height_flag_bits: 0,
+            level_theme: 0x08,
+            murder_wall_flags: 0,
+            background_theme: 0x08,
+            weather_flags: 0,
+            player_start_x: 0x0020,
+            player_start_y: 0x0020,
+            flag_x: 0x0100,
+            flag_y: 0x0020,
+        });
         target.title_card = Some(kid_data::LevelTitleCard {
             script_bytes: vec![b'D', 0xFF],
             line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
@@ -11541,8 +11554,7 @@ mod tests {
         fixture.manifest.levels.push(target);
 
         let mut runtime = NativeRuntime::new(fixture.manifest.clone());
-        let mut start_grid = try_load_block_grid(&fixture.manifest, 0x00).expect("start grid");
-        start_grid.set_cell_at(0, 0, Cell::from_be_bytes(0x60, 0x11));
+        let start_grid = BlockGrid::from_level_layout(&[0; 20 * 14 * 2], 20, 14);
         let mut session_assets = NativeSessionAssets {
             level_visuals: sample_level_visuals(),
             block_grid: start_grid.clone(),
@@ -11552,8 +11564,10 @@ mod tests {
         assert_eq!(trace.current_level, LevelId(2));
         let pre_asset_swap_trace = trace.clone();
 
-        let mut target_grid = try_load_block_grid(&fixture.manifest, 0x00).expect("target grid");
-        target_grid.set_cell_at(0, 0, Cell::from_be_bytes(0xE1, 0x03));
+        let mut target_grid = BlockGrid::from_level_layout(&[0; 20 * 14 * 2], 20, 14);
+        for col in 0..4 {
+            target_grid.set_cell_at(col, 4, Cell::from_be_bytes(0xE1, 0x03));
+        }
         let target_assets = NativeSessionAssets {
             level_visuals: sample_level_visuals(),
             block_grid: target_grid.clone(),
@@ -11580,9 +11594,17 @@ mod tests {
             "direct live level-change asset swaps should not rebuild the trace through a second title-card entry"
         );
         assert_eq!(
-            runtime.block_grid().expect("runtime grid").cell_at(0, 0),
-            target_grid.cell_at(0, 0),
+            runtime.block_grid().expect("runtime grid").cell_at(0, 4),
+            target_grid.cell_at(0, 4),
             "direct live level changes must refresh the collision/prize grid, or debug skips keep stale block-list contents from the previous level"
+        );
+
+        let (_, kid_y) = runtime
+            .level_entry_opening_player_position()
+            .expect("direct live level-change transition should keep a hidden opening slice");
+        assert!(
+            kid_y >= 0x0030_0000,
+            "direct live level-change asset swaps should rebuild the hidden opening slice from the swapped target grid, not preserve the stale no-floor entry pose; y={kid_y:#010x}"
         );
     }
 

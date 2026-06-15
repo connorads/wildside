@@ -1915,6 +1915,27 @@ impl NativeRuntime {
         self.block_grid_source = BlockGridSource::Manual;
     }
 
+    /// Set the block collision grid during a level-entry shell and rebuild the
+    /// hidden opening slice against that exact terrain.
+    pub fn set_level_entry_block_grid(&mut self, grid: terrain::BlockGrid) {
+        self.set_block_grid(grid);
+        if matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::LevelSkipHold
+        ) {
+            // ASM loc_74E0/loc_1AE2E re-enters Load_InGame with the target
+            // level terrain already loaded; play-native swaps generated assets
+            // at the shell boundary, so the hidden spawn settle must be rebuilt
+            // from the freshly loaded grid before gameplay is released.
+            self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
+        }
+    }
+
+    pub fn level_entry_opening_player_position(&self) -> Option<(u32, u32)> {
+        self.opening_slice
+            .map(|slice| (slice.player.x_pos, slice.player.y_pos))
+    }
+
     /// Rebuild VDP state based on the current boot phase.
     /// Called once per frame after `step_boot_state`.
     fn update_vdp_state(&mut self) {
