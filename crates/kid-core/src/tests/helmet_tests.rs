@@ -9435,4 +9435,31 @@ mod chunk_08 {
         assert_eq!(opening.player.y_pos, settled.player.y_pos);
         assert!(opening.player.on_ground);
     }
+
+    #[test]
+    fn level_skip_hold_floor_snaps_destination_before_visible_hold() {
+        // ASM loc_74E0 enters the level-skip hold after the destination load
+        // shell has rebuilt terrain. Native must load the grid before seeding
+        // the visible hold slice, otherwise skipped levels briefly expose the
+        // raw header Y and Kid falls in from above.
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let level = LevelId(0x01);
+
+        runtime.enter_level_skip_hold(level);
+        let opening = runtime
+            .opening_slice
+            .expect("level-skip hold must seed an opening slice");
+        let raw = runtime.level_respawn_slice(level);
+        let settled = runtime.level_respawn_slice_with_floor_snap(level);
+
+        assert_eq!(raw.player.y_pos, 0x009F_0000, "raw header pose is midair");
+        assert_ne!(
+            opening.player.y_pos, raw.player.y_pos,
+            "ASM loc_74E0 hold should not expose Kid at the raw midair header pose"
+        );
+        assert_eq!(opening.player.y_pos, settled.player.y_pos);
+        assert!(opening.player.on_ground);
+    }
 }

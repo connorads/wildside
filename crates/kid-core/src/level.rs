@@ -18469,7 +18469,15 @@ impl NativeRuntime {
         self.boot_state = BootState::LevelSkipHold;
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
-        self.opening_slice = Some(self.level_respawn_slice(level_id));
+        self.reload_block_grid_for_level(level_id);
+        self.opening_slice = Some(if self.block_grid.is_some() {
+            // ASM loc_74E0 enters the destination hold after the mode-$0008
+            // load shell has rebuilt terrain, so the visible hold must use the
+            // same settled spawn as the later resume path.
+            self.level_respawn_slice_with_floor_snap(level_id)
+        } else {
+            self.level_respawn_slice(level_id)
+        });
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
@@ -18494,7 +18502,6 @@ impl NativeRuntime {
         self.allow_pausing = false;
         self.allow_pausing_fade_frames = 0;
         self.death_shell_snapshot = None;
-        self.reload_block_grid_for_level(level_id);
     }
 
     /// Advance the murder wall position by applying acceleration and speed.
