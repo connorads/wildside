@@ -3465,13 +3465,13 @@ pub(super) fn push_level_layout_terrain(
     for row in row_start..row_end {
         for col in col_start..col_end {
             let raw_word = block_grid.map(|grid| grid.raw_word_at(col, row));
-            let grid_cell = block_grid.map(|grid| grid.cell_at(col, row));
             let priority_override = raw_word
                 .filter(|word| word & 0x8100 == 0x0100)
                 .map(|_| true);
-            let skin = grid_cell
-                .filter(|cell| !cell.has_block)
-                .map_or_else(|| layout.skin_at(col, row), |cell| cell.skin);
+            // ASM sub_302F6/sub_3034A draws Scroll A base terrain from
+            // Level_Layout; runtime block-grid writes are collision/block
+            // overlay state and cleared block cells must not erase the art.
+            let skin = layout.skin_at(col, row);
             let Some(resolved) = level_visuals.level.block_mapping.resolve(skin, None) else {
                 continue;
             };

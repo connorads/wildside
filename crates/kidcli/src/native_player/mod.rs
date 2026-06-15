@@ -12397,21 +12397,29 @@ mod tests {
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
-        // 2x2 grid: one prize block at (0,0), rest empty
+        // 2x2 grid: one prize block at (1,0), rest empty. The sample
+        // foreground layout has immutable skin 3 at (1,0); a cleared
+        // runtime block-grid cell has skin 0.
         let mut data = vec![0u8; 2 * 2 * 2];
-        data[0] = 0xE1; // block=true, collision=Solid, block_type=Prize
+        data[2] = 0xE1; // block=true, collision=Solid, block_type=Prize
         let mut grid = BlockGrid::from_level_layout(&data, 2, 2);
 
         // Before destruction: prize cell visible
         let scene = build_ingame_scene(&trace, false, Some(&grid));
-        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_some());
-        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x80).is_some());
+        assert!(indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200).is_some());
+        assert!(indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_some());
 
         // Destroy the block override; the immutable terrain art should remain.
-        grid.set_cell_at(0, 0, Cell::from_be_bytes(0, 0));
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0, 0));
         let scene = build_ingame_scene(&trace, false, Some(&grid));
-        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x200).is_none());
-        assert!(indexed_tile_at_with_sheet_len(&scene, 0, 0, 0x80).is_some());
+        assert!(indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200).is_none());
+        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
+            panic!("expected foreground terrain after the block override was cleared");
+        };
+        assert_eq!(
+            tile.tile_index, 3 * 4,
+            "clearing a live block cell must reveal immutable foreground skin 3, not the cleared cell's skin 0"
+        );
     }
 
     #[test]
