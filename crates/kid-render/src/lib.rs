@@ -700,7 +700,7 @@ mod tests {
     }
 
     #[test]
-    fn load_level_visuals_prefers_logical_decoded_layout_when_generated() {
+    fn load_level_visuals_prefers_resource_decoded_layout_for_aliased_generated_levels() {
         let mut fixture = TestBundle::new().expect("test bundle");
         let resource_foreground = vec![0x04; 6 * 4 * 20 * 14];
         fixture
@@ -767,17 +767,15 @@ mod tests {
         let visuals =
             load_level_visuals(&fixture.manifest, 0x01).expect("aliased visuals should load");
 
-        // ASM loc_1AB52 keeps ordinary Current_LevelID logical for generated
-        // title/level data; when the bundle has logical decoded layouts, render
-        // must not draw the mapped resource while core collision/spawn uses the
-        // logical layout.
+        // ASM Load_InGame loc_11A50 resolves Current_LevelID through
+        // MapOrder_Index before reading the map header and layout pointers.
         assert_eq!(visuals.level.level_id, 0x01);
-        assert_eq!(visuals.level.foreground_layout.width_cells, 40);
-        assert_eq!(visuals.level.foreground_layout.height_cells, 28);
-        assert_eq!(visuals.level.foreground_layout_bytes, logical_foreground);
+        assert_eq!(visuals.level.foreground_layout.width_cells, 120);
+        assert_eq!(visuals.level.foreground_layout.height_cells, 56);
+        assert_eq!(visuals.level.foreground_layout_bytes, resource_foreground);
         assert_eq!(
             visuals.level.block_layout_bytes,
-            vec![0x01, 0x02, 0x03, 0x04]
+            vec![0x4B, 0x4C, 0x4D, 0x4E]
         );
     }
 
