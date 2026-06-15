@@ -699,6 +699,19 @@ and stop — never commit churn.
   batch preserved the same separation and reported no target block events, so
   do not repeat simple form swaps on this seed without a new Drips cycle or
   vertical route.
+  2026-06-15 follow-up on the independent
+  `issue_260_dlb_tail_b_row32_bounce_01` route: the new named
+  `issue260-gr-pulse600` scenario overlays `431..500 Right` plus B pulses at
+  `600..610`, `620..630`, and `640..650`. The materialised cache candidate
+  verified enemy-frontier clean through frames `580..660`, and advisory
+  `tas-diff` frames `636..652` reported 16/16 matches. It improves late
+  DripsDrop/row-32 conjunction around frame 650 (`cell 36,32` Kid
+  `dx=-7 dy=-1`, drop `dx=0 dy=-9`; `cell 37,32` Kid `dx=0 dy=-1`, drop
+  `dx=+8 dy=-9`) and keeps the row-32 bounce at `cell 37,32 @610`, but it is
+  still not the reported mutation: no destroy event occurs, and focused traces
+  show the projectile separated from Kid/block contact
+  (`kid_projectile_damage_probe dx=-19 dy=-23 overlap=0`). Use it as a durable
+  oracle-clean near-miss seed; do not treat it as metal-block proof.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants

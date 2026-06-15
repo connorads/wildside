@@ -2474,6 +2474,64 @@ pub fn issue_260_dlb_tail_b_row32_bounce_scenario() -> DynamicScenario {
     }
 }
 
+/// #260 oracle-comparable late DripsDrop/row-32 near-miss.
+///
+/// This extends `issue_260_dlb_tail_b_row32_bounce_scenario` with the
+/// `gr_pulse600` overlay discovered on 2026-06-15: a right hold during the
+/// row-32 setup, then three late B pulses. It is a route-search checkpoint,
+/// not the reported slime/metal-block proof: oracle-clean frames 580..660 keep
+/// the live DripsDrop separated from Kid/block mutation, with no destroy event.
+pub fn issue_260_gr_pulse600_scenario() -> DynamicScenario {
+    const FRAME_COUNT: usize = 700;
+    const LEFT: u8 = 1 << 2;
+    const RIGHT: u8 = 1 << 3;
+    const B: u8 = 1 << 4;
+
+    let mut script = vec![0u8; FRAME_COUNT.saturating_add(1)];
+    apply_range(&mut script, 150, 250, LEFT);
+    apply_range(&mut script, 251, 350, B | RIGHT);
+    apply_range(&mut script, 351, 500, RIGHT);
+    apply_range(&mut script, 501, 570, B | LEFT);
+    apply_range(&mut script, 600, 610, B);
+    apply_range(&mut script, 620, 630, B);
+    apply_range(&mut script, 640, 650, B);
+
+    DynamicScenario {
+        slug: "issue260_gr_pulse600".into(),
+        script,
+        frame_count: FRAME_COUNT,
+        checkpoints: vec![
+            DynamicCheckpoint {
+                label: "p11_route_start".into(),
+                frame_index: 0,
+            },
+            DynamicCheckpoint {
+                label: "pre_drop_alignment".into(),
+                frame_index: 330,
+            },
+            DynamicCheckpoint {
+                label: "row32_bounce_window".into(),
+                frame_index: 511,
+            },
+            DynamicCheckpoint {
+                label: "late_drop_near_miss".into(),
+                frame_index: 650,
+            },
+            DynamicCheckpoint {
+                label: "tail".into(),
+                frame_index: FRAME_COUNT,
+            },
+        ],
+        start_position: Some(DynamicStartPosition { x: 344, y: 575 }),
+        start_velocity: None,
+        camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
+        playtest_form: None,
+        initial_diamond_count: None,
+        warp_to_level: Some(0x01),
+        settle_oracle_warp: true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -2491,7 +2549,7 @@ mod tests {
         issue_260_dlb_tail_b_row32_bounce_scenario, issue_260_drips_b_jump_climb_seed_scenario,
         issue_260_drips_cleaner_prefix_audit_scenario, issue_260_drips_drop_contact_probe_scenario,
         issue_260_drips_early_jump_close_probe_scenario,
-        issue_260_drips_iron_knight_climb_probe_scenario,
+        issue_260_drips_iron_knight_climb_probe_scenario, issue_260_gr_pulse600_scenario,
         issue_271_level00_dragon_stomp_damage_audit_scenario,
         issue_271_level01_rock_tank_stomp_route_audit_scenario,
         issue_271_level01_rock_tank_stomp_sharp_audit_scenario, lava_weather_audit_scenario,
@@ -2895,6 +2953,55 @@ mod tests {
                 "pre_drop_alignment",
                 "row32_bounce_window",
                 "surface_crawler_window",
+                "tail"
+            ]
+        );
+    }
+
+    #[test]
+    fn issue_260_gr_pulse600_preserves_late_drips_near_miss_route() {
+        let scenario = issue_260_gr_pulse600_scenario();
+
+        assert_eq!(scenario.slug, "issue260_gr_pulse600");
+        assert_eq!(scenario.warp_to_level, Some(0x01));
+        assert!(scenario.settle_oracle_warp);
+        assert_eq!(
+            scenario.start_position,
+            Some(DynamicStartPosition { x: 344, y: 575 })
+        );
+        assert_eq!(
+            scenario.camera_position,
+            Some(DynamicStartPosition { x: 192, y: 352 })
+        );
+        assert_eq!(scenario.frame_count, 700);
+        assert_eq!(scenario.script.len(), scenario.frame_count + 1);
+
+        const LEFT: u8 = 1 << 2;
+        const RIGHT: u8 = 1 << 3;
+        const B: u8 = 1 << 4;
+        assert_eq!(scenario.script[430], RIGHT);
+        assert_eq!(scenario.script[431], RIGHT);
+        assert_eq!(scenario.script[500], RIGHT);
+        assert_eq!(scenario.script[501], B | LEFT);
+        assert_eq!(scenario.script[600], B);
+        assert_eq!(scenario.script[611], 0);
+        assert_eq!(scenario.script[620], B);
+        assert_eq!(scenario.script[631], 0);
+        assert_eq!(scenario.script[640], B);
+        assert_eq!(scenario.script[651], 0);
+
+        let labels: Vec<_> = scenario
+            .checkpoints
+            .iter()
+            .map(|checkpoint| checkpoint.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec![
+                "p11_route_start",
+                "pre_drop_alignment",
+                "row32_bounce_window",
+                "late_drop_near_miss",
                 "tail"
             ]
         );
