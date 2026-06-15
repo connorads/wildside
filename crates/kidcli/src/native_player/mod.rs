@@ -7409,9 +7409,23 @@ mod tests {
                     tiles,
                     ..
                 } if tile_sheet.tiles.len() == 0x200
-                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x00D)
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x015)
             )),
-            "late sub_1007A block_bounces entry should draw the ASM wobble sprite using the deleted cell's skin, not the sheet's skin-zero tile",
+            "late sub_1007A block_bounces entry should draw the ASM wobble sprite from the original layout skin copied into `$220/$229`, not the temporary `$6Fxx` cell skin",
+        );
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite {
+                    x: 16,
+                    y: -2,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if tile_sheet.tiles.len() == 0x200
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x1C5)
+            )),
+            "ASM sub_1007A writes `$6Fxx` into Level_Layout only as collision state; native must not use skin `$6F` as the wobble art"
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(

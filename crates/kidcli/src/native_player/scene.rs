@@ -3648,8 +3648,12 @@ pub(super) fn push_block_grid_overrides(
             continue;
         }
         let skin = block_grid
-            .map(|grid| grid.cell_at(col, row).skin)
-            .unwrap_or_else(|| level_visuals.level.foreground_layout.skin_at(col, row));
+            .map(|grid| grid.cell_at(col, row))
+            .filter(|cell| cell.has_block)
+            .map_or_else(
+                || level_visuals.level.foreground_layout.skin_at(col, row),
+                |cell| cell.skin,
+            );
         let Some(resolved) = level_visuals
             .level
             .block_mapping
