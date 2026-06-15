@@ -18350,10 +18350,10 @@ impl NativeRuntime {
 
         // ASM loc_1223C (kid.asm:24373-24384): after hibernating one frame,
         // decrement d0. Non-zero loops; zero rotates Palette_Buffer+$E..+$14,
-        // reloads d0 from d2, and loops again. Native records the rotation
-        // count until a live Palette_Buffer owns the actual CRAM words.
+        // reloads d0 from d2, and loops again.
         state.countdown_d0 = state.countdown_d0.wrapping_sub(1);
         if state.countdown_d0 == 0 {
+            rotate_palette_lava_water_loc_1223C(&mut self.palette_buffer);
             state.countdown_d0 = state.reload_delay_d2;
             state.completed_rotations = state.completed_rotations.wrapping_add(1);
         }

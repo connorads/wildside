@@ -194,6 +194,11 @@ pub struct NativeRuntime {
     diamond_power_sprites: Vec<DiamondPowerSpriteSnapshot>,
     fire_demon_trails: Vec<FireDemonTrailChild>,
     weather: WeatherState,
+    /// Native mirror of the ROM's 64-word `Palette_Buffer`.
+    /// Most live render paths still use extracted assets directly, but
+    /// environment workers mutate this buffer so palette side effects are no
+    /// longer trapped in test-only helpers.
+    palette_buffer: [u16; 0x40],
     rotate_palette_lava_water_loc_1223c: Option<RotatePaletteLavaWaterStateLoc1223C>,
     island_shore_cycle_loc_1202a: Option<IslandShoreCycleStateLoc1202A>,
     murder_wall: Option<MurderWallState>,
@@ -1471,6 +1476,7 @@ impl NativeRuntime {
             diamond_power_sprites: Vec::new(),
             fire_demon_trails: Vec::new(),
             weather: WeatherState::default(),
+            palette_buffer: [0; 0x40],
             rotate_palette_lava_water_loc_1223c: None,
             island_shore_cycle_loc_1202a: None,
             murder_wall: None,

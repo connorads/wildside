@@ -3070,6 +3070,41 @@ mod chunk_02 {
     }
 
     #[test]
+    fn step_lava_water_rotator_mutates_live_palette_buffer_loc_1223c() {
+        let mut assets = manifest();
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x07;
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.begin_level_entry(LevelId(0));
+        let start = crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C;
+        runtime.palette_buffer[start] = 0x1111;
+        runtime.palette_buffer[start + 1] = 0x2222;
+        runtime.palette_buffer[start + 2] = 0x3333;
+        runtime.palette_buffer[start + 3] = 0x4444;
+
+        for _ in 0..4 {
+            runtime.step_rotate_palette_lava_water_loc_1223c();
+        }
+
+        assert_eq!(
+            &runtime.palette_buffer[start..start + 4],
+            &[0x1111, 0x2222, 0x3333, 0x4444],
+            "ASM loc_1223C hibernates until d0 drains; Palette_Buffer+$E..+$14 must not rotate early"
+        );
+
+        runtime.step_rotate_palette_lava_water_loc_1223c();
+
+        assert_eq!(
+            &runtime.palette_buffer[start..start + 4],
+            &[0x4444, 0x1111, 0x2222, 0x3333],
+            "ASM loc_1223C rotates Palette_Buffer+$14 into +$E, then shifts +$E/+10/+12 upward"
+        );
+    }
+
+    #[test]
     fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
