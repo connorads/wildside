@@ -2395,9 +2395,9 @@ fn transform_sound_for_helmet_id_loc_7cd0(helmet_id: u16) -> Option<u8> {
 }
 
 fn play_fallback_transform_sfx(sfx: &mut SfxEngine) {
-    sfx.play(392.0, 60, 0.12);
-    sfx.play(523.0, 60, 0.12);
-    sfx.play(659.0, 80, 0.12);
+    sfx.play(330.0, 90, 0.16);
+    sfx.play(494.0, 110, 0.17);
+    sfx.play(740.0, 150, 0.18);
 }
 
 fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
@@ -2456,12 +2456,21 @@ fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
             sfx.play(440.0, 80, 0.1);
             sfx.play(550.0, 120, 0.1);
         }
-        gems_sfx::RED_STEALTH_ATTACK_DOWN
-        | gems_sfx::MANIAXE_THROW
-        | gems_sfx::RED_STEALTH_SWORD
-        | gems_sfx::MICROMAX_STICK
-        | gems_sfx::EYECLOPS_BEAM
-        | gems_sfx::RED_STEALTH_HITTING_TARGET => sfx.play(659.0, 45, 0.09),
+        gems_sfx::RED_STEALTH_ATTACK_DOWN => {
+            sfx.play(988.0, 55, 0.18);
+            sfx.play(494.0, 90, 0.16);
+        }
+        gems_sfx::RED_STEALTH_SWORD => {
+            sfx.play(1320.0, 35, 0.17);
+            sfx.play(880.0, 55, 0.14);
+        }
+        gems_sfx::RED_STEALTH_HITTING_TARGET => {
+            sfx.play(1568.0, 45, 0.22);
+            sfx.play(784.0, 95, 0.18);
+        }
+        gems_sfx::MANIAXE_THROW | gems_sfx::MICROMAX_STICK | gems_sfx::EYECLOPS_BEAM => {
+            sfx.play(659.0, 45, 0.09)
+        }
         id if is_transform_sound_id(id) => play_fallback_transform_sfx(sfx),
         _ => {}
     }
@@ -15809,6 +15818,49 @@ mod tests {
             sfx.active_tones.len(),
             3,
             "ASM loc_7CD0 queues the transform SFX in core traces; fallback must not layer the legacy helmet-id heuristic over it"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_gives_red_stealth_cues_distinct_audible_shapes_loc_b350_868e_7cd0() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_sound_effect_ids = vec![
+            gems_sfx::RED_STEALTH_ATTACK_DOWN,
+            gems_sfx::RED_STEALTH_SWORD,
+            gems_sfx::RED_STEALTH_HITTING_TARGET,
+            gems_sfx::RED_STEALTH_TRANSFORM,
+        ];
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &curr, &mut sfx);
+
+        let tones: Vec<(u32, u32, u32)> = sfx
+            .active_tones
+            .iter()
+            .map(|tone| {
+                (
+                    tone.frequency.round() as u32,
+                    tone.remaining_samples,
+                    (tone.volume * 100.0).round() as u32,
+                )
+            })
+            .collect();
+
+        assert_eq!(
+            tones,
+            vec![
+                (988, 2425, 18),
+                (494, 3969, 16),
+                (1320, 1543, 17),
+                (880, 2425, 14),
+                (1568, 1984, 22),
+                (784, 4189, 18),
+                (330, 3969, 16),
+                (494, 4851, 17),
+                (740, 6615, 18),
+            ],
+            "ASM loc_B350/sub_868E/loc_7CD0 queue separate Samurai attack, sword-hit, and transform cues; fallback audio should not collapse them into one weak blip"
         );
     }
 
