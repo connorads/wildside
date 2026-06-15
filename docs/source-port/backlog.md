@@ -725,7 +725,14 @@ and stop — never commit churn.
   still not the reported mutation: no destroy event occurs, and focused traces
   show the projectile separated from Kid/block contact
   (`kid_projectile_damage_probe dx=-19 dy=-23 overlap=0`). Use it as a durable
-  oracle-clean near-miss seed; do not treat it as metal-block proof.
+  oracle-clean near-miss seed; do not treat it as metal-block proof. Follow-up
+  same-seed batches reject the obvious late-tail/setup variants: `520..680`
+  left/right/B pulses can improve the drop-to-cell Y to `dy=-3`, but they pull
+  Kid down/off line (`best pulse_early score=18`, Kid `dy=-14`) and still only
+  bounce `cell 37,32 @590`; `431..500` setup/turn variants either reproduce
+  the baseline (`late_right`, score 17, bounce `cell 37,32 @610`) or move Kid
+  far away/enter `LevelTransition`. Do not retry this gr-pulse setup/tail axis
+  without changing the Drips cycle or vertical route.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
