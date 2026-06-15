@@ -18294,6 +18294,7 @@ impl NativeRuntime {
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
         self.current_level = level_id;
         self.level_start_frame = None;
+        let entered_from_live_gameplay = matches!(self.boot_state, BootState::InGame);
         let level_has_title_card = self.level_has_title_card(level_id);
         let uses_load_ingame_bootstrap = matches!(self.boot_state, BootState::TitleScreen { .. })
             && if level_has_title_card {
@@ -18337,12 +18338,17 @@ impl NativeRuntime {
         self.level_skip_resume_hold = false;
         self.reload_block_grid_for_level(level_id);
         let preserves_player_start = self.pending_player_start_override_loc_11bd2.is_some();
-        self.opening_slice = Some(if self.block_grid.is_some() && !preserves_player_start {
+        let should_floor_snap_entry = self.block_grid.is_some()
+            && (!preserves_player_start || entered_from_live_gameplay);
+        self.opening_slice = Some(if should_floor_snap_entry {
             // ASM Load_InGame seeds the level header pose and spends hidden
             // frames settling Kid onto the real floor before visible gameplay.
             // Booted level entry should therefore start from the same settled
             // spawn helper we already use for respawn/playtest paths, not the
-            // generic title-screen opening pose.
+            // generic title-screen opening pose. A gameplay Teleport/Hundred K
+            // Trip loc_11BD2 override still falls through loc_11BEC's
+            // Load_InGame setup and hidden floor-settle; non-gameplay
+            // bootstrap paths keep their existing raw slot-2 title-card pose.
             self.level_respawn_slice_with_floor_snap(level_id)
         } else {
             self.level_respawn_slice(level_id)

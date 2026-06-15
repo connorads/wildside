@@ -8509,8 +8509,8 @@ mod chunk_09 {
         );
         assert_eq!(
             slice.player.y_pos,
-            ((6 * 16) - 1) << 16,
-            "loc_B522 frame 90 should activate loc_BC80 destination y, then loc_7526 places Kid at PlayerStart_Y-1",
+            0x0583_0000,
+            "loc_B522 frame 90 activates loc_BC80 destination y; loc_7526 starts at PlayerStart_Y-1 and loc_11BD2/loc_11BEC runs the hidden Load_InGame floor settle before gameplay",
         );
     }
 

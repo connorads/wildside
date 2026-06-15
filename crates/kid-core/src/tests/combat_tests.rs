@@ -8140,8 +8140,8 @@ mod chunk_03 {
             "ASM loc_DA4A writes PlayerStart_X_pos=$20 and sets `$FFFFFC29`; loc_11BD2 preserves it instead of reading the destination header"
         );
         assert_eq!(
-            opening.player.y_pos, 0x048E_0000,
-            "ASM loc_7526 copies PlayerStart_Y_pos=$48F and subtracts one pixel for the Kid object"
+            opening.player.y_pos, 0x09B2_0000,
+            "ASM loc_7526 first copies PlayerStart_Y_pos=$48F and subtracts one pixel, then loc_11BD2/loc_11BEC still runs the hidden Load_InGame floor settle before gameplay"
         );
     }
 

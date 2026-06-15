@@ -3424,6 +3424,49 @@ mod chunk_02 {
     }
 
     #[test]
+    fn preserved_player_start_entry_floor_snaps_loc_11bd2() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let level = LevelId(0);
+        let player_start_x = 0x0020;
+        let (player_start_y, raw, expected) = (0x0020..0x00E0)
+            .find_map(|player_start_y| {
+                runtime.pending_player_start_override_loc_11bd2 =
+                    Some((player_start_x, player_start_y));
+                let raw = runtime.level_respawn_slice(level);
+                let expected = runtime.level_respawn_slice_with_floor_snap(level);
+                (expected.player.on_ground && raw.player.y_pos != expected.player.y_pos)
+                    .then_some((player_start_y, raw, expected))
+            })
+            .expect("test fixture should expose an override that needs floor settling");
+
+        runtime.boot_state = BootState::InGame;
+        runtime.pending_player_start_override_loc_11bd2 = Some((player_start_x, player_start_y));
+        runtime.begin_level_entry(level);
+
+        let slice = runtime
+            .opening_slice
+            .expect("loc_6E2 Load_InGame entry should seed an opening slice");
+
+        assert_ne!(
+            raw.player.y_pos, expected.player.y_pos,
+            "test setup must distinguish ASM loc_7526 raw PlayerStart_Y-1 from the hidden Load_InGame settled floor pose"
+        );
+        assert_eq!(
+            slice.player.x_pos, expected.player.x_pos,
+            "ASM loc_11BD2 preserves caller-written PlayerStart_X through Load_InGame"
+        );
+        assert_eq!(
+            slice.player.y_pos, expected.player.y_pos,
+            "ASM loc_11BD2/loc_11BEC still runs the hidden Load_InGame settle before visible gameplay"
+        );
+        assert_eq!(slice.player.on_ground, expected.player.on_ground);
+        assert_eq!(slice.terrain.floor_y_pos, expected.terrain.floor_y_pos);
+        assert_eq!(runtime.pending_player_start_override_loc_11bd2, None);
+    }
+
+    #[test]
     fn boot_title_start_level_2_spaces_loc_1ad48_number_workers_by_16_pixels() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
