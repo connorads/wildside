@@ -2314,10 +2314,9 @@ impl NativeRuntime {
             DrillerBlockDrillActionLoc3BEDE::None => {}
             DrillerBlockDrillActionLoc3BEDE::SmashBits => {
                 if let Some(grid) = &mut self.block_grid {
-                    grid.set_cell_at(
+                    grid.erase_block_from_level_layout_loc_11542(
                         drilled_block.col,
                         drilled_block.row,
-                        terrain::Cell::from_be_bytes(0, 0),
                     );
                 }
                 self.spawn_smash_block_effect_sub_10eda(
@@ -2349,10 +2348,9 @@ impl NativeRuntime {
                     ));
                 }
                 if let Some(grid) = &mut self.block_grid {
-                    grid.set_cell_at(
+                    grid.erase_block_from_level_layout_loc_11542(
                         drilled_block.col,
                         drilled_block.row,
-                        terrain::Cell::from_be_bytes(0, 0),
                     );
                 }
                 self.spawn_ice_block_effect_sub_10f9c(
@@ -3338,10 +3336,9 @@ impl NativeRuntime {
                         }
                         age if age == Self::SHOOTER_HEADBUTT_HOLD_FRAMES * 2 => {
                             // ASM sub_114C0: after the second 8-frame hibernate, erase the cell.
-                            grid.set_cell_at(
+                            grid.erase_block_from_level_layout_loc_11542(
                                 worker.col,
                                 worker.row,
-                                terrain::Cell::from_be_bytes(0, 0),
                             );
                             return false;
                         }
@@ -3439,10 +3436,9 @@ impl NativeRuntime {
         self.block_state.lift_platforms.retain_mut(|lift| {
             if !lift.block_erased {
                 if let Some(grid) = &mut self.block_grid {
-                    grid.set_cell_at(
+                    grid.erase_block_from_level_layout_loc_11542(
                         lift.source_col,
                         lift.source_row,
-                        terrain::Cell::from_be_bytes(0, 0),
                     );
                 }
                 lift.block_erased = true;
@@ -4412,11 +4408,8 @@ impl NativeRuntime {
                 // upward hibernates, write `$E710` to the reserved upper cell,
                 // then erase the original lower source block.
                 grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0xE7, 0x10));
-                grid.set_cell_at(
-                    col,
-                    row.saturating_add(1),
-                    terrain::Cell::from_be_bytes(0, 0),
-                );
+                let lower_row = row.saturating_add(1);
+                grid.erase_block_from_level_layout_loc_11542(col, lower_row);
             }
         }
         for (col, row) in finished_lift_blocks {

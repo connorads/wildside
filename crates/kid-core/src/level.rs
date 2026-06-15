@@ -18650,10 +18650,51 @@ impl NativeRuntime {
             .ok()
             .and_then(|json| serde_json::from_str::<LevelLayoutMetadata>(&json).ok())?;
         data.truncate(metadata.data_bytes.min(data.len()));
-        Some(terrain::BlockGrid::from_level_layout(
+        let erase_words_loc_11542 = self
+            .erase_words_for_level_loc_11542(level_id, metadata.width_blocks, metadata.height_blocks)
+            .unwrap_or_else(|| {
+                vec![0; usize::from(metadata.width_blocks) * usize::from(metadata.height_blocks)]
+            });
+        Some(terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
             &data,
+            erase_words_loc_11542,
             metadata.width_blocks,
             metadata.height_blocks,
+        ))
+    }
+
+    #[allow(non_snake_case)]
+    fn erase_words_for_level_loc_11542(
+        &self,
+        level_id: LevelId,
+        width_blocks: u16,
+        height_blocks: u16,
+    ) -> Option<Vec<u16>> {
+        let header = self.level_header(level_id)?;
+        let resource_level = kid_data::resource_level_id(&self.assets, level_id.0);
+        let terrain = self
+            .assets
+            .decoded_levels
+            .iter()
+            .find(|decoded| decoded.level_id == resource_level)
+            .or_else(|| {
+                self.assets
+                    .decoded_levels
+                    .iter()
+                    .find(|decoded| decoded.level_id == level_id.0)
+            })?;
+        let terrain_path = self
+            .assets
+            .output_root
+            .join(&terrain.foreground.relative_path);
+        let terrain_bytes = fs::read(terrain_path).ok()?;
+        let collision_dir = self.assets.output_root.join("theme").join("collision");
+        let collision_index = theme_collision_table_loc_11C36(&collision_dir, header.level_theme)?;
+        Some(level_layout_cells_loc_11C34(
+            &terrain_bytes,
+            &collision_index,
+            width_blocks,
+            height_blocks,
         ))
     }
 
@@ -18751,6 +18792,7 @@ impl NativeRuntime {
             width_blocks,
             height_blocks,
         );
+        let mut erase_words_loc_11542 = cells.clone();
 
         // ASM loc_11C34 tail (kid.asm:23835-23838): the Forced Entry level
         // ($21) gets a single steel block ($E50B) inserted at cell ($20,$B)
@@ -18759,6 +18801,9 @@ impl NativeRuntime {
         if level_id.0 == L_FORCED_ENTRY {
             let idx = 0xB * usize::from(width_blocks) + 0x20;
             if let Some(cell) = cells.get_mut(idx) {
+                *cell = 0xE50B;
+            }
+            if let Some(cell) = erase_words_loc_11542.get_mut(idx) {
                 *cell = 0xE50B;
             }
         }
@@ -18793,8 +18838,9 @@ impl NativeRuntime {
         for word in &cells {
             bytes.extend_from_slice(&word.to_be_bytes());
         }
-        Some(terrain::BlockGrid::from_level_layout(
+        Some(terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
             &bytes,
+            erase_words_loc_11542,
             width_blocks,
             height_blocks,
         ))

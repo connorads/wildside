@@ -1965,11 +1965,7 @@ impl NativeRuntime {
             | terrain::BlockType::Prize
             | terrain::BlockType::Mushroom => {
                 if let Some(grid) = &mut self.block_grid {
-                    grid.set_cell_at(
-                        interaction.col,
-                        interaction.row,
-                        terrain::Cell::from_be_bytes(0, 0),
-                    );
+                    grid.erase_block_from_level_layout_loc_11542(interaction.col, interaction.row);
                 }
                 self.spawn_smash_block_effect_sub_10eda(
                     interaction.col * 16,
@@ -2004,11 +2000,7 @@ impl NativeRuntime {
                     ));
                 }
                 if let Some(grid) = &mut self.block_grid {
-                    grid.set_cell_at(
-                        interaction.col,
-                        interaction.row,
-                        terrain::Cell::from_be_bytes(0, 0),
-                    );
+                    grid.erase_block_from_level_layout_loc_11542(interaction.col, interaction.row);
                 }
                 self.spawn_ice_block_effect_sub_10f9c(
                     interaction.col * 16,

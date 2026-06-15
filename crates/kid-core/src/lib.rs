@@ -3840,10 +3840,9 @@ impl NativeRuntime {
                             // type 0 (Smash) handler — `moveq #2,d6; jmp
                             // (j_Block_LoadSmashBits).l`.
                             helmets::RedStealthFloorImpactKindSubB000::Smash => {
-                                grid.set_cell_at(
+                                grid.erase_block_from_level_layout_loc_11542(
                                     red_stealth_impact.block_col,
                                     red_stealth_impact.block_row,
-                                    terrain::Cell::from_be_bytes(0x00, 0x00),
                                 );
                                 self.block_destroy_effects.push(BlockDestroyEffect {
                                     // ASM loc_10F1A/loc_10F2A: d6=2 nudges
@@ -3896,10 +3895,9 @@ impl NativeRuntime {
                                         Self::BLOCK_DESTROY_DIRECTION_BELOW,
                                     ));
                                 }
-                                grid.set_cell_at(
+                                grid.erase_block_from_level_layout_loc_11542(
                                     red_stealth_impact.block_col,
                                     red_stealth_impact.block_row,
-                                    terrain::Cell::from_be_bytes(0x00, 0x00),
                                 );
                                 self.block_destroy_effects.push(BlockDestroyEffect {
                                     // ASM sub_10F9C (kid.asm:22881): d6=0
@@ -3984,10 +3982,9 @@ impl NativeRuntime {
                             // type 0 (Smash) handler — `moveq #2,d6; jmp
                             // (j_Block_LoadSmashBits).l`.
                             blocks::IronKnightBlockEffectSubAF7A::Smash => {
-                                grid.set_cell_at(
+                                grid.erase_block_from_level_layout_loc_11542(
                                     probe.cell_x,
                                     probe.cell_y,
-                                    terrain::Cell::from_be_bytes(0x00, 0x00),
                                 );
                                 self.spawn_smash_block_effect_sub_10eda(
                                     probe.cell_x * 16,
@@ -4038,10 +4035,9 @@ impl NativeRuntime {
                                         Self::BLOCK_DESTROY_DIRECTION_BELOW,
                                     ));
                                 }
-                                grid.set_cell_at(
+                                grid.erase_block_from_level_layout_loc_11542(
                                     probe.cell_x,
                                     probe.cell_y,
-                                    terrain::Cell::from_be_bytes(0x00, 0x00),
                                 );
                                 self.spawn_ice_block_effect_sub_10f9c(
                                     probe.cell_x * 16,

@@ -6618,11 +6618,7 @@ impl OpeningSliceState {
                                     && cell.has_block
                                     && cell.block_type == terrain::BlockType::Smash
                                 {
-                                    grid.set_cell_at(
-                                        col,
-                                        tile_row,
-                                        terrain::Cell::from_be_bytes(0, 0),
-                                    );
+                                    grid.erase_block_from_level_layout_loc_11542(col, tile_row);
                                 }
                             }
                         }
@@ -6636,10 +6632,9 @@ impl OpeningSliceState {
                         let direction = if skycutter_on_board { 0 } else { 2 };
                         self.smash_block_hit = Some((block_x_px, block_y_px, direction));
                         // ASM j_Block_LoadSmashBits clears Smash blocks immediately
-                        grid.set_cell_at(
+                        grid.erase_block_from_level_layout_loc_11542(
                             block_dispatch_probe.cell_x,
                             block_dispatch_probe.cell_y,
-                            terrain::Cell::from_be_bytes(0, 0),
                         );
                     }
                     terrain::BlockType::Ice => {
@@ -6652,20 +6647,18 @@ impl OpeningSliceState {
                             block_dispatch_probe.cell_y,
                             direction,
                         ));
-                        grid.set_cell_at(
+                        grid.erase_block_from_level_layout_loc_11542(
                             block_dispatch_probe.cell_x,
                             block_dispatch_probe.cell_y,
-                            terrain::Cell::from_be_bytes(0, 0),
                         );
                     }
                     terrain::BlockType::Lift => {
                         let block_x_px = block_dispatch_probe.cell_x * 16;
                         let block_y_px = block_dispatch_probe.cell_y * 16;
                         self.lift_block_hit = Some((block_x_px, block_y_px));
-                        grid.set_cell_at(
+                        grid.erase_block_from_level_layout_loc_11542(
                             block_dispatch_probe.cell_x,
                             block_dispatch_probe.cell_y,
-                            terrain::Cell::from_be_bytes(0, 0),
                         );
                     }
                     terrain::BlockType::Drill => {

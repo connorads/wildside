@@ -170,6 +170,47 @@ fn cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270() {
 }
 
 #[test]
+fn erase_block_from_level_layout_preserves_forest_skin_loc_11542() {
+    let Some(mut runtime) = cached_generated_runtime() else {
+        return;
+    };
+    runtime.warp_to_level(LevelId(0x00));
+    let grid = runtime.block_grid.as_mut().expect("generated level 0 grid");
+    let (block_col, block_row, erase_cell) = (0..grid.height_cells)
+        .flat_map(|row| (0..grid.width_cells).map(move |col| (col, row)))
+        .find_map(|(col, row)| {
+            let cell = grid.cell_at(col, row);
+            let erase_cell = grid.erase_cell_at_loc_11542(col, row);
+            (cell.has_block && erase_cell != terrain::Cell::from_be_bytes(0, 0))
+                .then_some((col, row, erase_cell))
+        })
+        .expect("generated forest level should contain a block over visible foreground");
+
+    assert_ne!(
+        erase_cell,
+        terrain::Cell::from_be_bytes(0, 0),
+        "ASM EraseBlockFromLevelLayout loc_11542 should restore the decoded forest foreground skin, not blank the cell"
+    );
+    assert!(
+        !erase_cell.has_block,
+        "ASM loc_11542 rebuilds a plain terrain cell before writing it back"
+    );
+
+    grid.set_cell_at(
+        block_col,
+        block_row,
+        terrain::Cell::from_be_bytes(0xE0, erase_cell.skin),
+    );
+    grid.erase_block_from_level_layout_loc_11542(block_col, block_row);
+
+    assert_eq!(
+        grid.cell_at(block_col, block_row),
+        erase_cell,
+        "ASM loc_11542 keeps the forest skin byte so smashing blocks does not punch visible gaps through leaves"
+    );
+}
+
+#[test]
 fn cold_boot_demo_timeout_intro_sequence_6_exposes_hidden_shell_on_frame_6850() {
     let Some(mut runtime) = cached_generated_runtime() else {
         return;

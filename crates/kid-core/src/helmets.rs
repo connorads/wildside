@@ -6818,7 +6818,7 @@ impl NativeRuntime {
                     // grounded state while keeping loc_9326's charge-clear below.
                     // ASM off_933E[0/1]: Smash and Prize both jump through
                     // Block_LoadSmashBits for Berzerker side impacts.
-                    grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+                    grid.erase_block_from_level_layout_loc_11542(col, row);
                     smash_effects.push((col * 16, row * 16, smash_direction));
                 }
                 if slice.player.on_ground
@@ -6848,7 +6848,7 @@ impl NativeRuntime {
                             smash_direction,
                         ));
                     }
-                    grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+                    grid.erase_block_from_level_layout_loc_11542(col, row);
                     ice_effects.push((col * 16, row * 16, smash_direction));
                 }
                 if slice.player.on_ground

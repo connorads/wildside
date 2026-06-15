@@ -157,6 +157,7 @@ pub struct BlockGrid {
     pub height_cells: u16,
     cells: Vec<Cell>,
     raw_words: Vec<u16>,
+    erase_words_loc_11542: Vec<u16>,
 }
 
 /// Result of probing terrain at a point.
@@ -375,13 +376,30 @@ impl BlockGrid {
         // Pad if data was shorter than expected
         cells.resize(cell_count, Cell::from_be_bytes(0, 0));
         raw_words.resize(cell_count, 0);
+        let erase_words_loc_11542 = vec![0; cell_count];
         let _ = expected; // suppress unused warning
         Self {
             width_cells,
             height_cells,
             cells,
             raw_words,
+            erase_words_loc_11542,
         }
+    }
+
+    pub(crate) fn from_level_layout_with_erase_words_loc_11542(
+        data: &[u8],
+        erase_words_loc_11542: Vec<u16>,
+        width_cells: u16,
+        height_cells: u16,
+    ) -> Self {
+        let mut grid = Self::from_level_layout(data, width_cells, height_cells);
+        if erase_words_loc_11542.len()
+            == usize::from(width_cells) * usize::from(height_cells)
+        {
+            grid.erase_words_loc_11542 = erase_words_loc_11542;
+        }
+        grid
     }
 
     #[allow(non_snake_case)]
@@ -399,11 +417,14 @@ impl BlockGrid {
         cells.extend_from_slice(&self.cells);
         let mut raw_words = vec![0; blank_cells];
         raw_words.extend_from_slice(&self.raw_words);
+        let mut erase_words_loc_11542 = vec![0; blank_cells];
+        erase_words_loc_11542.extend_from_slice(&self.erase_words_loc_11542);
         Self {
             width_cells: self.width_cells,
             height_cells: self.height_cells.saturating_add(blank_top_rows),
             cells,
             raw_words,
+            erase_words_loc_11542,
         }
     }
 
@@ -420,6 +441,26 @@ impl BlockGrid {
             return 0;
         }
         self.raw_words[usize::from(row) * usize::from(self.width_cells) + usize::from(col)]
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn erase_cell_at_loc_11542(&self, col: u16, row: u16) -> Cell {
+        if col >= self.width_cells || row >= self.height_cells {
+            return Cell::from_be_bytes(0, 0);
+        }
+        let word = self.erase_words_loc_11542
+            [usize::from(row) * usize::from(self.width_cells) + usize::from(col)];
+        Cell::from_be_bytes((word >> 8) as u8, word as u8)
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn erase_block_from_level_layout_loc_11542(&mut self, col: u16, row: u16) {
+        // ASM EraseBlockFromLevelLayout loc_11542 rebuilds a non-block layout
+        // word from the decoded foreground skin and ThemeCollision_Index
+        // collision nibble, then queues that cell update. It does not blank
+        // the skin byte, which matters for forest leaves/background terrain.
+        let cell = self.erase_cell_at_loc_11542(col, row);
+        self.set_cell_at(col, row, cell);
     }
 
     /// Level width in pixels.
