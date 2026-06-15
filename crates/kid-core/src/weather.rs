@@ -2214,11 +2214,14 @@ pub(crate) fn initialise_lava_geyser_loc_14C6A(
     // ASM loc_14C6A (kid.asm:28312): each loop iteration allocates one geyser
     // worker, copies the table's longword into `$16(a0)` as `(x,y)`, copies
     // the encoded height word into `$1A(a0)`, and leaves the worker to decode
-    // `height >> 4` plus the low-nibble startup delay later at `loc_14772`.
+    // `height >> 4` sprite rows plus the low-nibble startup delay later at
+    // `loc_14772`. Native stores the live height in pixels because rendering
+    // and collision consume pixel windows.
+    let sprite_rows = encoded_height_word >> 4;
     LavaGeyserInitLoc14C6A {
         x_px,
         y_px,
-        height_px: encoded_height_word >> 4,
+        height_px: sprite_rows * LAVA_GEYSER_ROW_HEIGHT_PX,
         startup_delay_frames: lava_geyser_initial_delay_frames_loc_14772(encoded_height_word),
     }
 }
@@ -2552,35 +2555,69 @@ impl NativeRuntime {
                     if geyser.timer > 0 {
                         geyser.timer -= 1;
                     } else {
+                        let reset = lava_geyser_rise_reset_loc_1484E();
                         geyser.phase = 1;
-                        geyser.current_height = 0;
+                        geyser.timer = reset.frames_per_sprite_row;
+                        geyser.current_height =
+                            reset.sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
                     }
                 }
                 1 => {
-                    // Erupting upward
-                    geyser.current_height += LAVA_GEYSER_ERUPT_SPEED;
-                    if geyser.current_height >= geyser.height_px {
-                        geyser.current_height = geyser.height_px;
-                        geyser.phase = 2;
-                        geyser.timer = LAVA_GEYSER_HOLD_FRAMES;
+                    // ASM loc_1484E/loc_14940: the geyser rises in 16px
+                    // sprite rows, not a smooth pixel ramp, and `$48(a5)=2`
+                    // paces each new row.
+                    if geyser.timer > 1 {
+                        geyser.timer -= 1;
+                    } else {
+                        geyser.current_height =
+                            geyser.current_height.saturating_add(LAVA_GEYSER_ROW_HEIGHT_PX);
+                        if geyser.current_height >= geyser.height_px {
+                            geyser.current_height = geyser.height_px;
+                            let hold = lava_geyser_peak_hold_step_loc_1496C(
+                                geyser.height_px / LAVA_GEYSER_ROW_HEIGHT_PX,
+                                LAVA_GEYSER_HOLD_CYCLES,
+                            );
+                            debug_assert_eq!(
+                                hold.frames_per_sprite,
+                                LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
+                            );
+                            geyser.phase = 2;
+                            geyser.timer =
+                                hold.next_hold_frames * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
+                                    + LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
+                        } else {
+                            geyser.timer = LAVA_GEYSER_RISE_FRAMES_PER_ROW;
+                        }
                     }
                 }
                 2 => {
-                    // Holding at full height
-                    if geyser.timer > 0 {
+                    // ASM loc_1496C: the `$1E` hold counter advances once per
+                    // 6-frame top-sprite cycle.
+                    if geyser.timer > 1 {
                         geyser.timer -= 1;
                     } else {
                         geyser.phase = 3;
+                        geyser.timer = 0;
                     }
                 }
                 3 => {
-                    // Collapsing
-                    if geyser.current_height > LAVA_GEYSER_ERUPT_SPEED {
-                        geyser.current_height -= LAVA_GEYSER_ERUPT_SPEED;
-                    } else {
+                    // ASM loc_1498C: collapse subtracts one sprite row from
+                    // `d3` per tick, then restarts the loc_14788 startup loop
+                    // when the final row clears.
+                    if geyser.current_height == 0 {
+                        geyser.phase = 0;
+                        geyser.timer = geyser.startup_delay_frames;
+                        continue;
+                    }
+                    let row_index = geyser.current_height / LAVA_GEYSER_ROW_HEIGHT_PX;
+                    let step = lava_geyser_collapse_step_loc_1498C(row_index);
+                    if step.restart_startup_script {
                         geyser.current_height = 0;
                         geyser.phase = 0;
                         geyser.timer = geyser.startup_delay_frames;
+                    } else {
+                        geyser.current_height =
+                            step.next_sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
                     }
                 }
                 _ => {}

@@ -18412,10 +18412,11 @@ mod chunk_05 {
         runtime.step_lava_geysers(&slice);
         assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
 
-        // Erupt until full height (16px / 4px per frame = 4 frames)
-        for _ in 0..3 {
-            runtime.step_lava_geysers(&slice);
-        }
+        // ASM loc_1484E/loc_14940: `$48(a5)=2` means the live column gains
+        // one 16px sprite row only after the two-frame rise cadence completes.
+        runtime.step_lava_geysers(&slice);
+        assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
+        assert_eq!(runtime.weather.lava_geysers[0].current_height, 0);
         assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
         runtime.step_lava_geysers(&slice);
         assert_eq!(
@@ -18424,8 +18425,9 @@ mod chunk_05 {
         );
         assert_eq!(runtime.weather.lava_geysers[0].current_height, 16);
 
-        // Hold for LAVA_GEYSER_HOLD_FRAMES + 1 frames (countdown then transition)
-        for _ in 0..=LAVA_GEYSER_HOLD_FRAMES {
+        // ASM loc_1496C: `$50=$1E` is counted in 6-frame top-sprite cycles,
+        // so the full-height hold is 30 cycles, not 30 raw frames.
+        for _ in 0..(LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE) {
             runtime.step_lava_geysers(&slice);
         }
         assert_eq!(
@@ -18433,10 +18435,8 @@ mod chunk_05 {
             "should transition to collapse phase"
         );
 
-        // Collapse (16px / 4px per frame = 4 frames)
-        for _ in 0..4 {
-            runtime.step_lava_geysers(&slice);
-        }
+        // ASM loc_1498C: collapse clears one 16px sprite row per tick.
+        runtime.step_lava_geysers(&slice);
         assert_eq!(
             runtime.weather.lava_geysers[0].phase, 0,
             "should return to dormant"
@@ -23762,7 +23762,7 @@ mod chunk_05 {
             startup_delay_frames: 30,
             phase: 3,
             timer: 0,
-            current_height: LAVA_GEYSER_ERUPT_SPEED, // one step from collapse end
+            current_height: LAVA_GEYSER_ROW_HEIGHT_PX, // one row from collapse end
         });
 
         let slice = airborne_slice();
@@ -24096,27 +24096,23 @@ mod chunk_05 {
     }
 
     #[test]
-    fn step_lava_geysers_phase_3_collapse_decrements_height_by_erupt_speed() {
+    fn step_lava_geysers_phase_3_collapse_decrements_one_sprite_row() {
         // ASM loc_1498C (kid.asm:28031): once the hold timer at loc_1496C
         // expires and `$4D(a5)` flips to "going down", the worker enters the
         // collapse loop with `subi.w #1,d3; bne.w loc_1485E; sf $4D(a5);
-        // bra.w loc_14788`. Native simplifies that into the phase-3 branch
-        // that subtracts `LAVA_GEYSER_ERUPT_SPEED` from `current_height`
-        // each frame and re-arms the dormant timer only once the column
-        // hits the floor. Seed the column above that threshold so the
-        // original takes the decrement branch and the mutants (`>` → `<`
-        // falls into the dormant reset; `-=` → `/=` snaps height to 4)
-        // become observable.
+        // bra.w loc_14788`. Native stores the visible row count as pixel
+        // height, so one ROM `d3` decrement must remove exactly one 16px row
+        // and must not re-arm the dormant timer until the final row clears.
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 1;
         runtime.weather.lava_geysers.push(LavaGeyser {
             x_px: 100,
             y_px: 200,
-            height_px: 16,
+            height_px: 32,
             startup_delay_frames: 0,
             phase: 3,
             timer: 0,
-            current_height: 16, // > LAVA_GEYSER_ERUPT_SPEED (4)
+            current_height: 32,
         });
 
         let slice = airborne_slice();
@@ -24125,16 +24121,16 @@ mod chunk_05 {
         let geyser = &runtime.weather.lava_geysers[0];
         assert_eq!(
             geyser.phase, 3,
-            "ASM loc_14782 should stay in the collapse branch while the column still towers above LAVA_GEYSER_ERUPT_SPEED"
+            "ASM loc_1498C should stay in the collapse branch while a visible row remains"
         );
         assert_eq!(
             geyser.current_height,
-            16 - LAVA_GEYSER_ERUPT_SPEED,
-            "ASM loc_14782 collapse step must subtract LAVA_GEYSER_ERUPT_SPEED exactly, not divide by it"
+            LAVA_GEYSER_ROW_HEIGHT_PX,
+            "ASM loc_1498C collapse step should subtract one 16px sprite row"
         );
         assert_eq!(
             geyser.timer, 0,
-            "ASM loc_14782 must not arm the dormant timer until the collapse hits the floor"
+            "ASM loc_1498C must not arm the dormant timer until the collapse hits the floor"
         );
     }
 
@@ -24987,17 +24983,17 @@ mod chunk_05 {
             crate::weather::LavaGeyserInitLoc14C6A {
                 x_px: 0x0240,
                 y_px: 0x0312,
-                height_px: 0x0006,
+                height_px: 0x0060,
                 startup_delay_frames: 30,
             },
-            "ASM loc_14C6A should copy the table's X/Y words through unchanged, use the high bits of the encoded height word for sprite height, and leave the low nibble for loc_14772's startup delay"
+            "ASM loc_14C6A should copy the table's X/Y words through unchanged, use the high bits of the encoded height word for 16px sprite rows, and leave the low nibble for loc_14772's startup delay"
         );
         assert_eq!(
             crate::weather::initialise_lava_geyser_loc_14C6A(0x0090, 0x0330, 0x0260),
             crate::weather::LavaGeyserInitLoc14C6A {
                 x_px: 0x0090,
                 y_px: 0x0330,
-                height_px: 0x0026,
+                height_px: 0x0260,
                 startup_delay_frames: 0,
             },
             "ASM loc_14C6A should preserve the fallback table's taller geyser entries while keeping a zero low nibble as an immediate-start eruption"
@@ -25016,8 +25012,8 @@ mod chunk_05 {
         let g = &runtime.weather.lava_geysers[0];
         assert_eq!(g.x_px, 0x180);
         assert_eq!(g.y_px, 0x312);
-        // height_px = h >> 4 = 0x60 >> 4 = 6
-        assert_eq!(g.height_px, 0x60 >> 4);
+        // height_px = (h >> 4) rows * 16px = h with the delay nibble stripped.
+        assert_eq!(g.height_px, 0x60);
         // initial_delay = (h & 0xF) * 10 = (0x60 & 0xF) * 10 = 0
         assert_eq!(g.timer, 0);
 
@@ -25042,7 +25038,7 @@ mod chunk_05 {
         let geyser = &runtime.weather.lava_geysers[0];
         assert_eq!(geyser.x_px, 0x0090);
         assert_eq!(geyser.y_px, 0x0330);
-        assert_eq!(geyser.height_px, 0x0260 >> 4);
+        assert_eq!(geyser.height_px, 0x0260);
     }
 
     #[test]
