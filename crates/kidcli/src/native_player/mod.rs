@@ -1978,6 +1978,7 @@ enum NativeBgmCue {
     TitleShell,
     Options,
     Level(LevelId),
+    CoreQueued(u8),
     ScoreBoard,
     Ending,
     StoppedForTransition,
@@ -2003,6 +2004,12 @@ fn native_bgm_cue_for_trace(trace: &NativeTraceFrame) -> Option<NativeBgmCue> {
         // `bgm_Ending` after the `$28` StopMusic pause.
         (GameMode::EndingSequence, Some(gems_bgm::ENDING)) => {
             return Some(NativeBgmCue::Ending);
+        }
+        // ASM Load_InGame loc_11FD2/loc_12004 is now emitted by kid-core into
+        // the trace. Prefer that exact command over re-deriving level music
+        // from manifest headers, while keeping the scoreboard override below.
+        (GameMode::InGame | GameMode::DemoPlay, Some(bgm)) if !trace.level_complete => {
+            return Some(NativeBgmCue::CoreQueued(bgm));
         }
         _ => {}
     }
@@ -2049,7 +2056,12 @@ fn native_bgm_state_after_trace(
         }
         if matches!(
             active_bgm_cue,
-            Some(NativeBgmCue::TitleShell | NativeBgmCue::Level(_) | NativeBgmCue::ScoreBoard)
+            Some(
+                NativeBgmCue::TitleShell
+                    | NativeBgmCue::Level(_)
+                    | NativeBgmCue::CoreQueued(_)
+                    | NativeBgmCue::ScoreBoard
+            )
         ) && trace.game_mode == GameMode::LevelTransition
         {
             // ASM loc_6E2 dispatches mode 8 through LoadGameModeData; the
@@ -2373,6 +2385,7 @@ fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8>
         NativeBgmCue::Level(level) => {
             resolved_level_header(manifest, level.0).and_then(level_start_bgm)
         }
+        NativeBgmCue::CoreQueued(bgm) => Some(bgm),
         NativeBgmCue::ScoreBoard => Some(gems_bgm::SCORE_BOARD),
         NativeBgmCue::Ending => Some(gems_bgm::ENDING),
         NativeBgmCue::StoppedForTransition => None,
@@ -16504,6 +16517,21 @@ mod tests {
                 .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
             Some(gems_bgm::MURDERWALL),
             "ASM loc_11FD2 (kid.asm:24183-24186) checks `MurderWall_flag` before loc_12004, so a murder-wall level must play `bgm_Murderwall` instead of the foreground-theme BGM"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_level_bgm_prefers_core_queued_loc_11fd2_id() -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.played_bgm_ids = vec![gems_bgm::MURDERWALL];
+
+        assert_eq!(
+            native_bgm_cue_for_trace(&trace)
+                .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
+            Some(gems_bgm::MURDERWALL),
+            "when kid-core has queued ASM loc_11FD2 into played_bgm_ids, play-native should replay that exact command instead of re-resolving the level header"
         );
         Ok(())
     }
