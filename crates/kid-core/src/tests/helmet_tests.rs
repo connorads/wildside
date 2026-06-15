@@ -9478,4 +9478,31 @@ mod chunk_08 {
             "ASM loc_74E0 hold should export the settled pose to trace/render, not the raw header pose"
         );
     }
+
+    #[test]
+    fn level_skip_highwater_animation_uses_loaded_hold_pose_not_stale_top_route() {
+        // ASM loc_74E0 runs after the destination load shell has rebuilt the
+        // level. The old native Level 0x02 special route was a stale synthetic
+        // pose near the top of the screen, which made Highwater skips visibly
+        // jump upward before returning to the loaded level pose.
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let level = LevelId(0x02);
+
+        runtime.enter_level_skip_hold(level);
+        let hold_pose = runtime.level_skip_hold_pose(level);
+        let path = runtime.level_skip_animation_path(level);
+        let final_y = i64::from(path.initial_y_pos)
+            + i64::from(path.y_step_fp) * i64::try_from(LEVEL_SKIP_ANIMATION_FRAMES).unwrap();
+
+        assert_ne!(
+            path.initial_y_pos, 0x00C8_0000,
+            "loaded Highwater skips must not reuse the stale hardcoded top-screen route"
+        );
+        assert_eq!(
+            final_y as u32, hold_pose.kid_y_pos,
+            "ASM loc_74E0 skip animation should land on the loaded destination hold pose"
+        );
+    }
 }

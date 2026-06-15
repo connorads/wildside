@@ -19277,14 +19277,16 @@ impl NativeRuntime {
                 first_animation_number_objects: 16,
                 first_animation_number_gfx_objects: 13,
             },
-            LevelId(2) => LevelSkipAnimationPath {
-                initial_x_pos: -0x0020_0000,
-                initial_y_pos: 0x00C8_0000,
-                x_step_fp: 0x0001_4000,
-                y_step_fp: -0x0002_2000,
-                first_animation_number_objects: 15,
-                first_animation_number_gfx_objects: 13,
-            },
+            LevelId(2) if !(level_id == self.current_level && self.opening_slice.is_some()) => {
+                LevelSkipAnimationPath {
+                    initial_x_pos: -0x0020_0000,
+                    initial_y_pos: 0x00C8_0000,
+                    x_step_fp: 0x0001_4000,
+                    y_step_fp: -0x0002_2000,
+                    first_animation_number_objects: 15,
+                    first_animation_number_gfx_objects: 13,
+                }
+            }
             _ => {
                 let hold_pose = self.level_skip_hold_pose(level_id);
                 LevelSkipAnimationPath {
