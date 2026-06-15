@@ -3537,8 +3537,18 @@ pub(super) fn push_block_grid_overrides(
                 continue;
             }
 
+            let skin = if cell.has_block {
+                cell.skin
+            } else {
+                // ASM sub_1007A draws the prize wobble object using the
+                // original Scroll A block art after the live Level_Layout
+                // cell has been rewritten to `$6Fxx`/cleared. Preserve the
+                // immutable foreground skin so the shaking block does not
+                // flash as skin zero.
+                level_visuals.level.foreground_layout.skin_at(col, row)
+            };
             let Some(resolved) = level_visuals.level.block_mapping.resolve(
-                cell.skin,
+                skin,
                 Some(if cell.has_block {
                     cell.block_type as u8
                 } else {

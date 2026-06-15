@@ -7339,30 +7339,29 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.block_bounces = vec![(2, 2, 30, -2)];
+        trace.block_bounces = vec![(1, 0, 8, -2)];
         let visuals = sample_level_visuals();
         let data = vec![0u8; 20 * 14 * 2];
         let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
-        grid.set_cell_at(2, 2, Cell::from_be_bytes(0x6F, 0x01));
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0x6F, 0x01));
 
         let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
 
         assert!(
             scene.commands.iter().any(|command| matches!(
                 command,
-                DrawCommand::Sprite {
-                    x: 32,
-                    y: 30,
+                DrawCommand::IndexedTile {
+                    x: 16,
+                    y: -2,
                     tile_sheet,
-                    tiles,
+                    tile,
                     ..
-                } if tile_sheet.tiles.len() == 0x200
-                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0)
+                } if tile_sheet.tiles.len() == 0x200 && tile.tile_index == 12
             )),
-            "active sub_1007A block_bounces entry should draw the deleted `$6Fxx` prize cell as the ROM wobble sprite at the bounced y offset",
+            "late sub_1007A block_bounces entry should draw the deleted `$6Fxx` prize cell with the preserved foreground skin at the bounced y offset",
         );
         assert!(
-            indexed_tile_at_with_sheet_len(&scene, 32, 32, 0x80).is_none(),
+            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
             "ASM sub_1007A keeps the live wobble gfx object in front of the cell; the preserved immutable terrain must not leak under the shaking prize block"
         );
     }
