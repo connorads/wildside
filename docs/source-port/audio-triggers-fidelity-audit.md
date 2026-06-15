@@ -16,10 +16,10 @@ Adversarially-verified per-unit audit of the Kid Chameleon source-port audio-tri
 | level-flow-triggers | partial | 1 |
 | bgm-level-selection | partial | 2 |
 | bgm-transitions-and-stopmusic | stub | 2 |
-| music-speed-modulation | stub | 1 |
+| music-speed-modulation | partial | 1 |
 | playsound-vs-playsound2-priority | full | 1 |
 
-Totals: 10 units audited, 3 full (2 with no gaps), 5 partial, 2 stub. 19 confirmed gaps (1 medium, 18 low) after duplicate merges. 4 high/medium claims were refuted and dropped (the brick-smash `sfx_Destroy_block` $11, prize-block-headbutt `sfx_Block_hit` $D, Coin/Continue `sfx_Coin_prize` $2C, and reveal-hidden `sfx_Reveal_Hidden_block` $12 cues - all already emitted via the player-layer delta channel or already tracked). Five auditor high/medium claims were corrected down by the refuter: the Tar Monster SFX (high->low), the ice-block `sfx_Prize_block` (medium->low), the clock-prize cue (medium->low, also already-tracked), and the MurderWall BGM override (high->medium, also already-tracked). 2026-06-12 follow-up: the Continue/coin $2C cue is now trace-backed too; `PrizeContent::Continue` queues `QueuedSoundEffect::CoinPrize` on the same frame it increments continues. 2026-06-14 follow-up: the earlier player-action no-time row was a stale duplicate of the resolved timeout-death entry; live timer expiry already queues `$51` before `$60` and has focused tests.
+Totals: 10 units audited, 3 full (2 with no gaps), 6 partial, 1 stub. 19 confirmed gaps (1 medium, 18 low) after duplicate merges. 4 high/medium claims were refuted and dropped (the brick-smash `sfx_Destroy_block` $11, prize-block-headbutt `sfx_Block_hit` $D, Coin/Continue `sfx_Coin_prize` $2C, and reveal-hidden `sfx_Reveal_Hidden_block` $12 cues - all already emitted via the player-layer delta channel or already tracked). Five auditor high/medium claims were corrected down by the refuter: the Tar Monster SFX (high->low), the ice-block `sfx_Prize_block` (medium->low), the clock-prize cue (medium->low, also already-tracked), and the MurderWall BGM override (high->medium, also already-tracked). 2026-06-12 follow-up: the Continue/coin $2C cue is now trace-backed too; `PrizeContent::Continue` queues `QueuedSoundEffect::CoinPrize` on the same frame it increments continues. 2026-06-14 follow-up: the earlier player-action no-time row was a stale duplicate of the resolved timeout-death entry; live timer expiry already queues `$51` before `$60` and has focused tests.
 
 ## Confirmed gaps
 
@@ -110,6 +110,6 @@ Scout exclusions (out of scope by design, owned elsewhere):
 
 Units with ambiguity needing oracle probes:
 
-- **music-speed-modulation** — the transform path now queues `FF 05 <speed>` / `FF 0D` into the live native GEMS driver, matching the direct ROM queue payload. Still needs an oracle/audio probe before confirming whether #264's audible slowdown was this missing tempo command, a frame-budget artefact, or both.
+- **music-speed-modulation** — the transform path queues `FF 05 <speed>` / `FF 0D` into the live native GEMS driver, matching `sub_E1546`/`sub_E1568`. 2026-06-15 oracle/audio probe `cargo run -q -p kidcli -- verify-native-audio-output-file --scenario .cache/debug/issue-210/cold_boot_idle_demo_loop_long.json` passed, and the matching recording emits `SetMusicSpeed(126)` at DemoPlay frame 3491 and `SetMusicSpeed(120)` at frame 8388. This proves the cold-idle/demo transform route reaches the native waveform path with the ROM tempo command; #264/#272 remain open for the live Samurai/helmet/bouncy slow-low complaint because that still needs a real-device capture or an oracle-aligned pickup route that exercises the reported cue.
 - **playsound-vs-playsound2-priority** — would warrant re-rating above low only if a future consumer of `played_sound_effect_ids` needs channel/priority for audio-mixing fidelity; no such consumer exists today.
 - **bgm-level-selection** — theme indices >10 return `None` in native (no bounds in ASM, which would index past the 11-byte `unk_1201E` table); not flagged because `Foreground_theme` is masked to a valid theme upstream, but the unreachable-edge assumption is unconfirmed by probe.
