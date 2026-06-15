@@ -342,7 +342,20 @@ and stop — never commit churn.
   separation `dx=-23 dy=-30 @381`, no DripsSurfaceCrawler in frames 330..520,
   and the run exits through `LevelTransition`. Do not repeat this `earlyB`
   timing unchanged; use it only as evidence that Kid/cell and drop/cell are
-  near at adjacent frames but not mutually aligned. Follow-up tooling added
+  near at adjacent frames but not mutually aligned. 2026-06-15 follow-up:
+  materialised
+  `.cache/recordings/issue-260-pre390-b480-520/scenario.json` from the current
+  pre390 survivor with `480..520 B`. It is oracle-comparable for the relevant
+  window (`verify-tas --frame-start 470 --frame-end 505 --checkpoint-interval 1
+  --frontier-kind enemy --bisect` passes), and it keeps the good DripsDrop
+  near-overlap (`dx=-3 dy=-2 @483`) plus a row-32 metal-block bounce
+  (`Bounce cell 37,32 @489`). It is still not the reported slime/metal-block
+  mutation: `Destroy` is absent for cells `36,32`/`37,32`, the best same-frame
+  Kid/drop/cell conjunction remains 36 px off vertically, and the route ends
+  with HP 0. Do not repeat the direct `480..520 B`/`B+Right`/Right/Left tail on
+  this prefix as block-destruction proof; the next useful axis must move the
+  active drop/crawler onto row 32 or delay the block contact without losing HP.
+  Follow-up tooling added
   batch `--target-projectile` scoring for closest healthy Kid/projectile
   proximity. Re-scoring the same early timing family shows `kH`
   (`300..350 B,351..390 B+Right,391..430 Left`) as the best branch, but it is
