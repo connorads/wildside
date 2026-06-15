@@ -11163,6 +11163,100 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn debug_hotkey_level_skip_can_chain_during_title_card_window() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let start_level = 0x03;
+        let mid_level = 0x06;
+        let target_level = 0x07;
+        let route_name = "Highwater Pass 2 -> Under Skull Mountain 3 -> Isle of the Lion Lord";
+        let start_assets = load_native_session_assets(&manifest, start_level)
+            .unwrap_or_else(|_| panic!("{route_name} start session assets"));
+        let mid_assets = load_native_session_assets(&manifest, mid_level)
+            .unwrap_or_else(|_| panic!("{route_name} mid session assets"));
+        let target_assets = load_native_session_assets(&manifest, target_level)
+            .unwrap_or_else(|_| panic!("{route_name} target session assets"));
+        let target_header = resolved_level_header(&manifest, target_level)
+            .unwrap_or_else(|| panic!("{route_name} target header"));
+
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_playtest(LevelId(start_level));
+        let starting_lives = trace.number_lives;
+
+        let first = enter_debug_hotkey_level(
+            &manifest,
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(mid_level),
+            mid_assets,
+        );
+        assert_eq!(first.level_card_frames_remaining, 0);
+        assert_eq!(trace.game_mode, GameMode::LevelTransition);
+
+        for _ in 0..20 {
+            trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name} should still be in ASM loc_1AE2E before the chained hotkey"
+            );
+        }
+
+        let second = enter_debug_hotkey_level(
+            &manifest,
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(target_level),
+            target_assets,
+        );
+        assert_eq!(second.level_card_frames_remaining, 0);
+        assert_eq!(trace.current_level, LevelId(target_level));
+        assert_eq!(trace.game_mode, GameMode::LevelTransition);
+
+        for _ in 0..360 {
+            let _ = runtime.step_frame(FrameInput::default());
+        }
+        trace = runtime.step_frame(FrameInput::from_mask(0x80));
+        assert_eq!(trace.game_mode, GameMode::LevelTransition);
+
+        let mut live_trace = None;
+        for _ in 0..16 {
+            let next_trace = runtime.step_frame(FrameInput::default());
+            if next_trace.game_mode == GameMode::InGame {
+                live_trace = Some(next_trace);
+                break;
+            }
+        }
+        let trace =
+            live_trace.unwrap_or_else(|| panic!("{route_name} did not reach live gameplay"));
+        let kid_x = trace
+            .kid_x_pos
+            .unwrap_or_else(|| panic!("{route_name} live spawn should expose Kid x"));
+        let kid_y = trace
+            .kid_y_pos
+            .unwrap_or_else(|| panic!("{route_name} live spawn should expose Kid y"));
+
+        assert_eq!(trace.number_lives, starting_lives);
+        assert!(
+            (kid_x >> 16).abs_diff(u32::from(target_header.player_start_x)) <= 32,
+            "{route_name} chained debug skip should release near PlayerStart_X {:#06x}; x={kid_x:#010x}",
+            target_header.player_start_x
+        );
+        assert!(
+            (kid_y >> 16).abs_diff(u32::from(target_header.player_start_y)) <= 32,
+            "{route_name} chained debug skip should release near PlayerStart_Y {:#06x}; y={kid_y:#010x}",
+            target_header.player_start_y
+        );
+    }
+
+    #[test]
     fn debug_hotkey_level_skip_suppresses_debug_card_without_generated_title_card() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         let mut target = fixture.manifest.levels[0].clone();
