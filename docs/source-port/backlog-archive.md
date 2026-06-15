@@ -9222,6 +9222,7 @@ Column of origin shown in brackets; text is verbatim.
 ### #258
 
 - [Verify] 2026-06-07 fixed base-Kid Level 00 natural slope route: `verify-tas --scenario .cache/recordings/issue-211-level00-walk-right-live-refresh/scenario.json --frame-start 420 --frame-end 660 --checkpoint-interval 1 --frontier-kind gameplay --bisect` now passes after correcting the 4082/6024 SlopeUp/Solid handoff and suppressing generic side-wall stop while loc_9D22 slope-walk support is live. Red Stealth natural window remains clean: frames 428..441 pass. Direct IronKnight/Juggernaut seeded probes (`issue-258-slope-iron-knight-probe`, `issue-258-slope-juggernaut-probe`) still diverge at frame 0, so they are bootstrap diagnostics, not valid form gates yet. 2026-06-08 recorded natural Iron Knight route (`issue-258-level00-slope-iron-knight-natural`) advanced: frame-480 uphill compound `sub_A4EE`/`loc_A99E` recontact now matches oracle and `verify-tas --frame-start 470 --frame-end 490 --checkpoint-interval 1 --frontier-kind gameplay --bisect` passes. Follow-up 2026-06-08 aligned the later frame-548..550 downhill SlopeDown/Solid dismount: `sub_902A` now keeps the frame-548 trailing-edge SlopeDown overlap airborne until its row-boundary scan, and `sub_A4EE -> loc_BA5A -> loc_B978/loc_B996` handles the frame-549 compound landing plus frame-550 continuation. Follow-up 2026-06-08 aligned the next frame-660..662 SlopeUp/Solid edge: `loc_A75A -> sub_902A` skips the equal-boundary frame 660, `sub_914A` prefers the right-edge `$6000` solid over the lower centre SlopeUp on frame 661, and frame 662 uses the normal `$2800` table handoff before installing the SlopeUp diagonal velocity. Follow-up 2026-06-08 aligned frame 664: high-speed Iron Knight SlopeUp/Solid handoff now probes the post-horizontal hitbox and clears the transient diagonal `y_vel` only once the player is actually over `$6000`/spike support, preserving slower ordinary SlopeUp travel. Full route `verify-tas --scenario .cache/recordings/issue-258-level00-slope-iron-knight-natural/scenario.json --frame-start 0 --frame-end 960 --checkpoint-interval 1 --frontier-kind gameplay --bisect` now passes all 960 frames by CRC. Follow-up 2026-06-08 recorded natural Juggernaut route (`issue-258-level00-slope-juggernaut-natural-20260608`): native previously stopped at frame 102 by scanning row-12 Smash/Solid with a 31px wall height, but ASM `sub_922C loc_9274..loc_9288` gives Juggernaut the short `$F` scan. Native now uses the form-specific scan height for `sub_8F26` wall checks; frames 90..160 pass by CRC. Follow-up 2026-06-08 aligned the frame-363 compound SlopeUp bounce: ASM `sub_A4EE loc_A53C -> loc_A556` keeps the tentative X and sets Juggernaut/Skycutter velocities to `$FFFE0000`; `verify-tas --frame-start 360 --frame-end 380 --checkpoint-interval 1 --frontier-kind gameplay --bisect` now passes. Full 0..1020 now advances to first divergence frame 382, where native lands on the next SlopeUp at y `$01040000` with `character_movement=2`, while oracle is still in the armoured bounce path (`x_vel/y_vel=$FFFE0000`, `character_movement=3`) at columns 43..44. Next gate: derive that later landing-vs-bounce path before closing #258 or moving to another form route.
+- [Evidence] 2026-06-15 latest-playtest slope/stair recheck: after `0822b36a` fixed the direct probe bootstrap, `.cache/recordings/issue258-slope-right-jump-probe/scenario.json` is still not safe as slope-jump implementation evidence. `verify-tas --frame-start 0 --frame-end 30 --checkpoint-interval 1 --frontier-kind gameplay --bisect` reports no authoritative divergences, but `tas-diff --frame-start 0 --frame-end 30 --frontier-kind gameplay --include-advisory --include-physics-trace --only-divergent` still shows a pre-jump frame-4 `character_movement` split (`native=0x0000`, `oracle=0x0006`) before the B pulse. This rejects using the direct fixture for another helper patch; the latest human right/left stair launch bug still needs a fresh live-equivalent input route or the frame-4 bootstrap state aligned first.
 
 ### #259
 
@@ -9577,6 +9578,26 @@ Column of origin shown in brackets; text is verbatim.
   again rejects generic prize-content/block-list parsing as the #274/#284 cause;
   keep chasing transform/demo rendering or find a different live route whose
   trace actually emits content id `0` for a ROM helmet prize.
+- [Verify] 2026-06-15 fixed candidate for stale generated-cache prize fallback:
+  live/manual preflight now treats `<level>.blocklist.bin` as part of the
+  required generated level-layout bundle. Before this, `play-native` and level
+  skip could accept an old partial cache with `<level>.bin` and `<level>.json`
+  present but no block-list dump; native then loaded terrain but left
+  `block_list=None`, and `Prize_Init loc_10342` fallback in
+  `prize_content_for_block_cell_loc_10342` resolved hit prize blocks as
+  Diamond. Regression `ensure_level_layouts_redumps_when_block_list_is_missing`
+  covers the old-cache shape, and the existing gameplay preflight tests now
+  write/require block-list dumps too. Verification:
+  `cargo test -q -p kidcli ensure_level_layouts -- --nocapture`,
+  `cargo test -q -p kidcli ensure_gameplay_level_layouts -- --nocapture`,
+  `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p kid-core generated_visible_helmet_prizes_spawn_configured_content_from_live_worker -- --nocapture`,
+  and `mise run verify-slice-fast`. Broad
+  `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -q -p kid-core generated_ -- --nocapture`
+  still hits the pre-existing generated-runtime pause failure
+  `pause_resume_level1_generated_runtime_matches_oracle_level_settle_on_frame_719`;
+  that failure is unrelated to this prize preflight path. Human re-test should
+  launch from a refreshed build/cache and retry the reported later Cyclone
+  route; if it still emits content id `0`, capture the exact route/frame.
 
 ### #285
 

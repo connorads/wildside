@@ -5120,6 +5120,7 @@ AddrTbl_LevelNames:
             br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
         )
         .expect("existing layout metadata");
+        fs::write(layout_dir.join("00.blocklist.bin"), []).expect("existing block list");
 
         let manifest = AssetManifest {
             generated_bundle_version: 8,
@@ -5154,6 +5155,8 @@ AddrTbl_LevelNames:
                     br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
                 )
                 .expect("dumped layout metadata");
+                fs::write(out_dir.join(format!("{level_id:02X}.blocklist.bin")), [])
+                    .expect("dumped block list");
                 Ok(())
             },
         )
@@ -5181,6 +5184,8 @@ AddrTbl_LevelNames:
                 br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
             )
             .expect("existing layout metadata");
+            fs::write(layout_dir.join(format!("{level_id:02X}.blocklist.bin")), [])
+                .expect("existing block list");
         }
 
         let manifest = AssetManifest {
@@ -5216,6 +5221,8 @@ AddrTbl_LevelNames:
                     br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
                 )
                 .expect("dumped layout metadata");
+                fs::write(out_dir.join(format!("{level_id:02X}.blocklist.bin")), [])
+                    .expect("dumped block list");
                 Ok(())
             },
         )
@@ -5237,6 +5244,7 @@ AddrTbl_LevelNames:
             br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
         )
         .expect("existing layout metadata");
+        fs::write(layout_dir.join("00.blocklist.bin"), []).expect("existing block list");
 
         let manifest = AssetManifest {
             generated_bundle_version: 8,
@@ -5267,6 +5275,8 @@ AddrTbl_LevelNames:
                 br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
             )
             .expect("dumped layout metadata");
+            fs::write(out_dir.join(format!("{level_id:02X}.blocklist.bin")), [])
+                .expect("dumped block list");
             Ok(())
         })
         .expect("missing requested layouts should be dumped");
@@ -5274,7 +5284,59 @@ AddrTbl_LevelNames:
         assert_eq!(*dumped_levels.borrow(), vec![0x02]);
         assert!(layout_dir.join("02.bin").is_file());
         assert!(layout_dir.join("02.json").is_file());
+        assert!(layout_dir.join("02.blocklist.bin").is_file());
         assert!(!layout_dir.join("01.bin").exists());
+    }
+
+    #[test]
+    fn ensure_level_layouts_redumps_when_block_list_is_missing() {
+        let bundle_root = TempDir::new().expect("bundle root");
+        let layout_dir = bundle_root.path().join("level-layout");
+        fs::create_dir_all(&layout_dir).expect("layout dir");
+        fs::write(layout_dir.join("14.bin"), [0x60, 0x00]).expect("existing layout");
+        fs::write(
+            layout_dir.join("14.json"),
+            br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+        )
+        .expect("existing layout metadata");
+
+        let manifest = AssetManifest {
+            generated_bundle_version: 8,
+            rom_sha1: String::from("test"),
+            upstream_commit: String::from("deadbeef"),
+            source_root: bundle_root.path().to_path_buf(),
+            output_root: bundle_root.path().to_path_buf(),
+            map_order: vec![],
+            levels: vec![],
+            constants: vec![],
+            ram_variables: vec![],
+            enemy_sources: vec![],
+            theme_assets: vec![],
+            scene_assets: vec![],
+            animation_assets: vec![],
+            sound_assets: vec![],
+            ingame_assets: vec![],
+            decoded_levels: vec![],
+        };
+
+        let dumped_levels = RefCell::new(Vec::new());
+        ensure_level_layouts_with(b"rom", &manifest, &[0x14], |_, level_id, out_dir| {
+            dumped_levels.borrow_mut().push(level_id);
+            fs::write(out_dir.join(format!("{level_id:02X}.bin")), [0x60, 0x00])
+                .expect("dumped layout");
+            fs::write(
+                out_dir.join(format!("{level_id:02X}.json")),
+                br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+            )
+            .expect("dumped layout metadata");
+            fs::write(out_dir.join(format!("{level_id:02X}.blocklist.bin")), [0x00, 0x00])
+                .expect("dumped block list");
+            Ok(())
+        })
+        .expect("missing block list should redump the layout bundle");
+
+        assert_eq!(*dumped_levels.borrow(), vec![0x14]);
+        assert!(layout_dir.join("14.blocklist.bin").is_file());
     }
 
     #[test]

@@ -218,11 +218,7 @@ where
     let (start_level, end_level) = scenario.required_level_layout_range();
     let layout_dir = manifest.output_root.join("level-layout");
     let missing_levels = (start_level..=end_level)
-        .filter(|level_id| {
-            let data_path = layout_dir.join(format!("{level_id:02X}.bin"));
-            let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
-            !(data_path.is_file() && metadata_path.is_file())
-        })
+        .filter(|level_id| !level_layout_dump_complete(&layout_dir, *level_id))
         .collect::<Vec<_>>();
     if missing_levels.is_empty() {
         return Ok(());
@@ -254,11 +250,7 @@ where
     let missing_levels = level_ids
         .iter()
         .copied()
-        .filter(|level_id| {
-            let data_path = layout_dir.join(format!("{level_id:02X}.bin"));
-            let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
-            !(data_path.is_file() && metadata_path.is_file())
-        })
+        .filter(|level_id| !level_layout_dump_complete(&layout_dir, *level_id))
         .collect::<Vec<_>>();
     if missing_levels.is_empty() {
         return Ok(());
@@ -268,6 +260,13 @@ where
         dump_level_layout_fn(rom_bytes, level_id, &layout_dir)?;
     }
     Ok(())
+}
+
+fn level_layout_dump_complete(layout_dir: &Path, level_id: u8) -> bool {
+    let data_path = layout_dir.join(format!("{level_id:02X}.bin"));
+    let metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
+    let block_list_path = layout_dir.join(format!("{level_id:02X}.blocklist.bin"));
+    data_path.is_file() && metadata_path.is_file() && block_list_path.is_file()
 }
 
 fn oracle_warp_broken_level(level_id: u8) -> bool {
