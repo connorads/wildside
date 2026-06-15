@@ -2180,8 +2180,8 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
             gems.play_sound(bgm);
         }
         if !suppress_sfx_this_frame && let Some(prev) = prev_trace {
-            for sound_id in gems_event_sound_ids(prev, trace) {
-                gems.play_sound(sound_id);
+            for command in gems_event_sound_commands(prev, trace) {
+                apply_native_sound_command(&mut gems, command);
             }
             for speed in gems_event_music_speed_updates(prev, trace) {
                 gems.set_music_speed(speed);
@@ -2251,6 +2251,14 @@ fn native_bgm_command_suppresses_same_frame_sfx(
     // level's BGM. Native condenses that handoff into one LevelTransition trace
     // frame, so any same-frame SFX must be treated as pre-reset driver state.
     native_bgm_command_flushes_queued_audio(command) && trace.game_mode == GameMode::LevelTransition
+}
+
+fn apply_native_sound_command(gems: &mut GemsAudioEngine, command: NativeSoundCommand) {
+    match command.command_byte {
+        NativeSoundCommand::PLAY_SOUND_COMMAND_BYTE => gems.play_sound(command.sound_id),
+        NativeSoundCommand::PLAY_SOUND2_COMMAND_BYTE => gems.play_sound2(command.sound_id),
+        _ => gems.play_sound(command.sound_id),
+    }
 }
 
 fn format_native_bgm_event(
@@ -2481,6 +2489,7 @@ fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
     }
 }
 
+#[cfg(test)]
 fn gems_event_sound_ids(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> Vec<u8> {
     gems_event_sound_commands(prev, curr)
         .into_iter()
@@ -2662,8 +2671,8 @@ fn detect_gems_events(
     curr: &NativeTraceFrame,
     gems: &mut GemsAudioEngine,
 ) {
-    for sound_id in gems_event_sound_ids(prev, curr) {
-        gems.play_sound(sound_id);
+    for command in gems_event_sound_commands(prev, curr) {
+        apply_native_sound_command(gems, command);
     }
     for speed in gems_event_music_speed_updates(prev, curr) {
         gems.set_music_speed(speed);
