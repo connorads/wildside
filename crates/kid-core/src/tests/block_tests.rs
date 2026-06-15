@@ -16331,28 +16331,27 @@ mod chunk_04 {
     }
 
     #[test]
-    fn platform_collision_within_snap_tolerance() {
-        // Mutant: line 100, replace <= with >
+    fn platform_collision_airborne_path_ignores_snap_tolerance_loc_25a0() {
         let platform = make_test_platform(40, 100, 2, 0);
-        // Player just above snap tolerance: y_pos within GROUND_SNAP_TOLERANCE_FP of platform
-        let snap_offset = GROUND_SNAP_TOLERANCE_FP; // 0x6_0000 = 6 pixels in FP
+        // ASM Platforms_CheckCollision loc_25A0 requires Kid_hitbox_bottom to
+        // overlap the platform top before loc_26D4 can land. Terrain's 6px
+        // snap tolerance is not part of this platform routine.
+        let snap_offset = GROUND_SNAP_TOLERANCE_FP;
         let mut slice = make_airborne_slice(50, 100);
-        slice.player.y_pos = (100u32 << 16) - snap_offset; // at edge of tolerance
+        slice.player.y_pos = (100u32 << 16) - snap_offset;
         apply_platform_collision(&mut slice, &[platform]);
-        assert!(
-            slice.player.on_ground,
-            "player at snap tolerance edge should land"
-        );
-
-        // Just beyond tolerance
-        let mut slice = make_airborne_slice(50, 100);
-        slice.player.y_pos = (100u32 << 16) - snap_offset - 1;
-        slice.player.y_velocity = 0x1_0000; // still falling
-        apply_platform_collision(&mut slice, &[platform]);
-        // Beyond snap, but feet_at_or_below check might still apply (y=94 < 100)
         assert!(
             !slice.player.on_ground,
-            "player beyond snap tolerance and above platform should not land"
+            "ASM loc_25A0 should skip a platform when Kid's feet are above it, even inside terrain snap tolerance"
+        );
+
+        let mut slice = make_airborne_slice(50, 100);
+        slice.player.y_pos = (100u32 << 16) - snap_offset - 1;
+        slice.player.y_velocity = 0x1_0000;
+        apply_platform_collision(&mut slice, &[platform]);
+        assert!(
+            !slice.player.on_ground,
+            "ASM loc_25A0 should also skip when just beyond the old native snap tolerance"
         );
     }
 

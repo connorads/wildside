@@ -1121,36 +1121,6 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                     break;
                 }
             }
-
-            // Vertical check: player feet should be at or just below the platform top.
-            // Use the same snap tolerance as terrain floor collision.
-            let plat_top_fp = platform.y_pos;
-            let within_snap = slice.player.y_pos.abs_diff(plat_top_fp) <= GROUND_SNAP_TOLERANCE_FP;
-            let feet_at_or_below = player_foot_y_px >= plat_y_px;
-
-            if feet_at_or_below || within_snap {
-                // Don't land if player feet are well past the platform (inside it)
-                if player_foot_y_px > plat_bottom {
-                    continue;
-                }
-
-                // Land on this platform
-                let floor_y_px = plat_y_px.saturating_sub(1);
-                let floor_y_fp = (floor_y_px.max(0) as u32) << 16;
-                // ASM floor landing: loc_AAF8 (y_vel >= 0) preserves sub-pixel,
-                // loc_AB22 (y_vel < 0) zeroes it. Use pre_gravity_y_vel since
-                // native applies gravity before collisions (GravityFirst).
-                if slice.pre_gravity_y_vel >= 0 {
-                    slice.player.y_pos =
-                        (floor_y_fp & 0xFFFF_0000) | (slice.player.y_pos & 0x0000_FFFF);
-                } else {
-                    slice.player.y_pos = floor_y_fp;
-                }
-                slice.player.on_ground = true;
-                slice.player.y_velocity = 0;
-                slice.terrain.floor_y_pos = floor_y_fp;
-                return PlatformCollisionOutcome::StandingOn(platform_index);
-            }
         }
 
         if !restart_scan {

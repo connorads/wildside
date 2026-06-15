@@ -16498,20 +16498,22 @@ mod chunk_05 {
     }
 
     #[test]
-    fn platform_collision_snap_tolerance_boundary_exact() {
-        // Mutant: line 135/151 — >= vs < boundary at snap tolerance
+    fn platform_collision_requires_aabb_overlap_not_snap_tolerance_loc_25a0() {
         let platform = make_test_platform(40, 100, 2, 0);
-        // Player ABOVE platform by exactly snap tolerance in FP
+        // ASM Platforms_CheckCollision loc_25A0 checks the platform top against
+        // Kid_hitbox_bottom before any resolution. If Kid's feet are six pixels
+        // above the platform, the ROM skips this slot; the terrain snap
+        // tolerance must not turn that into a platform landing.
         let plat_fp = 100u32 << 16;
-        let player_fp = plat_fp - GROUND_SNAP_TOLERANCE_FP; // exactly at boundary
+        let player_fp = plat_fp - GROUND_SNAP_TOLERANCE_FP;
         let mut slice = make_airborne_slice(50, 100);
         slice.player.y_pos = player_fp;
         slice.player.y_velocity = 0x1_0000;
 
         apply_platform_collision(&mut slice, &[platform]);
         assert!(
-            slice.player.on_ground,
-            "player at exact snap tolerance boundary should land (<= includes equal)"
+            !slice.player.on_ground,
+            "ASM loc_25A0 has no 6px platform snap fallback after AABB rejection"
         );
     }
 
