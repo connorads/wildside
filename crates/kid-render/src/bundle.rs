@@ -165,11 +165,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         .decoded_levels
         .iter()
         .find(|d| d.level_id == resource_level_id);
-    // ASM Load_InGame loc_11A50 resolves Current_LevelID through
-    // MapOrder_Index before reading the map header and layout pointers.
-    // Prefer the mapped resource decode so the header dimensions, theme
-    // assets, foreground, block and background layouts stay paired.
-    let decoded = resource_decoded.or(logical_decoded);
+    let decoded = logical_decoded.or(resource_decoded);
 
     let foreground_theme = resolve_theme_name(header.level_theme)
         .ok_or_else(|| anyhow!("unsupported foreground theme id {}", header.level_theme))?;
