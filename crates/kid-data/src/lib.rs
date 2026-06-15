@@ -1099,11 +1099,19 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
     let resource_level = resource_level_record(manifest, level_id)
         .cloned()
         .unwrap_or_else(|| level.clone());
-    let header = load_asset(manifest, resource_level.resources.header.as_deref())?;
+    let header = load_asset(
+        manifest,
+        level
+            .resources
+            .header
+            .as_deref()
+            .or(resource_level.resources.header.as_deref()),
+    )?;
     let parsed_header = header
         .as_ref()
         .map(|asset| parse_level_header(&asset.bytes))
         .transpose()?
+        .or(level.header_metadata.clone())
         .or(resource_level.header_metadata.clone());
     let enemy = load_asset(manifest, resource_level.resources.enemy.as_deref())?;
     let parsed_enemy_layout = resource_level
@@ -1141,9 +1149,30 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         parsed_header,
         enemy,
         parsed_enemy_layout,
-        foreground: load_asset(manifest, resource_level.resources.foreground.as_deref())?,
-        block: load_asset(manifest, resource_level.resources.block.as_deref())?,
-        background: load_asset(manifest, resource_level.resources.background.as_deref())?,
+        foreground: load_asset(
+            manifest,
+            level
+                .resources
+                .foreground
+                .as_deref()
+                .or(resource_level.resources.foreground.as_deref()),
+        )?,
+        block: load_asset(
+            manifest,
+            level
+                .resources
+                .block
+                .as_deref()
+                .or(resource_level.resources.block.as_deref()),
+        )?,
+        background: load_asset(
+            manifest,
+            level
+                .resources
+                .background
+                .as_deref()
+                .or(resource_level.resources.background.as_deref()),
+        )?,
     })
 }
 
@@ -8275,6 +8304,107 @@ AddrTbl_LevelNames:   ;1A842
                 .contains("needs at least 28 decoded words"),
             "short tilemaps should fail with the missing-row-stride detail: {error}"
         );
+    }
+
+    #[test]
+    fn load_level_asset_bundle_prefers_logical_level_assets_before_map_order_resource() {
+        let output = TempDir::new().expect("temp dir");
+        let root = output.path();
+        fs::create_dir_all(root.join("level/header")).expect("header dir");
+        fs::create_dir_all(root.join("level/foreground")).expect("foreground dir");
+        fs::create_dir_all(root.join("level/block")).expect("block dir");
+        fs::create_dir_all(root.join("level/background")).expect("background dir");
+        fs::write(
+            root.join("level/header/01.bin"),
+            [
+                0x02, 0x02, 0x09, 0x09, 0x00, 0x20, 0x00, 0x60, 0x02, 0x20, 0x09, 0x70,
+            ],
+        )
+        .expect("logical header");
+        fs::write(
+            root.join("level/header/4B.bin"),
+            [
+                0x06, 0x04, 0x07, 0x07, 0x00, 0x30, 0x06, 0x60, 0x03, 0x90, 0x00, 0x90,
+            ],
+        )
+        .expect("resource header");
+        fs::write(root.join("level/foreground/01.bin"), [0x01]).expect("logical foreground");
+        fs::write(root.join("level/foreground/4B.bin"), [0x4B]).expect("resource foreground");
+        fs::write(root.join("level/block/01.bin"), [0x02]).expect("logical block");
+        fs::write(root.join("level/block/4B.bin"), [0x4C]).expect("resource block");
+        fs::write(root.join("level/background/01.bin"), [0x03]).expect("logical background");
+        fs::write(root.join("level/background/4B.bin"), [0x4D]).expect("resource background");
+
+        let manifest = AssetManifest {
+            generated_bundle_version: 0,
+            rom_sha1: String::new(),
+            upstream_commit: String::new(),
+            source_root: root.to_path_buf(),
+            output_root: root.to_path_buf(),
+            map_order: vec![0, 0x4B],
+            levels: vec![
+                LevelRecord {
+                    level_id: 0x01,
+                    title_text_id: None,
+                    display_name: Some(String::from("Logical generated level")),
+                    title_card: None,
+                    resource_paths: Vec::new(),
+                    resources: LevelResources {
+                        header: Some(String::from("header/01.bin")),
+                        foreground: Some(String::from("foreground/01.bin")),
+                        block: Some(String::from("block/01.bin")),
+                        background: Some(String::from("background/01.bin")),
+                        ..LevelResources::default()
+                    },
+                    header_metadata: None,
+                    enemy_layout_metadata: None,
+                    bgscroll_metadata: None,
+                    platform_metadata: None,
+                },
+                LevelRecord {
+                    level_id: 0x4B,
+                    title_text_id: None,
+                    display_name: Some(String::from("Mapped resource level")),
+                    title_card: None,
+                    resource_paths: Vec::new(),
+                    resources: LevelResources {
+                        header: Some(String::from("header/4B.bin")),
+                        foreground: Some(String::from("foreground/4B.bin")),
+                        block: Some(String::from("block/4B.bin")),
+                        background: Some(String::from("background/4B.bin")),
+                        ..LevelResources::default()
+                    },
+                    header_metadata: None,
+                    enemy_layout_metadata: None,
+                    bgscroll_metadata: None,
+                    platform_metadata: None,
+                },
+            ],
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        };
+
+        let bundle = load_level_asset_bundle(&manifest, 0x01).expect("asset bundle");
+
+        assert_eq!(
+            bundle.parsed_header.expect("header").width_screens,
+            2,
+            "ASM loc_1AB52 leaves ordinary generated level IDs logical for title/level data; a logical exported header must not be replaced by the mapped resource header"
+        );
+        assert_eq!(
+            bundle.foreground.expect("foreground").bytes,
+            vec![0x01],
+            "render assets should stay aligned with the logical collision/layout when generated logical files exist"
+        );
+        assert_eq!(bundle.block.expect("block").bytes, vec![0x02]);
+        assert_eq!(bundle.background.expect("background").bytes, vec![0x03]);
     }
 
     #[test]

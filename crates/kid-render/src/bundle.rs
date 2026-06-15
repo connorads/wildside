@@ -157,10 +157,15 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         .parsed_header
         .as_ref()
         .ok_or_else(|| anyhow!("level 0x{level_id:02X} is missing header metadata"))?;
-    let decoded = manifest
+    let logical_decoded = manifest
+        .decoded_levels
+        .iter()
+        .find(|d| d.level_id == level_id);
+    let resource_decoded = manifest
         .decoded_levels
         .iter()
         .find(|d| d.level_id == resource_level_id);
+    let decoded = logical_decoded.or(resource_decoded);
 
     let foreground_theme = resolve_theme_name(header.level_theme)
         .ok_or_else(|| anyhow!("unsupported foreground theme id {}", header.level_theme))?;

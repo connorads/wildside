@@ -699,6 +699,88 @@ mod tests {
         );
     }
 
+    #[test]
+    fn load_level_visuals_prefers_logical_decoded_layout_when_generated() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        let resource_foreground = vec![0x04; 6 * 4 * 20 * 14];
+        fixture
+            .enable_decoded_resource_alias(0x01, 0x4B, &resource_foreground)
+            .expect("resource alias fixture");
+        let logical_foreground = vec![0x05; 2 * 2 * 20 * 14];
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/foreground.bin",
+            &logical_foreground,
+        )
+        .expect("write logical foreground");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/foreground.bin.png",
+            b"preview",
+        )
+        .expect("write logical foreground preview");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/block.bin",
+            &[0x01, 0x02, 0x03, 0x04],
+        )
+        .expect("write logical block");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/block.bin.png",
+            b"preview",
+        )
+        .expect("write logical block preview");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/background.bin",
+            &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF],
+        )
+        .expect("write logical background");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/background.bin.png",
+            b"preview",
+        )
+        .expect("write logical background preview");
+        fixture.manifest.decoded_levels.push(DecodedLevelAssets {
+            contract_version: DECODED_LEVEL_ASSET_VERSION,
+            level_id: 0x01,
+            foreground: decoded_asset(fixture.root.path(), "decoded/level/01/foreground.bin"),
+            block: decoded_asset(fixture.root.path(), "decoded/level/01/block.bin"),
+            background: decoded_asset(fixture.root.path(), "decoded/level/01/background.bin"),
+        });
+        fixture.manifest.levels[1].header_metadata = Some(kid_data::LevelHeader {
+            width_screens: 2,
+            height_screens: 2,
+            height_flag_bits: 0,
+            level_theme: CAVE_THEME_ID,
+            murder_wall_flags: 0,
+            background_theme: CAVE_THEME_ID,
+            weather_flags: 0,
+            player_start_x: 0x20,
+            player_start_y: 0x60,
+            flag_x: 0x220,
+            flag_y: 0x970,
+        });
+
+        let visuals =
+            load_level_visuals(&fixture.manifest, 0x01).expect("aliased visuals should load");
+
+        // ASM loc_1AB52 keeps ordinary Current_LevelID logical for generated
+        // title/level data; when the bundle has logical decoded layouts, render
+        // must not draw the mapped resource while core collision/spawn uses the
+        // logical layout.
+        assert_eq!(visuals.level.level_id, 0x01);
+        assert_eq!(visuals.level.foreground_layout.width_cells, 40);
+        assert_eq!(visuals.level.foreground_layout.height_cells, 28);
+        assert_eq!(visuals.level.foreground_layout_bytes, logical_foreground);
+        assert_eq!(
+            visuals.level.block_layout_bytes,
+            vec![0x01, 0x02, 0x03, 0x04]
+        );
+    }
+
     struct TestBundle {
         root: TempDir,
         manifest: AssetManifest,
@@ -1682,22 +1764,13 @@ mod tests {
             resource_level.display_name = Some(String::from("Blue Lake Woods 2 resources"));
             self.manifest.levels.extend([logical_level, resource_level]);
             self.manifest.map_order = vec![LEVEL_ID, resource_level_id];
-            self.manifest.decoded_levels.extend([
-                DecodedLevelAssets {
-                    contract_version: DECODED_LEVEL_ASSET_VERSION,
-                    level_id: logical_level_id,
-                    foreground: decoded_asset(self.root.path(), "decoded/level/01/foreground.bin"),
-                    block: decoded_asset(self.root.path(), "decoded/level/01/block.bin"),
-                    background: decoded_asset(self.root.path(), "decoded/level/01/background.bin"),
-                },
-                DecodedLevelAssets {
-                    contract_version: DECODED_LEVEL_ASSET_VERSION,
-                    level_id: resource_level_id,
-                    foreground: decoded_asset(self.root.path(), "decoded/level/4B/foreground.bin"),
-                    block: decoded_asset(self.root.path(), "decoded/level/4B/block.bin"),
-                    background: decoded_asset(self.root.path(), "decoded/level/4B/background.bin"),
-                },
-            ]);
+            self.manifest.decoded_levels.push(DecodedLevelAssets {
+                contract_version: DECODED_LEVEL_ASSET_VERSION,
+                level_id: resource_level_id,
+                foreground: decoded_asset(self.root.path(), "decoded/level/4B/foreground.bin"),
+                block: decoded_asset(self.root.path(), "decoded/level/4B/block.bin"),
+                background: decoded_asset(self.root.path(), "decoded/level/4B/background.bin"),
+            });
 
             Ok(())
         }
