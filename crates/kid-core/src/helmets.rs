@@ -5867,6 +5867,11 @@ impl NativeRuntime {
             return;
         }
 
+        if slice.player.on_ground {
+            self.helmet.red_stealth_airborne_slash_counter = 0;
+            return;
+        }
+
         // ASM loc_A466 writes the jump launch y velocity to `$FFFFFAAA`;
         // sub_B270 loc_B334/loc_B350 reads it as the dynamic fast-fall
         // threshold for Red Stealth's airborne downward slash.

@@ -2495,6 +2495,36 @@ mod chunk_06 {
     }
 
     #[test]
+    fn red_stealth_grounded_c_hold_does_not_restart_airborne_attack_down_sound() {
+        // ASM sub_B270 is entered by the airborne visual path; after landing,
+        // the grounded walking path owns C-held sword behaviour. Native keeps
+        // sub_B270 split out, so the runtime gate must not let a grounded frame
+        // with the loc_A466 negative jump threshold restart loc_B350 and replay
+        // sfx_Red_Stealth_attack_down every frame.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::RedStealth;
+        rt.helmet.red_stealth_jump_threshold_y_velocity = Some(-0x0004_0000);
+        let bounds = rt.level_bounds(LevelId(0));
+        let mut slice = OpeningSliceState::respawn(bounds);
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+
+        rt.step_red_stealth_airborne_slash(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert_eq!(rt.helmet.red_stealth_airborne_slash_counter, 0);
+        assert!(
+            rt.played_sound_effects.is_empty(),
+            "ASM loc_B390 should not replay sfx_Red_Stealth_attack_down from a grounded C-held frame",
+        );
+    }
+
+    #[test]
     fn red_stealth_airborne_slash_uses_loc_a466_dynamic_jump_threshold() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::RedStealth;
