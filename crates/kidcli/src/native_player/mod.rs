@@ -11435,6 +11435,121 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn debug_hotkey_level_skip_can_chain_from_start_to_isle_title_cards() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let route_name = "Blue Lake Woods 1 -> Isle of the Lion Lord through repeated N hotkeys";
+        let start_assets = load_native_session_assets(&manifest, 0x00)
+            .unwrap_or_else(|_| panic!("{route_name} start session assets"));
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_playtest(LevelId(0x00));
+        let starting_lives = trace.number_lives;
+
+        for target_level in 0x01..=0x07 {
+            let target_assets = load_native_session_assets(&manifest, target_level)
+                .unwrap_or_else(|_| panic!("{route_name} target 0x{target_level:02X} assets"));
+            let presentation = enter_debug_hotkey_level(
+                &manifest,
+                &mut runtime,
+                &mut trace,
+                &mut session_assets,
+                LevelId(target_level),
+                target_assets,
+            );
+
+            assert_eq!(
+                presentation.level_card_frames_remaining, 0,
+                "{route_name}: ASM loc_74E0 jumps through loc_6E2/Load_TitleCard without a native pre-card"
+            );
+            assert_eq!(
+                trace.current_level,
+                LevelId(target_level),
+                "{route_name}: repeated hotkeys should advance the logical Current_LevelID"
+            );
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name}: repeated hotkeys should stay in the ASM Load_TitleCard shell"
+            );
+
+            for _ in 0..20 {
+                trace = runtime.step_frame(FrameInput::default());
+                assert_eq!(
+                    trace.game_mode,
+                    GameMode::LevelTransition,
+                    "{route_name}: loc_1AE2E should keep target 0x{target_level:02X} title-carded until Start"
+                );
+            }
+        }
+
+        let target_header =
+            resolved_level_header(&manifest, 0x07).expect("Isle of the Lion Lord header");
+        let target_height_px = runtime
+            .block_grid()
+            .expect("Isle block grid should remain loaded after repeated hotkeys")
+            .height_cells
+            * 16;
+
+        for _ in 0..360 {
+            trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name}: final Load_TitleCard shell should wait for the later Start edge"
+            );
+        }
+
+        trace = runtime.step_frame(FrameInput::from_mask(0x80));
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "{route_name}: loc_1AE2E latches Start on the title-card frame"
+        );
+
+        let mut live_trace = None;
+        for _ in 0..16 {
+            let next_trace = runtime.step_frame(FrameInput::default());
+            if next_trace.game_mode == GameMode::InGame {
+                live_trace = Some(next_trace);
+                break;
+            }
+        }
+        let trace =
+            live_trace.unwrap_or_else(|| panic!("{route_name} did not reach live gameplay"));
+        let kid_x = trace
+            .kid_x_pos
+            .unwrap_or_else(|| panic!("{route_name} live spawn should expose Kid x"));
+        let kid_y = trace
+            .kid_y_pos
+            .unwrap_or_else(|| panic!("{route_name} live spawn should expose Kid y"));
+
+        assert_eq!(trace.current_level, LevelId(0x07), "{route_name}");
+        assert_eq!(
+            trace.number_lives, starting_lives,
+            "{route_name} should not lose a life during the title-card handoff"
+        );
+        assert!(
+            (kid_x >> 16).abs_diff(u32::from(target_header.player_start_x)) <= 32,
+            "{route_name} should release near PlayerStart_X {:#06x}; x={kid_x:#010x}",
+            target_header.player_start_x
+        );
+        assert!(
+            (kid_y >> 16).abs_diff(u32::from(target_header.player_start_y)) <= 32,
+            "{route_name} should release near PlayerStart_Y {:#06x}; y={kid_y:#010x}",
+            target_header.player_start_y
+        );
+        assert!(
+            (kid_y >> 16) < u32::from(target_height_px),
+            "{route_name} should not fall outside the repeated-hotkey target grid; y={kid_y:#010x} height={target_height_px}"
+        );
+    }
+
+    #[test]
     fn debug_hotkey_level_skip_suppresses_debug_card_without_generated_title_card() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         let mut target = fixture.manifest.levels[0].clone();
