@@ -9406,4 +9406,33 @@ mod chunk_08 {
         // Floor-snapped spawn matches the settled Blue Lake Woods 2 floor.
         assert_eq!(opening.player.y_pos, 0x00BF_0000);
     }
+
+    #[test]
+    fn level_skip_resume_floor_snaps_spawn_so_resume_hold_does_not_show_raw_fall() {
+        // ASM loc_74E0 level-skip resume re-enters the level shell before live
+        // gameplay resumes. Like `warp_to_level`, native must not expose the
+        // raw midair header pose during that resume hold when generated terrain
+        // is available.
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let level = LevelId(0x01);
+        runtime.current_level = level;
+        runtime.pending_level_skip_resume = true;
+
+        runtime.maybe_begin_pending_level_skip_resume();
+        let opening = runtime
+            .opening_slice
+            .expect("level-skip resume must seed an opening slice");
+        let raw = runtime.level_respawn_slice(level);
+        let settled = runtime.level_respawn_slice_with_floor_snap(level);
+
+        assert_eq!(raw.player.y_pos, 0x009F_0000, "raw header pose is midair");
+        assert_ne!(
+            opening.player.y_pos, raw.player.y_pos,
+            "ASM loc_74E0 resume should not expose Kid at the raw midair header pose"
+        );
+        assert_eq!(opening.player.y_pos, settled.player.y_pos);
+        assert!(opening.player.on_ground);
+    }
 }

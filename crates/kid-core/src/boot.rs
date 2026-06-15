@@ -7564,7 +7564,10 @@ impl NativeRuntime {
         self.level_skip_resume_hold = true;
         self.allow_pausing = false;
         self.allow_pausing_fade_frames = 0;
-        self.opening_slice = Some(self.level_respawn_slice(self.current_level));
+        // ASM loc_74E0 level-skip resume returns through the same load shell as
+        // Teleport/Load_InGame, so the hidden resume hold should expose the
+        // settled spawn, not the raw header Y that can sit above the floor.
+        self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
