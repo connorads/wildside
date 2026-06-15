@@ -379,6 +379,15 @@ and stop — never commit churn.
   post-bounce recovery trims on `r490_br508`; the next useful axis must alter
   the Drips cycle or the pre-490 approach so the projectile/crawler itself
   reaches the row-32 block at contact time.
+  Follow-up pre-490 approach sweep over `430..489` windows did not improve the
+  proof. The DripsDrop still reaches row-32 vicinity early (`dx=+8 dy=-3 @455`)
+  while the DripsSurfaceCrawler remains far below the block line (`dy=-65`),
+  and the tested `450..470`/`460..480`/`470..490` right/left/B/B+Right/B+Left
+  variants either lose the bounce or reproduce only no-destroy bounces at
+  frames `517`, `523`, or `542`. Do not repeat these short pre-490 window
+  overlays on the pre390 survivor; the next useful axis needs a route/bootstrap
+  change that alters the Drips child cycle itself, not another local Kid timing
+  trim.
   Follow-up tooling added
   batch `--target-projectile` scoring for closest healthy Kid/projectile
   proximity. Re-scoring the same early timing family shows `kH`
