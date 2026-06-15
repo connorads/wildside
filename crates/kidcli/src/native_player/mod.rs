@@ -7402,15 +7402,20 @@ mod tests {
         assert!(
             scene.commands.iter().any(|command| matches!(
                 command,
-                DrawCommand::IndexedTile {
+                DrawCommand::Sprite {
                     x: 16,
                     y: -2,
                     tile_sheet,
-                    tile,
+                    tiles,
                     ..
-                } if tile_sheet.tiles.len() == 0x200 && tile.tile_index == 12
+                } if tile_sheet.tiles.len() == 0x200
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x009)
             )),
-            "late sub_1007A block_bounces entry should draw the deleted `$6Fxx` prize cell with the preserved foreground skin at the bounced y offset",
+            "late sub_1007A block_bounces entry should draw the ASM wobble sprite over deleted `$6Fxx`, not leak a mapped block tile",
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, -2, 0x200).is_none(),
+            "the deleted `$6Fxx` phase must not resolve through Block_Mappings as a stray block tile",
         );
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),

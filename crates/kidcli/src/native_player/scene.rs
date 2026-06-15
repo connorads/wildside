@@ -3565,7 +3565,7 @@ pub(super) fn push_block_grid_overrides(
             if !cell.has_block && bounce_y_offset.is_none() {
                 continue;
             }
-            if is_prize_bounce && bounce_y_offset.is_some_and(|(remaining, _)| remaining > 8) {
+            if is_prize_bounce {
                 continue;
             }
 
@@ -3609,7 +3609,7 @@ pub(super) fn push_block_grid_overrides(
     }
 
     for &(col, row, remaining, y_offset) in &trace.block_bounces {
-        if remaining <= 8 {
+        if remaining == 0 {
             continue;
         }
         if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
