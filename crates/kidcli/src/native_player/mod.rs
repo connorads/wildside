@@ -11752,6 +11752,71 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn live_level_change_direct_generated_targets_rebuild_opening_slice() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        for target_level in [0x06, 0x07] {
+            let route_name = format!("direct live level-change target 0x{target_level:02X}");
+            let start_assets = load_native_session_assets(&manifest, 0x03)
+                .unwrap_or_else(|_| panic!("{route_name} start assets"));
+            let target_assets = load_native_session_assets(&manifest, target_level)
+                .unwrap_or_else(|_| panic!("{route_name} target assets"));
+            let target_grid = target_assets.block_grid.clone();
+            let target_header = resolved_level_header(&manifest, target_level)
+                .unwrap_or_else(|| panic!("{route_name} header"));
+
+            let mut runtime = NativeRuntime::new(manifest.clone());
+            let mut session_assets = start_assets;
+            runtime.set_block_grid(session_assets.block_grid.clone());
+            let mut trace = runtime.enter_level_debug_title_card(LevelId(target_level));
+            assert_eq!(trace.current_level, LevelId(target_level), "{route_name}");
+
+            apply_live_level_change_session_assets(
+                &mut runtime,
+                &mut trace,
+                &mut session_assets,
+                LevelId(target_level),
+                LevelId(target_level),
+                target_assets,
+            );
+
+            let runtime_grid = runtime
+                .block_grid()
+                .unwrap_or_else(|| panic!("{route_name} runtime grid"));
+            assert_eq!(
+                runtime_grid.width_cells, target_grid.width_cells,
+                "{route_name}: direct swap should preserve the generated target grid width"
+            );
+            assert_eq!(
+                runtime_grid.height_cells, target_grid.height_cells,
+                "{route_name}: direct swap should preserve the generated target grid height"
+            );
+
+            let (kid_x, kid_y) = runtime
+                .level_entry_opening_player_position()
+                .unwrap_or_else(|| panic!("{route_name} opening slice"));
+            assert!(
+                (kid_x >> 16).abs_diff(u32::from(target_header.player_start_x)) <= 32,
+                "{route_name}: direct asset swap should rebuild the hidden Load_InGame slice near PlayerStart_X {:#06x}; x={kid_x:#010x}",
+                target_header.player_start_x
+            );
+            assert!(
+                (kid_y >> 16).abs_diff(u32::from(target_header.player_start_y)) <= 32,
+                "{route_name}: direct asset swap should rebuild the hidden Load_InGame slice near PlayerStart_Y {:#06x}; y={kid_y:#010x}",
+                target_header.player_start_y
+            );
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name}: direct asset swap should preserve the active Load_TitleCard shell"
+            );
+        }
+    }
+
+    #[test]
     fn native_session_block_grid_prefers_logical_layout_before_resource_fallback() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         fixture.manifest.map_order = vec![0x00, 0x01, 0x02, 0x03, 0x01];
