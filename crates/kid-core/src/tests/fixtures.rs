@@ -403,6 +403,7 @@ pub(super) fn make_test_platform(x: u16, y: u16, h_variant: u8, v_variant: u8) -
         height_px: u16::from(v_variant) * 16 + 15,
         x_velocity: 0,
         y_velocity: 0,
+        deactivated_flag: 0,
         script: None,
         special: None,
     }

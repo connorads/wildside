@@ -14113,6 +14113,7 @@ mod chunk_04 {
             height_px: 15,
             x_velocity: 0,
             y_velocity: 0,
+            deactivated_flag: 0,
             script: Some(PlatformScriptState {
                 script_offset: 0,
                 command_index: 0,
@@ -14177,6 +14178,7 @@ mod chunk_04 {
             height_px: 15,
             x_velocity: 0,
             y_velocity: 0,
+            deactivated_flag: 0,
             script: Some(PlatformScriptState {
                 script_offset: 0,
                 command_index: 0,
@@ -14231,6 +14233,7 @@ mod chunk_04 {
             height_px: 15,
             x_velocity: 0,
             y_velocity: 0,
+            deactivated_flag: 0,
             script: Some(PlatformScriptState {
                 script_offset: 0,
                 command_index: 0,
@@ -14289,6 +14292,7 @@ mod chunk_04 {
             height_px: 15,
             x_velocity: 0,
             y_velocity: 0,
+            deactivated_flag: 0,
             script: Some(PlatformScriptState {
                 script_offset: 0,
                 command_index: 0,
@@ -14344,6 +14348,7 @@ mod chunk_04 {
             height_px: 15,
             x_velocity: 0,
             y_velocity: 0,
+            deactivated_flag: 0,
             script: Some(PlatformScriptState {
                 script_offset: 0,
                 command_index: 0,
@@ -14408,6 +14413,7 @@ mod chunk_04 {
             height_px: 15,
             x_velocity: 0,
             y_velocity: 0,
+            deactivated_flag: 0,
             script: Some(PlatformScriptState {
                 script_offset: 0,
                 command_index: 1,
@@ -14476,6 +14482,7 @@ mod chunk_04 {
             height_px: 15,
             x_velocity: 0,
             y_velocity: 0,
+            deactivated_flag: 0,
             script: Some(PlatformScriptState {
                 script_offset: 0x0972,
                 command_index: 0,
@@ -14699,6 +14706,58 @@ mod chunk_04 {
             active.len(),
             17,
             "ASM Allocate_PlatformSlot loc_23AE returns when the 17-slot free list is empty, so the 18th in-range platform must not materialise",
+        );
+    }
+
+    #[test]
+    fn special_platform_out_of_range_sets_deactivation_flag_loc_2850() {
+        let inactive_window = ActivationWindow {
+            x_min: 640,
+            x_max: 640,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 8,
+            subtype: 4,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("4"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement],
+        };
+        let previous = vec![ActivePlatform::from_placement_with_index(
+            0,
+            &layout.placements[0],
+            None,
+        )];
+
+        let active = runtime_active_platforms_loc_2762(
+            &layout,
+            1,
+            inactive_window,
+            &previous,
+            None,
+        );
+
+        assert_eq!(
+            active.len(),
+            1,
+            "ASM loc_2850 keeps an already-loaded special platform slot instead of deallocating it immediately"
+        );
+        assert_eq!(
+            active[0].deactivated_flag, 0xFF,
+            "ASM loc_2850 uses `st $12(a3)` so TrapPlatformDown_WaitLoop can observe a nonzero deactivation flag"
         );
     }
 

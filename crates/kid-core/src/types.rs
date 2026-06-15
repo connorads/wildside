@@ -2393,6 +2393,9 @@ pub(crate) struct ActivePlatform {
     pub(crate) x_velocity: i32,
     /// FP16.16 Y velocity (from movement script).
     pub(crate) y_velocity: i32,
+    /// ROM `$12(a3)` byte for special platforms. `Manage_PlatformLoading`
+    /// clears it at loc_2876 and sets it at loc_2850.
+    pub(crate) deactivated_flag: u8,
     /// Movement script state (None for stationary platforms).
     pub(crate) script: Option<PlatformScriptState>,
     /// Special-platform coroutine state for negative ROM platform types.
@@ -2523,6 +2526,7 @@ impl ActivePlatform {
             height_px,
             x_velocity: 0,
             y_velocity: 0,
+            deactivated_flag: 0,
             script,
             special,
         };

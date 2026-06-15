@@ -42569,27 +42569,13 @@ impl NativeRuntime {
                 .active_platform_standing_on
                 .and_then(|platform_index| previous_platforms.get(platform_index))
                 .and_then(|platform| platform.layout_index);
-            self.active_platforms = platform_layout
-                .placements
-                .iter()
-                .enumerate()
-                .take(objects.platform_loader.next_index)
-                .filter(|(_, p)| platform_is_active(p, platform_window))
-                .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
-                .map(|(layout_index, placement)| {
-                    previous_platforms
-                        .iter()
-                        .find(|platform| platform.layout_index == Some(layout_index))
-                        .copied()
-                        .unwrap_or_else(|| {
-                            ActivePlatform::from_placement_with_index(
-                                layout_index,
-                                placement,
-                                script_table,
-                            )
-                        })
-                })
-                .collect();
+            self.active_platforms = runtime_active_platforms_loc_2762(
+                platform_layout,
+                objects.platform_loader.next_index,
+                platform_window,
+                &previous_platforms,
+                script_table,
+            );
             expand_platform_chain_segments_loc_428C(
                 &mut self.active_platforms,
                 &previous_platforms,

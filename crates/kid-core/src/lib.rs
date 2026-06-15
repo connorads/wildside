@@ -4192,7 +4192,7 @@ impl NativeRuntime {
             let action = platform.step_special_platform_loc_40D2(
                 platform_standing_before == Some(platform_index),
                 kid_y_px,
-                0,
+                platform.deactivated_flag,
             );
             platform_index += 1;
             action != SpecialPlatformStepActionLoc40D2::Delete
