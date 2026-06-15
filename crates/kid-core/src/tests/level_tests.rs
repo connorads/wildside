@@ -2974,6 +2974,30 @@ mod chunk_02 {
     }
 
     #[test]
+    fn logical_level_entry_keeps_own_title_card_when_resource_record_has_none_loc_1ab52() {
+        let mut manifest = manifest_with_levels_and_playable_spawn(1);
+        manifest.map_order = vec![0x4B];
+        manifest.levels[0].title_card = Some(kid_data::LevelTitleCard {
+            script_bytes: vec![b'B', 0xFF],
+            line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        let mut resource = manifest.levels[0].clone();
+        resource.level_id = 0x4B;
+        resource.title_card = None;
+        manifest.levels.push(resource);
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.enter_level_debug_title_card(LevelId(0));
+
+        assert!(
+            !runtime.starting_level_title_workers.is_empty(),
+            "ASM loc_1AB52 indexes AddrTbl_LevelNames by Current_LevelID for ordinary levels; generated logical title scripts must win over resource-only records with no title-card script"
+        );
+    }
+
+    #[test]
     fn death_respawn_exposes_load_title_card_vdp_shell_loc_b8de() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

@@ -2065,8 +2065,9 @@ impl NativeRuntime {
         self.starting_level_title_workers.clear();
         let title_text_level_id = level_entry_title_text_level_id_loc_1AB52(self.current_level);
         let Some(title_card) = self
-            .resource_level_record(title_text_level_id)
-            .or_else(|| self.level_record(title_text_level_id))
+            .level_record(title_text_level_id)
+            .filter(|level| level.title_card.is_some())
+            .or_else(|| self.resource_level_record(title_text_level_id))
             .and_then(|level| level.title_card.as_ref())
             .cloned()
         else {
