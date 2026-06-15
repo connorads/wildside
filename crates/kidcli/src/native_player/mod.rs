@@ -1063,15 +1063,13 @@ fn apply_live_level_change_session_assets(
     runtime: &mut NativeRuntime,
     trace: &mut NativeTraceFrame,
     session_assets: &mut NativeSessionAssets,
-    requested_level: LevelId,
+    _requested_level: LevelId,
     resolved_level: LevelId,
     next_assets: NativeSessionAssets,
 ) {
     *session_assets = next_assets;
-    if resolved_level != requested_level {
-        runtime.set_block_grid(session_assets.block_grid.clone());
-        *trace = runtime.enter_level_debug_title_card(resolved_level);
-    }
+    runtime.set_block_grid(session_assets.block_grid.clone());
+    *trace = runtime.enter_level_debug_title_card(resolved_level);
 }
 
 fn debug_hotkey_level_presentation(
@@ -11246,6 +11244,65 @@ mod tests {
         assert_eq!(
             trace.current_level_name.as_deref(),
             Some("Resolved Live Target")
+        );
+    }
+
+    #[test]
+    fn live_level_change_direct_target_refreshes_runtime_block_grid_and_title_card() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        let mut target = fixture.manifest.levels[0].clone();
+        target.level_id = 0x02;
+        target.display_name = Some(String::from("Direct Live Target"));
+        target.title_text_id = Some(0x2D);
+        target.title_card = Some(kid_data::LevelTitleCard {
+            script_bytes: vec![b'D', 0xFF],
+            line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        fixture.manifest.levels.push(target);
+
+        let mut runtime = NativeRuntime::new(fixture.manifest.clone());
+        let mut start_grid = try_load_block_grid(&fixture.manifest, 0x00).expect("start grid");
+        start_grid.set_cell_at(0, 0, Cell::from_be_bytes(0x60, 0x11));
+        let mut session_assets = NativeSessionAssets {
+            level_visuals: sample_level_visuals(),
+            block_grid: start_grid.clone(),
+        };
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_debug_title_card(LevelId(1));
+        assert_eq!(trace.current_level, LevelId(1));
+
+        let mut target_grid = try_load_block_grid(&fixture.manifest, 0x00).expect("target grid");
+        target_grid.set_cell_at(0, 0, Cell::from_be_bytes(0xE1, 0x03));
+        let target_assets = NativeSessionAssets {
+            level_visuals: sample_level_visuals(),
+            block_grid: target_grid.clone(),
+        };
+
+        apply_live_level_change_session_assets(
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(2),
+            LevelId(2),
+            target_assets,
+        );
+
+        assert_eq!(trace.current_level, LevelId(2));
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_74E0 updates Current_LevelID then routes through loc_6E2/Load_TitleCard even when the requested live level is directly loadable"
+        );
+        assert_eq!(
+            trace.current_level_name.as_deref(),
+            Some("Direct Live Target")
+        );
+        assert_eq!(
+            runtime.block_grid().expect("runtime grid").cell_at(0, 0),
+            target_grid.cell_at(0, 0),
+            "direct live level changes must refresh the collision/prize grid, or debug skips keep stale block-list contents from the previous level"
         );
     }
 
