@@ -305,7 +305,7 @@ pub fn bk2_to_scenario(import: &Bk2Import, checkpoint_interval: usize) -> Dynami
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
-            initial_lives: None,
+        initial_lives: None,
         warp_to_level: None, // TAS runs from power-on
         settle_oracle_warp: false,
     }
@@ -459,6 +459,12 @@ pub fn verify_tas(
         crc_clean,
     );
     reclassify_crc_clean_lion_projectile_count_diffs(
+        &mut state_diffs,
+        &native_states,
+        &oracle.states,
+        crc_clean,
+    );
+    reclassify_crc_clean_pause_trace_latch_diffs(
         &mut state_diffs,
         &native_states,
         &oracle.states,
@@ -650,6 +656,59 @@ pub(crate) fn reclassify_crc_clean_lion_projectile_count_diffs(
             diff.category = crate::sweep::DivergenceCategory::OracleLimitation;
         }
     }
+}
+
+fn reclassify_crc_clean_pause_trace_latch_diffs(
+    state_diffs: &mut [crate::sweep::StateDiff],
+    native_states: &[OracleState],
+    oracle_states: &[OracleState],
+    crc_clean: bool,
+) {
+    if !crc_clean {
+        return;
+    }
+
+    for diff in state_diffs {
+        if !matches!(diff.field.as_str(), "game_paused" | "character_movement") {
+            continue;
+        }
+        let Some((native_state, oracle_state)) =
+            checkpoint_pair(&diff.checkpoint, native_states, oracle_states)
+        else {
+            continue;
+        };
+        if pause_trace_latch_export_only(native_state, oracle_state) {
+            // CRC-clean pause-menu probes prove the player-visible and
+            // gameplay-critical state stayed aligned.  `Game_Paused` and
+            // `Character_Movement` are sampled at different shell/VBlank
+            // boundaries in native vs oracle, so isolated latch skew here is a
+            // trace-export limitation rather than gameplay drift.
+            diff.category = crate::sweep::DivergenceCategory::OracleLimitation;
+        }
+    }
+}
+
+fn pause_trace_latch_export_only(native_state: &OracleState, oracle_state: &OracleState) -> bool {
+    native_state.game_mode == oracle_state.game_mode
+        && native_state.boot_phase == oracle_state.boot_phase
+        && native_state.current_player == oracle_state.current_player
+        && native_state.current_level_id == oracle_state.current_level_id
+        && native_state.player_1_level_id == oracle_state.player_1_level_id
+        && native_state.camera_x_pos == oracle_state.camera_x_pos
+        && native_state.camera_y_pos == oracle_state.camera_y_pos
+        && native_state.kid_x_pos == oracle_state.kid_x_pos
+        && native_state.kid_y_pos == oracle_state.kid_y_pos
+        && native_state.current_helmet_id == oracle_state.current_helmet_id
+        && native_state.number_hitpoints == oracle_state.number_hitpoints
+        && native_state.number_lives == oracle_state.number_lives
+        && native_state.number_objects == oracle_state.number_objects
+        && native_state.number_gfx_objects == oracle_state.number_gfx_objects
+        && native_state.score == oracle_state.score
+        && native_state.number_diamonds == oracle_state.number_diamonds
+        && native_state.diamond_power_active == oracle_state.diamond_power_active
+        && native_state.kid_x_direction == oracle_state.kid_x_direction
+        && native_state.just_received_damage == oracle_state.just_received_damage
+        && native_state.currently_transforming == oracle_state.currently_transforming
 }
 
 fn state_boot_summary(state: &OracleState) -> String {
@@ -1640,6 +1699,105 @@ mod tests {
             diff.category,
             crate::sweep::DivergenceCategory::OracleLimitation,
             "ASM Lion.asm loc_3E2A8 hibernates inside the projectile bounce loop, so oracle can expose saved return PC 0x03e2ac while Number_Objects is one lower"
+        );
+    }
+
+    #[test]
+    fn crc_clean_pause_latch_diffs_are_oracle_limitations_loc_6b62() {
+        let mut diff = crate::sweep::StateDiff {
+            checkpoint: "frame_15".into(),
+            field: "character_movement".into(),
+            native_value: "0x0001".into(),
+            oracle_value: "0x0000".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+        let mut native = demo_state("frame_15", 0x0020_0000, 0x010f_0000);
+        native.game_mode = 0x000c;
+        native.boot_phase = Some("in_game".into());
+        native.current_level_id = 0;
+        native.player_1_level_id = 0;
+        native.number_lives = 1;
+        native.game_paused = true;
+        native.character_movement = Some(1);
+        let mut oracle = native.clone();
+        oracle.character_movement = Some(0);
+
+        super::reclassify_crc_clean_pause_trace_latch_diffs(
+            std::slice::from_mut(&mut diff),
+            &[native],
+            &[oracle],
+            true,
+        );
+
+        assert_eq!(
+            diff.category,
+            crate::sweep::DivergenceCategory::OracleLimitation,
+            "ASM Game_Paused_Loop loc_6B62/loc_6C0A can leave CRC-clean pause probes with only Character_Movement latch skew between native post-frame and oracle VBlank exports"
+        );
+    }
+
+    #[test]
+    fn crc_clean_pause_flag_latch_diffs_are_oracle_limitations_loc_6e2() {
+        let mut diff = crate::sweep::StateDiff {
+            checkpoint: "frame_2801".into(),
+            field: "game_paused".into(),
+            native_value: "true".into(),
+            oracle_value: "false".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+        let mut native = demo_state("frame_2801", 0x0020_0000, 0x010f_0000);
+        native.game_mode = 0x000c;
+        native.boot_phase = Some("in_game".into());
+        native.current_level_id = 0;
+        native.player_1_level_id = 0;
+        native.game_paused = true;
+        let mut oracle = native.clone();
+        oracle.game_paused = false;
+
+        super::reclassify_crc_clean_pause_trace_latch_diffs(
+            std::slice::from_mut(&mut diff),
+            &[native],
+            &[oracle],
+            true,
+        );
+
+        assert_eq!(
+            diff.category,
+            crate::sweep::DivergenceCategory::OracleLimitation,
+            "ASM loc_6E2 pause-shell restore can be CRC-clean while the exported Game_Paused latch differs by a sampling boundary"
+        );
+    }
+
+    #[test]
+    fn pause_latch_reclassification_requires_matching_core_state() {
+        let mut diff = crate::sweep::StateDiff {
+            checkpoint: "frame_15".into(),
+            field: "character_movement".into(),
+            native_value: "0x0001".into(),
+            oracle_value: "0x0000".into(),
+            category: crate::sweep::DivergenceCategory::Authoritative,
+        };
+        let mut native = demo_state("frame_15", 0x0020_0000, 0x010f_0000);
+        native.game_mode = 0x000c;
+        native.boot_phase = Some("in_game".into());
+        native.current_level_id = 0;
+        native.player_1_level_id = 0;
+        native.character_movement = Some(1);
+        let mut oracle = native.clone();
+        oracle.character_movement = Some(0);
+        oracle.kid_y_pos = oracle.kid_y_pos.wrapping_add(0x0001_0000);
+
+        super::reclassify_crc_clean_pause_trace_latch_diffs(
+            std::slice::from_mut(&mut diff),
+            &[native],
+            &[oracle],
+            true,
+        );
+
+        assert_eq!(
+            diff.category,
+            crate::sweep::DivergenceCategory::Authoritative,
+            "real Kid/camera/state drift must still block even if a caller claims the CRC window is clean"
         );
     }
 

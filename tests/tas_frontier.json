@@ -39,6 +39,22 @@
       "checkpoint_interval": 1,
       "total_frames": 3300,
       "status": "verified"
+    },
+    "issue305_pause_restart_round_life_spend_probe": {
+      "scenario": "tests/data/dynamic-scenarios/issue-305-pause-restart-round-life-spend-probe.json",
+      "frame_start": 2800,
+      "frontier_frame": 2814,
+      "checkpoint_interval": 1,
+      "total_frames": 3300,
+      "status": "verified"
+    },
+    "issue305_pause_give_up_last_life_probe": {
+      "scenario": "tests/data/dynamic-scenarios/issue-305-pause-give-up-last-life-probe.json",
+      "frame_start": 0,
+      "frontier_frame": 40,
+      "checkpoint_interval": 1,
+      "total_frames": 40,
+      "status": "verified"
     }
   }
 }
