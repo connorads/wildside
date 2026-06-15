@@ -134,6 +134,19 @@ and stop — never commit churn.
   cover both exact oracle frames. This specifically addresses the held-Right
   BLW1 slope/stair launcher route; #277 left-stair/live BLW2 validation remains
   open until a clean human-equivalent route is captured.
+- **#277 route repair (2026-06-15)**: repaired the stale BLW2 left-stair
+  fixture with cache-local start nudge
+  `.cache/debug/issue277-start-nudge/left-x1746-y237.json`; it passes
+  `verify-tas --frame-start 0 --frame-end 180 --checkpoint-interval 1
+  --frontier-kind gameplay --bisect`. Grounded `LEFT+B` overlay
+  `.cache/debug/issue277-start-nudge/left-x1746-y237-b96.json` is also
+  oracle-clean through the stair/jump window; native frame 98 takes
+  `kid_grounded_release_probe held=left/jump=1` and
+  `kid_jump_gravity_probe branch=jump_pressed` with negative x velocity. This
+  rejects the repaired BLW2 scripted stair fixture as the current human
+  left-input-drop repro. Earlier B88/B90-style pulses are contaminated by
+  ShooterBlock damage before a useful grounded jump signal, so do not patch
+  movement from those timings.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still
