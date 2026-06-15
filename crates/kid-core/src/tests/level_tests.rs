@@ -3777,6 +3777,55 @@ mod chunk_02 {
     }
 
     #[test]
+    fn title_card_live_handoff_masks_non_level_one_spawn_until_load_ingame_visible_loc_1ae2e() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.boot_state = BootState::TitleScreen { cursor: 0 };
+        runtime.frame_index = runtime.title_screen_ready_frame;
+
+        runtime.begin_level_entry(LevelId(2));
+        for _ in 0..crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10 {
+            runtime.step_frame(FrameInput::default());
+        }
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        runtime.step_frame(FrameInput::default());
+        runtime.step_frame(FrameInput::default());
+
+        let first_live = runtime.trace_frame();
+        assert_eq!(first_live.game_mode, GameMode::InGame);
+        assert_eq!(first_live.current_level, LevelId(2));
+        assert_eq!(
+            first_live.kid_x_pos,
+            Some(0x0040_0000),
+            "ASM loc_1AE2E -> loc_6E2 should keep the title-card slot pose visible on non-Level-1 exits too; exposing the Highwater opening slice here makes debug skips look like Kid spawned/fell before Load_InGame is visible"
+        );
+        assert_eq!(first_live.kid_y_pos, Some(0x0068_0000));
+
+        for _ in 0..27 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let zeroed_title_workers = runtime.trace_frame();
+        assert_eq!(zeroed_title_workers.kid_x_pos, Some(0));
+        assert_eq!(zeroed_title_workers.kid_y_pos, Some(0));
+
+        for _ in 0..43 {
+            runtime.step_frame(FrameInput::default());
+        }
+        let first_load_ingame = runtime.trace_frame();
+        assert_eq!(
+            first_load_ingame.kid_x_pos,
+            Some(0x0030_0000),
+            "ASM Load_InGame loc_1AE2E should reveal the target level's own respawn slice only after the hidden title-card/zeroed preload phases"
+        );
+        assert_eq!(first_load_ingame.kid_y_pos, Some(0x067F_0000));
+        assert_eq!(first_load_ingame.camera_y_pos, 0x05DC_0000);
+    }
+
+    #[test]
     fn title_card_metadata_waits_one_frame_after_start_even_without_visible_workers() {
         let mut assets = manifest_with_levels(1);
         assets.levels[0].title_card = Some(kid_data::LevelTitleCard {

@@ -10974,6 +10974,114 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn debug_hotkey_level_skip_with_generated_assets_enters_live_spawn() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        for (start_level, target_level, route_name) in [
+            (0x00, 0x01, "Blue Lake Woods 1 -> Blue Lake Woods 2"),
+            (0x01, 0x02, "Blue Lake Woods 2 -> Highwater Pass 1"),
+            (0x02, 0x03, "Highwater Pass 1 -> Highwater Pass 2"),
+            (0x03, 0x04, "Highwater Pass 2 -> Under Skull Mountain 1"),
+            (
+                0x04,
+                0x07,
+                "Under Skull Mountain 1 -> Isle of the Lion Lord",
+            ),
+            (
+                0x07,
+                0x08,
+                "Isle of the Lion Lord -> Hills of the Warrior 1",
+            ),
+        ] {
+            let start_assets = load_native_session_assets(&manifest, start_level)
+                .unwrap_or_else(|_| panic!("{route_name} start session assets"));
+            let target_assets = load_native_session_assets(&manifest, target_level)
+                .unwrap_or_else(|_| panic!("{route_name} target session assets"));
+            let target_header = resolved_level_header(&manifest, target_level)
+                .unwrap_or_else(|| panic!("{route_name} target header"));
+            let target_width_px = u32::from(target_header.width_screens) * FRAME_WIDTH;
+            let target_height_px = u32::from(target_header.height_screens) * (FRAME_HEIGHT - 0x10);
+
+            let mut runtime = NativeRuntime::new(manifest.clone());
+            let mut session_assets = start_assets;
+            runtime.set_block_grid(session_assets.block_grid.clone());
+            let mut trace = runtime.enter_level_playtest(LevelId(start_level));
+            let starting_lives = trace.number_lives;
+
+            let presentation = enter_debug_hotkey_level(
+                &manifest,
+                &mut runtime,
+                &mut trace,
+                &mut session_assets,
+                LevelId(target_level),
+                target_assets,
+            );
+
+            assert_eq!(
+                presentation.level_card_frames_remaining, 0,
+                "{route_name} should let ASM loc_6E2/Load_TitleCard own the generated title-card timing"
+            );
+            assert_eq!(
+                presentation.debug_level_card_fallback_frames_remaining, 0,
+                "{route_name} should not use the native debug fallback card"
+            );
+
+            for _ in 0..360 {
+                trace = runtime.step_frame(FrameInput::default());
+            }
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name} should still be waiting in ASM loc_1AE2E before Start releases the title-card hibernate worker"
+            );
+
+            trace = runtime.step_frame(FrameInput::from_mask(0x80));
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name} should latch Start on the title-card frame before entering live gameplay"
+            );
+
+            trace = runtime.step_frame(FrameInput::default());
+            let mut live_trace = (trace.game_mode == GameMode::InGame).then_some(trace.clone());
+            for _ in 0..16 {
+                if live_trace.is_some() {
+                    break;
+                }
+                trace = runtime.step_frame(FrameInput::default());
+                if trace.game_mode == GameMode::InGame {
+                    live_trace = Some(trace.clone());
+                }
+            }
+            let trace =
+                live_trace.unwrap_or_else(|| panic!("{route_name} did not reach live gameplay"));
+            let kid_x = trace
+                .kid_x_pos
+                .unwrap_or_else(|| panic!("{route_name} live spawn should expose Kid x"));
+            let kid_y = trace
+                .kid_y_pos
+                .unwrap_or_else(|| panic!("{route_name} live spawn should expose Kid y"));
+
+            assert_eq!(trace.current_level, LevelId(target_level), "{route_name}");
+            assert_eq!(
+                trace.number_lives, starting_lives,
+                "{route_name} should not die while handing off from ASM Load_TitleCard to Load_InGame"
+            );
+            assert!(
+                (kid_x >> 16) < target_width_px,
+                "{route_name} live spawn x {kid_x:#010x} should be inside target level width {target_width_px}"
+            );
+            assert!(
+                (kid_y >> 16) < target_height_px,
+                "{route_name} live spawn y {kid_y:#010x} should be inside target level height {target_height_px}"
+            );
+        }
+    }
+
+    #[test]
     fn debug_hotkey_level_skip_suppresses_debug_card_without_generated_title_card() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         let mut target = fixture.manifest.levels[0].clone();

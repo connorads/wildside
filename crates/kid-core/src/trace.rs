@@ -5607,9 +5607,6 @@ impl NativeRuntime {
 
     fn title_card_live_handoff_player_state_loc_1ae2e(&self) -> Option<PlayerState> {
         let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
-        if self.current_level != LevelId(0) {
-            return None;
-        }
         if elapsed < TITLE_CARD_LIVE_HANDOFF_TITLE_WORKER_FRAMES_LOC_1AE2E {
             return Some(PlayerState {
                 // ASM loc_1AE2E -> loc_6E2 has entered live mode, but the
@@ -5648,6 +5645,9 @@ impl NativeRuntime {
                 ledge_snap_cooldown: 0,
                 wall_cling_direction: None,
             });
+        }
+        if self.current_level != LevelId(0) {
+            return self.opening_slice.map(|slice| slice.player);
         }
         let mut player = self.opening_slice?.player;
         let visible_elapsed =
