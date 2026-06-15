@@ -1394,9 +1394,15 @@ pub struct NativeTraceFrame {
     pub diamond_power_sprites: Vec<DiamondPowerSpriteSnapshot>,
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
-    /// Metal block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
+    /// Block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
+    /// Kept for legacy trace compatibility; new renderers should prefer
+    /// `block_bounce_details` when they need the ASM worker kind.
     #[serde(default, deserialize_with = "deserialize_block_bounces")]
     pub block_bounces: Vec<(u16, u16, u8, i16)>,
+    /// Typed block bounce animations for renderers. This stays additive so
+    /// older recordings that only serialised `block_bounces` still load cleanly.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub block_bounce_details: Vec<BlockBounceTrace>,
     /// Block destruction fragment effects: (x_px, y_px, remaining_frames, direction).
     #[serde(default, deserialize_with = "deserialize_block_destroy_effects")]
     pub block_destroy_effects: Vec<(u16, u16, u8, u16)>,
@@ -1596,6 +1602,7 @@ impl Default for NativeTraceFrame {
             diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
+            block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
@@ -1687,6 +1694,23 @@ pub struct NativeObjectSnapshot {
     /// recurring decision-making fields into typed members.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub debug_fields: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BlockBounceTraceKind {
+    Lift,
+    Metal,
+    Prize,
+    Shifting,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockBounceTrace {
+    pub cell_x: u16,
+    pub cell_y: u16,
+    pub remaining: u8,
+    pub y_offset_px: i16,
+    pub kind: BlockBounceTraceKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

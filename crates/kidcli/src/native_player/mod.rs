@@ -6,7 +6,7 @@ use crate::scenarios::{DynamicScenario, DynamicStartPosition, GameplayCheckpoint
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
-    ActiveProjectileKind, ActiveProjectileSnapshot, DiamondPowerSpriteSnapshot,
+    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind, DiamondPowerSpriteSnapshot,
     DragonFlyingDescentFireState, FrameInput, GameMode, LevelId, NativeObjectKind,
     NativeObjectSnapshot, NativeRuntime, NativeSoundCommand, NativeTraceFrame, PlayerForm,
     physics::Direction, terrain::BlockGrid,
@@ -2983,6 +2983,7 @@ fn try_load_generated_level_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kid_core::BlockBounceTrace;
     use kid_core::{
         EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, LevelId, NativeObjectKind,
         physics::Direction,
@@ -3101,6 +3102,7 @@ mod tests {
             diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
+            block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),
@@ -7340,6 +7342,13 @@ mod tests {
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
         trace.block_bounces = vec![(1, 0, 8, -2)];
+        trace.block_bounce_details = vec![BlockBounceTrace {
+            cell_x: 1,
+            cell_y: 0,
+            remaining: 8,
+            y_offset_px: -2,
+            kind: BlockBounceTraceKind::Prize,
+        }];
         let visuals = sample_level_visuals();
         let data = vec![0u8; 20 * 14 * 2];
         let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
@@ -7363,6 +7372,38 @@ mod tests {
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
             "ASM sub_1007A keeps the live wobble gfx object in front of the cell; the preserved immutable terrain must not leak under the shaking prize block"
+        );
+    }
+
+    #[test]
+    fn non_prize_cleared_block_bounce_keeps_foreground_terrain_visible() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.block_bounces = vec![(1, 0, 12, -2)];
+        trace.block_bounce_details = vec![BlockBounceTrace {
+            cell_x: 1,
+            cell_y: 0,
+            remaining: 12,
+            y_offset_px: -2,
+            kind: BlockBounceTraceKind::Shifting,
+        }];
+        let data = vec![0u8; 20 * 14 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0, 0));
+
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200).is_none(),
+            "typed non-prize bounces must not borrow ASM sub_1007A prize-block wobble sprites"
+        );
+        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
+            panic!("expected immutable foreground terrain under cleared non-prize bounce");
+        };
+        assert_eq!(
+            tile.tile_index, 12,
+            "forest foreground leaves should stay visible when a non-prize live cell has been cleared"
         );
     }
 

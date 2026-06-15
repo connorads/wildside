@@ -3464,15 +3464,17 @@ pub(super) fn push_level_layout_terrain(
 
     for row in row_start..row_end {
         for col in col_start..col_end {
-            let active_block_bounce = trace
-                .block_bounces
-                .iter()
-                .any(|(cx, cy, remaining, _)| *cx == col && *cy == row && *remaining > 0);
+            let active_block_bounce = block_bounce_kind_for_trace(trace, col, row).is_some_and(
+                |kind| {
+                    kind == BlockBounceTraceKind::Prize
+                        || block_grid.is_some_and(|grid| grid.cell_at(col, row).has_block)
+                },
+            );
             if active_block_bounce {
-                // ASM sub_1007A writes the original block art to the FG update
-                // queue before marking the live Level_Layout cell `$6Fxx`, then
-                // draws `unk_E0E4E`/`unk_E0E5E` as a gfx object. Do not expose
-                // the immutable underlay while that worker is still active.
+                // ASM sub_1007A prize wobble draws the original block art as a
+                // gfx object while the live cell is `$6Fxx`. Other block-bounce
+                // workers still hide the immutable underlay only while their
+                // live block override remains present.
                 continue;
             }
             let raw_word = block_grid.map(|grid| grid.raw_word_at(col, row));
@@ -3500,6 +3502,31 @@ pub(super) fn push_level_layout_terrain(
             );
         }
     }
+}
+
+fn block_bounce_kind_for_trace(
+    trace: &NativeTraceFrame,
+    col: u16,
+    row: u16,
+) -> Option<BlockBounceTraceKind> {
+    trace
+        .block_bounce_details
+        .iter()
+        .find(|bounce| bounce.cell_x == col && bounce.cell_y == row && bounce.remaining > 0)
+        .map(|bounce| bounce.kind)
+        .or_else(|| {
+            if !trace.block_bounce_details.is_empty() {
+                return None;
+            }
+            // Legacy recordings only serialised `(col,row,remaining,y)`.
+            // They predate typed bounce workers, so keep their historical
+            // renderer behaviour and treat active entries as prize wobble.
+            trace
+                .block_bounces
+                .iter()
+                .any(|(cx, cy, remaining, _)| *cx == col && *cy == row && *remaining > 0)
+                .then_some(BlockBounceTraceKind::Prize)
+        })
 }
 
 pub(super) fn push_block_grid_overrides(
@@ -3530,10 +3557,15 @@ pub(super) fn push_block_grid_overrides(
                 .iter()
                 .find(|(cx, cy, _, _)| *cx == col && *cy == row)
                 .map(|(_, _, remaining, y)| (*remaining, i32::from(*y)));
+            let bounce_kind = block_bounce_kind_for_trace(trace, col, row);
+            let is_prize_bounce = bounce_kind == Some(BlockBounceTraceKind::Prize);
+            if !cell.has_block && !is_prize_bounce {
+                continue;
+            }
             if !cell.has_block && bounce_y_offset.is_none() {
                 continue;
             }
-            if bounce_y_offset.is_some_and(|(remaining, _)| remaining > 8) {
+            if is_prize_bounce && bounce_y_offset.is_some_and(|(remaining, _)| remaining > 8) {
                 continue;
             }
 
@@ -3578,6 +3610,9 @@ pub(super) fn push_block_grid_overrides(
 
     for &(col, row, remaining, y_offset) in &trace.block_bounces {
         if remaining <= 8 {
+            continue;
+        }
+        if block_bounce_kind_for_trace(trace, col, row) != Some(BlockBounceTraceKind::Prize) {
             continue;
         }
         push_prize_block_wobble_sub_1007a(

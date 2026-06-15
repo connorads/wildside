@@ -4740,6 +4740,7 @@ AddrTbl_LevelNames:
             diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
             block_bounces: Vec::new(),
+            block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),

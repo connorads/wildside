@@ -6950,6 +6950,22 @@ impl NativeRuntime {
                 .iter()
                 .map(|b| (b.cell_x, b.cell_y, b.remaining, b.y_offset_px))
                 .collect(),
+            block_bounce_details: self
+                .block_bounces
+                .iter()
+                .map(|b| BlockBounceTrace {
+                    cell_x: b.cell_x,
+                    cell_y: b.cell_y,
+                    remaining: b.remaining,
+                    y_offset_px: b.y_offset_px,
+                    kind: match b.kind {
+                        BlockBounceKind::Lift => BlockBounceTraceKind::Lift,
+                        BlockBounceKind::Metal => BlockBounceTraceKind::Metal,
+                        BlockBounceKind::Prize => BlockBounceTraceKind::Prize,
+                        BlockBounceKind::Shifting => BlockBounceTraceKind::Shifting,
+                    },
+                })
+                .collect(),
             block_destroy_effects: self
                 .block_destroy_effects
                 .iter()
