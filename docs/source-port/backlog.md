@@ -121,6 +121,19 @@ and stop — never commit churn.
   `$01210000` vs oracle `$012E0000`. Do not patch slope/jump physics from these
   direct left artefacts; the missing piece remains a human-equivalent live
   capture or a clean natural left route.
+- **#258 fixed candidate (2026-06-15)**: direct right-slope jump route
+  `.cache/recordings/issue258-slope-right-jump-probe/scenario.json` now passes
+  `verify-tas --frontier-kind gameplay` across all 120 frames. Native had two
+  ASM handoff gaps: frame 36 over-advanced X by `$A500` when `sub_902A ->
+  loc_A99E -> loc_8BF0 -> loc_9D22` recontacted the first `$405C/$605D`
+  SlopeUp/Solid edge at post-vertical fraction `$2A00`; frame 100 stayed in
+  diagonal slope-walk instead of taking the `loc_9F18 -> loc_9FBC` flat-support
+  exit and clearing `y_vel`. Regressions
+  `level00_frame_36_direct_right_slope_jump_recontact_matches_oracle_loc_a99e`
+  and `level00_frame_100_direct_right_slope_exit_clears_diagonal_y_vel_loc_9fbc`
+  cover both exact oracle frames. This specifically addresses the held-Right
+  BLW1 slope/stair launcher route; #277 left-stair/live BLW2 validation remains
+  open until a clean human-equivalent route is captured.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still

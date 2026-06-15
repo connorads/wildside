@@ -4194,31 +4194,39 @@ impl OpeningSliceState {
                     // $FFFFF8F0 accumulator are not modelled.
                     if self.player.on_ground
                         && let Some(slope) = grounded_slope_for_loc_9d22
-                        && !matches!(
-                            (slope, self.player.x_velocity.cmp(&0)),
-                            (terrain::CollisionKind::SlopeUp, std::cmp::Ordering::Less)
-                                | (
-                                    terrain::CollisionKind::SlopeDown,
-                                    std::cmp::Ordering::Greater
-                                )
-                        )
-                        && self.grounded_slope_collision(Some(grid)).is_none()
                         && self.player.y_velocity != 0
                     {
+                        let grounded_slope_after_x = self.grounded_slope_collision(Some(grid));
                         let x_px = (self.player.x_pos >> 16) as i32;
                         let y_px = (self.player.y_pos >> 16) as i32;
                         let solid_probe =
                             terrain::probe_floor_hitbox(grid, x_px, y_px, collision_hw);
-                        if matches!(
-                            solid_probe.cell.collision,
+                        let center_probe = terrain::probe_floor(grid, x_px, y_px);
+                        let exit_probe = if grounded_slope_after_x == Some(slope) {
+                            None
+                        } else if matches!(
+                            center_probe.cell.collision,
                             terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
-                        ) && solid_probe.on_ground
+                        ) && center_probe.on_ground
                         {
+                            Some(center_probe)
+                        } else if grounded_slope_after_x.is_none()
+                            && matches!(
+                                solid_probe.cell.collision,
+                                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                            )
+                            && solid_probe.on_ground
+                        {
+                            Some(solid_probe)
+                        } else {
+                            None
+                        };
+                        if let Some(exit_probe) = exit_probe {
                             // ASM loc_9FBC/loc_A0B4: after sub_8F26 has moved
                             // horizontally off the active slope into a solid
                             // support tile, the slope tail snaps to the solid
                             // floor row and clears y_vel before loc_8BF0.
-                            let floor_y_px = solid_probe.floor_y_px.saturating_sub(1);
+                            let floor_y_px = exit_probe.floor_y_px.saturating_sub(1);
                             self.player.y_pos = (floor_y_px.max(0) as u32) << 16;
                             self.terrain.floor_y_pos = self.player.y_pos;
                             self.player.y_velocity = 0;
@@ -7227,9 +7235,11 @@ impl OpeningSliceState {
             && !handoff.compound_loc_a4ee
             && let Some(post_vertical_y_pos) = handoff.post_vertical_y_pos
         {
+            let handoff_x_pos = self.player.x_pos;
             let future_x_pos = (i64::from(self.player.x_pos) + i64::from(self.player.x_velocity))
                 .clamp(0, i64::from(u32::MAX)) as u32;
-            let x_px = (future_x_pos >> 16) as i32;
+            let handoff_x_px = (handoff_x_pos >> 16) as i32;
+            let future_x_px = (future_x_pos >> 16) as i32;
             let y_px = (self.player.y_pos >> 16) as i32;
             let post_vertical_y_px = (post_vertical_y_pos >> 16) as i32;
             let row = if form == PlayerForm::RedStealth {
@@ -7237,14 +7247,24 @@ impl OpeningSliceState {
             } else {
                 ((y_px + 1).max(0) >> 4) as u16
             };
+            let handoff_col = (handoff_x_px.max(0) >> 4)
+                .min(i32::from(grid.width_cells.saturating_sub(1)))
+                as u16;
+            let handoff_cell = grid.cell_at(handoff_col, row);
+            let handoff_next_col = handoff_col
+                .saturating_add(1)
+                .min(grid.width_cells.saturating_sub(1));
+            let handoff_next_cell = grid.cell_at(handoff_next_col, row);
             let current_col =
-                (x_px.max(0) >> 4).min(i32::from(grid.width_cells.saturating_sub(1))) as u16;
+                (future_x_px.max(0) >> 4).min(i32::from(grid.width_cells.saturating_sub(1))) as u16;
             let current_cell = grid.cell_at(current_col, row);
             let next_col = current_col
                 .saturating_add(1)
                 .min(grid.width_cells.saturating_sub(1));
             let next_cell = grid.cell_at(next_col, row);
             let post_vertical_frac = post_vertical_y_pos & 0x0000_FFFF;
+            let is_handoff_405c_605d_seam =
+                handoff_cell.skin == 0x5C && handoff_next_cell.skin == 0x5D;
             let is_4082_6024_seam = current_cell.skin == 0x82 && next_cell.skin == 0x24;
             let is_4082_solid_edge = current_cell.skin == 0x82
                 && matches!(
@@ -7256,6 +7276,16 @@ impl OpeningSliceState {
                 form == PlayerForm::RedStealth && is_4082_6024_seam && post_vertical_frac >= 0x4000;
             let applies_solid_edge_low_word_handoff =
                 post_vertical_frac <= 0x1000 || post_vertical_frac >= 0x4000;
+            let applies_handoff_cell_low_word_handoff = form == PlayerForm::TheKid
+                && is_handoff_405c_605d_seam
+                && post_vertical_frac > 0x1000
+                && post_vertical_frac < 0x4000
+                && matches!(handoff_cell.collision, terrain::CollisionKind::SlopeUp)
+                && !handoff_next_cell.has_block
+                && matches!(
+                    handoff_next_cell.collision,
+                    terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                );
             let applies_solid_edge_high_borrow = if is_4082_6024_seam {
                 post_vertical_frac <= 0x0800 || red_stealth_high_fraction_4082_handoff
             } else if is_4082_solid_edge {
@@ -7268,7 +7298,18 @@ impl OpeningSliceState {
             } else {
                 post_vertical_frac >= 0x4000
             };
-            if applies_solid_edge_low_word_handoff
+            if applies_handoff_cell_low_word_handoff {
+                // ASM loc_A99E -> loc_8BF0 -> loc_9D22: the direct #258
+                // held-Right jump recontacts the `$405C/$605D` SlopeUp/Solid
+                // edge at post-vertical fraction $2A00. At that mid-fraction
+                // point loc_9F18 composes the current slope-cell high word
+                // with the new slope velocity low word; looking one X step
+                // ahead is already in the solid cell and misses this anchor.
+                let post_tail_x_vel = new_vel.saturating_sub(KID_SLOPE_BRAKE_FP);
+                self.player.x_pos =
+                    (handoff_x_pos & 0xFFFF_0000) | ((post_tail_x_vel as u32) & 0xFFFF);
+                self.terrain.floor_terrain_type = TerrainType::Normal;
+            } else if applies_solid_edge_low_word_handoff
                 && matches!(current_cell.collision, terrain::CollisionKind::SlopeUp)
                 && !next_cell.has_block
                 && matches!(

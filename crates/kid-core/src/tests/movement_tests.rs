@@ -19416,6 +19416,130 @@ mod chunk_12 {
         );
     }
 
+    /// ASM sub_902A -> loc_A99E -> loc_8BF0 -> loc_9D22: the direct #258
+    /// right-slope held-Right jump probe recontacts the same first Level 00
+    /// SlopeUp/Solid edge at frame 36. Oracle keeps the row-12 slope-walk
+    /// anchor at `0x031d4000`; native previously over-advanced X by `0xA500`
+    /// before the `loc_9D22` velocity mirror, producing the visible 45-degree
+    /// stair launcher while holding Right.
+    #[test]
+    fn level00_frame_36_direct_right_slope_jump_recontact_matches_oracle_loc_a99e() {
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let Some(mut grid) = runtime.block_grid_for_level(LevelId(0)) else {
+            return;
+        };
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.on_ground = false;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x0319_3200;
+        slice.player.y_pos = 0x00c0_2b00;
+        slice.player.x_velocity = 0x0002_8100;
+        slice.player.y_velocity = 0x0000_bf00;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::from_mask(0x08),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        let trace = slice
+            .physics_trace
+            .expect("ASM loc_A99E focused case should retain physics trace");
+        assert_eq!(
+            trace.post_vertical.0, 0x00c1_2a00,
+            "ASM sub_902A post-vertical position should reach the direct #258 row-12 SlopeUp/Solid edge",
+        );
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_pos, 0x031d_4000,
+            "ASM loc_A99E/loc_8BF0 should match oracle direct #258 frame 36 x_pos",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00c2_0000,
+            "ASM loc_9D22 should snap to the oracle direct #258 frame 36 SlopeUp surface",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0002_4000,
+            "ASM loc_9D22 should keep the oracle direct #258 frame 36 post-slope x_vel",
+        );
+        assert_eq!(
+            slice.player.y_velocity, -slice.player.x_velocity,
+            "ASM loc_9D22: SlopeUp recontact stores y_vel = -x_vel",
+        );
+    }
+
+    /// ASM loc_9F18 -> loc_9FBC: the direct #258 held-Right route leaves the
+    /// first slope at frame 100. Oracle keeps the horizontal step but snaps to
+    /// the flat support row and clears y_vel instead of running another
+    /// diagonal `loc_9D22` slope frame.
+    #[test]
+    fn level00_frame_100_direct_right_slope_exit_clears_diagonal_y_vel_loc_9fbc() {
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let Some(mut grid) = runtime.block_grid_for_level(LevelId(0)) else {
+            return;
+        };
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x035e_8000;
+        slice.player.y_pos = 0x00ce_0000;
+        slice.player.x_velocity = 0x0001_8000;
+        slice.player.y_velocity = 0x0001_8000;
+        slice.terrain.floor_y_pos = 0x00ce_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput::from_mask(0x08),
+            false,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert!(slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_pos, 0x0360_0000,
+            "ASM loc_9F18 should still apply the final slope horizontal step on the flat-exit frame",
+        );
+        assert_eq!(
+            slice.player.y_pos, 0x00cf_0000,
+            "ASM loc_9FBC should snap to the flat support row when leaving the SlopeUp edge",
+        );
+        assert_eq!(
+            slice.player.x_velocity, 0x0001_8000,
+            "ASM loc_9FBC should keep the outgoing horizontal slope velocity",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0,
+            "ASM loc_9FBC clears y_vel after the slope-to-flat exit",
+        );
+    }
+
     /// ASM loc_A74E -> sub_B168 -> sub_902A -> loc_A762: when a fresh B edge
     /// launches Kid from the first Level 00 SlopeUp/Solid seam, sub_902A must
     /// keep the jump airborne. The following sub_8F26 wall pass must not clamp

@@ -5100,6 +5100,8 @@ mod tests {
             serde_json::to_vec(&metadata).expect("layout metadata should serialise"),
         )
         .expect("layout metadata should be writable");
+        fs::write(layout_dir.join("00.blocklist.bin"), [0x00, 0x00])
+            .expect("layout block list should be writable");
 
         let mut manifest = minimal_manifest();
         manifest.output_root = output_root;
