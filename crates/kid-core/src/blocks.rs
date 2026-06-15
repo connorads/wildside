@@ -1791,6 +1791,7 @@ impl NativeRuntime {
         [(-5, -3), (-4, -3), (-3, -3), (-2, -3), (-1, -3)];
     const BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E: [(i16, i16); 5] =
         [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)];
+    const BLOCK_DEBRIS_SCRATCH_SLOT_COUNT_SUB_28FC: usize = 6;
 
     fn block_debris_velocity_sub_292e(direction: u16) -> &'static [(i16, i16); 5] {
         match direction {
@@ -4437,7 +4438,22 @@ impl NativeRuntime {
             ));
             false
         });
-        self.block_debris_swarms.extend(new_debris_swarms);
+        for swarm in new_debris_swarms {
+            // ASM sub_28FC/sub_292E: block debris uses six `$52`-byte scratch
+            // slots at `$FFFFF01E`; `loc_29DE` advances `$FFFFFA9C` until
+            // `$FFFFFAA0` reaches zero, then rewinds to slot 0.
+            let slot_index = self.block_debris_scratch_cursor_sub_292e
+                % Self::BLOCK_DEBRIS_SCRATCH_SLOT_COUNT_SUB_28FC;
+            if slot_index < self.block_debris_swarms.len() {
+                self.block_debris_swarms[slot_index] = swarm;
+            } else if self.block_debris_swarms.len()
+                < Self::BLOCK_DEBRIS_SCRATCH_SLOT_COUNT_SUB_28FC
+            {
+                self.block_debris_swarms.push(swarm);
+            }
+            self.block_debris_scratch_cursor_sub_292e =
+                (slot_index + 1) % Self::BLOCK_DEBRIS_SCRATCH_SLOT_COUNT_SUB_28FC;
+        }
         for swarm in &mut self.block_debris_swarms {
             for piece in &mut swarm.pieces {
                 // ASM sub_2A4C (kid.asm:5053): per frame, add velocity to
@@ -4467,6 +4483,9 @@ impl NativeRuntime {
             let screen_x = (first_piece.x_pos_fp >> 16).wrapping_sub(camera_x_px);
             (0..0x140).contains(&screen_x)
         });
+        if self.block_debris_swarms.is_empty() {
+            self.block_debris_scratch_cursor_sub_292e = 0;
+        }
 
         let deleted_collision_latched_prize_form = self
             .floating_items

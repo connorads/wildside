@@ -10948,6 +10948,33 @@ mod chunk_09 {
     }
 
     #[test]
+    fn live_block_debris_uses_six_slot_scratch_ring_sub_292e() {
+        let mut rt = NativeRuntime::new(manifest());
+        for index in 0..7 {
+            rt.block_destroy_effects.push(BlockDestroyEffect {
+                x_px: 16 + index * 16,
+                y_px: 48,
+                remaining: 1,
+                direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+                pending_ice_origin_nudge: false,
+            });
+        }
+
+        rt.step_visual_effects();
+
+        assert_eq!(
+            rt.block_debris_swarms.len(),
+            6,
+            "ASM sub_292E decrements `$FFFFFAA0` from six and rewinds `$FFFFFA9C`; a seventh same-frame debris spawn overwrites slot 0 instead of appending a seventh worker"
+        );
+        assert_eq!(
+            rt.block_debris_swarms[0].pieces[0].x_pos_fp >> 16,
+            16 + 6 * 16 - 1,
+            "ASM loc_29DE/sub_292E should wrap the cursor and replace the first scratch slot with the seventh debris swarm"
+        );
+    }
+
+    #[test]
     fn highwater_block_debris_culls_against_camera_not_world_origin_sub_2a4c() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(LevelBounds {

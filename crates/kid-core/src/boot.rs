@@ -5931,6 +5931,7 @@ impl NativeRuntime {
         self.hidden_block_fg_update_workers.clear();
         self.block_destroy_effects.clear();
         self.block_debris_swarms.clear();
+        self.block_debris_scratch_cursor_sub_292e = 0;
         self.floating_items.clear();
         self.progression.current_form = PlayerForm::TheKid;
         self.progression.pending_form = None;
