@@ -16,6 +16,24 @@
       "promotion_trigger": "Promote if parity matching, loader attribution, or roster identity starts depending on it."
     },
     {
+      "key": "platform_width_px",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "platform-render-tiling",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native active-platform collision width in pixels, copied from the ROM platform size word so render diagnostics can tile platform cells instead of drawing one fixed frame.",
+      "promotion_trigger": "Promote if platform dimensions become part of typed render/frontier parity rather than temporary object debug metadata."
+    },
+    {
+      "key": "platform_height_px",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "platform-render-tiling",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native active-platform collision height in pixels, copied from the ROM platform size word so render diagnostics can tile platform cells instead of drawing one fixed frame.",
+      "promotion_trigger": "Promote if platform dimensions become part of typed render/frontier parity rather than temporary object debug metadata."
+    },
+    {
       "key": "currently_transforming",
       "scope": "frame",
       "status": "exploratory",

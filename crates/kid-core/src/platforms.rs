@@ -694,28 +694,39 @@ impl PlatformLoaderState {
             .take(self.next_index)
             .filter(|placement| platform_is_active(placement, window))
             .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
-            .map(|placement| NativeObjectSnapshot {
-                kind: NativeObjectKind::Platform {
-                    kind: placement.kind,
-                    subtype: placement.subtype,
-                },
-                x_pos: platform_layout_coord_fixed_loc_2762(placement.x),
-                y_pos: platform_layout_coord_fixed_loc_2762(placement.y),
-                layout_index: None,
-                x_velocity: None,
-                y_velocity: None,
-                facing: None,
-                on_ground: None,
-                hit_points: None,
-                damage_flash: false,
-                palette_variant: 0,
-                stationary: false,
-                shared_walker_state: None,
-                shared_walker_patrol_timer: None,
-                shared_walker_patrol_short_next: None,
-                walk_phase: None,
-                wait_timer: None,
-                debug_fields: std::collections::BTreeMap::new(),
+            .map(|placement| {
+                let mut debug_fields = std::collections::BTreeMap::new();
+                debug_fields.insert(
+                    "platform_width_px".to_string(),
+                    (u16::from(placement.h_variant) * 16 + 15).to_string(),
+                );
+                debug_fields.insert(
+                    "platform_height_px".to_string(),
+                    (u16::from(placement.v_variant) * 16 + 15).to_string(),
+                );
+                NativeObjectSnapshot {
+                    kind: NativeObjectKind::Platform {
+                        kind: placement.kind,
+                        subtype: placement.subtype,
+                    },
+                    x_pos: platform_layout_coord_fixed_loc_2762(placement.x),
+                    y_pos: platform_layout_coord_fixed_loc_2762(placement.y),
+                    layout_index: None,
+                    x_velocity: None,
+                    y_velocity: None,
+                    facing: None,
+                    on_ground: None,
+                    hit_points: None,
+                    damage_flash: false,
+                    palette_variant: 0,
+                    stationary: false,
+                    shared_walker_state: None,
+                    shared_walker_patrol_timer: None,
+                    shared_walker_patrol_short_next: None,
+                    walk_phase: None,
+                    wait_timer: None,
+                    debug_fields,
+                }
             })
             .collect()
     }

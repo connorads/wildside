@@ -12651,8 +12651,8 @@ mod tests {
         })
     }
 
-    fn has_asset_backed_command(scene: &Scene, signature: u8) -> bool {
-        scene.commands.iter().any(|command| match command {
+    fn has_command_signature(command: &DrawCommand, signature: u8) -> bool {
+        match command {
             DrawCommand::IndexedTile {
                 tile_sheet, tile, ..
             } => tile_sheet
@@ -12664,7 +12664,14 @@ mod tests {
                 .first()
                 .is_some_and(|resolved| resolved.pixels[0] == signature),
             _ => false,
-        })
+        }
+    }
+
+    fn has_asset_backed_command(scene: &Scene, signature: u8) -> bool {
+        scene
+            .commands
+            .iter()
+            .any(|command| has_command_signature(command, signature))
     }
 
     #[test]
@@ -14160,6 +14167,10 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
+        let platform_debug_fields = std::collections::BTreeMap::from([
+            ("platform_width_px".to_string(), "31".to_string()),
+            ("platform_height_px".to_string(), "15".to_string()),
+        ]);
         trace.active_objects = vec![
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Platform {
@@ -14182,7 +14193,7 @@ mod tests {
                 shared_walker_patrol_short_next: None,
                 walk_phase: None,
                 wait_timer: None,
-                debug_fields: std::collections::BTreeMap::new(),
+                debug_fields: platform_debug_fields,
             },
             NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x01 },
@@ -14211,6 +14222,15 @@ mod tests {
         assert!(
             has_asset_backed_command(&scene, 41),
             "expected platform ROM art command"
+        );
+        assert_eq!(
+            scene
+                .commands
+                .iter()
+                .filter(|command| has_command_signature(command, 41))
+                .count(),
+            2,
+            "ASM Make_SpritesFromPlatforms loc_244C/loc_2548 emits one 16px platform cell per width slot",
         );
         assert!(
             has_sprite_signature(&scene, 21),

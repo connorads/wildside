@@ -1827,13 +1827,33 @@ pub(super) fn push_platform_tiles(
         _ => &level_visuals.platforms.vertical,
     };
     let (screen_x, screen_y) = player_screen_position(object, trace);
-    commands.push(DrawCommand::Sprite {
-        x: screen_x - i32::from(frame.origin_x),
-        y: screen_y - i32::from(frame.height_px) + i32::from(frame.origin_y),
-        tile_sheet: Arc::new(frame.tile_sheet.clone()),
-        palette: Arc::new(level_visuals.platforms.palette.clone()),
-        tiles: build_sprite_tiles(frame, Direction::Right, 0),
-    });
+    let width_cells = platform_snapshot_dimension_cells(object, "platform_width_px");
+    let height_cells = platform_snapshot_dimension_cells(object, "platform_height_px");
+    let tile_sheet = Arc::new(frame.tile_sheet.clone());
+    let palette = Arc::new(level_visuals.platforms.palette.clone());
+    let tiles = build_sprite_tiles(frame, Direction::Right, 0);
+    for row in 0..height_cells {
+        for column in 0..width_cells {
+            commands.push(DrawCommand::Sprite {
+                x: screen_x - i32::from(frame.origin_x) + i32::from(column) * 16,
+                y: screen_y - i32::from(frame.height_px) + i32::from(frame.origin_y)
+                    + i32::from(row) * 16,
+                tile_sheet: Arc::clone(&tile_sheet),
+                palette: Arc::clone(&palette),
+                tiles: tiles.clone(),
+            });
+        }
+    }
+}
+
+fn platform_snapshot_dimension_cells(object: &NativeObjectSnapshot, key: &str) -> u16 {
+    object
+        .debug_fields
+        .get(key)
+        .and_then(|value| value.parse::<u16>().ok())
+        .map(|pixels| pixels.saturating_add(1).div_ceil(16))
+        .filter(|cells| *cells > 0)
+        .unwrap_or(1)
 }
 
 pub(crate) fn render_gameplay_frame_evidence(

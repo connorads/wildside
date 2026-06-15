@@ -2570,6 +2570,9 @@ impl ActivePlatform {
     }
 
     pub(crate) fn snapshot(&self) -> NativeObjectSnapshot {
+        let mut debug_fields = std::collections::BTreeMap::new();
+        debug_fields.insert("platform_width_px".to_string(), self.width_px.to_string());
+        debug_fields.insert("platform_height_px".to_string(), self.height_px.to_string());
         NativeObjectSnapshot {
             kind: NativeObjectKind::Platform {
                 kind: self.kind,
@@ -2591,7 +2594,7 @@ impl ActivePlatform {
             shared_walker_patrol_short_next: None,
             walk_phase: None,
             wait_timer: None,
-            debug_fields: std::collections::BTreeMap::new(),
+            debug_fields,
         }
     }
 }
