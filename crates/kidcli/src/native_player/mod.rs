@@ -709,10 +709,14 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             let new_level = trace.current_level.0;
             match load_level_change_session_assets(manifest, LevelId(new_level)) {
                 Ok((resolved_level, new_assets)) => {
-                    if resolved_level.0 != new_level {
-                        trace = runtime.enter_level_playtest(resolved_level);
-                    }
-                    session_assets = new_assets;
+                    apply_live_level_change_session_assets(
+                        &mut runtime,
+                        &mut trace,
+                        &mut session_assets,
+                        LevelId(new_level),
+                        resolved_level,
+                        new_assets,
+                    );
                     current_level_id = resolved_level.0;
                 }
                 Err(error) => {
@@ -1053,6 +1057,21 @@ fn enter_debug_hotkey_level(
     let has_renderable_title_card = level_has_generated_title_card(manifest, level_id);
 
     debug_hotkey_level_presentation(has_renderable_title_card)
+}
+
+fn apply_live_level_change_session_assets(
+    runtime: &mut NativeRuntime,
+    trace: &mut NativeTraceFrame,
+    session_assets: &mut NativeSessionAssets,
+    requested_level: LevelId,
+    resolved_level: LevelId,
+    next_assets: NativeSessionAssets,
+) {
+    *session_assets = next_assets;
+    if resolved_level != requested_level {
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        *trace = runtime.enter_level_debug_title_card(resolved_level);
+    }
 }
 
 fn debug_hotkey_level_presentation(
@@ -11153,6 +11172,56 @@ mod tests {
             level_id,
             LevelId(2),
             "ASM loc_74E0 advances Current_LevelID directly, but play-native must keep live level changes on levels with generated visuals and collision"
+        );
+    }
+
+    #[test]
+    fn live_level_change_resolved_target_reenters_rom_title_card() {
+        let mut fixture = ManifestFixture::new().expect("manifest fixture");
+        let mut target = fixture.manifest.levels[0].clone();
+        target.level_id = 0x02;
+        target.display_name = Some(String::from("Resolved Live Target"));
+        target.title_text_id = Some(0x2D);
+        target.title_card = Some(kid_data::LevelTitleCard {
+            script_bytes: vec![b'R', 0xFF],
+            line_destinations: vec![kid_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        fixture.manifest.levels.push(target);
+
+        let mut runtime = NativeRuntime::new(fixture.manifest.clone());
+        let mut session_assets = NativeSessionAssets {
+            level_visuals: sample_level_visuals(),
+            block_grid: try_load_block_grid(&fixture.manifest, 0x00).expect("start grid"),
+        };
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_debug_title_card(LevelId(1));
+        assert_eq!(trace.current_level, LevelId(1));
+
+        let target_assets = NativeSessionAssets {
+            level_visuals: sample_level_visuals(),
+            block_grid: try_load_block_grid(&fixture.manifest, 0x00).expect("target grid"),
+        };
+
+        apply_live_level_change_session_assets(
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(1),
+            LevelId(2),
+            target_assets,
+        );
+
+        assert_eq!(trace.current_level, LevelId(2));
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "live level-change asset fallback should not use the raw playtest warp, which exposes the target spawn before ASM loc_6E2/Load_TitleCard"
+        );
+        assert_eq!(
+            trace.current_level_name.as_deref(),
+            Some("Resolved Live Target")
         );
     }
 
