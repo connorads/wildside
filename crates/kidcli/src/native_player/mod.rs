@@ -7500,6 +7500,50 @@ mod tests {
     }
 
     #[test]
+    fn cold_boot_demo_prize_wobble_draws_at_live_camera_latch_sub_1007a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let trace = kid_core::run_script_with_warp(manifest.clone(), &[0], 3_445, None);
+        let current = &trace[3_444];
+        let previous = &trace[3_443];
+        assert_eq!(current.current_level, LevelId(0x1B));
+        assert_eq!(current.block_bounces, vec![(4, 36, 9, 0)]);
+        let render_trace = render_trace_with_vdp_latched_state(current, Some(previous));
+        let (visuals, grid) =
+            load_session_assets(&manifest, current.current_level.0).expect("Level 0x1B visuals");
+        let scene = build_scene(&render_trace, false, Some(&visuals), Some(&grid));
+
+        assert!(
+            scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite {
+                    x: 64,
+                    y: 87,
+                    ..
+                }
+            )),
+            "ASM sub_1007A prize wobble at level cell (4,36) should draw over the prior Camera_Y_pos latch, not vanish while the `$6Fxx` cell is live"
+        );
+        let sample_pixels = (64usize..80)
+            .flat_map(|x| (87usize..103).map(move |y| (x, y)))
+            .collect();
+        let visible_wobble_pixels = sample_scene_pixel_provenance(&scene, &sample_pixels)
+            .into_iter()
+            .filter(|sample| {
+                sample
+                    .writes
+                    .iter()
+                    .any(|write| write.accepted && write.kind == "sprite_tile")
+            })
+            .count();
+        assert!(
+            visible_wobble_pixels > 0,
+            "the visible sub_1007A prize wobble sprite should write non-background pixels"
+        );
+    }
+
+    #[test]
     fn non_prize_cleared_block_bounce_keeps_foreground_terrain_visible() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;

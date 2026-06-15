@@ -3358,10 +3358,15 @@ fn push_prize_block_wobble_sub_1007a(
         .copied()
         .enumerate()
         .filter_map(|(index, mut tile)| {
-            tile.tile_index = tile
+            let local_tile_index = tile
                 .tile_index
-                .checked_sub(BLOCK_TILE_VRAM_BASE)?
-                .saturating_add(if use_second_frame { 0x009 } else { 0 });
+                .checked_sub(BLOCK_TILE_VRAM_BASE)
+                .unwrap_or(tile.tile_index);
+            tile.tile_index = local_tile_index.saturating_add(if use_second_frame {
+                0x009
+            } else {
+                0
+            });
             Some(SpriteTile {
                 offset_x: if index % 2 == 0 { 0 } else { 8 },
                 offset_y: if index < 2 { 0 } else { 8 },
@@ -3654,6 +3659,8 @@ pub(super) fn push_block_grid_overrides(
                 let word = grid.raw_word_at(col, row);
                 if word & 0xFF00 == 0x6F00 {
                     (word as u8).saturating_sub(1)
+                } else if grid.cell_at(col, row).has_block {
+                    level_visuals.level.foreground_layout.skin_at(col, row)
                 } else {
                     (word & 0x00FF) as u8
                 }
