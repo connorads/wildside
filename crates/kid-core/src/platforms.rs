@@ -520,12 +520,21 @@ pub(crate) fn resolve_duplicate_platform_load_loc_286A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn advance_platform_loader_offset_loc_286E(platform_loader_offset: u16) -> u16 {
     // ASM loc_286E (kid.asm:4785): every exit path from
     // `Manage_PlatformLoading` advances `(PlatformLoader_Offset).w` by one
     // 12-byte platform-layout record before returning.
     platform_loader_offset.wrapping_add(0x000C)
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn platform_loader_offset_for_index_loc_286E(layout_index: usize) -> u16 {
+    // ASM loc_286E (kid.asm:4785): each processed platform-layout record is
+    // 12 bytes, and the ROM stamps the current `(PlatformLoader_Offset).w` into
+    // `$20(a3)` before advancing it by `$C`.
+    (0..layout_index).fold(0, |offset, _| {
+        advance_platform_loader_offset_loc_286E(offset)
+    })
 }
 
 #[allow(non_snake_case)]
@@ -666,7 +675,6 @@ fn platform_buffer_edge_px_loc_2762(buffer_edge: u8) -> u32 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
     layout_offset_words: u16,
     active_platforms: &[ActivePlatformHandleSub2728],
@@ -740,10 +748,11 @@ impl PlatformLoaderState {
         layout
             .placements
             .iter()
+            .enumerate()
             .take(self.next_index)
-            .filter(|placement| platform_is_active(placement, window))
+            .filter(|(_, placement)| platform_is_active(placement, window))
             .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
-            .map(|placement| {
+            .map(|(placement_index, placement)| {
                 let (width_px, height_px) = platform_size_words_loc_2814(
                     placement.kind,
                     placement.h_variant,
@@ -761,6 +770,10 @@ impl PlatformLoaderState {
                 debug_fields.insert(
                     "platform_mapping_addr_word".to_string(),
                     platform_mapping_addr_word_loc_2822(render_flags).to_string(),
+                );
+                debug_fields.insert(
+                    "platform_loader_offset_words".to_string(),
+                    platform_loader_offset_for_index_loc_286E(placement_index).to_string(),
                 );
                 NativeObjectSnapshot {
                     kind: NativeObjectKind::Platform {
@@ -814,11 +827,25 @@ pub(crate) fn runtime_active_platforms_loc_2762(
     script_table: Option<&kid_data::PlatformScriptTable>,
 ) -> Vec<ActivePlatform> {
     let mut active_platforms = Vec::new();
+    let previous_handles: Vec<ActivePlatformHandleSub2728> = previous_platforms
+        .iter()
+        .filter_map(|platform| {
+            platform
+                .layout_index
+                .map(platform_loader_offset_for_index_loc_286E)
+                .map(|layout_offset_words| ActivePlatformHandleSub2728 {
+                    layout_offset_words,
+                })
+        })
+        .collect();
     for (layout_index, placement) in layout.placements.iter().enumerate().take(next_index) {
-        let previous = previous_platforms
-            .iter()
-            .find(|platform| platform.layout_index == Some(layout_index))
-            .copied();
+        let layout_offset_words = platform_loader_offset_for_index_loc_286E(layout_index);
+        let previous = find_active_platform_by_layout_offset_sub_2728(
+            layout_offset_words,
+            &previous_handles,
+        )
+        .and_then(|slot_index| previous_platforms.get(slot_index))
+        .copied();
         if platform_is_active(placement, window) {
             if active_platforms.len() >= PLATFORM_SLOT_CAPACITY_LOC_231C {
                 break;

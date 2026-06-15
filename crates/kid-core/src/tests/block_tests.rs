@@ -14762,6 +14762,112 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_offset_for_index_uses_twelve_byte_records_loc_286e() {
+        assert_eq!(platform_loader_offset_for_index_loc_286E(0), 0x0000);
+        assert_eq!(platform_loader_offset_for_index_loc_286E(1), 0x000C);
+        assert_eq!(platform_loader_offset_for_index_loc_286E(4), 0x0030);
+        assert_eq!(
+            platform_loader_offset_for_index_loc_286E(0x2000),
+            0x8000,
+            "ASM loc_286E uses 16-bit wrapping arithmetic when adding one 12-byte platform record to `(PlatformLoader_Offset).w`",
+        );
+    }
+
+    #[test]
+    fn active_platform_snapshot_exposes_loader_offset_words_loc_286e() {
+        let window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let inactive = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 0,
+            buffer_right: 0,
+            buffer_top: 0,
+            buffer_bottom: 0,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let active = PlatformPlacement {
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            ..inactive.clone()
+        };
+        let layout = PlatformLayout {
+            placements: vec![inactive, active],
+        };
+        let state = PlatformLoaderState {
+            next_index: layout.placements.len(),
+        };
+
+        let active = state.active_platforms(&layout, window);
+
+        assert_eq!(active.len(), 1);
+        assert_eq!(
+            active[0]
+                .debug_fields
+                .get("platform_loader_offset_words")
+                .map(String::as_str),
+            Some("12"),
+            "ASM Manage_PlatformLoading stamps `$20(a3)` with the current 12-byte platform-layout offset before loc_286E advances it",
+        );
+    }
+
+    #[test]
+    fn runtime_platform_roster_preserves_previous_slot_by_loader_offset_sub_2728() {
+        let window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement.clone(), placement],
+        };
+        let mut previous =
+            ActivePlatform::from_placement_with_index(1, &layout.placements[1], None);
+        previous.x_velocity = 0x0001_4000;
+
+        let active = runtime_active_platforms_loc_2762(&layout, 2, window, &[previous], None);
+
+        let preserved = active
+            .iter()
+            .find(|platform| platform.layout_index == Some(1))
+            .expect("second platform should stay active");
+        assert_eq!(
+            preserved.x_velocity, 0x0001_4000,
+            "ASM sub_2728 preserves the already-loaded platform slot whose `$20(a3)` matches the current PlatformLoader_Offset",
+        );
+    }
+
+    #[test]
     fn find_active_platform_by_layout_offset_sub_2728_returns_the_first_matching_slot() {
         assert_eq!(
             find_active_platform_by_layout_offset_sub_2728(
