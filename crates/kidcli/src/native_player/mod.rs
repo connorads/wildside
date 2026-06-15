@@ -2128,11 +2128,15 @@ fn native_audio_events_for_trace_with_initial_bgm(
                 native_bgm_command_suppresses_same_frame_sfx(command, trace)
             });
             if !suppress_sfx_this_frame {
-                for command in gems_event_sound_commands(prev, trace) {
-                    events.push(format_native_sound_event(frame_index, trace, command));
-                }
-                for speed in gems_event_music_speed_updates(prev, trace) {
-                    events.push(format_native_music_speed_event(frame_index, trace, speed));
+                for command in gems_event_audio_commands(prev, trace) {
+                    match command {
+                        NativeAudioTraceCommand::Sound(command) => {
+                            events.push(format_native_sound_event(frame_index, trace, command));
+                        }
+                        NativeAudioTraceCommand::MusicSpeed(speed) => {
+                            events.push(format_native_music_speed_event(frame_index, trace, speed));
+                        }
+                    }
                 }
             }
         }
@@ -2207,11 +2211,15 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
             gems.play_sound(bgm);
         }
         if !suppress_sfx_this_frame && let Some(prev) = prev_trace {
-            for command in gems_event_sound_commands(prev, trace) {
-                apply_native_sound_command(&mut gems, command);
-            }
-            for speed in gems_event_music_speed_updates(prev, trace) {
-                gems.set_music_speed(speed);
+            for command in gems_event_audio_commands(prev, trace) {
+                match command {
+                    NativeAudioTraceCommand::Sound(command) => {
+                        apply_native_sound_command(&mut gems, command);
+                    }
+                    NativeAudioTraceCommand::MusicSpeed(speed) => {
+                        gems.set_music_speed(speed);
+                    }
+                }
             }
         }
         gems.step_frame();
@@ -2323,6 +2331,38 @@ fn format_native_music_speed_event(
         "frame={frame_index} mode={:?} level={:02X} command=SetMusicSpeed({speed})",
         trace.game_mode, trace.current_level.0
     )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeAudioTraceCommand {
+    Sound(NativeSoundCommand),
+    MusicSpeed(u8),
+}
+
+fn gems_event_audio_commands(
+    prev: &NativeTraceFrame,
+    curr: &NativeTraceFrame,
+) -> Vec<NativeAudioTraceCommand> {
+    let sound_commands = gems_event_sound_commands(prev, curr);
+    let music_speed_updates = gems_event_music_speed_updates(prev, curr);
+    let (voice_bummer_commands, pre_speed_sound_commands): (Vec<_>, Vec<_>) = sound_commands
+        .into_iter()
+        .partition(|command| command.sound_id == gems_sfx::VOICE_BUMMER);
+
+    pre_speed_sound_commands
+        .into_iter()
+        .map(NativeAudioTraceCommand::Sound)
+        .chain(
+            music_speed_updates
+                .into_iter()
+                .map(NativeAudioTraceCommand::MusicSpeed),
+        )
+        .chain(
+            voice_bummer_commands
+                .into_iter()
+                .map(NativeAudioTraceCommand::Sound),
+        )
+        .collect()
 }
 
 fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8> {
@@ -2698,11 +2738,11 @@ fn detect_gems_events(
     curr: &NativeTraceFrame,
     gems: &mut GemsAudioEngine,
 ) {
-    for command in gems_event_sound_commands(prev, curr) {
-        apply_native_sound_command(gems, command);
-    }
-    for speed in gems_event_music_speed_updates(prev, curr) {
-        gems.set_music_speed(speed);
+    for command in gems_event_audio_commands(prev, curr) {
+        match command {
+            NativeAudioTraceCommand::Sound(command) => apply_native_sound_command(gems, command),
+            NativeAudioTraceCommand::MusicSpeed(speed) => gems.set_music_speed(speed),
+        }
     }
 }
 
@@ -16702,6 +16742,26 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::VOICE_BUMMER],
             "ASM loc_7E40 (kid.asm:8570) queues sfx_Voice_bummer=$68 when transform cleanup leaves Current_Helmet zero"
+        );
+    }
+
+    #[test]
+    fn play_native_preserves_transform_back_music_speed_before_voice_bummer_loc_7e26_7e40() {
+        let prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        curr.played_music_speed_updates = vec![0x7E];
+        curr.played_sound_commands = vec![NativeSoundCommand::play_sound(gems_sfx::VOICE_BUMMER)];
+        curr.played_sound_effect_ids = vec![gems_sfx::VOICE_BUMMER];
+
+        assert_eq!(
+            gems_event_audio_commands(&prev, &curr),
+            vec![
+                NativeAudioTraceCommand::MusicSpeed(0x7E),
+                NativeAudioTraceCommand::Sound(NativeSoundCommand::play_sound(
+                    gems_sfx::VOICE_BUMMER
+                )),
+            ],
+            "ASM Kid_Transform loc_7E26 queues the music-speed write before loc_7E40 queues sfx_Voice_bummer; replaying the voice first leaves the sample at the wrong tempo"
         );
     }
 
