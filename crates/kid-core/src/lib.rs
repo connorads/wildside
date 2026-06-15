@@ -1916,6 +1916,7 @@ impl NativeRuntime {
     /// Rebuild VDP state based on the current boot phase.
     /// Called once per frame after `step_boot_state`.
     fn update_vdp_state(&mut self) {
+        let previous_vdp_state = self.vdp_state.clone();
         self.vdp_state = match &self.boot_state {
             BootState::SegaScreen { elapsed } => self
                 .sega_screen_data
@@ -1933,6 +1934,16 @@ impl NativeRuntime {
                         self.title_screen_region_byte,
                         *elapsed,
                     );
+                }
+                if *segment == 4
+                    && *elapsed == 0
+                    && let Some(vdp) = previous_vdp_state.clone()
+                {
+                    // ASM sub_1B988 writes Game_Mode=$24 and jumps through
+                    // j_loc_6E2; the oracle still displays the final
+                    // intro-sequence-4 VDP on that first trace frame before
+                    // loc_1BA28's hidden sub_1C204 shell goes black.
+                    return vdp;
                 }
                 vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
                     data,

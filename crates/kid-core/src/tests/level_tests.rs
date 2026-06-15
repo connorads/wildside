@@ -5169,6 +5169,48 @@ mod chunk_02 {
     }
 
     #[test]
+    fn cold_boot_intro_sequence_5_first_frame_carries_intro_4_vdp() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut frame_1875 = None;
+        let mut frame_1876 = None;
+
+        for frame_index in 0..=1_876 {
+            let trace = runtime.step_frame(FrameInput::default());
+            if frame_index == 1_875 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence4);
+                frame_1875 = runtime.vdp_state().cloned();
+            }
+            if frame_index == 1_876 {
+                assert_eq!(trace.game_mode, GameMode::IntroSequence5);
+                frame_1876 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let previous = frame_1875.expect("intro sequence 4 should expose a VDP frame");
+        let actual = frame_1876.expect("intro sequence 5 should preserve the displayed frame");
+        let word_at = |vdp: &crate::vdp::VdpState, byte_addr: usize| {
+            u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
+        };
+
+        assert_eq!(
+            actual.cram, previous.cram,
+            "ASM sub_1B988 writes Game_Mode=$24 and jumps through j_loc_6E2; oracle frame 1876 still displays the final intro-sequence-4 VDP for one frame",
+        );
+        assert_eq!(
+            word_at(&actual, 0xE000),
+            word_at(&previous, 0xE000),
+            "ASM Load_IntroSequence5 rebuilds VRAM before loc_1BA28's hidden sub_1C204 shell, but the first trace frame after the mode switch should not present native's blank shell",
+        );
+        assert_ne!(
+            word_at(&actual, 0xE000),
+            0,
+            "oracle frame 1876 carries visible intro-sequence-4 plane data instead of a black frame",
+        );
+    }
+
+    #[test]
     fn cold_boot_intro_sequence_6_holds_intro_5_vdp_through_loc_1ba90_fade() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
