@@ -815,6 +815,19 @@ and stop — never commit churn.
   not sensitive to simple pre-431 input replacement; next useful work needs a
   different bootstrap/Drips cycle or new live recording, not more pre-300/pre-330
   trims on `issue260-gr-pulse600`.
+  2026-06-15 follow-up on `.cache/recordings/issue-260-pre390-survivor-current/scenario.json`
+  rejects the earlier B-window route-shape axis too. Broad `260..360` input
+  replacements showed `pre260_b` can put Kid's healthy hitbox within 1 px of
+  row-32 cell `36,32`, but it produces no row-32 Bounce/Destroy and leaves the
+  closest DripsSurfaceCrawler 65 px below the target row. A tighter B-window
+  sweep (`220..320` through `300..400`) repeats the same pattern: best
+  `b220_320`/`b220_340`/`b220_360` put Kid at `dx=0 dy=-1 @489`, while the
+  DripsDrop conjunction is still separated vertically (`projectile dy=-53`) and
+  no row-32 block event occurs; later B windows only reproduce the old cell
+  `37,32` bounce with the Drips child far below. Do not repeat simple
+  pre-260/pre-300 B-window overlays on this seed; the next useful #260 route
+  search still needs a different bootstrap/Drips cycle or a new live recording
+  that brings the child onto the row-32 cell before Kid's block contact.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
