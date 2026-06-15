@@ -4501,7 +4501,16 @@ impl NativeRuntime {
                 return false;
             }
             let screen_x = (first_piece.x_pos_fp >> 16).wrapping_sub(camera_x_px);
-            (0..0x140).contains(&screen_x)
+            if !(0..0x140).contains(&screen_x) {
+                return false;
+            }
+
+            let tail_piece = swarm.pieces[swarm.pieces.len() - 1];
+            let tail_screen_x = (tail_piece.x_pos_fp >> 16).wrapping_sub(camera_x_px);
+            // ASM sub_2A4C inline tail check (kid.asm:5132-5158): after the
+            // fifth debris sprite path, relative x >= `$1EF` clears the whole
+            // scratch slot even when the lead shard remains on-screen.
+            tail_screen_x < 0x01EF
         });
         if self.block_debris_swarms.is_empty() {
             self.block_debris_scratch_cursor_sub_292e = 0;

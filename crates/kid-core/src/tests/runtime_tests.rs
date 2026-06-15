@@ -11043,6 +11043,31 @@ mod chunk_09 {
     }
 
     #[test]
+    fn live_block_debris_tail_fragment_culls_slot_sub_2a4c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.block_debris_swarms.clear();
+        rt.block_debris_swarms.push(BlockDebrisSwarmSub2A4C {
+            pieces: core::array::from_fn(|index| BlockDebrisPieceSub2A4C {
+                x_pos_fp: if index == 4 { 0x01EF << 16 } else { 0x0020 << 16 },
+                y_pos_fp: 0x0040 << 16,
+                x_velocity_fp: 0,
+                y_velocity_fp: 0,
+            }),
+        });
+
+        rt.step_visual_effects();
+
+        assert!(
+            rt.block_debris_swarms.is_empty(),
+            "ASM sub_2A4C clears the whole scratch slot once the tail fragment reaches relative x `$1EF`, even if the lead fragment is still visible"
+        );
+        assert!(
+            rt.trace_frame().block_debris_pieces.is_empty(),
+            "cleared sub_2A4C scratch slots should no longer expose falling debris pieces to the renderer"
+        );
+    }
+
+    #[test]
     fn prize_block_spawn_flash_counts_down_and_is_traced_with_loc_102b8_position() {
         let mut rt = NativeRuntime::new(manifest());
         rt.prize_block_spawn_flashes.push(PrizeBlockSpawnFlash {
