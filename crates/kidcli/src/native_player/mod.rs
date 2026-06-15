@@ -2888,9 +2888,14 @@ fn try_load_generated_level_layout(
     let layout_dir = manifest.output_root.join("level-layout");
     let logical_layout_path = layout_dir.join(format!("{level_id:02X}.bin"));
     let logical_metadata_path = layout_dir.join(format!("{level_id:02X}.json"));
-    let (layout_path, metadata_path) =
+    let logical_block_list_path = layout_dir.join(format!("{level_id:02X}.blocklist.bin"));
+    let (layout_path, metadata_path, block_list_path) =
         if logical_layout_path.is_file() && logical_metadata_path.is_file() {
-            (logical_layout_path, logical_metadata_path)
+            (
+                logical_layout_path,
+                logical_metadata_path,
+                logical_block_list_path,
+            )
         } else {
             // ASM Load_Level_Data resolves Current_LevelID through
             // MapOrder_Index before decoding the BLOCK resource. Prefer
@@ -2900,10 +2905,18 @@ fn try_load_generated_level_layout(
             (
                 layout_dir.join(format!("{resource_level:02X}.bin")),
                 layout_dir.join(format!("{resource_level:02X}.json")),
+                layout_dir.join(format!("{resource_level:02X}.blocklist.bin")),
             )
         };
     if !layout_path.is_file() || !metadata_path.is_file() {
         return Ok(None);
+    }
+    if !block_list_path.is_file() {
+        bail!(
+            "generated Level_Layout {} is missing matching block list {}; play-native refuses partial generated layouts because Prize_Init loc_10342 would otherwise fall back to Diamond fixture mode",
+            layout_path.display(),
+            block_list_path.display(),
+        );
     }
 
     let mut data = std::fs::read(&layout_path).map_err(|error| {
@@ -6853,6 +6866,7 @@ mod tests {
                 legacy_metadata_path,
                 br#"{"data_bytes":4,"width_blocks":20,"height_blocks":14}"#,
             )?;
+            write_file(root.path(), "level-layout/00.blocklist.bin", &[0x00, 0x00])?;
 
             Ok(Self {
                 manifest: AssetManifest {
@@ -10252,6 +10266,21 @@ mod tests {
     }
 
     #[test]
+    fn try_load_block_grid_rejects_partial_generated_level_layout_without_block_list() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        fs::remove_file(fixture._root.path().join("level-layout/00.blocklist.bin"))
+            .expect("remove block list sidecar");
+
+        let error = try_load_block_grid(&fixture.manifest, 0x00)
+            .expect_err("generated Level_Layout without block list must fail closed");
+
+        assert!(
+            error.to_string().contains("missing matching block list"),
+            "play-native must reject partial generated layouts; otherwise live helmet prizes can fall back to Diamond fixture mode: {error:#}"
+        );
+    }
+
+    #[test]
     fn try_load_block_grid_rejects_missing_generated_level_layout() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
         fs::remove_file(fixture._root.path().join("level-layout/00.bin")).expect("remove layout");
@@ -10415,6 +10444,12 @@ mod tests {
             br#"{"data_bytes":4,"width_blocks":20,"height_blocks":14}"#,
         )
         .expect("logical layout metadata");
+        write_file(
+            fixture._root.path(),
+            "level-layout/1B.blocklist.bin",
+            &[0x00, 0x00],
+        )
+        .expect("logical block list");
         fixture.manifest.map_order = (0..=0x1B).collect();
         fixture.manifest.map_order[0x1B] = 0x27;
         fixture.manifest.levels.push(LevelRecord {
@@ -11011,6 +11046,12 @@ mod tests {
             br#"{"data_bytes":2,"width_blocks":1,"height_blocks":1}"#,
         )
         .expect("write logical metadata");
+        write_file(
+            fixture._root.path(),
+            "level-layout/04.blocklist.bin",
+            &[0x00, 0x00],
+        )
+        .expect("write logical block list");
         write_file(fixture._root.path(), "level-layout/01.bin", &[0x60, 0x42])
             .expect("write resource layout");
         write_file(
@@ -11019,6 +11060,12 @@ mod tests {
             br#"{"data_bytes":2,"width_blocks":1,"height_blocks":1}"#,
         )
         .expect("write resource metadata");
+        write_file(
+            fixture._root.path(),
+            "level-layout/01.blocklist.bin",
+            &[0x00, 0x00],
+        )
+        .expect("write resource block list");
 
         let grid = try_load_block_grid(&fixture.manifest, 0x04)
             .expect("logical level should load generated logical collision");
@@ -11044,6 +11091,12 @@ mod tests {
             br#"{"data_bytes":2,"width_blocks":1,"height_blocks":1}"#,
         )
         .expect("write resource metadata");
+        write_file(
+            fixture._root.path(),
+            "level-layout/01.blocklist.bin",
+            &[0x00, 0x00],
+        )
+        .expect("write resource block list");
 
         let grid = try_load_block_grid(&fixture.manifest, 0x04)
             .expect("logical level should fall back to mapped resource collision");
