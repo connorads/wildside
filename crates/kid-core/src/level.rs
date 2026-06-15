@@ -19253,11 +19253,15 @@ impl NativeRuntime {
         };
 
         if level_id == self.current_level
+            && !(matches!(level_id, LevelId(1)) && self.level_skip_transition.is_some())
             && let Some(opening_slice) = self.opening_slice
         {
             // ASM loc_74E0 jumps through loc_6E2 into the mode-$0008 load
             // shell, so the visible destination hold should expose the settled
-            // Load_InGame pose after terrain rebuild, not the raw header Y.
+            // Load_InGame pose after terrain rebuild, not the raw header Y. The
+            // active level-1 skip transition is the original hard-coded route
+            // animation above, and should still land on its ASM-authored hold
+            // pose rather than the later gameplay spawn.
             pose.kid_x_pos = opening_slice.player.x_pos;
             pose.kid_y_pos = opening_slice.player.y_pos;
             pose.camera_x_pos = opening_slice.camera.x_pos;
