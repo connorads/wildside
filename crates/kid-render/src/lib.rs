@@ -705,7 +705,7 @@ mod tests {
     }
 
     #[test]
-    fn load_level_visuals_prefers_logical_decoded_layout_when_generated() {
+    fn load_level_visuals_resolves_decoded_layouts_through_map_order_loc_11a50() {
         let mut fixture = TestBundle::new().expect("test bundle");
         let resource_foreground = vec![0x04; 6 * 4 * 20 * 14];
         fixture
@@ -783,17 +783,29 @@ mod tests {
             load_level_visuals(&fixture.manifest, 0x01).expect("aliased visuals should load");
 
         // ASM Load_InGame loc_11A50 resolves Current_LevelID through
-        // MapOrder_Index before reading visual theme data, while generated
-        // logical decoded layouts still provide the specialised geometry.
+        // MapOrder_Index before reading the map header. The same header
+        // cursor then supplies the foreground, block, and background pointers
+        // consumed at loc_11BEC, loc_11C7E, and loc_11D0C.
         assert_eq!(visuals.level.level_id, 0x01);
         assert_eq!(visuals.level.foreground_theme_id, FOREST_THEME_ID);
         assert_eq!(visuals.level.background_theme_id, FOREST_THEME_ID);
-        assert_eq!(visuals.level.foreground_layout.width_cells, 40);
-        assert_eq!(visuals.level.foreground_layout.height_cells, 28);
-        assert_eq!(visuals.level.foreground_layout_bytes, logical_foreground);
+        assert_eq!(visuals.level.foreground_layout.width_cells, 120);
+        assert_eq!(visuals.level.foreground_layout.height_cells, 56);
+        assert_eq!(visuals.level.foreground_layout_bytes, resource_foreground);
         assert_eq!(
             visuals.level.block_layout_bytes,
-            vec![0x01, 0x02, 0x03, 0x04]
+            vec![0x4B, 0x4C, 0x4D, 0x4E]
+        );
+        let BackgroundVisuals::Layered(background) = &visuals.background else {
+            panic!("mapped forest resource should use layered background visuals");
+        };
+        assert_eq!(
+            background.rows[0].tiles[0].tile_index, 0,
+            "ASM Load_InGame loc_11A50 maps visual theme ids before loc_128BA normalises layered background tile base"
+        );
+        assert_eq!(
+            background.rows[0].tiles[32].tile_index, 1,
+            "ASM Load_InGame loc_11A50 maps visual theme ids before loc_128BA normalises layered background tile base"
         );
     }
 
@@ -830,6 +842,17 @@ mod tests {
                 "logical level 0x{level_id:02X} should draw mapped resource theme 0x{:02X}/0x{:02X}",
                 resource_header.level_theme,
                 resource_header.background_theme
+            );
+            let BackgroundVisuals::Layered(background) = &visuals.background else {
+                panic!("generated BLW should draw the mapped forest layered background");
+            };
+            assert!(
+                background
+                    .rows
+                    .iter()
+                    .flat_map(|row| &row.tiles)
+                    .all(|tile| tile.tile_index < 0x0780),
+                "logical level 0x{level_id:02X} should not retain absolute VRAM tile indices for mapped forest background tiles"
             );
         }
     }

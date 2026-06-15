@@ -1101,11 +1101,11 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .unwrap_or_else(|| level.clone());
     let header = load_asset(
         manifest,
-        level
+        resource_level
             .resources
             .header
             .as_deref()
-            .or(resource_level.resources.header.as_deref()),
+            .or(level.resources.header.as_deref()),
     )?;
     let parsed_header = header
         .as_ref()
@@ -1151,27 +1151,27 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         parsed_enemy_layout,
         foreground: load_asset(
             manifest,
-            level
+            resource_level
                 .resources
                 .foreground
                 .as_deref()
-                .or(resource_level.resources.foreground.as_deref()),
+                .or(level.resources.foreground.as_deref()),
         )?,
         block: load_asset(
             manifest,
-            level
+            resource_level
                 .resources
                 .block
                 .as_deref()
-                .or(resource_level.resources.block.as_deref()),
+                .or(level.resources.block.as_deref()),
         )?,
         background: load_asset(
             manifest,
-            level
+            resource_level
                 .resources
                 .background
                 .as_deref()
-                .or(resource_level.resources.background.as_deref()),
+                .or(level.resources.background.as_deref()),
         )?,
     })
 }
@@ -8307,7 +8307,7 @@ AddrTbl_LevelNames:   ;1A842
     }
 
     #[test]
-    fn load_level_asset_bundle_prefers_logical_level_assets_before_map_order_resource() {
+    fn load_level_asset_bundle_resolves_ingame_assets_through_map_order() {
         let output = TempDir::new().expect("temp dir");
         let root = output.path();
         fs::create_dir_all(root.join("level/header")).expect("header dir");
@@ -8395,16 +8395,16 @@ AddrTbl_LevelNames:   ;1A842
 
         assert_eq!(
             bundle.parsed_header.expect("header").width_screens,
-            2,
-            "ASM loc_1AB52 leaves ordinary generated level IDs logical for title/level data; a logical exported header must not be replaced by the mapped resource header"
+            6,
+            "ASM Load_InGame loc_11A50 resolves Current_LevelID through MapOrder_Index before reading the map header"
         );
         assert_eq!(
             bundle.foreground.expect("foreground").bytes,
-            vec![0x01],
-            "render assets should stay aligned with the logical collision/layout when generated logical files exist"
+            vec![0x4B],
+            "ASM Load_InGame loc_11BEC consumes the MapOrder-resolved foreground layout pointer"
         );
-        assert_eq!(bundle.block.expect("block").bytes, vec![0x02]);
-        assert_eq!(bundle.background.expect("background").bytes, vec![0x03]);
+        assert_eq!(bundle.block.expect("block").bytes, vec![0x4C]);
+        assert_eq!(bundle.background.expect("background").bytes, vec![0x4D]);
     }
 
     #[test]

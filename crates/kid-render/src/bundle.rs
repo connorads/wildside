@@ -177,7 +177,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         .decoded_levels
         .iter()
         .find(|d| d.level_id == resource_level_id);
-    let decoded = logical_decoded.or(resource_decoded);
+    let decoded = resource_decoded.or(logical_decoded);
 
     let foreground_theme =
         resolve_theme_name(visual_theme_header.level_theme).ok_or_else(|| {
@@ -223,8 +223,8 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     };
     let parsed_foreground_layout = ForegroundLayout::parse(
         &foreground_layout,
-        header.width_screens,
-        header.height_screens,
+        visual_theme_header.width_screens,
+        visual_theme_header.height_screens,
     )
     .context(format!(
         "failed to parse level 0x{level_id:02X} foreground layout"
@@ -364,8 +364,8 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     let background = load_background_visuals(
         manifest,
         background_theme,
-        header.background_theme,
-        header.weather_flags,
+        visual_theme_header.background_theme,
+        visual_theme_header.weather_flags,
         &background_layout,
     )
     .context(format!(
