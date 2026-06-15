@@ -7576,6 +7576,14 @@ mod chunk_09 {
             ],
             "ASM loc_110D0 (kid.asm:23021) plays sfx_Metal_block ($12) for the springy bounce and loc_10DA4 (kid.asm:22692) plays sfx_Rubber_block ($56); both are queued from core in block-effect order"
         );
+        assert_eq!(
+            rt.played_sound_commands,
+            vec![
+                QueuedSoundCommand::PlaySound(QueuedSoundEffect::MetalBlock),
+                QueuedSoundCommand::PlaySound(QueuedSoundEffect::RubberBlock)
+            ],
+            "native live playback consumes the ASM-backed PlaySound command trace, not only the legacy sound-id list"
+        );
     }
 
     #[test]

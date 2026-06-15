@@ -2457,6 +2457,7 @@ impl NativeRuntime {
         let mut pending_drips_splashes = Vec::new();
         let mut pending_tar_monster_bursts = Vec::new();
         let mut pending_shooter_layout_interactions = Vec::new();
+        let mut pending_projectile_sound_effects = Vec::new();
         let mut expired_drips_surface_crawler_finishes = 0usize;
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
@@ -3109,7 +3110,7 @@ impl NativeRuntime {
                     if let Some(owner) = p.owner {
                         // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping`
                         // before handing the falling child to loc_33488.
-                        self.played_sound_effects
+                        pending_projectile_sound_effects
                             .push(crate::combat::QueuedSoundEffect::DripsDripping);
                         pending_drips_splashes.push(PendingDripsSplash { owner, drop: *p });
                     } else if p.drips_spawn_crawler_on_splash
@@ -3219,6 +3220,9 @@ impl NativeRuntime {
             }
             true
         });
+        for effect in pending_projectile_sound_effects {
+            self.queue_play_sound(effect);
+        }
         self.resolve_drips_splashes(pending_drips_splashes);
         self.drips_surface_crawler_count_loc_fffffb42 = self
             .drips_surface_crawler_count_loc_fffffb42

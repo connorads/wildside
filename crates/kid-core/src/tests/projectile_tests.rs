@@ -91,6 +91,20 @@ mod chunk_06 {
         assert_eq!(cell_after.block_type, terrain::BlockType::Metal);
         assert_eq!(cell_after.collision, terrain::CollisionKind::Solid);
         assert_eq!(runtime.block_bounces.len(), 1, "steel hit should bounce");
+        assert!(
+            runtime
+                .played_sound_effects
+                .contains(&QueuedSoundEffect::MetalBlock),
+            "ASM loc_110D0 (kid.asm:23021) plays sfx_Metal_block for the Iron Knight steel bounce"
+        );
+        assert!(
+            runtime
+                .played_sound_commands
+                .contains(&QueuedSoundCommand::PlaySound(
+                    QueuedSoundEffect::MetalBlock
+                )),
+            "live playback drains played_sound_commands, so the steel bounce must queue PlaySound as well as the legacy effect id"
+        );
 
         let slice_after = runtime
             .opening_slice
