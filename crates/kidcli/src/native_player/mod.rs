@@ -1063,13 +1063,15 @@ fn apply_live_level_change_session_assets(
     runtime: &mut NativeRuntime,
     trace: &mut NativeTraceFrame,
     session_assets: &mut NativeSessionAssets,
-    _requested_level: LevelId,
+    requested_level: LevelId,
     resolved_level: LevelId,
     next_assets: NativeSessionAssets,
 ) {
     *session_assets = next_assets;
     runtime.set_block_grid(session_assets.block_grid.clone());
-    *trace = runtime.enter_level_debug_title_card(resolved_level);
+    if requested_level != resolved_level {
+        *trace = runtime.enter_level_debug_title_card(resolved_level);
+    }
 }
 
 fn debug_hotkey_level_presentation(
@@ -11398,8 +11400,9 @@ mod tests {
             block_grid: start_grid.clone(),
         };
         runtime.set_block_grid(session_assets.block_grid.clone());
-        let mut trace = runtime.enter_level_debug_title_card(LevelId(1));
-        assert_eq!(trace.current_level, LevelId(1));
+        let mut trace = runtime.enter_level_debug_title_card(LevelId(2));
+        assert_eq!(trace.current_level, LevelId(2));
+        let pre_asset_swap_trace = trace.clone();
 
         let mut target_grid = try_load_block_grid(&fixture.manifest, 0x00).expect("target grid");
         target_grid.set_cell_at(0, 0, Cell::from_be_bytes(0xE1, 0x03));
@@ -11420,12 +11423,13 @@ mod tests {
         assert_eq!(trace.current_level, LevelId(2));
         assert_eq!(
             trace.game_mode,
-            GameMode::LevelTransition,
-            "ASM loc_74E0 updates Current_LevelID then routes through loc_6E2/Load_TitleCard even when the requested live level is directly loadable"
+            pre_asset_swap_trace.game_mode,
+            "direct live level-change asset swaps must preserve the core-owned transition shell instead of replaying ASM loc_6E2/Load_TitleCard"
         );
         assert_eq!(
             trace.current_level_name.as_deref(),
-            Some("Direct Live Target")
+            pre_asset_swap_trace.current_level_name.as_deref(),
+            "direct live level-change asset swaps should not rebuild the trace through a second title-card entry"
         );
         assert_eq!(
             runtime.block_grid().expect("runtime grid").cell_at(0, 0),
