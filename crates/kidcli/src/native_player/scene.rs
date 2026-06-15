@@ -3464,6 +3464,17 @@ pub(super) fn push_level_layout_terrain(
 
     for row in row_start..row_end {
         for col in col_start..col_end {
+            let active_block_bounce = trace
+                .block_bounces
+                .iter()
+                .any(|(cx, cy, remaining, _)| *cx == col && *cy == row && *remaining > 0);
+            if active_block_bounce {
+                // ASM sub_1007A writes the original block art to the FG update
+                // queue before marking the live Level_Layout cell `$6Fxx`, then
+                // draws `unk_E0E4E`/`unk_E0E5E` as a gfx object. Do not expose
+                // the immutable underlay while that worker is still active.
+                continue;
+            }
             let raw_word = block_grid.map(|grid| grid.raw_word_at(col, row));
             let priority_override = raw_word
                 .filter(|word| word & 0x8100 == 0x0100)

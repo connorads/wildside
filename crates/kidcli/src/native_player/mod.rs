@@ -7361,6 +7361,10 @@ mod tests {
             )),
             "active sub_1007A block_bounces entry should draw the deleted `$6Fxx` prize cell as the ROM wobble sprite at the bounced y offset",
         );
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 32, 32, 0x80).is_none(),
+            "ASM sub_1007A keeps the live wobble gfx object in front of the cell; the preserved immutable terrain must not leak under the shaking prize block"
+        );
     }
 
     #[test]
