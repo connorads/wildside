@@ -107,6 +107,20 @@ and stop — never commit churn.
   (`number_objects` native 4, oracle 5). The clean Level 00 slope-jump route
   matches frames 10..24 including physics trace, so the live 45-degree launch
   complaint still needs a new human-equivalent input capture.
+- **#258/#277 follow-up (2026-06-15, held-jump routes)**: refreshed natural
+  Level 00 route `.cache/recordings/issue-258-level00-natural-right-current/`
+  and tested held-B+Right overlays around the first slope/stair window. Best
+  native route `400..500 B+Right` reaches the slope and later target cleanly,
+  but the materialised scenario `.cache/debug/issue258-natural-b400-500/scenario.json`
+  passes `verify-tas --frame-start 380 --frame-end 560 --checkpoint-interval 1
+  --frontier-kind gameplay --bisect` by CRC, so this held-right/held-jump
+  natural route still does not reproduce the human 45-degree launch as an
+  oracle divergence. The cached Level 00 left direct probe remains blocked as
+  comparator input: original y=303 and nearby y=304/y=305 all first-diverge at
+  frame 0 (`kid_y_pos` or `character_movement`), while y=302 jumps native to
+  `$01210000` vs oracle `$012E0000`. Do not patch slope/jump physics from these
+  direct left artefacts; the missing piece remains a human-equivalent live
+  capture or a clean natural left route.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still
