@@ -32,10 +32,11 @@ mod tests {
     use kid_data::{
         AssetFile, AssetManifest, DECODED_LEVEL_ASSET_VERSION, DecodedAssetFile,
         DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord, LevelResources,
+        load_manifest, resource_level_record,
     };
     use sha1::{Digest, Sha1};
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use tempfile::TempDir;
 
     const LEVEL_ID: u8 = 0x00;
@@ -779,6 +780,42 @@ mod tests {
             visuals.level.block_layout_bytes,
             vec![0x01, 0x02, 0x03, 0x04]
         );
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn generated_blue_lake_woods_visuals_stay_on_logical_theme_not_map_order_resource() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        for level_id in [0x00, 0x01] {
+            let resource_header = resource_level_record(&manifest, level_id)
+                .and_then(|level| level.header_metadata.as_ref())
+                .expect("mapped resource header should exist");
+            let visuals =
+                load_level_visuals(&manifest, level_id).expect("generated BLW visuals should load");
+
+            // ASM loc_1AB52 keeps ordinary generated Current_LevelID logical for
+            // title/level data. MapOrder resources 0x4A/0x4B use a different
+            // theme pair, and drawing those resources makes BLW show cave-eyes
+            // backgrounds while collision/spawn still use the logical layout.
+            assert_eq!(visuals.level.foreground_theme_id, 0x08);
+            assert_eq!(visuals.level.background_theme_id, 0x08);
+            assert_ne!(
+                (
+                    visuals.level.foreground_theme_id,
+                    visuals.level.background_theme_id
+                ),
+                (
+                    resource_header.level_theme,
+                    resource_header.background_theme
+                ),
+                "logical level 0x{level_id:02X} must not draw mapped resource theme 0x{:02X}/0x{:02X}",
+                resource_header.level_theme,
+                resource_header.background_theme
+            );
+        }
     }
 
     struct TestBundle {
@@ -1855,6 +1892,31 @@ mod tests {
             words.extend([tile_base, tile_base + 2, tile_base + 1, tile_base + 3]);
         }
         words
+    }
+
+    fn cached_generated_manifest() -> Option<AssetManifest> {
+        let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
+            && !override_root.is_empty()
+        {
+            PathBuf::from(override_root)
+        } else {
+            let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+            crate_dir
+                .parent()
+                .and_then(Path::parent)
+                .expect("kid-render crate should live under <repo>/crates/kid-render")
+                .to_path_buf()
+        };
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.is_file() {
+            eprintln!(
+                "skipping cache-backed render test: generated asset manifest missing at {}",
+                manifest_path.display()
+            );
+            return None;
+        }
+        Some(load_manifest(&manifest_path).expect("load cached generated asset manifest"))
     }
 
     fn sha1_hex(bytes: &[u8]) -> String {
