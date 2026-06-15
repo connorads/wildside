@@ -18505,6 +18505,16 @@ impl NativeRuntime {
             let Some(block_list) =
                 self.load_block_list_for_level(level_id, width, &grid, header_blank_top_rows)
             else {
+                if self.block_grid_source == BlockGridSource::Manual
+                    && self.block_grid.as_ref().is_some_and(|manual_grid| {
+                        manual_grid.width_cells == grid.width_cells
+                            && manual_grid.height_cells == grid.height_cells
+                    })
+                {
+                    self.block_list = None;
+                    self.block_state.ghost_groups.clear();
+                    return;
+                }
                 // Generated/live levels need the ROM block-list sidecar for
                 // `Prize_Init loc_10342`. Running with terrain but no list
                 // would put later helmet prizes through the native-only

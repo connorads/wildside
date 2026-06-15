@@ -10315,6 +10315,26 @@ mod tests {
     }
 
     #[test]
+    fn debug_title_card_entry_preserves_preloaded_collision_when_sidecar_probe_fails() {
+        let fixture = ManifestFixture::new().expect("manifest fixture");
+        let preloaded_grid = try_load_block_grid(&fixture.manifest, 0x00)
+            .expect("complete generated layout should preload");
+        fs::remove_file(fixture._root.path().join("level-layout/00.blocklist.bin"))
+            .expect("remove block list sidecar after preloading");
+
+        let mut runtime = NativeRuntime::new(fixture.manifest.clone());
+        runtime.set_block_grid(preloaded_grid);
+
+        let trace = runtime.enter_level_debug_title_card(LevelId(0));
+
+        assert_eq!(trace.current_level, LevelId(0));
+        assert!(
+            runtime.block_grid().is_some(),
+            "ASM loc_74E0 debug level changes enter loc_6E2/Load_TitleCard after play-native has already loaded target collision; a failed sidecar probe must not erase that grid and make Kid fall through the level"
+        );
+    }
+
+    #[test]
     fn try_load_block_grid_rejects_missing_generated_level_layout() {
         let fixture = ManifestFixture::new().expect("manifest fixture");
         fs::remove_file(fixture._root.path().join("level-layout/00.bin")).expect("remove layout");
