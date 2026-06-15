@@ -206,6 +206,42 @@ pub(crate) fn ensure_level_layouts(
     ensure_level_layouts_with(&rom_bytes, manifest, level_ids, super::dump_level_layout)
 }
 
+pub(crate) fn ensure_play_native_level_layouts(
+    rom_path: &Path,
+    manifest: &AssetManifest,
+    warp_level: Option<u8>,
+) -> Result<()> {
+    let rom_bytes = fs::read(rom_path)
+        .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
+    ensure_play_native_level_layouts_with(
+        &rom_bytes,
+        manifest,
+        warp_level,
+        super::dump_level_layout,
+    )
+}
+
+pub(crate) fn ensure_play_native_level_layouts_with<FDump>(
+    rom_bytes: &[u8],
+    manifest: &AssetManifest,
+    warp_level: Option<u8>,
+    dump_level_layout_fn: FDump,
+) -> Result<()>
+where
+    FDump: Fn(&[u8], u8, &Path) -> Result<()>,
+{
+    ensure_gameplay_level_layouts_with(
+        rom_bytes,
+        manifest,
+        GameplayScenario::SoakLevel10m,
+        &dump_level_layout_fn,
+    )?;
+    if let Some(level_id) = warp_level {
+        ensure_level_layouts_with(rom_bytes, manifest, &[level_id], &dump_level_layout_fn)?;
+    }
+    Ok(())
+}
+
 pub(crate) fn ensure_gameplay_level_layouts_with<FDump>(
     rom_bytes: &[u8],
     manifest: &AssetManifest,

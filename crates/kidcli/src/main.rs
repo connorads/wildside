@@ -1482,18 +1482,7 @@ fn main() -> Result<()> {
                 || scripted_scenario
                     .as_ref()
                     .is_some_and(|dynamic| dynamic.settle_oracle_warp);
-            // Native level entry depends on generated `level-layout` dumps for
-            // floor snap/collision. Preflight the early boot path here so
-            // manual play does not open into a misleading loading-screen stall.
-            if let Some(level_id) = effective_warp_level {
-                ensure_level_layouts(&rom_path, &manifest, &[level_id])?;
-            } else {
-                ensure_gameplay_level_layouts(
-                    &rom_path,
-                    &manifest,
-                    GameplayScenario::ProgressTwoTransitions,
-                )?;
-            }
+            ensure_play_native_level_layouts(&rom_path, &manifest, effective_warp_level)?;
             let record_to = record
                 .as_deref()
                 .map(validate_recording_slug)
@@ -4058,8 +4047,9 @@ mod tests {
         build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
         dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
-        ensure_level_layouts_with, find_gameplay_live_drifts, gameplay_checkpoint_window,
-        native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_batch_probe_candidate,
+        ensure_level_layouts_with, ensure_play_native_level_layouts_with,
+        find_gameplay_live_drifts, gameplay_checkpoint_window, native_trace_to_oracle_state,
+        oracle_probe_watch_row_in_range, parse_batch_probe_candidate,
         parse_batch_target_block_event, parse_batch_target_projectile_cell, parse_button_mask,
         parse_input_spec, prepare_generated_assets_with, record_scenario_command,
         record_scenario_file_command, recording_scenario_manifest,
@@ -5274,6 +5264,76 @@ AddrTbl_LevelNames:
         assert!(dumped_levels.borrow().is_empty());
         assert!(!layout_dir.join("09.bin").exists());
         assert!(!layout_dir.join("09.json").exists());
+    }
+
+    #[test]
+    fn ensure_play_native_level_layouts_warms_debug_skip_targets() {
+        let bundle_root = TempDir::new().expect("bundle root");
+        let layout_dir = bundle_root.path().join("level-layout");
+        fs::create_dir_all(&layout_dir).expect("layout dir");
+        for level_id in 0x00u8..=0x02 {
+            fs::write(layout_dir.join(format!("{level_id:02X}.bin")), [0x60, 0x00])
+                .expect("existing layout");
+            fs::write(
+                layout_dir.join(format!("{level_id:02X}.json")),
+                br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+            )
+            .expect("existing layout metadata");
+            fs::write(layout_dir.join(format!("{level_id:02X}.blocklist.bin")), [])
+                .expect("existing block list");
+        }
+        let manifest = AssetManifest {
+            generated_bundle_version: 8,
+            rom_sha1: String::from("test"),
+            upstream_commit: String::from("deadbeef"),
+            source_root: bundle_root.path().to_path_buf(),
+            output_root: bundle_root.path().to_path_buf(),
+            map_order: vec![],
+            levels: vec![],
+            constants: vec![],
+            ram_variables: vec![],
+            enemy_sources: vec![],
+            theme_assets: vec![],
+            scene_assets: vec![],
+            animation_assets: vec![],
+            sound_assets: vec![],
+            ingame_assets: vec![],
+            decoded_levels: vec![],
+        };
+
+        let dumped_levels = RefCell::new(Vec::new());
+        ensure_play_native_level_layouts_with(b"rom", &manifest, None, |_, level_id, out_dir| {
+            dumped_levels.borrow_mut().push(level_id);
+            fs::write(out_dir.join(format!("{level_id:02X}.bin")), [0x60, 0x00])
+                .expect("dumped layout");
+            fs::write(
+                out_dir.join(format!("{level_id:02X}.json")),
+                br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
+            )
+            .expect("dumped layout metadata");
+            fs::write(out_dir.join(format!("{level_id:02X}.blocklist.bin")), [])
+                .expect("dumped block list");
+            Ok(())
+        })
+        .expect("play-native should preflight debug-skip layout targets");
+
+        let dumped_levels = dumped_levels.borrow();
+        assert!(
+            dumped_levels.contains(&0x04),
+            "play-native N/P should preflight Under Skull Mountain 1 layout data"
+        );
+        assert!(
+            dumped_levels.contains(&0x07),
+            "play-native N/P should preflight Isle of the Lion Lord layout data"
+        );
+        assert!(
+            dumped_levels.contains(&0x1B),
+            "play-native N/P should preflight Skydragon Castle layout data"
+        );
+        assert!(
+            !dumped_levels.contains(&0x09),
+            "known oracle-warp-broken levels should still be skipped during broad preflight"
+        );
     }
 
     #[test]
