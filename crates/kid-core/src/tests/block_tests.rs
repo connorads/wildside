@@ -13934,6 +13934,23 @@ mod chunk_04 {
     }
 
     #[test]
+    fn active_platform_snapshot_carries_loader_offset_words_loc_286e() {
+        let mut platform = make_test_platform(0, 0, 2, 1);
+        platform.layout_index = Some(3);
+
+        let snapshot = platform.snapshot();
+
+        assert_eq!(
+            snapshot
+                .debug_fields
+                .get("platform_loader_offset_words")
+                .map(String::as_str),
+            Some("36"),
+            "ASM Manage_PlatformLoading stamps `$20(a3)` with `layout_index * $C`, so live platform snapshots should expose that ROM identity after movement updates",
+        );
+    }
+
+    #[test]
     fn active_platform_from_placement_loc_2822_keeps_collision_shape_without_modelling_art_words() {
         let platform = ActivePlatform::from_placement(
             &PlatformPlacement {

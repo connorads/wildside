@@ -2616,6 +2616,13 @@ impl ActivePlatform {
             "platform_mapping_addr_word".to_string(),
             crate::platforms::platform_mapping_addr_word_loc_2822(render_flags).to_string(),
         );
+        if let Some(layout_index) = self.layout_index {
+            debug_fields.insert(
+                "platform_loader_offset_words".to_string(),
+                crate::platforms::platform_loader_offset_for_index_loc_286E(layout_index)
+                    .to_string(),
+            );
+        }
         NativeObjectSnapshot {
             kind: NativeObjectKind::Platform {
                 kind: self.kind,
