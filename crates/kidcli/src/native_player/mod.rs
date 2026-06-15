@@ -742,11 +742,13 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 command,
             ));
         }
-        if let Some(command) = bgm_command
-            && let Some(ref mut gems) = gems_engine
-        {
-            pending_bgm_start = apply_native_bgm_command(gems, command);
-            queued_bgm_start_this_frame = pending_bgm_start.is_some();
+        if let Some(command) = bgm_command {
+            if let Some(ref mut gems) = gems_engine {
+                pending_bgm_start = apply_native_bgm_command(gems, command);
+                queued_bgm_start_this_frame = pending_bgm_start.is_some();
+            } else if native_bgm_command_flushes_queued_audio(command) {
+                sfx_engine.clear();
+            }
             if native_bgm_command_flushes_queued_audio(command)
                 && let Some(ref aq) = audio_queue
             {
@@ -2674,6 +2676,10 @@ impl SfxEngine {
             phase: 0.0,
             volume,
         });
+    }
+
+    fn clear(&mut self) {
+        self.active_tones.clear();
     }
 
     fn generate(&mut self, sample_count: usize) -> Vec<f32> {
@@ -15495,6 +15501,25 @@ mod tests {
                 gems_bgm::CAVE
             )),
             "ordinary BGM starts should not clear already-generated audio"
+        );
+    }
+
+    #[test]
+    fn play_native_stopmusic_clears_fallback_sfx_for_eol_handoff() {
+        let mut sfx = SfxEngine::new(48_000);
+        sfx.play(1_200.0, 500, 0.2);
+        assert!(
+            sfx.generate(800).iter().any(|sample| *sample != 0.0),
+            "test setup should produce an audible fallback tone before StopMusic"
+        );
+
+        if native_bgm_command_flushes_queued_audio(NativeBgmPlaybackCommand::StopMusic) {
+            sfx.clear();
+        }
+
+        assert!(
+            sfx.generate(800).iter().all(|sample| *sample == 0.0),
+            "ASM StopMusic (kid.asm:49727) must silence fallback tones as well as the SDL/GEMS queue so loc_D7F4's score-counter tail cannot bleed into the next title-card shell"
         );
     }
 
