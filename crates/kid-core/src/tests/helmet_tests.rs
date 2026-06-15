@@ -9434,6 +9434,14 @@ mod chunk_08 {
         );
         assert_eq!(opening.player.y_pos, settled.player.y_pos);
         assert!(opening.player.on_ground);
+
+        let visible_player = runtime
+            .level_skip_resume_player_state()
+            .expect("visible resume hold should expose Kid");
+        assert_eq!(
+            visible_player.y_pos, settled.player.y_pos,
+            "ASM loc_74E0 resume should export the settled hold pose, not only store it in opening_slice"
+        );
     }
 
     #[test]
@@ -9461,5 +9469,13 @@ mod chunk_08 {
         );
         assert_eq!(opening.player.y_pos, settled.player.y_pos);
         assert!(opening.player.on_ground);
+
+        let visible_player = runtime
+            .level_skip_player_state()
+            .expect("visible level-skip hold should expose Kid");
+        assert_eq!(
+            visible_player.y_pos, settled.player.y_pos,
+            "ASM loc_74E0 hold should export the settled pose to trace/render, not the raw header pose"
+        );
     }
 }

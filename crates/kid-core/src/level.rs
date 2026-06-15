@@ -19169,7 +19169,7 @@ impl NativeRuntime {
     }
 
     pub(crate) fn level_skip_hold_pose(&self, level_id: LevelId) -> LevelSkipHoldPose {
-        match level_id {
+        let mut pose = match level_id {
             LevelId(1) => LevelSkipHoldPose {
                 kid_x_pos: 0x0040_0000,
                 kid_y_pos: 0x0068_0000,
@@ -19204,7 +19204,21 @@ impl NativeRuntime {
                     number_gfx_objects: 4,
                 },
             ),
+        };
+
+        if level_id == self.current_level
+            && let Some(opening_slice) = self.opening_slice
+        {
+            // ASM loc_74E0 jumps through loc_6E2 into the mode-$0008 load
+            // shell, so the visible destination hold should expose the settled
+            // Load_InGame pose after terrain rebuild, not the raw header Y.
+            pose.kid_x_pos = opening_slice.player.x_pos;
+            pose.kid_y_pos = opening_slice.player.y_pos;
+            pose.camera_x_pos = opening_slice.camera.x_pos;
+            pose.camera_y_pos = opening_slice.camera.y_pos;
         }
+
+        pose
     }
 
     pub(crate) fn level_skip_animation_path(&self, level_id: LevelId) -> LevelSkipAnimationPath {
