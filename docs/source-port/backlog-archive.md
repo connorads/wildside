@@ -9301,6 +9301,27 @@ Column of origin shown in brackets; text is verbatim.
 - [Verify] Follow-up 2026-06-11 after latest pushed playtest: the cue-state reset was insufficient in live `play-native`; the `loc_D7F4` score-counter replay could still be heard over the following loading/title-card screen until Start. Root cause narrowed to host audio buffering, not native cue selection: `GemsAudioEngine::stop_music()` resets Z80/GEMS immediately, but SDL may already hold generated `$0C` samples. play-native now clears the SDL `AudioQueue` whenever a native BGM command runs ASM StopMusic semantics (`StopMusic` or `StopMusicThenStart`), dropping buffered samples at the same hard reset boundary. Regression `play_native_stopmusic_flushes_host_audio_queue_for_eol_handoff`; human validation still required on the live EOL route.
 - [Verify] Follow-up 2026-06-11 after the queue-clear candidate: live ordering still let native requeue the final `$0C` score-counter SFX after the reset. In the ROM, ASM `loc_D7F4` (kid.asm:16906) plays `sfx_Socre_counter` before `Teleport`, then `Load_InGame` (kid.asm:23623-23629) runs `StopMusic`; native condenses those into one `LevelTransition` trace frame. play-native/audio-export now suppress same-frame SFX whenever a LevelTransition frame applies a StopMusic-equivalent command, treating that frame's SFX as pre-reset driver state instead of replaying it after the queue clear. Regression `play_native_eol_stopmusic_suppresses_same_frame_score_counter_sfx`. Verification: `cargo test -q -p kidcli play_native_eol -- --nocapture`, `cargo test -q -p kidcli play_native_ -- --nocapture`, `cargo fmt --check`, `mise run verify-slice-fast`. Human validation still required on the live EOL route.
 - [Verify] Follow-up 2026-06-11 after the latest human report: regenerated scripted bundle `.cache/recordings/issue-265-eol-audio-current/` from `record-scenario --scenario highwater-flag-floor-contact-audit --level 02`. `audio-events.txt` now shows `PlaySound(12)` at frames 314 and 558, `StopMusic` exactly on the first `LevelTransition` frame 667, then level BGM `Start(0)` at frame 1101. `verify-recording --slug issue-265-eol-audio-current --native-only` passes with `trace_match=true`; audio windows show the frame-558 score-counter cue peak `0.22416356`, while the frame-667 StopMusic window is back at the BGM baseline peak `0.01523779`. This rejects the scripted trace/export path as the remaining bug. Keep #265 open for a live SDL `play-native` capture with `audio-diagnostics.txt`/waveform on the exact human route.
+- [Evidence] 2026-06-15 live `play-native` capture on the current Highwater
+  flag scenario also rejects the dummy-SDL queue/waveform path as the remaining
+  leak. Command:
+  `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy cargo run -q -p kidcli --
+  play-native --scenario .cache/recordings/issue-265-eol-audio-current/scenario.json
+  --record issue265-eol-live-sdl-current --record-frames 2400`. The saved
+  bundle's `audio-events.txt` has level BGM `Start(0)` at frame 0,
+  `StopMusicThenStart(116)` for the scoreboard at frame 15, score-counter SFX
+  at frames 314 and 558, `StopMusic` on the `LevelTransition` frame 667, and
+  next-level BGM `Start(0)` at frame 1103. `audio-diagnostics.txt` reports
+  `gems_loaded=true`, `sdl_queue_present=true`, `queued_frames=2400`,
+  `skipped_full_frames=0`, `queue_errors=0`, `queue_clear_events=2`, and max
+  queue depth only `5880` bytes. The float WAV measures the score-counter peak
+  at frame 558 (`peak=0.224164`), the StopMusic window at frame 667 back at
+  baseline (`peak=0.015238`), frame 668 already decaying (`peak=0.009128`), and
+  frames 700/900 silent (`peak=0.0`) before next-level audio resumes later
+  (frame 1120 `peak=0.134813`). Native-only replay verification passes for
+  `issue265-eol-live-sdl-current`. This proves the current dummy-SDL live queue
+  and WAV export do not reproduce the human report; #265 still needs a
+  real-device/live-display capture if the audible bleed persists outside dummy
+  SDL.
 
 ### #266
 
@@ -9538,6 +9559,24 @@ Column of origin shown in brackets; text is verbatim.
   hypothesis; the remaining visible issue belongs under #274 transform/demo
   render timing unless a different route emits content id `0` where ASM
   `loc_10342` expects a helmet.
+- [Evidence] 2026-06-15 current-HEAD dummy-SDL refresh:
+  `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy cargo run -q -p kidcli --
+  play-native --record issue284-live-dummy-attract-current-4500
+  --record-frames 4500` saved
+  `.cache/recordings/issue284-live-dummy-attract-current-4500/`. The trace has
+  4500 frames and reaches the same first DemoPlay prize window: frames
+  `3456..3491` emit one floating item with content id `3` (`Cyclone`), and
+  `current_helmet_id` switches from `0` to `2` at frame 3491. Later content id
+  `0` windows begin at frame 3832 after the Cyclone pickup, so they are real
+  Diamond prizes, not the first helmet prize. Full `verify-recording --slug
+  issue284-live-dummy-attract-current-4500` reports `trace_match=true` and
+  `oracle_state_match=true`, but `oracle_frame_match=false`: the first visual
+  drift is frame 3300 (full-screen level-intro/demo-start render), frame 3420
+  has only a small local sprite timing delta, and frame 3480 is pixel-perfect
+  with native/oracle both visibly drawing the purple Cyclone item. This route
+  again rejects generic prize-content/block-list parsing as the #274/#284 cause;
+  keep chasing transform/demo rendering or find a different live route whose
+  trace actually emits content id `0` for a ROM helmet prize.
 
 ### #285
 
