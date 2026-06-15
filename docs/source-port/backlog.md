@@ -152,6 +152,18 @@ and stop — never commit churn.
   finishes at HP 0, and has no row-32 Bounce/Destroy. Do not repeat this
   `rb451..500`/late B+Left tail timing axis; it confirms the child can be near
   the cell horizontally, but not vertically or as a block-mutating contact.
+  2026-06-15 follow-up: single `probe-record-scenario-file` now accepts
+  `--target-projectile-cell` and `--target-projectile-cell-conjunction`, matching
+  the batch scorer for deep inspection of one route candidate. On
+  `issue260-dlb-tail-b-row32-bounce`, it confirms the base near-miss has Kid's
+  healthy hitbox on cell `36,32` at frame 511, but the closest `DripsDrop`
+  cell approach is frame 348 (`dx=0 dy=-3`) and the best same-frame conjunction
+  is frame 640 with Kid still `dx=+127 dy=-33`; no Bounce/Destroy follows.
+  The `pretap_*` pre-contact batch axis is rejected too: best `pretap_holdr`
+  regresses to conjunction score 163 at frame 640 with no block event, while
+  most variants stay at score 185 around frame 360. Do not repeat this
+  pre-contact tap axis; the next route search needs an earlier/lower block
+  approach or delayed Drips phase.
   Named route
   `issue260-drips-drop-contact-probe` promotes the `l528/b530/r536` tail and
   reaches exact native DripsDrop overlap at frame 535; oracle diff for frames

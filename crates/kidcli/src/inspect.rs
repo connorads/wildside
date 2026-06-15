@@ -1061,6 +1061,8 @@ pub(crate) fn probe_dynamic_record_scenario(
     target_points: &[TargetPoint],
     target_cells: &[TargetCell],
     target_cell_hitboxes: &[TargetCell],
+    target_projectile_cells: &[(ActiveProjectileKind, TargetCell)],
+    target_projectile_cell_conjunctions: &[(ActiveProjectileKind, TargetCell)],
     summary_only: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
@@ -1138,6 +1140,28 @@ pub(crate) fn probe_dynamic_record_scenario(
             describe_target_cell_hitbox_approach_from_frame(
                 &trace,
                 *target_cell,
+                target_frame_start
+            )
+        );
+    }
+    for &(kind, target_cell) in target_projectile_cells {
+        println!(
+            "{}",
+            describe_target_projectile_cell_approach_from_frame(
+                &trace,
+                kind,
+                target_cell,
+                target_frame_start
+            )
+        );
+    }
+    for &(kind, target_cell) in target_projectile_cell_conjunctions {
+        println!(
+            "{}",
+            describe_target_projectile_cell_conjunction_from_frame(
+                &trace,
+                kind,
+                target_cell,
                 target_frame_start
             )
         );
@@ -1706,6 +1730,34 @@ pub(crate) fn target_projectile_cell_approach_from_frame(
     closest
 }
 
+pub(crate) fn describe_target_projectile_cell_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+    target_cell: TargetCell,
+    frame_start: usize,
+) -> String {
+    target_projectile_cell_approach_from_frame(trace, kind, target_cell, frame_start)
+        .map(|approach| {
+            format!(
+                "target projectile {kind:?} cell {},{} dx_px {:+} dy_px {:+} manhattan_px {} @{} projectile {:08X},{:08X}",
+                target_cell.col,
+                target_cell.row,
+                approach.dx_px,
+                approach.dy_px,
+                approach.manhattan_px,
+                approach.replay_frame,
+                approach.projectile_x,
+                approach.projectile_y,
+            )
+        })
+        .unwrap_or_else(|| {
+            format!(
+                "target projectile {kind:?} cell {},{} <none>",
+                target_cell.col, target_cell.row
+            )
+        })
+}
+
 pub(crate) fn target_projectile_cell_conjunction_from_frame(
     trace: &[NativeTraceFrame],
     kind: ActiveProjectileKind,
@@ -1781,6 +1833,38 @@ pub(crate) fn target_projectile_cell_conjunction_from_frame(
     }
 
     closest
+}
+
+pub(crate) fn describe_target_projectile_cell_conjunction_from_frame(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+    target_cell: TargetCell,
+    frame_start: usize,
+) -> String {
+    target_projectile_cell_conjunction_from_frame(trace, kind, target_cell, frame_start)
+        .map(|approach| {
+            format!(
+                "target projectile {kind:?} cell conjunction {},{} kid_dx_px {:+} kid_dy_px {:+} projectile_dx_px {:+} projectile_dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X} projectile {:08X},{:08X}",
+                target_cell.col,
+                target_cell.row,
+                approach.kid_dx_px,
+                approach.kid_dy_px,
+                approach.projectile_dx_px,
+                approach.projectile_dy_px,
+                approach.manhattan_px,
+                approach.replay_frame,
+                approach.kid_x,
+                approach.kid_y,
+                approach.projectile_x,
+                approach.projectile_y,
+            )
+        })
+        .unwrap_or_else(|| {
+            format!(
+                "target projectile {kind:?} cell conjunction {},{} <none>",
+                target_cell.col, target_cell.row
+            )
+        })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3003,6 +3087,16 @@ mod tests {
             }),
             "issue #260 route scans need to score Drips children against the metal-block cell, not just Kid's hitbox"
         );
+        assert_eq!(
+            describe_target_projectile_cell_approach_from_frame(
+                &trace,
+                ActiveProjectileKind::DripsDrop,
+                TargetCell { col: 36, row: 32 },
+                0,
+            ),
+            "target projectile DripsDrop cell 36,32 dx_px +0 dy_px +0 manhattan_px 0 @1 projectile 02400000,02080000",
+            "issue #260 single-route probes should expose the same projectile/cell scoring as batch probes"
+        );
     }
 
     #[test]
@@ -3053,10 +3147,11 @@ mod tests {
         close_both.kid_x_pos = Some(0x0240_0000);
         close_both.kid_y_pos = Some(0x0227_0000);
         close_both.number_hitpoints = 2;
+        let trace = vec![far_kid, close_both];
 
         assert_eq!(
             target_projectile_cell_conjunction_from_frame(
-                &[far_kid, close_both],
+                &trace,
                 ActiveProjectileKind::DripsDrop,
                 TargetCell { col: 36, row: 32 },
                 0,
@@ -3074,6 +3169,16 @@ mod tests {
                 manhattan_px: 0,
             }),
             "issue #260 needs same-frame Kid, Drips child, and metal-block cell scoring"
+        );
+        assert_eq!(
+            describe_target_projectile_cell_conjunction_from_frame(
+                &trace,
+                ActiveProjectileKind::DripsDrop,
+                TargetCell { col: 36, row: 32 },
+                0,
+            ),
+            "target projectile DripsDrop cell conjunction 36,32 kid_dx_px +0 kid_dy_px +0 projectile_dx_px +0 projectile_dy_px +0 manhattan_px 0 @1 kid 02400000,02270000 projectile 02480000,02080000",
+            "issue #260 single-route probes should expose same-frame Kid/projectile/cell scoring"
         );
     }
 

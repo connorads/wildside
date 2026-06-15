@@ -328,6 +328,12 @@ enum Commands {
         /// Summarise closest live Kid hitbox approach to a 16x16 level cell.
         #[arg(long, value_parser = parse_target_cell)]
         target_cell_hitbox: Vec<TargetCell>,
+        /// Summarise closest projectile approach to a 16x16 level cell, formatted kind:col,row.
+        #[arg(long, value_parser = parse_batch_target_projectile_cell)]
+        target_projectile_cell: Vec<BatchTargetProjectileCell>,
+        /// Summarise same-frame healthy Kid hitbox and projectile approach to a 16x16 level cell, formatted kind:col,row.
+        #[arg(long, value_parser = parse_batch_target_projectile_cell)]
+        target_projectile_cell_conjunction: Vec<BatchTargetProjectileCell>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -373,6 +379,12 @@ enum Commands {
         /// Summarise closest live Kid hitbox approach to a 16x16 level cell.
         #[arg(long, value_parser = parse_target_cell)]
         target_cell_hitbox: Vec<TargetCell>,
+        /// Summarise closest projectile approach to a 16x16 level cell, formatted kind:col,row.
+        #[arg(long, value_parser = parse_batch_target_projectile_cell)]
+        target_projectile_cell: Vec<BatchTargetProjectileCell>,
+        /// Summarise same-frame healthy Kid hitbox and projectile approach to a 16x16 level cell, formatted kind:col,row.
+        #[arg(long, value_parser = parse_batch_target_projectile_cell)]
+        target_projectile_cell_conjunction: Vec<BatchTargetProjectileCell>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -1299,6 +1311,8 @@ fn main() -> Result<()> {
             target_point,
             target_cell,
             target_cell_hitbox,
+            target_projectile_cell,
+            target_projectile_cell_conjunction,
             summary_only,
             frame_start,
             frame_end,
@@ -1327,6 +1341,8 @@ fn main() -> Result<()> {
                 &target_point,
                 &target_cell,
                 &target_cell_hitbox,
+                &projectile_cell_targets(&target_projectile_cell),
+                &projectile_cell_targets(&target_projectile_cell_conjunction),
                 summary_only,
                 frame_start,
                 frame_end,
@@ -1343,6 +1359,8 @@ fn main() -> Result<()> {
             target_point,
             target_cell,
             target_cell_hitbox,
+            target_projectile_cell,
+            target_projectile_cell_conjunction,
             summary_only,
             frame_start,
             frame_end,
@@ -1371,6 +1389,8 @@ fn main() -> Result<()> {
                 &target_point,
                 &target_cell,
                 &target_cell_hitbox,
+                &projectile_cell_targets(&target_projectile_cell),
+                &projectile_cell_targets(&target_projectile_cell_conjunction),
                 summary_only,
                 frame_start,
                 frame_end,
@@ -2986,6 +3006,15 @@ fn parse_batch_target_projectile_cell(spec: &str) -> Result<BatchTargetProjectil
         kind: kind.into(),
         cell: parse_target_cell(cell)?,
     })
+}
+
+fn projectile_cell_targets(
+    targets: &[BatchTargetProjectileCell],
+) -> Vec<(ActiveProjectileKind, TargetCell)> {
+    targets
+        .iter()
+        .map(|target| (target.kind, target.cell))
+        .collect()
 }
 
 fn parse_batch_target_block_event(spec: &str) -> Result<BatchTargetBlockEvent> {
