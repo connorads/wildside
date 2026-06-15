@@ -20513,7 +20513,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn lift_block_headbutt_spawns_platform() {
+    fn lift_block_headbutt_delays_platform_until_sub_fb3e_finishes() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_lift_block());
         start_level(&mut runtime);
@@ -20533,22 +20533,37 @@ mod chunk_02 {
 
         runtime.step_frame(FrameInput::default());
 
+        assert!(
+            runtime.block_state.lift_platforms.is_empty(),
+            "ASM sub_FB3E bobs/animates the struck block before allocating the lift platform worker",
+        );
+        assert_eq!(
+            runtime.block_bounces.len(),
+            1,
+            "headbutting a lift block should start the sub_FB3E bob worker",
+        );
+        assert_eq!(
+            runtime.block_bounces[0].remaining,
+            NativeRuntime::lift_block_bob_deltas_sub_FB3E().len() as u8,
+        );
+
+        for _ in 0..NativeRuntime::lift_block_bob_deltas_sub_FB3E().len() {
+            runtime.step_visual_effects();
+        }
+
         assert_eq!(
             runtime.block_state.lift_platforms.len(),
             1,
-            "headbutting lift block should spawn a lift platform"
+            "ASM sub_FB3E allocates the sub_FCA6 lift platform only after the bob/animation pre-roll",
         );
         let lift = &runtime.block_state.lift_platforms[0];
         assert_eq!(
             lift.y_velocity, -0x0001_0000,
             "ASM sub_FB3E (kid.asm:20999): spawned lift slot seeds y_vel with `$FFFF0000` before sub_FCA6 steps it"
         );
-        // Block should be cleared from grid
-        let grid = runtime.block_grid.as_ref().unwrap();
-        let cell = grid.cell_at(2, 2);
         assert!(
-            !cell.has_block,
-            "lift block should be cleared after headbutt"
+            !lift.block_erased,
+            "ASM sub_FB3E erases the source block after the first sub_FCA6 hibernate; the handoff starts with the platform slot unerased",
         );
     }
 

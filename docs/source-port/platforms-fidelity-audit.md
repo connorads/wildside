@@ -158,10 +158,10 @@ Fixed 2026-06-13: `trigger_standing_soft_platform_bounce_loc_40E2` now feeds `sl
 Fixed 2026-06-13: `ActivePlatform::step_soft_platform_loc_40E2` now calls `soft_platform_settled_step_loc_4160` from the Settled phase, using the caller's active-platform index comparison as the native equivalent of `Addr_PlatformStandingOn == a3`.
 
 **Lift platform — `sfx_Elevator_block` sound never played** (`sub_FCA6`, `kid.asm:21022-21024`)
-Superseded by current code: `process_block_effects` now queues `QueuedSoundEffect::ElevatorBlock` before spawning the lift platform (`blocks.rs:3676-3680`), and `process_block_effects_lift_spawns_platform` asserts the sound effect with the ASM label (`tests/runtime_tests.rs:11048-11058`). Keep the broader lift-platform framework gaps above open; only this sound row is stale.
+Superseded by current code: the live `sub_FB3E` handoff queues `QueuedSoundEffect::ElevatorBlock` when it allocates the `sub_FCA6` lift platform, and `process_block_effects_lift_spawns_platform` asserts the delayed sound effect with the ASM label. Keep the broader lift-platform framework gaps above open; only this sound row is stale.
 
 **Lift block — pre-spawn block bob animation (`sub_FB3E`) omitted; bob helpers dead** (`sub_FB3E`, `loc_FB94…loc_FBDA`)
-Before spawning the rideable lift, the ROM bobs the block in several hibernating passes (`kid.asm:20905-20964`). Native models all bob passes (`blocks.rs:3150-3213`) but every one is `allow(dead_code)`, test-only; the live spawn (`blocks.rs:3322-3337`) jumps straight to creating the `LiftPlatform` with no bob pre-roll.
+Fixed candidate 2026-06-15: before spawning the rideable lift, the ROM bobs the block in several hibernating passes (`kid.asm:20905-20964`). Native now routes lift-block headbutts through `BlockBounceKind::Lift`, reusing the ASM `sub_FB3E` delta sequence and only allocating the `sub_FCA6` `LiftPlatform` when that sequence finishes. Regressions: `process_block_effects_lift_spawns_platform` and `lift_block_headbutt_delays_platform_until_sub_fb3e_finishes`.
 
 **Platform ride Y snap uses shared 6px `GROUND_SNAP_TOLERANCE_FP` rather than hitbox overlap** (`Platforms_CheckCollision loc_257E/loc_2590`, `kid.asm:4471-4478`)
 The ROM seeds the scan from Kid's full hitbox and resolves landing by overlap, snapping to `platform_y-1`. Native gates riding on `y_pos.abs_diff(platform.y_pos) ≤ GROUND_SNAP_TOLERANCE_FP` (6px, `constants.rs:475`, shared with terrain). Faithful hitbox-seed helpers (`platforms.rs:543,560`) are dead. (Severity rises if audited under the collision unit.)

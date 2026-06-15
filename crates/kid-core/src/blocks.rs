@@ -3769,27 +3769,21 @@ impl NativeRuntime {
             }
         }
 
-        // Lift block: headbutt spawns a rising platform (ASM sub_113C0)
+        // Lift block: headbutt starts sub_FB3E's pre-spawn bob/animation; the
+        // sub_FCA6 platform worker is allocated when that hibernating sequence
+        // finishes.
         if let Some((x_px, y_px)) = slice.lift_block_hit {
             let col = x_px / 16;
             let row = y_px / 16;
-            // ASM sub_FCA6 (kid.asm:21021) plays sfx_Elevator_block before
-            // the lift worker begins its hibernate/rise loop.
-            self.queue_play_sound(QueuedSoundEffect::ElevatorBlock);
-            self.block_state.lift_platforms.push(LiftPlatform {
-                x_pos: u32::from(x_px) << 16,
-                y_pos: u32::from(y_px) << 16,
-                // ASM sub_FB3E (kid.asm:20999): after allocating the lift
-                // platform slot, `move.l #$FFFF0000,$E(a3)` seeds it moving
-                // upward one pixel per frame before sub_FCA6 applies accel.
-                y_velocity: -0x0001_0000,
-                age: 0,
-                last_integer_y: y_px,
-                moved_y_steps: 0,
-                width_px: 16,
-                source_col: col,
-                source_row: row,
-                block_erased: false,
+            self.block_bounces.push(BlockBounceAnim {
+                cell_x: col,
+                cell_y: row,
+                remaining: Self::lift_block_bob_deltas_sub_FB3E().len() as u8,
+                initial_duration: Self::lift_block_bob_deltas_sub_FB3E().len() as u8,
+                kind: BlockBounceKind::Lift,
+                prize_content: None,
+                metal_direction: 0,
+                y_offset_px: 0,
             });
         }
 
@@ -3797,6 +3791,30 @@ impl NativeRuntime {
         // shared Teleport tail. The live transition is handled in
         // resolve_frame_hazards so the block-effect shell does not perform an
         // invented same-frame reposition here.
+    }
+
+    #[allow(non_snake_case)]
+    fn spawn_lift_platform_from_block_sub_FB3E(&mut self, col: u16, row: u16) {
+        let x_px = col << 4;
+        let y_px = row << 4;
+        // ASM sub_FCA6 (kid.asm:21021) plays sfx_Elevator_block before the
+        // lift worker begins its hibernate/rise loop.
+        self.queue_play_sound(QueuedSoundEffect::ElevatorBlock);
+        self.block_state.lift_platforms.push(LiftPlatform {
+            x_pos: u32::from(x_px) << 16,
+            y_pos: u32::from(y_px) << 16,
+            // ASM sub_FB3E (kid.asm:20999): after allocating the lift platform
+            // slot, `move.l #$FFFF0000,$E(a3)` seeds it moving upward one
+            // pixel per frame before sub_FCA6 applies accel.
+            y_velocity: -0x0001_0000,
+            age: 0,
+            last_integer_y: y_px,
+            moved_y_steps: 0,
+            width_px: 16,
+            source_col: col,
+            source_row: row,
+            block_erased: false,
+        });
     }
 
     /// Check player overlap with floating prize items and collect on contact.
@@ -4327,12 +4345,14 @@ impl NativeRuntime {
         // ASM sub_1007A (kid.asm:21345-21599), sub_11120 (kid.asm:23050),
         // and sub_113C0 (kid.asm:23322): each hibernate cycle applies one
         // entry from the relevant y-position script. Prize blocks use the
-        // long wobble table, metal blocks select loc_1117A vs loc_11196 from
-        // `$4C(a5)`/d6, and shifting blocks use loc_113F4's rise steps.
+        // long wobble table, lift blocks use sub_FB3E's pre-spawn bob, metal
+        // blocks select loc_1117A vs loc_11196 from `$4C(a5)`/d6, and
+        // shifting blocks use loc_113F4's rise steps.
         for b in &mut self.block_bounces {
             let elapsed = b.initial_duration.saturating_sub(b.remaining);
             let delta_table: &[i16] = match b.kind {
                 BlockBounceKind::Prize => &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A,
+                BlockBounceKind::Lift => Self::lift_block_bob_deltas_sub_FB3E(),
                 BlockBounceKind::Metal => {
                     if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
                         &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A
@@ -4354,6 +4374,7 @@ impl NativeRuntime {
             .retain(|tail| tail.remaining > 0);
 
         let mut finished_prize_bounce_tail_frames = Vec::new();
+        let mut finished_lift_blocks = Vec::new();
         let mut finished_shifting_blocks = Vec::new();
         self.block_bounces.retain(|b| {
             if b.remaining > 0 {
@@ -4376,6 +4397,9 @@ impl NativeRuntime {
                         remaining: tail_frames,
                     });
                 }
+                if b.kind == BlockBounceKind::Lift {
+                    finished_lift_blocks.push((b.cell_x, b.cell_y));
+                }
                 if b.kind == BlockBounceKind::Shifting {
                     finished_shifting_blocks.push((b.cell_x, b.cell_y));
                 }
@@ -4394,6 +4418,9 @@ impl NativeRuntime {
                     terrain::Cell::from_be_bytes(0, 0),
                 );
             }
+        }
+        for (col, row) in finished_lift_blocks {
+            self.spawn_lift_platform_from_block_sub_FB3E(col, row);
         }
         self.prize_block_worker_tails
             .extend(finished_prize_bounce_tail_frames);

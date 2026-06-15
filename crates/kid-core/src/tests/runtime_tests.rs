@@ -11477,10 +11477,34 @@ mod chunk_09 {
 
         rt.process_block_effects(&mut slice);
 
+        assert!(
+            rt.played_sound_effects.is_empty(),
+            "ASM sub_FB3E bobs/animates the struck block before sub_FCA6 queues the elevator sound",
+        );
+        assert!(
+            rt.block_state.lift_platforms.is_empty(),
+            "ASM sub_FB3E should not allocate the sub_FCA6 platform worker on the headbutt frame",
+        );
+        assert_eq!(
+            rt.block_bounces.len(),
+            1,
+            "ASM sub_FB3E should bob the struck lift block before allocating the sub_FCA6 platform worker",
+        );
+        assert_eq!(rt.block_bounces[0].cell_x, 48 / 16);
+        assert_eq!(rt.block_bounces[0].cell_y, 80 / 16);
+        assert_eq!(
+            rt.block_bounces[0].remaining,
+            NativeRuntime::lift_block_bob_deltas_sub_FB3E().len() as u8,
+        );
+
+        for _ in 0..NativeRuntime::lift_block_bob_deltas_sub_FB3E().len() {
+            rt.step_visual_effects();
+        }
+
         assert_eq!(
             rt.played_sound_effects,
             vec![QueuedSoundEffect::ElevatorBlock],
-            "ASM sub_FCA6 (kid.asm:21021) queues sfx_Elevator_block=$27 as the lift platform worker starts",
+            "ASM sub_FCA6 (kid.asm:21021) queues sfx_Elevator_block=$27 only after sub_FB3E hands off to the platform worker",
         );
         assert_eq!(rt.block_state.lift_platforms.len(), 1);
         assert_eq!(rt.block_state.lift_platforms[0].x_pos, 48 << 16);

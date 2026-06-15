@@ -1720,6 +1720,7 @@ pub(crate) struct BlockBounceAnim {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockBounceKind {
+    Lift,
     Metal,
     Prize,
     Shifting,
