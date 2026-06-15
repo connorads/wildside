@@ -3506,10 +3506,17 @@ pub(super) fn push_level_layout_terrain(
             let priority_override = raw_word
                 .filter(|word| word & 0x8100 == 0x0100)
                 .map(|_| true);
-            // ASM sub_302F6/sub_3034A draws Scroll A base terrain from
-            // Level_Layout; runtime block-grid writes are collision/block
-            // overlay state and cleared block cells must not erase the art.
-            let skin = layout.skin_at(col, row);
+            // ASM loc_11542 rebuilds a non-block Level_Layout word with the
+            // decoded foreground skin after a block is erased. Blank runtime
+            // cells must not punch holes through immutable art, but restored
+            // solid terrain cells should render their live skin.
+            let skin = block_grid
+                .map(|grid| grid.cell_at(col, row))
+                .filter(|cell| {
+                    !cell.has_block
+                        && cell.collision != kid_core::terrain::CollisionKind::Empty
+                })
+                .map_or_else(|| layout.skin_at(col, row), |cell| cell.skin);
             let Some(resolved) = level_visuals.level.block_mapping.resolve(skin, None) else {
                 continue;
             };

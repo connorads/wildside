@@ -7470,6 +7470,30 @@ mod tests {
     }
 
     #[test]
+    fn erased_forest_block_renders_restored_loc_11542_skin() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        let data = vec![0u8; 20 * 14 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0x60, 0x05));
+
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+
+        let Some((_, tile, _)) = topmost_indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
+            panic!("expected restored forest terrain after loc_11542 block erase");
+        };
+        assert_eq!(
+            tile.tile_index, 20,
+            "ASM EraseBlockFromLevelLayout loc_11542 keeps the restored forest skin byte, so rendering must not fall back to the original layout skin and leave a visible gap"
+        );
+        assert_ne!(
+            tile.tile_index, 12,
+            "the original sample layout skin at this cell would be tile 12; erased block rendering must use the restored live skin instead"
+        );
+    }
+
+    #[test]
     fn build_scene_renders_level_transition_title_workers_at_their_fly_in_positions() {
         // ASM Load_TitleCard `loc_1AB26` / `loc_1AC70` (kid.asm:28750-28986)
         // builds Title_Letter workers that glide from a random off-screen
