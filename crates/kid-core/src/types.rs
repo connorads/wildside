@@ -724,6 +724,23 @@ pub(crate) struct WeatherState {
     pub(crate) lava_fireballs: Vec<LavaFireball>,
 }
 
+/// ASM `loc_1202A` Island background shore-animation object state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IslandShoreCycleStateLoc1202A {
+    /// ASM `$44(a5)`: primary shore band countdown for `loc_12098`.
+    pub(crate) primary_countdown_44: u16,
+    /// ASM `$46(a5)`: middle shore band countdown for `loc_12110`.
+    pub(crate) mid_countdown_46: u16,
+    /// ASM `$48(a5)`: lower shore band countdown for `loc_12188`.
+    pub(crate) lower_countdown_48: u16,
+    /// ASM `d3`: primary shore band frame phase.
+    pub(crate) primary_phase_d3: u16,
+    /// ASM `d2`: middle shore band frame phase.
+    pub(crate) mid_phase_d2: u16,
+    /// ASM `d1`: lower shore band frame phase.
+    pub(crate) lower_phase_d1: u16,
+}
+
 /// Per-helmet ability state, reset on form change or death.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct HelmetState {
@@ -1394,6 +1411,12 @@ pub struct NativeTraceFrame {
     pub diamond_power_sprites: Vec<DiamondPowerSpriteSnapshot>,
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
+    /// ASM `loc_1202A` Island shore-animation object is active.
+    #[serde(default)]
+    pub island_shore_cycle_active: bool,
+    /// ASM `loc_1202A` object counters/phases: `$44,$46,$48,d3,d2,d1`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub island_shore_cycle_state_loc_1202a: Option<(u16, u16, u16, u16, u16, u16)>,
     /// Block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
     /// Kept for legacy trace compatibility; new renderers should prefer
     /// `block_bounce_details` when they need the ASM worker kind.
@@ -1601,6 +1624,8 @@ impl Default for NativeTraceFrame {
             active_projectile_details: Vec::new(),
             diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
+            island_shore_cycle_active: false,
+            island_shore_cycle_state_loc_1202a: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),

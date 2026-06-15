@@ -18262,6 +18262,7 @@ impl NativeRuntime {
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
+        self.init_post_load_object_routine_loc_11f96(level_id);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
@@ -18295,6 +18296,64 @@ impl NativeRuntime {
         // gameplay VDP latched until the next frame.
         self.update_vdp_state();
         self.trace_frame()
+    }
+
+    fn init_post_load_object_routine_loc_11f96(&mut self, level_id: LevelId) {
+        self.island_shore_cycle_loc_1202a = None;
+        let Some(header) = self.level_header(level_id) else {
+            return;
+        };
+
+        if matches!(
+            classify_post_load_object_routine_loc_11F96(
+                u16::from(header.level_theme),
+                u16::from(header.background_theme),
+            ),
+            Some(PostLoadObjectRoutineLoc11F96::IslandPaletteCycle { .. })
+        ) {
+            // ASM loc_1202A (kid.asm:24216-24233): after the one-shot shore
+            // art upload, the object seeds d3=d2=d1=1 and countdown words
+            // `$44/$46/$48` to 9/$F/$19 before entering the band coroutines.
+            self.island_shore_cycle_loc_1202a = Some(IslandShoreCycleStateLoc1202A {
+                primary_countdown_44: 0x0009,
+                mid_countdown_46: 0x000F,
+                lower_countdown_48: 0x0019,
+                primary_phase_d3: 0x0001,
+                mid_phase_d2: 0x0001,
+                lower_phase_d1: 0x0001,
+            });
+        }
+    }
+
+    pub(crate) fn step_island_shore_cycle_loc_1202a(&mut self) {
+        let Some(state) = self.island_shore_cycle_loc_1202a.as_mut() else {
+            return;
+        };
+
+        // ASM loc_12098 -> loc_12110 -> loc_12188 (kid.asm:24246-24321)
+        // runs each frame from the Island `loc_1202A` object after
+        // `Hibernate_Object_1Frame`; native keeps only the object-local
+        // counters/phases here. Renderer/VRAM uploads consume the typed trace.
+        let primary = step_island_palette_cycle_primary_band_loc_12098(
+            state.primary_countdown_44,
+            state.primary_phase_d3,
+        );
+        state.primary_countdown_44 = primary.next_countdown;
+        state.primary_phase_d3 = primary.next_phase;
+
+        let mid = step_island_palette_cycle_mid_band_loc_12110(
+            state.mid_countdown_46,
+            state.mid_phase_d2,
+        );
+        state.mid_countdown_46 = mid.next_countdown;
+        state.mid_phase_d2 = mid.next_phase;
+
+        let lower = step_island_palette_cycle_lower_band_loc_12188(
+            state.lower_countdown_48,
+            state.lower_phase_d1,
+        );
+        state.lower_countdown_48 = lower.next_countdown;
+        state.lower_phase_d1 = lower.next_phase;
     }
 
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
@@ -18377,6 +18436,7 @@ impl NativeRuntime {
         self.pending_prize_diamond_hud_flights.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
+        self.init_post_load_object_routine_loc_11f96(level_id);
         if let Some(header) = self.level_header(level_id) {
             // ASM Load_InGame loc_11FD2/loc_12004 (kid.asm:24183-24196):
             // after post-load effects, queue bgm_Murderwall when the header

@@ -6945,6 +6945,17 @@ impl NativeRuntime {
                     )
                 })
                 .collect(),
+            island_shore_cycle_active: self.island_shore_cycle_loc_1202a.is_some(),
+            island_shore_cycle_state_loc_1202a: self.island_shore_cycle_loc_1202a.map(|state| {
+                (
+                    state.primary_countdown_44,
+                    state.mid_countdown_46,
+                    state.lower_countdown_48,
+                    state.primary_phase_d3,
+                    state.mid_phase_d2,
+                    state.lower_phase_d1,
+                )
+            }),
             block_bounces: self
                 .block_bounces
                 .iter()

@@ -4729,6 +4729,8 @@ AddrTbl_LevelNames:
             active_projectile_details: Vec::new(),
             diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
+            island_shore_cycle_active: false,
+            island_shore_cycle_state_loc_1202a: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),

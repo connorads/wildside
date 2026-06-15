@@ -1105,6 +1105,8 @@ mod tests {
             active_projectile_details: Vec::new(),
             diamond_power_sprites: Vec::new(),
             active_geysers: Vec::new(),
+            island_shore_cycle_active: false,
+            island_shore_cycle_state_loc_1202a: None,
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             active_objects: vec![NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x0D },

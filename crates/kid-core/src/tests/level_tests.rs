@@ -2932,6 +2932,73 @@ mod chunk_02 {
     }
 
     #[test]
+    fn begin_level_entry_spawns_island_shore_cycle_loc_11fb0() {
+        let mut assets = manifest();
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x09;
+        header.background_theme = 0x04;
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.begin_level_entry(LevelId(0));
+
+        let trace = runtime.trace_frame();
+        assert!(
+            trace.island_shore_cycle_active,
+            "ASM loc_11FB0 allocates loc_1202A when Background_theme is Island and the Cave foreground branch did not already consume the post-load object slot"
+        );
+        assert_eq!(
+            trace.island_shore_cycle_state_loc_1202a,
+            Some((0x0009, 0x000F, 0x0019, 0x0001, 0x0001, 0x0001)),
+            "ASM loc_1202A seeds $44/$46/$48 to 9/$F/$19 and d3/d2/d1 to 1 before entering the shore band loops"
+        );
+    }
+
+    #[test]
+    fn begin_level_entry_cave_foreground_skips_island_shore_cycle_loc_11f96() {
+        let mut assets = manifest();
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x08;
+        header.background_theme = 0x04;
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.begin_level_entry(LevelId(0));
+
+        let trace = runtime.trace_frame();
+        assert!(
+            !trace.island_shore_cycle_active,
+            "ASM loc_11F96 branches to the Cave lava/water rotator and skips loc_11FB0, even when Background_theme is Island"
+        );
+        assert_eq!(trace.island_shore_cycle_state_loc_1202a, None);
+    }
+
+    #[test]
+    fn step_island_shore_cycle_ticks_loc_12098_12110_12188() {
+        let mut assets = manifest();
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x09;
+        header.background_theme = 0x04;
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.begin_level_entry(LevelId(0));
+
+        runtime.step_island_shore_cycle_loc_1202a();
+
+        assert_eq!(
+            runtime.trace_frame().island_shore_cycle_state_loc_1202a,
+            Some((0x0008, 0x000E, 0x0018, 0x0001, 0x0001, 0x0001)),
+            "ASM loc_12098/loc_12110/loc_12188 decrement the three object countdown words once per frame before any band reaches zero"
+        );
+    }
+
+    #[test]
     fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

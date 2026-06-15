@@ -194,6 +194,7 @@ pub struct NativeRuntime {
     diamond_power_sprites: Vec<DiamondPowerSpriteSnapshot>,
     fire_demon_trails: Vec<FireDemonTrailChild>,
     weather: WeatherState,
+    island_shore_cycle_loc_1202a: Option<IslandShoreCycleStateLoc1202A>,
     murder_wall: Option<MurderWallState>,
     /// Metal block bounce animations in progress.
     block_bounces: Vec<BlockBounceAnim>,
@@ -1469,6 +1470,7 @@ impl NativeRuntime {
             diamond_power_sprites: Vec::new(),
             fire_demon_trails: Vec::new(),
             weather: WeatherState::default(),
+            island_shore_cycle_loc_1202a: None,
             murder_wall: None,
             block_bounces: Vec::new(),
             prize_block_worker_tails: Vec::new(),
@@ -4331,6 +4333,7 @@ impl NativeRuntime {
         // Weather: hail spawns falling projectiles, lava geysers erupt
         self.step_weather(&slice);
         self.step_lava_geysers(&slice);
+        self.step_island_shore_cycle_loc_1202a();
 
         // Queue the full prize-block lifecycle from a headbutt. The tile stays
         // Solid (0x6F) until the coroutine completes, then the same state
