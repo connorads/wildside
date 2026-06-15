@@ -1,0 +1,71 @@
+{
+  "slug": "issue305_pause_give_up_last_life_probe",
+  "script": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    128,
+    128,
+    0,
+    0,
+    0,
+    0,
+    2,
+    2,
+    2,
+    2,
+    0,
+    0,
+    0,
+    0,
+    128,
+    128,
+    128,
+    128,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "frame_count": 40,
+  "checkpoints": [
+    {
+      "label": "live_seeded",
+      "frame_index": 0
+    },
+    {
+      "label": "pause_pressed",
+      "frame_index": 10
+    },
+    {
+      "label": "down_held",
+      "frame_index": 18
+    },
+    {
+      "label": "give_up_start",
+      "frame_index": 26
+    },
+    {
+      "label": "post_give_up",
+      "frame_index": 39
+    }
+  ],
+  "initial_lives": 1,
+  "warp_to_level": 0,
+  "settle_oracle_warp": true
+}

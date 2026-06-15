@@ -770,4 +770,19 @@ mod tests {
             "oracle playtest_form must seed ASM sub_B41C's $FFFFFA78 half-width alongside Current_Helmet"
         );
     }
+
+    #[test]
+    fn helper_seeds_probe_lives_count_for_pause_menu_routes() {
+        assert!(
+            HELPER_TEMPLATE.contains("const NUMBER_LIVES_ADDR: usize = 0xFF_FC3E;")
+                && HELPER_TEMPLATE.contains("const PLAYER_1_LIVES_ADDR: usize = 0xFF_FC54;")
+                && HELPER_TEMPLATE.contains("fn apply_probe_lives_count")
+                && HELPER_TEMPLATE.contains("Game_Paused_ChkStart")
+                && HELPER_TEMPLATE
+                    .contains("write_emulator_wram_u16(emulator, NUMBER_LIVES_ADDR, count);")
+                && HELPER_TEMPLATE
+                    .contains("write_emulator_wram_u16(emulator, PLAYER_1_LIVES_ADDR, count);"),
+            "oracle last-life pause probes must seed ASM Number_Lives and the player slot save copy"
+        );
+    }
 }

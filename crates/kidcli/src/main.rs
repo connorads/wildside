@@ -2798,6 +2798,9 @@ fn write_native_vdp_dumps_for_dynamic_scenario(
     if let Some(count) = scenario.initial_diamond_count {
         runtime.set_probe_diamond_count(count);
     }
+    if let Some(count) = scenario.initial_lives {
+        runtime.set_probe_lives_count(count);
+    }
 
     let last_frame = frames
         .iter()
@@ -4393,6 +4396,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: Some(0x01),
             settle_oracle_warp: false,
         };
@@ -4417,6 +4421,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: Some(0x01),
             settle_oracle_warp: false,
         };
@@ -4445,6 +4450,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };
@@ -4481,6 +4487,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: Some(0x01),
             settle_oracle_warp: false,
         };
@@ -6835,6 +6842,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };
@@ -6860,6 +6868,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: Some(0x15),
             settle_oracle_warp: false,
         };
@@ -6885,6 +6894,7 @@ AddrTbl_LevelNames:
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: Some(0x00),
             settle_oracle_warp: false,
         };

@@ -305,6 +305,7 @@ pub fn bk2_to_scenario(import: &Bk2Import, checkpoint_interval: usize) -> Dynami
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
+            initial_lives: None,
         warp_to_level: None, // TAS runs from power-on
         settle_oracle_warp: false,
     }
@@ -746,6 +747,7 @@ fn probe_tas(
         camera_position: scenario.camera_position,
         playtest_form: scenario.playtest_form,
         initial_diamond_count: scenario.initial_diamond_count,
+        initial_lives: scenario.initial_lives,
         warp_to_level: scenario.warp_to_level,
         settle_oracle_warp: scenario.settle_oracle_warp,
     };
@@ -862,6 +864,7 @@ pub fn bisect_tas(
             camera_position: scenario.camera_position,
             playtest_form: scenario.playtest_form,
             initial_diamond_count: scenario.initial_diamond_count,
+            initial_lives: scenario.initial_lives,
             warp_to_level: scenario.warp_to_level,
             settle_oracle_warp: scenario.settle_oracle_warp,
         };
@@ -1310,6 +1313,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };
@@ -1355,6 +1359,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };
@@ -1386,6 +1391,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };

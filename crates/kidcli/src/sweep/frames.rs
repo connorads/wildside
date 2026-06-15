@@ -149,6 +149,9 @@ pub(crate) fn capture_scenario_frames(
     if let Some(count) = scenario.initial_diamond_count {
         runtime.set_probe_diamond_count(count);
     }
+    if let Some(count) = scenario.initial_lives {
+        runtime.set_probe_lives_count(count);
+    }
 
     let mut sorted_frames = frame_indices.to_vec();
     sorted_frames.sort_unstable();

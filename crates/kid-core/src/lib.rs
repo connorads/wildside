@@ -1671,6 +1671,12 @@ impl NativeRuntime {
         self.progression.diamond_count = count;
     }
 
+    pub fn set_probe_lives_count(&mut self, count: u16) {
+        // ASM variables.asm: `Number_Lives` is `$FFFFFC3E`; pause menu
+        // `Game_Paused_ChkStart` (kid.asm:6865) compares/decrements this word.
+        self.progression.number_lives = count;
+    }
+
     fn apply_pause_menu_frame_loc_6ae0(&mut self, input: FrameInput, start_pressed: bool) {
         // ASM Game_Paused_Loop (kid.asm:6829-6857): Up/Down only move the
         // two-entry cursor when they are fresh Ctrl_Pressed edges.

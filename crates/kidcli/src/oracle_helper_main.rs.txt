@@ -62,6 +62,8 @@ struct ScenarioFile {
     #[serde(default)]
     initial_diamond_count: Option<u16>,
     #[serde(default)]
+    initial_lives: Option<u16>,
+    #[serde(default)]
     warp_to_level: Option<u8>,
     #[serde(default)]
     settle_oracle_warp: bool,
@@ -105,6 +107,8 @@ struct ResolvedScenario {
     playtest_form: Option<u16>,
     /// Optional probe-only diamond count applied after the settled warp.
     initial_diamond_count: Option<u16>,
+    /// Optional probe-only lives count applied after the settled warp.
+    initial_lives: Option<u16>,
     /// Whether the oracle warp must settle into live unpaused target-level
     /// gameplay before scenario frame 0.
     settle_oracle_warp: bool,
@@ -432,6 +436,7 @@ const ADDR_FIRST_OBJECT_SLOT_ADDR: usize = 0xFF_F842;
 const RNG_RAM_END_ADDR: usize = 0xFF_FC11;
 const SCORE_ADDR: usize = 0xFF_FC4C;
 const NUMBER_LIVES_ADDR: usize = 0xFF_FC3E;
+const PLAYER_1_LIVES_ADDR: usize = 0xFF_FC54;
 const NUMBER_DIAMONDS_ADDR: usize = 0xFF_FC42;
 const DIAMOND_POWER_ACTIVE_ADDR: usize = 0xFF_F5B8;
 const MURDER_WALL_FLAG_ADDR: usize = 0xFF_FAC1;
@@ -626,6 +631,7 @@ fn resolve_scenario(
                 camera_position: None,
                 playtest_form: None,
                 initial_diamond_count: None,
+                initial_lives: None,
                 settle_oracle_warp: false,
             })
         }
@@ -658,6 +664,7 @@ fn resolve_scenario(
                 camera_position: sf.camera_position,
                 playtest_form: sf.playtest_form,
                 initial_diamond_count: sf.initial_diamond_count,
+                initial_lives: sf.initial_lives,
                 settle_oracle_warp,
             })
         }
@@ -712,6 +719,9 @@ fn run_capture(rom: &[u8], out_dir: &Path, resolved: &ResolvedScenario, skip_fra
     }
     if let Some(count) = resolved.initial_diamond_count {
         apply_probe_diamond_count(&mut emulator, count);
+    }
+    if let Some(count) = resolved.initial_lives {
+        apply_probe_lives_count(&mut emulator, count);
     }
 
     while frame_index < resolved.frame_count {
@@ -2507,6 +2517,7 @@ fn should_force_target_level_for_probe(resolved: &ResolvedScenario) -> bool {
         || resolved.camera_position.is_some()
         || resolved.playtest_form.is_some()
         || resolved.initial_diamond_count.is_some()
+        || resolved.initial_lives.is_some()
 }
 
 fn drain_direct_probe_title_start_latch(
@@ -2645,6 +2656,14 @@ fn apply_probe_diamond_count(emulator: &mut GenesisEmulator, count: u16) {
     // `DiamondPower_Check` (kid.asm:44357) reads this word before spending
     // 20/50 diamonds, so diamond-power probes seed it directly after warp.
     write_emulator_wram_u16(emulator, NUMBER_DIAMONDS_ADDR, count);
+}
+
+fn apply_probe_lives_count(emulator: &mut GenesisEmulator, count: u16) {
+    // ASM variables.asm: `Number_Lives` is `$FFFFFC3E`; player slot save
+    // `Player_1_Lives` starts at `$FFFFFC54`. Keep both coherent for live
+    // pause-menu probes that enter `Game_Paused_ChkStart` (kid.asm:6865).
+    write_emulator_wram_u16(emulator, NUMBER_LIVES_ADDR, count);
+    write_emulator_wram_u16(emulator, PLAYER_1_LIVES_ADDR, count);
 }
 
 fn clear_probe_transform_residue(emulator: &mut GenesisEmulator) {

@@ -84,6 +84,7 @@ pub struct NativeScriptedRoute {
     pub camera_position: Option<DynamicStartPosition>,
     pub playtest_form: Option<u16>,
     pub initial_diamond_count: Option<u16>,
+    pub initial_lives: Option<u16>,
 }
 
 impl From<DynamicScenario> for NativeScriptedRoute {
@@ -96,6 +97,7 @@ impl From<DynamicScenario> for NativeScriptedRoute {
             camera_position: scenario.camera_position,
             playtest_form: scenario.playtest_form,
             initial_diamond_count: scenario.initial_diamond_count,
+            initial_lives: scenario.initial_lives,
         }
     }
 }
@@ -1299,6 +1301,9 @@ fn apply_scripted_route_probe_state(
     }
     if let Some(count) = route.initial_diamond_count {
         runtime.set_probe_diamond_count(count);
+    }
+    if let Some(count) = route.initial_lives {
+        runtime.set_probe_lives_count(count);
     }
     Ok(())
 }
@@ -10610,6 +10615,7 @@ mod tests {
             camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
             playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
             initial_diamond_count: Some(12),
+            initial_lives: Some(1),
             warp_to_level: Some(0),
             settle_oracle_warp: true,
         });
@@ -10636,6 +10642,7 @@ mod tests {
             Some(PlayerForm::RedStealth.helmet_id())
         );
         assert_eq!(route.initial_diamond_count, Some(12));
+        assert_eq!(route.initial_lives, Some(1));
     }
 
     #[test]
@@ -11078,6 +11085,7 @@ mod tests {
                     camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
                     playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
                     initial_diamond_count: Some(12),
+                    initial_lives: None,
                 }),
             },
             vec![16, 0],

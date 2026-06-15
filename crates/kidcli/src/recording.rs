@@ -357,6 +357,7 @@ pub(crate) fn build_recording(
                 camera_position: None,
                 playtest_form: None,
                 initial_diamond_count: None,
+            initial_lives: None,
                 warp_to_level: start.warp_level,
                 settle_oracle_warp: start.settled && start.warp_level.is_some(),
             },
@@ -608,6 +609,9 @@ fn apply_recording_probe_state(
     }
     if let Some(count) = scenario.initial_diamond_count {
         runtime.set_probe_diamond_count(count);
+    }
+    if let Some(count) = scenario.initial_lives {
+        runtime.set_probe_lives_count(count);
     }
     Ok(())
 }
@@ -1043,6 +1047,7 @@ pub(crate) fn oracle_scenario_for_recording(
             camera_position: recording.manifest.scenario.camera_position,
             playtest_form: recording.manifest.scenario.playtest_form,
             initial_diamond_count: recording.manifest.scenario.initial_diamond_count,
+            initial_lives: recording.manifest.scenario.initial_lives,
             warp_to_level: Some(recording.manifest.start.warp_level.unwrap_or(0)),
             settle_oracle_warp: true,
         },
@@ -3000,6 +3005,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         };
@@ -3023,6 +3029,7 @@ mod tests {
             camera_position: None,
             playtest_form: Some(7),
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: Some(2),
             settle_oracle_warp: true,
         };
@@ -3080,6 +3087,7 @@ mod tests {
             camera_position: None,
             playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: Some(0),
             settle_oracle_warp: true,
         };
@@ -3116,11 +3124,13 @@ mod tests {
             camera_position: None,
             playtest_form: Some(7),
             initial_diamond_count: Some(50),
+            initial_lives: Some(1),
             warp_to_level: Some(0),
             settle_oracle_warp: true,
         };
         let manifest = fixture_manifest();
         let mut runtime = NativeRuntime::new(manifest);
+        runtime.boot_to_level(LevelId(0));
         apply_recording_probe_state(&mut runtime, &scenario).expect("probe state");
 
         let trace = runtime.trace_frame();
@@ -3128,6 +3138,10 @@ mod tests {
         assert_eq!(
             trace.diamond_count, 50,
             "initial_diamond_count must apply to native recording as well as the oracle scenario"
+        );
+        assert_eq!(
+            trace.number_lives, 1,
+            "ASM Game_Paused_ChkStart reads Number_Lives, so recording probes must seed it like the oracle helper"
         );
     }
 

@@ -317,6 +317,12 @@ pub struct DynamicScenario {
     /// (`kid.asm:44357`) compares/subtracts it before dispatching the weapon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_diamond_count: Option<u16>,
+    /// Optional probe-only lives count applied after a settled level warp.
+    /// ASM `Number_Lives` lives at `$FFFFFC3E`; pause menu
+    /// `Game_Paused_ChkStart` (`kid.asm:6865`) compares/decrements it for
+    /// Restart Round vs last-life Give Up.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_lives: Option<u16>,
     /// Target level to warp to before running the script.
     /// Both native and oracle boot to level 0 first, then advance
     /// to this level using their own mechanism (native: direct skip,
@@ -396,6 +402,9 @@ pub(crate) fn run_native_dynamic_scenario(
     if let Some(count) = scenario.initial_diamond_count {
         runner = runner.initial_diamond_count(count);
     }
+    if let Some(count) = scenario.initial_lives {
+        runner = runner.initial_lives(count);
+    }
 
     Ok(runner.run(&scenario.script, scenario.frame_count))
 }
@@ -432,6 +441,7 @@ pub fn idle_level_scenario(level_id: u8, idle_frames: Option<usize>) -> DynamicS
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -523,6 +533,7 @@ fn walk_right_scenario_for(
         camera_position: None,
         playtest_form: playtest_form.map(PlayerForm::helmet_id),
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -616,6 +627,7 @@ fn level_00_slope_right_probe_scenario_for(
         camera_position: Some(DynamicStartPosition { x: 608, y: 32 }),
         playtest_form: playtest_form.map(PlayerForm::helmet_id),
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x00),
         settle_oracle_warp: true,
     }
@@ -674,6 +686,7 @@ pub fn level_00_slope_right_jump_probe_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 608, y: 32 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x00),
         settle_oracle_warp: true,
     }
@@ -776,6 +789,7 @@ pub fn prize_block_scenario(level_id: u8) -> DynamicScenario {
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -826,6 +840,7 @@ pub fn issue_216_prize_audio_audit_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x00),
         settle_oracle_warp: true,
     }
@@ -882,6 +897,7 @@ pub fn enemy_spawn_audit_scenario(enemy_id: u8, level_id: u8) -> DynamicScenario
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -929,6 +945,7 @@ pub fn lava_weather_audit_scenario(level_id: u8) -> DynamicScenario {
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: true,
     }
@@ -997,6 +1014,7 @@ fn diamond_power_activation_audit_scenario(
         camera_position: None,
         playtest_form: Some(playtest_form),
         initial_diamond_count: Some(initial_diamond_count),
+        initial_lives: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: true,
     }
@@ -1111,6 +1129,7 @@ pub fn highwater_shooter_barrier_audit_scenario() -> DynamicScenario {
         camera_position: None,
         playtest_form: Some(7),
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x02),
         settle_oracle_warp: true,
     }
@@ -1158,6 +1177,7 @@ pub fn highwater_water_priority_audit_scenario() -> DynamicScenario {
         camera_position: None,
         playtest_form: Some(7),
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x02),
         settle_oracle_warp: true,
     }
@@ -1207,6 +1227,7 @@ pub fn highwater_flag_transition_audit_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 752, y: 0 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x02),
         settle_oracle_warp: true,
     }
@@ -1260,6 +1281,7 @@ pub fn highwater_flag_floor_contact_audit_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 728, y: 0 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x02),
         settle_oracle_warp: true,
     }
@@ -1308,6 +1330,7 @@ pub fn highwater_pass2_juggernaut_flag_transition_audit_scenario() -> DynamicSce
         camera_position: Some(DynamicStartPosition { x: 1_280, y: 896 }),
         playtest_form: Some(5),
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x03),
         settle_oracle_warp: true,
     }
@@ -1351,6 +1374,7 @@ pub fn highwater_pass2_grow_shooter_touch_audit_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 176, y: 0 }),
         playtest_form: Some(5),
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x03),
         settle_oracle_warp: true,
     }
@@ -1413,6 +1437,7 @@ pub fn issue_147_wall_side_jump_audit_scenario() -> DynamicScenario {
         camera_position: None,
         playtest_form: Some(3),
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x02),
         settle_oracle_warp: true,
     }
@@ -1458,6 +1483,7 @@ fn issue_249_wall_no_jump_audit_scenario_for(
         camera_position: None,
         playtest_form,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x02),
         settle_oracle_warp: true,
     }
@@ -1514,6 +1540,7 @@ pub fn issue_249_juggernaut_wall_jump_audit_scenario() -> DynamicScenario {
         camera_position: None,
         playtest_form: Some(5),
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x02),
         settle_oracle_warp: true,
     }
@@ -1570,6 +1597,7 @@ fn issue_249_blw2_left_pit_wall_scenario_for(
         camera_position: Some(DynamicStartPosition { x: 240, y: 80 }),
         playtest_form,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -1654,6 +1682,7 @@ pub fn issue_213_drips_metal_block_audit_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 240, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -1715,6 +1744,7 @@ pub fn issue_213_drips_delayed_b_drop_audit_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -1768,6 +1798,7 @@ pub fn issue_260_drips_cleaner_prefix_audit_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -1827,6 +1858,7 @@ pub fn issue_260_drips_b_jump_climb_seed_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -1911,6 +1943,7 @@ pub fn issue_260_drips_early_jump_close_probe_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -1959,6 +1992,7 @@ pub fn stomp_enemy_scenario(level_id: u8, walk_frames: usize) -> DynamicScenario
         camera_position: None,
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(level_id),
         settle_oracle_warp: false,
     }
@@ -2132,6 +2166,7 @@ impl Scenario {
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         }
@@ -2306,6 +2341,7 @@ impl GameplayScenario {
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         })
@@ -2330,6 +2366,7 @@ impl GameplayScenario {
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: None,
             settle_oracle_warp: false,
         }
@@ -2414,6 +2451,7 @@ pub fn issue_260_drips_drop_contact_probe_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -2469,6 +2507,7 @@ pub fn issue_260_dlb_tail_b_row32_bounce_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -2527,6 +2566,7 @@ pub fn issue_260_gr_pulse600_scenario() -> DynamicScenario {
         camera_position: Some(DynamicStartPosition { x: 192, y: 352 }),
         playtest_form: None,
         initial_diamond_count: None,
+        initial_lives: None,
         warp_to_level: Some(0x01),
         settle_oracle_warp: true,
     }
@@ -3135,6 +3175,7 @@ mod tests {
                 "camera_position": {"x": 3008, "y": 64},
                 "playtest_form": 7,
                 "initial_diamond_count": 20,
+                "initial_lives": 1,
                 "settle_oracle_warp": true
             }"#,
         )
@@ -3157,6 +3198,7 @@ mod tests {
         );
         assert_eq!(scenario.playtest_form, Some(7));
         assert_eq!(scenario.initial_diamond_count, Some(20));
+        assert_eq!(scenario.initial_lives, Some(1));
         assert!(scenario.settle_oracle_warp);
     }
 
@@ -3175,6 +3217,7 @@ mod tests {
             camera_position: None,
             playtest_form: None,
             initial_diamond_count: None,
+            initial_lives: None,
             warp_to_level: Some(0),
             settle_oracle_warp: false,
         };
@@ -3199,6 +3242,10 @@ mod tests {
         );
         assert!(
             !json.contains("initial_diamond_count"),
+            "legacy scenarios should keep their compact JSON shape"
+        );
+        assert!(
+            !json.contains("initial_lives"),
             "legacy scenarios should keep their compact JSON shape"
         );
         assert!(
