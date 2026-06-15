@@ -5,6 +5,24 @@ pub(crate) const PLATFORM_CHAIN_SEGMENT_COUNT_LOC_428C: u8 = 7;
 pub(crate) const PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C: u16 = 0x3D;
 pub(crate) const PLATFORM_CHAIN_LOOP_FRAMES_LOC_42C0: u16 = 0x79;
 
+#[allow(non_snake_case)]
+pub(crate) fn execute_scripted_platforms_sub_23EA(
+    platforms: &mut [ActivePlatform],
+    script_table: &kid_data::PlatformScriptTable,
+    fa64_freeze: bool,
+) {
+    // ASM Execute_ScriptedPlatforms/sub_23EA (kid.asm:4265-4267): `$FFFFFA64`
+    // short-circuits the whole scripted platform pass before walking the active
+    // platform list.
+    if fa64_freeze {
+        return;
+    }
+
+    for platform in platforms {
+        platform.step_script(script_table);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ActivePlatformHandleSub2728 {

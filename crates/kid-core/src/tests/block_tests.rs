@@ -14185,6 +14185,64 @@ mod chunk_04 {
     }
 
     #[test]
+    fn execute_scripted_platforms_sub_23ea_fa64_freezes_the_whole_pass() {
+        use std::collections::BTreeMap;
+
+        let mut scripts = BTreeMap::new();
+        scripts.insert(
+            0x0000,
+            kid_data::PlatformScript {
+                commands: vec![kid_data::PlatformMoveCommand {
+                    duration: 2,
+                    x_velocity: 0x1_0000,
+                    y_velocity: 0,
+                }],
+                loop_target_offset: 0x0000,
+            },
+        );
+        let table = kid_data::PlatformScriptTable { scripts };
+
+        let mut platforms = vec![ActivePlatform {
+            layout_index: None,
+            kind: 0,
+            subtype: 0,
+            x_pos: 100 << 16,
+            y_pos: 50 << 16,
+            width_px: 47,
+            height_px: 15,
+            x_velocity: 0,
+            y_velocity: 0,
+            script: Some(PlatformScriptState {
+                script_offset: 0,
+                command_index: 0,
+                remaining_duration: 2,
+            }),
+            special: None,
+        }];
+        let frozen = platforms[0];
+
+        execute_scripted_platforms_sub_23EA(&mut platforms, &table, true);
+
+        assert_eq!(
+            platforms[0], frozen,
+            "ASM Execute_ScriptedPlatforms/sub_23EA (kid.asm:4265): non-zero `$FFFFFA64` branches to return_2442 before moving or ticking any platform",
+        );
+
+        execute_scripted_platforms_sub_23EA(&mut platforms, &table, false);
+
+        assert_eq!(
+            platforms[0].x_pos,
+            frozen.x_pos + 0x1_0000,
+            "ASM loc_23F2 should run normally again when `$FFFFFA64` is clear",
+        );
+        assert_eq!(
+            platforms[0].script.expect("script").remaining_duration,
+            frozen.script.expect("script").remaining_duration - 1,
+            "ASM loc_23F2 countdown should tick only on the unfrozen pass",
+        );
+    }
+
+    #[test]
     fn platform_step_script_loc_23f2_wraps_position_like_add_l() {
         use std::collections::BTreeMap;
 

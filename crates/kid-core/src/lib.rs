@@ -4156,9 +4156,11 @@ impl NativeRuntime {
 
         // Step platform movement scripts
         if let Some(ref script_table) = self.platform_script_table {
-            for platform in &mut self.active_platforms {
-                platform.step_script(script_table);
-            }
+            platforms::execute_scripted_platforms_sub_23EA(
+                &mut self.active_platforms,
+                script_table,
+                matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            );
         }
         let platform_standing_before = standing_platform_index_loc_8ED0(
             &self.active_platforms,
