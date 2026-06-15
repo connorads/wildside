@@ -1194,6 +1194,7 @@ fn save_native_recording_bundle(
         recording.manifest.scenario.camera_position = route.camera_position;
         recording.manifest.scenario.playtest_form = route.playtest_form;
         recording.manifest.scenario.initial_diamond_count = route.initial_diamond_count;
+        recording.manifest.scenario.initial_lives = route.initial_lives;
     }
     let artifacts = RecordingBundleArtifacts {
         user_notes: options.record_notes.clone(),
@@ -11255,7 +11256,7 @@ mod tests {
                     camera_position: Some(DynamicStartPosition { x: 16, y: 136 }),
                     playtest_form: Some(PlayerForm::RedStealth.helmet_id()),
                     initial_diamond_count: Some(12),
-                    initial_lives: None,
+                    initial_lives: Some(1),
                 }),
             },
             vec![16, 0],
@@ -11288,6 +11289,7 @@ mod tests {
         assert!(scenario_text.contains("\"camera_position\": {"));
         assert!(scenario_text.contains("\"playtest_form\": 3"));
         assert!(scenario_text.contains("\"initial_diamond_count\": 12"));
+        assert!(scenario_text.contains("\"initial_lives\": 1"));
         let audio_events =
             fs::read_to_string(record_dir.join("audio-events.txt")).expect("audio events");
         assert!(audio_events.contains("frame=1"));
