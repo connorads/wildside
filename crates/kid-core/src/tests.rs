@@ -401,18 +401,35 @@ fn live_pause_menu_give_up_last_life_enters_death_windup_loc_6c0a() {
         ..FrameInput::default()
     });
     runtime.step_frame(FrameInput::default());
-    let trace = runtime.step_frame(FrameInput {
+    let start_trace = runtime.step_frame(FrameInput {
         start: true,
         ..FrameInput::default()
     });
 
     assert_eq!(
-        trace.number_lives, 1,
+        start_trace.number_lives, 0,
+        "ASM Game_Paused_ChkStart loc_6B62 first decrements Number_Lives to zero"
+    );
+    assert_eq!(
+        start_trace.number_hitpoints, 2,
+        "ASM loc_6B62 has not reached loc_6C0A's Kid death-action setup yet"
+    );
+    assert!(
+        start_trace.paused,
+        "ASM loc_6B62 leaves Game_Paused set until the loc_6C0A exit tail"
+    );
+    assert!(
+        matches!(runtime.player_lifecycle, PlayerLifecycle::Alive),
+        "ASM loc_6B62 has only marked Game_Paused=3; loc_6C0A has not run yet"
+    );
+    let exit_trace = runtime.step_frame(FrameInput::default());
+    assert_eq!(
+        exit_trace.number_lives, 1,
         "ASM loc_6C0A writes Number_Lives=1 on the last-life Give Up path"
     );
     assert_eq!(
-        trace.number_hitpoints, 0,
-        "ASM loc_6C0A puts Kid into the dying path after Give Up"
+        exit_trace.number_hitpoints, 2,
+        "ASM loc_6C0A sets Kid action fields but does not write Number_Hitpoints"
     );
     assert!(
         matches!(
@@ -421,7 +438,7 @@ fn live_pause_menu_give_up_last_life_enters_death_windup_loc_6c0a() {
         ),
         "ASM loc_6C0A sets Kid action #4/$30, modelled by native DeathWindup"
     );
-    assert!(!trace.paused, "ASM loc_6C0A clears Game_Paused");
+    assert!(!exit_trace.paused, "ASM loc_6C0A clears Game_Paused");
 }
 
 #[test]

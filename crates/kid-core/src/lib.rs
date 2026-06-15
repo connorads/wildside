@@ -112,6 +112,7 @@ pub struct NativeRuntime {
     pause_menu_option: u8,
     pause_toggle_pending: bool,
     pending_pause_restart_round: Option<PauseRestartRoundState>,
+    pending_pause_last_life_give_up: bool,
     allow_pausing: bool,
     allow_pausing_fade_frames: u8,
     pending_level_skip: Option<LevelId>,
@@ -1405,6 +1406,7 @@ impl NativeRuntime {
             pause_menu_option: 0,
             pause_toggle_pending: false,
             pending_pause_restart_round: None,
+            pending_pause_last_life_give_up: false,
             allow_pausing: false,
             allow_pausing_fade_frames: 0,
             pending_level_skip: None,
@@ -1705,6 +1707,7 @@ impl NativeRuntime {
                 self.pause_menu_option = 0;
                 self.pause_toggle_pending = false;
                 self.pending_pause_restart_round = None;
+                self.pending_pause_last_life_give_up = false;
             }
             boot::PauseMenuStartResult::RestartLevel { remaining_lives } => {
                 // ASM Game_Paused_ChkStart (kid.asm:6865-6876): after
@@ -1712,6 +1715,7 @@ impl NativeRuntime {
                 // Extra_hitpoint_slots and Current_Helmet, restores Kid HP,
                 // sets the restart flag, then jumps through loc_6E2.
                 self.pause_toggle_pending = false;
+                self.pending_pause_last_life_give_up = false;
                 self.pending_pause_restart_round = Some(PauseRestartRoundState {
                     remaining_lives,
                     elapsed_frames: 0,
@@ -1719,26 +1723,42 @@ impl NativeRuntime {
                 });
             }
             boot::PauseMenuStartResult::LastLifeGameOver => {
-                if let boot::PauseMenuUnpauseExitLoc6C0A::LastLifeGameOver {
-                    number_lives, ..
-                } = boot::pause_menu_unpause_exit_loc_6C0A(3)
-                {
-                    // ASM loc_6C0A (kid.asm:6964-6973): last-life Give Up
-                    // plays the bummer voice, sets Kid's dying action fields,
-                    // writes Number_Lives=1, and clears Game_Paused.
-                    self.progression.number_lives = number_lives;
-                    self.progression.number_hitpoints = 0;
-                    self.player_lifecycle = PlayerLifecycle::DeathWindup {
-                        remaining_frames: PLAYER_DEATH_WINDUP_FRAMES,
-                    };
-                    self.paused = false;
-                    self.pause_menu_option = 0;
-                    self.pause_toggle_pending = false;
-                    self.pending_pause_restart_round = None;
-                    self.allow_pausing = false;
-                    self.allow_pausing_fade_frames = 0;
-                }
+                // ASM Game_Paused_ChkStart loc_6B62: the Start frame only
+                // decrements `Number_Lives` to zero and sets Game_Paused=3.
+                // The later loc_6C0A pause-exit tail runs on the next frame.
+                self.progression.number_lives = 0;
+                self.pause_toggle_pending = false;
+                self.pending_pause_restart_round = None;
+                self.pending_pause_last_life_give_up = true;
             }
+        }
+    }
+
+    fn step_pause_last_life_give_up_loc_6c0a(&mut self) -> bool {
+        if !self.pending_pause_last_life_give_up {
+            return false;
+        }
+        self.pending_pause_last_life_give_up = false;
+        if let boot::PauseMenuUnpauseExitLoc6C0A::LastLifeGameOver { number_lives, .. } =
+            boot::pause_menu_unpause_exit_loc_6C0A(3)
+        {
+            // ASM loc_6C0A (kid.asm:6964-6973): last-life Give Up plays the
+            // bummer voice, sets Kid object action fields `$38/$3A`, writes
+            // Number_Lives=1, and clears Game_Paused. It does not write
+            // Number_Hitpoints; the subsequent death action advances later.
+            self.progression.number_lives = number_lives;
+            self.player_lifecycle = PlayerLifecycle::DeathWindup {
+                remaining_frames: PLAYER_DEATH_WINDUP_FRAMES,
+            };
+            self.paused = false;
+            self.pause_menu_option = 0;
+            self.pause_toggle_pending = false;
+            self.pending_pause_restart_round = None;
+            self.allow_pausing = false;
+            self.allow_pausing_fade_frames = 0;
+            true
+        } else {
+            false
         }
     }
 
@@ -2276,7 +2296,10 @@ impl NativeRuntime {
         let apply_pending_pause_toggle = self.pause_toggle_pending;
         self.pause_toggle_pending = false;
         self.step_pause_restart_round_shell_loc_6b46();
+        let pause_last_life_exit_frame = self.step_pause_last_life_give_up_loc_6c0a();
         if self.pending_pause_restart_round.is_some() {
+            self.pause_toggle_pending = false;
+        } else if self.pending_pause_last_life_give_up {
             self.pause_toggle_pending = false;
         } else if self.paused {
             self.apply_pause_menu_frame_loc_6ae0(input, start_pressed);
@@ -2398,6 +2421,7 @@ impl NativeRuntime {
                 && gameplay_slice_active
                 && !self.paused
                 && self.pending_pause_restart_round.is_none()
+                && !pause_last_life_exit_frame
             {
                 // ASM Mode_Level calls DiamondPower_Run before ReadJoypad.
                 // In native's post-step trace indexing, the ROM `Ctrl_Held`
@@ -2406,7 +2430,11 @@ impl NativeRuntime {
                 // movement sees for this traced frame.
                 self.step_diamond_power(self.prior_input);
             }
-            if gameplay_slice_active && !self.paused && self.pending_pause_restart_round.is_none() {
+            if gameplay_slice_active
+                && !self.paused
+                && self.pending_pause_restart_round.is_none()
+                && !pause_last_life_exit_frame
+            {
                 if matches!(self.boot_state, BootState::InGame)
                     || (self.demo_gameplay_active() && self.opening_slice.is_some())
                 {
