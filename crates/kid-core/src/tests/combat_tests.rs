@@ -2267,7 +2267,7 @@ fn boss_eye_attack_loc_3739c_refreshes_live_sprite_mapping_each_frame() {
 }
 
 #[test]
-fn trace_exposes_heady_metal_sub_37abc_body_piece_refresh_probe() {
+fn trace_exposes_heady_metal_sub_37abc_body_piece_workers() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
     let mut slice = combat_slice();
@@ -2283,17 +2283,34 @@ fn trace_exposes_heady_metal_sub_37abc_body_piece_refresh_probe() {
 
     let trace = runtime.trace_frame();
 
-    let summary = trace
-        .gameplay_debug_fields
-        .get("heady_metal_sub_37abc_refresh")
-        .expect(
-            "ASM loc_3763A calls sub_37ABC on HeadyMetal's `$FFFFFB7E` body-piece worker table",
-        );
-    assert!(summary.contains("source=enemy20_init_sub_37680"));
-    assert!(summary.contains("slots=12"));
-    assert!(summary.contains("anchor=0x0040,0x00a0"));
-    assert!(summary.contains("first=0x0034,0x004a:LnkTo_unk_C84B0-Data_Index"));
-    assert!(summary.contains("last=0x004c,0x009a:LnkTo_unk_C8488-Data_Index"));
+    assert_eq!(
+        trace.heady_metal_body_pieces_sub_37abc.len(),
+        12,
+        "ASM loc_3763A calls sub_37ABC on HeadyMetal's `$FFFFFB7E..$FFFFFBAA` body-piece worker table",
+    );
+    assert_eq!(
+        trace.heady_metal_body_pieces_sub_37abc[0].slot_offset, 0x000C,
+        "ASM Enemy20_HeadyMetal_Init seeds the first body-piece worker at `$FFFFFB7E`, after the three `$FFFFFB72..$FFFFFB7A` anchor workers",
+    );
+    assert_eq!(
+        (
+            trace.heady_metal_body_pieces_sub_37abc[0].x_pos,
+            trace.heady_metal_body_pieces_sub_37abc[0].y_pos,
+            trace.heady_metal_body_pieces_sub_37abc[0].sprite_mapping_index,
+        ),
+        (0x0034, 0x004A, 5),
+        "ASM sub_37ABC/sub_37AF0 should refresh the first body-piece worker from anchor+(-$C,-$56) to `LnkTo_unk_C84B0`",
+    );
+    assert_eq!(
+        (
+            trace.heady_metal_body_pieces_sub_37abc[11].slot_offset,
+            trace.heady_metal_body_pieces_sub_37abc[11].x_pos,
+            trace.heady_metal_body_pieces_sub_37abc[11].y_pos,
+            trace.heady_metal_body_pieces_sub_37abc[11].sprite_mapping_index,
+        ),
+        (0x0038, 0x004C, 0x009A, 0),
+        "ASM sub_37ABC scans through the twelfth `$FFFFFBAA` worker and refreshes it to `LnkTo_unk_C8488`",
+    );
 }
 
 #[test]

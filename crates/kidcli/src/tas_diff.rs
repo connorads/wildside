@@ -1134,6 +1134,7 @@ mod tests {
             kid_projectile_hit_sparks: Vec::new(),
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
+            heady_metal_body_pieces_sub_37abc: Vec::new(),
             stomped_this_frame: false,
             blocks_hit_this_frame: 0,
             sound_test_play_pending: false,

@@ -1413,6 +1413,9 @@ pub struct NativeTraceFrame {
     /// HeadyMetal death split impulses from ASM `sub_378C8 loc_378D6`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub heady_metal_death_splits: Vec<HeadyMetalDeathSplitTrace>,
+    /// HeadyMetal live body-piece workers refreshed by ASM `sub_37ABC`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub heady_metal_body_pieces_sub_37abc: Vec<HeadyMetalBodyPieceTraceSub37ABC>,
     /// Death windup elapsed frames (0=not dying). Used by renderer for tumble animation.
     #[serde(default)]
     pub death_windup_elapsed: u16,
@@ -1595,6 +1598,7 @@ impl Default for NativeTraceFrame {
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
+            heady_metal_body_pieces_sub_37abc: Vec::new(),
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
             stomped_this_frame: false,
@@ -1860,6 +1864,18 @@ pub struct HeadyMetalDeathPieceTrace {
     pub y_pos: u32,
     pub x_velocity: i32,
     pub y_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeadyMetalBodyPieceTraceSub37ABC {
+    /// Pointer-table slot offset from `$FFFFFB72`; body workers start at
+    /// `$FFFFFB7E` after the three anchor workers seeded by
+    /// `Enemy20_HeadyMetal_Init`.
+    pub slot_offset: u16,
+    pub x_pos: u16,
+    pub y_pos: u16,
+    /// Index into ASM `off_37AE0` / `unk_C8488..unk_C84C0`.
+    pub sprite_mapping_index: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

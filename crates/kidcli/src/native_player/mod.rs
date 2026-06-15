@@ -3056,6 +3056,7 @@ mod tests {
             floating_items: Vec::new(),
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
+            heady_metal_body_pieces_sub_37abc: Vec::new(),
             stomped_this_frame: false,
             death_windup_elapsed: 0,
             form_change_flash_frames: 0,
@@ -11692,6 +11693,20 @@ mod tests {
         trace.camera_y_pos = 0;
         trace.kid_x_pos = Some(0x0050_0000);
         trace.kid_y_pos = Some(0x0050_0000);
+        trace.heady_metal_body_pieces_sub_37abc = vec![
+            kid_core::HeadyMetalBodyPieceTraceSub37ABC {
+                slot_offset: 0x000C,
+                x_pos: 0x0034,
+                y_pos: 0x004A,
+                sprite_mapping_index: 5,
+            },
+            kid_core::HeadyMetalBodyPieceTraceSub37ABC {
+                slot_offset: 0x0038,
+                x_pos: 0x004C,
+                y_pos: 0x009A,
+                sprite_mapping_index: 0,
+            },
+        ];
         let mut visuals = sample_level_visuals();
         visuals.enemies.families.insert(
             0x20,

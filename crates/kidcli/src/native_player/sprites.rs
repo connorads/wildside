@@ -224,8 +224,7 @@ fn boss_head_death_frame_loc_39ebe(remaining: u16) -> usize {
 }
 
 fn boss_head_death_facing_loc_39ebe(facing: Direction, remaining: u16) -> Direction {
-    let elapsed =
-        usize::from(BOSS_HEAD_DEATH_ANIMATION_FRAMES_LOC_39EBE.saturating_sub(remaining));
+    let elapsed = usize::from(BOSS_HEAD_DEATH_ANIMATION_FRAMES_LOC_39EBE.saturating_sub(remaining));
     // ASM loc_39EE2/loc_39F7A toggles x_direction with `eori.b #$FF,x_direction(a3)`
     // between the death animation scripts; no extra toggle happens at the loop tail.
     let toggled = match elapsed {
@@ -1521,7 +1520,8 @@ pub(super) fn push_enemy_sprite(
 
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let mut facing = object.facing.unwrap_or(Direction::Right);
-    if object_type == 0x22 && object.hit_points == Some(0)
+    if object_type == 0x22
+        && object.hit_points == Some(0)
         && let Some(remaining) = object.wait_timer
     {
         facing = boss_head_death_facing_loc_39ebe(facing, remaining);
@@ -1606,10 +1606,31 @@ fn push_heady_metal_sub_37abc_body_piece_markers(
 ) {
     let anchor_x = (object.x_pos >> 16) as u16;
     let anchor_y = (object.y_pos >> 16) as u16;
-    let kid_x = trace.kid_x_pos.map(|x| (x >> 16) as u16).unwrap_or(anchor_x);
-    let kid_y = trace.kid_y_pos.map(|y| (y >> 16) as u16).unwrap_or(anchor_y);
+    let kid_x = trace
+        .kid_x_pos
+        .map(|x| (x >> 16) as u16)
+        .unwrap_or(anchor_x);
+    let kid_y = trace
+        .kid_y_pos
+        .map(|y| (y >> 16) as u16)
+        .unwrap_or(anchor_y);
     let camera_x = (trace.camera_x_pos >> 16) as i32;
     let camera_y = (trace.camera_y_pos >> 16) as i32;
+
+    if !trace.heady_metal_body_pieces_sub_37abc.is_empty() {
+        for piece in &trace.heady_metal_body_pieces_sub_37abc {
+            // ASM loc_37AC6 refreshes each non-null `$FFFFFB7E..$FFFFFBAA`
+            // worker through `sub_37AF0`; the trace carries the refreshed
+            // mapping so rendering does not have to reconstruct it.
+            push_boss_eye_attack_marker_sub_37abc(
+                commands,
+                i32::from(piece.x_pos) - camera_x,
+                i32::from(piece.y_pos) - camera_y,
+                piece.sprite_mapping_index,
+            );
+        }
+        return;
+    }
 
     for &(x_offset, y_offset) in &kid_core::HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266 {
         // ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) seeds the twelve
@@ -1627,12 +1648,7 @@ fn push_heady_metal_sub_37abc_body_piece_markers(
     }
 }
 
-fn heady_metal_sub_37abc_mapping_index(
-    piece_x: u16,
-    piece_y: u16,
-    kid_x: u16,
-    kid_y: u16,
-) -> u8 {
+fn heady_metal_sub_37abc_mapping_index(piece_x: u16, piece_y: u16, kid_x: u16, kid_y: u16) -> u8 {
     if kid_y > piece_y.saturating_add(4) {
         if kid_x < piece_x.saturating_sub(4) {
             3

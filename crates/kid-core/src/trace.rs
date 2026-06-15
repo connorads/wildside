@@ -6522,9 +6522,6 @@ impl NativeRuntime {
         if let Some(summary) = self.highwater_shooter_barrier_probe_debug() {
             gameplay_debug_fields.insert("highwater_shooter_barrier_probe".into(), summary);
         }
-        if let Some(summary) = self.heady_metal_composite_refresh_probe_sub_37abc() {
-            gameplay_debug_fields.insert("heady_metal_sub_37abc_refresh".into(), summary);
-        }
         let level_complete_elapsed_frames = match self.player_lifecycle {
             PlayerLifecycle::LevelComplete {
                 remaining_frames,
@@ -7041,6 +7038,7 @@ impl NativeRuntime {
                     })
                 })
                 .collect(),
+            heady_metal_body_pieces_sub_37abc: self.heady_metal_body_pieces_sub_37abc(),
             death_windup_elapsed: match self.player_lifecycle {
                 PlayerLifecycle::DeathWindup { remaining_frames } => {
                     (PLAYER_DEATH_WINDUP_FRAMES.saturating_sub(remaining_frames)) as u16
@@ -7126,12 +7124,17 @@ impl NativeRuntime {
         ))
     }
 
-    fn heady_metal_composite_refresh_probe_sub_37abc(&self) -> Option<String> {
-        let slice = self.opening_slice?;
+    fn heady_metal_body_pieces_sub_37abc(&self) -> Vec<HeadyMetalBodyPieceTraceSub37ABC> {
+        let Some(slice) = self.opening_slice else {
+            return Vec::new();
+        };
         let boss = self
             .active_enemies
             .iter()
-            .find(|enemy| matches!(enemy.family, EnemyFamily::HeadyMetal))?;
+            .find(|enemy| matches!(enemy.family, EnemyFamily::HeadyMetal));
+        let Some(boss) = boss else {
+            return Vec::new();
+        };
         let boss_x = (boss.x_pos >> 16) as u16;
         let boss_y = (boss.y_pos >> 16) as u16;
         // ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) stores the twelve
@@ -7153,18 +7156,19 @@ impl NativeRuntime {
             (slice.player.x_pos >> 16) as u16,
             (slice.player.y_pos >> 16) as u16,
         );
-        let first = refreshed[0]?;
-        let last = refreshed[11]?;
-
-        Some(format!(
-            "source=enemy20_init_sub_37680 slots=12 anchor={boss_x:#06x},{boss_y:#06x} first={:#06x},{:#06x}:{} last={:#06x},{:#06x}:{}",
-            first.x_pos,
-            first.y_pos,
-            first.sprite_mapping,
-            last.x_pos,
-            last.y_pos,
-            last.sprite_mapping
-        ))
+        refreshed
+            .iter()
+            .enumerate()
+            .filter_map(|(index, slot)| {
+                let slot = slot.as_ref()?;
+                Some(HeadyMetalBodyPieceTraceSub37ABC {
+                    slot_offset: 0x000C + index as u16 * 4,
+                    x_pos: slot.x_pos,
+                    y_pos: slot.y_pos,
+                    sprite_mapping_index: boss_eye_sprite_mapping_index(slot.sprite_mapping),
+                })
+            })
+            .collect()
     }
 
     fn drips_lifecycle_probe_debug(&self) -> Option<String> {
