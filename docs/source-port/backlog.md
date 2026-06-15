@@ -366,6 +366,19 @@ and stop — never commit churn.
   creates a block event. Do not repeat post-538 tail nudges on this branch
   unchanged; the next useful axis is a pre-508 approach change that keeps the
   frame-520 alignment but pushes Kid into the block.
+  Follow-up pre-508 approach search found
+  `.cache/recordings/issue-260-pre390-r490-br508/scenario.json`
+  (`470..590 none`, `490..507 Right`, `508..538 B+Right`), verified
+  enemy-frontier clean for frames `510..525`. It produces a clean row-32 bounce
+  (`Bounce cell 37,32 @518`) with the best same-frame geometry so far: Kid is
+  at `dx=0 dy=-1` against the cell while the DripsDrop is at `dx=+8 dy=-3`.
+  It still has no `Destroy`, and the projectile is close to the block rather
+  than occupying/mutating it. Recovery overlays after frame 519 can keep HP 1
+  with neutral input, but `Left`/`Right`/`B+Left`/`B+Right` recoveries either
+  keep the same no-destroy bounce or enter `LevelTransition`. Do not repeat
+  post-bounce recovery trims on `r490_br508`; the next useful axis must alter
+  the Drips cycle or the pre-490 approach so the projectile/crawler itself
+  reaches the row-32 block at contact time.
   Follow-up tooling added
   batch `--target-projectile` scoring for closest healthy Kid/projectile
   proximity. Re-scoring the same early timing family shows `kH`
