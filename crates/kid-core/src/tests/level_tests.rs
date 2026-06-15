@@ -4406,6 +4406,15 @@ mod chunk_02 {
                     && content == terrain::PrizeContent::Cyclone),
             "the broad #284 audit should include the Level 0x14 Cyclone prize from the rejected direct route",
         );
+        assert!(
+            checked
+                .iter()
+                .any(|&(level, col, row, content)| level == 0x1B
+                    && col == 4
+                    && row == 36
+                    && content == terrain::PrizeContent::Cyclone),
+            "ASM loc_10342 should keep the Level 0x1B left-ledge Cyclone prize as Cyclone, not Diamond, because this prize gates the intro/demo Cyclone route",
+        );
     }
 
     #[test]
