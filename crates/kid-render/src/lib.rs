@@ -490,7 +490,11 @@ mod tests {
             "ASM Diamond.asm loc_3AE28/loc_3AEE6 death frames stay appended after the live cycle"
         );
         let dragon = visuals.enemies.families.get(&0x0C).expect("dragon visuals");
-        assert_eq!(dragon.frames.len(), 5);
+        assert_eq!(
+            dragon.frames.len(),
+            9,
+            "Dragon visuals keep the live frames plus appended routed animation frames"
+        );
         assert_eq!(dragon.frames[0].tile_base_index, 0x011D);
         let skull = visuals.enemies.families.get(&0x1C).expect("skull visuals");
         assert_eq!(skull.frames.len(), 8);
@@ -735,7 +739,7 @@ mod tests {
         write_file(
             fixture.root.path(),
             "decoded/level/01/background.bin",
-            &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF],
+            &[0x00, 0x00],
         )
         .expect("write logical background");
         write_file(
@@ -764,15 +768,26 @@ mod tests {
             flag_x: 0x220,
             flag_y: 0x970,
         });
+        fixture.manifest.levels[2]
+            .header_metadata
+            .as_mut()
+            .expect("resource header")
+            .level_theme = FOREST_THEME_ID;
+        fixture.manifest.levels[2]
+            .header_metadata
+            .as_mut()
+            .expect("resource header")
+            .background_theme = FOREST_THEME_ID;
 
         let visuals =
             load_level_visuals(&fixture.manifest, 0x01).expect("aliased visuals should load");
 
-        // ASM loc_1AB52 keeps ordinary Current_LevelID logical for generated
-        // title/level data; when the bundle has logical decoded layouts, render
-        // must not draw the mapped resource while core collision/spawn uses the
-        // logical layout.
+        // ASM Load_InGame loc_11A50 resolves Current_LevelID through
+        // MapOrder_Index before reading visual theme data, while generated
+        // logical decoded layouts still provide the specialised geometry.
         assert_eq!(visuals.level.level_id, 0x01);
+        assert_eq!(visuals.level.foreground_theme_id, FOREST_THEME_ID);
+        assert_eq!(visuals.level.background_theme_id, FOREST_THEME_ID);
         assert_eq!(visuals.level.foreground_layout.width_cells, 40);
         assert_eq!(visuals.level.foreground_layout.height_cells, 28);
         assert_eq!(visuals.level.foreground_layout_bytes, logical_foreground);
@@ -784,7 +799,7 @@ mod tests {
 
     #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
-    fn generated_blue_lake_woods_visuals_stay_on_logical_theme_not_map_order_resource() {
+    fn generated_blue_lake_woods_visuals_use_map_order_forest_theme_loc_11a50() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -796,13 +811,14 @@ mod tests {
             let visuals =
                 load_level_visuals(&manifest, level_id).expect("generated BLW visuals should load");
 
-            // ASM loc_1AB52 keeps ordinary generated Current_LevelID logical for
-            // title/level data. MapOrder resources 0x4A/0x4B use a different
-            // theme pair, and drawing those resources makes BLW show cave-eyes
-            // backgrounds while collision/spawn still use the logical layout.
-            assert_eq!(visuals.level.foreground_theme_id, 0x08);
-            assert_eq!(visuals.level.background_theme_id, 0x08);
-            assert_ne!(
+            // ASM Load_InGame loc_11A50 resolves Current_LevelID through
+            // MapOrder_Index before reading the map header. Generated BLW
+            // geometry remains logical, but the visible art/palette theme is
+            // the mapped forest resource; using the logical 0x08 theme draws
+            // the cave-eyes background reported in playtests.
+            assert_eq!(resource_header.level_theme, 0x09);
+            assert_eq!(resource_header.background_theme, 0x09);
+            assert_eq!(
                 (
                     visuals.level.foreground_theme_id,
                     visuals.level.background_theme_id
@@ -811,7 +827,7 @@ mod tests {
                     resource_header.level_theme,
                     resource_header.background_theme
                 ),
-                "logical level 0x{level_id:02X} must not draw mapped resource theme 0x{:02X}/0x{:02X}",
+                "logical level 0x{level_id:02X} should draw mapped resource theme 0x{:02X}/0x{:02X}",
                 resource_header.level_theme,
                 resource_header.background_theme
             );
@@ -861,6 +877,16 @@ mod tests {
                 root.path(),
                 "theme/artcomp_bg/cave.bin",
                 &direct_copy_saxman(&(64u8..96).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "theme/artcomp_fg/forest.bin",
+                &direct_copy_saxman(&(32u8..96).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "theme/artcomp_bg/forest.bin",
+                &direct_copy_saxman(&(96u8..128).collect::<Vec<_>>()),
             )?;
             write_file(
                 root.path(),
@@ -1394,6 +1420,22 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "theme/palette_fg/forest.bin",
+                &(0..15)
+                    .map(|value| 0x0200_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/palette_bg/forest.bin",
+                &(0..8)
+                    .map(|value| 0x0300_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
                 "theme/mappings/cave.bin",
                 &[
                     0x000A_u16, 0x000B, 0x000C, 0x000D, 0x0010, 0x0011, 0x0012, 0x0013,
@@ -1412,8 +1454,28 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "theme/mappings/forest.bin",
+                &[
+                    0x002A_u16, 0x002B, 0x002C, 0x002D, 0x0030, 0x0031, 0x0032, 0x0033,
+                ]
+                .into_iter()
+                .flat_map(u16::to_be_bytes)
+                .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
                 "theme/bg_chunks/cave_00.bin",
                 &[0x00, 0x02, 0x00, 0x01, 0x00, 0x01],
+            )?;
+            write_file(
+                root.path(),
+                "theme/bg_chunks/forest_eni_00.bin",
+                &layered_background_enigma_plane(0),
+            )?;
+            write_file(
+                root.path(),
+                "theme/bg_chunks/forest_eni_01.bin",
+                &layered_background_enigma_plane(1),
             )?;
 
             let mut manifest = AssetManifest {
@@ -1453,11 +1515,18 @@ mod tests {
                 theme_assets: vec![
                     asset_file(root.path(), "theme/artcomp_fg/cave.bin"),
                     asset_file(root.path(), "theme/artcomp_bg/cave.bin"),
+                    asset_file(root.path(), "theme/artcomp_fg/forest.bin"),
+                    asset_file(root.path(), "theme/artcomp_bg/forest.bin"),
                     asset_file(root.path(), "theme/palette_fg/cave.bin"),
                     asset_file(root.path(), "theme/palette_bg/cave.bin"),
+                    asset_file(root.path(), "theme/palette_fg/forest.bin"),
+                    asset_file(root.path(), "theme/palette_bg/forest.bin"),
                     asset_file(root.path(), "theme/mappings/cave.bin"),
+                    asset_file(root.path(), "theme/mappings/forest.bin"),
                     asset_file(root.path(), "theme/block_mappings.bin"),
                     asset_file(root.path(), "theme/bg_chunks/cave_00.bin"),
+                    asset_file(root.path(), "theme/bg_chunks/forest_eni_00.bin"),
+                    asset_file(root.path(), "theme/bg_chunks/forest_eni_01.bin"),
                 ],
                 scene_assets: vec![
                     asset_file(root.path(), "scenes/artcomp/End_level_stats_text.bin"),
@@ -1684,29 +1753,6 @@ mod tests {
                 "decoded/level/00/background.bin",
                 &[0x00, 0x00],
             )?;
-            write_file(
-                self.root.path(),
-                "theme/artcomp_bg/forest.bin",
-                &direct_copy_saxman(&[0; 64]),
-            )?;
-            write_file(
-                self.root.path(),
-                "theme/palette_bg/forest.bin",
-                &(0..8)
-                    .map(|value| 0x0180_u16 + value)
-                    .flat_map(u16::to_be_bytes)
-                    .collect::<Vec<_>>(),
-            )?;
-            write_file(
-                self.root.path(),
-                "theme/bg_chunks/forest_eni_00.bin",
-                &layered_background_enigma_plane(0),
-            )?;
-            write_file(
-                self.root.path(),
-                "theme/bg_chunks/forest_eni_01.bin",
-                &layered_background_enigma_plane(1),
-            )?;
 
             self.manifest.levels[0]
                 .header_metadata
@@ -1715,12 +1761,6 @@ mod tests {
                 .background_theme = FOREST_THEME_ID;
             self.manifest.decoded_levels[0].background =
                 decoded_asset(self.root.path(), "decoded/level/00/background.bin");
-            self.manifest.theme_assets.extend([
-                asset_file(self.root.path(), "theme/artcomp_bg/forest.bin"),
-                asset_file(self.root.path(), "theme/palette_bg/forest.bin"),
-                asset_file(self.root.path(), "theme/bg_chunks/forest_eni_00.bin"),
-                asset_file(self.root.path(), "theme/bg_chunks/forest_eni_01.bin"),
-            ]);
 
             Ok(())
         }

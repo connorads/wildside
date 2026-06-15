@@ -16,6 +16,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use kid_data::{
     AssetFile, AssetManifest, DecodedAssetFile, EnemyLayout, decode_enigma, decode_saxman,
     ensure_generated_bundle_contract, load_level_asset_bundle, resource_level_id,
+    resource_level_record,
 };
 use sha1::{Digest, Sha1};
 use std::fs;
@@ -157,6 +158,17 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         .parsed_header
         .as_ref()
         .ok_or_else(|| anyhow!("level 0x{level_id:02X} is missing header metadata"))?;
+    // ASM Load_InGame loc_11A50 resolves Current_LevelID through
+    // MapOrder_Index before reading the map header. Native generated logical
+    // layouts can still specialise geometry, but the live VRAM art/palette
+    // theme follows the mapped resource header.
+    let visual_theme_header = if resource_level_id == level_id {
+        header
+    } else {
+        resource_level_record(manifest, level_id)
+            .and_then(|level| level.header_metadata.as_ref())
+            .unwrap_or(header)
+    };
     let logical_decoded = manifest
         .decoded_levels
         .iter()
@@ -167,14 +179,20 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         .find(|d| d.level_id == resource_level_id);
     let decoded = logical_decoded.or(resource_decoded);
 
-    let foreground_theme = resolve_theme_name(header.level_theme)
-        .ok_or_else(|| anyhow!("unsupported foreground theme id {}", header.level_theme))?;
-    let background_theme = resolve_theme_name(header.background_theme).ok_or_else(|| {
-        anyhow!(
-            "unsupported background theme id {}",
-            header.background_theme
-        )
-    })?;
+    let foreground_theme =
+        resolve_theme_name(visual_theme_header.level_theme).ok_or_else(|| {
+            anyhow!(
+                "unsupported foreground theme id {}",
+                visual_theme_header.level_theme
+            )
+        })?;
+    let background_theme =
+        resolve_theme_name(visual_theme_header.background_theme).ok_or_else(|| {
+            anyhow!(
+                "unsupported background theme id {}",
+                visual_theme_header.background_theme
+            )
+        })?;
 
     let foreground_layout = match level_bundle.foreground.as_ref() {
         Some(asset) => decode_level_saxman_asset(asset, "foreground layout")?,
@@ -247,7 +265,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         &mut block_tiles,
         &foreground_tiles,
         &terrain_quads,
-        header.level_theme,
+        visual_theme_header.level_theme,
     );
     let hud_digits = load_tile_sheet(
         manifest,
@@ -289,26 +307,29 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "background palette",
     )?)?;
 
-    if let Some(perm) = load_palette_permutation(manifest, fg_permutation_file(header.level_theme))
-    {
+    if let Some(perm) = load_palette_permutation(
+        manifest,
+        fg_permutation_file(visual_theme_header.level_theme),
+    ) {
         foreground_tiles.apply_pixel_permutation(&perm);
     }
-    if let Some(perm) =
-        load_palette_permutation(manifest, bg_permutation_file(header.background_theme))
-    {
+    if let Some(perm) = load_palette_permutation(
+        manifest,
+        bg_permutation_file(visual_theme_header.background_theme),
+    ) {
         background_tiles.apply_pixel_permutation(&perm);
     }
     append_background_followup_art_loc_11ea2_11ec4(
         manifest,
         &mut background_tiles,
-        header.background_theme,
-        header.weather_flags,
+        visual_theme_header.background_theme,
+        visual_theme_header.weather_flags,
     )?;
 
     let player = load_player_visuals(manifest)?;
     let enemies = load_enemy_visuals(
         manifest,
-        header.level_theme,
+        visual_theme_header.level_theme,
         level_bundle.parsed_enemy_layout.as_ref(),
         &bg_palette,
     );
@@ -359,9 +380,9 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         background,
         level: LevelVisuals {
             level_id,
-            foreground_theme_id: header.level_theme,
-            background_theme_id: header.background_theme,
-            murder_wall_flags: header.murder_wall_flags,
+            foreground_theme_id: visual_theme_header.level_theme,
+            background_theme_id: visual_theme_header.background_theme,
+            murder_wall_flags: visual_theme_header.murder_wall_flags,
             background_scroll: level_bundle.parsed_bgscroll.clone(),
             foreground_layout: parsed_foreground_layout,
             foreground_layout_bytes: foreground_layout.clone(),
