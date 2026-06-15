@@ -122,6 +122,7 @@ pub struct NativeRuntime {
     pending_player_start_override_loc_11bd2: Option<(u16, u16)>,
     player_lifecycle: PlayerLifecycle,
     opening_slice: Option<OpeningSliceState>,
+    probe_start_slope_settle_frames: u8,
     starting_level_title_workers: Vec<LevelEntryTitleWorker>,
     starting_level_title_rng: Option<RomRandomState>,
     death_camera_lock: Option<CameraState>,
@@ -1411,6 +1412,7 @@ impl NativeRuntime {
             pending_player_start_override_loc_11bd2: None,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
+            probe_start_slope_settle_frames: 0,
             starting_level_title_workers: Vec::new(),
             starting_level_title_rng: None,
             death_camera_lock: None,
@@ -1609,12 +1611,39 @@ impl NativeRuntime {
     }
 
     pub fn set_player_probe_position(&mut self, x_px: u16, y_px: u16) {
+        // ASM loc_C4E maintains held/pressed joypad latches outside the live
+        // GfxObject. Direct probe starts are WRAM seeds, so clear native's
+        // cached latches with the position seed instead of carrying whatever
+        // the settle route last held into frame 0.
+        self.prior_input = FrameInput::default();
+        self.previous_input = FrameInput::default();
+        // ASM loc_9F18 / direct WRAM probe bootstrap: oracle frame 0 exposes
+        // the patched slope snap before neutral loc_A13A slope continuation
+        // advances. Keep that as a probe-only synthetic first-frame guard.
+        self.probe_start_slope_settle_frames = 2;
+        if self.opening_slice.is_none() {
+            self.opening_slice = Some(if self.block_grid().is_some() {
+                self.level_respawn_slice_with_floor_snap(self.current_level)
+            } else {
+                self.level_respawn_slice(self.current_level)
+            });
+        }
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.player.x_pos = u32::from(x_px) << 16;
             slice.player.y_pos = u32::from(y_px) << 16;
             slice.player.x_velocity = 0;
             slice.player.y_velocity = 0;
+            slice.player.facing = Direction::Right;
             slice.player.on_ground = true;
+            slice.player.just_jumped = false;
+            slice.player.jump_buffer_frames = 0;
+            slice.player.right_wall_sticky = false;
+            slice.player.left_wall_sticky = false;
+            slice.player.wall_cling_direction = None;
+            slice.terrain.floor_y_pos = u32::from(y_px) << 16;
+            slice.terrain.floor_terrain_type = TerrainType::Normal;
+            slice.terrain.slope_walk_kind = None;
+            slice.terrain.slope_sliding = false;
         }
     }
 
@@ -3669,6 +3698,10 @@ impl NativeRuntime {
                 // demo arcs land one frame early.
                 let allow_asm_faithful_solid_touch_snap =
                     self.physics_order != PhysicsOrder::AsmFaithful;
+                let suppress_probe_slope_velocity =
+                    self.probe_start_slope_settle_frames == 2;
+                self.probe_start_slope_settle_frames =
+                    self.probe_start_slope_settle_frames.saturating_sub(1);
                 self.begin_kid_grounded_release_probe(
                     slice.player,
                     movement_input,
@@ -3687,9 +3720,21 @@ impl NativeRuntime {
                     self.physics_order,
                     allow_asm_faithful_solid_touch_snap,
                     self.demo_post_transform_trace_velocity_hold_frames > 0,
+                    suppress_probe_slope_velocity,
                     &deferred_prize_ceiling_cells,
                 );
                 self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
+                if suppress_probe_slope_velocity
+                    && slice.player.on_ground
+                    && slice.player.x_velocity == 0
+                    && slice.player.y_velocity == 0
+                {
+                    // ASM loc_9F18 direct probe WRAM seed: oracle frame 0
+                    // exposes the patched slope contact row after physics
+                    // finishes, but before neutral loc_A13A slope continuation.
+                    slice.player.y_pos = slice.player.y_pos.wrapping_add(0x0001_0000);
+                    slice.terrain.floor_y_pos = slice.player.y_pos;
+                }
                 self.queue_jump_sound_from_probe_loc_A480();
                 self.queue_kid_pullup_sound_if_started_loc_abf0(
                     ledge_snap_cooldown_before,

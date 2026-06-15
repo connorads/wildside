@@ -19416,6 +19416,62 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A74E -> sub_B168 -> sub_902A -> loc_A762: when a fresh B edge
+    /// launches Kid from the first Level 00 SlopeUp/Solid seam, sub_902A must
+    /// keep the jump airborne. The following sub_8F26 wall pass must not clamp
+    /// the just-launched Kid into the adjacent solid support tile.
+    #[test]
+    fn level00_direct_slope_jump_edge_stays_airborne_loc_a762() {
+        let Some(runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let Some(mut grid) = runtime.block_grid_for_level(LevelId(0)) else {
+            return;
+        };
+
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: grid.width_cells * 16,
+            height_pixels: grid.height_cells * 16,
+        });
+        slice.player.on_ground = true;
+        slice.player.facing = Direction::Right;
+        slice.player.x_pos = 0x02fa_c000;
+        slice.player.y_pos = 0x00e5_0000;
+        slice.player.x_velocity = 0x0000_8000;
+        slice.player.y_velocity = -0x0000_8000;
+        slice.terrain.floor_y_pos = 0x00df_0000;
+        slice.physics_trace = Some(PhysicsTrace::default());
+
+        slice.step_with_order(
+            FrameInput {
+                b: true,
+                right: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            (
+                slice.player.x_pos,
+                slice.player.y_pos,
+                slice.player.x_velocity,
+                slice.player.y_velocity,
+                slice.player.on_ground,
+            ),
+            (0x02fa_0000, 0x00e0_bf00, 0, -0x0004_4100, false),
+            "ASM loc_A762 must not re-land Kid on the same fresh slope jump edge",
+        );
+    }
+
     /// ASM sub_A4EE -> loc_B9A2 -> loc_9D58: Red Stealth reaches the Level 00
     /// row-12 SlopeUp through the compound x/y object-collision pass before
     /// sub_902A's old-X vertical scan can report a floor contact. Oracle #269

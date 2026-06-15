@@ -2777,6 +2777,7 @@ impl OpeningSliceState {
             physics_order,
             allow_asm_faithful_solid_touch_snap,
             false,
+            false,
             deferred_prize_ceiling_cells,
         );
     }
@@ -2795,6 +2796,7 @@ impl OpeningSliceState {
         physics_order: PhysicsOrder,
         allow_asm_faithful_solid_touch_snap: bool,
         suppress_post_horizontal_floor_release: bool,
+        suppress_probe_slope_velocity: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
         self.step_with_order_inner(
@@ -2809,6 +2811,7 @@ impl OpeningSliceState {
             physics_order,
             allow_asm_faithful_solid_touch_snap,
             suppress_post_horizontal_floor_release,
+            suppress_probe_slope_velocity,
             deferred_prize_ceiling_cells,
         );
     }
@@ -2827,6 +2830,7 @@ impl OpeningSliceState {
         physics_order: PhysicsOrder,
         allow_asm_faithful_solid_touch_snap: bool,
         suppress_post_horizontal_floor_release: bool,
+        suppress_probe_slope_velocity: bool,
         deferred_prize_ceiling_cells: &[(u16, u16, DeferredPrizeBlockPhase)],
     ) {
         // ASM loc_1062 / Hibernate_UntilAnimFinished (kid.asm:1985) loops for
@@ -2884,13 +2888,15 @@ impl OpeningSliceState {
                 }
 
                 // Current native order: horizontal, vertical (gravity+position), collisions
-                let horizontal_step_applied = self.update_horizontal_motion(
-                    input,
-                    jump_pressed,
-                    form,
-                    block_grid.as_deref(),
-                    maniaxe_throwing_axe_active,
-                );
+                let horizontal_step_applied = self
+                    .update_horizontal_motion_with_probe_slope_suppression(
+                        input,
+                        jump_pressed,
+                        form,
+                        block_grid.as_deref(),
+                        maniaxe_throwing_axe_active,
+                        suppress_probe_slope_velocity,
+                    );
 
                 if let Some(ref mut t) = self.physics_trace {
                     t.post_horizontal = (self.player.x_pos, self.player.x_velocity);
@@ -2920,6 +2926,9 @@ impl OpeningSliceState {
 
                 let pre_collision_x = self.player.x_pos;
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
+                    let had_wall_cling_before_wall = self.player.wall_cling_direction.is_some()
+                        || self.player.right_wall_sticky
+                        || self.player.left_wall_sticky;
                     self.apply_wall_collision_for_form(Some(grid), form);
                     if self.player.x_pos != pre_collision_x
                         && let Some(ref mut t) = self.physics_trace
@@ -2927,7 +2936,13 @@ impl OpeningSliceState {
                         t.wall_hit = true;
                         t.wall_snap_x = Some(self.player.x_pos);
                     }
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form) {
+                    // ASM loc_A8DE -> loc_A9E4 hibernates into the wall-cling loop
+                    // before loc_ABA4 can consume B for The Kid's ledge pull-up.
+                    // A sticky latch created by this same sub_8F26 wall pass must
+                    // not snap until a later frame.
+                    if had_wall_cling_before_wall
+                        && self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form)
+                    {
                         self.finalise_trace();
                         // ASM camera follow runs after all physics sub-steps. On the
                         // ledge-snap frame, the camera follow sees the pre-snap
@@ -2979,13 +2994,15 @@ impl OpeningSliceState {
                 }
                 // ASM order: horizontal motion + position, apply y_pos from y_velocity
                 // (without gravity first), collisions, then gravity
-                let horizontal_step_applied = self.update_horizontal_motion(
-                    input,
-                    jump_pressed,
-                    form,
-                    block_grid.as_deref(),
-                    maniaxe_throwing_axe_active,
-                );
+                let horizontal_step_applied = self
+                    .update_horizontal_motion_with_probe_slope_suppression(
+                        input,
+                        jump_pressed,
+                        form,
+                        block_grid.as_deref(),
+                        maniaxe_throwing_axe_active,
+                        suppress_probe_slope_velocity,
+                    );
                 if let Some(ref mut t) = self.physics_trace {
                     t.post_horizontal = (self.player.x_pos, self.player.x_velocity);
                     t.horizontal_step_applied = horizontal_step_applied;
@@ -3000,8 +3017,17 @@ impl OpeningSliceState {
                     t.post_vertical = (self.player.y_pos, self.player.y_velocity);
                 }
                 let airborne_slope_recontact = if let Some(grid) = block_grid.as_deref_mut() {
+                    let had_wall_cling_before_wall = self.player.wall_cling_direction.is_some()
+                        || self.player.right_wall_sticky
+                        || self.player.left_wall_sticky;
                     self.apply_wall_collision_for_form(Some(grid), form);
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form) {
+                    // ASM loc_A8DE -> loc_A9E4 hibernates into the wall-cling loop
+                    // before loc_ABA4 can consume B for The Kid's ledge pull-up.
+                    // A sticky latch created by this same sub_8F26 wall pass must
+                    // not snap until a later frame.
+                    if had_wall_cling_before_wall
+                        && self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form)
+                    {
                         self.finalise_trace();
                         // ASM camera follow runs after all physics sub-steps. On the
                         // ledge-snap frame, the camera follow sees the pre-snap
@@ -3382,12 +3408,13 @@ impl OpeningSliceState {
                 let horizontal_step_applied = if self.player.wall_cling_direction.is_some() {
                     false
                 } else {
-                    self.update_horizontal_velocity_only(
+                    self.update_horizontal_velocity_only_with_probe_slope_suppression(
                         input,
                         jump_pressed,
                         form,
                         block_grid.as_deref(),
                         maniaxe_throwing_axe_active,
+                        suppress_probe_slope_velocity,
                     )
                 };
 
@@ -4020,6 +4047,9 @@ impl OpeningSliceState {
 
                 let pre_collision_x = self.player.x_pos;
                 if let Some(grid) = block_grid {
+                    let had_wall_cling_before_wall = self.player.wall_cling_direction.is_some()
+                        || self.player.right_wall_sticky
+                        || self.player.left_wall_sticky;
                     self.apply_wall_collision_for_form(Some(grid), form);
                     let wall_hit = self.player.x_pos != pre_collision_x;
                     if self.player.x_pos != pre_collision_x
@@ -4045,7 +4075,13 @@ impl OpeningSliceState {
                             self.player.x_velocity = 0;
                         }
                     }
-                    if self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form) {
+                    // ASM loc_A8DE -> loc_A9E4 hibernates into the wall-cling loop
+                    // before loc_ABA4 can consume B for The Kid's ledge pull-up.
+                    // A sticky latch created by this same sub_8F26 wall pass must
+                    // not snap until a later frame.
+                    if had_wall_cling_before_wall
+                        && self.try_snap_wall_sticky_ledge(jump_pressed, grid, collision_hw, form)
+                    {
                         kid_flip_follow_on_stages.after_wall =
                             self.kid_flip_follow_on_stage_state();
                         self.kid_flip_follow_on_stages = Some(kid_flip_follow_on_stages);
@@ -5117,6 +5153,7 @@ impl OpeningSliceState {
     /// Horizontal velocity update only (sub_B084 equivalent).
     /// Updates x_vel and facing but does NOT apply x_pos += x_vel.
     /// Returns (horizontal_step_applied, jump_suppressed_by_buffer).
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn update_horizontal_velocity_only(
         &mut self,
         input: FrameInput,
@@ -5124,6 +5161,25 @@ impl OpeningSliceState {
         form: PlayerForm,
         block_grid: Option<&terrain::BlockGrid>,
         maniaxe_throwing_axe_active: bool,
+    ) -> bool {
+        self.update_horizontal_velocity_only_with_probe_slope_suppression(
+            input,
+            jump_pressed,
+            form,
+            block_grid,
+            maniaxe_throwing_axe_active,
+            false,
+        )
+    }
+
+    fn update_horizontal_velocity_only_with_probe_slope_suppression(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+        block_grid: Option<&terrain::BlockGrid>,
+        maniaxe_throwing_axe_active: bool,
+        suppress_probe_slope_velocity: bool,
     ) -> bool {
         let input = input.with_left_right_conflict_resolved();
         if self.player.on_ground && !input.b {
@@ -5182,6 +5238,19 @@ impl OpeningSliceState {
             let slope_velocity_kind = grounded_slope.or(cached_slope_continuation);
             if let Some(cached_slope) = cached_slope_continuation {
                 cached_slope_walk_exit_velocity_loc_a13a(self.player.x_velocity, cached_slope)
+            } else if suppress_probe_slope_velocity
+                && grounded_slope.is_some()
+                && !input.left
+                && !input.right
+                && self.player.x_velocity == 0
+            {
+                // ASM loc_9F18 direct probe WRAM seed: oracle frame 0 exposes
+                // the patched slope snap before the first neutral loc_A13A /
+                // loc_9D22 slope continuation. Suppress only that synthetic
+                // native bootstrap frame; normal gameplay never sets this flag.
+                self.player.y_pos = self.player.y_pos.wrapping_add(0x0001_0000);
+                self.terrain.floor_y_pos = self.player.y_pos;
+                (self.player.x_velocity, self.player.facing)
             } else if let Some(collision) = slope_velocity_kind {
                 let slope_input = slope_horizontal_input_loc_9DAA(input, collision);
                 self.walk_visual_accumulator = slope_walk_visual_accumulator_loc_A13A(
@@ -5516,6 +5585,25 @@ impl OpeningSliceState {
         block_grid: Option<&terrain::BlockGrid>,
         maniaxe_throwing_axe_active: bool,
     ) -> bool {
+        self.update_horizontal_motion_with_probe_slope_suppression(
+            input,
+            jump_pressed,
+            form,
+            block_grid,
+            maniaxe_throwing_axe_active,
+            false,
+        )
+    }
+
+    fn update_horizontal_motion_with_probe_slope_suppression(
+        &mut self,
+        input: FrameInput,
+        jump_pressed: bool,
+        form: PlayerForm,
+        block_grid: Option<&terrain::BlockGrid>,
+        maniaxe_throwing_axe_active: bool,
+        suppress_probe_slope_velocity: bool,
+    ) -> bool {
         let input = input.with_left_right_conflict_resolved();
         if self.player.on_ground && self.player.jump_buffer_frames > 0 && !input.b {
             self.player.jump_buffer_frames = 0;
@@ -5558,7 +5646,20 @@ impl OpeningSliceState {
             run: input.a,
         };
         let (new_vel, new_facing) = if self.player.on_ground {
-            if let Some(collision) = grounded_slope {
+            if suppress_probe_slope_velocity
+                && grounded_slope.is_some()
+                && !input.left
+                && !input.right
+                && self.player.x_velocity == 0
+            {
+                // ASM loc_9F18 direct probe WRAM seed: oracle frame 0 exposes
+                // the patched slope snap before the first neutral loc_A13A /
+                // loc_9D22 slope continuation. Suppress only that synthetic
+                // native bootstrap frame; normal gameplay never sets this flag.
+                self.player.y_pos = self.player.y_pos.wrapping_add(0x0001_0000);
+                self.terrain.floor_y_pos = self.player.y_pos;
+                (self.player.x_velocity, self.player.facing)
+            } else if let Some(collision) = grounded_slope {
                 let slope_input = slope_horizontal_input_loc_9DAA(input, collision);
                 self.walk_visual_accumulator = slope_walk_visual_accumulator_loc_A13A(
                     self.walk_visual_accumulator,

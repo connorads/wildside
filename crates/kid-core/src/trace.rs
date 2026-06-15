@@ -5912,6 +5912,16 @@ impl NativeRuntime {
         if self.demo_trace_wall_jump_movement_hold_active(player) {
             return MOVE_JUMP;
         }
+        if self.probe_start_slope_settle_frames > 0
+            && player.on_ground
+            && player.x_velocity == 0
+            && player.y_velocity == 0
+        {
+            // ASM loc_9F18 direct WRAM probe seed: oracle frame 0 still
+            // exposes the pre-existing jump movement routine even though the
+            // synthetic position/velocity seed is already grounded and still.
+            return MOVE_JUMP;
+        }
         if !player.on_ground || player.just_jumped {
             return MOVE_JUMP;
         }

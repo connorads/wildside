@@ -6753,6 +6753,41 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_probe_start_clears_stale_player_motion_state_loc_9f18() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(0));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0));
+        runtime.set_player_probe_position(0x02F8, 0x00E7);
+        runtime.set_camera_probe_position(0x0260, 0x0020);
+
+        let frame = runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            (
+                frame.kid_x_pos,
+                frame.kid_y_pos,
+                frame.kid_x_velocity,
+                frame.kid_y_velocity,
+                frame.kid_facing,
+                frame.character_movement,
+            ),
+            (
+                Some(0x02F8_0000),
+                Some(0x00E8_0000),
+                Some(0),
+                Some(0),
+                Some(Direction::Right),
+                Some(3),
+            ),
+            "ASM loc_9F18 consumes the first neutral frame from a stationary right-facing probe; direct #258 starts must not inherit stale slope-release velocity/facing from the settled route",
+        );
+    }
+
+    #[test]
     fn mode_level_loads_rock_tank_after_object_step_loc_80c_368a8() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
