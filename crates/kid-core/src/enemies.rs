@@ -42590,6 +42590,10 @@ impl NativeRuntime {
                         })
                 })
                 .collect();
+            expand_platform_chain_segments_loc_428C(
+                &mut self.active_platforms,
+                &previous_platforms,
+            );
             self.active_platform_standing_on =
                 previous_standing_layout_index.and_then(|standing_layout_index| {
                     self.active_platforms

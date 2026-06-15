@@ -15735,6 +15735,203 @@ mod chunk_04 {
             })),
             "ASM loc_2876/off_40D2: pp=8 dispatches to TrapPlatformUp_Init",
         );
+
+        let chain = ActivePlatform::from_placement_with_index(
+            3,
+            &PlatformPlacement {
+                x: 64,
+                y: 128,
+                buffer_left: 25,
+                buffer_right: 75,
+                buffer_top: 0,
+                buffer_bottom: 14,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("12"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+        assert_eq!(
+            chain.special,
+            Some(PlatformSpecialState::Chain(PlatformChainState {
+                source_layout_index: Some(3),
+                segment_index: 0,
+                phase: PlatformChainPhase::Down,
+                frames_remaining: PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C,
+            })),
+            "ASM loc_2876/off_40D2 (kid.asm:4799/5195): pp=12 dispatches to PlatformChain_Init",
+        );
+    }
+
+    #[test]
+    fn platform_chain_y_velocity_table_loc_436e_matches_rom_segments() {
+        // ASM PlatformChain_YVelocities loc_436E (kid.asm:5492): seven
+        // FP16.16 y velocities are assigned to the loaded chain slots.
+        let down: Vec<i32> = (0..PLATFORM_CHAIN_SEGMENT_COUNT_LOC_428C)
+            .map(|segment| platform_chain_y_velocity_loc_436e(segment, PlatformChainPhase::Down))
+            .collect();
+        assert_eq!(
+            down,
+            vec![
+                0x0000_4000,
+                0x0000_8000,
+                0x0001_0000,
+                0x0001_4000,
+                0x0001_0000,
+                0x0000_8000,
+                0x0000_4000,
+            ],
+        );
+        let up: Vec<i32> = (0..PLATFORM_CHAIN_SEGMENT_COUNT_LOC_428C)
+            .map(|segment| platform_chain_y_velocity_loc_436e(segment, PlatformChainPhase::Up))
+            .collect();
+        assert_eq!(
+            up,
+            down.into_iter()
+                .map(|velocity| -velocity)
+                .collect::<Vec<_>>(),
+            "ASM PlatformChain_SetMoveUp loc_42EE negates the loc_436E table",
+        );
+    }
+
+    #[test]
+    fn platform_chain_expand_loc_428c_loads_six_offset_segments() {
+        let parent = ActivePlatform::from_placement_with_index(
+            7,
+            &PlatformPlacement {
+                x: 10,
+                y: 20,
+                buffer_left: 0,
+                buffer_right: 255,
+                buffer_top: 0,
+                buffer_bottom: 255,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("12"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+        let mut platforms = vec![parent];
+
+        expand_platform_chain_segments_loc_428C(&mut platforms, &[]);
+
+        assert_eq!(platforms.len(), 7);
+        for (segment_index, platform) in platforms.iter().enumerate() {
+            assert_eq!(
+                platform.x_pos,
+                parent.x_pos + ((u32::from(parent.width_px + 1) * segment_index as u32) << 16),
+                "ASM PlatformChain_Init loc_428C adds horizontal size + 1 before each PlatformChain_LoadPlatform",
+            );
+            assert_eq!(platform.y_pos, parent.y_pos);
+            assert_eq!(
+                platform.y_velocity,
+                platform_chain_y_velocity_loc_436e(segment_index as u8, PlatformChainPhase::Down),
+            );
+            assert_eq!(
+                platform.special,
+                Some(PlatformSpecialState::Chain(PlatformChainState {
+                    source_layout_index: Some(7),
+                    segment_index: segment_index as u8,
+                    phase: PlatformChainPhase::Down,
+                    frames_remaining: PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C,
+                })),
+            );
+        }
+    }
+
+    #[test]
+    fn platform_chain_expand_loc_428c_preserves_previous_child_state() {
+        let parent = ActivePlatform::from_placement_with_index(
+            7,
+            &PlatformPlacement {
+                x: 10,
+                y: 20,
+                buffer_left: 0,
+                buffer_right: 255,
+                buffer_top: 0,
+                buffer_bottom: 255,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("12"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+        let mut previous_child = parent;
+        previous_child.layout_index = None;
+        previous_child.y_pos += 3 << 16;
+        previous_child.special = Some(PlatformSpecialState::Chain(PlatformChainState {
+            source_layout_index: Some(7),
+            segment_index: 2,
+            phase: PlatformChainPhase::Up,
+            frames_remaining: 42,
+        }));
+        previous_child.y_velocity = platform_chain_y_velocity_loc_436e(2, PlatformChainPhase::Up);
+        let mut platforms = vec![parent];
+
+        expand_platform_chain_segments_loc_428C(&mut platforms, &[previous_child]);
+
+        assert_eq!(
+            platforms[2], previous_child,
+            "Native rebuilds active platforms from the layout each frame; chain child slots must survive by ASM source layout and segment index",
+        );
+    }
+
+    #[test]
+    fn platform_chain_step_loc_42c0_switches_down_to_up_after_initial_span() {
+        let mut platform = ActivePlatform::from_placement_with_index(
+            7,
+            &PlatformPlacement {
+                x: 10,
+                y: 20,
+                buffer_left: 0,
+                buffer_right: 255,
+                buffer_top: 0,
+                buffer_bottom: 255,
+                kind: 8,
+                subtype: 2,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("12"),
+                    relative_offset: None,
+                },
+            },
+            None,
+        );
+
+        for _ in 0..PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C {
+            platform.step_special_platform_loc_40D2(false, 0, 0);
+        }
+
+        assert_eq!(
+            platform.special,
+            Some(PlatformSpecialState::Chain(PlatformChainState {
+                source_layout_index: Some(7),
+                segment_index: 0,
+                phase: PlatformChainPhase::Up,
+                frames_remaining: PLATFORM_CHAIN_LOOP_FRAMES_LOC_42C0,
+            })),
+            "ASM PlatformChain_Init loc_42C0 loads d0=$3C; DBF gives 61 moved frames before PlatformChain_SetMoveUp",
+        );
+        assert_eq!(
+            platform.y_velocity,
+            platform_chain_y_velocity_loc_436e(0, PlatformChainPhase::Up),
+        );
     }
 
     #[test]

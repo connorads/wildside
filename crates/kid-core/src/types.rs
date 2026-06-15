@@ -2374,6 +2374,7 @@ pub(crate) enum PlatformSpecialState {
     Soft(SoftPlatformState),
     TrapDown(TrapPlatformDownState),
     TrapUp(TrapPlatformUpState),
+    Chain(PlatformChainState),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2411,6 +2412,20 @@ pub(crate) enum TrapPlatformUpPhase {
     Wait,
     Rising,
     PostRise,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformChainState {
+    pub(crate) source_layout_index: Option<usize>,
+    pub(crate) segment_index: u8,
+    pub(crate) phase: PlatformChainPhase,
+    pub(crate) frames_remaining: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PlatformChainPhase {
+    Down,
+    Up,
 }
 
 impl ActivePlatform {
@@ -2454,6 +2469,12 @@ impl ActivePlatform {
             (8, "8") => Some(PlatformSpecialState::TrapUp(TrapPlatformUpState {
                 phase: TrapPlatformUpPhase::Wait,
             })),
+            (8, "12") => Some(PlatformSpecialState::Chain(PlatformChainState {
+                source_layout_index: None,
+                segment_index: 0,
+                phase: PlatformChainPhase::Down,
+                frames_remaining: crate::platforms::PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C,
+            })),
             _ => None,
         };
         let mut height_px = u16::from(placement.v_variant) * 16 + 15;
@@ -2463,7 +2484,7 @@ impl ActivePlatform {
             height_px = height_px.saturating_sub(2);
         }
 
-        Self {
+        let mut platform = Self {
             layout_index: None,
             kind: placement.kind,
             subtype: placement.subtype,
@@ -2475,7 +2496,12 @@ impl ActivePlatform {
             y_velocity: 0,
             script,
             special,
+        };
+        if matches!(platform.special, Some(PlatformSpecialState::Chain(_))) {
+            platform.y_velocity =
+                crate::platforms::platform_chain_y_velocity_loc_436e(0, PlatformChainPhase::Down);
         }
+        platform
     }
 
     pub(crate) fn from_placement_with_index(
@@ -2483,10 +2509,12 @@ impl ActivePlatform {
         placement: &kid_data::PlatformPlacement,
         script_table: Option<&kid_data::PlatformScriptTable>,
     ) -> Self {
-        Self {
-            layout_index: Some(layout_index),
-            ..Self::from_placement(placement, script_table)
+        let mut platform = Self::from_placement(placement, script_table);
+        platform.layout_index = Some(layout_index);
+        if let Some(PlatformSpecialState::Chain(ref mut state)) = platform.special {
+            state.source_layout_index = Some(layout_index);
         }
+        platform
     }
 
     /// Advance one frame of movement script execution.

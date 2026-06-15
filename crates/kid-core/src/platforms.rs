@@ -1,6 +1,9 @@
 use super::*;
 
 pub(crate) const PLATFORM_SLOT_CAPACITY_LOC_231C: usize = 17;
+pub(crate) const PLATFORM_CHAIN_SEGMENT_COUNT_LOC_428C: u8 = 7;
+pub(crate) const PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C: u16 = 0x3D;
+pub(crate) const PLATFORM_CHAIN_LOOP_FRAMES_LOC_42C0: u16 = 0x79;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -518,6 +521,91 @@ pub(crate) fn platform_layout_coord_px_loc_2762(layout_coord: u16) -> u32 {
 #[allow(non_snake_case)]
 pub(crate) fn platform_layout_coord_fixed_loc_2762(layout_coord: u16) -> u32 {
     platform_layout_coord_px_loc_2762(layout_coord) << 16
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn platform_chain_y_velocity_loc_436e(
+    segment_index: u8,
+    phase: PlatformChainPhase,
+) -> i32 {
+    // ASM PlatformChain_YVelocities loc_436E (kid.asm:5492): seven platform
+    // slots receive staggered FP16.16 y velocities, then
+    // PlatformChain_SetMoveUp negates the same table for the upward pass.
+    let down_velocity = match segment_index {
+        0 => 0x0000_4000,
+        1 => 0x0000_8000,
+        2 => 0x0001_0000,
+        3 => 0x0001_4000,
+        4 => 0x0001_0000,
+        5 => 0x0000_8000,
+        _ => 0x0000_4000,
+    };
+    match phase {
+        PlatformChainPhase::Down => down_velocity,
+        PlatformChainPhase::Up => -down_velocity,
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn expand_platform_chain_segments_loc_428C(
+    platforms: &mut Vec<ActivePlatform>,
+    previous_platforms: &[ActivePlatform],
+) {
+    let parent_count = platforms.len();
+    for parent_index in 0..parent_count {
+        if platforms.len() >= PLATFORM_SLOT_CAPACITY_LOC_231C {
+            break;
+        }
+        let parent = platforms[parent_index];
+        let Some(PlatformSpecialState::Chain(parent_state)) = parent.special else {
+            continue;
+        };
+        if parent_state.segment_index != 0 {
+            continue;
+        }
+        let Some(source_layout_index) = parent.layout_index.or(parent_state.source_layout_index)
+        else {
+            continue;
+        };
+        for segment_index in 1..PLATFORM_CHAIN_SEGMENT_COUNT_LOC_428C {
+            if platforms.len() >= PLATFORM_SLOT_CAPACITY_LOC_231C {
+                break;
+            }
+            if let Some(previous) = previous_platforms.iter().find(|platform| {
+                matches!(
+                    platform.special,
+                    Some(PlatformSpecialState::Chain(PlatformChainState {
+                        source_layout_index: Some(previous_source),
+                        segment_index: previous_segment,
+                        ..
+                    })) if previous_source == source_layout_index
+                        && previous_segment == segment_index
+                )
+            }) {
+                platforms.push(*previous);
+                continue;
+            }
+
+            // ASM PlatformChain_Init loc_428C/sub_4324: six extra platform
+            // slots copy the original platform fields, set `$20(a3)=1`, and
+            // advance x by original horizontal size + 1 for each segment.
+            let mut segment = parent;
+            segment.layout_index = None;
+            segment.script = None;
+            segment.x_pos = parent.x_pos.wrapping_add(
+                u32::from(parent.width_px + 1).wrapping_mul(u32::from(segment_index)) << 16,
+            );
+            segment.special = Some(PlatformSpecialState::Chain(PlatformChainState {
+                source_layout_index: Some(source_layout_index),
+                segment_index,
+                phase: parent_state.phase,
+                frames_remaining: parent_state.frames_remaining,
+            }));
+            segment.y_velocity =
+                platform_chain_y_velocity_loc_436e(segment_index, parent_state.phase);
+            platforms.push(segment);
+        }
+    }
 }
 
 #[allow(non_snake_case)]
@@ -1639,6 +1727,22 @@ impl ActivePlatform {
                         }
                     }
                 },
+                Some(PlatformSpecialState::Chain(ref mut state)) => {
+                    if deactivated_flag != 0 {
+                        return SpecialPlatformStepActionLoc40D2::Delete;
+                    }
+                    self.y_pos = self.y_pos.wrapping_add(self.y_velocity as u32);
+                    state.frames_remaining = state.frames_remaining.saturating_sub(1);
+                    if state.frames_remaining == 0 {
+                        state.phase = match state.phase {
+                            PlatformChainPhase::Down => PlatformChainPhase::Up,
+                            PlatformChainPhase::Up => PlatformChainPhase::Down,
+                        };
+                        state.frames_remaining = PLATFORM_CHAIN_LOOP_FRAMES_LOC_42C0;
+                        self.y_velocity =
+                            platform_chain_y_velocity_loc_436e(state.segment_index, state.phase);
+                    }
+                }
                 _ => {}
             }
             return SpecialPlatformStepActionLoc40D2::Continue;
