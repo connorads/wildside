@@ -782,7 +782,7 @@ impl PlatformLoaderState {
                     },
                     x_pos: platform_layout_coord_fixed_loc_2762(placement.x),
                     y_pos: platform_layout_coord_fixed_loc_2762(placement.y),
-                    layout_index: None,
+                    layout_index: Some(placement_index),
                     x_velocity: None,
                     y_velocity: None,
                     facing: None,

@@ -14832,6 +14832,11 @@ mod chunk_04 {
 
         assert_eq!(active.len(), 1);
         assert_eq!(
+            active[0].layout_index,
+            Some(1),
+            "pre-runtime platform snapshots should keep the same source layout index whose `$C`-scaled offset is stamped into `$20(a3)`",
+        );
+        assert_eq!(
             active[0]
                 .debug_fields
                 .get("platform_loader_offset_words")
