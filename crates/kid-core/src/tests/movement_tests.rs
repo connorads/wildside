@@ -22250,6 +22250,53 @@ mod chunk_12 {
         );
     }
 
+    /// ASM loc_A480 uses two arithmetic shifts, so negative X velocity keeps
+    /// its sign before loc_9F3A applies the launch-adjusted horizontal step.
+    #[test]
+    fn loc_a466_position_first_left_grounded_jump_steps_left() {
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        let start_x = 32 << 16;
+        let start_y = 64 << 16;
+        let start_x_vel = -0x0002_0000;
+        let (expected_x_vel, expected_y_vel) =
+            crate::physics::initiate_jump(start_x_vel, crate::physics::JUMP_HEIGHTS[0]);
+        slice.player.on_ground = true;
+        slice.player.x_pos = start_x;
+        slice.player.y_pos = start_y;
+        slice.player.x_velocity = start_x_vel;
+        slice.player.facing = Direction::Left;
+
+        slice.apply_vertical_position_only(
+            FrameInput {
+                left: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+        );
+
+        assert!(!slice.player.on_ground);
+        assert_eq!(
+            slice.player.x_velocity, expected_x_vel,
+            "ASM loc_A480 should reduce leftward x velocity by the same arithmetic-shift path as rightward jumps",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            (i64::from(start_x) + i64::from(expected_x_vel)) as u32,
+            "ASM loc_9F3A must apply the leftward launch-adjusted x_vel on the launch frame",
+        );
+        assert_eq!(
+            slice.player.y_pos,
+            (i64::from(start_y) + i64::from(expected_y_vel)) as u32,
+            "leftward and rightward loc_A466 launches share the same speed-derived upward y_vel",
+        );
+    }
+
     /// ASM loc_A426 only reaches sub_A432 launch work from a grounded jump
     /// edge; an airborne fresh press is buffered and must not relaunch.
     #[test]
