@@ -567,6 +567,7 @@ impl PlatformSlotPoolLoc231C {
 pub(crate) struct PlatformLoaderSlotRecordLoc2728 {
     pub(crate) slot_addr: u16,
     pub(crate) layout_offset_words: u16,
+    pub(crate) deactivated_flag: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -574,6 +575,7 @@ pub(crate) struct PlatformLoaderSlotModelLoc2744 {
     pool: PlatformSlotPoolLoc231C,
     offset_words: u16,
     slot_layout_offsets: [Option<u16>; PLATFORM_SLOT_CAPACITY_LOC_231C],
+    slot_deactivated_flags: [u8; PLATFORM_SLOT_CAPACITY_LOC_231C],
 }
 
 #[allow(non_snake_case)]
@@ -584,6 +586,7 @@ impl PlatformLoaderSlotModelLoc2744 {
             pool: PlatformSlotPoolLoc231C::initialize_sub_231C(),
             offset_words: 0,
             slot_layout_offsets: [None; PLATFORM_SLOT_CAPACITY_LOC_231C],
+            slot_deactivated_flags: [0; PLATFORM_SLOT_CAPACITY_LOC_231C],
         }
     }
 
@@ -601,7 +604,13 @@ impl PlatformLoaderSlotModelLoc2744 {
         let layout_offset_words = cursor.current_offset_words;
         let existing_slot_addr = self.find_slot_by_layout_offset_sub_2728(layout_offset_words);
         if platform_is_active(placement, window) {
-            if existing_slot_addr.is_none() {
+            if let Some(slot_addr) = existing_slot_addr {
+                if let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
+                    // ASM loc_2876 (kid.asm:4797): when the loader accepts an
+                    // already-linked special slot, clear `$12(a3)`.
+                    self.slot_deactivated_flags[slot_index] = 0;
+                }
+            } else {
                 if let AllocatePlatformSlotResultSub238E::Allocated(allocation) =
                     self.pool.allocate_sub_238E()
                 {
@@ -612,11 +621,17 @@ impl PlatformLoaderSlotModelLoc2744 {
                         // stamp the current 12-byte layout offset into
                         // `$20(a3)` immediately after Allocate_PlatformSlot.
                         self.slot_layout_offsets[slot_index] = Some(layout_offset_words);
+                        self.slot_deactivated_flags[slot_index] = 0;
                     }
                 }
             }
         } else if let Some(slot_addr) = existing_slot_addr {
             if platform_placement_is_special_loc_2836(placement) {
+                if let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
+                    // ASM loc_2850 (kid.asm:4772): special platforms stay
+                    // linked and receive `st $12(a3)` instead of deallocation.
+                    self.slot_deactivated_flags[slot_index] = 0xFF;
+                }
                 return;
             }
             if self.pool.deallocate_sub_23B4(slot_addr)
@@ -624,6 +639,7 @@ impl PlatformLoaderSlotModelLoc2744 {
             {
                 if let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
                     self.slot_layout_offsets[slot_index] = None;
+                    self.slot_deactivated_flags[slot_index] = 0;
                 }
             }
         }
@@ -638,6 +654,7 @@ impl PlatformLoaderSlotModelLoc2744 {
                 Some(PlatformLoaderSlotRecordLoc2728 {
                     slot_addr,
                     layout_offset_words: self.slot_layout_offsets[slot_index]?,
+                    deactivated_flag: self.slot_deactivated_flags[slot_index],
                 })
             })
             .collect()

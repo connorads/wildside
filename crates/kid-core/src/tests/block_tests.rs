@@ -15073,10 +15073,12 @@ mod chunk_04 {
                 PlatformLoaderSlotRecordLoc2728 {
                     slot_addr: 0xEDDC,
                     layout_offset_words: 0x000C,
+                    deactivated_flag: 0,
                 },
                 PlatformLoaderSlotRecordLoc2728 {
                     slot_addr: 0xEDBA,
                     layout_offset_words: 0x0000,
+                    deactivated_flag: 0,
                 },
             ],
             "ASM sub_238E should allocate records 0 and 1 into Platform_RAM slots and scan the newest slot first",
@@ -15088,6 +15090,7 @@ mod chunk_04 {
             vec![PlatformLoaderSlotRecordLoc2728 {
                 slot_addr: 0xEDDC,
                 layout_offset_words: 0x000C,
+                deactivated_flag: 0,
             }],
             "ASM loc_2744 wraps to record 0, then loc_2850 -> loc_286A deallocates the normal slot whose `$20(a3)` is offset 0",
         );
@@ -15100,13 +15103,83 @@ mod chunk_04 {
                 PlatformLoaderSlotRecordLoc2728 {
                     slot_addr: 0xEDBA,
                     layout_offset_words: 0x0000,
+                    deactivated_flag: 0,
                 },
                 PlatformLoaderSlotRecordLoc2728 {
                     slot_addr: 0xEDDC,
                     layout_offset_words: 0x000C,
+                    deactivated_flag: 0,
                 },
             ],
             "ASM sub_23B4 pushes the deallocated slot to the free-list head, so the next sub_238E allocation should reuse $EDBA and relink it at Addr_FirstPlatformSlot",
+        );
+    }
+
+    #[test]
+    fn platform_loader_slot_model_loc_2850_marks_special_slot_deactivated_until_reloaded() {
+        let active_window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let inactive_window = ActivationWindow {
+            x_min: 800,
+            x_max: 800,
+            y_min: 800,
+            y_max: 800,
+        };
+        let layout = PlatformLayout {
+            placements: vec![PlatformPlacement {
+                x: 20,
+                y: 20,
+                buffer_left: 10,
+                buffer_right: 10,
+                buffer_top: 10,
+                buffer_bottom: 10,
+                kind: 8,
+                subtype: 4,
+                h_variant: 1,
+                v_variant: 0,
+                script: PlatformScriptRef {
+                    raw: String::from("4"),
+                    relative_offset: None,
+                },
+            }],
+        };
+        let mut model = PlatformLoaderSlotModelLoc2744::initialize_sub_231C();
+
+        model.advance_to_window(&layout, active_window);
+        assert_eq!(
+            model.active_slot_records_loc_2728(),
+            vec![PlatformLoaderSlotRecordLoc2728 {
+                slot_addr: 0xEDBA,
+                layout_offset_words: 0x0000,
+                deactivated_flag: 0,
+            }],
+            "ASM loc_2876 clears `$12(a3)` when a retained special platform is in range",
+        );
+
+        model.advance_to_window(&layout, inactive_window);
+        assert_eq!(
+            model.active_slot_records_loc_2728(),
+            vec![PlatformLoaderSlotRecordLoc2728 {
+                slot_addr: 0xEDBA,
+                layout_offset_words: 0x0000,
+                deactivated_flag: 0xFF,
+            }],
+            "ASM loc_2850 keeps special platforms linked and writes `st $12(a3)` instead of branching to loc_286A deallocation",
+        );
+
+        model.advance_to_window(&layout, active_window);
+        assert_eq!(
+            model.active_slot_records_loc_2728(),
+            vec![PlatformLoaderSlotRecordLoc2728 {
+                slot_addr: 0xEDBA,
+                layout_offset_words: 0x0000,
+                deactivated_flag: 0,
+            }],
+            "ASM loc_2876 should clear the retained special platform's deactivation byte when the loader sees it in range again",
         );
     }
 
