@@ -21822,6 +21822,78 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn weather_worker_input_from_runtime_sub_61ca_uses_live_ram_and_block_rows() {
+        let mut weather = WeatherState {
+            storm_spawn_cooldown: 7,
+            storm_free_falling_slots: 3,
+            ..WeatherState::default()
+        };
+        weather.storm_falling_slots_sub_61ca[2] = FallingWeatherSlotSub61CA {
+            y_px: 0x0044,
+            x_px: 0x0123,
+            animation_cooldown: 5,
+            animation_frame: 2,
+        };
+        weather.storm_impact_slots_sub_61ca[4] = WeatherImpactSlotSub61CA {
+            y_px: 0x0055,
+            x_px: 0x0134,
+            animation_cooldown: 6,
+            animation_frame: 1,
+        };
+
+        let mut slice = make_airborne_slice(0x0120, 0x00A0);
+        slice.camera.x_pos = 0x0034_0000;
+        slice.camera.y_pos = 0x0012_0000;
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 3 * 2], 4, 3);
+        grid.set_raw_word_at(3, 2, 0x5001);
+
+        let input = crate::weather::weather_worker_input_from_runtime_sub_61ca(
+            &weather,
+            &slice,
+            Some(&grid),
+            0xAB,
+            0xCD,
+            4,
+        );
+
+        assert_eq!(input.camera_x_px, 0x0034, "ASM sub_61CA reads Camera_X_pos");
+        assert_eq!(input.camera_y_px, 0x0012, "ASM sub_61CA reads Camera_Y_pos");
+        assert_eq!(input.spawn_cooldown, 7, "ASM sub_61CA reads `$FFFFFB3C`");
+        assert_eq!(input.free_falling_slots, 3, "ASM sub_61CA reads `$FFFFFB3D`");
+        assert_eq!(
+            input.falling_slots[2],
+            weather.storm_falling_slots_sub_61ca[2],
+            "ASM sub_61CA reads falling slot RAM at `$FFFFFAE2`"
+        );
+        assert_eq!(
+            input.impact_slots[4],
+            weather.storm_impact_slots_sub_61ca[4],
+            "ASM sub_61CA reads impact slot RAM at `$FFFFFB00`"
+        );
+        assert_eq!(
+            (
+                input.kid_hitbox_left_px,
+                input.kid_hitbox_right_px,
+                input.kid_hitbox_top_px,
+                input.kid_hitbox_bottom_px,
+            ),
+            (0x011B, 0x0125, 0x0081, 0x00A0),
+            "ASM sub_61CA collision compares against Kid hitbox RAM"
+        );
+        assert_eq!(input.random_byte, 0xAB, "ASM loc_623A consumes the cooldown RNG byte");
+        assert_eq!(input.spawn_random_byte, 0xCD, "ASM loc_626C consumes the spawn-X RNG byte");
+        assert_eq!(
+            input.collision_rows.rows[2][3],
+            0x5001,
+            "ASM loc_632E must receive raw collision row words from `$FFFF4A04`"
+        );
+        assert_eq!(
+            input.starting_number_sprites, 4,
+            "ASM sub_61CA appends sprites after the caller's current link count"
+        );
+    }
+
     // --- loc_61E2 / loc_620C / loc_6212: per-slot falling weather update ---
 
     #[test]

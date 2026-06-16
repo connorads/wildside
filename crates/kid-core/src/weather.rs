@@ -850,6 +850,40 @@ pub(crate) fn weather_collision_rows_from_block_grid_sub_61ca(
     WeatherCollisionRowsSub61CA { rows }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn weather_worker_input_from_runtime_sub_61ca(
+    weather: &WeatherState,
+    slice: &OpeningSliceState,
+    block_grid: Option<&terrain::BlockGrid>,
+    random_byte: u8,
+    spawn_random_byte: u8,
+    starting_number_sprites: u8,
+) -> WeatherWorkerInputSub61CA {
+    // ASM sub_61CA (kid.asm:6190) consumes camera words, Kid hitbox RAM,
+    // `$FFFFFAE2`/`$FFFFFB00` slot RAM, `$FFFFFB3C`/`$FFFFFB3D` counters,
+    // and raw collision row pointers from `$FFFF4A04`.
+    let (kid_hitbox_left_px, kid_hitbox_right_px, kid_hitbox_top_px, kid_hitbox_bottom_px) =
+        kid_hitbox_bounds_px(slice);
+    WeatherWorkerInputSub61CA {
+        camera_x_px: ((slice.camera.x_pos >> 16) as u16) as i16,
+        camera_y_px: ((slice.camera.y_pos >> 16) as u16) as i16,
+        spawn_cooldown: weather.storm_spawn_cooldown,
+        free_falling_slots: weather.storm_free_falling_slots,
+        falling_slots: weather.storm_falling_slots_sub_61ca,
+        impact_slots: weather.storm_impact_slots_sub_61ca,
+        kid_hitbox_top_px: kid_hitbox_top_px as i16,
+        kid_hitbox_bottom_px: kid_hitbox_bottom_px as i16,
+        kid_hitbox_left_px: kid_hitbox_left_px as i16,
+        kid_hitbox_right_px: kid_hitbox_right_px as i16,
+        random_byte,
+        spawn_random_byte,
+        collision_rows: block_grid
+            .map(weather_collision_rows_from_block_grid_sub_61ca)
+            .unwrap_or_else(|| WeatherCollisionRowsSub61CA { rows: Vec::new() }),
+        starting_number_sprites,
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WeatherSpriteSub61CA {
