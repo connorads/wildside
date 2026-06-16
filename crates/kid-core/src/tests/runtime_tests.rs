@@ -14724,6 +14724,55 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_post_startup_hibernate_does_not_hit_same_frame_loc_33650() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 0,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            friendly: false,
+            drips_surface_crawler_state: DripsSurfaceCrawlerState::StartupLoc335D8,
+            animation_elapsed_frames: 1,
+            ..Default::default()
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].drips_surface_crawler_state,
+            DripsSurfaceCrawlerState::HorizontalLoc33650,
+            "ASM Drips.asm loc_335D8 tails through loc_33630/loc_33526 before entering loc_33650"
+        );
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM Drips.asm loc_33650 starts with Hibernate_Object_1Frame before loc_33550, so the frame that finishes loc_335D8 startup must not damage Kid"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "the post-startup loc_33650 hibernate frame should keep the visible crawler alive"
+        );
+        assert!(
+            rt.last_projectile_damage_probe.is_none(),
+            "the hibernate boundary should not report a stale crawler damage candidate"
+        );
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectile_hits_player(&slice),
+            "after loc_33650's first Hibernate_Object_1Frame completes, the crawler reaches loc_33550 and can damage Kid"
+        );
+    }
+
+    #[test]
     fn drips_surface_crawler_live_contact_hits_at_issue_260_boundary_loc_33550() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {

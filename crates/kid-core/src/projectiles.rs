@@ -95,7 +95,8 @@ pub(crate) fn fire_demon_trail_has_floor_support_loc_3a63c(
 
 pub(crate) const DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488: usize = 5;
 const DRIPS_SURFACE_CRAWLER_LIFETIME: u16 = u16::MAX;
-const DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8: u16 = 31;
+const DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8: u16 = 36;
+const DRIPS_SURFACE_CRAWLER_POST_STARTUP_HIBERNATE_FRAMES_LOC_33650: u16 = 1;
 const DRIPS_SURFACE_CRAWLER_KID_CONTACT_HALF_WIDTH_LOC_33550: i32 = PROJECTILE_HITBOX_HALF + 9;
 const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 /// ASM Drips.asm loc_3345C exits the fall loop when GfxObjects_Collision
@@ -390,7 +391,11 @@ fn drips_surface_crawler_from_splash_loc_335d8(
 }
 
 fn drips_surface_crawler_finish_startup_loc_335d8(projectile: &mut EnemyProjectile) {
-    projectile.animation_elapsed_frames = 0;
+    // ASM Drips.asm loc_335D8 reaches loc_33650 only after
+    // Hibernate_UntilAnimFinished returns; loc_33650 immediately calls
+    // Hibernate_Object_1Frame before the first loc_33550 Kid collision probe.
+    projectile.animation_elapsed_frames =
+        DRIPS_SURFACE_CRAWLER_POST_STARTUP_HIBERNATE_FRAMES_LOC_33650;
     projectile.drips_surface_crawler_state = DripsSurfaceCrawlerState::HorizontalLoc33650;
     let startup_deltas = drips_velocity_deltas_loc_33526(
         projectile.drips_child_byte_44,
@@ -406,6 +411,12 @@ fn drips_surface_crawler_finish_startup_loc_335d8(projectile: &mut EnemyProjecti
     );
     projectile.x_velocity = startup_velocity.x_velocity;
     projectile.y_velocity = startup_velocity.y_velocity;
+}
+
+fn drips_surface_crawler_suppresses_kid_contact_loc_335d8(projectile: &EnemyProjectile) -> bool {
+    projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler
+        && (projectile.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8
+            || projectile.animation_elapsed_frames > 0)
 }
 
 pub(crate) fn drips_surface_crawler_burst_helper_loc_338f8(
@@ -688,7 +699,7 @@ mod drips_surface_crawler_tests {
         );
         assert_eq!(
             crawler.animation_elapsed_frames, DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8,
-            "ASM `stru_33FA6` has three 10-frame entries, then `Hibernate_UntilAnimFinished` consumes the resume frame before loc_335D8 reaches loc_33630/loc_33526"
+            "ASM `stru_33FA6` has three 10-frame entries, but oracle issue-260 keeps loc_335D8 in `Hibernate_UntilAnimFinished` through frame 527 before resuming at loc_33630"
         );
 
         let flipped =
@@ -2551,6 +2562,10 @@ impl NativeRuntime {
                 // first support/collision probe runs on the next native frame.
                 return true;
             }
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler && p.animation_elapsed_frames > 0
+            {
+                p.animation_elapsed_frames -= 1;
+            }
             if !is_drips_drop && !uses_loc_3263c_post_move_gravity {
                 p.y_velocity += p.gravity;
             }
@@ -3284,9 +3299,7 @@ impl NativeRuntime {
             ) {
                 return false;
             }
-            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
-                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8
-            {
+            if drips_surface_crawler_suppresses_kid_contact_loc_335d8(p) {
                 return false;
             }
             if p.kind == EnemyProjectileKind::DripsDrop {
@@ -3331,12 +3344,11 @@ impl NativeRuntime {
                 // finish animation. Neither performs a fresh Kid damage check.
                 return true;
             }
-            if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
-                && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8
-            {
+            if drips_surface_crawler_suppresses_kid_contact_loc_335d8(p) {
                 // ASM Drips.asm loc_335D8 finishes `stru_33FA6` before
-                // `st is_moved(a3)` and before loc_33650's live Kid collision
-                // path, so the startup shell is visible but not hostile.
+                // `st is_moved(a3)`, then loc_33650 yields once before its
+                // live Kid collision path, so the shell can be visible but not
+                // hostile at both boundaries.
                 return true;
             }
             if p.kind == EnemyProjectileKind::DripsDrop {
