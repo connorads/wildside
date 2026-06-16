@@ -3315,6 +3315,48 @@ mod chunk_02 {
     }
 
     #[test]
+    fn title_card_vdp_shell_uses_current_level_theme_loc_19abe() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let title_card_data =
+            vdp::load_title_card_data(&manifest).expect("generated title-card theme data");
+
+        for (level_id, expected_theme, route_name) in [
+            (0x00, 0x09, "Blue Lake Woods 1 forest"),
+            (0x02, 0x07, "Highwater Pass 1 mountain"),
+            (0x06, 0x08, "Under Skull Mountain 3 cave"),
+        ] {
+            let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
+            runtime.begin_level_entry(LevelId(level_id));
+            runtime.step_frame(FrameInput::default());
+
+            assert_eq!(
+                runtime.current_level_title_card_theme_index(),
+                expected_theme,
+                "ASM Load_TitleCard loc_19ABE selects the title-card theme from the current level header for {route_name}"
+            );
+
+            let actual = runtime
+                .vdp_state()
+                .expect("ASM Load_TitleCard should expose a title-card VDP shell");
+            let expected =
+                vdp::build_title_card_vdp(&title_card_data, expected_theme).expect(route_name);
+
+            assert_eq!(
+                &actual.vram[0x5F60..0x6000],
+                &expected.vram[0x5F60..0x6000],
+                "ASM Load_TitleCard loc_19ABE must decompress the current level theme art for {route_name}, not a stale previous level shell",
+            );
+            assert_eq!(
+                &actual.cram[..0x20],
+                &expected.cram[..0x20],
+                "ASM Load_TitleCard loc_19B80 must copy the current level theme palette for {route_name}",
+            );
+        }
+    }
+
+    #[test]
     fn aliased_level_entry_uses_resource_title_card_loc_6e2() {
         let mut manifest = manifest_with_levels_and_playable_spawn(2);
         manifest.map_order = vec![0x00, 0x00];

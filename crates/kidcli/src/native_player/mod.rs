@@ -7489,8 +7489,8 @@ mod tests {
         };
         assert_eq!(
             copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
-            Some(0x00D),
-            "late sub_1007A block_bounces entry should draw the copied prize-block art from `$220/$229`, not the temporary `$6Fxx` terrain-restore skin",
+            Some(0x011),
+            "late sub_1007A block_bounces entry should preserve the `$6F02` low byte copied from `$E102`, not decrement to the hidden `$01` prize skin",
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(
@@ -7502,9 +7502,9 @@ mod tests {
                     tiles,
                     ..
                 } if tile_sheet.tiles.len() == 0x200
-                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x011)
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x00D)
             )),
-            "ASM sub_1007A uses the copied `$220/$229` VRAM pair; native must not resolve `$6F02` as skin `$02` and add the frame offset a second time"
+            "ASM sub_1007A preserves `$6F02`; native must not decrement it to the `$6F01` copied-art skin"
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(
@@ -7597,8 +7597,8 @@ mod tests {
         };
         assert_eq!(
             copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
-            Some(0x00D),
-            "ASM sub_1007A should copy the `$E102` prize block skin, not the immutable terrain skin behind the block"
+            Some(0x011),
+            "ASM sub_1007A should copy the `$E102` prize block skin byte unchanged, not decrement it to the hidden `$E101` art"
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(

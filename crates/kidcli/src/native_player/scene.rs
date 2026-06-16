@@ -3678,14 +3678,14 @@ pub(super) fn push_block_grid_overrides(
                 let word = grid.raw_word_at(col, row);
                 let cell = grid.cell_at(col, row);
                 if word & 0xFF00 == 0x6F00 {
-                    (word as u8).saturating_sub(1)
+                    word as u8
                 } else if cell.has_block {
-                    // ASM sub_1007A copies the visible block art from the
-                    // source Level_Layout word before the `$6Fxx` phase. Prize
-                    // cells use `$E101/$E102` encodings, so the mapping index
-                    // is the low byte minus one, matching the later `$6Fxx`
-                    // copy path above.
-                    cell.skin.saturating_sub(1)
+                    // ASM sub_1007A (`move.b (a1,d0.w),d4` then
+                    // `move.b #$6F,(a0)`) preserves the source low byte. The
+                    // `$E101` and `$E102` prize cells therefore resolve as
+                    // distinct copied block-art skins; normalising the byte
+                    // makes visible prize blocks lose their `P` glyph.
+                    cell.skin
                 } else {
                     (word & 0x00FF) as u8
                 }
