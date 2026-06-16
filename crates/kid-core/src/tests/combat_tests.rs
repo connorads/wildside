@@ -24183,6 +24183,43 @@ mod chunk_05 {
     }
 
     #[test]
+    fn step_lava_geysers_rotates_live_palette_every_five_frames_loc_14b2a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            startup_delay_frames: 0,
+            phase: 0,
+            timer: 10,
+            current_height: 0,
+        });
+        runtime.palette_buffer[0x14] = 0x1111;
+        runtime.palette_buffer[0x15] = 0x2222;
+        runtime.palette_buffer[0x16] = 0x3333;
+        runtime.palette_buffer[0x17] = 0x4444;
+
+        let slice = airborne_slice();
+        for _ in 0..4 {
+            runtime.step_lava_geysers(&slice);
+        }
+        assert_eq!(
+            &runtime.palette_buffer[0x14..0x18],
+            &[0x1111, 0x2222, 0x3333, 0x4444],
+            "ASM Animation_Geyser loc_14B2A hibernates for five frames before rotating the live palette ring"
+        );
+
+        runtime.step_lava_geysers(&slice);
+
+        assert_eq!(
+            &runtime.palette_buffer[0x14..0x18],
+            &[0x4444, 0x1111, 0x2222, 0x3333],
+            "ASM loc_14B2A rotates Palette_Buffer+$28/$2A/$2C/$2E on the fifth live lava frame"
+        );
+    }
+
+    #[test]
     fn step_lava_geysers_phase_3_collapse_decrements_one_sprite_row() {
         // ASM loc_1498C (kid.asm:28031): once the hold timer at loc_1496C
         // expires and `$4D(a5)` flips to "going down", the worker enters the

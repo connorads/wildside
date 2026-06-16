@@ -2536,6 +2536,7 @@ impl NativeRuntime {
                 current_height: 0,
             });
         }
+        self.lava_geyser_palette_delay_loc_14b2a = 5;
     }
 
     /// Step all active lava geysers through their eruption cycle.
@@ -2547,6 +2548,16 @@ impl NativeRuntime {
         }
 
         let mut should_damage = false;
+
+        // ASM Animation_Geyser loc_14B2A runs as its own lava-effect object:
+        // hibernate five one-frame ticks, then rotate the live Palette_Buffer
+        // words at `$28/$2A/$2C/$2E` and reload the five-frame counter.
+        if self.lava_geyser_palette_delay_loc_14b2a > 1 {
+            self.lava_geyser_palette_delay_loc_14b2a -= 1;
+        } else {
+            let step = rotate_lava_geyser_palette_loc_14B2A(&mut self.palette_buffer);
+            self.lava_geyser_palette_delay_loc_14b2a = step.reloaded_delay_counter;
+        }
 
         for geyser in &mut self.weather.lava_geysers {
             match geyser.phase {
