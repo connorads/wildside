@@ -15184,6 +15184,72 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_slot_model_exposes_loaded_mask_and_high_water_like_live_state_loc_2762() {
+        let active_window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let inactive_window = ActivationWindow {
+            x_min: 800,
+            x_max: 800,
+            y_min: 800,
+            y_max: 800,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement.clone(), placement],
+        };
+        let mut live_state = PlatformLoaderState::default();
+        let mut slot_model = PlatformLoaderSlotModelLoc2744::initialize_sub_231C();
+
+        live_state.advance_to_window(&layout, active_window);
+        slot_model.advance_to_window(&layout, active_window);
+        live_state.advance_to_window(&layout, active_window);
+        slot_model.advance_to_window(&layout, active_window);
+
+        assert_eq!(
+            slot_model.next_index_loc_2762(),
+            live_state.next_index,
+            "ASM loc_2762 updates the loader high-water bound independently of the underlying slot storage",
+        );
+        assert_eq!(
+            slot_model.loaded_mask_loc_2762(),
+            live_state.loaded_mask,
+            "the slot-owned model should expose the same loaded-record mask as the current live loader before it replaces that approximation",
+        );
+
+        live_state.advance_to_window(&layout, inactive_window);
+        slot_model.advance_to_window(&layout, inactive_window);
+        assert_eq!(
+            slot_model.next_index_loc_2762(),
+            live_state.next_index,
+            "ASM loc_2744 wraps through the terminator without lowering the high-water bound",
+        );
+        assert_eq!(
+            slot_model.loaded_mask_loc_2762(),
+            live_state.loaded_mask,
+            "ASM loc_2850 -> loc_286A deallocation should clear the same record bit that the current live loaded-mask approximation clears",
+        );
+    }
+
+    #[test]
     fn platform_loader_keeps_loaded_special_slot_out_of_range_loc_2850() {
         let inactive_window = ActivationWindow {
             x_min: 640,

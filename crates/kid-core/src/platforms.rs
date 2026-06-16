@@ -573,6 +573,7 @@ pub(crate) struct PlatformLoaderSlotRecordLoc2728 {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PlatformLoaderSlotModelLoc2744 {
     pool: PlatformSlotPoolLoc231C,
+    next_index: usize,
     offset_words: u16,
     slot_layout_offsets: [Option<u16>; PLATFORM_SLOT_CAPACITY_LOC_231C],
     slot_deactivated_flags: [u8; PLATFORM_SLOT_CAPACITY_LOC_231C],
@@ -584,10 +585,25 @@ impl PlatformLoaderSlotModelLoc2744 {
     pub(crate) fn initialize_sub_231C() -> Self {
         Self {
             pool: PlatformSlotPoolLoc231C::initialize_sub_231C(),
+            next_index: 0,
             offset_words: 0,
             slot_layout_offsets: [None; PLATFORM_SLOT_CAPACITY_LOC_231C],
             slot_deactivated_flags: [0; PLATFORM_SLOT_CAPACITY_LOC_231C],
         }
+    }
+
+    pub(crate) fn next_index_loc_2762(&self) -> usize {
+        self.next_index
+    }
+
+    pub(crate) fn loaded_mask_loc_2762(&self) -> u64 {
+        self.active_slot_records_loc_2728()
+            .into_iter()
+            .filter_map(|record| {
+                let index = usize::from(record.layout_offset_words / 0x000C);
+                (index < u64::BITS as usize).then_some(1u64 << index)
+            })
+            .fold(0, |mask, bit| mask | bit)
     }
 
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
@@ -602,6 +618,9 @@ impl PlatformLoaderSlotModelLoc2744 {
         };
 
         let layout_offset_words = cursor.current_offset_words;
+        if platform_buffer_edge_px_loc_2762(placement.buffer_left) <= window.x_max {
+            self.next_index = self.next_index.max(placement_index + 1);
+        }
         let existing_slot_addr = self.find_slot_by_layout_offset_sub_2728(layout_offset_words);
         if platform_is_active(placement, window) {
             if let Some(slot_addr) = existing_slot_addr {
