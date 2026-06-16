@@ -1923,11 +1923,15 @@ const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_TIMELINE: &[(usize, u16)] = &[
 // shows frame 0 after the first `$A0` hibernate; frame 2100 has caught up to
 // frame 1. Later checkpoints keep the same delay through the panel sequence.
 const INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY: usize = 0x3C;
-const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize = 0xA0 + 0x90 + 0x0B + 0x0B;
-const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED: usize =
-    INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED + 0x0B;
 const INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED: usize =
     0xA0 + 0x90 + 0x0B + 0x0B + 0x0B + INTRO_SEQUENCE_5_LOC_1BC36_PRESENTATION_DELAY;
+// ASM loc_1BC36 writes the sub_1C0EE panel and then clears it with sub_1C112,
+// but oracle frames 2212/2272 show those VRAM writes never become a presented
+// frame before the delayed sub_1C034(d4=5) redraw replaces the area.
+const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED: usize =
+    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED;
+const INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED: usize =
+    INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED;
 
 #[allow(non_snake_case)]
 fn overlay_intro_sequence_5_tile_worker_loc_1BC36(
@@ -4640,39 +4644,52 @@ mod tests {
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x15,
+            INTRO_SEQUENCE_5_LOC_1BC36_PANEL_VISIBLE_ELAPSED - 1,
             0,
         );
         assert_ne!(
             vram_word(&before_panel, panel_byte_addr),
             0xCAFE,
-            "ASM loc_1BC36 does not call sub_1C0EE until after sub_1C034(d4=4)"
+            "ASM loc_1BC36 calls sub_1C0EE after sub_1C034(d4=4), but oracle frames keep the transient panel hidden until frame 5 replaces it"
         );
 
-        let panel = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+        let oracle_frame_2212 = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x16,
+            0xA0 + 0x90 + 0x20,
             0,
         );
-        assert_eq!(
-            vram_word(&panel, panel_byte_addr),
+        assert_ne!(
+            vram_word(&oracle_frame_2212, panel_byte_addr),
             0xCAFE,
-            "ASM loc_1BC36 calls sub_1C0EE(d4=3,d5=$13) immediately after sub_1C034(d4=4)"
+            "ASM loc_1BC36 calls sub_1C0EE before hibernating, but oracle frame 2212 shows the panel is still hidden by the VDP presentation delay",
+        );
+
+        let delayed_boundary = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            4,
+            0,
+            INTRO_SEQUENCE_5_LOC_1BC36_FRAME_5_VISIBLE_ELAPSED - 1,
+            0,
+        );
+        assert_ne!(
+            vram_word(&delayed_boundary, panel_byte_addr),
+            0xCAFE,
+            "ASM loc_1BC36 calls sub_1C0EE(d4=3,d5=$13), but oracle frame 2272 shows the panel is still a transient VRAM write rather than a presented frame"
         );
 
         let cleared = build_intro_sequence_vdp_with_title_variant_at_elapsed(
             &data,
             4,
             0,
-            0xA0 + 0x90 + 0x21,
+            INTRO_SEQUENCE_5_LOC_1BC36_PANEL_CLEAR_ELAPSED,
             0,
         );
-        assert_eq!(
+        assert_ne!(
             vram_word(&cleared, panel_byte_addr),
-            0,
-            "ASM loc_1BC36 calls sub_1C112 after the next `$B` hibernate, blanking the panel before frame 5"
+            0xCAFE,
+            "ASM loc_1BC36 calls sub_1C112 after the next `$B` hibernate; at the delayed boundary the frame-5 redraw has replaced the temporary panel"
         );
 
         let frame_5 = build_intro_sequence_vdp_with_title_variant_at_elapsed(
