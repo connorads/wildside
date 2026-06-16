@@ -3206,6 +3206,7 @@ mod tests {
             island_shore_cycle_state_loc_1202a: None,
             island_shore_vram_frames_loc_1202a: None,
             island_shore_dma_uploads_loc_1202a: Vec::new(),
+            lava_geyser_art_uploads_loc_14c6a: Vec::new(),
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
