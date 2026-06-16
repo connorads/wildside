@@ -1381,18 +1381,8 @@ impl NativeRuntime {
                     && candidate.bottom_px >= kid_hitbox.top_px
             })
             .map(|candidate| (candidate.bottom_px.max(0) as u32) << 16);
-        if support_floor_y_fp.is_some() {
-            // ASM sub_F568 + sub_1F52: live shooter-barrel rectangles write
-            // `colid_kidbelow` ($28). Native turns that collision latch into
-            // the same grounded support state used by terrain/platform floors.
-            slice.player.on_ground = true;
-            slice.player.on_spikes = false;
-            slice.player.y_velocity = 0;
-            slice.terrain.floor_y_pos = slice.player.y_pos;
-            slice.terrain.floor_terrain_type = TerrainType::Normal;
-            slice.terrain.slope_walk_kind = None;
-            slice.terrain.slope_sliding = false;
-        }
+        // ASM sub_F568 + sub_1F52 writes `colid_kidbelow` ($28) only; it does
+        // not move Kid or turn the rectangle into terrain support.
         debug_assert_eq!(
             support_floor_y_fp.is_some(),
             support_overlap_detected_sub_1F52(kid_hitbox, &support_rects)

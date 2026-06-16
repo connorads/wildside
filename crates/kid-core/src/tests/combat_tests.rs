@@ -17815,7 +17815,7 @@ mod chunk_05 {
     }
 
     #[test]
-    fn shooter_barrel_support_sub_f568_sub_1f52_latches_ground_without_grid_floor() {
+    fn shooter_barrel_support_sub_f568_sub_1f52_detects_collision_without_ground_snap() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         runtime.block_state.shooter_blocks = vec![ShooterBlockEntry {
@@ -17833,17 +17833,22 @@ mod chunk_05 {
         slice.player.y_velocity = 0x0002_0000;
         slice.player.on_ground = false;
 
-        runtime.apply_shooter_barrel_support_sub_1f52(&mut slice, PlayerForm::TheKid);
+        let support_floor_y =
+            runtime.apply_shooter_barrel_support_sub_1f52(&mut slice, PlayerForm::TheKid);
 
-        assert!(
-            slice.player.on_ground,
-            "ASM sub_F568 emits the upward shooter nub rectangle and sub_1F52 writes `colid_kidbelow` even when the layout grid has no floor cell under Kid"
+        assert_eq!(
+            support_floor_y,
+            Some(0x004f_0000),
+            "ASM sub_F568 emits the upward shooter nub rectangle and sub_1F52 detects the overlap even when the layout grid has no floor cell under Kid"
         );
         assert_eq!(
-            slice.player.y_velocity, 0,
-            "native should translate the sub_1F52 `colid_kidbelow` latch into grounded support before Kid physics"
+            slice.player.y_velocity, 0x0002_0000,
+            "ASM sub_1F52 only writes Kid collision_type=$28; it does not zero y_vel or turn the rectangle into floor support"
         );
-        assert_eq!(slice.terrain.floor_y_pos, slice.player.y_pos);
+        assert!(
+            !slice.player.on_ground,
+            "sub_1F52 collision must be consumed as damage, not as terrain support"
+        );
     }
 
     #[test]

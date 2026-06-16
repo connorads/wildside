@@ -12350,6 +12350,16 @@ impl NativeRuntime {
         let kid_damage_invulnerable =
             self.progression.invulnerable_frames != 0 || self.kid_is_invulnerable;
 
+        if self.shooter_barrel_damage_latched_loc_1f52 && !kid_damage_invulnerable {
+            // ASM sub_1F52 (kid.asm:3740) writes `colid_kidbelow` ($28) when
+            // Kid overlaps a live shooter-barrel rectangle. Character_CheckCollision
+            // routes that word through off_B640 entry 9 -> Check_for_recent_damge.
+            self.opening_slice = Some(*slice);
+            self.apply_damage();
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
+            return true;
+        }
+
         // Projectiles: advance and damage player on hit.
         // ASM sub_1D76/loc_1E94 resolves already-live Kid-projectile contact
         // before loc_1D00's KidIsInvulnerable gate can suppress the later

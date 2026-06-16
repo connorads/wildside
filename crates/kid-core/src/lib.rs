@@ -302,6 +302,10 @@ pub struct NativeRuntime {
     /// Character_CheckCollision point. Promoted to
     /// `pending_player_contact_damage` once that consume point has passed.
     delayed_player_contact_damage: Option<PendingPlayerContactDamage>,
+    /// ASM sub_1F52 writes `colid_kidbelow` when Kid overlaps a live shooter
+    /// barrel rectangle. Native detects the rectangle before movement, then
+    /// consumes the collision after terrain has resolved for this frame.
+    shooter_barrel_damage_latched_loc_1f52: bool,
     /// Landing DragonWalking grazes already spent one frame in the fresh
     /// falling-to-ground hand-off, so the following grounded frame consumes
     /// them without adding the normal pending-contact delay.
@@ -1586,6 +1590,7 @@ impl NativeRuntime {
             pending_stomp_bounce: None,
             pending_player_contact_damage: None,
             delayed_player_contact_damage: None,
+            shooter_barrel_damage_latched_loc_1f52: false,
             pending_grounded_dragon_landing_graze: None,
             pending_enemy_collisions: Vec::new(),
             rom_random: RomRandomState::default(),
@@ -2390,6 +2395,7 @@ impl NativeRuntime {
         self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;
         self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
         self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
+        self.shooter_barrel_damage_latched_loc_1f52 = false;
         self.last_kid_collision_type = 0;
         self.last_kid_frame_pre_physics_start = None;
         self.last_kid_frame_pre_physics_before_physics = None;
@@ -3724,6 +3730,7 @@ impl NativeRuntime {
             slice.kid_jump_gravity_probe = None;
             let shooter_barrel_support_floor_y = self
                 .apply_shooter_barrel_support_sub_1f52(&mut slice, self.progression.current_form);
+            self.shooter_barrel_damage_latched_loc_1f52 = shooter_barrel_support_floor_y.is_some();
             let shooter_damage_landing_handoff = shooter_barrel_support_floor_y.filter(|_| {
                 self.previous_kid_frame_post_motion_mutator
                     == KidFramePostMotionMutator::ProjectileDamage
