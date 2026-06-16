@@ -14793,13 +14793,8 @@ mod chunk_04 {
             None,
         )];
 
-        let active = runtime_active_platforms_loc_2762(
-            &layout,
-            1,
-            inactive_window,
-            &previous,
-            None,
-        );
+        let active =
+            runtime_active_platforms_loc_2762(&layout, 1, inactive_window, &previous, None);
 
         assert_eq!(
             active.len(),

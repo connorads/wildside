@@ -840,12 +840,10 @@ pub(crate) fn runtime_active_platforms_loc_2762(
         .collect();
     for (layout_index, placement) in layout.placements.iter().enumerate().take(next_index) {
         let layout_offset_words = platform_loader_offset_for_index_loc_286E(layout_index);
-        let previous = find_active_platform_by_layout_offset_sub_2728(
-            layout_offset_words,
-            &previous_handles,
-        )
-        .and_then(|slot_index| previous_platforms.get(slot_index))
-        .copied();
+        let previous =
+            find_active_platform_by_layout_offset_sub_2728(layout_offset_words, &previous_handles)
+                .and_then(|slot_index| previous_platforms.get(slot_index))
+                .copied();
         if platform_is_active(placement, window) {
             if active_platforms.len() >= PLATFORM_SLOT_CAPACITY_LOC_231C {
                 break;

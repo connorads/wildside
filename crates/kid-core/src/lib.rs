@@ -3847,8 +3847,7 @@ impl NativeRuntime {
                 // demo arcs land one frame early.
                 let allow_asm_faithful_solid_touch_snap =
                     self.physics_order != PhysicsOrder::AsmFaithful;
-                let suppress_probe_slope_velocity =
-                    self.probe_start_slope_settle_frames == 2;
+                let suppress_probe_slope_velocity = self.probe_start_slope_settle_frames == 2;
                 self.probe_start_slope_settle_frames =
                     self.probe_start_slope_settle_frames.saturating_sub(1);
                 self.begin_kid_grounded_release_probe(

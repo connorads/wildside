@@ -1455,11 +1455,7 @@ impl NativeRuntime {
         // ASM loc_1002E/sub_1007A (kid.asm:21317,21345): prize block impacts
         // write only the high byte `$6F`, preserving the original skin byte,
         // then the worker restores the prize cell before writing `$E001`.
-        grid.set_raw_word_at(
-            block_col,
-            block_row,
-            0x6F00 | u16::from(restore_cell.skin),
-        );
+        grid.set_raw_word_at(block_col, block_row, 0x6F00 | u16::from(restore_cell.skin));
         deferred_ceiling_clears.push(DeferredCeilingClear {
             col: block_col,
             row: block_row,
@@ -3336,10 +3332,7 @@ impl NativeRuntime {
                         }
                         age if age == Self::SHOOTER_HEADBUTT_HOLD_FRAMES * 2 => {
                             // ASM sub_114C0: after the second 8-frame hibernate, erase the cell.
-                            grid.erase_block_from_level_layout_loc_11542(
-                                worker.col,
-                                worker.row,
-                            );
+                            grid.erase_block_from_level_layout_loc_11542(worker.col, worker.row);
                             return false;
                         }
                         _ => {}
@@ -3436,10 +3429,7 @@ impl NativeRuntime {
         self.block_state.lift_platforms.retain_mut(|lift| {
             if !lift.block_erased {
                 if let Some(grid) = &mut self.block_grid {
-                    grid.erase_block_from_level_layout_loc_11542(
-                        lift.source_col,
-                        lift.source_row,
-                    );
+                    grid.erase_block_from_level_layout_loc_11542(lift.source_col, lift.source_row);
                 }
                 lift.block_erased = true;
             }
@@ -4255,15 +4245,9 @@ impl NativeRuntime {
         let mut retained = Vec::new();
         for mut worker in std::mem::take(&mut self.block_state.metal_block_push_workers) {
             let step = if worker.direction == Self::BLOCK_DESTROY_DIRECTION_RIGHT {
-                Self::metal_block_push_step_right_loc_112E2(
-                    worker.x_pos_px,
-                    worker.substep_counter,
-                )
+                Self::metal_block_push_step_right_loc_112E2(worker.x_pos_px, worker.substep_counter)
             } else {
-                Self::metal_block_push_step_left_loc_112FE(
-                    worker.x_pos_px,
-                    worker.substep_counter,
-                )
+                Self::metal_block_push_step_left_loc_112FE(worker.x_pos_px, worker.substep_counter)
             };
             worker.x_pos_px = step.x_pos;
             worker.substep_counter = step.substep_counter;
@@ -4295,7 +4279,11 @@ impl NativeRuntime {
 
             if should_restore {
                 // ASM loc_11328/loc_11358: `move.w #$E50B,d0; bsr.w sub_11530`.
-                grid.set_cell_at(worker.col, worker.row, terrain::Cell::from_be_bytes(0xE5, 0x0B));
+                grid.set_cell_at(
+                    worker.col,
+                    worker.row,
+                    terrain::Cell::from_be_bytes(0xE5, 0x0B),
+                );
             } else {
                 worker.col = if worker.direction == Self::BLOCK_DESTROY_DIRECTION_RIGHT {
                     worker.col.saturating_add(1)

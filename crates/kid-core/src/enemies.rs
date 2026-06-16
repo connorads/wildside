@@ -6,10 +6,10 @@ use super::{
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
 use crate::combat::{
-    boss_eye_attack_init_sub_37332, boss_head_movement_step_for_family_sub_39846,
-    boss_head_projectile_spawn_sub_397E4, heady_metal_palette_cycle_sub_379E8,
-    heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
-    QueuedSoundEffect,
+    QueuedSoundEffect, boss_eye_attack_init_sub_37332,
+    boss_head_movement_step_for_family_sub_39846, boss_head_projectile_spawn_sub_397E4,
+    heady_metal_palette_cycle_sub_379E8, heady_metal_spawn_animation_loc_3761E,
+    heady_metal_tracking_velocity_loc_37582,
 };
 use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
 
@@ -2918,8 +2918,7 @@ pub(crate) const BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580: u16 = 0x
 /// ASM Big_Hopping_Skull.asm loc_365D8 initialises `stru_367CC`.
 /// Durations: $18,$0C,6,$0C,6,$0C,6,$0C,6,$10,$0C.
 pub(crate) const BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8: u8 = 0x7C;
-const BIG_HOPPING_SKULL_HIT_GROAN_ELAPSED_FRAMES_LOC_365F2: [u8; 4] =
-    [0x24, 0x36, 0x48, 0x5A];
+const BIG_HOPPING_SKULL_HIT_GROAN_ELAPSED_FRAMES_LOC_365F2: [u8; 4] = [0x24, 0x36, 0x48, 0x5A];
 const BIG_HOPPING_SKULL_HIT_VOICE_ELAPSED_FRAMES_LOC_36616: u8 = 0x70;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -14197,10 +14196,7 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
 
 const BIG_HOPPING_SKULL_UNBOUNDED_PATROL_BOUNDS: u32 = 0;
 
-fn big_hopping_skull_pack_patrol_bounds_loc_364a0(
-    lower_bound: u16,
-    upper_bound: u16,
-) -> u32 {
+fn big_hopping_skull_pack_patrol_bounds_loc_364a0(lower_bound: u16, upper_bound: u16) -> u32 {
     // ASM Big_Hopping_Skull.asm loc_364A0: copy the active enemy header
     // thresholds into `$3E/$40`, then add `$40` to the previous threshold
     // and subtract `$40` from the current threshold before loc_36770.
@@ -25779,7 +25775,14 @@ pub(crate) fn step_emo_rock(
     player_y_pos: Option<u32>,
 ) {
     let mut rng = RomRandomState::default();
-    step_emo_rock_with_rng(enemy, block_grid, player_x_pos, player_y_pos, &mut rng, None);
+    step_emo_rock_with_rng(
+        enemy,
+        block_grid,
+        player_x_pos,
+        player_y_pos,
+        &mut rng,
+        None,
+    );
 }
 
 pub(crate) fn step_emo_rock_with_rng(

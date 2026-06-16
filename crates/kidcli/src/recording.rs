@@ -12,12 +12,12 @@ use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_captu
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
-use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm};
 #[cfg(test)]
 use kid_core::{
     BlockBounceTrace, BlockBounceTraceKind, IslandShoreDmaUploadLoc1202A, NativeObjectKind,
     NativeObjectSnapshot,
 };
+use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm};
 use kid_render::NativeLevelVisuals;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -360,7 +360,7 @@ pub(crate) fn build_recording(
                 camera_position: None,
                 playtest_form: None,
                 initial_diamond_count: None,
-            initial_lives: None,
+                initial_lives: None,
                 warp_to_level: start.warp_level,
                 settle_oracle_warp: start.settled && start.warp_level.is_some(),
             },

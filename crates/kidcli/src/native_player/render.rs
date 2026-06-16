@@ -234,27 +234,25 @@ fn command_pixel_write(
             prior_high_priority: false,
             accepted: false,
         }),
-        DrawCommand::Tint { colour, .. } => {
-            ((0..FRAME_WIDTH as i32).contains(&x) && (0..FRAME_HEIGHT as i32).contains(&y)).then(
-                || FinalScenePixelWrite {
-                    command_index,
-                    kind: "tint".to_owned(),
-                    origin_x: Some(0),
-                    origin_y: Some(0),
-                    width: Some(FRAME_WIDTH as i32),
-                    height: Some(FRAME_HEIGHT as i32),
-                    tile_index: None,
-                    palette_line: None,
-                    palette_index: None,
-                    source_x: None,
-                    source_y: None,
-                    rgb: Some(*colour),
-                    priority: None,
-                    prior_high_priority: false,
-                    accepted: false,
-                },
-            )
-        }
+        DrawCommand::Tint { colour, .. } => ((0..FRAME_WIDTH as i32).contains(&x)
+            && (0..FRAME_HEIGHT as i32).contains(&y))
+        .then(|| FinalScenePixelWrite {
+            command_index,
+            kind: "tint".to_owned(),
+            origin_x: Some(0),
+            origin_y: Some(0),
+            width: Some(FRAME_WIDTH as i32),
+            height: Some(FRAME_HEIGHT as i32),
+            tile_index: None,
+            palette_line: None,
+            palette_index: None,
+            source_x: None,
+            source_y: None,
+            rgb: Some(*colour),
+            priority: None,
+            prior_high_priority: false,
+            accepted: false,
+        }),
         DrawCommand::ClearPriorityRect {
             x: cx,
             y: cy,

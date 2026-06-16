@@ -344,8 +344,11 @@ fn write_generated_level_layout(
         serde_json::to_vec(&metadata).expect("layout metadata should serialise"),
     )
     .expect("layout metadata should be writable");
-    fs::write(layout_dir.join(format!("{level_id:02X}.blocklist.bin")), [0x00, 0x00])
-        .expect("layout block list should be writable");
+    fs::write(
+        layout_dir.join(format!("{level_id:02X}.blocklist.bin")),
+        [0x00, 0x00],
+    )
+    .expect("layout block list should be writable");
 }
 
 fn write_generated_level_layout_without_block_list(
@@ -3214,20 +3217,19 @@ mod chunk_02 {
 
     #[test]
     fn begin_level_entry_seeds_theme_palette_buffer_loc_11db0_11e16() {
-        let output_root = std::env::temp_dir().join(format!(
-            "kid-core-palette-buffer-{}",
-            std::process::id()
-        ));
+        let output_root =
+            std::env::temp_dir().join(format!("kid-core-palette-buffer-{}", std::process::id()));
         let theme_root = output_root.join("theme");
         fs::create_dir_all(theme_root.join("palette_fg")).expect("create fg palette dir");
         fs::create_dir_all(theme_root.join("palette_bg")).expect("create bg palette dir");
 
         let foreground_words: [u16; 15] = [
-            0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x1111, 0x2222, 0x3333, 0x4444,
-            0x000B, 0x000C, 0x000D, 0x000E, 0x000F,
+            0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x1111, 0x2222, 0x3333, 0x4444, 0x000B,
+            0x000C, 0x000D, 0x000E, 0x000F,
         ];
-        let background_words: [u16; 8] =
-            [0x0AAA, 0x0BB1, 0x0BB2, 0x0BB3, 0x0BB4, 0x0BB5, 0x0BB6, 0x0BB7];
+        let background_words: [u16; 8] = [
+            0x0AAA, 0x0BB1, 0x0BB2, 0x0BB3, 0x0BB4, 0x0BB5, 0x0BB6, 0x0BB7,
+        ];
         let fg_bytes: Vec<u8> = foreground_words
             .iter()
             .flat_map(|word| word.to_be_bytes())
@@ -3274,8 +3276,7 @@ mod chunk_02 {
             "ASM loc_1223C reads the same live Palette_Buffer+$E/$10/$12/$14 words seeded by loc_11DB0"
         );
         assert_eq!(
-            runtime.palette_buffer[0],
-            background_words[0],
+            runtime.palette_buffer[0], background_words[0],
             "ASM loc_11E16 copies the background colour-zero word into Palette_Buffer"
         );
         assert_eq!(
@@ -3287,7 +3288,9 @@ mod chunk_02 {
         let mut skip_runtime = NativeRuntime::new(assets);
         skip_runtime.enter_level_skip_hold(LevelId(0));
         assert_eq!(
-            skip_runtime.trace_frame().lava_water_palette_words_loc_1223c,
+            skip_runtime
+                .trace_frame()
+                .lava_water_palette_words_loc_1223c,
             Some([0x1111, 0x2222, 0x3333, 0x4444]),
             "ASM loc_74E0 debug-skip destination hold still represents a freshly loaded level, so native must not leave stale Palette_Buffer words on that route"
         );
@@ -4513,7 +4516,9 @@ mod chunk_02 {
                         .then_some((level_id, header.clone()))
                 })
             })
-            .expect("generated bundle should contain at least one runtime-resolved blank-top level");
+            .expect(
+                "generated bundle should contain at least one runtime-resolved blank-top level",
+            );
         let height_screens = header.height_screens;
         let blank_top_rows =
             terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits);
@@ -4942,7 +4947,10 @@ mod chunk_02 {
                     content,
                     Some(prize.content),
                     "ASM loc_10342 should dispatch generated level {:02X} prize ({},{}) as {:?}, not the Diamond fallback",
-                    level.0, prize.col, prize.row, prize.content,
+                    level.0,
+                    prize.col,
+                    prize.row,
+                    prize.content,
                 );
 
                 let mut probe_runtime = NativeRuntime::new(manifest.clone());
@@ -8924,7 +8932,10 @@ mod chunk_02 {
         // pre-pause checkpoint still carries the same loc_1AE2E shell pose
         // documented by `hidden_level_entry_title_shell_loc_1_ae2_e`.
         assert_eq!(frame_719.game_mode, GameMode::LevelTransition);
-        assert_eq!(frame_719.number_hitpoints, PlayerForm::TheKid.max_hitpoints());
+        assert_eq!(
+            frame_719.number_hitpoints,
+            PlayerForm::TheKid.max_hitpoints()
+        );
         assert_eq!(frame_719.camera_x_pos, 0);
         assert_eq!(frame_719.camera_y_pos, 0);
         assert_eq!(frame_719.kid_x_pos, Some(0x0040_0000));
@@ -20365,7 +20376,10 @@ mod chunk_02 {
             slice.ceiling_prize_clear.is_none(),
             "without a loc_10342 match, native must not queue sub_1007A or later spawn a fake floating prize",
         );
-        assert_eq!(grid.cell_at(28, 32), terrain::Cell::from_be_bytes(0xE1, 0x01));
+        assert_eq!(
+            grid.cell_at(28, 32),
+            terrain::Cell::from_be_bytes(0xE1, 0x01)
+        );
     }
 
     #[test]

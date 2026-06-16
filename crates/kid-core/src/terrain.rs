@@ -394,9 +394,7 @@ impl BlockGrid {
         height_cells: u16,
     ) -> Self {
         let mut grid = Self::from_level_layout(data, width_cells, height_cells);
-        if erase_words_loc_11542.len()
-            == usize::from(width_cells) * usize::from(height_cells)
-        {
+        if erase_words_loc_11542.len() == usize::from(width_cells) * usize::from(height_cells) {
             grid.erase_words_loc_11542 = erase_words_loc_11542;
         }
         grid

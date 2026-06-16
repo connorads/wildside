@@ -499,7 +499,8 @@ pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     // pass walks eight 4-longword groups; each group is emitted eight times
     // before `lea $10(a0),a0` advances to the next group, then `move.l a3,a0`
     // restarts the whole table for the next outer pass.
-    let mut written_longwords = Vec::with_capacity(storm_pattern_written_longword_count_loc_14D32());
+    let mut written_longwords =
+        Vec::with_capacity(storm_pattern_written_longword_count_loc_14D32());
 
     for _ in 0..storm_pattern_outer_pass_count_loc_14D3C() {
         for group in source_longwords.chunks_exact(4) {
@@ -1488,17 +1489,39 @@ pub(crate) enum LavaFireballSpriteKind {
 }
 
 const LAVA_FIREBALL_SCRIPT_WORDS_LOC_146CC: [u16; 34] = [
-    0x000A, 0xFFFC, LAVA_FIREBALL_SPRITE_TALL_RISE_LOC_14664,
-    0x000A, 0xFFFD, LAVA_FIREBALL_SPRITE_TALL_RISE_LOC_14664,
-    0x000A, 0xFFFD, LAVA_FIREBALL_SPRITE_MID_RISE_LOC_1466E,
-    0x000A, 0xFFFE, LAVA_FIREBALL_SPRITE_MID_RISE_LOC_1466E,
-    0x0008, 0xFFFF, LAVA_FIREBALL_SPRITE_MID_BODY_LOC_14678,
-    0x0004, 0x0000, LAVA_FIREBALL_SPRITE_MID_BODY_LOC_14678,
-    0x0004, 0x0000, LAVA_FIREBALL_SPRITE_MID_BODY_ALT_LOC_14682,
-    0x0008, 0x0001, LAVA_FIREBALL_SPRITE_MID_BODY_ALT_LOC_14682,
-    0x000A, 0x0002, LAVA_FIREBALL_SPRITE_MID_FALL_LOC_1468C,
-    0x000A, 0x0002, LAVA_FIREBALL_SPRITE_TALL_FALL_LOC_14696,
-    0x0014, 0x0004, LAVA_FIREBALL_SPRITE_TALL_FALL_LOC_14696,
+    0x000A,
+    0xFFFC,
+    LAVA_FIREBALL_SPRITE_TALL_RISE_LOC_14664,
+    0x000A,
+    0xFFFD,
+    LAVA_FIREBALL_SPRITE_TALL_RISE_LOC_14664,
+    0x000A,
+    0xFFFD,
+    LAVA_FIREBALL_SPRITE_MID_RISE_LOC_1466E,
+    0x000A,
+    0xFFFE,
+    LAVA_FIREBALL_SPRITE_MID_RISE_LOC_1466E,
+    0x0008,
+    0xFFFF,
+    LAVA_FIREBALL_SPRITE_MID_BODY_LOC_14678,
+    0x0004,
+    0x0000,
+    LAVA_FIREBALL_SPRITE_MID_BODY_LOC_14678,
+    0x0004,
+    0x0000,
+    LAVA_FIREBALL_SPRITE_MID_BODY_ALT_LOC_14682,
+    0x0008,
+    0x0001,
+    LAVA_FIREBALL_SPRITE_MID_BODY_ALT_LOC_14682,
+    0x000A,
+    0x0002,
+    LAVA_FIREBALL_SPRITE_MID_FALL_LOC_1468C,
+    0x000A,
+    0x0002,
+    LAVA_FIREBALL_SPRITE_TALL_FALL_LOC_14696,
+    0x0014,
+    0x0004,
+    LAVA_FIREBALL_SPRITE_TALL_FALL_LOC_14696,
     0xFFFF,
 ];
 
@@ -2719,26 +2742,27 @@ impl NativeRuntime {
         } else {
             0
         };
-        let worker_output = step_weather_worker_sub_61CA(weather_worker_input_from_runtime_sub_61ca(
-            &self.weather,
-            slice,
-            self.block_grid.as_ref(),
-            cooldown_random,
-            spawn_random,
-            0,
-        ));
+        let worker_output =
+            step_weather_worker_sub_61CA(weather_worker_input_from_runtime_sub_61ca(
+                &self.weather,
+                slice,
+                self.block_grid.as_ref(),
+                cooldown_random,
+                spawn_random,
+                0,
+            ));
         apply_weather_worker_output_to_state_sub_61ca(&mut self.weather, &worker_output);
         self.projectiles
             .retain(|projectile| projectile.kind != EnemyProjectileKind::Hail);
-        self.projectiles.extend(hail_projectiles_from_falling_slots_sub_61ca(
-            &self.weather.storm_falling_slots_sub_61ca,
-        ));
+        self.projectiles
+            .extend(hail_projectiles_from_falling_slots_sub_61ca(
+                &self.weather.storm_falling_slots_sub_61ca,
+            ));
     }
 
     pub(crate) fn init_weather(&mut self, level_id: LevelId) {
-        let (weather_type, background_theme_is_ice) = self
-            .level_header(level_id)
-            .map_or((0, false), |header| {
+        let (weather_type, background_theme_is_ice) =
+            self.level_header(level_id).map_or((0, false), |header| {
                 (header.weather_flags, header.background_theme == 2)
             });
         self.weather.weather_type = weather_type;
@@ -2777,11 +2801,10 @@ impl NativeRuntime {
                 select_saved_storm_palette_loc_14D82(u16::from(self.weather.weather_type))
                     .asset_label(),
             );
-            self.weather.storm_pattern_upload_loc_14d32 = Some(
-                record_storm_pattern_upload_loc_14D32(select_storm_pattern_upload_loc_14D1E(
-                    background_theme_is_ice,
-                )),
-            );
+            self.weather.storm_pattern_upload_loc_14d32 =
+                Some(record_storm_pattern_upload_loc_14D32(
+                    select_storm_pattern_upload_loc_14D1E(background_theme_is_ice),
+                ));
             let setup = initialise_storm_setup_loc_14D8A();
             let seeded = initialise_storm_slots_loc_14DAC(setup.fill_setup);
             self.weather.storm_spawn_cooldown = seeded.spawn_cooldown;
@@ -2861,10 +2884,8 @@ impl NativeRuntime {
         pending_palette_mask_0: i16,
         palette_animation_speed: u8,
     ) {
-        let mut pending_palette_0_mask = storm_pending_palette_0_mask_sub_6048(
-            pending_palette_mask_0,
-            palette_animation_speed,
-        );
+        let mut pending_palette_0_mask =
+            storm_pending_palette_0_mask_sub_6048(pending_palette_mask_0, palette_animation_speed);
         let mut pending_palette_1_mask = 0;
         crate::level::apply_pending_palette_fade_sub_14C0(
             fade_progress_latch,
@@ -2955,8 +2976,7 @@ impl NativeRuntime {
                         let reset = lava_geyser_rise_reset_loc_1484E();
                         geyser.phase = 1;
                         geyser.timer = reset.frames_per_sprite_row;
-                        geyser.current_height =
-                            reset.sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
+                        geyser.current_height = reset.sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
                     }
                 }
                 1 => {
@@ -2966,8 +2986,9 @@ impl NativeRuntime {
                     if geyser.timer > 1 {
                         geyser.timer -= 1;
                     } else {
-                        geyser.current_height =
-                            geyser.current_height.saturating_add(LAVA_GEYSER_ROW_HEIGHT_PX);
+                        geyser.current_height = geyser
+                            .current_height
+                            .saturating_add(LAVA_GEYSER_ROW_HEIGHT_PX);
                         if geyser.current_height >= geyser.height_px {
                             geyser.current_height = geyser.height_px;
                             let hold = lava_geyser_peak_hold_step_loc_1496C(
@@ -2979,9 +3000,9 @@ impl NativeRuntime {
                                 LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
                             );
                             geyser.phase = 2;
-                            geyser.timer =
-                                hold.next_hold_frames * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
-                                    + LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
+                            geyser.timer = hold.next_hold_frames
+                                * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
+                                + LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
                         } else {
                             geyser.timer = LAVA_GEYSER_RISE_FRAMES_PER_ROW;
                         }

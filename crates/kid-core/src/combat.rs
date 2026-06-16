@@ -8062,13 +8062,13 @@ impl NativeRuntime {
                 let phase_counter =
                     37u16.saturating_sub(u16::from(self.active_enemies[active_idx].hit_points));
                 let remaining_scatter_frames = self.active_enemies[active_idx].wait_timer;
-                let piece_slots = self.heady_metal_breakup_slots_sub_37708.get_or_insert_with(
-                    || {
-                        heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
-                            anchor_x, anchor_y,
-                        )
-                    },
-                );
+                let piece_slots =
+                    self.heady_metal_breakup_slots_sub_37708
+                        .get_or_insert_with(|| {
+                            heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
+                                anchor_x, anchor_y,
+                            )
+                        });
                 let result = heady_metal_breakup_step_sub_37708(
                     true,
                     collision.collision_type as i16,
@@ -8192,8 +8192,10 @@ impl NativeRuntime {
                         // ASM Tank.asm loc_3B464/loc_3B49A reads damage words
                         // from the linked mouth child, decrements `$44(a3)`,
                         // and clears parent motion on a nonfatal hit.
-                        if matches!(collision.target, PendingEnemyCollisionTarget::ChildAttachment)
-                            && matches!(collision.collision_type, 0x001C | 0x002C)
+                        if matches!(
+                            collision.target,
+                            PendingEnemyCollisionTarget::ChildAttachment
+                        ) && matches!(collision.collision_type, 0x001C | 0x002C)
                             && let Some(slice) = self.opening_slice
                             && let Some(child) = enemy.child_attachment_snapshot()
                             && player_latches_enemy_collision_with_half_width_loc_1cf2(
@@ -8699,8 +8701,7 @@ impl NativeRuntime {
         }
         if matches!(family, EnemyFamily::EmoRock) {
             let status = emo_rock_death_status_loc_3639A(layout_index as u8);
-            if let EmoRockDeathStatusRouteLoc3639A::WriteRespawnMarker(marker) =
-                status.status_route
+            if let EmoRockDeathStatusRouteLoc3639A::WriteRespawnMarker(marker) = status.status_route
                 && let Some(word) = self.enemy_status_words.get_mut(marker.index)
             {
                 // ASM Emo_Rock.asm loc_3638C: after `stru_36468` finishes,
@@ -12376,10 +12377,8 @@ impl NativeRuntime {
                             },
                             jump_profile,
                         );
-                        slice.player.x_pos =
-                            frame_start_x_pos.wrapping_add(x_velocity as u32);
-                        slice.player.y_pos =
-                            pre_physics_y_pos.wrapping_add(y_velocity as u32);
+                        slice.player.x_pos = frame_start_x_pos.wrapping_add(x_velocity as u32);
+                        slice.player.y_pos = pre_physics_y_pos.wrapping_add(y_velocity as u32);
                         slice.player.x_velocity = x_velocity;
                         slice.player.y_velocity = y_velocity;
                         slice.player.facing = facing;

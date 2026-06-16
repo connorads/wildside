@@ -5441,8 +5441,11 @@ AddrTbl_LevelNames:
                 br#"{"width_blocks":200,"height_blocks":28,"data_bytes":2}"#,
             )
             .expect("dumped layout metadata");
-            fs::write(out_dir.join(format!("{level_id:02X}.blocklist.bin")), [0x00, 0x00])
-                .expect("dumped block list");
+            fs::write(
+                out_dir.join(format!("{level_id:02X}.blocklist.bin")),
+                [0x00, 0x00],
+            )
+            .expect("dumped block list");
             Ok(())
         })
         .expect("missing block list should redump the layout bundle");

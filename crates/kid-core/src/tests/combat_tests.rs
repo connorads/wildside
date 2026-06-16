@@ -83,13 +83,7 @@ fn dragon_flying_descent_tail_preserves_player_facing_for_next_command_loc_3488a
     let player_x_pos = Some(0x0060_0000);
     let mut projectiles = Vec::new();
     let mut projectile_shell = Some(&mut projectiles);
-    step_dragon(
-        &mut dragon,
-        None,
-        player_x_pos,
-        None,
-        &mut projectile_shell,
-    );
+    step_dragon(&mut dragon, None, player_x_pos, None, &mut projectile_shell);
 
     assert_eq!(
         dragon.dragon_script_cmd, 3,
@@ -14407,8 +14401,7 @@ mod chunk_03 {
         assert_eq!(runtime.active_enemies[0].x_velocity, 0);
         assert_eq!(runtime.active_enemies[0].y_velocity, 0);
         assert_eq!(
-            runtime.active_enemies[0].wait_timer,
-            EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4,
+            runtime.active_enemies[0].wait_timer, EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4,
             "ASM Emo_Rock.asm loc_362EE branches back to loc_362B6 while Berzerker_charging is clear"
         );
     }
@@ -21859,15 +21852,16 @@ mod chunk_05 {
         assert_eq!(input.camera_x_px, 0x0034, "ASM sub_61CA reads Camera_X_pos");
         assert_eq!(input.camera_y_px, 0x0012, "ASM sub_61CA reads Camera_Y_pos");
         assert_eq!(input.spawn_cooldown, 7, "ASM sub_61CA reads `$FFFFFB3C`");
-        assert_eq!(input.free_falling_slots, 3, "ASM sub_61CA reads `$FFFFFB3D`");
         assert_eq!(
-            input.falling_slots[2],
-            weather.storm_falling_slots_sub_61ca[2],
+            input.free_falling_slots, 3,
+            "ASM sub_61CA reads `$FFFFFB3D`"
+        );
+        assert_eq!(
+            input.falling_slots[2], weather.storm_falling_slots_sub_61ca[2],
             "ASM sub_61CA reads falling slot RAM at `$FFFFFAE2`"
         );
         assert_eq!(
-            input.impact_slots[4],
-            weather.storm_impact_slots_sub_61ca[4],
+            input.impact_slots[4], weather.storm_impact_slots_sub_61ca[4],
             "ASM sub_61CA reads impact slot RAM at `$FFFFFB00`"
         );
         assert_eq!(
@@ -21880,11 +21874,16 @@ mod chunk_05 {
             (0x011B, 0x0125, 0x0081, 0x00A0),
             "ASM sub_61CA collision compares against Kid hitbox RAM"
         );
-        assert_eq!(input.random_byte, 0xAB, "ASM loc_623A consumes the cooldown RNG byte");
-        assert_eq!(input.spawn_random_byte, 0xCD, "ASM loc_626C consumes the spawn-X RNG byte");
         assert_eq!(
-            input.collision_rows.rows[2][3],
-            0x5001,
+            input.random_byte, 0xAB,
+            "ASM loc_623A consumes the cooldown RNG byte"
+        );
+        assert_eq!(
+            input.spawn_random_byte, 0xCD,
+            "ASM loc_626C consumes the spawn-X RNG byte"
+        );
+        assert_eq!(
+            input.collision_rows.rows[2][3], 0x5001,
             "ASM loc_632E must receive raw collision row words from `$FFFF4A04`"
         );
         assert_eq!(
@@ -24953,8 +24952,7 @@ mod chunk_05 {
         assert_eq!(
             runtime.trace_frame().lava_geyser_art_uploads_loc_14c6a,
             vec![LavaGeyserArtUploadLoc14C6A {
-                art_source_label: crate::weather::LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A
-                    .to_owned(),
+                art_source_label: crate::weather::LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A.to_owned(),
                 vram_destination: crate::weather::LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A,
             }],
             "ASM Init_SpecialEffect_Lava loc_14C6A decompresses ArtComp_983D2_Lava to VRAM $5F60 immediately after allocating the lava geyser objects"
@@ -25500,12 +25498,13 @@ mod chunk_05 {
         runtime.weather.weather_type = 3;
         runtime.weather.storm_spawn_cooldown = 7;
         runtime.weather.storm_free_falling_slots = 4;
-        runtime.weather.storm_falling_slots_sub_61ca[0] = crate::weather::FallingWeatherSlotSub61CA {
-            y_px: 0x20,
-            x_px: 0x40,
-            animation_cooldown: 3,
-            animation_frame: 2,
-        };
+        runtime.weather.storm_falling_slots_sub_61ca[0] =
+            crate::weather::FallingWeatherSlotSub61CA {
+                y_px: 0x20,
+                x_px: 0x40,
+                animation_cooldown: 3,
+                animation_frame: 2,
+            };
         runtime.weather.storm_impact_slots_sub_61ca[0] = crate::weather::WeatherImpactSlotSub61CA {
             y_px: 0x30,
             x_px: 0x50,
@@ -25515,21 +25514,19 @@ mod chunk_05 {
         runtime.weather.storm_weather_mode_byte = 4;
         runtime.weather.storm_fade_countdown = 0x0100;
         runtime.weather.storm_thunder_timer = -3;
-        runtime.weather.storm_art_upload_loc_14cd8 = Some(crate::weather::upload_storm_art_loc_14CD8(
-            crate::weather::StormArtAssetLoc14CCE::Rain,
-        ));
-        runtime.weather.storm_palette_copy_loc_14cf2 = Some(
-            crate::weather::record_storm_palette_copy_loc_14CF2(
-                crate::weather::StormPaletteAssetLoc14CEC::Rain,
-            ),
+        runtime.weather.storm_art_upload_loc_14cd8 = Some(
+            crate::weather::upload_storm_art_loc_14CD8(crate::weather::StormArtAssetLoc14CCE::Rain),
         );
+        runtime.weather.storm_palette_copy_loc_14cf2 =
+            Some(crate::weather::record_storm_palette_copy_loc_14CF2(
+                crate::weather::StormPaletteAssetLoc14CEC::Rain,
+            ));
         runtime.weather.storm_saved_palette_label_loc_14d82 =
             Some(crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82);
-        runtime.weather.storm_pattern_upload_loc_14d32 = Some(
-            crate::weather::record_storm_pattern_upload_loc_14D32(
+        runtime.weather.storm_pattern_upload_loc_14d32 =
+            Some(crate::weather::record_storm_pattern_upload_loc_14D32(
                 crate::weather::select_storm_pattern_upload_loc_14D1E(false),
-            ),
-        );
+            ));
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 42;
         runtime.weather.hail_period_timer = 99;
@@ -25682,10 +25679,8 @@ mod chunk_05 {
 
     #[test]
     fn init_weather_copies_selected_storm_palette_into_live_palette_buffer_loc_14cf2() {
-        let output_root = std::env::temp_dir().join(format!(
-            "kid-core-storm-palette-{}",
-            std::process::id()
-        ));
+        let output_root =
+            std::env::temp_dir().join(format!("kid-core-storm-palette-{}", std::process::id()));
         let palette_dir = output_root.join("ingame/palette");
         std::fs::create_dir_all(&palette_dir).expect("create storm palette fixture dir");
         let rain_words = [
@@ -25759,10 +25754,8 @@ mod chunk_05 {
 
     #[test]
     fn step_weather_applies_non_mountain_storm_palette_ops_loc_607a_60aa() {
-        let output_root = std::env::temp_dir().join(format!(
-            "kid-core-storm-fade-{}",
-            std::process::id()
-        ));
+        let output_root =
+            std::env::temp_dir().join(format!("kid-core-storm-fade-{}", std::process::id()));
         let palette_dir = output_root.join("theme/palette_bg");
         std::fs::create_dir_all(&palette_dir).expect("create storm fade palette fixture dir");
         let saved_storm_words = [
@@ -25806,8 +25799,7 @@ mod chunk_05 {
             "ASM loc_6090 should copy Palette_Buffer into Palette_Buffer_3 before loc_60AA overwrites only the storm slots"
         );
         assert_eq!(
-            runtime.palette_buffer_3[0],
-            0,
+            runtime.palette_buffer_3[0], 0,
             "ASM loc_60AA clears Palette_Buffer_3[0] after copying the non-Mountain storm palette"
         );
         assert_eq!(

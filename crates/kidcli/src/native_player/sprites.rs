@@ -1825,15 +1825,16 @@ pub(super) fn push_platform_tiles(
 ) {
     let variant = platform_snapshot_u8(object, "platform_render_flags")
         .and_then(PlatformRenderVariantLoc244C::from_render_flags);
-    let frame = platform_frame_for_mapping_word_loc_2548(object, level_visuals).unwrap_or_else(
-        || match variant {
-            Some(PlatformRenderVariantLoc244C::Loc251C) => &level_visuals.platforms.vertical,
-            _ => match kind {
-                0x00 => &level_visuals.platforms.horizontal,
-                _ => &level_visuals.platforms.vertical,
-            },
-        },
-    );
+    let frame =
+        platform_frame_for_mapping_word_loc_2548(object, level_visuals).unwrap_or_else(|| {
+            match variant {
+                Some(PlatformRenderVariantLoc244C::Loc251C) => &level_visuals.platforms.vertical,
+                _ => match kind {
+                    0x00 => &level_visuals.platforms.horizontal,
+                    _ => &level_visuals.platforms.vertical,
+                },
+            }
+        });
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let width_px = platform_snapshot_dimension_px(object, "platform_width_px");
     let height_px = platform_snapshot_dimension_px(object, "platform_height_px");

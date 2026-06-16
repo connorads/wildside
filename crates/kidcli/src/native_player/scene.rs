@@ -3404,8 +3404,7 @@ fn push_prize_block_wobble_sub_1007a(
             level_visuals,
             quad,
             frame.tile_base_index,
-        )
-    {
+        ) {
         frame.tile_base_index
     } else {
         0
@@ -3582,12 +3581,11 @@ pub(super) fn push_level_layout_terrain(
 
     for row in row_start..row_end {
         for col in col_start..col_end {
-            let active_block_bounce = block_bounce_kind_for_trace(trace, col, row).is_some_and(
-                |kind| {
+            let active_block_bounce =
+                block_bounce_kind_for_trace(trace, col, row).is_some_and(|kind| {
                     kind == BlockBounceTraceKind::Prize
                         || block_grid.is_some_and(|grid| grid.cell_at(col, row).has_block)
-                },
-            );
+                });
             if active_block_bounce {
                 // ASM sub_1007A prize wobble draws the original block art as a
                 // gfx object while the live cell is `$6Fxx`. Other block-bounce

@@ -1239,7 +1239,7 @@ pub(crate) fn extract_checkpoint_states(
                 // gameplay hibernated for that frame, so the ROM RAM flag is
                 // true only while more than one native flash frame remains.
                 currently_transforming: Some(frame.form_change_flash_frames > 1),
-                rng_offset: None,            // native uses different RNG system
+                rng_offset: None, // native uses different RNG system
                 rng_last_byte: None,
                 level_special_effects: None, // native doesn't track this separately
                 gameplay_debug_fields: frame.gameplay_debug_fields.clone(),
@@ -3628,7 +3628,7 @@ mod tests {
                 played_sound_commands: Vec::new(),
                 played_bgm_ids: Vec::new(),
                 played_music_speed_updates: Vec::new(),
-            teleport_warp_colour: 0,
+                teleport_warp_colour: 0,
                 two_player: false,
                 options_two_player_two_controllers: false,
                 options_controls_scheme: 0,
@@ -3766,7 +3766,7 @@ mod tests {
                 played_sound_commands: Vec::new(),
                 played_bgm_ids: Vec::new(),
                 played_music_speed_updates: Vec::new(),
-            teleport_warp_colour: 0,
+                teleport_warp_colour: 0,
                 two_player: false,
                 options_two_player_two_controllers: false,
                 options_controls_scheme: 0,
@@ -3917,7 +3917,7 @@ mod tests {
                 played_sound_commands: Vec::new(),
                 played_bgm_ids: Vec::new(),
                 played_music_speed_updates: Vec::new(),
-            teleport_warp_colour: 0,
+                teleport_warp_colour: 0,
                 two_player: false,
                 options_two_player_two_controllers: false,
                 options_controls_scheme: 0,

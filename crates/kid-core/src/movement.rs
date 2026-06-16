@@ -6590,10 +6590,7 @@ impl OpeningSliceState {
                             grid.set_cell_at(
                                 block_dispatch_probe.cell_x,
                                 block_dispatch_probe.cell_y,
-                                terrain::Cell::from_be_bytes(
-                                    0x6F,
-                                    block_dispatch_probe.cell.skin,
-                                ),
+                                terrain::Cell::from_be_bytes(0x6F, block_dispatch_probe.cell.skin),
                             );
                             self.ceiling_prize_clear = Some(PrizeCeilingClear {
                                 col: block_dispatch_probe.cell_x,

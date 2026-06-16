@@ -806,9 +806,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 }
                 if let Some(ref aq) = audio_queue {
                     let queued_bytes = aq.size();
-                    let preserve_current_frame_sfx =
-                        !suppress_sfx_this_frame
-                            && trace_has_native_sound_command(&prev_trace, &trace);
+                    let preserve_current_frame_sfx = !suppress_sfx_this_frame
+                        && trace_has_native_sound_command(&prev_trace, &trace);
                     if should_queue_audio_frame(
                         queued_bytes,
                         samples.len(),
@@ -12418,7 +12417,8 @@ mod tests {
         let mut session_assets = start_assets;
         runtime.set_block_grid(session_assets.block_grid.clone());
         let mut trace = runtime.enter_level_debug_title_card(LevelId(start_level));
-        let stale_frame = render_vdp_frame_for_test(&runtime, &trace, &session_assets.level_visuals);
+        let stale_frame =
+            render_vdp_frame_for_test(&runtime, &trace, &session_assets.level_visuals);
         trace.current_level = LevelId(target_level);
 
         apply_live_level_change_session_assets(
@@ -16390,7 +16390,11 @@ mod tests {
                 .expect("seconds ones tile");
 
         assert_eq!(
-            (minutes.tile_index, seconds_tens.tile_index, seconds_ones.tile_index),
+            (
+                minutes.tile_index,
+                seconds_tens.tile_index,
+                seconds_ones.tile_index
+            ),
             (2, 5, 6),
             "ASM Make_SpriteAttr_HUD loc_BE82 decrements Time_SubSeconds before loc_BEE8 writes timer digit tiles, so sub-frame 1 renders the next visible second"
         );

@@ -18563,8 +18563,8 @@ impl NativeRuntime {
         // those same CRAM slots.
         self.load_level_theme_palettes_loc_11db0_11e16(level_id);
         let preserves_player_start = self.pending_player_start_override_loc_11bd2.is_some();
-        let should_floor_snap_entry = self.block_grid.is_some()
-            && (!preserves_player_start || entered_from_live_gameplay);
+        let should_floor_snap_entry =
+            self.block_grid.is_some() && (!preserves_player_start || entered_from_live_gameplay);
         self.opening_slice = Some(if should_floor_snap_entry {
             // ASM Load_InGame seeds the level header pose and spends hidden
             // frames settling Kid onto the real floor before visible gameplay.
@@ -18742,8 +18742,8 @@ impl NativeRuntime {
             let mut grid = grid;
             let width = grid.width_cells;
             let header_blank_top_rows = self.blank_top_rows_for_level_sub_140F6(level_id);
-            let grid_blank_top_rows =
-                self.blank_top_rows_for_unshifted_loaded_grid_sub_140F6(level_id, grid.height_cells);
+            let grid_blank_top_rows = self
+                .blank_top_rows_for_unshifted_loaded_grid_sub_140F6(level_id, grid.height_cells);
             if grid_blank_top_rows != 0 {
                 grid = grid.with_blank_top_rows_sub_140F6(grid_blank_top_rows);
             }
@@ -18883,16 +18883,22 @@ impl NativeRuntime {
             .and_then(|json| serde_json::from_str::<LevelLayoutMetadata>(&json).ok())?;
         data.truncate(metadata.data_bytes.min(data.len()));
         let erase_words_loc_11542 = self
-            .erase_words_for_level_loc_11542(level_id, metadata.width_blocks, metadata.height_blocks)
+            .erase_words_for_level_loc_11542(
+                level_id,
+                metadata.width_blocks,
+                metadata.height_blocks,
+            )
             .unwrap_or_else(|| {
                 vec![0; usize::from(metadata.width_blocks) * usize::from(metadata.height_blocks)]
             });
-        Some(terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
-            &data,
-            erase_words_loc_11542,
-            metadata.width_blocks,
-            metadata.height_blocks,
-        ))
+        Some(
+            terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
+                &data,
+                erase_words_loc_11542,
+                metadata.width_blocks,
+                metadata.height_blocks,
+            ),
+        )
     }
 
     #[allow(non_snake_case)]
@@ -19074,12 +19080,14 @@ impl NativeRuntime {
         for word in &cells {
             bytes.extend_from_slice(&word.to_be_bytes());
         }
-        Some(terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
-            &bytes,
-            erase_words_loc_11542,
-            width_blocks,
-            height_blocks,
-        ))
+        Some(
+            terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
+                &bytes,
+                erase_words_loc_11542,
+                width_blocks,
+                height_blocks,
+            ),
+        )
     }
 
     pub(crate) fn load_block_list_for_level(

@@ -7019,9 +7019,7 @@ impl NativeRuntime {
                 )
             }),
             island_shore_dma_uploads_loc_1202a: self.island_shore_dma_uploads_loc_1202a.clone(),
-            lava_geyser_art_uploads_loc_14c6a: self
-                .lava_geyser_art_uploads_loc_14c6a
-                .clone(),
+            lava_geyser_art_uploads_loc_14c6a: self.lava_geyser_art_uploads_loc_14c6a.clone(),
             rotate_palette_lava_water_state_loc_1223c: self
                 .rotate_palette_lava_water_loc_1223c
                 .map(|state| {

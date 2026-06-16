@@ -8549,8 +8549,7 @@ mod chunk_09 {
             "loc_B522 frame 90 should activate loc_BC80 destination x through PlayerStart_X",
         );
         assert_eq!(
-            slice.player.y_pos,
-            0x0583_0000,
+            slice.player.y_pos, 0x0583_0000,
             "loc_B522 frame 90 activates loc_BC80 destination y; loc_7526 starts at PlayerStart_Y-1 and loc_11BD2/loc_11BEC runs the hidden Load_InGame floor settle before gameplay",
         );
     }
@@ -11048,7 +11047,11 @@ mod chunk_09 {
         rt.block_debris_swarms.clear();
         rt.block_debris_swarms.push(BlockDebrisSwarmSub2A4C {
             pieces: core::array::from_fn(|index| BlockDebrisPieceSub2A4C {
-                x_pos_fp: if index == 4 { 0x01EF << 16 } else { 0x0020 << 16 },
+                x_pos_fp: if index == 4 {
+                    0x01EF << 16
+                } else {
+                    0x0020 << 16
+                },
                 y_pos_fp: 0x0040 << 16,
                 x_velocity_fp: 0,
                 y_velocity_fp: 0,
