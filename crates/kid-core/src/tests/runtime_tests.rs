@@ -9392,6 +9392,12 @@ mod chunk_09 {
 
         assert_eq!(
             rt.projectiles.len(),
+            0,
+            "ASM loc_7FC runs sub_F730 before loc_806 runs sub_F096, so freshly registered shooter slots fire on their next tick"
+        );
+        rt.step_shooter_blocks(&slice);
+        assert_eq!(
+            rt.projectiles.len(),
             4,
             "should fire 4 projectiles for all directions"
         );
@@ -9429,6 +9435,12 @@ mod chunk_09 {
         slice.player.y_pos = (3 * 16) << 16;
         rt.step_shooter_blocks(&slice);
 
+        assert_eq!(
+            rt.projectiles.len(),
+            0,
+            "ASM loc_7FC runs sub_F730 before loc_806 runs sub_F096, so freshly registered shooter slots fire on their next tick"
+        );
+        rt.step_shooter_blocks(&slice);
         assert_eq!(rt.projectiles.len(), 1);
         assert_eq!(rt.projectiles[0].x_velocity, 0);
         assert!(rt.projectiles[0].y_velocity < 0, "up means negative y");
@@ -9530,6 +9542,12 @@ mod chunk_09 {
         slice.player.y_pos = (3 * 16) << 16;
         rt.step_shooter_blocks(&slice);
 
+        assert_eq!(
+            rt.projectiles.len(),
+            0,
+            "ASM loc_F106 registers the `$EC2F` slot after this frame's loc_7FC sub_F730 tick"
+        );
+        rt.step_shooter_blocks(&slice);
         assert_eq!(
             rt.projectiles.len(),
             1,

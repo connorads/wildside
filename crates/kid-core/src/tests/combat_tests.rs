@@ -17552,7 +17552,7 @@ mod chunk_05 {
     // --- Shooter block tests ---
 
     #[test]
-    fn shooter_block_sub_f096_fires_when_kid_enters_scan_column() {
+    fn shooter_block_sub_f096_registers_without_firing_when_kid_enters_scan_column() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         let mut grid = grid_with_shooter_blocks(&[(5, 3, 0x02)]);
@@ -17567,7 +17567,13 @@ mod chunk_05 {
         slice.player.y_pos = (3 * 16) << 16;
         runtime.step_shooter_blocks(&slice);
 
-        assert_eq!(runtime.projectiles.len(), 1, "should fire one projectile");
+        assert_eq!(
+            runtime.projectiles.len(),
+            0,
+            "ASM Mode_Level runs sub_F730 at loc_7FC before sub_F096 at loc_806, so a newly registered shooter slot has missed this frame's tick"
+        );
+        runtime.step_shooter_blocks(&slice);
+        assert_eq!(runtime.projectiles.len(), 1, "next frame's tick should fire one projectile");
         assert!(
             runtime.projectiles[0].x_velocity > 0,
             "ASM sub_F096 should register the `kid_x_block+3` shooter column when Kid crosses into a new block"
@@ -17576,7 +17582,7 @@ mod chunk_05 {
     }
 
     #[test]
-    fn shooter_block_sub_f096_fires_when_kid_enters_scan_row() {
+    fn shooter_block_sub_f096_registers_without_firing_when_kid_enters_scan_row() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
         let mut grid = grid_with_shooter_blocks(&[(5, 7, 0x02)]);
@@ -17593,9 +17599,11 @@ mod chunk_05 {
 
         assert_eq!(
             runtime.projectiles.len(),
-            1,
-            "ASM sub_F096 should register the `kid_y_block+2` shooter row when Kid moves down into a new block"
+            0,
+            "ASM sub_F096 should register the `kid_y_block+2` shooter row when Kid moves down into a new block, but sub_F730 already ran at loc_7FC"
         );
+        runtime.step_shooter_blocks(&slice);
+        assert_eq!(runtime.projectiles.len(), 1);
     }
 
     #[test]
@@ -17736,9 +17744,9 @@ mod chunk_05 {
                 directions: 0x0A,
                 supported_by_neighbour: false,
                 restored_touch_shooter: false,
-                age: 1,
+                age: 0,
             }],
-            "ASM loc_F106 should allocate the candidate shooter slot with its column, row, and direction bits before sub_F730 ticks it"
+            "ASM loc_F106 should allocate the candidate shooter slot with its column, row, and direction bits after this frame's loc_7FC sub_F730 tick"
         );
     }
 
@@ -17780,8 +17788,8 @@ mod chunk_05 {
         runtime.step_shooter_blocks(&slice);
 
         assert_eq!(
-            runtime.block_state.shooter_blocks[0].age, 1,
-            "ASM loc_F24E (kid.asm:19823) writes the new slot state as zero; native creates age 0 and the same frame's folded sub_F730 tick advances it to age 1"
+            runtime.block_state.shooter_blocks[0].age, 0,
+            "ASM loc_F24E (kid.asm:19823) writes the new slot state as zero after this frame's loc_7FC sub_F730 tick has already run"
         );
         assert!(
             !runtime.block_state.shooter_blocks[0].supported_by_neighbour,
@@ -17909,11 +17917,11 @@ mod chunk_05 {
         runtime.step_shooter_blocks(&slice);
         assert_eq!(
             runtime.projectiles.len(),
-            1,
-            "the first registered shooter worker should fire immediately"
+            0,
+            "ASM loc_7FC runs sub_F730 before loc_806 runs sub_F096, so the first registered shooter worker cannot fire until the next frame"
         );
 
-        for _ in 0..20 {
+        for _ in 0..21 {
             runtime.step_shooter_blocks(&slice);
         }
         assert_eq!(
