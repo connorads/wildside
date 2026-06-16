@@ -9301,7 +9301,7 @@ pub(crate) fn compute_rotate_palette_delay_loc_1223A(
     RotatePaletteLavaWaterDelayLoc1223A { delay_frames }
 }
 
-pub(crate) const PALETTE_BUFFER_ROTATE_START_LOC_1223C: usize = 0x0E;
+pub(crate) const PALETTE_BUFFER_ROTATE_START_LOC_1223C: usize = 0x07;
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -17947,6 +17947,47 @@ pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offse
 }
 
 impl NativeRuntime {
+    fn theme_palette_words<const N: usize>(&self, relative_path: &str) -> Option<[u16; N]> {
+        let asset = self
+            .assets
+            .theme_assets
+            .iter()
+            .find(|asset| asset.relative_path == relative_path)?;
+        let bytes = std::fs::read(self.assets.output_root.join("theme").join(&asset.relative_path))
+            .ok()?;
+        if bytes.len() < N * 2 {
+            return None;
+        }
+
+        let mut words = [0; N];
+        for (index, word) in words.iter_mut().enumerate() {
+            let offset = index * 2;
+            *word = u16::from_be_bytes([bytes[offset], bytes[offset + 1]]);
+        }
+        Some(words)
+    }
+
+    fn load_level_theme_palettes_loc_11db0_11e16(&mut self, level_id: LevelId) {
+        let Some((foreground_theme, background_theme)) = self
+            .level_header(level_id)
+            .map(|header| (header.level_theme, header.background_theme))
+        else {
+            return;
+        };
+
+        if let Some(foreground_palette) =
+            self.theme_palette_words::<15>(&format!("palette_fg/{foreground_theme}.bin"))
+        {
+            copy_foreground_palette_loc_11DB0(&foreground_palette, &mut self.palette_buffer);
+        }
+
+        if let Some(background_palette) =
+            self.theme_palette_words::<8>(&format!("palette_bg/{background_theme}.bin"))
+        {
+            copy_background_palette_loc_11E16(&background_palette, &mut self.palette_buffer);
+        }
+    }
+
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
         self.respawn_start_held_frames = 0;
         self.respawn_live_handoff_frames = 0;
@@ -18437,6 +18478,10 @@ impl NativeRuntime {
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;
         self.reload_block_grid_for_level(level_id);
+        // ASM Load_InGame loc_11DB0/loc_11E16 copies theme palette words into
+        // Palette_Buffer before the loc_11F96 post-load workers can animate
+        // those same CRAM slots.
+        self.load_level_theme_palettes_loc_11db0_11e16(level_id);
         let preserves_player_start = self.pending_player_start_override_loc_11bd2.is_some();
         let should_floor_snap_entry = self.block_grid.is_some()
             && (!preserves_player_start || entered_from_live_gameplay);
@@ -18574,6 +18619,7 @@ impl NativeRuntime {
         self.pending_level_skip = None;
         self.pending_level_skip_resume = false;
         self.reload_block_grid_for_level(level_id);
+        self.load_level_theme_palettes_loc_11db0_11e16(level_id);
         self.opening_slice = Some(if self.block_grid.is_some() {
             // ASM loc_74E0 enters the destination hold after the mode-$0008
             // load shell has rebuilt terrain, so the visible hold must use the
@@ -18598,6 +18644,8 @@ impl NativeRuntime {
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
         self.init_murder_wall(level_id, 0);
+        self.init_weather(level_id);
+        self.init_post_load_object_routine_loc_11f96(level_id);
         self.level_timer = LevelTimer::new();
         self.level_skip_transition = None;
         self.level_skip_resume_hold = false;

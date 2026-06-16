@@ -3138,6 +3138,89 @@ mod chunk_02 {
     }
 
     #[test]
+    fn begin_level_entry_seeds_theme_palette_buffer_loc_11db0_11e16() {
+        let output_root = std::env::temp_dir().join(format!(
+            "kid-core-palette-buffer-{}",
+            std::process::id()
+        ));
+        let theme_root = output_root.join("theme");
+        fs::create_dir_all(theme_root.join("palette_fg")).expect("create fg palette dir");
+        fs::create_dir_all(theme_root.join("palette_bg")).expect("create bg palette dir");
+
+        let foreground_words: [u16; 15] = [
+            0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x1111, 0x2222, 0x3333, 0x4444,
+            0x000B, 0x000C, 0x000D, 0x000E, 0x000F,
+        ];
+        let background_words: [u16; 8] =
+            [0x0AAA, 0x0BB1, 0x0BB2, 0x0BB3, 0x0BB4, 0x0BB5, 0x0BB6, 0x0BB7];
+        let fg_bytes: Vec<u8> = foreground_words
+            .iter()
+            .flat_map(|word| word.to_be_bytes())
+            .collect();
+        let bg_bytes: Vec<u8> = background_words
+            .iter()
+            .flat_map(|word| word.to_be_bytes())
+            .collect();
+        fs::write(theme_root.join("palette_fg/7.bin"), &fg_bytes).expect("write fg palette");
+        fs::write(theme_root.join("palette_bg/4.bin"), &bg_bytes).expect("write bg palette");
+
+        let mut assets = manifest();
+        assets.output_root = output_root.clone();
+        assets.theme_assets = vec![
+            kid_data::AssetFile {
+                relative_path: String::from("palette_fg/7.bin"),
+                size_bytes: fg_bytes.len() as u64,
+                sha1: String::from("fixture-fg"),
+            },
+            kid_data::AssetFile {
+                relative_path: String::from("palette_bg/4.bin"),
+                size_bytes: bg_bytes.len() as u64,
+                sha1: String::from("fixture-bg"),
+            },
+        ];
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x07;
+        header.background_theme = 0x04;
+
+        let mut runtime = NativeRuntime::new(assets.clone());
+        runtime.begin_level_entry(LevelId(0));
+
+        assert_eq!(
+            &runtime.palette_buffer[1..=15],
+            &foreground_words,
+            "ASM loc_11DB0 copies the selected foreground theme palette into Palette_Buffer slots 1..15 during Load_InGame"
+        );
+        assert_eq!(
+            runtime.trace_frame().lava_water_palette_words_loc_1223c,
+            Some([0x1111, 0x2222, 0x3333, 0x4444]),
+            "ASM loc_1223C reads the same live Palette_Buffer+$E/$10/$12/$14 words seeded by loc_11DB0"
+        );
+        assert_eq!(
+            runtime.palette_buffer[0],
+            background_words[0],
+            "ASM loc_11E16 copies the background colour-zero word into Palette_Buffer"
+        );
+        assert_eq!(
+            &runtime.palette_buffer[0x19..=0x1F],
+            &background_words[1..],
+            "ASM loc_11E16 copies background words 1..7 into Palette_Buffer+$32..+$3E"
+        );
+
+        let mut skip_runtime = NativeRuntime::new(assets);
+        skip_runtime.enter_level_skip_hold(LevelId(0));
+        assert_eq!(
+            skip_runtime.trace_frame().lava_water_palette_words_loc_1223c,
+            Some([0x1111, 0x2222, 0x3333, 0x4444]),
+            "ASM loc_74E0 debug-skip destination hold still represents a freshly loaded level, so native must not leave stale Palette_Buffer words on that route"
+        );
+
+        fs::remove_dir_all(output_root).ok();
+    }
+
+    #[test]
     fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
