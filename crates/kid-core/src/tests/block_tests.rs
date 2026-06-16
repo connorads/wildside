@@ -14966,6 +14966,25 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_synthetic_slot_addr_loc_231c_uses_platform_ram_stride() {
+        assert_eq!(
+            PlatformLoaderState::synthetic_slot_addr_loc_231C(0),
+            Some(0xEDBA),
+            "ASM Initialize_Platforms sub_231C starts the Platform_RAM free list at $FFFFEDBA",
+        );
+        assert_eq!(
+            PlatformLoaderState::synthetic_slot_addr_loc_231C(1),
+            Some(0xEDDC),
+            "ASM sub_231C links slots by adding the $22-byte platform object stride",
+        );
+        assert_eq!(
+            PlatformLoaderState::synthetic_slot_addr_loc_231C(17),
+            None,
+            "ASM sub_231C terminates after 17 platform slots, so native synthetic addresses must not run past the pool",
+        );
+    }
+
+    #[test]
     fn platform_loader_active_roster_orders_new_allocations_at_front_loc_238e() {
         let window = ActivationWindow {
             x_min: 320,
@@ -15350,8 +15369,7 @@ mod chunk_04 {
         let layout = PlatformLayout {
             placements: vec![placement],
         };
-        let previous =
-            ActivePlatform::from_placement_with_index(0, &layout.placements[0], None);
+        let previous = ActivePlatform::from_placement_with_index(0, &layout.placements[0], None);
 
         let active = runtime_active_platforms_loc_2762(&layout, 1, 0, window, &[previous], None);
 

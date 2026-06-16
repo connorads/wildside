@@ -310,6 +310,11 @@ mod tests {
             "ASM Platforms_CheckCollision loc_257E walks slots in list order; native should expose its current vector order explicitly",
         );
         assert!(
+            summary.contains("slot=0xedba,next_slot=0xeddc")
+                && summary.contains("native[01]:next=none,slot=0xeddc,next_slot=none"),
+            "ASM Initialize_Platforms sub_231C builds Platform_RAM slots from $EDBA in $22-byte links; native diagnostics should expose the synthetic address that corresponds to each vector position",
+        );
+        assert!(
             summary.contains("vel=0x00010000,0xffff0000"),
             "ASM Move_Platforms sub_23EA stores `$A/$E(a2)` platform velocities in slot order for collision/carry comparison",
         );
@@ -7507,6 +7512,14 @@ impl NativeRuntime {
                 } else {
                     "none".to_string()
                 };
+                let slot = crate::PlatformLoaderState::synthetic_slot_addr_loc_231C(index)
+                    .map_or_else(|| "none".to_string(), |slot| format!("{slot:#06x}"));
+                let next_slot = if index + 1 < platforms.len() {
+                    crate::PlatformLoaderState::synthetic_slot_addr_loc_231C(index + 1)
+                    .map_or_else(|| "none".to_string(), |slot| format!("{slot:#06x}"))
+                } else {
+                    "none".to_string()
+                };
                 let render =
                     crate::platforms::platform_render_flags_loc_2814(platform.kind, platform.subtype);
                 let art = crate::platforms::platform_mapping_addr_word_loc_2822(render);
@@ -7526,7 +7539,7 @@ impl NativeRuntime {
                     .map_or(0, |script| script.remaining_duration);
                 let state = u32::from(platform.deactivated_flag);
                 format!(
-                    "native[{index:02}]:next={next},xy={:#010x},{:#010x},vel={:#010x},{:#010x},state={state:#010x},timer={timer:#06x},art={art:#06x},size={}x{},render={render:#04x},off={layout_offset}",
+                    "native[{index:02}]:next={next},slot={slot},next_slot={next_slot},xy={:#010x},{:#010x},vel={:#010x},{:#010x},state={state:#010x},timer={timer:#06x},art={art:#06x},size={}x{},render={render:#04x},off={layout_offset}",
                     platform.x_pos,
                     platform.y_pos,
                     platform.x_velocity,

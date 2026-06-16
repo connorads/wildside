@@ -1,6 +1,8 @@
 use super::*;
 
 pub(crate) const PLATFORM_SLOT_CAPACITY_LOC_231C: usize = 17;
+pub(crate) const PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C: u16 = 0xEDBA;
+pub(crate) const PLATFORM_RAM_SLOT_STRIDE_LOC_231C: u16 = 0x22;
 pub(crate) const PLATFORM_CHAIN_SEGMENT_COUNT_LOC_428C: u8 = 7;
 pub(crate) const PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C: u16 = 0x3D;
 pub(crate) const PLATFORM_CHAIN_LOOP_FRAMES_LOC_42C0: u16 = 0x79;
@@ -800,6 +802,17 @@ impl PlatformLoaderState {
         self.loaded_mask
             .count_ones()
             .min(PLATFORM_SLOT_CAPACITY_LOC_231C as u32) as u16
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn synthetic_slot_addr_loc_231C(index: usize) -> Option<u16> {
+        if index >= PLATFORM_SLOT_CAPACITY_LOC_231C {
+            return None;
+        }
+        Some(
+            PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C
+                .wrapping_add((index as u16).wrapping_mul(PLATFORM_RAM_SLOT_STRIDE_LOC_231C)),
+        )
     }
 
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
