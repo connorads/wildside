@@ -52,6 +52,24 @@
       "promotion_trigger": "Promote if exact platform art-table selection is wired into typed render output or checked-in visual parity."
     },
     {
+      "key": "platform_loader_offset_words",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "platform-loader",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native active-platform loader record offset in words, mirroring the ROM `$20(a3)` key used by `sub_2728` to preserve platform slot identity.",
+      "promotion_trigger": "Promote if platform-loader parity or checked-in roster matching starts depending on typed slot-offset state."
+    },
+    {
+      "key": "platform_collision_scratch_loc_257e",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "platform-collision",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native mirror of ASM `Platforms_CheckCollision` scratch cells `$FFFFFAA2..$FFFFFAA5` plus `$FFFFFA96`, emitted when a live platform contact sets one of the side/top/bottom/jump-platform latches.",
+      "promotion_trigger": "Promote if platform frontier matching or checked-in parity assertions start depending on typed collision scratch state."
+    },
+    {
       "key": "currently_transforming",
       "scope": "frame",
       "status": "exploratory",

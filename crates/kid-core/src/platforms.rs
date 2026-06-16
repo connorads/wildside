@@ -60,6 +60,25 @@ pub(crate) struct PlatformCollisionReturnLoc2720 {
     pub(crate) scratch_bytes_released: u16,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct PlatformCollisionScratchLoc257E {
+    pub(crate) touched_left_side_faa2: bool,
+    pub(crate) touched_right_side_faa3: bool,
+    pub(crate) touched_top_face_faa4: bool,
+    pub(crate) touched_bottom_face_faa5: bool,
+    pub(crate) jump_platform_ref_fa96: Option<u16>,
+}
+
+impl PlatformCollisionScratchLoc257E {
+    pub(crate) fn has_contact(self) -> bool {
+        self.touched_left_side_faa2
+            || self.touched_right_side_faa3
+            || self.touched_top_face_faa4
+            || self.touched_bottom_face_faa5
+            || self.jump_platform_ref_fa96.is_some()
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HorizontalOverlapResolutionLoc25EE {
     pub(crate) left_exit_px: i16,
@@ -916,6 +935,22 @@ pub(crate) enum PlatformCollisionOutcome {
     CrushDeath,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformCollisionResultLoc257E {
+    pub(crate) outcome: PlatformCollisionOutcome,
+    pub(crate) scratch: PlatformCollisionScratchLoc257E,
+}
+
+impl PlatformCollisionResultLoc257E {
+    fn new(outcome: PlatformCollisionOutcome, scratch: PlatformCollisionScratchLoc257E) -> Self {
+        Self { outcome, scratch }
+    }
+
+    fn no_contact(outcome: PlatformCollisionOutcome) -> Self {
+        Self::new(outcome, PlatformCollisionScratchLoc257E::default())
+    }
+}
+
 pub(crate) fn apply_platform_collision_with_ceiling_probe(
     slice: &mut OpeningSliceState,
     platforms: &[ActivePlatform],
@@ -925,6 +960,28 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     standing_platform_index: Option<usize>,
     character_movement_is_jump: bool,
 ) -> PlatformCollisionOutcome {
+    apply_platform_collision_with_ceiling_probe_trace_loc_257E(
+        slice,
+        platforms,
+        block_grid,
+        current_form,
+        crawling,
+        standing_platform_index,
+        character_movement_is_jump,
+    )
+    .outcome
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
+    slice: &mut OpeningSliceState,
+    platforms: &[ActivePlatform],
+    block_grid: Option<&terrain::BlockGrid>,
+    current_form: PlayerForm,
+    crawling: bool,
+    standing_platform_index: Option<usize>,
+    character_movement_is_jump: bool,
+) -> PlatformCollisionResultLoc257E {
     // ASM loc_7886 (kid.asm:7929): after sub_902A finds floor while Kid
     // stands on a platform, the ROM calls sub_8ED0 to check whether Kid's
     // hitbox still overlaps the platform span.  If unsupported (NE), the ROM
@@ -935,13 +992,13 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     // eventually falls off via normal gravity/floor logic).
     if slice.player.on_ground {
         let Some(platform_index) = standing_platform_index else {
-            return PlatformCollisionOutcome::None;
+            return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::None);
         };
         let Some(platform) = platforms.get(platform_index) else {
-            return PlatformCollisionOutcome::None;
+            return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::None);
         };
         if platform.x_velocity == 0 && platform.y_velocity == 0 {
-            return PlatformCollisionOutcome::None;
+            return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::None);
         }
         if platform_support_check_sub_8ED0(
             Some(platform),
@@ -950,7 +1007,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
             current_form,
             crawling,
         ) {
-            return PlatformCollisionOutcome::None;
+            return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::None);
         }
 
         // ASM loc_78A8 (kid.asm:7943): when sub_902A returns negative
@@ -993,14 +1050,19 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                 .hit
             })
         {
-            return PlatformCollisionOutcome::CrushDeath;
+            return PlatformCollisionResultLoc257E::no_contact(
+                PlatformCollisionOutcome::CrushDeath,
+            );
         }
-        return PlatformCollisionOutcome::StandingOn(platform_index);
+        return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::StandingOn(
+            platform_index,
+        ));
     }
 
     let mut touched_left_side = false;
     let mut touched_right_side = false;
     let mut touched_bottom_face = false;
+    let mut scratch = PlatformCollisionScratchLoc257E::default();
     let mut standing_platform_after_scan = None;
     let mut scan_restarts = 0usize;
     loop {
@@ -1092,8 +1154,12 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                         if slice.player.y_velocity < 0 {
                             continue;
                         }
+                        scratch.touched_top_face_faa4 = landing.touched_top_face;
                         if landing.escalates_to_loc_271_a {
-                            return PlatformCollisionOutcome::CrushDeath;
+                            return PlatformCollisionResultLoc257E::new(
+                                PlatformCollisionOutcome::CrushDeath,
+                                scratch,
+                            );
                         }
                         if slice.pre_gravity_y_vel >= 0 {
                             slice.player.y_pos =
@@ -1120,14 +1186,24 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                     slice.player.on_ground = false;
                     slice.player.y_velocity = carry.carried_y_velocity_fp;
                     touched_bottom_face = carry.touched_bottom_face;
+                    scratch.touched_bottom_face_faa5 = carry.touched_bottom_face;
                     if carry.escalates_to_loc_271_a {
-                        return PlatformCollisionOutcome::CrushDeath;
+                        return PlatformCollisionResultLoc257E::new(
+                            PlatformCollisionOutcome::CrushDeath,
+                            scratch,
+                        );
                     }
                     restart_scan = true;
                     break;
                 }
 
                 if vertical_magnitude >= horizontal_magnitude {
+                    if character_movement_is_jump {
+                        // ASM loc_2672: `move.w a2,($FFFFFA96).w` before the
+                        // horizontal branch gives the jump-platform support
+                        // path the current platform slot.
+                        scratch.jump_platform_ref_fa96 = Some(platform_index as u16);
+                    }
                     let pushed = apply_horizontal_platform_push_loc_2686(
                         kid_left_px,
                         kid_right_px,
@@ -1145,8 +1221,12 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                         );
                         slice.player.x_velocity = carry.carried_x_velocity_fp;
                         touched_left_side = true;
+                        scratch.touched_left_side_faa2 = carry.touched_left_wall;
                         if carry.escalates_to_loc_271_a {
-                            return PlatformCollisionOutcome::CrushDeath;
+                            return PlatformCollisionResultLoc257E::new(
+                                PlatformCollisionOutcome::CrushDeath,
+                                scratch,
+                            );
                         }
                     } else {
                         let carry = positive_platform_carry_loc_26A2(
@@ -1155,8 +1235,12 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                         );
                         slice.player.x_velocity = carry.carried_x_velocity_fp;
                         touched_right_side = true;
+                        scratch.touched_right_side_faa3 = carry.touched_right_wall;
                         if carry.escalates_to_loc_271_a {
-                            return PlatformCollisionOutcome::CrushDeath;
+                            return PlatformCollisionResultLoc257E::new(
+                                PlatformCollisionOutcome::CrushDeath,
+                                scratch,
+                            );
                         }
                     }
                     slice.player.x_pos = (i32::from(pushed.kid_gfx_x_px).max(0) as u32) << 16;
@@ -1176,9 +1260,12 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
         }
     }
     if let Some(platform_index) = standing_platform_after_scan {
-        return PlatformCollisionOutcome::StandingOn(platform_index);
+        return PlatformCollisionResultLoc257E::new(
+            PlatformCollisionOutcome::StandingOn(platform_index),
+            scratch,
+        );
     }
-    PlatformCollisionOutcome::None
+    PlatformCollisionResultLoc257E::new(PlatformCollisionOutcome::None, scratch)
 }
 
 #[allow(non_snake_case)]

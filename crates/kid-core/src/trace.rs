@@ -6622,6 +6622,9 @@ impl NativeRuntime {
         if let Some(summary) = self.highwater_shooter_barrier_probe_debug() {
             gameplay_debug_fields.insert("highwater_shooter_barrier_probe".into(), summary);
         }
+        if let Some(summary) = self.platform_collision_scratch_debug_loc_257e() {
+            gameplay_debug_fields.insert("platform_collision_scratch_loc_257e".into(), summary);
+        }
         let level_complete_elapsed_frames = match self.player_lifecycle {
             PlayerLifecycle::LevelComplete {
                 remaining_frames,
@@ -7372,6 +7375,25 @@ impl NativeRuntime {
             projectiles,
             shooter_cells,
             barrier_cells
+        ))
+    }
+
+    fn platform_collision_scratch_debug_loc_257e(&self) -> Option<String> {
+        let scratch = self.last_platform_collision_scratch_loc_257e;
+        if !scratch.has_contact() {
+            return None;
+        }
+
+        let fa96 = scratch
+            .jump_platform_ref_fa96
+            .map_or_else(|| "none".to_string(), |slot| format!("{slot:#06x}"));
+        Some(format!(
+            "FAA2={} FAA3={} FAA4={} FAA5={} FA96={}",
+            u8::from(scratch.touched_left_side_faa2),
+            u8::from(scratch.touched_right_side_faa3),
+            u8::from(scratch.touched_top_face_faa4),
+            u8::from(scratch.touched_bottom_face_faa5),
+            fa96,
         ))
     }
 

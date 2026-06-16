@@ -681,6 +681,9 @@ pub struct NativeRuntime {
     last_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
     /// Debug label for the prior frame's first post-motion system that touched Kid.
     previous_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
+    /// Native mirror of `Platforms_CheckCollision` scratch cells
+    /// `$FFFFFAA2..$FFFFFAA5` plus `$FFFFFA96` from ASM `loc_257E`.
+    last_platform_collision_scratch_loc_257e: PlatformCollisionScratchLoc257E,
     /// Native mirror of Kid object `collision_type(a4)` for frame-local handoffs.
     last_kid_collision_type: u16,
     /// Debug snapshot of Kid before any pre-physics mutator runs this frame.
@@ -1696,6 +1699,7 @@ impl NativeRuntime {
             last_kid_frame_motion_branch: KidFrameMotionBranch::default(),
             last_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
             previous_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
+            last_platform_collision_scratch_loc_257e: PlatformCollisionScratchLoc257E::default(),
             last_kid_collision_type: 0,
             last_kid_frame_pre_physics_start: None,
             last_kid_frame_pre_physics_before_physics: None,
@@ -2395,6 +2399,7 @@ impl NativeRuntime {
         self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;
         self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
         self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
+        self.last_platform_collision_scratch_loc_257e = PlatformCollisionScratchLoc257E::default();
         self.shooter_barrel_damage_latched_loc_1f52 = false;
         self.last_kid_collision_type = 0;
         self.last_kid_frame_pre_physics_start = None;
@@ -4335,7 +4340,7 @@ impl NativeRuntime {
         // Platform collision: player can stand on top of platforms
         let player_before_platform_collision = slice.player;
         let character_movement_is_jump = self.current_character_movement(slice.player) == 3;
-        let platform_collision_outcome = apply_platform_collision_with_ceiling_probe(
+        let platform_collision_result = apply_platform_collision_with_ceiling_probe_trace_loc_257E(
             &mut slice,
             &self.active_platforms,
             self.block_grid.as_ref(),
@@ -4344,6 +4349,8 @@ impl NativeRuntime {
             platform_standing_before,
             character_movement_is_jump,
         );
+        self.last_platform_collision_scratch_loc_257e = platform_collision_result.scratch;
+        let platform_collision_outcome = platform_collision_result.outcome;
         if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
             && slice.player != player_before_platform_collision
         {

@@ -6789,6 +6789,113 @@ mod chunk_11 {
         );
     }
 
+    /// ASM Platforms_CheckCollision loc_2672/loc_26B6: while jumping, the
+    /// horizontal push path stores the current platform in `$FFFFFA96` before
+    /// setting side-contact scratch `$FFFFFAA2`.
+    #[test]
+    fn platform_collision_trace_reports_left_side_faa2_and_jump_ref_fa96_loc_257e() {
+        use crate::platforms::{
+            PlatformCollisionOutcome, apply_platform_collision_with_ceiling_probe_trace_loc_257E,
+        };
+
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(36, 110);
+
+        let result = apply_platform_collision_with_ceiling_probe_trace_loc_257E(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::TheKid,
+            false,
+            None,
+            true,
+        );
+
+        assert_eq!(result.outcome, PlatformCollisionOutcome::None);
+        assert!(result.scratch.touched_left_side_faa2);
+        assert!(!result.scratch.touched_right_side_faa3);
+        assert_eq!(result.scratch.jump_platform_ref_fa96, Some(0));
+    }
+
+    /// ASM loc_26D4: top support sets `$FFFFFAA4`, stores the standing
+    /// platform, and restarts the scan instead of treating it as a terrain snap.
+    #[test]
+    fn platform_collision_trace_reports_top_support_faa4_loc_26d4() {
+        use crate::platforms::{
+            PlatformCollisionOutcome, apply_platform_collision_with_ceiling_probe_trace_loc_257E,
+        };
+
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(60, 105);
+        slice.player.y_velocity = 0x0001_0000;
+
+        let result = apply_platform_collision_with_ceiling_probe_trace_loc_257E(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::TheKid,
+            false,
+            None,
+            false,
+        );
+
+        assert_eq!(result.outcome, PlatformCollisionOutcome::StandingOn(0));
+        assert!(result.scratch.touched_top_face_faa4);
+        assert!(!result.scratch.touched_bottom_face_faa5);
+        assert_eq!(result.scratch.jump_platform_ref_fa96, None);
+    }
+
+    /// ASM loc_26FE: an underside platform hit sets `$FFFFFAA5` and, while
+    /// `Character_Movement==MoveID_Jump`, restarts the scan instead of crushing.
+    #[test]
+    fn platform_collision_trace_reports_bottom_face_faa5_without_crush_while_jumping_loc_26fe() {
+        use crate::platforms::{
+            PlatformCollisionOutcome, apply_platform_collision_with_ceiling_probe_trace_loc_257E,
+        };
+
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(60, 132);
+
+        let result = apply_platform_collision_with_ceiling_probe_trace_loc_257E(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::TheKid,
+            false,
+            None,
+            true,
+        );
+
+        assert_eq!(result.outcome, PlatformCollisionOutcome::None);
+        assert!(result.scratch.touched_bottom_face_faa5);
+        assert!(!result.scratch.touched_top_face_faa4);
+    }
+
+    /// ASM loc_26FE -> loc_271A: the same underside hit crushes when the
+    /// current movement is not Jump, while still exposing `$FFFFFAA5`.
+    #[test]
+    fn platform_collision_trace_reports_bottom_face_faa5_on_loc_271a_crush() {
+        use crate::platforms::{
+            PlatformCollisionOutcome, apply_platform_collision_with_ceiling_probe_trace_loc_257E,
+        };
+
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(60, 132);
+
+        let result = apply_platform_collision_with_ceiling_probe_trace_loc_257E(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::TheKid,
+            false,
+            None,
+            false,
+        );
+
+        assert_eq!(result.outcome, PlatformCollisionOutcome::CrushDeath);
+        assert!(result.scratch.touched_bottom_face_faa5);
+    }
+
     // ---------------------------------------------------------------------------
     // ASM loc_8DD4 (kid.asm:10179): walking-on-platform support test.
     // `bsr.w sub_8ED0`: if NE (unsupported) → `move.w #MoveID_Jump; bsr.w
