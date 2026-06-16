@@ -909,6 +909,7 @@ pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: Activatio
 pub(crate) fn runtime_active_platforms_loc_2762(
     layout: &PlatformLayout,
     next_index: usize,
+    loaded_mask: u64,
     window: ActivationWindow,
     previous_platforms: &[ActivePlatform],
     script_table: Option<&kid_data::PlatformScriptTable>,
@@ -950,6 +951,9 @@ pub(crate) fn runtime_active_platforms_loc_2762(
         }
     }
     for (layout_index, placement) in layout.placements.iter().enumerate().take(next_index) {
+        if layout_index >= u64::BITS as usize || (loaded_mask & (1u64 << layout_index)) == 0 {
+            continue;
+        }
         if !platform_is_active(placement, window) {
             continue;
         }

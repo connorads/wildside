@@ -15030,7 +15030,7 @@ mod chunk_04 {
         )];
 
         let active =
-            runtime_active_platforms_loc_2762(&layout, 1, inactive_window, &previous, None);
+            runtime_active_platforms_loc_2762(&layout, 1, 0b1, inactive_window, &previous, None);
 
         assert_eq!(
             active.len(),
@@ -15144,7 +15144,7 @@ mod chunk_04 {
             ActivePlatform::from_placement_with_index(1, &layout.placements[1], None);
         previous.x_velocity = 0x0001_4000;
 
-        let active = runtime_active_platforms_loc_2762(&layout, 2, window, &[previous], None);
+        let active = runtime_active_platforms_loc_2762(&layout, 2, 0b10, window, &[previous], None);
 
         let preserved = active
             .iter()
@@ -15153,6 +15153,42 @@ mod chunk_04 {
         assert_eq!(
             preserved.x_velocity, 0x0001_4000,
             "ASM sub_2728 preserves the already-loaded platform slot whose `$20(a3)` matches the current PlatformLoader_Offset",
+        );
+    }
+
+    #[test]
+    fn runtime_platform_roster_uses_loaded_mask_not_high_water_loc_2762() {
+        let window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement],
+        };
+
+        let active = runtime_active_platforms_loc_2762(&layout, 1, 0, window, &[], None);
+
+        assert!(
+            active.is_empty(),
+            "ASM loc_2762 only allocates a platform after the current loader record passes all range checks; high-water `next_index` alone must not create a live collision platform",
         );
     }
 
@@ -15187,7 +15223,7 @@ mod chunk_04 {
             ActivePlatform::from_placement_with_index(0, &layout.placements[0], None);
         previous.x_velocity = 0x0001_4000;
 
-        let active = runtime_active_platforms_loc_2762(&layout, 2, window, &[previous], None);
+        let active = runtime_active_platforms_loc_2762(&layout, 2, 0b11, window, &[previous], None);
 
         let layout_indices: Vec<Option<usize>> = active
             .iter()

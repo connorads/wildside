@@ -42574,6 +42574,7 @@ impl NativeRuntime {
             self.active_platforms = runtime_active_platforms_loc_2762(
                 platform_layout,
                 objects.platform_loader.next_index,
+                objects.platform_loader.loaded_mask,
                 platform_window,
                 &previous_platforms,
                 script_table,
