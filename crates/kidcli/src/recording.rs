@@ -14,7 +14,10 @@ use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
 use kid_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm};
 #[cfg(test)]
-use kid_core::{NativeObjectKind, NativeObjectSnapshot};
+use kid_core::{
+    BlockBounceTrace, BlockBounceTraceKind, IslandShoreDmaUploadLoc1202A, NativeObjectKind,
+    NativeObjectSnapshot,
+};
 use kid_render::NativeLevelVisuals;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -2063,6 +2066,35 @@ fn trace_frames_match(
             .clone_from(&actual.active_enemy_details);
     }
 
+    if expected.block_bounce_details.is_empty() {
+        // `block_bounce_details` is additive render telemetry for ASM block
+        // workers. Legacy recordings only carried the compact bounce tuples, so
+        // replay should not drift solely because current traces name the worker
+        // kind.
+        normalised_expected
+            .block_bounce_details
+            .clone_from(&actual.block_bounce_details);
+    }
+
+    if !expected.island_shore_cycle_active
+        && expected.island_shore_cycle_state_loc_1202a.is_none()
+        && expected.island_shore_vram_frames_loc_1202a.is_none()
+        && expected.island_shore_dma_uploads_loc_1202a.is_empty()
+    {
+        // Island-shore cycle fields are additive diagnostics for the VDP worker
+        // family rooted at ASM loc_1202A/loc_1223C. Older recordings deserialize
+        // them as the default inactive state; pixel checkpoints still guard the
+        // visible effect.
+        normalised_expected.island_shore_cycle_active = actual.island_shore_cycle_active;
+        normalised_expected.island_shore_cycle_state_loc_1202a =
+            actual.island_shore_cycle_state_loc_1202a.clone();
+        normalised_expected.island_shore_vram_frames_loc_1202a =
+            actual.island_shore_vram_frames_loc_1202a.clone();
+        normalised_expected
+            .island_shore_dma_uploads_loc_1202a
+            .clone_from(&actual.island_shore_dma_uploads_loc_1202a);
+    }
+
     &normalised_expected == actual
 }
 
@@ -2900,6 +2932,60 @@ mod tests {
         assert_eq!(
             drift, None,
             "active_enemy_details is additive telemetry for hidden controller semantics; legacy recording replay must not drift when current traces populate it"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_block_bounce_details() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.block_bounce_details = vec![BlockBounceTrace {
+            cell_x: 4,
+            cell_y: 36,
+            remaining: 31,
+            y_offset_px: 0,
+            kind: BlockBounceTraceKind::Prize,
+        }];
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "block_bounce_details is additive render telemetry for ASM block workers; legacy recording replay must not drift when compact block_bounces still match"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_island_shore_diagnostics() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.island_shore_cycle_active = true;
+        replay.island_shore_cycle_state_loc_1202a = Some((1, 2, 3, 4, 5, 6));
+        replay.island_shore_vram_frames_loc_1202a = Some((7, 8, 9));
+        replay.island_shore_dma_uploads_loc_1202a = vec![IslandShoreDmaUploadLoc1202A {
+            frame_index: 3,
+            source_offset: 0x120,
+            vram_word_address: 0x6400,
+            dma_length_bytes: 0x80,
+        }];
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "loc_1202A island-shore fields are additive diagnostics; pixel checkpoints guard the visible VDP effect for legacy recordings"
         );
     }
 
