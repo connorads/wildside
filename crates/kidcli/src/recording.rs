@@ -2076,6 +2076,15 @@ fn trace_frames_match(
             .clone_from(&actual.block_bounce_details);
     }
 
+    if expected.played_bgm_ids.is_empty() {
+        // Level-start BGM ids are additive audio telemetry. Legacy visual
+        // recordings predate the core loc_11FD2 queue and still compare their
+        // audible output separately, so missing ids alone are not gameplay drift.
+        normalised_expected
+            .played_bgm_ids
+            .clone_from(&actual.played_bgm_ids);
+    }
+
     if !expected.island_shore_cycle_active
         && expected.island_shore_cycle_state_loc_1202a.is_none()
         && expected.island_shore_vram_frames_loc_1202a.is_none()
@@ -2093,6 +2102,17 @@ fn trace_frames_match(
         normalised_expected
             .island_shore_dma_uploads_loc_1202a
             .clone_from(&actual.island_shore_dma_uploads_loc_1202a);
+    }
+
+    if expected.rotate_palette_lava_water_state_loc_1223c.is_none()
+        && expected.lava_water_palette_words_loc_1223c.is_none()
+    {
+        // These loc_1223C fields expose additive palette-worker diagnostics.
+        // Pixel checkpoints and oracle state still guard the visible effect.
+        normalised_expected.rotate_palette_lava_water_state_loc_1223c =
+            actual.rotate_palette_lava_water_state_loc_1223c;
+        normalised_expected.lava_water_palette_words_loc_1223c =
+            actual.lava_water_palette_words_loc_1223c;
     }
 
     &normalised_expected == actual
@@ -2986,6 +3006,28 @@ mod tests {
         assert_eq!(
             drift, None,
             "loc_1202A island-shore fields are additive diagnostics; pixel checkpoints guard the visible VDP effect for legacy recordings"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_level_audio_and_lava_water_diagnostics() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.played_bgm_ids = vec![6];
+        replay.rotate_palette_lava_water_state_loc_1223c = Some((3, 8, 7));
+        replay.lava_water_palette_words_loc_1223c = Some([0, 0, 0, 0]);
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "level-start BGM ids and loc_1223C lava/water palette fields are additive diagnostics for legacy visual-validation recordings"
         );
     }
 
