@@ -2191,6 +2191,20 @@ pub(super) fn foreground_palette_for_scene(
         return palette;
     }
 
+    if let Some(words) = trace.lava_water_palette_words_loc_1223c
+        && words.iter().any(|word| *word != 0)
+    {
+        // ASM RotatePalette_Lava_Water loc_1223C writes the live colours to
+        // Palette_Buffer+$E/$10/$12/$14. Use those typed trace words when the
+        // core has seeded them; until loc_11DB0/loc_11E16 live palette loading
+        // is fully wired, zero-filled buffers fall back to the extracted asset
+        // palette path below.
+        for (colour, word) in palette.colours[6..10].iter_mut().zip(words) {
+            *colour = kid_render::MdColour::from_word(word);
+        }
+        return palette;
+    }
+
     // ASM RotatePalette_Lava_Water loc_1223A/loc_1223C: Mountain levels
     // hibernate 5 frames (Cave 8), then rotate CRAM words
     // Palette_Buffer+$E/$10/$12/$14. Native foreground palettes omit CRAM

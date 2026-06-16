@@ -3200,6 +3200,7 @@ mod tests {
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
             rotate_palette_lava_water_state_loc_1223c: None,
+            lava_water_palette_words_loc_1223c: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
@@ -3437,6 +3438,20 @@ mod tests {
                 MdColour::from_word(0x0E20),
             ],
             "ASM loc_1223A hibernates 5 Mountain frames before the first loc_1223C rotation"
+        );
+
+        trace.lava_water_palette_words_loc_1223c = Some([0x000E, 0x0010, 0x0012, 0x0014]);
+        trace.frame_index = 999;
+        let live_palette = foreground_palette_for_scene(&trace, &visuals);
+        assert_eq!(
+            &live_palette.colours[6..10],
+            &[
+                MdColour::from_word(0x000E),
+                MdColour::from_word(0x0010),
+                MdColour::from_word(0x0012),
+                MdColour::from_word(0x0014),
+            ],
+            "ASM loc_1223C writes Palette_Buffer+$E/$10/$12/$14; renderer should prefer typed live trace words over route-specific frame-index inference"
         );
     }
 

@@ -6965,6 +6965,17 @@ impl NativeRuntime {
                         state.completed_rotations,
                     )
                 }),
+            lava_water_palette_words_loc_1223c: self.rotate_palette_lava_water_loc_1223c.map(
+                |_| {
+                    let start = crate::level::PALETTE_BUFFER_ROTATE_START_LOC_1223C;
+                    [
+                        self.palette_buffer[start],
+                        self.palette_buffer[start + 1],
+                        self.palette_buffer[start + 2],
+                        self.palette_buffer[start + 3],
+                    ]
+                },
+            ),
             block_bounces: self
                 .block_bounces
                 .iter()

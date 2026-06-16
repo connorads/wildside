@@ -1108,6 +1108,7 @@ mod tests {
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
             rotate_palette_lava_water_state_loc_1223c: None,
+            lava_water_palette_words_loc_1223c: None,
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             active_objects: vec![NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x0D },
