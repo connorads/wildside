@@ -189,7 +189,7 @@ Re-checked all 55 gaps: 9 fixed, 11 partially-fixed, 34 still-open, 1 no-longer-
 - Level header decode — `Background_format`/layered-enigma width=`$40` not computed in runtime header decode
 - Fixed 2026-06-16 — Level header decode — `Foreground_theme` sign-bit masking edge: bit6 stripped when bit7 clear; `kid-data::parse_level_header` now follows `loc_11B92`'s sign-bit-gated mask, covered by `parses_positive_foreground_theme_bit6_as_theme_data_loc_11b92`
 - Theme palette — palette permutation tables (`loc_11E48/loc_11E8A`) past palette copy also unmodelled in live path
-- Enemy spawn — `loc_31F8E` axis-threshold seek uses unsigned compare in the live segment pick vs ROM signed `blt`
+- Fixed 2026-06-16 — Enemy spawn — `loc_31F8E` axis-threshold seek uses unsigned compare in the live segment pick vs ROM signed `blt`; live `enemy_layout_view` now compares signed 16-bit threshold words, covered by `enemy_layout_view_loc_31fd4_uses_signed_threshold_words`
 - Platform install — `Get_PlatformLayoutAddress` `MapPtfmLayout_Index`/`MapOrder_Index` indexing absent from runtime
 - Platform install — duplicate-load and loader-offset advance helpers (`loc_286A / loc_286E`) modelled but unwired
 - Camera/window init — faithful `loc_11F48` helper is dead; live path re-derives the snap inline

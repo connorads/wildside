@@ -10525,6 +10525,59 @@ mod chunk_03 {
     }
 
     #[test]
+    fn enemy_layout_view_loc_31fd4_uses_signed_threshold_words() {
+        let first_objects = vec![kid_data::EnemyLayoutObject {
+            object_type: 0x01,
+            flags: 0,
+            hit_points_plus_one: 0,
+            x: 0,
+            y: 0,
+        }];
+        let second_objects = vec![kid_data::EnemyLayoutObject {
+            object_type: 0x02,
+            flags: 0,
+            hit_points_plus_one: 0,
+            x: 0,
+            y: 0,
+        }];
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0x0001],
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 0,
+            objects: vec![],
+            segments: vec![
+                kid_data::EnemyLayoutSegment {
+                    lower_bound: 0x0000,
+                    upper_bound: 0x8000,
+                    enemy_type_slots: vec![0x0001],
+                    object_batch_flags: 0,
+                    object_count: 1,
+                    objects: first_objects,
+                },
+                kid_data::EnemyLayoutSegment {
+                    lower_bound: 0x8000,
+                    upper_bound: 0x7D00,
+                    enemy_type_slots: vec![0x0002],
+                    object_batch_flags: 0,
+                    object_count: 1,
+                    objects: second_objects,
+                },
+            ],
+        };
+
+        let view = enemy_layout_view(&layout, 0, 0);
+        assert_eq!(
+            view.segment_index, 1,
+            "ASM loc_31FD4 uses signed `cmp.w/blt`: threshold `$8000` is negative, so camera word 0 must skip the first segment instead of treating `$8000` as a huge unsigned upper bound"
+        );
+        assert_eq!(view.enemy_type_slots, &[0x0002]);
+        assert_eq!(view.objects[0].object_type, 0x02);
+    }
+
+    #[test]
     fn lion_sub_3e8ba_keeps_live_object_active_after_spawn_point_scrolls_offscreen() {
         // ASM Lion.asm sub_3E8BA culls from the lion's live position, not its
         // layout anchor. With 11..20 active objects, the live lion stays loaded

@@ -41343,10 +41343,15 @@ pub(crate) fn enemy_layout_view(
     };
     let mut selected_index = 0usize;
     for (index, segment) in layout.segments.iter().enumerate() {
-        if position >= segment.lower_bound {
+        // ASM loc_31FD4 uses `cmp.w (a0),d1; blt.s loc_31FE6`, so both
+        // camera and threshold words are signed 16-bit values.
+        let position_word = i16::from_ne_bytes(position.to_ne_bytes());
+        let lower_bound_word = i16::from_ne_bytes(segment.lower_bound.to_ne_bytes());
+        let upper_bound_word = i16::from_ne_bytes(segment.upper_bound.to_ne_bytes());
+        if position_word >= lower_bound_word {
             selected_index = index;
         }
-        if position < segment.upper_bound {
+        if position_word < upper_bound_word {
             break;
         }
     }
