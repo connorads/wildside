@@ -3209,6 +3209,8 @@ mod tests {
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
+            special_effect_unknown_art_upload_loc_14df6: None,
+            special_effect_unknown_plane_fill_loc_14e42: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
