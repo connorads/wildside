@@ -15063,6 +15063,56 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_snapshot_keeps_loaded_special_slot_out_of_range_loc_2850() {
+        let inactive_window = ActivationWindow {
+            x_min: 640,
+            x_max: 640,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 8,
+            subtype: 4,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("4"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement],
+        };
+        let state = PlatformLoaderState {
+            next_index: 1,
+            offset_words: 0,
+            loaded_mask: 0b1,
+        };
+
+        let active = state.active_platforms(&layout, inactive_window);
+
+        assert_eq!(
+            active.len(),
+            1,
+            "ASM loc_2850 keeps an already-loaded special platform in Addr_FirstPlatformSlot even when the current loader range check rejects it",
+        );
+        assert_eq!(
+            active[0]
+                .debug_fields
+                .get("platform_deactivated_flag")
+                .map(String::as_str),
+            Some("255"),
+            "ASM loc_2850 sets `$12(a3)` with `st`, so snapshots should expose the retained special slot as deactivated",
+        );
+    }
+
+    #[test]
     fn special_platform_out_of_range_sets_deactivation_flag_loc_2850() {
         let inactive_window = ActivationWindow {
             x_min: 640,

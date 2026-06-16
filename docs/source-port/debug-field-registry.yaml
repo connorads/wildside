@@ -61,6 +61,15 @@
       "promotion_trigger": "Promote if platform-loader parity or checked-in roster matching starts depending on typed slot-offset state."
     },
     {
+      "key": "platform_deactivated_flag",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "platform-loader",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native active-platform `$12(a3)` deactivation byte for special platform records retained by ASM `loc_2850` after an out-of-range loader check.",
+      "promotion_trigger": "Promote if trap/chain platform parity or checked-in roster matching starts depending on typed special-platform deactivation state."
+    },
+    {
       "key": "platform_collision_scratch_loc_257e",
       "scope": "frame",
       "status": "exploratory",

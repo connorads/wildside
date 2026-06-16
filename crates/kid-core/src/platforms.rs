@@ -838,7 +838,10 @@ impl PlatformLoaderState {
                 *placement_index < u64::BITS as usize
                     && (self.loaded_mask & (1u64 << placement_index)) != 0
             })
-            .filter(|(_, placement)| platform_is_active(placement, window))
+            .filter(|(_, placement)| {
+                platform_is_active(placement, window)
+                    || platform_placement_is_special_loc_2836(placement)
+            })
             .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
             .map(|(placement_index, placement)| {
                 let (width_px, height_px) = platform_size_words_loc_2814(
@@ -863,6 +866,17 @@ impl PlatformLoaderState {
                     "platform_loader_offset_words".to_string(),
                     platform_loader_offset_for_index_loc_286E(placement_index).to_string(),
                 );
+                if platform_placement_is_special_loc_2836(placement) {
+                    let deactivated_flag = if platform_is_active(placement, window) {
+                        0
+                    } else {
+                        0xFF
+                    };
+                    debug_fields.insert(
+                        "platform_deactivated_flag".to_string(),
+                        deactivated_flag.to_string(),
+                    );
+                }
                 NativeObjectSnapshot {
                     kind: NativeObjectKind::Platform {
                         kind: placement.kind,
