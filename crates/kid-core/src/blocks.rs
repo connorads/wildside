@@ -3158,27 +3158,12 @@ impl NativeRuntime {
             // loc_806 calls sub_F096 to scan/register new shooter slots. Native
             // handles existing entries here, then appends newly scanned entries
             // below so a fresh loc_F24E slot cannot fire until the next frame.
-            // ASM loc_F28C (kid.asm:19849): only slots whose direction word was
-            // made negative by loc_F248 branch to the loc_F410 bullet path.
-            if entry.age == 0 && entry.supported_by_neighbour {
-                let directions: [(u8, i32, i32); 4] = [
-                    (1, 0, -Self::SHOOTER_PROJECTILE_SPEED),
-                    (2, Self::SHOOTER_PROJECTILE_SPEED, 0),
-                    (4, 0, Self::SHOOTER_PROJECTILE_SPEED),
-                    (8, -Self::SHOOTER_PROJECTILE_SPEED, 0),
-                ];
-                for (mask, xv, yv) in directions {
-                    if entry.directions & mask != 0 {
-                        // ASM LoadBulletsFromEvanescentBlock/Process_ShooterObjects
-                        // stores a plain shooter object and advances its own
-                        // Level_Layout pointer through loc_EE2A/loc_EF2E.
-                        self.projectiles
-                            .push(EnemyProjectile::shooter_block_loc_EC76(
-                                entry.col, entry.row, xv, yv,
-                            ));
-                    }
-                }
-            }
+            // ASM loc_F28C/loc_F410 (kid.asm:19849/20035): negative visible
+            // shooter slots compile sprite entries around the source cell. They
+            // do not allocate ShooterObject_RAM bullets; moving shooter objects
+            // are loaded separately by loc_EC76 from evanescent/touch-triggered
+            // block workers. Native handles the visible-slot collision rectangles
+            // through sub_F568/sub_1F52 rather than spawning projectiles here.
 
             entry.age += 1;
             if entry.age < Self::SHOOTER_FIRE_INTERVAL {

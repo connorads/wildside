@@ -17573,12 +17573,15 @@ mod chunk_05 {
             "ASM Mode_Level runs sub_F730 at loc_7FC before sub_F096 at loc_806, so a newly registered shooter slot has missed this frame's tick"
         );
         runtime.step_shooter_blocks(&slice);
-        assert_eq!(runtime.projectiles.len(), 1, "next frame's tick should fire one projectile");
+        assert_eq!(
+            runtime.projectiles.len(),
+            0,
+            "ASM loc_F410 compiles visible shooter sprites; only loc_EC76 allocates moving ShooterObject_RAM bullets"
+        );
         assert!(
-            runtime.projectiles[0].x_velocity > 0,
+            runtime.block_state.shooter_blocks[0].directions & 0x02 != 0,
             "ASM sub_F096 should register the `kid_x_block+3` shooter column when Kid crosses into a new block"
         );
-        assert_eq!(runtime.projectiles[0].y_velocity, 0);
     }
 
     #[test]
@@ -17603,7 +17606,11 @@ mod chunk_05 {
             "ASM sub_F096 should register the `kid_y_block+2` shooter row when Kid moves down into a new block, but sub_F730 already ran at loc_7FC"
         );
         runtime.step_shooter_blocks(&slice);
-        assert_eq!(runtime.projectiles.len(), 1);
+        assert_eq!(
+            runtime.projectiles.len(),
+            0,
+            "ASM loc_F410 compiles visible shooter sprites; only loc_EC76 allocates moving ShooterObject_RAM bullets"
+        );
     }
 
     #[test]
@@ -17926,8 +17933,8 @@ mod chunk_05 {
         }
         assert_eq!(
             runtime.projectiles.len(),
-            1,
-            "ASM sub_F096 keeps the live shooter slot resident for its 22-frame lifetime instead of re-registering each frame"
+            0,
+            "ASM sub_F096 keeps the live shooter slot resident for its visible loc_F410 cycle without allocating moving bullets"
         );
 
         runtime.step_shooter_blocks(&slice);
@@ -17943,8 +17950,8 @@ mod chunk_05 {
         runtime.step_shooter_blocks(&slice);
         assert_eq!(
             runtime.projectiles.len(),
-            2,
-            "the restarted shooter slot should fire again without requiring Kid to cross a fresh scan boundary"
+            0,
+            "the restarted visible shooter slot should still not allocate loc_EC76 bullets"
         );
     }
 

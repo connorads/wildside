@@ -9372,9 +9372,10 @@ mod chunk_09 {
     }
 
     #[test]
-    fn shooter_block_fires_all_four_directions() {
-        // ASM LoadBulletsFromEvanescentBlock loc_EC76: skin byte 0x0F loads
-        // one shooter object for each supported direction at the block centre.
+    fn visible_shooter_block_registers_all_four_directions_without_loading_bullets() {
+        // ASM sub_F096 loc_F106 registers visible shooter slots. Even when all
+        // support-marker checks pass, the negative loc_F410 path compiles
+        // sprites instead of allocating moving ShooterObject_RAM bullets.
         let mut rt = NativeRuntime::new(manifest());
         let mut grid = grid_with_shooter_blocks(&[(5, 3, 0x0F)]);
         grid.set_cell_at(5, 2, terrain::Cell::from_be_bytes(0, 0x2D));
@@ -9390,39 +9391,23 @@ mod chunk_09 {
         slice.player.y_pos = (3 * 16) << 16;
         rt.step_shooter_blocks(&slice);
 
-        assert_eq!(
-            rt.projectiles.len(),
-            0,
-            "ASM loc_7FC runs sub_F730 before loc_806 runs sub_F096, so freshly registered shooter slots fire on their next tick"
-        );
+        assert_eq!(rt.projectiles.len(), 0);
         rt.step_shooter_blocks(&slice);
         assert_eq!(
             rt.projectiles.len(),
-            4,
-            "should fire 4 projectiles for all directions"
+            0,
+            "ASM loc_F410 should not allocate loc_EC76 moving bullets for visible shooter slots"
         );
-        // Check direction signs: up=-y, right=+x, down=+y, left=-x
-        let velocities: Vec<(i32, i32)> = rt
-            .projectiles
-            .iter()
-            .map(|p| (p.x_velocity, p.y_velocity))
-            .collect();
-        let speed: i32 = 4 << 16; // SHOOTER_PROJECTILE_SPEED
-        assert!(velocities.contains(&(0, -speed)), "missing up projectile");
-        assert!(velocities.contains(&(speed, 0)), "missing right projectile");
-        assert!(velocities.contains(&(0, speed)), "missing down projectile");
-        assert!(velocities.contains(&(-speed, 0)), "missing left projectile");
-        for projectile in &rt.projectiles {
-            assert_eq!(projectile.x_pos, (5 * 16 + 8) << 16);
-            assert_eq!(projectile.y_pos, (3 * 16 + 8) << 16);
-            assert_eq!(projectile.lifetime, 120);
-        }
+        assert_eq!(rt.block_state.shooter_blocks.len(), 1);
+        assert_eq!(rt.block_state.shooter_blocks[0].directions, 0x0F);
+        assert!(rt.block_state.shooter_blocks[0].supported_by_neighbour);
     }
 
     #[test]
-    fn shooter_block_single_direction_up_only() {
+    fn visible_shooter_block_single_direction_up_only_registers_without_loading_bullet() {
         // ASM loc_F106: skin byte 0x01 = up only, and loc_F14C requires
-        // the upper neighbour skin byte to be non-zero before bullets load.
+        // the upper neighbour skin byte to be non-zero before the loc_F410
+        // visible-sprite path is marked negative.
         let mut rt = NativeRuntime::new(manifest());
         let mut grid = grid_with_shooter_blocks(&[(5, 3, 0x01)]);
         grid.set_cell_at(5, 2, terrain::Cell::from_be_bytes(0, 0x2D));
@@ -9435,15 +9420,16 @@ mod chunk_09 {
         slice.player.y_pos = (3 * 16) << 16;
         rt.step_shooter_blocks(&slice);
 
+        assert_eq!(rt.projectiles.len(), 0);
+        rt.step_shooter_blocks(&slice);
         assert_eq!(
             rt.projectiles.len(),
             0,
-            "ASM loc_7FC runs sub_F730 before loc_806 runs sub_F096, so freshly registered shooter slots fire on their next tick"
+            "ASM loc_F410 should not allocate loc_EC76 moving bullets for visible shooter slots"
         );
-        rt.step_shooter_blocks(&slice);
-        assert_eq!(rt.projectiles.len(), 1);
-        assert_eq!(rt.projectiles[0].x_velocity, 0);
-        assert!(rt.projectiles[0].y_velocity < 0, "up means negative y");
+        assert_eq!(rt.block_state.shooter_blocks.len(), 1);
+        assert_eq!(rt.block_state.shooter_blocks[0].directions, 0x01);
+        assert!(rt.block_state.shooter_blocks[0].supported_by_neighbour);
     }
 
     #[test]
@@ -9523,7 +9509,9 @@ mod chunk_09 {
         // ASM sub_F096 loc_F106/loc_F1DE accepts layout words with block
         // nibble `$C`, then stores `(word & $00FF) - $2D` as direction bits.
         // Highwater Pass 2's exposed shooter cells include `$EC2F`, so they
-        // must fire right (`$2F - $2D = $02`) when Kid enters the scan column.
+        // must register right (`$2F - $2D = $02`) when Kid enters the scan
+        // column. The visible loc_F410 path draws sprites; it does not allocate
+        // moving loc_EC76 shooter bullets.
         let mut rt = NativeRuntime::new(manifest());
         let w = 40u16;
         let h = 8u16;
@@ -9542,27 +9530,12 @@ mod chunk_09 {
         slice.player.y_pos = (3 * 16) << 16;
         rt.step_shooter_blocks(&slice);
 
-        assert_eq!(
-            rt.projectiles.len(),
-            0,
-            "ASM loc_F106 registers the `$EC2F` slot after this frame's loc_7FC sub_F730 tick"
-        );
+        assert_eq!(rt.projectiles.len(), 0);
         rt.step_shooter_blocks(&slice);
         assert_eq!(
             rt.projectiles.len(),
-            1,
-            "ASM loc_F106 should register one shooter object for the `$EC2F` cell"
-        );
-        let speed: i32 = 4 << 16;
-        assert_eq!(
-            (rt.projectiles[0].x_velocity, rt.projectiles[0].y_velocity),
-            (speed, 0),
-            "ASM loc_F106 should decode `$EC2F` as right-facing direction bit `$02`"
-        );
-        assert_eq!(
-            rt.projectiles[0].kind,
-            EnemyProjectileKind::ShooterBlock,
-            "ASM loc_EC76 allocates a shooter-object bullet, not a generic enemy projectile"
+            0,
+            "ASM loc_F106 should not allocate a loc_EC76 shooter object for the `$EC2F` visible slot"
         );
         assert_eq!(rt.block_state.shooter_blocks.len(), 1);
         assert_eq!(rt.block_state.shooter_blocks[0].directions, 0x02);

@@ -148,20 +148,20 @@ and stop — never commit churn.
   ShooterBlock damage before a useful grounded jump signal, so do not patch
   movement from those timings.
 - **#277 recheck (2026-06-16)**: the repaired `left-x1746-y237-b96` fixture is
-  still not a clean movement proof on current native. The native-only frame-165
-  ShooterBlock blocker is gone after `c80b9390` gated visible shooter bullets on
-  the ROM support-marker check, but `verify-tas --frame-start 0 --frame-end 180
-  --checkpoint-interval 1 --frontier-kind gameplay --bisect` now first splits at
-  frame 91: oracle takes damage (`just_received_damage=true`, HP 1) while native
-  stays healthy. Focused `tas-diff --frame-start 80 --frame-end 95
-  --frontier-kind gameplay --include-advisory --show-object-roster-on-match
-  --include-physics-trace` shows the extra oracle object
-  `0xffff0e88:code=0x00bc60` is the damage-flash thread (`loc_BC5C/loc_BC6E`),
-  not the cause. Oracle also has the live TankBullet worker
-  `0xffff1058:code=0x03b7be`, while native's nearest TankBullet remains
-  far below Kid (`dx=-92 dy=72` at frame 91); the immediate split is therefore a
-  Tank/contact/damage frontier, not evidence for slope/jump physics. Do not use
-  this fixture to change movement.
+  gameplay-clean through the checked stair/jump window again after the shooter
+  slot reread. `c80b9390`/`f5adb2090` first narrowed the native-only frame-165/166
+  damage to a fresh visible `sub_F096` slot at source cell `(86,19)`, then the
+  ROM reread showed `loc_F28C/loc_F410` only compile visible sprite entries;
+  moving `ShooterObject_RAM` bullets are allocated separately by `loc_EC76`
+  from evanescent/touch-triggered block workers. Native no longer spawns
+  `EnemyProjectile::shooter_block_loc_EC76` from visible slots. Verification:
+  `verify-tas --frame-start 0 --frame-end 180 --checkpoint-interval 1
+  --frontier-kind gameplay --bisect` passes, and focused `tas-diff
+  --frame-start 164 --frame-end 169 --frontier-kind gameplay --include-advisory
+  --show-object-roster-on-match --include-physics-trace` reports `5 match, 0
+  diverge`. This removes the fixture's shooter contamination but still rejects
+  it as the current human dropped-left movement proof; keep #277 open for a
+  fresh human-equivalent stair route if the visible complaint persists.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still
