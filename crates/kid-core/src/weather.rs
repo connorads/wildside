@@ -1,4 +1,5 @@
 use super::*;
+use serde::{Deserialize, Serialize};
 
 pub(crate) const LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A: usize = 0x10;
 pub(crate) const LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A: usize = 0x14;
@@ -18,6 +19,10 @@ const STORM_MOUNTAIN_FOREGROUND_PALETTE_PATH_LOC_6097: &str = "palette_fg/mounta
 pub(crate) const STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E: &str = "unk_9B65C";
 pub(crate) const STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E: &str = "unk_9B6E0";
 pub(crate) const STORM_PATTERN_VDP_COMMAND_LOC_14D32: u32 = 0x4000_0003;
+pub(crate) const SPECIAL_EFFECT_UNKNOWN_ART_LABEL_LOC_14DE4: &str = "unk_9AA50";
+pub(crate) const SPECIAL_EFFECT_UNKNOWN_PLANE_VDP_COMMAND_LOC_14E42: u32 = 0x4000_0003;
+pub(crate) const SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42: u16 = 0x8218;
+pub(crate) const SPECIAL_EFFECT_UNKNOWN_BACKGROUND_PLANE_REGISTER_LOC_14E42: u16 = 0x8400;
 
 #[allow(dead_code)]
 const MURDER_WALL_PATTERN_SUB_5E02: [u16; 4] = [0xA2FB, 0xA31F, 0xA343, 0xA367];
@@ -627,6 +632,14 @@ pub(crate) struct SpecialEffectUnknownArtUploadLoc14DF6 {
     pub(crate) written_longwords: Vec<u32>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpecialEffectUnknownRuntimeArtUploadLoc14DF6 {
+    pub source_asset_label: String,
+    pub vram_word: u16,
+    pub burst_count: usize,
+    pub written_longword_count: usize,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn upload_special_effect_unknown_art_loc_14DF6(
@@ -644,10 +657,36 @@ pub(crate) fn upload_special_effect_unknown_art_loc_14DF6(
     }
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn record_special_effect_unknown_art_upload_loc_14DF6()
+-> SpecialEffectUnknownRuntimeArtUploadLoc14DF6 {
+    // ASM Init_SpecialEffect_Unknown loc_14DE4/loc_14DF6 (kid.asm:28452):
+    // `unk_9AA50` starts with word `$10`, then `subq.w #1,d0` makes the
+    // inclusive DBF loop stream 16 bursts of eight longwords to VRAM `$7000`.
+    let burst_count = 16;
+    SpecialEffectUnknownRuntimeArtUploadLoc14DF6 {
+        source_asset_label: SPECIAL_EFFECT_UNKNOWN_ART_LABEL_LOC_14DE4.to_string(),
+        vram_word: 0x7000,
+        burst_count,
+        written_longword_count: burst_count * 8,
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SpecialEffectUnknownPlaneFillOuterPassLoc14E42 {
     pub(crate) written_longwords: Vec<u32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+    pub vdp_command: u32,
+    pub outer_pass_count: usize,
+    pub group_count_per_pass: usize,
+    pub inner_repeat_count: usize,
+    pub written_longword_count: usize,
+    pub foreground_plane_register: u16,
+    pub background_plane_register: u16,
 }
 
 fn special_effect_unknown_plane_seed_pair() -> (u32, u32) {
@@ -664,6 +703,13 @@ pub(crate) fn special_effect_unknown_group_count_loc_14E42() -> usize {
     // outer pass emits four consecutive 16-pair groups before the later
     // `move.l d3,d7` / `move.l d4,d6` reset.
     4
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn special_effect_unknown_outer_pass_count_loc_14E42() -> usize {
+    // ASM loc_14E42 (kid.asm:28482): `moveq #7,d2` makes the outer DBF loop
+    // run eight passes over the four middle groups before restoring planes.
+    8
 }
 
 #[allow(non_snake_case)]
@@ -719,6 +765,26 @@ pub(crate) fn special_effect_unknown_outer_pass_loc_14E42(
     }
 
     SpecialEffectUnknownPlaneFillOuterPassLoc14E42 { written_longwords }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn record_special_effect_unknown_plane_fill_loc_14E42()
+-> SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+    // ASM loc_14E42/loc_14E44/loc_14E46 (kid.asm:28480-28501): fill the
+    // foreground plane at VRAM `$6000`, then restore the foreground/background
+    // plane registers to `$8218`/`$8400`.
+    let outer_pass_count = special_effect_unknown_outer_pass_count_loc_14E42();
+    let group_count_per_pass = special_effect_unknown_group_count_loc_14E42();
+    let inner_repeat_count = special_effect_unknown_inner_repeat_count_loc_14E44();
+    SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+        vdp_command: SPECIAL_EFFECT_UNKNOWN_PLANE_VDP_COMMAND_LOC_14E42,
+        outer_pass_count,
+        group_count_per_pass,
+        inner_repeat_count,
+        written_longword_count: outer_pass_count * group_count_per_pass * inner_repeat_count * 2,
+        foreground_plane_register: SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42,
+        background_plane_register: SPECIAL_EFFECT_UNKNOWN_BACKGROUND_PLANE_REGISTER_LOC_14E42,
+    }
 }
 
 #[allow(dead_code)]
@@ -2779,6 +2845,8 @@ impl NativeRuntime {
         self.weather.storm_palette_copy_loc_14cf2 = None;
         self.weather.storm_saved_palette_label_loc_14d82 = None;
         self.weather.storm_pattern_upload_loc_14d32 = None;
+        self.weather.unknown_art_upload_loc_14df6 = None;
+        self.weather.unknown_plane_fill_loc_14e42 = None;
         self.weather.hail_active = false;
         self.weather.hail_spawn_timer = 0;
         self.weather.hail_period_timer = 0;
@@ -2822,6 +2890,15 @@ impl NativeRuntime {
             self.weather.hail_spawn_timer = u16::from(seeded.spawn_cooldown);
             self.weather.hail_period_timer = seeded.fb52_word;
             self.weather.hail_active = seeded.fb54_word != 0;
+        } else if self.weather.weather_type == 4 {
+            self.weather.unknown_art_upload_loc_14df6 =
+                Some(record_special_effect_unknown_art_upload_loc_14DF6());
+            self.weather.unknown_plane_fill_loc_14e42 =
+                Some(record_special_effect_unknown_plane_fill_loc_14E42());
+            // ASM Init_SpecialEffect_Unknown loc_14DF6 (kid.asm:28468):
+            // `move.b #1,($FFFFFAD6).w`; the following `clr.w $FFFFFB3E`
+            // clears a RAM word that native does not otherwise expose.
+            self.weather.storm_weather_mode_byte = 1;
         }
     }
 

@@ -700,7 +700,7 @@ pub(crate) struct ShooterHeadbuttWorker {
 /// Weather system state for the current level.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct WeatherState {
-    /// Weather type (0=none, 1=lava, 2=storm, 3=storm+hail).
+    /// Weather type (0=none, 1=lava, 2=storm, 3=storm+hail, 4=unknown).
     pub(crate) weather_type: u8,
     /// ASM loc_14DAC `$FFFFFB3C`: frames until the next storm particle spawn.
     pub(crate) storm_spawn_cooldown: u8,
@@ -727,6 +727,12 @@ pub(crate) struct WeatherState {
     /// ASM loc_14D1E/loc_14D32: selected storm pattern table and VRAM upload shape.
     pub(crate) storm_pattern_upload_loc_14d32:
         Option<crate::weather::StormPatternRuntimeUploadLoc14D32>,
+    /// ASM Init_SpecialEffect_Unknown loc_14DE4/loc_14DF6: weather-4 art upload.
+    pub(crate) unknown_art_upload_loc_14df6:
+        Option<crate::weather::SpecialEffectUnknownRuntimeArtUploadLoc14DF6>,
+    /// ASM Init_SpecialEffect_Unknown loc_14E42: weather-4 foreground plane fill.
+    pub(crate) unknown_plane_fill_loc_14e42:
+        Option<crate::weather::SpecialEffectUnknownPlaneFillRuntimeLoc14E42>,
     /// Hail system: frames until next hail spawn (0=spawn this frame).
     pub(crate) hail_spawn_timer: u16,
     /// Hail system: whether hail is currently active (toggles on $258-frame period).
@@ -1486,6 +1492,14 @@ pub struct NativeTraceFrame {
     /// live CRAM words at `Palette_Buffer+$20..+$2E`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lava_geyser_palette_words_loc_14b2a: Option<[u16; 8]>,
+    /// ASM `Init_SpecialEffect_Unknown` loc_14DE4/loc_14DF6 weather-4 art upload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub special_effect_unknown_art_upload_loc_14df6:
+        Option<crate::weather::SpecialEffectUnknownRuntimeArtUploadLoc14DF6>,
+    /// ASM `Init_SpecialEffect_Unknown` loc_14E42 weather-4 foreground plane fill.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub special_effect_unknown_plane_fill_loc_14e42:
+        Option<crate::weather::SpecialEffectUnknownPlaneFillRuntimeLoc14E42>,
     /// Block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
     /// Kept for legacy trace compatibility; new renderers should prefer
     /// `block_bounce_details` when they need the ASM worker kind.
@@ -1702,6 +1716,8 @@ impl Default for NativeTraceFrame {
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
+            special_effect_unknown_art_upload_loc_14df6: None,
+            special_effect_unknown_plane_fill_loc_14e42: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),

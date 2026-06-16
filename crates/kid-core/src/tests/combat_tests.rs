@@ -25652,6 +25652,10 @@ mod chunk_05 {
             Some(crate::weather::record_storm_pattern_upload_loc_14D32(
                 crate::weather::select_storm_pattern_upload_loc_14D1E(false),
             ));
+        runtime.weather.unknown_art_upload_loc_14df6 =
+            Some(crate::weather::record_special_effect_unknown_art_upload_loc_14DF6());
+        runtime.weather.unknown_plane_fill_loc_14e42 =
+            Some(crate::weather::record_special_effect_unknown_plane_fill_loc_14E42());
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 42;
         runtime.weather.hail_period_timer = 99;
@@ -25687,6 +25691,8 @@ mod chunk_05 {
         assert_eq!(runtime.weather.storm_palette_copy_loc_14cf2, None);
         assert_eq!(runtime.weather.storm_saved_palette_label_loc_14d82, None);
         assert_eq!(runtime.weather.storm_pattern_upload_loc_14d32, None);
+        assert_eq!(runtime.weather.unknown_art_upload_loc_14df6, None);
+        assert_eq!(runtime.weather.unknown_plane_fill_loc_14e42, None);
         assert!(!runtime.weather.hail_active);
         assert_eq!(runtime.weather.hail_spawn_timer, 0);
         assert_eq!(runtime.weather.hail_period_timer, 0);
@@ -25799,6 +25805,69 @@ mod chunk_05 {
                 written_longword_count: 4 * 8 * 8 * 4,
             }),
             "ASM Init_SpecialEffect_Storm loc_14D1E should select the hail pattern table when `Background_theme == Ice` even for plain storm weather"
+        );
+    }
+
+    #[test]
+    fn init_weather_records_unknown_type4_uploads_loc_14de4() {
+        let mut manifest = manifest_with_levels(2);
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .weather_flags = 4;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(runtime.weather.weather_type, 4);
+        assert_eq!(
+            runtime.weather.unknown_art_upload_loc_14df6,
+            Some(
+                crate::weather::SpecialEffectUnknownRuntimeArtUploadLoc14DF6 {
+                    source_asset_label: crate::weather::SPECIAL_EFFECT_UNKNOWN_ART_LABEL_LOC_14DE4
+                        .to_string(),
+                    vram_word: 0x7000,
+                    burst_count: 16,
+                    written_longword_count: 16 * 8,
+                }
+            ),
+            "ASM Init_SpecialEffect_Unknown loc_14DE4/loc_14DF6 should stream `unk_9AA50` art to VRAM `$7000` during live weather-4 init"
+        );
+        assert_eq!(
+            runtime.weather.unknown_plane_fill_loc_14e42,
+            Some(
+                crate::weather::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                    vdp_command: crate::weather::SPECIAL_EFFECT_UNKNOWN_PLANE_VDP_COMMAND_LOC_14E42,
+                    outer_pass_count: 8,
+                    group_count_per_pass: 4,
+                    inner_repeat_count: 16,
+                    written_longword_count: 8 * 4 * 16 * 2,
+                    foreground_plane_register: 0x8218,
+                    background_plane_register: 0x8400,
+                }
+            ),
+            "ASM loc_14E42/loc_14E44/loc_14E46 should fill the foreground plane shape and restore the VDP plane registers during weather-4 init"
+        );
+        assert_eq!(
+            runtime.weather.storm_weather_mode_byte, 1,
+            "ASM loc_14DF6 writes `$FFFFFAD6=1`, distinct from storm loc_14DAC's mode byte 4"
+        );
+        let trace = runtime.trace_frame();
+        assert_eq!(
+            trace.special_effect_unknown_art_upload_loc_14df6,
+            runtime.weather.unknown_art_upload_loc_14df6,
+            "native trace should expose the live weather-4 art upload shape for oracle/debug comparison"
+        );
+        assert_eq!(
+            trace.special_effect_unknown_plane_fill_loc_14e42,
+            runtime.weather.unknown_plane_fill_loc_14e42,
+            "native trace should expose the live weather-4 plane fill shape for oracle/debug comparison"
+        );
+        assert_eq!(
+            crate::weather::dispatch_level_special_effects_sub_6034(4),
+            None,
+            "ASM sub_6034 has no per-frame weather-4 branch; weather 4 is init-only"
         );
     }
 

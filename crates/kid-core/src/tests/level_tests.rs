@@ -192,6 +192,8 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
                 crate::weather::select_storm_pattern_upload_loc_14D1E(false),
             ),
         ),
+        unknown_art_upload_loc_14df6: None,
+        unknown_plane_fill_loc_14e42: None,
         hail_spawn_timer: 11,
         hail_active: true,
         hail_period_timer: 22,

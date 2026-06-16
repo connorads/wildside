@@ -7053,6 +7053,11 @@ impl NativeRuntime {
                     self.palette_buffer[start + 7],
                 ]
             }),
+            special_effect_unknown_art_upload_loc_14df6: self
+                .weather
+                .unknown_art_upload_loc_14df6
+                .clone(),
+            special_effect_unknown_plane_fill_loc_14e42: self.weather.unknown_plane_fill_loc_14e42,
             block_bounces: self
                 .block_bounces
                 .iter()
