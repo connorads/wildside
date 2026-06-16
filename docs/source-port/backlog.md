@@ -415,6 +415,17 @@ and stop — never commit churn.
   Kid contacts it (`manhattan=20 @517`) and no `Destroy` occurs. Treat early
   left/right pre-330 route shaping on this seed as exhausted unless it changes
   the Drips child spawn/phase, not just Kid's climb timing.
+  2026-06-16 post-330 jump/right refinement on the same seed used
+  `Drips.asm loc_3340E`/`loc_3345C` timing: the right parent is in
+  `pre_drop` at frame 330 and the active DripsDrop reaches `cell 36,32` at
+  `dx=0 dy=-3 @361`. Best materialised lead
+  `.cache/debug/issue260-r330-br354-l394.json`
+  (`330..353 Right`, `354..393 B+Right`, `394..433 Left`) is enemy-frontier
+  clean for frames `350..375` and improves same-frame Kid/drop/cell geometry to
+  Kid `dx=+1 dy=-1`, DripsDrop `dx=0 dy=-3` at frame 364 (`manhattan=5`).
+  It still produces no `Bounce`/`Destroy` at `36,32`/`37,32` and later exits
+  through `LevelTransition`, so treat this as an oracle-comparable early-overlap
+  dead end, not the reported slime/metal-block mutation repro.
   Follow-up pre-490 approach sweep over `430..489` windows did not improve the
   proof. The DripsDrop still reaches row-32 vicinity early (`dx=+8 dy=-3 @455`)
   while the DripsSurfaceCrawler remains far below the block line (`dy=-65`),
