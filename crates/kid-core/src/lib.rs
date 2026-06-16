@@ -1962,6 +1962,16 @@ impl NativeRuntime {
                 .sega_screen_data
                 .as_ref()
                 .map(|data| vdp::build_sega_screen_vdp(data, *elapsed)),
+            BootState::TitleScreen { .. } if self.demo_auto_timeout_handoff_active => {
+                self.sega_screen_data.as_ref().map(|data| {
+                    // ASM ReadJoypad loc_C0A writes Game_Mode=$00 for the demo
+                    // auto-timeout restart. Native keeps the title-state timer
+                    // as scheduling state until IntroSequence1 takes over, but
+                    // the visible VDP must be the mode-0 Sega logo, not the
+                    // stale title shell.
+                    vdp::build_sega_screen_vdp(data, self.title_screen_elapsed_frames)
+                })
+            }
             BootState::IntroSequence {
                 segment, elapsed, ..
             } => self.intro_sub_1b850_data.as_ref().map(|data| {

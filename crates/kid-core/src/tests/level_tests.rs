@@ -6369,6 +6369,44 @@ mod chunk_02 {
     }
 
     #[test]
+    fn demo_timeout_mode_0_handoff_renders_sega_vdp_not_stale_title_shell_loc_c0a() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut trace_8999 = None;
+        let mut vdp_8999 = None;
+
+        for frame_index in 0..=8_999 {
+            let trace = runtime.step_frame(FrameInput::default());
+            if frame_index == 8_999 {
+                trace_8999 = Some(trace);
+                vdp_8999 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let trace_8999 = trace_8999.expect("demo timeout route should reach frame 8999");
+        assert_eq!(
+            trace_8999.game_mode,
+            GameMode::SegaScreen,
+            "ASM ReadJoypad loc_C0A writes Game_Mode=$00 for the demo auto-timeout restart",
+        );
+        let vdp_8999 = vdp_8999.expect("mode-0 handoff should expose Sega VDP state");
+        let word_at = |byte_addr: usize| {
+            u16::from_be_bytes([vdp_8999.vram[byte_addr], vdp_8999.vram[byte_addr + 1]])
+        };
+        assert_eq!(
+            word_at(0x061C),
+            0x80BC,
+            "ASM Load_SegaScreen loc_12E48/sub_12E3C should own plane A during the mode-0 handoff",
+        );
+        assert_eq!(
+            word_at(0xE000),
+            0,
+            "ASM Load_SegaScreen should not leave IntroSequence6/title shell tiles in Scroll B during the mode-0 handoff",
+        );
+    }
+
+    #[test]
     fn sega_screen_bootstrap_exposes_progression_on_oracle_frame_thirty() {
         let trace = run_script(manifest(), &[0; 31], 31);
         let frame_29 = &trace[29];
