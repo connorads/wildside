@@ -9123,8 +9123,8 @@ mod tests {
         );
         assert_eq!(
             (render_trace.kid_x_pos, render_trace.kid_y_pos),
-            (trace.kid_x_pos, trace.kid_y_pos),
-            "only the VDP scroll latch is delayed; gameplay object state stays on the current trace outside loc_C070"
+            (previous.kid_x_pos, previous.kid_y_pos),
+            "ASM Mode_Level transfers Kid's previous sprite state before Execute_Objects advances the post-update gameplay trace"
         );
     }
 
@@ -9191,7 +9191,7 @@ mod tests {
             .active_objects
             .iter()
             .find(|object| object.kind == NativeObjectKind::Player)
-            .expect("current Kid sprite source should remain visible");
+            .expect("previous Kid sprite source should be retained");
         let rendered_dragon = render_trace
             .active_objects
             .iter()
@@ -9199,8 +9199,8 @@ mod tests {
             .expect("previous Dragon sprite source should be retained");
 
         assert_eq!(
-            rendered_player.x_pos, trace.active_objects[0].x_pos,
-            "ASM Mode_Level keeps Kid on the current Kid transfer path while GfxObject sprites are still the prior Sprite_Table"
+            rendered_player.x_pos, previous.active_objects[0].x_pos,
+            "ASM Mode_Level loc_901 transfers Sprite_Table and Kid art before Execute_Objects/GfxObjects_MoveAndAnimate, so Kid pixels display the previous trace"
         );
         assert_eq!(
             rendered_dragon.x_pos, previous.active_objects[1].x_pos,
@@ -9230,8 +9230,8 @@ mod tests {
             "ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before Check_for_recent_damge loc_B700, so a same-frame hit still renders the previous HP pips"
         );
         assert_eq!(
-            render_trace.kid_x_pos, trace.kid_x_pos,
-            "only the HUD/VDP latch is delayed; gameplay object state stays on the current trace outside loc_C070"
+            render_trace.kid_x_pos, previous.kid_x_pos,
+            "ASM Mode_Level loc_901 transfers Kid's visible sprite state before the post-update gameplay trace"
         );
 
         let mut next = trace.clone();
@@ -9262,8 +9262,8 @@ mod tests {
             "ASM sub_44DC loc_45EE advances the diamond DMA page before Make_SpriteAttr_HUD/sub_BDC0's next visible symbol latch, so render keeps the previous HUD diamond page"
         );
         assert_eq!(
-            render_trace.kid_x_pos, trace.kid_x_pos,
-            "only the HUD/VDP latch is delayed; gameplay object state stays on the current trace"
+            render_trace.kid_x_pos, previous.kid_x_pos,
+            "ASM Mode_Level loc_901 transfers Kid's visible sprite state before the post-update gameplay trace"
         );
 
         let mut next = trace.clone();

@@ -836,7 +836,19 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         // trace while current gameplay state remains authoritative.
         render_trace.camera_x_pos = previous_trace.camera_x_pos;
         render_trace.camera_y_pos = previous_trace.camera_y_pos;
-        latch_previous_gfxobject_sprite_sources_loc_901(&mut render_trace, previous_trace);
+        latch_previous_sprite_sources_loc_901(&mut render_trace, previous_trace);
+        render_trace.kid_x_pos = previous_trace.kid_x_pos;
+        render_trace.kid_y_pos = previous_trace.kid_y_pos;
+        render_trace.frame_index = previous_trace.frame_index;
+        render_trace.current_helmet_id = previous_trace.current_helmet_id;
+        render_trace.kid_facing = previous_trace.kid_facing;
+        render_trace.kid_on_ground = previous_trace.kid_on_ground;
+        render_trace.kid_on_slope = previous_trace.kid_on_slope;
+        render_trace.kid_x_velocity = previous_trace.kid_x_velocity;
+        render_trace.kid_y_velocity = previous_trace.kid_y_velocity;
+        render_trace.character_movement = previous_trace.character_movement;
+        render_trace.walk_visual_accumulator = previous_trace.walk_visual_accumulator;
+        render_trace.form_change_flash_frames = previous_trace.form_change_flash_frames;
         // ASM Mode_Level calls Make_SpriteAttr_HUD/sub_BDC0 before the later
         // GfxObjects_CollisionKid path can reach Check_for_recent_damge
         // loc_B700, so the visible HP pips are also a pre-update latch.
@@ -886,21 +898,13 @@ pub(crate) fn render_trace_with_vdp_latched_state(
     render_trace
 }
 
-fn latch_previous_gfxobject_sprite_sources_loc_901(
+fn latch_previous_sprite_sources_loc_901(
     render_trace: &mut NativeTraceFrame,
     previous_trace: &NativeTraceFrame,
 ) {
-    let current_players = render_trace
+    render_trace
         .active_objects
-        .iter()
-        .filter(|object| object.kind == NativeObjectKind::Player)
-        .cloned();
-    let previous_non_players = previous_trace
-        .active_objects
-        .iter()
-        .filter(|object| object.kind != NativeObjectKind::Player)
-        .cloned();
-    render_trace.active_objects = current_players.chain(previous_non_players).collect();
+        .clone_from(&previous_trace.active_objects);
     render_trace
         .active_projectiles
         .clone_from(&previous_trace.active_projectiles);
