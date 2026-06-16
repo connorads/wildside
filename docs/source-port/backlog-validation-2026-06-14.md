@@ -112,11 +112,12 @@ agent-closable instead of playtest-only.
 - **Test:** `highwater_waterfall_front_foreground_cells_are_high_priority_sub_302f6` (`level_tests.rs`) + `kid_berzerker_form_draws_behind_high_priority_waterfall_foreground` (`scene.rs`).
 - **Risk:** fix the parse/emit engine-wide; if oracle confirms the front *is* low-priority, this is `// ORIGINAL_QUIRK` → mark `[-]`.
 
-### #319 — boss-eye SFX cue (audio) · actionable · ~1 commit
+### #319 — boss-eye SFX cue (audio) · resolved 2026-06-16
 - **ASM:** `kid.asm:38894` `sub_37002` (`sfx_Boss_eye_pops` burst), `kid.asm:41947` `sub_393B2` (eye detach, plays `$48`), 20+ callers `loc_38962..loc_3937A`; `sub_37708 loc_3772A` is the already-wired `$48` template.
 - **Plan:** wire `$48` into the live BoomerangBosses eye-piece-detach branch (`combat.rs:6894` step, currently spec-only `boomerang_boss_eye_piece_*_launch_loc_38962` helpers). Mirrors the HeadyMetal pattern at `combat.rs:8092`.
 - **Oracle split:** core-trace vs ASM — native `played_sound_effect_ids` omits `0x48` on the detach frame. **No audio device needed** (cue-presence assertion).
 - **Test:** `boomerang_boss_eye_detach_step_queues_boss_eye_pops_loc_38962` (`combat_tests.rs`).
+- **Resolution:** live BoomerangBosses death entry now queues `QueuedSoundEffect::BossEyePops` through the `sub_393B2` helper path; generic `sub_37002` remains tracked in `audio-triggers-fidelity-audit.md`.
 - **Risk:** engine-level, low; guard against double-emission with an exact-frame assertion.
 
 ### #301 — HeadyMetal composite worker lifecycle (bosses) · actionable · ~1 commit

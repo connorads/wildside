@@ -8585,6 +8585,15 @@ impl NativeRuntime {
         }
     }
 
+    fn queue_boomerang_boss_eye_detach_sfx_loc_38962(&mut self) {
+        let detach = boss_eye_detach_step_sub_393B2(0);
+        if detach.sound_effect_label == "sfx_Boss_eye_pops" {
+            // ASM loc_38962/loc_389FA and sibling eye-piece launch labels
+            // call sub_393B2 as soon as the head breakup word becomes nonzero.
+            self.queue_play_sound(QueuedSoundEffect::BossEyePops);
+        }
+    }
+
     pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
         let enemy = &self.active_enemies[idx];
         let family = enemy.family;
@@ -8625,6 +8634,9 @@ impl NativeRuntime {
             };
             if should_launch_shishkaboss_skewers {
                 self.spawn_shishkaboss_skewer_fan_loc_384d6(x_pos, y_pos);
+            }
+            if matches!(family, EnemyFamily::BoomerangBosses) {
+                self.queue_boomerang_boss_eye_detach_sfx_loc_38962();
             }
             if is_armadillo_parent_spawned_child {
                 let enemy = &mut self.active_enemies[idx];

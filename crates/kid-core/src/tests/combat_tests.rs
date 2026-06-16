@@ -12365,8 +12365,12 @@ mod chunk_03 {
             );
             assert_eq!(
                 runtime.played_sound_effects,
-                Vec::<QueuedSoundEffect>::new(),
-                "ASM loc_39EE2 does not play `sfx_Boss_dies` until the first eight scripts finish"
+                if matches!(family, EnemyFamily::BoomerangBosses) {
+                    vec![QueuedSoundEffect::BossEyePops]
+                } else {
+                    Vec::<QueuedSoundEffect>::new()
+                },
+                "ASM loc_39EE2 does not play `sfx_Boss_dies` until the first eight scripts finish; Boomerang eye pieces already call sub_393B2 when the breakup word becomes nonzero"
             );
 
             runtime.active_enemies[0].wait_timer = BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A + 1;
@@ -12380,7 +12384,11 @@ mod chunk_03 {
             );
             assert_eq!(
                 runtime.played_sound_effects,
-                vec![QueuedSoundEffect::BossDies],
+                if matches!(family, EnemyFamily::BoomerangBosses) {
+                    vec![QueuedSoundEffect::BossEyePops, QueuedSoundEffect::BossDies]
+                } else {
+                    vec![QueuedSoundEffect::BossDies]
+                },
                 "ASM loc_39EE2 plays `sfx_Boss_dies` after the eight pre-spin scripts"
             );
             assert_eq!(
@@ -12462,6 +12470,26 @@ mod chunk_03 {
             ],
             "ASM loc_384E8..loc_388D8 launches the 9-piece upward skewer fan after `$FFFFFB4E==3`"
         );
+    }
+
+    #[test]
+    fn boomerang_boss_eye_detach_step_queues_boss_eye_pops_loc_38962() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.active_enemies = vec![test_enemy(
+            EnemyFamily::BoomerangBosses,
+            0x0080_0000,
+            0x0040_0000,
+            1,
+        )];
+
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::BossEyePops],
+            "ASM loc_38962 calls sub_393B2, which plays `sfx_Boss_eye_pops` when Boomerang boss eye pieces detach"
+        );
+        assert_eq!(QueuedSoundEffect::BossEyePops.sound_id(), 0x48);
     }
 
     #[test]
