@@ -1765,11 +1765,9 @@ pub(super) fn push_background_tiles(
                             tile_sheet: tile_sheet.clone(),
                             tile: TileRef {
                                 tile_index: background_tile.tile_index,
-                                // ASM sub_307D8 indexes `unk_309B8`, whose
-                                // chunked background tile words are
-                                // `$2780 + tile_id`: background art base with
-                                // CRAM palette line 1.
-                                palette_line: 1,
+                                palette_line: chunked_background_palette_line_loc_128ba(
+                                    level_visuals.level.background_theme_id,
+                                ),
                                 priority: false,
                                 flip_x: background_tile.flip_x,
                                 flip_y: false,
@@ -1885,10 +1883,9 @@ pub(crate) fn sample_background_pixel_loc_c070(
                         );
                         let tile_ref = TileRef {
                             tile_index: background_tile.tile_index,
-                            // ASM sub_307D8 -> `unk_309B8` emits `$2780`
-                            // based tile words for chunked backgrounds, so
-                            // native samples must use CRAM palette line 1 too.
-                            palette_line: 1,
+                            palette_line: chunked_background_palette_line_loc_128ba(
+                                level_visuals.level.background_theme_id,
+                            ),
                             priority: false,
                             flip_x: background_tile.flip_x,
                             flip_y: false,
@@ -1966,6 +1963,14 @@ pub(crate) fn sample_background_pixel_loc_c070(
     }
 
     sample
+}
+
+fn chunked_background_palette_line_loc_128ba(background_theme_id: u8) -> u8 {
+    // ASM Load_BackgroundMappings_Layered loc_128BA decodes Forest with
+    // base `$0780`, so zero palette bits read foreground CRAM line 0. Other
+    // chunked backgrounds rendered by sub_307D8 use `$2780`-based words and
+    // therefore read background CRAM line 1.
+    if background_theme_id == 9 { 0 } else { 1 }
 }
 
 fn sample_layered_background_tile_pixel(
