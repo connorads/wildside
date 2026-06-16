@@ -14,11 +14,11 @@ everything that changed.
 |---|---|---|---|---|---|---|
 | enemy-fidelity-audit.md (2026-05-29) | 67 | 33 | 9 | 25 | 0 | 5 |
 | movement-fidelity-audit.md (2026-05-30) | 25 | 15 | 2 | 8 | 0 | 3 |
-| level-loading-fidelity-audit.md (2026-05-30) | 55 | 9 | 11 | 34 | 1 | 1 |
+| level-loading-fidelity-audit.md (2026-05-30) | 55 | 11 | 9 | 34 | 1 | 1 |
 | platforms-fidelity-audit.md (2026-05-31) | 40 | 5 | 3 | 32 | 0 | 0 |
 | helmets-fidelity-audit.md (2026-05-31) | 38 | 10 | 3 | 25 | 0 | 2 |
 | weather-fidelity-audit.md (2026-05-31) | 33 | 10 | 7 | 16 | 0 | 0 |
-| **Total** | **258** | **82** | **35** | **140** | **1** | **11** |
+| **Total** | **258** | **84** | **33** | **140** | **1** | **11** |
 
 ## enemy-fidelity-audit.md (2026-05-29)
 
