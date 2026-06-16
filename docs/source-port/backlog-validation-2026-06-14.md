@@ -129,11 +129,10 @@ agent-closable instead of playtest-only.
 - **2026-06-16:** executed the load-time persistence subcase in `0062a30f`. Runtime now seeds the `$FFFFFB7A..$FFFFFBAA` table from `Enemy20_HeadyMetal_Init loc_39247`; `live_heady_metal_body_piece_workers_persist_after_init_loc_39247` guards against re-projecting `sub_37ABC` pieces from a moved tracking anchor. Full per-piece `sub_376EC` lifecycle remains open in `bosses-fidelity-audit.md`.
 - **2026-06-16 follow-up:** `live_heady_metal_composite_refresh_drops_popped_worker_slot_sub_37abc_loc_37778` confirms the live collision path preserves `loc_37778` slot clearing into the next `sub_37ABC` trace; the broader normal per-piece movement/lifecycle gap remains tracked in `bosses-fidelity-audit.md`.
 
-### #274 — Cyclone transform render (blocks-prizes) · actionable · ~2 commits · *loop already added the regression*
+### #274 — Cyclone transform render (blocks-prizes) · covered 2026-06-16
 - **ASM:** `kid.asm:8425` `loc_7CD0` Kid_Transform (`off_7EE2` transform-step table), `loc_7C96`/`loc_7CA6` frame-table walk; native selector `sprites.rs:675-741` `select_player_transform_frame`.
-- **Plan:** render-only. State/camera match (`verify-tas` CRC-green); the split is the transform sprite/frame/palette across frames 3491-3494 (exact-AE 419→143). Fix `select_player_transform_frame` post-entry hibernate ordering vs `off_7EE2`.
-- **Test:** `cyclone_transform_steps_3492_3494_match_off_7ee2_forward_frames` (`mod.rs`, sibling to `loc_7cd0_*` tests).
-- **Risk:** scope strictly to per-hibernate forward-frame selection — **two prior palette experiments over-reached and were rejected.** Verify against a second form's transform window (not a Cyclone-only hack).
+- **Resolution:** stale validation note. `docs/source-port/backlog.md` now records the current-HEAD refresh: cold-idle frames 3491..3494 are pixel-perfect (`AE 0/0/0/0`) after the `loc_7CD0` transform render, `loc_BDC0` HUD-pip suppression, and transform-hibernate HUD diamond latch follow-ups.
+- **Verification:** `cargo test -q -p kidcli loc_7cd0 -- --nocapture` passed 2026-06-16 (4 tests), and `cargo test -q -p kidcli transform_hibernate -- --nocapture` passed 2026-06-16 (2 tests). Do not reopen the old `select_player_transform_frame` route without a fresh exact live route/frame; backlog #274 still asks for an exact live SDL capture if a visible report persists.
 
 ### #305 — pause Give-Up last-life lane (shell/verify) · covered 2026-06-16
 - **ASM:** `Game_Paused_Loop`/`Game_Paused_ChkStart` (`kid.asm:6829-6878`), `loc_6B46`/`loc_6C0A` (give-up death-windup), the ROM joypad read copying `Ctrl_1_Pressed` ($FFFFF80E) into active `Ctrl_Pressed` ($FFFFF813).
