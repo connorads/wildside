@@ -1,6 +1,7 @@
 use super::*;
 use crate::combat::{
     BossEyeSpriteRefreshSlotSub37ABC, HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266,
+    boss_eye_counter_orbit_placement_sub_39420, boss_eye_orbit_placement_sub_393C8,
     boss_eye_refresh_attack_sprites_sub_37ABC, enemy_contact_bounds,
 };
 use std::collections::BTreeMap;
@@ -1747,6 +1748,49 @@ mod tests {
             runtime.object_counts_from_roster(&[], 0x0550_0000, OPENING_GROUNDED_CAMERA_Y_FP),
             (3, 2),
             "ASM Dragon.asm loc_3CE90 decrements `$66(a5)` and reaches loc_3CF6E/loc_3CF90 in the same sampled object pass, so wait_timer=1 already contributes the breath child object",
+        );
+    }
+
+    #[test]
+    fn trace_exposes_boss_eye_orbit_satellites_sub_393c8_39420() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 640,
+            height_pixels: 480,
+        }));
+        runtime.active_enemies.push(ActiveEnemy {
+            family: EnemyFamily::Shishkaboss,
+            x_pos: 0x0200_0000,
+            y_pos: 0x0100_0000,
+            facing: Direction::Right,
+            boss_head_index: 0,
+            ..drips_test_enemy(1, 0)
+        });
+
+        let trace = runtime.trace_frame();
+        let satellites = trace
+            .active_projectile_details
+            .iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::BossEyeSatellite)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            satellites.len(),
+            2,
+            "ASM boss-head child loops run sub_393C8 and sub_39420 once per hibernated orbit frame before the trigger word detaches the eyes",
+        );
+        assert!(
+            satellites
+                .iter()
+                .any(|eye| eye.x_pos == 0x01F4_0000 && eye.y_pos == 0x00DB_0000),
+            "ASM sub_393C8 phase 0 uses x offset -12 and y_pos-#$25 for the primary orbit eye"
+        );
+        assert!(
+            satellites
+                .iter()
+                .any(|eye| eye.x_pos == 0x020C_0000 && eye.y_pos == 0x00DB_0000),
+            "ASM sub_39420 phase 0 uses x offset +12 and y_pos-#$25 for the counter-orbit eye"
         );
     }
 
@@ -6985,6 +7029,7 @@ impl NativeRuntime {
                             dragon_flying_descent_fire_counter: 0,
                         }),
                 )
+                .chain(self.boss_eye_satellite_snapshots_sub_393c8())
                 .collect(),
             diamond_power_sprites: self.diamond_power_sprites.clone(),
             active_geysers: self
@@ -7191,6 +7236,73 @@ impl NativeRuntime {
             gameplay_debug_fields,
             physics_trace: self.opening_slice.and_then(|s| s.physics_trace),
         }
+    }
+
+    fn boss_eye_satellite_snapshots_sub_393c8(&self) -> Vec<ActiveProjectileSnapshot> {
+        let Some(slice) = self.opening_slice else {
+            return Vec::new();
+        };
+        let phase_word = 0x0EE0 + ((self.frame_index as u16 % 5) * 2);
+        let kid_x = (slice.player.x_pos >> 16) as u16;
+        let kid_y = (slice.player.y_pos >> 16) as u16;
+
+        self.active_enemies
+            .iter()
+            .filter(|enemy| is_multi_head_boss(enemy.family))
+            .flat_map(|enemy| {
+                let parent_x = (enemy.x_pos >> 16) as u16;
+                let parent_y = (enemy.y_pos >> 16) as u16;
+                let side_flag = u8::from(enemy.facing == Direction::Left);
+                // ASM sub_393C8/sub_39420 read parent `$22(a2)` and `$16(a2)`.
+                // Native does not yet model those orbit-worker fields, so this
+                // render bridge derives the five-entry orbit phase from frame time
+                // while preserving the ROM X tables and `y_pos-#$25` placement.
+                let primary = boss_eye_orbit_placement_sub_393C8(
+                    parent_x, parent_y, phase_word, side_flag, 0, 0, 0,
+                );
+                let counter = boss_eye_counter_orbit_placement_sub_39420(
+                    parent_x, parent_y, phase_word, side_flag, 0, 0, 0,
+                );
+                let mut slots = [None; 12];
+                slots[0] = Some(BossEyeSpriteRefreshSlotSub37ABC {
+                    x_pos: primary.x_pos,
+                    y_pos: primary.y_pos,
+                    sprite_mapping: "stale",
+                });
+                slots[1] = Some(BossEyeSpriteRefreshSlotSub37ABC {
+                    x_pos: counter.x_pos,
+                    y_pos: counter.y_pos,
+                    sprite_mapping: "stale",
+                });
+
+                boss_eye_refresh_attack_sprites_sub_37ABC(
+                    slots,
+                    self.progression.diamond_power_frames > 0
+                        || !self.diamond_power_invuln_haze_slots.is_empty(),
+                    self.frame_index as u8,
+                    kid_x,
+                    kid_y,
+                )
+                .into_iter()
+                .flatten()
+                .map(|slot| ActiveProjectileSnapshot {
+                    x_pos: u32::from(slot.x_pos) << 16,
+                    y_pos: u32::from(slot.y_pos) << 16,
+                    x_velocity: 0,
+                    y_velocity: 0,
+                    friendly: false,
+                    remaining_frames: 0,
+                    animation_elapsed_frames: 0,
+                    kind: ActiveProjectileKind::BossEyeSatellite,
+                    boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
+                        slot.sprite_mapping,
+                    ),
+                    dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                    dragon_flying_descent_fire_counter: 0,
+                })
+                .collect::<Vec<_>>()
+            })
+            .collect()
     }
 
     fn highwater_shooter_barrier_probe_debug(&self) -> Option<String> {

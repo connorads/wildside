@@ -4387,7 +4387,7 @@ fn build_game_scene_filtered(
                         colour: ENEMY_PROJECTILE_COLOUR,
                     });
                 }
-                ActiveProjectileKind::BossEyeAttack => {
+                ActiveProjectileKind::BossEyeAttack | ActiveProjectileKind::BossEyeSatellite => {
                     sprites::push_boss_eye_attack_marker_sub_37abc(
                         &mut commands,
                         sx,

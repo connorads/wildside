@@ -123,6 +123,10 @@ pub enum ActiveProjectileKind {
     /// HeadyMetal eye attack: ASM `sub_37332`/`sub_37ABC` selects one of the
     /// eight `unk_C8488..unk_C84C0` 16x16 eye frames from the eye-to-Kid angle.
     BossEyeAttack,
+    /// Boss-head orbiting eye satellite before launch. ASM `sub_393C8` /
+    /// `sub_39420` keeps these child workers attached to their parent head
+    /// until `$FFFFFB72/$FFFFFB74/$FFFFFB76` triggers detachment.
+    BossEyeSatellite,
     /// Tar Monster straight glob: ASM `Tar_Monster.asm loc_3247E`/`loc_324D0`
     /// shoots a horizontal child using sprite `LnkTo_unk_C781E`
     /// (`sprite_frame_vram $0BC,$04,$04,$1E,$08`) — a dark tar comet, not a

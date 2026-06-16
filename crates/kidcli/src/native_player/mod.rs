@@ -3360,6 +3360,39 @@ mod tests {
     }
 
     #[test]
+    fn boss_eye_satellite_uses_orbit_marker_sub_393c8_39420() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: 0,
+            animation_elapsed_frames: 0,
+            kind: ActiveProjectileKind::BossEyeSatellite,
+            boss_eye_sprite_mapping_index: 3,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
+        }];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            has_rect(&scene, 24, 16, 16, 16, [120, 200, 255]),
+            "ASM sub_393C8/sub_39420 orbit satellites use the same 16x16 boss-eye sprite family refreshed by sub_37ABC"
+        );
+        assert!(
+            has_rect(&scene, 25, 22, 4, 4, [255, 255, 255]),
+            "mapping index 3 (`LnkTo_unk_C84A0`) should visibly select the left boss-eye marker"
+        );
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
+            "waiting boss-eye satellites should not collapse to the generic projectile dot"
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn highwater_shooter_block_projectile_resolves_real_rom_spike_tile_loc_ef62() {
         let Some(manifest) = cached_generated_manifest() else {
