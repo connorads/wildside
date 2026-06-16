@@ -11934,6 +11934,138 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn debug_hotkey_previous_chain_from_cave_back_to_blue_lake_uses_target_assets_loc_6e2() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let route_name = "Under Skull Mountain 3 -> Blue Lake Woods 1 through repeated P hotkeys";
+        let start_assets = load_native_session_assets(&manifest, 0x06)
+            .unwrap_or_else(|_| panic!("{route_name} start assets"));
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_playtest(LevelId(0x06));
+        let starting_lives = trace.number_lives;
+
+        for target_level in (0x00..=0x05).rev() {
+            let (resolved_level, target_assets) = load_debug_warp_session_assets(
+                &manifest,
+                trace.current_level,
+                DebugWarpDirection::Previous,
+            )
+            .unwrap_or_else(|| panic!("{route_name}: previous target 0x{target_level:02X} assets"));
+            assert_eq!(
+                resolved_level,
+                LevelId(target_level),
+                "{route_name}: previous hotkey should walk down logical map order"
+            );
+            let target_visual_level = target_assets.level_visuals.level.level_id;
+            let target_visual_themes = (
+                target_assets.level_visuals.level.foreground_theme_id,
+                target_assets.level_visuals.level.background_theme_id,
+            );
+            let target_block_grid_dims = (
+                target_assets.block_grid.width_cells,
+                target_assets.block_grid.height_cells,
+            );
+
+            let presentation = enter_debug_hotkey_level(
+                &manifest,
+                &mut runtime,
+                &mut trace,
+                &mut session_assets,
+                resolved_level,
+                target_assets,
+            );
+
+            assert_eq!(
+                presentation.level_card_frames_remaining, 0,
+                "{route_name}: ASM loc_74E0 should re-enter loc_6E2/Load_TitleCard without a native pre-card",
+            );
+            assert_eq!(
+                trace.current_level, resolved_level,
+                "{route_name}: logical Current_LevelID should follow the previous hotkey"
+            );
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name}: previous hotkey should stay in the ROM title-card shell"
+            );
+            assert_eq!(
+                session_assets.level_visuals.level.level_id, target_visual_level,
+                "{route_name}: render visuals should swap to target level 0x{target_level:02X}"
+            );
+            assert_eq!(
+                (
+                    session_assets.level_visuals.level.foreground_theme_id,
+                    session_assets.level_visuals.level.background_theme_id,
+                ),
+                target_visual_themes,
+                "{route_name}: target level 0x{target_level:02X} should not keep stale cave themes"
+            );
+            assert_eq!(
+                (
+                    session_assets.block_grid.width_cells,
+                    session_assets.block_grid.height_cells,
+                ),
+                target_block_grid_dims,
+                "{route_name}: target level 0x{target_level:02X} should pair visuals with target collision/prize grid"
+            );
+
+            for _ in 0..20 {
+                trace = runtime.step_frame(FrameInput::default());
+                assert_eq!(
+                    trace.game_mode,
+                    GameMode::LevelTransition,
+                    "{route_name}: target 0x{target_level:02X} should remain in loc_1AE2E before Start"
+                );
+            }
+        }
+
+        for _ in 0..360 {
+            trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name}: final Blue Lake title-card shell should wait for Start"
+            );
+        }
+
+        trace = runtime.step_frame(FrameInput::from_mask(0x80));
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "{route_name}: loc_1AE2E latches Start on the title-card frame"
+        );
+
+        let mut live_trace = None;
+        for _ in 0..16 {
+            let next_trace = runtime.step_frame(FrameInput::default());
+            if next_trace.game_mode == GameMode::InGame {
+                live_trace = Some(next_trace);
+                break;
+            }
+        }
+        let trace =
+            live_trace.unwrap_or_else(|| panic!("{route_name} did not reach live gameplay"));
+        assert_eq!(trace.current_level, LevelId(0x00), "{route_name}");
+        assert_eq!(
+            trace.number_lives, starting_lives,
+            "{route_name}: repeated previous hotkeys should not kill Kid during handoff"
+        );
+        assert_eq!(
+            (
+                session_assets.level_visuals.level.foreground_theme_id,
+                session_assets.level_visuals.level.background_theme_id,
+            ),
+            (0x09, 0x09),
+            "{route_name}: live Blue Lake Woods should use forest/tree visuals, not the stale cave theme"
+        );
+    }
+
+    #[test]
     fn debug_hotkey_level_skip_suppresses_debug_card_without_generated_title_card() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         let mut target = fixture.manifest.levels[0].clone();
