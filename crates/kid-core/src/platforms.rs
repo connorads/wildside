@@ -564,6 +564,94 @@ impl PlatformSlotPoolLoc231C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlatformLoaderSlotRecordLoc2728 {
+    pub(crate) slot_addr: u16,
+    pub(crate) layout_offset_words: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PlatformLoaderSlotModelLoc2744 {
+    pool: PlatformSlotPoolLoc231C,
+    offset_words: u16,
+    slot_layout_offsets: [Option<u16>; PLATFORM_SLOT_CAPACITY_LOC_231C],
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+impl PlatformLoaderSlotModelLoc2744 {
+    pub(crate) fn initialize_sub_231C() -> Self {
+        Self {
+            pool: PlatformSlotPoolLoc231C::initialize_sub_231C(),
+            offset_words: 0,
+            slot_layout_offsets: [None; PLATFORM_SLOT_CAPACITY_LOC_231C],
+        }
+    }
+
+    pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
+        let cursor =
+            platform_loader_cursor_step_loc_2744(layout.placements.len(), self.offset_words);
+        self.offset_words = cursor.next_offset_words;
+        let Some(placement_index) = cursor.current_index else {
+            return;
+        };
+        let Some(placement) = layout.placements.get(placement_index) else {
+            return;
+        };
+
+        let layout_offset_words = cursor.current_offset_words;
+        let existing_slot_addr = self.find_slot_by_layout_offset_sub_2728(layout_offset_words);
+        if platform_is_active(placement, window) {
+            if existing_slot_addr.is_none() {
+                if let AllocatePlatformSlotResultSub238E::Allocated(allocation) =
+                    self.pool.allocate_sub_238E()
+                {
+                    if let Some(slot_index) =
+                        PlatformSlotPoolLoc231C::slot_index_loc_231C(allocation.allocated_slot_addr)
+                    {
+                        // ASM Manage_PlatformLoading/loc_282E (kid.asm:4754):
+                        // stamp the current 12-byte layout offset into
+                        // `$20(a3)` immediately after Allocate_PlatformSlot.
+                        self.slot_layout_offsets[slot_index] = Some(layout_offset_words);
+                    }
+                }
+            }
+        } else if let Some(slot_addr) = existing_slot_addr {
+            if platform_placement_is_special_loc_2836(placement) {
+                return;
+            }
+            if self.pool.deallocate_sub_23B4(slot_addr)
+                == DeallocatePlatformSlotResultSub23B4::Deallocated
+            {
+                if let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
+                    self.slot_layout_offsets[slot_index] = None;
+                }
+            }
+        }
+    }
+
+    pub(crate) fn active_slot_records_loc_2728(&self) -> Vec<PlatformLoaderSlotRecordLoc2728> {
+        self.pool
+            .active_slot_addrs_sub_23B4()
+            .into_iter()
+            .filter_map(|slot_addr| {
+                let slot_index = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr)?;
+                Some(PlatformLoaderSlotRecordLoc2728 {
+                    slot_addr,
+                    layout_offset_words: self.slot_layout_offsets[slot_index]?,
+                })
+            })
+            .collect()
+    }
+
+    fn find_slot_by_layout_offset_sub_2728(&self, layout_offset_words: u16) -> Option<u16> {
+        self.active_slot_records_loc_2728()
+            .into_iter()
+            .find(|record| record.layout_offset_words == layout_offset_words)
+            .map(|record| record.slot_addr)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {
     pub(crate) allocated_slot_addr: u16,
     pub(crate) next_free_platform_slot_addr: u16,
