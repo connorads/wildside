@@ -999,6 +999,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     let mut touched_left_side = false;
     let mut touched_right_side = false;
     let mut touched_bottom_face = false;
+    let mut standing_platform_after_scan = None;
     let mut scan_restarts = 0usize;
     loop {
         let player_x_px = (slice.player.x_pos >> 16) as i32;
@@ -1099,7 +1100,12 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                         slice.player.on_ground = true;
                         slice.player.y_velocity = landing.kid_y_velocity_fp;
                         slice.terrain.floor_y_pos = new_y_px << 16;
-                        return PlatformCollisionOutcome::StandingOn(platform_index);
+                        // ASM loc_26D4 branches back to loc_2590 after storing
+                        // Addr_PlatformStandingOn; later same-frame contacts
+                        // can still combine with FAA5 and crush at loc_271A.
+                        standing_platform_after_scan = Some(platform_index);
+                        restart_scan = true;
+                        break;
                     }
 
                     slice.player.y_pos = (new_y_px << 16) | (slice.player.y_pos & 0x0000_FFFF);
@@ -1164,6 +1170,9 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
         if scan_restarts > platforms.len() {
             break;
         }
+    }
+    if let Some(platform_index) = standing_platform_after_scan {
+        return PlatformCollisionOutcome::StandingOn(platform_index);
     }
     PlatformCollisionOutcome::None
 }

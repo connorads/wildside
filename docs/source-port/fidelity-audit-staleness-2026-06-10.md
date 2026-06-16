@@ -222,7 +222,7 @@ Still-open gaps (remain authoritative in the original doc):
 
 - Slot pool — free-list replaced by monotonic `next_index`; no runtime allocation model
 - Sprite emission/tiling dead; live renderer draws one fixed frame (no width/height tiling)
-- `Platforms_CheckCollision` — top-landing `$4000` carry bias and `y_vel`/`Addr_PlatformStandingOn` writes (loc_26D4/26FE) bypassed
+- `Platforms_CheckCollision` — `Addr_PlatformStandingOn` remains a native vector index, not a ROM slot address; `loc_26D4`/`loc_26FE` carry and same-frame restart/crush legs are now partially live
 - `Platforms_CheckCollision` — FAA2–FAA5 contact flags, FA96 jump-platform ref, and `loc_271A` crush escalation never set
 - TrapPlatformDown — entire coroutine unwired; 40 level instances become inert platforms
 - TrapPlatformUp — entire coroutine unwired; 42 level instances become inert platforms

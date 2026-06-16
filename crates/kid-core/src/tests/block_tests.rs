@@ -13669,6 +13669,21 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_collision_top_support_restarts_scan_for_bottom_crush_loc_26d4_271a() {
+        let lower_support = make_test_platform(40, 100, 2, 0);
+        let upper_crush = make_test_platform(40, 53, 2, 0);
+        let mut slice = make_airborne_slice(63, 100);
+
+        let outcome = apply_platform_collision(&mut slice, &[lower_support, upper_crush]);
+
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::CrushDeath,
+            "ASM loc_26D4 sets `$FFFFFAA4` and restarts at loc_2590; the later non-jump loc_26FE underside hit must still reach loc_271A in the same Platforms_CheckCollision call",
+        );
+    }
+
+    #[test]
     fn platform_support_check_sub_8ed0_reports_unsupported_without_a_platform() {
         assert!(
             platform_support_check_sub_8ED0(None, 50u32 << 16, 7, PlayerForm::RedStealth, false),
