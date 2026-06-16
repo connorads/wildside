@@ -24640,6 +24640,42 @@ mod chunk_05 {
     }
 
     #[test]
+    fn init_lava_geysers_seeds_live_palette_buffer_from_pal_7b8ac() {
+        let output_root = std::env::temp_dir().join(format!(
+            "kid-core-lava-geyser-palette-{}",
+            std::process::id()
+        ));
+        let palette_dir = output_root.join("ingame/palette");
+        std::fs::create_dir_all(&palette_dir).expect("create lava palette fixture dir");
+        let palette_words = [
+            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+        ];
+        let palette_bytes: Vec<u8> = palette_words
+            .iter()
+            .flat_map(|word: &u16| word.to_be_bytes())
+            .collect();
+        std::fs::write(palette_dir.join("lava.bin"), &palette_bytes)
+            .expect("write lava palette fixture");
+
+        let mut assets = manifest();
+        assets.output_root = output_root;
+        assets.ingame_assets = vec![kid_data::AssetFile {
+            relative_path: String::from("palette/lava.bin"),
+            size_bytes: palette_bytes.len() as u64,
+            sha1: String::from("fixture-lava"),
+        }];
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.init_lava_geysers(LevelId(0));
+
+        assert_eq!(
+            &runtime.palette_buffer[0x10..0x18],
+            &palette_words,
+            "ASM Init_SpecialEffect_Lava loc_14C6A copies Pal_7B8AC into Palette_Buffer+$20 before Animation_Geyser loc_14B2A rotates the tail words"
+        );
+    }
+
+    #[test]
     fn loc_1478e_only_plays_the_repeat_lava_geyser_sound_when_the_flag_is_clear() {
         assert_eq!(
             crate::weather::lava_geyser_repeat_sound_loc_1478E(false),

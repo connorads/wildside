@@ -15,6 +15,16 @@ pub(crate) fn copy_murder_wall_palette_loc_140EE(
     palette_buffer[0x10..0x18].copy_from_slice(source_palette);
 }
 
+#[allow(non_snake_case)]
+pub(crate) fn copy_lava_geyser_palette_loc_14C86(
+    source_palette: &[u16; 8],
+    palette_buffer: &mut [u16; 0x40],
+) {
+    // ASM Init_SpecialEffect_Lava loc_14C6A tail (kid.asm:28323): load
+    // `Pal_7B8AC`, `lea Palette_Buffer+$20`, then copy four longwords.
+    palette_buffer[0x10..0x18].copy_from_slice(source_palette);
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MurderWallWarningInputSub5E02 {
     pub murder_wall_enabled: bool,
@@ -2501,6 +2511,28 @@ impl NativeRuntime {
         }
     }
 
+    fn ingame_palette_words<const N: usize>(&self, relative_path: &str) -> Option<[u16; N]> {
+        if !self
+            .assets
+            .ingame_assets
+            .iter()
+            .any(|asset| asset.relative_path == relative_path)
+        {
+            return None;
+        }
+        let loaded = kid_data::load_ingame_asset(&self.assets, relative_path).ok()?;
+        if loaded.bytes.len() < N * 2 {
+            return None;
+        }
+
+        let mut words = [0; N];
+        for (index, word) in words.iter_mut().enumerate() {
+            let offset = index * 2;
+            *word = u16::from_be_bytes([loaded.bytes[offset], loaded.bytes[offset + 1]]);
+        }
+        Some(words)
+    }
+
     /// Initialise lava geyser positions for lava weather levels.
     /// Uses hardcoded per-level position tables matching the original ASM data.
     pub(crate) fn init_lava_geysers(&mut self, level_id: LevelId) {
@@ -2535,6 +2567,9 @@ impl NativeRuntime {
                 timer: geyser.startup_delay_frames,
                 current_height: 0,
             });
+        }
+        if let Some(palette) = self.ingame_palette_words::<8>("palette/lava.bin") {
+            copy_lava_geyser_palette_loc_14C86(&palette, &mut self.palette_buffer);
         }
         self.lava_geyser_palette_delay_loc_14b2a = 5;
     }
