@@ -808,6 +808,14 @@ impl PlatformLoaderState {
         if platform_buffer_edge_px_loc_2762(placement.buffer_left) <= window.x_max {
             self.next_index = self.next_index.max(placement_index + 1);
         }
+        if placement_index < u64::BITS as usize {
+            let record_bit = 1u64 << placement_index;
+            if platform_is_active(placement, window) {
+                self.loaded_mask |= record_bit;
+            } else {
+                self.loaded_mask &= !record_bit;
+            }
+        }
     }
 
     pub(crate) fn active_platforms(
@@ -820,6 +828,10 @@ impl PlatformLoaderState {
             .iter()
             .enumerate()
             .take(self.next_index)
+            .filter(|(placement_index, _)| {
+                *placement_index < u64::BITS as usize
+                    && (self.loaded_mask & (1u64 << placement_index)) != 0
+            })
             .filter(|(_, placement)| platform_is_active(placement, window))
             .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
             .map(|(placement_index, placement)| {

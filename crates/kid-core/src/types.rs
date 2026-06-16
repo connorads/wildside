@@ -3126,6 +3126,9 @@ pub(crate) struct MurderWallState {
 pub(crate) struct PlatformLoaderState {
     pub(crate) next_index: usize,
     pub(crate) offset_words: u16,
+    /// Bitset of layout records that have actually passed `loc_2762` and
+    /// allocated. Retail generated platform layouts currently top out at 41.
+    pub(crate) loaded_mask: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

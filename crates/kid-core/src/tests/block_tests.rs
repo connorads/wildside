@@ -14771,6 +14771,55 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_does_not_materialise_y_rejected_high_water_record_loc_2762() {
+        let x_seen_y_rejected = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 640,
+            y_max: 640,
+        };
+        let now_in_range_before_cursor_wraps = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement],
+        };
+        let mut state = PlatformLoaderState::default();
+
+        state.advance_to_window(&layout, x_seen_y_rejected);
+
+        assert_eq!(
+            state.next_index, 1,
+            "native may still record the high-water cursor for debug/back-compat, but ASM loc_2762 did not allocate this Y-rejected platform",
+        );
+        assert!(
+            state
+                .active_platforms(&layout, now_in_range_before_cursor_wraps)
+                .is_empty(),
+            "ASM Manage_PlatformLoading only allocates the current 12-byte record when all loc_2762 range checks pass; high-water reach alone must not create a platform",
+        );
+    }
+
+    #[test]
     fn platform_is_active_requires_both_x_and_y_in_window() {
         // Mutant: line 67, replace && with ||
         // A platform outside x range but inside y range must NOT be active.
@@ -14889,6 +14938,7 @@ mod chunk_04 {
         let state = PlatformLoaderState {
             next_index: layout.placements.len(),
             offset_words: 0,
+            loaded_mask: (1u64 << 18) - 1,
         };
 
         let active = state.active_platforms(&layout, window);
@@ -14930,6 +14980,7 @@ mod chunk_04 {
         let state = PlatformLoaderState {
             next_index: 2,
             offset_words: 0,
+            loaded_mask: 0b11,
         };
 
         let active = state.active_platforms(&layout, window);
@@ -15041,6 +15092,7 @@ mod chunk_04 {
         let state = PlatformLoaderState {
             next_index: layout.placements.len(),
             offset_words: 0,
+            loaded_mask: 0b10,
         };
 
         let active = state.active_platforms(&layout, window);

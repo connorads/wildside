@@ -338,6 +338,7 @@ mod tests {
         slice.objects.platform_loader = PlatformLoaderState {
             next_index: 2,
             offset_words: 0x0018,
+            loaded_mask: 0b11,
         };
         runtime.opening_slice = Some(slice);
 
