@@ -22823,15 +22823,12 @@ const DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E: u16 = u16::MAX - 3;
 pub(crate) const DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424: u16 =
     0x0A + 0x0A + 0x08 + 0x06 + 0x01 - 4;
 const DRIPS_PRE_DROP_ANIMATION_FLAG_LOC_33424: u16 = 0x8000;
-/// ASM Drips.asm loc_33488 initialises `stru_33332` (`anim_frame 1,1` — a
-/// single one-frame entry) and hibernates until it finishes before `off_33520`
-/// advances. Oracle issue-260 floor probe: the last loc_3345C fall frame is
-/// 181, frame 182 hibernates in the splash animation (`code=0x001066`), and
-/// frame 183 is already back in the loc_33424 countdown with a fresh d0 — the
-/// splash occupies exactly one frame. The previous `0x58` value was circular:
-/// it modelled the oracle's *next dormant countdown* (`d0=$56` at frame 250)
-/// as splash duration.
-pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 1;
+/// ASM Drips.asm loc_33488 initialises `stru_33332` and hibernates until the
+/// linked splash child finishes before `off_33520` advances. Oracle issue-260
+/// frame 305 native splash entry stays dormant until frame 340 like the ROM,
+/// so native holds this coroutine across
+/// the linked child animation before advancing the table cursor.
+pub(crate) const DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488: u16 = 39;
 const DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488: u16 = 0x4000;
 
 fn drips_pre_drop_animation_timer_loc_33424(frames_remaining: u16) -> u16 {
@@ -22891,18 +22888,9 @@ pub(crate) fn drips_ceiling_gate_loc_333_f6(
 }
 
 pub(crate) fn drips_wait_timer_with_rng_loc_3340e(rng: &mut RomRandomState, kid_x_pos: u32) -> u16 {
-    let kid_gfx_x_pos = drips_kid_gfx_x_pos_loc_3340e(kid_x_pos);
-    let x_pos_bytes = kid_gfx_x_pos.to_be_bytes();
+    let x_pos_bytes = kid_x_pos.to_be_bytes();
     let kid_x_word = u16::from_be_bytes([x_pos_bytes[0], x_pos_bytes[1]]);
     drips_wait_timer_loc_3340e(rng.next_byte(), kid_x_word)
-}
-
-pub(crate) fn drips_kid_gfx_x_pos_loc_3340e(player_x_pos: u32) -> u32 {
-    // ASM Drips.asm loc_3340E reads `x_pos(a4)` after loading
-    // `(Addr_GfxObject_Kid).w`, not the Kid physics object. Oracle #260 shows
-    // the Level 01 right Drips initial seed using the visible Kid gfx slot
-    // 16px ahead of the frame-local physics X on the startup run frame.
-    player_x_pos.wrapping_add(0x0010_0000)
 }
 
 pub(crate) fn drips_wait_timer_loc_3340e(random_byte: u8, kid_x_word: u16) -> u16 {
@@ -34192,8 +34180,8 @@ mod tests {
         let mut rng = RomRandomState::default();
         assert_eq!(
             drips_wait_timer_with_rng_loc_3340e(&mut rng, 0x0123_0000),
-            0x0003,
-            "ASM Drips.asm loc_3340E mixes the first ROM RNG byte `$C0` with Addr_GfxObject_Kid's integer X low byte `$33`, not the Kid frame-local physics X `$23`"
+            0x0013,
+            "ASM Drips.asm loc_3340E mixes the first ROM RNG byte `$C0` with Addr_GfxObject_Kid's integer X low byte `$23`; callers must pass the ROM-visible Kid gfx-object coordinate"
         );
         assert_eq!(
             drips_wait_timer_loc_3340e(0xD5, 0x0168),
@@ -34298,7 +34286,7 @@ mod tests {
             assert_eq!(
                 drips_splash_animation_remaining_loc_33488(enemy.wait_timer),
                 Some(expected_remaining),
-                "ASM Drips.asm loc_33488 hibernates through the one-frame stru_33332 splash before off_33520; issue-260 oracle frames 181..183 show fall end, one splash hibernate frame, then the fresh loc_33424 countdown"
+                "ASM Drips.asm loc_33488 hibernates through stru_33332 before off_33520; issue-260 oracle frames 305..340 show the splash child finishing before the table entry advances"
             );
             assert!(
                 projectiles.is_empty(),

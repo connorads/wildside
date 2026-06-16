@@ -4583,6 +4583,45 @@ mod tests {
         // fields sampled by the oracle helper.
         assert_eq!(trace.kid_x_velocity, Some(0x0002_0000));
         assert_eq!(trace.kid_y_velocity, Some(0));
+        assert_eq!(
+            trace.character_movement,
+            Some(2),
+            "ASM Death loc_B80C leaves the preserved Kid object x_vel visible to the oracle movement classifier",
+        );
+    }
+
+    #[test]
+    fn death_tumble_trace_exports_preserved_airborne_movement_loc_b80c() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.player_lifecycle = PlayerLifecycle::DeathWindup {
+            remaining_frames: PLAYER_DEATH_WINDUP_FRAMES - 1,
+        };
+        runtime.death_windup_path = DeathWindupPath::Tumble;
+        runtime.death_preserved_object_velocity = Some((0, -0x0004_0000));
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player = player_at_x(0x0123);
+        slice.player.y_velocity = -0x0004_0000;
+        runtime.opening_slice = Some(slice);
+        runtime.death_shell_snapshot = Some(LevelSkipTransitionState {
+            elapsed_frames: 0,
+            frozen_player: slice.player,
+            frozen_camera: slice.camera,
+            frozen_active_objects: Vec::new(),
+            frozen_number_objects: 0,
+            frozen_number_gfx_objects: 0,
+        });
+
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.character_movement,
+            Some(3),
+            "ASM Death loc_B80C keeps tumble-local d1 separate from the Kid object y_vel; issue-260 frame 666 still reports MoveID_Jump",
+        );
     }
 
     #[test]
@@ -5872,6 +5911,21 @@ impl NativeRuntime {
                 // but the oracle helper still sees the pre-death object
                 // x_vel, so the movement classifier remains walking.
                 return MOVE_WALKING;
+            }
+            if matches!(
+                self.player_lifecycle,
+                PlayerLifecycle::DeathWindup { .. } | PlayerLifecycle::Dying { .. }
+            ) && self.death_windup_path == DeathWindupPath::Tumble
+                && self
+                    .death_preserved_object_velocity
+                    .is_some_and(|(_, y_velocity)| y_velocity != 0)
+            {
+                // ASM Death loc_B80C likewise keeps the tumble locals out of
+                // the Kid object y_vel sampled by the oracle helper. When
+                // issue-260 enters Death from an airborne Tank-mouth contact,
+                // WRAM Character_Movement still reports MoveID_Jump on that
+                // first damage frame.
+                return MOVE_JUMP;
             }
             return MOVE_STANDINGSTILL;
         }

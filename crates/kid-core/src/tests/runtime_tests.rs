@@ -13153,22 +13153,24 @@ mod chunk_09 {
         assert_eq!(drips.drips_pending_splash_x_pos, 0x0020_0000);
         assert_eq!(drips.drips_pending_splash_y_pos, 0x0030_0000);
 
-        // Oracle issue-260 floor probe: the stru_33332 splash hibernates for a
-        // single frame (oracle frame 182), and the very next object pass is
-        // already back in the loc_33424 countdown with a fresh d0 (frame 183).
+        // Oracle issue-260 loc_33488 trace: the ROM remains in
+        // Hibernate_UntilAnimFinished for frames 305..339 before the second
+        // off_33520 entry resumes at loc_33460 on frame 340.
         let mut drilled_blocks = Vec::new();
-        step_active_enemies(
-            &mut rt.active_enemies,
-            rt.block_grid.as_ref(),
-            None,
-            None,
-            None,
-            None,
-            PlayerForm::TheKid,
-            Some(&mut rt.projectiles),
-            &mut drilled_blocks,
-        );
-        rt.step_projectiles();
+        for _ in 0..DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488 {
+            step_active_enemies(
+                &mut rt.active_enemies,
+                rt.block_grid.as_ref(),
+                None,
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                Some(&mut rt.projectiles),
+                &mut drilled_blocks,
+            );
+            rt.step_projectiles();
+        }
 
         let drips = rt
             .active_enemies
@@ -13274,7 +13276,7 @@ mod chunk_09 {
     }
 
     #[test]
-    fn drips_sentinel_splash_reseeds_parent_before_new_crawler_rng_loc_33488() {
+    fn drips_sentinel_splash_runs_crawler_rng_before_parent_reseed_loc_33488() {
         let mut rt = NativeRuntime::new(manifest());
         let mut drips = test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1);
         drips.drips_attached = true;
@@ -13292,16 +13294,43 @@ mod chunk_09 {
             .find(|enemy| enemy.family == EnemyFamily::Drips)
             .expect("Drips parent remains active after sentinel splash");
         assert_eq!(
-            drips.wait_timer, 0x0030,
-            "ASM Drips.asm loc_33488 queues loc_335D8, then the parent returns to loc_3340E \
-            and consumes the first RNG byte `$C0` for d0 before the child object's loc_335D8 \
-            random branch runs"
+            drips.wait_timer, 0x0024,
+            "ASM Drips.asm loc_33488 queues loc_335D8 before the parent returns to loc_3340E; \
+            oracle issue-260 frame 639 already has the child's random direction branch applied, \
+            so the parent reseed consumes the following RNG byte"
         );
         assert!(
             rt.projectiles
                 .iter()
                 .any(|projectile| projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler),
             "ASM Drips.asm loc_33488 still allocates the loc_335D8 crawler on the negative off_33520 sentinel"
+        );
+    }
+
+    #[test]
+    fn drips_ready_splash_reseeds_from_kid_gfx_x_loc_3340e_issue_260() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 0x0040_0000;
+        rt.opening_slice = Some(slice);
+        let mut drips = test_enemy(EnemyFamily::Drips, 0x0020_0000, 0x0020_0000, 1);
+        drips.drips_attached = true;
+        drips.wait_timer = drips_splash_animation_timer_loc_33488(0);
+        drips.drips_surface_table_index = 2;
+        drips.drips_pending_splash_x_pos = 0x0020_0000;
+        drips.drips_pending_splash_y_pos = 0x002A_0000;
+        rt.active_enemies.push(drips);
+
+        rt.step_projectiles();
+
+        let drips = rt
+            .active_enemies
+            .iter()
+            .find(|enemy| enemy.family == EnemyFamily::Drips)
+            .expect("Drips parent remains active after sentinel splash");
+        assert_eq!(
+            drips.wait_timer, 0x0064,
+            "ASM Drips.asm loc_3350E returns to loc_3340E after the splash; loc_3340E reads Addr_GfxObject_Kid x_pos directly, so issue-260 post-splash reseeds must not add a Drips-local 16px offset"
         );
     }
 

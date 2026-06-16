@@ -288,6 +288,10 @@ pub struct NativeRuntime {
     /// ASM Mode_Level writes Kid/object collision words near the end of the
     /// frame; Character_CheckCollision consumes them on the next object pass.
     pending_player_contact_damage: Option<PendingPlayerContactDamage>,
+    /// Collision words emitted from object execution after this frame's
+    /// Character_CheckCollision point. Promoted to
+    /// `pending_player_contact_damage` once that consume point has passed.
+    delayed_player_contact_damage: Option<PendingPlayerContactDamage>,
     /// Landing DragonWalking grazes already spent one frame in the fresh
     /// falling-to-ground hand-off, so the following grounded frame consumes
     /// them without adding the normal pending-contact delay.
@@ -1511,6 +1515,7 @@ impl NativeRuntime {
             kid_touched_enemy_this_frame_loc_fa75: false,
             pending_stomp_bounce: None,
             pending_player_contact_damage: None,
+            delayed_player_contact_damage: None,
             pending_grounded_dragon_landing_graze: None,
             pending_enemy_collisions: Vec::new(),
             rom_random: RomRandomState::default(),

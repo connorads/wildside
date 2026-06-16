@@ -821,6 +821,12 @@ and stop — never commit churn.
   not sensitive to simple pre-431 input replacement; next useful work needs a
   different bootstrap/Drips cycle or new live recording, not more pre-300/pre-330
   trims on `issue260-gr-pulse600`.
+  2026-06-16 engine-parity follow-up: after aligning Drips splash hibernate,
+  `loc_3340E` Kid-gfx-x reseed timing, Drips crawler RNG order, RockTank
+  mouth-child contact damage, and death-tumble movement trace, the materialised
+  `issue-260-gr-pulse600-current` route verifies enemy-frontier clean from
+  frames `1..700`. It is still only an oracle-clean near-miss: keep #260 open
+  until a route proves the reported live slime/metal-block mutation.
   2026-06-15 follow-up on `.cache/recordings/issue-260-pre390-survivor-current/scenario.json`
   rejects the earlier B-window route-shape axis too. Broad `260..360` input
   replacements showed `pre260_b` can put Kid's healthy hitbox within 1 px of

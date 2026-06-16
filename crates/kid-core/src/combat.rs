@@ -8192,6 +8192,26 @@ impl NativeRuntime {
                         // ASM Tank.asm loc_3B464/loc_3B49A reads damage words
                         // from the linked mouth child, decrements `$44(a3)`,
                         // and clears parent motion on a nonfatal hit.
+                        if matches!(collision.target, PendingEnemyCollisionTarget::ChildAttachment)
+                            && matches!(collision.collision_type, 0x001C | 0x002C)
+                            && let Some(slice) = self.opening_slice
+                            && let Some(child) = enemy.child_attachment_snapshot()
+                            && player_latches_enemy_collision_with_half_width_loc_1cf2(
+                                slice.player,
+                                &child,
+                                self.progression.current_form.half_width() as i64,
+                            )
+                        {
+                            // ASM Tank.asm loc_3B49A hibernates for five
+                            // frames before loc_3B4BA clears the mouth child
+                            // `$38(a2)` collision word. Preserve that latched
+                            // child hit for Kid's next Check_for_recent_damge
+                            // pass; issue-260 frame 666 spends HP this way.
+                            self.delayed_player_contact_damage = Some(PendingPlayerContactDamage {
+                                enemy_x: child.x_pos,
+                                enemy_family: enemy.family,
+                            });
+                        }
                         enemy.hit_points = remaining_hp as u8;
                         enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES + 1;
                         if matches!(enemy.family, EnemyFamily::Tank) {
@@ -12554,6 +12574,9 @@ impl NativeRuntime {
             self.opening_slice = Some(*slice);
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::ContactDamage;
             return true;
+        }
+        if self.pending_player_contact_damage.is_none() {
+            self.pending_player_contact_damage = self.delayed_player_contact_damage.take();
         }
 
         let grounded_dragon_landing_graze = self.pending_grounded_dragon_landing_graze.take();

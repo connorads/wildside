@@ -12870,6 +12870,60 @@ mod chunk_03 {
     }
 
     #[test]
+    fn tank_child_stomp_hit_latches_contact_damage_through_loc_3b49a_hibernate() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut tank = test_enemy(EnemyFamily::Tank, 0x026D_0000, 0x0250_0000, 2);
+        tank.layout_index = 9;
+        tank.facing = Direction::Left;
+        runtime.active_enemies = vec![tank];
+        runtime.rebuild_active_enemy_roster();
+
+        let mut slice = runtime.opening_slice.unwrap();
+        let mouth = runtime.active_enemies[0]
+            .child_attachment_snapshot()
+            .expect("ASM Tank.asm loc_3B372 allocates the mouth child before collision routing");
+        slice.player.x_pos = mouth.x_pos;
+        slice.player.y_pos = mouth.y_pos;
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0xFFFC_8000u32 as i32;
+        assert!(
+            !matches!(
+                classify_enemy_contact_with_half_width(
+                    slice.player,
+                    &mouth,
+                    slice.player.y_velocity,
+                    slice.player.y_pos,
+                    runtime.progression.current_form.half_width() as i64,
+                ),
+                EnemyContactResult::None
+            ),
+            "test setup must keep Kid touching the Tank mouth child",
+        );
+        runtime.opening_slice = Some(slice);
+
+        runtime.queue_pending_enemy_collision_target(
+            &tank,
+            DRAGON_COLID_KIDABOVE,
+            PendingEnemyCollisionTarget::ChildAttachment,
+        );
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Tank.asm loc_3B464 consumes the mouth-child `$38=$2C` hit on the parent pass",
+        );
+        assert!(
+            runtime.delayed_player_contact_damage.is_some(),
+            "ASM Tank.asm loc_3B49A hibernates before loc_3B4BA clears mouth-child `$38`; issue-260 frame 665 must still hand `$2C` to Kid's next Check_for_recent_damge pass",
+        );
+        assert!(
+            runtime.pending_player_contact_damage.is_none(),
+            "the loc_3B49A hand-off is after this frame's Character_CheckCollision consume point",
+        );
+    }
+
+    #[test]
     fn tank_shooting_death_waits_for_stru_3b518_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tank = test_enemy(EnemyFamily::TankShooting, 0x0080_0000, 0x0040_0000, 1);

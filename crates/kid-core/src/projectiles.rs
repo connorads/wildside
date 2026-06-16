@@ -2234,11 +2234,10 @@ impl NativeRuntime {
             };
             // ASM Drips.asm loc_33488 allocates the loc_335D8 child object,
             // then the parent continues through loc_3350E back to loc_3340E.
-            // The newly allocated child does not run its own loc_335D8 random
-            // branch until a later object pass, so the parent's wait reseed
-            // consumes the next RNG byte first.
+            // The oracle issue-260 frame-639 trace already has loc_335D8's
+            // random direction branch applied to the new child, so the child
+            // consumes the next RNG byte before the parent wait reseed.
             let rng_before = self.rom_random.offset_word();
-            let reseed_random_byte = self.rom_random.next_byte();
             let crawler_random_byte = if spawn_crawler_on_splash
                 && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
             {
@@ -2246,6 +2245,7 @@ impl NativeRuntime {
             } else {
                 None
             };
+            let reseed_random_byte = self.rom_random.next_byte();
             let rng_after = self.rom_random.offset_word();
             if spawn_crawler_on_splash
                 && *drips_surface_crawler_count < DRIPS_SURFACE_CRAWLER_LIMIT_LOC_33488
