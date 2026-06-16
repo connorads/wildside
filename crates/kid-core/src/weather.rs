@@ -938,6 +938,27 @@ pub(crate) fn apply_weather_worker_output_to_state_sub_61ca(
     weather.storm_impact_slots_sub_61ca = output.impact_slots;
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn hail_projectiles_from_falling_slots_sub_61ca(
+    falling_slots: &[FallingWeatherSlotSub61CA; FALLING_WEATHER_SLOT_COUNT_SUB_61CA],
+) -> Vec<EnemyProjectile> {
+    // ASM sub_61CA loc_61E2/loc_6462 (kid.asm:6199,6447): falling weather slots
+    // are the live hail particles. Native projects them into the existing hail
+    // projectile/render path until weather sprites are rendered directly.
+    falling_slots
+        .iter()
+        .filter(|slot| slot.is_active())
+        .map(|slot| EnemyProjectile {
+            x_pos: u32::from(slot.x_px as u16) << 16,
+            y_pos: u32::from(slot.y_px as u16) << 16,
+            x_velocity: -0x0001_0000,
+            y_velocity: 0x0004_0000,
+            kind: EnemyProjectileKind::Hail,
+            ..Default::default()
+        })
+        .collect()
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 #[allow(clippy::needless_pass_by_value, reason = "test callers pass by value")]

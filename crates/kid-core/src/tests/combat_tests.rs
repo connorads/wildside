@@ -21957,6 +21957,63 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn hail_projectiles_from_falling_slots_sub_61ca_filters_inactive_slots() {
+        let projectiles = crate::weather::hail_projectiles_from_falling_slots_sub_61ca(&[
+            FallingWeatherSlotSub61CA {
+                y_px: 0x0040,
+                x_px: 0x0120,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            },
+            FallingWeatherSlotSub61CA::default(),
+            FallingWeatherSlotSub61CA {
+                y_px: 0x0050,
+                x_px: 0x0130,
+                animation_cooldown: 3,
+                animation_frame: 2,
+            },
+            FallingWeatherSlotSub61CA {
+                y_px: -1,
+                x_px: 0x0140,
+                animation_cooldown: 1,
+                animation_frame: 1,
+            },
+            FallingWeatherSlotSub61CA::default(),
+        ]);
+
+        assert_eq!(
+            projectiles.len(),
+            2,
+            "ASM loc_61E2 skips falling-weather slots whose Y word is negative"
+        );
+        assert_eq!(
+            (projectiles[0].x_pos, projectiles[0].y_pos),
+            (0x0120_0000, 0x0040_0000),
+            "ASM loc_6462 renders falling slot 0 from its live X/Y words"
+        );
+        assert_eq!(
+            (projectiles[1].x_pos, projectiles[1].y_pos),
+            (0x0130_0000, 0x0050_0000),
+            "ASM loc_6462 renders falling slot 2 from its live X/Y words"
+        );
+        for projectile in projectiles {
+            assert_eq!(
+                projectile.kind,
+                EnemyProjectileKind::Hail,
+                "ASM sub_61CA falling slots should remain hail particles in the legacy render path"
+            );
+            assert_eq!(
+                projectile.x_velocity, -0x0001_0000,
+                "ASM loc_61E2 drifts falling weather left by 1 px/frame"
+            );
+            assert_eq!(
+                projectile.y_velocity, 0x0004_0000,
+                "ASM loc_61E2 moves falling weather down by 4 px/frame"
+            );
+        }
+    }
+
     // --- loc_61E2 / loc_620C / loc_6212: per-slot falling weather update ---
 
     #[test]
