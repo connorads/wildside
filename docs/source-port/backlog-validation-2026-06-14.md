@@ -125,6 +125,7 @@ agent-closable instead of playtest-only.
 - **Oracle split:** native-internal (no boss route exists) — popped piece reappears next frame vs should stay gone.
 - **Test:** `live_heady_metal_composite_refresh_drops_popped_worker_slot_sub_37abc_loc_37778` red-first unit test (`combat_tests.rs`).
 - **Risk:** HeadyMetal family only; no boss frames in TAS so CRC impact nil.
+- **2026-06-16:** executed the load-time persistence subcase in `0062a30f`. Runtime now seeds the `$FFFFFB7A..$FFFFFBAA` table from `Enemy20_HeadyMetal_Init loc_39247`; `live_heady_metal_body_piece_workers_persist_after_init_loc_39247` guards against re-projecting `sub_37ABC` pieces from a moved tracking anchor. Full per-piece `sub_376EC` lifecycle remains open in `bosses-fidelity-audit.md`.
 
 ### #274 — Cyclone transform render (blocks-prizes) · actionable · ~2 commits · *loop already added the regression*
 - **ASM:** `kid.asm:8425` `loc_7CD0` Kid_Transform (`off_7EE2` transform-step table), `loc_7C96`/`loc_7CA6` frame-table walk; native selector `sprites.rs:675-741` `select_player_transform_frame`.
