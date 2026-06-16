@@ -812,6 +812,12 @@ impl PlatformLoaderState {
             let record_bit = 1u64 << placement_index;
             if platform_is_active(placement, window) {
                 self.loaded_mask |= record_bit;
+            } else if (self.loaded_mask & record_bit) != 0
+                && platform_placement_is_special_loc_2836(placement)
+            {
+                // ASM loc_2850: out-of-range special platforms stay linked
+                // and receive `st $12(a3)` instead of loc_286A deallocation.
+                self.loaded_mask |= record_bit;
             } else {
                 self.loaded_mask &= !record_bit;
             }
@@ -1000,6 +1006,13 @@ fn platform_is_nothing_sentinel(platform: &PlatformPlacement) -> bool {
         && platform.h_variant == 0
         && platform.v_variant == 0
         && platform.script.relative_offset.is_none()
+}
+
+fn platform_placement_is_special_loc_2836(platform: &PlatformPlacement) -> bool {
+    // ASM loc_2836: negative platform records branch to loc_2876 instead of
+    // storing a script pointer. The generated typed layouts encode the shipped
+    // special families as kind 8 plus raw script selector 0/4/8/12.
+    platform.kind == 8 && matches!(platform.script.raw.trim(), "0" | "4" | "8" | "12")
 }
 
 /// Check if the player should land on top of any active platform.
