@@ -148,14 +148,20 @@ and stop — never commit churn.
   ShooterBlock damage before a useful grounded jump signal, so do not patch
   movement from those timings.
 - **#277 recheck (2026-06-16)**: the repaired `left-x1746-y237-b96` fixture is
-  no longer clean in current native; `verify-tas --frame-start 0 --frame-end
-  180 --checkpoint-interval 1 --frontier-kind gameplay --bisect` first splits at
-  frame 166 after native-only ShooterBlock projectile damage at frame 165
-  (`kid_projectile_damage_probe=hit:ShooterBlock@0x05680000,0x01340000
-  dx=-13 dy=-9`). Oracle still has the shooter-object slot near Kid but no
-  damage, so this is a ShooterBlock object timing/contact divergence, not a
-  left-stair movement proof. Do not use this fixture to change slope/jump
-  physics; isolate shooter slot timing first if pursuing it.
+  still not a clean movement proof on current native. The native-only frame-165
+  ShooterBlock blocker is gone after `c80b9390` gated visible shooter bullets on
+  the ROM support-marker check, but `verify-tas --frame-start 0 --frame-end 180
+  --checkpoint-interval 1 --frontier-kind gameplay --bisect` now first splits at
+  frame 91: oracle takes damage (`just_received_damage=true`, HP 1) while native
+  stays healthy. Focused `tas-diff --frame-start 80 --frame-end 95
+  --frontier-kind gameplay --include-advisory --show-object-roster-on-match
+  --include-physics-trace` shows the extra oracle object
+  `0xffff0e88:code=0x00bc60` is the damage-flash thread (`loc_BC5C/loc_BC6E`),
+  not the cause. Oracle also has the live TankBullet worker
+  `0xffff1058:code=0x03b7be`, while native's nearest TankBullet remains
+  far below Kid (`dx=-92 dy=72` at frame 91); the immediate split is therefore a
+  Tank/contact/damage frontier, not evidence for slope/jump physics. Do not use
+  this fixture to change movement.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still
