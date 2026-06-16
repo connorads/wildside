@@ -806,7 +806,14 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 }
                 if let Some(ref aq) = audio_queue {
                     let queued_bytes = aq.size();
-                    if should_queue_audio_frame(queued_bytes, samples.len()) {
+                    let preserve_current_frame_sfx =
+                        !suppress_sfx_this_frame
+                            && trace_has_native_sound_command(&prev_trace, &trace);
+                    if should_queue_audio_frame(
+                        queued_bytes,
+                        samples.len(),
+                        preserve_current_frame_sfx,
+                    ) {
                         match aq.queue_audio(&samples) {
                             Ok(()) => {
                                 audio_diagnostics.record_queued_frame(samples.len(), queued_bytes);
@@ -1720,7 +1727,11 @@ fn native_audio_generation_plan(
     }
 }
 
-fn should_queue_audio_frame(queued_bytes: u32, generated_sample_count: usize) -> bool {
+fn should_queue_audio_frame(
+    queued_bytes: u32,
+    generated_sample_count: usize,
+    preserve_current_frame_sfx: bool,
+) -> bool {
     let queued_bytes = usize::try_from(queued_bytes).unwrap_or(usize::MAX);
     // SDL_GetQueuedAudioSize reports bytes, while `generate_samples` returns
     // interleaved f32 samples. Keep only a small live queue so gameplay SFX
@@ -1728,7 +1739,18 @@ fn should_queue_audio_frame(queued_bytes: u32, generated_sample_count: usize) ->
     // Two generated frames still cover SDL's 512-sample callback without the
     // three-frame SFX latency that made pickup/block sounds feel detached.
     let target_bytes = live_audio_queue_target_bytes(generated_sample_count);
-    queued_bytes < target_bytes
+    if queued_bytes < target_bytes {
+        return true;
+    }
+
+    // A one-frame SFX cue has already been applied to the generated audio by
+    // this point. If we drop this frame at the normal cap, the GEMS/fallback
+    // state advances but the cue never reaches SDL. Allow one burst frame for
+    // current-frame commands; keep larger backlogs capped so SFX do not drift
+    // further behind live gameplay.
+    preserve_current_frame_sfx
+        && queued_bytes
+            < target_bytes.saturating_add(generated_audio_sample_bytes(generated_sample_count))
 }
 
 fn should_resume_audio_queue_after_queue(
@@ -2375,6 +2397,10 @@ fn gems_event_audio_commands(
                 .map(NativeAudioTraceCommand::Sound),
         )
         .collect()
+}
+
+fn trace_has_native_sound_command(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> bool {
+    !gems_event_sound_commands(prev, curr).is_empty()
 }
 
 fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8> {
@@ -16135,6 +16161,7 @@ mod tests {
             should_queue_audio_frame(
                 u32::try_from(target_generated_frame_bytes - 1).expect("fits u32"),
                 generated_stereo_samples,
+                false,
             ),
             "SDL_GetQueuedAudioSize reports bytes; just under the live queue target should accept the next audio frame"
         );
@@ -16142,8 +16169,26 @@ mod tests {
             !should_queue_audio_frame(
                 u32::try_from(target_generated_frame_bytes).expect("fits u32"),
                 generated_stereo_samples,
+                false,
             ),
             "play-native should cap the SDL queue at the two-frame target so pickup and block SFX do not drift far behind the visual frame"
+        );
+        assert!(
+            should_queue_audio_frame(
+                u32::try_from(target_generated_frame_bytes).expect("fits u32"),
+                generated_stereo_samples,
+                true,
+            ),
+            "a current-frame SFX cue has already been mixed into this generated frame; dropping it at the normal cap consumes the GEMS command and makes stacked pickup/block sounds disappear"
+        );
+        assert!(
+            !should_queue_audio_frame(
+                u32::try_from(target_generated_frame_bytes + one_generated_frame_bytes)
+                    .expect("fits u32"),
+                generated_stereo_samples,
+                true,
+            ),
+            "the SFX preservation path may burst by one frame but must not rebuild the old multi-frame latency"
         );
 
         assert!(
