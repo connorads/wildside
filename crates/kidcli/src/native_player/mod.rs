@@ -1076,7 +1076,13 @@ fn apply_live_level_change_session_assets(
 ) {
     *session_assets = next_assets;
     runtime.set_level_entry_block_grid(session_assets.block_grid.clone());
-    if requested_level != resolved_level {
+    if trace.game_mode == GameMode::LevelTransition {
+        // ASM loc_D7F4/loc_74E0 re-enters loc_6E2/Load_TitleCard for the
+        // target Current_LevelID. Rebuild the VDP shell after the asset/grid
+        // swap so direct level changes do not render the previous level's
+        // title-card background with target-level assets.
+        *trace = runtime.enter_level_debug_title_card(resolved_level);
+    } else if requested_level != resolved_level {
         *trace = runtime.enter_level_debug_title_card(resolved_level);
     }
 }
@@ -12191,6 +12197,57 @@ mod tests {
                 "{route_name}: direct asset swap should preserve the active Load_TitleCard shell"
             );
         }
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn live_level_change_direct_generated_target_refreshes_title_card_vdp_shell_loc_6e2() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let route_name = "direct live level-change cave -> Blue Lake Woods";
+        let start_level = 0x06;
+        let target_level = 0x00;
+        let start_assets = load_native_session_assets(&manifest, start_level)
+            .unwrap_or_else(|_| panic!("{route_name} start assets"));
+        let target_assets = load_native_session_assets(&manifest, target_level)
+            .unwrap_or_else(|_| panic!("{route_name} target assets"));
+
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_debug_title_card(LevelId(start_level));
+        let stale_frame = render_vdp_frame_for_test(&runtime, &trace, &session_assets.level_visuals);
+        trace.current_level = LevelId(target_level);
+
+        apply_live_level_change_session_assets(
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(target_level),
+            LevelId(target_level),
+            target_assets,
+        );
+        let actual_frame =
+            render_vdp_frame_for_test(&runtime, &trace, &session_assets.level_visuals);
+
+        let mut expected_runtime = NativeRuntime::new(manifest);
+        let expected_trace = expected_runtime.enter_level_debug_title_card(LevelId(target_level));
+        let expected_frame = render_vdp_frame_for_test(
+            &expected_runtime,
+            &expected_trace,
+            &session_assets.level_visuals,
+        );
+
+        assert_eq!(
+            actual_frame, expected_frame,
+            "ASM loc_6E2/Load_TitleCard should rebuild the target title-card VDP shell on direct live level changes, not keep the previous cave shell",
+        );
+        assert_ne!(
+            actual_frame, stale_frame,
+            "{route_name} should not render the previous cave title-card frame after the target asset swap",
+        );
     }
 
     #[test]
