@@ -407,6 +407,14 @@ and stop — never commit churn.
   post-bounce recovery trims on `r490_br508`; the next useful axis must alter
   the Drips cycle or the pre-490 approach so the projectile/crawler itself
   reaches the row-32 block at contact time.
+  2026-06-16 broader pre-330 approach sweep on the same route materialised
+  `e220_l280_r330` (`220..279 Left`, `280..329 Right`) as
+  `.cache/debug/issue260-e220-l280-r330.json`: it remains enemy-frontier clean
+  for frames `500..525` and hits `cell 37,32` at `dx=0 dy=-1 @517`, but the
+  closest DripsDrop conjunction is still `dx=+8 dy=-11` from that cell while
+  Kid contacts it (`manhattan=20 @517`) and no `Destroy` occurs. Treat early
+  left/right pre-330 route shaping on this seed as exhausted unless it changes
+  the Drips child spawn/phase, not just Kid's climb timing.
   Follow-up pre-490 approach sweep over `430..489` windows did not improve the
   proof. The DripsDrop still reaches row-32 vicinity early (`dx=+8 dy=-3 @455`)
   while the DripsSurfaceCrawler remains far below the block line (`dy=-65`),
