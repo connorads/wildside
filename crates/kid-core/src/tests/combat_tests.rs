@@ -2349,6 +2349,42 @@ fn live_heady_metal_body_piece_workers_persist_after_init_loc_39247() {
 }
 
 #[test]
+fn live_heady_metal_sub_376ec_moves_body_piece_workers_with_tracker_delta() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0080_0000;
+    slice.player.y_pos = 0x0050_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::HeadyMetal,
+        0x0040_8000,
+        0x00A0_0000,
+        30,
+    )];
+    runtime.ensure_heady_metal_breakup_slots_loc_39247();
+
+    step_tracker(
+        &mut runtime.active_enemies[0],
+        Some(0x0080_0000),
+        Some(0x0050_0000),
+    );
+    runtime.move_heady_metal_body_piece_workers_sub_376ec();
+    let trace = runtime.trace_frame();
+
+    assert_eq!(
+        (
+            trace.heady_metal_body_pieces_sub_37abc[0].slot_offset,
+            trace.heady_metal_body_pieces_sub_37abc[0].x_pos,
+            trace.heady_metal_body_pieces_sub_37abc[0].y_pos,
+            trace.heady_metal_body_pieces_sub_37abc[0].sprite_mapping_index,
+        ),
+        (0x000C, 0x0035, 0x0049, 5),
+        "ASM loc_375DE -> sub_376EC writes the live HeadyMetal tracker d6/d7 velocities into every body-piece worker, so the `$FFFFFB7E` worker must move by the same high-word delta as the tracking anchor before sub_37ABC refreshes it",
+    );
+}
+
+#[test]
 fn trace_uses_live_heady_metal_breakup_slots_for_sub_37abc_body_pieces() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

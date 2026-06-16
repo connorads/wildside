@@ -42253,6 +42253,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     None,
                 );
+                self.move_heady_metal_body_piece_workers_sub_376ec();
                 self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
@@ -42295,6 +42296,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     None,
                 );
+                self.move_heady_metal_body_piece_workers_sub_376ec();
                 self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);
                 let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
@@ -42474,6 +42476,7 @@ impl NativeRuntime {
                     &mut self.drilled_blocks,
                     Some(&mut played_enemy_sound_effects),
                 );
+                self.move_heady_metal_body_piece_workers_sub_376ec();
                 for effect in played_enemy_sound_effects {
                     self.queue_play_sound(effect);
                 }

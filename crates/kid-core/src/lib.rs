@@ -1419,6 +1419,40 @@ impl NativeRuntime {
             ));
     }
 
+    pub(crate) fn move_heady_metal_body_piece_workers_sub_376ec(&mut self) {
+        let Some(heady_metal) = self
+            .active_enemies
+            .iter()
+            .find(|enemy| matches!(enemy.family, EnemyFamily::HeadyMetal))
+        else {
+            return;
+        };
+        let Some(piece_slots) = self.heady_metal_breakup_slots_sub_37708.as_mut() else {
+            return;
+        };
+
+        // ASM sub_376EC (kid.asm:39483) copies the current d6/d7 tracker
+        // velocities into every live `$FFFFFB72..$FFFFFBB2` worker. Native
+        // stores the body-worker table at word precision, so advance the table
+        // by the same pixel delta the live tracking anchor just crossed.
+        let old_x = heady_metal
+            .x_pos
+            .wrapping_add_signed(heady_metal.x_velocity.wrapping_neg());
+        let old_y = heady_metal
+            .y_pos
+            .wrapping_add_signed(heady_metal.y_velocity.wrapping_neg());
+        let delta_x = ((heady_metal.x_pos >> 16) as i32) - ((old_x >> 16) as i32);
+        let delta_y = ((heady_metal.y_pos >> 16) as i32) - ((old_y >> 16) as i32);
+        if delta_x == 0 && delta_y == 0 {
+            return;
+        }
+
+        for slot in piece_slots.iter_mut().flatten() {
+            slot.x_pos = slot.x_pos.wrapping_add_signed(delta_x as i16);
+            slot.y_pos = slot.y_pos.wrapping_add_signed(delta_y as i16);
+        }
+    }
+
     pub(crate) fn queue_play_sound(&mut self, effect: QueuedSoundEffect) {
         self.queue_sound_command(QueuedSoundCommand::PlaySound(effect));
     }
