@@ -13684,6 +13684,27 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_collision_airborne_aabb_uses_current_form_half_width_loc_2590() {
+        let platform = make_test_platform(40, 100, 2, 0);
+        let mut slice = make_airborne_slice(34, 100);
+
+        let outcome = apply_platform_collision_with_ceiling_probe(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::RedStealth,
+            false,
+            None,
+        );
+
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::StandingOn(0),
+            "ASM loc_2590 reads Kid_hitbox_left/right after current-form hitbox setup; Red Stealth's 7px half-width overlaps the platform edge where The Kid's 5px box would miss",
+        );
+    }
+
+    #[test]
     fn platform_support_check_sub_8ed0_reports_unsupported_without_a_platform() {
         assert!(
             platform_support_check_sub_8ED0(None, 50u32 << 16, 7, PlayerForm::RedStealth, false),

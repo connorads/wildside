@@ -1004,9 +1004,11 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     loop {
         let player_x_px = (slice.player.x_pos >> 16) as i32;
         let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
-        let player_left = player_x_px - PLAYER_HALF_WIDTH;
-        let player_right = player_x_px + PLAYER_HALF_WIDTH;
-        let player_top = player_foot_y_px - PLAYER_HEIGHT;
+        // ASM loc_2590 reads Kid_hitbox_left/right/top/bottom, which are
+        // already built from the current helmet/form before platform collision.
+        let player_left = player_x_px - current_form.half_width();
+        let player_right = player_x_px + current_form.half_width();
+        let player_top = player_foot_y_px - current_form.ceiling_probe_height();
         let mut restart_scan = false;
 
         for (platform_index, platform) in platforms.iter().enumerate() {
