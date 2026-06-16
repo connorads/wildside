@@ -7561,6 +7561,64 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_draws_live_prize_block_wobble_from_block_skin_not_terrain() {
+        // ASM sub_1007A starts by drawing the copied prize-block gfx object
+        // while the source cell can still be `$E102`. The renderer must use
+        // that live block cell skin, not the immutable foreground layout skin,
+        // or forest/tree terrain briefly appears while the prize block shakes.
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.block_bounces = vec![(1, 0, 8, -2)];
+        trace.block_bounce_details = vec![BlockBounceTrace {
+            cell_x: 1,
+            cell_y: 0,
+            remaining: 8,
+            y_offset_px: -2,
+            kind: BlockBounceTraceKind::Prize,
+        }];
+        let visuals = sample_level_visuals();
+        let mut data = vec![0u8; 20 * 14 * 2];
+        data[2] = 0xE1;
+        data[3] = 0x02;
+        let grid = BlockGrid::from_level_layout(&data, 20, 14);
+
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+
+        let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                x: 16,
+                y: -2,
+                tile_sheet,
+                tiles,
+                ..
+            } if tile_sheet.tiles.len() == 0x200 => Some(tiles),
+            _ => None,
+        }) else {
+            panic!("live sub_1007A prize cell should draw copied prize-block art");
+        };
+        assert_eq!(
+            copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
+            Some(0x00D),
+            "ASM sub_1007A should copy the `$E102` prize block skin, not the immutable terrain skin behind the block"
+        );
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Sprite {
+                    x: 16,
+                    y: -2,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if tile_sheet.tiles.len() == 0x200
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x015)
+            )),
+            "forest/tree foreground skin must not leak into early prize-block wobble frames"
+        );
+    }
+
+    #[test]
     fn cold_boot_demo_prize_wobble_draws_at_live_camera_latch_sub_1007a() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
