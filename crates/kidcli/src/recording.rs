@@ -2057,6 +2057,15 @@ fn trace_frames_match(
         normalised_expected.hud_diamond_frame_offset = actual.hud_diamond_frame_offset;
     }
 
+    if expected.level_timer_sub_frames == 0 {
+        // `level_timer_sub_frames` exposes Time_SubSeconds for HUD render
+        // parity with ASM Make_SpriteAttr_HUD loc_BE82/loc_BEE8. Legacy
+        // visual recordings predate this render latch signal; timer seconds
+        // remain the authoritative gameplay value while pixel checkpoints
+        // guard the visible rollover.
+        normalised_expected.level_timer_sub_frames = actual.level_timer_sub_frames;
+    }
+
     if expected.active_enemy_details.is_empty() {
         // `active_enemy_details` is additive trace telemetry for semantic case
         // comparison. Legacy recordings predate it, so absence must not make a
@@ -2663,6 +2672,7 @@ mod tests {
             diamond_count: 0,
             score: 0,
             level_timer_seconds: 0,
+            level_timer_sub_frames: 0,
             level_damage_taken: false,
             level_prize_collected: false,
             level_speed_bonus_awarded: false,
@@ -2913,6 +2923,26 @@ mod tests {
         assert_eq!(
             drift, None,
             "older recording bundles predate the HUD diamond animation diagnostic, so replay verification should not treat the added trace field as gameplay drift"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_level_timer_sub_frames() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.level_timer_sub_frames = 1;
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "legacy visual recordings predate the Time_SubSeconds trace latch; strict frame checks still guard the visible ASM loc_BEE8 timer rollover"
         );
     }
 

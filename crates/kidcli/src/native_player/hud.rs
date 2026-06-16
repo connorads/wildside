@@ -294,6 +294,15 @@ fn hud_timer_seconds_loc_c070(trace: &NativeTraceFrame) -> u16 {
         // the visible HUD sprite table is still the previous timer value until
         // loc_C186 starts drawing the end-level hologram.
         trace.level_timer_seconds.saturating_add(1)
+    } else if matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
+        && !trace.level_complete
+        && trace.level_timer_sub_frames == 1
+    {
+        // ASM Make_SpriteAttr_HUD loc_BE82 decrements Time_SubSeconds, then
+        // on rollover decrements Time_Seconds_* before loc_BEE8 writes timer
+        // digit tiles. Native trace state is sampled before the following
+        // gameplay trace exposes that whole-second decrement.
+        trace.level_timer_seconds.saturating_sub(1)
     } else {
         trace.level_timer_seconds
     }

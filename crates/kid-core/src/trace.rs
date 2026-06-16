@@ -6912,6 +6912,7 @@ impl NativeRuntime {
             // score while LevelComplete is active.
             score: trace_score,
             level_timer_seconds: self.level_timer.seconds,
+            level_timer_sub_frames: self.level_timer.sub_frames,
             level_damage_taken: self.level_damage_taken,
             level_prize_collected: self.level_prize_collected,
             level_speed_bonus_awarded: self.level_speed_bonus_awarded,

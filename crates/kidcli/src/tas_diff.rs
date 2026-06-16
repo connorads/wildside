@@ -1096,6 +1096,7 @@ mod tests {
             diamond_power_active: false,
             diamond_count: 0,
             level_timer_seconds: 0,
+            level_timer_sub_frames: 0,
             level_damage_taken: false,
             level_prize_collected: false,
             level_speed_bonus_awarded: false,

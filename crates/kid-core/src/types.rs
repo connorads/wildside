@@ -1404,6 +1404,8 @@ pub struct NativeTraceFrame {
     pub diamond_count: u16,
     pub score: u32,
     pub level_timer_seconds: u16,
+    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    pub level_timer_sub_frames: u16,
     pub level_damage_taken: bool,
     /// Whether the player collected the level's prize block. Determines
     /// whether the ASM loc_D5D2 NO-PRIZE bonus is awarded at level
@@ -1653,6 +1655,7 @@ impl Default for NativeTraceFrame {
             diamond_count: 0,
             score: 0,
             level_timer_seconds: 0,
+            level_timer_sub_frames: 0,
             level_damage_taken: false,
             level_prize_collected: false,
             level_speed_bonus_awarded: false,

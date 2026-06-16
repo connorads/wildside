@@ -4720,6 +4720,7 @@ AddrTbl_LevelNames:
             diamond_count: 0,
             score: 0,
             level_timer_seconds: 180,
+            level_timer_sub_frames: 0,
             level_damage_taken: false,
             level_prize_collected: false,
             level_speed_bonus_awarded: false,

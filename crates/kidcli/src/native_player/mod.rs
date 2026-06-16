@@ -3192,6 +3192,7 @@ mod tests {
             diamond_count: 0,
             score: 0,
             level_timer_seconds: 180,
+            level_timer_sub_frames: 0,
             level_damage_taken: false,
             level_prize_collected: false,
             level_speed_bonus_awarded: false,
@@ -16302,6 +16303,29 @@ mod tests {
             ),
             (2, 10, 5, 9),
             "ASM loc_BEE8 writes timer digits from $86BA+d and sub_BD0A rewrites the fixed timer row to unk_BD8E positions $90,$98,$9D,$A5"
+        );
+    }
+
+    #[test]
+    fn game_hud_timer_rollover_renders_sub_bdc0_decrement_before_trace_second_advances() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_timer_seconds = 177;
+        trace.level_timer_sub_frames = 1;
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let (_, minutes, _) = indexed_tile_at_with_sheet_len(&scene, 0x90 - 128, 0x90 - 128, 12)
+            .expect("minutes tile");
+        let (_, seconds_tens, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0x9D - 128, 0x90 - 128, 12)
+                .expect("seconds tens tile");
+        let (_, seconds_ones, _) =
+            indexed_tile_at_with_sheet_len(&scene, 0xA5 - 128, 0x90 - 128, 12)
+                .expect("seconds ones tile");
+
+        assert_eq!(
+            (minutes.tile_index, seconds_tens.tile_index, seconds_ones.tile_index),
+            (2, 5, 6),
+            "ASM Make_SpriteAttr_HUD loc_BE82 decrements Time_SubSeconds before loc_BEE8 writes timer digit tiles, so sub-frame 1 renders the next visible second"
         );
     }
 
