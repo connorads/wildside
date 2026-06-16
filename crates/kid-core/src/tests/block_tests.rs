@@ -15193,6 +15193,44 @@ mod chunk_04 {
     }
 
     #[test]
+    fn runtime_platform_roster_drops_previous_normal_slot_when_loaded_mask_clears_loc_286a() {
+        let window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement],
+        };
+        let previous =
+            ActivePlatform::from_placement_with_index(0, &layout.placements[0], None);
+
+        let active = runtime_active_platforms_loc_2762(&layout, 1, 0, window, &[previous], None);
+
+        assert!(
+            active.is_empty(),
+            "ASM loc_2850 branches normal existing slots to loc_286A, where Deallocate_PlatformSlot removes them from Addr_FirstPlatformSlot; a cleared loaded bit must not preserve the stale slot even if the current window is active",
+        );
+    }
+
+    #[test]
     fn runtime_platform_roster_allocates_new_slots_at_front_loc_238e() {
         let window = ActivationWindow {
             x_min: 320,

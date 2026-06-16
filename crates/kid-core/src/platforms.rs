@@ -936,6 +936,14 @@ pub(crate) fn runtime_active_platforms_loc_2762(
         let Some(placement) = layout.placements.get(layout_index) else {
             continue;
         };
+        let record_loaded =
+            layout_index < u64::BITS as usize && (loaded_mask & (1u64 << layout_index)) != 0;
+        if !record_loaded && platform.special.is_none() {
+            // ASM loc_2850 -> loc_286A: an existing normal platform outside
+            // the loader window is unlinked by Deallocate_PlatformSlot, so a
+            // stale native slot must not survive from the high-water cursor.
+            continue;
+        }
         if platform_is_active(placement, window) {
             if platform.special.is_some() {
                 // ASM loc_2876: special-platform load clears `$12(a3)`.
