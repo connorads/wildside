@@ -868,6 +868,14 @@ and stop — never commit churn.
   pre-260/pre-300 B-window overlays on this seed; the next useful #260 route
   search still needs a different bootstrap/Drips cycle or a new live recording
   that brings the child onto the row-32 cell before Kid's block contact.
+  2026-06-16 follow-up: a bounded mid-bootstrap batch on
+  `.cache/recordings/issue-260-gr-pulse600-current/scenario.json` varied
+  `120..430` windows and scored same-frame Kid hitbox plus DripsDrop/crawler
+  proximity to cells `36,32`/`37,32`. Best `lowarc_b150` only reproduces the
+  documented vertical split (Kid `dy=-33`, DripsDrop `dy=-3`, no row-32
+  Bounce/Destroy), while bounce-preserving candidates still keep the projectile
+  separated from the row-32 cells. Do not retry this `120..430` mid-bootstrap
+  replacement axis on the `gr-pulse600` seed unchanged.
   #270 current wall-pulse probes split the evidence:
   Kid's natural BLW2 left-wall route with B held at `285..330` is gameplay CRC-clean through frame
   380, so Kid upward wall movement with B is ROM-faithful; direct Samurai `playtest_form=3` variants
