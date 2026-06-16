@@ -714,6 +714,9 @@ pub(crate) struct WeatherState {
     pub(crate) storm_thunder_timer: i16,
     /// ASM loc_14D82 `$FFFFFADE`: saved storm palette pointer.
     pub(crate) storm_saved_palette_label_loc_14d82: Option<&'static str>,
+    /// ASM loc_14D1E/loc_14D32: selected storm pattern table and VRAM upload shape.
+    pub(crate) storm_pattern_upload_loc_14d32:
+        Option<crate::weather::StormPatternRuntimeUploadLoc14D32>,
     /// Hail system: frames until next hail spawn (0=spawn this frame).
     pub(crate) hail_spawn_timer: u16,
     /// Hail system: whether hail is currently active (toggles on $258-frame period).

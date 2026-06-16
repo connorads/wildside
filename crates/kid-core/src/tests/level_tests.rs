@@ -179,6 +179,11 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         storm_saved_palette_label_loc_14d82: Some(
             crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82,
         ),
+        storm_pattern_upload_loc_14d32: Some(
+            crate::weather::record_storm_pattern_upload_loc_14D32(
+                crate::weather::select_storm_pattern_upload_loc_14D1E(false),
+            ),
+        ),
         hail_spawn_timer: 11,
         hail_active: true,
         hail_period_timer: 22,

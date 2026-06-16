@@ -20671,6 +20671,25 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_14d32_runtime_record_keeps_the_vram_6000_upload_shape() {
+        let record = crate::weather::record_storm_pattern_upload_loc_14D32(
+            crate::weather::select_storm_pattern_upload_loc_14D1E(false),
+        );
+
+        assert_eq!(
+            record,
+            crate::weather::StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: crate::weather::STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E,
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: crate::weather::STORM_PATTERN_VDP_COMMAND_LOC_14D32,
+                written_longword_count: 4 * 8 * 8 * 4,
+            },
+            "ASM loc_14D32 should make the storm pattern upload visible to runtime init: selected table after the loc_14D1E header skip, VRAM `$6000`, and the inclusive DBF write count"
+        );
+    }
+
+    #[test]
     fn loc_14d3e_repeats_each_storm_pattern_group_eight_times_before_advancing_a0() {
         assert_eq!(
             crate::weather::storm_pattern_group_repeat_count_loc_14D3E(),
@@ -25236,6 +25255,11 @@ mod chunk_05 {
         runtime.weather.storm_thunder_timer = -3;
         runtime.weather.storm_saved_palette_label_loc_14d82 =
             Some(crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82);
+        runtime.weather.storm_pattern_upload_loc_14d32 = Some(
+            crate::weather::record_storm_pattern_upload_loc_14D32(
+                crate::weather::select_storm_pattern_upload_loc_14D1E(false),
+            ),
+        );
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 42;
         runtime.weather.hail_period_timer = 99;
@@ -25258,6 +25282,7 @@ mod chunk_05 {
         assert_eq!(runtime.weather.storm_fade_countdown, 0);
         assert_eq!(runtime.weather.storm_thunder_timer, 0);
         assert_eq!(runtime.weather.storm_saved_palette_label_loc_14d82, None);
+        assert_eq!(runtime.weather.storm_pattern_upload_loc_14d32, None);
         assert!(!runtime.weather.hail_active);
         assert_eq!(runtime.weather.hail_spawn_timer, 0);
         assert_eq!(runtime.weather.hail_period_timer, 0);
@@ -25303,10 +25328,44 @@ mod chunk_05 {
             "ASM loc_14D82 stores the Pal_7B85C pointer in `$FFFFFADE` before the shared storm setup tail"
         );
         assert_eq!(
+            runtime.weather.storm_pattern_upload_loc_14d32,
+            Some(crate::weather::StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: crate::weather::STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E,
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: crate::weather::STORM_PATTERN_VDP_COMMAND_LOC_14D32,
+                written_longword_count: 4 * 8 * 8 * 4,
+            }),
+            "ASM loc_14D1E/loc_14D32 should run during storm init, selecting the rain pattern table for non-Ice backgrounds and programming the `$6000` plane upload"
+        );
+        assert_eq!(
             runtime.weather.hail_period_timer, 1,
             "ASM loc_14DAC writes `$FFFFFB52=1`; sub_6048 turns that into the first hail active period"
         );
         assert!(!runtime.weather.hail_active);
+    }
+
+    #[test]
+    fn init_weather_selects_hail_pattern_upload_for_ice_background_loc_14d1e() {
+        let mut manifest = manifest_with_levels(2);
+        let header = manifest.levels[0].header_metadata.as_mut().unwrap();
+        header.weather_flags = 2;
+        header.background_theme = 2; // ASM constant `Ice`.
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(
+            runtime.weather.storm_pattern_upload_loc_14d32,
+            Some(crate::weather::StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: crate::weather::STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E,
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: crate::weather::STORM_PATTERN_VDP_COMMAND_LOC_14D32,
+                written_longword_count: 4 * 8 * 8 * 4,
+            }),
+            "ASM Init_SpecialEffect_Storm loc_14D1E should select the hail pattern table when `Background_theme == Ice` even for plain storm weather"
+        );
     }
 
     #[test]

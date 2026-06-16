@@ -5,6 +5,9 @@ pub(crate) const LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A: usize = 0x14;
 pub(crate) const LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A: &str = "ArtComp_983D2_Lava";
 pub(crate) const LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A: u16 = 0x5F60;
 pub(crate) const STORM_SAVED_PALETTE_LABEL_LOC_14D82: &str = "Pal_7B85C";
+pub(crate) const STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E: &str = "unk_9B65C";
+pub(crate) const STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E: &str = "unk_9B6E0";
+pub(crate) const STORM_PATTERN_VDP_COMMAND_LOC_14D32: u32 = 0x4000_0003;
 
 #[allow(dead_code)]
 const MURDER_WALL_PATTERN_SUB_5E02: [u16; 4] = [0xA2FB, 0xA31F, 0xA343, 0xA367];
@@ -314,6 +317,15 @@ pub(crate) enum StormPatternAssetLoc14D1E {
     Hail,
 }
 
+impl StormPatternAssetLoc14D1E {
+    pub(crate) const fn asset_label(self) -> &'static str {
+        match self {
+            Self::Rain => STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E,
+            Self::Hail => STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E,
+        }
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StormPatternUploadSetupLoc14D1E {
@@ -349,6 +361,15 @@ pub(crate) struct StormPatternUploadLoc14D32 {
     pub(crate) written_longwords: Vec<u32>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct StormPatternRuntimeUploadLoc14D32 {
+    pub(crate) source_asset_label: &'static str,
+    pub(crate) vram_tile_addend: u32,
+    pub(crate) skipped_header_longwords: usize,
+    pub(crate) vdp_command: u32,
+    pub(crate) written_longword_count: usize,
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn storm_pattern_outer_pass_count_loc_14D3C() -> usize {
@@ -363,6 +384,33 @@ pub(crate) fn storm_pattern_group_repeat_count_loc_14D3E() -> usize {
     // ASM loc_14D3E (kid.asm:28393): `moveq #7,d1` selects eight passes through
     // the group loop before `dbf d1,loc_14D3E` stops at -1.
     8
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn storm_pattern_written_longword_count_loc_14D32() -> usize {
+    // ASM loc_14D32/loc_14D3C/loc_14D3E/loc_14D40 (kid.asm:28387-28409):
+    // four outer passes, eight source groups, eight repeats per group, four
+    // longwords per repeat.
+    storm_pattern_outer_pass_count_loc_14D3C()
+        * 8
+        * storm_pattern_group_repeat_count_loc_14D3E()
+        * 4
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn record_storm_pattern_upload_loc_14D32(
+    setup: StormPatternUploadSetupLoc14D1E,
+) -> StormPatternRuntimeUploadLoc14D32 {
+    // ASM loc_14D1E/loc_14D32 (kid.asm:28364-28409): live init records the
+    // selected rain/hail table, `$0380_0380` tile offset, skipped header
+    // longword, VRAM `$6000` command, and inclusive DBF write count.
+    StormPatternRuntimeUploadLoc14D32 {
+        source_asset_label: setup.source_asset.asset_label(),
+        vram_tile_addend: setup.vram_tile_addend,
+        skipped_header_longwords: setup.skipped_header_longwords,
+        vdp_command: STORM_PATTERN_VDP_COMMAND_LOC_14D32,
+        written_longword_count: storm_pattern_written_longword_count_loc_14D32(),
+    }
 }
 
 #[allow(non_snake_case)]
@@ -388,8 +436,7 @@ pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     // pass walks eight 4-longword groups; each group is emitted eight times
     // before `lea $10(a0),a0` advances to the next group, then `move.l a3,a0`
     // restarts the whole table for the next outer pass.
-    const VDP_COMMAND: u32 = 0x4000_0003; // vdpComm($6000,VRAM,WRITE)
-    let mut written_longwords = Vec::with_capacity(4 * 8 * 8 * 4);
+    let mut written_longwords = Vec::with_capacity(storm_pattern_written_longword_count_loc_14D32());
 
     for _ in 0..storm_pattern_outer_pass_count_loc_14D3C() {
         for group in source_longwords.chunks_exact(4) {
@@ -406,7 +453,7 @@ pub(crate) fn upload_storm_pattern_blocks_loc_14D32(
     }
 
     StormPatternUploadLoc14D32 {
-        vdp_command: VDP_COMMAND,
+        vdp_command: STORM_PATTERN_VDP_COMMAND_LOC_14D32,
         written_longwords,
     }
 }
@@ -2514,14 +2561,19 @@ impl NativeRuntime {
     }
 
     pub(crate) fn init_weather(&mut self, level_id: LevelId) {
-        let header = self.level_header(level_id);
-        self.weather.weather_type = header.map_or(0, |h| h.weather_flags);
+        let (weather_type, background_theme_is_ice) = self
+            .level_header(level_id)
+            .map_or((0, false), |header| {
+                (header.weather_flags, header.background_theme == 2)
+            });
+        self.weather.weather_type = weather_type;
         self.weather.storm_spawn_cooldown = 0;
         self.weather.storm_free_falling_slots = 0;
         self.weather.storm_weather_mode_byte = 0;
         self.weather.storm_fade_countdown = 0;
         self.weather.storm_thunder_timer = 0;
         self.weather.storm_saved_palette_label_loc_14d82 = None;
+        self.weather.storm_pattern_upload_loc_14d32 = None;
         self.weather.hail_active = false;
         self.weather.hail_spawn_timer = 0;
         self.weather.hail_period_timer = 0;
@@ -2533,6 +2585,11 @@ impl NativeRuntime {
             self.weather.storm_saved_palette_label_loc_14d82 = Some(
                 select_saved_storm_palette_loc_14D82(u16::from(self.weather.weather_type))
                     .asset_label(),
+            );
+            self.weather.storm_pattern_upload_loc_14d32 = Some(
+                record_storm_pattern_upload_loc_14D32(select_storm_pattern_upload_loc_14D1E(
+                    background_theme_is_ice,
+                )),
             );
             let setup = initialise_storm_setup_loc_14D8A();
             let seeded = initialise_storm_slots_loc_14DAC(setup.fill_setup);
