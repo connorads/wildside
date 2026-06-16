@@ -147,6 +147,15 @@ and stop — never commit churn.
   left-input-drop repro. Earlier B88/B90-style pulses are contaminated by
   ShooterBlock damage before a useful grounded jump signal, so do not patch
   movement from those timings.
+- **#277 recheck (2026-06-16)**: the repaired `left-x1746-y237-b96` fixture is
+  no longer clean in current native; `verify-tas --frame-start 0 --frame-end
+  180 --checkpoint-interval 1 --frontier-kind gameplay --bisect` first splits at
+  frame 166 after native-only ShooterBlock projectile damage at frame 165
+  (`kid_projectile_damage_probe=hit:ShooterBlock@0x05680000,0x01340000
+  dx=-13 dy=-9`). Oracle still has the shooter-object slot near Kid but no
+  damage, so this is a ShooterBlock object timing/contact divergence, not a
+  left-stair movement proof. Do not use this fixture to change slope/jump
+  physics; isolate shooter slot timing first if pursuing it.
 - **Then**: #260 live slime/metal-block route (the Drill-skin headbutt blocker is now
   gameplay-CRC clean on `.cache/debug/drips-route-candidates/orig_l480_530_b528.json`
   through frame 570, so do not re-open block type C/`sub_BB54` from that route; still
