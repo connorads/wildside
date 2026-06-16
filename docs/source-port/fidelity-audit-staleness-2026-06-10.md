@@ -178,7 +178,7 @@ Re-checked all 55 gaps: 9 fixed, 11 partially-fixed, 34 still-open, 1 no-longer-
 - Background scroll — `off_7B1EC` scroll-speed list never wired (dead per-frame parallax)
 - Background scroll — per-frame shift-data compute + VSRAM transfer dead; no scroll output
 - Load_InGame — level BGM selection (`loc_11FC8/loc_12004`) never invoked on the live load path
-- Level header decode — `$FFFFFC29` continue-flag player-start skip not modelled
+- Fixed 2026-06-16 — Level header decode — `$FFFFFC29` continue-flag player-start skip not modelled; current level entry preserves caller-written starts through `pending_player_start_override_loc_11bd2`, covered by `preserved_player_start_entry_floor_snaps_loc_11bd2` and `loc_11bd2_preserves_existing_player_start_when_the_teleport_latch_is_set`
 - Theme palette — Plethora FG override not representable in the classify enum
 - Block-mapping build — downstream consumer (`loc_165E`) also dead, confirming OR-masked `Block_Mappings` never reach a tile word
 - Platform install — `Initialize_Platforms` 17-entry slot free-list never built in the live path
@@ -198,7 +198,7 @@ Re-checked all 55 gaps: 9 fixed, 11 partially-fixed, 34 still-open, 1 no-longer-
 - Death respawn — `Extra_hitpoint_slots` not cleared on `lose_life` (field now live, deviation active)
 - Warp — teleporter door `FBCC=$EE` yellow warp flash and `d6=-5` Teleport SFX omitted
 - Flagpole — hologram fade-out step modelled but unwired; no palette fade applied
-- Flagpole — EOL extra-life award routed through generic `add_score`/`arm_hundred_k_trip` rather than `loc_D79E`
+- Fixed 2026-06-16 — Flagpole — EOL extra-life award routed through generic `add_score`/`arm_hundred_k_trip` rather than `loc_D79E`; current completion bonuses use `eol_score_counter_apply_loc_D77E`, covered by `loc_D77E_eol_score_counter_does_not_arm_hundred_k_trip_timer` and `loc_D77E_eol_score_counter_applies_cap_and_single_life_boundary`
 - Level-name/title-card — faithful `load_title_card_*_loc_*` centering helpers are dead; logic re-implemented inline in `vdp.rs`
 
 Pattern: nearly every fix landed in the theme-art/background subsystem and was achieved by reimplementing faithful behaviour in the kid-render asset/render layer rather than wiring the original kid-core helpers, which mostly remain test-only dead code.
