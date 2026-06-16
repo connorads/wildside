@@ -11431,52 +11431,62 @@ mod tests {
 
     #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
-    fn debug_hotkey_rendered_vdp_shell_uses_target_theme_after_cave_loc_19abe() {
+    fn debug_hotkey_rendered_vdp_shell_uses_target_theme_after_previous_theme_loc_19abe() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
 
-        let start_assets =
-            load_native_session_assets(&manifest, 0x06).expect("cave start session assets");
-        let target_assets =
-            load_native_session_assets(&manifest, 0x00).expect("Blue Lake target session assets");
-        let mut runtime = NativeRuntime::new(manifest.clone());
-        let mut session_assets = start_assets;
-        runtime.set_block_grid(session_assets.block_grid.clone());
-        let mut trace = runtime.enter_level_playtest(LevelId(0x06));
+        for (start_level, target_level, route_name) in [
+            (0x06, 0x00, "cave -> Blue Lake Woods forest"),
+            (0x06, 0x02, "cave -> Highwater Pass mountain"),
+            (0x02, 0x06, "Highwater Pass -> Under Skull Mountain cave"),
+        ] {
+            let start_assets = load_native_session_assets(&manifest, start_level)
+                .unwrap_or_else(|_| panic!("{route_name} start session assets"));
+            let target_assets = load_native_session_assets(&manifest, target_level)
+                .unwrap_or_else(|_| panic!("{route_name} target session assets"));
+            let mut runtime = NativeRuntime::new(manifest.clone());
+            let mut session_assets = start_assets;
+            runtime.set_block_grid(session_assets.block_grid.clone());
+            let mut trace = runtime.enter_level_playtest(LevelId(start_level));
 
-        enter_debug_hotkey_level(
-            &manifest,
-            &mut runtime,
-            &mut trace,
-            &mut session_assets,
-            LevelId(0x00),
-            target_assets.clone(),
-        );
-        let hotkey_frame =
-            render_vdp_frame_for_test(&runtime, &trace, &session_assets.level_visuals);
+            enter_debug_hotkey_level(
+                &manifest,
+                &mut runtime,
+                &mut trace,
+                &mut session_assets,
+                LevelId(target_level),
+                target_assets.clone(),
+            );
+            let hotkey_frame =
+                render_vdp_frame_for_test(&runtime, &trace, &session_assets.level_visuals);
 
-        let mut expected_runtime = NativeRuntime::new(manifest.clone());
-        let expected_trace = expected_runtime.enter_level_debug_title_card(LevelId(0x00));
-        let expected_frame = render_vdp_frame_for_test(
-            &expected_runtime,
-            &expected_trace,
-            &target_assets.level_visuals,
-        );
+            let mut expected_runtime = NativeRuntime::new(manifest.clone());
+            let expected_trace =
+                expected_runtime.enter_level_debug_title_card(LevelId(target_level));
+            let expected_frame = render_vdp_frame_for_test(
+                &expected_runtime,
+                &expected_trace,
+                &target_assets.level_visuals,
+            );
 
-        let mut stale_runtime = NativeRuntime::new(manifest);
-        let stale_trace = stale_runtime.enter_level_debug_title_card(LevelId(0x06));
-        let stale_frame =
-            render_vdp_frame_for_test(&stale_runtime, &stale_trace, &session_assets.level_visuals);
+            let mut stale_runtime = NativeRuntime::new(manifest.clone());
+            let stale_trace = stale_runtime.enter_level_debug_title_card(LevelId(start_level));
+            let stale_frame = render_vdp_frame_for_test(
+                &stale_runtime,
+                &stale_trace,
+                &session_assets.level_visuals,
+            );
 
-        assert_eq!(
-            hotkey_frame, expected_frame,
-            "ASM Load_TitleCard loc_19ABE must render Blue Lake Woods' forest shell immediately after a cave hotkey; play-native must not reuse stale cave VDP data",
-        );
-        assert_ne!(
-            hotkey_frame, stale_frame,
-            "the hotkey-rendered frame should not match the previous cave title-card shell",
-        );
+            assert_eq!(
+                hotkey_frame, expected_frame,
+                "ASM Load_TitleCard loc_19ABE must render the target title-card shell for {route_name}; play-native must not reuse stale VDP data",
+            );
+            assert_ne!(
+                hotkey_frame, stale_frame,
+                "the hotkey-rendered frame should not match the previous title-card shell for {route_name}",
+            );
+        }
     }
 
     #[test]
