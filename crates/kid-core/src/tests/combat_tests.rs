@@ -25565,6 +25565,25 @@ mod chunk_05 {
             &saved_storm_words[..7],
             "ASM loc_60AA should stage seven saved storm palette words at Palette_Buffer_3+$32"
         );
+        let mut expected_palette_after_fade = palette_before;
+        let expected_palette_buffer_2 = palette_before;
+        let mut expected_palette_buffer_3 = palette_before;
+        expected_palette_buffer_3[0] = 0;
+        expected_palette_buffer_3[0x19..0x20].copy_from_slice(&saved_storm_words[..7]);
+        let mut pending_palette_0_mask = 0x8000_007F;
+        let mut pending_palette_1_mask = 0;
+        crate::level::apply_pending_palette_fade_sub_14C0(
+            0x0100,
+            &mut pending_palette_0_mask,
+            &mut pending_palette_1_mask,
+            &expected_palette_buffer_2,
+            &expected_palette_buffer_3,
+            &mut expected_palette_after_fade,
+        );
+        assert_eq!(
+            runtime.palette_buffer, expected_palette_after_fade,
+            "ASM sub_14C0 should consume loc_6058/loc_605E's `$8000007F` mask after sub_6048 stages the storm fade buffers"
+        );
         assert_eq!(
             runtime.weather.storm_fade_countdown, 0x00FC,
             "ASM loc_60AA subtracts 4 from `$FFFFFADA` after staging the storm fade palette"

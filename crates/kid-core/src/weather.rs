@@ -1361,6 +1361,20 @@ pub(crate) fn step_level_special_effects_sub_6048(
     state
 }
 
+fn storm_pending_palette_0_mask_sub_6048(pending_palette_mask_0: i16, palette_speed: u8) -> u32 {
+    let high_mask = if pending_palette_mask_0 < 0 {
+        // ASM loc_60C0: `move.w #-1,($FFFFF888).w` writes the high word of
+        // the long consumed by sub_14C0.
+        0xFFFF_0000
+    } else {
+        // ASM loc_605E: `move.b #$80,($FFFFF888).w` writes the top byte of
+        // the pending-mask long; loc_6058 separately writes palette speed to
+        // `$FFFFF88B`, whose low bits are also visible to sub_14C0's `btst`.
+        u32::from(pending_palette_mask_0 as u8) << 24
+    };
+    high_mask | u32::from(palette_speed)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaFireballSpriteKind {
     TallRise,
@@ -2565,6 +2579,11 @@ impl NativeRuntime {
             (self.frame_index & 0xFF) as u8,
         );
         self.apply_weather_palette_ops_sub_6048(&stepped.palette_ops);
+        self.apply_weather_palette_fade_sub_6048(
+            stepped.fade_progress_latch,
+            stepped.pending_palette_mask_0,
+            stepped.palette_animation_speed,
+        );
         self.weather.storm_weather_mode_byte = stepped.weather_mode_byte;
         self.weather.storm_fade_countdown = stepped.fade_countdown;
         self.weather.storm_thunder_timer = stepped.thunder_timer;
@@ -2742,6 +2761,27 @@ impl NativeRuntime {
                 }
             }
         }
+    }
+
+    fn apply_weather_palette_fade_sub_6048(
+        &mut self,
+        fade_progress_latch: u16,
+        pending_palette_mask_0: i16,
+        palette_animation_speed: u8,
+    ) {
+        let mut pending_palette_0_mask = storm_pending_palette_0_mask_sub_6048(
+            pending_palette_mask_0,
+            palette_animation_speed,
+        );
+        let mut pending_palette_1_mask = 0;
+        crate::level::apply_pending_palette_fade_sub_14C0(
+            fade_progress_latch,
+            &mut pending_palette_0_mask,
+            &mut pending_palette_1_mask,
+            &self.palette_buffer_2,
+            &self.palette_buffer_3,
+            &mut self.palette_buffer,
+        );
     }
 
     /// Initialise lava geyser positions for lava weather levels.
