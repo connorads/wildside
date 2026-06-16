@@ -153,6 +153,12 @@ agent-closable instead of playtest-only.
   prefix; or get the human to confirm which on-screen object they saw. **Do not** patch
   the Drips crawler to Destroy a `$6000` cell — that contradicts `loc_33AF6` (fidelity
   regression).
+- **2026-06-16 guard:** `loc_F1DE_queues_only_shooter_cells_when_a_free_slot_exists`
+  already proves `$EC2D` queues the evanescent shooter path. Added
+  `loc_3be78_driller_does_not_drill_type_c_ec2d_shooter_cells` to lock down the
+  complementary Driller ASM read: `loc_3BE78` only drills `$000/$100/$200`
+  block-type masks, so a literal `$EC2D` must not be "fixed" by routing it through
+  Driller Smash/Ice destruction.
 
 ---
 

@@ -22425,6 +22425,33 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3be78_driller_does_not_drill_type_c_ec2d_shooter_cells() {
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        enemy.facing = Direction::Right;
+        let grid = grid_with_cells(
+            9,
+            8,
+            &[
+                // ASM Driller.asm loc_3BE78 masks the target word with `$0F00`
+                // and only dispatches `$000/$100` to loc_3BEDE or `$200` to
+                // loc_3BEF2. `$EC2D` is a type-C evanescent shooter cell, not a
+                // Driller-smashable block.
+                (7, 4, 0xEC, 0x2D),
+                (6, 5, 0x60, 0x00),
+                (7, 5, 0x60, 0x00),
+            ],
+        );
+
+        let drilled = step_driller(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            drilled,
+            Vec::new(),
+            "ASM Driller.asm loc_3BE78 must not reinterpret `$EC2D` shooter cells as drilled Smash/Ice blocks; use the loc_F1DE evanescent-shooter path for issue #260"
+        );
+    }
+
+    #[test]
     fn loc_3be8e_driller_requires_front_wall_collision_before_drilling() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
         enemy.facing = Direction::Right;
