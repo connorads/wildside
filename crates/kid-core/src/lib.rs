@@ -205,6 +205,7 @@ pub struct NativeRuntime {
     rotate_palette_lava_water_loc_1223c: Option<RotatePaletteLavaWaterStateLoc1223C>,
     island_shore_cycle_loc_1202a: Option<IslandShoreCycleStateLoc1202A>,
     island_shore_dma_uploads_loc_1202a: Vec<IslandShoreDmaUploadLoc1202A>,
+    lava_geyser_art_uploads_loc_14c6a: Vec<LavaGeyserArtUploadLoc14C6A>,
     murder_wall: Option<MurderWallState>,
     /// Metal block bounce animations in progress.
     block_bounces: Vec<BlockBounceAnim>,
@@ -1511,6 +1512,7 @@ impl NativeRuntime {
             rotate_palette_lava_water_loc_1223c: None,
             island_shore_cycle_loc_1202a: None,
             island_shore_dma_uploads_loc_1202a: Vec::new(),
+            lava_geyser_art_uploads_loc_14c6a: Vec::new(),
             murder_wall: None,
             block_bounces: Vec::new(),
             prize_block_worker_tails: Vec::new(),
@@ -4393,6 +4395,7 @@ impl NativeRuntime {
 
         // Weather: hail spawns falling projectiles, lava geysers erupt
         self.island_shore_dma_uploads_loc_1202a.clear();
+        self.lava_geyser_art_uploads_loc_14c6a.clear();
         self.step_weather(&slice);
         self.step_lava_geysers(&slice);
         self.step_rotate_palette_lava_water_loc_1223c();

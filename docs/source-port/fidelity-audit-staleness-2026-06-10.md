@@ -330,12 +330,12 @@ Of 33 gaps, all 33 were re-checked: 11 fixed, 6 partially-fixed, 16 still-open, 
 - Animation_Geyser — geyser palette cycle (`$28..$2E`) omitted from live path (helper unwired) — resolved candidate 2026-06-16 by `2cd804c5`, now ticked from live `step_lava_geysers`
 - Post-load palette-object spawn (`loc_11F8C/loc_11F96`) never executed — objects are never instantiated
 - Island shore — entire `loc_1202A` object routine never spawned or stepped at runtime
-- Lava geyser — palette seed, `Animation_Geyser` rotator, and native-player loc_14BE8 renderer consumption live as of `4ad8a9a5`/`2cd804c5`/`8986d524`; VRAM art upload remains open
+- Lava geyser — palette seed, `Animation_Geyser` rotator, native-player loc_14BE8 renderer consumption, and the `ArtComp_983D2_Lava` -> `$5F60` upload trace are live as of `4ad8a9a5`/`2cd804c5`/`8986d524` plus the 2026-06-16 upload-trace follow-up
 - Lava geyser — script-walk intro animation + `$FFFF`/`$FFFE` sentinels omitted entirely
 - Island shore — one-shot shore tile-art DMA upload at `loc_1202A` is not modelled by any helper
 - Storm init — `$FFFFFADE` saved storm palette pointer never set
 - Storm init — `$380`-tinted pattern-block VRAM upload (`loc_14D32`) absent from runtime
-- Lava geyser — lava art `DecompressToVRAM` upload omitted
+- Lava geyser — lava art `DecompressToVRAM` upload now modelled as a trace event; no general live VDP VRAM backend
 - Lava geyser — top/middle/bottom sprite-row culling windows (`loc_14874/loc_148F8`) reconstructed in renderer, faithful core helpers dead
 - Island shore — `off_1220E` frame-source link table not modelled (phase index only)
 - Murderwall — init writes full 16.16 X but ROM stores only the integer high word

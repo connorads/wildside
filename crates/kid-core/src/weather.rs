@@ -2,6 +2,8 @@ use super::*;
 
 pub(crate) const LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A: usize = 0x10;
 pub(crate) const LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A: usize = 0x14;
+pub(crate) const LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A: &str = "ArtComp_983D2_Lava";
+pub(crate) const LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A: u16 = 0x5F60;
 
 #[allow(dead_code)]
 const MURDER_WALL_PATTERN_SUB_5E02: [u16; 4] = [0xA2FB, 0xA31F, 0xA343, 0xA367];
@@ -2588,6 +2590,14 @@ impl NativeRuntime {
                 current_height: 0,
             });
         }
+        self.lava_geyser_art_uploads_loc_14c6a
+            .push(LavaGeyserArtUploadLoc14C6A {
+                // ASM Init_SpecialEffect_Lava loc_14C6A (kid.asm:28319-28322):
+                // `move.l LnkTo_ArtComp_983D2_Lava,a0; move.w #$5F60,d0;
+                // bsr.w DecompressToVRAM`.
+                art_source_label: LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A.to_owned(),
+                vram_destination: LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A,
+            });
         if let Some(palette) = self.ingame_palette_words::<8>("palette/lava.bin") {
             copy_lava_geyser_palette_loc_14C86(&palette, &mut self.palette_buffer);
         }

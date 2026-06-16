@@ -24676,6 +24676,23 @@ mod chunk_05 {
     }
 
     #[test]
+    fn init_lava_geysers_records_art_decompress_upload_loc_14c6a() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.init_lava_geysers(LevelId(0));
+
+        assert_eq!(
+            runtime.trace_frame().lava_geyser_art_uploads_loc_14c6a,
+            vec![LavaGeyserArtUploadLoc14C6A {
+                art_source_label: crate::weather::LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A
+                    .to_owned(),
+                vram_destination: crate::weather::LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A,
+            }],
+            "ASM Init_SpecialEffect_Lava loc_14C6A decompresses ArtComp_983D2_Lava to VRAM $5F60 immediately after allocating the lava geyser objects"
+        );
+    }
+
+    #[test]
     fn loc_1478e_only_plays_the_repeat_lava_geyser_sound_when_the_flag_is_clear() {
         assert_eq!(
             crate::weather::lava_geyser_repeat_sound_loc_1478E(false),
