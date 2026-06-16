@@ -70,6 +70,15 @@
       "promotion_trigger": "Promote if platform frontier matching or checked-in parity assertions start depending on typed collision scratch state."
     },
     {
+      "key": "native_platform_slots_loc_257e",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "issue-306-platforms",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native-side active-platform vector-order dump shaped like the oracle Platform_RAM linked-list trace from ASM `Platforms_CheckCollision` loc_257E / `Move_Platforms` sub_23EA, including position, velocity, state/timer, art, size, render byte, and ROM loader-offset key where available.",
+      "promotion_trigger": "Promote if platform parity or checked-in regressions start depending on native-vs-oracle platform order or slot identity matching."
+    },
+    {
       "key": "currently_transforming",
       "scope": "frame",
       "status": "exploratory",

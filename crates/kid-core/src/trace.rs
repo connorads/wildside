@@ -278,6 +278,56 @@ mod tests {
     }
 
     #[test]
+    fn native_platform_slots_debug_loc_257e_reports_vector_order_and_rom_offset_key() {
+        let platform = ActivePlatform {
+            layout_index: Some(3),
+            kind: 8,
+            subtype: 6,
+            x_pos: 0x0110_0000,
+            y_pos: 0x0200_0000,
+            width_px: 63,
+            height_px: 15,
+            x_velocity: 0x0001_0000,
+            y_velocity: -0x0001_0000,
+            deactivated_flag: 0xFF,
+            script: Some(PlatformScriptState {
+                script_offset: 0x097C,
+                command_index: 0,
+                remaining_duration: 7,
+            }),
+            special: None,
+        };
+        let mut second = platform;
+        second.layout_index = None;
+        second.deactivated_flag = 0;
+        second.script = None;
+
+        let summary = NativeRuntime::native_platform_slots_debug_loc_257e(&[platform, second])
+            .expect("active platforms should produce a debug summary");
+
+        assert!(
+            summary.contains("count=2;native[00]:next=native[01]"),
+            "ASM Platforms_CheckCollision loc_257E walks slots in list order; native should expose its current vector order explicitly",
+        );
+        assert!(
+            summary.contains("vel=0x00010000,0xffff0000"),
+            "ASM Move_Platforms sub_23EA stores `$A/$E(a2)` platform velocities in slot order for collision/carry comparison",
+        );
+        assert!(
+            summary.contains("state=0x000000ff,timer=0x0007"),
+            "ASM loc_2876/trap loops observe `$12(a3)` state and `$16(a3)` timer, so the native diagnostic should keep both visible",
+        );
+        assert!(
+            summary.contains("art=0x025a,size=63x15,render=0x06,off=0x0024"),
+            "ASM loc_2822 selects the art word and loc_286E stamps `$20(a3)` with `layout_index * $C`; both keys are needed to compare against oracle Platform_RAM",
+        );
+        assert!(
+            summary.contains("native[01]:next=none") && summary.contains("off=none"),
+            "synthetic native indices must stay distinct from true ROM slot addresses when no loader offset exists",
+        );
+    }
+
+    #[test]
     fn trace_reports_robot_shot_and_impact_kinds_loc_3ac0c_3ac92() {
         let shot = EnemyProjectile {
             kind: EnemyProjectileKind::RobotShot,
@@ -6625,6 +6675,9 @@ impl NativeRuntime {
         if let Some(summary) = self.platform_collision_scratch_debug_loc_257e() {
             gameplay_debug_fields.insert("platform_collision_scratch_loc_257e".into(), summary);
         }
+        if let Some(summary) = Self::native_platform_slots_debug_loc_257e(&self.active_platforms) {
+            gameplay_debug_fields.insert("native_platform_slots_loc_257e".into(), summary);
+        }
         let level_complete_elapsed_frames = match self.player_lifecycle {
             PlayerLifecycle::LevelComplete {
                 remaining_frames,
@@ -7395,6 +7448,58 @@ impl NativeRuntime {
             u8::from(scratch.touched_bottom_face_faa5),
             fa96,
         ))
+    }
+
+    fn native_platform_slots_debug_loc_257e(platforms: &[ActivePlatform]) -> Option<String> {
+        if platforms.is_empty() {
+            return None;
+        }
+
+        // ASM Platforms_CheckCollision loc_257E and Move_Platforms sub_23EA walk
+        // Addr_FirstPlatformSlot's `$22`-byte Platform_RAM linked list. Native
+        // still scans a rebuilt Vec, so this trace exposes vector order beside
+        // the ROM `$20(a3)` loader-offset key without pretending indices are
+        // true slot addresses.
+        let slots = platforms
+            .iter()
+            .enumerate()
+            .map(|(index, platform)| {
+                let next = if index + 1 < platforms.len() {
+                    format!("native[{:02}]", index + 1)
+                } else {
+                    "none".to_string()
+                };
+                let render =
+                    crate::platforms::platform_render_flags_loc_2814(platform.kind, platform.subtype);
+                let art = crate::platforms::platform_mapping_addr_word_loc_2822(render);
+                let layout_offset = platform.layout_index.map_or_else(
+                    || "none".to_string(),
+                    |layout_index| {
+                        format!(
+                            "{:#06x}",
+                            crate::platforms::platform_loader_offset_for_index_loc_286E(
+                                layout_index
+                            )
+                        )
+                    },
+                );
+                let timer = platform
+                    .script
+                    .map_or(0, |script| script.remaining_duration);
+                let state = u32::from(platform.deactivated_flag);
+                format!(
+                    "native[{index:02}]:next={next},xy={:#010x},{:#010x},vel={:#010x},{:#010x},state={state:#010x},timer={timer:#06x},art={art:#06x},size={}x{},render={render:#04x},off={layout_offset}",
+                    platform.x_pos,
+                    platform.y_pos,
+                    platform.x_velocity,
+                    platform.y_velocity,
+                    platform.width_px,
+                    platform.height_px,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        Some(format!("count={};{}", platforms.len(), slots.join(";")))
     }
 
     fn heady_metal_body_pieces_sub_37abc(&self) -> Vec<HeadyMetalBodyPieceTraceSub37ABC> {
