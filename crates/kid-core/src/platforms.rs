@@ -795,6 +795,13 @@ pub(crate) fn load_player_hitbox_loc_2590(
 }
 
 impl PlatformLoaderState {
+    #[allow(non_snake_case)]
+    pub(crate) fn number_platforms_loc_231C(self) -> u16 {
+        self.loaded_mask
+            .count_ones()
+            .min(PLATFORM_SLOT_CAPACITY_LOC_231C as u32) as u16
+    }
+
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
         let cursor =
             platform_loader_cursor_step_loc_2744(layout.placements.len(), self.offset_words);

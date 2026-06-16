@@ -356,6 +356,10 @@ mod tests {
             summary.contains("layout_len=none") && summary.contains("active_slots=0"),
             "the loader cursor trace should remain useful even when the minimal test manifest has no platform layout",
         );
+        assert!(
+            summary.contains("number_platforms=2"),
+            "ASM Allocate_PlatformSlot/Deallocate_PlatformSlot maintain `(Number_Platforms).w` independently of the native runtime vector, so the loader trace should expose the loaded-mask count directly",
+        );
     }
 
     #[test]
@@ -7547,9 +7551,10 @@ impl NativeRuntime {
             |layout| layout.placements.len().to_string(),
         );
         Some(format!(
-            "offset={:#06x} next_index={} layout_len={} active_slots={}",
+            "offset={:#06x} next_index={} number_platforms={} layout_len={} active_slots={}",
             loader.offset_words,
             loader.next_index,
+            loader.number_platforms_loc_231C(),
             layout_len,
             self.active_platforms.len()
         ))

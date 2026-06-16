@@ -14951,6 +14951,21 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_number_platforms_loc_231c_counts_loaded_slots_with_pool_cap() {
+        let state = PlatformLoaderState {
+            next_index: 20,
+            offset_words: 0,
+            loaded_mask: (1u64 << 20) - 1,
+        };
+
+        assert_eq!(
+            state.number_platforms_loc_231C(),
+            17,
+            "ASM Initialize_Platforms loc_231C builds exactly 17 free slots, so `(Number_Platforms).w` cannot exceed the pool even if native debug state sees more loaded-record bits",
+        );
+    }
+
+    #[test]
     fn platform_loader_active_roster_orders_new_allocations_at_front_loc_238e() {
         let window = ActivationWindow {
             x_min: 320,
