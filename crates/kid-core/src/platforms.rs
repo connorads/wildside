@@ -796,13 +796,17 @@ pub(crate) fn load_player_hitbox_loc_2590(
 
 impl PlatformLoaderState {
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
-        for (placement_index, placement) in
-            layout.placements.iter().enumerate().skip(self.next_index)
-        {
-            if platform_buffer_edge_px_loc_2762(placement.buffer_left) > window.x_max {
-                break;
-            }
-            self.next_index = placement_index + 1;
+        let cursor =
+            platform_loader_cursor_step_loc_2744(layout.placements.len(), self.offset_words);
+        self.offset_words = cursor.next_offset_words;
+        let Some(placement_index) = cursor.current_index else {
+            return;
+        };
+        let Some(placement) = layout.placements.get(placement_index) else {
+            return;
+        };
+        if platform_buffer_edge_px_loc_2762(placement.buffer_left) <= window.x_max {
+            self.next_index = self.next_index.max(placement_index + 1);
         }
     }
 

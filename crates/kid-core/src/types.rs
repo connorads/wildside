@@ -3125,6 +3125,7 @@ pub(crate) struct MurderWallState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct PlatformLoaderState {
     pub(crate) next_index: usize,
+    pub(crate) offset_words: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -14708,6 +14708,48 @@ mod chunk_04 {
     }
 
     #[test]
+    fn advance_to_window_loc_2744_processes_one_platform_record_per_call() {
+        let window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement.clone(), placement],
+        };
+        let mut state = PlatformLoaderState::default();
+
+        state.advance_to_window(&layout, window);
+        assert_eq!(
+            state.next_index, 1,
+            "ASM Manage_PlatformLoading loc_2744 processes one 12-byte platform record per call, so the second active placement must wait for the next frame",
+        );
+
+        state.advance_to_window(&layout, window);
+        assert_eq!(
+            state.next_index, 2,
+            "ASM loc_286E advances the cursor by one record, allowing the second placement on the next call",
+        );
+    }
+
+    #[test]
     fn platform_is_active_requires_both_x_and_y_in_window() {
         // Mutant: line 67, replace && with ||
         // A platform outside x range but inside y range must NOT be active.
@@ -14825,6 +14867,7 @@ mod chunk_04 {
         };
         let state = PlatformLoaderState {
             next_index: layout.placements.len(),
+            offset_words: 0,
         };
 
         let active = state.active_platforms(&layout, window);
@@ -14931,6 +14974,7 @@ mod chunk_04 {
         };
         let state = PlatformLoaderState {
             next_index: layout.placements.len(),
+            offset_words: 0,
         };
 
         let active = state.active_platforms(&layout, window);
