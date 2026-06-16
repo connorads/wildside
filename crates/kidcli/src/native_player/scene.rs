@@ -3371,6 +3371,17 @@ fn push_prize_block_wobble_sub_1007a(
 ) {
     let frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
     let use_second_frame = frame.tile_base_index == 0x009;
+    let tile_offset = if use_second_frame
+        && !prize_wobble_should_reuse_base_copy_sub_1007a(
+            level_visuals,
+            quad,
+            frame.tile_base_index,
+        )
+    {
+        frame.tile_base_index
+    } else {
+        0
+    };
     let tiles = quad
         .tiles
         .iter()
@@ -3381,11 +3392,7 @@ fn push_prize_block_wobble_sub_1007a(
                 .tile_index
                 .checked_sub(BLOCK_TILE_VRAM_BASE)
                 .unwrap_or(tile.tile_index);
-            tile.tile_index = local_tile_index.saturating_add(if use_second_frame {
-                0x009
-            } else {
-                0
-            });
+            tile.tile_index = local_tile_index.saturating_add(tile_offset);
             Some(SpriteTile {
                 offset_x: if index % 2 == 0 { 0 } else { 8 },
                 offset_y: if index < 2 { 0 } else { 8 },
@@ -3400,6 +3407,40 @@ fn push_prize_block_wobble_sub_1007a(
         palette: Arc::new(level_visuals.palettes.foreground.clone()),
         tiles,
     });
+}
+
+fn prize_wobble_should_reuse_base_copy_sub_1007a(
+    level_visuals: &NativeLevelVisuals,
+    quad: &kid_render::TileQuad,
+    tile_offset: u16,
+) -> bool {
+    // ASM sub_1007A/stru_101B6 alternates temporary VRAM slots `$220/$229`.
+    // Native generated block sheets can omit the `$229` copy for a live copied
+    // prize skin; in that case keep drawing the `$220` copy rather than making
+    // the prize block disappear for half the wobble.
+    let base_copy_visible = prize_wobble_quad_has_visible_pixels_sub_1007a(level_visuals, quad, 0);
+    let shifted_copy_visible =
+        prize_wobble_quad_has_visible_pixels_sub_1007a(level_visuals, quad, tile_offset);
+    base_copy_visible && !shifted_copy_visible
+}
+
+fn prize_wobble_quad_has_visible_pixels_sub_1007a(
+    level_visuals: &NativeLevelVisuals,
+    quad: &kid_render::TileQuad,
+    tile_offset: u16,
+) -> bool {
+    quad.tiles.iter().all(|tile| {
+        let local_tile_index = tile
+            .tile_index
+            .checked_sub(BLOCK_TILE_VRAM_BASE)
+            .unwrap_or(tile.tile_index)
+            .saturating_add(tile_offset);
+        level_visuals
+            .block_tiles
+            .tiles
+            .get(usize::from(local_tile_index))
+            .is_some_and(|tile| tile.pixels.iter().any(|pixel| *pixel != 0))
+    })
 }
 
 fn prize_block_spawn_flash_frame_loc_102b8(
