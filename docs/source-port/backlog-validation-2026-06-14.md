@@ -144,21 +144,21 @@ agent-closable instead of playtest-only.
   turn-tables prove the crawler only **bounces/turns** on `$6000` metal cells; it never
   produces a block Destroy. Its leftward projectile (`loc_338F8` → `Tar_Monster loc_325B6`
   burst) fires on **support-loss/wall death**, not block destruction.
-- The reported "block breaks + red projectile leftward" matches the **type-C `$EC2D`
-  Driller/shooter** (`Driller.asm Enemy1A_Driller_Init loc_3BCF0`, `loc_3BE60`/`loc_3BE78`),
-  **not the Drips crawler.** This explains why dozens of archived Drips-crawler-vs-row-32
-  near-misses dead-ended.
-- **Next:** build a probe that approaches the `$EC2D` shooter cell from the LEFT (so the
-  leftward shot is between Kid and the cell), seeded from the cleanest oracle-comparable
-  prefix; or get the human to confirm which on-screen object they saw. **Do not** patch
-  the Drips crawler to Destroy a `$6000` cell — that contradicts `loc_33AF6` (fidelity
-  regression).
+- The reported "block breaks + red projectile leftward" still does **not** match the
+  Drips crawler alone. `Drips.asm loc_338F8` creates the Tar Monster projectile child
+  on support-loss/wall death, not from block destruction, which explains why archived
+  Drips-crawler-vs-row-32 near-misses dead-ended.
+- **Next:** use a different live bootstrap or a fresh human recording that captures
+  the red-projectile/type-C interaction. Do **not** keep trimming local Drips row-32
+  overlays, and do **not** patch the Drips crawler to Destroy a `$6000` cell — that
+  contradicts `loc_33AF6` (fidelity regression).
 - **2026-06-16 guard:** `loc_F1DE_queues_only_shooter_cells_when_a_free_slot_exists`
-  already proves `$EC2D` queues the evanescent shooter path. Added
+  already proves raw `$EC2D` queues a visible shooter slot with zero direction bits,
+  and `loc_F28C` treats `$6(a0)==0` as non-visible/non-projectile. Added
   `loc_3be78_driller_does_not_drill_type_c_ec2d_shooter_cells` to lock down the
   complementary Driller ASM read: `loc_3BE78` only drills `$000/$100/$200`
   block-type masks, so a literal `$EC2D` must not be "fixed" by routing it through
-  Driller Smash/Ice destruction.
+  Driller Smash/Ice destruction or by expecting a leftward shot from that raw cell.
 
 ---
 
