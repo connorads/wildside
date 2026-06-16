@@ -25234,6 +25234,8 @@ mod chunk_05 {
         runtime.weather.storm_weather_mode_byte = 4;
         runtime.weather.storm_fade_countdown = 0x0100;
         runtime.weather.storm_thunder_timer = -3;
+        runtime.weather.storm_saved_palette_label_loc_14d82 =
+            Some(crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82);
         runtime.weather.hail_active = true;
         runtime.weather.hail_spawn_timer = 42;
         runtime.weather.hail_period_timer = 99;
@@ -25255,6 +25257,7 @@ mod chunk_05 {
         assert_eq!(runtime.weather.storm_weather_mode_byte, 0);
         assert_eq!(runtime.weather.storm_fade_countdown, 0);
         assert_eq!(runtime.weather.storm_thunder_timer, 0);
+        assert_eq!(runtime.weather.storm_saved_palette_label_loc_14d82, None);
         assert!(!runtime.weather.hail_active);
         assert_eq!(runtime.weather.hail_spawn_timer, 0);
         assert_eq!(runtime.weather.hail_period_timer, 0);
@@ -25295,6 +25298,11 @@ mod chunk_05 {
             "ASM loc_14DAC seeds `$FFFFFADC=1` for the first thunder event"
         );
         assert_eq!(
+            runtime.weather.storm_saved_palette_label_loc_14d82,
+            Some(crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82),
+            "ASM loc_14D82 stores the Pal_7B85C pointer in `$FFFFFADE` before the shared storm setup tail"
+        );
+        assert_eq!(
             runtime.weather.hail_period_timer, 1,
             "ASM loc_14DAC writes `$FFFFFB52=1`; sub_6048 turns that into the first hail active period"
         );
@@ -25317,6 +25325,11 @@ mod chunk_05 {
         runtime.step_weather(&airborne_slice());
 
         assert_eq!(runtime.weather.weather_type, 2);
+        assert_eq!(
+            runtime.weather.storm_saved_palette_label_loc_14d82,
+            Some(crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82),
+            "ASM loc_14D82 writes Pal_7B85C for the direct rain branch as well as storm+hail"
+        );
         assert_eq!(
             runtime.weather.storm_fade_countdown, 0x00FC,
             "ASM sub_6048 subtracts four from `$FFFFFADA` after the 20-second storm threshold"

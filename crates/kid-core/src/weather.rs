@@ -4,6 +4,7 @@ pub(crate) const LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A: usize = 0x10;
 pub(crate) const LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A: usize = 0x14;
 pub(crate) const LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A: &str = "ArtComp_983D2_Lava";
 pub(crate) const LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A: u16 = 0x5F60;
+pub(crate) const STORM_SAVED_PALETTE_LABEL_LOC_14D82: &str = "Pal_7B85C";
 
 #[allow(dead_code)]
 const MURDER_WALL_PATTERN_SUB_5E02: [u16; 4] = [0xA2FB, 0xA31F, 0xA343, 0xA367];
@@ -253,6 +254,14 @@ pub(crate) enum StormPaletteAssetLoc14CEC {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StormSavedPaletteAssetLoc14D82 {
     RainPalette7B85C,
+}
+
+impl StormSavedPaletteAssetLoc14D82 {
+    pub(crate) const fn asset_label(self) -> &'static str {
+        match self {
+            Self::RainPalette7B85C => STORM_SAVED_PALETTE_LABEL_LOC_14D82,
+        }
+    }
 }
 
 #[allow(non_snake_case)]
@@ -2512,6 +2521,7 @@ impl NativeRuntime {
         self.weather.storm_weather_mode_byte = 0;
         self.weather.storm_fade_countdown = 0;
         self.weather.storm_thunder_timer = 0;
+        self.weather.storm_saved_palette_label_loc_14d82 = None;
         self.weather.hail_active = false;
         self.weather.hail_spawn_timer = 0;
         self.weather.hail_period_timer = 0;
@@ -2520,6 +2530,10 @@ impl NativeRuntime {
         if self.weather.weather_type == 1 {
             self.init_lava_geysers(level_id);
         } else if matches!(self.weather.weather_type, 2 | 3) {
+            self.weather.storm_saved_palette_label_loc_14d82 = Some(
+                select_saved_storm_palette_loc_14D82(u16::from(self.weather.weather_type))
+                    .asset_label(),
+            );
             let setup = initialise_storm_setup_loc_14D8A();
             let seeded = initialise_storm_slots_loc_14DAC(setup.fill_setup);
             self.weather.storm_spawn_cooldown = seeded.spawn_cooldown;

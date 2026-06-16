@@ -176,6 +176,9 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         storm_weather_mode_byte: 4,
         storm_fade_countdown: 0x0100,
         storm_thunder_timer: 1,
+        storm_saved_palette_label_loc_14d82: Some(
+            crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82,
+        ),
         hail_spawn_timer: 11,
         hail_active: true,
         hail_period_timer: 22,
@@ -222,6 +225,7 @@ fn assert_level_restart_state_cleared(runtime: &NativeRuntime) {
     assert!(!runtime.weather.hail_active);
     assert_eq!(runtime.weather.hail_spawn_timer, 0);
     assert_eq!(runtime.weather.hail_period_timer, 0);
+    assert_eq!(runtime.weather.storm_saved_palette_label_loc_14d82, None);
     assert_eq!(runtime.y_look_offset, 0);
     assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
     assert_eq!(runtime.progression.pending_form, None);

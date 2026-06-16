@@ -712,6 +712,8 @@ pub(crate) struct WeatherState {
     pub(crate) storm_fade_countdown: u16,
     /// ASM loc_14DAC/sub_6048 `$FFFFFADC`: Mountain thunder timer.
     pub(crate) storm_thunder_timer: i16,
+    /// ASM loc_14D82 `$FFFFFADE`: saved storm palette pointer.
+    pub(crate) storm_saved_palette_label_loc_14d82: Option<&'static str>,
     /// Hail system: frames until next hail spawn (0=spawn this frame).
     pub(crate) hail_spawn_timer: u16,
     /// Hail system: whether hail is currently active (toggles on $258-frame period).
