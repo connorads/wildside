@@ -328,6 +328,36 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_reports_native_platform_loader_cursor_loc_2744() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        let mut slice = OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 640,
+            height_pixels: 480,
+        });
+        slice.objects.platform_loader = PlatformLoaderState {
+            next_index: 2,
+            offset_words: 0x0018,
+        };
+        runtime.opening_slice = Some(slice);
+
+        let trace = runtime.trace_frame();
+        let summary = trace
+            .gameplay_debug_fields
+            .get("native_platform_loader_loc_2744")
+            .unwrap_or_else(|| panic!("trace should expose native platform loader cursor"));
+
+        assert!(
+            summary.contains("offset=0x0018") && summary.contains("next_index=2"),
+            "ASM Manage_PlatformLoading loc_2744/loc_286E is a cursor over 12-byte platform records, so trace needs the native offset and materialisation bound",
+        );
+        assert!(
+            summary.contains("layout_len=none") && summary.contains("active_slots=0"),
+            "the loader cursor trace should remain useful even when the minimal test manifest has no platform layout",
+        );
+    }
+
+    #[test]
     fn trace_reports_robot_shot_and_impact_kinds_loc_3ac0c_3ac92() {
         let shot = EnemyProjectile {
             kind: EnemyProjectileKind::RobotShot,
@@ -6678,6 +6708,9 @@ impl NativeRuntime {
         if let Some(summary) = Self::native_platform_slots_debug_loc_257e(&self.active_platforms) {
             gameplay_debug_fields.insert("native_platform_slots_loc_257e".into(), summary);
         }
+        if let Some(summary) = self.native_platform_loader_debug_loc_2744() {
+            gameplay_debug_fields.insert("native_platform_loader_loc_2744".into(), summary);
+        }
         let level_complete_elapsed_frames = match self.player_lifecycle {
             PlayerLifecycle::LevelComplete {
                 remaining_frames,
@@ -7500,6 +7533,25 @@ impl NativeRuntime {
             .collect::<Vec<_>>();
 
         Some(format!("count={};{}", platforms.len(), slots.join(";")))
+    }
+
+    fn native_platform_loader_debug_loc_2744(&self) -> Option<String> {
+        let slice = self.opening_slice?;
+        let loader = slice.objects.platform_loader;
+        if loader.next_index == 0 && loader.offset_words == 0 && self.active_platforms.is_empty() {
+            return None;
+        }
+        let layout_len = self.platform_layout(self.current_level).map_or_else(
+            || "none".to_string(),
+            |layout| layout.placements.len().to_string(),
+        );
+        Some(format!(
+            "offset={:#06x} next_index={} layout_len={} active_slots={}",
+            loader.offset_words,
+            loader.next_index,
+            layout_len,
+            self.active_platforms.len()
+        ))
     }
 
     fn heady_metal_body_pieces_sub_37abc(&self) -> Vec<HeadyMetalBodyPieceTraceSub37ABC> {
