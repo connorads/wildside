@@ -8135,6 +8135,32 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                 }
 
+                if result.next_remaining_scatter_frames != remaining_scatter_frames {
+                    // ASM sub_37708 loc_377BC decrements `$40(a3)` before
+                    // selecting the final-scatter velocity tier.
+                    self.active_enemies[active_idx].wait_timer =
+                        result.next_remaining_scatter_frames;
+                    changed_enemy_state = true;
+                }
+
+                if let Some(scatter_step) = result.scatter_step {
+                    // ASM sub_3787C/sub_378A2 mutates five cached workers.
+                    // Native's live ActiveEnemy represents `$FFFFFB72`; keep
+                    // this observable worker in sync while the remaining
+                    // cached-worker lifecycle stays explicit in the #301 audit.
+                    let enemy = &mut self.active_enemies[active_idx];
+                    let x_velocity_delta = match scatter_step.pattern {
+                        HeadyMetalScatterPatternSub37708::Primary => {
+                            scatter_step.d6_x_velocity_delta
+                        }
+                        HeadyMetalScatterPatternSub37708::Alternate => {
+                            scatter_step.d7_velocity_delta
+                        }
+                    };
+                    enemy.x_velocity = enemy.x_velocity.wrapping_add(x_velocity_delta);
+                    changed_enemy_state = true;
+                }
+
                 continue;
             }
             let enemy = &mut self.active_enemies[active_idx];

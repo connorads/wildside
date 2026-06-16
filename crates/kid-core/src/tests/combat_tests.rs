@@ -2202,6 +2202,33 @@ fn live_heady_metal_early_breakup_queues_boss_eye_pop_sfx_loc_3772a() {
 }
 
 #[test]
+fn live_heady_metal_final_breakup_applies_current_worker_scatter_sub_3787c() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 0);
+    boss.wait_timer = 0x0160;
+    runtime.active_enemies = vec![boss];
+    runtime.active_enemy_roster = runtime
+        .active_enemies
+        .iter()
+        .map(ActiveEnemy::snapshot)
+        .collect();
+
+    let collision_target = runtime.active_enemies[0];
+    runtime.queue_pending_enemy_collision(&collision_target, 0);
+    runtime.apply_pending_enemy_collisions();
+
+    assert_eq!(
+        runtime.active_enemies[0].wait_timer, 0x015F,
+        "ASM sub_37708 loc_377BC decrements `$40(a3)` before choosing the final-scatter velocity tier"
+    );
+    assert_eq!(
+        runtime.active_enemies[0].x_velocity, -0x0003_0D40,
+        "ASM sub_37708 -> sub_3787C with `Frame_Counter & 2 == 0` adds d6 (-$30D40) to the live `$FFFFFB72` worker x velocity"
+    );
+}
+
+#[test]
 fn boss_eye_attack_sub_37332_deletes_only_below_level_height() {
     let mut runtime = NativeRuntime::new(manifest());
     let level_height = runtime.level_bounds(runtime.current_level).height_pixels;
