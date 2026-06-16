@@ -15250,6 +15250,74 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_slot_model_snapshots_follow_reused_slot_chain_loc_257e() {
+        let active_window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let inactive_window = ActivationWindow {
+            x_min: 800,
+            x_max: 800,
+            y_min: 800,
+            y_max: 800,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement.clone(), placement],
+        };
+        let mut model = PlatformLoaderSlotModelLoc2744::initialize_sub_231C();
+
+        model.advance_to_window(&layout, active_window);
+        model.advance_to_window(&layout, active_window);
+        model.advance_to_window(&layout, inactive_window);
+        model.advance_to_window(&layout, active_window);
+        model.advance_to_window(&layout, active_window);
+
+        let slot_model_indices: Vec<Option<usize>> = model
+            .active_platforms_loc_257E(&layout, active_window)
+            .into_iter()
+            .map(|platform| platform.layout_index)
+            .collect();
+        let loaded_mask_indices: Vec<Option<usize>> = PlatformLoaderState {
+            next_index: model.next_index_loc_2762(),
+            offset_words: 0,
+            loaded_mask: model.loaded_mask_loc_2762(),
+        }
+        .active_platforms(&layout, active_window)
+        .into_iter()
+        .map(|platform| platform.layout_index)
+        .collect();
+
+        assert_eq!(
+            slot_model_indices,
+            vec![Some(0), Some(1)],
+            "ASM Platforms_CheckCollision loc_257E walks Addr_FirstPlatformSlot order, so after sub_23B4 frees record 0 and sub_238E reloads it, the reused slot becomes the scan head",
+        );
+        assert_eq!(
+            loaded_mask_indices,
+            vec![Some(1), Some(0)],
+            "the current loaded-mask snapshot approximation still reverses layout order and cannot represent Platform_RAM slot reuse order",
+        );
+    }
+
+    #[test]
     fn platform_loader_keeps_loaded_special_slot_out_of_range_loc_2850() {
         let inactive_window = ActivationWindow {
             x_min: 640,

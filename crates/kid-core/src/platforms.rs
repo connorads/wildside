@@ -679,11 +679,96 @@ impl PlatformLoaderSlotModelLoc2744 {
             .collect()
     }
 
+    pub(crate) fn active_platforms_loc_257E(
+        &self,
+        layout: &PlatformLayout,
+        window: ActivationWindow,
+    ) -> Vec<NativeObjectSnapshot> {
+        self.active_slot_records_loc_2728()
+            .into_iter()
+            .filter_map(|record| {
+                let layout_index = usize::from(record.layout_offset_words / 0x000C);
+                let placement = layout.placements.get(layout_index)?;
+                if !platform_is_active(placement, window)
+                    && !platform_placement_is_special_loc_2836(placement)
+                {
+                    return None;
+                }
+                let mut snapshot =
+                    platform_snapshot_from_placement_loc_2814(layout_index, placement, window);
+                snapshot.debug_fields.insert(
+                    "platform_deactivated_flag".to_string(),
+                    record.deactivated_flag.to_string(),
+                );
+                Some(snapshot)
+            })
+            .collect()
+    }
+
     fn find_slot_by_layout_offset_sub_2728(&self, layout_offset_words: u16) -> Option<u16> {
         self.active_slot_records_loc_2728()
             .into_iter()
             .find(|record| record.layout_offset_words == layout_offset_words)
             .map(|record| record.slot_addr)
+    }
+}
+
+fn platform_snapshot_from_placement_loc_2814(
+    placement_index: usize,
+    placement: &PlatformPlacement,
+    window: ActivationWindow,
+) -> NativeObjectSnapshot {
+    let (width_px, height_px) =
+        platform_size_words_loc_2814(placement.kind, placement.h_variant, placement.v_variant);
+    let render_flags = platform_render_flags_loc_2814(placement.kind, placement.subtype);
+    let mut debug_fields = std::collections::BTreeMap::new();
+    debug_fields.insert("platform_width_px".to_string(), width_px.to_string());
+    debug_fields.insert("platform_height_px".to_string(), height_px.to_string());
+    debug_fields.insert(
+        "platform_render_flags".to_string(),
+        render_flags.to_string(),
+    );
+    debug_fields.insert(
+        "platform_mapping_addr_word".to_string(),
+        platform_mapping_addr_word_loc_2822(render_flags).to_string(),
+    );
+    debug_fields.insert(
+        "platform_loader_offset_words".to_string(),
+        platform_loader_offset_for_index_loc_286E(placement_index).to_string(),
+    );
+    if platform_placement_is_special_loc_2836(placement) {
+        let deactivated_flag = if platform_is_active(placement, window) {
+            0
+        } else {
+            0xFF
+        };
+        debug_fields.insert(
+            "platform_deactivated_flag".to_string(),
+            deactivated_flag.to_string(),
+        );
+    }
+    NativeObjectSnapshot {
+        kind: NativeObjectKind::Platform {
+            kind: placement.kind,
+            subtype: placement.subtype,
+        },
+        x_pos: platform_layout_coord_fixed_loc_2762(placement.x),
+        y_pos: platform_layout_coord_fixed_loc_2762(placement.y),
+        layout_index: Some(placement_index),
+        x_velocity: None,
+        y_velocity: None,
+        facing: None,
+        on_ground: None,
+        hit_points: None,
+        damage_flash: false,
+        palette_variant: 0,
+        stationary: false,
+        shared_walker_state: None,
+        shared_walker_patrol_timer: None,
+        shared_walker_patrol_short_next: None,
+        walk_phase: None,
+        wait_timer: None,
+        debug_fields,
     }
 }
 
@@ -1136,62 +1221,7 @@ impl PlatformLoaderState {
             })
             .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
             .map(|(placement_index, placement)| {
-                let (width_px, height_px) = platform_size_words_loc_2814(
-                    placement.kind,
-                    placement.h_variant,
-                    placement.v_variant,
-                );
-                let render_flags =
-                    platform_render_flags_loc_2814(placement.kind, placement.subtype);
-                let mut debug_fields = std::collections::BTreeMap::new();
-                debug_fields.insert("platform_width_px".to_string(), width_px.to_string());
-                debug_fields.insert("platform_height_px".to_string(), height_px.to_string());
-                debug_fields.insert(
-                    "platform_render_flags".to_string(),
-                    render_flags.to_string(),
-                );
-                debug_fields.insert(
-                    "platform_mapping_addr_word".to_string(),
-                    platform_mapping_addr_word_loc_2822(render_flags).to_string(),
-                );
-                debug_fields.insert(
-                    "platform_loader_offset_words".to_string(),
-                    platform_loader_offset_for_index_loc_286E(placement_index).to_string(),
-                );
-                if platform_placement_is_special_loc_2836(placement) {
-                    let deactivated_flag = if platform_is_active(placement, window) {
-                        0
-                    } else {
-                        0xFF
-                    };
-                    debug_fields.insert(
-                        "platform_deactivated_flag".to_string(),
-                        deactivated_flag.to_string(),
-                    );
-                }
-                NativeObjectSnapshot {
-                    kind: NativeObjectKind::Platform {
-                        kind: placement.kind,
-                        subtype: placement.subtype,
-                    },
-                    x_pos: platform_layout_coord_fixed_loc_2762(placement.x),
-                    y_pos: platform_layout_coord_fixed_loc_2762(placement.y),
-                    layout_index: Some(placement_index),
-                    x_velocity: None,
-                    y_velocity: None,
-                    facing: None,
-                    on_ground: None,
-                    hit_points: None,
-                    damage_flash: false,
-                    palette_variant: 0,
-                    stationary: false,
-                    shared_walker_state: None,
-                    shared_walker_patrol_timer: None,
-                    shared_walker_patrol_short_next: None,
-                    walk_phase: None,
-                    wait_timer: None,
-                    debug_fields,
-                }
+                platform_snapshot_from_placement_loc_2814(placement_index, placement, window)
             })
             .collect();
         // ASM Allocate_PlatformSlot sub_238E inserts each newly allocated
