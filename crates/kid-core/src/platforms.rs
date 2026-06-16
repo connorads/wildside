@@ -1358,6 +1358,18 @@ pub(crate) fn standing_platform_index_loc_8ED0(
 }
 
 #[allow(non_snake_case)]
+pub(crate) fn remap_standing_platform_index_by_layout_index_loc_2850(
+    standing_platform_index: Option<usize>,
+    before: &[ActivePlatform],
+    after: &[ActivePlatform],
+) -> Option<usize> {
+    let standing_layout_index = before.get(standing_platform_index?)?.layout_index?;
+    after
+        .iter()
+        .position(|platform| platform.layout_index == Some(standing_layout_index))
+}
+
+#[allow(non_snake_case)]
 pub(crate) fn platform_support_check_sub_8ED0(
     platform: Option<&ActivePlatform>,
     player_x_pos: u32,

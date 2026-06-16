@@ -4327,6 +4327,7 @@ impl NativeRuntime {
         );
         let kid_y_px = (slice.player.y_pos >> 16) as i16;
         let mut platform_index = 0usize;
+        let active_platforms_before_special_step = self.active_platforms.clone();
         self.active_platforms.retain_mut(|platform| {
             let action = platform.step_special_platform_loc_40D2(
                 platform_standing_before == Some(platform_index),
@@ -4336,6 +4337,14 @@ impl NativeRuntime {
             platform_index += 1;
             action != SpecialPlatformStepActionLoc40D2::Delete
         });
+        // ASM Addr_PlatformStandingOn is a slot address; after native vector
+        // compaction from loc_2850/delete actions, preserve that identity.
+        let platform_standing_before = remap_standing_platform_index_by_layout_index_loc_2850(
+            platform_standing_before,
+            &active_platforms_before_special_step,
+            &self.active_platforms,
+        );
+        self.active_platform_standing_on = platform_standing_before;
 
         // Platform collision: player can stand on top of platforms
         let player_before_platform_collision = slice.player;

@@ -13888,6 +13888,27 @@ mod chunk_04 {
     }
 
     #[test]
+    fn remap_standing_platform_index_preserves_slot_identity_after_deletion_loc_2850() {
+        let mut removed = make_test_platform(40, 100, 2, 0);
+        removed.layout_index = Some(3);
+        let mut stood_on = make_test_platform(80, 100, 2, 0);
+        stood_on.layout_index = Some(7);
+        let before = [removed, stood_on];
+        let after = [stood_on];
+
+        assert_eq!(
+            remap_standing_platform_index_by_layout_index_loc_2850(Some(1), &before, &after),
+            Some(0),
+            "ASM Addr_PlatformStandingOn stores a platform slot address, so native must preserve the same layout-offset identity when loc_2850/deletion compacts vector indices",
+        );
+        assert_eq!(
+            remap_standing_platform_index_by_layout_index_loc_2850(Some(0), &before, &after),
+            None,
+            "when the stood-on slot itself is deleted, native should clear the Addr_PlatformStandingOn equivalent",
+        );
+    }
+
+    #[test]
     fn platform_collision_ignores_grounded_player() {
         let platform = make_test_platform(40, 100, 2, 0);
         let mut slice = make_airborne_slice(50, 100);
