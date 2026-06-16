@@ -15740,6 +15740,34 @@ mod chunk_04 {
     }
 
     #[test]
+    fn initialize_platform_slots_sub_231c_builds_the_free_list_and_clears_state() {
+        let init = initialize_platform_slots_sub_231C();
+
+        assert_eq!(
+            init.next_free_platform_slot_addr, 0xEDBA,
+            "ASM sub_231C stores the first Platform_RAM slot address in `(Addr_NextFreePlatformSlot).w`",
+        );
+        assert_eq!(
+            init.slot_next_addrs[0], 0xEDDC,
+            "ASM sub_231C links each slot's leading word to the next $22-byte slot",
+        );
+        assert_eq!(
+            init.slot_next_addrs[15], 0xEFDA,
+            "ASM sub_231C uses `dbf #$10` to write links through the seventeenth Platform_RAM slot",
+        );
+        assert_eq!(
+            init.slot_next_addrs[16], 0,
+            "ASM sub_231C clears the final slot link to terminate the free list",
+        );
+        assert_eq!(init.first_platform_slot_addr, 0);
+        assert_eq!(init.number_platforms, 0);
+        assert_eq!(
+            init.platform_loader_offset_words, 0,
+            "ASM sub_231C clears `PlatformLoader_Offset` along with the active-list head and platform count",
+        );
+    }
+
+    #[test]
     fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
         assert_eq!(
             allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),

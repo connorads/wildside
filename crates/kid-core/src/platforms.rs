@@ -411,6 +411,36 @@ pub(crate) fn bottom_platform_carry_loc_26FE(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct InitializePlatformsSub231C {
+    pub(crate) next_free_platform_slot_addr: u16,
+    pub(crate) first_platform_slot_addr: u16,
+    pub(crate) number_platforms: u16,
+    pub(crate) platform_loader_offset_words: u16,
+    pub(crate) slot_next_addrs: [u16; PLATFORM_SLOT_CAPACITY_LOC_231C],
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn initialize_platform_slots_sub_231C() -> InitializePlatformsSub231C {
+    // ASM Initialize_Platforms/sub_231C (kid.asm:4167-4178): seed
+    // Addr_NextFreePlatformSlot with $EDBA, link 17 Platform_RAM slots by
+    // their leading word using a $22-byte stride, terminate the final slot,
+    // and clear Addr_FirstPlatformSlot, Number_Platforms, and
+    // PlatformLoader_Offset before loading level platform metadata.
+    let mut slot_next_addrs = [0; PLATFORM_SLOT_CAPACITY_LOC_231C];
+    for (index, next_addr) in slot_next_addrs.iter_mut().enumerate() {
+        *next_addr = PlatformLoaderState::synthetic_slot_addr_loc_231C(index + 1).unwrap_or(0);
+    }
+    InitializePlatformsSub231C {
+        next_free_platform_slot_addr: PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C,
+        first_platform_slot_addr: 0,
+        number_platforms: 0,
+        platform_loader_offset_words: 0,
+        slot_next_addrs,
+    }
+}
+
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {
