@@ -1222,13 +1222,20 @@ pub fn parse_level_header(bytes: &[u8]) -> Result<LevelHeader> {
     let raw_height = bytes[1];
     let raw_level_theme = bytes[2];
     let raw_background_theme = bytes[3];
+    let (level_theme, murder_wall_flags) = if raw_level_theme & 0x80 == 0 {
+        // ASM loc_11B92: the foreground-theme byte bypasses the murder-wall
+        // flag decode when `bpl.s loc_11B9A` is taken, so bit 6 stays theme data.
+        (raw_level_theme, 0)
+    } else {
+        (raw_level_theme & 0x3F, raw_level_theme >> 6)
+    };
 
     Ok(LevelHeader {
         width_screens,
         height_screens: raw_height & 0x3F,
         height_flag_bits: raw_height >> 6,
-        level_theme: raw_level_theme & 0x3F,
-        murder_wall_flags: raw_level_theme >> 6,
+        level_theme,
+        murder_wall_flags,
         background_theme: raw_background_theme & 0x0F,
         weather_flags: raw_background_theme >> 4,
         player_start_x: read_u16_be(bytes, 4),
@@ -5788,6 +5795,22 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(header.player_start_y, 0x00E0);
         assert_eq!(header.flag_x, 0x0750);
         assert_eq!(header.flag_y, 0x0300);
+    }
+
+    #[test]
+    fn parses_positive_foreground_theme_bit6_as_theme_data_loc_11b92() {
+        let header = parse_level_header(&[
+            0x06, 0x84, 0x48, 0x18, 0x07, 0x50, 0x00, 0xE0, 0x07, 0x50, 0x03, 0x00,
+        ])
+        .expect("header should parse");
+        assert_eq!(
+            header.level_theme, 0x48,
+            "ASM loc_11B92 is skipped by `bpl.s loc_11B9A`, so bit 6 remains part of the positive foreground-theme byte"
+        );
+        assert_eq!(
+            header.murder_wall_flags, 0,
+            "ASM loc_11B92 only decodes murder-wall flags for negative foreground-theme bytes"
+        );
     }
 
     #[test]
