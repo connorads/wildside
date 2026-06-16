@@ -12251,6 +12251,110 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn debug_hotkey_cave_back_to_blue_lake_live_background_uses_target_visuals_loc_6e2() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let route_name = "debug hotkey cave -> Blue Lake Woods live handoff";
+        let start_level = 0x06;
+        let target_level = 0x00;
+        let start_assets = load_native_session_assets(&manifest, start_level)
+            .unwrap_or_else(|_| panic!("{route_name} start assets"));
+        let stale_visuals = start_assets.level_visuals.clone();
+        let target_assets = load_native_session_assets(&manifest, target_level)
+            .unwrap_or_else(|_| panic!("{route_name} target assets"));
+        let expected_visuals = target_assets.level_visuals.clone();
+
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_playtest(LevelId(start_level));
+
+        enter_debug_hotkey_level(
+            &manifest,
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(target_level),
+            target_assets,
+        );
+        assert_eq!(trace.current_level, LevelId(target_level), "{route_name}");
+        assert_eq!(trace.game_mode, GameMode::LevelTransition, "{route_name}");
+        assert_eq!(
+            session_assets.level_visuals.level.level_id, expected_visuals.level.level_id,
+            "{route_name}: active render bundle should switch to Blue Lake Woods before the ROM title-card shell"
+        );
+
+        for _ in 0..360 {
+            trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name}: Load_TitleCard should still be waiting for Start"
+            );
+        }
+        trace = runtime.step_frame(FrameInput::from_mask(0x80));
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "{route_name}: Start is latched before the live handoff"
+        );
+
+        let mut live_trace = None;
+        for _ in 0..16 {
+            let next_trace = runtime.step_frame(FrameInput::default());
+            if next_trace.game_mode == GameMode::InGame {
+                live_trace = Some(next_trace);
+                break;
+            }
+        }
+        let trace =
+            live_trace.unwrap_or_else(|| panic!("{route_name} did not reach live gameplay"));
+        assert_eq!(trace.current_level, LevelId(target_level), "{route_name}");
+        assert_eq!(
+            session_assets.level_visuals.level.level_id, expected_visuals.level.level_id,
+            "{route_name}: live gameplay should still render with the target level bundle"
+        );
+
+        let mut target_matches = 0usize;
+        let mut stale_mismatches = 0usize;
+        for y in (16..208).step_by(16) {
+            for x in (16..304).step_by(16) {
+                let Some(actual) =
+                    sample_background_pixel_loc_c070(&trace, &session_assets.level_visuals, x, y)
+                else {
+                    continue;
+                };
+                let Some(expected) =
+                    sample_background_pixel_loc_c070(&trace, &expected_visuals, x, y)
+                else {
+                    continue;
+                };
+                if actual.rgb == expected.rgb {
+                    target_matches += 1;
+                }
+                if let Some(stale) = sample_background_pixel_loc_c070(&trace, &stale_visuals, x, y)
+                    && stale.rgb != expected.rgb
+                    && actual.rgb != stale.rgb
+                {
+                    stale_mismatches += 1;
+                }
+            }
+        }
+
+        assert!(
+            target_matches >= 8,
+            "{route_name}: live background samples should match fresh Blue Lake Woods visuals, not go black or reuse a stale shell"
+        );
+        assert!(
+            stale_mismatches >= 4,
+            "{route_name}: sampled live background should differ from the previous cave background at multiple visible points"
+        );
+    }
+
+    #[test]
     fn native_session_block_grid_prefers_logical_layout_before_resource_fallback() {
         let mut fixture = ManifestFixture::new().expect("manifest fixture");
         fixture.manifest.map_order = vec![0x00, 0x01, 0x02, 0x03, 0x01];
