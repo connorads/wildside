@@ -734,6 +734,19 @@ mod tests {
     }
 
     #[test]
+    fn helper_exposes_oracle_platform_slot_order_loc_257e() {
+        assert!(
+            HELPER_TEMPLATE.contains("const ADDR_FIRST_PLATFORM_SLOT_ADDR: usize = 0xFF_FA8E;")
+                && HELPER_TEMPLATE.contains("const NUMBER_PLATFORMS_ADDR: usize = 0xFF_FA92;")
+                && HELPER_TEMPLATE.contains("const PLATFORM_RAM_ADDR: usize = 0xFFFF_EDBA;")
+                && HELPER_TEMPLATE.contains("fn oracle_platform_slots_debug_loc_257e")
+                && HELPER_TEMPLATE.contains("Addr_FirstPlatformSlot")
+                && HELPER_TEMPLATE.contains("\"oracle_platform_slots_loc_257e\""),
+            "oracle gameplay trace must expose the ROM platform linked-list order for native vector-order audits"
+        );
+    }
+
+    #[test]
     fn oracle_manifest_deserialises_hidden_settle_trace_rows() {
         let manifest: OracleManifest = serde_json::from_str(
             r#"{

@@ -451,6 +451,8 @@ const PLATFORM_COLLISION_SCRATCH_FAA3_ADDR: usize = 0xFF_FAA3;
 const PLATFORM_COLLISION_SCRATCH_FAA4_ADDR: usize = 0xFF_FAA4;
 const PLATFORM_COLLISION_SCRATCH_FAA5_ADDR: usize = 0xFF_FAA5;
 const PLATFORM_COLLISION_JUMP_PLATFORM_REF_FA96_ADDR: usize = 0xFF_FA96;
+const ADDR_FIRST_PLATFORM_SLOT_ADDR: usize = 0xFF_FA8E;
+const NUMBER_PLATFORMS_ADDR: usize = 0xFF_FA92;
 const RNG_OFFSET_ADDR: usize = 0xFF_FC12;
 const LEVEL_SPECIAL_EFFECTS_ADDR: usize = 0xFF_FB40;
 const ENEMY_LAYOUT_HEADER_PTR_ADDR: usize = 0xFF_F8F2;
@@ -461,6 +463,9 @@ const SHOOTER_OBJECT_SLOT_SIZE: usize = 0x0C;
 const SHOOTER_OBJECT_SLOT_COUNT: usize = 0x27;
 const SHOOTER_OBJECT_RAM_END_ADDR: usize =
     SHOOTER_OBJECT_RAM_ADDR + SHOOTER_OBJECT_SLOT_SIZE * SHOOTER_OBJECT_SLOT_COUNT;
+const PLATFORM_RAM_ADDR: usize = 0xFFFF_EDBA;
+const PLATFORM_SLOT_SIZE: usize = 0x22;
+const PLATFORM_SLOT_COUNT: usize = 0x12;
 const GFX_OBJECT_RAM_ADDR: usize = 0xFFFF_2448;
 const GFX_OBJECT_SLOT_SIZE: usize = 0x4C;
 const GFX_OBJECT_SLOT_COUNT: usize = 0x4D;
@@ -1260,6 +1265,13 @@ fn capture_state(
                 platform_debug,
             );
         }
+        let platform_slots_debug = oracle_platform_slots_debug_loc_257e(&work_ram);
+        if !platform_slots_debug.is_empty() {
+            gameplay_debug_fields.insert(
+                "oracle_platform_slots_loc_257e".into(),
+                platform_slots_debug,
+            );
+        }
         let shooter_debug = shooter_object_slots_debug_loc_ec22(&work_ram);
         if !shooter_debug.is_empty() {
             gameplay_debug_fields.insert("oracle_shooter_slots_loc_ec22".into(), shooter_debug);
@@ -1438,6 +1450,44 @@ fn platform_collision_scratch_debug_loc_257e(work_ram: &[u8]) -> Option<String> 
         u8::from(faa4),
         u8::from(faa5)
     ))
+}
+
+fn oracle_platform_slots_debug_loc_257e(work_ram: &[u8]) -> String {
+    // ASM Platforms_CheckCollision loc_257E and Move_Platforms sub_23EA both
+    // walk Addr_FirstPlatformSlot's `$22`-byte Platform_RAM linked list.
+    let platform_ram_start = work_ram_index(PLATFORM_RAM_ADDR);
+    let platform_ram_end = platform_ram_start + PLATFORM_SLOT_SIZE * PLATFORM_SLOT_COUNT;
+    let number_platforms = read_wram_u16(work_ram, NUMBER_PLATFORMS_ADDR);
+    let mut slot_addr = usize::from(read_wram_u16(work_ram, ADDR_FIRST_PLATFORM_SLOT_ADDR));
+    let mut guard = 0usize;
+    let mut slots = Vec::new();
+    while slot_addr != 0
+        && (platform_ram_start..platform_ram_end).contains(&slot_addr)
+        && guard < PLATFORM_SLOT_COUNT
+    {
+        let next = read_wram_u16(work_ram, slot_addr);
+        let x_pos = read_wram_u32(work_ram, slot_addr + 2);
+        let y_pos = read_wram_u32(work_ram, slot_addr + 6);
+        let x_vel = read_wram_i32(work_ram, slot_addr + 0x0A);
+        let y_vel = read_wram_i32(work_ram, slot_addr + 0x0E);
+        let state = read_wram_u32(work_ram, slot_addr + 0x12);
+        let timer = read_wram_u16(work_ram, slot_addr + 0x16);
+        let art = read_wram_u16(work_ram, slot_addr + 0x18);
+        let width = read_wram_u16(work_ram, slot_addr + 0x1A);
+        let height = read_wram_u16(work_ram, slot_addr + 0x1C);
+        let render = read_wram_u8(work_ram, slot_addr + 0x1F);
+        let layout_offset = read_wram_u16(work_ram, slot_addr + 0x20);
+        slots.push(format!(
+            "0xffff{slot_addr:04x}:next={next:#06x},xy={x_pos:#010x},{y_pos:#010x},vel={x_vel:#010x},{y_vel:#010x},state={state:#010x},timer={timer:#06x},art={art:#06x},size={width}x{height},render={render:#04x},off={layout_offset:#06x}"
+        ));
+        slot_addr = usize::from(next);
+        guard += 1;
+    }
+    if slots.is_empty() {
+        String::new()
+    } else {
+        format!("count={number_platforms};{}", slots.join(";"))
+    }
 }
 
 fn shooter_object_slots_debug_loc_ec22(work_ram: &[u8]) -> String {
