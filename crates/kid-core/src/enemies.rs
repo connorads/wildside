@@ -42215,6 +42215,7 @@ impl NativeRuntime {
                 &self.killed_enemies,
                 &mut self.rom_random,
             );
+            self.ensure_heady_metal_breakup_slots_loc_39247();
             if frame.camera_x_pos == final_camera_x_pos
                 && level_id != LevelId(0)
                 && level_id != LevelId(1)
@@ -42442,6 +42443,7 @@ impl NativeRuntime {
                         &mut self.rom_random,
                     );
                 }
+                self.ensure_heady_metal_breakup_slots_loc_39247();
                 self.apply_pending_enemy_collisions();
                 let mut played_enemy_sound_effects = Vec::new();
                 step_active_enemies_with_rng(
@@ -42523,6 +42525,7 @@ impl NativeRuntime {
                     &self.killed_enemies,
                     &mut self.rom_random,
                 );
+                self.ensure_heady_metal_breakup_slots_loc_39247();
                 self.rebuild_active_enemy_roster();
             } else {
                 // ORIGINAL_QUIRK: during title-screen demo playback, the game

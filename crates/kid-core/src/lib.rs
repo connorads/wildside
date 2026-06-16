@@ -1387,6 +1387,28 @@ enum PendingEnemyCollisionTarget {
 }
 
 impl NativeRuntime {
+    pub(crate) fn ensure_heady_metal_breakup_slots_loc_39247(&mut self) {
+        if self.heady_metal_breakup_slots_sub_37708.is_some() {
+            return;
+        }
+        let Some(heady_metal) = self
+            .active_enemies
+            .iter()
+            .find(|enemy| matches!(enemy.family, EnemyFamily::HeadyMetal))
+        else {
+            return;
+        };
+
+        // ASM Enemy20_HeadyMetal_Init loc_39247 seeds `$FFFFFB7A..$FFFFFBAA`
+        // once; loc_3763A/sub_37ABC refreshes the live table instead of
+        // re-projecting body pieces from the tracking anchor.
+        self.heady_metal_breakup_slots_sub_37708 =
+            Some(heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
+                (heady_metal.x_pos >> 16) as u16,
+                (heady_metal.y_pos >> 16) as u16,
+            ));
+    }
+
     pub(crate) fn queue_play_sound(&mut self, effect: QueuedSoundEffect) {
         self.queue_sound_command(QueuedSoundCommand::PlaySound(effect));
     }

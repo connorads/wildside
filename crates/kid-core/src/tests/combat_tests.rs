@@ -2323,6 +2323,38 @@ fn trace_exposes_heady_metal_sub_37abc_body_piece_workers() {
 }
 
 #[test]
+fn live_heady_metal_body_piece_workers_persist_after_init_loc_39247() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x0050_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::HeadyMetal,
+        0x0040_0000,
+        0x00A0_0000,
+        30,
+    )];
+
+    runtime.ensure_heady_metal_breakup_slots_loc_39247();
+    runtime.active_enemies[0].x_pos = 0x0080_0000;
+
+    let trace = runtime.trace_frame();
+
+    assert_eq!(
+        (
+            trace.heady_metal_body_pieces_sub_37abc[0].slot_offset,
+            trace.heady_metal_body_pieces_sub_37abc[0].x_pos,
+            trace.heady_metal_body_pieces_sub_37abc[0].y_pos,
+            trace.heady_metal_body_pieces_sub_37abc[0].sprite_mapping_index,
+        ),
+        (0x000C, 0x0034, 0x004A, 5),
+        "ASM Enemy20_HeadyMetal_Init loc_39247 stores live body-piece workers under `$FFFFFB7E`; loc_3763A/sub_37ABC refreshes those workers instead of re-deriving them from the moved `$FFFFFB7A` tracking anchor",
+    );
+}
+
+#[test]
 fn trace_uses_live_heady_metal_breakup_slots_for_sub_37abc_body_pieces() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
