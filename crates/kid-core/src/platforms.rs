@@ -546,6 +546,53 @@ pub(crate) fn advance_platform_loader_offset_loc_286E(platform_loader_offset: u1
     platform_loader_offset.wrapping_add(0x000C)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct PlatformLoaderCursorStepLoc2744 {
+    pub(crate) current_index: Option<usize>,
+    pub(crate) current_offset_words: u16,
+    pub(crate) next_offset_words: u16,
+    pub(crate) wrapped_to_start: bool,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn platform_loader_cursor_step_loc_2744(
+    layout_len: usize,
+    platform_loader_offset: u16,
+) -> PlatformLoaderCursorStepLoc2744 {
+    if layout_len == 0 {
+        // ASM Manage_PlatformLoading (kid.asm:4671-4673): a zero
+        // Addr_PlatformLayout returns before loc_286E, so the cursor does not
+        // advance.
+        return PlatformLoaderCursorStepLoc2744 {
+            current_index: None,
+            current_offset_words: platform_loader_offset,
+            next_offset_words: platform_loader_offset,
+            wrapped_to_start: false,
+        };
+    }
+
+    // ASM loc_2744 (kid.asm:4674-4677): PlatformLoader_Offset is a byte offset
+    // into 12-byte platform records. The native generated layout omits the
+    // `$FFFF` terminator, so an offset past the final generated record is the
+    // same end-of-list condition that clears the ROM cursor and retries.
+    let requested_index = usize::from(platform_loader_offset / 0x000C);
+    let wrapped_to_start = requested_index >= layout_len;
+    let (current_index, current_offset_words) = if wrapped_to_start {
+        (0, 0)
+    } else {
+        (requested_index, platform_loader_offset)
+    };
+
+    PlatformLoaderCursorStepLoc2744 {
+        current_index: Some(current_index),
+        current_offset_words,
+        next_offset_words: advance_platform_loader_offset_loc_286E(current_offset_words),
+        wrapped_to_start,
+    }
+}
+
 #[allow(non_snake_case)]
 pub(crate) fn platform_loader_offset_for_index_loc_286E(layout_index: usize) -> u16 {
     // ASM loc_286E (kid.asm:4785): each processed platform-layout record is

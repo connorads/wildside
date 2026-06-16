@@ -15446,6 +15446,48 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_cursor_step_loc_2744_processes_exactly_one_layout_record() {
+        assert_eq!(
+            crate::platforms::platform_loader_cursor_step_loc_2744(4, 0x000C),
+            crate::platforms::PlatformLoaderCursorStepLoc2744 {
+                current_index: Some(1),
+                current_offset_words: 0x000C,
+                next_offset_words: 0x0018,
+                wrapped_to_start: false,
+            },
+            "ASM Manage_PlatformLoading loc_2744 reads only the current 12-byte platform record before loc_286E advances the cursor by `$C`",
+        );
+    }
+
+    #[test]
+    fn platform_loader_cursor_step_loc_2744_wraps_at_generated_terminator() {
+        assert_eq!(
+            crate::platforms::platform_loader_cursor_step_loc_2744(3, 0x0024),
+            crate::platforms::PlatformLoaderCursorStepLoc2744 {
+                current_index: Some(0),
+                current_offset_words: 0x0000,
+                next_offset_words: 0x000C,
+                wrapped_to_start: true,
+            },
+            "ASM Manage_PlatformLoading (kid.asm:4677-4681) clears PlatformLoader_Offset and retries when the current layout word is the `$FFFF` terminator",
+        );
+    }
+
+    #[test]
+    fn platform_loader_cursor_step_loc_2744_does_not_advance_without_layout() {
+        assert_eq!(
+            crate::platforms::platform_loader_cursor_step_loc_2744(0, 0x0018),
+            crate::platforms::PlatformLoaderCursorStepLoc2744 {
+                current_index: None,
+                current_offset_words: 0x0018,
+                next_offset_words: 0x0018,
+                wrapped_to_start: false,
+            },
+            "ASM Manage_PlatformLoading returns before loc_286E when Addr_PlatformLayout is zero, so an empty native layout should not advance the cursor",
+        );
+    }
+
+    #[test]
     fn platform_sprite_dispatch_loc_244c_biases_visible_platforms_and_selects_loc_24c0() {
         assert_eq!(
             platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
