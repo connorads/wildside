@@ -470,6 +470,21 @@ impl PlatformSlotPoolLoc231C {
         Self::slot_index_loc_231C(slot_addr).map(|index| self.slot_next_addrs[index])
     }
 
+    pub(crate) fn active_slot_addrs_sub_23B4(&self) -> Vec<u16> {
+        let mut active_slot_addrs = Vec::new();
+        let mut cursor = self.first_platform_slot_addr;
+
+        while cursor != 0 {
+            let Some(current_index) = Self::slot_index_loc_231C(cursor) else {
+                break;
+            };
+            active_slot_addrs.push(cursor);
+            cursor = self.slot_next_addrs[current_index];
+        }
+
+        active_slot_addrs
+    }
+
     pub(crate) fn allocate_sub_238E(&mut self) -> AllocatePlatformSlotResultSub238E {
         let allocated_slot_addr = self.next_free_platform_slot_addr;
         let Some(allocated_slot_index) = Self::slot_index_loc_231C(allocated_slot_addr) else {

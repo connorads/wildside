@@ -15857,6 +15857,44 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_slot_pool_active_chain_loc_23b4_relinks_when_deallocating_head() {
+        let mut pool = PlatformSlotPoolLoc231C::initialize_sub_231C();
+        assert!(matches!(
+            pool.allocate_sub_238E(),
+            AllocatePlatformSlotResultSub238E::Allocated(_)
+        ));
+        assert!(matches!(
+            pool.allocate_sub_238E(),
+            AllocatePlatformSlotResultSub238E::Allocated(_)
+        ));
+        assert!(matches!(
+            pool.allocate_sub_238E(),
+            AllocatePlatformSlotResultSub238E::Allocated(_)
+        ));
+        assert_eq!(
+            pool.active_slot_addrs_sub_23B4(),
+            vec![0xEDFE, 0xEDDC, 0xEDBA],
+            "ASM sub_238E inserts each allocation at `(Addr_FirstPlatformSlot).w`, so active-chain order is newest slot first",
+        );
+
+        assert_eq!(
+            pool.deallocate_sub_23B4(0xEDFE),
+            DeallocatePlatformSlotResultSub23B4::Deallocated,
+            "ASM loc_23CC should support the sentinel case where `a4` points at `(Addr_FirstPlatformSlot).w`",
+        );
+        assert_eq!(
+            pool.active_slot_addrs_sub_23B4(),
+            vec![0xEDDC, 0xEDBA],
+            "ASM loc_23CC copies `0(a3)` into the sentinel when the active-list head is deallocated",
+        );
+        assert_eq!(
+            pool.next_free_platform_slot_addr(),
+            0xEDFE,
+            "ASM loc_23CC pushes the removed head slot onto the free-list head",
+        );
+    }
+
+    #[test]
     fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
         assert_eq!(
             allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
