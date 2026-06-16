@@ -118,6 +118,15 @@ impl From<TargetProjectileKind> for ActiveProjectileKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum TargetProjectileDirection {
+    Left,
+    Right,
+    Up,
+    Down,
+    Stationary,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 enum TargetBlockEventKind {
     Bounce,
     Destroy,
@@ -318,6 +327,9 @@ enum Commands {
         /// Summarise typed projectile windows, e.g. drips-drop or drips-surface-crawler.
         #[arg(long)]
         target_projectile: Option<TargetProjectileKind>,
+        /// Summarise closest healthy Kid approach to a projectile moving in a direction, formatted kind:direction.
+        #[arg(long, value_parser = parse_batch_target_projectile_direction)]
+        target_projectile_direction: Vec<BatchTargetProjectileDirection>,
         /// Summarise live player movement bounds and first transition frame.
         #[arg(long)]
         player_motion: bool,
@@ -369,6 +381,9 @@ enum Commands {
         /// Summarise typed projectile windows, e.g. drips-drop or drips-surface-crawler.
         #[arg(long)]
         target_projectile: Option<TargetProjectileKind>,
+        /// Summarise closest healthy Kid approach to a projectile moving in a direction, formatted kind:direction.
+        #[arg(long, value_parser = parse_batch_target_projectile_direction)]
+        target_projectile_direction: Vec<BatchTargetProjectileDirection>,
         /// Summarise live player movement bounds and first transition frame.
         #[arg(long)]
         player_motion: bool,
@@ -421,6 +436,9 @@ enum Commands {
         /// Score candidates by closest healthy Kid approach to typed projectiles.
         #[arg(long)]
         target_projectile: Vec<TargetProjectileKind>,
+        /// Score candidates by closest healthy Kid approach to a projectile moving in a direction, formatted kind:direction.
+        #[arg(long, value_parser = parse_batch_target_projectile_direction)]
+        target_projectile_direction: Vec<BatchTargetProjectileDirection>,
         /// Score candidates by closest projectile approach to a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_projectile_cell)]
         target_projectile_cell: Vec<BatchTargetProjectileCell>,
@@ -1309,6 +1327,7 @@ fn main() -> Result<()> {
             debug_fields,
             target_enemy,
             target_projectile,
+            target_projectile_direction,
             player_motion,
             target_point,
             target_cell,
@@ -1339,6 +1358,7 @@ fn main() -> Result<()> {
                 debug_fields,
                 target_enemy,
                 target_projectile.map(Into::into),
+                &target_projectile_direction,
                 player_motion,
                 &target_point,
                 &target_cell,
@@ -1357,6 +1377,7 @@ fn main() -> Result<()> {
             debug_fields,
             target_enemy,
             target_projectile,
+            target_projectile_direction,
             player_motion,
             target_point,
             target_cell,
@@ -1387,6 +1408,7 @@ fn main() -> Result<()> {
                 debug_fields,
                 target_enemy,
                 target_projectile.map(Into::into),
+                &target_projectile_direction,
                 player_motion,
                 &target_point,
                 &target_cell,
@@ -1405,6 +1427,7 @@ fn main() -> Result<()> {
             target_cell,
             target_cell_hitbox,
             target_projectile,
+            target_projectile_direction,
             target_projectile_cell,
             target_projectile_cell_conjunction,
             target_block_event,
@@ -1422,6 +1445,7 @@ fn main() -> Result<()> {
                 && target_cell.is_empty()
                 && target_cell_hitbox.is_empty()
                 && target_projectile.is_empty()
+                && target_projectile_direction.is_empty()
                 && target_projectile_cell.is_empty()
                 && target_projectile_cell_conjunction.is_empty()
                 && target_block_event.is_empty()
@@ -1445,6 +1469,7 @@ fn main() -> Result<()> {
                     .copied()
                     .map(Into::into)
                     .collect::<Vec<_>>(),
+                &target_projectile_direction,
                 &target_projectile_cell,
                 &target_projectile_cell_conjunction,
                 &target_block_event,
@@ -2985,6 +3010,12 @@ struct BatchTargetProjectileCell {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BatchTargetProjectileDirection {
+    kind: ActiveProjectileKind,
+    direction: TargetProjectileDirection,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct BatchTargetBlockEvent {
     kind: TargetBlockEventKind,
     cell: TargetCell,
@@ -2999,6 +3030,20 @@ fn parse_batch_target_projectile_cell(spec: &str) -> Result<BatchTargetProjectil
     Ok(BatchTargetProjectileCell {
         kind: kind.into(),
         cell: parse_target_cell(cell)?,
+    })
+}
+
+fn parse_batch_target_projectile_direction(spec: &str) -> Result<BatchTargetProjectileDirection> {
+    let (kind, direction) = spec
+        .split_once(':')
+        .ok_or_else(|| anyhow!("target projectile direction must be KIND:DIRECTION, got {spec}"))?;
+    let kind = <TargetProjectileKind as ValueEnum>::from_str(kind.trim(), true)
+        .map_err(|message| anyhow!(message))?;
+    let direction = TargetProjectileDirection::from_str(direction.trim(), true)
+        .map_err(|message| anyhow!(message))?;
+    Ok(BatchTargetProjectileDirection {
+        kind: kind.into(),
+        direction,
     })
 }
 
@@ -3115,6 +3160,7 @@ fn probe_dynamic_record_scenario_batch(
     target_cells: &[TargetCell],
     target_cell_hitboxes: &[TargetCell],
     target_projectiles: &[ActiveProjectileKind],
+    target_projectile_directions: &[BatchTargetProjectileDirection],
     target_projectile_cells: &[BatchTargetProjectileCell],
     target_projectile_cell_conjunctions: &[BatchTargetProjectileCell],
     target_block_events: &[BatchTargetBlockEvent],
@@ -3154,6 +3200,7 @@ fn probe_dynamic_record_scenario_batch(
                 + target_cells.len()
                 + target_cell_hitboxes.len()
                 + target_projectiles.len()
+                + target_projectile_directions.len()
                 + target_projectile_cells.len()
                 + target_projectile_cell_conjunctions.len()
                 + target_block_events.len(),
@@ -3273,6 +3320,47 @@ fn probe_dynamic_record_scenario_batch(
             .unwrap_or_else(|| format!("projectile {target_projectile:?} healthy kid <none>"));
             target_summaries.push(summary);
         }
+        for (index, target_projectile_direction) in
+            target_projectile_directions.iter().copied().enumerate()
+        {
+            let summary = target_projectile_directional_kid_approach_from_frame(
+                &trace,
+                target_projectile_direction.kind,
+                target_projectile_direction.direction,
+                true,
+                score_frame_start,
+            )
+            .map(|approach| {
+                if target_points.is_empty()
+                    && target_cells.is_empty()
+                    && target_cell_hitboxes.is_empty()
+                    && target_projectiles.is_empty()
+                    && index == 0
+                {
+                    first_target_score = Some(approach.manhattan_px);
+                }
+                format!(
+                    "projectile {:?} direction {:?} healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{} projectile {:08X},{:08X} vel {:08X},{:08X}",
+                    target_projectile_direction.kind,
+                    target_projectile_direction.direction,
+                    approach.dx_px,
+                    approach.dy_px,
+                    approach.manhattan_px,
+                    approach.replay_frame,
+                    approach.projectile_x,
+                    approach.projectile_y,
+                    approach.projectile_x_velocity,
+                    approach.projectile_y_velocity,
+                )
+            })
+            .unwrap_or_else(|| {
+                format!(
+                    "projectile {:?} direction {:?} healthy kid <none>",
+                    target_projectile_direction.kind, target_projectile_direction.direction
+                )
+            });
+            target_summaries.push(summary);
+        }
         for (index, target_projectile_cell) in target_projectile_cells.iter().copied().enumerate() {
             let summary = target_projectile_cell_approach_from_frame(
                 &trace,
@@ -3285,6 +3373,7 @@ fn probe_dynamic_record_scenario_batch(
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
                     && target_projectiles.is_empty()
+                    && target_projectile_directions.is_empty()
                     && index == 0
                 {
                     first_target_score = Some(approach.manhattan_px);
@@ -3328,6 +3417,7 @@ fn probe_dynamic_record_scenario_batch(
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
                     && target_projectiles.is_empty()
+                    && target_projectile_directions.is_empty()
                     && target_projectile_cells.is_empty()
                     && index == 0
                 {
@@ -3372,6 +3462,7 @@ fn probe_dynamic_record_scenario_batch(
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
                     && target_projectiles.is_empty()
+                    && target_projectile_directions.is_empty()
                     && target_projectile_cells.is_empty()
                     && target_projectile_cell_conjunctions.is_empty()
                     && index == 0
@@ -4040,9 +4131,10 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        BatchProbeResult, BatchTargetBlockEvent, BatchTargetProjectileCell, DynamicCheckpoint,
-        DynamicScenario, GameplayCapture, GameplayScenario, GameplayState, PlayerForm,
-        RecordScenarioKind, ReferenceName, TargetBlockEventKind, TargetCell, analyse_audio_samples,
+        BatchProbeResult, BatchTargetBlockEvent, BatchTargetProjectileCell,
+        BatchTargetProjectileDirection, DynamicCheckpoint, DynamicScenario, GameplayCapture,
+        GameplayScenario, GameplayState, PlayerForm, RecordScenarioKind, ReferenceName,
+        TargetBlockEventKind, TargetCell, TargetProjectileDirection, analyse_audio_samples,
         apply_dynamic_scenario_input_overlays, audio_envelope_similarity, build_controller_script,
         build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
         compare_native_gameplay_with, compare_native_states_against_oracle,
@@ -4050,11 +4142,11 @@ mod tests {
         ensure_level_layouts_with, ensure_play_native_level_layouts_with,
         find_gameplay_live_drifts, gameplay_checkpoint_window, native_trace_to_oracle_state,
         oracle_probe_watch_row_in_range, parse_batch_probe_candidate,
-        parse_batch_target_block_event, parse_batch_target_projectile_cell, parse_button_mask,
-        parse_input_spec, prepare_generated_assets_with, record_scenario_command,
-        record_scenario_file_command, recording_scenario_manifest,
-        recording_start_for_dynamic_scenario, selected_reference_repos, sorted_batch_probe_results,
-        target_block_event_from_frame,
+        parse_batch_target_block_event, parse_batch_target_projectile_cell,
+        parse_batch_target_projectile_direction, parse_button_mask, parse_input_spec,
+        prepare_generated_assets_with, record_scenario_command, record_scenario_file_command,
+        recording_scenario_manifest, recording_start_for_dynamic_scenario,
+        selected_reference_repos, sorted_batch_probe_results, target_block_event_from_frame,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -7032,6 +7124,22 @@ AddrTbl_LevelNames:
         assert!(
             parse_batch_target_projectile_cell("drips-surface-crawler").is_err(),
             "batch projectile-cell targets must include both projectile kind and cell"
+        );
+    }
+
+    #[test]
+    fn batch_target_projectile_direction_parser_accepts_kind_and_direction() {
+        assert_eq!(
+            parse_batch_target_projectile_direction("shooter-block:left")
+                .expect("projectile-direction target should parse"),
+            BatchTargetProjectileDirection {
+                kind: ActiveProjectileKind::ShooterBlock,
+                direction: TargetProjectileDirection::Left,
+            }
+        );
+        assert!(
+            parse_batch_target_projectile_direction("shooter-block").is_err(),
+            "batch projectile-direction targets must include both projectile kind and direction"
         );
     }
 

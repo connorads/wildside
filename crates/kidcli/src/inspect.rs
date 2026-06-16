@@ -1057,6 +1057,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     debug_fields: bool,
     target_enemy: Option<u8>,
     target_projectile: Option<ActiveProjectileKind>,
+    target_projectile_directions: &[BatchTargetProjectileDirection],
     player_motion: bool,
     target_points: &[TargetPoint],
     target_cells: &[TargetCell],
@@ -1112,16 +1113,28 @@ pub(crate) fn probe_dynamic_record_scenario(
         final_frame.camera_x_pos, final_frame.camera_y_pos
     );
     println!("active roster: {}", describe_active_objects(final_frame));
+    let target_frame_start = frame_start.unwrap_or(0);
     if let Some(object_type) = target_enemy {
         println!("{}", describe_target_enemy_activation(&trace, object_type));
     }
     if let Some(kind) = target_projectile {
         println!("{}", describe_target_projectile_activation(&trace, kind));
     }
+    for target in target_projectile_directions {
+        println!(
+            "{}",
+            describe_target_projectile_directional_kid_approach_from_frame(
+                &trace,
+                target.kind,
+                target.direction,
+                true,
+                target_frame_start,
+            )
+        );
+    }
     if player_motion {
         println!("{}", describe_player_motion(&trace));
     }
-    let target_frame_start = frame_start.unwrap_or(0);
     for target_point in target_points {
         println!(
             "{}",
@@ -1477,6 +1490,18 @@ pub(crate) struct TargetProjectileClosestApproach {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TargetProjectileDirectionalApproach {
+    pub(crate) replay_frame: usize,
+    pub(crate) projectile_x: u32,
+    pub(crate) projectile_y: u32,
+    pub(crate) projectile_x_velocity: i32,
+    pub(crate) projectile_y_velocity: i32,
+    pub(crate) dx_px: i64,
+    pub(crate) dy_px: i64,
+    pub(crate) manhattan_px: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TargetProjectileCellApproach {
     pub(crate) replay_frame: usize,
     pub(crate) projectile_x: u32,
@@ -1520,6 +1545,118 @@ fn target_projectile_closest_approach(
         dx_px,
         dy_px,
         manhattan_px: dx_px.abs().saturating_add(dy_px.abs()),
+    })
+}
+
+fn projectile_matches_direction(
+    projectile: &ActiveProjectileSnapshot,
+    direction: TargetProjectileDirection,
+) -> bool {
+    match direction {
+        TargetProjectileDirection::Left => projectile.x_velocity < 0,
+        TargetProjectileDirection::Right => projectile.x_velocity > 0,
+        TargetProjectileDirection::Up => projectile.y_velocity < 0,
+        TargetProjectileDirection::Down => projectile.y_velocity > 0,
+        TargetProjectileDirection::Stationary => {
+            projectile.x_velocity == 0 && projectile.y_velocity == 0
+        }
+    }
+}
+
+fn target_projectile_directional_closest_approach(
+    replay_frame: usize,
+    player_x: Option<u32>,
+    player_y: Option<u32>,
+    projectile: &ActiveProjectileSnapshot,
+) -> Option<TargetProjectileDirectionalApproach> {
+    let closest = target_projectile_closest_approach(replay_frame, player_x, player_y, projectile)?;
+    Some(TargetProjectileDirectionalApproach {
+        replay_frame,
+        projectile_x: projectile.x_pos,
+        projectile_y: projectile.y_pos,
+        projectile_x_velocity: projectile.x_velocity,
+        projectile_y_velocity: projectile.y_velocity,
+        dx_px: closest.dx_px,
+        dy_px: closest.dy_px,
+        manhattan_px: closest.manhattan_px,
+    })
+}
+
+pub(crate) fn target_projectile_directional_kid_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+    direction: TargetProjectileDirection,
+    require_healthy_kid: bool,
+    frame_start: usize,
+) -> Option<TargetProjectileDirectionalApproach> {
+    let mut closest: Option<TargetProjectileDirectionalApproach> = None;
+
+    for (replay_frame, frame) in trace.iter().enumerate() {
+        if replay_frame < frame_start {
+            continue;
+        }
+        if !matches!(frame.game_mode, kid_core::GameMode::InGame) {
+            continue;
+        }
+        if require_healthy_kid && (frame.number_hitpoints == 0 || frame.death_windup_elapsed > 0) {
+            continue;
+        }
+        for projectile in &frame.active_projectile_details {
+            if projectile.kind != kind || !projectile_matches_direction(projectile, direction) {
+                continue;
+            }
+            let candidate = target_projectile_directional_closest_approach(
+                replay_frame,
+                frame.kid_x_pos,
+                frame.kid_y_pos,
+                projectile,
+            );
+            match (&closest, candidate) {
+                (_, None) => {}
+                (Some(existing), Some(candidate))
+                    if existing.manhattan_px <= candidate.manhattan_px => {}
+                (_, Some(candidate)) => closest = Some(candidate),
+            }
+        }
+    }
+
+    closest
+}
+
+pub(crate) fn describe_target_projectile_directional_kid_approach_from_frame(
+    trace: &[NativeTraceFrame],
+    kind: ActiveProjectileKind,
+    direction: TargetProjectileDirection,
+    require_healthy_kid: bool,
+    frame_start: usize,
+) -> String {
+    target_projectile_directional_kid_approach_from_frame(
+        trace,
+        kind,
+        direction,
+        require_healthy_kid,
+        frame_start,
+    )
+    .map(|approach| {
+        let health = if require_healthy_kid {
+            "healthy kid"
+        } else {
+            "kid"
+        };
+        format!(
+            "target projectile {kind:?} direction {direction:?} {health} dx_px {:+} dy_px {:+} manhattan_px {} @{} projectile {:08X},{:08X} vel {:08X},{:08X}",
+            approach.dx_px,
+            approach.dy_px,
+            approach.manhattan_px,
+            approach.replay_frame,
+            approach.projectile_x,
+            approach.projectile_y,
+            approach.projectile_x_velocity,
+            approach.projectile_y_velocity,
+        )
+    })
+    .unwrap_or_else(|| {
+        format!("target projectile {kind:?} direction {direction:?} healthy kid <none>")
     })
 }
 
@@ -2920,6 +3057,29 @@ mod tests {
         frame
     }
 
+    fn target_projectile_frame_with_velocity(
+        frame_index: usize,
+        kind: ActiveProjectileKind,
+        x_pos: u32,
+        y_pos: u32,
+        x_velocity: i32,
+        y_velocity: i32,
+        remaining_frames: u16,
+    ) -> NativeTraceFrame {
+        let mut frame = target_projectile_frame(
+            frame_index,
+            kind,
+            x_pos,
+            y_pos,
+            y_velocity,
+            remaining_frames,
+        );
+        if let Some(projectile) = frame.active_projectile_details.last_mut() {
+            projectile.x_velocity = x_velocity;
+        }
+        frame
+    }
+
     #[test]
     fn target_projectile_activation_summary_reports_absent_projectile() {
         let trace = vec![target_projectile_frame(
@@ -3223,6 +3383,67 @@ mod tests {
                 manhattan_px: 3,
             }),
             "issue #260 batch route scans need to rank Kid/drop proximity directly"
+        );
+    }
+
+    #[test]
+    fn target_projectile_directional_approach_filters_by_velocity() {
+        let mut right_shot = target_projectile_frame_with_velocity(
+            10,
+            ActiveProjectileKind::ShooterBlock,
+            0x0248_0000,
+            0x0208_0000,
+            0x0002_0000,
+            0,
+            22,
+        );
+        right_shot.kid_x_pos = Some(0x0248_0000);
+        right_shot.kid_y_pos = Some(0x0208_0000);
+        right_shot.number_hitpoints = 2;
+
+        let mut left_shot = target_projectile_frame_with_velocity(
+            11,
+            ActiveProjectileKind::ShooterBlock,
+            0x0240_0000,
+            0x0208_0000,
+            -0x0002_0000,
+            0,
+            22,
+        );
+        left_shot.kid_x_pos = Some(0x023E_0000);
+        left_shot.kid_y_pos = Some(0x0209_0000);
+        left_shot.number_hitpoints = 2;
+        let trace = vec![right_shot, left_shot];
+
+        assert_eq!(
+            target_projectile_directional_kid_approach_from_frame(
+                &trace,
+                ActiveProjectileKind::ShooterBlock,
+                TargetProjectileDirection::Left,
+                true,
+                0,
+            ),
+            Some(TargetProjectileDirectionalApproach {
+                replay_frame: 1,
+                projectile_x: 0x0240_0000,
+                projectile_y: 0x0208_0000,
+                projectile_x_velocity: -0x0002_0000,
+                projectile_y_velocity: 0,
+                dx_px: 2,
+                dy_px: -1,
+                manhattan_px: 3,
+            }),
+            "issue #260 needs to rank leftward `$EC2D` shooter shots separately from rightward shots"
+        );
+        assert_eq!(
+            describe_target_projectile_directional_kid_approach_from_frame(
+                &trace,
+                ActiveProjectileKind::ShooterBlock,
+                TargetProjectileDirection::Left,
+                true,
+                0,
+            ),
+            "target projectile ShooterBlock direction Left healthy kid dx_px +2 dy_px -1 manhattan_px 3 @1 projectile 02400000,02080000 vel FFFE0000,00000000"
         );
     }
 
