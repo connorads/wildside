@@ -20590,6 +20590,7 @@ mod chunk_05 {
             crate::weather::upload_storm_art_loc_14CD8(crate::weather::StormArtAssetLoc14CCE::Rain),
             crate::weather::StormArtUploadLoc14CD8 {
                 asset: crate::weather::StormArtAssetLoc14CCE::Rain,
+                asset_label: crate::weather::STORM_ART_RAIN_SOURCE_LABEL_LOC_14CCE,
                 vram_word: 0x7000,
             },
             "ASM loc_14CD8 should pass the rain art pointer through to `DecompressToVRAM` with destination `$7000`",
@@ -20598,6 +20599,7 @@ mod chunk_05 {
             crate::weather::upload_storm_art_loc_14CD8(crate::weather::StormArtAssetLoc14CCE::Hail),
             crate::weather::StormArtUploadLoc14CD8 {
                 asset: crate::weather::StormArtAssetLoc14CCE::Hail,
+                asset_label: crate::weather::STORM_ART_HAIL_SOURCE_LABEL_LOC_14CCE,
                 vram_word: 0x7000,
             },
             "ASM loc_14CD8 should use the same `$7000` VRAM destination after the hail branch rewrites `a0` at loc_14CCE",
@@ -20636,6 +20638,36 @@ mod chunk_05 {
             palette_buffer[..0x10].iter().all(|&word| word == 0xDEAD)
                 && palette_buffer[0x18..].iter().all(|&word| word == 0xDEAD),
             "ASM loc_14CF2 should leave every palette entry outside `$20..$2E` untouched because all four `move.l` stores target the single `lea (Palette_Buffer+$20).l,a1` span"
+        );
+    }
+
+    #[test]
+    fn loc_14cf2_runtime_record_keeps_the_selected_palette_copy_shape() {
+        assert_eq!(
+            crate::weather::record_storm_palette_copy_loc_14CF2(
+                crate::weather::StormPaletteAssetLoc14CEC::Rain,
+            ),
+            crate::weather::StormPaletteCopyLoc14CF2 {
+                asset: crate::weather::StormPaletteAssetLoc14CEC::Rain,
+                asset_label: crate::weather::STORM_PALETTE_RAIN_LABEL_LOC_14CEC,
+                relative_path: crate::weather::STORM_PALETTE_RAIN_PATH_LOC_14CEC,
+                palette_buffer_start: crate::weather::STORM_PALETTE_BUFFER_START_LOC_14CF2,
+                copied_words: 8,
+            },
+            "ASM loc_14CEC/loc_14CF2 should describe the non-Ice storm palette copy from Pal_7B8BC into Palette_Buffer+$20"
+        );
+        assert_eq!(
+            crate::weather::record_storm_palette_copy_loc_14CF2(
+                crate::weather::StormPaletteAssetLoc14CEC::Hail,
+            ),
+            crate::weather::StormPaletteCopyLoc14CF2 {
+                asset: crate::weather::StormPaletteAssetLoc14CEC::Hail,
+                asset_label: crate::weather::STORM_PALETTE_HAIL_LABEL_LOC_14CEC,
+                relative_path: crate::weather::STORM_PALETTE_HAIL_PATH_LOC_14CEC,
+                palette_buffer_start: crate::weather::STORM_PALETTE_BUFFER_START_LOC_14CF2,
+                copied_words: 8,
+            },
+            "ASM loc_14CEC should swap to Pal_7B8CC before loc_14CF2 when `Background_theme == Ice`"
         );
     }
 
@@ -25253,6 +25285,14 @@ mod chunk_05 {
         runtime.weather.storm_weather_mode_byte = 4;
         runtime.weather.storm_fade_countdown = 0x0100;
         runtime.weather.storm_thunder_timer = -3;
+        runtime.weather.storm_art_upload_loc_14cd8 = Some(crate::weather::upload_storm_art_loc_14CD8(
+            crate::weather::StormArtAssetLoc14CCE::Rain,
+        ));
+        runtime.weather.storm_palette_copy_loc_14cf2 = Some(
+            crate::weather::record_storm_palette_copy_loc_14CF2(
+                crate::weather::StormPaletteAssetLoc14CEC::Rain,
+            ),
+        );
         runtime.weather.storm_saved_palette_label_loc_14d82 =
             Some(crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82);
         runtime.weather.storm_pattern_upload_loc_14d32 = Some(
@@ -25281,6 +25321,8 @@ mod chunk_05 {
         assert_eq!(runtime.weather.storm_weather_mode_byte, 0);
         assert_eq!(runtime.weather.storm_fade_countdown, 0);
         assert_eq!(runtime.weather.storm_thunder_timer, 0);
+        assert_eq!(runtime.weather.storm_art_upload_loc_14cd8, None);
+        assert_eq!(runtime.weather.storm_palette_copy_loc_14cf2, None);
         assert_eq!(runtime.weather.storm_saved_palette_label_loc_14d82, None);
         assert_eq!(runtime.weather.storm_pattern_upload_loc_14d32, None);
         assert!(!runtime.weather.hail_active);
@@ -25328,6 +25370,26 @@ mod chunk_05 {
             "ASM loc_14D82 stores the Pal_7B85C pointer in `$FFFFFADE` before the shared storm setup tail"
         );
         assert_eq!(
+            runtime.weather.storm_art_upload_loc_14cd8,
+            Some(crate::weather::StormArtUploadLoc14CD8 {
+                asset: crate::weather::StormArtAssetLoc14CCE::Rain,
+                asset_label: crate::weather::STORM_ART_RAIN_SOURCE_LABEL_LOC_14CCE,
+                vram_word: 0x7000,
+            }),
+            "ASM loc_14CCE/loc_14CD8 should select rain art and decompress it to VRAM `$7000` for non-Ice storm init"
+        );
+        assert_eq!(
+            runtime.weather.storm_palette_copy_loc_14cf2,
+            Some(crate::weather::StormPaletteCopyLoc14CF2 {
+                asset: crate::weather::StormPaletteAssetLoc14CEC::Rain,
+                asset_label: crate::weather::STORM_PALETTE_RAIN_LABEL_LOC_14CEC,
+                relative_path: crate::weather::STORM_PALETTE_RAIN_PATH_LOC_14CEC,
+                palette_buffer_start: crate::weather::STORM_PALETTE_BUFFER_START_LOC_14CF2,
+                copied_words: 8,
+            }),
+            "ASM loc_14CEC/loc_14CF2 should select Pal_7B8BC and copy eight storm palette words into Palette_Buffer+$20"
+        );
+        assert_eq!(
             runtime.weather.storm_pattern_upload_loc_14d32,
             Some(crate::weather::StormPatternRuntimeUploadLoc14D32 {
                 source_asset_label: crate::weather::STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E,
@@ -25365,6 +25427,83 @@ mod chunk_05 {
                 written_longword_count: 4 * 8 * 8 * 4,
             }),
             "ASM Init_SpecialEffect_Storm loc_14D1E should select the hail pattern table when `Background_theme == Ice` even for plain storm weather"
+        );
+    }
+
+    #[test]
+    fn init_weather_copies_selected_storm_palette_into_live_palette_buffer_loc_14cf2() {
+        let output_root = std::env::temp_dir().join(format!(
+            "kid-core-storm-palette-{}",
+            std::process::id()
+        ));
+        let palette_dir = output_root.join("ingame/palette");
+        std::fs::create_dir_all(&palette_dir).expect("create storm palette fixture dir");
+        let rain_words = [
+            0x0111, 0x0222, 0x0333, 0x0444, 0x0555, 0x0666, 0x0777, 0x0888,
+        ];
+        let hail_words = [
+            0x0999, 0x0AAA, 0x0BBB, 0x0CCC, 0x0DDD, 0x0EEE, 0x000F, 0x00F0,
+        ];
+        let rain_bytes: Vec<u8> = rain_words
+            .iter()
+            .flat_map(|word: &u16| word.to_be_bytes())
+            .collect();
+        let hail_bytes: Vec<u8> = hail_words
+            .iter()
+            .flat_map(|word: &u16| word.to_be_bytes())
+            .collect();
+        std::fs::write(palette_dir.join("hail_mountain.bin"), &rain_bytes)
+            .expect("write rain storm palette fixture");
+        std::fs::write(palette_dir.join("hail_ice.bin"), &hail_bytes)
+            .expect("write ice hail storm palette fixture");
+
+        let mut manifest = manifest_with_levels(2);
+        manifest.output_root = output_root;
+        manifest.ingame_assets = vec![
+            kid_data::AssetFile {
+                relative_path: String::from(crate::weather::STORM_PALETTE_RAIN_PATH_LOC_14CEC),
+                size_bytes: rain_bytes.len() as u64,
+                sha1: String::from("fixture-storm-rain"),
+            },
+            kid_data::AssetFile {
+                relative_path: String::from(crate::weather::STORM_PALETTE_HAIL_PATH_LOC_14CEC),
+                size_bytes: hail_bytes.len() as u64,
+                sha1: String::from("fixture-storm-hail"),
+            },
+        ];
+        let header = manifest.levels[0].header_metadata.as_mut().unwrap();
+        header.weather_flags = 2;
+        header.background_theme = 2; // ASM constant `Ice`.
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.palette_buffer[0x10..0x18].fill(0x0BAD);
+
+        runtime.init_weather(LevelId(0));
+
+        assert_eq!(
+            runtime.weather.storm_art_upload_loc_14cd8,
+            Some(crate::weather::StormArtUploadLoc14CD8 {
+                asset: crate::weather::StormArtAssetLoc14CCE::Hail,
+                asset_label: crate::weather::STORM_ART_HAIL_SOURCE_LABEL_LOC_14CCE,
+                vram_word: 0x7000,
+            }),
+            "ASM loc_14CCE should pick ArtComp_991ED_Hail before the shared loc_14CD8 `$7000` decompression when Background_theme is Ice"
+        );
+        assert_eq!(
+            runtime.weather.storm_palette_copy_loc_14cf2,
+            Some(crate::weather::StormPaletteCopyLoc14CF2 {
+                asset: crate::weather::StormPaletteAssetLoc14CEC::Hail,
+                asset_label: crate::weather::STORM_PALETTE_HAIL_LABEL_LOC_14CEC,
+                relative_path: crate::weather::STORM_PALETTE_HAIL_PATH_LOC_14CEC,
+                palette_buffer_start: crate::weather::STORM_PALETTE_BUFFER_START_LOC_14CF2,
+                copied_words: 8,
+            }),
+            "ASM loc_14CEC should pick Pal_7B8CC before loc_14CF2 copies the Ice storm palette"
+        );
+        assert_eq!(
+            &runtime.palette_buffer[0x10..0x18],
+            &hail_words,
+            "ASM loc_14CF2 copies the selected storm palette into live Palette_Buffer+$20 before the storm setup tail"
         );
     }
 

@@ -712,6 +712,10 @@ pub(crate) struct WeatherState {
     pub(crate) storm_fade_countdown: u16,
     /// ASM loc_14DAC/sub_6048 `$FFFFFADC`: Mountain thunder timer.
     pub(crate) storm_thunder_timer: i16,
+    /// ASM loc_14CCE/loc_14CD8: selected rain/hail art decompression to VRAM `$7000`.
+    pub(crate) storm_art_upload_loc_14cd8: Option<crate::weather::StormArtUploadLoc14CD8>,
+    /// ASM loc_14CEC/loc_14CF2: selected rain/hail palette copy into Palette_Buffer+$20.
+    pub(crate) storm_palette_copy_loc_14cf2: Option<crate::weather::StormPaletteCopyLoc14CF2>,
     /// ASM loc_14D82 `$FFFFFADE`: saved storm palette pointer.
     pub(crate) storm_saved_palette_label_loc_14d82: Option<&'static str>,
     /// ASM loc_14D1E/loc_14D32: selected storm pattern table and VRAM upload shape.

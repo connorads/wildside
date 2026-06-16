@@ -176,6 +176,12 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         storm_weather_mode_byte: 4,
         storm_fade_countdown: 0x0100,
         storm_thunder_timer: 1,
+        storm_art_upload_loc_14cd8: Some(crate::weather::upload_storm_art_loc_14CD8(
+            crate::weather::StormArtAssetLoc14CCE::Rain,
+        )),
+        storm_palette_copy_loc_14cf2: Some(crate::weather::record_storm_palette_copy_loc_14CF2(
+            crate::weather::StormPaletteAssetLoc14CEC::Rain,
+        )),
         storm_saved_palette_label_loc_14d82: Some(
             crate::weather::STORM_SAVED_PALETTE_LABEL_LOC_14D82,
         ),

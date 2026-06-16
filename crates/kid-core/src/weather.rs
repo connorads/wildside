@@ -5,6 +5,13 @@ pub(crate) const LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A: usize = 0x14;
 pub(crate) const LAVA_GEYSER_ART_SOURCE_LABEL_LOC_14C6A: &str = "ArtComp_983D2_Lava";
 pub(crate) const LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A: u16 = 0x5F60;
 pub(crate) const STORM_SAVED_PALETTE_LABEL_LOC_14D82: &str = "Pal_7B85C";
+pub(crate) const STORM_ART_RAIN_SOURCE_LABEL_LOC_14CCE: &str = "ArtComp_99090_Rain";
+pub(crate) const STORM_ART_HAIL_SOURCE_LABEL_LOC_14CCE: &str = "ArtComp_991ED_Hail";
+pub(crate) const STORM_PALETTE_RAIN_LABEL_LOC_14CEC: &str = "Pal_7B8BC";
+pub(crate) const STORM_PALETTE_HAIL_LABEL_LOC_14CEC: &str = "Pal_7B8CC";
+pub(crate) const STORM_PALETTE_RAIN_PATH_LOC_14CEC: &str = "palette/hail_mountain.bin";
+pub(crate) const STORM_PALETTE_HAIL_PATH_LOC_14CEC: &str = "palette/hail_ice.bin";
+pub(crate) const STORM_PALETTE_BUFFER_START_LOC_14CF2: usize = 0x10;
 pub(crate) const STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E: &str = "unk_9B65C";
 pub(crate) const STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E: &str = "unk_9B6E0";
 pub(crate) const STORM_PATTERN_VDP_COMMAND_LOC_14D32: u32 = 0x4000_0003;
@@ -214,6 +221,15 @@ pub(crate) enum StormArtAssetLoc14CCE {
     Hail,
 }
 
+impl StormArtAssetLoc14CCE {
+    pub(crate) const fn asset_label(self) -> &'static str {
+        match self {
+            Self::Rain => STORM_ART_RAIN_SOURCE_LABEL_LOC_14CCE,
+            Self::Hail => STORM_ART_HAIL_SOURCE_LABEL_LOC_14CCE,
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 pub(crate) fn select_storm_art_loc_14CCE(background_theme_is_ice: bool) -> StormArtAssetLoc14CCE {
@@ -231,6 +247,7 @@ pub(crate) fn select_storm_art_loc_14CCE(background_theme_is_ice: bool) -> Storm
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StormArtUploadLoc14CD8 {
     pub(crate) asset: StormArtAssetLoc14CCE,
+    pub(crate) asset_label: &'static str,
     pub(crate) vram_word: u16,
 }
 
@@ -242,6 +259,7 @@ pub(crate) fn upload_storm_art_loc_14CD8(asset: StormArtAssetLoc14CCE) -> StormA
     // VRAM word offset `$7000`.
     StormArtUploadLoc14CD8 {
         asset,
+        asset_label: asset.asset_label(),
         vram_word: 0x7000,
     }
 }
@@ -251,6 +269,31 @@ pub(crate) fn upload_storm_art_loc_14CD8(asset: StormArtAssetLoc14CCE) -> StormA
 pub(crate) enum StormPaletteAssetLoc14CEC {
     Rain,
     Hail,
+}
+
+impl StormPaletteAssetLoc14CEC {
+    pub(crate) const fn asset_label(self) -> &'static str {
+        match self {
+            Self::Rain => STORM_PALETTE_RAIN_LABEL_LOC_14CEC,
+            Self::Hail => STORM_PALETTE_HAIL_LABEL_LOC_14CEC,
+        }
+    }
+
+    pub(crate) const fn relative_path(self) -> &'static str {
+        match self {
+            Self::Rain => STORM_PALETTE_RAIN_PATH_LOC_14CEC,
+            Self::Hail => STORM_PALETTE_HAIL_PATH_LOC_14CEC,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct StormPaletteCopyLoc14CF2 {
+    pub(crate) asset: StormPaletteAssetLoc14CEC,
+    pub(crate) asset_label: &'static str,
+    pub(crate) relative_path: &'static str,
+    pub(crate) palette_buffer_start: usize,
+    pub(crate) copied_words: usize,
 }
 
 #[allow(dead_code)]
@@ -307,7 +350,24 @@ pub(crate) fn copy_storm_palette_loc_14CF2(
     // ASM loc_14CF2 (kid.asm:28360-28363): after choosing the rain or hail
     // palette pointer, `lea (Palette_Buffer+$20).l,a1` and four `move.l`
     // instructions copy exactly eight words into palette entries $10..$17.
-    palette_buffer[0x10..0x18].copy_from_slice(source_palette);
+    palette_buffer[STORM_PALETTE_BUFFER_START_LOC_14CF2
+        ..STORM_PALETTE_BUFFER_START_LOC_14CF2 + source_palette.len()]
+        .copy_from_slice(source_palette);
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn record_storm_palette_copy_loc_14CF2(
+    asset: StormPaletteAssetLoc14CEC,
+) -> StormPaletteCopyLoc14CF2 {
+    // ASM loc_14CEC/loc_14CF2 (kid.asm:28350-28363): choose the rain or Ice
+    // hail palette, then copy four longwords into `Palette_Buffer+$20`.
+    StormPaletteCopyLoc14CF2 {
+        asset,
+        asset_label: asset.asset_label(),
+        relative_path: asset.relative_path(),
+        palette_buffer_start: STORM_PALETTE_BUFFER_START_LOC_14CF2,
+        copied_words: 8,
+    }
 }
 
 #[allow(dead_code)]
@@ -2572,6 +2632,8 @@ impl NativeRuntime {
         self.weather.storm_weather_mode_byte = 0;
         self.weather.storm_fade_countdown = 0;
         self.weather.storm_thunder_timer = 0;
+        self.weather.storm_art_upload_loc_14cd8 = None;
+        self.weather.storm_palette_copy_loc_14cf2 = None;
         self.weather.storm_saved_palette_label_loc_14d82 = None;
         self.weather.storm_pattern_upload_loc_14d32 = None;
         self.weather.hail_active = false;
@@ -2582,6 +2644,16 @@ impl NativeRuntime {
         if self.weather.weather_type == 1 {
             self.init_lava_geysers(level_id);
         } else if matches!(self.weather.weather_type, 2 | 3) {
+            self.weather.storm_art_upload_loc_14cd8 = Some(upload_storm_art_loc_14CD8(
+                select_storm_art_loc_14CCE(background_theme_is_ice),
+            ));
+            let palette_copy = record_storm_palette_copy_loc_14CF2(select_storm_palette_loc_14CEC(
+                background_theme_is_ice,
+            ));
+            if let Some(palette) = self.ingame_palette_words::<8>(palette_copy.relative_path) {
+                copy_storm_palette_loc_14CF2(&palette, &mut self.palette_buffer);
+            }
+            self.weather.storm_palette_copy_loc_14cf2 = Some(palette_copy);
             self.weather.storm_saved_palette_label_loc_14d82 = Some(
                 select_saved_storm_palette_loc_14D82(u16::from(self.weather.weather_type))
                     .asset_label(),
