@@ -896,7 +896,6 @@ pub(crate) fn runtime_active_platforms_loc_2762(
     previous_platforms: &[ActivePlatform],
     script_table: Option<&kid_data::PlatformScriptTable>,
 ) -> Vec<ActivePlatform> {
-    let mut active_platforms = Vec::new();
     let previous_handles: Vec<ActivePlatformHandleSub2728> = previous_platforms
         .iter()
         .filter_map(|platform| {
@@ -908,33 +907,49 @@ pub(crate) fn runtime_active_platforms_loc_2762(
                 })
         })
         .collect();
-    for (layout_index, placement) in layout.placements.iter().enumerate().take(next_index) {
-        let layout_offset_words = platform_loader_offset_for_index_loc_286E(layout_index);
-        let previous =
-            find_active_platform_by_layout_offset_sub_2728(layout_offset_words, &previous_handles)
-                .and_then(|slot_index| previous_platforms.get(slot_index))
-                .copied();
+    let mut active_platforms = Vec::new();
+    for mut platform in previous_platforms.iter().copied() {
+        let Some(layout_index) = platform.layout_index else {
+            continue;
+        };
+        if layout_index >= next_index {
+            continue;
+        }
+        let Some(placement) = layout.placements.get(layout_index) else {
+            continue;
+        };
         if platform_is_active(placement, window) {
-            if active_platforms.len() >= PLATFORM_SLOT_CAPACITY_LOC_231C {
-                break;
-            }
-            let mut platform = previous.unwrap_or_else(|| {
-                ActivePlatform::from_placement_with_index(layout_index, placement, script_table)
-            });
             if platform.special.is_some() {
                 // ASM loc_2876: special-platform load clears `$12(a3)`.
                 platform.deactivated_flag = 0;
             }
             active_platforms.push(platform);
-        } else if let Some(mut platform) = previous {
-            if platform.special.is_some() {
-                // ASM loc_2850: already-loaded special platforms are kept
-                // alive and marked with `st $12(a3)` instead of being
-                // deallocated directly by `Manage_PlatformLoading`.
-                platform.deactivated_flag = 0xFF;
-                active_platforms.push(platform);
-            }
+        } else if platform.special.is_some() {
+            // ASM loc_2850: already-loaded special platforms are kept alive
+            // and marked with `st $12(a3)` instead of being deallocated
+            // directly by `Manage_PlatformLoading`.
+            platform.deactivated_flag = 0xFF;
+            active_platforms.push(platform);
         }
+    }
+    for (layout_index, placement) in layout.placements.iter().enumerate().take(next_index) {
+        if !platform_is_active(placement, window) {
+            continue;
+        }
+        let layout_offset_words = platform_loader_offset_for_index_loc_286E(layout_index);
+        if find_active_platform_by_layout_offset_sub_2728(layout_offset_words, &previous_handles)
+            .is_some()
+        {
+            continue;
+        }
+        if active_platforms.len() >= PLATFORM_SLOT_CAPACITY_LOC_231C {
+            continue;
+        }
+        let platform =
+            ActivePlatform::from_placement_with_index(layout_index, placement, script_table);
+        // ASM Allocate_PlatformSlot sub_238E writes the newly allocated slot
+        // to Addr_FirstPlatformSlot, so new records become first in scan order.
+        active_platforms.insert(0, platform);
     }
     active_platforms.truncate(PLATFORM_SLOT_CAPACITY_LOC_231C);
     active_platforms

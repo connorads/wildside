@@ -15039,6 +15039,54 @@ mod chunk_04 {
     }
 
     #[test]
+    fn runtime_platform_roster_allocates_new_slots_at_front_loc_238e() {
+        let window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement.clone(), placement],
+        };
+        let mut previous =
+            ActivePlatform::from_placement_with_index(0, &layout.placements[0], None);
+        previous.x_velocity = 0x0001_4000;
+
+        let active = runtime_active_platforms_loc_2762(&layout, 2, window, &[previous], None);
+
+        let layout_indices: Vec<Option<usize>> = active
+            .iter()
+            .map(|platform| platform.layout_index)
+            .collect();
+        assert_eq!(
+            layout_indices,
+            vec![Some(1), Some(0)],
+            "ASM Allocate_PlatformSlot sub_238E writes the new slot to Addr_FirstPlatformSlot, so a newly loaded platform must be scanned before older linked slots",
+        );
+        assert_eq!(
+            active[1].x_velocity, 0x0001_4000,
+            "the older slot should keep its live state while moving behind the newly allocated front slot",
+        );
+    }
+
+    #[test]
     fn find_active_platform_by_layout_offset_sub_2728_returns_the_first_matching_slot() {
         assert_eq!(
             find_active_platform_by_layout_offset_sub_2728(
