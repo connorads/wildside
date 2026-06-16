@@ -1748,9 +1748,7 @@ fn should_queue_audio_frame(
     // state advances but the cue never reaches SDL. Allow one burst frame for
     // current-frame commands; keep larger backlogs capped so SFX do not drift
     // further behind live gameplay.
-    preserve_current_frame_sfx
-        && queued_bytes
-            < target_bytes.saturating_add(generated_audio_sample_bytes(generated_sample_count))
+    preserve_current_frame_sfx && queued_bytes <= target_bytes
 }
 
 fn should_resume_audio_queue_after_queue(
@@ -16264,6 +16262,15 @@ mod tests {
                 true,
             ),
             "the SFX preservation path may burst by one frame but must not rebuild the old multi-frame latency"
+        );
+        assert!(
+            !should_queue_audio_frame(
+                u32::try_from(target_generated_frame_bytes + one_generated_frame_bytes - 1)
+                    .expect("fits u32"),
+                generated_stereo_samples,
+                true,
+            ),
+            "a nearly one-frame SFX burst must not accept another full generated frame; stacked cues should stay close to gameplay instead of drifting late"
         );
 
         assert!(
