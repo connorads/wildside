@@ -135,10 +135,10 @@ agent-closable instead of playtest-only.
 - **Test:** `cyclone_transform_steps_3492_3494_match_off_7ee2_forward_frames` (`mod.rs`, sibling to `loc_7cd0_*` tests).
 - **Risk:** scope strictly to per-hibernate forward-frame selection — **two prior palette experiments over-reached and were rejected.** Verify against a second form's transform window (not a Cyclone-only hack).
 
-### #305 — pause Give-Up last-life lane (shell/verify) · actionable · ~2 commits
+### #305 — pause Give-Up last-life lane (shell/verify) · covered 2026-06-16
 - **ASM:** `Game_Paused_Loop`/`Game_Paused_ChkStart` (`kid.asm:6829-6878`), `loc_6B46`/`loc_6C0A` (give-up death-windup), the ROM joypad read copying `Ctrl_1_Pressed` ($FFFFF80E) into active `Ctrl_Pressed` ($FFFFF813).
-- **Blocker (investigation):** in the oracle's paused loop, active `Ctrl_Pressed` reads `$00` while raw `Ctrl_1_Pressed` correctly shows the Start edge `$80`, so `Game_Paused_ChkStart` never fires (oracle stays paused, `number_lives=3`). Next step is an **oracle joypad-mirror routing** investigation, not another route retiming (rejected twice). Secondary: `scenario.rs:89` hardcodes boot `number_lives=3` — last-life route needs a 2-life-loss prefix or a lives-seed field.
-- **Test:** new `issue-305-pause-give-up-last-life-probe.json` oracle-parity slice once routing is fixed.
+- **Resolution:** stale validation note. `docs/source-port/backlog.md` now records #305 as complete with Fast Action, options-remap, Restart Round, and last-life Give Up lanes promoted to `tests/tas_frontier.json`.
+- **Verification:** `cargo run -q -p kidcli -- verify-tas --scenario tests/data/dynamic-scenarios/issue-305-pause-give-up-last-life-probe.json --frame-start 0 --frame-end 40 --checkpoint-interval 1 --frontier-kind gameplay --bisect` passed 2026-06-16 (`all 40 frames match by CRC`). This retires the old oracle joypad-mirror blocker for the #305 lane; backlog #293 still carries the separate human validation caveat.
 
 ### #260 — slime / metal-block contact (drips) · **BLOCKED** · 0 commits
 - **Key correction — the search has targeted the wrong mechanism.** `Drips.asm loc_33AF6`
