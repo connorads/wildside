@@ -25282,6 +25282,18 @@ mod chunk_05 {
         runtime.weather.weather_type = 3;
         runtime.weather.storm_spawn_cooldown = 7;
         runtime.weather.storm_free_falling_slots = 4;
+        runtime.weather.storm_falling_slots_sub_61ca[0] = crate::weather::FallingWeatherSlotSub61CA {
+            y_px: 0x20,
+            x_px: 0x40,
+            animation_cooldown: 3,
+            animation_frame: 2,
+        };
+        runtime.weather.storm_impact_slots_sub_61ca[0] = crate::weather::WeatherImpactSlotSub61CA {
+            y_px: 0x30,
+            x_px: 0x50,
+            animation_cooldown: 4,
+            animation_frame: 1,
+        };
         runtime.weather.storm_weather_mode_byte = 4;
         runtime.weather.storm_fade_countdown = 0x0100;
         runtime.weather.storm_thunder_timer = -3;
@@ -25318,6 +25330,16 @@ mod chunk_05 {
         assert_eq!(runtime.weather.weather_type, 0);
         assert_eq!(runtime.weather.storm_spawn_cooldown, 0);
         assert_eq!(runtime.weather.storm_free_falling_slots, 0);
+        assert_eq!(
+            runtime.weather.storm_falling_slots_sub_61ca,
+            [crate::weather::FallingWeatherSlotSub61CA::default(); 5],
+            "ASM loc_14DAC slot RAM must not leak from a previous storm level"
+        );
+        assert_eq!(
+            runtime.weather.storm_impact_slots_sub_61ca,
+            [crate::weather::WeatherImpactSlotSub61CA::default(); 10],
+            "ASM loc_14DAC impact RAM must not leak from a previous storm level"
+        );
         assert_eq!(runtime.weather.storm_weather_mode_byte, 0);
         assert_eq!(runtime.weather.storm_fade_countdown, 0);
         assert_eq!(runtime.weather.storm_thunder_timer, 0);
@@ -25351,6 +25373,16 @@ mod chunk_05 {
         assert_eq!(
             runtime.weather.storm_free_falling_slots, 5,
             "ASM loc_14DAC clears five falling-weather slots and records all five as free"
+        );
+        assert_eq!(
+            runtime.weather.storm_falling_slots_sub_61ca,
+            [crate::weather::FallingWeatherSlotSub61CA::inactive(1, 0); 5],
+            "ASM loc_14DAC writes `#$FFFFFFFF,#$0100` into each `$FFFFFAE2` falling-weather slot"
+        );
+        assert_eq!(
+            runtime.weather.storm_impact_slots_sub_61ca,
+            [crate::weather::WeatherImpactSlotSub61CA::inactive(0xFF, 0xFF); 10],
+            "ASM loc_14DAC writes three `#$FFFFFFFF` longwords per impact slot at `$FFFFFB00`"
         );
         assert_eq!(
             runtime.weather.storm_weather_mode_byte, 4,

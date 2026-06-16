@@ -706,6 +706,12 @@ pub(crate) struct WeatherState {
     pub(crate) storm_spawn_cooldown: u8,
     /// ASM loc_14DAC `$FFFFFB3D`: number of inactive falling weather slots.
     pub(crate) storm_free_falling_slots: u8,
+    /// ASM loc_14DAC/sub_61CA `$FFFFFAE2`: five falling weather slots.
+    pub(crate) storm_falling_slots_sub_61ca:
+        [crate::weather::FallingWeatherSlotSub61CA; crate::weather::FALLING_WEATHER_SLOT_COUNT_SUB_61CA],
+    /// ASM loc_14DAC/sub_61CA `$FFFFFB00`: ten impact/splash slots.
+    pub(crate) storm_impact_slots_sub_61ca:
+        [crate::weather::WeatherImpactSlotSub61CA; crate::weather::WEATHER_IMPACT_SLOT_COUNT_SUB_61CA],
     /// ASM loc_14DAC/sub_6048 `$FFFFFAD6`: storm worker mode byte.
     pub(crate) storm_weather_mode_byte: u8,
     /// ASM loc_14DAC/sub_6048 `$FFFFFADA`: storm fade countdown.

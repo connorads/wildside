@@ -740,8 +740,8 @@ pub(crate) enum WeatherPaletteOpSub6048 {
     },
 }
 
-const FALLING_WEATHER_SLOT_COUNT_SUB_61CA: usize = 5;
-const WEATHER_IMPACT_SLOT_COUNT_SUB_61CA: usize = 10;
+pub(crate) const FALLING_WEATHER_SLOT_COUNT_SUB_61CA: usize = 5;
+pub(crate) const WEATHER_IMPACT_SLOT_COUNT_SUB_61CA: usize = 10;
 const FALLING_WEATHER_SPRITES_SUB_61CA: [u16; 6] = [0xA3B5, 0xA3B9, 0xA3BD, 0xA3C1, 0xA3C5, 0xA3C9];
 const IMPACT_WEATHER_SPRITES_SUB_61CA: [u16; 2] = [0xA3CD, 0xA3D1];
 
@@ -775,6 +775,14 @@ impl FallingWeatherSlotSub61CA {
     }
 }
 
+impl Default for FallingWeatherSlotSub61CA {
+    fn default() -> Self {
+        // ASM loc_14DAC (kid.asm:28434): `move.l #$FFFFFFFF,(a0)+`;
+        // `move.w #$0100,(a0)+` seeds inactive falling slots with cooldown 1.
+        Self::inactive(1, 0)
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WeatherImpactSlotSub61CA {
@@ -797,6 +805,14 @@ impl WeatherImpactSlotSub61CA {
 
     fn is_active(self) -> bool {
         self.y_px >= 0
+    }
+}
+
+impl Default for WeatherImpactSlotSub61CA {
+    fn default() -> Self {
+        // ASM loc_14DAC (kid.asm:28436-28438): each impact slot receives three
+        // `#$FFFFFFFF` longwords, so both animation bytes are `$FF`.
+        Self::inactive(0xFF, 0xFF)
     }
 }
 
@@ -2663,6 +2679,10 @@ impl NativeRuntime {
         self.weather.weather_type = weather_type;
         self.weather.storm_spawn_cooldown = 0;
         self.weather.storm_free_falling_slots = 0;
+        self.weather.storm_falling_slots_sub_61ca =
+            [FallingWeatherSlotSub61CA::default(); FALLING_WEATHER_SLOT_COUNT_SUB_61CA];
+        self.weather.storm_impact_slots_sub_61ca =
+            [WeatherImpactSlotSub61CA::default(); WEATHER_IMPACT_SLOT_COUNT_SUB_61CA];
         self.weather.storm_weather_mode_byte = 0;
         self.weather.storm_fade_countdown = 0;
         self.weather.storm_thunder_timer = 0;
@@ -2701,6 +2721,13 @@ impl NativeRuntime {
             let seeded = initialise_storm_slots_loc_14DAC(setup.fill_setup);
             self.weather.storm_spawn_cooldown = seeded.spawn_cooldown;
             self.weather.storm_free_falling_slots = seeded.free_falling_slots;
+            // ASM loc_14DAC (kid.asm:28434-28439): clear five falling slots at
+            // `$FFFFFAE2` and ten impact/splash slots at `$FFFFFB00` before
+            // seeding the scalar storm worker bytes.
+            self.weather.storm_falling_slots_sub_61ca =
+                [FallingWeatherSlotSub61CA::default(); FALLING_WEATHER_SLOT_COUNT_SUB_61CA];
+            self.weather.storm_impact_slots_sub_61ca =
+                [WeatherImpactSlotSub61CA::default(); WEATHER_IMPACT_SLOT_COUNT_SUB_61CA];
             self.weather.storm_weather_mode_byte = seeded.weather_mode_byte;
             self.weather.storm_fade_countdown = seeded.fade_countdown;
             self.weather.storm_thunder_timer = seeded.thunder_timer;
