@@ -120,13 +120,14 @@ agent-closable instead of playtest-only.
 - **Resolution:** live BoomerangBosses death entry now queues `QueuedSoundEffect::BossEyePops` through the `sub_393B2` helper path; generic `sub_37002` remains tracked in `audio-triggers-fidelity-audit.md`.
 - **Risk:** engine-level, low; guard against double-emission with an exact-frame assertion.
 
-### #301 — HeadyMetal composite worker lifecycle (bosses) · actionable · ~1 commit
+### #301 — HeadyMetal composite worker lifecycle (bosses) · evidence-covered 2026-06-16
 - **ASM:** `Enemy20_HeadyMetal_Init`/`loc_39266` (12 body-piece seeds), `sub_37ABC`/`loc_37AD4` (`kid.asm:39996` — walks persistent `$FFFFFB7E` table, **skips null pointers**), `sub_37708 loc_37778` (nulls a slot after breakup).
 - **Plan:** `heady_metal_composite_refresh_probe_sub_37abc` (`trace.rs:7085`) currently **re-derives all 12 slots every frame** from static offsets, so a piece nulled by breakup reappears. Make the table **persistent**: popped slots become `None` and are skipped (ASM dbf-with-null-skip).
 - **Oracle split:** native-internal (no boss route exists) — popped piece reappears next frame vs should stay gone.
 - **Test:** `live_heady_metal_composite_refresh_drops_popped_worker_slot_sub_37abc_loc_37778` red-first unit test (`combat_tests.rs`).
 - **Risk:** HeadyMetal family only; no boss frames in TAS so CRC impact nil.
 - **2026-06-16:** executed the load-time persistence subcase in `0062a30f`. Runtime now seeds the `$FFFFFB7A..$FFFFFBAA` table from `Enemy20_HeadyMetal_Init loc_39247`; `live_heady_metal_body_piece_workers_persist_after_init_loc_39247` guards against re-projecting `sub_37ABC` pieces from a moved tracking anchor. Full per-piece `sub_376EC` lifecycle remains open in `bosses-fidelity-audit.md`.
+- **2026-06-16 follow-up:** `live_heady_metal_composite_refresh_drops_popped_worker_slot_sub_37abc_loc_37778` confirms the live collision path preserves `loc_37778` slot clearing into the next `sub_37ABC` trace; the broader normal per-piece movement/lifecycle gap remains tracked in `bosses-fidelity-audit.md`.
 
 ### #274 — Cyclone transform render (blocks-prizes) · actionable · ~2 commits · *loop already added the regression*
 - **ASM:** `kid.asm:8425` `loc_7CD0` Kid_Transform (`off_7EE2` transform-step table), `loc_7C96`/`loc_7CA6` frame-table walk; native selector `sprites.rs:675-741` `select_player_transform_frame`.

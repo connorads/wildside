@@ -2390,6 +2390,50 @@ fn trace_uses_live_heady_metal_breakup_slots_for_sub_37abc_body_pieces() {
 }
 
 #[test]
+fn live_heady_metal_composite_refresh_drops_popped_worker_slot_sub_37abc_loc_37778() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0050_0000;
+    slice.player.y_pos = 0x0050_0000;
+    runtime.opening_slice = Some(slice);
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 13);
+    boss.boss_movement_delay_counter = HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264;
+    runtime.active_enemies = vec![boss];
+    runtime.ensure_heady_metal_breakup_slots_loc_39247();
+
+    let collision_target = runtime.active_enemies[0];
+    runtime.queue_pending_enemy_collision(&collision_target, 0x002C);
+    runtime.apply_pending_enemy_collisions();
+
+    let trace = runtime.trace_frame();
+
+    assert_eq!(
+        runtime.active_enemies[0].hit_points, 12,
+        "ASM sub_37708 loc_3772A increments `$3E(a3)` from `$18` to `$19` before loc_37778 pops a body-piece worker",
+    );
+    assert!(
+        runtime
+            .projectiles
+            .iter()
+            .any(|projectile| projectile.kind == EnemyProjectileKind::BossEyePopEffect),
+        "ASM sub_37708 loc_37778 allocates sub_3729E before clearing the selected worker pointer",
+    );
+    assert_eq!(
+        trace.heady_metal_body_pieces_sub_37abc.len(),
+        11,
+        "ASM loc_37778 clears the selected `$FFFFFB7E..$FFFFFBAA` worker pointer; sub_37ABC loc_37AD4 must skip that null slot instead of re-projecting it next frame",
+    );
+    assert!(
+        !trace
+            .heady_metal_body_pieces_sub_37abc
+            .iter()
+            .any(|piece| piece.slot_offset == 0x0010),
+        "ASM `unk_3795E[$19]` selects the `$FFFFFB82` body-piece pointer, whose trace offset is `$10`",
+    );
+}
+
+#[test]
 fn boss_head_arrow_loc_3a0d2_sticks_after_moving_counter_expires() {
     let mut runtime = NativeRuntime::new(manifest());
     runtime.projectiles.push(EnemyProjectile {
