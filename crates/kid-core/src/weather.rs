@@ -832,6 +832,24 @@ impl WeatherCollisionRowsSub61CA {
     }
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn weather_collision_rows_from_block_grid_sub_61ca(
+    grid: &terrain::BlockGrid,
+) -> WeatherCollisionRowsSub61CA {
+    // ASM sub_61CA loc_6290/loc_632E (kid.asm:6265,6329) reads row pointers
+    // from `$FFFF4A04`, then masks raw collision words directly. Preserve raw
+    // words instead of decoded `Cell` fields so `$000F`, `$00FF`, and `$7000`
+    // tests see the same bits as the ROM.
+    let rows = (0..grid.height_cells)
+        .map(|row| {
+            (0..grid.width_cells)
+                .map(|col| grid.raw_word_at(col, row))
+                .collect()
+        })
+        .collect();
+    WeatherCollisionRowsSub61CA { rows }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WeatherSpriteSub61CA {

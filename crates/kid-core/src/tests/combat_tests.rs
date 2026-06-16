@@ -21796,6 +21796,32 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn weather_collision_rows_from_block_grid_preserves_raw_sub_61ca_masks() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 3 * 2], 4, 3);
+        grid.set_raw_word_at(1, 0, 0x000F);
+        grid.set_raw_word_at(2, 1, 0x00F0);
+        grid.set_raw_word_at(3, 2, 0x5001);
+
+        let rows = crate::weather::weather_collision_rows_from_block_grid_sub_61ca(&grid);
+
+        assert_eq!(
+            rows.rows[0][1] & 0x000F,
+            0x000F,
+            "ASM loc_62AA spawn gate must preserve low-nibble collision bits"
+        );
+        assert_eq!(
+            rows.rows[1][2] & 0x00FF,
+            0x00F0,
+            "ASM loc_62B8 second-tile spawn gate must preserve low-byte collision bits"
+        );
+        assert_eq!(
+            rows.rows[2][3] & 0x7000,
+            0x5000,
+            "ASM loc_634E terrain impact test must preserve `$7000` terrain-kind bits"
+        );
+    }
+
     // --- loc_61E2 / loc_620C / loc_6212: per-slot falling weather update ---
 
     #[test]
