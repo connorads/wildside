@@ -14901,6 +14901,51 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_active_roster_orders_new_allocations_at_front_loc_238e() {
+        let window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement.clone(), placement],
+        };
+        let state = PlatformLoaderState {
+            next_index: 2,
+            offset_words: 0,
+        };
+
+        let active = state.active_platforms(&layout, window);
+        let layout_indices: Vec<Option<usize>> = active
+            .iter()
+            .map(|platform| platform.layout_index)
+            .collect();
+
+        assert_eq!(
+            layout_indices,
+            vec![Some(1), Some(0)],
+            "ASM Allocate_PlatformSlot sub_238E links each new platform at Addr_FirstPlatformSlot, so snapshots should expose newest allocations first",
+        );
+    }
+
+    #[test]
     fn special_platform_out_of_range_sets_deactivation_flag_loc_2850() {
         let inactive_window = ActivationWindow {
             x_min: 640,

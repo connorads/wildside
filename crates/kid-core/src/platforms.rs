@@ -815,7 +815,7 @@ impl PlatformLoaderState {
         layout: &PlatformLayout,
         window: ActivationWindow,
     ) -> Vec<NativeObjectSnapshot> {
-        layout
+        let mut active_platforms: Vec<_> = layout
             .placements
             .iter()
             .enumerate()
@@ -869,7 +869,12 @@ impl PlatformLoaderState {
                     debug_fields,
                 }
             })
-            .collect()
+            .collect();
+        // ASM Allocate_PlatformSlot sub_238E inserts each newly allocated
+        // platform at Addr_FirstPlatformSlot, so the active-list scan sees
+        // newest successful allocations first.
+        active_platforms.reverse();
+        active_platforms
     }
 }
 
