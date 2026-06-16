@@ -1240,14 +1240,7 @@ pub(crate) fn step_level_special_effects_sub_6048(
     state
 }
 
-#[derive(Clone, Copy)]
-struct LavaFireballSegment {
-    frames: u8,
-    delta_y: i16,
-    sprite_kind: LavaFireballSpriteKind,
-}
-
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaFireballSpriteKind {
     TallRise,
     MidRise,
@@ -1256,63 +1249,28 @@ pub(crate) enum LavaFireballSpriteKind {
     TallFall,
 }
 
-const LAVA_FIREBALL_SCRIPT: [LavaFireballSegment; 11] = [
-    LavaFireballSegment {
-        frames: 0x0B,
-        delta_y: -4,
-        sprite_kind: LavaFireballSpriteKind::TallRise,
-    },
-    LavaFireballSegment {
-        frames: 0x0B,
-        delta_y: -3,
-        sprite_kind: LavaFireballSpriteKind::TallRise,
-    },
-    LavaFireballSegment {
-        frames: 0x0B,
-        delta_y: -3,
-        sprite_kind: LavaFireballSpriteKind::MidRise,
-    },
-    LavaFireballSegment {
-        frames: 0x0B,
-        delta_y: -2,
-        sprite_kind: LavaFireballSpriteKind::MidRise,
-    },
-    LavaFireballSegment {
-        frames: 0x09,
-        delta_y: -1,
-        sprite_kind: LavaFireballSpriteKind::MidBody,
-    },
-    LavaFireballSegment {
-        frames: 0x05,
-        delta_y: 0,
-        sprite_kind: LavaFireballSpriteKind::MidBody,
-    },
-    LavaFireballSegment {
-        frames: 0x05,
-        delta_y: 0,
-        sprite_kind: LavaFireballSpriteKind::MidBody,
-    },
-    LavaFireballSegment {
-        frames: 0x09,
-        delta_y: 1,
-        sprite_kind: LavaFireballSpriteKind::MidBody,
-    },
-    LavaFireballSegment {
-        frames: 0x0B,
-        delta_y: 2,
-        sprite_kind: LavaFireballSpriteKind::MidFall,
-    },
-    LavaFireballSegment {
-        frames: 0x0B,
-        delta_y: 2,
-        sprite_kind: LavaFireballSpriteKind::TallFall,
-    },
-    LavaFireballSegment {
-        frames: 0x15,
-        delta_y: 4,
-        sprite_kind: LavaFireballSpriteKind::TallFall,
-    },
+const LAVA_FIREBALL_SCRIPT_WORDS_LOC_146CC: [u16; 34] = [
+    0x000A, 0xFFFC, LAVA_FIREBALL_SPRITE_TALL_RISE_LOC_14664,
+    0x000A, 0xFFFD, LAVA_FIREBALL_SPRITE_TALL_RISE_LOC_14664,
+    0x000A, 0xFFFD, LAVA_FIREBALL_SPRITE_MID_RISE_LOC_1466E,
+    0x000A, 0xFFFE, LAVA_FIREBALL_SPRITE_MID_RISE_LOC_1466E,
+    0x0008, 0xFFFF, LAVA_FIREBALL_SPRITE_MID_BODY_LOC_14678,
+    0x0004, 0x0000, LAVA_FIREBALL_SPRITE_MID_BODY_LOC_14678,
+    0x0004, 0x0000, LAVA_FIREBALL_SPRITE_MID_BODY_ALT_LOC_14682,
+    0x0008, 0x0001, LAVA_FIREBALL_SPRITE_MID_BODY_ALT_LOC_14682,
+    0x000A, 0x0002, LAVA_FIREBALL_SPRITE_MID_FALL_LOC_1468C,
+    0x000A, 0x0002, LAVA_FIREBALL_SPRITE_TALL_FALL_LOC_14696,
+    0x0014, 0x0004, LAVA_FIREBALL_SPRITE_TALL_FALL_LOC_14696,
+    0xFFFF,
 ];
+
+const LAVA_FIREBALL_SCRIPT_WORDS_PER_SEGMENT_LOC_149E4: usize = 3;
+const LAVA_FIREBALL_SPRITE_TALL_RISE_LOC_14664: u16 = 0x4664;
+const LAVA_FIREBALL_SPRITE_MID_RISE_LOC_1466E: u16 = 0x466E;
+const LAVA_FIREBALL_SPRITE_MID_BODY_LOC_14678: u16 = 0x4678;
+const LAVA_FIREBALL_SPRITE_MID_BODY_ALT_LOC_14682: u16 = 0x4682;
+const LAVA_FIREBALL_SPRITE_MID_FALL_LOC_1468C: u16 = 0x468C;
+const LAVA_FIREBALL_SPRITE_TALL_FALL_LOC_14696: u16 = 0x4696;
 
 pub(crate) fn kid_hitbox_bounds_px_at_screen(
     kid_x_px: i32,
@@ -1686,6 +1644,56 @@ pub(crate) fn decode_lava_fireball_script_step_loc_149E4(
             sprite_script_word,
         },
     ))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LavaFireballLiveSegmentLoc149E4 {
+    decoded: LavaFireballSegmentLoc149E4,
+    sprite_kind: LavaFireballSpriteKind,
+}
+
+#[allow(non_snake_case)]
+fn lava_fireball_script_words_at_segment_loc_149E4(segment_index: u8) -> Option<&'static [u16]> {
+    let start = usize::from(segment_index) * LAVA_FIREBALL_SCRIPT_WORDS_PER_SEGMENT_LOC_149E4;
+    LAVA_FIREBALL_SCRIPT_WORDS_LOC_146CC.get(start..)
+}
+
+#[allow(non_snake_case)]
+fn lava_fireball_sprite_kind_for_script_word_loc_149E4(
+    sprite_script_word: u16,
+) -> Option<LavaFireballSpriteKind> {
+    // ASM loc_149E4 loads the `unk_146CC` sprite-script word through
+    // `LoadGameModeData`; sub_14AB0 later classifies the resulting `a2`
+    // pointer into the hitbox buckets around unk_14664..unk_14696.
+    match sprite_script_word {
+        LAVA_FIREBALL_SPRITE_TALL_RISE_LOC_14664 => Some(LavaFireballSpriteKind::TallRise),
+        LAVA_FIREBALL_SPRITE_MID_RISE_LOC_1466E => Some(LavaFireballSpriteKind::MidRise),
+        LAVA_FIREBALL_SPRITE_MID_BODY_LOC_14678 | LAVA_FIREBALL_SPRITE_MID_BODY_ALT_LOC_14682 => {
+            Some(LavaFireballSpriteKind::MidBody)
+        }
+        LAVA_FIREBALL_SPRITE_MID_FALL_LOC_1468C => Some(LavaFireballSpriteKind::MidFall),
+        LAVA_FIREBALL_SPRITE_TALL_FALL_LOC_14696 => Some(LavaFireballSpriteKind::TallFall),
+        _ => None,
+    }
+}
+
+#[allow(non_snake_case)]
+fn lava_fireball_live_segment_loc_149E4(
+    segment_index: u8,
+) -> Option<LavaFireballLiveSegmentLoc149E4> {
+    let script_words = lava_fireball_script_words_at_segment_loc_149E4(segment_index)?;
+    let step = decode_lava_fireball_script_step_loc_149E4(script_words)?;
+    match step {
+        LavaFireballScriptStepLoc149E4::CooldownAndRestart => None,
+        LavaFireballScriptStepLoc149E4::EmitSegment(decoded) => {
+            let sprite_kind =
+                lava_fireball_sprite_kind_for_script_word_loc_149E4(decoded.sprite_script_word)?;
+            Some(LavaFireballLiveSegmentLoc149E4 {
+                decoded,
+                sprite_kind,
+            })
+        }
+    }
 }
 
 #[allow(non_snake_case)]
@@ -2250,18 +2258,27 @@ fn advance_lava_fireball(fireball: &mut LavaFireball) {
         return;
     }
 
-    let segment = LAVA_FIREBALL_SCRIPT[usize::from(fireball.segment_index)];
-    fireball.current_y_px = fireball.current_y_px.saturating_add_signed(segment.delta_y);
+    let Some(segment) = lava_fireball_live_segment_loc_149E4(fireball.segment_index) else {
+        fireball.segment_index = 0;
+        fireball.segment_frame = 0;
+        fireball.cooldown_timer = 0x3C;
+        fireball.current_y_px = fireball.base_y_px;
+        return;
+    };
+    let resume =
+        lava_fireball_loop_resume_loc_149FC(fireball.current_y_px, segment.decoded.delta_y);
+    fireball.current_y_px = resume.next_baseline_y_px;
     fireball.segment_frame = fireball.segment_frame.saturating_add(1);
 
-    if fireball.segment_frame >= segment.frames {
+    if u16::from(fireball.segment_frame) >= segment.decoded.frames {
         fireball.segment_frame = 0;
-        if usize::from(fireball.segment_index) + 1 == LAVA_FIREBALL_SCRIPT.len() {
+        let next_segment_index = fireball.segment_index.saturating_add(1);
+        if lava_fireball_live_segment_loc_149E4(next_segment_index).is_none() {
             fireball.segment_index = 0;
             fireball.cooldown_timer = 0x3C;
             fireball.current_y_px = fireball.base_y_px;
         } else {
-            fireball.segment_index += 1;
+            fireball.segment_index = next_segment_index;
         }
     }
 }
@@ -2678,11 +2695,13 @@ impl NativeRuntime {
         }
 
         for fireball in &mut self.weather.lava_fireballs {
-            let segment = LAVA_FIREBALL_SCRIPT[usize::from(fireball.segment_index)];
-            if fireball.cooldown_timer == 0
-                && lava_fireball_hits_kid_sub_14AB0(fireball, slice, segment.sprite_kind)
-            {
-                should_damage = true;
+            if fireball.cooldown_timer == 0 {
+                if let Some(segment) = lava_fireball_live_segment_loc_149E4(fireball.segment_index)
+                {
+                    if lava_fireball_hits_kid_sub_14AB0(fireball, slice, segment.sprite_kind) {
+                        should_damage = true;
+                    }
+                }
             }
             advance_lava_fireball(fireball);
         }

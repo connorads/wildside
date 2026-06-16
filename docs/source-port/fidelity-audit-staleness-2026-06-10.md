@@ -298,7 +298,7 @@ Pattern: the Diamond Power subsystem absorbed almost every fix — the #206 per-
 
 ## weather-fidelity-audit.md (2026-05-31)
 
-Of 33 gaps, all 33 were re-checked: 10 fixed, 7 partially-fixed, 16 still-open, with 0 overturned by the confirmer.
+Of 33 gaps, all 33 were re-checked: 11 fixed, 6 partially-fixed, 16 still-open, with 0 overturned by the confirmer.
 
 | Gap | Sev | Verdict | Evidence |
 | --- | --- | --- | --- |
@@ -321,7 +321,7 @@ Of 33 gaps, all 33 were re-checked: 10 fixed, 7 partially-fixed, 16 still-open, 
 | Storm init — `FB3C/FB3D/FAD6/FADA/FADC/FB52/FB54` seed words never written at runtime | high | fixed | e0ecf788; WeatherState carries five seed fields + FB52/FB54 (types.rs:684-692); live init_weather seeds for weather 2/3 (weather.rs:2461-2487); consumed every frame via sub_6048 (weather.rs:2365-2396) and inline cooldown/spawn (weather.rs:2420-2458); seeds match ASM kid.asm:28439-28447 |
 | `step_weather` — invented hail spawn cadence and spawn-X (fixed 30 / frame-index hash) | low | fixed | 0df73ce5 replaced fixed-30 and `(frame_index*7+13)%320` inside live step_weather; cooldown $25-(rand&$F) (weather.rs:2427), spawn_x Camera_X+rand+$28 (weather.rs:2436-2440); old pattern gone; live lib.rs:3758 |
 | Lava geyser — inter-cycle restart uses flat `DORMANT` instead of re-seeded per-geyser startup hibernate | low | fixed | 09211cf7 added LavaGeyser.startup_delay_frames (types.rs:1760), seeded from lava_geyser_initial_delay_frames_loc_14772 (weather.rs:2222), collapse restart now `geyser.timer = geyser.startup_delay_frames` (weather.rs:2572); flat LAVA_GEYSER_DORMANT_FRAMES=60 deleted (0 hits); live lib.rs:3759 |
-| Lava fireball — faithful script-decode/init helpers dead; live path uses parallel static table | low | partially-fixed | bc87d764 fixed SPAWN leg — hardcoded spawn replaced by table-driven initialise_lava_fireball_state_loc_1499C (weather.rs:2502-2511), now live; REMAINS: script-walker — initialise_lava_fireball_script_loc_149CC (weather.rs:1608) + decode_lava_fireball_script_step_loc_149E4 (weather.rs:1653) `#[cfg_attr(not(test),allow(dead_code))]`, test-only; live runner still reads static LAVA_FIREBALL_SCRIPT (weather.rs:2584) with off-by-one |
+| Lava fireball — faithful script-decode/init helpers dead; live path uses parallel static table | low | fixed | bc87d764 fixed SPAWN leg — hardcoded spawn replaced by table-driven initialise_lava_fireball_state_loc_1499C (weather.rs:2502-2511), now live; 2026-06-16 follow-up fixed SCRIPT leg — live runner now stores raw `unk_146CC` words, decodes triplets through decode_lava_fireball_script_step_loc_149E4, maps sprite script words to sub_14AB0 hitbox buckets, and advances Y through lava_fireball_loop_resume_loc_149FC |
 
 ### Still-open gaps
 
