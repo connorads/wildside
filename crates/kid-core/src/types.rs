@@ -739,6 +739,12 @@ pub(crate) struct IslandShoreCycleStateLoc1202A {
     pub(crate) mid_phase_d2: u16,
     /// ASM `d1`: lower shore band frame phase.
     pub(crate) lower_phase_d1: u16,
+    /// Current VRAM frame index for the primary `$F600..$F6BF` band.
+    pub(crate) primary_vram_frame: u16,
+    /// Current VRAM frame index for the middle `$F6C0..$F75F` band.
+    pub(crate) mid_vram_frame: u16,
+    /// Current VRAM frame index for the lower `$F760..$F8DF` band.
+    pub(crate) lower_vram_frame: u16,
 }
 
 /// ASM `RotatePalette_Lava_Water` object state.
@@ -750,6 +756,15 @@ pub(crate) struct RotatePaletteLavaWaterStateLoc1223C {
     pub(crate) reload_delay_d2: u16,
     /// Number of completed `loc_1223C` rotations since level entry.
     pub(crate) completed_rotations: u16,
+}
+
+/// ASM `loc_1202A` Island shore animated-tile DMA upload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct IslandShoreDmaUploadLoc1202A {
+    pub frame_index: u16,
+    pub source_offset: u32,
+    pub vram_word_address: u16,
+    pub dma_length_bytes: u16,
 }
 
 /// Per-helmet ability state, reset on form change or death.
@@ -1428,6 +1443,12 @@ pub struct NativeTraceFrame {
     /// ASM `loc_1202A` object counters/phases: `$44,$46,$48,d3,d2,d1`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub island_shore_cycle_state_loc_1202a: Option<(u16, u16, u16, u16, u16, u16)>,
+    /// Current `loc_1202A` Island shore VRAM frame indices: primary/mid/lower.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub island_shore_vram_frames_loc_1202a: Option<(u16, u16, u16)>,
+    /// `loc_1202A` Island shore DMA uploads emitted on this frame.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub island_shore_dma_uploads_loc_1202a: Vec<IslandShoreDmaUploadLoc1202A>,
     /// ASM `RotatePalette_Lava_Water` counters: `d0,d2,completed_rotations`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotate_palette_lava_water_state_loc_1223c: Option<(u16, u16, u16)>,
@@ -1643,6 +1664,8 @@ impl Default for NativeTraceFrame {
             active_geysers: Vec::new(),
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
+            island_shore_vram_frames_loc_1202a: None,
+            island_shore_dma_uploads_loc_1202a: Vec::new(),
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             block_bounces: Vec::new(),

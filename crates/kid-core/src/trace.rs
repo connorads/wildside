@@ -6956,6 +6956,14 @@ impl NativeRuntime {
                     state.lower_phase_d1,
                 )
             }),
+            island_shore_vram_frames_loc_1202a: self.island_shore_cycle_loc_1202a.map(|state| {
+                (
+                    state.primary_vram_frame,
+                    state.mid_vram_frame,
+                    state.lower_vram_frame,
+                )
+            }),
+            island_shore_dma_uploads_loc_1202a: self.island_shore_dma_uploads_loc_1202a.clone(),
             rotate_palette_lava_water_state_loc_1223c: self
                 .rotate_palette_lava_water_loc_1223c
                 .map(|state| {

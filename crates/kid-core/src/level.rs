@@ -18346,6 +18346,7 @@ impl NativeRuntime {
 
     fn init_post_load_object_routine_loc_11f96(&mut self, level_id: LevelId) {
         self.island_shore_cycle_loc_1202a = None;
+        self.island_shore_dma_uploads_loc_1202a.clear();
         self.rotate_palette_lava_water_loc_1223c = None;
         let Some(header) = self.level_header(level_id) else {
             return;
@@ -18378,7 +18379,17 @@ impl NativeRuntime {
                     primary_phase_d3: 0x0001,
                     mid_phase_d2: 0x0001,
                     lower_phase_d1: 0x0001,
+                    primary_vram_frame: 0x0000,
+                    mid_vram_frame: 0x0000,
+                    lower_vram_frame: 0x0000,
                 });
+                self.island_shore_dma_uploads_loc_1202a
+                    .push(IslandShoreDmaUploadLoc1202A {
+                        frame_index: 0,
+                        source_offset: 0x0002,
+                        vram_word_address: 0xF600,
+                        dma_length_bytes: 0x02E0,
+                    });
             }
             None => {}
         }
@@ -18401,6 +18412,7 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_island_shore_cycle_loc_1202a(&mut self) {
+        self.island_shore_dma_uploads_loc_1202a.clear();
         let Some(state) = self.island_shore_cycle_loc_1202a.as_mut() else {
             return;
         };
@@ -18415,6 +18427,26 @@ impl NativeRuntime {
         );
         state.primary_countdown_44 = primary.next_countdown;
         state.primary_phase_d3 = primary.next_phase;
+        if let (
+            Some(frame_index),
+            Some(source_offset),
+            Some(vram_word_address),
+            Some(dma_length_bytes),
+        ) = (
+            primary.uploaded_frame_index,
+            primary.dma_source_offset,
+            primary.vram_word_address,
+            primary.dma_length_bytes,
+        ) {
+            state.primary_vram_frame = frame_index;
+            self.island_shore_dma_uploads_loc_1202a
+                .push(IslandShoreDmaUploadLoc1202A {
+                    frame_index,
+                    source_offset,
+                    vram_word_address,
+                    dma_length_bytes,
+                });
+        }
 
         let mid = step_island_palette_cycle_mid_band_loc_12110(
             state.mid_countdown_46,
@@ -18422,6 +18454,26 @@ impl NativeRuntime {
         );
         state.mid_countdown_46 = mid.next_countdown;
         state.mid_phase_d2 = mid.next_phase;
+        if let (
+            Some(frame_index),
+            Some(source_offset),
+            Some(vram_word_address),
+            Some(dma_length_bytes),
+        ) = (
+            mid.uploaded_frame_index,
+            mid.dma_source_offset,
+            mid.vram_word_address,
+            mid.dma_length_bytes,
+        ) {
+            state.mid_vram_frame = frame_index;
+            self.island_shore_dma_uploads_loc_1202a
+                .push(IslandShoreDmaUploadLoc1202A {
+                    frame_index,
+                    source_offset,
+                    vram_word_address,
+                    dma_length_bytes,
+                });
+        }
 
         let lower = step_island_palette_cycle_lower_band_loc_12188(
             state.lower_countdown_48,
@@ -18429,6 +18481,26 @@ impl NativeRuntime {
         );
         state.lower_countdown_48 = lower.next_countdown;
         state.lower_phase_d1 = lower.next_phase;
+        if let (
+            Some(frame_index),
+            Some(source_offset),
+            Some(vram_word_address),
+            Some(dma_length_bytes),
+        ) = (
+            lower.uploaded_frame_index,
+            lower.dma_source_offset,
+            lower.vram_word_address,
+            lower.dma_length_bytes,
+        ) {
+            state.lower_vram_frame = frame_index;
+            self.island_shore_dma_uploads_loc_1202a
+                .push(IslandShoreDmaUploadLoc1202A {
+                    frame_index,
+                    source_offset,
+                    vram_word_address,
+                    dma_length_bytes,
+                });
+        }
     }
 
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {

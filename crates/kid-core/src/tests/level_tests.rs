@@ -2954,6 +2954,21 @@ mod chunk_02 {
             Some((0x0009, 0x000F, 0x0019, 0x0001, 0x0001, 0x0001)),
             "ASM loc_1202A seeds $44/$46/$48 to 9/$F/$19 and d3/d2/d1 to 1 before entering the shore band loops"
         );
+        assert_eq!(
+            trace.island_shore_vram_frames_loc_1202a,
+            Some((0x0000, 0x0000, 0x0000)),
+            "ASM loc_1202A's one-shot DMA uploads shore frame 0 to the whole `$F600` animated-art region before the band coroutines start"
+        );
+        assert_eq!(
+            trace.island_shore_dma_uploads_loc_1202a,
+            vec![IslandShoreDmaUploadLoc1202A {
+                frame_index: 0,
+                source_offset: 0x0002,
+                vram_word_address: 0xF600,
+                dma_length_bytes: 0x02E0,
+            }],
+            "ASM loc_1202A DMAs `unk_9784A+2` for `$2E0` bytes to VRAM `$F600` before seeding the Island countdowns"
+        );
     }
 
     #[test]
@@ -2995,6 +3010,32 @@ mod chunk_02 {
             runtime.trace_frame().island_shore_cycle_state_loc_1202a,
             Some((0x0008, 0x000E, 0x0018, 0x0001, 0x0001, 0x0001)),
             "ASM loc_12098/loc_12110/loc_12188 decrement the three object countdown words once per frame before any band reaches zero"
+        );
+        assert_eq!(
+            runtime.trace_frame().island_shore_dma_uploads_loc_1202a,
+            Vec::<IslandShoreDmaUploadLoc1202A>::new(),
+            "ASM loc_12098/loc_12110/loc_12188 perform no DMA while the three countdowns remain non-zero"
+        );
+
+        for _ in 0..8 {
+            runtime.step_island_shore_cycle_loc_1202a();
+        }
+
+        let trace = runtime.trace_frame();
+        assert_eq!(
+            trace.island_shore_vram_frames_loc_1202a,
+            Some((0x0001, 0x0000, 0x0000)),
+            "ASM loc_12098 uploads the primary band from pre-increment d3=1 on the ninth tick while the other bands keep frame 0"
+        );
+        assert_eq!(
+            trace.island_shore_dma_uploads_loc_1202a,
+            vec![IslandShoreDmaUploadLoc1202A {
+                frame_index: 1,
+                source_offset: 0x0002,
+                vram_word_address: 0xF600,
+                dma_length_bytes: 0x00C0,
+            }],
+            "ASM loc_12098 uploads `off_1220E[d3]+2` for `$C0` bytes to VRAM `$F600` when `$44(a5)` reaches zero"
         );
     }
 
