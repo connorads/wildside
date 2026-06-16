@@ -2627,16 +2627,6 @@ impl NativeRuntime {
         if dispatch_level_special_effects_sub_6034(u16::from(self.weather.weather_type)).is_none() {
             return;
         }
-        if self.weather.weather_type == 3 {
-            let active_hail_slots = self
-                .projectiles
-                .iter()
-                .filter(|projectile| projectile.kind == EnemyProjectileKind::Hail)
-                .take(FALLING_WEATHER_SLOT_COUNT_SUB_61CA)
-                .count() as u8;
-            self.weather.storm_free_falling_slots =
-                FALLING_WEATHER_SLOT_COUNT_SUB_61CA as u8 - active_hail_slots;
-        }
 
         let (foreground_theme_is_mountain, background_theme_is_mountain) = self
             .level_header(self.current_level)
@@ -2709,52 +2699,40 @@ impl NativeRuntime {
             return;
         }
 
-        if !self.weather.hail_active {
-            return;
-        }
-
-        // ASM sub_61CA loc_623A/loc_626C: `$FFFFFB3C` is an 8-bit spawn
-        // cooldown. When it reaches zero, reload to `$25 - (random&$0F)` and
-        // use a second random byte for `Camera_X_pos + random + $28`.
-        let next_spawn_cooldown = self.weather.storm_spawn_cooldown.wrapping_sub(1);
-        if next_spawn_cooldown != 0 {
-            self.weather.storm_spawn_cooldown = next_spawn_cooldown;
-            self.weather.hail_spawn_timer = u16::from(next_spawn_cooldown);
-            return;
-        }
-        let cooldown_random = self.rom_random.next_byte();
-        self.weather.storm_spawn_cooldown = 0x25u8.wrapping_sub(cooldown_random & 0x0F);
-        self.weather.hail_spawn_timer = u16::from(self.weather.storm_spawn_cooldown);
-        // ASM sub_61CA loc_625E scans exactly five falling-weather slots. The
-        // cooldown RNG has already been consumed at loc_623A, but the second
-        // spawn-position RNG is only read after a free slot is found.
-        if self.weather.storm_free_falling_slots == 0 {
-            return;
-        }
-        let spawn_random = self.rom_random.next_byte();
-
-        let camera_x = (slice.camera.x_pos >> 16) as u16;
-        let spawn_x = camera_x
-            .wrapping_add(u16::from(spawn_random))
-            .wrapping_add(0x0028);
-        let spawn_y = (slice.camera.y_pos >> 16) as u16;
-
-        // ASM sub_61CA loc_61E2 (kid.asm:6199): hail particles fall at
-        // `addi.w #4,(a0)` = 4 px/frame downward. The remaining EnemyProjectile
-        // fields (x_velocity, friendly, gravity, homing_accel, speed_cap,
-        // wall_bounce, ...) all match `Default::default()` for hail and are
-        // covered by the spread; listing them explicitly only invites
-        // equivalent-mutant noise from cargo-mutants.
-        self.projectiles.push(EnemyProjectile {
-            x_pos: u32::from(spawn_x) << 16,
-            y_pos: u32::from(spawn_y) << 16,
-            x_velocity: -0x0001_0000,
-            y_velocity: 0x4_0000,
-            kind: EnemyProjectileKind::Hail,
-            ..Default::default()
-        });
-        self.weather.storm_free_falling_slots =
-            self.weather.storm_free_falling_slots.saturating_sub(1);
+        // ASM sub_61CA loc_623A/loc_626C calls j_Get_RandomNumber_byte only
+        // when the spawn cooldown reaches zero, and calls it a second time only
+        // after loc_625E finds an inactive falling-weather slot.
+        let cooldown_expires = self.weather.storm_spawn_cooldown.wrapping_sub(1) == 0;
+        let cooldown_random = if cooldown_expires {
+            self.rom_random.next_byte()
+        } else {
+            0
+        };
+        let can_scan_for_spawn_slot = self.weather.storm_free_falling_slots != 0
+            && self
+                .weather
+                .storm_falling_slots_sub_61ca
+                .iter()
+                .any(|slot| !slot.is_active());
+        let spawn_random = if cooldown_expires && can_scan_for_spawn_slot {
+            self.rom_random.next_byte()
+        } else {
+            0
+        };
+        let worker_output = step_weather_worker_sub_61CA(weather_worker_input_from_runtime_sub_61ca(
+            &self.weather,
+            slice,
+            self.block_grid.as_ref(),
+            cooldown_random,
+            spawn_random,
+            0,
+        ));
+        apply_weather_worker_output_to_state_sub_61ca(&mut self.weather, &worker_output);
+        self.projectiles
+            .retain(|projectile| projectile.kind != EnemyProjectileKind::Hail);
+        self.projectiles.extend(hail_projectiles_from_falling_slots_sub_61ca(
+            &self.weather.storm_falling_slots_sub_61ca,
+        ));
     }
 
     pub(crate) fn init_weather(&mut self, level_id: LevelId) {

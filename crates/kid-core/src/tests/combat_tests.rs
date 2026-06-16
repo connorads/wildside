@@ -18360,6 +18360,7 @@ mod chunk_05 {
         runtime.weather.hail_spawn_timer = 0;
         runtime.weather.hail_period_timer = 100; // mid-period, still active
         runtime.weather.storm_spawn_cooldown = 1;
+        runtime.weather.storm_free_falling_slots = 5;
 
         // Pick non-zero camera_x and live ROM RNG bytes so the spawn formulas
         // distinguish operator-replacement mutants:
@@ -18437,16 +18438,14 @@ mod chunk_05 {
         runtime.weather.hail_period_timer = 100;
         runtime.weather.storm_spawn_cooldown = 1;
         runtime.weather.hail_spawn_timer = 1;
-        runtime.weather.storm_free_falling_slots = 5;
+        runtime.weather.storm_free_falling_slots = 0;
         for i in 0..5 {
-            runtime.projectiles.push(EnemyProjectile {
-                x_pos: (0x0040 + i * 0x10) << 16,
-                y_pos: 0x0030_0000,
-                x_velocity: -0x0001_0000,
-                y_velocity: 0x0004_0000,
-                kind: EnemyProjectileKind::Hail,
-                ..Default::default()
-            });
+            runtime.weather.storm_falling_slots_sub_61ca[i] = FallingWeatherSlotSub61CA {
+                y_px: 0x0030,
+                x_px: 0x0040 + (i as i16 * 0x10),
+                animation_cooldown: 6,
+                animation_frame: 0,
+            };
         }
 
         runtime.step_weather(&airborne_slice());
@@ -23965,6 +23964,7 @@ mod chunk_05 {
         runtime.weather.storm_spawn_cooldown = 3;
         runtime.weather.hail_spawn_timer = 3;
         runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_free_falling_slots = 5;
 
         let slice = airborne_slice();
 
