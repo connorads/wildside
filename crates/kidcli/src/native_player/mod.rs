@@ -12320,8 +12320,8 @@ mod tests {
 
         let mut target_matches = 0usize;
         let mut stale_mismatches = 0usize;
-        for y in (16..208).step_by(16) {
-            for x in (16..304).step_by(16) {
+        for y in (8..216).step_by(8) {
+            for x in (8..312).step_by(8) {
                 let Some(actual) =
                     sample_background_pixel_loc_c070(&trace, &session_assets.level_visuals, x, y)
                 else {
@@ -12351,6 +12351,109 @@ mod tests {
         assert!(
             stale_mismatches >= 4,
             "{route_name}: sampled live background should differ from the previous cave background at multiple visible points"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn debug_hotkey_cave_to_highwater_live_background_uses_target_visuals_loc_6e2() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        let route_name = "debug hotkey cave -> Highwater Pass live handoff";
+        let start_level = 0x06;
+        let target_level = 0x02;
+        let start_assets = load_native_session_assets(&manifest, start_level)
+            .unwrap_or_else(|_| panic!("{route_name} start assets"));
+        let target_assets = load_native_session_assets(&manifest, target_level)
+            .unwrap_or_else(|_| panic!("{route_name} target assets"));
+        let expected_visuals = target_assets.level_visuals.clone();
+
+        let mut runtime = NativeRuntime::new(manifest.clone());
+        let mut session_assets = start_assets;
+        runtime.set_block_grid(session_assets.block_grid.clone());
+        let mut trace = runtime.enter_level_playtest(LevelId(start_level));
+
+        enter_debug_hotkey_level(
+            &manifest,
+            &mut runtime,
+            &mut trace,
+            &mut session_assets,
+            LevelId(target_level),
+            target_assets,
+        );
+        assert_eq!(trace.current_level, LevelId(target_level), "{route_name}");
+        assert_eq!(trace.game_mode, GameMode::LevelTransition, "{route_name}");
+        assert_eq!(
+            session_assets.level_visuals.level.level_id, expected_visuals.level.level_id,
+            "{route_name}: active render bundle should switch to Highwater Pass before the ROM title-card shell"
+        );
+
+        for _ in 0..360 {
+            trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "{route_name}: Load_TitleCard should still be waiting for Start"
+            );
+        }
+        trace = runtime.step_frame(FrameInput::from_mask(0x80));
+        assert_eq!(
+            trace.game_mode,
+            GameMode::LevelTransition,
+            "{route_name}: Start is latched before the live handoff"
+        );
+
+        let mut live_trace = None;
+        for _ in 0..16 {
+            let next_trace = runtime.step_frame(FrameInput::default());
+            if next_trace.game_mode == GameMode::InGame {
+                live_trace = Some(next_trace);
+                break;
+            }
+        }
+        let trace =
+            live_trace.unwrap_or_else(|| panic!("{route_name} did not reach live gameplay"));
+        assert_eq!(trace.current_level, LevelId(target_level), "{route_name}");
+        assert_eq!(
+            session_assets.level_visuals.level.level_id, expected_visuals.level.level_id,
+            "{route_name}: live gameplay should still render with the target level bundle"
+        );
+
+        let mut target_matches = 0usize;
+        let mut non_black_samples = 0usize;
+        let mut distinct_colours = std::collections::BTreeSet::new();
+        for y in (8..216).step_by(8) {
+            for x in (8..312).step_by(8) {
+                let Some(actual) =
+                    sample_background_pixel_loc_c070(&trace, &session_assets.level_visuals, x, y)
+                else {
+                    continue;
+                };
+                let Some(expected) =
+                    sample_background_pixel_loc_c070(&trace, &expected_visuals, x, y)
+                else {
+                    continue;
+                };
+                if actual.rgb == expected.rgb {
+                    target_matches += 1;
+                }
+                if actual.rgb != [0, 0, 0] {
+                    non_black_samples += 1;
+                }
+                distinct_colours.insert(actual.rgb);
+            }
+        }
+
+        assert!(
+            target_matches >= 128,
+            "{route_name}: live background samples should match fresh Highwater Pass visuals, not go black or reuse a stale shell"
+        );
+        assert!(
+            non_black_samples >= 128 && distinct_colours.len() >= 2,
+            "{route_name}: sampled live background should not collapse to a black frame; non_black_samples={non_black_samples}, distinct_colours={}",
+            distinct_colours.len()
         );
     }
 
