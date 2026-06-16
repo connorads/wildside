@@ -4293,6 +4293,7 @@ impl NativeRuntime {
 
         // Platform collision: player can stand on top of platforms
         let player_before_platform_collision = slice.player;
+        let character_movement_is_jump = self.current_character_movement(slice.player) == 3;
         let platform_collision_outcome = apply_platform_collision_with_ceiling_probe(
             &mut slice,
             &self.active_platforms,
@@ -4300,6 +4301,7 @@ impl NativeRuntime {
             self.progression.current_form,
             platform_support_crawling,
             platform_standing_before,
+            character_movement_is_jump,
         );
         if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
             && slice.player != player_before_platform_collision

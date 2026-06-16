@@ -13646,7 +13646,15 @@ mod chunk_04 {
         slice.player.y_velocity = -0x1_0000;
         slice.pre_gravity_y_vel = -0x1_0000;
 
-        let outcome = apply_platform_collision(&mut slice, &[platform]);
+        let outcome = apply_platform_collision_with_ceiling_probe(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::TheKid,
+            false,
+            None,
+            true,
+        );
 
         assert_eq!(
             outcome,
@@ -13665,6 +13673,35 @@ mod chunk_04 {
         assert!(
             !slice.player.on_ground,
             "ASM loc_26FE bottom-face carry must not set Addr_PlatformStandingOn",
+        );
+    }
+
+    #[test]
+    fn platform_collision_bottom_face_uses_character_movement_jump_loc_26fe() {
+        let mut platform = make_test_platform(40, 100, 2, 0);
+        platform.y_velocity = 0x2_8000;
+        let mut slice = make_airborne_slice(63, 132);
+        slice.player.y_velocity = 0x1_0000;
+        slice.pre_gravity_y_vel = 0x1_0000;
+
+        let outcome = apply_platform_collision_with_ceiling_probe(
+            &mut slice,
+            &[platform],
+            None,
+            PlayerForm::TheKid,
+            false,
+            None,
+            true,
+        );
+
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::None,
+            "ASM loc_26FE branches back to loc_2590 when Character_Movement is MoveID_Jump, even after y_vel has become positive",
+        );
+        assert_eq!(
+            slice.player.y_velocity, 0x2_C000,
+            "ASM loc_26FE still copies `$E(a2)+$4000` before the MoveID_Jump branch",
         );
     }
 
@@ -13695,6 +13732,7 @@ mod chunk_04 {
             PlayerForm::RedStealth,
             false,
             None,
+            false,
         );
 
         assert_eq!(
@@ -13752,6 +13790,7 @@ mod chunk_04 {
             PlayerForm::RedStealth,
             false,
             Some(0),
+            false,
         );
 
         assert_eq!(
@@ -13943,6 +13982,7 @@ mod chunk_04 {
             PlayerForm::TheKid,
             false,
             Some(0),
+            false,
         );
 
         assert_eq!(
@@ -16670,6 +16710,7 @@ mod chunk_04 {
             PlayerForm::TheKid,
             false,
             None,
+            false,
         );
 
         assert_eq!(

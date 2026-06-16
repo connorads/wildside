@@ -905,6 +905,7 @@ pub(crate) fn apply_platform_collision(
         PlayerForm::TheKid,
         false,
         Some(0),
+        false,
     )
 }
 
@@ -922,6 +923,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     current_form: PlayerForm,
     crawling: bool,
     standing_platform_index: Option<usize>,
+    character_movement_is_jump: bool,
 ) -> PlatformCollisionOutcome {
     // ASM loc_7886 (kid.asm:7929): after sub_902A finds floor while Kid
     // stands on a platform, the ROM calls sub_8ED0 to check whether Kid's
@@ -1113,7 +1115,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
                     slice.player.y_pos = (new_y_px << 16) | (slice.player.y_pos & 0x0000_FFFF);
                     let carry = bottom_platform_carry_loc_26FE(
                         platform.y_velocity,
-                        slice.player.y_velocity < 0 || slice.pre_gravity_y_vel < 0,
+                        character_movement_is_jump,
                     );
                     slice.player.on_ground = false;
                     slice.player.y_velocity = carry.carried_y_velocity_fp;

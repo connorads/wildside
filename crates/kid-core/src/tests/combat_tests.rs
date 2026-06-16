@@ -16664,6 +16664,7 @@ mod chunk_05 {
             PlayerForm::TheKid,
             false,
             Some(0),
+            false,
         );
 
         assert_eq!(
