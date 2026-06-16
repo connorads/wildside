@@ -9374,9 +9374,14 @@ mod chunk_09 {
     #[test]
     fn shooter_block_fires_all_four_directions() {
         // ASM LoadBulletsFromEvanescentBlock loc_EC76: skin byte 0x0F loads
-        // one shooter object for each direction at the block centre.
+        // one shooter object for each supported direction at the block centre.
         let mut rt = NativeRuntime::new(manifest());
-        rt.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x0F)]));
+        let mut grid = grid_with_shooter_blocks(&[(5, 3, 0x0F)]);
+        grid.set_cell_at(5, 2, terrain::Cell::from_be_bytes(0, 0x2D));
+        grid.set_cell_at(6, 3, terrain::Cell::from_be_bytes(0, 0x2D));
+        grid.set_cell_at(5, 4, terrain::Cell::from_be_bytes(0, 0x2D));
+        grid.set_cell_at(4, 3, terrain::Cell::from_be_bytes(0, 0x2D));
+        rt.set_block_grid(grid);
         rt.block_state.shooter_last_scanned_col = 1;
         rt.block_state.shooter_last_scanned_row = 3;
 
@@ -9410,9 +9415,12 @@ mod chunk_09 {
 
     #[test]
     fn shooter_block_single_direction_up_only() {
-        // Skin byte 0x01 = up only
+        // ASM loc_F106: skin byte 0x01 = up only, and loc_F14C requires
+        // the upper neighbour skin byte to be non-zero before bullets load.
         let mut rt = NativeRuntime::new(manifest());
-        rt.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x01)]));
+        let mut grid = grid_with_shooter_blocks(&[(5, 3, 0x01)]);
+        grid.set_cell_at(5, 2, terrain::Cell::from_be_bytes(0, 0x2D));
+        rt.set_block_grid(grid);
         rt.block_state.shooter_last_scanned_col = 1;
         rt.block_state.shooter_last_scanned_row = 3;
 
@@ -9511,6 +9519,8 @@ mod chunk_09 {
         let offset = (3usize * usize::from(w) + 5usize) * 2;
         data[offset] = 0xEC;
         data[offset + 1] = 0x2F;
+        let support_offset = (3usize * usize::from(w) + 6usize) * 2;
+        data[support_offset + 1] = 0x2D;
         rt.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
         rt.block_state.shooter_last_scanned_col = 1;
         rt.block_state.shooter_last_scanned_row = 3;

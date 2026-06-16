@@ -3256,7 +3256,9 @@ impl NativeRuntime {
                 return false;
             }
 
-            if entry.age == 0 {
+            // ASM loc_F28C (kid.asm:19849): only slots whose direction word was
+            // made negative by loc_F248 branch to the loc_F410 bullet path.
+            if entry.age == 0 && entry.supported_by_neighbour {
                 let directions: [(u8, i32, i32); 4] = [
                     (1, 0, -Self::SHOOTER_PROJECTILE_SPEED),
                     (2, Self::SHOOTER_PROJECTILE_SPEED, 0),

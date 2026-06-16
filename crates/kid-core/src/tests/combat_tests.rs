@@ -17555,7 +17555,9 @@ mod chunk_05 {
     fn shooter_block_sub_f096_fires_when_kid_enters_scan_column() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
-        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x02)]));
+        let mut grid = grid_with_shooter_blocks(&[(5, 3, 0x02)]);
+        grid.set_cell_at(6, 3, terrain::Cell::from_be_bytes(0, 0x2D));
+        runtime.set_block_grid(grid);
         runtime.projectiles.clear();
         runtime.block_state.shooter_last_scanned_col = 1;
         runtime.block_state.shooter_last_scanned_row = 3;
@@ -17577,7 +17579,9 @@ mod chunk_05 {
     fn shooter_block_sub_f096_fires_when_kid_enters_scan_row() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
-        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 7, 0x02)]));
+        let mut grid = grid_with_shooter_blocks(&[(5, 7, 0x02)]);
+        grid.set_cell_at(6, 7, terrain::Cell::from_be_bytes(0, 0x2D));
+        runtime.set_block_grid(grid);
         runtime.projectiles.clear();
         runtime.block_state.shooter_last_scanned_col = 5;
         runtime.block_state.shooter_last_scanned_row = 4;
@@ -17786,6 +17790,31 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_f28c_unsupported_visible_shooter_slot_does_not_fire() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 4, 0x02)]));
+        runtime.projectiles.clear();
+        runtime.block_state.shooter_last_scanned_col = 1;
+        runtime.block_state.shooter_last_scanned_row = 4;
+
+        let mut slice = shooter_test_slice(0, 0);
+        slice.player.x_pos = (2 * 16) << 16;
+        slice.player.y_pos = (4 * 16) << 16;
+        runtime.step_shooter_blocks(&slice);
+
+        assert_eq!(runtime.block_state.shooter_blocks.len(), 1);
+        assert!(
+            !runtime.block_state.shooter_blocks[0].supported_by_neighbour,
+            "ASM loc_F106 stores an unsupported shooter slot without applying the negative loc_F248 marker"
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM loc_F28C (kid.asm:19849) only branches to the loc_F410 bullet path when the slot direction word is negative"
+        );
+    }
+
+    #[test]
     fn shooter_barrel_support_sub_f568_sub_1f52_latches_ground_without_grid_floor() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
@@ -17862,7 +17891,9 @@ mod chunk_05 {
     fn shooter_block_sub_f096_restarts_per_slot_cadence_while_kid_stays_in_range_loc_f326() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
-        runtime.set_block_grid(grid_with_shooter_blocks(&[(5, 3, 0x02)]));
+        let mut grid = grid_with_shooter_blocks(&[(5, 3, 0x02)]);
+        grid.set_cell_at(6, 3, terrain::Cell::from_be_bytes(0, 0x2D));
+        runtime.set_block_grid(grid);
         runtime.projectiles.clear();
         runtime.block_state.shooter_last_scanned_col = 1;
         runtime.block_state.shooter_last_scanned_row = 3;
