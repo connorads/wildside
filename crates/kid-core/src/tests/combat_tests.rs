@@ -21894,6 +21894,69 @@ mod chunk_05 {
         );
     }
 
+    #[test]
+    fn apply_weather_worker_output_to_state_sub_61ca_updates_live_ram() {
+        let mut weather = WeatherState {
+            storm_spawn_cooldown: 9,
+            hail_spawn_timer: 9,
+            storm_free_falling_slots: 5,
+            ..WeatherState::default()
+        };
+        let mut falling_slots = [FallingWeatherSlotSub61CA::default(); 5];
+        falling_slots[1] = FallingWeatherSlotSub61CA {
+            y_px: 0x0066,
+            x_px: 0x0188,
+            animation_cooldown: 4,
+            animation_frame: 3,
+        };
+        let mut impact_slots = [WeatherImpactSlotSub61CA::default(); 10];
+        impact_slots[6] = WeatherImpactSlotSub61CA {
+            y_px: 0x0077,
+            x_px: 0x0199,
+            animation_cooldown: 2,
+            animation_frame: 4,
+        };
+
+        crate::weather::apply_weather_worker_output_to_state_sub_61ca(
+            &mut weather,
+            &crate::weather::WeatherWorkerOutputSub61CA {
+                spawn_cooldown: 0x1E,
+                free_falling_slots: 2,
+                falling_slots,
+                impact_slots,
+                kid_collision_timer: Some(0x28),
+                number_sprites: 3,
+                sprites: vec![WeatherSpriteSub61CA {
+                    y: 0x0080,
+                    link: 0x0501,
+                    tile_word: 0xA3C9,
+                    x: 0x00A8,
+                }],
+            },
+        );
+
+        assert_eq!(
+            weather.storm_spawn_cooldown, 0x1E,
+            "ASM sub_61CA writes `$FFFFFB3C` after the cooldown step"
+        );
+        assert_eq!(
+            weather.hail_spawn_timer, 0x1E,
+            "native trace compatibility mirrors ASM `$FFFFFB3C` into hail_spawn_timer"
+        );
+        assert_eq!(
+            weather.storm_free_falling_slots, 2,
+            "ASM sub_61CA writes `$FFFFFB3D` after slot allocation/deletion"
+        );
+        assert_eq!(
+            weather.storm_falling_slots_sub_61ca[1], falling_slots[1],
+            "ASM sub_61CA writes falling slot RAM at `$FFFFFAE2`"
+        );
+        assert_eq!(
+            weather.storm_impact_slots_sub_61ca[6], impact_slots[6],
+            "ASM sub_61CA writes impact slot RAM at `$FFFFFB00`"
+        );
+    }
+
     // --- loc_61E2 / loc_620C / loc_6212: per-slot falling weather update ---
 
     #[test]

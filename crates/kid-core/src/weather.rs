@@ -924,6 +924,20 @@ pub(crate) struct WeatherWorkerOutputSub61CA {
     pub(crate) sprites: Vec<WeatherSpriteSub61CA>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn apply_weather_worker_output_to_state_sub_61ca(
+    weather: &mut WeatherState,
+    output: &WeatherWorkerOutputSub61CA,
+) {
+    // ASM sub_61CA (kid.asm:6190) writes the same live storm worker RAM that
+    // loc_14DAC initialises: `$FFFFFB3C`, `$FFFFFB3D`, `$FFFFFAE2`, `$FFFFFB00`.
+    weather.storm_spawn_cooldown = output.spawn_cooldown;
+    weather.hail_spawn_timer = u16::from(output.spawn_cooldown);
+    weather.storm_free_falling_slots = output.free_falling_slots;
+    weather.storm_falling_slots_sub_61ca = output.falling_slots;
+    weather.storm_impact_slots_sub_61ca = output.impact_slots;
+}
+
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 #[allow(clippy::needless_pass_by_value, reason = "test callers pass by value")]
