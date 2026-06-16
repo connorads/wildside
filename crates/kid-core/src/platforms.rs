@@ -441,7 +441,113 @@ pub(crate) fn initialize_platform_slots_sub_231C() -> InitializePlatformsSub231C
     }
 }
 
-#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PlatformSlotPoolLoc231C {
+    next_free_platform_slot_addr: u16,
+    first_platform_slot_addr: u16,
+    number_platforms: u16,
+    slot_next_addrs: [u16; PLATFORM_SLOT_CAPACITY_LOC_231C],
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+impl PlatformSlotPoolLoc231C {
+    pub(crate) fn initialize_sub_231C() -> Self {
+        let init = initialize_platform_slots_sub_231C();
+        Self {
+            next_free_platform_slot_addr: init.next_free_platform_slot_addr,
+            first_platform_slot_addr: init.first_platform_slot_addr,
+            number_platforms: init.number_platforms,
+            slot_next_addrs: init.slot_next_addrs,
+        }
+    }
+
+    pub(crate) fn next_free_platform_slot_addr(&self) -> u16 {
+        self.next_free_platform_slot_addr
+    }
+
+    pub(crate) fn slot_next_addr_sub_231C(&self, slot_addr: u16) -> Option<u16> {
+        Self::slot_index_loc_231C(slot_addr).map(|index| self.slot_next_addrs[index])
+    }
+
+    pub(crate) fn allocate_sub_238E(&mut self) -> AllocatePlatformSlotResultSub238E {
+        let allocated_slot_addr = self.next_free_platform_slot_addr;
+        let Some(allocated_slot_index) = Self::slot_index_loc_231C(allocated_slot_addr) else {
+            return AllocatePlatformSlotResultSub238E::NoFreeSlot {
+                failure_label: "loc_6E2",
+            };
+        };
+
+        let next_free_platform_slot_addr = self.slot_next_addrs[allocated_slot_index];
+        // ASM Allocate_PlatformSlot/sub_238E (kid.asm:4217-4219): the popped
+        // free slot's leading word becomes the previous active-list head.
+        self.slot_next_addrs[allocated_slot_index] = self.first_platform_slot_addr;
+        self.next_free_platform_slot_addr = next_free_platform_slot_addr;
+        self.first_platform_slot_addr = allocated_slot_addr;
+        self.number_platforms = self.number_platforms.wrapping_add(1);
+
+        AllocatePlatformSlotResultSub238E::Allocated(AllocatePlatformSlotSub238E {
+            allocated_slot_addr,
+            next_free_platform_slot_addr,
+            first_platform_slot_addr: self.first_platform_slot_addr,
+            number_platforms: self.number_platforms,
+        })
+    }
+
+    pub(crate) fn deallocate_sub_23B4(
+        &mut self,
+        target_slot_addr: u16,
+    ) -> DeallocatePlatformSlotResultSub23B4 {
+        let mut previous_slot_addr: Option<u16> = None;
+        let mut cursor = self.first_platform_slot_addr;
+
+        while cursor != 0 {
+            let Some(current_index) = Self::slot_index_loc_231C(cursor) else {
+                return DeallocatePlatformSlotResultSub23B4::MissingSlot {
+                    failure_label: "loc_6E2",
+                };
+            };
+
+            if cursor == target_slot_addr {
+                let next_active_addr = self.slot_next_addrs[current_index];
+                if let Some(previous_addr) = previous_slot_addr {
+                    let Some(previous_index) = Self::slot_index_loc_231C(previous_addr) else {
+                        return DeallocatePlatformSlotResultSub23B4::MissingSlot {
+                            failure_label: "loc_6E2",
+                        };
+                    };
+                    self.slot_next_addrs[previous_index] = next_active_addr;
+                } else {
+                    self.first_platform_slot_addr = next_active_addr;
+                }
+                // ASM Deallocate_PlatformSlot/loc_23CC (kid.asm:4244-4248):
+                // splice the target out of the active chain, then push it to
+                // the free-list head by writing the old free head into 0(a3).
+                self.slot_next_addrs[current_index] = self.next_free_platform_slot_addr;
+                self.next_free_platform_slot_addr = target_slot_addr;
+                self.number_platforms = self.number_platforms.wrapping_sub(1);
+                return DeallocatePlatformSlotResultSub23B4::Deallocated;
+            }
+
+            previous_slot_addr = Some(cursor);
+            cursor = self.slot_next_addrs[current_index];
+        }
+
+        DeallocatePlatformSlotResultSub23B4::MissingSlot {
+            failure_label: "loc_6E2",
+        }
+    }
+
+    fn slot_index_loc_231C(slot_addr: u16) -> Option<usize> {
+        let offset = slot_addr.checked_sub(PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C)?;
+        if offset % PLATFORM_RAM_SLOT_STRIDE_LOC_231C != 0 {
+            return None;
+        }
+        let index = usize::from(offset / PLATFORM_RAM_SLOT_STRIDE_LOC_231C);
+        (index < PLATFORM_SLOT_CAPACITY_LOC_231C).then_some(index)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AllocatePlatformSlotSub238E {
     pub(crate) allocated_slot_addr: u16,
@@ -450,15 +556,14 @@ pub(crate) struct AllocatePlatformSlotSub238E {
     pub(crate) number_platforms: u16,
 }
 
-#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AllocatePlatformSlotResultSub238E {
     Allocated(AllocatePlatformSlotSub238E),
     NoFreeSlot { failure_label: &'static str },
 }
 
-#[cfg(test)]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn allocate_platform_slot_sub_238E(
     next_free_platform_slot_addr: u16,
     allocated_slot_next_addr: u16,
@@ -483,22 +588,20 @@ pub(crate) fn allocate_platform_slot_sub_238E(
     }
 }
 
-#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlatformSlotLinkSub23B4 {
     pub(crate) slot_addr: u16,
     pub(crate) next_slot_addr: u16,
 }
 
-#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DeallocatePlatformSlotResultSub23B4 {
     Deallocated,
     MissingSlot { failure_label: &'static str },
 }
 
-#[cfg(test)]
 #[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn deallocate_platform_slot_sub_23B4(
     active_links: &mut [PlatformSlotLinkSub23B4],
     first_platform_slot_addr: &mut u16,

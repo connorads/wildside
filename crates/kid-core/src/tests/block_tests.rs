@@ -15768,6 +15768,59 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_slot_pool_loc_231c_reuses_a_deallocated_slot_as_next_free_head() {
+        let mut pool = PlatformSlotPoolLoc231C::initialize_sub_231C();
+
+        assert_eq!(
+            pool.allocate_sub_238E(),
+            AllocatePlatformSlotResultSub238E::Allocated(AllocatePlatformSlotSub238E {
+                allocated_slot_addr: 0xEDBA,
+                next_free_platform_slot_addr: 0xEDDC,
+                first_platform_slot_addr: 0xEDBA,
+                number_platforms: 1,
+            }),
+            "ASM sub_238E should pop the initial sub_231C free-list head and make it the active head",
+        );
+        assert_eq!(
+            pool.allocate_sub_238E(),
+            AllocatePlatformSlotResultSub238E::Allocated(AllocatePlatformSlotSub238E {
+                allocated_slot_addr: 0xEDDC,
+                next_free_platform_slot_addr: 0xEDFE,
+                first_platform_slot_addr: 0xEDDC,
+                number_platforms: 2,
+            }),
+            "ASM sub_238E should link the second allocation in front of the previous active slot",
+        );
+        assert_eq!(
+            pool.slot_next_addr_sub_231C(0xEDDC),
+            Some(0xEDBA),
+            "ASM sub_238E writes the previous `(Addr_FirstPlatformSlot).w` into the newly allocated slot's leading word",
+        );
+
+        assert_eq!(
+            pool.deallocate_sub_23B4(0xEDBA),
+            DeallocatePlatformSlotResultSub23B4::Deallocated,
+            "ASM loc_23CC should push the deallocated slot onto `(Addr_NextFreePlatformSlot).w`",
+        );
+        assert_eq!(pool.next_free_platform_slot_addr(), 0xEDBA);
+        assert_eq!(
+            pool.allocate_sub_238E(),
+            AllocatePlatformSlotResultSub238E::Allocated(AllocatePlatformSlotSub238E {
+                allocated_slot_addr: 0xEDBA,
+                next_free_platform_slot_addr: 0xEDFE,
+                first_platform_slot_addr: 0xEDBA,
+                number_platforms: 2,
+            }),
+            "ASM sub_238E should immediately reuse the slot that sub_23B4 just pushed to the free-list head",
+        );
+        assert_eq!(
+            pool.slot_next_addr_sub_231C(0xEDBA),
+            Some(0xEDDC),
+            "ASM sub_238E should relink the recycled slot in front of the remaining active slot",
+        );
+    }
+
+    #[test]
     fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
         assert_eq!(
             allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
