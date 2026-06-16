@@ -199,6 +199,12 @@ pub struct NativeRuntime {
     /// environment workers mutate this buffer so palette side effects are no
     /// longer trapped in test-only helpers.
     palette_buffer: [u16; 0x40],
+    /// Native mirror of the ROM's `Palette_Buffer_2`, used by storm and global
+    /// palette fade workers as the source side of `sub_14C0`.
+    palette_buffer_2: [u16; 0x40],
+    /// Native mirror of the ROM's `Palette_Buffer_3`, used by storm and global
+    /// palette fade workers as the target side of `sub_14C0`.
+    palette_buffer_3: [u16; 0x40],
     /// ASM Animation_Geyser loc_14B2A: five one-frame hibernations before
     /// rotating `Palette_Buffer+$28/$2A/$2C/$2E`.
     lava_geyser_palette_delay_loc_14b2a: u16,
@@ -1508,6 +1514,8 @@ impl NativeRuntime {
             fire_demon_trails: Vec::new(),
             weather: WeatherState::default(),
             palette_buffer: [0; 0x40],
+            palette_buffer_2: [0; 0x40],
+            palette_buffer_3: [0; 0x40],
             lava_geyser_palette_delay_loc_14b2a: 5,
             rotate_palette_lava_water_loc_1223c: None,
             island_shore_cycle_loc_1202a: None,

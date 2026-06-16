@@ -12,6 +12,9 @@ pub(crate) const STORM_PALETTE_HAIL_LABEL_LOC_14CEC: &str = "Pal_7B8CC";
 pub(crate) const STORM_PALETTE_RAIN_PATH_LOC_14CEC: &str = "palette/hail_mountain.bin";
 pub(crate) const STORM_PALETTE_HAIL_PATH_LOC_14CEC: &str = "palette/hail_ice.bin";
 pub(crate) const STORM_PALETTE_BUFFER_START_LOC_14CF2: usize = 0x10;
+const STORM_SAVED_PALETTE_PATH_LOC_6072: &str = "palette_bg/mountain_storm.bin";
+const STORM_THUNDER_FLASH_PALETTE_PATH_LOC_6123: &str = "palette_bg/mountain_lightning.bin";
+const STORM_MOUNTAIN_FOREGROUND_PALETTE_PATH_LOC_6097: &str = "palette_fg/mountain_storm.bin";
 pub(crate) const STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E: &str = "unk_9B65C";
 pub(crate) const STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E: &str = "unk_9B6E0";
 pub(crate) const STORM_PATTERN_VDP_COMMAND_LOC_14D32: u32 = 0x4000_0003;
@@ -2523,6 +2526,17 @@ impl NativeRuntime {
             .map_or((false, false), |header| {
                 (header.level_theme == 7, header.background_theme == 7)
             });
+        let saved_storm_palette = self
+            .theme_palette_words::<8>(STORM_SAVED_PALETTE_PATH_LOC_6072)
+            .unwrap_or([0; 8]);
+        let mountain_storm_foreground_palette = self
+            .theme_palette_words::<15>(STORM_MOUNTAIN_FOREGROUND_PALETTE_PATH_LOC_6097)
+            .unwrap_or([0; 15]);
+        let thunder_flash_palette = self
+            .theme_palette_words::<8>(STORM_THUNDER_FLASH_PALETTE_PATH_LOC_6123)
+            .map(|palette| core::array::from_fn(|index| palette[index]))
+            .unwrap_or([0; 7]);
+        let thunder_calm_palette = saved_storm_palette;
 
         let stepped = step_level_special_effects_sub_6048(
             WeatherSpecialEffectsStepSub6048 {
@@ -2544,12 +2558,13 @@ impl NativeRuntime {
                 call_snow_worker: false,
                 palette_ops: Vec::new(),
             },
-            [0; 8],
-            [0; 15],
-            [0; 7],
-            [0; 7],
+            saved_storm_palette,
+            mountain_storm_foreground_palette,
+            thunder_flash_palette,
+            core::array::from_fn(|index| thunder_calm_palette[index]),
             (self.frame_index & 0xFF) as u8,
         );
+        self.apply_weather_palette_ops_sub_6048(&stepped.palette_ops);
         self.weather.storm_weather_mode_byte = stepped.weather_mode_byte;
         self.weather.storm_fade_countdown = stepped.fade_countdown;
         self.weather.storm_thunder_timer = stepped.thunder_timer;
@@ -2696,6 +2711,37 @@ impl NativeRuntime {
             *word = u16::from_be_bytes([loaded.bytes[offset], loaded.bytes[offset + 1]]);
         }
         Some(words)
+    }
+
+    fn apply_weather_palette_ops_sub_6048(&mut self, ops: &[WeatherPaletteOpSub6048]) {
+        for op in ops {
+            match op {
+                WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer2 => {
+                    // ASM loc_607A: copy 32 words from Palette_Buffer into
+                    // Palette_Buffer_2 before the storm fade overlay is staged.
+                    self.palette_buffer_2[..0x20].copy_from_slice(&self.palette_buffer[..0x20]);
+                }
+                WeatherPaletteOpSub6048::CopyPaletteBufferToBuffer3 => {
+                    // ASM loc_6090: repeat the same 32-word source copy into
+                    // Palette_Buffer_3 before loc_60AA/loc_60C0 overwrite storm slots.
+                    self.palette_buffer_3[..0x20].copy_from_slice(&self.palette_buffer[..0x20]);
+                }
+                WeatherPaletteOpSub6048::WritePaletteBuffer { start_word, words } => {
+                    let start = usize::from(*start_word);
+                    if let Some(destination) = self.palette_buffer.get_mut(start..) {
+                        let count = destination.len().min(words.len());
+                        destination[..count].copy_from_slice(&words[..count]);
+                    }
+                }
+                WeatherPaletteOpSub6048::WritePaletteBuffer3 { start_word, words } => {
+                    let start = usize::from(*start_word);
+                    if let Some(destination) = self.palette_buffer_3.get_mut(start..) {
+                        let count = destination.len().min(words.len());
+                        destination[..count].copy_from_slice(&words[..count]);
+                    }
+                }
+            }
+        }
     }
 
     /// Initialise lava geyser positions for lava weather levels.

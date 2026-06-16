@@ -25508,6 +25508,70 @@ mod chunk_05 {
     }
 
     #[test]
+    fn step_weather_applies_non_mountain_storm_palette_ops_loc_607a_60aa() {
+        let output_root = std::env::temp_dir().join(format!(
+            "kid-core-storm-fade-{}",
+            std::process::id()
+        ));
+        let palette_dir = output_root.join("theme/palette_bg");
+        std::fs::create_dir_all(&palette_dir).expect("create storm fade palette fixture dir");
+        let saved_storm_words = [
+            0x0111, 0x0222, 0x0333, 0x0444, 0x0555, 0x0666, 0x0777, 0x0888,
+        ];
+        let saved_storm_bytes: Vec<u8> = saved_storm_words
+            .iter()
+            .flat_map(|word: &u16| word.to_be_bytes())
+            .collect();
+        std::fs::write(palette_dir.join("mountain_storm.bin"), &saved_storm_bytes)
+            .expect("write storm fade palette fixture");
+
+        let mut manifest = manifest_with_levels(2);
+        manifest.output_root = output_root;
+        manifest.theme_assets = vec![kid_data::AssetFile {
+            relative_path: String::from("palette_bg/mountain_storm.bin"),
+            size_bytes: saved_storm_bytes.len() as u64,
+            sha1: String::from("fixture-storm-fade"),
+        }];
+        let header = manifest.levels[0].header_metadata.as_mut().unwrap();
+        header.weather_flags = 2;
+        header.level_theme = 0;
+        header.background_theme = 0;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_weather(LevelId(0));
+        runtime.frame_index = 0x04B1;
+        let palette_before = core::array::from_fn(|index| 0x0100 + index as u16);
+        runtime.palette_buffer = palette_before;
+
+        runtime.step_weather(&airborne_slice());
+
+        assert_eq!(
+            &runtime.palette_buffer_2[..0x20],
+            &palette_before[..0x20],
+            "ASM loc_607A should copy the first 32 Palette_Buffer words into Palette_Buffer_2 on live storm fade"
+        );
+        assert_eq!(
+            &runtime.palette_buffer_3[1..0x19],
+            &palette_before[1..0x19],
+            "ASM loc_6090 should copy Palette_Buffer into Palette_Buffer_3 before loc_60AA overwrites only the storm slots"
+        );
+        assert_eq!(
+            runtime.palette_buffer_3[0],
+            0,
+            "ASM loc_60AA clears Palette_Buffer_3[0] after copying the non-Mountain storm palette"
+        );
+        assert_eq!(
+            &runtime.palette_buffer_3[0x19..0x20],
+            &saved_storm_words[..7],
+            "ASM loc_60AA should stage seven saved storm palette words at Palette_Buffer_3+$32"
+        );
+        assert_eq!(
+            runtime.weather.storm_fade_countdown, 0x00FC,
+            "ASM loc_60AA subtracts 4 from `$FFFFFADA` after staging the storm fade palette"
+        );
+    }
+
+    #[test]
     fn weather_two_steps_shared_sub_6048_state_without_hail_projectiles() {
         let mut manifest = manifest_with_levels(2);
         manifest.levels[0]

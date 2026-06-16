@@ -17947,14 +17947,22 @@ pub(crate) fn fade_palette_span_sub_1C85E(palette_buffer: &mut [u16], byte_offse
 }
 
 impl NativeRuntime {
-    fn theme_palette_words<const N: usize>(&self, relative_path: &str) -> Option<[u16; N]> {
+    pub(crate) fn theme_palette_words<const N: usize>(
+        &self,
+        relative_path: &str,
+    ) -> Option<[u16; N]> {
         let asset = self
             .assets
             .theme_assets
             .iter()
             .find(|asset| asset.relative_path == relative_path)?;
-        let bytes = std::fs::read(self.assets.output_root.join("theme").join(&asset.relative_path))
-            .ok()?;
+        let bytes = std::fs::read(
+            self.assets
+                .output_root
+                .join("theme")
+                .join(&asset.relative_path),
+        )
+        .ok()?;
         if bytes.len() < N * 2 {
             return None;
         }
