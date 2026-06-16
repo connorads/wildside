@@ -2110,6 +2110,16 @@ impl NativeRuntime {
                     .as_ref()
                     .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
             }
+            BootState::DemoPlay {
+                frame_counter,
+                use_demo_2,
+                ..
+            } if *frame_counter < self.demo_gameplay_start_frame(*use_demo_2) => {
+                // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay -> Load_InGame
+                // keeps the pre-gameplay demo bootstrap visually black even
+                // after Game_Mode has become DemoPlay.
+                Some(vdp::blank_vdp_state())
+            }
             _ if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }) => {
                 // ASM lose_life -> Teleport loc_B8DE writes Game_Mode=$0008
                 // and re-enters loc_6E2, which dispatches Load_TitleCard

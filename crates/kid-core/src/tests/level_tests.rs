@@ -6589,6 +6589,40 @@ mod chunk_02 {
     }
 
     #[test]
+    fn demo_play_hidden_bootstrap_keeps_blank_vdp_until_load_ingame_visible_loc_1bb02() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: 0,
+            data_index: 0,
+            use_demo_2: false,
+        };
+        runtime.update_vdp_state();
+        let vdp = runtime
+            .vdp_state()
+            .expect("ASM loc_1BB02 -> Load_DemoPlay should expose a blank VDP shell");
+        assert!(
+            vdp.vram.iter().all(|byte| *byte == 0)
+                && vdp.cram.iter().all(|byte| *byte == 0)
+                && vdp.vsram.iter().all(|byte| *byte == 0),
+            "ASM Load_DemoPlay -> Load_InGame keeps the hidden demo bootstrap black; recording pixels must not fall through to scene rendering"
+        );
+
+        runtime.boot_state = BootState::DemoPlay {
+            frame_counter: runtime.demo_gameplay_start_frame(false),
+            data_index: 0,
+            use_demo_2: false,
+        };
+        runtime.update_vdp_state();
+        assert!(
+            runtime.vdp_state().is_none(),
+            "active DemoPlay should return to scene rendering once Load_InGame becomes visible"
+        );
+    }
+
+    #[test]
     fn intro_start_from_intro_sequence_5_writes_game_mode_2c_at_loc_1c264() {
         let mut script = vec![0u8; 1_741];
         script[33] = 0x80;
