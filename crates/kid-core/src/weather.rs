@@ -1,5 +1,8 @@
 use super::*;
 
+pub(crate) const LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A: usize = 0x10;
+pub(crate) const LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A: usize = 0x14;
+
 #[allow(dead_code)]
 const MURDER_WALL_PATTERN_SUB_5E02: [u16; 4] = [0xA2FB, 0xA31F, 0xA343, 0xA367];
 
@@ -22,7 +25,9 @@ pub(crate) fn copy_lava_geyser_palette_loc_14C86(
 ) {
     // ASM Init_SpecialEffect_Lava loc_14C6A tail (kid.asm:28323): load
     // `Pal_7B8AC`, `lea Palette_Buffer+$20`, then copy four longwords.
-    palette_buffer[0x10..0x18].copy_from_slice(source_palette);
+    palette_buffer[LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A
+        ..LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A + source_palette.len()]
+        .copy_from_slice(source_palette);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1555,19 +1560,17 @@ pub(crate) struct LavaGeyserPaletteLoopLoc14B2A {
 pub(crate) fn rotate_lava_geyser_palette_loc_14B2A(
     palette_buffer: &mut [u16; 0x40],
 ) -> LavaGeyserPaletteLoopLoc14B2A {
-    const LAVA_GEYSER_PALETTE_START_LOC_14B2A: usize = 0x14;
-
     // ASM loc_14B2A (kid.asm:28209): the geyser animator hibernates for five
     // frames, reloads `d0 = #5`, then rotates palette words `$28/$2A/$2C/$2E`
     // upward so `$2E` wraps back into `$28` before looping forever.
-    let saved = palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 3];
-    palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 3] =
-        palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 2];
-    palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 2] =
-        palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 1];
-    palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A + 1] =
-        palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A];
-    palette_buffer[LAVA_GEYSER_PALETTE_START_LOC_14B2A] = saved;
+    let saved = palette_buffer[LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A + 3];
+    palette_buffer[LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A + 3] =
+        palette_buffer[LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A + 2];
+    palette_buffer[LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A + 2] =
+        palette_buffer[LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A + 1];
+    palette_buffer[LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A + 1] =
+        palette_buffer[LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A];
+    palette_buffer[LAVA_GEYSER_PALETTE_ROTATE_START_LOC_14B2A] = saved;
 
     LavaGeyserPaletteLoopLoc14B2A {
         hibernation_frames: 5,

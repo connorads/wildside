@@ -1457,6 +1457,10 @@ pub struct NativeTraceFrame {
     /// ASM `RotatePalette_Lava_Water` live CRAM words at `Palette_Buffer+$E..+$14`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lava_water_palette_words_loc_1223c: Option<[u16; 4]>,
+    /// ASM `Init_SpecialEffect_Lava` loc_14C6A / `Animation_Geyser` loc_14B2A
+    /// live CRAM words at `Palette_Buffer+$20..+$2E`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lava_geyser_palette_words_loc_14b2a: Option<[u16; 8]>,
     /// Block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
     /// Kept for legacy trace compatibility; new renderers should prefer
     /// `block_bounce_details` when they need the ASM worker kind.
@@ -1671,6 +1675,7 @@ impl Default for NativeTraceFrame {
             island_shore_dma_uploads_loc_1202a: Vec::new(),
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
+            lava_geyser_palette_words_loc_14b2a: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),

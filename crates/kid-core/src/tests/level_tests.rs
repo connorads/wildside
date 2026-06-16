@@ -3179,6 +3179,23 @@ mod chunk_02 {
     }
 
     #[test]
+    fn trace_exposes_lava_geyser_palette_words_loc_14b2a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        let start = crate::weather::LAVA_GEYSER_PALETTE_BUFFER_START_LOC_14C6A;
+        let words = [
+            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+        ];
+        runtime.palette_buffer[start..start + words.len()].copy_from_slice(&words);
+
+        assert_eq!(
+            runtime.trace_frame().lava_geyser_palette_words_loc_14b2a,
+            Some(words),
+            "ASM Init_SpecialEffect_Lava loc_14C6A copies Pal_7B8AC into Palette_Buffer+$20 and loc_14B2A rotates those live words; render traces must expose the current CRAM words instead of inferring from static Lava.bin assets"
+        );
+    }
+
+    #[test]
     fn begin_level_entry_seeds_theme_palette_buffer_loc_11db0_11e16() {
         let output_root = std::env::temp_dir().join(format!(
             "kid-core-palette-buffer-{}",

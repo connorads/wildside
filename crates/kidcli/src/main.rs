@@ -4736,6 +4736,7 @@ AddrTbl_LevelNames:
             island_shore_dma_uploads_loc_1202a: Vec::new(),
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
+            lava_geyser_palette_words_loc_14b2a: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),

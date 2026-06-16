@@ -2115,13 +2115,17 @@ fn trace_frames_match(
 
     if expected.rotate_palette_lava_water_state_loc_1223c.is_none()
         && expected.lava_water_palette_words_loc_1223c.is_none()
+        && expected.lava_geyser_palette_words_loc_14b2a.is_none()
     {
-        // These loc_1223C fields expose additive palette-worker diagnostics.
-        // Pixel checkpoints and oracle state still guard the visible effect.
+        // These palette-worker fields expose additive diagnostics for ASM
+        // loc_1223C and loc_14C6A/loc_14B2A. Pixel checkpoints and oracle
+        // state still guard the visible effects.
         normalised_expected.rotate_palette_lava_water_state_loc_1223c =
             actual.rotate_palette_lava_water_state_loc_1223c;
         normalised_expected.lava_water_palette_words_loc_1223c =
             actual.lava_water_palette_words_loc_1223c;
+        normalised_expected.lava_geyser_palette_words_loc_14b2a =
+            actual.lava_geyser_palette_words_loc_14b2a;
     }
 
     &normalised_expected == actual
@@ -2688,6 +2692,7 @@ mod tests {
             island_shore_dma_uploads_loc_1202a: Vec::new(),
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
+            lava_geyser_palette_words_loc_14b2a: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
@@ -3046,6 +3051,9 @@ mod tests {
         replay.played_bgm_ids = vec![6];
         replay.rotate_palette_lava_water_state_loc_1223c = Some((3, 8, 7));
         replay.lava_water_palette_words_loc_1223c = Some([0, 0, 0, 0]);
+        replay.lava_geyser_palette_words_loc_14b2a = Some([
+            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+        ]);
 
         let drift = first_trace_drift(
             &[recorded],

@@ -2227,6 +2227,24 @@ pub(super) fn foreground_palette_for_scene(
     palette
 }
 
+fn lava_geyser_palette_for_scene_loc_14b2a(
+    trace: &NativeTraceFrame,
+    visuals: &kid_render::LavaVisuals,
+) -> Palette {
+    let mut palette = visuals.palette.clone();
+    if let Some(words) = trace.lava_geyser_palette_words_loc_14b2a
+        && words.iter().any(|word| *word != 0)
+    {
+        // ASM Init_SpecialEffect_Lava loc_14C6A copies Pal_7B8AC into
+        // Palette_Buffer+$20; Animation_Geyser loc_14B2A then rotates the
+        // live `$28..$2E` entries before sub_14BD8/loc_14BE8 draws Lava.bin.
+        for (colour, word) in palette.colours.iter_mut().take(8).zip(words) {
+            *colour = kid_render::MdColour::from_word(word);
+        }
+    }
+    palette
+}
+
 fn background_palette_for_scene(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
@@ -2450,6 +2468,7 @@ fn push_murder_wall_warning_fallback_sub_5e02(
 fn push_lava_geyser_chunk_loc_14be8(
     commands: &mut Vec<DrawCommand>,
     visuals: &kid_render::LavaVisuals,
+    palette: &Palette,
     chunk: kid_core::LavaGeyserSpriteChunkLoc14BE8,
 ) -> bool {
     let tile_ref = TileRef::from_attr_word(chunk.tile_word);
@@ -2480,7 +2499,7 @@ fn push_lava_geyser_chunk_loc_14be8(
         x: i32::from(chunk.screen_x_px) - 0x80,
         y: i32::from(chunk.screen_y_with_bias) - 0x80,
         tile_sheet: Arc::new(visuals.tile_sheet.clone()),
-        palette: Arc::new(visuals.palette.clone()),
+        palette: Arc::new(palette.clone()),
         tiles,
     });
     true
@@ -2489,6 +2508,7 @@ fn push_lava_geyser_chunk_loc_14be8(
 fn push_lava_geyser_template_loc_14be8(
     commands: &mut Vec<DrawCommand>,
     visuals: &kid_render::LavaVisuals,
+    palette: &Palette,
     geyser_x_px: u16,
     camera_x_px: u16,
     screen_y_px: i32,
@@ -2502,13 +2522,14 @@ fn push_lava_geyser_template_loc_14be8(
         0,
         templates,
     ) {
-        push_lava_geyser_chunk_loc_14be8(commands, visuals, chunk);
+        push_lava_geyser_chunk_loc_14be8(commands, visuals, palette, chunk);
     }
 }
 
 fn push_lava_geyser_rom_sprites_loc_14be8(
     commands: &mut Vec<DrawCommand>,
     visuals: &kid_render::LavaVisuals,
+    palette: &Palette,
     geyser_x_px: u16,
     geyser_top_y_px: u16,
     height_px: u16,
@@ -2519,6 +2540,7 @@ fn push_lava_geyser_rom_sprites_loc_14be8(
     push_lava_geyser_template_loc_14be8(
         commands,
         visuals,
+        palette,
         geyser_x_px,
         camera_x_px,
         top_screen_y,
@@ -2532,6 +2554,7 @@ fn push_lava_geyser_rom_sprites_loc_14be8(
         push_lava_geyser_template_loc_14be8(
             commands,
             visuals,
+            palette,
             geyser_x_px,
             camera_x_px,
             row_y,
@@ -2543,6 +2566,7 @@ fn push_lava_geyser_rom_sprites_loc_14be8(
     push_lava_geyser_template_loc_14be8(
         commands,
         visuals,
+        palette,
         geyser_x_px,
         camera_x_px,
         top_screen_y + i32::from(height_px).saturating_sub(16),
@@ -4259,9 +4283,11 @@ fn build_game_scene_filtered(
         // (`unk_14624`, `unk_1465A`, `unk_14650`) over the active height.
         for &(gx, gy_top, height) in &trace.active_geysers {
             if let Some(lava_visuals) = &level_visuals.lava {
+                let lava_palette = lava_geyser_palette_for_scene_loc_14b2a(trace, lava_visuals);
                 push_lava_geyser_rom_sprites_loc_14be8(
                     &mut commands,
                     lava_visuals,
+                    &lava_palette,
                     gx,
                     gy_top,
                     height,

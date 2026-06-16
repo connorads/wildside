@@ -3208,6 +3208,7 @@ mod tests {
             island_shore_dma_uploads_loc_1202a: Vec::new(),
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
+            lava_geyser_palette_words_loc_14b2a: None,
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
@@ -8967,6 +8968,71 @@ mod tests {
                 matches!(command, DrawCommand::Rect { colour, .. } if *colour == [255, 120, 20])
             }),
             "loaded Lava.bin art should replace the native-player placeholder column"
+        );
+    }
+
+    #[test]
+    fn build_game_scene_uses_live_lava_geyser_palette_words_loc_14b2a() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_geysers = vec![(0x0080, 0x0040, 0x0010)];
+        trace.lava_geyser_palette_words_loc_14b2a = Some([
+            0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+        ]);
+        let mut visuals = sample_level_visuals();
+        visuals.lava = Some(kid_render::LavaVisuals {
+            palette: Palette {
+                colours: (0..8)
+                    .map(|value| MdColour::from_word(0x0100 + value))
+                    .collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0xC0],
+            },
+            vram_base_tile_index: 0x02FB,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let lava_sprite = scene
+            .commands
+            .iter()
+            .find(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                )
+            })
+            .expect("ASM loc_14BE8 lava geyser sprite");
+        let raw_words: Vec<u16> = sprite_palette(lava_sprite)
+            .colours
+            .iter()
+            .take(8)
+            .map(|colour| colour.raw_word)
+            .collect();
+        assert_eq!(
+            raw_words,
+            vec![
+                0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
+            ],
+            "ASM loc_14BE8 draws Lava.bin sprite art using the live Palette_Buffer+$20 line seeded by loc_14C6A and rotated by loc_14B2A"
         );
     }
 
