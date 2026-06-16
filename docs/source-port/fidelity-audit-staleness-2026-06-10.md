@@ -330,7 +330,7 @@ Of 33 gaps, all 33 were re-checked: 10 fixed, 7 partially-fixed, 16 still-open, 
 - Animation_Geyser — geyser palette cycle (`$28..$2E`) omitted from live path (helper unwired) — resolved candidate 2026-06-16 by `2cd804c5`, now ticked from live `step_lava_geysers`
 - Post-load palette-object spawn (`loc_11F8C/loc_11F96`) never executed — objects are never instantiated
 - Island shore — entire `loc_1202A` object routine never spawned or stepped at runtime
-- Lava geyser — palette upload seed still omitted; `Animation_Geyser` palette-rotation animator is now live as of `2cd804c5`
+- Lava geyser — palette seed and `Animation_Geyser` rotator live as of `4ad8a9a5`/`2cd804c5`; renderer consumption and VRAM art upload remain open
 - Lava geyser — script-walk intro animation + `$FFFF`/`$FFFE` sentinels omitted entirely
 - Island shore — one-shot shore tile-art DMA upload at `loc_1202A` is not modelled by any helper
 - Storm init — `$FFFFFADE` saved storm palette pointer never set
