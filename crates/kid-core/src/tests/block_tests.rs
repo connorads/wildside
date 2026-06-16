@@ -13883,6 +13883,40 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_riding_runs_sub_8f26_wall_clamp() {
+        let mut platform = make_test_platform(20, 48, 2, 0);
+        platform.x_velocity = 0x8_0000;
+        platform.y_velocity = 0;
+        let mut slice = make_airborne_slice(41, 47);
+        slice.player.on_ground = true;
+        slice.player.y_velocity = 0;
+
+        let w = 5u16;
+        let h = 4u16;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        for row in 1u16..=3 {
+            let offset = (usize::from(row) * usize::from(w) + usize::from(3u16)) * 2;
+            data[offset] = 0x60;
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+
+        apply_platform_collision_with_ceiling_probe(
+            &mut slice,
+            &[platform],
+            Some(&grid),
+            PlayerForm::TheKid,
+            false,
+            Some(0),
+        );
+
+        assert_eq!(
+            slice.player.x_pos,
+            42u32 << 16,
+            "ASM loc_8D72/loc_82D8 carry reaches sub_8F26, so a right-moving platform must clamp Kid to wall_x - (half_width + 1) instead of carrying through the wall",
+        );
+    }
+
+    #[test]
     fn platform_riding_ignores_stationary_platform() {
         let platform = make_test_platform(40, 100, 2, 0);
         // Stationary platform (zero velocity)

@@ -965,8 +965,18 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
         // Native mirrors that stored-platform path here; if no stored
         // platform index exists, the no-platform sub_8ED0 branch above
         // returns without using terrain-style snap tolerance.
-        slice.player.x_pos = (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
+        let previous_x_velocity = slice.player.x_velocity;
+        let carried_x_pos = (i64::from(slice.player.x_pos) + i64::from(platform.x_velocity))
             .clamp(0, i64::from(u32::MAX)) as u32;
+        slice.player.x_pos = carried_x_pos;
+        slice.player.x_velocity = platform.x_velocity;
+        // ASM loc_8D72/loc_82D8 route platform carry through the same
+        // sub_8F26 horizontal collision pass as walking, so a platform cannot
+        // push Kid through a side wall.
+        slice.apply_wall_collision_for_form(block_grid, current_form);
+        if slice.player.x_pos == carried_x_pos && slice.player.x_velocity == platform.x_velocity {
+            slice.player.x_velocity = previous_x_velocity;
+        }
         slice.player.y_velocity = platform.y_velocity;
         slice.player.y_pos = platform.y_pos.wrapping_sub(0x0001_0000);
         let floor_y_px = (slice.player.y_pos >> 16) as i32;
