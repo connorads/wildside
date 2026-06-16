@@ -15821,6 +15821,42 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_slot_pool_loc_23ae_reports_failure_after_all_17_slots_are_allocated() {
+        let mut pool = PlatformSlotPoolLoc231C::initialize_sub_231C();
+
+        for expected_index in 0..PLATFORM_SLOT_CAPACITY_LOC_231C {
+            let expected_slot_addr =
+                PlatformLoaderState::synthetic_slot_addr_loc_231C(expected_index)
+                    .expect("test index should be inside the ASM 17-slot Platform_RAM pool");
+            assert!(
+                matches!(
+                    pool.allocate_sub_238E(),
+                    AllocatePlatformSlotResultSub238E::Allocated(AllocatePlatformSlotSub238E {
+                        allocated_slot_addr,
+                        number_platforms,
+                        ..
+                    }) if allocated_slot_addr == expected_slot_addr
+                        && number_platforms == expected_index as u16 + 1
+                ),
+                "ASM sub_238E should consume Platform_RAM slots in sub_231C free-list order until the seventeenth allocation",
+            );
+        }
+
+        assert_eq!(
+            pool.next_free_platform_slot_addr(),
+            0,
+            "ASM sub_231C terminates the final free-list link, so the eighteenth allocation sees a zero free-list head",
+        );
+        assert_eq!(
+            pool.allocate_sub_238E(),
+            AllocatePlatformSlotResultSub238E::NoFreeSlot {
+                failure_label: "loc_6E2",
+            },
+            "ASM loc_23AE should jump to `loc_6E2` when the 17-slot Platform_RAM free list is exhausted",
+        );
+    }
+
+    #[test]
     fn allocate_platform_slot_sub_238e_reports_loc_6e2_when_no_free_slot_exists() {
         assert_eq!(
             allocate_platform_slot_sub_238E(0, 0xEDE0, 0xEE24, 3),
