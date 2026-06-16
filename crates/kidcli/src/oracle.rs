@@ -719,6 +719,21 @@ mod tests {
     }
 
     #[test]
+    fn helper_exposes_platform_collision_scratch_loc_257e() {
+        assert!(
+            HELPER_TEMPLATE
+                .contains("const PLATFORM_COLLISION_SCRATCH_FAA2_ADDR: usize = 0xFF_FAA2;")
+                && HELPER_TEMPLATE.contains(
+                    "const PLATFORM_COLLISION_JUMP_PLATFORM_REF_FA96_ADDR: usize = 0xFF_FA96;"
+                )
+                && HELPER_TEMPLATE.contains("fn platform_collision_scratch_debug_loc_257e")
+                && HELPER_TEMPLATE.contains("ASM Platforms_CheckCollision loc_257E")
+                && HELPER_TEMPLATE.contains("\"platform_collision_scratch_loc_257e\""),
+            "oracle gameplay trace must expose the same Platforms_CheckCollision scratch cells as native"
+        );
+    }
+
+    #[test]
     fn oracle_manifest_deserialises_hidden_settle_trace_rows() {
         let manifest: OracleManifest = serde_json::from_str(
             r#"{

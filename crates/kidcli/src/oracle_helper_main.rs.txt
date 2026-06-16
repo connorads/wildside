@@ -446,6 +446,11 @@ const CHARACTER_MOVEMENT_ADDR: usize = 0xFF_FA56;
 const JUST_RECEIVED_DAMAGE_ADDR: usize = 0xFF_FA73;
 const INVULNERABLE_FRAMES_ADDR: usize = 0xFF_FA2B;
 const CURRENTLY_TRANSFORMING_ADDR: usize = 0xFF_FA6D;
+const PLATFORM_COLLISION_SCRATCH_FAA2_ADDR: usize = 0xFF_FAA2;
+const PLATFORM_COLLISION_SCRATCH_FAA3_ADDR: usize = 0xFF_FAA3;
+const PLATFORM_COLLISION_SCRATCH_FAA4_ADDR: usize = 0xFF_FAA4;
+const PLATFORM_COLLISION_SCRATCH_FAA5_ADDR: usize = 0xFF_FAA5;
+const PLATFORM_COLLISION_JUMP_PLATFORM_REF_FA96_ADDR: usize = 0xFF_FA96;
 const RNG_OFFSET_ADDR: usize = 0xFF_FC12;
 const LEVEL_SPECIAL_EFFECTS_ADDR: usize = 0xFF_FB40;
 const ENEMY_LAYOUT_HEADER_PTR_ADDR: usize = 0xFF_F8F2;
@@ -1249,6 +1254,12 @@ fn capture_state(
             "kid_collision_source".into(),
             format!("{kid_collision_source:#06x}"),
         );
+        if let Some(platform_debug) = platform_collision_scratch_debug_loc_257e(&work_ram) {
+            gameplay_debug_fields.insert(
+                "platform_collision_scratch_loc_257e".into(),
+                platform_debug,
+            );
+        }
         let shooter_debug = shooter_object_slots_debug_loc_ec22(&work_ram);
         if !shooter_debug.is_empty() {
             gameplay_debug_fields.insert("oracle_shooter_slots_loc_ec22".into(), shooter_debug);
@@ -1401,6 +1412,32 @@ fn capture_enemy_states(
     }
     enemies.sort_by_key(|enemy| (enemy.object_type, enemy.x_pos, enemy.y_pos));
     enemies
+}
+
+fn platform_collision_scratch_debug_loc_257e(work_ram: &[u8]) -> Option<String> {
+    // ASM Platforms_CheckCollision loc_257E zeroes FAA2-FAA5 before the
+    // loc_2672/loc_2686/loc_26A2/loc_26B6/loc_26D4/loc_26FE probes write
+    // side/top/bottom contact scratch and FA96's jump-platform reference.
+    let faa2 = read_wram_u8(work_ram, PLATFORM_COLLISION_SCRATCH_FAA2_ADDR) != 0;
+    let faa3 = read_wram_u8(work_ram, PLATFORM_COLLISION_SCRATCH_FAA3_ADDR) != 0;
+    let faa4 = read_wram_u8(work_ram, PLATFORM_COLLISION_SCRATCH_FAA4_ADDR) != 0;
+    let faa5 = read_wram_u8(work_ram, PLATFORM_COLLISION_SCRATCH_FAA5_ADDR) != 0;
+    let fa96 = read_wram_u16(work_ram, PLATFORM_COLLISION_JUMP_PLATFORM_REF_FA96_ADDR);
+    if !(faa2 || faa3 || faa4 || faa5 || fa96 != 0) {
+        return None;
+    }
+    let fa96 = if fa96 == 0 {
+        String::from("none")
+    } else {
+        format!("{fa96:#06x}")
+    };
+    Some(format!(
+        "FAA2={} FAA3={} FAA4={} FAA5={} FA96={fa96}",
+        u8::from(faa2),
+        u8::from(faa3),
+        u8::from(faa4),
+        u8::from(faa5)
+    ))
 }
 
 fn shooter_object_slots_debug_loc_ec22(work_ram: &[u8]) -> String {
