@@ -8611,11 +8611,12 @@ impl NativeRuntime {
         }
     }
 
-    fn spawn_boomerang_boss_eye_detach_workers_loc_38962(&mut self, anchor_x: u32, anchor_y: u32) {
+    fn spawn_boss_eye_detach_workers_loc_38962(&mut self, anchor_x: u32, anchor_y: u32) {
         let detach = boss_eye_detach_step_sub_393B2(0);
         if detach.sound_effect_label == "sfx_Boss_eye_pops" {
-            // ASM loc_38962/loc_389FA and sibling eye-piece launch labels
-            // call sub_393B2 as soon as the head breakup word becomes nonzero.
+            // ASM loc_38962/loc_389FA and sibling Shishkaboss/Boomerang
+            // eye-piece launch labels call sub_393B2 as soon as the head
+            // breakup word becomes nonzero.
             self.queue_play_sound(QueuedSoundEffect::BossEyePops);
         }
         let parent_x = (anchor_x >> 16) as u16;
@@ -8627,9 +8628,10 @@ impl NativeRuntime {
             (primary.x_pos, primary.y_pos, -0x4000),
             (counter.x_pos, counter.y_pos, 0x4000),
         ] {
-            // ASM loc_38962/loc_389FA: after sub_393B2 the two first-wave
-            // orbit workers launch left/right with y_vel `$FFFD0000` and
-            // add `$7D0` gravity each loop until below Level_height_pixels.
+            // ASM loc_38962/loc_389FA plus Shishkaboss siblings
+            // loc_38A92/loc_38B2A and loc_38BC2/loc_38C5A: after sub_393B2
+            // the two orbit workers launch left/right with y_vel `$FFFD0000`
+            // and add `$7D0` gravity each loop until below Level_height_pixels.
             self.projectiles.push(EnemyProjectile {
                 x_pos: u32::from(placement_x) << 16,
                 y_pos: u32::from(placement_y) << 16,
@@ -8686,8 +8688,11 @@ impl NativeRuntime {
             if should_launch_shishkaboss_skewers {
                 self.spawn_shishkaboss_skewer_fan_loc_384d6(x_pos, y_pos);
             }
-            if matches!(family, EnemyFamily::BoomerangBosses) {
-                self.spawn_boomerang_boss_eye_detach_workers_loc_38962(x_pos, y_pos);
+            if matches!(
+                family,
+                EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses
+            ) {
+                self.spawn_boss_eye_detach_workers_loc_38962(x_pos, y_pos);
             }
             if is_armadillo_parent_spawned_child {
                 let enemy = &mut self.active_enemies[idx];

@@ -2044,13 +2044,19 @@ fn live_multi_head_boss_hit_during_fire_wait_enters_loc_39ebe_before_projectile(
             "ASM loc_39EBE replaces the live fire wait with the death script timer"
         );
         assert!(
-            runtime.projectiles.is_empty(),
+            runtime.projectiles.iter().all(|projectile| !matches!(
+                projectile.kind,
+                EnemyProjectileKind::BossHeadArrow | EnemyProjectileKind::BossHeadBoomerang
+            )),
             "ASM {asm_label} checks the collision status before loc_37FEA/loc_38076/loc_38158 can call sub_397E4"
         );
         assert_eq!(
             runtime.played_sound_effects,
-            vec![QueuedSoundEffect::BigHoppingSkullGroan],
-            "ASM sub_3A292 loc_3A2C0 plays the hurt groan before the loc_39EBE branch"
+            vec![
+                QueuedSoundEffect::BigHoppingSkullGroan,
+                QueuedSoundEffect::BossEyePops
+            ],
+            "ASM sub_3A292 loc_3A2C0 plays the hurt groan before loc_39EBE; Shishkaboss eye workers then call sub_393B2"
         );
     }
 }
@@ -12800,12 +12806,15 @@ mod chunk_03 {
             );
             assert_eq!(
                 runtime.played_sound_effects,
-                if matches!(family, EnemyFamily::BoomerangBosses) {
+                if matches!(
+                    family,
+                    EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses
+                ) {
                     vec![QueuedSoundEffect::BossEyePops]
                 } else {
                     Vec::<QueuedSoundEffect>::new()
                 },
-                "ASM loc_39EE2 does not play `sfx_Boss_dies` until the first eight scripts finish; Boomerang eye pieces already call sub_393B2 when the breakup word becomes nonzero"
+                "ASM loc_39EE2 does not play `sfx_Boss_dies` until the first eight scripts finish; Shishkaboss/Boomerang eye pieces call sub_393B2 when the breakup word becomes nonzero"
             );
 
             runtime.active_enemies[0].wait_timer = BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A + 1;
@@ -12819,7 +12828,10 @@ mod chunk_03 {
             );
             assert_eq!(
                 runtime.played_sound_effects,
-                if matches!(family, EnemyFamily::BoomerangBosses) {
+                if matches!(
+                    family,
+                    EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses
+                ) {
                     vec![QueuedSoundEffect::BossEyePops, QueuedSoundEffect::BossDies]
                 } else {
                     vec![QueuedSoundEffect::BossDies]
@@ -12859,7 +12871,11 @@ mod chunk_03 {
         runtime.remove_dead_enemy(0);
         runtime.remove_dead_enemy(1);
         assert_eq!(
-            runtime.projectiles.len(),
+            runtime
+                .projectiles
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::BossSkewer)
+                .count(),
             0,
             "ASM loc_384D6/loc_38554 skewer pieces loop while `$FFFFFB4E` is below 3"
         );
@@ -12873,12 +12889,8 @@ mod chunk_03 {
         let skewer_velocities: Vec<(i32, i32, i32)> = runtime
             .projectiles
             .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::BossSkewer)
             .map(|projectile| {
-                assert_eq!(
-                    projectile.kind,
-                    EnemyProjectileKind::BossSkewer,
-                    "ASM loc_384E8..loc_388D8 should launch typed skewer pieces"
-                );
                 assert_eq!(
                     projectile.gravity, 0x1B58,
                     "ASM skewer launch loops add `$1B58` to y_vel each frame"
@@ -12967,6 +12979,57 @@ mod chunk_03 {
             (0x4000, -3 << 16, 0x07D0),
             "ASM loc_389FA launches the counter orbit eye right/up with `$7D0` gravity"
         );
+    }
+
+    #[test]
+    fn shishkaboss_eye_detach_spawns_sibling_orbit_workers_loc_38962_38a92_38bc2() {
+        for (head_index, left_label, right_label) in [
+            (0, "loc_38962", "loc_389FA"),
+            (1, "loc_38A92", "loc_38B2A"),
+            (2, "loc_38BC2", "loc_38C5A"),
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0040_0000, 1);
+            boss.boss_head_index = head_index;
+            boss.y_pos += u32::from(head_index) * (0x48 << 16);
+            runtime.active_enemies = vec![boss];
+
+            runtime.remove_dead_enemy(0);
+
+            let eye_workers: Vec<_> = runtime
+                .projectiles
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::BossEyeSatellite)
+                .collect();
+            assert_eq!(
+                eye_workers.len(),
+                2,
+                "ASM {left_label}/{right_label} should detach both Shishkaboss sibling eye workers when `$FFFFFB72/$FB74/$FB76` becomes nonzero"
+            );
+            assert_eq!(
+                (
+                    eye_workers[0].x_velocity,
+                    eye_workers[0].y_velocity,
+                    eye_workers[0].gravity
+                ),
+                (-0x4000, -3 << 16, 0x07D0),
+                "ASM {left_label} launches the primary Shishkaboss eye left/up with `$7D0` gravity"
+            );
+            assert_eq!(
+                (
+                    eye_workers[1].x_velocity,
+                    eye_workers[1].y_velocity,
+                    eye_workers[1].gravity
+                ),
+                (0x4000, -3 << 16, 0x07D0),
+                "ASM {right_label} launches the counter Shishkaboss eye right/up with `$7D0` gravity"
+            );
+            assert_eq!(
+                runtime.played_sound_effects,
+                vec![QueuedSoundEffect::BossEyePops],
+                "ASM {left_label}/{right_label} call sub_393B2 before the Shishkaboss eye workers launch"
+            );
+        }
     }
 
     #[test]
