@@ -6823,6 +6823,8 @@ pub(crate) const UFO_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
 /// ASM Sphere.asm Enemy06_Sphere_Kill plays `stru_36182`: three $0A-tick
 /// frames before the loc_36096 delete tail.
 pub(crate) const SPHERE_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
+const SPHERE_LIVE_ZERO_FRAMES: u16 = 0x09;
+const SPHERE_LIVE_ANIMATION_FRAMES: u16 = 0x09 + 0x09 + 0x09;
 /// ASM Goat.asm loc_3CB64 plays `stru_3C9EA`: $1E, $0A, then $37 ticks
 /// before the shared delete tail at loc_3E956.
 pub(crate) const GOAT_DEATH_ANIMATION_FRAMES: u16 = 0x1E + 0x0A + 0x37;
@@ -9184,7 +9186,16 @@ impl ActiveEnemy {
         } else {
             self.x_velocity
         };
-        let contact_phase = if matches!(self.family, EnemyFamily::Dragon)
+        let contact_phase = if matches!(self.family, EnemyFamily::Sphere)
+            && !self.death_animation_active
+            && self.wait_timer % SPHERE_LIVE_ANIMATION_FRAMES < SPHERE_LIVE_ZERO_FRAMES
+        {
+            // ASM Sphere.asm `stru_36174` starts with `LnkTo_unk_C8120` for
+            // 9 hibernated ticks before the two active body frames. That link
+            // resolves through GfxObjects_CollisionKid loc_1BCE to zero row
+            // `unk_31AAE`, so the live parent has no Kid contact in this phase.
+            Some(NativeContactPhase::SphereLiveZero)
+        } else if matches!(self.family, EnemyFamily::Dragon)
             && matches!(self.dragon_phase, DragonFlyingState::Descending)
             && dragon_flying_dive_zero_contact_row_loc_348ce(self.x_velocity, self.y_velocity)
         {
@@ -14425,6 +14436,13 @@ pub(crate) fn step_bouncer_with_rng(
     mut projectiles: Option<&mut Vec<EnemyProjectile>>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
+    if matches!(enemy.family, EnemyFamily::Sphere) && !enemy.death_animation_active {
+        // ASM Sphere.asm `stru_36174`: C8120/C8128/C8130 each hibernate for
+        // 9 ticks before the animation loops. Native keeps only the phase
+        // counter needed by contact and rendering-facing snapshots.
+        enemy.wait_timer = (enemy.wait_timer + 1) % SPHERE_LIVE_ANIMATION_FRAMES;
+    }
+
     // Apply gravity
     enemy.y_velocity = if matches!(enemy.family, EnemyFamily::Fireball) {
         fireball_main_loop_y_velocity_loc_32c1a(enemy)

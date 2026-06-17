@@ -11864,11 +11864,20 @@ fn sphere_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
         return empty_enemy_contact_bounds();
     }
 
+    if matches!(
+        enemy.contact_phase,
+        Some(NativeContactPhase::SphereLiveZero)
+    ) {
+        // ASM Sphere.asm `stru_36174` starts with `LnkTo_unk_C8120`; through
+        // GfxObjects_CollisionKid loc_1BCE this maps to zero row `unk_31AAE`.
+        return empty_enemy_contact_bounds();
+    }
+
     // ASM Sphere.asm live loop animation `stru_36174` uses
     // `LnkTo_unk_C8120..C8130`, which map through GfxObjects_CollisionKid
     // loc_1BCE to `unk_31AAE` (zero row) and `unk_31AB0`/`unk_31ABA`:
-    // `dc.w -$7,$E,-$7,$E`. Native does not expose the exact sprite phase
-    // here yet, so keep the active nonzero sphere body row.
+    // `dc.w -$7,$E,-$7,$E`. `SphereLiveZero` covers the leading zero row;
+    // the remaining live phases use the shared active body row.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-7, 7),
         Some(Direction::Left) | None => (-7, 7),

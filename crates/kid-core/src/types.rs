@@ -1832,6 +1832,7 @@ pub struct NativeObjectSnapshot {
 pub enum NativeContactPhase {
     DragonFlyingDiveZero,
     ScorpionStingTail,
+    SphereLiveZero,
     TarMonsterHidden,
     SpinningTwinsZero,
 }

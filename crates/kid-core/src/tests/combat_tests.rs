@@ -1189,7 +1189,8 @@ fn sphere_contact_uses_rom_collision_size_rows_loc_1bce() {
     slice.player.y_velocity = 0;
     slice.player.on_ground = true;
 
-    let sphere = test_enemy(EnemyFamily::Sphere, 101 << 16, 100 << 16, 1);
+    let mut sphere = test_enemy(EnemyFamily::Sphere, 101 << 16, 100 << 16, 1);
+    sphere.wait_timer = 9;
     let bounds = enemy_contact_bounds(&sphere.snapshot());
     assert_eq!(
         (
@@ -1212,6 +1213,37 @@ fn sphere_contact_uses_rom_collision_size_rows_loc_1bce() {
         ),
         EnemyContactResult::Damage,
         "the ROM Sphere body reaches one pixel beyond the previous generic 8px-wide fallback"
+    );
+}
+
+#[test]
+fn sphere_live_lead_frame_uses_zero_collision_size_row_loc_1bce() {
+    let mut sphere = test_enemy(EnemyFamily::Sphere, 101 << 16, 100 << 16, 1);
+    sphere.wait_timer = 0;
+
+    let bounds = enemy_contact_bounds(&sphere.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
+        "ASM Sphere.asm stru_36174 starts with LnkTo_unk_C8120 for 9 ticks; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_31AAE"
+    );
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &sphere.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "the first live Sphere animation frame uses the ROM's empty contact row"
     );
 }
 
