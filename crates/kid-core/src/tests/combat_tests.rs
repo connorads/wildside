@@ -439,6 +439,24 @@ fn orca_active_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn orca_death_tail_contact_uses_zero_collision_size_row_loc_1bce() {
+    let mut orca = test_enemy(EnemyFamily::Orca, 101 << 16, 100 << 16, 1);
+    orca.death_animation_active = true;
+
+    let bounds = enemy_contact_bounds(&orca.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (1, 0, 1, 0),
+        "ASM Orca.asm loc_3D268 plays death script stru_3D11E; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_31662 for LnkTo_unk_C763E..C764E"
+    );
+}
+
+#[test]
 fn driller_parent_and_drill_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 83 << 16;

@@ -11742,9 +11742,13 @@ fn driller_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 fn orca_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // ASM Orca.asm walk/jump/hurt scripts use `LnkTo_unk_C7656..C769E`,
     // which map through GfxObjects_CollisionKid loc_1BCE to `unk_31664` and
-    // `unk_3166E`: `dc.w -$E,$1C,-$1B,$1B`. Native does not expose the exact
-    // sprite link here yet, so this keeps the active body row and leaves the
-    // death-tail zero row `unk_31662` unmodelled.
+    // `unk_3166E`: `dc.w -$E,$1C,-$1B,$1B`.
+    if enemy.stationary {
+        // ASM Orca.asm loc_3D268 plays death script `stru_3D11E`; the tail
+        // frames `LnkTo_unk_C763E..C764E` route through GfxObjects_CollisionKid
+        // loc_1BCE to the zero row `unk_31662`.
+        return empty_enemy_contact_bounds();
+    }
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-14, 14),
         Some(Direction::Left) | None => (-14, 14),
