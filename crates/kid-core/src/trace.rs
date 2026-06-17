@@ -229,43 +229,32 @@ fn boss_eye_orbit_object_slot_details_loc_3931a(
     enemy: &ActiveEnemy,
     mapping_indices_loc_37abc: Option<[u8; 2]>,
 ) -> Vec<NativeObjectSnapshot> {
-    let workers = enemy.boss_eye_orbit_workers;
-    if !is_multi_head_boss(enemy.family) || !workers.active {
+    if !is_multi_head_boss(enemy.family) {
         return Vec::new();
     }
 
-    // ASM loc_3931A allocates the waiting eyes as `$21` object slots; native
-    // still renders the same visuals through BossEyeSatellite details until
-    // render ownership is promoted.
-    [
-        (
-            workers.primary_x_pos_word,
-            workers.primary_y_pos_word,
-            workers.primary_sprite_order_word_a,
-        ),
-        (
-            workers.counter_x_pos_word,
-            workers.counter_y_pos_word,
-            workers.counter_sprite_order_word_a,
-        ),
-    ]
-    .into_iter()
-    .enumerate()
-    .map(
-        |(slot_index, (x_pos_word, y_pos_word, sprite_order_word_a))| {
+    enemy
+        .boss_eye_orbit_workers
+        .object_slots_loc_3931a()
+        .into_iter()
+        .enumerate()
+        .map(|(slot_index, slot)| {
             let mut debug_fields = BTreeMap::new();
             debug_fields.insert(
                 "boss_eye_object_meta_loc_3931a".to_owned(),
-                "0x0021".to_owned(),
+                format!("{:#06x}", slot.object_meta),
             );
             debug_fields.insert(
                 "boss_eye_has_kid_collision_loc_3931a".to_owned(),
-                "false".to_owned(),
+                slot.has_kid_collision.to_string(),
             );
-            debug_fields.insert("boss_eye_is_moved_loc_3931a".to_owned(), "true".to_owned());
+            debug_fields.insert(
+                "boss_eye_is_moved_loc_3931a".to_owned(),
+                slot.is_moved.to_string(),
+            );
             debug_fields.insert(
                 "boss_eye_sprite_order_word_a_loc_393c8".to_owned(),
-                format!("{sprite_order_word_a:#06x}"),
+                format!("{:#06x}", slot.sprite_order_word_a),
             );
             if let Some(mapping_indices) = mapping_indices_loc_37abc {
                 debug_fields.insert(
@@ -275,9 +264,11 @@ fn boss_eye_orbit_object_slot_details_loc_3931a(
             }
 
             NativeObjectSnapshot {
-                kind: NativeObjectKind::Enemy { object_type: 0x21 },
-                x_pos: u32::from(x_pos_word) << 16,
-                y_pos: u32::from(y_pos_word) << 16,
+                kind: NativeObjectKind::Enemy {
+                    object_type: slot.object_meta as u8,
+                },
+                x_pos: u32::from(slot.x_pos_word) << 16,
+                y_pos: u32::from(slot.y_pos_word) << 16,
                 layout_index: None,
                 x_velocity: Some(0),
                 y_velocity: Some(0),
@@ -295,9 +286,8 @@ fn boss_eye_orbit_object_slot_details_loc_3931a(
                 wait_timer: None,
                 debug_fields,
             }
-        },
-    )
-    .collect()
+        })
+        .collect()
 }
 
 fn trace_cell_word(cell: terrain::Cell) -> u16 {

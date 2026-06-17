@@ -6639,6 +6639,18 @@ pub(crate) struct BossEyeOrbitWorkers {
     pub(crate) counter_y_pos_word: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossEyeObjectSlotLoc3931a {
+    pub(crate) object_meta: u16,
+    pub(crate) priority: u8,
+    pub(crate) has_kid_collision: bool,
+    pub(crate) hidden_status_byte_13: bool,
+    pub(crate) is_moved: bool,
+    pub(crate) x_pos_word: u16,
+    pub(crate) y_pos_word: u16,
+    pub(crate) sprite_order_word_a: u16,
+}
+
 impl BossEyeOrbitWorkers {
     pub(crate) fn active_loc_38902_3899a(
         parent_x: u16,
@@ -6657,6 +6669,42 @@ impl BossEyeOrbitWorkers {
         };
         workers.refresh_loc_3893e_389d6(parent_x, parent_y, facing);
         workers
+    }
+
+    pub(crate) fn object_slots_loc_3931a(&self) -> Vec<BossEyeObjectSlotLoc3931a> {
+        if !self.active {
+            return Vec::new();
+        }
+
+        // ASM loc_3931A: priority=0, object_meta=$21, clear
+        // has_kid_collision, set `$13(a3)`, set is_moved, then hibernate and
+        // keep refreshing the worker position/mapping via sub_39420.
+        [
+            (
+                self.primary_x_pos_word,
+                self.primary_y_pos_word,
+                self.primary_sprite_order_word_a,
+            ),
+            (
+                self.counter_x_pos_word,
+                self.counter_y_pos_word,
+                self.counter_sprite_order_word_a,
+            ),
+        ]
+        .into_iter()
+        .map(
+            |(x_pos_word, y_pos_word, sprite_order_word_a)| BossEyeObjectSlotLoc3931a {
+                object_meta: 0x21,
+                priority: 0,
+                has_kid_collision: false,
+                hidden_status_byte_13: true,
+                is_moved: true,
+                x_pos_word,
+                y_pos_word,
+                sprite_order_word_a,
+            },
+        )
+        .collect()
     }
 
     pub(crate) fn step_with_parent_animation_loc_3893e_389d6(

@@ -13750,6 +13750,45 @@ mod chunk_03 {
     }
 
     #[test]
+    fn boss_eye_orbit_workers_expose_object_slots_loc_3931a() {
+        let workers =
+            BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 2, Direction::Right);
+
+        let object_slots = workers.object_slots_loc_3931a();
+
+        assert_eq!(
+            object_slots.len(),
+            2,
+            "ASM loc_3931A allocates one `$21` waiting object slot for each boss-eye orbit worker"
+        );
+        assert!(object_slots.iter().all(|slot| {
+            slot.object_meta == 0x21
+                && slot.priority == 0
+                && !slot.has_kid_collision
+                && slot.hidden_status_byte_13
+                && slot.is_moved
+        }));
+        assert_eq!(
+            (
+                object_slots[0].x_pos_word,
+                object_slots[0].y_pos_word,
+                object_slots[0].sprite_order_word_a
+            ),
+            (0x01E8, 0x00DB, 0),
+            "ASM sub_393C8 owns the primary waiting eye's current object-slot position and `$A(a3)` order word"
+        );
+        assert_eq!(
+            (
+                object_slots[1].x_pos_word,
+                object_slots[1].y_pos_word,
+                object_slots[1].sprite_order_word_a
+            ),
+            (0x01F3, 0x00DB, 0),
+            "ASM sub_39420 owns the counter waiting eye's current object-slot position and `$A(a3)` order word"
+        );
+    }
+
+    #[test]
     fn boss_eye_orbit_workers_rerank_when_parent_x_direction_changes_loc_393c8_39420() {
         let mut workers =
             BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 0, Direction::Right);
