@@ -6288,6 +6288,132 @@ mod tests {
     }
 
     #[test]
+    fn block_grid_with_blank_top_rows_sub_140f6_prepends_blank_rows_and_extends_height() {
+        // ASM sub_140F6 inserts Number_blank_top_rows blank rows above the
+        // decoded Level_Layout and grows Level_height_blocks. The live loader
+        // (`level.rs` reload path) calls this method directly, so pin the exact
+        // prepended blank-cell count (blank_top_rows * width_cells) and the
+        // shifted offset rather than relying only on the cache-gated fixture test.
+        let grid = BlockGrid::from_level_layout(&[0xE0, 0x01, 0x60, 0x02], 2, 1);
+        let shifted = grid.with_blank_top_rows_sub_140F6(3);
+
+        assert_eq!(shifted.width_cells, 2, "the shift preserves Level_width_blocks");
+        assert_eq!(
+            shifted.height_cells, 4,
+            "ASM sub_140F6 grows Level_height_blocks by Number_blank_top_rows (1 + 3)"
+        );
+        for row in 0..3 {
+            for col in 0..2 {
+                assert_eq!(
+                    shifted.cell_at(col, row),
+                    Cell::from_be_bytes(0, 0),
+                    "inserted top cell ({col},{row}) must be blank-filled"
+                );
+            }
+        }
+        assert_eq!(
+            shifted.cell_at(0, 3),
+            Cell::from_be_bytes(0xE0, 0x01),
+            "original row 0 must move down by exactly blank_top_rows*width_cells = 6 cells"
+        );
+        assert_eq!(
+            shifted.cell_at(1, 3),
+            Cell::from_be_bytes(0x60, 0x02),
+            "the shifted row must keep its original column order"
+        );
+    }
+
+    #[test]
+    fn block_grid_with_blank_top_rows_sub_140f6_zero_rows_is_a_no_op() {
+        // ASM sub_140F6 is gated on Number_blank_top_rows != 0; a clear flag
+        // leaves the decoded grid untouched.
+        let grid = BlockGrid::from_level_layout(&[0xE0, 0x01, 0x60, 0x02], 2, 1);
+        let unchanged = grid.with_blank_top_rows_sub_140F6(0);
+
+        assert_eq!(
+            unchanged.height_cells, 1,
+            "zero blank rows must not grow Level_height_blocks"
+        );
+        assert_eq!(unchanged.cell_at(0, 0), Cell::from_be_bytes(0xE0, 0x01));
+        assert_eq!(unchanged.cell_at(1, 0), Cell::from_be_bytes(0x60, 0x02));
+    }
+
+    #[test]
+    fn block_grid_with_blank_top_rows_sub_140f6_zero_width_grid_is_left_untouched() {
+        // The `width_cells == 0` short-circuit returns the grid unchanged so a
+        // degenerate/empty grid never gains phantom height. Pins the `||` guard:
+        // an `&&` here would let a zero-width grid fall through to the shift and
+        // inflate height_cells by blank_top_rows.
+        let grid = BlockGrid::from_level_layout(&[], 0, 0);
+        let unchanged = grid.with_blank_top_rows_sub_140F6(3);
+
+        assert_eq!(
+            unchanged.height_cells, 0,
+            "ASM sub_140F6 leaves a zero-width grid at its original height"
+        );
+        assert_eq!(unchanged.width_cells, 0);
+    }
+
+    #[test]
+    fn block_list_with_blank_top_rows_sub_140f6_shifts_layout_addr_and_rows() {
+        // ASM loc_141EE/loc_1421E/loc_14236 add Number_blank_top_rows*Level_width_tiles
+        // to each interactive block's Level_Layout low-word address and
+        // Number_blank_top_rows to its stored row. Ghost rows carry only the row
+        // adjustment (the native struct keeps no ghost layout word). The live
+        // loader calls this on the block list, so pin the exact deltas.
+        let block_list = BlockList {
+            prize_blocks: vec![PrizeBlockEntry {
+                layout_addr: 0xA652,
+                col: 4,
+                row: 5,
+                content: PrizeContent::Diamond,
+                disguised: false,
+            }],
+            ghost_blocks: vec![GhostBlockEntry {
+                col: 1,
+                row: 7,
+                count: 2,
+                vertical: false,
+                solid_time: 0,
+                vanished_time: 0,
+                timer: 0,
+                state: 0,
+                solid: true,
+            }],
+            teleporters: vec![TeleporterEntry {
+                layout_addr: 0xA660,
+                col: 2,
+                row: 9,
+                dest_map_id: 1,
+                dest_y: 2,
+                dest_x: 3,
+            }],
+            hidden_blocks: vec![HiddenBlockEntry {
+                layout_addr: 0xA670,
+                col: 3,
+                row: 11,
+                block_type: 5,
+                block_setting: 0,
+            }],
+        };
+
+        // blank_top_rows=2, level_width_blocks=3 -> layout delta = 2 * (3*2) = 12.
+        let shifted = block_list.with_blank_top_rows_sub_140F6(2, 3);
+
+        assert_eq!(shifted.prize_blocks[0].layout_addr, 0xA652 + 12);
+        assert_eq!(shifted.prize_blocks[0].row, 5 + 2);
+        assert_eq!(
+            shifted.ghost_blocks[0].row,
+            7 + 2,
+            "ghost rows shift down without a layout-address word"
+        );
+        assert_eq!(shifted.teleporters[0].layout_addr, 0xA660 + 12);
+        assert_eq!(shifted.teleporters[0].row, 9 + 2);
+        assert_eq!(shifted.hidden_blocks[0].layout_addr, 0xA670 + 12);
+        assert_eq!(shifted.hidden_blocks[0].row, 11 + 2);
+    }
+
+    #[test]
     fn loc_141aa_repeats_the_terrain_byte_row_copy_without_disturbing_source_order() {
         let shifted = insert_blank_top_rows_terrain_bytes_loc_141AA(
             &[

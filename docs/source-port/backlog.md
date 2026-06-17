@@ -26,6 +26,14 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-17, latest+2): **#307 verification slice committed**. Recovered the
+  prior (uncommitted) test-hardening on the live `sub_140F6` blank-top-rows shift: 4 exact-value
+  unit tests in `terrain.rs` pinning `BlockGrid`/`BlockList::with_blank_top_rows_sub_140F6`. Re-verified
+  the mutation gap is closed — `cargo mutants` over both methods now reports **8 mutants, 6 caught,
+  2 unviable, 0 survived** (matches the archived before=0-caught/after=all-caught run). `verify-slice-fast`
+  green (6110+9). Test-only ⇒ `verify-tas-full` not required. #307 stays `[ ]`: remaining gaps are
+  rendering/VRAM dead-islands + the `EnemyStatus_Table`/`Manage_EnemyLoading` streaming machine
+  (architectural, needs an oracle route) — no narrow unattended gameplay slice. Next top open item is **#308** (combat umbrella).
 - **Last session** (2026-06-17, latest+1): **blocked #306 (`[ ]`→`[b]`)** per the loop anti-spin
   rule (2nd dead-end note, no new narrow angle). New angle vs the prior static walk: mutation-tested
   the pure collision-resolution helpers in `platforms.rs` (regex over `overlap_resolution|push_magnitude|
@@ -78,7 +86,7 @@ and stop — never commit churn.
   `kid.asm` keyed by `kid.asm:<line>` comments, NOT `loc_37708`-style labels — grep by the
   line number cited in code comments. #301's remaining gaps are the large architectural
   first-class per-piece/eye object-slot scheduler lifecycle, not narrow slices.
-- **Next**: top open item is now #307 (P2 level-loading umbrella). #306 is `[b]` (architectural linked-slot refactor only — needs a dedicated no-behaviour-change session, mutation-confirmed no collision-math test gap); #301 is `[b]` (waits on #205 boss oracle); #260 is `[b]` (human recording).
+- **Next**: top open item is now #308 (P2 combat umbrella). #307 stays `[ ]` (verification-only angle exhausted for an unattended slice; behavioural remainder is the architectural enemy-loading streaming machine needing an oracle route). #306 is `[b]` (architectural linked-slot refactor only — needs a dedicated no-behaviour-change session, mutation-confirmed no collision-math test gap); #301 is `[b]` (waits on #205 boss oracle); #260 is `[b]` (human recording).
 - **Earlier — last session** (2026-06-10): #290 TAS frame_7800 object-count divergence proposed fixed.
   Root cause was Dragon.asm loc_3CE90/loc_3CF90 walking-dragon breath child counting,
   not the suspected tank-pair collapse. Frames 7790..7810 match, the full
