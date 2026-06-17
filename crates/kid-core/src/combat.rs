@@ -8611,7 +8611,12 @@ impl NativeRuntime {
         }
     }
 
-    fn spawn_boss_eye_detach_workers_loc_38962(&mut self, anchor_x: u32, anchor_y: u32) {
+    fn spawn_boss_eye_detach_workers_loc_38962(
+        &mut self,
+        anchor_x: u32,
+        anchor_y: u32,
+        orbit_workers: BossEyeOrbitWorkers,
+    ) {
         let detach = boss_eye_detach_step_sub_393B2(0);
         if detach.sound_effect_label == "sfx_Boss_eye_pops" {
             // ASM loc_38962/loc_389FA and sibling Shishkaboss/Boomerang
@@ -8619,19 +8624,30 @@ impl NativeRuntime {
             // breakup word becomes nonzero.
             self.queue_play_sound(QueuedSoundEffect::BossEyePops);
         }
-        let parent_x = (anchor_x >> 16) as u16;
-        let parent_y = (anchor_y >> 16) as u16;
-        let primary = boss_eye_orbit_placement_sub_393C8(parent_x, parent_y, 0x0EE0, 0, 0, 0, 0);
-        let counter =
-            boss_eye_counter_orbit_placement_sub_39420(parent_x, parent_y, 0x0EE0, 0, 0, 0, 0);
-        for (placement_x, placement_y, x_velocity) in [
-            (primary.x_pos, primary.y_pos, -0x4000),
-            (counter.x_pos, counter.y_pos, 0x4000),
-        ] {
+        let placements = if orbit_workers.active {
+            let slots = orbit_workers.object_slots_loc_3931a();
+            [
+                (slots[0].x_pos_word, slots[0].y_pos_word, -0x4000),
+                (slots[1].x_pos_word, slots[1].y_pos_word, 0x4000),
+            ]
+        } else {
+            let parent_x = (anchor_x >> 16) as u16;
+            let parent_y = (anchor_y >> 16) as u16;
+            let primary =
+                boss_eye_orbit_placement_sub_393C8(parent_x, parent_y, 0x0EE0, 0, 0, 0, 0);
+            let counter =
+                boss_eye_counter_orbit_placement_sub_39420(parent_x, parent_y, 0x0EE0, 0, 0, 0, 0);
+            [
+                (primary.x_pos, primary.y_pos, -0x4000),
+                (counter.x_pos, counter.y_pos, 0x4000),
+            ]
+        };
+        for (placement_x, placement_y, x_velocity) in placements {
             // ASM loc_38962/loc_389FA plus Shishkaboss siblings
             // loc_38A92/loc_38B2A and loc_38BC2/loc_38C5A: after sub_393B2
-            // the two orbit workers launch left/right with y_vel `$FFFD0000`
-            // and add `$7D0` gravity each loop until below Level_height_pixels.
+            // the current `$21` loc_3931A object slots launch left/right with
+            // y_vel `$FFFD0000` and add `$7D0` gravity each loop until below
+            // Level_height_pixels.
             self.projectiles.push(EnemyProjectile {
                 x_pos: u32::from(placement_x) << 16,
                 y_pos: u32::from(placement_y) << 16,
@@ -8665,6 +8681,7 @@ impl NativeRuntime {
         let shared_walker_state = enemy.shared_walker_state;
         let x_pos = enemy.x_pos;
         let y_pos = enemy.y_pos;
+        let boss_eye_orbit_workers = enemy.boss_eye_orbit_workers;
         let is_armadillo_parent_spawned_child = enemy.is_armadillo_parent_spawned_child();
         if matches!(family, EnemyFamily::UFO) && enemy.hit_points != 0 {
             let hurt_tail = ufo_hurt_tail_loc_35174(enemy.x_velocity, enemy.ufo_beam_segments != 0);
@@ -8717,7 +8734,11 @@ impl NativeRuntime {
                 // before branching from orbit to loc_38962-style detach.
                 self.boss_eye_breakup_trigger_words_fb72_fb74_fb76[trigger_index] = 1;
                 if self.boss_eye_breakup_trigger_words_fb72_fb74_fb76[trigger_index] != 0 {
-                    self.spawn_boss_eye_detach_workers_loc_38962(x_pos, y_pos);
+                    self.spawn_boss_eye_detach_workers_loc_38962(
+                        x_pos,
+                        y_pos,
+                        boss_eye_orbit_workers,
+                    );
                 }
             }
             if is_armadillo_parent_spawned_child {

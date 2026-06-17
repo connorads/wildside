@@ -13701,6 +13701,39 @@ mod chunk_03 {
     }
 
     #[test]
+    fn boss_eye_detach_uses_current_waiting_object_slots_loc_3893e_3931a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0200_0000, 0x0100_0000, 1);
+        boss.boss_head_index = 0;
+        boss.boss_eye_orbit_workers =
+            BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 2, Direction::Right);
+        let expected_slots = boss.boss_eye_orbit_workers.object_slots_loc_3931a();
+        runtime.active_enemies = vec![boss];
+
+        runtime.remove_dead_enemy(0);
+
+        let eye_positions: Vec<_> = runtime
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::BossEyeSatellite)
+            .map(|projectile| {
+                (
+                    (projectile.x_pos >> 16) as u16,
+                    (projectile.y_pos >> 16) as u16,
+                )
+            })
+            .collect();
+        assert_eq!(
+            eye_positions,
+            expected_slots
+                .iter()
+                .map(|slot| (slot.x_pos_word, slot.y_pos_word))
+                .collect::<Vec<_>>(),
+            "ASM loc_3893E/loc_389D6 detach from each live `$21` loc_3931A object slot's current sub_393C8/sub_39420 position, not from a freshly recomputed phase-0 head anchor"
+        );
+    }
+
+    #[test]
     fn multi_head_boss_death_sets_eye_breakup_trigger_words_fb72_fb74_fb76() {
         for (head_index, expected_words, labels) in [
             (0, [1, 0, 0], "$FFFFFB72"),
