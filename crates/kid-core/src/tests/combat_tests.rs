@@ -1005,6 +1005,24 @@ fn ufo_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn ufo_death_contact_uses_zero_collision_size_row_loc_1bce() {
+    let mut ufo = test_enemy(EnemyFamily::UFO, 101 << 16, 100 << 16, 1);
+    ufo.death_animation_active = true;
+
+    let bounds = enemy_contact_bounds(&ufo.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (1, 0, 1, 0),
+        "ASM UFO.asm loc_35174/loc_35180 death animation `stru_34CA0` uses LnkTo_unk_C83B0/C83B8/C83C0; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_31CDE"
+    );
+}
+
+#[test]
 fn tornado_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;

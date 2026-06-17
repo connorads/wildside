@@ -11887,11 +11887,17 @@ fn tornado_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 }
 
 fn ufo_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if enemy.stationary {
+        // ASM UFO.asm loc_35174/loc_35180 death script `stru_34CA0` uses
+        // `LnkTo_unk_C83B0/C83B8/C83C0`, which route through
+        // GfxObjects_CollisionKid loc_1BCE to zero row `unk_31CDE`.
+        return empty_enemy_contact_bounds();
+    }
+
     // ASM UFO.asm live saucer animation `stru_34C7E` uses `LnkTo_unk_C8418..C8428`,
-    // which map through GfxObjects_CollisionKid loc_1BCE to `unk_31CEA` (zero
-    // lead row) and `unk_31CE0`: `dc.w -$E,$1C,-$1B,$18`. Native does not expose
-    // the exact sprite phase here yet, so preserve the active nonzero saucer row
-    // instead of the invented generic 8x16 fallback.
+    // which map through GfxObjects_CollisionKid loc_1BCE to `unk_31CE0`:
+    // `dc.w -$E,$1C,-$1B,$18`, preserving the active nonzero saucer row instead
+    // of the invented generic 8x16 fallback.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-14, 14),
         Some(Direction::Left) | None => (-14, 14),
