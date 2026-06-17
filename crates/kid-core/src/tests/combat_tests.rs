@@ -380,6 +380,59 @@ fn dragon_flying_contact_uses_rom_collision_size_union_loc_1bce() {
 }
 
 #[test]
+fn dragon_flying_descent_zero_contact_uses_off_345f6_loc_348ce() {
+    let mut dragon = test_enemy(EnemyFamily::Dragon, 101 << 16, 100 << 16, 1);
+    dragon.dragon_phase = DragonFlyingState::Descending;
+    dragon.x_velocity = -2 << 16;
+    dragon.y_velocity = 0;
+
+    let bounds = enemy_contact_bounds(&dragon.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
+        "ASM Dragon_Flying.asm loc_348CE maps dive velocity (-2,0) through off_345F6 to LnkTo_unk_C75FE, which indexes CollisionSize row unk_31DE0"
+    );
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &dragon.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "the ROM dive row unk_31DE0 is empty, so the parent does not damage Kid on this frame"
+    );
+}
+
+#[test]
+fn dragon_flying_descent_nonzero_contact_keeps_off_345f6_body_row_loc_348ce() {
+    let mut dragon = test_enemy(EnemyFamily::Dragon, 101 << 16, 100 << 16, 1);
+    dragon.dragon_phase = DragonFlyingState::Descending;
+    dragon.x_velocity = -2 << 16;
+    dragon.y_velocity = -1 << 16;
+
+    let bounds = enemy_contact_bounds(&dragon.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-14, 14, -28, 0),
+        "ASM Dragon_Flying.asm loc_348CE maps dive velocity (-2,-1) through off_345F6 to LnkTo_unk_C762E, whose CollisionSize row is nonzero"
+    );
+}
+
+#[test]
 fn cloud_parent_contact_uses_rom_collision_size_union_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;

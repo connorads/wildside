@@ -9184,11 +9184,22 @@ impl ActiveEnemy {
         } else {
             self.x_velocity
         };
-        let contact_phase = if matches!(self.family, EnemyFamily::TarMonster)
+        let contact_phase = if matches!(self.family, EnemyFamily::Dragon)
+            && matches!(self.dragon_phase, DragonFlyingState::Descending)
+            && dragon_flying_dive_zero_contact_row_loc_348ce(self.x_velocity, self.y_velocity)
+        {
+            // ASM Dragon_Flying.asm loc_348CE indexes `off_345F6` from the
+            // current dive-script velocity byte. `LnkTo_unk_C75FE` and
+            // `LnkTo_unk_C7616` resolve through GfxObjects_CollisionKid
+            // loc_1BCE to CollisionSize row `unk_31DE0`, so those descent
+            // frames have no parent Kid contact.
+            Some(NativeContactPhase::DragonFlyingDiveZero)
+        } else if matches!(self.family, EnemyFamily::TarMonster)
             && !matches!(
                 self.tar_monster_state,
                 TarMonsterState::Visible | TarMonsterState::Attacking
-            ) {
+            )
+        {
             // ASM Tar_Monster.asm `stru_3272E`/`stru_3274C` expose
             // hidden/emerge/submerge frames whose sprite links map through
             // GfxObjects_CollisionKid loc_1BCE to zero row `unk_314CE`.
@@ -9889,6 +9900,18 @@ fn activate_enemies_with_rng_inner(
             active.push(enemy);
         }
     }
+}
+
+fn dragon_flying_dive_zero_contact_row_loc_348ce(x_velocity: i32, y_velocity: i32) -> bool {
+    let x_px = x_velocity / 0x0001_0000;
+    let y_px = y_velocity / 0x0001_0000;
+    matches!(
+        (x_px.abs(), y_px),
+        // ASM Dragon_Flying.asm loc_348CE / off_345F6: `(2, 0)` selects
+        // `LnkTo_unk_C75FE`; `(1, 1)` and `(2, 1..=3)` select
+        // `LnkTo_unk_C7616`. All three route to `unk_31DE0`.
+        (2, 0) | (1, 1) | (2, 1..=3)
+    )
 }
 
 /// Step all active enemies: apply movement, gravity, and terrain collision.
