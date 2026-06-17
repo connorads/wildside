@@ -5703,6 +5703,7 @@ impl NativeRuntime {
         self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
+        self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
@@ -5922,6 +5923,7 @@ impl NativeRuntime {
         self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
+        self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
@@ -5989,6 +5991,7 @@ impl NativeRuntime {
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
+        self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
@@ -7591,6 +7594,7 @@ impl NativeRuntime {
         self.block_state.ghost_groups.clear();
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
+        self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.init_murder_wall(self.current_level, 0);
         self.init_weather(self.current_level);

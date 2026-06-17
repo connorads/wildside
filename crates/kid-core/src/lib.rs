@@ -186,6 +186,10 @@ pub struct NativeRuntime {
     /// ASM `$FFFFFB4E`: multi-head boss death counter. Shared death entry
     /// `loc_39EBE` increments it; Shishkaboss skewer pieces launch once it is 3.
     pub(crate) multi_head_boss_death_count_fb4e: u8,
+    /// ASM `$FFFFFB72/$FFFFFB74/$FFFFFB76`: per-head boss-eye breakup trigger
+    /// words. Boss head routines mirror nonzero `d7` here before sibling
+    /// eye-piece loops branch from orbit to detach.
+    pub(crate) boss_eye_breakup_trigger_words_fb72_fb74_fb76: [u16; 3],
     diamond_power_rain_slots: Vec<DiamondPowerRainSlot>,
     diamond_power_circle_slots: Vec<helmets::CircleOfDoomSlot>,
     diamond_power_wall_slots: Vec<helmets::WallOfDeathSlot>,
@@ -1555,6 +1559,7 @@ impl NativeRuntime {
             projectiles: Vec::new(),
             heady_metal_breakup_slots_sub_37708: None,
             multi_head_boss_death_count_fb4e: 0,
+            boss_eye_breakup_trigger_words_fb72_fb74_fb76: [0; 3],
             diamond_power_rain_slots: Vec::new(),
             diamond_power_circle_slots: Vec::new(),
             diamond_power_wall_slots: Vec::new(),

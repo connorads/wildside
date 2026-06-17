@@ -13033,6 +13033,27 @@ mod chunk_03 {
     }
 
     #[test]
+    fn multi_head_boss_death_sets_eye_breakup_trigger_words_fb72_fb74_fb76() {
+        for (head_index, expected_words, labels) in [
+            (0, [1, 0, 0], "$FFFFFB72"),
+            (1, [0, 1, 0], "$FFFFFB74"),
+            (2, [0, 0, 1], "$FFFFFB76"),
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0040_0000, 1);
+            boss.boss_head_index = head_index;
+            runtime.active_enemies = vec![boss];
+
+            runtime.remove_dead_enemy(0);
+
+            assert_eq!(
+                runtime.boss_eye_breakup_trigger_words_fb72_fb74_fb76, expected_words,
+                "ASM head {head_index} stores nonzero d7 into {labels} before sibling eye workers test the trigger word"
+            );
+        }
+    }
+
+    #[test]
     fn fire_demon_death_waits_for_stru_3a378_before_trail_child_and_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);

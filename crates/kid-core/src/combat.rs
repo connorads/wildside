@@ -8647,6 +8647,15 @@ impl NativeRuntime {
         }
     }
 
+    fn boss_eye_breakup_trigger_index_loc_3893e(head_index: u8) -> usize {
+        match head_index {
+            0 => 0, // `$FFFFFB72`
+            1 => 1, // `$FFFFFB74`
+            2 => 2, // `$FFFFFB76`
+            _ => 0,
+        }
+    }
+
     pub(crate) fn remove_dead_enemy(&mut self, idx: usize) {
         let enemy = &self.active_enemies[idx];
         let family = enemy.family;
@@ -8692,7 +8701,17 @@ impl NativeRuntime {
                 family,
                 EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses
             ) {
-                self.spawn_boss_eye_detach_workers_loc_38962(x_pos, y_pos);
+                let trigger_index = Self::boss_eye_breakup_trigger_index_loc_3893e(
+                    self.active_enemies[idx].boss_head_index,
+                );
+                // ASM loc_394FA/loc_39620/loc_39746 and the parallel
+                // Boomerang head loops mirror nonzero `d7` into
+                // `$FFFFFB72/$FB74/$FB76`; sibling eye workers test that word
+                // before branching from orbit to loc_38962-style detach.
+                self.boss_eye_breakup_trigger_words_fb72_fb74_fb76[trigger_index] = 1;
+                if self.boss_eye_breakup_trigger_words_fb72_fb74_fb76[trigger_index] != 0 {
+                    self.spawn_boss_eye_detach_workers_loc_38962(x_pos, y_pos);
+                }
             }
             if is_armadillo_parent_spawned_child {
                 let enemy = &mut self.active_enemies[idx];
@@ -9848,6 +9867,7 @@ impl NativeRuntime {
         self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
+        self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
         self.floating_items.clear();
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
         self.enemy_death_effects.clear();
