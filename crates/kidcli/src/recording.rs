@@ -181,6 +181,8 @@ pub(crate) struct CheckpointFrameDiff {
     pub(crate) changed_bounds: Option<PixelDiffBounds>,
     #[serde(default)]
     pub(crate) top_colour_diffs: Vec<PixelColourDiff>,
+    #[serde(default, skip)]
+    pub(crate) edge_sample_pixels: Vec<PixelCoord>,
     #[serde(default)]
     pub(crate) native_background_samples: Vec<NativeBackgroundPixelDiagnostic>,
     #[serde(default)]
@@ -218,6 +220,7 @@ struct PixelDiffSummary {
     changed_pixel_count: usize,
     changed_bounds: Option<PixelDiffBounds>,
     top_colour_diffs: Vec<PixelColourDiff>,
+    edge_sample_pixels: Vec<PixelCoord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1428,6 +1431,9 @@ fn attach_native_pixel_samples(
                     pixels.insert((pixel.x, pixel.y));
                 }
             }
+            for pixel in &diff.edge_sample_pixels {
+                pixels.insert((pixel.x, pixel.y));
+            }
             ((diff.frame_index, diff.label.clone()), pixels)
         })
         .collect::<BTreeMap<_, _>>();
@@ -1827,6 +1833,7 @@ fn compare_recording_frames(
             changed_pixel_count: pixel_diff_summary.changed_pixel_count,
             changed_bounds: pixel_diff_summary.changed_bounds,
             top_colour_diffs: pixel_diff_summary.top_colour_diffs,
+            edge_sample_pixels: pixel_diff_summary.edge_sample_pixels,
             native_background_samples: Vec::new(),
             native_layer_samples: Vec::new(),
             native_final_scene_samples: Vec::new(),
@@ -1868,6 +1875,10 @@ fn summarize_pixel_diffs(
 
     let mut changed_pixel_count = 0usize;
     let mut bounds: Option<PixelDiffBounds> = None;
+    let mut min_x_pixel: Option<PixelCoord> = None;
+    let mut min_y_pixel: Option<PixelCoord> = None;
+    let mut max_x_pixel: Option<PixelCoord> = None;
+    let mut max_y_pixel: Option<PixelCoord> = None;
     let mut colour_pairs: BTreeMap<([u8; 3], [u8; 3]), PixelColourDiffAccumulator> =
         BTreeMap::new();
     for (pixel_index, (native_pixel, oracle_pixel)) in native_rgb
@@ -1885,6 +1896,31 @@ fn summarize_pixel_diffs(
             colour_pair.count += 1;
             if colour_pair.sample_pixels.len() < 5 {
                 colour_pair.sample_pixels.push(PixelCoord { x, y });
+            }
+            let pixel = PixelCoord { x, y };
+            if min_x_pixel
+                .as_ref()
+                .is_none_or(|existing| x < existing.x || (x == existing.x && y < existing.y))
+            {
+                min_x_pixel = Some(pixel.clone());
+            }
+            if max_x_pixel
+                .as_ref()
+                .is_none_or(|existing| x > existing.x || (x == existing.x && y < existing.y))
+            {
+                max_x_pixel = Some(pixel.clone());
+            }
+            if min_y_pixel
+                .as_ref()
+                .is_none_or(|existing| y < existing.y || (y == existing.y && x < existing.x))
+            {
+                min_y_pixel = Some(pixel.clone());
+            }
+            if max_y_pixel
+                .as_ref()
+                .is_none_or(|existing| y > existing.y || (y == existing.y && x < existing.x))
+            {
+                max_y_pixel = Some(pixel);
             }
             bounds = Some(match bounds {
                 Some(existing) => PixelDiffBounds {
@@ -1919,11 +1955,21 @@ fn summarize_pixel_diffs(
             .then_with(|| left.oracle_rgb.cmp(&right.oracle_rgb))
     });
     top_colour_diffs.truncate(8);
+    let mut edge_sample_pixels = Vec::new();
+    for pixel in [min_x_pixel, min_y_pixel, max_x_pixel, max_y_pixel]
+        .into_iter()
+        .flatten()
+    {
+        if !edge_sample_pixels.contains(&pixel) {
+            edge_sample_pixels.push(pixel);
+        }
+    }
 
     Ok(PixelDiffSummary {
         changed_pixel_count,
         changed_bounds: bounds,
         top_colour_diffs,
+        edge_sample_pixels,
     })
 }
 
@@ -3585,6 +3631,30 @@ mod tests {
                 PixelCoord { x: 1, y: 1 },
             ],
             "sample pixels should identify where to inspect tile/palette provenance without bloating reports"
+        );
+    }
+
+    #[test]
+    fn summarize_pixel_diffs_keeps_sparse_edge_samples_for_provenance() {
+        let native_rgb = vec![
+            9, 0, 0, 1, 1, 1, 1, 1, 1, //
+            1, 1, 1, 1, 1, 1, 8, 0, 0,
+        ];
+        let oracle_rgb = vec![
+            7, 0, 0, 2, 2, 2, 2, 2, 2, //
+            2, 2, 2, 2, 2, 2, 6, 0, 0,
+        ];
+
+        let summary = summarize_pixel_diffs(&native_rgb, &oracle_rgb, 3, 2).expect("summary");
+
+        assert_eq!(
+            summary.edge_sample_pixels,
+            vec![
+                PixelCoord { x: 0, y: 0 },
+                PixelCoord { x: 2, y: 0 },
+                PixelCoord { x: 0, y: 1 },
+            ],
+            "rare min/max changed pixels must still get native provenance even when top colour pairs are dominated by a larger cluster"
         );
     }
 
