@@ -11842,6 +11842,13 @@ fn big_hopping_skull_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyConta
 }
 
 fn sphere_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if enemy.stationary {
+        // ASM Sphere.asm Enemy06_Sphere_Kill plays death script `stru_36182`
+        // with `LnkTo_unk_C8108/C8110/C8118`, which route through
+        // GfxObjects_CollisionKid loc_1BCE to zero row `unk_31AAE`.
+        return empty_enemy_contact_bounds();
+    }
+
     // ASM Sphere.asm live loop animation `stru_36174` uses
     // `LnkTo_unk_C8120..C8130`, which map through GfxObjects_CollisionKid
     // loc_1BCE to `unk_31AAE` (zero row) and `unk_31AB0`/`unk_31ABA`:

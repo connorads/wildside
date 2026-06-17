@@ -1139,6 +1139,24 @@ fn sphere_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn sphere_death_contact_uses_zero_collision_size_row_loc_1bce() {
+    let mut sphere = test_enemy(EnemyFamily::Sphere, 101 << 16, 100 << 16, 1);
+    sphere.death_animation_active = true;
+
+    let bounds = enemy_contact_bounds(&sphere.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (1, 0, 1, 0),
+        "ASM Sphere.asm Enemy06_Sphere_Kill death animation `stru_36182` uses LnkTo_unk_C8108/C8110/C8118; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_31AAE"
+    );
+}
+
+#[test]
 fn big_hopping_skull_contact_uses_live_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 87 << 16;
