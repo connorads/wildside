@@ -16010,6 +16010,59 @@ mod tests {
     }
 
     #[test]
+    fn build_game_scene_uses_platform_loc_24f0_cap_middle_end_tiles() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_objects = vec![platform_snapshot(
+            0x00,
+            0x01,
+            0x0010,
+            0x0018,
+            std::collections::BTreeMap::from([
+                ("platform_width_px".to_string(), "79".to_string()),
+                ("platform_height_px".to_string(), "15".to_string()),
+                ("platform_render_flags".to_string(), "1".to_string()),
+                ("platform_mapping_addr_word".to_string(), "1710".to_string()),
+            ]),
+        )];
+
+        let scene = build_ingame_scene(&trace, false, None);
+        let platform_commands = scene
+            .commands
+            .iter()
+            .filter(|command| has_command_signature(command, 41))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            platform_commands.len(),
+            5,
+            "ASM off_24AC index 1 routes to loc_24F0, which emits one horizontal strip sprite per platform width cell",
+        );
+        let first_tile_indices = platform_commands
+            .iter()
+            .map(|command| {
+                sprite_tiles(command)
+                    .first()
+                    .expect("platform tile")
+                    .tile
+                    .tile_index
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            first_tile_indices,
+            vec![0, 4, 4, 4, 8],
+            "ASM loc_24F0 uses `$18(a2)`, then `$18(a2)+4`, then `$18(a2)+8` for first/middle/last platform cells",
+        );
+        assert!(
+            platform_commands
+                .iter()
+                .all(|command| sprite_tiles(command).len() == 4),
+            "ASM loc_2548 writes one 16x16 hardware sprite cell for each loc_24F0 entry",
+        );
+    }
+
+    #[test]
     fn build_game_scene_selects_platform_art_from_mapping_word_loc_2548() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;

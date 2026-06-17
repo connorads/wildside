@@ -1845,18 +1845,16 @@ pub(super) fn push_platform_tiles(
     let height_cells = platform_snapshot_dimension_cells(object, "platform_height_px");
     let tile_sheet = Arc::new(frame.tile_sheet.clone());
     let palette = Arc::new(level_visuals.platforms.palette.clone());
-    let tiles = build_sprite_tiles(frame, Direction::Right, 0);
-    for (column, row, y_bias) in platform_sprite_cells_loc_24AC(variant, width_cells, height_cells)
-    {
+    for cell in platform_sprite_cells_loc_24AC(variant, width_cells, height_cells) {
         commands.push(DrawCommand::Sprite {
-            x: screen_x - i32::from(frame.origin_x) + i32::from(column) * 16,
+            x: screen_x - i32::from(frame.origin_x) + i32::from(cell.column) * 16,
             y: screen_y - i32::from(frame.height_px)
                 + i32::from(frame.origin_y)
-                + y_bias
-                + i32::from(row) * 16,
+                + cell.y_bias
+                + i32::from(cell.row) * 16,
             tile_sheet: Arc::clone(&tile_sheet),
             palette: Arc::clone(&palette),
-            tiles: tiles.clone(),
+            tiles: platform_cell_tiles_loc_2548(frame, cell.mapping_tile_offset),
         });
     }
 }
@@ -1868,6 +1866,14 @@ enum PlatformRenderVariantLoc244C {
     Loc251C,
     Loc24D4,
     Loc24C0,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PlatformSpriteCellLoc24AC {
+    column: u16,
+    row: u16,
+    y_bias: i32,
+    mapping_tile_offset: u16,
 }
 
 impl PlatformRenderVariantLoc244C {
@@ -1890,22 +1896,128 @@ fn platform_sprite_cells_loc_24AC(
     variant: Option<PlatformRenderVariantLoc244C>,
     width_cells: u16,
     height_cells: u16,
-) -> Vec<(u16, u16, i32)> {
+) -> Vec<PlatformSpriteCellLoc24AC> {
     match variant {
-        Some(PlatformRenderVariantLoc244C::Loc24CC) => {
-            (0..width_cells).map(|column| (column, 0, -2)).collect()
-        }
+        Some(PlatformRenderVariantLoc244C::Loc24CC) => (0..width_cells)
+            .map(|column| platform_cell(column, 0, -2, 0))
+            .collect(),
         Some(PlatformRenderVariantLoc244C::Loc24F0) => {
-            (0..width_cells).map(|column| (column, 0, 0)).collect()
+            platform_horizontal_strip_cells_loc_24F0(width_cells)
         }
         Some(PlatformRenderVariantLoc244C::Loc251C) => {
-            (0..height_cells).map(|row| (0, row, 0)).collect()
+            platform_vertical_strip_cells_loc_251C(height_cells)
         }
         Some(PlatformRenderVariantLoc244C::Loc24D4) | None => (0..height_cells)
-            .flat_map(|row| (0..width_cells).map(move |column| (column, row, 0)))
+            .flat_map(|row| (0..width_cells).map(move |column| platform_cell(column, row, 0, 0)))
             .collect(),
-        Some(PlatformRenderVariantLoc244C::Loc24C0) => vec![(0, 0, 0)],
+        Some(PlatformRenderVariantLoc244C::Loc24C0) => vec![platform_cell(0, 0, 0, 0)],
     }
+}
+
+fn platform_cell(
+    column: u16,
+    row: u16,
+    y_bias: i32,
+    mapping_tile_offset: u16,
+) -> PlatformSpriteCellLoc24AC {
+    PlatformSpriteCellLoc24AC {
+        column,
+        row,
+        y_bias,
+        mapping_tile_offset,
+    }
+}
+
+#[allow(non_snake_case)]
+fn platform_horizontal_strip_cells_loc_24F0(width_cells: u16) -> Vec<PlatformSpriteCellLoc24AC> {
+    if width_cells == 0 {
+        return Vec::new();
+    }
+
+    (0..width_cells)
+        .map(|column| {
+            // ASM loc_24F0 advances `a4` by 4 VRAM tiles after the first
+            // sprite and again before the last sprite, selecting cap/middle
+            // cells from the platform art block that starts at VRAM $6AE.
+            let mapping_tile_offset = match column {
+                0 => 0,
+                last if last == width_cells - 1 => 8,
+                _ => 4,
+            };
+            platform_cell(column, 0, 0, mapping_tile_offset)
+        })
+        .collect()
+}
+
+#[allow(non_snake_case)]
+fn platform_vertical_strip_cells_loc_251C(height_cells: u16) -> Vec<PlatformSpriteCellLoc24AC> {
+    if height_cells == 0 {
+        return Vec::new();
+    }
+
+    (0..height_cells)
+        .map(|row| {
+            // ASM loc_251C mirrors loc_24F0 on the y axis: top, middle, and
+            // bottom platform cells use `a4`, `a4+4`, and `a4+8`.
+            let mapping_tile_offset = match row {
+                0 => 0,
+                last if last == height_cells - 1 => 8,
+                _ => 4,
+            };
+            platform_cell(0, row, 0, mapping_tile_offset)
+        })
+        .collect()
+}
+
+#[allow(non_snake_case)]
+fn platform_cell_tiles_loc_2548(frame: &SpriteFrame, mapping_tile_offset: u16) -> Vec<SpriteTile> {
+    let first_tile = frame.tile_base_index.saturating_add(mapping_tile_offset);
+    vec![
+        SpriteTile {
+            offset_x: 0,
+            offset_y: 0,
+            tile: TileRef {
+                tile_index: first_tile,
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+        },
+        SpriteTile {
+            offset_x: 0,
+            offset_y: 8,
+            tile: TileRef {
+                tile_index: first_tile.saturating_add(1),
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+        },
+        SpriteTile {
+            offset_x: 8,
+            offset_y: 0,
+            tile: TileRef {
+                tile_index: first_tile.saturating_add(2),
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+        },
+        SpriteTile {
+            offset_x: 8,
+            offset_y: 8,
+            tile: TileRef {
+                tile_index: first_tile.saturating_add(3),
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+        },
+    ]
 }
 
 #[allow(non_snake_case)]
