@@ -9099,6 +9099,9 @@ impl ActiveEnemy {
         let walk_phase =
             matches!(self.family, EnemyFamily::DragonWalking).then_some(self.dragon_script_cmd);
         let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
+            || (matches!(self.family, EnemyFamily::BigHoppingSkull)
+                && self.wait_timer > 0
+                && !self.death_animation_active)
             || (self.death_animation_active && enemy_death_animation_frames(self.family).is_some())
         {
             Some(self.wait_timer)

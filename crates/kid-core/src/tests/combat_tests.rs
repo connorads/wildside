@@ -1192,6 +1192,34 @@ fn big_hopping_skull_contact_uses_live_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn big_hopping_skull_floor_wait_contact_uses_zero_collision_size_row_loc_1bce() {
+    let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 101 << 16, 100 << 16, 3);
+    skull.wait_timer = BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580;
+    skull.x_velocity = 0;
+    skull.y_velocity = 0;
+    skull.on_ground = true;
+
+    let snapshot = skull.snapshot();
+    assert_eq!(
+        snapshot.wait_timer,
+        Some(BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580),
+        "ASM Big_Hopping_Skull.asm loc_36580 clears motion and hibernates through floor-contact script stru_367AE, so snapshots must expose the wait phase for contact fidelity",
+    );
+
+    let bounds = enemy_contact_bounds(&snapshot);
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (1, 0, 1, 0),
+        "ASM Big_Hopping_Skull.asm loc_36580 starts stru_367AE; its LnkTo_unk_C7FC0 frame routes through GfxObjects_CollisionKid loc_1BCE to zero row unk_318E8"
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;

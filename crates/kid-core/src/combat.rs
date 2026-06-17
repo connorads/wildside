@@ -11593,7 +11593,7 @@ fn hand_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 }
 
 fn drips_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
-    if enemy.wait_timer.is_some() {
+    if enemy.wait_timer.is_some() && !enemy.stationary {
         // ASM Drips.asm loc_33424/loc_3345C visible child workers are exposed
         // through `drips_projectile_object_snapshot_loc_3345c`; their typed
         // projectile contact path carries the verified drop/crawler boxes.
@@ -11826,13 +11826,19 @@ fn lion_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     }
 }
 
-fn big_hopping_skull_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+fn big_hopping_skull_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if enemy.wait_timer.is_some() {
+        // ASM Big_Hopping_Skull.asm loc_36580 clears motion and starts
+        // floor-contact script `stru_367AE`; its only frame
+        // `LnkTo_unk_C7FC0` routes through GfxObjects_CollisionKid loc_1BCE
+        // to zero row `unk_318E8`.
+        return empty_enemy_contact_bounds();
+    }
+
     // ASM Big_Hopping_Skull.asm live loop `stru_367BE` uses
     // `LnkTo_unk_C7FD0..C7FE0`, which map through GfxObjects_CollisionKid
     // loc_1BCE to `unk_318EA..unk_318FE`: `dc.w -$17,$2B,-$16,$15`,
     // `dc.w -$14,$28,-$16,$15`, and `dc.w -$14,$2B,-$16,$15`.
-    // Native does not yet model the floor-wait `stru_367AE` zero row
-    // (`unk_318E8`), so keep the active live-loop union here.
     EnemyContactBounds {
         left_px: -23,
         right_px: 23,
