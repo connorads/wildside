@@ -9213,6 +9213,21 @@ impl ActiveEnemy {
                 format!("{:#06x}", self.heady_metal_palette_word_5e),
             );
         }
+        if is_multi_head_boss(self.family) && self.boss_eye_orbit_workers.active {
+            // ASM loc_3893E/loc_389D6 passes the parent `$22(a2)` and `$16(a2)`
+            // values into sub_393C8/sub_39420; keep them visible while the
+            // native parent animation model is still being promoted.
+            debug_fields.insert(
+                "boss_eye_parent_phase_word_22_loc_3893e".into(),
+                format!("{:#06x}", self.boss_eye_orbit_workers.parent_phase_word_22),
+            );
+            debug_fields.insert(
+                "boss_eye_parent_frame_byte_16_loc_3893e".into(),
+                self.boss_eye_orbit_workers
+                    .current_parent_frame_byte_16
+                    .to_string(),
+            );
+        }
         let x_velocity = if matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
             && self.on_ground
         {

@@ -13675,6 +13675,41 @@ mod chunk_03 {
     }
 
     #[test]
+    fn multi_head_boss_snapshot_reports_eye_parent_animation_words_loc_3893e_389d6() {
+        let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0200_0000, 0x0100_0000, 1);
+        boss.boss_head_index = 0;
+        boss.boss_eye_orbit_workers =
+            BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 0, Direction::Right);
+        boss.boss_eye_orbit_workers
+            .step_with_parent_animation_loc_3893e_389d6(
+                0x0200,
+                0x0100,
+                Direction::Right,
+                0x0EE4,
+                2,
+            );
+
+        let snapshot = boss.snapshot();
+
+        assert_eq!(
+            snapshot
+                .debug_fields
+                .get("boss_eye_parent_phase_word_22_loc_3893e")
+                .map(String::as_str),
+            Some("0x0ee4"),
+            "ASM sub_393C8/sub_39420 use parent `$22(a2)` as the orbit table index source"
+        );
+        assert_eq!(
+            snapshot
+                .debug_fields
+                .get("boss_eye_parent_frame_byte_16_loc_3893e")
+                .map(String::as_str),
+            Some("2"),
+            "ASM loc_3893E/loc_389D6 carry parent `$16(a2)` through d0 for sprite-order reranks"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_waits_for_stru_3a378_before_trail_child_and_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);

@@ -16,6 +16,24 @@
       "promotion_trigger": "Promote if parity matching, loader attribution, or roster identity starts depending on it."
     },
     {
+      "key": "boss_eye_parent_phase_word_22_loc_3893e",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-eye-orbit-workers",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native multi-head boss parent `$22(a2)` animation word consumed by ASM sub_393C8/sub_39420 to choose the waiting boss-eye orbit placement table index.",
+      "promotion_trigger": "Promote if true boss-head parent animation parity or checked-in oracle comparisons depend on this field beyond the temporary orbit-worker bridge."
+    },
+    {
+      "key": "boss_eye_parent_frame_byte_16_loc_3893e",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-eye-orbit-workers",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native multi-head boss parent `$16(a2)` animation byte carried through d0 by ASM loc_3893E/loc_389D6 so sub_393C8/sub_39420 can rerank boss-eye gfx objects when the parent frame changes.",
+      "promotion_trigger": "Promote if true boss-head parent animation parity or checked-in oracle comparisons depend on this field beyond the temporary orbit-worker bridge."
+    },
+    {
       "key": "platform_width_px",
       "scope": "object",
       "status": "exploratory",
@@ -59,6 +77,15 @@
       "first_added_commit": "pending",
       "intended_meaning": "Native active-platform loader record offset in words, mirroring the ROM `$20(a3)` key used by `sub_2728` to preserve platform slot identity.",
       "promotion_trigger": "Promote if platform-loader parity or checked-in roster matching starts depending on typed slot-offset state."
+    },
+    {
+      "key": "platform_slot_addr",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "platform-loader",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native active-platform Platform_RAM slot address used to correlate rendered/collision platform snapshots with the ROM slot model.",
+      "promotion_trigger": "Promote if platform parity or checked-in roster matching starts depending on typed Platform_RAM slot identity."
     },
     {
       "key": "platform_deactivated_flag",
