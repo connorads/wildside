@@ -1054,7 +1054,7 @@ fn ufo_death_contact_uses_zero_collision_size_row_loc_1bce() {
 fn tornado_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
-    slice.player.y_pos = 67 << 16;
+    slice.player.y_pos = 92 << 16;
     slice.player.x_velocity = 0;
     slice.player.y_velocity = 0;
     slice.player.on_ground = false;
@@ -1068,8 +1068,8 @@ fn tornado_contact_uses_rom_collision_size_row_loc_1bce() {
             bounds.top_px,
             bounds.bottom_px
         ),
-        (-7, 7, -33, 0),
-        "ASM Tornado.asm stru_35B10 uses LnkTo_unk_C784E..C785E; GfxObjects_CollisionKid loc_1BCE indexes active body row unk_316CE"
+        (-8, 6, -8, 6),
+        "ASM Tornado.asm stru_35B10 uses LnkTo_unk_C784E/C7856/C785E; GfxObjects_CollisionKid loc_1BCE indexes live rows unk_31D14/unk_31D28/unk_31D2A"
     );
 
     assert_eq!(
@@ -1081,7 +1081,7 @@ fn tornado_contact_uses_rom_collision_size_row_loc_1bce() {
             PlayerForm::TheKid.half_width() as i64,
         ),
         EnemyContactResult::Damage,
-        "the ROM Tornado body reaches much higher than the previous generic 16px-tall fallback"
+        "the ROM Tornado live nonzero row reaches below centre beyond the previous top-only stale row"
     );
 }
 
@@ -1099,7 +1099,7 @@ fn tornado_death_contact_uses_zero_collision_size_row_loc_1bce() {
             bounds.bottom_px
         ),
         (1, 0, 1, 0),
-        "ASM Tornado.asm loc_359B2 plays death script stru_35B1E; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_316CC for LnkTo_unk_C783E/C7846"
+        "ASM Tornado.asm loc_359B2 plays death script stru_35B1E; GfxObjects_CollisionKid loc_1BCE indexes rows unk_31D06/unk_31D08 for LnkTo_unk_C783E/C7846, but native has no exact death frame phase yet"
     );
 }
 

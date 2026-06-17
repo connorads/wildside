@@ -11877,25 +11877,27 @@ fn tornado_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     if enemy.stationary {
         // ASM Tornado.asm loc_359B2 death script `stru_35B1E` uses
         // `LnkTo_unk_C783E/C7846`, which route through GfxObjects_CollisionKid
-        // loc_1BCE to zero row `unk_316CC`.
+        // loc_1BCE to rows `unk_31D06` (zero) and `unk_31D08`. Native does
+        // not expose the death animation phase yet, so keep death contact
+        // hidden instead of making every death frame active.
         return empty_enemy_contact_bounds();
     }
 
     // ASM Tornado.asm live loop animation `stru_35B10` uses
-    // `LnkTo_unk_C784E..C785E`, which map through GfxObjects_CollisionKid
-    // loc_1BCE to `unk_316CC` (zero row) and `unk_316CE`:
-    // `dc.w -$7,$E,-$21,$21`. Native does not expose the exact sprite phase
-    // here yet, so keep the active nonzero tornado body row.
+    // `LnkTo_unk_C784E/C7856/C785E`, which map through GfxObjects_CollisionKid
+    // loc_1BCE to `unk_31D14` (`dc.w -$8,$E,-$8,$E`) and zero rows
+    // `unk_31D28`/`unk_31D2A`. Native does not expose the exact sprite phase
+    // here yet, so keep the active nonzero tornado body row as a union.
     let (left_px, right_px) = match enemy.facing {
-        Some(Direction::Right) => (-7, 7),
-        Some(Direction::Left) | None => (-7, 7),
+        Some(Direction::Right) => (-6, 8),
+        Some(Direction::Left) | None => (-8, 6),
     };
 
     EnemyContactBounds {
         left_px,
         right_px,
-        top_px: -33,
-        bottom_px: 0,
+        top_px: -8,
+        bottom_px: 6,
     }
 }
 
