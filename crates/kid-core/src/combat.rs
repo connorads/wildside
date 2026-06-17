@@ -12031,12 +12031,28 @@ fn goat_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 }
 
 fn scorpion_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if matches!(
+        enemy.contact_phase,
+        Some(NativeContactPhase::ScorpionStingTail)
+    ) {
+        // ASM Scorpion.asm `stru_3DB8E` uses `LnkTo_unk_C7E0E/C7E16`,
+        // which map through GfxObjects_CollisionKid loc_1BCE to
+        // CollisionSize rows `unk_31926`/`unk_31930`.
+        let (left_px, right_px) = match enemy.facing {
+            Some(Direction::Right) => (-8, 32),
+            Some(Direction::Left) | None => (-32, 8),
+        };
+        return EnemyContactBounds {
+            left_px,
+            right_px,
+            top_px: -45,
+            bottom_px: 0,
+        };
+    }
+
     // ASM Scorpion.asm walking script `stru_3DB60` uses `LnkTo_unk_C7DDE..C7E06`,
     // which map through GfxObjects_CollisionKid loc_1BCE to CollisionSize_Index
-    // rows `unk_318EA..unk_3191C`. The sting script `stru_3DB8E` maps to
-    // `unk_31926/unk_31930`, but NativeObjectSnapshot does not expose the exact
-    // sprite link or sting phase here yet, so this preserves the patrol body
-    // union instead of inventing one box for both phases.
+    // rows `unk_318EA..unk_3191C`.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-22, 23),
         Some(Direction::Left) | None => (-23, 22),
@@ -12406,6 +12422,7 @@ fn drips_projectile_object_snapshot_loc_3345c(
         damage_flash: false,
         palette_variant: 0,
         stationary: false,
+        contact_phase: None,
         shared_walker_state: None,
         shared_walker_patrol_timer: None,
         shared_walker_patrol_short_next: None,

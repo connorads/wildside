@@ -3062,6 +3062,7 @@ mod tests {
             damage_flash: false,
             palette_variant: 0,
             stationary: false,
+            contact_phase: None,
             shared_walker_state: None,
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,

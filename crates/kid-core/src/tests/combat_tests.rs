@@ -580,6 +580,27 @@ fn scorpion_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn scorpion_sting_tail_contact_uses_rom_collision_size_rows_loc_1bce() {
+    let mut scorpion = test_enemy(EnemyFamily::Scorpion, 101 << 16, 100 << 16, 3);
+    scorpion.scorpion_sting_frames = 1;
+
+    let tail = scorpion
+        .child_attachment_snapshot()
+        .expect("sting-ready Scorpion keeps a linked tail object");
+    let bounds = enemy_contact_bounds(&tail);
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-32, 8, -45, 0),
+        "ASM Scorpion.asm stru_3DB8E uses LnkTo_unk_C7E0E/C7E16; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize rows unk_31926/unk_31930 for the linked sting tail"
+    );
+}
+
+#[test]
 fn lion_parent_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 87 << 16;

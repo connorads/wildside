@@ -6750,6 +6750,7 @@ impl PendingDragonDeathAnimation {
             damage_flash: false,
             palette_variant: self.palette_variant,
             stationary: false,
+            contact_phase: None,
             shared_walker_state: None,
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
@@ -9197,6 +9198,7 @@ impl ActiveEnemy {
             stationary: self.dragon_phase.is_stationary()
                 || (self.death_animation_active
                     && enemy_death_animation_frames(self.family).is_some()),
+            contact_phase: None,
             shared_walker_state,
             shared_walker_patrol_timer,
             shared_walker_patrol_short_next,
@@ -9300,6 +9302,16 @@ impl ActiveEnemy {
             _ => return None,
         };
 
+        let contact_phase =
+            if matches!(self.family, EnemyFamily::Scorpion) && self.scorpion_sting_frames > 0 {
+                // ASM Scorpion.asm loc_3DDEE switches the linked tail object to
+                // sting script `stru_3DB8E`; contact then uses CollisionSize rows
+                // `unk_31926`/`unk_31930` through GfxObjects_CollisionKid loc_1BCE.
+                Some(NativeContactPhase::ScorpionStingTail)
+            } else {
+                None
+            };
+
         Some(NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
                 object_type: self.family.object_type(),
@@ -9315,6 +9327,7 @@ impl ActiveEnemy {
             damage_flash: false,
             palette_variant: self.palette_variant,
             stationary: false,
+            contact_phase,
             shared_walker_state: None,
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
@@ -9508,6 +9521,7 @@ impl EnemyFamily {
             damage_flash: false,
             palette_variant: 0,
             stationary: false,
+            contact_phase: None,
             shared_walker_state: None,
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,

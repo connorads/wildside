@@ -1810,6 +1810,8 @@ pub struct NativeObjectSnapshot {
     /// True when the enemy is in a stationary phase (e.g. dragon perching).
     #[serde(default)]
     pub stationary: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contact_phase: Option<NativeContactPhase>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shared_walker_state: Option<i16>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1824,6 +1826,11 @@ pub struct NativeObjectSnapshot {
     /// recurring decision-making fields into typed members.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub debug_fields: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NativeContactPhase {
+    ScorpionStingTail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2784,6 +2791,7 @@ impl ActivePlatform {
             damage_flash: false,
             palette_variant: 0,
             stationary: false,
+            contact_phase: None,
             shared_walker_state: None,
             shared_walker_patrol_timer: None,
             shared_walker_patrol_short_next: None,
