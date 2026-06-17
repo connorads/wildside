@@ -1459,9 +1459,10 @@ impl NativeRuntime {
         };
 
         // ASM sub_376EC (kid.asm:39483) copies the current d6/d7 tracker
-        // velocities into every live `$FFFFFB72..$FFFFFBB2` worker. Native
-        // stores the body-worker table at word precision, so advance the table
-        // by the same pixel delta the live tracking anchor just crossed.
+        // velocities into every live `$FFFFFB72..$FFFFFBB2` worker, then the
+        // scheduler advances each worker. Native stores this table at word
+        // precision, so persist the velocities and advance by the high-word
+        // delta the live tracking anchor just crossed.
         let old_x = heady_metal
             .x_pos
             .wrapping_add_signed(heady_metal.x_velocity.wrapping_neg());
@@ -1470,11 +1471,12 @@ impl NativeRuntime {
             .wrapping_add_signed(heady_metal.y_velocity.wrapping_neg());
         let delta_x = ((heady_metal.x_pos >> 16) as i32) - ((old_x >> 16) as i32);
         let delta_y = ((heady_metal.y_pos >> 16) as i32) - ((old_y >> 16) as i32);
-        if delta_x == 0 && delta_y == 0 {
-            return;
-        }
-
         for slot in piece_slots.iter_mut().flatten() {
+            slot.x_velocity = heady_metal.x_velocity;
+            slot.y_velocity = heady_metal.y_velocity;
+            if delta_x == 0 && delta_y == 0 {
+                continue;
+            }
             slot.x_pos = slot.x_pos.wrapping_add_signed(delta_x as i16);
             slot.y_pos = slot.y_pos.wrapping_add_signed(delta_y as i16);
         }

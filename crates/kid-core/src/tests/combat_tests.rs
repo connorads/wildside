@@ -3258,6 +3258,15 @@ fn live_heady_metal_sub_376ec_moves_body_piece_workers_with_tracker_delta() {
         (0x000C, 0x0035, 0x0049, 5),
         "ASM loc_375DE -> sub_376EC writes the live HeadyMetal tracker d6/d7 velocities into every body-piece worker, so the `$FFFFFB7E` worker must move by the same high-word delta as the tracking anchor before sub_37ABC refreshes it",
     );
+    let body_piece = runtime.heady_metal_breakup_slots_sub_37708.unwrap()[1].unwrap();
+    assert_eq!(
+        (body_piece.x_velocity, body_piece.y_velocity),
+        (
+            runtime.active_enemies[0].x_velocity,
+            runtime.active_enemies[0].y_velocity,
+        ),
+        "ASM loc_375DE -> sub_376EC copies the live d6/d7 tracker velocities into every body-piece worker, not just their word positions",
+    );
 }
 
 #[test]
