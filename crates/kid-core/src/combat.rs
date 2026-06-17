@@ -11765,9 +11765,16 @@ fn orca_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 fn ninja_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // ASM Ninja.asm live jump/run frames set `LnkTo_unk_C7D6E..C7DBE`,
     // which map through GfxObjects_CollisionKid loc_1BCE to `unk_318DE`:
-    // `dc.w -$B,$16,-$1D,$1D`. Native does not expose the exact current
-    // sprite link here yet, so this keeps the active nonzero body row and
-    // leaves the `stru_3D504`/`stru_3D50A` zero rows (`unk_318DC`) unmodelled.
+    // `dc.w -$B,$16,-$1D,$1D`.
+    if enemy.stationary {
+        // ASM Ninja.asm loc_3DB4E plays death script `stru_3D50A`;
+        // `LnkTo_unk_C7D56..C7D66` route through GfxObjects_CollisionKid
+        // loc_1BCE to the zero row `unk_318DC`.
+        return empty_enemy_contact_bounds();
+    }
+    // Hurt script `stru_3D504` also uses `unk_318DC`, but native does not
+    // expose that transient sprite link here yet, so keep the live row for
+    // non-death Ninja snapshots.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-11, 11),
         Some(Direction::Left) | None => (-11, 11),
