@@ -18098,8 +18098,7 @@ impl NativeRuntime {
         self.helmet.reset();
         self.paused = false;
         self.pause_toggle_pending = false;
-        self.allow_pausing = false;
-        self.allow_pausing_fade_frames = 0;
+        self.initialise_level_entry_fade_sub_73d0();
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
         self.death_respawn_trace_profile = None;
@@ -18596,6 +18595,11 @@ impl NativeRuntime {
         // Palette_Buffer before the loc_11F96 post-load workers can animate
         // those same CRAM slots.
         self.load_level_theme_palettes_loc_11db0_11e16(level_id);
+        // ASM sub_73D0 / loc_73E2 / loc_73F4 (kid.asm:7527): the
+        // Load_InGame worker snapshots the live Palette_Buffer into
+        // Palette_Buffer_2 and flood-fills Palette_Buffer_3 from `$FFFFFBCC`
+        // before the visible level-entry fade begins.
+        self.initialise_level_entry_fade_sub_73d0();
         let preserves_player_start = self.pending_player_start_override_loc_11bd2.is_some();
         let should_floor_snap_entry =
             self.block_grid.is_some() && (!preserves_player_start || entered_from_live_gameplay);
@@ -18653,7 +18657,6 @@ impl NativeRuntime {
         self.paused = false;
         self.pause_toggle_pending = false;
         self.allow_pausing = false;
-        self.allow_pausing_fade_frames = 0;
         // ASM Load_TitleCard allocates both the visible loc_1AC70 workers and
         // the hidden loc_1AE2E gate up front. The early title-start lineage
         // still needs the worker shell until the later Start edge flips into
@@ -18767,8 +18770,7 @@ impl NativeRuntime {
         self.level_skip_resume_hold = false;
         self.paused = false;
         self.pause_toggle_pending = false;
-        self.allow_pausing = false;
-        self.allow_pausing_fade_frames = 0;
+        self.initialise_level_entry_fade_sub_73d0();
         self.death_shell_snapshot = None;
     }
 

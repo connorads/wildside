@@ -122,6 +122,15 @@ pub struct NativeRuntime {
     /// seeds `$00EE` before branching through `Teleport`; the level-entry
     /// fade shell copies this word into `Palette_Buffer_3`.
     teleport_warp_colour_fbcc: u16,
+    /// ASM `sub_73D0` fade progress word `$FFFFF876` for the live level-entry
+    /// fullscreen fade worker.
+    level_entry_fade_progress_sub_73d0: u16,
+    /// ASM `$FFFFF888`: pending palette mask for `Palette_Buffer+$00..+$3E`
+    /// during the live `sub_73D0` level-entry fullscreen fade.
+    level_entry_pending_palette_0_mask_sub_73d0: u32,
+    /// ASM `$FFFFF88C`: pending palette mask for `Palette_Buffer+$40..+$7E`
+    /// during the live `sub_73D0` level-entry fullscreen fade.
+    level_entry_pending_palette_1_mask_sub_73d0: u32,
     /// ASM loc_DA4A writes PlayerStart_X/Y and sets `$FFFFFC29` before the
     /// Teleport tail. Load_InGame's loc_11BD2 then preserves those start words
     /// instead of reading the destination level header pair.
@@ -1508,6 +1517,9 @@ impl NativeRuntime {
             pending_level_skip: None,
             pending_level_skip_resume: false,
             teleport_warp_colour_fbcc: 0,
+            level_entry_fade_progress_sub_73d0: 0,
+            level_entry_pending_palette_0_mask_sub_73d0: 0,
+            level_entry_pending_palette_1_mask_sub_73d0: 0,
             pending_player_start_override_loc_11bd2: None,
             player_lifecycle: PlayerLifecycle::Alive,
             opening_slice: None,
@@ -1866,7 +1878,7 @@ impl NativeRuntime {
             self.pause_toggle_pending = false;
             self.pending_pause_restart_round = None;
             self.allow_pausing = false;
-            self.allow_pausing_fade_frames = 0;
+            self.clear_level_entry_fade_sub_73d0();
             true
         } else {
             false
@@ -1916,8 +1928,7 @@ impl NativeRuntime {
         self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
         self.pending_pause_restart_round = None;
-        self.allow_pausing = false;
-        self.allow_pausing_fade_frames = 0;
+        self.initialise_level_entry_fade_sub_73d0();
     }
 
     fn step_pause_restart_round_shell_loc_6b46(&mut self) {
@@ -3138,14 +3149,50 @@ impl NativeRuntime {
         if self.allow_pausing || !matches!(self.boot_state, BootState::InGame) {
             return;
         }
+        level::apply_pending_palette_fade_sub_14C0(
+            self.level_entry_fade_progress_sub_73d0,
+            &mut self.level_entry_pending_palette_0_mask_sub_73d0,
+            &mut self.level_entry_pending_palette_1_mask_sub_73d0,
+            &self.palette_buffer_2,
+            &self.palette_buffer_3,
+            &mut self.palette_buffer,
+        );
         // ASM sub_73D0 / loc_7420 (kid.asm:7527-7561): Load_InGame's
         // fullscreen fade worker adds `$10` to `$FFFFF876` each hibernating
         // frame and only sets `Allow_Pausing` once the value is greater than
         // `$0100`, i.e. on the seventeenth refresh.
+        self.level_entry_pending_palette_0_mask_sub_73d0 = u32::MAX;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = u32::MAX;
+        self.level_entry_fade_progress_sub_73d0 =
+            self.level_entry_fade_progress_sub_73d0.wrapping_add(0x10);
         self.allow_pausing_fade_frames = self.allow_pausing_fade_frames.saturating_add(1);
         if self.allow_pausing_fade_frames >= 17 {
             self.allow_pausing = true;
         }
+    }
+
+    pub(crate) fn initialise_level_entry_fade_sub_73d0(&mut self) {
+        let fade = level::initialise_fullscreen_palette_fade_sub_73D0(
+            self.palette_buffer,
+            self.teleport_warp_colour_fbcc,
+        );
+        self.palette_buffer_2 = fade.palette_buffer_2;
+        self.palette_buffer_3 = fade.palette_buffer_3;
+        self.level_entry_fade_progress_sub_73d0 = fade.fade_progress;
+        // ASM sub_73D0 / loc_7414 (kid.asm:7549): the worker seeds both
+        // pending masks to `-1` before its first one-frame hibernate, so the
+        // first live InGame refresh has a pending full-palette blend.
+        self.level_entry_pending_palette_0_mask_sub_73d0 = u32::MAX;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = u32::MAX;
+        self.allow_pausing = fade.allow_pausing;
+        self.allow_pausing_fade_frames = 0;
+    }
+
+    pub(crate) fn clear_level_entry_fade_sub_73d0(&mut self) {
+        self.level_entry_fade_progress_sub_73d0 = 0;
+        self.level_entry_pending_palette_0_mask_sub_73d0 = 0;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = 0;
+        self.allow_pausing_fade_frames = 0;
     }
 
     fn gameplay_jump_pressed(&self) -> bool {

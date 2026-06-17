@@ -1589,6 +1589,84 @@ fn live_same_level_teleporter_reloads_level_entry_loc_bcf6() {
 }
 
 #[test]
+fn live_same_level_teleporter_applies_yellow_fullscreen_fade_sub_73d0_loc_bcf6() {
+    let mut manifest = manifest_with_levels(4);
+    manifest.map_order = vec![0x4A, 0x4B, 0x2D, 0x2E];
+    let mut runtime = NativeRuntime::new(manifest);
+    runtime.boot_state = BootState::InGame;
+    runtime.current_level = LevelId(2);
+    runtime.palette_buffer =
+        core::array::from_fn(|index| if index < 0x20 { 0x0EEE } else { 0x0888 });
+    runtime.block_list = Some(terrain::BlockList {
+        prize_blocks: vec![],
+        ghost_blocks: vec![],
+        teleporters: vec![terrain::TeleporterEntry {
+            layout_addr: 0x1234,
+            col: 5,
+            row: 3,
+            dest_map_id: 0x2D,
+            dest_y: 10,
+            dest_x: 20,
+        }],
+        hidden_blocks: vec![],
+    });
+
+    let mut slice = combat_slice();
+    slice.teleporter_contact = Some(0x1234);
+    assert!(
+        runtime.resolve_frame_hazards(&mut slice, FrameInput::default(), 0, 0, 0, 0),
+        "teleporter activation should consume the frame"
+    );
+
+    assert_eq!(
+        runtime.palette_buffer_2, runtime.palette_buffer,
+        "ASM sub_73D0 loc_73E2 copies the current Palette_Buffer into Palette_Buffer_2"
+    );
+    assert!(
+        runtime.palette_buffer_3.iter().all(|word| *word == 0x00EE),
+        "ASM loc_BCF6 writes `$00EE` to `$FFFFFBCC`; sub_73D0 loc_73F4 flood-fills Palette_Buffer_3 from it"
+    );
+    assert_eq!(
+        runtime.level_entry_fade_progress_sub_73d0, 0,
+        "ASM sub_73D0 clears `$FFFFF876` before the first loc_7414 refresh"
+    );
+    assert_eq!(
+        runtime.level_entry_pending_palette_0_mask_sub_73d0,
+        u32::MAX,
+        "ASM sub_73D0 loc_7414 seeds `$FFFFF888=-1` before hibernating"
+    );
+    assert_eq!(
+        runtime.level_entry_pending_palette_1_mask_sub_73d0,
+        u32::MAX,
+        "ASM sub_73D0 loc_7414 seeds `$FFFFF88C=-1` before hibernating"
+    );
+
+    let mut expected_palette = runtime.palette_buffer;
+    let mut expected_mask_0 = runtime.level_entry_pending_palette_0_mask_sub_73d0;
+    let mut expected_mask_1 = runtime.level_entry_pending_palette_1_mask_sub_73d0;
+    crate::level::apply_pending_palette_fade_sub_14C0(
+        runtime.level_entry_fade_progress_sub_73d0,
+        &mut expected_mask_0,
+        &mut expected_mask_1,
+        &runtime.palette_buffer_2,
+        &runtime.palette_buffer_3,
+        &mut expected_palette,
+    );
+
+    runtime.boot_state = BootState::InGame;
+    runtime.step_frame(FrameInput::default());
+
+    assert_eq!(
+        runtime.palette_buffer, expected_palette,
+        "live sub_73D0 level-entry fade should apply the same sub_14C0 blend that the ROM pending masks request"
+    );
+    assert_eq!(
+        runtime.level_entry_fade_progress_sub_73d0, 0x0010,
+        "ASM sub_73D0 loc_7402 adds `$10` after the first hibernating refresh"
+    );
+}
+
+#[test]
 fn boss_level_flag_touch_is_suppressed_while_boss_alive_loc_c03a() {
     let mut runtime = NativeRuntime::new(manifest_with_levels(0x34));
     runtime.current_level = LevelId(0x10);

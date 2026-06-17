@@ -7569,8 +7569,7 @@ impl NativeRuntime {
         self.level_start_frame = Some(self.frame_index);
         self.level_skip_transition = None;
         self.level_skip_resume_hold = true;
-        self.allow_pausing = false;
-        self.allow_pausing_fade_frames = 0;
+        self.initialise_level_entry_fade_sub_73d0();
         // ASM loc_74E0 level-skip resume returns through the same load shell as
         // Teleport/Load_InGame, so the hidden resume hold should expose the
         // settled spawn, not the raw header Y that can sit above the floor.
@@ -7606,8 +7605,7 @@ impl NativeRuntime {
         self.paused = false;
         self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
-        self.allow_pausing = false;
-        self.allow_pausing_fade_frames = 0;
+        self.initialise_level_entry_fade_sub_73d0();
     }
 
     pub(crate) fn maybe_finish_level_skip_resume(&mut self) {
@@ -7619,8 +7617,7 @@ impl NativeRuntime {
         self.opening_slice = Some(self.level_skip_resume_final_slice(self.current_level));
         self.init_murder_wall(self.current_level, 0);
         self.init_weather(self.current_level);
-        self.allow_pausing = false;
-        self.allow_pausing_fade_frames = 0;
+        self.initialise_level_entry_fade_sub_73d0();
     }
 
     /// Returns true if the frame should continue to physics/gameplay processing.
@@ -7656,7 +7653,7 @@ impl NativeRuntime {
             self.pause_menu_option = 0;
             self.pause_toggle_pending = false;
             self.allow_pausing = false;
-            self.allow_pausing_fade_frames = 0;
+            self.clear_level_entry_fade_sub_73d0();
             self.player_lifecycle = PlayerLifecycle::Alive;
             self.death_camera_lock = None;
             self.death_preserved_object_velocity = None;
