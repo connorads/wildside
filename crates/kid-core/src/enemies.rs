@@ -9190,6 +9190,15 @@ impl ActiveEnemy {
             // hidden/emerge/submerge frames whose sprite links map through
             // GfxObjects_CollisionKid loc_1BCE to zero row `unk_314CE`.
             Some(NativeContactPhase::TarMonsterHidden)
+        } else if matches!(self.family, EnemyFamily::SpinningTwins)
+            && (matches!(self.spinning_twins_phase, SpinningTwinsPhase::FallingVisual)
+                || self.damage_flash_frames > 0
+                || self.death_animation_active)
+        {
+            // ASM Spinning_Twins.asm `stru_3B810`, `stru_3B836`, and
+            // `stru_3B83C` route through GfxObjects_CollisionKid loc_1BCE
+            // to zero row `unk_314CE`.
+            Some(NativeContactPhase::SpinningTwinsZero)
         } else {
             None
         };

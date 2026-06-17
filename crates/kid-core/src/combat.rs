@@ -11709,10 +11709,18 @@ fn tar_monster_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBound
 }
 
 fn spinning_twins_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if matches!(
+        enemy.contact_phase,
+        Some(NativeContactPhase::SpinningTwinsZero)
+    ) {
+        // ASM Spinning_Twins.asm `stru_3B810` transition visual, `stru_3B836`
+        // hurt frame, and `stru_3B83C` death frames route through
+        // GfxObjects_CollisionKid loc_1BCE to zero row `unk_314CE`.
+        return empty_enemy_contact_bounds();
+    }
+
     // ASM Spinning_Twins.asm live orbit/walk frames route through
     // GfxObjects_CollisionKid loc_1BCE to `unk_314D0`: `dc.w -$5,$A,-$1F,$1F`.
-    // Native does not expose the current sprite selector here yet, so keep the
-    // nonzero live row and leave the `unk_314CE` zero-row frames unmodelled.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-5, 5),
         Some(Direction::Left) | None => (-5, 5),

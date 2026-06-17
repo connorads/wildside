@@ -556,6 +556,32 @@ fn spinning_twins_live_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn spinning_twins_zero_phases_use_zero_collision_size_row_loc_1bce() {
+    let mut falling_visual = test_enemy(EnemyFamily::SpinningTwins, 101 << 16, 100 << 16, 1);
+    falling_visual.spinning_twins_phase = SpinningTwinsPhase::FallingVisual;
+
+    let mut hurt = test_enemy(EnemyFamily::SpinningTwins, 101 << 16, 100 << 16, 2);
+    hurt.damage_flash_frames = 1;
+
+    let mut death = test_enemy(EnemyFamily::SpinningTwins, 101 << 16, 100 << 16, 1);
+    death.death_animation_active = true;
+
+    for twins in [falling_visual, hurt, death] {
+        let bounds = enemy_contact_bounds(&twins.snapshot());
+        assert_eq!(
+            (
+                bounds.left_px,
+                bounds.right_px,
+                bounds.top_px,
+                bounds.bottom_px
+            ),
+            (1, 0, 1, 0),
+            "ASM Spinning_Twins.asm `stru_3B810`, `stru_3B836`, and `stru_3B83C` index zero CollisionSize row unk_314CE through GfxObjects_CollisionKid loc_1BCE"
+        );
+    }
+}
+
+#[test]
 fn scorpion_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 88 << 16;
