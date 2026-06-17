@@ -6890,6 +6890,28 @@ pub(crate) const BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A: u16 = 10 * 17;
 pub(crate) const BOSS_HEAD_DEATH_ANIMATION_FRAMES: u16 =
     BOSS_HEAD_DEATH_PRE_SOUND_FRAMES_LOC_39EE2 + BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossHeadDeathTransitionLoc39Ebe {
+    pub(crate) next_death_count_fb4e: u8,
+    pub(crate) starts_death_script_timer: u16,
+    pub(crate) set_has_kid_collision: bool,
+    pub(crate) enable_boss_body_and_flag_objects: bool,
+}
+
+pub(crate) fn boss_head_death_transition_loc_39ebe(
+    previous_death_count_fb4e: u8,
+) -> BossHeadDeathTransitionLoc39Ebe {
+    let next_death_count_fb4e = previous_death_count_fb4e.saturating_add(1);
+    // ASM loc_39EBE: `st has_kid_collision(a3); addq.b #1,($FFFFFB4E).w`;
+    // only count 3 releases the body/flag object chain before loc_39EE2.
+    BossHeadDeathTransitionLoc39Ebe {
+        next_death_count_fb4e,
+        starts_death_script_timer: BOSS_HEAD_DEATH_ANIMATION_FRAMES,
+        set_has_kid_collision: true,
+        enable_boss_body_and_flag_objects: next_death_count_fb4e == 3,
+    }
+}
+
 pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
     match family {
         EnemyFamily::Archer => Some(ARCHER_DEATH_ANIMATION_FRAMES),

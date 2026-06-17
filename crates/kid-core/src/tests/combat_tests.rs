@@ -13467,6 +13467,30 @@ mod chunk_03 {
     }
 
     #[test]
+    fn boss_head_death_transition_models_loc_39ebe_status_side_effects() {
+        assert_eq!(
+            boss_head_death_transition_loc_39ebe(0),
+            BossHeadDeathTransitionLoc39Ebe {
+                next_death_count_fb4e: 1,
+                starts_death_script_timer: BOSS_HEAD_DEATH_ANIMATION_FRAMES,
+                set_has_kid_collision: true,
+                enable_boss_body_and_flag_objects: false,
+            },
+            "ASM loc_39EBE sets has_kid_collision, increments `$FFFFFB4E`, and enters loc_39EE2 without releasing the body until the third head"
+        );
+        assert_eq!(
+            boss_head_death_transition_loc_39ebe(2),
+            BossHeadDeathTransitionLoc39Ebe {
+                next_death_count_fb4e: 3,
+                starts_death_script_timer: BOSS_HEAD_DEATH_ANIMATION_FRAMES,
+                set_has_kid_collision: true,
+                enable_boss_body_and_flag_objects: true,
+            },
+            "ASM loc_39EBE releases the body/flag object chain only when `$FFFFFB4E` reaches three"
+        );
+    }
+
+    #[test]
     fn shishkaboss_third_head_death_spawns_skewer_fan_loc_384d6() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.active_enemies = (0..3)

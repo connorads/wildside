@@ -8687,10 +8687,17 @@ impl NativeRuntime {
         if let Some(death_animation_frames) = enemy_death_animation_frames(family)
             && enemy.hit_points != 0
         {
+            let boss_head_death_transition = if is_multi_head_boss(family) {
+                let transition =
+                    boss_head_death_transition_loc_39ebe(self.multi_head_boss_death_count_fb4e);
+                self.multi_head_boss_death_count_fb4e = transition.next_death_count_fb4e;
+                Some(transition)
+            } else {
+                None
+            };
             let should_launch_shishkaboss_skewers = if matches!(family, EnemyFamily::Shishkaboss) {
-                self.multi_head_boss_death_count_fb4e =
-                    self.multi_head_boss_death_count_fb4e.saturating_add(1);
-                self.multi_head_boss_death_count_fb4e == 3
+                boss_head_death_transition
+                    .is_some_and(|transition| transition.enable_boss_body_and_flag_objects)
             } else {
                 false
             };
@@ -8756,7 +8763,10 @@ impl NativeRuntime {
             enemy.death_animation_active = true;
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
-            enemy.wait_timer = death_animation_frames;
+            enemy.wait_timer = boss_head_death_transition
+                .map_or(death_animation_frames, |transition| {
+                    transition.starts_death_script_timer
+                });
             self.rebuild_active_enemy_roster();
             return;
         }
