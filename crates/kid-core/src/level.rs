@@ -7573,7 +7573,6 @@ pub(crate) fn hitpoint_display_art_dma_loop_loc_12C34() -> JuggernautSkullArtDma
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleCardVramWordFillLoop {
     pub(crate) vram_word_addr: u16,
@@ -7582,7 +7581,6 @@ pub(crate) struct TitleCardVramWordFillLoop {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_clear_vram_loc_19ABE() -> TitleCardVramWordFillLoop {
     // ASM loc_19ABE (kid.asm:28595-28598): after `move.l
     // #vdpComm($1400,VRAM,WRITE),4(a6)` and `move.w #$DF,d1`, the loop writes
@@ -7597,7 +7595,6 @@ pub(crate) fn load_title_card_clear_vram_loc_19ABE() -> TitleCardVramWordFillLoo
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_tilemap_clear_loc_19B58() -> TitleCardVramWordFillLoop {
     // ASM loc_19B58 (kid.asm:28636-28637): after `move.l
     // #vdpComm($E000,VRAM,WRITE),4(a6)`, `move.w #$7FF,d0`, and
@@ -7612,7 +7609,6 @@ pub(crate) fn load_title_card_tilemap_clear_loc_19B58() -> TitleCardVramWordFill
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_name_table_clear_loc_19B6A() -> TitleCardVramWordFillLoop {
     // ASM loc_19B6A (kid.asm:28643-28644): after `move.l
     // #vdpComm($1280,VRAM,WRITE),4(a6)`, `moveq #$F,d0`, and `moveq #0,d1`,
@@ -7627,7 +7623,6 @@ pub(crate) fn load_title_card_name_table_clear_loc_19B6A() -> TitleCardVramWordF
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_palette_copy_word_count_loc_19B80() -> u16 {
     // ASM loc_19B80 (kid.asm:28651-28652): after loading the title-card
     // palette pointer into `a0`, `Palette_Buffer` into `a1`, and seeding
@@ -7646,7 +7641,6 @@ pub(crate) fn level_entry_title_letter_palette_copy_word_count_loc_1AB40() -> u1
     0x000F + 1
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TitleCardTopPaddingLoc19BC2 {
     pub(crate) fill_word: u16,
@@ -7655,7 +7649,6 @@ pub(crate) struct TitleCardTopPaddingLoc19BC2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_top_padding_loc_19BC2(
     title_card_height_tiles: u16,
 ) -> Option<TitleCardTopPaddingLoc19BC2> {
@@ -7678,7 +7671,6 @@ pub(crate) fn load_title_card_top_padding_loc_19BC2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_left_padding_loc_19BD4(
     horizontal_padding_words: u16,
 ) -> Option<TitleCardVramWordFillLoop> {
@@ -7698,7 +7690,6 @@ pub(crate) fn load_title_card_left_padding_loc_19BD4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_row_copy_seed_loc_19BDA(title_card_width_tiles: u16) -> Option<u16> {
     // ASM loc_19BDA (kid.asm:28692-28693): `move.w d0,d5` followed by
     // `subq.w #1,d5` primes the following `dbf d5,loc_19BDE` loop with an
@@ -7708,7 +7699,6 @@ pub(crate) fn load_title_card_row_copy_seed_loc_19BDA(title_card_width_tiles: u1
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_row_copy_word_count_loc_19BDE(row_copy_seed: u16) -> u16 {
     // ASM loc_19BDE (kid.asm:28696-28697): the `move.w (a0)+,(a6)` transfer
     // happens before `dbf d5,loc_19BDE` tests for `-1`, so a seed of
@@ -7717,7 +7707,6 @@ pub(crate) fn load_title_card_row_copy_word_count_loc_19BDE(row_copy_seed: u16) 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_right_padding_loc_19BEE(
     horizontal_padding_words: u16,
     title_card_width_tiles: u16,
@@ -7743,7 +7732,6 @@ pub(crate) fn load_title_card_right_padding_loc_19BEE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_bottom_padding_row_width_loc_19C02() -> u16 {
     // ASM loc_19C02 (kid.asm:28713): each bottom-padding row reloads
     // `d4=#$3F` immediately before `loc_19C04`, so the following inclusive
@@ -7752,7 +7740,6 @@ pub(crate) fn load_title_card_bottom_padding_row_width_loc_19C02() -> u16 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_title_card_bottom_padding_loc_19C04(
     title_card_height_tiles: u16,
 ) -> Option<TitleCardTopPaddingLoc19BC2> {

@@ -3019,57 +3019,101 @@ pub(crate) fn build_title_card_vdp(data: &TitleCardData, theme_index: u8) -> Opt
     vdp.registers[1] = 0x74;
 
     vdp.write_vram(0x5F60, &theme.art_bytes);
-    for i in 0..0x01C0 {
-        vdp.write_vram_word(0x1400 + i * 2, 0);
+
+    let clear_vram = crate::level::load_title_card_clear_vram_loc_19ABE();
+    for i in 0..usize::from(clear_vram.word_write_count) {
+        vdp.write_vram_word(
+            usize::from(clear_vram.vram_word_addr) + i * 2,
+            clear_vram.fill_word,
+        );
     }
-    for i in 0..0x0800 {
-        vdp.write_vram_word(0xE000 + i * 2, 0x0094);
+
+    let tilemap_clear = crate::level::load_title_card_tilemap_clear_loc_19B58();
+    for i in 0..usize::from(tilemap_clear.word_write_count) {
+        vdp.write_vram_word(
+            usize::from(tilemap_clear.vram_word_addr) + i * 2,
+            tilemap_clear.fill_word,
+        );
     }
-    for i in 0..0x0010 {
-        vdp.write_vram_word(0x1280 + i * 2, 0);
+
+    let name_table_clear = crate::level::load_title_card_name_table_clear_loc_19B6A();
+    for i in 0..usize::from(name_table_clear.word_write_count) {
+        vdp.write_vram_word(
+            usize::from(name_table_clear.vram_word_addr) + i * 2,
+            name_table_clear.fill_word,
+        );
     }
-    vdp.write_cram_words(0, &theme.palette_words);
+
+    let palette_word_count =
+        usize::from(crate::level::load_title_card_palette_copy_word_count_loc_19B80());
+    let palette_words = theme
+        .palette_words
+        .get(..palette_word_count)
+        .unwrap_or(&theme.palette_words);
+    vdp.write_cram_words(0, palette_words);
 
     let width = usize::from(theme.width_tiles);
     let height = usize::from(theme.height_tiles);
-    let top_rows = usize::from((0x001Cu16.saturating_sub(theme.height_tiles)) >> 1);
     let left_words = usize::from((0x0028u16.saturating_sub(theme.width_tiles)) >> 1);
-    let bottom_rows = 0x001Cusize.saturating_sub(top_rows + height);
-    let right_words = 64usize.saturating_sub(left_words + width);
     let mut dst_word_index = 0usize;
 
-    for _ in 0..top_rows {
-        for _ in 0..64 {
-            vdp.write_vram_word(dst_word_index * 2, 0x02FB);
-            dst_word_index += 1;
+    if let Some(top_padding) =
+        crate::level::load_title_card_top_padding_loc_19BC2(theme.height_tiles)
+    {
+        for _ in 0..usize::from(top_padding.row_count) {
+            for _ in 0..usize::from(top_padding.words_per_row) {
+                vdp.write_vram_word(dst_word_index * 2, top_padding.fill_word);
+                dst_word_index += 1;
+            }
         }
     }
 
     for row in 0..height {
-        for _ in 0..left_words {
-            vdp.write_vram_word(dst_word_index * 2, 0x02FB);
-            dst_word_index += 1;
+        if let Some(left_padding) = crate::level::load_title_card_left_padding_loc_19BD4(
+            u16::try_from(left_words).unwrap_or(u16::MAX),
+        ) {
+            for _ in 0..usize::from(left_padding.word_write_count) {
+                vdp.write_vram_word(dst_word_index * 2, left_padding.fill_word);
+                dst_word_index += 1;
+            }
         }
-        for col in 0..width {
-            let src_index = row * width + col;
-            let word = theme
-                .tilemap_words
-                .get(src_index)
-                .copied()
-                .unwrap_or(0x02FB);
-            vdp.write_vram_word(dst_word_index * 2, word);
-            dst_word_index += 1;
+
+        if let Some(row_copy_seed) =
+            crate::level::load_title_card_row_copy_seed_loc_19BDA(theme.width_tiles)
+        {
+            for col in 0..usize::from(crate::level::load_title_card_row_copy_word_count_loc_19BDE(
+                row_copy_seed,
+            )) {
+                let src_index = row * width + col;
+                let word = theme
+                    .tilemap_words
+                    .get(src_index)
+                    .copied()
+                    .unwrap_or(0x02FB);
+                vdp.write_vram_word(dst_word_index * 2, word);
+                dst_word_index += 1;
+            }
         }
-        for _ in 0..right_words {
-            vdp.write_vram_word(dst_word_index * 2, 0x02FB);
-            dst_word_index += 1;
+
+        if let Some(right_padding) = crate::level::load_title_card_right_padding_loc_19BEE(
+            u16::try_from(left_words).unwrap_or(u16::MAX),
+            theme.width_tiles,
+        ) {
+            for _ in 0..usize::from(right_padding.word_write_count) {
+                vdp.write_vram_word(dst_word_index * 2, right_padding.fill_word);
+                dst_word_index += 1;
+            }
         }
     }
 
-    for _ in 0..bottom_rows {
-        for _ in 0..64 {
-            vdp.write_vram_word(dst_word_index * 2, 0x02FB);
-            dst_word_index += 1;
+    if let Some(bottom_padding) =
+        crate::level::load_title_card_bottom_padding_loc_19C04(theme.height_tiles)
+    {
+        for _ in 0..usize::from(bottom_padding.row_count) {
+            for _ in 0..usize::from(bottom_padding.words_per_row) {
+                vdp.write_vram_word(dst_word_index * 2, bottom_padding.fill_word);
+                dst_word_index += 1;
+            }
         }
     }
 
