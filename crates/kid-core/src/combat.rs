@@ -11919,8 +11919,14 @@ fn tornado_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // ASM Tornado.asm live loop animation `stru_35B10` uses
     // `LnkTo_unk_C784E/C7856/C785E`, which map through GfxObjects_CollisionKid
     // loc_1BCE to `unk_31D14` (`dc.w -$8,$E,-$8,$E`) and zero rows
-    // `unk_31D28`/`unk_31D2A`. Native does not expose the exact sprite phase
-    // here yet, so keep the active nonzero tornado body row as a union.
+    // `unk_31D28`/`unk_31D2A`.
+    if matches!(
+        enemy.contact_phase,
+        Some(NativeContactPhase::TornadoLiveZero)
+    ) {
+        return empty_enemy_contact_bounds();
+    }
+
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-6, 8),
         Some(Direction::Left) | None => (-8, 6),

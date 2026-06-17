@@ -1836,6 +1836,7 @@ pub enum NativeContactPhase {
     ScorpionStingTail,
     SphereLiveZero,
     TarMonsterHidden,
+    TornadoLiveZero,
     SpinningTwinsZero,
 }
 

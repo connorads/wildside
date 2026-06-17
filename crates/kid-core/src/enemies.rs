@@ -9245,6 +9245,15 @@ impl ActiveEnemy {
             // `stru_3B83C` route through GfxObjects_CollisionKid loc_1BCE
             // to zero row `unk_314CE`.
             Some(NativeContactPhase::SpinningTwinsZero)
+        } else if matches!(self.family, EnemyFamily::Tornado)
+            && !self.death_animation_active
+            && tornado_live_zero_contact_row_stru_35b10(self.grounded_frames)
+        {
+            // ASM Tornado.asm `stru_35B10` advances while loc_35908
+            // hibernates. `LnkTo_unk_C7856` and `LnkTo_unk_C785E` resolve
+            // through GfxObjects_CollisionKid loc_1BCE to zero rows
+            // `unk_31D28`/`unk_31D2A`.
+            Some(NativeContactPhase::TornadoLiveZero)
         } else {
             None
         };
@@ -11848,6 +11857,16 @@ pub(crate) fn ufo_random_beam_should_start_loc_34f8e(random_byte: u8) -> bool {
 pub(crate) const TORNADO_ACCELERATION: i32 = 0xC00;
 /// Per-level cycle timers: level 0 = 60, level 1 = 40, level 2 = 30 (unk_3588C).
 pub(crate) const TORNADO_PATTERN_FRAMES: [u16; 3] = [60, 40, 30];
+const TORNADO_LIVE_ANIMATION_FRAME_TICKS: u8 = 5;
+const TORNADO_LIVE_ANIMATION_FRAMES: u8 = 3;
+const TORNADO_LIVE_ANIMATION_TICKS: u8 =
+    TORNADO_LIVE_ANIMATION_FRAME_TICKS * TORNADO_LIVE_ANIMATION_FRAMES;
+
+pub(crate) fn tornado_live_zero_contact_row_stru_35b10(animation_tick: u8) -> bool {
+    // ASM Tornado.asm `stru_35B10`: C784E is the active row for 5 ticks,
+    // then C7856/C785E are zero rows for the next 10 ticks before looping.
+    animation_tick % TORNADO_LIVE_ANIMATION_TICKS >= TORNADO_LIVE_ANIMATION_FRAME_TICKS
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TornadoPattern {
@@ -13354,6 +13373,14 @@ pub(crate) fn step_tornado_with_rng(
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    if !enemy.death_animation_active {
+        // ASM Tornado.asm loc_35908 hibernates one frame after acceleration
+        // while `stru_35B10` continues to advance. Tornado never uses
+        // `grounded_frames`, so native stores the live contact-animation tick
+        // there for GfxObjects_CollisionKid loc_1BCE row selection.
+        enemy.grounded_frames = (enemy.grounded_frames + 1) % TORNADO_LIVE_ANIMATION_TICKS;
+    }
 
     // ASM Tornado.asm loc_35908: the main flight loop decrements `$44(a5)`;
     // only the zero result falls through to loc_359F2 and resets from `unk_3588C`.
