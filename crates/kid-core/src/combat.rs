@@ -11963,11 +11963,22 @@ fn ufo_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 
 fn robot_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     let (left_px, right_px, top_px) = if enemy.on_ground.is_none() {
+        if matches!(
+            enemy.contact_phase,
+            Some(NativeContactPhase::RobotHeadHitZero)
+        ) {
+            // ASM Robot.asm loc_3A8FC starts linked-head hit script
+            // `stru_3A744`; `LnkTo_unk_C8308/C8310` route through
+            // GfxObjects_CollisionKid loc_1BCE to zero row `unk_31C20`.
+            return empty_enemy_contact_bounds();
+        }
+
         // ASM Robot.asm linked head animation `stru_3A716` uses
         // `LnkTo_unk_C82D8..C8300`, whose normal head frames map through
         // GfxObjects_CollisionKid loc_1BCE to rows `unk_31BE4..unk_31C0C`:
-        // `dc.w -$12,$1E,-$10,$10`. The shooting head row `unk_31C20` is a
-        // zero-row, but native does not expose the exact child sprite phase yet.
+        // `dc.w -$12,$1E,-$10,$10`. The shoot head `LnkTo_unk_C8328` maps to
+        // active row `unk_31C22`; `RobotHeadHitZero` covers the hit-reaction
+        // zero row instead.
         match enemy.facing {
             Some(Direction::Right) => (-12, 18, -16),
             Some(Direction::Left) | None => (-18, 12, -16),

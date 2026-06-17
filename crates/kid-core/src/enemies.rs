@@ -9349,15 +9349,21 @@ impl ActiveEnemy {
             _ => return None,
         };
 
-        let contact_phase =
-            if matches!(self.family, EnemyFamily::Scorpion) && self.scorpion_sting_frames > 0 {
-                // ASM Scorpion.asm loc_3DDEE switches the linked tail object to
-                // sting script `stru_3DB8E`; contact then uses CollisionSize rows
-                // `unk_31926`/`unk_31930` through GfxObjects_CollisionKid loc_1BCE.
-                Some(NativeContactPhase::ScorpionStingTail)
-            } else {
-                None
-            };
+        let contact_phase = if matches!(self.family, EnemyFamily::Robot)
+            && self.damage_flash_frames > 0
+        {
+            // ASM Robot.asm loc_3A8FC starts child hit animation `stru_3A744`;
+            // its `LnkTo_unk_C8308/C8310` frames route through
+            // GfxObjects_CollisionKid loc_1BCE to zero row `unk_31C20`.
+            Some(NativeContactPhase::RobotHeadHitZero)
+        } else if matches!(self.family, EnemyFamily::Scorpion) && self.scorpion_sting_frames > 0 {
+            // ASM Scorpion.asm loc_3DDEE switches the linked tail object to
+            // sting script `stru_3DB8E`; contact then uses CollisionSize rows
+            // `unk_31926`/`unk_31930` through GfxObjects_CollisionKid loc_1BCE.
+            Some(NativeContactPhase::ScorpionStingTail)
+        } else {
+            None
+        };
 
         Some(NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {

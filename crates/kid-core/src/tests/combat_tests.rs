@@ -1051,6 +1051,40 @@ fn robot_parent_and_head_contact_use_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn robot_hit_reaction_head_uses_zero_collision_size_row_loc_1bce() {
+    let mut robot = test_enemy(EnemyFamily::Robot, 101 << 16, 100 << 16, 3);
+    robot.damage_flash_frames = 1;
+
+    let head = robot
+        .child_attachment_snapshot()
+        .expect("Robot.asm loc_3A7EE allocates a linked head object");
+    let head_bounds = enemy_contact_bounds(&head);
+    assert!(
+        head_bounds.left_px > head_bounds.right_px && head_bounds.top_px > head_bounds.bottom_px,
+        "ASM Robot.asm loc_3A8FC/stru_3A744 uses LnkTo_unk_C8308/C8310 for hit reaction; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_31C20"
+    );
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = head.x_pos;
+    slice.player.y_pos = head.y_pos;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &head,
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "the linked Robot head has no Kid contact during the ROM hit-reaction zero-row frames"
+    );
+}
+
+#[test]
 fn ufo_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 88 << 16;
