@@ -15431,6 +15431,83 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_state_deallocates_deleted_special_slot_for_reuse_loc_41ee_23b4() {
+        let active_window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let inactive_window = ActivationWindow {
+            x_min: 800,
+            x_max: 800,
+            y_min: 800,
+            y_max: 800,
+        };
+        let special_placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 8,
+            subtype: 4,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("4"),
+                relative_offset: None,
+            },
+        };
+        let normal_placement = PlatformPlacement {
+            kind: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+            ..special_placement.clone()
+        };
+        let layout = PlatformLayout {
+            placements: vec![special_placement, normal_placement],
+        };
+        let mut state = PlatformLoaderState::default();
+
+        state.advance_to_window(&layout, active_window);
+        state.advance_to_window(&layout, inactive_window);
+        assert_eq!(
+            state
+                .slot_model
+                .active_slot_records_loc_2728()
+                .first()
+                .map(|record| (record.slot_addr, record.layout_offset_words)),
+            Some((0xEDBA, 0x0000)),
+            "ASM loc_2850 keeps the special slot linked with `$12(a3)` set before TrapPlatformDown_Delete runs",
+        );
+
+        assert_eq!(
+            state.deallocate_layout_offset_sub_23B4(0x0000),
+            DeallocatePlatformSlotResultSub23B4::Deallocated,
+            "ASM TrapPlatformDown_Delete loc_41EE tail-calls Deallocate_PlatformSlot before Delete_CurrentObject",
+        );
+        assert!(
+            state.slot_model.active_slot_records_loc_2728().is_empty(),
+            "Deallocate_PlatformSlot/sub_23B4 must unlink the deleted special platform from Addr_FirstPlatformSlot",
+        );
+
+        state.advance_to_window(&layout, active_window);
+        assert_eq!(
+            state
+                .slot_model
+                .active_slot_records_loc_2728()
+                .first()
+                .map(|record| (record.slot_addr, record.layout_offset_words)),
+            Some((0xEDBA, 0x0000)),
+            "Deallocate_PlatformSlot/sub_23B4 pushes the deleted slot to Addr_NextFreePlatformSlot, so the next Allocate_PlatformSlot/sub_238E reuses $EDBA when the cursor revisits record 0",
+        );
+    }
+
+    #[test]
     fn platform_loader_keeps_loaded_special_slot_out_of_range_loc_2850() {
         let active_window = ActivationWindow {
             x_min: 320,

@@ -610,6 +610,26 @@ impl PlatformLoaderSlotModelLoc2744 {
             .fold(0, |mask, bit| mask | bit)
     }
 
+    #[allow(non_snake_case)]
+    pub(crate) fn deallocate_layout_offset_sub_23B4(
+        &mut self,
+        layout_offset_words: u16,
+    ) -> DeallocatePlatformSlotResultSub23B4 {
+        let Some(slot_addr) = self.find_slot_by_layout_offset_sub_2728(layout_offset_words) else {
+            return DeallocatePlatformSlotResultSub23B4::MissingSlot {
+                failure_label: "loc_6E2",
+            };
+        };
+        let result = self.pool.deallocate_sub_23B4(slot_addr);
+        if result == DeallocatePlatformSlotResultSub23B4::Deallocated {
+            if let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
+                self.slot_layout_offsets[slot_index] = None;
+                self.slot_deactivated_flags[slot_index] = 0;
+            }
+        }
+        result
+    }
+
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
         let cursor =
             platform_loader_cursor_step_loc_2744(layout.placements.len(), self.offset_words);
@@ -1184,6 +1204,24 @@ impl PlatformLoaderState {
 
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
         self.slot_model.advance_to_window(layout, window);
+        self.sync_slot_model_facade_loc_2744();
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn deallocate_layout_offset_sub_23B4(
+        &mut self,
+        layout_offset_words: u16,
+    ) -> DeallocatePlatformSlotResultSub23B4 {
+        let result = self
+            .slot_model
+            .deallocate_layout_offset_sub_23B4(layout_offset_words);
+        if result == DeallocatePlatformSlotResultSub23B4::Deallocated {
+            self.sync_slot_model_facade_loc_2744();
+        }
+        result
+    }
+
+    fn sync_slot_model_facade_loc_2744(&mut self) {
         self.next_index = self.slot_model.next_index_loc_2762();
         self.offset_words = self.slot_model.offset_words_loc_2744();
         self.loaded_mask = self.slot_model.loaded_mask_loc_2762();

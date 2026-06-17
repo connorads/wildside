@@ -4326,17 +4326,33 @@ impl NativeRuntime {
             platform_support_crawling,
         );
         let kid_y_px = (slice.player.y_pos >> 16) as i16;
-        let mut platform_index = 0usize;
         let active_platforms_before_special_step = self.active_platforms.clone();
-        self.active_platforms.retain_mut(|platform| {
+        let mut stepped_platforms = Vec::with_capacity(self.active_platforms.len());
+        for (platform_index, mut platform) in self.active_platforms.iter().copied().enumerate() {
             let action = platform.step_special_platform_loc_40D2(
                 platform_standing_before == Some(platform_index),
                 kid_y_px,
                 platform.deactivated_flag,
             );
-            platform_index += 1;
-            action != SpecialPlatformStepActionLoc40D2::Delete
-        });
+            if action == SpecialPlatformStepActionLoc40D2::Delete {
+                if let Some(layout_index) = platform.layout_index {
+                    // ASM TrapPlatformDown_Delete / TrapPlatformUp_Delete
+                    // tail-calls Deallocate_PlatformSlot before
+                    // Delete_CurrentObject. Mirror that through the live
+                    // PlatformLoaderState slot model so the freed slot becomes
+                    // the next Allocate_PlatformSlot head.
+                    slice
+                        .objects
+                        .platform_loader
+                        .deallocate_layout_offset_sub_23B4(
+                            platform_loader_offset_for_index_loc_286E(layout_index),
+                        );
+                }
+            } else {
+                stepped_platforms.push(platform);
+            }
+        }
+        self.active_platforms = stepped_platforms;
         // ASM Addr_PlatformStandingOn is a slot address; after native vector
         // compaction from loc_2850/delete actions, preserve that identity.
         let platform_standing_before = remap_standing_platform_index_by_layout_index_loc_2850(
