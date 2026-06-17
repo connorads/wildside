@@ -3301,6 +3301,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3340,6 +3341,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::BossEyeAttack,
             boss_eye_sprite_mapping_index: 5,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3373,6 +3375,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::BossEyeSatellite,
             boss_eye_sprite_mapping_index: 3,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3412,6 +3415,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3752,6 +3756,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TankBullet,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3791,6 +3796,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TarMonsterGlob,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3834,6 +3840,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TarMonsterBurstChild,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -3932,6 +3939,7 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::RobotShotImpact,
                 boss_eye_sprite_mapping_index: 0,
+                boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             }];
@@ -3975,6 +3983,7 @@ mod tests {
                 animation_elapsed_frames,
                 kind: ActiveProjectileKind::RobotShot,
                 boss_eye_sprite_mapping_index: 0,
+                boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             }];
@@ -4020,6 +4029,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4053,6 +4063,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4088,6 +4099,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DragonWalkingBreath,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4156,6 +4168,7 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DragonFlyingDescentFire,
                 boss_eye_sprite_mapping_index: 0,
+                boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: state,
                 dragon_flying_descent_fire_counter: 0,
             }];
@@ -4225,6 +4238,7 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DragonWalkingBreath,
                 boss_eye_sprite_mapping_index: 0,
+                boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             }];
@@ -4290,6 +4304,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsDrop,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4325,6 +4340,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4363,6 +4379,7 @@ mod tests {
             animation_elapsed_frames: 31,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];
@@ -4395,6 +4412,7 @@ mod tests {
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawlerFinish,
             boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
             dragon_flying_descent_fire_counter: 0,
         }];

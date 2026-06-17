@@ -159,6 +159,10 @@ pub struct ActiveProjectileSnapshot {
     pub kind: ActiveProjectileKind,
     #[serde(default)]
     pub boss_eye_sprite_mapping_index: u8,
+    /// ROM sprite-order word `$A(a3)` for boss-eye workers. ASM `sub_393C8`
+    /// and `sub_39420` nudge this when the parent `$16` frame byte changes.
+    #[serde(default)]
+    pub boss_eye_sprite_order_word_a: u16,
     #[serde(default)]
     pub dragon_flying_descent_fire_state: DragonFlyingDescentFireState,
     #[serde(default)]

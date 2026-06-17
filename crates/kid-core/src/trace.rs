@@ -1970,6 +1970,53 @@ mod tests {
     }
 
     #[test]
+    fn trace_preserves_boss_eye_orbit_sprite_order_word_sub_393c8_39420() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 640,
+            height_pixels: 480,
+        }));
+        let mut orbit_workers = crate::enemies::BossEyeOrbitWorkers::active_loc_38902_3899a(
+            0x0200,
+            0x0100,
+            0,
+            Direction::Right,
+        );
+        orbit_workers.step_loc_3893e_389d6(0x0200, 0x0100, Direction::Right);
+
+        runtime.active_enemies.push(ActiveEnemy {
+            family: EnemyFamily::Shishkaboss,
+            x_pos: 0x0200_0000,
+            y_pos: 0x0100_0000,
+            facing: Direction::Right,
+            boss_head_index: 0,
+            boss_eye_orbit_workers: orbit_workers,
+            ..drips_test_enemy(1, 0)
+        });
+
+        let trace = runtime.trace_frame();
+        let satellites = trace
+            .active_projectile_details
+            .iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::BossEyeSatellite)
+            .collect::<Vec<_>>();
+
+        assert!(
+            satellites
+                .iter()
+                .any(|eye| { eye.x_pos == 0x01EC_0000 && eye.boss_eye_sprite_order_word_a == 1 }),
+            "ASM sub_393C8 loc_39402 increments `$A(a3)` when parent frame `$16` changes from zero"
+        );
+        assert!(
+            satellites.iter().any(|eye| {
+                eye.x_pos == 0x0200_0000 && eye.boss_eye_sprite_order_word_a == 0xFFFF
+            }),
+            "ASM sub_39420 loc_39454 decrements `$A(a3)` when parent frame `$16` changes from zero"
+        );
+    }
+
+    #[test]
     fn title_menu_cursor_player_state_requires_early_start_carry_window() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::StartingLevel {
@@ -7183,6 +7230,7 @@ impl NativeRuntime {
                     boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
                         p.boss_eye_sprite_mapping_label,
                     ),
+                    boss_eye_sprite_order_word_a: 0,
                     dragon_flying_descent_fire_state: p.dragon_flying_descent_fire_state,
                     dragon_flying_descent_fire_counter: p.dragon_flying_descent_fire_counter,
                 })
@@ -7199,6 +7247,7 @@ impl NativeRuntime {
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::Generic,
                             boss_eye_sprite_mapping_index: 0,
+                            boss_eye_sprite_order_word_a: 0,
                             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                             dragon_flying_descent_fire_counter: 0,
                         }),
@@ -7216,6 +7265,7 @@ impl NativeRuntime {
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::FireDemonDeathTrail,
                             boss_eye_sprite_mapping_index: 0,
+                            boss_eye_sprite_order_word_a: 0,
                             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                             dragon_flying_descent_fire_counter: 0,
                         }),
@@ -7466,21 +7516,30 @@ impl NativeRuntime {
                     kid_y,
                 )
                 .into_iter()
-                .flatten()
-                .map(|slot| ActiveProjectileSnapshot {
-                    x_pos: u32::from(slot.x_pos) << 16,
-                    y_pos: u32::from(slot.y_pos) << 16,
-                    x_velocity: 0,
-                    y_velocity: 0,
-                    friendly: false,
-                    remaining_frames: 0,
-                    animation_elapsed_frames: 0,
-                    kind: ActiveProjectileKind::BossEyeSatellite,
-                    boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
-                        slot.sprite_mapping,
-                    ),
-                    dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
-                    dragon_flying_descent_fire_counter: 0,
+                .enumerate()
+                .filter_map(|(slot_index, slot)| {
+                    let slot = slot?;
+                    let boss_eye_sprite_order_word_a = match slot_index {
+                        0 => orbit_workers.primary_sprite_order_word_a,
+                        1 => orbit_workers.counter_sprite_order_word_a,
+                        _ => 0,
+                    };
+                    Some(ActiveProjectileSnapshot {
+                        x_pos: u32::from(slot.x_pos) << 16,
+                        y_pos: u32::from(slot.y_pos) << 16,
+                        x_velocity: 0,
+                        y_velocity: 0,
+                        friendly: false,
+                        remaining_frames: 0,
+                        animation_elapsed_frames: 0,
+                        kind: ActiveProjectileKind::BossEyeSatellite,
+                        boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
+                            slot.sprite_mapping,
+                        ),
+                        boss_eye_sprite_order_word_a,
+                        dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                        dragon_flying_descent_fire_counter: 0,
+                    })
                 })
                 .collect::<Vec<_>>()
             })

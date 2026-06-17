@@ -3075,6 +3075,7 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind,
                 boss_eye_sprite_mapping_index: 0,
+                boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             });
@@ -3166,6 +3167,7 @@ mod tests {
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DripsDrop,
                 boss_eye_sprite_mapping_index: 0,
+                boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
                 dragon_flying_descent_fire_counter: 0,
             });
