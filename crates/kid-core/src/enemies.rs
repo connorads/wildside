@@ -19742,9 +19742,16 @@ fn step_lion_charge_movement_loc_3e11e(
                 ),
             };
 
-            if scan.hitbox_blocked {
+            let floor =
+                terrain::probe_floor_hitbox(grid, center_x_px, foot_y_px, ENEMY_PROBE_HALF_WIDTH);
+            let floor_edge_overlap =
+                floor.on_ground && (floor.floor_y_px..=floor.floor_y_px + 1).contains(&foot_y_px);
+            if scan.hitbox_blocked && !floor_edge_overlap {
                 // ASM Lion.asm loc_3E6AE/loc_3E7CA: after sub_36B3C/sub_36BD6,
                 // non-zero d5 branches to loc_3E94E and stores collision_type=$FFFF.
+                // Native can transiently carry `on_ground=false` while the
+                // feet are already snapped onto the floor row; do not treat
+                // that floor edge as the body-overlap collision.
                 register_enemy_terrain_kill(enemy);
                 enemy.shared_walker_debug_branch = Some("lion_charge_airborne_terrain_kill");
                 return;
@@ -36943,6 +36950,38 @@ mod tests {
             lion.x_pos,
             24 << 16,
             "ASM Lion.asm loc_3E6AE checks sub_36B3C before committing horizontal motion"
+        );
+    }
+
+    #[test]
+    fn lion_airborne_charge_floor_edge_overlap_does_not_route_to_loc_3e94e() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 6 * 6 * 2], 6, 6);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 24 << 16,
+            y_pos: 33 << 16,
+            x_velocity: -0x0001_8000,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 8,
+            lion_state: LionState::ResumingCharge,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut projectile_sink = Some(&mut projectiles);
+
+        step_lion(&mut lion, Some(&grid), None, &mut projectile_sink);
+
+        assert_eq!(
+            lion.hit_points, 8,
+            "ASM Lion.asm loc_3E7CA should not branch to loc_3E94E just because native's transient airborne state overlaps the floor row"
+        );
+        assert!(
+            !lion.death_animation_active,
+            "Level 0x07 oracle keeps the lower Lion alive when its feet ride the floor edge"
         );
     }
 
