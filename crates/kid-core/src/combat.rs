@@ -11640,19 +11640,17 @@ fn dragon_flying_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBo
     // ASM Dragon_Flying.asm main animation `stru_34600` uses
     // `LnkTo_unk_C75EE..C760E`, while descent/fire setup references
     // `LnkTo_unk_C75FE..C7636`. GfxObjects_CollisionKid loc_1BCE resolves the
-    // descent zero rows `LnkTo_unk_C75FE`/`LnkTo_unk_C7616` to `unk_31DE0`.
+    // normal zero rows `LnkTo_unk_C75FE`/`LnkTo_unk_C7606` and descent zero
+    // rows `LnkTo_unk_C75FE`/`LnkTo_unk_C7616` to `unk_31DE0`.
     if matches!(
         _enemy.contact_phase,
-        Some(NativeContactPhase::DragonFlyingDiveZero)
+        Some(NativeContactPhase::DragonFlyingDiveZero | NativeContactPhase::DragonFlyingMainZero)
     ) {
         return empty_enemy_contact_bounds();
     }
     // The remaining nonzero parent rows are `unk_31DD6`
     // (`dc.w -$E,$1C,-$1C,$1C`) and `unk_31A60`
-    // (`dc.w -$A,$14,-$19,$19`). Native still does not expose the normal
-    // `stru_34600` sprite phase here, so keep the nonzero parent union and
-    // leave those animation-script zero rows unmodelled; descent fire is a
-    // separate projectile.
+    // (`dc.w -$A,$14,-$19,$19`); descent fire is a separate projectile.
     EnemyContactBounds {
         left_px: -14,
         right_px: 14,

@@ -7591,6 +7591,16 @@ const DRAGON_FLYING_COLID_CEILING: u16 = 0x0010;
 const DRAGON_FLYING_COLID_SLOPEUP: u16 = 0x0014;
 const DRAGON_FLYING_COLID_SLOPEDOWN: u16 = 0x0018;
 const DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES: u16 = 2;
+const DRAGON_FLYING_MAIN_ANIMATION_FRAME_TICKS: u16 = 7;
+const DRAGON_FLYING_MAIN_ANIMATION_FRAMES: u16 = 20;
+const DRAGON_FLYING_MAIN_ANIMATION_TICKS: u16 =
+    DRAGON_FLYING_MAIN_ANIMATION_FRAME_TICKS * DRAGON_FLYING_MAIN_ANIMATION_FRAMES;
+
+pub(crate) fn dragon_flying_main_zero_contact_row_stru_34600(animation_tick: u16) -> bool {
+    let frame = (animation_tick % DRAGON_FLYING_MAIN_ANIMATION_TICKS)
+        / DRAGON_FLYING_MAIN_ANIMATION_FRAME_TICKS;
+    matches!(frame, 2 | 3 | 6 | 7 | 10 | 11 | 14 | 15 | 18 | 19)
+}
 
 pub(crate) fn dragon_drift_negative_velocity_loc_347b2(x_velocity: i32) -> i32 {
     // ASM Dragon_Flying.asm loc_347B2: negative drift subtracts `$200`
@@ -9205,6 +9215,17 @@ impl ActiveEnemy {
             // loc_1BCE to CollisionSize row `unk_31DE0`, so those descent
             // frames have no parent Kid contact.
             Some(NativeContactPhase::DragonFlyingDiveZero)
+        } else if matches!(self.family, EnemyFamily::Dragon)
+            && !self.death_animation_active
+            && !matches!(self.dragon_phase, DragonFlyingState::Descending)
+            && dragon_flying_main_zero_contact_row_stru_34600(self.wait_timer)
+        {
+            // ASM Dragon_Flying.asm `stru_34600` repeats 20 seven-tick
+            // normal-animation frames. `LnkTo_unk_C75FE` and
+            // `LnkTo_unk_C7606` resolve through GfxObjects_CollisionKid
+            // loc_1BCE to CollisionSize row `unk_31DE0`, so those normal
+            // frames have no parent Kid contact.
+            Some(NativeContactPhase::DragonFlyingMainZero)
         } else if matches!(self.family, EnemyFamily::TarMonster)
             && !matches!(
                 self.tar_monster_state,
@@ -14656,6 +14677,13 @@ pub(crate) fn step_dragon(
     player_y_pos: Option<u32>,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
 ) {
+    if !matches!(enemy.dragon_phase, DragonFlyingState::None) && !enemy.death_animation_active {
+        // ASM Dragon_Flying.asm loc_346C4 initialises `stru_34600`; each
+        // hibernated script frame lets the GfxObject animation advance. Native
+        // stores the live normal-animation tick in `wait_timer` for contact
+        // row selection through GfxObjects_CollisionKid loc_1BCE.
+        enemy.wait_timer = (enemy.wait_timer + 1) % DRAGON_FLYING_MAIN_ANIMATION_TICKS;
+    }
     match enemy.dragon_phase {
         DragonFlyingState::None => {}
         DragonFlyingState::Hovering => {
@@ -15097,6 +15125,9 @@ fn dragon_restart_script(enemy: &mut ActiveEnemy) {
     enemy.dragon_script_cmd = 0;
     enemy.x_velocity = 0;
     enemy.y_velocity = 0;
+    // ASM Dragon_Flying.asm loc_346C4 reinitialises normal animation
+    // `stru_34600`; restart the native contact-phase tick with it.
+    enemy.wait_timer = 0;
     let script = dragon_script(enemy.dragon_script_variant);
     match script[0] {
         DragonFlyingCmd::Hover(frames) => {

@@ -1831,6 +1831,7 @@ pub struct NativeObjectSnapshot {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NativeContactPhase {
     DragonFlyingDiveZero,
+    DragonFlyingMainZero,
     RobotHeadHitZero,
     ScorpionStingTail,
     SphereLiveZero,

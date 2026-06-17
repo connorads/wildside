@@ -433,6 +433,58 @@ fn dragon_flying_descent_nonzero_contact_keeps_off_345f6_body_row_loc_348ce() {
 }
 
 #[test]
+fn dragon_flying_normal_animation_zero_contact_uses_stru_34600_loc_1bce() {
+    let mut dragon = test_enemy(EnemyFamily::Dragon, 101 << 16, 100 << 16, 1);
+    dragon.dragon_phase = DragonFlyingState::Hovering;
+    dragon.wait_timer = 14;
+
+    let bounds = enemy_contact_bounds(&dragon.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
+        "ASM Dragon_Flying.asm `stru_34600` frame tick 14 selects LnkTo_unk_C75FE, which indexes zero CollisionSize row unk_31DE0 through GfxObjects_CollisionKid loc_1BCE"
+    );
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 101 << 16;
+    slice.player.y_pos = 100 << 16;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0;
+    slice.player.on_ground = true;
+
+    assert_eq!(
+        classify_enemy_contact_with_half_width(
+            slice.player,
+            &dragon.snapshot(),
+            slice.player.y_velocity,
+            slice.player.y_pos,
+            PlayerForm::TheKid.half_width() as i64,
+        ),
+        EnemyContactResult::None,
+        "normal animation zero rows should suppress parent Kid contact while `stru_34600` is on C75FE/C7606"
+    );
+}
+
+#[test]
+fn dragon_flying_normal_animation_tick_advances_during_hover_loc_3480a() {
+    let mut dragon = test_dragon(0, 101 << 16, 100 << 16);
+    dragon.wait_timer = 13;
+
+    let mut projectiles = Vec::new();
+    let mut projectile_shell = Some(&mut projectiles);
+    step_dragon(&mut dragon, None, None, None, &mut projectile_shell);
+
+    assert_eq!(
+        dragon.wait_timer, 14,
+        "ASM Dragon_Flying.asm loc_3480A hibernates one frame while GfxObject animation `stru_34600` advances from C75F6 to C75FE timing"
+    );
+    let bounds = enemy_contact_bounds(&dragon.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
+        "advancing onto `stru_34600` frame LnkTo_unk_C75FE must expose the ROM zero contact row"
+    );
+}
+
+#[test]
 fn cloud_parent_contact_uses_rom_collision_size_union_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
