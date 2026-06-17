@@ -19,8 +19,8 @@ pub mod vdp;
 mod weather;
 
 use combat::{
-    HeadyMetalBreakupPieceSub37708, HeadyMetalScatterVelocities, PendingSoundEffect,
-    QueuedSoundCommand, QueuedSoundEffect,
+    HeadyMetalBreakupPieceSub37708, HeadyMetalCachedWorkerSub37708, HeadyMetalScatterVelocities,
+    PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect,
 };
 use constants::*;
 use enemies::*;
@@ -95,6 +95,54 @@ fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
         });
     }
     slots
+}
+
+#[allow(non_snake_case)]
+fn heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
+    anchor_x: u16,
+    anchor_y: u16,
+) -> [HeadyMetalCachedWorkerSub37708; 5] {
+    // ASM Enemy20_HeadyMetal_Init loc_39247 stores the five final-scatter
+    // worker pointers at `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`. The second head
+    // slot starts at the boss anchor, `$FB7A` is shifted down `$1F`, and the
+    // two eye workers come from the `sub_376B6` offsets near loc_39326.
+    [
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFB72,
+            x_pos: anchor_x,
+            y_pos: anchor_y,
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFB76,
+            x_pos: anchor_x,
+            y_pos: anchor_y,
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFB7A,
+            x_pos: anchor_x,
+            y_pos: anchor_y.wrapping_add(0x001F),
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFBAE,
+            x_pos: anchor_x.wrapping_add_signed(-0x000B),
+            y_pos: anchor_y.wrapping_add_signed(-0x0003),
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFBB2,
+            x_pos: anchor_x.wrapping_add(0x000C),
+            y_pos: anchor_y.wrapping_add_signed(-0x0003),
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+    ]
 }
 
 #[derive(Debug, Clone)]
@@ -188,6 +236,9 @@ pub struct NativeRuntime {
     /// breakup workers once; sub_37708 then mutates and clears those slots.
     pub(crate) heady_metal_breakup_slots_sub_37708:
         Option<[Option<HeadyMetalBreakupPieceSub37708>; 13]>,
+    /// ASM `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`: fixed HeadyMetal cached
+    /// workers used by the final `sub_3787C/sub_378A2` scatter phase.
+    pub(crate) heady_metal_cached_workers_sub_37708: Option<[HeadyMetalCachedWorkerSub37708; 5]>,
     /// ASM sub_3787C/sub_378A2 final-scatter velocities for the five cached
     /// HeadyMetal workers at `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`.
     pub(crate) heady_metal_cached_worker_velocities_sub_3787c: HeadyMetalScatterVelocities,
@@ -1429,7 +1480,9 @@ enum PendingEnemyCollisionTarget {
 
 impl NativeRuntime {
     pub(crate) fn ensure_heady_metal_breakup_slots_loc_39247(&mut self) {
-        if self.heady_metal_breakup_slots_sub_37708.is_some() {
+        if self.heady_metal_breakup_slots_sub_37708.is_some()
+            && self.heady_metal_cached_workers_sub_37708.is_some()
+        {
             return;
         }
         let Some(heady_metal) = self
@@ -1443,11 +1496,18 @@ impl NativeRuntime {
         // ASM Enemy20_HeadyMetal_Init loc_39247 seeds `$FFFFFB7A..$FFFFFBAA`
         // once; loc_3763A/sub_37ABC refreshes the live table instead of
         // re-projecting body pieces from the tracking anchor.
-        self.heady_metal_breakup_slots_sub_37708 =
-            Some(heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
-                (heady_metal.x_pos >> 16) as u16,
-                (heady_metal.y_pos >> 16) as u16,
-            ));
+        let anchor_x = (heady_metal.x_pos >> 16) as u16;
+        let anchor_y = (heady_metal.y_pos >> 16) as u16;
+        if self.heady_metal_breakup_slots_sub_37708.is_none() {
+            self.heady_metal_breakup_slots_sub_37708 = Some(
+                heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(anchor_x, anchor_y),
+            );
+        }
+        if self.heady_metal_cached_workers_sub_37708.is_none() {
+            self.heady_metal_cached_workers_sub_37708 = Some(
+                heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(anchor_x, anchor_y),
+            );
+        }
     }
 
     pub(crate) fn move_heady_metal_body_piece_workers_sub_376ec(&mut self) {
@@ -1568,6 +1628,7 @@ impl NativeRuntime {
             block_state: BlockInteractionState::default(),
             projectiles: Vec::new(),
             heady_metal_breakup_slots_sub_37708: None,
+            heady_metal_cached_workers_sub_37708: None,
             heady_metal_cached_worker_velocities_sub_3787c: HeadyMetalScatterVelocities::default(),
             multi_head_boss_death_count_fb4e: 0,
             boss_eye_breakup_trigger_words_fb72_fb74_fb76: [0; 3],

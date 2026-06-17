@@ -3236,6 +3236,35 @@ fn live_heady_metal_body_piece_workers_persist_after_init_loc_39247() {
 }
 
 #[test]
+fn live_heady_metal_cached_workers_persist_after_init_loc_39247() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::HeadyMetal,
+        0x0040_0000,
+        0x00A0_0000,
+        30,
+    )];
+
+    runtime.ensure_heady_metal_breakup_slots_loc_39247();
+    runtime.active_enemies[0].x_pos = 0x0080_0000;
+
+    let cached_workers = runtime.heady_metal_cached_workers_sub_37708.unwrap();
+
+    assert_eq!(
+        cached_workers.map(|worker| (worker.slot_offset, worker.x_pos, worker.y_pos)),
+        [
+            (0xFB72, 0x0040, 0x00A0),
+            (0xFB76, 0x0040, 0x00A0),
+            (0xFB7A, 0x0040, 0x00BF),
+            (0xFBAE, 0x0035, 0x009D),
+            (0xFBB2, 0x004C, 0x009D),
+        ],
+        "ASM Enemy20_HeadyMetal_Init loc_39247 seeds the five cached workers `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2` once; later tracking-anchor movement must not re-project them",
+    );
+}
+
+#[test]
 fn live_heady_metal_sub_376ec_moves_body_piece_workers_with_tracker_delta() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);

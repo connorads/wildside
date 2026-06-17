@@ -2536,6 +2536,15 @@ pub(crate) struct HeadyMetalScatterVelocities {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct HeadyMetalCachedWorkerSub37708 {
+    pub(crate) slot_offset: u16,
+    pub(crate) x_pos: u16,
+    pub(crate) y_pos: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HeadyMetalBreakupPieceSub37708 {
     pub(crate) sprite_word_y: i16,
     pub(crate) x_pos: u16,
@@ -8064,6 +8073,12 @@ impl NativeRuntime {
                 let phase_counter =
                     37u16.saturating_sub(u16::from(self.active_enemies[active_idx].hit_points));
                 let remaining_scatter_frames = self.active_enemies[active_idx].wait_timer;
+                self.heady_metal_cached_workers_sub_37708
+                    .get_or_insert_with(|| {
+                        heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
+                            anchor_x, anchor_y,
+                        )
+                    });
                 let piece_slots =
                     self.heady_metal_breakup_slots_sub_37708
                         .get_or_insert_with(|| {
@@ -8178,6 +8193,13 @@ impl NativeRuntime {
                     };
                     self.heady_metal_cached_worker_velocities_sub_3787c = velocities;
                     self.active_enemies[active_idx].x_velocity = velocities.slot_fb72_x_velocity;
+                    if let Some(workers) = self.heady_metal_cached_workers_sub_37708.as_mut() {
+                        workers[0].x_velocity = velocities.slot_fb72_x_velocity;
+                        workers[1].x_velocity = velocities.slot_fb76_x_velocity;
+                        workers[2].y_velocity = velocities.slot_fb7a_y_velocity;
+                        workers[3].x_velocity = velocities.slot_fbae_x_velocity;
+                        workers[4].x_velocity = velocities.slot_fbb2_x_velocity;
+                    }
                     if let Some(Some(piece)) = self
                         .heady_metal_breakup_slots_sub_37708
                         .as_mut()
