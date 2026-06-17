@@ -739,7 +739,6 @@ pub(crate) struct HiddenBlockPrizeRevealMatchLocE3EE {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HiddenBlockColumnUpdateSubE446 {
     pub(crate) layout_addr: u16,
     pub(crate) col: u16,
@@ -986,7 +985,6 @@ impl BlockList {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_block_by_layout_addr_loc_10342(
         &self,
         layout_addr: u16,
@@ -1161,7 +1159,6 @@ impl BlockList {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn hidden_block_column_updates_sub_E446(
         &self,
         grid: &mut BlockGrid,
