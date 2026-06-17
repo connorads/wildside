@@ -18012,6 +18012,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
@@ -18170,6 +18171,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
@@ -18294,6 +18296,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
@@ -18587,6 +18590,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
@@ -18717,6 +18721,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();

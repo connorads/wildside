@@ -161,6 +161,7 @@ pub struct NativeRuntime {
     active_platforms: Vec<ActivePlatform>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
     active_platform_standing_on: Option<u16>,
+    active_lift_platform_standing_on: Option<u16>,
     platform_script_table: Option<kid_data::PlatformScriptTable>,
     block_grid: Option<terrain::BlockGrid>,
     block_list: Option<terrain::BlockList>,
@@ -1530,6 +1531,7 @@ impl NativeRuntime {
             active_platforms: Vec::new(),
             active_platform_roster: Vec::new(),
             active_platform_standing_on: None,
+            active_lift_platform_standing_on: None,
             platform_script_table: None,
             block_grid: None,
             block_list: None,
@@ -1894,6 +1896,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
         self.heady_metal_breakup_slots_sub_37708 = None;
         self.floating_items.clear();

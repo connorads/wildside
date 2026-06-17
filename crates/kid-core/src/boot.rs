@@ -5699,6 +5699,8 @@ impl NativeRuntime {
         self.active_enemy_roster.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
@@ -5916,6 +5918,8 @@ impl NativeRuntime {
         self.active_enemy_roster.clear();
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.drips_surface_crawler_count_loc_fffffb42 = 0;
@@ -5976,6 +5980,8 @@ impl NativeRuntime {
         self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
@@ -7577,6 +7583,8 @@ impl NativeRuntime {
         self.enemy_loading_initial_pass_complete = false;
         self.active_platforms.clear();
         self.active_platform_roster.clear();
+        self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();

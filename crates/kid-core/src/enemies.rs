@@ -42366,6 +42366,7 @@ impl NativeRuntime {
         self.active_platforms.clear();
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
         if self.level_skip_resume_hold {
             self.active_enemies.clear();
             self.pending_dragon_death_children.clear();

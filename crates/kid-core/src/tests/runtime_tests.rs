@@ -11299,7 +11299,13 @@ mod chunk_09 {
         slice.terrain.floor_y_pos = lift_y;
 
         let outcome = rt.step_lift_platforms(&mut slice);
-        assert_eq!(outcome, PlatformCollisionOutcome::None);
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::StandingOn(
+                crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C
+            ),
+            "ASM sub_FB3E allocates a Platform_RAM slot before sub_FCA6, so lift landing should expose Addr_PlatformStandingOn"
+        );
         assert_eq!(
             rt.block_state.lift_platforms[0].y_pos, lift_y,
             "ASM sub_FCA6 should leave `6(a3)` unchanged on the first frame because `$E(a3)` starts at zero",
@@ -11311,7 +11317,13 @@ mod chunk_09 {
         );
 
         let outcome = rt.step_lift_platforms(&mut slice);
-        assert_eq!(outcome, PlatformCollisionOutcome::None);
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::StandingOn(
+                crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C
+            ),
+            "ASM loc_7828 keeps carrying through the stored lift Platform_RAM slot"
+        );
         let expected_lift_y = 0x0063_F8F8u32;
         assert_eq!(
             rt.block_state.lift_platforms[0].y_pos, expected_lift_y as u32,
@@ -11341,6 +11353,8 @@ mod chunk_09 {
             source_row: 6,
             block_erased: true,
         });
+        rt.active_lift_platform_standing_on =
+            Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C);
 
         let mut slice = OpeningSliceState::new(default_bounds());
         slice.player.x_pos = 40 << 16;
@@ -11384,7 +11398,13 @@ mod chunk_09 {
 
         let outcome = rt.step_lift_platforms(&mut slice);
 
-        assert_eq!(outcome, PlatformCollisionOutcome::None);
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::StandingOn(
+                crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C
+            ),
+            "ASM sub_FB3E/sub_FCA6 should surface a platform slot for sub_8ED0 support"
+        );
         assert!(
             slice.player.on_ground,
             "ASM sub_8ED0 uses Current_Helmet width, so Juggernaut should still be supported by this lift",
@@ -11413,8 +11433,15 @@ mod chunk_09 {
         slice.player.y_velocity = 0;
         slice.player.on_ground = false;
 
-        rt.step_lift_platforms(&mut slice);
+        let outcome = rt.step_lift_platforms(&mut slice);
 
+        assert_eq!(
+            outcome,
+            PlatformCollisionOutcome::StandingOn(
+                crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C
+            ),
+            "ASM sub_FB3E allocates a Platform_RAM slot before the lift can support Kid",
+        );
         assert_eq!(
             slice.player.y_pos,
             99 << 16,

@@ -3405,7 +3405,8 @@ impl NativeRuntime {
         &mut self,
         slice: &mut OpeningSliceState,
     ) -> PlatformCollisionOutcome {
-        let mut outcome = PlatformCollisionOutcome::None;
+        let normal_platform_count = self.active_platforms.len();
+        let mut lift_platforms = Vec::new();
         self.block_state.lift_platforms.retain_mut(|lift| {
             if !lift.block_erased {
                 if let Some(grid) = &mut self.block_grid {
@@ -3418,71 +3419,85 @@ impl NativeRuntime {
                 return false;
             }
 
-            // Platform collision: player can stand on lift
-            let plat_x_px = (lift.x_pos >> 16) as i32;
-            let plat_y_px = (lift.y_pos >> 16) as i32;
-            let player_x_px = (slice.player.x_pos >> 16) as i32;
-            let player_foot_y_px = (slice.player.y_pos >> 16) as i32;
-            // ASM sub_8ED0 (kid.asm:10282-10306): lift workers install real
-            // platform slots, so support width comes from Current_Helmet via
-            // the shared platform-support path rather than fixed Kid width.
-            let player_half_width = self.progression.current_form.half_width();
-            let player_left = player_x_px - player_half_width;
-            let player_right = player_x_px + player_half_width;
-            let plat_right = plat_x_px + i32::from(lift.width_px);
-
-            let mut mounted_this_frame = false;
-            if player_right >= plat_x_px
-                && player_left <= plat_right
-                && slice.player.y_velocity >= 0
-                && !slice.player.on_ground
-            {
-                let foot_dist = player_foot_y_px - plat_y_px;
-                if (-2..=4).contains(&foot_dist) {
-                    // ASM loc_8DA0: move.l 6(a4),y_pos(a3); subq.w #1,y_pos(a3).
-                    let mounted_y_pos = ((plat_y_px.saturating_sub(1)).max(0) as u32) << 16;
-                    slice.player.y_pos = mounted_y_pos;
-                    slice.player.y_velocity = lift.y_velocity;
-                    slice.player.on_ground = true;
-                    slice.terrain.floor_y_pos = mounted_y_pos;
-                    mounted_this_frame = true;
-                }
-            }
-
-            // If player is on ground and riding this lift, carry along
-            if slice.player.on_ground && !mounted_this_frame {
-                let within_snap =
-                    slice.player.y_pos.abs_diff(lift.y_pos) <= GROUND_SNAP_TOLERANCE_FP;
-                if within_snap && player_right >= plat_x_px && player_left <= plat_right {
-                    // ASM loc_8DA0/loc_8306: riding platforms copy `6(a4)`
-                    // into Kid's y_pos and subtract one pixel; `$E(a4)` is
-                    // copied into y_vel for the subsequent ceiling probe.
-                    slice.player.y_pos = lift.y_pos.wrapping_sub(0x0001_0000);
-                    slice.player.y_velocity = lift.y_velocity;
-                    slice.terrain.floor_y_pos =
-                        (((slice.player.y_pos >> 16) as i32).max(0) as u32) << 16;
-                    if lift.y_velocity < 0
-                        && self.block_grid.as_ref().is_some_and(|grid| {
-                            terrain::probe_ceiling(
-                                grid,
-                                (slice.player.x_pos >> 16) as i32,
-                                (slice.player.y_pos >> 16) as i32,
-                                self.progression.current_form.half_width(),
-                                self.progression.current_form.ceiling_probe_height(),
-                            )
-                            .hit
-                        })
-                    {
-                        // ASM loc_78A8/loc_78C0 (kid.asm:7943-7954): an
-                        // upward platform y_vel after ceiling contact routes
-                        // directly to `Death` with d7=0.
-                        outcome = PlatformCollisionOutcome::CrushDeath;
-                    }
-                }
+            let slot_index = normal_platform_count + lift_platforms.len();
+            if let Some(slot_addr) = PlatformLoaderState::synthetic_slot_addr_loc_231C(slot_index) {
+                // ASM sub_FB3E (kid.asm:21011-21020): the lift hand-off calls
+                // Allocate_PlatformSlot, seeds Platform_RAM `2(a3)` with the
+                // block x coordinate, `6(a3)` with the y coordinate, `x_pos(a3)`
+                // with `$0F`, `$1C(a3)` with `$07`, and `$E(a3)` with y velocity.
+                // Expose that worker through the shared loc_257E/sub_8ED0
+                // platform path instead of a bespoke foot-distance snap.
+                lift_platforms.push(ActivePlatform {
+                    slot_addr: Some(slot_addr),
+                    layout_index: None,
+                    kind: 0,
+                    subtype: 0,
+                    x_pos: lift.x_pos,
+                    y_pos: lift.y_pos,
+                    width_px: lift.width_px,
+                    height_px: 7,
+                    x_velocity: 0,
+                    y_velocity: lift.y_velocity,
+                    deactivated_flag: 0,
+                    script: None,
+                    special: None,
+                });
             }
 
             true
         });
+
+        if lift_platforms.is_empty() {
+            self.active_lift_platform_standing_on = None;
+            return PlatformCollisionOutcome::None;
+        }
+
+        let standing_lift_addr = self
+            .active_lift_platform_standing_on
+            .filter(|addr| {
+                crate::platforms::platform_index_by_slot_addr_loc_257E(&lift_platforms, *addr)
+                    .is_some()
+            })
+            .or_else(|| {
+                if !slice.player.on_ground {
+                    return None;
+                }
+                lift_platforms.iter().find_map(|platform| {
+                    let supported = !crate::platforms::platform_support_check_sub_8ED0(
+                        Some(platform),
+                        slice.player.x_pos,
+                        self.progression.current_form.half_width(),
+                        self.progression.current_form,
+                        false,
+                    );
+                    let on_platform_top = slice.player.y_pos == platform.y_pos
+                        || slice.player.y_pos == platform.y_pos.wrapping_sub(0x0001_0000);
+                    (supported && on_platform_top).then_some(platform.slot_addr?)
+                })
+            });
+
+        let outcome = crate::platforms::apply_platform_collision_with_ceiling_probe(
+            slice,
+            &lift_platforms,
+            self.block_grid.as_ref(),
+            self.progression.current_form,
+            false,
+            standing_lift_addr,
+            !slice.player.on_ground,
+        );
+        self.active_lift_platform_standing_on = match outcome {
+            PlatformCollisionOutcome::StandingOn(platform_addr) => Some(platform_addr),
+            PlatformCollisionOutcome::None => crate::platforms::standing_platform_index_loc_8ED0(
+                &lift_platforms,
+                standing_lift_addr,
+                slice.player,
+                self.progression.current_form,
+                false,
+            )
+            .and_then(|platform_index| lift_platforms.get(platform_index))
+            .and_then(|platform| platform.slot_addr),
+            PlatformCollisionOutcome::CrushDeath => None,
+        };
         outcome
     }
 
