@@ -27426,6 +27426,15 @@ pub(crate) fn step_boss_fire_with_sounds(
     player_y_pos: Option<u32>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
+    if matches!(enemy.family, EnemyFamily::HeadyMetal)
+        && 37u16.saturating_sub(u16::from(enemy.hit_points)) >= 0x0025
+    {
+        // ASM sub_37708 loc_377BC sets `$FFFFFB4E` once the breakup phase
+        // reaches `$25`; loc_375DE checks that latch before allocating normal
+        // `sub_370D2` eye fire.
+        return;
+    }
+
     let multi_head_boss = matches!(
         enemy.family,
         EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses | EnemyFamily::BagelBrothers

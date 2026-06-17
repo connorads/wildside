@@ -2921,6 +2921,31 @@ fn live_heady_metal_eye_scheduler_uses_low_animation_after_counter_wrap_loc_3763
 }
 
 #[test]
+fn live_heady_metal_final_breakup_latch_suppresses_normal_eye_fire_loc_375de() {
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 0);
+    boss.wait_timer = 0;
+    let mut projectiles = Vec::new();
+    let mut sound_effects = Vec::new();
+
+    step_boss_fire_with_sounds(
+        &mut boss,
+        &mut projectiles,
+        Some(0x0090_0000),
+        Some(0x0080_0000),
+        Some(&mut sound_effects),
+    );
+
+    assert!(
+        projectiles.is_empty(),
+        "ASM sub_37708 loc_377BC sets `$FFFFFB4E` once `$3E(a3) >= $25`; loc_375DE should then branch to loc_3763A instead of allocating normal `sub_370D2` eye fire"
+    );
+    assert!(
+        sound_effects.is_empty(),
+        "ASM loc_375DE should skip the normal HeadyMetal eye-fire sound while the final breakup latch is set"
+    );
+}
+
+#[test]
 fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
