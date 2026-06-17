@@ -34,7 +34,14 @@ and stop — never commit churn.
   weather_tests.rs:207). The three remaining audit rows (#136/#137/#142) are all architectural
   first-class object-slot scheduler lifecycle work with **no boss oracle (#205)** to verify — blind
   implementation would breach "never guess / oracle is truth". #301 now waits on #205. Docs-only
-  (block). Next top open item is **#306** (platforms umbrella).
+  (block). Then investigated **#306** (platforms umbrella) → **first dead-end note, left `[ ]`**: every
+  behavioural row in `platforms-fidelity-audit.md` is FIXED/partial; the live airborne collision pass
+  already loops/accumulates/restarts across all platforms (`platforms.rs:1596-1635`); the only open
+  work is the **non-behavioural** Vec→explicit-Platform_RAM-linked-list representation refactor (no
+  oracle-observable payoff on swept levels, gate-risk only) plus the no-op `ext.l` index sign-extension
+  (verified no-effect-on-base-ROM, offline asset build). No narrow unattended slice — needs a dedicated
+  no-behaviour-change refactor session (sweep-green as the only check). Audit lines 82/111 cites are
+  stale (line 82 is now the live `has_contact`). Next top open item is **#307** (level-loading umbrella).
 - **Last session** (2026-06-17, later): #301 narrow-slice scan — docs-only, no gameplay patch.
   The two ASM-named narrow gaps in `bosses-fidelity-audit.md` are both unactionable: the
   `sub_370D2` odd-frame `sfx_Plethora_x` timeout variant is **already faithful and tested**
@@ -61,7 +68,7 @@ and stop — never commit churn.
   `kid.asm` keyed by `kid.asm:<line>` comments, NOT `loc_37708`-style labels — grep by the
   line number cited in code comments. #301's remaining gaps are the large architectural
   first-class per-piece/eye object-slot scheduler lifecycle, not narrow slices.
-- **Next**: top open item is now #306 (P2 platforms umbrella). #301 is `[b]` (waits on #205 boss oracle); #260 is `[b]` (human recording).
+- **Next**: top open item is now #307 (P2 level-loading umbrella); #306 carries a first dead-end note (architectural linked-slot refactor only — needs a dedicated no-behaviour-change session). #301 is `[b]` (waits on #205 boss oracle); #260 is `[b]` (human recording).
 - **Earlier — last session** (2026-06-10): #290 TAS frame_7800 object-count divergence proposed fixed.
   Root cause was Dragon.asm loc_3CE90/loc_3CF90 walking-dragon breath child counting,
   not the suspected tank-pair collapse. Frames 7790..7810 match, the full
