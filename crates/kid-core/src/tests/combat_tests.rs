@@ -10741,6 +10741,7 @@ mod chunk_03 {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
             heady_metal_palette_phase_counter: 0,
@@ -11677,6 +11678,7 @@ mod chunk_03 {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: enemies::BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
             heady_metal_palette_phase_counter: 0,
@@ -13051,6 +13053,33 @@ mod chunk_03 {
                 "ASM head {head_index} stores nonzero d7 into {labels} before sibling eye workers test the trigger word"
             );
         }
+    }
+
+    #[test]
+    fn multi_head_boss_step_advances_live_eye_orbit_workers_loc_3893e_389d6() {
+        let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0200_0000, 0x0100_0000, 1);
+        boss.boss_head_index = 0;
+        boss.boss_eye_orbit_workers =
+            BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 0, Direction::Right);
+
+        step_multi_head_boss_movement(&mut boss);
+
+        assert_eq!(
+            boss.boss_eye_orbit_workers.phase_index, 1,
+            "ASM loc_3893E/loc_389D6 keep the waiting boss-eye workers alive across hibernated boss-head frames"
+        );
+        assert_eq!(
+            boss.boss_eye_orbit_workers.previous_parent_frame_byte_16, 1,
+            "ASM loc_3893E/loc_389D6 copy parent `$16(a2)` into d0 after each waiting orbit loop"
+        );
+        assert_ne!(
+            boss.boss_eye_orbit_workers.primary_sprite_order_word_a, 0,
+            "ASM sub_393C8 loc_39402 bumps `$A(a3)` when the previous parent frame was zero and `$16(a2)` changes"
+        );
+        assert_ne!(
+            boss.boss_eye_orbit_workers.counter_sprite_order_word_a, 0,
+            "ASM sub_39420 loc_3945E reranks the counter-orbit worker when `$16(a2)` changes"
+        );
     }
 
     #[test]

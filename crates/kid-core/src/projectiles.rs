@@ -737,6 +737,7 @@ mod drips_surface_crawler_tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
             heady_metal_palette_phase_counter: 0,

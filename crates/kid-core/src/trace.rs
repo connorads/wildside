@@ -1,7 +1,6 @@
 use super::*;
 use crate::combat::{
     BossEyeSpriteRefreshSlotSub37ABC, HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266,
-    boss_eye_counter_orbit_placement_sub_39420, boss_eye_orbit_placement_sub_393C8,
     boss_eye_refresh_attack_sprites_sub_37ABC, enemy_contact_bounds,
 };
 use std::collections::BTreeMap;
@@ -1791,6 +1790,7 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
             heady_metal_palette_phase_counter: 0,
@@ -1888,6 +1888,12 @@ mod tests {
             y_pos: 0x0100_0000,
             facing: Direction::Right,
             boss_head_index: 0,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::active_loc_38902_3899a(
+                0x0200,
+                0x0100,
+                0,
+                Direction::Right,
+            ),
             ..drips_test_enemy(1, 0)
         });
 
@@ -1914,6 +1920,52 @@ mod tests {
                 .iter()
                 .any(|eye| eye.x_pos == 0x020C_0000 && eye.y_pos == 0x00DB_0000),
             "ASM sub_39420 phase 0 uses x offset +12 and y_pos-#$25 for the counter-orbit eye"
+        );
+    }
+
+    #[test]
+    fn trace_uses_live_boss_eye_orbit_worker_phase_state_loc_3893e_389d6() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 640,
+            height_pixels: 480,
+        }));
+        runtime.frame_index = 0;
+        runtime.active_enemies.push(ActiveEnemy {
+            family: EnemyFamily::Shishkaboss,
+            x_pos: 0x0200_0000,
+            y_pos: 0x0100_0000,
+            facing: Direction::Right,
+            boss_head_index: 0,
+            boss_eye_orbit_workers: crate::enemies::BossEyeOrbitWorkers::active_loc_38902_3899a(
+                0x0200,
+                0x0100,
+                2,
+                Direction::Right,
+            ),
+            ..drips_test_enemy(1, 0)
+        });
+
+        let trace = runtime.trace_frame();
+        let satellites = trace
+            .active_projectile_details
+            .iter()
+            .filter(|projectile| projectile.kind == ActiveProjectileKind::BossEyeSatellite)
+            .collect::<Vec<_>>();
+
+        assert_eq!(satellites.len(), 2);
+        assert!(
+            satellites
+                .iter()
+                .any(|eye| eye.x_pos == 0x01E8_0000 && eye.y_pos == 0x00DB_0000),
+            "ASM loc_3893E should report the live primary worker's stored phase-2 sub_393C8 placement, not frame_index phase 0"
+        );
+        assert!(
+            satellites
+                .iter()
+                .any(|eye| eye.x_pos == 0x01F3_0000 && eye.y_pos == 0x00DB_0000),
+            "ASM loc_389D6 should report the live counter worker's stored phase-2 sub_39420 placement, not frame_index phase 0"
         );
     }
 
@@ -7380,36 +7432,23 @@ impl NativeRuntime {
         let Some(slice) = self.opening_slice else {
             return Vec::new();
         };
-        let phase_word = 0x0EE0 + ((self.frame_index as u16 % 5) * 2);
         let kid_x = (slice.player.x_pos >> 16) as u16;
         let kid_y = (slice.player.y_pos >> 16) as u16;
 
         self.active_enemies
             .iter()
-            .filter(|enemy| is_multi_head_boss(enemy.family))
+            .filter(|enemy| is_multi_head_boss(enemy.family) && enemy.boss_eye_orbit_workers.active)
             .flat_map(|enemy| {
-                let parent_x = (enemy.x_pos >> 16) as u16;
-                let parent_y = (enemy.y_pos >> 16) as u16;
-                let side_flag = u8::from(enemy.facing == Direction::Left);
-                // ASM sub_393C8/sub_39420 read parent `$22(a2)` and `$16(a2)`.
-                // Native does not yet model those orbit-worker fields, so this
-                // render bridge derives the five-entry orbit phase from frame time
-                // while preserving the ROM X tables and `y_pos-#$25` placement.
-                let primary = boss_eye_orbit_placement_sub_393C8(
-                    parent_x, parent_y, phase_word, side_flag, 0, 0, 0,
-                );
-                let counter = boss_eye_counter_orbit_placement_sub_39420(
-                    parent_x, parent_y, phase_word, side_flag, 0, 0, 0,
-                );
+                let orbit_workers = enemy.boss_eye_orbit_workers;
                 let mut slots = [None; 12];
                 slots[0] = Some(BossEyeSpriteRefreshSlotSub37ABC {
-                    x_pos: primary.x_pos,
-                    y_pos: primary.y_pos,
+                    x_pos: orbit_workers.primary_x_pos_word,
+                    y_pos: orbit_workers.primary_y_pos_word,
                     sprite_mapping: "stale",
                 });
                 slots[1] = Some(BossEyeSpriteRefreshSlotSub37ABC {
-                    x_pos: counter.x_pos,
-                    y_pos: counter.y_pos,
+                    x_pos: orbit_workers.counter_x_pos_word,
+                    y_pos: orbit_workers.counter_y_pos_word,
                     sprite_mapping: "stale",
                 });
 

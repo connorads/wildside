@@ -6,10 +6,10 @@ use super::{
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
 use crate::combat::{
-    QueuedSoundEffect, boss_death_burst_init_sub_370D2,
-    boss_head_movement_step_for_family_sub_39846, boss_head_projectile_spawn_sub_397E4,
-    heady_metal_palette_cycle_sub_379E8, heady_metal_spawn_animation_loc_3761E,
-    heady_metal_tracking_velocity_loc_37582,
+    QueuedSoundEffect, boss_death_burst_init_sub_370D2, boss_eye_counter_orbit_placement_sub_39420,
+    boss_eye_orbit_placement_sub_393C8, boss_head_movement_step_for_family_sub_39846,
+    boss_head_projectile_spawn_sub_397E4, heady_metal_palette_cycle_sub_379E8,
+    heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
 };
 use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
 
@@ -6563,6 +6563,9 @@ pub(crate) struct ActiveEnemy {
     pub(crate) ufo_beam_interval: u8,
     /// Boss head index (0, 1, 2) for multi-head bosses. BOSS_HEAD_NONE if not a boss head.
     pub(crate) boss_head_index: u8,
+    /// ASM `loc_3893E`/`loc_389D6` waiting boss-eye workers attached to this
+    /// boss head before `$FFFFFB72/$FB74/$FB76` launches them.
+    pub(crate) boss_eye_orbit_workers: BossEyeOrbitWorkers,
     /// ASM `sub_39846` `d0`: per-head movement-script countdown.
     /// HeadyMetal reuses this boss-only slot for the `$FFFFFB7A` anchor's
     /// `$3E(a3)` spawn-animation counter from `loc_375DE`.
@@ -6616,6 +6619,102 @@ pub(crate) struct ActiveEnemy {
 pub(crate) const DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
 pub(crate) const ARMADILLO_PARENT_SPAWNED_CHILD_FLAG: u8 = 0x80;
 pub(crate) const ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954: u16 = 0xC954;
+
+/// Native carrier for the two hibernating boss-eye workers owned by a
+/// multi-head boss head. ASM `loc_3893E`/`loc_389D6` store the previous parent
+/// frame byte in `d0`, rerun `sub_393C8`/`sub_39420` every frame, and let those
+/// helpers bump `$A(a3)` when parent `$16` changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct BossEyeOrbitWorkers {
+    pub(crate) active: bool,
+    pub(crate) phase_index: u8,
+    pub(crate) previous_parent_frame_byte_16: u8,
+    pub(crate) primary_sprite_order_word_a: u16,
+    pub(crate) counter_sprite_order_word_a: u16,
+    pub(crate) primary_x_pos_word: u16,
+    pub(crate) primary_y_pos_word: u16,
+    pub(crate) counter_x_pos_word: u16,
+    pub(crate) counter_y_pos_word: u16,
+}
+
+impl BossEyeOrbitWorkers {
+    pub(crate) fn active_loc_38902_3899a(
+        parent_x: u16,
+        parent_y: u16,
+        phase_index: u8,
+        facing: Direction,
+    ) -> Self {
+        let mut workers = Self {
+            active: true,
+            phase_index: phase_index % 5,
+            previous_parent_frame_byte_16: phase_index % 5,
+            ..Self::default()
+        };
+        workers.refresh_loc_3893e_389d6(parent_x, parent_y, facing);
+        workers
+    }
+
+    pub(crate) fn step_loc_3893e_389d6(&mut self, parent_x: u16, parent_y: u16, facing: Direction) {
+        if !self.active {
+            return;
+        }
+
+        let prior_parent_frame = self.previous_parent_frame_byte_16;
+        self.phase_index = (self.phase_index + 1) % 5;
+        self.refresh_with_prior_frame_loc_3893e_389d6(
+            parent_x,
+            parent_y,
+            facing,
+            prior_parent_frame,
+        );
+        self.previous_parent_frame_byte_16 = self.phase_index;
+    }
+
+    fn refresh_loc_3893e_389d6(&mut self, parent_x: u16, parent_y: u16, facing: Direction) {
+        self.refresh_with_prior_frame_loc_3893e_389d6(
+            parent_x,
+            parent_y,
+            facing,
+            self.previous_parent_frame_byte_16,
+        );
+    }
+
+    fn refresh_with_prior_frame_loc_3893e_389d6(
+        &mut self,
+        parent_x: u16,
+        parent_y: u16,
+        facing: Direction,
+        prior_parent_frame: u8,
+    ) {
+        let parent_frame = self.phase_index;
+        let phase_word = 0x0EE0 + (u16::from(parent_frame) * 2);
+        let side_flag = u8::from(facing == Direction::Left);
+        let primary = boss_eye_orbit_placement_sub_393C8(
+            parent_x,
+            parent_y,
+            phase_word,
+            side_flag,
+            prior_parent_frame,
+            parent_frame,
+            self.primary_sprite_order_word_a,
+        );
+        let counter = boss_eye_counter_orbit_placement_sub_39420(
+            parent_x,
+            parent_y,
+            phase_word,
+            side_flag,
+            prior_parent_frame,
+            parent_frame,
+            self.counter_sprite_order_word_a,
+        );
+        self.primary_x_pos_word = primary.x_pos;
+        self.primary_y_pos_word = primary.y_pos;
+        self.primary_sprite_order_word_a = primary.next_sprite_word_y_adjust;
+        self.counter_x_pos_word = counter.x_pos;
+        self.counter_y_pos_word = counter.y_pos;
+        self.counter_sprite_order_word_a = counter.next_sprite_word_y_adjust;
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PendingDragonDeathChild {
@@ -8431,6 +8530,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         ufo_beam_segments: 0,
         ufo_beam_interval: 0,
         boss_head_index: BOSS_HEAD_NONE,
+        boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
         boss_movement_delay_counter: 0,
         boss_movement_script_index: 0,
         heady_metal_palette_phase_counter: 0,
@@ -9683,6 +9783,16 @@ fn activate_enemies_with_rng_inner(
                     head_idx
                 } else {
                     BOSS_HEAD_NONE
+                },
+                boss_eye_orbit_workers: if is_multi_head_boss(family) {
+                    BossEyeOrbitWorkers::active_loc_38902_3899a(
+                        (head_x >> 16) as u16,
+                        (head_y >> 16) as u16,
+                        0,
+                        facing,
+                    )
+                } else {
+                    BossEyeOrbitWorkers::default()
                 },
                 boss_movement_delay_counter: if is_multi_head_boss(family) {
                     1
@@ -27111,6 +27221,11 @@ pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
     let next_y = enemy.y_pos as i64 + i64::from(enemy.y_velocity);
     enemy.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
     enemy.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
+    enemy.boss_eye_orbit_workers.step_loc_3893e_389d6(
+        (enemy.x_pos >> 16) as u16,
+        (enemy.y_pos >> 16) as u16,
+        enemy.facing,
+    );
 }
 
 /// Boss periodic projectile fire interval (frames).
@@ -27451,6 +27566,7 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
             heady_metal_palette_phase_counter: 0,
@@ -37220,6 +37336,7 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
             heady_metal_palette_phase_counter: 0,
@@ -37321,6 +37438,7 @@ mod tests {
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
             boss_head_index: BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
             boss_movement_script_index: 0,
             heady_metal_palette_phase_counter: 0,
