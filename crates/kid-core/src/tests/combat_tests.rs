@@ -1040,6 +1040,24 @@ fn tornado_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn tornado_death_contact_uses_zero_collision_size_row_loc_1bce() {
+    let mut tornado = test_enemy(EnemyFamily::Tornado, 101 << 16, 100 << 16, 1);
+    tornado.death_animation_active = true;
+
+    let bounds = enemy_contact_bounds(&tornado.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (1, 0, 1, 0),
+        "ASM Tornado.asm loc_359B2 plays death script stru_35B1E; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_316CC for LnkTo_unk_C783E/C7846"
+    );
+}
+
+#[test]
 fn sphere_contact_uses_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 91 << 16;

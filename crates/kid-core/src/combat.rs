@@ -11861,6 +11861,13 @@ fn sphere_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 }
 
 fn tornado_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if enemy.stationary {
+        // ASM Tornado.asm loc_359B2 death script `stru_35B1E` uses
+        // `LnkTo_unk_C783E/C7846`, which route through GfxObjects_CollisionKid
+        // loc_1BCE to zero row `unk_316CC`.
+        return empty_enemy_contact_bounds();
+    }
+
     // ASM Tornado.asm live loop animation `stru_35B10` uses
     // `LnkTo_unk_C784E..C785E`, which map through GfxObjects_CollisionKid
     // loc_1BCE to `unk_316CC` (zero row) and `unk_316CE`:
