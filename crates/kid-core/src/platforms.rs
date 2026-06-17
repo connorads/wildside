@@ -1402,6 +1402,7 @@ pub(crate) fn runtime_active_platforms_from_loader_loc_257E(
         // ASM loc_2876 clears and loc_2850 sets `$12(a3)` on the linked slot;
         // carry the byte from Platform_RAM slot ownership rather than
         // recomputing it from layout order.
+        platform.slot_addr = Some(record.slot_addr);
         platform.deactivated_flag = record.deactivated_flag;
         active_platforms.push(platform);
     }
@@ -1451,7 +1452,7 @@ pub(crate) fn apply_platform_collision(
         None,
         PlayerForm::TheKid,
         false,
-        Some(0),
+        Some(PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
         false,
     )
 }
@@ -1459,7 +1460,7 @@ pub(crate) fn apply_platform_collision(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PlatformCollisionOutcome {
     None,
-    StandingOn(usize),
+    StandingOn(u16),
     CrushDeath,
 }
 
@@ -1485,7 +1486,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
     block_grid: Option<&terrain::BlockGrid>,
     current_form: PlayerForm,
     crawling: bool,
-    standing_platform_index: Option<usize>,
+    standing_platform_addr: Option<u16>,
     character_movement_is_jump: bool,
 ) -> PlatformCollisionOutcome {
     apply_platform_collision_with_ceiling_probe_trace_loc_257E(
@@ -1494,7 +1495,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe(
         block_grid,
         current_form,
         crawling,
-        standing_platform_index,
+        standing_platform_addr,
         character_movement_is_jump,
     )
     .outcome
@@ -1507,7 +1508,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
     block_grid: Option<&terrain::BlockGrid>,
     current_form: PlayerForm,
     crawling: bool,
-    standing_platform_index: Option<usize>,
+    standing_platform_addr: Option<u16>,
     character_movement_is_jump: bool,
 ) -> PlatformCollisionResultLoc257E {
     // ASM loc_7886 (kid.asm:7929): after sub_902A finds floor while Kid
@@ -1519,7 +1520,11 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
     // below: unsupported platforms are skipped (Kid gets no carry velocity,
     // eventually falls off via normal gravity/floor logic).
     if slice.player.on_ground {
-        let Some(platform_index) = standing_platform_index else {
+        let Some(platform_addr) = standing_platform_addr else {
+            return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::None);
+        };
+        let Some(platform_index) = platform_index_by_slot_addr_loc_257E(platforms, platform_addr)
+        else {
             return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::None);
         };
         let Some(platform) = platforms.get(platform_index) else {
@@ -1583,7 +1588,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
             );
         }
         return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::StandingOn(
-            platform_index,
+            platform_addr,
         ));
     }
 
@@ -1604,6 +1609,9 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
         let mut restart_scan = false;
 
         for (platform_index, platform) in platforms.iter().enumerate() {
+            let platform_slot_addr = platform.slot_addr.unwrap_or_else(|| {
+                PlatformLoaderState::synthetic_slot_addr_loc_231C(platform_index).unwrap_or(0)
+            });
             let plat_x_px = (platform.x_pos >> 16) as i32;
             let plat_y_px = (platform.y_pos >> 16) as i32;
             let plat_right = plat_x_px + i32::from(platform.width_px);
@@ -1674,7 +1682,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                         kid_bottom_px,
                         player_foot_y_px as i16,
                         push_y_px,
-                        platform_index as u16,
+                        platform_slot_addr,
                         touched_bottom_face,
                     );
                     let new_y_px = i32::from(landing.kid_gfx_y_px).max(0) as u32;
@@ -1701,7 +1709,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                         // ASM loc_26D4 branches back to loc_2590 after storing
                         // Addr_PlatformStandingOn; later same-frame contacts
                         // can still combine with FAA5 and crush at loc_271A.
-                        standing_platform_after_scan = Some(platform_index);
+                        standing_platform_after_scan = Some(platform_slot_addr);
                         restart_scan = true;
                         break;
                     }
@@ -1730,7 +1738,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                         // ASM loc_2672: `move.w a2,($FFFFFA96).w` before the
                         // horizontal branch gives the jump-platform support
                         // path the current platform slot.
-                        scratch.jump_platform_ref_fa96 = Some(platform_index as u16);
+                        scratch.jump_platform_ref_fa96 = Some(platform_slot_addr);
                     }
                     let pushed = apply_horizontal_platform_push_loc_2686(
                         kid_left_px,
@@ -1787,9 +1795,9 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
             break;
         }
     }
-    if let Some(platform_index) = standing_platform_after_scan {
+    if let Some(platform_addr) = standing_platform_after_scan {
         return PlatformCollisionResultLoc257E::new(
-            PlatformCollisionOutcome::StandingOn(platform_index),
+            PlatformCollisionOutcome::StandingOn(platform_addr),
             scratch,
         );
     }
@@ -1799,7 +1807,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
 #[allow(non_snake_case)]
 pub(crate) fn standing_platform_index_loc_8ED0(
     platforms: &[ActivePlatform],
-    standing_platform_index: Option<usize>,
+    standing_platform_addr: Option<u16>,
     player: PlayerState,
     current_form: PlayerForm,
     crawling: bool,
@@ -1807,7 +1815,7 @@ pub(crate) fn standing_platform_index_loc_8ED0(
     if !player.on_ground {
         return None;
     }
-    let platform_index = standing_platform_index?;
+    let platform_index = platform_index_by_slot_addr_loc_257E(platforms, standing_platform_addr?)?;
     let platform = platforms.get(platform_index)?;
     (!platform_support_check_sub_8ED0(
         Some(platform),
@@ -1820,15 +1828,31 @@ pub(crate) fn standing_platform_index_loc_8ED0(
 }
 
 #[allow(non_snake_case)]
-pub(crate) fn remap_standing_platform_index_by_layout_index_loc_2850(
-    standing_platform_index: Option<usize>,
+pub(crate) fn remap_standing_platform_addr_by_layout_index_loc_2850(
+    standing_platform_addr: Option<u16>,
     before: &[ActivePlatform],
     after: &[ActivePlatform],
-) -> Option<usize> {
-    let standing_layout_index = before.get(standing_platform_index?)?.layout_index?;
+) -> Option<u16> {
+    let standing_layout_index = before
+        .get(platform_index_by_slot_addr_loc_257E(
+            before,
+            standing_platform_addr?,
+        )?)?
+        .layout_index?;
     after
         .iter()
-        .position(|platform| platform.layout_index == Some(standing_layout_index))
+        .find(|platform| platform.layout_index == Some(standing_layout_index))
+        .and_then(|platform| platform.slot_addr)
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn platform_index_by_slot_addr_loc_257E(
+    platforms: &[ActivePlatform],
+    slot_addr: u16,
+) -> Option<usize> {
+    platforms
+        .iter()
+        .position(|platform| platform.slot_addr == Some(slot_addr))
 }
 
 #[allow(non_snake_case)]

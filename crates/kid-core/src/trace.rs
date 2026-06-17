@@ -280,6 +280,7 @@ mod tests {
     #[test]
     fn native_platform_slots_debug_loc_257e_reports_vector_order_and_rom_offset_key() {
         let platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: Some(3),
             kind: 8,
             subtype: 6,
@@ -298,6 +299,7 @@ mod tests {
             special: None,
         };
         let mut second = platform;
+        second.slot_addr = crate::PlatformLoaderState::synthetic_slot_addr_loc_231C(1);
         second.layout_index = None;
         second.deactivated_flag = 0;
         second.script = None;
@@ -7501,9 +7503,8 @@ impl NativeRuntime {
 
         // ASM Platforms_CheckCollision loc_257E and Move_Platforms sub_23EA walk
         // Addr_FirstPlatformSlot's `$22`-byte Platform_RAM linked list. Native
-        // still scans a rebuilt Vec, so this trace exposes vector order beside
-        // the ROM `$20(a3)` loader-offset key without pretending indices are
-        // true slot addresses.
+        // now stores each materialised platform's slot address, so this trace
+        // exposes the Vec scan order beside the ROM slot and `$20(a3)` key.
         let slots = platforms
             .iter()
             .enumerate()
@@ -7513,11 +7514,17 @@ impl NativeRuntime {
                 } else {
                     "none".to_string()
                 };
-                let slot = crate::PlatformLoaderState::synthetic_slot_addr_loc_231C(index)
+                let slot = platform
+                    .slot_addr
+                    .or_else(|| crate::PlatformLoaderState::synthetic_slot_addr_loc_231C(index))
                     .map_or_else(|| "none".to_string(), |slot| format!("{slot:#06x}"));
                 let next_slot = if index + 1 < platforms.len() {
-                    crate::PlatformLoaderState::synthetic_slot_addr_loc_231C(index + 1)
-                    .map_or_else(|| "none".to_string(), |slot| format!("{slot:#06x}"))
+                    platforms[index + 1]
+                        .slot_addr
+                        .or_else(|| {
+                            crate::PlatformLoaderState::synthetic_slot_addr_loc_231C(index + 1)
+                        })
+                        .map_or_else(|| "none".to_string(), |slot| format!("{slot:#06x}"))
                 } else {
                     "none".to_string()
                 };

@@ -16726,7 +16726,7 @@ mod chunk_05 {
             Some(&grid),
             PlayerForm::TheKid,
             false,
-            Some(0),
+            Some(0xEDBA),
             false,
         );
 
@@ -27469,7 +27469,7 @@ mod chunk_05 {
         rt.progression.current_form = PlayerForm::IronKnight;
         rt.progression.number_hitpoints = PlayerForm::IronKnight.max_hitpoints();
         rt.active_platforms.push(make_test_platform(128, 80, 2, 1));
-        rt.active_platform_standing_on = Some(0);
+        rt.active_platform_standing_on = Some(0xEDBA);
         rt.helmet.iron_knight_climbing = true;
         rt.helmet.iron_knight_climb_accel = 0;
         rt.helmet.iron_knight_climb_pose_accum = 0x40;

@@ -160,7 +160,7 @@ pub struct NativeRuntime {
     drilled_blocks: Vec<DrilledBlockLoc3BE78>,
     active_platforms: Vec<ActivePlatform>,
     active_platform_roster: Vec<NativeObjectSnapshot>,
-    active_platform_standing_on: Option<usize>,
+    active_platform_standing_on: Option<u16>,
     platform_script_table: Option<kid_data::PlatformScriptTable>,
     block_grid: Option<terrain::BlockGrid>,
     block_list: Option<terrain::BlockList>,
@@ -4318,19 +4318,24 @@ impl NativeRuntime {
                 matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
             );
         }
-        let platform_standing_before = standing_platform_index_loc_8ED0(
+        let platform_standing_before_index = standing_platform_index_loc_8ED0(
             &self.active_platforms,
             self.active_platform_standing_on,
             slice.player,
             self.progression.current_form,
             platform_support_crawling,
         );
+        let platform_standing_before = platform_standing_before_index
+            .and_then(|platform_index| self.active_platforms.get(platform_index))
+            .and_then(|platform| platform.slot_addr);
         let kid_y_px = (slice.player.y_pos >> 16) as i16;
         let active_platforms_before_special_step = self.active_platforms.clone();
         let mut stepped_platforms = Vec::with_capacity(self.active_platforms.len());
-        for (platform_index, mut platform) in self.active_platforms.iter().copied().enumerate() {
+        for mut platform in self.active_platforms.iter().copied() {
             let action = platform.step_special_platform_loc_40D2(
-                platform_standing_before == Some(platform_index),
+                platform
+                    .slot_addr
+                    .is_some_and(|slot_addr| self.active_platform_standing_on == Some(slot_addr)),
                 kid_y_px,
                 platform.deactivated_flag,
             );
@@ -4355,7 +4360,7 @@ impl NativeRuntime {
         self.active_platforms = stepped_platforms;
         // ASM Addr_PlatformStandingOn is a slot address; after native vector
         // compaction from loc_2850/delete actions, preserve that identity.
-        let platform_standing_before = remap_standing_platform_index_by_layout_index_loc_2850(
+        let platform_standing_before = remap_standing_platform_addr_by_layout_index_loc_2850(
             platform_standing_before,
             &active_platforms_before_special_step,
             &self.active_platforms,
@@ -4387,8 +4392,8 @@ impl NativeRuntime {
                 self.begin_death_windup();
                 return;
             }
-            PlatformCollisionOutcome::StandingOn(platform_index) => {
-                self.active_platform_standing_on = Some(platform_index);
+            PlatformCollisionOutcome::StandingOn(platform_addr) => {
+                self.active_platform_standing_on = Some(platform_addr);
             }
             PlatformCollisionOutcome::None => {
                 self.active_platform_standing_on = standing_platform_index_loc_8ED0(
@@ -4397,7 +4402,9 @@ impl NativeRuntime {
                     slice.player,
                     self.progression.current_form,
                     platform_support_crawling,
-                );
+                )
+                .and_then(|platform_index| self.active_platforms.get(platform_index))
+                .and_then(|platform| platform.slot_addr);
             }
         }
         self.exit_iron_knight_climb_on_platform_landing_loc_A9AA(

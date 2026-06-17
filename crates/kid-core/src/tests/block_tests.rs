@@ -13737,7 +13737,7 @@ mod chunk_04 {
 
         assert_eq!(
             outcome,
-            PlatformCollisionOutcome::StandingOn(0),
+            PlatformCollisionOutcome::StandingOn(0xEDBA),
             "ASM loc_2590 reads Kid_hitbox_left/right after current-form hitbox setup; Red Stealth's 7px half-width overlaps the platform edge where The Kid's 5px box would miss",
         );
     }
@@ -13789,7 +13789,7 @@ mod chunk_04 {
             None,
             PlayerForm::RedStealth,
             false,
-            Some(0),
+            Some(0xEDBA),
             false,
         );
 
@@ -13855,7 +13855,7 @@ mod chunk_04 {
         assert_eq!(
             standing_platform_index_loc_8ED0(
                 &[platform],
-                Some(0),
+                Some(0xEDBA),
                 player,
                 PlayerForm::Juggernaut,
                 false
@@ -13866,7 +13866,7 @@ mod chunk_04 {
         assert_eq!(
             standing_platform_index_loc_8ED0(
                 &[platform],
-                Some(0),
+                Some(0xEDBA),
                 player,
                 PlayerForm::Juggernaut,
                 true
@@ -13888,21 +13888,23 @@ mod chunk_04 {
     }
 
     #[test]
-    fn remap_standing_platform_index_preserves_slot_identity_after_deletion_loc_2850() {
+    fn remap_standing_platform_addr_preserves_slot_identity_after_deletion_loc_2850() {
         let mut removed = make_test_platform(40, 100, 2, 0);
+        removed.slot_addr = Some(0xEDBA);
         removed.layout_index = Some(3);
         let mut stood_on = make_test_platform(80, 100, 2, 0);
+        stood_on.slot_addr = Some(0xEDDC);
         stood_on.layout_index = Some(7);
         let before = [removed, stood_on];
         let after = [stood_on];
 
         assert_eq!(
-            remap_standing_platform_index_by_layout_index_loc_2850(Some(1), &before, &after),
-            Some(0),
+            remap_standing_platform_addr_by_layout_index_loc_2850(Some(0xEDDC), &before, &after),
+            Some(0xEDDC),
             "ASM Addr_PlatformStandingOn stores a platform slot address, so native must preserve the same layout-offset identity when loc_2850/deletion compacts vector indices",
         );
         assert_eq!(
-            remap_standing_platform_index_by_layout_index_loc_2850(Some(0), &before, &after),
+            remap_standing_platform_addr_by_layout_index_loc_2850(Some(0xEDBA), &before, &after),
             None,
             "when the stood-on slot itself is deleted, native should clear the Addr_PlatformStandingOn equivalent",
         );
@@ -14002,7 +14004,7 @@ mod chunk_04 {
             Some(&grid),
             PlayerForm::TheKid,
             false,
-            Some(0),
+            Some(0xEDBA),
             false,
         );
 
@@ -14252,6 +14254,7 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -14317,6 +14320,7 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -14372,6 +14376,7 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platforms = vec![ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -14431,6 +14436,7 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -14487,6 +14493,7 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -14552,6 +14559,7 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -14621,6 +14629,7 @@ mod chunk_04 {
         let table = kid_data::PlatformScriptTable { scripts };
 
         let mut platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -17067,9 +17076,10 @@ mod chunk_04 {
             },
             None,
         );
+        platform.slot_addr = Some(0xEDBA);
         platform.layout_index = Some(0);
         runtime.active_platforms = vec![platform];
-        runtime.active_platform_standing_on = Some(0);
+        runtime.active_platform_standing_on = Some(0xEDBA);
 
         let bounds = runtime.level_bounds(LevelId(0));
         let mut slice = OpeningSliceState::respawn(bounds);

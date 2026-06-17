@@ -4627,6 +4627,7 @@ mod chunk_11 {
         use crate::platforms::platform_support_check_sub_8ED0;
         // Kid at x=100px, platform spanning x=80..160 (80px wide).
         let platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -4661,6 +4662,7 @@ mod chunk_11 {
     fn loc_833e_sub_8ed0_unsupported_past_edge() {
         use crate::platforms::platform_support_check_sub_8ED0;
         let platform = ActivePlatform {
+            slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
             layout_index: None,
             kind: 0,
             subtype: 0,
@@ -6814,7 +6816,7 @@ mod chunk_11 {
         assert_eq!(result.outcome, PlatformCollisionOutcome::None);
         assert!(result.scratch.touched_left_side_faa2);
         assert!(!result.scratch.touched_right_side_faa3);
-        assert_eq!(result.scratch.jump_platform_ref_fa96, Some(0));
+        assert_eq!(result.scratch.jump_platform_ref_fa96, Some(0xEDBA));
     }
 
     /// ASM loc_26D4: top support sets `$FFFFFAA4`, stores the standing
@@ -6839,7 +6841,7 @@ mod chunk_11 {
             false,
         );
 
-        assert_eq!(result.outcome, PlatformCollisionOutcome::StandingOn(0));
+        assert_eq!(result.outcome, PlatformCollisionOutcome::StandingOn(0xEDBA));
         assert!(result.scratch.touched_top_face_faa4);
         assert!(!result.scratch.touched_bottom_face_faa5);
         assert_eq!(result.scratch.jump_platform_ref_fa96, None);

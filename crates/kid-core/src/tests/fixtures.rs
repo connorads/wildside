@@ -394,6 +394,7 @@ pub(super) fn make_pacer(family: EnemyFamily, hp: u8, x_px: u32, y_px: u32) -> A
 
 pub(super) fn make_test_platform(x: u16, y: u16, h_variant: u8, v_variant: u8) -> ActivePlatform {
     ActivePlatform {
+        slot_addr: Some(crate::platforms::PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C),
         layout_index: None,
         kind: 0,
         subtype: 0,

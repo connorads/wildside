@@ -42567,10 +42567,7 @@ impl NativeRuntime {
                 .active_platforms(platform_layout, platform_window);
             let script_table = self.platform_script_table.as_ref();
             let previous_platforms = self.active_platforms.clone();
-            let previous_standing_layout_index = self
-                .active_platform_standing_on
-                .and_then(|platform_index| previous_platforms.get(platform_index))
-                .and_then(|platform| platform.layout_index);
+            let previous_standing_slot_addr = self.active_platform_standing_on;
             self.active_platforms = runtime_active_platforms_from_loader_loc_257E(
                 platform_layout,
                 objects.platform_loader,
@@ -42582,12 +42579,11 @@ impl NativeRuntime {
                 &mut self.active_platforms,
                 &previous_platforms,
             );
-            self.active_platform_standing_on =
-                previous_standing_layout_index.and_then(|standing_layout_index| {
-                    self.active_platforms
-                        .iter()
-                        .position(|platform| platform.layout_index == Some(standing_layout_index))
-                });
+            self.active_platform_standing_on = previous_standing_slot_addr.filter(|slot_addr| {
+                self.active_platforms
+                    .iter()
+                    .any(|platform| platform.slot_addr == Some(*slot_addr))
+            });
             self.opening_slice = Some(OpeningSliceState { objects, ..slice });
         }
 

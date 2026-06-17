@@ -2497,6 +2497,9 @@ pub(crate) struct PlatformScriptState {
 /// Positions use the same FP16.16 format as player/enemy positions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ActivePlatform {
+    /// Synthetic Platform_RAM slot address (`$EDBA + n*$22`) for ASM routines
+    /// that store `a2/a3` in globals like `Addr_PlatformStandingOn` / `$FA96`.
+    pub(crate) slot_addr: Option<u16>,
     /// Source placement index in the level platform layout.
     pub(crate) layout_index: Option<usize>,
     /// Platform type nibble from the `ptfm` macro.
@@ -2639,6 +2642,7 @@ impl ActivePlatform {
         );
 
         let mut platform = Self {
+            slot_addr: None,
             layout_index: None,
             kind: placement.kind,
             subtype: placement.subtype,
@@ -2744,6 +2748,9 @@ impl ActivePlatform {
                 crate::platforms::platform_loader_offset_for_index_loc_286E(layout_index)
                     .to_string(),
             );
+        }
+        if let Some(slot_addr) = self.slot_addr {
+            debug_fields.insert("platform_slot_addr".to_string(), slot_addr.to_string());
         }
         NativeObjectSnapshot {
             kind: NativeObjectKind::Platform {
