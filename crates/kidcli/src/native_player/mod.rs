@@ -15990,22 +15990,38 @@ mod tests {
             0x0018,
             std::collections::BTreeMap::from([
                 ("platform_width_px".to_string(), "79".to_string()),
-                ("platform_height_px".to_string(), "15".to_string()),
+                ("platform_height_px".to_string(), "47".to_string()),
                 ("platform_render_flags".to_string(), "2".to_string()),
                 ("platform_mapping_addr_word".to_string(), "148".to_string()),
             ]),
         )];
 
         let scene = build_ingame_scene(&trace, false, None);
+        let platform_commands = scene
+            .commands
+            .iter()
+            .filter(|command| has_command_signature(command, 51))
+            .collect::<Vec<_>>();
 
         assert_eq!(
-            scene
-                .commands
-                .iter()
-                .filter(|command| has_command_signature(command, 51))
-                .count(),
-            1,
+            platform_commands.len(),
+            3,
             "ASM off_24AC index 2 routes to loc_251C, which emits a vertical strip from height only instead of width-tiling the platform",
+        );
+        let first_tile_indices = platform_commands
+            .iter()
+            .map(|command| {
+                sprite_tiles(command)
+                    .first()
+                    .expect("platform tile")
+                    .tile
+                    .tile_index
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            first_tile_indices,
+            vec![0, 4, 8],
+            "ASM loc_251C uses `$18(a2)`, then `$18(a2)+4`, then `$18(a2)+8` for top/middle/bottom platform cells",
         );
     }
 
