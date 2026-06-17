@@ -9846,6 +9846,37 @@ impl NativeRuntime {
         }
     }
 
+    #[allow(non_snake_case)]
+    pub(crate) fn initialise_flagpole_hologram_fade_loc_C1AA_C1BC(&mut self) -> (u16, u32, u32) {
+        // ASM loc_C1AA/C1BC/C1DC (kid.asm:15750): copy the live
+        // `Palette_Buffer` into `Palette_Buffer_2`, copy 15 Pal_D00C score
+        // palette words into `Palette_Buffer_3+$42`, clear the target
+        // background word, seed `$FFFFF876=$0100`, then prime both pending
+        // palette masks before the first loc_C1D0 fade frame.
+        self.palette_buffer_2.copy_from_slice(&self.palette_buffer);
+        let score_palette_path = self
+            .assets
+            .output_root
+            .join("scenes/palette/Score_screen.bin");
+        if let Ok(bytes) = fs::read(score_palette_path) {
+            let start_word =
+                usize::from(crate::level::FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC) / 2;
+            let word_count =
+                usize::from(crate::level::FLAGPOLE_HOLO_PALETTE_WORD_COUNT_LOC_C1BC) + 1;
+            for (index, chunk) in bytes.chunks_exact(2).take(word_count).enumerate() {
+                if let Some(target) = self.palette_buffer_3.get_mut(start_word + index) {
+                    *target = u16::from_be_bytes([chunk[0], chunk[1]]);
+                }
+            }
+        }
+        self.palette_buffer_3[0] = 0;
+        (
+            0x0100,
+            crate::level::FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC,
+            crate::level::FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC,
+        )
+    }
+
     /// Check whether sub_B43A loc_B522 has activated a telepad this frame and
     /// return the loc_BC80 destination.
     ///
@@ -12518,6 +12549,11 @@ impl NativeRuntime {
             let remaining_frames = self.level_complete_sequence_frames_loc_D770();
             let level_complete_gfx_snapshot =
                 self.build_flagpole_stale_gfx_snapshot_loc_C056(slice);
+            let (
+                flagpole_fade_progress_loc_c1d0,
+                flagpole_pending_palette_0_mask_loc_c1dc,
+                flagpole_pending_palette_1_mask_loc_c1dc,
+            ) = self.initialise_flagpole_hologram_fade_loc_C1AA_C1BC();
             self.apply_level_completion_bonuses();
             self.clear_flagpole_deleted_objects_loc_C070();
             self.opening_slice = Some(*slice);
@@ -12525,6 +12561,9 @@ impl NativeRuntime {
             self.player_lifecycle = PlayerLifecycle::LevelComplete {
                 remaining_frames,
                 total_frames: remaining_frames,
+                flagpole_fade_progress_loc_c1d0,
+                flagpole_pending_palette_0_mask_loc_c1dc,
+                flagpole_pending_palette_1_mask_loc_c1dc,
             };
             self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::FlagTouch;
             return true;

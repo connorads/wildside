@@ -6728,6 +6728,7 @@ impl NativeRuntime {
             PlayerLifecycle::LevelComplete {
                 remaining_frames,
                 total_frames,
+                ..
             } => total_frames.saturating_sub(remaining_frames),
             _ => 0,
         };
@@ -9298,6 +9299,7 @@ impl NativeRuntime {
             PlayerLifecycle::LevelComplete {
                 remaining_frames,
                 total_frames,
+                ..
             } => total_frames.saturating_sub(remaining_frames),
             _ => 0,
         }

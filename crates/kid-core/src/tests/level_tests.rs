@@ -11089,6 +11089,94 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level_complete_applies_flagpole_hologram_palette_fade_loc_c1d0_c1dc() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+        runtime.palette_buffer = [0x0ACE; 0x40];
+        runtime.palette_buffer[0x10] = 0x0246;
+        runtime.palette_buffer[0x20] = 0x0EEE;
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0750_0000;
+            slice.player.y_pos = 0x0300_0000;
+            slice.player.on_ground = true;
+        }
+
+        let palette_before_flag = runtime.palette_buffer;
+        runtime.step_frame(FrameInput::default());
+        let PlayerLifecycle::LevelComplete {
+            flagpole_fade_progress_loc_c1d0,
+            flagpole_pending_palette_0_mask_loc_c1dc,
+            flagpole_pending_palette_1_mask_loc_c1dc,
+            ..
+        } = runtime.player_lifecycle
+        else {
+            panic!("expected LevelComplete, got {:?}", runtime.player_lifecycle);
+        };
+        assert_eq!(
+            runtime.palette_buffer_2, palette_before_flag,
+            "ASM loc_C1AA should back up the live Palette_Buffer before the flagpole hologram fade"
+        );
+        assert_eq!(
+            flagpole_fade_progress_loc_c1d0, 0x0100,
+            "ASM loc_C1BC seeds `$FFFFF876` with `$0100` before loc_C1DC"
+        );
+        assert_eq!(
+            flagpole_pending_palette_0_mask_loc_c1dc,
+            crate::level::FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC,
+            "ASM loc_C1DC should seed `$FFFFF888` before the first fade frame"
+        );
+        assert_eq!(
+            flagpole_pending_palette_1_mask_loc_c1dc,
+            crate::level::FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC,
+            "ASM loc_C1DC should seed `$FFFFF88C` before the first fade frame"
+        );
+
+        let mut expected_palette = palette_before_flag;
+        let mut expected_mask_0 = crate::level::FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC;
+        let mut expected_mask_1 = crate::level::FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC;
+        crate::level::apply_pending_palette_fade_sub_14C0(
+            0x0100,
+            &mut expected_mask_0,
+            &mut expected_mask_1,
+            &runtime.palette_buffer_2,
+            &runtime.palette_buffer_3,
+            &mut expected_palette,
+        );
+
+        runtime.step_frame(FrameInput::default());
+
+        assert_eq!(
+            runtime.palette_buffer, expected_palette,
+            "ASM loc_C1D0/loc_C1DC should drive sub_14C0 on the live LevelComplete path, not only wait for scoreboard timing"
+        );
+        let PlayerLifecycle::LevelComplete {
+            flagpole_fade_progress_loc_c1d0,
+            flagpole_pending_palette_0_mask_loc_c1dc,
+            flagpole_pending_palette_1_mask_loc_c1dc,
+            ..
+        } = runtime.player_lifecycle
+        else {
+            panic!("expected LevelComplete after fade step");
+        };
+        assert_eq!(
+            flagpole_fade_progress_loc_c1d0, 0x00F0,
+            "ASM loc_C1D0 subtracts `$10` after the first hibernating fade frame"
+        );
+        assert_eq!(
+            flagpole_pending_palette_0_mask_loc_c1dc,
+            crate::level::FLAGPOLE_FADE_PALETTE_0_MASK_LOC_C1DC,
+            "ASM loc_C1DC reseeds palette mask 0 after a non-final fade step"
+        );
+        assert_eq!(
+            flagpole_pending_palette_1_mask_loc_c1dc,
+            crate::level::FLAGPOLE_FADE_PALETTE_1_MASK_LOC_C1DC,
+            "ASM loc_C1DC reseeds palette mask 1 after a non-final fade step"
+        );
+    }
+
+    #[test]
     fn level_complete_title_card_start_edge_enters_next_level() {
         let mut assets = manifest_with_levels(3);
         for level in &mut assets.levels {

@@ -2293,6 +2293,14 @@ pub(crate) enum PlayerLifecycle {
     LevelComplete {
         remaining_frames: usize,
         total_frames: usize,
+        /// ASM loc_C1D0 (kid.asm:15765): shared fade progress word
+        /// `$FFFFF876` during the flagpole hologram fade before the scoreboard
+        /// reveal.
+        flagpole_fade_progress_loc_c1d0: u16,
+        /// ASM loc_C1DC (kid.asm:15770): pending palette masks written to
+        /// `$FFFFF888/$FFFFF88C` for each non-final hologram fade frame.
+        flagpole_pending_palette_0_mask_loc_c1dc: u32,
+        flagpole_pending_palette_1_mask_loc_c1dc: u32,
     },
     /// All lives lost — "GAME OVER" display, then continue countdown if available.
     GameOver {

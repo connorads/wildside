@@ -7829,9 +7829,27 @@ impl NativeRuntime {
             PlayerLifecycle::LevelComplete {
                 remaining_frames,
                 total_frames,
+                mut flagpole_fade_progress_loc_c1d0,
+                mut flagpole_pending_palette_0_mask_loc_c1dc,
+                mut flagpole_pending_palette_1_mask_loc_c1dc,
             } => {
                 self.clear_flagpole_deleted_objects_loc_C070();
                 let elapsed_after_step = total_frames.saturating_sub(remaining_frames) + 1;
+                crate::level::apply_pending_palette_fade_sub_14C0(
+                    flagpole_fade_progress_loc_c1d0,
+                    &mut flagpole_pending_palette_0_mask_loc_c1dc,
+                    &mut flagpole_pending_palette_1_mask_loc_c1dc,
+                    &self.palette_buffer_2,
+                    &self.palette_buffer_3,
+                    &mut self.palette_buffer,
+                );
+                if elapsed_after_step <= crate::level::EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC {
+                    let fade_step =
+                        crate::level::flagpole_fade_step_loc_C1D0(flagpole_fade_progress_loc_c1d0);
+                    flagpole_fade_progress_loc_c1d0 = fade_step.fade_progress;
+                    flagpole_pending_palette_0_mask_loc_c1dc = fade_step.pending_palette_0_mask;
+                    flagpole_pending_palette_1_mask_loc_c1dc = fade_step.pending_palette_1_mask;
+                }
                 let score_board_bgm_frame = crate::level::EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468
                     + self.level_complete_scoreboard_reveal_frames_loc_C21E()
                     + crate::level::EOL_SCORE_BOARD_BGM_WAIT_FRAMES_LOC_C21E;
@@ -7845,6 +7863,9 @@ impl NativeRuntime {
                     self.player_lifecycle = PlayerLifecycle::LevelComplete {
                         remaining_frames: remaining_frames - 1,
                         total_frames,
+                        flagpole_fade_progress_loc_c1d0,
+                        flagpole_pending_palette_0_mask_loc_c1dc,
+                        flagpole_pending_palette_1_mask_loc_c1dc,
                     };
                 } else {
                     self.advance_level();
