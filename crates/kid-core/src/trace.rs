@@ -177,9 +177,9 @@ fn boss_eye_orbit_object_slot_details_loc_3931a(enemy: &ActiveEnemy) -> Vec<Nati
         return Vec::new();
     }
 
-    // ASM loc_3931A allocates the waiting eyes as `$21` object slots, but
-    // native still renders the same visuals through BossEyeSatellite details.
-    // Keep these trace-only until object-count/render ownership is promoted.
+    // ASM loc_3931A allocates the waiting eyes as `$21` object slots; native
+    // still renders the same visuals through BossEyeSatellite details until
+    // render ownership is promoted.
     [
         (
             workers.primary_x_pos_word,
@@ -2095,12 +2095,16 @@ mod tests {
             }),
             "ASM loc_3931A writes object_meta=$21, clears has_kid_collision, and sets is_moved for each waiting eye worker",
         );
-        assert!(
-            trace
-                .active_objects
-                .iter()
-                .all(|object| object.kind != NativeObjectKind::Enemy { object_type: 0x21 }),
-            "This slice keeps loc_3931A satellites trace-detail only so the existing projectile renderer and object-count parity remain unchanged",
+        let active_object_eye_slots = trace
+            .active_objects
+            .iter()
+            .filter(|object| object.kind == NativeObjectKind::Enemy { object_type: 0x21 })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            active_object_eye_slots.len(),
+            2,
+            "ASM loc_3931A allocates the waiting boss-eye satellites as real `$21` object slots, so active object counts must include them"
         );
     }
 
@@ -9717,6 +9721,11 @@ impl NativeRuntime {
             return objects;
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
+        objects.extend(
+            self.active_enemies
+                .iter()
+                .flat_map(boss_eye_orbit_object_slot_details_loc_3931a),
+        );
         objects.extend(self.active_platform_roster.iter().cloned());
         objects
     }
