@@ -1,6 +1,6 @@
 use super::*;
 use crate::scenarios::DynamicCheckpoint;
-use kid_render::SpriteFrame;
+use kid_render::{Palette, SpriteFrame};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TankTurretFrameSpec {
@@ -1825,16 +1825,20 @@ pub(super) fn push_platform_tiles(
 ) {
     let variant = platform_snapshot_u8(object, "platform_render_flags")
         .and_then(PlatformRenderVariantLoc244C::from_render_flags);
-    let frame =
-        platform_frame_for_mapping_word_loc_2548(object, level_visuals).unwrap_or_else(|| {
-            match variant {
-                Some(PlatformRenderVariantLoc244C::Loc251C) => &level_visuals.platforms.vertical,
-                _ => match kind {
-                    0x00 => &level_visuals.platforms.horizontal,
-                    _ => &level_visuals.platforms.vertical,
-                },
-            }
-        });
+    let art = platform_art_for_mapping_word_loc_2548(object, level_visuals).unwrap_or_else(|| {
+        let frame = match variant {
+            Some(PlatformRenderVariantLoc244C::Loc251C) => level_visuals.platforms.vertical.clone(),
+            _ => match kind {
+                0x00 => level_visuals.platforms.horizontal.clone(),
+                _ => level_visuals.platforms.vertical.clone(),
+            },
+        };
+        PlatformArtSourceLoc2548 {
+            frame,
+            palette: level_visuals.platforms.palette.clone(),
+        }
+    });
+    let frame = &art.frame;
     let (screen_x, screen_y) = player_screen_position(object, trace);
     let width_px = platform_snapshot_dimension_px(object, "platform_width_px");
     let height_px = platform_snapshot_dimension_px(object, "platform_height_px");
@@ -1844,7 +1848,7 @@ pub(super) fn push_platform_tiles(
     let width_cells = platform_snapshot_dimension_cells(object, "platform_width_px");
     let height_cells = platform_snapshot_dimension_cells(object, "platform_height_px");
     let tile_sheet = Arc::new(frame.tile_sheet.clone());
-    let palette = Arc::new(level_visuals.platforms.palette.clone());
+    let palette = Arc::new(art.palette);
     for cell in platform_sprite_cells_loc_24AC(variant, width_cells, height_cells) {
         commands.push(DrawCommand::Sprite {
             x: screen_x - i32::from(frame.origin_x) + i32::from(cell.column) * 16,
@@ -2057,22 +2061,48 @@ fn platform_snapshot_u8(object: &NativeObjectSnapshot, key: &str) -> Option<u8> 
 }
 
 #[allow(non_snake_case)]
-fn platform_frame_for_mapping_word_loc_2548<'a>(
+struct PlatformArtSourceLoc2548 {
+    frame: SpriteFrame,
+    palette: Palette,
+}
+
+const PLATFORM_BLOCK_ART_VRAM_BASE_LOC_E0E4E: u16 = 0x0220;
+
+#[allow(non_snake_case)]
+fn platform_art_for_mapping_word_loc_2548(
     object: &NativeObjectSnapshot,
-    level_visuals: &'a NativeLevelVisuals,
-) -> Option<&'a SpriteFrame> {
+    level_visuals: &NativeLevelVisuals,
+) -> Option<PlatformArtSourceLoc2548> {
     // ASM loc_244C/loc_2548 (kid.asm:4352,4452): `$18(a2)` is copied into the
     // sprite mapping word. `PlatformArtAddr_Table` at loc_2822 stores VRAM tile
     // indices; Initialize_Platforms loads Horizontal_platform.bin at byte
     // `$1280` (tile `$94`) and Vertical_platform.bin at byte `$D5C0`
-    // (tile `$6AE`).
+    // (tile `$6AE`). `$25A` falls in the common block-art range starting at
+    // `unk_E0E4E` / VRAM tile `$220`.
     match object
         .debug_fields
         .get("platform_mapping_addr_word")
         .and_then(|value| value.parse::<u16>().ok())?
     {
-        0x0094 => Some(&level_visuals.platforms.horizontal),
-        0x06AE | 0x025A => Some(&level_visuals.platforms.vertical),
+        0x0094 => Some(PlatformArtSourceLoc2548 {
+            frame: level_visuals.platforms.horizontal.clone(),
+            palette: level_visuals.platforms.palette.clone(),
+        }),
+        0x06AE => Some(PlatformArtSourceLoc2548 {
+            frame: level_visuals.platforms.vertical.clone(),
+            palette: level_visuals.platforms.palette.clone(),
+        }),
+        0x025A => Some(PlatformArtSourceLoc2548 {
+            frame: SpriteFrame {
+                origin_x: 0,
+                origin_y: 0x10,
+                width_px: 0x10,
+                height_px: 0x10,
+                tile_base_index: 0x025A - PLATFORM_BLOCK_ART_VRAM_BASE_LOC_E0E4E,
+                tile_sheet: level_visuals.block_tiles.clone(),
+            },
+            palette: level_visuals.palettes.foreground.clone(),
+        }),
         _ => None,
     }
 }

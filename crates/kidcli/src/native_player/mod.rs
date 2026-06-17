@@ -6840,10 +6840,12 @@ mod tests {
         let foreground_layout_bytes = sample_foreground_layout_bytes();
         let foreground_layout =
             ForegroundLayout::parse(&foreground_layout_bytes, 1, 1).expect("foreground layout");
+        let mut block_tiles = blank_tile_sheet(0x200);
+        block_tiles.tiles[usize::from(0x025A - BLOCK_TILE_VRAM_BASE)].pixels = [237; 64];
         NativeLevelVisuals {
             foreground_tiles: blank_tile_sheet(0x80),
             background_tiles: blank_tile_sheet(0x20),
-            block_tiles: blank_tile_sheet(0x200),
+            block_tiles,
             palettes: PaletteSet {
                 foreground: Palette {
                     colours: vec![colour(12, 34, 56)],
@@ -14371,10 +14373,19 @@ mod tests {
 
     fn has_sprite_signature(scene: &Scene, signature: u8) -> bool {
         scene.commands.iter().any(|command| match command {
-            DrawCommand::Sprite { tile_sheet, .. } => tile_sheet
-                .tiles
-                .first()
-                .is_some_and(|tile| tile.pixels[0] == signature),
+            DrawCommand::Sprite {
+                tile_sheet, tiles, ..
+            } => {
+                tiles.iter().any(|sprite_tile| {
+                    tile_sheet
+                        .tiles
+                        .get(usize::from(sprite_tile.tile.tile_index))
+                        .is_some_and(|tile| tile.pixels[0] == signature)
+                }) || tile_sheet
+                    .tiles
+                    .first()
+                    .is_some_and(|tile| tile.pixels[0] == signature)
+            }
             _ => false,
         })
     }
@@ -14387,10 +14398,19 @@ mod tests {
                 .tiles
                 .get(usize::from(tile.tile_index))
                 .is_some_and(|resolved| resolved.pixels[0] == signature),
-            DrawCommand::Sprite { tile_sheet, .. } => tile_sheet
-                .tiles
-                .first()
-                .is_some_and(|resolved| resolved.pixels[0] == signature),
+            DrawCommand::Sprite {
+                tile_sheet, tiles, ..
+            } => {
+                tiles.iter().any(|sprite_tile| {
+                    tile_sheet
+                        .tiles
+                        .get(usize::from(sprite_tile.tile.tile_index))
+                        .is_some_and(|resolved| resolved.pixels[0] == signature)
+                }) || tile_sheet
+                    .tiles
+                    .first()
+                    .is_some_and(|resolved| resolved.pixels[0] == signature)
+            }
             _ => false,
         }
     }
@@ -16105,6 +16125,36 @@ mod tests {
         assert!(
             !has_sprite_signature(&scene, 41),
             "platform kind is not the ROM art selector; `$18(a2)` is",
+        );
+    }
+
+    #[test]
+    fn build_game_scene_uses_platform_025a_block_art_from_loc_2548() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_objects = vec![platform_snapshot(
+            0x03,
+            0x03,
+            0x0010,
+            0x0018,
+            std::collections::BTreeMap::from([
+                ("platform_width_px".to_string(), "15".to_string()),
+                ("platform_height_px".to_string(), "15".to_string()),
+                ("platform_render_flags".to_string(), "6".to_string()),
+                ("platform_mapping_addr_word".to_string(), "602".to_string()),
+            ]),
+        )];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            has_sprite_signature(&scene, 237),
+            "ASM PlatformArtAddr_Table loc_282E can store `$025A`; loc_2548 writes `$18(a2)` directly as the sprite VRAM tile, so this entry must use common block art, not Vertical_platform.bin",
+        );
+        assert!(
+            !has_sprite_signature(&scene, 51),
+            "VRAM tile `$025A` is in the block/common-art range, while Vertical_platform.bin is loaded at `$06AE`",
         );
     }
 
