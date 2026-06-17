@@ -13419,6 +13419,54 @@ mod chunk_03 {
     }
 
     #[test]
+    fn multi_head_boss_snapshot_reports_death_script_phase_loc_39ebe_39f7a() {
+        let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0080_0000, 0x0040_0000, 1);
+        boss.boss_head_index = 0;
+        boss.hit_points = 0;
+        boss.death_animation_active = true;
+        boss.wait_timer = BOSS_HEAD_DEATH_ANIMATION_FRAMES;
+
+        let pre_spin_snapshot = boss.snapshot();
+
+        assert_eq!(
+            pre_spin_snapshot
+                .debug_fields
+                .get("boss_head_death_script_loc_39ebe")
+                .map(String::as_str),
+            Some("loc_39EE2"),
+            "ASM loc_39EBE enters the eight-script loc_39EE2 pre-spin sequence before sfx_Boss_dies"
+        );
+        assert_eq!(
+            pre_spin_snapshot
+                .debug_fields
+                .get("boss_head_death_script_remaining_loc_39ebe")
+                .map(String::as_str),
+            Some("120"),
+            "ASM loc_39EE2 has 120 hibernated animation frames before loc_39F7A"
+        );
+
+        boss.wait_timer = BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A;
+        let spin_snapshot = boss.snapshot();
+
+        assert_eq!(
+            spin_snapshot
+                .debug_fields
+                .get("boss_head_death_script_loc_39ebe")
+                .map(String::as_str),
+            Some("loc_39F7A"),
+            "ASM loc_39F7A owns the final ten death-spin loops after sfx_Boss_dies"
+        );
+        assert_eq!(
+            spin_snapshot
+                .debug_fields
+                .get("boss_head_death_script_remaining_loc_39ebe")
+                .map(String::as_str),
+            Some("170"),
+            "ASM loc_39F7A loops ten times over 17 hibernated frames each"
+        );
+    }
+
+    #[test]
     fn shishkaboss_third_head_death_spawns_skewer_fan_loc_384d6() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.active_enemies = (0..3)

@@ -70,6 +70,24 @@
       "promotion_trigger": "Promote if boss-eye sprite-order parity moves from exploratory trace details into first-class gfx object ordering state."
     },
     {
+      "key": "boss_head_death_script_loc_39ebe",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-head-death-script",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native multi-head boss death script phase derived from ASM loc_39EBE: loc_39EE2 pre-spin scripts or loc_39F7A final spin loop.",
+      "promotion_trigger": "Promote if boss-head death script ownership becomes typed state or parity checks depend on the exact phase."
+    },
+    {
+      "key": "boss_head_death_script_remaining_loc_39ebe",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-head-death-script",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native remaining hibernated frames in the current ASM loc_39EBE boss-head death script phase.",
+      "promotion_trigger": "Promote if boss-head death script ownership becomes typed state or parity checks depend on the exact phase countdown."
+    },
+    {
       "key": "platform_width_px",
       "scope": "object",
       "status": "exploratory",

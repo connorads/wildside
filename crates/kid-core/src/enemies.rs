@@ -9228,6 +9228,29 @@ impl ActiveEnemy {
                     .to_string(),
             );
         }
+        if is_multi_head_boss(self.family) && self.death_animation_active && self.wait_timer > 0 {
+            // ASM loc_39EBE owns the boss-head object until the death script
+            // reaches j_Delete_CurrentObject. Native carries that ownership as
+            // one hibernate timer; expose the ROM script phase for frontier
+            // comparisons until the script engine is first-class.
+            let (script_label, remaining_frames) =
+                if self.wait_timer > BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A {
+                    (
+                        "loc_39EE2",
+                        self.wait_timer - BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A,
+                    )
+                } else {
+                    ("loc_39F7A", self.wait_timer)
+                };
+            debug_fields.insert(
+                "boss_head_death_script_loc_39ebe".into(),
+                script_label.into(),
+            );
+            debug_fields.insert(
+                "boss_head_death_script_remaining_loc_39ebe".into(),
+                remaining_frames.to_string(),
+            );
+        }
         let x_velocity = if matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
             && self.on_ground
         {
