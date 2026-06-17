@@ -16688,18 +16688,22 @@ fn register_shared_walker_turnaround(enemy: &mut ActiveEnemy) -> bool {
     let result = shared_walker_turnaround_loc_3c026(enemy.shared_walker_turnaround_counter);
     enemy.shared_walker_turnaround_counter = result.next_counter;
     if result.collision_type.is_some() {
-        if let Some(death_animation_frames) = enemy_death_animation_frames(enemy.family) {
-            // ASM loc_3C464 writes collision_type=$FFFF; family handlers such
-            // as Driller.asm loc_3BF02 and Dragon.asm loc_3CE9A route that
-            // word through their normal death-animation tails before delete.
-            enemy.wait_timer = death_animation_frames;
-        }
-        enemy.hit_points = 0;
-        enemy.death_animation_active = true;
+        register_enemy_terrain_kill(enemy);
         true
     } else {
         false
     }
+}
+
+fn register_enemy_terrain_kill(enemy: &mut ActiveEnemy) {
+    if let Some(death_animation_frames) = enemy_death_animation_frames(enemy.family) {
+        // ASM loc_3C464 and Lion.asm loc_3E94E write collision_type=$FFFF;
+        // family handlers route that word through the normal death-animation
+        // tail before delete.
+        enemy.wait_timer = death_animation_frames;
+    }
+    enemy.hit_points = 0;
+    enemy.death_animation_active = true;
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -19718,6 +19722,34 @@ fn step_lion_charge_movement_loc_3e11e(
     player_x_pos: Option<u32>,
 ) {
     if !enemy.on_ground {
+        if let Some(grid) = block_grid {
+            let center_x_px = (enemy.x_pos >> 16) as i32;
+            let foot_y_px = (enemy.y_pos >> 16) as i32;
+            let scan = match enemy.facing {
+                Direction::Right => terrain::horizontal_collision_scan_right_sub_36B3C(
+                    grid,
+                    center_x_px,
+                    foot_y_px,
+                    ENEMY_PROBE_HALF_WIDTH,
+                    ENEMY_PROBE_HEIGHT,
+                ),
+                Direction::Left => terrain::horizontal_collision_scan_left_sub_36BD6(
+                    grid,
+                    center_x_px,
+                    foot_y_px,
+                    ENEMY_PROBE_HALF_WIDTH,
+                    ENEMY_PROBE_HEIGHT,
+                ),
+            };
+
+            if scan.hitbox_blocked {
+                // ASM Lion.asm loc_3E6AE/loc_3E7CA: after sub_36B3C/sub_36BD6,
+                // non-zero d5 branches to loc_3E94E and stores collision_type=$FFFF.
+                register_enemy_terrain_kill(enemy);
+                enemy.shared_walker_debug_branch = Some("lion_charge_airborne_terrain_kill");
+                return;
+            }
+        }
         // ASM Lion.asm loc_3E6AE/loc_3E77E and loc_3E7CA/loc_3E89A
         // share the Dragon/Lion airborne walker. The `$54(a5)` roar
         // timer keeps ageing, but native defers the stationary
@@ -36870,6 +36902,84 @@ mod tests {
                 resume_via_callback: true,
             },
             "ASM Lion.asm loc_3E94E should set collision_type to `$FFFF` before jumping through a0"
+        );
+    }
+
+    #[test]
+    fn lion_airborne_charge_body_terrain_enters_death_animation_loc_3e94e() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 6 * 6 * 2], 6, 6);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 24 << 16,
+            y_pos: 32 << 16,
+            x_velocity: 0x0001_0000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 8,
+            lion_state: LionState::ResumingCharge,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut projectile_sink = Some(&mut projectiles);
+
+        step_lion(&mut lion, Some(&grid), None, &mut projectile_sink);
+
+        assert!(
+            lion.death_animation_active,
+            "ASM Lion.asm loc_3E6AE should branch to loc_3E94E when sub_36B3C returns non-zero d5 for a bit-$4000 body tile"
+        );
+        assert_eq!(
+            lion.hit_points, 0,
+            "ASM Lion.asm loc_3E94E writes collision_type=$FFFF, which Lion.asm loc_3E318 routes to the death tail"
+        );
+        assert_eq!(
+            lion.wait_timer, LION_DEATH_ANIMATION_FRAMES,
+            "native represents the loc_3E94E `$FFFF` collision word with the family death-animation timer"
+        );
+        assert_eq!(
+            lion.x_pos,
+            24 << 16,
+            "ASM Lion.asm loc_3E6AE checks sub_36B3C before committing horizontal motion"
+        );
+    }
+
+    #[test]
+    fn lion_left_airborne_charge_body_terrain_enters_death_animation_loc_3e94e() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 6 * 6 * 2], 6, 6);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 24 << 16,
+            y_pos: 32 << 16,
+            x_velocity: -0x0001_0000,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 8,
+            lion_state: LionState::ResumingCharge,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut projectile_sink = Some(&mut projectiles);
+
+        step_lion(&mut lion, Some(&grid), None, &mut projectile_sink);
+
+        assert!(
+            lion.death_animation_active,
+            "ASM Lion.asm loc_3E7CA should branch to loc_3E94E when sub_36BD6 returns non-zero d5 for a bit-$4000 body tile"
+        );
+        assert_eq!(
+            lion.wait_timer, LION_DEATH_ANIMATION_FRAMES,
+            "native represents the loc_3E94E `$FFFF` collision word with the family death-animation timer"
+        );
+        assert_eq!(
+            lion.x_pos,
+            24 << 16,
+            "ASM Lion.asm loc_3E7CA checks sub_36BD6 before committing horizontal motion"
         );
     }
 
