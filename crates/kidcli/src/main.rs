@@ -430,6 +430,12 @@ enum Commands {
         /// Candidate overlay, formatted `label=START-END:buttons,START-END:buttons`.
         #[arg(long)]
         candidate: Vec<String>,
+        /// Generate candidate overlays from a moving input window, formatted `LABEL=START-END:DURATION:STEP:BUTTONS`.
+        #[arg(long, value_parser = parse_batch_probe_window)]
+        sweep_window: Vec<BatchProbeWindow>,
+        /// Refuse to run if generated sweep windows expand beyond this count.
+        #[arg(long, default_value_t = 5_000)]
+        max_generated: usize,
         /// Score candidates by closest healthy Kid approach to these x,y pixel targets.
         #[arg(long, value_parser = parse_target_point)]
         target_point: Vec<TargetPoint>,
@@ -1433,6 +1439,8 @@ fn main() -> Result<()> {
         Commands::ProbeRecordScenarioFileBatch {
             scenario,
             candidate,
+            sweep_window,
+            max_generated,
             target_point,
             target_cell,
             target_cell_hitbox,
@@ -1471,6 +1479,8 @@ fn main() -> Result<()> {
                 &manifest,
                 &base,
                 &candidate,
+                &sweep_window,
+                max_generated,
                 &target_point,
                 &target_cell,
                 &target_cell_hitbox,
@@ -3013,6 +3023,16 @@ struct BatchProbeCandidate {
     input_specs: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BatchProbeWindow {
+    label: String,
+    start_min: usize,
+    start_max: usize,
+    duration: usize,
+    step: usize,
+    button_spec: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct BatchTargetProjectileCell {
     kind: ActiveProjectileKind,
@@ -3104,6 +3124,121 @@ fn parse_batch_probe_candidate(spec: &str) -> Result<BatchProbeCandidate> {
     })
 }
 
+fn parse_batch_probe_window(spec: &str) -> Result<BatchProbeWindow> {
+    let (label, range_spec) = spec.split_once('=').ok_or_else(|| {
+        anyhow!("batch sweep window must be LABEL=START-END:DURATION:STEP:BUTTONS, got {spec}")
+    })?;
+    let label = label.trim();
+    if label.is_empty() {
+        bail!("batch sweep window label must not be empty");
+    }
+    let mut parts = range_spec.split(':').map(str::trim);
+    let frame_range = parts
+        .next()
+        .ok_or_else(|| anyhow!("batch sweep window {label} is missing START-END"))?;
+    let duration = parts
+        .next()
+        .ok_or_else(|| anyhow!("batch sweep window {label} is missing DURATION"))?
+        .parse::<usize>()
+        .with_context(|| format!("invalid duration in batch sweep window {label}"))?;
+    let step = parts
+        .next()
+        .ok_or_else(|| anyhow!("batch sweep window {label} is missing STEP"))?
+        .parse::<usize>()
+        .with_context(|| format!("invalid step in batch sweep window {label}"))?;
+    let button_spec = parts
+        .next()
+        .ok_or_else(|| anyhow!("batch sweep window {label} is missing BUTTONS"))?;
+    if parts.next().is_some() {
+        bail!("batch sweep window {label} has too many ':' fields");
+    }
+    let (start_min, start_max) = frame_range
+        .split_once('-')
+        .ok_or_else(|| anyhow!("batch sweep window {label} range must be START-END"))?;
+    let start_min = start_min
+        .parse::<usize>()
+        .with_context(|| format!("invalid start frame in batch sweep window {label}"))?;
+    let start_max = start_max
+        .parse::<usize>()
+        .with_context(|| format!("invalid end frame in batch sweep window {label}"))?;
+    if start_max < start_min {
+        bail!("batch sweep window {label} range must be ascending");
+    }
+    if duration == 0 {
+        bail!("batch sweep window {label} duration must be positive");
+    }
+    if step == 0 {
+        bail!("batch sweep window {label} step must be positive");
+    }
+    parse_button_mask(button_spec)
+        .with_context(|| format!("invalid buttons in batch sweep window {label}"))?;
+    Ok(BatchProbeWindow {
+        label: label.to_string(),
+        start_min,
+        start_max,
+        duration,
+        step,
+        button_spec: button_spec.to_string(),
+    })
+}
+
+fn batch_probe_window_specs(window: &BatchProbeWindow) -> Vec<(String, String)> {
+    (window.start_min..=window.start_max)
+        .step_by(window.step)
+        .map(|start| {
+            let end = start.saturating_add(window.duration).saturating_sub(1);
+            (
+                format!("{}{}", window.label, start),
+                format!("{start}-{end}:{}", window.button_spec),
+            )
+        })
+        .collect()
+}
+
+fn generated_batch_probe_candidates(
+    windows: &[BatchProbeWindow],
+    max_generated: usize,
+) -> Result<Vec<BatchProbeCandidate>> {
+    if windows.is_empty() {
+        return Ok(Vec::new());
+    }
+    let choices = windows
+        .iter()
+        .map(batch_probe_window_specs)
+        .collect::<Vec<_>>();
+    let generated_count = choices.iter().try_fold(1usize, |acc, choice| {
+        acc.checked_mul(choice.len())
+            .ok_or_else(|| anyhow!("batch sweep windows overflowed candidate-count calculation"))
+    })?;
+    if generated_count > max_generated {
+        bail!(
+            "batch sweep windows would generate {generated_count} candidates, above --max-generated {max_generated}"
+        );
+    }
+
+    let mut candidates = vec![BatchProbeCandidate {
+        label: String::new(),
+        input_specs: Vec::new(),
+    }];
+    for choice in choices {
+        let mut next = Vec::with_capacity(candidates.len() * choice.len());
+        for candidate in &candidates {
+            for (label_part, input_spec) in &choice {
+                let label = if candidate.label.is_empty() {
+                    label_part.clone()
+                } else {
+                    format!("{}_{}", candidate.label, label_part)
+                };
+                let mut input_specs = candidate.input_specs.clone();
+                input_specs.push(input_spec.clone());
+                next.push(BatchProbeCandidate { label, input_specs });
+            }
+        }
+        candidates = next;
+    }
+    Ok(candidates)
+}
+
 #[derive(Debug)]
 struct BatchProbeResult {
     label: String,
@@ -3166,6 +3301,8 @@ fn probe_dynamic_record_scenario_batch(
     manifest: &AssetManifest,
     base: &DynamicScenario,
     candidate_specs: &[String],
+    sweep_windows: &[BatchProbeWindow],
+    max_generated: usize,
     target_points: &[TargetPoint],
     target_cells: &[TargetCell],
     target_cell_hitboxes: &[TargetCell],
@@ -3177,12 +3314,16 @@ fn probe_dynamic_record_scenario_batch(
     score_frame_start: usize,
     limit: usize,
 ) -> Result<()> {
-    let candidates = candidate_specs
+    let mut candidates = candidate_specs
         .iter()
         .map(|spec| parse_batch_probe_candidate(spec))
         .collect::<Result<Vec<_>>>()?;
+    candidates.extend(generated_batch_probe_candidates(
+        sweep_windows,
+        max_generated,
+    )?);
     if candidates.is_empty() {
-        bail!("at least one --candidate is required");
+        bail!("at least one --candidate or --sweep-window is required");
     }
 
     let mut results = Vec::with_capacity(candidates.len());
@@ -4145,13 +4286,14 @@ mod tests {
         BatchTargetProjectileDirection, DynamicCheckpoint, DynamicScenario, GameplayCapture,
         GameplayScenario, GameplayState, PlayerForm, RecordScenarioKind, ReferenceName,
         TargetBlockEventKind, TargetCell, TargetProjectileDirection, analyse_audio_samples,
-        apply_dynamic_scenario_input_overlays, audio_envelope_similarity, build_controller_script,
-        build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
-        compare_native_gameplay_with, compare_native_states_against_oracle,
-        dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
-        ensure_level_layouts_with, ensure_play_native_level_layouts_with,
-        find_gameplay_live_drifts, gameplay_checkpoint_window, native_trace_to_oracle_state,
-        oracle_probe_watch_row_in_range, parse_batch_probe_candidate,
+        apply_dynamic_scenario_input_overlays, audio_envelope_similarity, batch_probe_window_specs,
+        build_controller_script, build_record_scenario, capture_native_gameplay_run,
+        capture_native_gameplay_scenario, compare_native_gameplay_with,
+        compare_native_states_against_oracle, dynamic_scenario_with_frame_checkpoints,
+        ensure_gameplay_level_layouts_with, ensure_level_layouts_with,
+        ensure_play_native_level_layouts_with, find_gameplay_live_drifts,
+        gameplay_checkpoint_window, generated_batch_probe_candidates, native_trace_to_oracle_state,
+        oracle_probe_watch_row_in_range, parse_batch_probe_candidate, parse_batch_probe_window,
         parse_batch_target_block_event, parse_batch_target_projectile_cell,
         parse_batch_target_projectile_direction, parse_button_mask, parse_input_spec,
         prepare_generated_assets_with, record_scenario_command, record_scenario_file_command,
@@ -4404,6 +4546,52 @@ AddrTbl_LevelNames:
         assert_eq!(
             candidate.input_specs,
             vec!["478-524:left", "525-529:none", "530-540:b"]
+        );
+    }
+
+    #[test]
+    fn parses_batch_probe_window_specs() {
+        let window =
+            parse_batch_probe_window("turn=430-440:20:5:b+right").expect("window should parse");
+
+        assert_eq!(window.label, "turn");
+        assert_eq!(window.start_min, 430);
+        assert_eq!(window.start_max, 440);
+        assert_eq!(window.duration, 20);
+        assert_eq!(window.step, 5);
+        assert_eq!(window.button_spec, "b+right");
+        assert_eq!(
+            batch_probe_window_specs(&window),
+            vec![
+                (String::from("turn430"), String::from("430-449:b+right")),
+                (String::from("turn435"), String::from("435-454:b+right")),
+                (String::from("turn440"), String::from("440-459:b+right")),
+            ]
+        );
+    }
+
+    #[test]
+    fn generates_batch_probe_candidates_from_window_products() {
+        let windows = vec![
+            parse_batch_probe_window("a=10-20:5:10:left").expect("first window"),
+            parse_batch_probe_window("b=30-40:3:10:none").expect("second window"),
+        ];
+
+        let candidates =
+            generated_batch_probe_candidates(&windows, 10).expect("candidates should generate");
+
+        assert_eq!(candidates.len(), 4);
+        assert_eq!(candidates[0].label, "a10_b30");
+        assert_eq!(
+            candidates[0].input_specs,
+            vec![String::from("10-14:left"), String::from("30-32:none")]
+        );
+        assert_eq!(candidates[3].label, "a20_b40");
+        assert_eq!(
+            generated_batch_probe_candidates(&windows, 3)
+                .expect_err("limit should reject generated products")
+                .to_string(),
+            "batch sweep windows would generate 4 candidates, above --max-generated 3"
         );
     }
 
