@@ -171,7 +171,64 @@ fn boss_eye_sprite_mapping_index(label: &str) -> u8 {
     }
 }
 
-fn boss_eye_orbit_object_slot_details_loc_3931a(enemy: &ActiveEnemy) -> Vec<NativeObjectSnapshot> {
+fn boss_eye_orbit_mapping_indices_loc_37abc(
+    enemy: &ActiveEnemy,
+    diamond_power_active: bool,
+    frame_index: usize,
+    kid_x: u16,
+    kid_y: u16,
+) -> [u8; 2] {
+    let workers = enemy.boss_eye_orbit_workers;
+    let mut slots = [None; 12];
+    slots[0] = Some(BossEyeSpriteRefreshSlotSub37ABC {
+        x_pos: workers.primary_x_pos_word,
+        y_pos: workers.primary_y_pos_word,
+        sprite_mapping: "stale",
+    });
+    slots[1] = Some(BossEyeSpriteRefreshSlotSub37ABC {
+        x_pos: workers.counter_x_pos_word,
+        y_pos: workers.counter_y_pos_word,
+        sprite_mapping: "stale",
+    });
+
+    let refreshed = boss_eye_refresh_attack_sprites_sub_37ABC(
+        slots,
+        diamond_power_active,
+        frame_index as u8,
+        kid_x,
+        kid_y,
+    );
+
+    [
+        refreshed[0]
+            .map(|slot| boss_eye_sprite_mapping_index(slot.sprite_mapping))
+            .unwrap_or_default(),
+        refreshed[1]
+            .map(|slot| boss_eye_sprite_mapping_index(slot.sprite_mapping))
+            .unwrap_or_default(),
+    ]
+}
+
+fn boss_eye_orbit_mapping_indices_from_state_loc_37abc(
+    enemy: &ActiveEnemy,
+    opening_slice: Option<OpeningSliceState>,
+    diamond_power_active: bool,
+    frame_index: usize,
+) -> Option<[u8; 2]> {
+    let slice = opening_slice?;
+    Some(boss_eye_orbit_mapping_indices_loc_37abc(
+        enemy,
+        diamond_power_active,
+        frame_index,
+        (slice.player.x_pos >> 16) as u16,
+        (slice.player.y_pos >> 16) as u16,
+    ))
+}
+
+fn boss_eye_orbit_object_slot_details_loc_3931a(
+    enemy: &ActiveEnemy,
+    mapping_indices_loc_37abc: Option<[u8; 2]>,
+) -> Vec<NativeObjectSnapshot> {
     let workers = enemy.boss_eye_orbit_workers;
     if !is_multi_head_boss(enemy.family) || !workers.active {
         return Vec::new();
@@ -193,44 +250,53 @@ fn boss_eye_orbit_object_slot_details_loc_3931a(enemy: &ActiveEnemy) -> Vec<Nati
         ),
     ]
     .into_iter()
-    .map(|(x_pos_word, y_pos_word, sprite_order_word_a)| {
-        let mut debug_fields = BTreeMap::new();
-        debug_fields.insert(
-            "boss_eye_object_meta_loc_3931a".to_owned(),
-            "0x0021".to_owned(),
-        );
-        debug_fields.insert(
-            "boss_eye_has_kid_collision_loc_3931a".to_owned(),
-            "false".to_owned(),
-        );
-        debug_fields.insert("boss_eye_is_moved_loc_3931a".to_owned(), "true".to_owned());
-        debug_fields.insert(
-            "boss_eye_sprite_order_word_a_loc_393c8".to_owned(),
-            format!("{sprite_order_word_a:#06x}"),
-        );
+    .enumerate()
+    .map(
+        |(slot_index, (x_pos_word, y_pos_word, sprite_order_word_a))| {
+            let mut debug_fields = BTreeMap::new();
+            debug_fields.insert(
+                "boss_eye_object_meta_loc_3931a".to_owned(),
+                "0x0021".to_owned(),
+            );
+            debug_fields.insert(
+                "boss_eye_has_kid_collision_loc_3931a".to_owned(),
+                "false".to_owned(),
+            );
+            debug_fields.insert("boss_eye_is_moved_loc_3931a".to_owned(), "true".to_owned());
+            debug_fields.insert(
+                "boss_eye_sprite_order_word_a_loc_393c8".to_owned(),
+                format!("{sprite_order_word_a:#06x}"),
+            );
+            if let Some(mapping_indices) = mapping_indices_loc_37abc {
+                debug_fields.insert(
+                    "boss_eye_sprite_mapping_index_loc_37abc".to_owned(),
+                    mapping_indices[slot_index].to_string(),
+                );
+            }
 
-        NativeObjectSnapshot {
-            kind: NativeObjectKind::Enemy { object_type: 0x21 },
-            x_pos: u32::from(x_pos_word) << 16,
-            y_pos: u32::from(y_pos_word) << 16,
-            layout_index: None,
-            x_velocity: Some(0),
-            y_velocity: Some(0),
-            facing: Some(enemy.facing),
-            on_ground: None,
-            hit_points: None,
-            damage_flash: false,
-            palette_variant: enemy.palette_variant,
-            stationary: false,
-            contact_phase: None,
-            shared_walker_state: None,
-            shared_walker_patrol_timer: None,
-            shared_walker_patrol_short_next: None,
-            walk_phase: None,
-            wait_timer: None,
-            debug_fields,
-        }
-    })
+            NativeObjectSnapshot {
+                kind: NativeObjectKind::Enemy { object_type: 0x21 },
+                x_pos: u32::from(x_pos_word) << 16,
+                y_pos: u32::from(y_pos_word) << 16,
+                layout_index: None,
+                x_velocity: Some(0),
+                y_velocity: Some(0),
+                facing: Some(enemy.facing),
+                on_ground: None,
+                hit_points: None,
+                damage_flash: false,
+                palette_variant: enemy.palette_variant,
+                stationary: false,
+                contact_phase: None,
+                shared_walker_state: None,
+                shared_walker_patrol_timer: None,
+                shared_walker_patrol_short_next: None,
+                walk_phase: None,
+                wait_timer: None,
+                debug_fields,
+            }
+        },
+    )
     .collect()
 }
 
@@ -2106,6 +2172,25 @@ mod tests {
             2,
             "ASM loc_3931A allocates the waiting boss-eye satellites as real `$21` object slots, so active object counts must include them"
         );
+
+        for eye_slot in &active_object_eye_slots {
+            let matching_satellite = trace
+                .active_projectile_details
+                .iter()
+                .find(|projectile| {
+                    projectile.kind == ActiveProjectileKind::BossEyeSatellite
+                        && projectile.x_pos == eye_slot.x_pos
+                        && projectile.y_pos == eye_slot.y_pos
+                })
+                .expect("waiting eye object slot should have matching sub_37ABC projectile bridge while render ownership is being promoted");
+            assert_eq!(
+                eye_slot
+                    .debug_fields
+                    .get("boss_eye_sprite_mapping_index_loc_37abc"),
+                Some(&matching_satellite.boss_eye_sprite_mapping_index.to_string()),
+                "ASM sub_37ABC refreshes each waiting `$21` boss-eye object's sprite mapping before sub_FF6 ordering"
+            );
+        }
     }
 
     #[test]
@@ -6867,7 +6952,16 @@ impl NativeRuntime {
             .flat_map(|enemy| {
                 let mut snapshots = vec![enemy.snapshot()];
                 snapshots.extend(enemy.child_attachment_snapshot());
-                snapshots.extend(boss_eye_orbit_object_slot_details_loc_3931a(enemy));
+                snapshots.extend(boss_eye_orbit_object_slot_details_loc_3931a(
+                    enemy,
+                    boss_eye_orbit_mapping_indices_from_state_loc_37abc(
+                        enemy,
+                        self.opening_slice,
+                        self.progression.diamond_power_frames > 0
+                            || !self.diamond_power_invuln_haze_slots.is_empty(),
+                        self.frame_index,
+                    ),
+                ));
                 snapshots
             })
             .collect::<Vec<_>>();
@@ -9721,11 +9815,18 @@ impl NativeRuntime {
             return objects;
         }
         objects.extend(self.active_enemy_roster.iter().cloned());
-        objects.extend(
-            self.active_enemies
-                .iter()
-                .flat_map(boss_eye_orbit_object_slot_details_loc_3931a),
-        );
+        objects.extend(self.active_enemies.iter().flat_map(|enemy| {
+            boss_eye_orbit_object_slot_details_loc_3931a(
+                enemy,
+                boss_eye_orbit_mapping_indices_from_state_loc_37abc(
+                    enemy,
+                    self.opening_slice,
+                    self.progression.diamond_power_frames > 0
+                        || !self.diamond_power_invuln_haze_slots.is_empty(),
+                    self.frame_index,
+                ),
+            )
+        }));
         objects.extend(self.active_platform_roster.iter().cloned());
         objects
     }

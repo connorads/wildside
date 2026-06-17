@@ -79,6 +79,15 @@
       "promotion_trigger": "Promote if boss-eye sprite-order parity moves from exploratory trace details into first-class gfx object ordering state."
     },
     {
+      "key": "boss_eye_sprite_mapping_index_loc_37abc",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-eye-orbit-workers",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native waiting boss-eye child sprite mapping index refreshed by ASM sub_37ABC after sub_393C8/sub_39420 placement and before rendering.",
+      "promotion_trigger": "Promote if waiting boss-eye rendering moves fully from the projectile bridge to first-class `$21` object snapshots."
+    },
+    {
       "key": "boss_head_death_script_loc_39ebe",
       "scope": "object",
       "status": "exploratory",
