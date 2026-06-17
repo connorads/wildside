@@ -492,6 +492,24 @@ fn driller_parent_and_drill_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn driller_death_contact_uses_zero_collision_size_rows_loc_1bce() {
+    let mut driller = test_enemy(EnemyFamily::Driller, 101 << 16, 100 << 16, 1);
+    driller.death_animation_active = true;
+
+    let bounds = enemy_contact_bounds(&driller.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (1, 0, 1, 0),
+        "ASM Driller.asm loc_3BF1C plays parent death script stru_3BCD4 and linked-drill death script stru_3BCE2; GfxObjects_CollisionKid loc_1BCE indexes zero rows unk_31A84/unk_31A78"
+    );
+}
+
+#[test]
 fn spinning_twins_live_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;

@@ -11724,8 +11724,13 @@ fn driller_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // The linked drill children use `LnkTo_unk_C80A8..C80C0` -> `unk_31A7A`
     // (`dc.w $1,$F,-$B,$9`) at +/-24px from the parent. Native does not expose
     // the exact child sprite link in this contact helper, so keep the live
-    // parent+drill union and leave the zero death rows (`unk_31A78/31A84`)
-    // unmodelled.
+    // parent+drill union.
+    if enemy.stationary {
+        // ASM Driller.asm loc_3BF1C plays parent death script `stru_3BCD4` and
+        // linked-drill death script `stru_3BCE2`; their frames route through
+        // GfxObjects_CollisionKid loc_1BCE to zero rows `unk_31A84`/`unk_31A78`.
+        return empty_enemy_contact_bounds();
+    }
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-23, 23),
         Some(Direction::Left) | None => (-23, 23),
