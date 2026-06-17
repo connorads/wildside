@@ -19484,15 +19484,13 @@ impl NativeRuntime {
         // y_pos(a3); subq.w #1,y_pos(a3)` — places Kid 1 pixel above the
         // header spawn Y (into the floor cell above, not the empty cell below).
         let kid_y_pos = u32::from(player_start_y.saturating_sub(1)) << 16;
-        // Camera snaps to screen boundary: floor(pos / screen_size) * screen_size
-        // This matches the ASM at Load_InGame (divu.w #$140 / mulu.w #$140).
-        let camera_x_pos = u32::from((player_start_x / 320) * 320) << 16;
-        let camera_y_pos = u32::from((player_start_y / 224) * 224) << 16;
+        let camera_bootstrap =
+            initialise_camera_bootstrap_loc_11F48(player_start_x, player_start_y);
         LevelStartPose {
             kid_x_pos,
             kid_y_pos,
-            camera_x_pos,
-            camera_y_pos,
+            camera_x_pos: camera_bootstrap.camera_x_pos,
+            camera_y_pos: camera_bootstrap.camera_y_pos,
         }
     }
 

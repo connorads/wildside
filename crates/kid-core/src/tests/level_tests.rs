@@ -5393,6 +5393,32 @@ mod chunk_02 {
     }
 
     #[test]
+    fn level_start_pose_uses_loc_11f48_camera_bootstrap() {
+        let mut manifest = manifest_with_playable_spawn();
+        let header = manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("synthetic manifest should expose level header metadata");
+        header.player_start_x = 0x03A1;
+        header.player_start_y = 0x02D7;
+        let runtime = NativeRuntime::new(manifest);
+
+        let pose = runtime.level_start_pose(LevelId(0), runtime.level_bounds(LevelId(0)));
+        let expected = initialise_camera_bootstrap_loc_11F48(0x03A1, 0x02D7);
+
+        assert_eq!(
+            (pose.camera_x_pos, pose.camera_y_pos),
+            (expected.camera_x_pos, expected.camera_y_pos),
+            "ASM loc_11F48 should own live level-start camera flooring to `$140/$E0` screen boundaries"
+        );
+        assert_eq!(
+            (pose.kid_x_pos, pose.kid_y_pos),
+            (0x03A1_0000, 0x02D6_0000),
+            "ASM loc_7526 still places Kid at PlayerStart_X and PlayerStart_Y-1 while loc_11F48 only owns camera bootstrap"
+        );
+    }
+
+    #[test]
     fn inspect_respawn_settle_records_one_based_step_indices() {
         let Some(runtime) = cached_generated_runtime() else {
             return;
