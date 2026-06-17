@@ -2128,6 +2128,26 @@ fn trace_frames_match(
             actual.lava_geyser_palette_words_loc_14b2a;
     }
 
+    if !expected
+        .gameplay_debug_fields
+        .contains_key("native_platform_loader_loc_2744")
+        && actual
+            .gameplay_debug_fields
+            .contains_key("native_platform_loader_loc_2744")
+    {
+        // `native_platform_loader_loc_2744` is registered exploratory
+        // diagnostics for ASM Manage_PlatformLoading. Legacy recordings can
+        // omit it while state and pixel checkpoints remain authoritative.
+        if let Some(value) = actual
+            .gameplay_debug_fields
+            .get("native_platform_loader_loc_2744")
+        {
+            normalised_expected
+                .gameplay_debug_fields
+                .insert("native_platform_loader_loc_2744".to_owned(), value.clone());
+        }
+    }
+
     &normalised_expected == actual
 }
 
@@ -3069,6 +3089,29 @@ mod tests {
         assert_eq!(
             drift, None,
             "level-start BGM ids and loc_1223C lava/water palette fields are additive diagnostics for legacy visual-validation recordings"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_platform_loader_debug() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.gameplay_debug_fields.insert(
+            "native_platform_loader_loc_2744".to_owned(),
+            "offset=0x003c next_index=0 number_platforms=0 layout_len=11 active_slots=0".to_owned(),
+        );
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "native_platform_loader_loc_2744 is additive exploratory diagnostics for ASM loc_2744; legacy recordings should keep using state/pixel checkpoints as the authoritative signals"
         );
     }
 
