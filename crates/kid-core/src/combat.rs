@@ -11943,12 +11943,19 @@ fn robot_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
 }
 
 fn diamond_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if enemy.stationary || enemy.damage_flash {
+        // ASM Diamond.asm loc_3ADFA/loc_3AE28/loc_3AEE6/loc_3AEF8 hurt and
+        // death scripts `stru_3ACBE`/`stru_3ACC4` use `LnkTo_unk_C8138..C8158`,
+        // which route through GfxObjects_CollisionKid loc_1BCE to zero row
+        // `unk_31ACE`.
+        return empty_enemy_contact_bounds();
+    }
+
     // ASM Diamond.asm normal animation `stru_3ACA8` uses `LnkTo_unk_C8160..C8180`,
     // which map through GfxObjects_CollisionKid loc_1BCE to CollisionSize_Index
-    // rows `unk_31ACE`, `unk_31AD0`, `unk_31ADA`, `unk_31AE4`, and `unk_31AEE`.
-    // `unk_31ACE` is the zero-row lead frame and the hurt/death script also uses
-    // splinter rows that native does not expose here yet, so preserve the active
-    // nonzero live body row rather than pretending we know exact sprite phase.
+    // rows `unk_31AD0`, `unk_31ADA`, `unk_31AE4`, `unk_31AEE`, and `unk_31AF8`.
+    // Native does not expose the exact live sprite phase here yet, so preserve
+    // the active nonzero body union rather than pretending we know exact phase.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-10, 10),
         Some(Direction::Left) | None => (-10, 10),

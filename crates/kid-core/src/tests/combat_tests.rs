@@ -920,6 +920,34 @@ fn diamond_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn diamond_hurt_and_death_contact_use_zero_collision_size_row_loc_1bce() {
+    for (label, diamond) in [
+        ("hurt", {
+            let mut diamond = test_enemy(EnemyFamily::Diamond, 101 << 16, 100 << 16, 3);
+            diamond.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+            diamond
+        }),
+        ("death", {
+            let mut diamond = test_enemy(EnemyFamily::Diamond, 101 << 16, 100 << 16, 3);
+            diamond.death_animation_active = true;
+            diamond
+        }),
+    ] {
+        let bounds = enemy_contact_bounds(&diamond.snapshot());
+        assert_eq!(
+            (
+                bounds.left_px,
+                bounds.right_px,
+                bounds.top_px,
+                bounds.bottom_px
+            ),
+            (1, 0, 1, 0),
+            "ASM Diamond.asm {label} animation `stru_3ACBE`/`stru_3ACC4` uses LnkTo_unk_C8138..C8158; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_31ACE"
+        );
+    }
+}
+
+#[test]
 fn robot_parent_and_head_contact_use_rom_collision_size_rows_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 89 << 16;
