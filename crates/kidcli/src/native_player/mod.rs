@@ -9962,6 +9962,32 @@ mod tests {
     }
 
     #[test]
+    fn foreground_layout_terrain_skips_live_block_cells_loc_302f6() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        // ASM sub_302F6/sub_3034A reads one Level_Layout word per Scroll-A
+        // cell. A live `$E7xx` block word selects block mappings directly;
+        // transparent block pixels must not reveal the immutable foreground
+        // skin that was present in the extracted resource layout.
+        let grid = BlockGrid::from_level_layout(&[0x00, 0x00, 0xE7, 0x01, 0x00, 0x05], 3, 1);
+
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
+            "live block cells should not draw immutable foreground terrain underneath"
+        );
+        let Some((tile_sheet, tile, _)) =
+            topmost_indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200)
+        else {
+            panic!("expected shifting-block art at the live block cell");
+        };
+        assert_eq!(tile_sheet.tiles.len(), 0x200);
+        assert_eq!(tile.tile_index, 4);
+    }
+
+    #[test]
     fn build_game_scene_emits_hud_art_without_text_placeholders() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.number_hitpoints = 1;
