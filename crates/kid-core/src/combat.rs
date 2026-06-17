@@ -8739,6 +8739,12 @@ impl NativeRuntime {
                         y_pos,
                         boss_eye_orbit_workers,
                     );
+                    // ASM loc_38962/loc_389FA and Shishkaboss siblings branch
+                    // out of the hibernating loc_3893E/loc_389D6 loops; after
+                    // launch, those `$21` slots are moving detach objects, not
+                    // still-attached orbit workers owned by the boss head.
+                    self.active_enemies[idx].boss_eye_orbit_workers =
+                        BossEyeOrbitWorkers::default();
                 }
             }
             if is_armadillo_parent_spawned_child {

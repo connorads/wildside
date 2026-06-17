@@ -13734,6 +13734,32 @@ mod chunk_03 {
     }
 
     #[test]
+    fn boss_eye_detach_consumes_waiting_object_slots_loc_38962_389fa() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut boss = test_enemy(EnemyFamily::BoomerangBosses, 0x0200_0000, 0x0100_0000, 1);
+        boss.boss_head_index = 0;
+        boss.boss_eye_orbit_workers =
+            BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 2, Direction::Right);
+        runtime.active_enemies = vec![boss];
+
+        runtime.remove_dead_enemy(0);
+
+        assert!(
+            !runtime.active_enemies[0].boss_eye_orbit_workers.active,
+            "ASM loc_38962/loc_389FA branch out of the waiting loc_3893E/loc_389D6 loops, so the parent should no longer expose hibernating `$21` object slots after detach"
+        );
+        assert_eq!(
+            runtime
+                .projectiles
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::BossEyeSatellite)
+                .count(),
+            2,
+            "ASM loc_38962/loc_389FA should preserve the launched eye workers when consuming the waiting slots"
+        );
+    }
+
+    #[test]
     fn multi_head_boss_death_sets_eye_breakup_trigger_words_fb72_fb74_fb76() {
         for (head_index, expected_words, labels) in [
             (0, [1, 0, 0], "$FFFFFB72"),
