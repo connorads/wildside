@@ -171,6 +171,69 @@ fn boss_eye_sprite_mapping_index(label: &str) -> u8 {
     }
 }
 
+fn boss_eye_orbit_object_slot_details_loc_3931a(enemy: &ActiveEnemy) -> Vec<NativeObjectSnapshot> {
+    let workers = enemy.boss_eye_orbit_workers;
+    if !is_multi_head_boss(enemy.family) || !workers.active {
+        return Vec::new();
+    }
+
+    // ASM loc_3931A allocates the waiting eyes as `$21` object slots, but
+    // native still renders the same visuals through BossEyeSatellite details.
+    // Keep these trace-only until object-count/render ownership is promoted.
+    [
+        (
+            workers.primary_x_pos_word,
+            workers.primary_y_pos_word,
+            workers.primary_sprite_order_word_a,
+        ),
+        (
+            workers.counter_x_pos_word,
+            workers.counter_y_pos_word,
+            workers.counter_sprite_order_word_a,
+        ),
+    ]
+    .into_iter()
+    .map(|(x_pos_word, y_pos_word, sprite_order_word_a)| {
+        let mut debug_fields = BTreeMap::new();
+        debug_fields.insert(
+            "boss_eye_object_meta_loc_3931a".to_owned(),
+            "0x0021".to_owned(),
+        );
+        debug_fields.insert(
+            "boss_eye_has_kid_collision_loc_3931a".to_owned(),
+            "false".to_owned(),
+        );
+        debug_fields.insert("boss_eye_is_moved_loc_3931a".to_owned(), "true".to_owned());
+        debug_fields.insert(
+            "boss_eye_sprite_order_word_a_loc_393c8".to_owned(),
+            format!("{sprite_order_word_a:#06x}"),
+        );
+
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x21 },
+            x_pos: u32::from(x_pos_word) << 16,
+            y_pos: u32::from(y_pos_word) << 16,
+            layout_index: None,
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(enemy.facing),
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: enemy.palette_variant,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields,
+        }
+    })
+    .collect()
+}
+
 fn trace_cell_word(cell: terrain::Cell) -> u16 {
     let block_type = if cell.has_block {
         cell.block_type as u8 & 0x0F
@@ -1966,6 +2029,78 @@ mod tests {
                 .iter()
                 .any(|eye| eye.x_pos == 0x01F3_0000 && eye.y_pos == 0x00DB_0000),
             "ASM loc_389D6 should report the live counter worker's stored phase-2 sub_39420 placement, not frame_index phase 0"
+        );
+    }
+
+    #[test]
+    fn trace_exposes_waiting_boss_eye_satellites_as_object_slots_loc_3931a() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 640,
+            height_pixels: 480,
+        }));
+        runtime.active_enemies.push(ActiveEnemy {
+            family: EnemyFamily::Shishkaboss,
+            x_pos: 0x0200_0000,
+            y_pos: 0x0100_0000,
+            facing: Direction::Right,
+            boss_head_index: 0,
+            boss_eye_orbit_workers: crate::enemies::BossEyeOrbitWorkers::active_loc_38902_3899a(
+                0x0200,
+                0x0100,
+                2,
+                Direction::Right,
+            ),
+            ..drips_test_enemy(1, 0)
+        });
+
+        let trace = runtime.trace_frame();
+        let eye_slots = trace
+            .active_enemy_details
+            .iter()
+            .filter(|object| object.kind == NativeObjectKind::Enemy { object_type: 0x21 })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            eye_slots.len(),
+            2,
+            "ASM loc_3931A allocates the two waiting boss-eye satellites as separate `$21` object slots before the loc_38962/loc_389FA detach routes"
+        );
+        assert!(
+            eye_slots
+                .iter()
+                .any(|eye| eye.x_pos == 0x01E8_0000 && eye.y_pos == 0x00DB_0000),
+            "ASM sub_393C8 phase-2 primary waiting eye uses word_39416[2] x offset -24 and parent y-#$25",
+        );
+        assert!(
+            eye_slots
+                .iter()
+                .any(|eye| eye.x_pos == 0x01F3_0000 && eye.y_pos == 0x00DB_0000),
+            "ASM sub_39420 phase-2 counter waiting eye uses word_3946E[2] x offset -13 and parent y-#$25",
+        );
+        assert!(
+            eye_slots.iter().all(|eye| {
+                eye.debug_fields
+                    .get("boss_eye_object_meta_loc_3931a")
+                    .is_some_and(|value| value == "0x0021")
+                    && eye
+                        .debug_fields
+                        .get("boss_eye_has_kid_collision_loc_3931a")
+                        .is_some_and(|value| value == "false")
+                    && eye
+                        .debug_fields
+                        .get("boss_eye_is_moved_loc_3931a")
+                        .is_some_and(|value| value == "true")
+            }),
+            "ASM loc_3931A writes object_meta=$21, clears has_kid_collision, and sets is_moved for each waiting eye worker",
+        );
+        assert!(
+            trace
+                .active_objects
+                .iter()
+                .all(|object| object.kind != NativeObjectKind::Enemy { object_type: 0x21 }),
+            "This slice keeps loc_3931A satellites trace-detail only so the existing projectile renderer and object-count parity remain unchanged",
         );
     }
 
@@ -6722,6 +6857,7 @@ impl NativeRuntime {
             .flat_map(|enemy| {
                 let mut snapshots = vec![enemy.snapshot()];
                 snapshots.extend(enemy.child_attachment_snapshot());
+                snapshots.extend(boss_eye_orbit_object_slot_details_loc_3931a(enemy));
                 snapshots
             })
             .collect::<Vec<_>>();

@@ -34,6 +34,42 @@
       "promotion_trigger": "Promote if true boss-head parent animation parity or checked-in oracle comparisons depend on this field beyond the temporary orbit-worker bridge."
     },
     {
+      "key": "boss_eye_object_meta_loc_3931a",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-eye-orbit-workers",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native waiting boss-eye child object meta word written by ASM loc_3931A before the loc_38962/loc_389FA detach routes.",
+      "promotion_trigger": "Promote if boss-eye child object-slot parity moves from trace-detail diagnostics into typed lifecycle or object-count comparison."
+    },
+    {
+      "key": "boss_eye_has_kid_collision_loc_3931a",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-eye-orbit-workers",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native waiting boss-eye child collision flag cleared by ASM loc_3931A while the eye hibernates around its boss-head parent.",
+      "promotion_trigger": "Promote if waiting boss-eye collision state becomes a typed lifecycle field or a checked oracle assertion."
+    },
+    {
+      "key": "boss_eye_is_moved_loc_3931a",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-eye-orbit-workers",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native waiting boss-eye child movement scheduler flag set by ASM loc_3931A after allocating the eye object slot.",
+      "promotion_trigger": "Promote if waiting boss-eye scheduler state becomes a typed lifecycle field or a checked oracle assertion."
+    },
+    {
+      "key": "boss_eye_sprite_order_word_a_loc_393c8",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-eye-orbit-workers",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native waiting boss-eye child `$A(a3)` sprite-order word adjusted by ASM sub_393C8/sub_39420 before j_sub_FF6 ordering.",
+      "promotion_trigger": "Promote if boss-eye sprite-order parity moves from exploratory trace details into first-class gfx object ordering state."
+    },
+    {
       "key": "platform_width_px",
       "scope": "object",
       "status": "exploratory",
