@@ -3004,6 +3004,15 @@ pub enum DragonFlyingDescentFireState {
     CleanupSecondLoc34C4A,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum BossDeathBurstState {
+    #[default]
+    None,
+    FallingLoc3712E,
+    ChaseLoc37148,
+    TimeoutLoc3720A,
+}
+
 /// Projectile fired by enemies and player helmet attacks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct EnemyProjectile {
@@ -3092,6 +3101,8 @@ pub(crate) struct EnemyProjectile {
     pub(crate) dragon_flying_descent_fire_state: DragonFlyingDescentFireState,
     /// Dragon_Flying.asm loc_34C26 DBF counter or loc_34C4A hibernate count.
     pub(crate) dragon_flying_descent_fire_counter: u16,
+    /// HeadyMetal normal-fire `sub_370D2` coroutine label.
+    pub(crate) boss_death_burst_state: BossDeathBurstState,
     /// HeadyMetal boss-eye `addroffset_sprite(a3)` label selected by ASM
     /// `sub_37332 loc_3739C` and refreshed by parent `sub_37ABC`.
     pub(crate) boss_eye_sprite_mapping_label: &'static str,

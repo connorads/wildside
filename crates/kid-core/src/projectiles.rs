@@ -110,6 +110,7 @@ const DRIPS_DROP_FLOOR_PROBE_HALF_WIDTH_LOC_3345C: i32 = 5;
 const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x0A;
 const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
 const DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A: i32 = 0x05;
+const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 = 0x05 + 0x05 + 0x0A + 0x01;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProjectilePlayerContactLocB640 {
@@ -130,6 +131,87 @@ fn dragon_flying_descent_fire_start_cleanup_loc_34c4a(projectile: &mut EnemyProj
     // the coroutine label between projectile passes, so keep one extra sampled
     // frame for each cleanup sprite to match the Object_RAM lifetime.
     projectile.dragon_flying_descent_fire_counter = cleanup.first_animation_hibernate_frames + 1;
+}
+
+fn move_projectile_by_current_velocity(projectile: &mut EnemyProjectile) {
+    projectile.x_pos = (projectile.x_pos as i64 + i64::from(projectile.x_velocity)) as u32;
+    projectile.y_pos = (projectile.y_pos as i64 + i64::from(projectile.y_velocity)) as u32;
+}
+
+fn step_boss_death_burst_sub_370d2(
+    projectile: &mut EnemyProjectile,
+    player_x: Option<u32>,
+    player_y: Option<u32>,
+    v_int_counter_fff809: u8,
+    pending_sound_effects: &mut Vec<crate::combat::QueuedSoundEffect>,
+) -> bool {
+    if projectile.boss_death_burst_state == BossDeathBurstState::None {
+        projectile.boss_death_burst_state = BossDeathBurstState::FallingLoc3712E;
+        if projectile.animation_elapsed_frames == 0 {
+            projectile.animation_elapsed_frames =
+                BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8;
+        }
+    }
+
+    match projectile.boss_death_burst_state {
+        BossDeathBurstState::FallingLoc3712E => {
+            // ASM loc_3712E: hibernate first, then add `$2710` to y_vel until
+            // `stru_37BD8` sets animation flag `$18(a3)`. The `$78` chase
+            // counter is untouched during this entry animation.
+            move_projectile_by_current_velocity(projectile);
+            let next_y_velocity =
+                crate::combat::boss_death_burst_fall_step_sub_370D2(projectile.y_velocity);
+            if projectile.animation_elapsed_frames > 1 {
+                projectile.animation_elapsed_frames -= 1;
+                projectile.y_velocity = next_y_velocity;
+            } else {
+                projectile.animation_elapsed_frames = 0;
+                projectile.y_velocity = 0;
+                projectile.boss_death_burst_state = BossDeathBurstState::ChaseLoc37148;
+            }
+            true
+        }
+        BossDeathBurstState::ChaseLoc37148 => {
+            // ASM loc_37148 runs after a hibernated frame: move with the
+            // previous velocity, decrement d0, then apply loc_3716C homing
+            // deltas only when the timer remains non-zero.
+            move_projectile_by_current_velocity(projectile);
+            let gate = crate::combat::boss_death_burst_loop_gate_loc_37148(0, projectile.lifetime);
+            projectile.lifetime = gate.next_chase_frames;
+            match gate.next {
+                crate::combat::BossDeathBurstLoopNextLoc37148::ChaseKid => {
+                    let step = crate::combat::boss_death_burst_homing_step_sub_370D2(
+                        (projectile.x_pos >> 16) as u16,
+                        (projectile.y_pos >> 16) as u16,
+                        (player_x.unwrap_or(projectile.x_pos) >> 16) as u16,
+                        (player_y.unwrap_or(projectile.y_pos) >> 16) as u16,
+                    );
+                    projectile.x_velocity =
+                        projectile.x_velocity.wrapping_add(step.x_velocity_delta);
+                    projectile.y_velocity =
+                        projectile.y_velocity.wrapping_add(step.y_velocity_delta);
+                    true
+                }
+                crate::combat::BossDeathBurstLoopNextLoc37148::TimeoutFinish => {
+                    projectile.x_velocity = 0;
+                    projectile.y_velocity = 0;
+                    projectile.boss_death_burst_state = BossDeathBurstState::TimeoutLoc3720A;
+                    if crate::combat::boss_death_timeout_sound_sub_370D2(v_int_counter_fff809)
+                        == "sfx_Boss_dies"
+                    {
+                        pending_sound_effects.push(crate::combat::QueuedSoundEffect::BossDies);
+                    }
+                    true
+                }
+                crate::combat::BossDeathBurstLoopNextLoc37148::CollisionFinish => false,
+            }
+        }
+        BossDeathBurstState::TimeoutLoc3720A => {
+            move_projectile_by_current_velocity(projectile);
+            true
+        }
+        BossDeathBurstState::None => true,
+    }
 }
 
 fn dragon_flying_descent_fire_offscreen_flag_loc_34c3a(
@@ -2476,6 +2558,7 @@ impl NativeRuntime {
             let is_boss_head_arrow = p.kind == EnemyProjectileKind::BossHeadArrow;
             let is_boss_head_boomerang = p.kind == EnemyProjectileKind::BossHeadBoomerang;
             let is_boss_eye_attack = p.kind == EnemyProjectileKind::BossEyeAttack;
+            let is_boss_death_burst = p.kind == EnemyProjectileKind::BossDeathBurst;
             let is_boss_eye_satellite = p.kind == EnemyProjectileKind::BossEyeSatellite;
             let is_boss_eye_pop_effect = p.kind == EnemyProjectileKind::BossEyePopEffect;
             let is_boss_skewer = p.kind == EnemyProjectileKind::BossSkewer;
@@ -2485,6 +2568,15 @@ impl NativeRuntime {
                 EnemyProjectileKind::TarMonsterBurstChild
                     | EnemyProjectileKind::DripsSurfaceCrawlerBurst
             );
+            if is_boss_death_burst {
+                return step_boss_death_burst_sub_370d2(
+                    p,
+                    player_x,
+                    player_y,
+                    v_int_counter_fff809,
+                    &mut pending_projectile_sound_effects,
+                );
+            }
             if is_boss_head_arrow && p.lifetime == 0 {
                 if p.animation_elapsed_frames == 0 {
                     // ASM loc_3A134 -> loc_3A14E: once `$40(a3)` reaches 0,

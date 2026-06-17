@@ -10863,6 +10863,7 @@ fn cloud_projectile_spawn_loc_35df0(
         tar_monster_collision_response_budget: 0,
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
+        boss_death_burst_state: BossDeathBurstState::None,
         boss_eye_sprite_mapping_label: "",
     }
 }
@@ -26233,6 +26234,7 @@ pub(crate) fn step_archer(
         tar_monster_collision_response_budget: 0,
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
+        boss_death_burst_state: BossDeathBurstState::None,
         boss_eye_sprite_mapping_label: "",
     });
     if let Some(sound_effects) = played_sound_effects {
@@ -27125,6 +27127,10 @@ pub(crate) const BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570: u16 = 0x22 + 0x05 + 
 /// ASM Enemy20_HeadyMetal_Init (kid.asm:39264): the `$FFFFFB7A` anchor starts
 /// its `$3E(a3)` counter at `$A` before `loc_375DE` starts eye spawns.
 pub(crate) const HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264: u16 = 0x000A;
+/// ASM `sub_370D2` starts `stru_37BD8` and loc_3712E falls until that script
+/// sets animation flag `$18(a3)`.
+pub(crate) const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 =
+    0x05 + 0x05 + 0x0A + 0x01;
 /// ASM `stru_37B98`: high-count eye-spawn animation duration before `$18(a3)`.
 pub(crate) const HEADY_METAL_EYE_HIGH_ANIMATION_FRAMES_STRU_37B98: u16 =
     0x2D + 0x32 + 0x05 + 0x14 + 0x14 + 0x19 + 0x05 + 0x0F;
@@ -27247,6 +27253,8 @@ pub(crate) fn step_boss_fire_with_sounds(
                 gravity: init.landing_gravity,
                 friendly: false,
                 homing_accel: init.homing_accel,
+                animation_elapsed_frames: BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8,
+                boss_death_burst_state: BossDeathBurstState::FallingLoc3712E,
                 speed_cap: 0,
                 wall_bounce: false,
                 kind: EnemyProjectileKind::BossDeathBurst,

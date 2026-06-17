@@ -2149,6 +2149,94 @@ fn live_heady_metal_fire_uses_loc_375de_scheduler_for_sub_370d2() {
 }
 
 #[test]
+fn live_boss_death_burst_falls_before_homing_loc_3712e() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 0x0090_0000;
+    slice.player.y_pos = 0x00F0_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.projectiles.push(EnemyProjectile {
+        x_pos: 0x0080_0000,
+        y_pos: 0x0080_0000,
+        lifetime: 0x0078,
+        gravity: 0x0000_2710,
+        homing_accel: 0x0000_07D0,
+        kind: EnemyProjectileKind::BossDeathBurst,
+        boss_eye_sprite_mapping_label: "LnkTo_unk_C8460-Data_Index",
+        ..EnemyProjectile::default()
+    });
+
+    runtime.step_projectiles();
+
+    let burst = runtime.projectiles[0];
+    assert_eq!(
+        burst.x_velocity, 0,
+        "ASM loc_3712E only adds `$2710` to y_vel during `stru_37BD8`; homing at loc_3716C must wait until the animation flag `$18(a3)` is set"
+    );
+    assert_eq!(
+        burst.y_velocity, 0x0000_2710,
+        "ASM loc_3712E should apply entry gravity without the later `$7D0` homing delta"
+    );
+    assert_eq!(
+        burst.lifetime, 0x0078,
+        "ASM sub_370D2 keeps `d0=$78` untouched until loc_37148 starts after the entry animation"
+    );
+}
+
+#[test]
+fn live_boss_death_burst_chases_only_after_entry_animation_loc_37148() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 0x0090_0000;
+    slice.player.y_pos = 0x0090_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.projectiles.push(EnemyProjectile {
+        x_pos: 0x0080_0000,
+        y_pos: 0x0080_0000,
+        lifetime: 0x0078,
+        gravity: 0x0000_2710,
+        homing_accel: 0x0000_07D0,
+        kind: EnemyProjectileKind::BossDeathBurst,
+        boss_death_burst_state: BossDeathBurstState::FallingLoc3712E,
+        animation_elapsed_frames: BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8,
+        boss_eye_sprite_mapping_label: "LnkTo_unk_C8460-Data_Index",
+        ..EnemyProjectile::default()
+    });
+
+    for _ in 0..BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8 {
+        runtime.step_projectiles();
+    }
+
+    let burst = runtime.projectiles[0];
+    assert_eq!(
+        burst.boss_death_burst_state,
+        BossDeathBurstState::ChaseLoc37148,
+        "ASM loc_3712E should enter loc_37148 only after `stru_37BD8` sets `$18(a3)`"
+    );
+    assert_eq!(
+        burst.y_velocity, 0,
+        "ASM loc_3712E clears y_vel before the first loc_37148 hibernate"
+    );
+    assert_eq!(
+        burst.lifetime, 0x0078,
+        "ASM loc_3712E must not consume the `$78` chase counter before loc_37148"
+    );
+
+    runtime.step_projectiles();
+
+    let burst = runtime.projectiles[0];
+    assert_eq!(
+        burst.lifetime, 0x0077,
+        "ASM loc_37148 decrements d0 after the first grounded hibernate"
+    );
+    assert_eq!(
+        (burst.x_velocity, burst.y_velocity),
+        (0x0000_07D0, -0x0000_07D0),
+        "ASM loc_3716C..loc_371B4 should start `$7D0` homing deltas only in the grounded chase loop; the signed Y direction follows the post-fall position"
+    );
+}
+
+#[test]
 fn live_heady_metal_eye_scheduler_uses_low_animation_after_counter_wrap_loc_37630() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 30);
     boss.wait_timer = 0;
