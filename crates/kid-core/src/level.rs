@@ -17982,16 +17982,46 @@ impl NativeRuntime {
         else {
             return;
         };
+        let map_id = self
+            .assets
+            .map_order
+            .get(usize::from(level_id.0))
+            .copied()
+            .unwrap_or(level_id.0);
 
-        if let Some(foreground_palette) =
-            self.theme_palette_words::<15>(&format!("palette_fg/{foreground_theme}.bin"))
-        {
+        let foreground_palette_path = match classify_foreground_palette_override_loc_11D8E(map_id) {
+            ForegroundPaletteOverrideLoc11D8E::PlethoraCave => {
+                String::from("palette_fg/cave_plethora.bin")
+            }
+            ForegroundPaletteOverrideLoc11D8E::AlternativeCave => {
+                String::from("palette_fg/cave_alt.bin")
+            }
+            ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => {
+                String::from("palette_fg/city_alt.bin")
+            }
+            ForegroundPaletteOverrideLoc11D8E::None
+            | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => {
+                format!("palette_fg/{foreground_theme}.bin")
+            }
+        };
+
+        if let Some(foreground_palette) = self.theme_palette_words::<15>(&foreground_palette_path) {
             copy_foreground_palette_loc_11DB0(&foreground_palette, &mut self.palette_buffer);
         }
 
-        if let Some(background_palette) =
-            self.theme_palette_words::<8>(&format!("palette_bg/{background_theme}.bin"))
+        let background_palette_path = if classify_late_background_palette_override_loc_11E06(map_id)
+            == LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette
         {
+            String::from("palette_bg/city_alt.bin")
+        } else if classify_background_palette_override_loc_11DF4(map_id)
+            == BackgroundPaletteOverrideLoc11DF4::AlternativeCave
+        {
+            String::from("palette_bg/cave_alt.bin")
+        } else {
+            format!("palette_bg/{background_theme}.bin")
+        };
+
+        if let Some(background_palette) = self.theme_palette_words::<8>(&background_palette_path) {
             copy_background_palette_loc_11E16(&background_palette, &mut self.palette_buffer);
         }
     }

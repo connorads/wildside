@@ -3301,6 +3301,78 @@ mod chunk_02 {
     }
 
     #[test]
+    fn begin_level_entry_uses_map_order_palette_overrides_loc_11d8e_11e12() {
+        let output_root =
+            std::env::temp_dir().join(format!("kid-core-palette-overrides-{}", std::process::id()));
+        let theme_root = output_root.join("theme");
+        fs::create_dir_all(theme_root.join("palette_fg")).expect("create fg palette dir");
+        fs::create_dir_all(theme_root.join("palette_bg")).expect("create bg palette dir");
+
+        let default_foreground_words: [u16; 15] =
+            std::array::from_fn(|index| 0x0100 + index as u16);
+        let override_foreground_words: [u16; 15] =
+            std::array::from_fn(|index| 0x0A00 + index as u16);
+        let default_background_words: [u16; 8] = std::array::from_fn(|index| 0x0200 + index as u16);
+        let override_background_words: [u16; 8] =
+            std::array::from_fn(|index| 0x0B00 + index as u16);
+
+        let write_words = |relative_path: &str, words: &[u16]| -> kid_data::AssetFile {
+            let bytes: Vec<u8> = words.iter().flat_map(|word| word.to_be_bytes()).collect();
+            let path = theme_root.join(relative_path);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("create palette parent");
+            }
+            fs::write(path, &bytes).expect("write palette");
+            kid_data::AssetFile {
+                relative_path: String::from(relative_path),
+                size_bytes: bytes.len() as u64,
+                sha1: format!("fixture-{relative_path}"),
+            }
+        };
+
+        let mut assets = manifest();
+        assets.output_root = output_root.clone();
+        assets.map_order = vec![0x1B];
+        assets.theme_assets = vec![
+            write_words("palette_fg/7.bin", &default_foreground_words),
+            write_words("palette_fg/city_alt.bin", &override_foreground_words),
+            write_words("palette_bg/4.bin", &default_background_words),
+            write_words("palette_bg/city_alt.bin", &override_background_words),
+        ];
+        let header = assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header");
+        header.level_theme = 0x07;
+        header.background_theme = 0x04;
+
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.begin_level_entry(LevelId(0));
+
+        assert_eq!(
+            &runtime.palette_buffer[1..=15],
+            &override_foreground_words,
+            "ASM loc_11DA0/loc_11DAC should resolve MapOrder[Current_LevelID]=$1B and copy `Pal_12D26` city_alt foreground words at loc_11DB0, not the default theme palette"
+        );
+        assert_eq!(
+            runtime.palette_buffer[0], override_background_words[0],
+            "ASM loc_11E06/loc_11E12 should resolve MapOrder[Current_LevelID]=$1B and copy the first `Pal_12D54` city_alt background word to Palette_Buffer"
+        );
+        assert_eq!(
+            &runtime.palette_buffer[0x19..=0x1F],
+            &override_background_words[1..],
+            "ASM loc_11E16 should copy the remaining `Pal_12D54` city_alt background words into Palette_Buffer+$32..+$3E"
+        );
+        assert_ne!(
+            &runtime.palette_buffer[1..=15],
+            &default_foreground_words,
+            "the live Load_InGame palette path must not ignore the hardcoded foreground override data"
+        );
+
+        fs::remove_dir_all(output_root).ok();
+    }
+
+    #[test]
     fn boot_title_start_level_1_expands_loc_1ab26_letter_workers() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
