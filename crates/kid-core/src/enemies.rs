@@ -9181,6 +9181,19 @@ impl ActiveEnemy {
         } else {
             self.x_velocity
         };
+        let contact_phase = if matches!(self.family, EnemyFamily::TarMonster)
+            && !matches!(
+                self.tar_monster_state,
+                TarMonsterState::Visible | TarMonsterState::Attacking
+            ) {
+            // ASM Tar_Monster.asm `stru_3272E`/`stru_3274C` expose
+            // hidden/emerge/submerge frames whose sprite links map through
+            // GfxObjects_CollisionKid loc_1BCE to zero row `unk_314CE`.
+            Some(NativeContactPhase::TarMonsterHidden)
+        } else {
+            None
+        };
+
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
                 object_type: self.family.object_type(),
@@ -9198,7 +9211,7 @@ impl ActiveEnemy {
             stationary: self.dragon_phase.is_stationary()
                 || (self.death_animation_active
                     && enemy_death_animation_frames(self.family).is_some()),
-            contact_phase: None,
+            contact_phase,
             shared_walker_state,
             shared_walker_patrol_timer,
             shared_walker_patrol_short_next,

@@ -11682,11 +11682,19 @@ fn emo_rock_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds 
 }
 
 fn tar_monster_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if matches!(
+        enemy.contact_phase,
+        Some(NativeContactPhase::TarMonsterHidden)
+    ) {
+        // ASM Tar_Monster.asm `stru_3272E`/`stru_3274C` frames use
+        // `LnkTo_unk_C77A6..C77D6`, which route through
+        // GfxObjects_CollisionKid loc_1BCE to zero row `unk_314CE`.
+        return empty_enemy_contact_bounds();
+    }
+
     // ASM Tar_Monster.asm attack/hurt/death frames `LnkTo_unk_C77DE..C7816`
     // route through GfxObjects_CollisionKid loc_1BCE to `unk_314D0`:
-    // `dc.w -$5,$A,-$1F,$1F`. Native does not expose the current sprite
-    // selector here yet, so keep the nonzero live row and leave the hidden /
-    // emerge zero-row frames (`unk_314CE`) unmodelled.
+    // `dc.w -$5,$A,-$1F,$1F`.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-5, 5),
         Some(Direction::Left) | None => (-5, 5),

@@ -249,7 +249,8 @@ fn tar_monster_live_contact_uses_rom_collision_size_row_loc_1bce() {
     slice.player.y_velocity = 0;
     slice.player.on_ground = true;
 
-    let tar_monster = test_enemy(EnemyFamily::TarMonster, 101 << 16, 100 << 16, 2);
+    let mut tar_monster = test_enemy(EnemyFamily::TarMonster, 101 << 16, 100 << 16, 2);
+    tar_monster.tar_monster_state = TarMonsterState::Visible;
     let bounds = enemy_contact_bounds(&tar_monster.snapshot());
     assert_eq!(
         (
@@ -272,6 +273,16 @@ fn tar_monster_live_contact_uses_rom_collision_size_row_loc_1bce() {
         ),
         EnemyContactResult::Damage,
         "the ROM Tar Monster live row reaches vertically above the previous generic 16px-tall fallback"
+    );
+}
+
+#[test]
+fn tar_monster_hidden_contact_uses_zero_collision_size_row_loc_1bce() {
+    let tar_monster = test_enemy(EnemyFamily::TarMonster, 101 << 16, 100 << 16, 2);
+    let bounds = enemy_contact_bounds(&tar_monster.snapshot());
+    assert!(
+        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
+        "ASM Tar_Monster.asm hidden/emerge/submerge frames LnkTo_unk_C77A6..C77D6 index the zero CollisionSize row unk_314CE through GfxObjects_CollisionKid loc_1BCE"
     );
 }
 

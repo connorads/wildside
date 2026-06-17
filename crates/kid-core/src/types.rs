@@ -1831,6 +1831,7 @@ pub struct NativeObjectSnapshot {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NativeContactPhase {
     ScorpionStingTail,
+    TarMonsterHidden,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
