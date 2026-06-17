@@ -1086,21 +1086,45 @@ fn tornado_contact_uses_rom_collision_size_row_loc_1bce() {
 }
 
 #[test]
-fn tornado_death_contact_uses_zero_collision_size_row_loc_1bce() {
-    let mut tornado = test_enemy(EnemyFamily::Tornado, 101 << 16, 100 << 16, 1);
-    tornado.death_animation_active = true;
-
-    let bounds = enemy_contact_bounds(&tornado.snapshot());
-    assert_eq!(
+fn tornado_death_contact_follows_stru_35b1e_phase_rows_loc_1bce() {
+    for (label, wait_timer, expected) in [
         (
-            bounds.left_px,
-            bounds.right_px,
-            bounds.top_px,
-            bounds.bottom_px
+            "first zero frame LnkTo_unk_C783E",
+            TORNADO_DEATH_ANIMATION_FRAMES,
+            (1, 0, 1, 0),
         ),
-        (1, 0, 1, 0),
-        "ASM Tornado.asm loc_359B2 plays death script stru_35B1E; GfxObjects_CollisionKid loc_1BCE indexes rows unk_31D06/unk_31D08 for LnkTo_unk_C783E/C7846, but native has no exact death frame phase yet"
-    );
+        (
+            "first active frame LnkTo_unk_C7846",
+            TORNADO_DEATH_ANIMATION_FRAMES - 0x06,
+            (-4, 2, -4, 2),
+        ),
+        (
+            "middle zero frame LnkTo_unk_C783E",
+            TORNADO_DEATH_ANIMATION_FRAMES - 0x09,
+            (1, 0, 1, 0),
+        ),
+        (
+            "final active frame LnkTo_unk_C7846",
+            TORNADO_DEATH_ANIMATION_FRAMES - 0x14,
+            (-4, 2, -4, 2),
+        ),
+    ] {
+        let mut tornado = test_enemy(EnemyFamily::Tornado, 101 << 16, 100 << 16, 1);
+        tornado.death_animation_active = true;
+        tornado.wait_timer = wait_timer;
+
+        let bounds = enemy_contact_bounds(&tornado.snapshot());
+        assert_eq!(
+            (
+                bounds.left_px,
+                bounds.right_px,
+                bounds.top_px,
+                bounds.bottom_px
+            ),
+            expected,
+            "ASM Tornado.asm loc_359B2 plays death script stru_35B1E; {label} maps through GfxObjects_CollisionKid loc_1BCE to rows unk_31D06/unk_31D08"
+        );
+    }
 }
 
 #[test]

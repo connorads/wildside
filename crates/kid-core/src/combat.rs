@@ -11877,9 +11877,26 @@ fn tornado_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     if enemy.stationary {
         // ASM Tornado.asm loc_359B2 death script `stru_35B1E` uses
         // `LnkTo_unk_C783E/C7846`, which route through GfxObjects_CollisionKid
-        // loc_1BCE to rows `unk_31D06` (zero) and `unk_31D08`. Native does
-        // not expose the death animation phase yet, so keep death contact
-        // hidden instead of making every death frame active.
+        // loc_1BCE to rows `unk_31D06` (zero) and `unk_31D08`
+        // (`dc.w -$4,$6,-$4,$6`). Native snapshots expose the remaining
+        // death-animation timer, so convert the `stru_35B1E` durations to the
+        // current contact row instead of making every death frame active.
+        if let Some(wait_timer) = enemy.wait_timer {
+            let elapsed = TORNADO_DEATH_ANIMATION_FRAMES
+                .saturating_sub(wait_timer.min(TORNADO_DEATH_ANIMATION_FRAMES));
+            if matches!(elapsed, 0x06..=0x08 | 0x0D..=0x10 | 0x14..=0x19) {
+                let (left_px, right_px) = match enemy.facing {
+                    Some(Direction::Right) => (-2, 4),
+                    Some(Direction::Left) | None => (-4, 2),
+                };
+                return EnemyContactBounds {
+                    left_px,
+                    right_px,
+                    top_px: -4,
+                    bottom_px: 2,
+                };
+            }
+        }
         return empty_enemy_contact_bounds();
     }
 
