@@ -11065,9 +11065,10 @@ mod chunk_09 {
             rt.block_debris_swarms.is_empty(),
             "ASM sub_2A4C clears the whole scratch slot once the tail fragment reaches relative x `$1EF`, even if the lead fragment is still visible"
         );
-        assert!(
-            rt.trace_frame().block_debris_pieces.is_empty(),
-            "cleared sub_2A4C scratch slots should no longer expose falling debris pieces to the renderer"
+        assert_eq!(
+            rt.trace_frame().block_debris_pieces,
+            vec![(0x0020, 0x0040); 4],
+            "ASM sub_2A4C emits the first four debris sprites before the tail fragment `$1EF` check clears the scratch slot"
         );
     }
 

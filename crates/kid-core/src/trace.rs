@@ -7232,15 +7232,19 @@ impl NativeRuntime {
                 .map(|e| (e.x_px, e.y_px, e.remaining, e.direction))
                 .collect(),
             block_debris_pieces: self
-                .block_debris_swarms
-                .iter()
-                .flat_map(|swarm| {
-                    swarm
-                        .pieces
+                .block_debris_sprite_pieces_sub_2a4c
+                .is_empty()
+                .then(|| {
+                    self.block_debris_swarms
                         .iter()
-                        .map(|piece| ((piece.x_pos_fp >> 16) as i16, (piece.y_pos_fp >> 16) as i16))
+                        .flat_map(|swarm| {
+                            swarm.pieces.iter().map(|piece| {
+                                ((piece.x_pos_fp >> 16) as i16, (piece.y_pos_fp >> 16) as i16)
+                            })
+                        })
+                        .collect()
                 })
-                .collect(),
+                .unwrap_or_else(|| self.block_debris_sprite_pieces_sub_2a4c.clone()),
             prize_block_spawn_flashes: self
                 .prize_block_spawn_flashes
                 .iter()

@@ -4418,6 +4418,7 @@ impl NativeRuntime {
         }
         self.hidden_block_fg_update_workers
             .retain(|worker| worker.duration_frames > 0);
+        self.block_debris_sprite_pieces_sub_2a4c.clear();
 
         for e in &mut self.block_destroy_effects {
             if e.pending_ice_origin_nudge {
@@ -4474,6 +4475,7 @@ impl NativeRuntime {
                 (slice.camera.y_pos >> 16) as i32,
             )
         });
+        let mut emitted_block_debris_sprite_pieces = Vec::new();
         self.block_debris_swarms.retain(|swarm| {
             let first_piece = swarm.pieces[0];
             // ASM sub_2A4C (kid.asm:5071-5090): the first shard is culled
@@ -4488,13 +4490,22 @@ impl NativeRuntime {
                 return false;
             }
 
-            let tail_piece = swarm.pieces[swarm.pieces.len() - 1];
-            let tail_screen_x = (tail_piece.x_pos_fp >> 16).wrapping_sub(camera_x_px);
-            // ASM sub_2A4C inline tail check (kid.asm:5132-5158): after the
-            // fifth debris sprite path, relative x >= `$1EF` clears the whole
-            // scratch slot even when the lead shard remains on-screen.
-            tail_screen_x < 0x01EF
+            for (index, piece) in swarm.pieces.iter().enumerate() {
+                let piece_x = piece.x_pos_fp >> 16;
+                let piece_y = piece.y_pos_fp >> 16;
+                let relative_x = piece_x.wrapping_sub(camera_x_px);
+                // ASM sub_2A4C inline tail check (kid.asm:5132-5158): the
+                // final fragment's x check runs before that fragment's sprite
+                // is written, but after earlier fragments were emitted.
+                if index == swarm.pieces.len() - 1 && relative_x >= 0x01EF {
+                    return false;
+                }
+                emitted_block_debris_sprite_pieces.push((piece_x as i16, piece_y as i16));
+            }
+
+            true
         });
+        self.block_debris_sprite_pieces_sub_2a4c = emitted_block_debris_sprite_pieces;
         if self.block_debris_swarms.is_empty() {
             self.block_debris_scratch_cursor_sub_292e = 0;
         }

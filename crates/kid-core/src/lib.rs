@@ -233,6 +233,8 @@ pub struct NativeRuntime {
     block_destroy_effects: Vec<BlockDestroyEffect>,
     /// ASM sub_2A4C falling block debris scratch workers.
     block_debris_swarms: Vec<BlockDebrisSwarmSub2A4C>,
+    /// Sprite positions emitted by the most recent ASM sub_2A4C live step.
+    block_debris_sprite_pieces_sub_2a4c: Vec<(i16, i16)>,
     /// ASM sub_292E cursor `$FFFFFA9C` expressed as a six-slot index.
     block_debris_scratch_cursor_sub_292e: usize,
     /// Floating prize items rising from blocks.
@@ -1572,6 +1574,7 @@ impl NativeRuntime {
             hidden_block_fg_update_workers: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_swarms: Vec::new(),
+            block_debris_sprite_pieces_sub_2a4c: Vec::new(),
             block_debris_scratch_cursor_sub_292e: 0,
             floating_items: Vec::new(),
             prize_helmet_collision_hibernate_delay_frames: 0,
