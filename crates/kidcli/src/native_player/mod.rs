@@ -3236,6 +3236,45 @@ mod tests {
         has_rect_command(&scene.commands, x, y, width, height, colour)
     }
 
+    fn boss_eye_object_slot_snapshot_loc_3931a(
+        x_pos: u32,
+        y_pos: u32,
+        mapping_index_loc_37abc: u8,
+        sprite_order_word_a_loc_393c8: u16,
+    ) -> NativeObjectSnapshot {
+        let mut debug_fields = std::collections::BTreeMap::new();
+        debug_fields.insert(
+            "boss_eye_sprite_mapping_index_loc_37abc".to_owned(),
+            mapping_index_loc_37abc.to_string(),
+        );
+        debug_fields.insert(
+            "boss_eye_sprite_order_word_a_loc_393c8".to_owned(),
+            format!("{sprite_order_word_a_loc_393c8:#06x}"),
+        );
+
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x21 },
+            x_pos,
+            y_pos,
+            layout_index: None,
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields,
+        }
+    }
+
     fn has_rect_command(
         commands: &[DrawCommand],
         x: i32,
@@ -3393,6 +3432,81 @@ mod tests {
         assert!(
             !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
             "waiting boss-eye satellites should not collapse to the generic projectile dot"
+        );
+    }
+
+    #[test]
+    fn boss_eye_object_slot_uses_orbit_marker_loc_3931a_37abc() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details.clear();
+        let mut debug_fields = std::collections::BTreeMap::new();
+        debug_fields.insert(
+            "boss_eye_sprite_mapping_index_loc_37abc".to_owned(),
+            "3".to_owned(),
+        );
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x21 },
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            layout_index: None,
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields,
+        }];
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert!(
+            has_rect(&scene, 24, 16, 16, 16, [120, 200, 255]),
+            "ASM loc_3931A `$21` waiting boss-eye object slots should render through the same sub_37ABC 16x16 marker as the old projectile bridge"
+        );
+        assert!(
+            has_rect(&scene, 25, 22, 4, 4, [255, 255, 255]),
+            "mapping index 3 from the `$21` object debug field should visibly select the left boss-eye marker"
+        );
+    }
+
+    #[test]
+    fn boss_eye_object_slots_render_in_sub_ff6_sprite_order() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details.clear();
+        trace.active_objects = vec![
+            boss_eye_object_slot_snapshot_loc_3931a(0x0030_0000, 0x0020_0000, 5, 0xFFFF),
+            boss_eye_object_slot_snapshot_loc_3931a(0x0030_0000, 0x0020_0000, 3, 1),
+        ];
+
+        let scene = build_ingame_scene(&trace, false, None);
+        let white_highlights = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Rect {
+                    x,
+                    y,
+                    width: 4,
+                    height: 4,
+                    colour: [255, 255, 255],
+                } => Some((*x, *y)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            white_highlights,
+            vec![(25, 22), (26, 26)],
+            "ASM sub_FF6 reinserts `$21` waiting boss-eye objects in ascending unsigned `$A(a3)` order"
         );
     }
 

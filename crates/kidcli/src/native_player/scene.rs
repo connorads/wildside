@@ -20,6 +20,7 @@ const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const FLYING_DRAGON_OBJECT_TYPE: u8 = 0x0C;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
+const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
 const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
 const PRIZE_GENERIC_LIFETIME_LOW_BYTE: u8 = 0x20;
 const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
@@ -4225,6 +4226,11 @@ fn build_game_scene_filtered(
                     // crawler through typed projectile snapshots.
                     continue;
                 }
+                if object_type == BOSS_EYE_OBJECT_TYPE
+                    && boss_eye_object_mapping_index_loc_37abc(object).is_some()
+                {
+                    continue;
+                }
                 push_enemy_sprite(&mut commands, object, trace, level_visuals, object_type);
                 // Debug: show enemy HP above each enemy
                 if debug_overlay_visible && let Some(hp) = object.hit_points {
@@ -4233,6 +4239,32 @@ fn build_game_scene_filtered(
                     commands.push(text(ex - 4, ey, &format!("{hp}"), [255, 255, 100], 1));
                 }
             }
+        }
+        let mut waiting_boss_eye_objects = trace
+            .active_objects
+            .iter()
+            .filter(|object| {
+                matches!(
+                    object.kind,
+                    NativeObjectKind::Enemy {
+                        object_type: BOSS_EYE_OBJECT_TYPE
+                    }
+                ) && boss_eye_object_mapping_index_loc_37abc(object).is_some()
+            })
+            .collect::<Vec<_>>();
+        waiting_boss_eye_objects.sort_by_key(|object| boss_eye_object_order_word_loc_393c8(object));
+        for object in waiting_boss_eye_objects {
+            let sx = (object.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
+            let sy = (object.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
+            // ASM loc_3931A allocates the waiting eyes as `$21` objects;
+            // sub_37ABC refreshes their sprite mapping before sub_FF6 sorts
+            // them by `$A(a3)`.
+            sprites::push_boss_eye_attack_marker_sub_37abc(
+                &mut commands,
+                sx,
+                sy,
+                boss_eye_object_mapping_index_loc_37abc(object).unwrap_or_default(),
+            );
         }
     }
     if !eol_hologram_visible && filter.player {
@@ -4421,6 +4453,15 @@ fn build_game_scene_filtered(
             };
         order_boss_eye_satellites_sub_ff6(&mut projectile_details);
         for projectile in projectile_details {
+            if projectile.kind == ActiveProjectileKind::BossEyeSatellite
+                && trace_has_boss_eye_object_slot_loc_3931a(
+                    trace,
+                    projectile.x_pos,
+                    projectile.y_pos,
+                )
+            {
+                continue;
+            }
             let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
             let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
             match projectile.kind {
@@ -5208,6 +5249,43 @@ fn build_game_scene_filtered(
         commands,
         pause_palette_darken: trace.paused,
     }
+}
+
+fn boss_eye_object_mapping_index_loc_37abc(object: &NativeObjectSnapshot) -> Option<u8> {
+    object
+        .debug_fields
+        .get("boss_eye_sprite_mapping_index_loc_37abc")
+        .and_then(|value| value.parse::<u8>().ok())
+}
+
+fn boss_eye_object_order_word_loc_393c8(object: &NativeObjectSnapshot) -> u16 {
+    object
+        .debug_fields
+        .get("boss_eye_sprite_order_word_a_loc_393c8")
+        .and_then(|value| {
+            value
+                .strip_prefix("0x")
+                .and_then(|hex| u16::from_str_radix(hex, 16).ok())
+                .or_else(|| value.parse::<u16>().ok())
+        })
+        .unwrap_or_default()
+}
+
+fn trace_has_boss_eye_object_slot_loc_3931a(
+    trace: &NativeTraceFrame,
+    x_pos: u32,
+    y_pos: u32,
+) -> bool {
+    trace.active_objects.iter().any(|object| {
+        matches!(
+            object.kind,
+            NativeObjectKind::Enemy {
+                object_type: BOSS_EYE_OBJECT_TYPE
+            }
+        ) && object.x_pos == x_pos
+            && object.y_pos == y_pos
+            && boss_eye_object_mapping_index_loc_37abc(object).is_some()
+    })
 }
 
 fn order_boss_eye_satellites_sub_ff6(projectile_details: &mut [ActiveProjectileSnapshot]) {
