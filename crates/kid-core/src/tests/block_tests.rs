@@ -16570,7 +16570,7 @@ mod chunk_04 {
                 width_px: 0x002F,
                 height_px: 0x001F,
                 mapping_addr_word: 0x2468,
-                render_flags: 0xF4,
+                render_flags: 8,
             }),
             Some(PlatformSpriteDispatchLoc244C {
                 screen_x_word: 0x00A0,
@@ -16581,7 +16581,7 @@ mod chunk_04 {
                 mapping_addr_word: 0x2468,
                 variant: PlatformSpriteVariantLoc244C::Loc24C0,
             }),
-            "ASM loc_244C should bias visible platform coordinates by +$80, derive tile counts from `$1A/$1C >> 4`, seed `d2=#$500`, and dispatch through `off_24AC` using the low nibble of `$1F(a2)`",
+            "ASM loc_244C should bias visible platform coordinates by +$80, derive tile counts from `$1A/$1C >> 4`, seed `d2=#$500`, and dispatch through `off_24AC` using even `$1F(a2)` bytes after `bclr #7,d3`",
         );
     }
 
@@ -16641,14 +16641,14 @@ mod chunk_04 {
     #[test]
     fn platform_sprite_dispatch_loc_244c_selects_every_off_24ac_arm() {
         let expected_variants = [
-            PlatformSpriteVariantLoc244C::Loc24CC,
-            PlatformSpriteVariantLoc244C::Loc24F0,
-            PlatformSpriteVariantLoc244C::Loc251C,
-            PlatformSpriteVariantLoc244C::Loc24D4,
-            PlatformSpriteVariantLoc244C::Loc24C0,
+            (0, PlatformSpriteVariantLoc244C::Loc24CC),
+            (2, PlatformSpriteVariantLoc244C::Loc24F0),
+            (4, PlatformSpriteVariantLoc244C::Loc251C),
+            (6, PlatformSpriteVariantLoc244C::Loc24D4),
+            (8, PlatformSpriteVariantLoc244C::Loc24C0),
         ];
 
-        for (render_flags, expected_variant) in expected_variants.into_iter().enumerate() {
+        for (render_flags, expected_variant) in expected_variants {
             let result = platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
                 world_x_px: 0x0120,
                 world_y_px: 0x0090,
@@ -16657,13 +16657,13 @@ mod chunk_04 {
                 width_px: 0x002F,
                 height_px: 0x001F,
                 mapping_addr_word: 0x2468,
-                render_flags: render_flags as u8,
+                render_flags,
             })
             .expect("visible platform should dispatch through off_24AC");
 
             assert_eq!(
                 result.variant, expected_variant,
-                "ASM loc_244C should dispatch low-nibble render flag {render_flags} through off_24AC",
+                "ASM loc_244C should dispatch even render byte {render_flags} through the off_24AC long-pointer table",
             );
         }
 
@@ -16679,7 +16679,7 @@ mod chunk_04 {
                 render_flags: 5,
             }),
             None,
-            "native keeps off_24AC bounded to the five entries present at ASM loc_244C",
+            "native keeps off_24AC bounded to the five even-byte entries present at ASM loc_244C; shipped data avoids odd bytes that would land inside a long pointer",
         );
     }
 

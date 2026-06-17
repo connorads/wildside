@@ -1978,7 +1978,9 @@ pub(crate) fn platform_sprite_dispatch_loc_244C(
     // ASM loc_244C (kid.asm:4329): walk the active platform list, cull against
     // the `320x224` camera window using the platform width/height words at
     // `$1A(a2)`/`$1C(a2)`, bias visible positions by `+$80`, set `d2=#$500`,
-    // and dispatch through `off_24AC` using the low nibble of `$1F(a2)`.
+    // and dispatch through `off_24AC` using the retail even byte offset from
+    // `$1F(a2)` after `bclr #7,d3`; `off_24AC` is a long-pointer table, so
+    // valid shipped entries are bytes 0, 2, 4, 6, and 8.
     let relative_x = input.world_x_px.wrapping_sub(input.camera_x_px);
     if relative_x >= 0x0140 {
         return None;
@@ -1995,12 +1997,12 @@ pub(crate) fn platform_sprite_dispatch_loc_244C(
         return None;
     }
 
-    let variant = match input.render_flags & 0x0F {
+    let variant = match input.render_flags & 0x7F {
         0 => PlatformSpriteVariantLoc244C::Loc24CC,
-        1 => PlatformSpriteVariantLoc244C::Loc24F0,
-        2 => PlatformSpriteVariantLoc244C::Loc251C,
-        3 => PlatformSpriteVariantLoc244C::Loc24D4,
-        4 => PlatformSpriteVariantLoc244C::Loc24C0,
+        2 => PlatformSpriteVariantLoc244C::Loc24F0,
+        4 => PlatformSpriteVariantLoc244C::Loc251C,
+        6 => PlatformSpriteVariantLoc244C::Loc24D4,
+        8 => PlatformSpriteVariantLoc244C::Loc24C0,
         _ => return None,
     };
 

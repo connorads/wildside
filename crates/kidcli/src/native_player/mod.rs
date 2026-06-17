@@ -15991,7 +15991,7 @@ mod tests {
             std::collections::BTreeMap::from([
                 ("platform_width_px".to_string(), "79".to_string()),
                 ("platform_height_px".to_string(), "47".to_string()),
-                ("platform_render_flags".to_string(), "2".to_string()),
+                ("platform_render_flags".to_string(), "4".to_string()),
                 ("platform_mapping_addr_word".to_string(), "148".to_string()),
             ]),
         )];
@@ -16006,7 +16006,7 @@ mod tests {
         assert_eq!(
             platform_commands.len(),
             3,
-            "ASM off_24AC index 2 routes to loc_251C, which emits a vertical strip from height only instead of width-tiling the platform",
+            "ASM off_24AC byte 4 routes to loc_251C, which emits a vertical strip from height only instead of width-tiling the platform",
         );
         let first_tile_indices = platform_commands
             .iter()
@@ -16038,7 +16038,7 @@ mod tests {
             std::collections::BTreeMap::from([
                 ("platform_width_px".to_string(), "79".to_string()),
                 ("platform_height_px".to_string(), "15".to_string()),
-                ("platform_render_flags".to_string(), "1".to_string()),
+                ("platform_render_flags".to_string(), "2".to_string()),
                 ("platform_mapping_addr_word".to_string(), "1710".to_string()),
             ]),
         )];
@@ -16053,7 +16053,7 @@ mod tests {
         assert_eq!(
             platform_commands.len(),
             5,
-            "ASM off_24AC index 1 routes to loc_24F0, which emits one horizontal strip sprite per platform width cell",
+            "ASM off_24AC byte 2 routes to loc_24F0, which emits one horizontal strip sprite per platform width cell",
         );
         let first_tile_indices = platform_commands
             .iter()
@@ -16091,7 +16091,7 @@ mod tests {
             std::collections::BTreeMap::from([
                 ("platform_width_px".to_string(), "31".to_string()),
                 ("platform_height_px".to_string(), "15".to_string()),
-                ("platform_render_flags".to_string(), "64".to_string()),
+                ("platform_render_flags".to_string(), "0".to_string()),
                 ("platform_mapping_addr_word".to_string(), "1710".to_string()),
             ]),
         )];

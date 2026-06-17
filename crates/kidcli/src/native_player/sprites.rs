@@ -1879,13 +1879,14 @@ struct PlatformSpriteCellLoc24AC {
 impl PlatformRenderVariantLoc244C {
     fn from_render_flags(render_flags: u8) -> Option<Self> {
         // ASM loc_244C (kid.asm:4357-4364): retail clears bit 7 of `$1F(a2)`,
-        // doubles the remaining dispatch byte, then jumps through `off_24AC`.
-        match render_flags & 0x0F {
+        // doubles the remaining dispatch byte, then indexes the long-pointer
+        // `off_24AC` table. Valid shipped entries are even bytes 0, 2, 4, 6, 8.
+        match render_flags & 0x7F {
             0 => Some(Self::Loc24CC),
-            1 => Some(Self::Loc24F0),
-            2 => Some(Self::Loc251C),
-            3 => Some(Self::Loc24D4),
-            4 => Some(Self::Loc24C0),
+            2 => Some(Self::Loc24F0),
+            4 => Some(Self::Loc251C),
+            6 => Some(Self::Loc24D4),
+            8 => Some(Self::Loc24C0),
             _ => None,
         }
     }
