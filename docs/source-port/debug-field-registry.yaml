@@ -30,7 +30,16 @@
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
       "first_added_commit": "pending",
-      "intended_meaning": "Native multi-head boss parent `$16(a2)` animation byte carried through d0 by ASM loc_3893E/loc_389D6 so sub_393C8/sub_39420 can rerank boss-eye gfx objects when the parent frame changes.",
+      "intended_meaning": "Compatibility alias for the native multi-head boss parent `$16(a2)` x_direction byte carried through d0 by ASM loc_3893E/loc_389D6 so sub_393C8/sub_39420 can rerank boss-eye gfx objects when the parent direction changes.",
+      "promotion_trigger": "Retire this alias once downstream trace consumers have switched to boss_eye_parent_x_direction_byte_16_loc_3893e."
+    },
+    {
+      "key": "boss_eye_parent_x_direction_byte_16_loc_3893e",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "boss-eye-orbit-workers",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native multi-head boss parent `$16(a2)` x_direction byte carried through d0 by ASM loc_3893E/loc_389D6 so sub_393C8/sub_39420 can rerank boss-eye gfx objects when the parent direction changes.",
       "promotion_trigger": "Promote if true boss-head parent animation parity or checked-in oracle comparisons depend on this field beyond the temporary orbit-worker bridge."
     },
     {

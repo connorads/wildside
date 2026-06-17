@@ -6622,15 +6622,15 @@ pub(crate) const ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954: u16 = 0xC954
 
 /// Native carrier for the two hibernating boss-eye workers owned by a
 /// multi-head boss head. ASM `loc_3893E`/`loc_389D6` store the previous parent
-/// frame byte in `d0`, rerun `sub_393C8`/`sub_39420` every frame, and let those
-/// helpers bump `$A(a3)` when parent `$16` changes.
+/// x-direction byte in `d0`, rerun `sub_393C8`/`sub_39420` every frame, and
+/// let those helpers bump `$A(a3)` when parent `$16` changes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct BossEyeOrbitWorkers {
     pub(crate) active: bool,
     pub(crate) parent_phase_word_22: u16,
-    pub(crate) current_parent_frame_byte_16: u8,
+    pub(crate) current_parent_x_direction_byte_16: u8,
     pub(crate) phase_index: u8,
-    pub(crate) previous_parent_frame_byte_16: u8,
+    pub(crate) previous_parent_x_direction_byte_16: u8,
     pub(crate) primary_sprite_order_word_a: u16,
     pub(crate) counter_sprite_order_word_a: u16,
     pub(crate) primary_x_pos_word: u16,
@@ -6646,33 +6646,17 @@ impl BossEyeOrbitWorkers {
         phase_index: u8,
         facing: Direction,
     ) -> Self {
+        let parent_x_direction_byte_16 = boss_head_x_direction_byte_16(facing);
         let mut workers = Self {
             active: true,
             parent_phase_word_22: 0x0EE0 + (u16::from(phase_index % 5) * 2),
-            current_parent_frame_byte_16: phase_index % 5,
+            current_parent_x_direction_byte_16: parent_x_direction_byte_16,
             phase_index: phase_index % 5,
-            previous_parent_frame_byte_16: phase_index % 5,
+            previous_parent_x_direction_byte_16: parent_x_direction_byte_16,
             ..Self::default()
         };
         workers.refresh_loc_3893e_389d6(parent_x, parent_y, facing);
         workers
-    }
-
-    pub(crate) fn step_loc_3893e_389d6(&mut self, parent_x: u16, parent_y: u16, facing: Direction) {
-        if !self.active {
-            return;
-        }
-
-        self.phase_index = (self.phase_index + 1) % 5;
-        let parent_frame = self.phase_index;
-        let parent_phase_word = 0x0EE0 + (u16::from(parent_frame) * 2);
-        self.step_with_parent_animation_loc_3893e_389d6(
-            parent_x,
-            parent_y,
-            facing,
-            parent_phase_word,
-            parent_frame,
-        );
     }
 
     pub(crate) fn step_with_parent_animation_loc_3893e_389d6(
@@ -6681,40 +6665,40 @@ impl BossEyeOrbitWorkers {
         parent_y: u16,
         facing: Direction,
         parent_phase_word_22: u16,
-        current_parent_frame_byte_16: u8,
+        current_parent_x_direction_byte_16: u8,
     ) {
         if !self.active {
             return;
         }
 
-        let prior_parent_frame = self.previous_parent_frame_byte_16;
+        let prior_parent_x_direction = self.previous_parent_x_direction_byte_16;
         self.parent_phase_word_22 = parent_phase_word_22;
-        self.current_parent_frame_byte_16 = current_parent_frame_byte_16;
+        self.current_parent_x_direction_byte_16 = current_parent_x_direction_byte_16;
         self.phase_index = ((parent_phase_word_22.saturating_sub(0x0EE0) >> 1) % 5) as u8;
-        self.refresh_with_prior_frame_loc_3893e_389d6(
+        self.refresh_with_prior_x_direction_loc_3893e_389d6(
             parent_x,
             parent_y,
             facing,
-            prior_parent_frame,
+            prior_parent_x_direction,
         );
-        self.previous_parent_frame_byte_16 = current_parent_frame_byte_16;
+        self.previous_parent_x_direction_byte_16 = current_parent_x_direction_byte_16;
     }
 
     fn refresh_loc_3893e_389d6(&mut self, parent_x: u16, parent_y: u16, facing: Direction) {
-        self.refresh_with_prior_frame_loc_3893e_389d6(
+        self.refresh_with_prior_x_direction_loc_3893e_389d6(
             parent_x,
             parent_y,
             facing,
-            self.previous_parent_frame_byte_16,
+            self.previous_parent_x_direction_byte_16,
         );
     }
 
-    fn refresh_with_prior_frame_loc_3893e_389d6(
+    fn refresh_with_prior_x_direction_loc_3893e_389d6(
         &mut self,
         parent_x: u16,
         parent_y: u16,
         facing: Direction,
-        prior_parent_frame: u8,
+        prior_parent_x_direction: u8,
     ) {
         let side_flag = u8::from(facing == Direction::Left);
         let primary = boss_eye_orbit_placement_sub_393C8(
@@ -6722,8 +6706,8 @@ impl BossEyeOrbitWorkers {
             parent_y,
             self.parent_phase_word_22,
             side_flag,
-            prior_parent_frame,
-            self.current_parent_frame_byte_16,
+            prior_parent_x_direction,
+            self.current_parent_x_direction_byte_16,
             self.primary_sprite_order_word_a,
         );
         let counter = boss_eye_counter_orbit_placement_sub_39420(
@@ -6731,8 +6715,8 @@ impl BossEyeOrbitWorkers {
             parent_y,
             self.parent_phase_word_22,
             side_flag,
-            prior_parent_frame,
-            self.current_parent_frame_byte_16,
+            prior_parent_x_direction,
+            self.current_parent_x_direction_byte_16,
             self.counter_sprite_order_word_a,
         );
         self.primary_x_pos_word = primary.x_pos;
@@ -9224,7 +9208,13 @@ impl ActiveEnemy {
             debug_fields.insert(
                 "boss_eye_parent_frame_byte_16_loc_3893e".into(),
                 self.boss_eye_orbit_workers
-                    .current_parent_frame_byte_16
+                    .current_parent_x_direction_byte_16
+                    .to_string(),
+            );
+            debug_fields.insert(
+                "boss_eye_parent_x_direction_byte_16_loc_3893e".into(),
+                self.boss_eye_orbit_workers
+                    .current_parent_x_direction_byte_16
                     .to_string(),
             );
         }
@@ -27431,16 +27421,22 @@ pub(crate) fn step_multi_head_boss_movement(enemy: &mut ActiveEnemy) {
     let next_y = enemy.y_pos as i64 + i64::from(enemy.y_velocity);
     enemy.x_pos = next_x.clamp(0, i64::from(u32::MAX)) as u32;
     enemy.y_pos = next_y.clamp(0, i64::from(u32::MAX)) as u32;
-    enemy.boss_eye_orbit_workers.step_loc_3893e_389d6(
-        (enemy.x_pos >> 16) as u16,
-        (enemy.y_pos >> 16) as u16,
-        enemy.facing,
-    );
+    let parent_animation =
+        boss_head_parent_animation_state_loc_39538_39570(enemy.wait_timer, enemy.facing);
+    enemy
+        .boss_eye_orbit_workers
+        .step_with_parent_animation_loc_3893e_389d6(
+            (enemy.x_pos >> 16) as u16,
+            (enemy.y_pos >> 16) as u16,
+            enemy.facing,
+            parent_animation.parent_phase_word_22,
+            parent_animation.parent_x_direction_byte_16,
+        );
 }
 
 /// Boss periodic projectile fire interval (frames).
 pub(crate) const BOSS_FIRE_INTERVAL: u16 = 180; // ~3 seconds
-const BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538: u16 = 0x8000;
+pub(crate) const BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538: u16 = 0x8000;
 /// ASM `stru_39FC6`: frame holds `$14 + $28 + $19 + 1` before `$18(a3)` is set.
 pub(crate) const BOSS_HEAD_ATTACK_WINDUP_FRAMES_STRU_39FC6: u16 = 0x14 + 0x28 + 0x19 + 1;
 pub(crate) const BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538: u16 =
@@ -27451,6 +27447,60 @@ pub(crate) const BOSS_HEAD_ATTACK_READY_TIMER_LOC_39566: u16 =
 /// ASM sub_397E4 loc_39836 starts `stru_39FD8`; loc_39570/loc_37FF4 then
 /// hibernate/check `$18(a3)` until its five frame holds complete.
 pub(crate) const BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570: u16 = 0x22 + 0x05 + 0x0A + 0x0A + 0x0A;
+pub(crate) const BOSS_HEAD_SPRITE_C8600_LINK_OFFSET: u16 = 0x0EE0;
+pub(crate) const BOSS_HEAD_SPRITE_C8608_LINK_OFFSET: u16 = 0x0EE2;
+pub(crate) const BOSS_HEAD_SPRITE_C8610_LINK_OFFSET: u16 = 0x0EE4;
+pub(crate) const BOSS_HEAD_SPRITE_C8618_LINK_OFFSET: u16 = 0x0EE6;
+pub(crate) const BOSS_HEAD_SPRITE_C8620_LINK_OFFSET: u16 = 0x0EE8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossHeadParentAnimationStateLoc39538 {
+    pub(crate) parent_phase_word_22: u16,
+    pub(crate) parent_x_direction_byte_16: u8,
+}
+
+fn boss_head_x_direction_byte_16(facing: Direction) -> u8 {
+    match facing {
+        Direction::Left => 0x00,
+        Direction::Right => 0xFF,
+    }
+}
+
+pub(crate) fn boss_head_parent_animation_state_loc_39538_39570(
+    wait_timer: u16,
+    facing: Direction,
+) -> BossHeadParentAnimationStateLoc39538 {
+    let parent_phase_word_22 = if wait_timer & BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538 != 0 {
+        let remaining = wait_timer & !BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538;
+        let elapsed = BOSS_HEAD_ATTACK_WINDUP_FRAMES_STRU_39FC6.saturating_sub(remaining);
+        // ASM stru_39FC6: C8608 for `$14`, C8610 for `$28`, C8618 for `$19`,
+        // then C8620 for one frame before `$18(a3)` ends the windup.
+        match elapsed {
+            0..=19 => BOSS_HEAD_SPRITE_C8608_LINK_OFFSET,
+            20..=59 => BOSS_HEAD_SPRITE_C8610_LINK_OFFSET,
+            60..=84 => BOSS_HEAD_SPRITE_C8618_LINK_OFFSET,
+            _ => BOSS_HEAD_SPRITE_C8620_LINK_OFFSET,
+        }
+    } else if wait_timer > 0 && wait_timer <= BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570 {
+        let elapsed = BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570.saturating_sub(wait_timer);
+        // ASM stru_39FD8: C8620 for `$22`, C8618 for `5`, then C8610/C8608/C8600
+        // for `$A` each while loc_39570 waits for `$18(a3)`.
+        match elapsed {
+            0..=33 => BOSS_HEAD_SPRITE_C8620_LINK_OFFSET,
+            34..=38 => BOSS_HEAD_SPRITE_C8618_LINK_OFFSET,
+            39..=48 => BOSS_HEAD_SPRITE_C8610_LINK_OFFSET,
+            49..=58 => BOSS_HEAD_SPRITE_C8608_LINK_OFFSET,
+            _ => BOSS_HEAD_SPRITE_C8600_LINK_OFFSET,
+        }
+    } else {
+        BOSS_HEAD_SPRITE_C8600_LINK_OFFSET
+    };
+
+    BossHeadParentAnimationStateLoc39538 {
+        parent_phase_word_22,
+        parent_x_direction_byte_16: boss_head_x_direction_byte_16(facing),
+    }
+}
 /// ASM Enemy20_HeadyMetal_Init (kid.asm:39264): the `$FFFFFB7A` anchor starts
 /// its `$3E(a3)` counter at `$A` before `loc_375DE` starts eye spawns.
 pub(crate) const HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264: u16 = 0x000A;

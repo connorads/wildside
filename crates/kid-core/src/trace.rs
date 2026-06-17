@@ -2118,7 +2118,13 @@ mod tests {
             0,
             Direction::Right,
         );
-        orbit_workers.step_loc_3893e_389d6(0x0200, 0x0100, Direction::Right);
+        orbit_workers.step_with_parent_animation_loc_3893e_389d6(
+            0x0200,
+            0x0100,
+            Direction::Left,
+            0x0EE0,
+            0x00,
+        );
 
         runtime.active_enemies.push(ActiveEnemy {
             family: EnemyFamily::Shishkaboss,
@@ -2138,16 +2144,16 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert!(
-            satellites
-                .iter()
-                .any(|eye| { eye.x_pos == 0x01EC_0000 && eye.boss_eye_sprite_order_word_a == 1 }),
-            "ASM sub_393C8 loc_39402 increments `$A(a3)` when parent frame `$16` changes from zero"
+            satellites.iter().any(|eye| {
+                eye.x_pos == 0x01F4_0000 && eye.boss_eye_sprite_order_word_a == 0xFFFF
+            }),
+            "ASM sub_393C8 loc_39406 decrements `$A(a3)` when parent x_direction `$16` flips from `$FF` to zero"
         );
         assert!(
-            satellites.iter().any(|eye| {
-                eye.x_pos == 0x0200_0000 && eye.boss_eye_sprite_order_word_a == 0xFFFF
-            }),
-            "ASM sub_39420 loc_39454 decrements `$A(a3)` when parent frame `$16` changes from zero"
+            satellites
+                .iter()
+                .any(|eye| { eye.x_pos == 0x020C_0000 && eye.boss_eye_sprite_order_word_a == 1 }),
+            "ASM sub_39420 loc_3945A increments `$A(a3)` when parent x_direction `$16` flips from `$FF` to zero"
         );
     }
 

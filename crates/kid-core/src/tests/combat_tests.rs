@@ -13668,26 +13668,29 @@ mod chunk_03 {
     fn multi_head_boss_step_advances_live_eye_orbit_workers_loc_3893e_389d6() {
         let mut boss = test_enemy(EnemyFamily::Shishkaboss, 0x0200_0000, 0x0100_0000, 1);
         boss.boss_head_index = 0;
+        boss.facing = Direction::Right;
         boss.boss_eye_orbit_workers =
             BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 0, Direction::Right);
 
         step_multi_head_boss_movement(&mut boss);
 
         assert_eq!(
-            boss.boss_eye_orbit_workers.phase_index, 1,
-            "ASM loc_3893E/loc_389D6 keep the waiting boss-eye workers alive across hibernated boss-head frames"
+            boss.boss_eye_orbit_workers.parent_phase_word_22, 0x0EE0,
+            "ASM sub_393C8/sub_39420 read parent `$22(a2)` from the boss-head animation script, not a native-only orbit phase"
         );
         assert_eq!(
-            boss.boss_eye_orbit_workers.previous_parent_frame_byte_16, 1,
-            "ASM loc_3893E/loc_389D6 copy parent `$16(a2)` into d0 after each waiting orbit loop"
+            boss.boss_eye_orbit_workers
+                .previous_parent_x_direction_byte_16,
+            0xFF,
+            "ASM loc_3893E/loc_389D6 copy parent `x_direction` byte `$16(a2)` into d0 after each waiting orbit loop"
         );
-        assert_ne!(
+        assert_eq!(
             boss.boss_eye_orbit_workers.primary_sprite_order_word_a, 0,
-            "ASM sub_393C8 loc_39402 bumps `$A(a3)` when the previous parent frame was zero and `$16(a2)` changes"
+            "ASM sub_393C8 loc_39402 only bumps `$A(a3)` when parent x_direction `$16(a2)` changes"
         );
-        assert_ne!(
+        assert_eq!(
             boss.boss_eye_orbit_workers.counter_sprite_order_word_a, 0,
-            "ASM sub_39420 loc_3945E reranks the counter-orbit worker when `$16(a2)` changes"
+            "ASM sub_39420 loc_3945E only reranks the counter-orbit worker when parent x_direction `$16(a2)` changes"
         );
     }
 
@@ -13701,7 +13704,7 @@ mod chunk_03 {
             0x0100,
             Direction::Right,
             0x0EE4,
-            2,
+            0xFF,
         );
 
         assert_eq!(
@@ -13709,8 +13712,8 @@ mod chunk_03 {
             "ASM sub_393C8/sub_39420 derive the orbit table index from parent `$22(a2)`, not a native-only phase counter"
         );
         assert_eq!(
-            workers.current_parent_frame_byte_16, 2,
-            "ASM loc_3893E/loc_389D6 copy the parent `$16(a2)` byte into d0 after each orbit refresh"
+            workers.current_parent_x_direction_byte_16, 0xFF,
+            "ASM loc_3893E/loc_389D6 copy the parent x_direction byte `$16(a2)` into d0 after each orbit refresh"
         );
         assert_eq!(
             workers.primary_x_pos_word, 0x01E8,
@@ -13719,6 +13722,64 @@ mod chunk_03 {
         assert_eq!(
             workers.counter_x_pos_word, 0x01F3,
             "ASM sub_39420 with right-facing parent `$22=$0EE4` selects word_3946E[2] = -13"
+        );
+    }
+
+    #[test]
+    fn boss_eye_orbit_workers_rerank_when_parent_x_direction_changes_loc_393c8_39420() {
+        let mut workers =
+            BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 0, Direction::Right);
+
+        workers.step_with_parent_animation_loc_3893e_389d6(
+            0x0200,
+            0x0100,
+            Direction::Left,
+            0x0EE0,
+            0x00,
+        );
+
+        assert_ne!(
+            workers.primary_sprite_order_word_a, 0,
+            "ASM sub_393C8 loc_39402 bumps `$A(a3)` when cached parent x_direction differs from `$16(a2)`"
+        );
+        assert_ne!(
+            workers.counter_sprite_order_word_a, 0,
+            "ASM sub_39420 loc_3945E reranks the counter-orbit worker when parent x_direction flips"
+        );
+    }
+
+    #[test]
+    fn boss_head_parent_animation_state_follows_attack_scripts_loc_39538_39570() {
+        assert_eq!(
+            boss_head_parent_animation_state_loc_39538_39570(
+                BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538,
+                Direction::Left,
+            ),
+            BossHeadParentAnimationStateLoc39538 {
+                parent_phase_word_22: 0x0EE2,
+                parent_x_direction_byte_16: 0x00,
+            },
+            "ASM loc_39538 starts `stru_39FC6` on LnkTo_unk_C8608 and keeps x_direction `$16(a3)` facing left as zero"
+        );
+        assert_eq!(
+            boss_head_parent_animation_state_loc_39538_39570(
+                BOSS_HEAD_ATTACK_WINDUP_TIMER_MASK_LOC_39538 | (86 - 20),
+                Direction::Right,
+            )
+            .parent_phase_word_22,
+            0x0EE4,
+            "ASM `stru_39FC6` switches to LnkTo_unk_C8610 after the first `$14` frame hold"
+        );
+        assert_eq!(
+            boss_head_parent_animation_state_loc_39538_39570(
+                BOSS_HEAD_POST_PROJECTILE_TIMER_LOC_39570 - 34,
+                Direction::Right,
+            ),
+            BossHeadParentAnimationStateLoc39538 {
+                parent_phase_word_22: 0x0EE6,
+                parent_x_direction_byte_16: 0xFF,
+            },
+            "ASM `stru_39FD8` switches from LnkTo_unk_C8620 to LnkTo_unk_C8618 after `$22` frames"
         );
     }
 
@@ -13734,7 +13795,7 @@ mod chunk_03 {
                 0x0100,
                 Direction::Right,
                 0x0EE4,
-                2,
+                0xFF,
             );
 
         let snapshot = boss.snapshot();
@@ -13752,8 +13813,16 @@ mod chunk_03 {
                 .debug_fields
                 .get("boss_eye_parent_frame_byte_16_loc_3893e")
                 .map(String::as_str),
-            Some("2"),
-            "ASM loc_3893E/loc_389D6 carry parent `$16(a2)` through d0 for sprite-order reranks"
+            Some("255"),
+            "ASM loc_3893E/loc_389D6 carry parent x_direction `$16(a2)` through d0 for sprite-order reranks"
+        );
+        assert_eq!(
+            snapshot
+                .debug_fields
+                .get("boss_eye_parent_x_direction_byte_16_loc_3893e")
+                .map(String::as_str),
+            Some("255"),
+            "ASM loc_3893E/loc_389D6 carry parent x_direction `$16(a2)` through d0 for sprite-order reranks"
         );
     }
 
