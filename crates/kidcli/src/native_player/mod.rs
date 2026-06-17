@@ -15928,7 +15928,7 @@ mod tests {
             ("platform_width_px".to_string(), "31".to_string()),
             ("platform_height_px".to_string(), "15".to_string()),
             ("platform_render_flags".to_string(), "0".to_string()),
-            ("platform_mapping_addr_word".to_string(), "1710".to_string()),
+            ("platform_mapping_addr_word".to_string(), "148".to_string()),
         ]);
         trace.active_objects = vec![
             platform_snapshot(0x00, 0x00, 0x0010, 0x0018, platform_debug_fields),
@@ -15992,7 +15992,7 @@ mod tests {
                 ("platform_width_px".to_string(), "79".to_string()),
                 ("platform_height_px".to_string(), "47".to_string()),
                 ("platform_render_flags".to_string(), "4".to_string()),
-                ("platform_mapping_addr_word".to_string(), "148".to_string()),
+                ("platform_mapping_addr_word".to_string(), "1710".to_string()),
             ]),
         )];
 
@@ -16039,7 +16039,7 @@ mod tests {
                 ("platform_width_px".to_string(), "79".to_string()),
                 ("platform_height_px".to_string(), "15".to_string()),
                 ("platform_render_flags".to_string(), "2".to_string()),
-                ("platform_mapping_addr_word".to_string(), "1710".to_string()),
+                ("platform_mapping_addr_word".to_string(), "148".to_string()),
             ]),
         )];
 
@@ -16099,11 +16099,11 @@ mod tests {
         let scene = build_ingame_scene(&trace, false, None);
 
         assert!(
-            has_sprite_signature(&scene, 41),
-            "ASM loc_244C/loc_2548 should render from `$18(a2)`/PlatformArtAddr_Table, so nonzero platform kinds with mapping word $06AE still use the horizontal platform art",
+            has_sprite_signature(&scene, 51),
+            "ASM loc_244C/loc_2548 should render from `$18(a2)`/PlatformArtAddr_Table; Initialize_Platforms loads Vertical_platform.bin at VRAM tile $06AE",
         );
         assert!(
-            !has_sprite_signature(&scene, 51),
+            !has_sprite_signature(&scene, 41),
             "platform kind is not the ROM art selector; `$18(a2)` is",
         );
     }

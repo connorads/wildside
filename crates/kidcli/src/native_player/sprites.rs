@@ -1939,7 +1939,7 @@ fn platform_horizontal_strip_cells_loc_24F0(width_cells: u16) -> Vec<PlatformSpr
         .map(|column| {
             // ASM loc_24F0 advances `a4` by 4 VRAM tiles after the first
             // sprite and again before the last sprite, selecting cap/middle
-            // cells from the platform art block that starts at VRAM $6AE.
+            // cells from the platform art block selected by `$18(a2)`.
             let mapping_tile_offset = match column {
                 0 => 0,
                 last if last == width_cells - 1 => 8,
@@ -2062,15 +2062,17 @@ fn platform_frame_for_mapping_word_loc_2548<'a>(
     level_visuals: &'a NativeLevelVisuals,
 ) -> Option<&'a SpriteFrame> {
     // ASM loc_244C/loc_2548 (kid.asm:4352,4452): `$18(a2)` is copied into the
-    // sprite mapping word. `PlatformArtAddr_Table` at loc_2822 chooses that word
-    // independently of the platform kind nibble.
+    // sprite mapping word. `PlatformArtAddr_Table` at loc_2822 stores VRAM tile
+    // indices; Initialize_Platforms loads Horizontal_platform.bin at byte
+    // `$1280` (tile `$94`) and Vertical_platform.bin at byte `$D5C0`
+    // (tile `$6AE`).
     match object
         .debug_fields
         .get("platform_mapping_addr_word")
         .and_then(|value| value.parse::<u16>().ok())?
     {
-        0x06AE => Some(&level_visuals.platforms.horizontal),
-        0x0094 | 0x025A => Some(&level_visuals.platforms.vertical),
+        0x0094 => Some(&level_visuals.platforms.horizontal),
+        0x06AE | 0x025A => Some(&level_visuals.platforms.vertical),
         _ => None,
     }
 }
