@@ -3397,6 +3397,63 @@ mod tests {
     }
 
     #[test]
+    fn boss_eye_satellites_render_in_sub_ff6_sprite_order() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![
+            ActiveProjectileSnapshot {
+                x_pos: 0x0030_0000,
+                y_pos: 0x0020_0000,
+                x_velocity: 0,
+                y_velocity: 0,
+                friendly: false,
+                remaining_frames: 0,
+                animation_elapsed_frames: 0,
+                kind: ActiveProjectileKind::BossEyeSatellite,
+                boss_eye_sprite_mapping_index: 5,
+                boss_eye_sprite_order_word_a: 0xFFFF,
+                dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                dragon_flying_descent_fire_counter: 0,
+            },
+            ActiveProjectileSnapshot {
+                x_pos: 0x0030_0000,
+                y_pos: 0x0020_0000,
+                x_velocity: 0,
+                y_velocity: 0,
+                friendly: false,
+                remaining_frames: 0,
+                animation_elapsed_frames: 0,
+                kind: ActiveProjectileKind::BossEyeSatellite,
+                boss_eye_sprite_mapping_index: 3,
+                boss_eye_sprite_order_word_a: 1,
+                dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+                dragon_flying_descent_fire_counter: 0,
+            },
+        ];
+
+        let scene = build_ingame_scene(&trace, false, None);
+        let white_highlights = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Rect {
+                    x,
+                    y,
+                    width: 4,
+                    height: 4,
+                    colour: [255, 255, 255],
+                } => Some((*x, *y)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            white_highlights,
+            vec![(25, 22), (26, 26)],
+            "ASM sub_FF6 reinserts gfx objects in ascending unsigned `$A(a3)` order; the `$FFFF` boss eye must render after the `$0001` eye"
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn highwater_shooter_block_projectile_resolves_real_rom_spike_tile_loc_ef62() {
         let Some(manifest) = cached_generated_manifest() else {

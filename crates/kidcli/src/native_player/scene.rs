@@ -4396,7 +4396,7 @@ fn build_game_scene_filtered(
         // `push_fire_demon_trail_sprite` (ASM Fire_Demon `loc_3A63C` cycling
         // `stru_3A622` -> `unk_C7776..unk_C779E`). Missing-asset states fall
         // back to a single placeholder rect in `push_fire_demon_trail`.
-        let projectile_details: Vec<ActiveProjectileSnapshot> =
+        let mut projectile_details: Vec<ActiveProjectileSnapshot> =
             if trace.active_projectile_details.is_empty() {
                 trace
                     .active_projectiles
@@ -4419,6 +4419,7 @@ fn build_game_scene_filtered(
             } else {
                 trace.active_projectile_details.clone()
             };
+        order_boss_eye_satellites_sub_ff6(&mut projectile_details);
         for projectile in projectile_details {
             let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
             let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
@@ -5206,6 +5207,24 @@ fn build_game_scene_filtered(
         background,
         commands,
         pause_palette_darken: trace.paused,
+    }
+}
+
+fn order_boss_eye_satellites_sub_ff6(projectile_details: &mut [ActiveProjectileSnapshot]) {
+    let mut ordered_satellites = projectile_details
+        .iter()
+        .copied()
+        .filter(|projectile| projectile.kind == ActiveProjectileKind::BossEyeSatellite)
+        .collect::<Vec<_>>();
+    ordered_satellites.sort_by_key(|projectile| projectile.boss_eye_sprite_order_word_a);
+
+    let mut next_satellite = ordered_satellites.into_iter();
+    for projectile in projectile_details {
+        if projectile.kind == ActiveProjectileKind::BossEyeSatellite
+            && let Some(ordered_projectile) = next_satellite.next()
+        {
+            *projectile = ordered_projectile;
+        }
     }
 }
 
