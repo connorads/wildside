@@ -11525,6 +11525,7 @@ pub(crate) fn enemy_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContact
         NativeObjectKind::Enemy { object_type: 0x12 } => lion_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x13 } => scorpion_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x14 } => spinning_twins_contact_bounds(enemy),
+        NativeObjectKind::Enemy { object_type: 0x16 } => drips_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x17 } => hand_contact_bounds(enemy),
         NativeObjectKind::Enemy { object_type: 0x19 } => fireball_contact_bounds(enemy),
         NativeObjectKind::Enemy {
@@ -11589,6 +11590,33 @@ fn hand_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // `unk_31D58`/`unk_31D5A`. Hand-specific collision and grabbing are handled
     // by Hand.asm loc_3299C/loc_329F8/loc_32A86, not ordinary body damage.
     empty_enemy_contact_bounds()
+}
+
+fn drips_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
+    if enemy.wait_timer.is_some() {
+        // ASM Drips.asm loc_33424/loc_3345C visible child workers are exposed
+        // through `drips_projectile_object_snapshot_loc_3345c`; their typed
+        // projectile contact path carries the verified drop/crawler boxes.
+        // Keep their legacy fallback here until each child `$22` animation row
+        // is modelled separately.
+        return EnemyContactBounds {
+            left_px: -ENEMY_CONTACT_HALF_WIDTH,
+            right_px: ENEMY_CONTACT_HALF_WIDTH,
+            top_px: -ENEMY_CONTACT_HALF_HEIGHT,
+            bottom_px: ENEMY_CONTACT_HALF_HEIGHT,
+        };
+    }
+    // ASM Drips.asm Enemy16_Drip_Init writes `LnkTo_unk_C7B0E` to `$22`.
+    // GfxObjects_CollisionKid loc_1BCE indexes CollisionSize_Index[550],
+    // resolving to `unk_3189A`: `dc.w -$4,$A,-$2,$2`.
+    // Falling drops and surface crawlers are separate worker snapshots, so only
+    // model the parent/controller row here.
+    EnemyContactBounds {
+        left_px: -4,
+        right_px: 5,
+        top_px: -2,
+        bottom_px: -1,
+    }
 }
 
 fn cloud_contact_bounds(_enemy: &NativeObjectSnapshot) -> EnemyContactBounds {

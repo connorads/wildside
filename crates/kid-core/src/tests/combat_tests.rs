@@ -225,6 +225,22 @@ fn armadillo_walking_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn drips_parent_contact_uses_rom_collision_size_row_loc_1bce() {
+    let drips = test_enemy(EnemyFamily::Drips, 100 << 16, 100 << 16, 1);
+    let bounds = enemy_contact_bounds(&drips.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-4, 5, -2, -1),
+        "ASM Drips.asm Enemy16_Drip_Init writes LnkTo_unk_C7B0E; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize_Index[550] row unk_3189A"
+    );
+}
+
+#[test]
 fn tar_monster_live_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
@@ -15708,10 +15724,10 @@ mod chunk_03 {
         let mut enemy = test_enemy(EnemyFamily::DragonWalking, 40 << 16, 272 << 16, 2);
         enemy.on_ground = true;
         enemy.facing = Direction::Right;
-        let mut generic_enemy = test_enemy(EnemyFamily::Drips, 42 << 16, 226 << 16, 1);
-        generic_enemy.layout_index = 1;
+        let mut drips_enemy = test_enemy(EnemyFamily::Drips, 42 << 16, 226 << 16, 1);
+        drips_enemy.layout_index = 1;
         runtime.active_enemy_roster = vec![enemy.snapshot()];
-        runtime.active_enemies = vec![enemy, generic_enemy];
+        runtime.active_enemies = vec![enemy, drips_enemy];
         runtime.active_platforms = vec![make_test_platform(34, 225, 1, 0)];
 
         let trace = runtime.trace_frame();
@@ -15733,12 +15749,12 @@ mod chunk_03 {
             "standing support candidates should be marked as active support",
         );
         assert!(
-            support_debug.contains("enemy_16#01 dx=0 top_gap=23"),
-            "the support trace should include the nearby generic enemy candidate, got {support_debug}",
+            support_debug.contains("enemy_16#01 dx=0 top_gap=17"),
+            "the support trace should include the nearby Drips candidate, got {support_debug}",
         );
         assert!(
-            support_debug.contains("enemy_16#01 dx=0 top_gap=23 x_overlap=8 y_overlap=16"),
-            "generic enemy support diagnostics should use its positive bottom collision bound, got {support_debug}",
+            support_debug.contains("enemy_16#01 dx=0 top_gap=17 x_overlap=9 y_overlap=1"),
+            "Drips support diagnostics should use ASM Drips.asm Enemy16_Drip_Init row unk_3189A, got {support_debug}",
         );
         assert!(
             support_debug.contains("platform_00 dx=7 top_gap=16 x_overlap=10 y_overlap=15"),
