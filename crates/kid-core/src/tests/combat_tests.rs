@@ -726,6 +726,24 @@ fn ninja_death_contact_uses_zero_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn ninja_hurt_contact_uses_zero_collision_size_row_loc_1bce() {
+    let mut ninja = test_enemy(EnemyFamily::Ninja, 101 << 16, 100 << 16, 3);
+    ninja.damage_flash_frames = 1;
+
+    let bounds = enemy_contact_bounds(&ninja.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (1, 0, 1, 0),
+        "ASM Ninja.asm loc_3D670 plays hurt script stru_3D504; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_318DC for LnkTo_unk_C7D56"
+    );
+}
+
+#[test]
 fn fire_demon_walking_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 91 << 16;

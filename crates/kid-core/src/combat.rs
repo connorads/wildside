@@ -11787,15 +11787,12 @@ fn ninja_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // ASM Ninja.asm live jump/run frames set `LnkTo_unk_C7D6E..C7DBE`,
     // which map through GfxObjects_CollisionKid loc_1BCE to `unk_318DE`:
     // `dc.w -$B,$16,-$1D,$1D`.
-    if enemy.stationary {
-        // ASM Ninja.asm loc_3DB4E plays death script `stru_3D50A`;
-        // `LnkTo_unk_C7D56..C7D66` route through GfxObjects_CollisionKid
-        // loc_1BCE to the zero row `unk_318DC`.
+    if enemy.stationary || enemy.damage_flash {
+        // ASM Ninja.asm loc_3D670 hurt script `stru_3D504` and loc_3DB4E
+        // death script `stru_3D50A` route `LnkTo_unk_C7D56..C7D66`
+        // through GfxObjects_CollisionKid loc_1BCE to zero row `unk_318DC`.
         return empty_enemy_contact_bounds();
     }
-    // Hurt script `stru_3D504` also uses `unk_318DC`, but native does not
-    // expose that transient sprite link here yet, so keep the live row for
-    // non-death Ninja snapshots.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-11, 11),
         Some(Direction::Left) | None => (-11, 11),
