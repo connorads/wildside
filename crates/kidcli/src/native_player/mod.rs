@@ -3095,9 +3095,9 @@ mod tests {
     use kid_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
         BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals,
-        ForegroundLayout, HudIcon, HudVisuals, LevelVisuals, MdColour, NativeLevelVisuals, Palette,
-        PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep, PlayerVisuals,
-        SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
+        ForegroundLayout, HudIcon, HudVisuals, IslandShoreVisualsLoc1202A, LevelVisuals, MdColour,
+        NativeLevelVisuals, Palette, PaletteSet, PlatformVisuals, PlayerFormVisuals,
+        PlayerTransformStep, PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
     use std::fs;
     use std::path::Path;
@@ -6845,6 +6845,7 @@ mod tests {
         NativeLevelVisuals {
             foreground_tiles: blank_tile_sheet(0x80),
             background_tiles: blank_tile_sheet(0x20),
+            island_shore_tiles_loc_1202a: None,
             block_tiles,
             palettes: PaletteSet {
                 foreground: Palette {
@@ -8447,6 +8448,86 @@ mod tests {
                 } if *width == FRAME_WIDTH as i32 && *height == FRAME_HEIGHT as i32
             )
         }));
+    }
+
+    #[test]
+    fn island_background_consumes_shore_vram_frames_loc_1202a() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.island_shore_vram_frames_loc_1202a = Some((1, 2, 5));
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 4;
+        visuals.palettes.background = Palette {
+            colours: (0..8)
+                .map(|value| colour(value * 20, value * 20 + 1, value * 20 + 2))
+                .collect(),
+        };
+        visuals.background_tiles = blank_tile_sheet(0x47);
+        visuals.background_tiles.tiles[0x30].pixels = [7; 64];
+        visuals.background_tiles.tiles[0x36].pixels = [7; 64];
+        visuals.background_tiles.tiles[0x3B].pixels = [7; 64];
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0,
+                y_tiles: 0,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 3,
+                height_tiles: 1,
+                tiles: vec![
+                    BackgroundTile {
+                        tile_index: 0x30,
+                        flip_x: false,
+                    },
+                    BackgroundTile {
+                        tile_index: 0x36,
+                        flip_x: false,
+                    },
+                    BackgroundTile {
+                        tile_index: 0x3B,
+                        flip_x: false,
+                    },
+                ],
+            }],
+        });
+
+        let mut shore_frames = [
+            blank_tile_sheet(23),
+            blank_tile_sheet(23),
+            blank_tile_sheet(23),
+            blank_tile_sheet(23),
+        ];
+        shore_frames[1].tiles[0].pixels = [2; 64];
+        shore_frames[2].tiles[6].pixels = [3; 64];
+        shore_frames[1].tiles[11].pixels = [4; 64];
+        visuals.island_shore_tiles_loc_1202a = Some(IslandShoreVisualsLoc1202A {
+            frames: shore_frames,
+        });
+
+        let primary = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 0, 0)
+            .expect("primary shore band pixel");
+        let mid = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 8, 0)
+            .expect("middle shore band pixel");
+        let lower = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 16, 0)
+            .expect("lower shore band pixel");
+
+        assert_eq!(
+            primary.rgb,
+            [40, 41, 42],
+            "ASM loc_12098 streams `off_1220E[1]+2` into VRAM `$F600`; Scroll B tile `$7B0` is relative background tile `$30`"
+        );
+        assert_eq!(
+            mid.rgb,
+            [60, 61, 62],
+            "ASM loc_12110 streams `off_1220E[2]+$C2` into VRAM `$F6C0`; native must replace the middle `$A0`-byte shore band"
+        );
+        assert_eq!(
+            lower.rgb,
+            [80, 81, 82],
+            "ASM loc_12188 uses the six-entry `off_1220E` mirror table, so phase 5 reuses shore frame 2 for the lower `$180`-byte band"
+        );
     }
 
     #[test]

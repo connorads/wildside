@@ -28,6 +28,12 @@ const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
 const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
 const HUD_HITPOINT_ART_PATH: &str = "artunc/Hitpoint_display.bin";
+const ISLAND_SHORE_ART_PATHS_LOC_1202A: [&str; 4] = [
+    "artunc/shore_1.bin",
+    "artunc/shore_2.bin",
+    "artunc/shore_3.bin",
+    "artunc/shore_4.bin",
+];
 const FLOATING_DIAMOND_ART_PATHS: [&str; 4] = [
     "artunc/diamond_1.bin",
     "artunc/diamond_2.bin",
@@ -109,6 +115,9 @@ const FOREST_TAR_MONSTER_ENEMY_ART_PERMUTATION: [u8; 16] =
 pub struct NativeLevelVisuals {
     pub foreground_tiles: TileSheet,
     pub background_tiles: TileSheet,
+    /// ASM `loc_1202A` streams Island shore art frames from
+    /// `off_1220E`/`unk_9784A` into Scroll B VRAM `$F600..$F8DF`.
+    pub island_shore_tiles_loc_1202a: Option<IslandShoreVisualsLoc1202A>,
     pub block_tiles: TileSheet,
     pub palettes: PaletteSet,
     pub background: BackgroundVisuals,
@@ -148,6 +157,11 @@ pub struct NativeLevelVisuals {
 pub struct TitleCardLettersVisuals {
     pub tile_sheet: TileSheet,
     pub palette: Palette,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IslandShoreVisualsLoc1202A {
+    pub frames: [TileSheet; 4],
 }
 
 pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<NativeLevelVisuals> {
@@ -325,6 +339,9 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         visual_theme_header.background_theme,
         visual_theme_header.weather_flags,
     )?;
+    let island_shore_tiles_loc_1202a = load_island_shore_visuals_loc_1202a(manifest)
+        .transpose()
+        .context("failed to load Island shore animation art")?;
 
     let player = load_player_visuals(manifest)?;
     let enemies = load_enemy_visuals(
@@ -375,6 +392,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     Ok(NativeLevelVisuals {
         foreground_tiles,
         background_tiles,
+        island_shore_tiles_loc_1202a,
         block_tiles,
         palettes,
         background,
@@ -822,6 +840,30 @@ fn append_background_followup_art_loc_11ea2_11ec4(
         }
     }
     Ok(())
+}
+
+fn load_island_shore_visuals_loc_1202a(
+    manifest: &AssetManifest,
+) -> Option<Result<IslandShoreVisualsLoc1202A>> {
+    let mut frames = Vec::with_capacity(ISLAND_SHORE_ART_PATHS_LOC_1202A.len());
+    for path in ISLAND_SHORE_ART_PATHS_LOC_1202A {
+        let asset = find_ingame_asset(manifest, path)?;
+        let frame = load_uncompressed_tile_sheet(
+            manifest,
+            "ingame",
+            asset,
+            "Island shore animation tile sheet",
+        );
+        frames.push(frame);
+    }
+
+    Some((|| {
+        let frames = frames.into_iter().collect::<Result<Vec<_>>>()?;
+        let frames: [TileSheet; 4] = frames
+            .try_into()
+            .map_err(|_| anyhow!("expected four Island shore animation frames"))?;
+        Ok(IslandShoreVisualsLoc1202A { frames })
+    })())
 }
 
 fn background_followup_art_loc_11ea2_11ec4(

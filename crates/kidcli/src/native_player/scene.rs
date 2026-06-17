@@ -41,6 +41,10 @@ const PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT: i32 = 0x58;
 const PAUSE_MENU_CURSOR_X_LOC_6A84: i32 = 0x68;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
+const BACKGROUND_TILE_VRAM_BASE_LOC_128BA: u16 = 0x0780;
+const ISLAND_SHORE_PRIMARY_VRAM_TILE_LOC_12098: u16 = 0xF600 / 32;
+const ISLAND_SHORE_MID_VRAM_TILE_LOC_12110: u16 = 0xF6C0 / 32;
+const ISLAND_SHORE_LOWER_VRAM_TILE_LOC_12188: u16 = 0xF760 / 32;
 const KID_PROJECTILE_HIT_SPARK_FRAMES_STRU_1F40: [(u8, u16); 4] =
     [(1, 0x02CF), (1, 0x02D8), (1, 0x02E1), (1, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
@@ -1732,7 +1736,7 @@ pub(super) fn push_background_tiles(
 ) {
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
-    let tile_sheet = Arc::new(level_visuals.background_tiles.clone());
+    let tile_sheet = Arc::new(background_tiles_for_trace_loc_1202a(trace, level_visuals));
     let palette = Arc::new(background_palette_for_scene(trace, level_visuals));
 
     match &level_visuals.background {
@@ -1835,6 +1839,85 @@ pub(super) fn push_background_tiles(
     }
 }
 
+fn background_tiles_for_trace_loc_1202a(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> TileSheet {
+    let Some((primary_frame, mid_frame, lower_frame)) = trace.island_shore_vram_frames_loc_1202a
+    else {
+        return level_visuals.background_tiles.clone();
+    };
+    let Some(shore) = &level_visuals.island_shore_tiles_loc_1202a else {
+        return level_visuals.background_tiles.clone();
+    };
+
+    let mut tile_sheet = level_visuals.background_tiles.clone();
+    // ASM loc_1202A/loc_12098/loc_12110/loc_12188 stream three art bands
+    // from `off_1220E` into VRAM `$F600/$F6C0/$F760`. Scroll B art starts at
+    // `$780`, so `$F600 / 32 = $7B0` appears at relative background tile `$30`.
+    patch_island_shore_band_loc_1202a(
+        &mut tile_sheet,
+        shore,
+        primary_frame,
+        0,
+        usize::from(ISLAND_SHORE_PRIMARY_VRAM_TILE_LOC_12098 - BACKGROUND_TILE_VRAM_BASE_LOC_128BA),
+        6,
+    );
+    patch_island_shore_band_loc_1202a(
+        &mut tile_sheet,
+        shore,
+        mid_frame,
+        6,
+        usize::from(ISLAND_SHORE_MID_VRAM_TILE_LOC_12110 - BACKGROUND_TILE_VRAM_BASE_LOC_128BA),
+        5,
+    );
+    patch_island_shore_band_loc_1202a(
+        &mut tile_sheet,
+        shore,
+        lower_frame,
+        11,
+        usize::from(ISLAND_SHORE_LOWER_VRAM_TILE_LOC_12188 - BACKGROUND_TILE_VRAM_BASE_LOC_128BA),
+        12,
+    );
+    tile_sheet
+}
+
+fn patch_island_shore_band_loc_1202a(
+    tile_sheet: &mut TileSheet,
+    shore: &kid_render::IslandShoreVisualsLoc1202A,
+    frame_index: u16,
+    source_tile_index: usize,
+    destination_tile_index: usize,
+    tile_count: usize,
+) {
+    let Some(frame) = island_shore_frame_loc_1220e(shore, frame_index) else {
+        return;
+    };
+    if tile_sheet.tiles.len() < destination_tile_index + tile_count {
+        tile_sheet.tiles.resize(
+            destination_tile_index + tile_count,
+            kid_render::Tile { pixels: [0; 64] },
+        );
+    }
+    for offset in 0..tile_count {
+        let Some(tile) = frame.tiles.get(source_tile_index + offset) else {
+            break;
+        };
+        tile_sheet.tiles[destination_tile_index + offset] = tile.clone();
+    }
+}
+
+fn island_shore_frame_loc_1220e(
+    shore: &kid_render::IslandShoreVisualsLoc1202A,
+    frame_index: u16,
+) -> Option<&TileSheet> {
+    // ASM off_1220E: 1, 2, 3, 4, 3, 2 (`unk_9784A`, `unk_97B2C`,
+    // `unk_97E0E`, `unk_980F0`, `unk_97E0E`, `unk_97B2C`).
+    const FRAME_TABLE_LOC_1220E: [usize; 6] = [0, 1, 2, 3, 2, 1];
+    let asset_index = FRAME_TABLE_LOC_1220E.get(usize::from(frame_index))?;
+    shore.frames.get(*asset_index)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BackgroundPixelSample {
     pub(crate) screen_x: i32,
@@ -1862,6 +1945,7 @@ pub(crate) fn sample_background_pixel_loc_c070(
     let camera_x_px = (trace.camera_x_pos >> 16) as i32;
     let camera_y_px = (trace.camera_y_pos >> 16) as i32;
     let palette = background_palette_for_scene(trace, level_visuals);
+    let tile_sheet = background_tiles_for_trace_loc_1202a(trace, level_visuals);
     let mut sample = None;
 
     match &level_visuals.background {
@@ -1895,7 +1979,7 @@ pub(crate) fn sample_background_pixel_loc_c070(
                             flip_y: false,
                         };
                         if let Some(hit) = sample_background_tile_pixel(
-                            level_visuals,
+                            &tile_sheet,
                             &palette,
                             tile_ref,
                             screen_x,
@@ -1947,6 +2031,7 @@ pub(crate) fn sample_background_pixel_loc_c070(
                     if let Some(hit) = sample_layered_background_tile_pixel(
                         trace,
                         level_visuals,
+                        &tile_sheet,
                         &palette,
                         background.effect_start_row_selector,
                         camera_y_px,
@@ -1980,6 +2065,7 @@ fn chunked_background_palette_line_loc_128ba(background_theme_id: u8) -> u8 {
 fn sample_layered_background_tile_pixel(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
+    tile_sheet: &TileSheet,
     palette: &Palette,
     effect_start_row_selector: Option<u8>,
     camera_y_px: i32,
@@ -1994,7 +2080,7 @@ fn sample_layered_background_tile_pixel(
 ) -> Option<BackgroundPixelSample> {
     let Some(effect_start_row_selector) = effect_start_row_selector else {
         return sample_background_tile_pixel(
-            level_visuals,
+            tile_sheet,
             palette,
             tile,
             screen_x,
@@ -2012,7 +2098,7 @@ fn sample_layered_background_tile_pixel(
     };
     if level_visuals.level.background_theme_id != 9 {
         return sample_background_tile_pixel(
-            level_visuals,
+            tile_sheet,
             palette,
             tile,
             screen_x,
@@ -2038,7 +2124,7 @@ fn sample_layered_background_tile_pixel(
         )
         .unwrap_or(0);
         if let Some(sample) = sample_background_tile_pixel(
-            level_visuals,
+            tile_sheet,
             palette,
             tile,
             screen_x + offset,
@@ -2060,7 +2146,7 @@ fn sample_layered_background_tile_pixel(
 }
 
 fn sample_background_tile_pixel(
-    level_visuals: &NativeLevelVisuals,
+    tile_sheet: &TileSheet,
     palette: &Palette,
     tile_ref: TileRef,
     screen_x: i32,
@@ -2087,10 +2173,7 @@ fn sample_background_tile_pixel(
     };
     let source_x = if tile_ref.flip_x { 7 - dest_x } else { dest_x };
     let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
-    let tile = level_visuals
-        .background_tiles
-        .tiles
-        .get(usize::from(tile_ref.tile_index))?;
+    let tile = tile_sheet.tiles.get(usize::from(tile_ref.tile_index))?;
     let palette_index = tile.pixels[(source_y * 8 + source_x) as usize];
     let rgb = resolve_palette_colour(palette, tile_ref.palette_line, palette_index)?;
     Some(BackgroundPixelSample {
