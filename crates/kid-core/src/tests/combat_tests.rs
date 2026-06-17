@@ -779,6 +779,24 @@ fn fire_demon_death_contact_uses_zero_collision_size_row_loc_1bce() {
 }
 
 #[test]
+fn fire_demon_hurt_contact_uses_zero_collision_size_row_loc_1bce() {
+    let mut fire_demon = test_enemy(EnemyFamily::FireDemon, 101 << 16, 100 << 16, 3);
+    fire_demon.damage_flash_frames = 1;
+
+    let bounds = enemy_contact_bounds(&fire_demon.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (1, 0, 1, 0),
+        "ASM Fire_Demon.asm loc_3A5BE plays `stru_3A34E`; its `LnkTo_unk_C773E` hurt frame indexes zero CollisionSize row unk_3169C through GfxObjects_CollisionKid loc_1BCE"
+    );
+}
+
+#[test]
 fn fireball_main_contact_uses_rom_collision_size_row_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
