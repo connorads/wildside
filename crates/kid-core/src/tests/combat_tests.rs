@@ -13491,6 +13491,39 @@ mod chunk_03 {
     }
 
     #[test]
+    fn boss_head_death_script_phase_models_loc_39ee2_to_39f7a_boundary() {
+        assert_eq!(
+            boss_head_death_script_loc_39ebe(BOSS_HEAD_DEATH_ANIMATION_FRAMES),
+            Some(BossHeadDeathScriptLoc39Ebe {
+                phase: BossHeadDeathScriptPhaseLoc39Ebe::PreSpinLoc39Ee2,
+                remaining_phase_frames: BOSS_HEAD_DEATH_PRE_SOUND_FRAMES_LOC_39EE2,
+            }),
+            "ASM loc_39EBE enters the eight-animation loc_39EE2 pre-spin script before the final loc_39F7A loop"
+        );
+        assert_eq!(
+            boss_head_death_script_loc_39ebe(BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A + 1),
+            Some(BossHeadDeathScriptLoc39Ebe {
+                phase: BossHeadDeathScriptPhaseLoc39Ebe::PreSpinLoc39Ee2,
+                remaining_phase_frames: 1,
+            }),
+            "ASM loc_39EE2 has one hibernated frame left immediately before sfx_Boss_dies and loc_39F7A"
+        );
+        assert_eq!(
+            boss_head_death_script_loc_39ebe(BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A),
+            Some(BossHeadDeathScriptLoc39Ebe {
+                phase: BossHeadDeathScriptPhaseLoc39Ebe::SpinLoopLoc39F7a,
+                remaining_phase_frames: BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A,
+            }),
+            "ASM loc_39F7A owns the ten 17-frame death-spin loops after sfx_Boss_dies"
+        );
+        assert_eq!(
+            boss_head_death_script_loc_39ebe(0),
+            None,
+            "ASM loc_39F7A reaches j_Delete_CurrentObject when the script timer is exhausted"
+        );
+    }
+
+    #[test]
     fn shishkaboss_third_head_death_spawns_skewer_fan_loc_384d6() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.active_enemies = (0..3)

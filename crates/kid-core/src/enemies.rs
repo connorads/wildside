@@ -6946,6 +6946,27 @@ pub(crate) struct BossHeadDeathTransitionLoc39Ebe {
     pub(crate) enable_boss_body_and_flag_objects: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BossHeadDeathScriptPhaseLoc39Ebe {
+    PreSpinLoc39Ee2,
+    SpinLoopLoc39F7a,
+}
+
+impl BossHeadDeathScriptPhaseLoc39Ebe {
+    pub(crate) fn asm_label(self) -> &'static str {
+        match self {
+            Self::PreSpinLoc39Ee2 => "loc_39EE2",
+            Self::SpinLoopLoc39F7a => "loc_39F7A",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct BossHeadDeathScriptLoc39Ebe {
+    pub(crate) phase: BossHeadDeathScriptPhaseLoc39Ebe,
+    pub(crate) remaining_phase_frames: u16,
+}
+
 pub(crate) fn boss_head_death_transition_loc_39ebe(
     previous_death_count_fb4e: u8,
 ) -> BossHeadDeathTransitionLoc39Ebe {
@@ -6957,6 +6978,29 @@ pub(crate) fn boss_head_death_transition_loc_39ebe(
         starts_death_script_timer: BOSS_HEAD_DEATH_ANIMATION_FRAMES,
         set_has_kid_collision: true,
         enable_boss_body_and_flag_objects: next_death_count_fb4e == 3,
+    }
+}
+
+pub(crate) fn boss_head_death_script_loc_39ebe(
+    wait_timer: u16,
+) -> Option<BossHeadDeathScriptLoc39Ebe> {
+    if wait_timer == 0 {
+        return None;
+    }
+
+    // ASM loc_39EBE: eight hibernate-until-finished scripts at loc_39EE2 run
+    // before `sfx_Boss_dies`; loc_39F7A then loops ten 17-frame spin scripts
+    // before j_Delete_CurrentObject.
+    if wait_timer > BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A {
+        Some(BossHeadDeathScriptLoc39Ebe {
+            phase: BossHeadDeathScriptPhaseLoc39Ebe::PreSpinLoc39Ee2,
+            remaining_phase_frames: wait_timer - BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A,
+        })
+    } else {
+        Some(BossHeadDeathScriptLoc39Ebe {
+            phase: BossHeadDeathScriptPhaseLoc39Ebe::SpinLoopLoc39F7a,
+            remaining_phase_frames: wait_timer,
+        })
     }
 }
 
@@ -9288,27 +9332,20 @@ impl ActiveEnemy {
                     .to_string(),
             );
         }
-        if is_multi_head_boss(self.family) && self.death_animation_active && self.wait_timer > 0 {
+        if is_multi_head_boss(self.family)
+            && self.death_animation_active
+            && let Some(script) = boss_head_death_script_loc_39ebe(self.wait_timer)
+        {
             // ASM loc_39EBE owns the boss-head object until the death script
-            // reaches j_Delete_CurrentObject. Native carries that ownership as
-            // one hibernate timer; expose the ROM script phase for frontier
-            // comparisons until the script engine is first-class.
-            let (script_label, remaining_frames) =
-                if self.wait_timer > BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A {
-                    (
-                        "loc_39EE2",
-                        self.wait_timer - BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A,
-                    )
-                } else {
-                    ("loc_39F7A", self.wait_timer)
-                };
+            // reaches j_Delete_CurrentObject; expose the typed ROM script
+            // phase while live native still stores it as one hibernate timer.
             debug_fields.insert(
                 "boss_head_death_script_loc_39ebe".into(),
-                script_label.into(),
+                script.phase.asm_label().into(),
             );
             debug_fields.insert(
                 "boss_head_death_script_remaining_loc_39ebe".into(),
-                remaining_frames.to_string(),
+                script.remaining_phase_frames.to_string(),
             );
         }
         let x_velocity = if matches!(self.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
