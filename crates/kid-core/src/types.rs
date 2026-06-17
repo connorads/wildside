@@ -3011,6 +3011,7 @@ pub(crate) enum BossDeathBurstState {
     FallingLoc3712E,
     ChaseLoc37148,
     TimeoutLoc3720A,
+    CollisionFinishLoc371B6,
     SharedHomingSub37002,
 }
 
@@ -3104,6 +3105,9 @@ pub(crate) struct EnemyProjectile {
     pub(crate) dragon_flying_descent_fire_counter: u16,
     /// HeadyMetal normal-fire `sub_370D2` coroutine label.
     pub(crate) boss_death_burst_state: BossDeathBurstState,
+    /// GfxObject `collision_type(a3)` word for projectile workers whose ASM
+    /// coroutine branches on `$001C`, `$002C`, or `$FFFF`.
+    pub(crate) collision_type: i16,
     /// HeadyMetal boss-eye `addroffset_sprite(a3)` label selected by ASM
     /// `sub_37332 loc_3739C` and refreshed by parent `sub_37ABC`.
     pub(crate) boss_eye_sprite_mapping_label: &'static str,

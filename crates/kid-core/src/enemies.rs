@@ -10864,6 +10864,7 @@ fn cloud_projectile_spawn_loc_35df0(
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
         boss_death_burst_state: BossDeathBurstState::None,
+        collision_type: 0,
         boss_eye_sprite_mapping_label: "",
     }
 }
@@ -26235,6 +26236,7 @@ pub(crate) fn step_archer(
         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
         dragon_flying_descent_fire_counter: 0,
         boss_death_burst_state: BossDeathBurstState::None,
+        collision_type: 0,
         boss_eye_sprite_mapping_label: "",
     });
     if let Some(sound_effects) = played_sound_effects {

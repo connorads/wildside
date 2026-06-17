@@ -111,6 +111,7 @@ const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x0A;
 const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
 const DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A: i32 = 0x05;
 const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 = 0x05 + 0x05 + 0x0A + 0x01;
+const BOSS_DEATH_BURST_COLLISION_ANIMATION_FRAMES_STRU_37BC6: u16 = 0x0A * 4;
 const BOSS_DEATH_BURST_TIMEOUT_ANIMATION_FRAMES_STRU_37C0E: u16 = 0x64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -178,8 +179,12 @@ fn step_boss_death_burst_sub_370d2(
             // previous velocity, decrement d0, then apply loc_3716C homing
             // deltas only when the timer remains non-zero.
             move_projectile_by_current_velocity(projectile);
-            let gate = crate::combat::boss_death_burst_loop_gate_loc_37148(0, projectile.lifetime);
+            let gate = crate::combat::boss_death_burst_loop_gate_loc_37148(
+                projectile.collision_type,
+                projectile.lifetime,
+            );
             projectile.lifetime = gate.next_chase_frames;
+            projectile.collision_type = gate.next_collision_type;
             match gate.next {
                 crate::combat::BossDeathBurstLoopNextLoc37148::ChaseKid => {
                     let step = crate::combat::boss_death_burst_homing_step_sub_370D2(
@@ -207,14 +212,34 @@ fn step_boss_death_burst_sub_370d2(
                     }
                     true
                 }
-                crate::combat::BossDeathBurstLoopNextLoc37148::CollisionFinish => false,
+                crate::combat::BossDeathBurstLoopNextLoc37148::CollisionFinish => {
+                    let finish = crate::combat::boss_death_burst_collision_finish_loc_371B6();
+                    projectile.collision_type = finish.collision_type;
+                    projectile.x_velocity = finish.x_velocity;
+                    projectile.y_velocity = finish.y_velocity;
+                    projectile.animation_elapsed_frames =
+                        BOSS_DEATH_BURST_COLLISION_ANIMATION_FRAMES_STRU_37BC6;
+                    projectile.boss_death_burst_state =
+                        BossDeathBurstState::CollisionFinishLoc371B6;
+                    true
+                }
             }
         }
         BossDeathBurstState::TimeoutLoc3720A => {
             move_projectile_by_current_velocity(projectile);
-            let gate = crate::combat::boss_death_burst_timeout_loop_gate_loc_3720A(0);
+            let gate = crate::combat::boss_death_burst_timeout_loop_gate_loc_3720A(
+                projectile.collision_type,
+            );
+            projectile.collision_type = gate.next_collision_type;
             if gate.next == crate::combat::BossDeathBurstTimeoutLoopNextLoc3720A::CollisionFinish {
-                return false;
+                let finish = crate::combat::boss_death_burst_collision_finish_loc_371B6();
+                projectile.collision_type = finish.collision_type;
+                projectile.x_velocity = finish.x_velocity;
+                projectile.y_velocity = finish.y_velocity;
+                projectile.animation_elapsed_frames =
+                    BOSS_DEATH_BURST_COLLISION_ANIMATION_FRAMES_STRU_37BC6;
+                projectile.boss_death_burst_state = BossDeathBurstState::CollisionFinishLoc371B6;
+                return true;
             }
 
             let x_direction = crate::combat::boss_death_burst_timeout_face_kid_loc_37246(
@@ -249,12 +274,27 @@ fn step_boss_death_burst_sub_370d2(
             }
             false
         }
+        BossDeathBurstState::CollisionFinishLoc371B6 => {
+            // ASM loc_371B6: after clearing collision and both velocity
+            // longwords, run `stru_37BC6` until its animation-finished byte
+            // is set, then delete the current object.
+            if projectile.animation_elapsed_frames > 1 {
+                projectile.animation_elapsed_frames -= 1;
+                true
+            } else {
+                false
+            }
+        }
         BossDeathBurstState::SharedHomingSub37002 => {
             // ASM sub_37002 loc_37054: the helper owns its own hibernated
             // movement loop and `$3C` counter, so keep it out of the generic
             // projectile movement/lifetime path below.
             move_projectile_by_current_velocity(projectile);
-            let gate = crate::combat::enemy_death_burst_loop_gate_loc_37054(0, projectile.lifetime);
+            let gate = crate::combat::enemy_death_burst_loop_gate_loc_37054(
+                projectile.collision_type,
+                projectile.lifetime,
+            );
+            projectile.collision_type = gate.next_collision_type;
             projectile.lifetime = gate.next_chase_frames;
             if gate.next == crate::combat::EnemyDeathBurstLoopNextLoc37054::Delete {
                 return false;

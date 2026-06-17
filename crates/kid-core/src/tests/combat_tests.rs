@@ -2283,6 +2283,50 @@ fn live_boss_death_burst_timeout_spawns_sub_37002_helper_loc_3724a() {
 }
 
 #[test]
+fn live_boss_death_burst_collision_runs_finish_animation_loc_371b6() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 0x0090_0000;
+    slice.player.y_pos = 0x0080_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.projectiles.push(EnemyProjectile {
+        x_pos: 0x0080_0000,
+        y_pos: 0x0080_0000,
+        x_velocity: 0x0001_0000,
+        y_velocity: -0x0001_0000,
+        lifetime: 0x0078,
+        kind: EnemyProjectileKind::BossDeathBurst,
+        boss_death_burst_state: BossDeathBurstState::ChaseLoc37148,
+        collision_type: 0x001C,
+        boss_eye_sprite_mapping_label: "LnkTo_unk_C8460-Data_Index",
+        ..EnemyProjectile::default()
+    });
+
+    runtime.step_projectiles();
+
+    assert_eq!(
+        runtime.projectiles.len(),
+        1,
+        "ASM loc_371B6 should run `stru_37BC6` to completion before deleting the collided sub_370D2 object"
+    );
+    let burst = runtime.projectiles[0];
+    assert_eq!(
+        burst.boss_death_burst_state,
+        BossDeathBurstState::CollisionFinishLoc371B6,
+        "ASM loc_37148 branches to loc_371B6 for collision ids `$1C`, `$2C`, or `$FFFF`"
+    );
+    assert_eq!(
+        (burst.collision_type, burst.x_velocity, burst.y_velocity),
+        (0, 0, 0),
+        "ASM loc_371B6 clears `collision_type(a3)`, `x_vel(a3)`, and `y_vel(a3)`"
+    );
+    assert_eq!(
+        burst.animation_elapsed_frames, 0x0028,
+        "ASM `stru_37BC6` has four `$A` frame holds before Delete_CurrentObject"
+    );
+}
+
+#[test]
 fn live_heady_metal_eye_scheduler_uses_low_animation_after_counter_wrap_loc_37630() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 30);
     boss.wait_timer = 0;
