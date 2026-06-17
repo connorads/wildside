@@ -1495,6 +1495,100 @@ mod chunk_08 {
     }
 
     #[test]
+    fn heady_metal_breakup_step_sub_37708_selects_pieces_in_unk_3795e_order() {
+        // ASM unk_3795E (kid.asm:39723): `loc_3772A` indexes this 37-word table
+        // by the post-increment `$3E(a3)` counter, reads a byte offset into the
+        // 13 longword worker pointers at `$FFFFFB7A`, and divides by 4 (the
+        // longword stride) to pick which piece pops. The byte offsets
+        // (0,$1C,8,$28,...,$2C,$30) map to the indices below; this pins the
+        // whole order so a single slip in HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708
+        // cannot pass while only counters 0/13/25 are spot-checked elsewhere.
+        const EXPECTED_PIECE_ORDER: [usize; 37] = [
+            0, 7, 2, 10, 4, 3, 8, 5, 9, 12, 6, 11, 1, 12, 2, 7, 4, 9, 6, 3, 10, 5, 8, 11, 1, 2, 1,
+            7, 4, 9, 6, 3, 10, 5, 8, 11, 12,
+        ];
+
+        for (counter, &expected_index) in EXPECTED_PIECE_ORDER.iter().enumerate() {
+            let counter = counter as u16;
+            let pieces = {
+                let mut pieces = [None; 13];
+                for (index, slot) in pieces.iter_mut().enumerate() {
+                    *slot = Some(HeadyMetalBreakupPieceSub37708 {
+                        sprite_word_y: 100,
+                        x_pos: index as u16,
+                        y_pos: index as u16,
+                        x_velocity: 0,
+                        y_velocity: 0,
+                    });
+                }
+                pieces
+            };
+
+            // `phase_counter` is pre-increment, so feed `counter - 1` to land on
+            // `counter` after `loc_3772A` adds one (0 wraps from `$FFFF`).
+            let result = heady_metal_breakup_step_sub_37708(
+                true,
+                0x002C,
+                counter.wrapping_sub(1),
+                0,
+                0,
+                pieces,
+            );
+
+            assert_eq!(
+                result.next_phase_counter, counter,
+                "ASM loc_3772A should advance `$3E(a3)` to {counter}",
+            );
+
+            match counter {
+                0x0000..=0x000C => {
+                    // ASM loc_3772A: counters `<= $C` add 2 to the worker `$A(a3)`.
+                    assert_eq!(
+                        result.piece_slots[expected_index].unwrap().sprite_word_y,
+                        102,
+                        "counter {counter:#X} should add 2 to piece {expected_index}'s `$A(a3)`",
+                    );
+                }
+                0x000D..=0x0018 => {
+                    // ASM loc_37768: counters `<= $18` subtract 2 from `$A(a3)`.
+                    assert_eq!(
+                        result.piece_slots[expected_index].unwrap().sprite_word_y,
+                        98,
+                        "counter {counter:#X} should subtract 2 from piece {expected_index}'s `$A(a3)`",
+                    );
+                }
+                _ => {
+                    // ASM loc_37778: counters `<= $24` spawn the pop/attack pair
+                    // at the worker position and free that pointer.
+                    assert_eq!(
+                        result.piece_slots[expected_index], None,
+                        "counter {counter:#X} should free piece {expected_index}",
+                    );
+                    assert_eq!(
+                        result.spawned_pop_effect_at,
+                        Some((expected_index as u16, expected_index as u16)),
+                        "counter {counter:#X} should spawn from piece {expected_index}'s position",
+                    );
+                }
+            }
+
+            // In the two sprite-Y pop phases only the selected worker changes;
+            // a wrong table index would disturb a different slot.
+            if counter <= 0x0018 {
+                for (index, slot) in result.piece_slots.iter().enumerate() {
+                    if index != expected_index {
+                        assert_eq!(
+                            slot.unwrap().sprite_word_y,
+                            100,
+                            "counter {counter:#X} must not disturb non-selected piece {index}",
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn heady_metal_breakup_step_loc_377bc_waits_for_phase_25_before_final_scatter() {
         let result = heady_metal_breakup_step_sub_37708(true, 0, 0x0024, 0x0160, 0, [None; 13]);
 
