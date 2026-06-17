@@ -2962,6 +2962,9 @@ pub(crate) enum EnemyProjectileKind {
     BossHeadBoomerang,
     /// HeadyMetal boss-eye attack child from ASM `sub_37332`.
     BossEyeAttack,
+    /// Boss-head orbiting eye satellite from ASM `loc_38902`/`loc_3899A`;
+    /// detach routes `loc_38962`/`loc_389FA` launch them as falling workers.
+    BossEyeSatellite,
     /// HeadyMetal eye-pop worker from ASM `sub_3729E`; live workers freeze
     /// the parent tracker through `$FFFFFB4F`.
     BossEyePopEffect,

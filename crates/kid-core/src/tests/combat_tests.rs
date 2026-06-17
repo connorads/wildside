@@ -12731,6 +12731,48 @@ mod chunk_03 {
     }
 
     #[test]
+    fn boomerang_boss_eye_detach_spawns_orbit_workers_loc_38962_389fa() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.active_enemies = vec![test_enemy(
+            EnemyFamily::BoomerangBosses,
+            0x0080_0000,
+            0x0040_0000,
+            1,
+        )];
+
+        runtime.remove_dead_enemy(0);
+
+        let eye_workers: Vec<_> = runtime
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::BossEyeSatellite)
+            .collect();
+        assert_eq!(
+            eye_workers.len(),
+            2,
+            "ASM loc_38962/loc_389FA should detach the two orbiting boss-eye workers, not only queue their pop sound"
+        );
+        assert_eq!(
+            (
+                eye_workers[0].x_velocity,
+                eye_workers[0].y_velocity,
+                eye_workers[0].gravity
+            ),
+            (-0x4000, -3 << 16, 0x07D0),
+            "ASM loc_38962 launches the primary orbit eye left/up with `$7D0` gravity"
+        );
+        assert_eq!(
+            (
+                eye_workers[1].x_velocity,
+                eye_workers[1].y_velocity,
+                eye_workers[1].gravity
+            ),
+            (0x4000, -3 << 16, 0x07D0),
+            "ASM loc_389FA launches the counter orbit eye right/up with `$7D0` gravity"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_waits_for_stru_3a378_before_trail_child_and_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);

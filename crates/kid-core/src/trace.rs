@@ -128,6 +128,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::BossEyeAttack {
         return ActiveProjectileKind::BossEyeAttack;
     }
+    if projectile.kind == EnemyProjectileKind::BossEyeSatellite {
+        return ActiveProjectileKind::BossEyeSatellite;
+    }
     if projectile.kind == EnemyProjectileKind::TarMonsterStraightGlob {
         return ActiveProjectileKind::TarMonsterGlob;
     }

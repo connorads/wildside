@@ -2476,6 +2476,7 @@ impl NativeRuntime {
             let is_boss_head_arrow = p.kind == EnemyProjectileKind::BossHeadArrow;
             let is_boss_head_boomerang = p.kind == EnemyProjectileKind::BossHeadBoomerang;
             let is_boss_eye_attack = p.kind == EnemyProjectileKind::BossEyeAttack;
+            let is_boss_eye_satellite = p.kind == EnemyProjectileKind::BossEyeSatellite;
             let is_boss_eye_pop_effect = p.kind == EnemyProjectileKind::BossEyePopEffect;
             let is_boss_skewer = p.kind == EnemyProjectileKind::BossSkewer;
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
@@ -2509,6 +2510,7 @@ impl NativeRuntime {
                 && !is_boss_head_arrow
                 && !is_boss_head_boomerang
                 && !is_boss_eye_attack
+                && !is_boss_eye_satellite
                 && !is_boss_eye_pop_effect
                 && !is_boss_skewer
                 && p.lifetime == 0
@@ -2534,6 +2536,7 @@ impl NativeRuntime {
                 && !is_boss_head_boomerang
                 && !is_boss_skewer
                 && !is_boss_eye_attack
+                && !is_boss_eye_satellite
                 && !is_boss_eye_pop_effect
                 // ASM Lion.asm loc_3E192 has no DBF lifetime; zero is only
                 // native's deferred-delete marker after a Kid collision.
@@ -2883,6 +2886,14 @@ impl NativeRuntime {
                 // ASM sub_37332 loc_3739C/loc_373BE and skewer
                 // loc_384F6..loc_388E6: after hibernated movement, delete
                 // only once y_pos is strictly past Level_height_pixels.
+                return y_pos_word <= level_bounds.height_pixels;
+            }
+            if is_boss_eye_satellite {
+                let y_pos_word = (p.y_pos >> 16) as u16;
+                // ASM loc_38962/loc_389FA: the detached orbit workers add
+                // `$7D0` gravity after each hibernated move and delete only
+                // once y_pos is strictly past Level_height_pixels.
+                p.y_velocity = p.y_velocity.saturating_add(p.gravity);
                 return y_pos_word <= level_bounds.height_pixels;
             }
             if is_boss_head_arrow {
