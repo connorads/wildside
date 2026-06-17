@@ -13644,6 +13644,37 @@ mod chunk_03 {
     }
 
     #[test]
+    fn boss_eye_orbit_workers_accept_parent_animation_words_loc_3893e_389d6() {
+        let mut workers =
+            BossEyeOrbitWorkers::active_loc_38902_3899a(0x0200, 0x0100, 0, Direction::Right);
+
+        workers.step_with_parent_animation_loc_3893e_389d6(
+            0x0200,
+            0x0100,
+            Direction::Right,
+            0x0EE4,
+            2,
+        );
+
+        assert_eq!(
+            workers.parent_phase_word_22, 0x0EE4,
+            "ASM sub_393C8/sub_39420 derive the orbit table index from parent `$22(a2)`, not a native-only phase counter"
+        );
+        assert_eq!(
+            workers.current_parent_frame_byte_16, 2,
+            "ASM loc_3893E/loc_389D6 copy the parent `$16(a2)` byte into d0 after each orbit refresh"
+        );
+        assert_eq!(
+            workers.primary_x_pos_word, 0x01E8,
+            "ASM sub_393C8 with right-facing parent `$22=$0EE4` selects word_39416[2] = -24"
+        );
+        assert_eq!(
+            workers.counter_x_pos_word, 0x01F3,
+            "ASM sub_39420 with right-facing parent `$22=$0EE4` selects word_3946E[2] = -13"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_waits_for_stru_3a378_before_trail_child_and_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);

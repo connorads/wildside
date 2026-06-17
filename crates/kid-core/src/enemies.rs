@@ -6627,6 +6627,8 @@ pub(crate) const ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954: u16 = 0xC954
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct BossEyeOrbitWorkers {
     pub(crate) active: bool,
+    pub(crate) parent_phase_word_22: u16,
+    pub(crate) current_parent_frame_byte_16: u8,
     pub(crate) phase_index: u8,
     pub(crate) previous_parent_frame_byte_16: u8,
     pub(crate) primary_sprite_order_word_a: u16,
@@ -6646,6 +6648,8 @@ impl BossEyeOrbitWorkers {
     ) -> Self {
         let mut workers = Self {
             active: true,
+            parent_phase_word_22: 0x0EE0 + (u16::from(phase_index % 5) * 2),
+            current_parent_frame_byte_16: phase_index % 5,
             phase_index: phase_index % 5,
             previous_parent_frame_byte_16: phase_index % 5,
             ..Self::default()
@@ -6659,15 +6663,41 @@ impl BossEyeOrbitWorkers {
             return;
         }
 
-        let prior_parent_frame = self.previous_parent_frame_byte_16;
         self.phase_index = (self.phase_index + 1) % 5;
+        let parent_frame = self.phase_index;
+        let parent_phase_word = 0x0EE0 + (u16::from(parent_frame) * 2);
+        self.step_with_parent_animation_loc_3893e_389d6(
+            parent_x,
+            parent_y,
+            facing,
+            parent_phase_word,
+            parent_frame,
+        );
+    }
+
+    pub(crate) fn step_with_parent_animation_loc_3893e_389d6(
+        &mut self,
+        parent_x: u16,
+        parent_y: u16,
+        facing: Direction,
+        parent_phase_word_22: u16,
+        current_parent_frame_byte_16: u8,
+    ) {
+        if !self.active {
+            return;
+        }
+
+        let prior_parent_frame = self.previous_parent_frame_byte_16;
+        self.parent_phase_word_22 = parent_phase_word_22;
+        self.current_parent_frame_byte_16 = current_parent_frame_byte_16;
+        self.phase_index = ((parent_phase_word_22.saturating_sub(0x0EE0) >> 1) % 5) as u8;
         self.refresh_with_prior_frame_loc_3893e_389d6(
             parent_x,
             parent_y,
             facing,
             prior_parent_frame,
         );
-        self.previous_parent_frame_byte_16 = self.phase_index;
+        self.previous_parent_frame_byte_16 = current_parent_frame_byte_16;
     }
 
     fn refresh_loc_3893e_389d6(&mut self, parent_x: u16, parent_y: u16, facing: Direction) {
@@ -6686,25 +6716,23 @@ impl BossEyeOrbitWorkers {
         facing: Direction,
         prior_parent_frame: u8,
     ) {
-        let parent_frame = self.phase_index;
-        let phase_word = 0x0EE0 + (u16::from(parent_frame) * 2);
         let side_flag = u8::from(facing == Direction::Left);
         let primary = boss_eye_orbit_placement_sub_393C8(
             parent_x,
             parent_y,
-            phase_word,
+            self.parent_phase_word_22,
             side_flag,
             prior_parent_frame,
-            parent_frame,
+            self.current_parent_frame_byte_16,
             self.primary_sprite_order_word_a,
         );
         let counter = boss_eye_counter_orbit_placement_sub_39420(
             parent_x,
             parent_y,
-            phase_word,
+            self.parent_phase_word_22,
             side_flag,
             prior_parent_frame,
-            parent_frame,
+            self.current_parent_frame_byte_16,
             self.counter_sprite_order_word_a,
         );
         self.primary_x_pos_word = primary.x_pos;
