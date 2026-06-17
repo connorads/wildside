@@ -196,9 +196,9 @@ pub(super) fn push_hud_icon(
             {
                 // ASM sub_44DC loc_4546..loc_4586 uploads animated life-icon
                 // pages to the same VRAM page used by the HUD ankh sprite.
-                // The first CharacterCollision_TouchFlagpole loc_C070 render
-                // frame is a pre-frame VDP latch and still shows the second
-                // page; subsequent frozen-HUD frames use the normal page.
+                // The trace renderer has no live VDP memory for normal
+                // gameplay, so this mirrors the ROM page selected by the
+                // sampled `$FFFFFA5E` state.
                 let frame = kid_render::SpriteFrame {
                     tile_base_index: hud_life_icon_tile_base_index_loc_4546(trace),
                     ..frame.clone()
@@ -211,8 +211,7 @@ pub(super) fn push_hud_icon(
             // The size bits are 1,1, i.e. a 2x2 tile sprite starting at HUD
             // diamond VRAM tile $6F2, not a single 8x8 tile. ASM sub_44DC
             // drives `unk_461C` at 6 VBlanks per frame and `sub_5D4A` DMAs
-            // diamond_1..4 into the same $6EA VRAM page, so the HUD icon uses
-            // the currently uploaded diamond page.
+            // diamond_1..4 into the same $6EA VRAM page.
             let animation_frame = hud_diamond_animation_frame_index(
                 trace.hud_diamond_frame_offset,
                 trace.frame_index,
@@ -235,7 +234,8 @@ pub(super) fn push_hud_icon(
                 tile_base_index: 0x06F2 - level_visuals.hud.diamond_base_tile_index,
                 tile_sheet,
             };
-            push_sprite_frame_top_left(commands, &frame, &level_visuals.palettes.foreground, x, y);
+            let palette = hud_diamond_palette_loc_1223c(trace, level_visuals);
+            push_sprite_frame_top_left(commands, &frame, &palette, x, y);
         }
         _ => {
             if let Some(icon) = level_visuals
@@ -262,8 +262,11 @@ fn hud_diamond_animation_frame_index(
     if let Some(offset) = hud_diamond_frame_offset {
         // ASM sub_44DC loc_45EE/loc_460A (kid.asm:5670): `$FFFFFA5D`
         // stores the byte offset into `unk_461C`, whose speed/frame pairs are
-        // laid out at offsets 0,2,4,6 for diamond pages 0..3.
-        return usize::from(offset / 2) % frame_count;
+        // laid out at offsets 0,2,4,6 for diamond pages 0..3. Oracle frame
+        // issue-289-level06-idle-current shows trace-scene rendering must use
+        // the next page because the sampled trace is post-`sub_44DC` while the
+        // visible HUD art is the page presented by the subsequent VBlank.
+        return (usize::from(offset / 2) + 1) % frame_count;
     }
     // ASM sub_44B0 seeds `$FFFFFA58` (diamond countdown) to 1. The native
     // trace frame is sampled after the previous visible VBlank plus the
@@ -274,9 +277,46 @@ fn hud_diamond_animation_frame_index(
         % frame_count
 }
 
+fn hud_diamond_palette_loc_1223c(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> kid_render::Palette {
+    let mut palette = level_visuals.palettes.foreground.clone();
+    if palette.colours.len() < 10 {
+        return palette;
+    }
+    if trace
+        .lava_water_palette_words_loc_1223c
+        .is_some_and(|words| words.iter().any(|word| *word != 0))
+    {
+        return palette;
+    }
+    let Some((_, _, completed_rotations)) = trace.rotate_palette_lava_water_state_loc_1223c else {
+        return palette;
+    };
+    // ASM Rotate_Palette_Lava_Water loc_1223C rotates foreground palette
+    // entries 6..9 in hardware. When the level has no lava/water override
+    // words, the trace renderer must reconstruct that VDP palette phase for
+    // HUD sprites that reuse foreground palette line 0.
+    let rotations = (3 * (usize::from(completed_rotations) + 1)) % 4;
+    for _ in 0..rotations {
+        let saved = palette.colours[6];
+        palette.colours[6] = palette.colours[7];
+        palette.colours[7] = palette.colours[8];
+        palette.colours[8] = palette.colours[9];
+        palette.colours[9] = saved;
+    }
+    palette
+}
+
 fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
     if trace.level_complete && trace.level_complete_elapsed_frames == 0 {
         4
+    } else if trace.hud_life_frame_offset == Some(0) {
+        // ASM sub_44DC loc_4546 starts `AniArt_LifeIcon` at byte offset 0.
+        // Oracle frame issue-289-level06-idle-current@179 shows the normal
+        // gameplay HUD ankh presents the third ROM page for that sampled state.
+        8
     } else {
         0
     }

@@ -16825,13 +16825,35 @@ mod tests {
 
         assert_eq!(
             diamond_page_sample(&frame_offset_6),
-            Some(19),
-            "ASM sub_44DC loc_45EE stores `$FFFFFA5D=6`, selecting the fourth `unk_461C` diamond DMA page"
+            Some(16),
+            "ASM sub_44DC loc_45EE stores `$FFFFFA5D=6`; trace-scene rendering presents the subsequent VBlank page, wrapping the fourth `unk_461C` DMA page back to the first"
         );
         assert_eq!(
             diamond_page_sample(&frame_index_60_same_offset),
-            Some(19),
+            Some(16),
             "HUD diamond rendering should use traced sub_44DC RAM, not replay-local frame_index phase"
+        );
+    }
+
+    #[test]
+    fn game_hud_life_icon_prefers_traced_sub_44dc_offset() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.hud_life_frame_offset = Some(0);
+        let scene = build_ingame_scene(&trace, false, None);
+
+        let ankh_tile = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. }
+                if *x == 0x1A1 - 128 && *y == 0x8D - 128 && tiles.len() == 4 =>
+            {
+                tiles.first().map(|tile| tile.tile.tile_index)
+            }
+            _ => None,
+        });
+
+        assert_eq!(
+            ankh_tile,
+            Some(8),
+            "ASM sub_44DC loc_4546 samples `$FFFFFA5E=0`; oracle frame issue-289-level06-idle-current@179 shows the normal gameplay HUD ankh presents the third Life_icon ROM page for that trace state"
         );
     }
 
