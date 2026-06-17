@@ -3075,6 +3075,17 @@ fn live_heady_metal_final_breakup_applies_current_worker_scatter_sub_3787c() {
         0x0003_0D40,
         "ASM sub_37708 -> sub_3787C adds d7 (+$30D40) to the cached `$FFFFFB7A` worker y velocity"
     );
+    assert_eq!(
+        runtime.heady_metal_cached_worker_velocities_sub_3787c,
+        HeadyMetalScatterVelocities {
+            slot_fb72_x_velocity: -0x0003_0D40,
+            slot_fb76_x_velocity: 0x0003_0D40,
+            slot_fb7a_y_velocity: 0x0003_0D40,
+            slot_fbae_x_velocity: -0x0003_0D40,
+            slot_fbb2_x_velocity: 0x0003_0D40,
+        },
+        "ASM sub_37708 -> sub_3787C applies the same d6/d7 tier to all five cached HeadyMetal workers `$FB72/$FB76/$FB7A/$FBAE/$FBB2`"
+    );
 }
 
 #[test]

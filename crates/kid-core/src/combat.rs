@@ -2526,7 +2526,7 @@ pub(crate) struct SpriteDmaUploadLoc141A {
     pub(crate) next_dma_source: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) struct HeadyMetalScatterVelocities {
     pub(crate) slot_fb72_x_velocity: i32,
     pub(crate) slot_fb76_x_velocity: i32,
@@ -8148,21 +8148,36 @@ impl NativeRuntime {
                 if let Some(scatter_step) = result.scatter_step {
                     // ASM sub_3787C/sub_378A2 mutates five cached workers.
                     // Native's live ActiveEnemy represents `$FFFFFB72`; the
-                    // live breakup table starts at `$FFFFFB7A`, so keep both
-                    // represented workers in sync with the selected pattern.
-                    let enemy = &mut self.active_enemies[active_idx];
-                    let (fb72_x_velocity_delta, fb7a_y_velocity_delta) = match scatter_step.pattern
+                    // live breakup table starts at `$FFFFFB7A`, while the
+                    // remaining cached workers are tracked as typed velocity
+                    // state until their full scheduler lifecycle exists.
+                    let mut velocities = self.heady_metal_cached_worker_velocities_sub_3787c;
+                    velocities.slot_fb72_x_velocity = self.active_enemies[active_idx].x_velocity;
+                    if let Some(Some(piece)) = self
+                        .heady_metal_breakup_slots_sub_37708
+                        .as_ref()
+                        .map(|slots| slots[0])
                     {
-                        HeadyMetalScatterPatternSub37708::Primary => (
-                            scatter_step.d6_x_velocity_delta,
-                            scatter_step.d7_velocity_delta,
-                        ),
-                        HeadyMetalScatterPatternSub37708::Alternate => (
-                            scatter_step.d7_velocity_delta,
-                            scatter_step.d6_x_velocity_delta,
-                        ),
+                        velocities.slot_fb7a_y_velocity = piece.y_velocity;
+                    }
+                    let velocities = match scatter_step.pattern {
+                        HeadyMetalScatterPatternSub37708::Primary => {
+                            heady_metal_scatter_step_sub_3787C(
+                                velocities,
+                                scatter_step.d6_x_velocity_delta,
+                                scatter_step.d7_velocity_delta,
+                            )
+                        }
+                        HeadyMetalScatterPatternSub37708::Alternate => {
+                            heady_metal_scatter_step_sub_378A2(
+                                velocities,
+                                scatter_step.d6_x_velocity_delta,
+                                scatter_step.d7_velocity_delta,
+                            )
+                        }
                     };
-                    enemy.x_velocity = enemy.x_velocity.wrapping_add(fb72_x_velocity_delta);
+                    self.heady_metal_cached_worker_velocities_sub_3787c = velocities;
+                    self.active_enemies[active_idx].x_velocity = velocities.slot_fb72_x_velocity;
                     if let Some(Some(piece)) = self
                         .heady_metal_breakup_slots_sub_37708
                         .as_mut()
@@ -8170,7 +8185,7 @@ impl NativeRuntime {
                     {
                         // ASM sub_3787C/sub_378A2 applies the centre cached
                         // worker's impulse to `y_vel(a3)` at `$FFFFFB7A`.
-                        piece.y_velocity = piece.y_velocity.wrapping_add(fb7a_y_velocity_delta);
+                        piece.y_velocity = velocities.slot_fb7a_y_velocity;
                     }
                     changed_enemy_state = true;
                 }

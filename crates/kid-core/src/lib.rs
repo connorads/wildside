@@ -19,7 +19,8 @@ pub mod vdp;
 mod weather;
 
 use combat::{
-    HeadyMetalBreakupPieceSub37708, PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect,
+    HeadyMetalBreakupPieceSub37708, HeadyMetalScatterVelocities, PendingSoundEffect,
+    QueuedSoundCommand, QueuedSoundEffect,
 };
 use constants::*;
 use enemies::*;
@@ -187,6 +188,9 @@ pub struct NativeRuntime {
     /// breakup workers once; sub_37708 then mutates and clears those slots.
     pub(crate) heady_metal_breakup_slots_sub_37708:
         Option<[Option<HeadyMetalBreakupPieceSub37708>; 13]>,
+    /// ASM sub_3787C/sub_378A2 final-scatter velocities for the five cached
+    /// HeadyMetal workers at `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`.
+    pub(crate) heady_metal_cached_worker_velocities_sub_3787c: HeadyMetalScatterVelocities,
     /// ASM `$FFFFFB4E`: multi-head boss death counter. Shared death entry
     /// `loc_39EBE` increments it; Shishkaboss skewer pieces launch once it is 3.
     pub(crate) multi_head_boss_death_count_fb4e: u8,
@@ -1564,6 +1568,7 @@ impl NativeRuntime {
             block_state: BlockInteractionState::default(),
             projectiles: Vec::new(),
             heady_metal_breakup_slots_sub_37708: None,
+            heady_metal_cached_worker_velocities_sub_3787c: HeadyMetalScatterVelocities::default(),
             multi_head_boss_death_count_fb4e: 0,
             boss_eye_breakup_trigger_words_fb72_fb74_fb76: [0; 3],
             diamond_power_rain_slots: Vec::new(),
