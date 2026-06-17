@@ -1325,6 +1325,10 @@ pub struct NativeTraceFrame {
     /// currently uploaded HUD diamond page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hud_diamond_frame_offset: Option<u8>,
+    /// ASM sub_44DC loc_4546 `$FFFFFA5E`: byte offset into `AniArt_LifeIcon`
+    /// for the currently uploaded HUD life-icon page.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hud_life_frame_offset: Option<u8>,
     /// ROM `Berzerker_charging` (`$FFFFFA6E`): set by ASM loc_9564 after the
     /// Berzerker/Cyclone walk accumulator carries.
     #[serde(default)]
@@ -1657,6 +1661,7 @@ impl Default for NativeTraceFrame {
             iron_knight_climbing: false,
             iron_knight_climb_pose_accum: 0,
             hud_diamond_frame_offset: None,
+            hud_life_frame_offset: None,
             berzerker_charging: false,
             berzerker_charge_pose: false,
             berzerker_walk_pose: false,

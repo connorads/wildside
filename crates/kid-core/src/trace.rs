@@ -953,6 +953,30 @@ mod tests {
     }
 
     #[test]
+    fn trace_exposes_live_hud_life_icon_offset_from_sub_44dc() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+
+        assert_eq!(
+            runtime.trace_frame().hud_life_frame_offset,
+            Some(0),
+            "ASM sub_44B0 leaves `$FFFFFA5E` at zero before Mode_Level runs sub_44DC"
+        );
+
+        let mut trace = runtime.step_frame(FrameInput::default());
+        for _ in 1..4 {
+            trace = runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(
+            trace.hud_life_frame_offset,
+            Some(2),
+            "ASM Mode_Level loc_80C calls sub_44DC; loc_4546 advances `$FFFFFA5E` by two when seeded countdown `$FFFFFA59=4` expires"
+        );
+    }
+
+    #[test]
     fn in_game_object_counts_include_prize_block_transient_workers() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -6914,6 +6938,7 @@ impl NativeRuntime {
                 self.helmet.iron_knight_climb_pose_accum
             },
             hud_diamond_frame_offset: Some(self.hud_animation_state.diamond_frame_offset_fb5d),
+            hud_life_frame_offset: Some(self.hud_animation_state.life_frame_offset_fb5e),
             berzerker_charging: if hidden_boot_progression {
                 false
             } else {
