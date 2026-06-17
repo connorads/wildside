@@ -12,6 +12,7 @@ pub(crate) const STORM_PALETTE_RAIN_LABEL_LOC_14CEC: &str = "Pal_7B8BC";
 pub(crate) const STORM_PALETTE_HAIL_LABEL_LOC_14CEC: &str = "Pal_7B8CC";
 pub(crate) const STORM_PALETTE_RAIN_PATH_LOC_14CEC: &str = "palette/hail_mountain.bin";
 pub(crate) const STORM_PALETTE_HAIL_PATH_LOC_14CEC: &str = "palette/hail_ice.bin";
+pub(crate) const MURDER_WALL_PALETTE_PATH_LOC_140EE: &str = "palette/Murder_wall.bin";
 pub(crate) const STORM_PALETTE_BUFFER_START_LOC_14CF2: usize = 0x10;
 const STORM_SAVED_PALETTE_PATH_LOC_6072: &str = "palette_bg/mountain_storm.bin";
 const STORM_THUNDER_FLASH_PALETTE_PATH_LOC_6123: &str = "palette_bg/mountain_lightning.bin";
@@ -3168,6 +3169,11 @@ impl NativeRuntime {
                 max_speed,
                 reversed,
             });
+            if let Some(palette) =
+                self.ingame_palette_words::<8>(MURDER_WALL_PALETTE_PATH_LOC_140EE)
+            {
+                copy_murder_wall_palette_loc_140EE(&palette, &mut self.palette_buffer);
+            }
         } else {
             self.murder_wall = None;
         }

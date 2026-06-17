@@ -20326,6 +20326,55 @@ mod chunk_05 {
     }
 
     #[test]
+    fn init_murder_wall_copies_live_palette_buffer_loc_140ee() {
+        let output_root = std::env::temp_dir().join(format!(
+            "kid-core-murder-wall-palette-{}",
+            std::process::id()
+        ));
+        let palette_dir = output_root.join("ingame/palette");
+        std::fs::create_dir_all(&palette_dir).expect("create murder-wall palette fixture dir");
+        let palette_words = [
+            0x0111, 0x0222, 0x0333, 0x0444, 0x0555, 0x0666, 0x0777, 0x0888,
+        ];
+        let palette_bytes: Vec<u8> = palette_words
+            .iter()
+            .flat_map(|word: &u16| word.to_be_bytes())
+            .collect();
+        std::fs::write(palette_dir.join("Murder_wall.bin"), &palette_bytes)
+            .expect("write murder-wall palette fixture");
+
+        let mut manifest = manifest_with_levels(2);
+        manifest.output_root = output_root;
+        manifest.ingame_assets = vec![kid_data::AssetFile {
+            relative_path: String::from(crate::weather::MURDER_WALL_PALETTE_PATH_LOC_140EE),
+            size_bytes: palette_bytes.len() as u64,
+            sha1: String::from("fixture-murder-wall"),
+        }];
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .murder_wall_flags = 0b10;
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.palette_buffer.fill(0x0EEE);
+
+        runtime.init_murder_wall(LevelId(0), 0);
+
+        assert_eq!(
+            &runtime.palette_buffer[0x10..0x18],
+            &palette_words,
+            "ASM Murderwall loc_140EE copies Pal_1408A into live Palette_Buffer+$20 after the wall state is initialised"
+        );
+        assert!(
+            runtime.palette_buffer[..0x10]
+                .iter()
+                .chain(runtime.palette_buffer[0x18..].iter())
+                .all(|word| *word == 0x0EEE),
+            "ASM loc_140EE should leave non-murder-wall palette slots untouched"
+        );
+    }
+
+    #[test]
     fn sub_5e02_emits_forward_warning_strip_and_push_state() {
         let render = compile_murder_wall_warning_sprites_sub_5E02(MurderWallWarningInputSub5E02 {
             murder_wall_enabled: true,
