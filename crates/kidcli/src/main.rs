@@ -348,6 +348,9 @@ enum Commands {
         /// Summarise same-frame healthy Kid hitbox and projectile approach to a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_projectile_cell)]
         target_projectile_cell_conjunction: Vec<BatchTargetProjectileCell>,
+        /// Summarise exact block bounce/destroy events at a 16x16 level cell, formatted kind:col,row.
+        #[arg(long, value_parser = parse_batch_target_block_event)]
+        target_block_event: Vec<BatchTargetBlockEvent>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -402,6 +405,9 @@ enum Commands {
         /// Summarise same-frame healthy Kid hitbox and projectile approach to a 16x16 level cell, formatted kind:col,row.
         #[arg(long, value_parser = parse_batch_target_projectile_cell)]
         target_projectile_cell_conjunction: Vec<BatchTargetProjectileCell>,
+        /// Summarise exact block bounce/destroy events at a 16x16 level cell, formatted kind:col,row.
+        #[arg(long, value_parser = parse_batch_target_block_event)]
+        target_block_event: Vec<BatchTargetBlockEvent>,
         /// Print scenario/checkpoint/target summaries without per-frame trace rows.
         #[arg(long, default_value_t = false)]
         summary_only: bool,
@@ -1334,6 +1340,7 @@ fn main() -> Result<()> {
             target_cell_hitbox,
             target_projectile_cell,
             target_projectile_cell_conjunction,
+            target_block_event,
             summary_only,
             frame_start,
             frame_end,
@@ -1365,6 +1372,7 @@ fn main() -> Result<()> {
                 &target_cell_hitbox,
                 &projectile_cell_targets(&target_projectile_cell),
                 &projectile_cell_targets(&target_projectile_cell_conjunction),
+                &target_block_event,
                 summary_only,
                 frame_start,
                 frame_end,
@@ -1384,6 +1392,7 @@ fn main() -> Result<()> {
             target_cell_hitbox,
             target_projectile_cell,
             target_projectile_cell_conjunction,
+            target_block_event,
             summary_only,
             frame_start,
             frame_end,
@@ -1415,6 +1424,7 @@ fn main() -> Result<()> {
                 &target_cell_hitbox,
                 &projectile_cell_targets(&target_projectile_cell),
                 &projectile_cell_targets(&target_projectile_cell_conjunction),
+                &target_block_event,
                 summary_only,
                 frame_start,
                 frame_end,

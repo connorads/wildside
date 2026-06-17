@@ -1064,6 +1064,7 @@ pub(crate) fn probe_dynamic_record_scenario(
     target_cell_hitboxes: &[TargetCell],
     target_projectile_cells: &[(ActiveProjectileKind, TargetCell)],
     target_projectile_cell_conjunctions: &[(ActiveProjectileKind, TargetCell)],
+    target_block_events: &[BatchTargetBlockEvent],
     summary_only: bool,
     frame_start: Option<usize>,
     frame_end: Option<usize>,
@@ -1178,6 +1179,27 @@ pub(crate) fn probe_dynamic_record_scenario(
                 target_frame_start
             )
         );
+    }
+    for target_block_event in target_block_events {
+        let event = target_block_event_from_frame(
+            &trace,
+            target_block_event.kind,
+            target_block_event.cell,
+            target_frame_start,
+        );
+        match event {
+            Some(event) => println!(
+                "block {:?} cell {},{} @{}",
+                target_block_event.kind,
+                target_block_event.cell.col,
+                target_block_event.cell.row,
+                event.replay_frame,
+            ),
+            None => println!(
+                "block {:?} cell {},{} <none>",
+                target_block_event.kind, target_block_event.cell.col, target_block_event.cell.row,
+            ),
+        }
     }
 
     for checkpoint in &scenario.checkpoints {
