@@ -1946,7 +1946,6 @@ pub(crate) struct LavaFireballLoopResumeLoc149FC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decode_lava_fireball_script_step_loc_149E4(
     script_words: &[u16],
 ) -> Option<LavaFireballScriptStepLoc149E4> {
@@ -2023,7 +2022,6 @@ fn lava_fireball_live_segment_loc_149E4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_fireball_loop_resume_loc_149FC(
     baseline_y_px: u16,
     delta_y: i16,
@@ -2140,7 +2138,6 @@ pub(crate) struct LavaGeyserPeakHoldStepLoc1496C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_peak_hold_step_loc_1496C(
     sprite_row_target: u16,
     hold_frames_remaining: u16,
@@ -2167,7 +2164,6 @@ pub(crate) struct LavaGeyserCollapseStepLoc1498C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_collapse_step_loc_1498C(
     sprite_row_index: u16,
 ) -> LavaGeyserCollapseStepLoc1498C {
@@ -2245,7 +2241,6 @@ pub(crate) struct LavaGeyserRiseResetLoc1484E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_rise_reset_loc_1484E() -> LavaGeyserRiseResetLoc1484E {
     // ASM loc_1484E (kid.asm:27908): the upward-motion path restarts the row
     // cursor in `d3`, seeds `$48(a5)` with a fixed 2-frame cadence per sprite
