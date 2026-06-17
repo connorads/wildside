@@ -11924,9 +11924,15 @@ fn fire_demon_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds
     // ASM Fire_Demon.asm walking scripts `stru_3A31A`/`stru_3A334` use
     // `LnkTo_unk_C771E..C7736`, which map through GfxObjects_CollisionKid
     // loc_1BCE to CollisionSize_Index row `unk_31692`: `dc.w -$7,$E,-$1E,$1E`.
-    // Hurt/death animation rows map to zero-sized `unk_3169C`, but native does
-    // not expose the exact current sprite link here yet, so keep the live
-    // walking row for active Fire Demons.
+    if enemy.stationary {
+        // ASM Fire_Demon.asm loc_3A5A6 plays death script `stru_3A378`;
+        // `LnkTo_unk_C7746..C776E` all route through GfxObjects_CollisionKid
+        // loc_1BCE to zero rows `unk_3169C`/`unk_3169E`.
+        return empty_enemy_contact_bounds();
+    }
+    // Hurt script `stru_3A34E` mixes walking rows with `LnkTo_unk_C773E`'s
+    // zero row; native does not expose the exact current sprite link here yet,
+    // so keep the live walking row for non-death Fire Demons.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-7, 7),
         Some(Direction::Left) | None => (-7, 7),
