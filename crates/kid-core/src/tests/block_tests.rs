@@ -14939,6 +14939,7 @@ mod chunk_04 {
             next_index: layout.placements.len(),
             offset_words: 0,
             loaded_mask: (1u64 << 18) - 1,
+            ..PlatformLoaderState::default()
         };
 
         let active = state.active_platforms(&layout, window);
@@ -14956,6 +14957,7 @@ mod chunk_04 {
             next_index: 20,
             offset_words: 0,
             loaded_mask: (1u64 << 20) - 1,
+            ..PlatformLoaderState::default()
         };
 
         assert_eq!(
@@ -15015,6 +15017,7 @@ mod chunk_04 {
             next_index: 2,
             offset_words: 0,
             loaded_mask: 0b11,
+            ..PlatformLoaderState::default()
         };
 
         let active = state.active_platforms(&layout, window);
@@ -15299,6 +15302,7 @@ mod chunk_04 {
             next_index: model.next_index_loc_2762(),
             offset_words: 0,
             loaded_mask: model.loaded_mask_loc_2762(),
+            ..PlatformLoaderState::default()
         }
         .active_platforms(&layout, active_window)
         .into_iter()
@@ -15318,7 +15322,122 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_loader_state_snapshots_follow_reused_slot_chain_loc_257e() {
+        let active_window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let inactive_window = ActivationWindow {
+            x_min: 800,
+            x_max: 800,
+            y_min: 800,
+            y_max: 800,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement.clone(), placement],
+        };
+        let mut state = PlatformLoaderState::default();
+
+        state.advance_to_window(&layout, active_window);
+        state.advance_to_window(&layout, active_window);
+        state.advance_to_window(&layout, inactive_window);
+        state.advance_to_window(&layout, active_window);
+        state.advance_to_window(&layout, active_window);
+
+        let live_indices: Vec<Option<usize>> = state
+            .active_platforms(&layout, active_window)
+            .into_iter()
+            .map(|platform| platform.layout_index)
+            .collect();
+
+        assert_eq!(
+            live_indices,
+            vec![Some(0), Some(1)],
+            "ASM Platforms_CheckCollision loc_257E scans Addr_FirstPlatformSlot order; live PlatformLoaderState must preserve sub_23B4/sub_238E slot reuse order, not rebuild by reverse layout index",
+        );
+    }
+
+    #[test]
+    fn runtime_platform_roster_follows_loader_slot_chain_loc_257e() {
+        let active_window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
+        let inactive_window = ActivationWindow {
+            x_min: 800,
+            x_max: 800,
+            y_min: 800,
+            y_max: 800,
+        };
+        let placement = PlatformPlacement {
+            x: 20,
+            y: 20,
+            buffer_left: 10,
+            buffer_right: 10,
+            buffer_top: 10,
+            buffer_bottom: 10,
+            kind: 0,
+            subtype: 0,
+            h_variant: 1,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+        let layout = PlatformLayout {
+            placements: vec![placement.clone(), placement],
+        };
+        let mut state = PlatformLoaderState::default();
+
+        state.advance_to_window(&layout, active_window);
+        state.advance_to_window(&layout, active_window);
+        state.advance_to_window(&layout, inactive_window);
+        state.advance_to_window(&layout, active_window);
+        state.advance_to_window(&layout, active_window);
+
+        let active =
+            runtime_active_platforms_from_loader_loc_257E(&layout, state, active_window, &[], None);
+        let live_indices: Vec<Option<usize>> = active
+            .iter()
+            .map(|platform| platform.layout_index)
+            .collect();
+
+        assert_eq!(
+            live_indices,
+            vec![Some(0), Some(1)],
+            "ASM Platforms_CheckCollision loc_257E consumes the live Platform_RAM chain, so the runtime ActivePlatform roster must keep the loader slot order used by collision",
+        );
+    }
+
+    #[test]
     fn platform_loader_keeps_loaded_special_slot_out_of_range_loc_2850() {
+        let active_window = ActivationWindow {
+            x_min: 320,
+            x_max: 320,
+            y_min: 320,
+            y_max: 320,
+        };
         let inactive_window = ActivationWindow {
             x_min: 640,
             x_max: 640,
@@ -15350,33 +15469,23 @@ mod chunk_04 {
             ..special_placement.clone()
         };
 
-        let mut special_state = PlatformLoaderState {
-            next_index: 1,
-            offset_words: 0,
-            loaded_mask: 0b1,
+        let special_layout = PlatformLayout {
+            placements: vec![special_placement],
         };
-        special_state.advance_to_window(
-            &PlatformLayout {
-                placements: vec![special_placement],
-            },
-            inactive_window,
-        );
+        let mut special_state = PlatformLoaderState::default();
+        special_state.advance_to_window(&special_layout, active_window);
+        special_state.advance_to_window(&special_layout, inactive_window);
         assert_eq!(
             special_state.loaded_mask, 0b1,
             "ASM loc_2850 keeps already-loaded special platforms linked and sets `$12(a3)` instead of branching to loc_286A deallocation",
         );
 
-        let mut normal_state = PlatformLoaderState {
-            next_index: 1,
-            offset_words: 0,
-            loaded_mask: 0b1,
+        let normal_layout = PlatformLayout {
+            placements: vec![normal_placement],
         };
-        normal_state.advance_to_window(
-            &PlatformLayout {
-                placements: vec![normal_placement],
-            },
-            inactive_window,
-        );
+        let mut normal_state = PlatformLoaderState::default();
+        normal_state.advance_to_window(&normal_layout, active_window);
+        normal_state.advance_to_window(&normal_layout, inactive_window);
         assert_eq!(
             normal_state.loaded_mask, 0,
             "ASM loc_2850 sends normal already-loaded platforms to loc_286A, so their loaded bit should clear when the current record is out of range",
@@ -15414,6 +15523,7 @@ mod chunk_04 {
             next_index: 1,
             offset_words: 0,
             loaded_mask: 0b1,
+            ..PlatformLoaderState::default()
         };
 
         let active = state.active_platforms(&layout, inactive_window);
@@ -15530,6 +15640,7 @@ mod chunk_04 {
             next_index: layout.placements.len(),
             offset_words: 0,
             loaded_mask: 0b10,
+            ..PlatformLoaderState::default()
         };
 
         let active = state.active_platforms(&layout, window);

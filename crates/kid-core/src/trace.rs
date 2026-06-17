@@ -344,6 +344,7 @@ mod tests {
             next_index: 2,
             offset_words: 0x0018,
             loaded_mask: 0b11,
+            ..PlatformLoaderState::default()
         };
         runtime.opening_slice = Some(slice);
 

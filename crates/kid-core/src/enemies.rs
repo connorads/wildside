@@ -42571,10 +42571,9 @@ impl NativeRuntime {
                 .active_platform_standing_on
                 .and_then(|platform_index| previous_platforms.get(platform_index))
                 .and_then(|platform| platform.layout_index);
-            self.active_platforms = runtime_active_platforms_loc_2762(
+            self.active_platforms = runtime_active_platforms_from_loader_loc_257E(
                 platform_layout,
-                objects.platform_loader.next_index,
-                objects.platform_loader.loaded_mask,
+                objects.platform_loader,
                 platform_window,
                 &previous_platforms,
                 script_table,

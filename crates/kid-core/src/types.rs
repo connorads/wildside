@@ -1,4 +1,5 @@
 use crate::physics::{Direction, LevelBounds};
+use crate::platforms::PlatformLoaderSlotModelLoc2744;
 use crate::terrain;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
@@ -3122,13 +3123,25 @@ pub(crate) struct MurderWallState {
     pub(crate) reversed: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlatformLoaderState {
     pub(crate) next_index: usize,
     pub(crate) offset_words: u16,
     /// Bitset of layout records that have actually passed `loc_2762` and
     /// allocated. Retail generated platform layouts currently top out at 41.
     pub(crate) loaded_mask: u64,
+    pub(crate) slot_model: PlatformLoaderSlotModelLoc2744,
+}
+
+impl Default for PlatformLoaderState {
+    fn default() -> Self {
+        Self {
+            next_index: 0,
+            offset_words: 0,
+            loaded_mask: 0,
+            slot_model: PlatformLoaderSlotModelLoc2744::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

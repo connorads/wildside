@@ -441,7 +441,7 @@ pub(crate) fn initialize_platform_slots_sub_231C() -> InitializePlatformsSub231C
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlatformSlotPoolLoc231C {
     next_free_platform_slot_addr: u16,
     first_platform_slot_addr: u16,
@@ -570,7 +570,7 @@ pub(crate) struct PlatformLoaderSlotRecordLoc2728 {
     pub(crate) deactivated_flag: u8,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PlatformLoaderSlotModelLoc2744 {
     pool: PlatformSlotPoolLoc231C,
     next_index: usize,
@@ -594,6 +594,10 @@ impl PlatformLoaderSlotModelLoc2744 {
 
     pub(crate) fn next_index_loc_2762(&self) -> usize {
         self.next_index
+    }
+
+    pub(crate) fn offset_words_loc_2744(&self) -> u16 {
+        self.offset_words
     }
 
     pub(crate) fn loaded_mask_loc_2762(&self) -> u64 {
@@ -710,6 +714,12 @@ impl PlatformLoaderSlotModelLoc2744 {
             .into_iter()
             .find(|record| record.layout_offset_words == layout_offset_words)
             .map(|record| record.slot_addr)
+    }
+}
+
+impl Default for PlatformLoaderSlotModelLoc2744 {
+    fn default() -> Self {
+        Self::initialize_sub_231C()
     }
 }
 
@@ -1173,32 +1183,10 @@ impl PlatformLoaderState {
     }
 
     pub(crate) fn advance_to_window(&mut self, layout: &PlatformLayout, window: ActivationWindow) {
-        let cursor =
-            platform_loader_cursor_step_loc_2744(layout.placements.len(), self.offset_words);
-        self.offset_words = cursor.next_offset_words;
-        let Some(placement_index) = cursor.current_index else {
-            return;
-        };
-        let Some(placement) = layout.placements.get(placement_index) else {
-            return;
-        };
-        if platform_buffer_edge_px_loc_2762(placement.buffer_left) <= window.x_max {
-            self.next_index = self.next_index.max(placement_index + 1);
-        }
-        if placement_index < u64::BITS as usize {
-            let record_bit = 1u64 << placement_index;
-            if platform_is_active(placement, window) {
-                self.loaded_mask |= record_bit;
-            } else if (self.loaded_mask & record_bit) != 0
-                && platform_placement_is_special_loc_2836(placement)
-            {
-                // ASM loc_2850: out-of-range special platforms stay linked
-                // and receive `st $12(a3)` instead of loc_286A deallocation.
-                self.loaded_mask |= record_bit;
-            } else {
-                self.loaded_mask &= !record_bit;
-            }
-        }
+        self.slot_model.advance_to_window(layout, window);
+        self.next_index = self.slot_model.next_index_loc_2762();
+        self.offset_words = self.slot_model.offset_words_loc_2744();
+        self.loaded_mask = self.slot_model.loaded_mask_loc_2762();
     }
 
     pub(crate) fn active_platforms(
@@ -1206,6 +1194,11 @@ impl PlatformLoaderState {
         layout: &PlatformLayout,
         window: ActivationWindow,
     ) -> Vec<NativeObjectSnapshot> {
+        let slot_model_platforms = self.slot_model.active_platforms_loc_257E(layout, window);
+        if !slot_model_platforms.is_empty() {
+            return slot_model_platforms;
+        }
+
         let mut active_platforms: Vec<_> = layout
             .placements
             .iter()
@@ -1248,6 +1241,7 @@ pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: Activatio
     window.x_max >= x_min && window.x_min <= x_max && window.y_max >= y_min && window.y_min <= y_max
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn runtime_active_platforms_loc_2762(
     layout: &PlatformLayout,
     next_index: usize,
@@ -1322,6 +1316,58 @@ pub(crate) fn runtime_active_platforms_loc_2762(
         // to Addr_FirstPlatformSlot, so new records become first in scan order.
         active_platforms.insert(0, platform);
     }
+    active_platforms.truncate(PLATFORM_SLOT_CAPACITY_LOC_231C);
+    active_platforms
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn runtime_active_platforms_from_loader_loc_257E(
+    layout: &PlatformLayout,
+    loader: PlatformLoaderState,
+    window: ActivationWindow,
+    previous_platforms: &[ActivePlatform],
+    script_table: Option<&kid_data::PlatformScriptTable>,
+) -> Vec<ActivePlatform> {
+    let previous_handles: Vec<ActivePlatformHandleSub2728> = previous_platforms
+        .iter()
+        .filter_map(|platform| {
+            platform
+                .layout_index
+                .map(platform_loader_offset_for_index_loc_286E)
+                .map(|layout_offset_words| ActivePlatformHandleSub2728 {
+                    layout_offset_words,
+                })
+        })
+        .collect();
+    let mut active_platforms = Vec::new();
+
+    for record in loader.slot_model.active_slot_records_loc_2728() {
+        let layout_index = usize::from(record.layout_offset_words / 0x000C);
+        let Some(placement) = layout.placements.get(layout_index) else {
+            continue;
+        };
+        if !platform_is_active(placement, window)
+            && !platform_placement_is_special_loc_2836(placement)
+        {
+            continue;
+        }
+
+        let mut platform = if let Some(previous_index) =
+            find_active_platform_by_layout_offset_sub_2728(
+                record.layout_offset_words,
+                &previous_handles,
+            ) {
+            previous_platforms[previous_index]
+        } else {
+            ActivePlatform::from_placement_with_index(layout_index, placement, script_table)
+        };
+        // ASM loc_2876 clears and loc_2850 sets `$12(a3)` on the linked slot;
+        // carry the byte from Platform_RAM slot ownership rather than
+        // recomputing it from layout order.
+        platform.deactivated_flag = record.deactivated_flag;
+        active_platforms.push(platform);
+    }
+
     active_platforms.truncate(PLATFORM_SLOT_CAPACITY_LOC_231C);
     active_platforms
 }
