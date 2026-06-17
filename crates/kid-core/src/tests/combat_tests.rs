@@ -1805,34 +1805,54 @@ fn live_heady_metal_tracker_runs_palette_cycle_sub_379e8() {
 }
 
 #[test]
-fn live_heady_metal_eye_projectile_launches_up_and_out_loc_37332() {
+fn live_heady_metal_normal_fire_spawns_death_burst_sub_370d2() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0060_0000, 0x0046_0000, 30);
     let mut projectiles = Vec::new();
+    let mut sound_effects = Vec::new();
 
-    step_boss_fire(
+    step_boss_fire_with_sounds(
         &mut boss,
         &mut projectiles,
         Some(0x0044_0000),
         Some(0x0046_0000),
+        Some(&mut sound_effects),
     );
 
     assert_eq!(projectiles.len(), 1);
     let projectile = projectiles[0];
     assert_eq!(
-        projectile.x_velocity, 0x0000_7FFF,
-        "ASM sub_37332/loc_37394 launches right with `$7FFF` when the eye is at or right of Kid"
+        projectile.kind,
+        EnemyProjectileKind::BossDeathBurst,
+        "ASM loc_375DE allocates sub_370D2 for HeadyMetal normal fire; sub_37332 is reserved for breakup phase children"
     );
     assert_eq!(
-        projectile.y_velocity, -0x0004_0000,
-        "ASM sub_37332 writes `$FFFC` to the high word of y_vel, not a zero-velocity homing launch"
+        projectile.boss_eye_sprite_mapping_label, "LnkTo_unk_C8460-Data_Index",
+        "ASM sub_370D2 seeds the death-burst sprite mapping before `stru_37BD8`"
     );
     assert_eq!(
-        projectile.gravity, 0x0000_0BB8,
-        "ASM loc_3739C adds `$BB8` gravity each frame to the eye projectile"
+        projectile.x_velocity, 0,
+        "ASM sub_370D2 starts with cleared x_vel before the landing/homing loops"
     );
     assert_eq!(
-        projectile.homing_accel, 0,
-        "ASM sub_37332 chooses the horizontal launch once; the eye projectile is not homing"
+        projectile.y_velocity, 0,
+        "ASM sub_370D2 starts with cleared y_vel before loc_3712E applies gravity"
+    );
+    assert_eq!(
+        projectile.gravity, 0x0000_2710,
+        "ASM loc_3712E adds `$2710` gravity during the fall phase"
+    );
+    assert_eq!(
+        projectile.homing_accel, 0x0000_07D0,
+        "ASM loc_3716C..loc_371B4 homes with `$7D0` per-axis acceleration after landing"
+    );
+    assert_eq!(
+        projectile.lifetime, 0x0078,
+        "ASM sub_370D2 seeds `d0=$78` for the grounded chase timer"
+    );
+    assert_eq!(
+        sound_effects,
+        vec![QueuedSoundEffect::VoiceDie],
+        "ASM sub_370D2 immediately plays `sfx_Voice_die`"
     );
 }
 
@@ -2074,7 +2094,7 @@ fn live_shishkaboss_projectile_uses_sub_397e4_horizontal_spawn() {
 }
 
 #[test]
-fn live_heady_metal_eye_uses_sub_37332_up_launch_without_homing() {
+fn live_heady_metal_fire_uses_loc_375de_scheduler_for_sub_370d2() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 30);
     boss.wait_timer = 0;
     boss.boss_movement_delay_counter = HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264;
@@ -2091,24 +2111,24 @@ fn live_heady_metal_eye_uses_sub_37332_up_launch_without_homing() {
     let projectile = projectiles[0];
     assert_eq!(
         projectile.kind,
-        EnemyProjectileKind::BossEyeAttack,
-        "ASM sub_37332 allocates the boss-eye attack child, not the generic homing projectile"
+        EnemyProjectileKind::BossDeathBurst,
+        "ASM loc_375DE allocates sub_370D2 for normal fire"
     );
     assert_eq!(
-        projectile.boss_eye_sprite_mapping_label, "LnkTo_unk_C8488-Data_Index",
-        "ASM sub_37332 should seed the boss-eye attack child with the initial sprite mapping before loc_3739C refreshes it"
+        projectile.boss_eye_sprite_mapping_label, "LnkTo_unk_C8460-Data_Index",
+        "ASM sub_370D2 should seed the death-burst sprite mapping"
     );
     assert_eq!(
-        projectile.x_velocity, -0x0000_7FFF,
-        "ASM sub_37332 launches left with `$FFFF8001` when the eye starts left of Kid"
+        projectile.x_velocity, 0,
+        "ASM sub_370D2 starts from cleared x_vel"
     );
     assert_eq!(
-        projectile.y_velocity, -0x0004_0000,
-        "ASM sub_37332 writes `$FFFC` to y_vel before the gravity loop"
+        projectile.y_velocity, 0,
+        "ASM sub_370D2 starts from cleared y_vel"
     );
     assert_eq!(
-        projectile.gravity, 0x0000_0BB8,
-        "ASM loc_3739C adds `$BB8` gravity each frame"
+        projectile.gravity, 0x0000_2710,
+        "ASM loc_3712E adds `$2710` gravity"
     );
     assert_eq!(
         boss.boss_movement_delay_counter, 9,
@@ -2119,13 +2139,12 @@ fn live_heady_metal_eye_uses_sub_37332_up_launch_without_homing() {
         "ASM loc_3761E should initialise `stru_37B98` while the decremented `$3E(a3)` counter is six or more"
     );
     assert_eq!(
-        projectile.homing_accel, 0,
-        "ASM sub_37332 chooses launch velocity once; it does not home toward Kid"
+        projectile.homing_accel, 0x0000_07D0,
+        "ASM loc_3716C homes with `$7D0` acceleration"
     );
     assert_eq!(
-        projectile.lifetime,
-        u16::MAX,
-        "ASM loc_373BE loops until y_pos exceeds Level_height_pixels, not a fixed 120-frame DBF"
+        projectile.lifetime, 0x0078,
+        "ASM sub_370D2 seeds the grounded chase timer with `$78`"
     );
 }
 

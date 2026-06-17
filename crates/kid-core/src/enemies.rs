@@ -6,7 +6,7 @@ use super::{
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
 use crate::combat::{
-    QueuedSoundEffect, boss_eye_attack_init_sub_37332,
+    QueuedSoundEffect, boss_death_burst_init_sub_370D2,
     boss_head_movement_step_for_family_sub_39846, boss_head_projectile_spawn_sub_397E4,
     heady_metal_palette_cycle_sub_379E8, heady_metal_spawn_animation_loc_3761E,
     heady_metal_tracking_velocity_loc_37582,
@@ -10213,7 +10213,13 @@ pub(crate) fn step_active_enemies_with_rng(
                 }
                 // Bosses periodically spawn projectiles while tracking
                 if let Some(ref mut projs) = projectiles {
-                    step_boss_fire(enemy, projs, player_x_pos, player_y_pos);
+                    step_boss_fire_with_sounds(
+                        enemy,
+                        projs,
+                        player_x_pos,
+                        player_y_pos,
+                        played_sound_effects.as_deref_mut(),
+                    );
                 }
             }
         }
@@ -27136,11 +27142,22 @@ fn heady_metal_eye_spawn_animation_frames(selected_animation_label: &str) -> u16
 }
 
 /// Bosses periodically fire projectiles at the player.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_boss_fire(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
+) {
+    step_boss_fire_with_sounds(enemy, projectiles, player_x_pos, player_y_pos, None);
+}
+
+pub(crate) fn step_boss_fire_with_sounds(
+    enemy: &mut ActiveEnemy,
+    projectiles: &mut Vec<EnemyProjectile>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     let multi_head_boss = matches!(
         enemy.family,
@@ -27211,27 +27228,28 @@ pub(crate) fn step_boss_fire(
 
     match enemy.family {
         EnemyFamily::HeadyMetal => {
-            // ASM sub_37332/loc_3739C: launch the eye up-and-out once, then
-            // apply `$BB8` gravity each frame. The surrounding scheduler above
-            // mirrors loc_375DE's `$18(a3)` gate and `$3E(a3)` animation reload.
-            let kid_x_word = (player_x_pos.unwrap_or(enemy.x_pos) >> 16) as u16;
-            let init = boss_eye_attack_init_sub_37332(
+            // ASM loc_375DE allocates `sub_370D2` for normal fire; `sub_37332`
+            // is the paired eye-launch worker used by the breakup routine
+            // `sub_37708 loc_37778`.
+            let init = boss_death_burst_init_sub_370D2(
                 (enemy.x_pos >> 16) as u16,
                 (enemy.y_pos >> 16) as u16,
-                kid_x_word,
             );
+            if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+                sound_effects.push(QueuedSoundEffect::VoiceDie);
+            }
             projectiles.push(EnemyProjectile {
                 x_pos: enemy.x_pos,
                 y_pos: enemy.y_pos,
-                x_velocity: init.initial_x_velocity,
-                y_velocity: init.initial_y_velocity,
-                lifetime: u16::MAX,
-                gravity: 0x0BB8,
+                x_velocity: 0,
+                y_velocity: 0,
+                lifetime: init.chase_frames,
+                gravity: init.landing_gravity,
                 friendly: false,
-                homing_accel: 0,
+                homing_accel: init.homing_accel,
                 speed_cap: 0,
                 wall_bounce: false,
-                kind: EnemyProjectileKind::BossEyeAttack,
+                kind: EnemyProjectileKind::BossDeathBurst,
                 boss_eye_sprite_mapping_label: init.sprite_mapping_label,
                 ..Default::default()
             });

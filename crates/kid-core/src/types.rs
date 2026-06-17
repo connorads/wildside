@@ -124,6 +124,9 @@ pub enum ActiveProjectileKind {
     /// HeadyMetal eye attack: ASM `sub_37332`/`sub_37ABC` selects one of the
     /// eight `unk_C8488..unk_C84C0` 16x16 eye frames from the eye-to-Kid angle.
     BossEyeAttack,
+    /// HeadyMetal normal-fire burst: ASM `loc_375DE` allocates `sub_370D2`,
+    /// the falling/homing boss death-burst worker.
+    BossDeathBurst,
     /// Boss-head orbiting eye satellite before launch. ASM `sub_393C8` /
     /// `sub_39420` keeps these child workers attached to their parent head
     /// until `$FFFFFB72/$FFFFFB74/$FFFFFB76` triggers detachment.
@@ -2962,6 +2965,8 @@ pub(crate) enum EnemyProjectileKind {
     BossHeadBoomerang,
     /// HeadyMetal boss-eye attack child from ASM `sub_37332`.
     BossEyeAttack,
+    /// HeadyMetal normal-fire worker from ASM `loc_375DE` -> `sub_370D2`.
+    BossDeathBurst,
     /// Boss-head orbiting eye satellite from ASM `loc_38902`/`loc_3899A`;
     /// detach routes `loc_38962`/`loc_389FA` launch them as falling workers.
     BossEyeSatellite,

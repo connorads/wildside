@@ -4472,6 +4472,18 @@ fn build_game_scene_filtered(
                         colour: ENEMY_PROJECTILE_COLOUR,
                     });
                 }
+                ActiveProjectileKind::BossDeathBurst => {
+                    // ASM sub_370D2 uses `LnkTo_unk_C8460` and `stru_37BD8`;
+                    // retain a distinct 8x8 footprint until that exact boss
+                    // burst frame is compiled into native play.
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 4,
+                        y: sy - 4,
+                        width: 8,
+                        height: 8,
+                        colour: ENEMY_PROJECTILE_COLOUR,
+                    });
+                }
                 ActiveProjectileKind::BossEyeAttack | ActiveProjectileKind::BossEyeSatellite => {
                     sprites::push_boss_eye_attack_marker_sub_37abc(
                         &mut commands,
