@@ -1842,7 +1842,6 @@ pub(crate) struct LavaGeyserPaletteLoopLoc14B2A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn rotate_lava_geyser_palette_loc_14B2A(
     palette_buffer: &mut [u16; 0x40],
 ) -> LavaGeyserPaletteLoopLoc14B2A {
@@ -1874,7 +1873,6 @@ pub(crate) struct LavaFireballInitStateLoc1499C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_lava_fireball_state_loc_1499C(
     x_px: u16,
     y_px: u16,
