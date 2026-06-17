@@ -3011,6 +3011,7 @@ pub(crate) enum BossDeathBurstState {
     FallingLoc3712E,
     ChaseLoc37148,
     TimeoutLoc3720A,
+    SharedHomingSub37002,
 }
 
 /// Projectile fired by enemies and player helmet attacks.

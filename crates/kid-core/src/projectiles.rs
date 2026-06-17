@@ -111,6 +111,7 @@ const DRIPS_DROP_FLOOR_PROBE_HEIGHT_LOC_3345C: i32 = 0x0A;
 const DRAGON_FLYING_DESCENT_FIRE_CLEANUP_HIBERNATE_FRAMES_LOC_34C4A: u16 = 3;
 const DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A: i32 = 0x05;
 const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 = 0x05 + 0x05 + 0x0A + 0x01;
+const BOSS_DEATH_BURST_TIMEOUT_ANIMATION_FRAMES_STRU_37C0E: u16 = 0x64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProjectilePlayerContactLocB640 {
@@ -144,6 +145,7 @@ fn step_boss_death_burst_sub_370d2(
     player_y: Option<u32>,
     v_int_counter_fff809: u8,
     pending_sound_effects: &mut Vec<crate::combat::QueuedSoundEffect>,
+    spawned_projectiles: &mut Vec<EnemyProjectile>,
 ) -> bool {
     if projectile.boss_death_burst_state == BossDeathBurstState::None {
         projectile.boss_death_burst_state = BossDeathBurstState::FallingLoc3712E;
@@ -196,6 +198,8 @@ fn step_boss_death_burst_sub_370d2(
                     projectile.x_velocity = 0;
                     projectile.y_velocity = 0;
                     projectile.boss_death_burst_state = BossDeathBurstState::TimeoutLoc3720A;
+                    projectile.animation_elapsed_frames =
+                        BOSS_DEATH_BURST_TIMEOUT_ANIMATION_FRAMES_STRU_37C0E;
                     if crate::combat::boss_death_timeout_sound_sub_370D2(v_int_counter_fff809)
                         == "sfx_Boss_dies"
                     {
@@ -208,6 +212,62 @@ fn step_boss_death_burst_sub_370d2(
         }
         BossDeathBurstState::TimeoutLoc3720A => {
             move_projectile_by_current_velocity(projectile);
+            let gate = crate::combat::boss_death_burst_timeout_loop_gate_loc_3720A(0);
+            if gate.next == crate::combat::BossDeathBurstTimeoutLoopNextLoc3720A::CollisionFinish {
+                return false;
+            }
+
+            let x_direction = crate::combat::boss_death_burst_timeout_face_kid_loc_37246(
+                (projectile.x_pos >> 16) as u16,
+                (player_x.unwrap_or(projectile.x_pos) >> 16) as u16,
+            );
+            if projectile.animation_elapsed_frames > 1 {
+                projectile.animation_elapsed_frames -= 1;
+                return true;
+            }
+
+            let ground_gate = crate::combat::boss_death_burst_timeout_ground_gate_loc_3724A(
+                true,
+                x_direction,
+                (projectile.x_pos >> 16) as u16,
+                (projectile.y_pos >> 16) as u16,
+            );
+            if let Some(spawn) = ground_gate.final_spawn {
+                let init =
+                    crate::combat::enemy_death_burst_init_sub_37002(spawn.x_pos, spawn.y_pos);
+                pending_sound_effects.push(crate::combat::QueuedSoundEffect::BossEyePops);
+                spawned_projectiles.push(EnemyProjectile {
+                    x_pos: u32::from(init.x_pos) << 16,
+                    y_pos: u32::from(init.y_pos) << 16,
+                    lifetime: init.chase_frames,
+                    homing_accel: init.homing_accel,
+                    kind: EnemyProjectileKind::BossDeathBurst,
+                    boss_death_burst_state: BossDeathBurstState::SharedHomingSub37002,
+                    boss_eye_sprite_mapping_label: init.sprite_mapping_label,
+                    ..EnemyProjectile::default()
+                });
+            }
+            false
+        }
+        BossDeathBurstState::SharedHomingSub37002 => {
+            // ASM sub_37002 loc_37054: the helper owns its own hibernated
+            // movement loop and `$3C` counter, so keep it out of the generic
+            // projectile movement/lifetime path below.
+            move_projectile_by_current_velocity(projectile);
+            let gate = crate::combat::enemy_death_burst_loop_gate_loc_37054(0, projectile.lifetime);
+            projectile.lifetime = gate.next_chase_frames;
+            if gate.next == crate::combat::EnemyDeathBurstLoopNextLoc37054::Delete {
+                return false;
+            }
+
+            let step = crate::combat::enemy_death_burst_homing_step_sub_37002(
+                (projectile.x_pos >> 16) as u16,
+                (projectile.y_pos >> 16) as u16,
+                (player_x.unwrap_or(projectile.x_pos) >> 16) as u16,
+                (player_y.unwrap_or(projectile.y_pos) >> 16) as u16,
+            );
+            projectile.x_velocity = projectile.x_velocity.wrapping_add(step.x_velocity_delta);
+            projectile.y_velocity = projectile.y_velocity.wrapping_add(step.y_velocity_delta);
             true
         }
         BossDeathBurstState::None => true,
@@ -2575,6 +2635,7 @@ impl NativeRuntime {
                     player_y,
                     v_int_counter_fff809,
                     &mut pending_projectile_sound_effects,
+                    &mut spawned_projectiles,
                 );
             }
             if is_boss_head_arrow && p.lifetime == 0 {

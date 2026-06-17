@@ -2237,6 +2237,52 @@ fn live_boss_death_burst_chases_only_after_entry_animation_loc_37148() {
 }
 
 #[test]
+fn live_boss_death_burst_timeout_spawns_sub_37002_helper_loc_3724a() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut slice = OpeningSliceState::new(default_bounds());
+    slice.player.x_pos = 0x0060_0000;
+    slice.player.y_pos = 0x0080_0000;
+    runtime.opening_slice = Some(slice);
+    runtime.projectiles.push(EnemyProjectile {
+        x_pos: 0x0080_0000,
+        y_pos: 0x0080_0000,
+        kind: EnemyProjectileKind::BossDeathBurst,
+        boss_death_burst_state: BossDeathBurstState::TimeoutLoc3720A,
+        animation_elapsed_frames: 1,
+        boss_eye_sprite_mapping_label: "LnkTo_unk_C8460-Data_Index",
+        ..EnemyProjectile::default()
+    });
+
+    runtime.step_projectiles();
+
+    assert_eq!(
+        runtime.projectiles.len(),
+        1,
+        "ASM loc_3724A should delete the timed-out sub_370D2 object after spawning one sub_37002 helper"
+    );
+    let helper = runtime.projectiles[0];
+    assert_eq!(helper.kind, EnemyProjectileKind::BossDeathBurst);
+    assert_eq!(
+        helper.boss_death_burst_state,
+        BossDeathBurstState::SharedHomingSub37002,
+        "ASM loc_3724A installs `sub_37002` as the final helper worker"
+    );
+    assert_eq!(
+        (helper.x_pos, helper.y_pos),
+        (0x007B_0000, 0x0088_0000),
+        "ASM loc_3724A should spawn `sub_37002` at `x_pos-5,y_pos+8` when `x_direction(a3)` is clear"
+    );
+    assert_eq!(
+        helper.lifetime, 0x003C,
+        "ASM sub_37002 seeds d0 with `$3C` for the helper homing loop"
+    );
+    assert_eq!(
+        helper.homing_accel, 0x0000_0FA0,
+        "ASM sub_37002 homes with `$FA0`, not the slower sub_370D2 `$7D0`"
+    );
+}
+
+#[test]
 fn live_heady_metal_eye_scheduler_uses_low_animation_after_counter_wrap_loc_37630() {
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 30);
     boss.wait_timer = 0;
