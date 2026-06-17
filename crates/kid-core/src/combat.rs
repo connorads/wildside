@@ -2540,6 +2540,8 @@ pub(crate) struct HeadyMetalBreakupPieceSub37708 {
     pub(crate) sprite_word_y: i16,
     pub(crate) x_pos: u16,
     pub(crate) y_pos: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8145,22 +8147,33 @@ impl NativeRuntime {
 
                 if let Some(scatter_step) = result.scatter_step {
                     // ASM sub_3787C/sub_378A2 mutates five cached workers.
-                    // Native's live ActiveEnemy represents `$FFFFFB72`; keep
-                    // this observable worker in sync while the remaining
-                    // cached-worker lifecycle stays explicit in the #301 audit.
+                    // Native's live ActiveEnemy represents `$FFFFFB72`; the
+                    // live breakup table starts at `$FFFFFB7A`, so keep both
+                    // represented workers in sync with the selected pattern.
                     let enemy = &mut self.active_enemies[active_idx];
-                    let x_velocity_delta = match scatter_step.pattern {
-                        HeadyMetalScatterPatternSub37708::Primary => {
-                            scatter_step.d6_x_velocity_delta
-                        }
-                        HeadyMetalScatterPatternSub37708::Alternate => {
-                            scatter_step.d7_velocity_delta
-                        }
+                    let (fb72_x_velocity_delta, fb7a_y_velocity_delta) = match scatter_step.pattern
+                    {
+                        HeadyMetalScatterPatternSub37708::Primary => (
+                            scatter_step.d6_x_velocity_delta,
+                            scatter_step.d7_velocity_delta,
+                        ),
+                        HeadyMetalScatterPatternSub37708::Alternate => (
+                            scatter_step.d7_velocity_delta,
+                            scatter_step.d6_x_velocity_delta,
+                        ),
                     };
-                    enemy.x_velocity = enemy.x_velocity.wrapping_add(x_velocity_delta);
+                    enemy.x_velocity = enemy.x_velocity.wrapping_add(fb72_x_velocity_delta);
+                    if let Some(Some(piece)) = self
+                        .heady_metal_breakup_slots_sub_37708
+                        .as_mut()
+                        .map(|slots| &mut slots[0])
+                    {
+                        // ASM sub_3787C/sub_378A2 applies the centre cached
+                        // worker's impulse to `y_vel(a3)` at `$FFFFFB7A`.
+                        piece.y_velocity = piece.y_velocity.wrapping_add(fb7a_y_velocity_delta);
+                    }
                     changed_enemy_state = true;
                 }
-
                 continue;
             }
             let enemy = &mut self.active_enemies[active_idx];

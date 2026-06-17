@@ -77,6 +77,8 @@ fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
         sprite_word_y: 0,
         x_pos: anchor_x,
         y_pos: anchor_y.wrapping_add(0x001F),
+        x_velocity: 0,
+        y_velocity: 0,
     });
     for (index, (x_offset, y_offset)) in HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266
         .iter()
@@ -87,6 +89,8 @@ fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
             sprite_word_y: 0,
             x_pos: anchor_x.wrapping_add_signed(x_offset),
             y_pos: anchor_y.wrapping_add_signed(y_offset),
+            x_velocity: 0,
+            y_velocity: 0,
         });
     }
     slots

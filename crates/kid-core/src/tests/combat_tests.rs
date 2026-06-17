@@ -3068,6 +3068,13 @@ fn live_heady_metal_final_breakup_applies_current_worker_scatter_sub_3787c() {
         runtime.active_enemies[0].x_velocity, -0x0003_0D40,
         "ASM sub_37708 -> sub_3787C with `Frame_Counter & 2 == 0` adds d6 (-$30D40) to the live `$FFFFFB72` worker x velocity"
     );
+    assert_eq!(
+        runtime.heady_metal_breakup_slots_sub_37708.unwrap()[0]
+            .unwrap()
+            .y_velocity,
+        0x0003_0D40,
+        "ASM sub_37708 -> sub_3787C adds d7 (+$30D40) to the cached `$FFFFFB7A` worker y velocity"
+    );
 }
 
 #[test]
@@ -3272,6 +3279,8 @@ fn trace_uses_live_heady_metal_breakup_slots_for_sub_37abc_body_pieces() {
         sprite_word_y: 2,
         x_pos: 0x0034,
         y_pos: 0x004A,
+        x_velocity: 0,
+        y_velocity: 0,
     });
     runtime.heady_metal_breakup_slots_sub_37708 = Some(piece_slots);
 

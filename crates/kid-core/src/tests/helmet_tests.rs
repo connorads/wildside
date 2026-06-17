@@ -1393,6 +1393,8 @@ mod chunk_08 {
                 sprite_word_y: 6,
                 x_pos: 0x0044,
                 y_pos: 0x0046,
+                x_velocity: 0,
+                y_velocity: 0,
             });
             pieces
         });
@@ -1411,6 +1413,8 @@ mod chunk_08 {
                 sprite_word_y: 8,
                 x_pos: 0x0044,
                 y_pos: 0x0046,
+                x_velocity: 0,
+                y_velocity: 0,
             }),
             "ASM loc_3772A should add 2 to the selected worker's `$A(a3)` during the opening 13-pop phase",
         );
@@ -1429,6 +1433,8 @@ mod chunk_08 {
                 sprite_word_y: 14,
                 x_pos: 0x005A,
                 y_pos: 0x006C,
+                x_velocity: 0,
+                y_velocity: 0,
             });
             pieces
         });
@@ -1443,6 +1449,8 @@ mod chunk_08 {
                 sprite_word_y: 12,
                 x_pos: 0x005A,
                 y_pos: 0x006C,
+                x_velocity: 0,
+                y_velocity: 0,
             }),
             "ASM loc_37768 should subtract 2 from the selected worker's `$A(a3)` for counters `<= $18`",
         );
@@ -1460,6 +1468,8 @@ mod chunk_08 {
                 sprite_word_y: 0,
                 x_pos: 0x0070,
                 y_pos: 0x0088,
+                x_velocity: 0,
+                y_velocity: 0,
             });
             pieces
         });
