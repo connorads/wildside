@@ -20181,6 +20181,23 @@ fn step_lion_charge_movement_loc_3e11e(
                 enemy.shared_walker_debug_branch = Some("lion_charge_airborne_terrain_kill");
                 return;
             }
+            if let Some(snapped_x) = lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
+                enemy.x_pos,
+                enemy.x_velocity,
+                enemy.facing,
+                scan.lead_column_blocked,
+            ) {
+                // ASM Lion.asm loc_3E6AE/loc_3E7CA: a blocked lead column only
+                // stops X after the low-nibble boundary crossing test succeeds.
+                // The generic Dragon/Lion wall probe cannot see the ROM's d6=1
+                // level-boundary sentinel, so consume sub_36B3C/sub_36BD6 here
+                // before the shared vertical fall tail.
+                enemy.x_pos = snapped_x;
+                enemy.x_velocity = 0;
+                step_dragon_walking_airborne_after_x_commit(enemy, block_grid);
+                enemy.shared_walker_debug_branch = Some("lion_charge_airborne_lead_column_snap");
+                return;
+            }
         }
         // ASM Lion.asm loc_3E6AE/loc_3E77E and loc_3E7CA/loc_3E89A
         // share the Dragon/Lion airborne walker. The `$54(a5)` roar
@@ -20252,6 +20269,44 @@ fn step_lion_charge_movement_loc_3e11e(
         if dx > i64::from(LION_CHARGE_OVERSHOOT) {
             enemy.lion_state = LionState::Walking;
             enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+        }
+    }
+}
+
+fn lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
+    x_pos: u32,
+    x_velocity: i32,
+    facing: Direction,
+    lead_column_blocked: bool,
+) -> Option<u32> {
+    if !lead_column_blocked || x_velocity == 0 {
+        return None;
+    }
+
+    let current_px = fixed_integer_word(x_pos) as i32;
+    let candidate_x = x_pos.wrapping_add_signed(x_velocity);
+    let candidate_px = fixed_integer_word(candidate_x) as i32;
+
+    match facing {
+        Direction::Right => {
+            let moved_px = candidate_px.wrapping_sub(current_px);
+            if moved_px <= 0 {
+                return None;
+            }
+            // ASM Lion.asm loc_3E6AE: `d3 = (-(x_pos + $48(a5))) & $F`;
+            // `cmp.w d1,d3; bcc loc_3E6F0`; only `d1 > d3` and d6!=0 snaps.
+            let boundary_px = (-(current_px + ENEMY_PROBE_HALF_WIDTH)).rem_euclid(16);
+            (moved_px > boundary_px).then_some(((current_px + boundary_px) as u32) << 16)
+        }
+        Direction::Left => {
+            let moved_px = current_px.wrapping_sub(candidate_px);
+            if moved_px <= 0 {
+                return None;
+            }
+            // ASM Lion.asm loc_3E7CA: mirror using
+            // `d3 = (x_pos - $48(a5)) & $F`, snapping to `x_pos - d3`.
+            let boundary_px = (current_px - ENEMY_PROBE_HALF_WIDTH).rem_euclid(16);
+            (moved_px > boundary_px).then_some(((current_px - boundary_px) as u32) << 16)
         }
     }
 }
@@ -23092,6 +23147,50 @@ fn step_dragon_walking_airborne(enemy: &mut ActiveEnemy, block_grid: Option<&ter
         enemy.x_velocity = 0;
         enemy.shared_walker_debug_branch = Some("airborne_wall_snap");
     }
+
+    if floor.on_ground {
+        let floor_y_fp = (floor.floor_y_px as u32) << 16;
+        if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
+            enemy.y_pos = floor_y_fp;
+            enemy.y_velocity = 0;
+            enemy.x_velocity = 0;
+            enemy.on_ground = true;
+            if enemy.shared_walker_state == SHARED_WALKER_STATE_PATROL {
+                enemy.shared_walker_debug_branch = Some("airborne_land_patrol");
+            } else {
+                enemy.shared_walker_state = SHARED_WALKER_STATE_COOLDOWN;
+                enemy.shared_walker_debug_branch = Some("airborne_land_cooldown");
+            }
+            return;
+        }
+    }
+
+    enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+    enemy.shared_walker_debug_branch = Some("airborne_fall");
+}
+
+fn step_dragon_walking_airborne_after_x_commit(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    let Some(grid) = block_grid else {
+        enemy.y_velocity = (enemy.y_velocity + DRAGON_WALKING_GRAVITY).min(physics::MAX_FALL_SPEED);
+        enemy.shared_walker_debug_branch = Some("airborne_fall");
+        return;
+    };
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let floor = terrain::probe_floor(grid, cx, cy);
+    enemy.shared_walker_terrain_trace = SharedWalkerTerrainTrace {
+        next_x_px: Some(cx),
+        wall: None,
+        center_floor: Some(floor),
+        left_floor: None,
+        right_floor: None,
+    };
 
     if floor.on_ground {
         let floor_y_fp = (floor.floor_y_px as u32) << 16;
@@ -37502,6 +37601,70 @@ mod tests {
         assert!(
             !lion.death_animation_active,
             "Level 0x07 oracle keeps the lower Lion alive when its feet ride the floor edge"
+        );
+    }
+
+    #[test]
+    fn lion_airborne_charge_consumes_right_lead_column_boundary_loc_3e6ae() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 3 * 6 * 2], 3, 6);
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 39 << 16,
+            y_pos: 32 << 16,
+            x_velocity: 0x0002_0000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 8,
+            lion_state: LionState::ResumingCharge,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut projectile_sink = Some(&mut projectiles);
+
+        step_lion(&mut lion, Some(&grid), None, &mut projectile_sink);
+
+        assert_eq!(
+            lion.x_pos,
+            40 << 16,
+            "ASM Lion.asm loc_3E6AE -> sub_36B3C should consume d6=1 at the right level boundary and snap to the next tile edge"
+        );
+        assert_eq!(
+            lion.x_velocity, 0,
+            "ASM Lion.asm loc_3E6AE clears x_vel when the blocked lead column stops the airborne charge"
+        );
+    }
+
+    #[test]
+    fn lion_airborne_charge_consumes_left_lead_column_boundary_loc_3e7ca() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 3 * 6 * 2], 3, 6);
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 9 << 16,
+            y_pos: 32 << 16,
+            x_velocity: -0x0002_0000,
+            y_velocity: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 8,
+            lion_state: LionState::ResumingCharge,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut projectile_sink = Some(&mut projectiles);
+
+        step_lion(&mut lion, Some(&grid), None, &mut projectile_sink);
+
+        assert_eq!(
+            lion.x_pos,
+            8 << 16,
+            "ASM Lion.asm loc_3E7CA -> sub_36BD6 should consume d6=1 at the left level boundary and snap to the previous tile edge"
+        );
+        assert_eq!(
+            lion.x_velocity, 0,
+            "ASM Lion.asm loc_3E7CA clears x_vel when the blocked lead column stops the airborne charge"
         );
     }
 
