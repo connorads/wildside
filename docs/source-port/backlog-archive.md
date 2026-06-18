@@ -9799,6 +9799,24 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 - Filed 2026-06-11 umbrella: combat-fidelity-audit.md (21 gaps; #294 promoted separately). Largest item: per-sprite-frame `CollisionSize_Index` hitboxes vs the invented fixed 8x16 contact box used for every non-special family; also colid word delivery collapse and the Berzerker reflect keyed to the wrong `object_meta` bit.
 - Follow-up 2026-06-13 contact-box audit: FireDemon/Diamond/Robot/Armadillo/TarMonster/Sphere/Archer/DragonFlying/Cloud/Fireball/EmoRock/Hand/Orca/Crab/UFO/Tornado/Goat/Ninja/Lion/Scorpion/SpinningTwins/Driller/BigHoppingSkull now have explicit ROM-backed contact bounds. Do not patch the remaining Drips/MiniHoppingSkull/HeadyMetal gaps with a broad family fallback: Drips parents are hidden and visible crawlers route through projectile snapshots (`Drips.asm loc_33424/loc_33488/loc_33550`), MiniHoppingSkull uses special scream/overlap handling around `LnkTo_unk_C8040`, and HeadyMetal `unk_C84xx` labels are graphics mappings for composite workers rather than direct collision-size rows exposed by `ActiveEnemy::snapshot`. Next useful slice needs sprite-link-aware contact modelling or a concrete oracle route, not another fixed 8x16 replacement.
+- 2026-06-18 RockTank contact-box flip-arm pin (closes flip-pass gap). The
+  flip-arm pass (73b760cbc) pinned the 11 dedicated-function flip-asymmetric
+  families but **missed the RockTank** (object_type 0x0A/0x0B), whose box is
+  built inline in `enemy_contact_bounds` (combat.rs:11618-11637), not in a
+  `*_contact_bounds` helper. Its `Direction::Right` arm `(-12, 13)` and even its
+  unflipped `(-13, 12)` arm had no exact-value regression: the only Tank contact
+  test (`rock_tank_contact_uses_rom_width_at_oracle_frame_143_loc_3b31e`) asserts
+  a `Damage` result, never the box edges, so a sign/value slip in either arm
+  survived. Verified the source row byte-for-byte in kid.bin: `unk_31A26` and
+  `unk_31A54` both read `fff3 0019 fff0 0010` = `dc.w -$D,$19,-$10,$10`
+  (left=-13, width=25, top=-16, height=16). SubBoxLoop (kid.asm:3335-3353)
+  builds unflipped `(-13, -13+25, -16, -16+16)` = `(-13, +12, -16, 0)`; the
+  flipped arm (kid.asm:3356-3374) mirrors to `(-12, +13, -16, 0)`. New
+  regression `rock_tank_contact_box_facing_flips_via_loc_1be4` pins both arms
+  (matches native output). `verify-slice-fast` green (6126+9); test-only ⇒ no
+  `verify-tas-full`. #308 stays `[ ]` (umbrella — sprite-link-aware per-frame
+  hitboxes + Drips/MiniHoppingSkull/HeadyMetal gaps remain, neither a narrow
+  unattended slice without an oracle route).
 - 2026-06-18 contact-box flip-arm verification slice committed (73b760cbc). Recovered the prior (uncommitted) WIP — 11 right-facing contact-box pins in combat_tests.rs — and verified it from scratch before committing. ASM mirror convention confirmed against `GfxObjects_CollisionKid_SubBoxLoop_Flipped` (kid.asm:3354-3370): the unflipped arm builds `(left=x+L, right=x+L+W)` (so box offsets `(L, L+W)`); the flipped arm computes `left=x-L-W`, `right=x-L`, i.e. offset `(-(L+W), -L)` = `(-right, -left)` with top/bottom unchanged. Every other contact-box test uses `test_enemy` (defaults `facing=Direction::Left`), so only the unflipped (loc_1BCE) arm had exact-value coverage; the flip-asymmetric families' `Direction::Right` arm carried no regression. Each new pin (Goat walk/damage, Crab, Armadillo, Lion, Scorpion walk + sting-tail child, Robot parent + linked-head child, Tornado live + death-active, DragonWalking damage) asserts the exact mirror of the already-ROM-verified (2026-06-13) unflipped row and matches native output (all 11 pass). `verify-slice-fast` green (6125+9); test-only ⇒ no `verify-tas-full`. #308 stays `[ ]` (umbrella — symmetric-box families (Sphere/Diamond/FireDemon/UFO/Tornado idle) need no flip pin; remaining open work is the sprite-link-aware per-frame hitbox modelling and the Drips/MiniHoppingSkull/HeadyMetal gaps noted above, neither a narrow unattended slice without an oracle route).
 
 ### #309

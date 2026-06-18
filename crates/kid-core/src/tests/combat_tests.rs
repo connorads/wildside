@@ -1706,6 +1706,46 @@ fn dragon_walking_damage_contact_facing_flips_via_loc_1be4() {
 }
 
 #[test]
+fn rock_tank_contact_box_facing_flips_via_loc_1be4() {
+    // The RockTank (object_type 0x0A/0x0B) contact box is built inline in
+    // `enemy_contact_bounds` from the linked mouth/turret sprite mapping
+    // Tank.asm `C7EC8`/`C7F20`, which GfxObjects_CollisionKid resolves to the
+    // CollisionSize_Index rows `unk_31A26`/`unk_31A54`. Both rows read
+    // `fff3 0019 fff0 0010` = `dc.w -$D,$19,-$10,$10` byte-for-byte in kid.bin
+    // (left=-13, width=25, top=-16, height=16), so the unflipped (loc_1BCE) box
+    // is (-13, -13+25, -16, -16+16) = (-13, +12, -16, 0). This family is
+    // flip-asymmetric but was missed by the flip-arm pinning pass, so neither
+    // arm carried an exact-value regression until now.
+    let mut left = test_enemy(EnemyFamily::Tank, 101 << 16, 100 << 16, 2);
+    left.facing = Direction::Left;
+    let left_bounds = enemy_contact_bounds(&left.snapshot());
+    assert_eq!(
+        (
+            left_bounds.left_px,
+            left_bounds.right_px,
+            left_bounds.top_px,
+            left_bounds.bottom_px
+        ),
+        (-13, 12, -16, 0),
+        "ASM GfxObjects_CollisionKid loc_1BCE builds the unflipped Tank row unk_31A26/unk_31A54 (-$D,$19,-$10,$10) as -13..+12",
+    );
+
+    let mut right = test_enemy(EnemyFamily::Tank, 101 << 16, 100 << 16, 2);
+    right.facing = Direction::Right;
+    let right_bounds = enemy_contact_bounds(&right.snapshot());
+    assert_eq!(
+        (
+            right_bounds.left_px,
+            right_bounds.right_px,
+            right_bounds.top_px,
+            right_bounds.bottom_px
+        ),
+        (-12, 13, -16, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Tank row unk_31A26/unk_31A54 (-13..+12) to -12..+13 for right-facing sprites",
+    );
+}
+
+#[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
     slice.player.x_pos = 140 << 16;

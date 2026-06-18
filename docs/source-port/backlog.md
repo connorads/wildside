@@ -26,6 +26,18 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+9): **#308 RockTank contact-box flip-arm pin committed**.
+  Found the gap the flip-arm pass (73b760cbc) missed: the **RockTank** (object_type 0x0A/0x0B)
+  contact box is built **inline** in `enemy_contact_bounds` (combat.rs:11618-11637), not in a
+  `*_contact_bounds` helper, so it was skipped — and even its unflipped arm had no exact-value
+  test (the one Tank contact test asserts only a `Damage` result, never edges). Verified the row
+  byte-for-byte in kid.bin: `unk_31A26`/`unk_31A54` both read `fff3 0019 fff0 0010` =
+  `dc.w -$D,$19,-$10,$10`; SubBoxLoop (kid.asm:3335-3374) → unflipped `(-13,12,-16,0)`, flipped
+  `(-12,13,-16,0)`. New regression `rock_tank_contact_box_facing_flips_via_loc_1be4` pins both
+  arms. `verify-slice-fast` green (6126+9); test-only ⇒ no `verify-tas-full`. #308 stays `[ ]`
+  (umbrella — remaining open work is sprite-link-aware per-frame hitboxes + the
+  Drips/MiniHoppingSkull/HeadyMetal gaps, neither a narrow unattended slice without an oracle
+  route). Next top open table row is **#309** (mutation-clean), then #310 (terrain). See `#308` archive.
 - **Last session** (2026-06-18, latest+8): **#308 contact-box flip-arm pinning committed** (73b760cbc).
   Recovered the prior (uncommitted) WIP — 11 right-facing contact-box pins — and verified it from
   scratch before committing. ASM mirror confirmed against `GfxObjects_CollisionKid_SubBoxLoop_Flipped`
