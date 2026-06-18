@@ -7881,9 +7881,14 @@ mod tests {
             indexed_tile_at_with_sheet_len(&scene, 16, -2, 0x200).is_none(),
             "the deleted `$6Fxx` phase must not resolve through Block_Mappings as a stray block tile",
         );
-        assert!(
-            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
-            "ASM sub_1007A keeps the live wobble gfx object in front of the cell; the preserved immutable terrain must not leak under the shaking prize block"
+        let Some((_, terrain_tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
+            panic!(
+                "ASM sub_1007A keeps the live wobble object separate from the foreground plane; the forest underlay should stay visible rather than show blank background"
+            );
+        };
+        assert_eq!(
+            terrain_tile.tile_index, 12,
+            "sample foreground skin 3 models the #324 level-0 overlap under prize block (57,1); the terrain plane must not be suppressed by the `$6Fxx` live cell"
         );
     }
 
@@ -7929,19 +7934,14 @@ mod tests {
             Some(0x011),
             "ASM sub_1007A should copy the `$E102` prize block skin byte unchanged, not decrement it to the hidden `$E101` art"
         );
-        assert!(
-            !scene.commands.iter().any(|command| matches!(
-                command,
-                DrawCommand::Sprite {
-                    x: 16,
-                    y: -2,
-                    tile_sheet,
-                    tiles,
-                    ..
-                } if tile_sheet.tiles.len() == 0x200
-                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 0x015)
-            )),
-            "forest/tree foreground skin must not leak into early prize-block wobble frames"
+        let Some((_, terrain_tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
+            panic!(
+                "foreground terrain should remain in the separate render plane while the prize block wobble object draws copied block art"
+            );
+        };
+        assert_eq!(
+            terrain_tile.tile_index, 12,
+            "ASM sub_1007A draws copied block art as a live object; it does not erase the separate foreground decoration plane"
         );
     }
 
@@ -10233,21 +10233,27 @@ mod tests {
     }
 
     #[test]
-    fn foreground_layout_terrain_skips_live_block_cells_loc_302f6() {
+    fn foreground_layout_terrain_keeps_separate_foreground_under_live_block_cells_loc_302f6() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
         // ASM sub_302F6/sub_3034A reads one Level_Layout word per Scroll-A
-        // cell. A live `$E7xx` block word selects block mappings directly;
-        // transparent block pixels must not reveal the immutable foreground
-        // skin that was present in the extracted resource layout.
+        // cell, but the renderer also has the extracted foreground tile layout
+        // as a distinct visual layer (formats.txt lists separate foreground
+        // tile-layout and block-layout pointers). #324's level-0 prize block
+        // at (57,1) has foreground skin `$1B` underneath live `$E102`; the
+        // fixture uses skin 3 because the small sample visual table only covers
+        // low skins.
         let grid = BlockGrid::from_level_layout(&[0x00, 0x00, 0xE7, 0x01, 0x00, 0x05], 3, 1);
 
         let scene = build_ingame_scene(&trace, false, Some(&grid));
 
-        assert!(
-            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
-            "live block cells should not draw immutable foreground terrain underneath"
+        let Some((_, terrain_tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
+            panic!("expected the separate foreground tile-layout layer under the live block cell");
+        };
+        assert_eq!(
+            terrain_tile.tile_index, 12,
+            "live block cells should not punch blank holes through foreground decoration"
         );
         let Some((tile_sheet, tile, _)) =
             topmost_indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200)

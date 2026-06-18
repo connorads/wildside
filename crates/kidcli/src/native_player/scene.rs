@@ -3665,22 +3665,10 @@ pub(super) fn push_level_layout_terrain(
 
     for row in row_start..row_end {
         for col in col_start..col_end {
-            let active_block_bounce =
-                block_bounce_kind_for_trace(trace, col, row).is_some_and(|kind| {
-                    kind == BlockBounceTraceKind::Prize
-                        || block_grid.is_some_and(|grid| grid.cell_at(col, row).has_block)
-                });
             let live_cell = block_grid.map(|grid| grid.cell_at(col, row));
-            if active_block_bounce || live_cell.is_some_and(|cell| cell.has_block) {
-                // ASM sub_1007A prize wobble draws the original block art as a
-                // gfx object while the live cell is `$6Fxx`. Other block-bounce
-                // workers still hide the immutable underlay only while their
-                // live block override remains present. Static `$Exxx` block
-                // cells are also Scroll-A block words in the ROM, not a block
-                // sprite over immutable terrain.
-                continue;
-            }
             let raw_word = block_grid.map(|grid| grid.raw_word_at(col, row));
+            let active_prize_bounce =
+                block_bounce_kind_for_trace(trace, col, row) == Some(BlockBounceTraceKind::Prize);
             let priority_override = raw_word
                 .filter(|word| word & 0x8100 == 0x0100)
                 .map(|_| true);
@@ -3691,6 +3679,8 @@ pub(super) fn push_level_layout_terrain(
             let skin = live_cell
                 .filter(|cell| {
                     !cell.has_block
+                        && !(active_prize_bounce
+                            && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00))
                         && (cell.collision != kid_core::terrain::CollisionKind::Empty
                             || cell.skin != 0)
                 })
