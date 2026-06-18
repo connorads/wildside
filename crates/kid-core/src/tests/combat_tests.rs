@@ -1463,6 +1463,248 @@ fn big_hopping_skull_floor_wait_contact_uses_zero_collision_size_row_loc_1bce() 
     );
 }
 
+// Right-facing (flipped) contact-box coverage.
+//
+// `GfxObjects_CollisionKid` builds an unflipped subbox as
+// (left = L, right = L + W) at loc_1BC2/loc_1BCE, but for a flipped sprite
+// (`$16(a2)` set) loc_1BE4 mirrors it to (left = -(L + W), right = -L). The
+// native `enemy_contact_bounds` helpers reproduce that mirror in their
+// `Direction::Right` arms. Every other contact-box test builds its enemy with
+// `test_enemy`, which defaults `facing` to `Direction::Left`, so only the
+// unflipped (loc_1BCE) arm was ever asserted — the loc_1BE4 mirror arm for the
+// flip-asymmetric families carried no exact-value regression. These pin the
+// flipped boxes so a sign/value slip in the `Direction::Right` arm is caught.
+
+#[test]
+fn goat_walking_contact_right_facing_flips_via_loc_1be4() {
+    let mut goat = test_enemy(EnemyFamily::Goat, 100 << 16, 100 << 16, 4);
+    goat.facing = Direction::Right;
+    let bounds = enemy_contact_bounds(&goat.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-15, 17, -32, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Goat row unk_31824..unk_31856 (-17..+15) to -15..+17 for right-facing sprites",
+    );
+}
+
+#[test]
+fn goat_damage_contact_right_facing_flips_via_loc_1be4() {
+    let mut goat = test_enemy(EnemyFamily::Goat, 100 << 16, 100 << 16, 4);
+    goat.facing = Direction::Right;
+    goat.damage_flash_frames = 1;
+    let bounds = enemy_contact_bounds(&goat.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-20, 18, -32, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Goat damage row unk_317E4..unk_31816 (-18..+20) to -20..+18 for right-facing sprites",
+    );
+}
+
+#[test]
+fn crab_walking_contact_right_facing_flips_via_loc_1be4() {
+    let mut crab = test_enemy(EnemyFamily::Crab, 101 << 16, 100 << 16, 4);
+    crab.facing = Direction::Right;
+    let bounds = enemy_contact_bounds(&crab.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-14, 15, -32, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Crab row unk_3179C..unk_317CE (-15..+14) to -14..+15 for right-facing sprites",
+    );
+}
+
+#[test]
+fn armadillo_walking_contact_right_facing_flips_via_loc_1be4() {
+    let mut armadillo = test_enemy(EnemyFamily::Armadillo, 101 << 16, 100 << 16, 1);
+    armadillo.facing = Direction::Right;
+    let bounds = enemy_contact_bounds(&armadillo.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-18, 21, -20, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Armadillo row unk_31686/unk_3167A (-21..+18) to -18..+21 for right-facing sprites",
+    );
+}
+
+#[test]
+fn lion_parent_contact_right_facing_flips_via_loc_1be4() {
+    let mut lion = test_enemy(EnemyFamily::Lion, 101 << 16, 100 << 16, 6);
+    lion.facing = Direction::Right;
+    let bounds = enemy_contact_bounds(&lion.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-23, 21, -45, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Lion parent union unk_3194E..unk_31A12 (-21..+23) to -23..+21 for right-facing sprites",
+    );
+}
+
+#[test]
+fn scorpion_walking_contact_right_facing_flips_via_loc_1be4() {
+    let mut scorpion = test_enemy(EnemyFamily::Scorpion, 101 << 16, 100 << 16, 3);
+    scorpion.facing = Direction::Right;
+    let bounds = enemy_contact_bounds(&scorpion.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-22, 23, -22, -2),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Scorpion row unk_318EA..unk_3191C (-23..+22) to -22..+23 for right-facing sprites",
+    );
+}
+
+#[test]
+fn scorpion_sting_tail_contact_right_facing_flips_via_loc_1be4() {
+    let mut scorpion = test_enemy(EnemyFamily::Scorpion, 101 << 16, 100 << 16, 3);
+    scorpion.facing = Direction::Right;
+    scorpion.scorpion_sting_frames = 1;
+
+    let tail = scorpion
+        .child_attachment_snapshot()
+        .expect("sting-ready Scorpion keeps a linked tail object");
+    let bounds = enemy_contact_bounds(&tail);
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-8, 32, -45, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Scorpion sting tail unk_31926/unk_31930 (-32..+8) to -8..+32 for the right-facing linked tail",
+    );
+}
+
+#[test]
+fn robot_parent_and_head_contact_right_facing_flip_via_loc_1be4() {
+    let mut robot = test_enemy(EnemyFamily::Robot, 101 << 16, 100 << 16, 3);
+    robot.facing = Direction::Right;
+
+    let parent_bounds = enemy_contact_bounds(&robot.snapshot());
+    assert_eq!(
+        (
+            parent_bounds.left_px,
+            parent_bounds.right_px,
+            parent_bounds.top_px,
+            parent_bounds.bottom_px
+        ),
+        (-12, 18, -18, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Robot body union unk_31BDA/unk_31C16/unk_31C22 (-18..+12) to -12..+18 for right-facing sprites",
+    );
+
+    let head = robot
+        .child_attachment_snapshot()
+        .expect("Robot.asm loc_3A7EE allocates a linked head object");
+    let head_bounds = enemy_contact_bounds(&head);
+    assert_eq!(
+        (
+            head_bounds.left_px,
+            head_bounds.right_px,
+            head_bounds.top_px,
+            head_bounds.bottom_px
+        ),
+        (-12, 18, -16, 0),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Robot head row unk_31BE4..unk_31C0C (-18..+12) to -12..+18 for the right-facing linked head",
+    );
+}
+
+#[test]
+fn tornado_live_contact_right_facing_flips_via_loc_1be4() {
+    let mut tornado = test_enemy(EnemyFamily::Tornado, 101 << 16, 100 << 16, 1);
+    tornado.facing = Direction::Right;
+    let bounds = enemy_contact_bounds(&tornado.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-6, 8, -8, 6),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Tornado live row unk_31D14 (-8..+6) to -6..+8 for right-facing sprites",
+    );
+}
+
+#[test]
+fn tornado_death_active_contact_right_facing_flips_via_loc_1be4() {
+    let mut tornado = test_enemy(EnemyFamily::Tornado, 101 << 16, 100 << 16, 1);
+    tornado.facing = Direction::Right;
+    tornado.death_animation_active = true;
+    tornado.wait_timer = TORNADO_DEATH_ANIMATION_FRAMES - 0x06;
+    let bounds = enemy_contact_bounds(&tornado.snapshot());
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-2, 4, -4, 2),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the unflipped Tornado death active row unk_31D08 (-4..+2) to -2..+4 for the right-facing death animation",
+    );
+}
+
+#[test]
+fn dragon_walking_damage_contact_facing_flips_via_loc_1be4() {
+    // The non-damage DragonWalking box is symmetric, but the damage row
+    // unk_31610 = `dc.w -$13,$21,-$2B,$29` (-19..+14) is asymmetric, so the
+    // loc_1BE4 mirror must invert it to -14..+19 for a right-facing sprite.
+    let mut left = test_enemy(EnemyFamily::DragonWalking, 101 << 16, 100 << 16, 4);
+    left.facing = Direction::Left;
+    left.damage_flash_frames = 1;
+    let left_bounds = enemy_contact_bounds(&left.snapshot());
+    assert_eq!(
+        (
+            left_bounds.left_px,
+            left_bounds.right_px,
+            left_bounds.top_px,
+            left_bounds.bottom_px
+        ),
+        (-19, 14, -43, -2),
+        "ASM GfxObjects_CollisionKid loc_1BCE builds the unflipped DragonWalking damage row unk_31610 (-$13,$21,-$2B,$29) as -19..+14",
+    );
+
+    let mut right = test_enemy(EnemyFamily::DragonWalking, 101 << 16, 100 << 16, 4);
+    right.facing = Direction::Right;
+    right.damage_flash_frames = 1;
+    let right_bounds = enemy_contact_bounds(&right.snapshot());
+    assert_eq!(
+        (
+            right_bounds.left_px,
+            right_bounds.right_px,
+            right_bounds.top_px,
+            right_bounds.bottom_px
+        ),
+        (-14, 19, -43, -2),
+        "ASM GfxObjects_CollisionKid loc_1BE4 mirrors the DragonWalking damage row unk_31610 to -14..+19 for right-facing sprites",
+    );
+}
+
 #[test]
 fn rock_tank_zero_width_side_contact_waits_for_positive_overlap_loc_1cb8() {
     let mut slice = combat_slice();
