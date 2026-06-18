@@ -8130,6 +8130,39 @@ mod chunk_09 {
     }
 
     #[test]
+    fn ice_block_bullets_loc_11052_track_source_layout_cell_like_shooter_object_bullets() {
+        // IceBlock_LoadBullets spawns ShooterObject-style bullets that scan and
+        // track their source Level_Layout cell: native models them with the same
+        // tracking fields as the canonical shooter-block bullet
+        // `EnemyProjectile::shooter_block_loc_EC76` — `shooter_tracks_layout`
+        // true, the layout cell stored, and the freshly-seeded
+        // `shooter_state_word` `$FFFE` (the shooter slot state machine increments
+        // it to `$FFFF` on its first live step at projectiles.rs:2034). These
+        // fields are non-`Default` (the derived `Default` zeroes them), so pin
+        // them so a dropped assignment cannot silently de-track the ice bullets.
+        let source_col = 3;
+        let source_row = 2;
+        let bullets =
+            NativeRuntime::ice_block_bullets_loc_11052(source_col, source_row, /* d6 */ 2);
+
+        assert_eq!(bullets.len(), 3, "IceBlock_LoadBullets fires three bullets");
+        for bullet in &bullets {
+            assert_eq!(bullet.kind, EnemyProjectileKind::ShooterBlock);
+            assert_eq!(bullet.lifetime, 120);
+            assert!(
+                bullet.shooter_tracks_layout,
+                "ice bullets track their source Level_Layout cell like shooter-object bullets"
+            );
+            assert_eq!(bullet.shooter_layout_col, source_col);
+            assert_eq!(bullet.shooter_layout_row, source_row);
+            assert_eq!(
+                bullet.shooter_state_word, 0xFFFE,
+                "freshly-seeded shooter state word; first live step increments it to $FFFF"
+            );
+        }
+    }
+
+    #[test]
     fn process_block_effects_sub_1149c_queues_empty_support_workers() {
         let mut rt = NativeRuntime::new(manifest());
         let mut grid = grid_with_shooter_blocks(&[(5, 4, 0x02)]);

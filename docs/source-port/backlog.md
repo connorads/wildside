@@ -26,6 +26,18 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+6): **#309 verification slice committed**. The blocks audit's
+  confirmed behavioural gaps are all RESOLVED candidates; the only open audit rows are the two type-8
+  Shooter deviations (oracle-gated, 0 shipped cells, prior removal broke 18 tests — do not retry). With
+  no narrow behavioural slice, ran proactive mutation testing over `blocks.rs` ice-bullet + metal-push
+  helpers (`.cache/mutants/metal-push`, 65 mutants, 10 missed). **Closed** the 4 ice-bullet survivors:
+  `ice_block_bullets_loc_11052` sets four non-`Default` shooter-tracking fields (`shooter_tracks_layout=true`,
+  layout col/row=source, `shooter_state_word=$FFFE`) mirroring the canonical `shooter_block_loc_EC76`
+  bullet (ROM models ice bullets as ShooterObject bullets that track their source cell). New regression
+  `ice_block_bullets_loc_11052_track_source_layout_cell_like_shooter_object_bullets` pins all three bullets;
+  re-run reports 10 caught / 0 missed (`.cache/mutants/ice-bullets-fields`). `verify-slice-fast` green (6111+9);
+  test-only. #309 stays `[ ]` (umbrella). **Handoff:** 6 metal-block-push survivors remain (`blocks.rs:4067/4099/4242/4258`
+  real; `4113×2 | vs ^` likely equivalent) — next #309 iteration ASM-verifies and pins the 4 real ones; see `#309` archive.
 - **Last session** (2026-06-18, latest+5): **#308 contact-box transcription fix committed**. Recovered the
   prior (uncommitted) WIP on the combat umbrella and *verified it from scratch* before committing. Two
   enemy contact boxes were transcribed wrong against the `GfxObjects_CollisionKid_SubBoxLoop` convention

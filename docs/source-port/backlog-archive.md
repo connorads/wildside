@@ -9803,6 +9803,44 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #309
 
 - Filed 2026-06-11 umbrella: blocks-fidelity-audit.md (27 gaps; #297/#298/#302 promoted separately).
+- 2026-06-18 verification slice: every *confirmed* behavioural gap in
+  blocks-fidelity-audit.md is now a RESOLVED/fixed candidate; the only genuinely
+  open audit rows are the two type-8 Shooter deviations (`loc_F106` raw-skin
+  acceptance, `off_BB80[8]` no-op routing). Both are explicitly oracle-gated
+  ("not worth backlog rows" trivia): 0 shipped-level type-8 cells, and a
+  2026-06-13 removal attempt broke 18 tests under the #250 `BlockType::Shooter`
+  convention — do NOT retry without a real type-8 ceiling-headbutt oracle probe.
+  The dispatch arms are now split (Shooter/Mushroom/Drill are separate arms at
+  movement.rs:6663/6673/6677), so the audit's "combined Shooter|Mushroom arm"
+  prose is stale. With no narrow behavioural slice, ran proactive verification
+  over `blocks.rs`. Mutation-tested the ice-bullet + metal-block-push helpers
+  (`cargo mutants -f blocks.rs --re 'loc_11208|loc_11230|loc_1125C|loc_112E2|loc_112FE|loc_11328|loc_11358|loc_111F4|sub_1129C'`,
+  `.cache/mutants/metal-push`, 65 mutants → 52 caught, 3 unviable, 10 missed).
+  **Closed** the 4 ice-bullet survivors: `ice_block_bullets_loc_11052` sets four
+  non-`Default` shooter-tracking fields (`shooter_tracks_layout=true`,
+  `shooter_layout_col/row=source`, `shooter_state_word=$FFFE`) — identical to the
+  canonical shooter bullet `EnemyProjectile::shooter_block_loc_EC76` (the ROM
+  models ice bullets as ShooterObject bullets that scan/track their source
+  Level_Layout cell; `$FFFE` seeds the shooter slot state machine, +1→`$FFFF` on
+  first live step at projectiles.rs:2034). No test asserted them. New regression
+  `ice_block_bullets_loc_11052_track_source_layout_cell_like_shooter_object_bullets`
+  (runtime_tests.rs) pins all three bullets; re-run of those 10 ice-bullet struct
+  mutants now reports **10 caught / 0 missed** (`.cache/mutants/ice-bullets-fields`).
+  `verify-slice-fast` green (6111+9); test-only ⇒ no `verify-tas-full`.
+- **Actionable next slice (metal-block push, `off_933E[5]`/`loc_111F4`/`sub_1129C`,
+  owned by dark-model-wiring-triage.md §1 but live-wired via Berzerker side-hit in
+  helmets.rs):** 6 genuine survivors remain in the same run, each an exact-value
+  sign/compare/bitop needing ASM cross-check before pinning:
+  `blocks.rs:4067 < vs <=` in `metal_block_push_scan_right_loc_11208` (right-edge
+  bound); `4099 || vs &&` in `metal_block_push_scan_left_loc_11230` (solid
+  non-metal cell should abort the chain — existing tests only cover the
+  column-zero abort); `4242 == vs !=` and `4258 < vs <=` in
+  `step_metal_block_push_workers_sub_1129C` (direction-select + right-neighbour
+  bound). The two `4113 | vs ^` mutants in `metal_block_push_mark_deleted_loc_1125C`
+  are **likely equivalent** for all shipped collision values (`0x80`, `collision<<4`,
+  `0x0F` are disjoint bit ranges when the collision nibble's bit 3 is clear) —
+  verify CollisionKind max before treating them as a gap. Next #309 iteration:
+  ASM-verify and pin the 4 real metal-push survivors.
 
 ### #310
 
