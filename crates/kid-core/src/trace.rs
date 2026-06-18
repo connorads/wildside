@@ -214,7 +214,7 @@ fn boss_eye_orbit_mapping_indices_loc_37abc(
 
 fn boss_eye_orbit_mapping_indices_from_state_loc_37abc(
     enemy: &ActiveEnemy,
-    opening_slice: Option<OpeningSliceState>,
+    opening_slice: Option<&OpeningSliceState>,
     diamond_power_active: bool,
     frame_index: usize,
 ) -> Option<[u8; 2]> {
@@ -6949,7 +6949,7 @@ impl NativeRuntime {
                     enemy,
                     boss_eye_orbit_mapping_indices_from_state_loc_37abc(
                         enemy,
-                        self.opening_slice,
+                        self.opening_slice.as_ref(),
                         self.progression.diamond_power_frames > 0
                             || !self.diamond_power_invuln_haze_slots.is_empty(),
                         self.frame_index,
@@ -7998,6 +7998,10 @@ impl NativeRuntime {
         self.refreshed_heady_metal_body_pieces_sub_37abc(slots, &slice)
     }
 
+    // slots is a Copy POD array forwarded by value into
+    // boss_eye_refresh_attack_sprites_sub_37ABC; by-ref would only add deref noise
+    // since that call copies the array regardless.
+    #[allow(clippy::large_types_passed_by_value)]
     fn refreshed_heady_metal_body_pieces_sub_37abc(
         &self,
         slots: [Option<BossEyeSpriteRefreshSlotSub37ABC>; 12],
@@ -9815,7 +9819,7 @@ impl NativeRuntime {
                 enemy,
                 boss_eye_orbit_mapping_indices_from_state_loc_37abc(
                     enemy,
-                    self.opening_slice,
+                    self.opening_slice.as_ref(),
                     self.progression.diamond_power_frames > 0
                         || !self.diamond_power_invuln_haze_slots.is_empty(),
                     self.frame_index,

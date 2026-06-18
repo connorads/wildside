@@ -3498,17 +3498,17 @@ fn push_prize_block_wobble_sub_1007a(
         .iter()
         .copied()
         .enumerate()
-        .filter_map(|(index, mut tile)| {
+        .map(|(index, mut tile)| {
             let local_tile_index = tile
                 .tile_index
                 .checked_sub(BLOCK_TILE_VRAM_BASE)
                 .unwrap_or(tile.tile_index);
             tile.tile_index = local_tile_index.saturating_add(tile_offset);
-            Some(SpriteTile {
+            SpriteTile {
                 offset_x: if index % 2 == 0 { 0 } else { 8 },
                 offset_y: if index < 2 { 0 } else { 8 },
                 tile,
-            })
+            }
         })
         .collect();
     commands.push(DrawCommand::Sprite {

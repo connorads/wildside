@@ -7632,6 +7632,9 @@ const HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708: [usize; 37] = [
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+// piece_slots is a Copy POD array moved straight into the returned result; by-ref
+// would only add deref noise since the array is copied into `result` regardless.
+#[allow(clippy::large_types_passed_by_value)]
 pub(crate) fn heady_metal_breakup_step_sub_37708(
     anchor_present: bool,
     collision_type: i16,

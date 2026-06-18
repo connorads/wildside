@@ -9444,7 +9444,7 @@ mod tests {
             .iter()
             .enumerate()
             .filter(|(_, frame)| frame.game_mode == GameMode::InGame)
-            .filter_map(|(trace_index, frame)| {
+            .find_map(|(trace_index, frame)| {
                 let wall_x_fp = frame.murder_wall_x?;
                 let render = kid_core::compile_murder_wall_warning_sprites_sub_5E02(
                     kid_core::MurderWallWarningInputSub5E02 {
@@ -9462,7 +9462,6 @@ mod tests {
                 );
                 (!render.sprites.is_empty()).then_some((trace_index, frame, render))
             })
-            .next()
             .expect(
                 "ASM sub_5E02 should emit visible wall sprites before Level 0x08 exits gameplay",
             );
