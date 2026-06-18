@@ -17136,6 +17136,7 @@ fn register_enemy_terrain_kill(enemy: &mut ActiveEnemy) {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SharedWalkerGroundedTurn {
+    BoundaryWallSnapContinue(i32),
     RightBoundaryAfterExtraAdvance,
     RightBoundaryAtCurrentPosition,
 }
@@ -17148,22 +17149,25 @@ fn shared_walker_grounded_scan_turn_plan(
     height: i32,
 ) -> Option<SharedWalkerGroundedTurn> {
     let moving_right = walk_delta >= 0;
-    if !moving_right {
-        // Native's existing leftward look-ahead path already reaches the Level
-        // 0x01 oracle's `$009B` turn point. The missing parity was the
-        // rightward `sub_36972` boundary turn, whose lead-column/following-row
-        // scan fires before the simpler native floor probe.
-        return None;
-    }
     let current_x_px = (enemy.x_pos >> 16) as i32;
     let current_y_px = (enemy.y_pos >> 16) as i32;
-    let scan = terrain::grounded_walker_scan_right_sub_36972(
-        grid,
-        current_x_px,
-        current_y_px,
-        half_width,
-        height,
-    );
+    let scan = if moving_right {
+        terrain::grounded_walker_scan_right_sub_36972(
+            grid,
+            current_x_px,
+            current_y_px,
+            half_width,
+            height,
+        )
+    } else {
+        terrain::grounded_walker_scan_left_sub_36A58(
+            grid,
+            current_x_px,
+            current_y_px,
+            half_width,
+            height,
+        )
+    };
 
     // ASM loc_3C04E/loc_3C0FA: `tst.w d6; bmi` continues immediately when the
     // following row is fully clear. Grounded cliff turns only happen on the
@@ -17191,17 +17195,34 @@ fn shared_walker_grounded_scan_turn_plan(
     };
     let edge_bit_set = scan.flags_d7 & 0b001 != 0;
     let wall_bit_set = scan.flags_d7 & 0b010 != 0;
-    if !edge_bit_set && wall_bit_set {
+    let crossed_boundary = tile_remainder < pixel_delta;
+    if wall_bit_set
+        && !edge_bit_set
+        && crossed_boundary
+        && i32::from(scan.column_span_d3) * 8 >= half_width
+    {
+        // ASM loc_3C04E (kid.asm:43533-43542): when the boundary-crossing
+        // dispatch sees d7 bit 1, clear d5, and enough scanned width, it snaps
+        // x_pos to the crossed tile boundary before continuing through loc_3C17A.
+        let snap_x = if moving_right {
+            current_x_px + tile_remainder
+        } else {
+            current_x_px - tile_remainder
+        };
+        return Some(SharedWalkerGroundedTurn::BoundaryWallSnapContinue(snap_x));
+    }
+
+    if wall_bit_set && !edge_bit_set {
         return None;
     }
 
-    if !enemy.shared_walker_right_turn_extra_step_consumed {
-        if tile_remainder < pixel_delta {
+    if moving_right && !enemy.shared_walker_right_turn_extra_step_consumed {
+        if crossed_boundary {
             Some(SharedWalkerGroundedTurn::RightBoundaryAfterExtraAdvance)
         } else {
             None
         }
-    } else if tile_remainder == 0 {
+    } else if moving_right && tile_remainder == 0 {
         Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition)
     } else {
         None
@@ -17298,6 +17319,16 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         reverse_enemy_direction(enemy);
         enemy.x_velocity = horizontal_velocity(enemy.facing, walk_speed);
         register_shared_walker_turnaround(enemy);
+        return;
+    }
+
+    if let Some(SharedWalkerGroundedTurn::BoundaryWallSnapContinue(snap_x)) = grounded_turn_plan {
+        enemy.x_pos = (snap_x as u32) << 16;
+        let floor = terrain::probe_floor(grid, snap_x, current_y_px);
+        if floor.on_ground {
+            enemy.y_pos = (floor.floor_y_px as u32) << 16;
+        }
+        enemy.shared_walker_turnaround_counter = 0;
         return;
     }
 

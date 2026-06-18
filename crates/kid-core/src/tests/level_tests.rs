@@ -23080,6 +23080,70 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3c04e_d7_bit1_boundary_crossing_snaps_to_tile_edge() {
+        // ASM loc_3C04E (kid.asm:43533-43542): after crossing the leading
+        // tile boundary, d7 bit 1 with clear d5 and enough scan width snaps
+        // x_pos to the boundary (`add.w d3,d0`) and continues via loc_3C17A.
+        // This following-lead foot-row wall is invisible to the generic native
+        // body-row `probe_wall`, so the scan flags must drive the snap.
+        let grid = grid_with_cells(
+            20,
+            15,
+            &[
+                (6, 13, 0x60, 0x00),
+                (7, 13, 0x60, 0x00),
+                (8, 13, 0x60, 0x00),
+            ],
+        );
+        let mut enemy = make_pacer(EnemyFamily::Robot, 5, 119, 208);
+        enemy.facing = Direction::Right;
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_pos,
+            120 << 16,
+            "ASM loc_3C04E should snap to the crossed tile boundary instead of storing the full predicted X",
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM loc_3C04E d7 bit 1 snap continues through loc_3C17A instead of turning around",
+        );
+    }
+
+    #[test]
+    fn loc_3c0fa_d7_bit1_boundary_crossing_snaps_to_tile_edge() {
+        // ASM loc_3C0FA (kid.asm:43607-43616): the leftward mirror of
+        // loc_3C04E subtracts d3 from x_pos on the d7 bit 1 boundary-crossing
+        // path, then continues through loc_3C266 instead of turning around.
+        let grid = grid_with_cells(
+            20,
+            15,
+            &[
+                (6, 13, 0x60, 0x00),
+                (7, 13, 0x60, 0x00),
+                (8, 13, 0x60, 0x00),
+            ],
+        );
+        let mut enemy = make_pacer(EnemyFamily::Robot, 5, 121, 208);
+        enemy.facing = Direction::Left;
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_pos,
+            120 << 16,
+            "ASM loc_3C0FA should snap to the crossed tile boundary instead of storing the full predicted X",
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM loc_3C0FA d7 bit 1 snap continues through loc_3C266 instead of turning around",
+        );
+    }
+
+    #[test]
     fn loc_3c0a6_floor_edge_turnaround_reverses_rightward_walker() {
         // ASM loc_3C0A6 (kid.asm:43545-43549): btst #0,d7; beq.s loc_3C0B4;
         //   st $6E(a5); bra.w loc_3C0D2

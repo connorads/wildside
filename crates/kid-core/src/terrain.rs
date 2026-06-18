@@ -2192,27 +2192,6 @@ fn horizontal_collision_scan_left_following_row_class_loc_36AF0(words: &[u16]) -
 }
 
 #[allow(non_snake_case)]
-fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(word: u16) -> bool {
-    let collision_nibble = word & 0x7000;
-
-    // ASM loc_36ACE (kid.asm:38285): after the exact-`$4000` check fails, keep
-    // only bit `$4000`; mixed kinds such as `$5000`/`$6000` still block, while
-    // clear words fall through to the shared exit unchanged.
-    collision_nibble & 0x4000 != 0
-}
-
-#[allow(non_snake_case)]
-fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(word: u16) -> bool {
-    let collision_nibble = word & 0x7000;
-
-    // ASM loc_36ABE (kid.asm:38276): after the inclusive lead-column scan
-    // leaves `a4` on the following row, an exact `$4000` nibble takes the fast
-    // path that increments `d7` before returning to the shared exit.
-    collision_nibble == 0x4000
-        || horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(collision_nibble)
-}
-
-#[allow(non_snake_case)]
 fn horizontal_collision_scan_left_hitbox_mask_loc_36AD8(
     grid: &BlockGrid,
     left_col: i32,
@@ -2369,9 +2348,12 @@ pub fn grounded_walker_scan_left_sub_36A58(
 
         let following_lead = grid
             .cell_at(lead_col as u16, following_row as u16)
-            .to_word();
-        if horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(following_lead) {
+            .to_word()
+            & 0x7000;
+        if following_lead == 0x4000 {
             flags_d7 = flags_d7.wrapping_add(1);
+        } else if following_lead & 0x4000 != 0 {
+            flags_d7 = flags_d7.wrapping_add(2);
         }
     } else {
         // ASM loc_36A9E: left boundary preloads bits 0 and 1.
@@ -5731,41 +5713,6 @@ mod tests {
     }
 
     #[test]
-    fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36abe_treats_exact_4000_as_blocking()
-     {
-        assert!(
-            horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(0x4000),
-            "ASM loc_36ABE should take the exact `$4000` fast path for the following lead cell before the later mixed-kind branch runs",
-        );
-    }
-
-    #[test]
-    fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36abe_distinguishes_mixed_and_clear_words()
-     {
-        assert!(
-            horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(0x5000),
-            "ASM loc_36ABE should fall through to loc_36ACE and still block a `$5000` following lead cell because bit `$4000` remains set",
-        );
-        assert!(
-            !horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ABE(0x0001),
-            "ASM loc_36ABE should mask with `$7000` before testing collision bits, so low skin/block bits alone must not classify the following lead cell as blocked",
-        );
-    }
-
-    #[test]
-    fn horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ace_keeps_mixed_collision_nibbles_blocking()
-     {
-        assert!(
-            horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(0x5000),
-            "ASM loc_36ACE should still treat mixed `$5000` slope words as blocking once the exact-`$4000` compare falls through",
-        );
-        assert!(
-            !horizontal_collision_scan_left_following_lead_cell_blocked_loc_36ACE(0x3000),
-            "ASM loc_36ACE should leave `d7` unchanged when the following lead cell has no bit `$4000` set",
-        );
-    }
-
-    #[test]
     fn horizontal_collision_scan_left_following_row_class_loc_36af0_starts_from_the_rightmost_word()
     {
         assert_eq!(
@@ -5908,6 +5855,28 @@ mod tests {
         assert_eq!(
             scan.column_span_d3, 2,
             "ASM sub_36A58 preserves d3 as the inclusive hitbox column span minus one",
+        );
+    }
+
+    #[test]
+    fn grounded_walker_scan_left_sub_36a58_splits_exact_4000_from_mixed_following_lead() {
+        let mut exact_data = vec![0u8; 5 * 5 * 2];
+        exact_data[(3 * 5) * 2] = 0x40;
+        let exact_grid = BlockGrid::from_level_layout(&exact_data, 5, 5);
+
+        let mut mixed_data = vec![0u8; 5 * 5 * 2];
+        mixed_data[(3 * 5) * 2] = 0x60;
+        let mixed_grid = BlockGrid::from_level_layout(&mixed_data, 5, 5);
+
+        assert_eq!(
+            grounded_walker_scan_left_sub_36A58(&exact_grid, 40, 48, 16, 32).flags_d7 & 0b011,
+            0b001,
+            "ASM loc_36ABE increments d7 by 1 only for an exact `$4000` following-lead cell",
+        );
+        assert_eq!(
+            grounded_walker_scan_left_sub_36A58(&mixed_grid, 40, 48, 16, 32).flags_d7 & 0b011,
+            0b010,
+            "ASM loc_36ACE increments d7 by 2 for `$5000`/`$6000` following-lead cells",
         );
     }
 
