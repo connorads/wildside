@@ -5219,10 +5219,13 @@ fn parse_dc_b_bytes(data: &str, line_number: usize) -> Result<Vec<u8>> {
 }
 
 fn parse_level_name_comment_id(comment: &str) -> Option<u8> {
-    let trimmed = comment.trim();
-    parse_asm_integer(trimmed)
-        .and_then(|value| u8::try_from(value).ok())
-        .or_else(|| u8::from_str_radix(trimmed, 16).ok())
+    // The AddrTbl_LevelNames index comment is the logical level id in HEX
+    // (levelnames.asm:220+ — `; 27` keys TitleText_27 to level 0x27, `; 1B` to
+    // 0x1B). split.py writes it with `%2X`, never decimal. A decimal-first
+    // parse mis-keys every entry from 0x10 up whose comment is pure digits
+    // (`; 20` -> 20 dec = 0x14), so the card for Skydragon Castle 1 (0x1B)
+    // showed "Caves of Ice" (0x27 read as decimal 27 = 0x1B). #326.
+    u8::from_str_radix(comment.trim(), 16).ok()
 }
 
 fn parse_asm_label(line: &str) -> Option<&str> {
@@ -5666,6 +5669,55 @@ AddrTbl_LevelNames:   ;1A842
                 level_number_destination: None,
                 level_number_glyph_count: 0,
             })
+        );
+    }
+
+    #[test]
+    fn level_name_comment_id_parses_as_hex_not_decimal_loc_1a842() {
+        // levelnames.asm AddrTbl_LevelNames index comments are HEX
+        // (split.py writes `%2X`). TitleText_27 carries `; 27`, which must key
+        // to level 0x27, NOT decimal 27 (= 0x1B). A decimal-first parse mapped
+        // Skydragon Castle 1 (0x1B) onto Caves of Ice (0x27). #326.
+        let parsed = parse_level_title_cards(
+            r#"TitleText_1B:
+	dc.b	"skydragon\0castle"
+	dc.b	$FF
+TitleText_27:
+	dc.b	"caves\0of\0ice"
+	dc.b	$FF
+
+TitleTextLayout_2Lines:
+	dc.w	$20, $28
+	dc.w	$20, $40
+	dc.w	$DC, $3C
+TitleTextLayout_3Lines:
+	dc.w	$20, $28
+	dc.w	$20, $48
+	dc.w	$20, $68
+	dc.w	$DC, $50
+
+AddrTbl_LevelNames:   ;1A842
+	levnamhdr	TitleText_1B, TitleTextLayout_2Lines, 1	; 1B
+	levnamhdr	TitleText_27, TitleTextLayout_3Lines, 0	; 27
+"#,
+        )
+        .expect("title cards should parse");
+
+        assert_eq!(
+            parsed.get(&0x1B).map(|card| card.script_bytes.as_slice()),
+            Some(b"skydragon\0castle\xFF".as_slice()),
+            "`; 1B` must key TitleText_1B to level 0x1B"
+        );
+        assert_eq!(
+            parsed.get(&0x27).map(|card| card.script_bytes.as_slice()),
+            Some(b"caves\0of\0ice\xFF".as_slice()),
+            "`; 27` must key TitleText_27 to level 0x27 (hex), not decimal 27 = 0x1B"
+        );
+        // The decimal misread keyed TitleText_27 to 0x1B; with hex parsing
+        // nothing lands on the wrong slot.
+        assert!(
+            parsed.get(&0x14).is_none(),
+            "`; 27` parsed as decimal would have keyed 0x1B, never 0x14"
         );
     }
 
