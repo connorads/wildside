@@ -3240,19 +3240,23 @@ mod chunk_02 {
             .iter()
             .flat_map(|word| word.to_be_bytes())
             .collect();
-        fs::write(theme_root.join("palette_fg/7.bin"), &fg_bytes).expect("write fg palette");
-        fs::write(theme_root.join("palette_bg/4.bin"), &bg_bytes).expect("write bg palette");
+        // #325: extraction names theme palettes by theme NAME, not the numeric
+        // theme id — theme 7 = mountain, theme 4 = island. A numeric
+        // palette_fg/7.bin fixture masked the real-asset miss.
+        fs::write(theme_root.join("palette_fg/mountain.bin"), &fg_bytes)
+            .expect("write fg palette");
+        fs::write(theme_root.join("palette_bg/island.bin"), &bg_bytes).expect("write bg palette");
 
         let mut assets = manifest();
         assets.output_root = output_root.clone();
         assets.theme_assets = vec![
             kid_data::AssetFile {
-                relative_path: String::from("palette_fg/7.bin"),
+                relative_path: String::from("palette_fg/mountain.bin"),
                 size_bytes: fg_bytes.len() as u64,
                 sha1: String::from("fixture-fg"),
             },
             kid_data::AssetFile {
-                relative_path: String::from("palette_bg/4.bin"),
+                relative_path: String::from("palette_bg/island.bin"),
                 size_bytes: bg_bytes.len() as u64,
                 sha1: String::from("fixture-bg"),
             },
@@ -3334,9 +3338,10 @@ mod chunk_02 {
         assets.output_root = output_root.clone();
         assets.map_order = vec![0x1B];
         assets.theme_assets = vec![
-            write_words("palette_fg/7.bin", &default_foreground_words),
+            // #325: theme 7 = mountain, theme 4 = island (name-based assets).
+            write_words("palette_fg/mountain.bin", &default_foreground_words),
             write_words("palette_fg/city_alt.bin", &override_foreground_words),
-            write_words("palette_bg/4.bin", &default_background_words),
+            write_words("palette_bg/island.bin", &default_background_words),
             write_words("palette_bg/city_alt.bin", &override_background_words),
         ];
         let header = assets.levels[0]
@@ -3370,6 +3375,46 @@ mod chunk_02 {
         );
 
         fs::remove_dir_all(output_root).ok();
+    }
+
+    #[test]
+    fn theme_palette_basename_maps_theme_id_to_name_not_number() {
+        // #325: theme palette assets are name-based (palette_fg/mountain.bin).
+        // The mapping order mirrors kid-render THEME_NAMES / the collision
+        // bundle table. A numeric path (palette_fg/7.bin) found no asset, so
+        // loc_11DB0 never seeded the lava/water words and the Highwater
+        // waterfall froze.
+        assert_eq!(crate::level::theme_palette_basename(0), Some("theme0.bin"));
+        assert_eq!(crate::level::theme_palette_basename(1), Some("sky.bin"));
+        assert_eq!(crate::level::theme_palette_basename(4), Some("island.bin"));
+        assert_eq!(crate::level::theme_palette_basename(7), Some("mountain.bin"));
+        assert_eq!(crate::level::theme_palette_basename(8), Some("cave.bin"));
+        assert_eq!(crate::level::theme_palette_basename(9), Some("forest.bin"));
+        assert_eq!(crate::level::theme_palette_basename(10), Some("city.bin"));
+        // Past the 11 named themes there is no palette asset.
+        assert_eq!(crate::level::theme_palette_basename(11), None);
+    }
+
+    #[test]
+    fn highwater_entry_seeds_nonzero_lava_water_words_loc_11db0_1223c() {
+        // #325 real-asset regression: Highwater Pass 1 (level 0x02) is theme
+        // 0x07 = mountain. With the name-based palette path,
+        // copy_foreground_palette_loc_11DB0 now runs against
+        // palette_fg/mountain.bin, so the loc_1223C lava/water rotator reads
+        // real (non-zero) Palette_Buffer words instead of the [0,0,0,0] the old
+        // numeric palette_fg/7.bin miss produced (frozen light-blue waterfall).
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.begin_level_entry(LevelId(0x02));
+        let words = runtime
+            .trace_frame()
+            .lava_water_palette_words_loc_1223c
+            .expect("Highwater exposes the loc_1223C lava/water band");
+        assert!(
+            words.iter().any(|&word| word != 0),
+            "loc_11DB0 must seed real water colours into the loc_1223C band, got {words:?}"
+        );
     }
 
     #[test]

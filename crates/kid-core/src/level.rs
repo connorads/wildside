@@ -1791,6 +1791,19 @@ const THEME_COLLISION_FILES_LOC_11C30: [&str; 11] = [
     "city.bin",
 ];
 
+/// Theme palette asset basename for `theme` (e.g. `mountain.bin`).
+///
+/// Asset extraction names theme palettes by theme NAME
+/// (`theme/palette_fg/mountain.bin`), not the numeric theme id, mirroring
+/// kid-render's `THEME_NAMES`. The palette basenames are identical to the
+/// per-theme collision filenames, so reuse that ROM-ordered table. Returns
+/// `None` for theme ids past the 11 named themes.
+pub(crate) fn theme_palette_basename(theme: u8) -> Option<&'static str> {
+    THEME_COLLISION_FILES_LOC_11C30
+        .get(usize::from(theme))
+        .copied()
+}
+
 /// Build the ROM-faithful 256-entry collision table for `foreground_theme`.
 ///
 /// ASM loc_11C36 (kid.asm:23818) reads the collision nibble with
@@ -17976,39 +17989,49 @@ impl NativeRuntime {
             .copied()
             .unwrap_or(level_id.0);
 
+        // Extraction names theme palettes by theme NAME (palette_fg/mountain.bin),
+        // not the numeric theme id. #325: the old numeric path requested a
+        // nonexistent palette_fg/7.bin, so theme_palette_words returned None,
+        // copy_foreground_palette_loc_11DB0 never ran, and the lava/water words
+        // stayed zero — the loc_1223C rotator then cycled [0,0,0,0] and the
+        // Highwater waterfall froze light-blue.
         let foreground_palette_path = match classify_foreground_palette_override_loc_11D8E(map_id) {
             ForegroundPaletteOverrideLoc11D8E::PlethoraCave => {
-                String::from("palette_fg/cave_plethora.bin")
+                Some(String::from("palette_fg/cave_plethora.bin"))
             }
             ForegroundPaletteOverrideLoc11D8E::AlternativeCave => {
-                String::from("palette_fg/cave_alt.bin")
+                Some(String::from("palette_fg/cave_alt.bin"))
             }
             ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => {
-                String::from("palette_fg/city_alt.bin")
+                Some(String::from("palette_fg/city_alt.bin"))
             }
             ForegroundPaletteOverrideLoc11D8E::None
             | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => {
-                format!("palette_fg/{foreground_theme}.bin")
+                theme_palette_basename(foreground_theme).map(|name| format!("palette_fg/{name}"))
             }
         };
 
-        if let Some(foreground_palette) = self.theme_palette_words::<15>(&foreground_palette_path) {
+        if let Some(foreground_palette) = foreground_palette_path
+            .and_then(|path| self.theme_palette_words::<15>(&path))
+        {
             copy_foreground_palette_loc_11DB0(&foreground_palette, &mut self.palette_buffer);
         }
 
         let background_palette_path = if classify_late_background_palette_override_loc_11E06(map_id)
             == LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette
         {
-            String::from("palette_bg/city_alt.bin")
+            Some(String::from("palette_bg/city_alt.bin"))
         } else if classify_background_palette_override_loc_11DF4(map_id)
             == BackgroundPaletteOverrideLoc11DF4::AlternativeCave
         {
-            String::from("palette_bg/cave_alt.bin")
+            Some(String::from("palette_bg/cave_alt.bin"))
         } else {
-            format!("palette_bg/{background_theme}.bin")
+            theme_palette_basename(background_theme).map(|name| format!("palette_bg/{name}"))
         };
 
-        if let Some(background_palette) = self.theme_palette_words::<8>(&background_palette_path) {
+        if let Some(background_palette) = background_palette_path
+            .and_then(|path| self.theme_palette_words::<8>(&path))
+        {
             copy_background_palette_loc_11E16(&background_palette, &mut self.palette_buffer);
         }
     }
@@ -18535,8 +18558,6 @@ impl NativeRuntime {
     }
 
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
-        self.current_level = level_id;
-        self.level_start_frame = None;
         let entered_from_live_gameplay = matches!(self.boot_state, BootState::InGame);
         let level_has_title_card = self.level_has_title_card(level_id);
         let uses_load_ingame_bootstrap = matches!(self.boot_state, BootState::TitleScreen { .. })
@@ -18568,6 +18589,50 @@ impl NativeRuntime {
             uses_load_ingame_bootstrap,
             load_ingame_bootstrap_started: false,
         };
+        self.load_level_entry_common(level_id, entered_from_live_gameplay);
+        // ASM Load_TitleCard allocates both the visible loc_1AC70 workers and
+        // the hidden loc_1AE2E gate up front. The early title-start lineage
+        // still needs the worker shell until the later Start edge flips into
+        // loc_6E2 -> Load_InGame.
+        self.rebuild_starting_level_title_workers();
+        self.starting_level_title_rng = (uses_load_ingame_bootstrap
+            && !self.starting_level_title_workers.is_empty())
+        .then(|| self.rom_random.clone());
+        self.pending_player_start_override_loc_11bd2 = None;
+    }
+
+    /// Teleport re-entry with Load_InGame ($C) semantics — reload the level
+    /// with **no** title card.
+    ///
+    /// ASM `loc_BCF6` (kid.asm:15275-15280) sets `$FFFFFC29` then `bra.w
+    /// Teleport`; `Teleport` (kid.asm:14787-14789) leaves `Game_Mode` at its
+    /// in-gameplay value `$000C` because FC29 is set, so `LoadGameModeData`
+    /// indexes `GameLoadArray` at `$C` = `Load_InGame`, not `$8` =
+    /// `Load_TitleCard` (kid.asm:23570-23573). The visible effect is only
+    /// `Pal_FadeOut` + the `#$EE` warp colour (FBCC) + `sfx_Teleport`; the
+    /// level-name title card never draws. Both same- and cross-level
+    /// teleporters take this path — FC36 (kid.asm:15273) only gates the
+    /// timer/bonus reset, not the loader. Caller pre-loads the loc_11BD2
+    /// PlayerStart override, the FBCC warp colour, and the sfx.
+    pub(crate) fn begin_teleport_level_entry_load_ingame_loc_bcf6(&mut self, level_id: LevelId) {
+        self.boot_state = BootState::InGame;
+        self.load_level_entry_common(level_id, true);
+        // Load_InGame never allocates the loc_1AC70/loc_1AE2E title-card
+        // workers, so there is no title shell to rebuild or seed.
+        self.starting_level_title_workers.clear();
+        self.starting_level_title_rng = None;
+        self.pending_player_start_override_loc_11bd2 = None;
+    }
+
+    /// Shared Load_InGame level-load work for both the title-card entry path
+    /// (`begin_level_entry`) and the no-card Teleport re-entry
+    /// (`begin_teleport_level_entry_load_ingame_loc_bcf6`): block grid, theme
+    /// palettes, entry fade, opening slice, rosters, murder wall, weather,
+    /// post-load objects, start BGM, and the per-level counters. The caller
+    /// sets `boot_state` and any title-worker state before/after this.
+    fn load_level_entry_common(&mut self, level_id: LevelId, entered_from_live_gameplay: bool) {
+        self.current_level = level_id;
+        self.level_start_frame = None;
         self.player_lifecycle = PlayerLifecycle::Alive;
         self.respawn_start_held_frames = 0;
         self.death_camera_lock = None;
@@ -18647,15 +18712,6 @@ impl NativeRuntime {
         self.paused = false;
         self.pause_toggle_pending = false;
         self.allow_pausing = false;
-        // ASM Load_TitleCard allocates both the visible loc_1AC70 workers and
-        // the hidden loc_1AE2E gate up front. The early title-start lineage
-        // still needs the worker shell until the later Start edge flips into
-        // loc_6E2 -> Load_InGame.
-        self.rebuild_starting_level_title_workers();
-        self.starting_level_title_rng = (uses_load_ingame_bootstrap
-            && !self.starting_level_title_workers.is_empty())
-        .then(|| self.rom_random.clone());
-        self.pending_player_start_override_loc_11bd2 = None;
     }
 
     /// Save working state to the current player's slot (ASM sub_8C2).
