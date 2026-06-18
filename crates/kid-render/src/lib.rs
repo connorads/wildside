@@ -866,12 +866,12 @@ mod tests {
         // Render indexes the same first expected bytes the collision grid truncates to.
         let width_cells = 80usize;
         let expected_cells = width_cells * 84;
-        for index in 0..expected_cells {
+        for (index, &expected) in logical_foreground.iter().take(expected_cells).enumerate() {
             let row = (index / width_cells) as u16;
             let col = (index % width_cells) as u16;
             assert_eq!(
                 visuals.level.foreground_layout.skin_at(col, row),
-                logical_foreground[index],
+                expected,
                 "parsed cell {index} must match the truncated borrowed-logical foreground"
             );
         }

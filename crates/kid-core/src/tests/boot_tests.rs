@@ -2545,8 +2545,8 @@ mod chunk_01 {
     /// `remaining = low_digit + high_digit*$A + minutes*$3C;
     /// elapsed = -remaining + $B4 + Clocks_collected*$B4`.
     ///
-    /// Native: `LEVEL_TIMER_COMPLETION_BASE_SECONDS - level_timer.seconds
-    /// + clocks_collected * LEVEL_TIMER_CLOCK_BONUS_SECONDS`.
+    /// Native: `LEVEL_TIMER_COMPLETION_BASE_SECONDS - level_timer.seconds +
+    /// clocks_collected * LEVEL_TIMER_CLOCK_BONUS_SECONDS`.
     /// Zero elapsed seconds (full timer remaining, no clocks) → 0.
     #[test]
     #[allow(non_snake_case)]

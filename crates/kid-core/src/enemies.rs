@@ -24907,8 +24907,8 @@ pub(crate) const DRIPS_CEILING_ATTACH_RISE_VELOCITY: i32 = -0x1_0000;
 /// box spans five pixels left and right of x_pos.
 const DRIPS_CEILING_PROBE_HALF_WIDTH: i32 = 5;
 /// The rising slime's GfxObjects_Collision box top sits 2px above y_pos.
-/// Derived from the loc_1A6C ceiling writeback `y = contact_tile_top - y_off
-/// + $10`: the issue-260 oracle shows the Level 01 Drips attached at y=530
+/// Derived from the loc_1A6C ceiling writeback `y = contact_tile_top - y_off +
+/// $10`: the issue-260 oracle shows the Level 01 Drips attached at y=530
 /// under the row-32 block cells (tile top 512, cells `$E102/$EC2D` carry the
 /// `$4000` collision bit), so `y_off = -2`. The contact row is the BLOCK row
 /// itself, not the rock row above it — the old `0x1F` reach skipped the block

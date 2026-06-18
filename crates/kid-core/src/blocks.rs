@@ -4509,7 +4509,7 @@ impl NativeRuntime {
             .floating_items
             .iter()
             .filter(|f| f.collision_latched)
-            .filter_map(|f| match f.content {
+            .find_map(|f| match f.content {
                 terrain::PrizeContent::Skycutter => Some(PlayerForm::Skycutter),
                 terrain::PrizeContent::Cyclone => Some(PlayerForm::Cyclone),
                 terrain::PrizeContent::RedStealth => Some(PlayerForm::RedStealth),
@@ -4520,8 +4520,7 @@ impl NativeRuntime {
                 terrain::PrizeContent::Maniaxe => Some(PlayerForm::Maniaxe),
                 terrain::PrizeContent::Micromax => Some(PlayerForm::Micromax),
                 _ => None,
-            })
-            .next();
+            });
         self.floating_items.retain(|f| !f.collision_latched);
         if let Some(form) = deleted_collision_latched_prize_form {
             // ASM PrizeHelmet* loc_105D6 observes the object-side collision on
@@ -6521,7 +6520,9 @@ mod tests {
         // exercise directions 0/1/2; without this the left arm's third-bullet
         // y-sign (4,-4) and the left velocity x-sign (-speed) survive mutation.
         let speed = NativeRuntime::SHOOTER_PROJECTILE_SPEED;
-        let cases: [(u16, [(i32, i32); 3], (i32, i32)); 4] = [
+        // (remapped_direction, three bullet offsets, velocity)
+        type BulletCase = (u16, [(i32, i32); 3], (i32, i32));
+        let cases: [BulletCase; 4] = [
             (0, [(0, 0), (-4, 4), (4, 4)], (0, -speed)),
             (1, [(0, 0), (-4, -4), (-4, 4)], (speed, 0)),
             (2, [(0, 0), (4, -4), (-4, -4)], (0, speed)),

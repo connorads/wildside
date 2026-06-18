@@ -5716,7 +5716,7 @@ AddrTbl_LevelNames:   ;1A842
         // The decimal misread keyed TitleText_27 to 0x1B; with hex parsing
         // nothing lands on the wrong slot.
         assert!(
-            parsed.get(&0x14).is_none(),
+            !parsed.contains_key(&0x14),
             "`; 27` parsed as decimal would have keyed 0x1B, never 0x14"
         );
     }
