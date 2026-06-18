@@ -164,6 +164,48 @@ description = "Import a BK2 TAS recording as a DynamicScenario JSON"
 run = "scripts/strict-rust.sh cargo run --release -p kidcli -- verify-tas --scenario ${1:?usage: mise run verify-tas <scenario.json>}"
 description = "Verify a TAS scenario against the oracle (native vs emulator)"
 
+[tasks.view-tas]
+# Intentionally runs without scripts/strict-rust.sh: same TAS-replay determinism
+# caveat as verify-tas-frontier — the no-RUSTFLAGS binary stays deterministic.
+# Two-stage fzf: pick scenario, then (only for runs over the viewer's 2000-frame
+# default guard) pick a frame window. The `sh -c '...' --` wrapper makes mise's
+# trailing CLI arg available as $1 (same pattern as the dump-level-layout task).
+run = """
+sh -c '
+if ! command -v fzf >/dev/null 2>&1; then echo "view-tas needs fzf on PATH"; exit 1; fi
+if ! command -v jq >/dev/null 2>&1; then echo "view-tas needs jq on PATH"; exit 1; fi
+SCENARIO="${1:-}"
+if [ -z "$SCENARIO" ]; then
+  SCENARIO=$(ls tests/data/tas/*/scenario.json tests/data/dynamic-scenarios/*.json 2>/dev/null | fzf --prompt="scenario> ")
+fi
+if [ -z "$SCENARIO" ]; then echo "view-tas: no scenario selected"; exit 1; fi
+if [ ! -f "$SCENARIO" ]; then echo "view-tas: no such scenario: $SCENARIO"; exit 1; fi
+FRAME_COUNT=$(jq -r ".frame_count" "$SCENARIO")
+MAX_DEFAULT=2000
+ARGS="--scenario $SCENARIO"
+if [ "$FRAME_COUNT" -gt "$MAX_DEFAULT" ]; then
+  WINDOWS="whole run (slow)"
+  START=0
+  while [ "$START" -lt "$FRAME_COUNT" ]; do
+    END=$((START + MAX_DEFAULT))
+    if [ "$END" -gt "$FRAME_COUNT" ]; then END=$FRAME_COUNT; fi
+    WINDOWS="$WINDOWS
+$START-$END"
+    START=$END
+  done
+  CHOICE=$(echo "$WINDOWS" | fzf --prompt="window> ")
+  if [ -z "$CHOICE" ]; then echo "view-tas: no window selected"; exit 1; fi
+  if [ "$CHOICE" = "whole run (slow)" ]; then
+    ARGS="$ARGS --whole-run"
+  else
+    ARGS="$ARGS --frame-start ${CHOICE%-*} --frame-end ${CHOICE#*-}"
+  fi
+fi
+cargo run --release -p kidcli -- view-tas $ARGS
+' --
+"""
+description = "Open the SDL TAS viewer (fzf-pick scenario + frame window)"
+
 [tasks.verify-tas-frontier]
 # Intentionally runs without scripts/strict-rust.sh: RUSTFLAGS=-D warnings is a
 # compile-time flag, but cargo treats it as a build-cache key. With it set, cargo
