@@ -26,6 +26,28 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+14): **#309 ice-block ABOVE arm + shooter viewport-boundary
+  pinning committed**. Recovered the prior (uncommitted) WIP — two exact-value mutation pins for
+  `blocks.rs` helpers — and verified both from scratch before committing. (1) ABOVE arm (`d6==2`,
+  `loc_10FDC`) of `ice_block_destroy_effect_origin_sub_10F9C` (blocks.rs:2124): ASM-confirmed against
+  sub_10F9C kid.asm:22881-22908 (`d6==2 → subq.w #4,y_pos(a3)`; 3→right/1→left/else→down). The three
+  other arms had exact-value tests but ABOVE did not, so deleting that match arm fell through to the
+  default down nudge and survived. New `ice_block_effect_sub_10f9c_uses_loc_10fdc_upward_offset`
+  (runtime_tests.rs) drives spawn + one `step_visual_effects` for ABOVE (80,48→80,44); cargo-mutants
+  over the helper now **12/12 caught, 0 missed** (incl. the previously-surviving ABOVE-arm delete).
+  (2) Coarse viewport gate `shooter_horizontal_span_rejected_loc_F830` (blocks.rs:2840): ASM-confirmed
+  the four-test reject chain against loc_F7E2..loc_F808 kid.asm:20468-20480 (d4=left col, d5=top row,
+  d6=right col, d7=bottom row; rejects row>bottom, row<top, start_col>right, or start_col-left<=-8).
+  The pre-existing loc_F830 test only exercised start_col>right, so the row vertical edges, the
+  inclusive top/bottom rows, and the `<=-8` left-margin boundary were unpinned. New
+  `shooter_horizontal_span_rejected_loc_f830_matches_asm_coarse_viewport_boundaries` (combat_tests.rs)
+  pins them; `--re` is unreliable in this cargo-mutants setup (documented tooling note — it matched
+  `ice_block_bullets` instead), so verified by hand-mutation: the test catches `&&`→`||` (row),
+  `>`→`>=` (left margin), and `-`→`+` (subtraction). `verify-slice-fast` green (6131+9); test-only ⇒
+  no `verify-tas-full`. #309 stays `[ ]` (umbrella — same residual: only the two oracle-gated type-8
+  Shooter deviations remain open, no narrow behavioural slice; the ice-effect-origin and shooter-span
+  helpers now have no mutation gap). Next top open table row is still **#309** then **#310** (terrain).
+  See `#309` archive.
 - **Last session** (2026-06-18, latest+13): **#309 shooter-block support direction-bit pinning committed**.
   Recovered the prior (uncommitted) WIP — an exact-value test for the per-direction neighbour-bit
   dispatch in `shooter_has_support_loc_f106` (blocks.rs:443) — and verified it from scratch before

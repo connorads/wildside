@@ -9971,6 +9971,40 @@ oracle repro = authoritative; minimum gate = fast-slice.
   `verify-tas-full`. #309 stays `[ ]`: same residual — only the two oracle-gated
   type-8 Shooter deviations remain, no narrow behavioural slice; the
   shooter-block support helper now has no mutation gap.
+- 2026-06-18 ice-block ABOVE arm + shooter viewport-boundary pinning: recovered
+  the prior (uncommitted) WIP and verified both from scratch before committing.
+  (1) **`ice_block_destroy_effect_origin_sub_10F9C` ABOVE arm** (blocks.rs:2124):
+  ASM-traced sub_10F9C kid.asm:22881-22908 — `cmpi.w #2,d6; beq loc_10FDC` →
+  `subq.w #4,y_pos(a3)` (4px up), with 3→`addq x_pos` (right), 1→`subq x_pos`
+  (left), and the d6∉{1,2,3} fallthrough → `addq #4,y_pos` (down). The LEFT/RIGHT/
+  default-down arms each had an exact-value test (runtime_tests.rs:8390/8419/8448)
+  but the ABOVE (`d6==2`) arm did not, so `delete match arm BLOCK_DESTROY_DIRECTION_ABOVE`
+  fell through to the default down nudge and survived mutation. New regression
+  `ice_block_effect_sub_10f9c_uses_loc_10fdc_upward_offset` (runtime_tests.rs) spawns
+  the effect at (80,48) with direction ABOVE, asserts the source-cell setup frame
+  before the nudge, then one `step_visual_effects` applies the upward nudge (y 48→44,
+  remaining 4→3). cargo-mutants over the helper (`/tmp/mutants-309-recover`):
+  **12 mutants, all 12 caught, 0 missed**, including the previously-surviving
+  ABOVE-arm delete. (2) **`shooter_horizontal_span_rejected_loc_F830`** coarse
+  viewport gate (blocks.rs:2840): ASM-traced the four-test reject chain at
+  loc_F7E2..loc_F808 (kid.asm:20468-20480) and confirmed the register roles via
+  sub_F730 setup (kid.asm:20400-20454): d4=Camera_X>>4=left col, d6 high=left+$14=
+  right col, d5=Camera_Y>>4=top row, d7 high=top+$E=bottom row; d0=$A(a0)=start_col,
+  d1=$C(a0)=row. Chain: `cmp d7,d1;bgt` (row>bottom), `cmp d5,d1;blt` (row<top),
+  `cmp d6,d0;bgt` (start_col>right), `sub d4,d0;cmpi #$FFF8,d0;ble` (start_col-left
+  <= -8) — exactly the native `row_visible && span_may_enter_view` predicate. The
+  pre-existing loc_F830 test only exercised the start_col>right arm, leaving the row
+  vertical edges, inclusive top/bottom rows, and the -8 left-margin boundary unpinned.
+  New regression `shooter_horizontal_span_rejected_loc_f830_matches_asm_coarse_viewport_boundaries`
+  (combat_tests.rs) pins each. `cargo mutants --re` is unreliable here (documented
+  latest+10 tooling note — `--re 'shooter_horizontal_span_rejected'` matched
+  `ice_block_bullets_loc_11052` mutants instead, not the target function), so verified
+  by hand-mutation: applying `&&`→`||` (row_visible), `>`→`>=` (left margin), and
+  `-`→`+` (subtraction) each makes the test FAIL; the correct source passes. Both pins
+  are test-only and ASM-faithful. `verify-slice-fast` green (6131+9); test-only ⇒ no
+  `verify-tas-full`. #309 stays `[ ]`: same residual — only the two oracle-gated
+  type-8 Shooter deviations remain, no narrow behavioural slice; the
+  ice-effect-origin and shooter-span helper families now have no mutation gap.
 
 ### #310
 

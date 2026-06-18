@@ -19852,6 +19852,57 @@ mod chunk_05 {
         );
     }
 
+    /// ASM loc_F7E2..loc_F808 (kid.asm:20468-20480) coarse viewport gate. The
+    /// reject chain is, in order: `cmp.w d7,d1; bgt loc_F830` (row >
+    /// camera_bottom_row), `cmp.w d5,d1; blt loc_F830` (row < camera_top_row),
+    /// `cmp.w d6,d0; bgt loc_F830` (start_col > camera_right_col), then
+    /// `sub.w d4,d0; cmpi.w #$FFF8,d0; ble loc_F830` (start_col - camera_left_col
+    /// <= -8). The pre-existing loc_F830 test only exercises the
+    /// `start_col > camera_right_col` arm, so the row-vertical edges and the
+    /// `-8` left-margin boundary were unpinned — mutating the row_visible `&&`,
+    /// the `> -8` comparison, and the `start_col - camera_left_col` subtraction
+    /// all survived. These exact-value cases pin each boundary against the ROM.
+    #[test]
+    fn shooter_horizontal_span_rejected_loc_f830_matches_asm_coarse_viewport_boundaries() {
+        // Window: left=20, right=30, top=4, bottom=18.
+        let rejected =
+            |start_col, row| NativeRuntime::shooter_horizontal_span_rejected_loc_F830(20, 30, 4, 18, start_col, row);
+
+        // Row vertical-range edges (kills `row <= bottom && row >= top` -> `||`):
+        // a row one above the top edge or one below the bottom edge rejects even
+        // though the column is well inside the horizontal window.
+        assert!(
+            rejected(25, 3),
+            "ASM `cmp.w d5,d1; blt loc_F830` rejects a span one row above camera_top_row",
+        );
+        assert!(
+            rejected(25, 19),
+            "ASM `cmp.w d7,d1; bgt loc_F830` rejects a span one row below camera_bottom_row",
+        );
+        assert!(
+            !rejected(25, 4) && !rejected(25, 18),
+            "ASM accepts the inclusive top (d1==d5) and bottom (d1==d7) row edges",
+        );
+
+        // Left-margin boundary (kills `start_col - camera_left_col > -8` -> `>=`
+        // and the `-` -> `+` / `-` -> `/` subtraction mutants). At exactly
+        // start_col - left == -8 the ROM's `ble loc_F830` rejects; at -7 it
+        // accepts. The far-left start_col == 10 (delta -10) must also reject,
+        // which `+` (30) and `/` (0) would wrongly accept.
+        assert!(
+            rejected(12, 7),
+            "ASM `cmpi.w #$FFF8,d0; ble loc_F830` rejects start_col-camera_left_col == -8 (12-20)",
+        );
+        assert!(
+            !rejected(13, 7),
+            "ASM accepts start_col-camera_left_col == -7 (13-20), one inside the `ble` boundary",
+        );
+        assert!(
+            rejected(10, 7),
+            "ASM rejects start_col-camera_left_col == -10 (10-20); `+`/`/` mutants of the subtraction would accept",
+        );
+    }
+
     #[test]
     fn shooter_slot_tick_sub_f730_advances_the_zero_state_into_the_negative_visibility_ladder() {
         assert_eq!(

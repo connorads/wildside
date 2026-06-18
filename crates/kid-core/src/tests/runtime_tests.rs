@@ -8476,6 +8476,44 @@ mod chunk_09 {
     }
 
     #[test]
+    fn ice_block_effect_sub_10f9c_uses_loc_10fdc_upward_offset() {
+        // ASM sub_10F9C loc_10FDC (kid.asm:22900): `cmpi.w #2,d6; beq.s
+        // loc_10FDC` nudges the ice shard worker 4px UP (`subq.w #4,y_pos(a3)`)
+        // for the ordinary ceiling headbutt that sub_BB54 seeds with d6=2. The
+        // three other arms (LEFT/RIGHT/default-down) are pinned above, but the
+        // ABOVE arm had no exact-value test: deleting it falls through to the
+        // default `addq.w #4,y_pos(a3)` (down) and would survive undetected.
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.spawn_ice_block_effect_sub_10f9c(
+            80,
+            48,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+        );
+
+        assert_eq!(runtime.block_destroy_effects.len(), 1);
+        assert_eq!(
+            runtime.block_destroy_effects[0].x_px, 80,
+            "ASM sub_10F9C exposes the source-cell setup frame before the loc_10FDC upward nudge",
+        );
+        assert_eq!(runtime.block_destroy_effects[0].y_px, 48);
+        assert_eq!(runtime.block_destroy_effects[0].remaining, 4);
+
+        runtime.step_visual_effects();
+
+        assert_eq!(
+            runtime.block_destroy_effects[0].y_px, 44,
+            "ASM loc_10FDC subtracts 4 from `y_pos(a3)` when `d6 == 2`, after sub_10F9C's source-cell setup frame",
+        );
+        assert_eq!(runtime.block_destroy_effects[0].x_px, 80);
+        assert_eq!(runtime.block_destroy_effects[0].remaining, 3);
+        assert_eq!(
+            runtime.block_destroy_effects[0].direction,
+            NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE
+        );
+    }
+
+    #[test]
     fn smash_block_effect_sub_10eda_uses_loc_10f20_leftward_offset() {
         let mut runtime = NativeRuntime::new(manifest());
 
