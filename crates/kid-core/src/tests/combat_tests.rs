@@ -235,8 +235,8 @@ fn drips_parent_contact_uses_rom_collision_size_row_loc_1bce() {
             bounds.top_px,
             bounds.bottom_px
         ),
-        (-4, 5, -2, -1),
-        "ASM Drips.asm Enemy16_Drip_Init writes LnkTo_unk_C7B0E; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize_Index[550] row unk_3189A"
+        (-4, 6, -2, 0),
+        "ASM Drips.asm Enemy16_Drip_Init writes LnkTo_unk_C7B0E; GfxObjects_CollisionKid loc_1BCE indexes CollisionSize_Index[550] row unk_3189A = dc.w -$4,$A,-$2,$2 -> right=left+width, bottom=top+height (kid.asm:3342/3350)"
     );
 }
 
@@ -1334,8 +1334,8 @@ fn sphere_contact_uses_rom_collision_size_rows_loc_1bce() {
             bounds.top_px,
             bounds.bottom_px
         ),
-        (-7, 7, -7, 0),
-        "ASM Sphere.asm stru_36174 uses LnkTo_unk_C8120..C8130; GfxObjects_CollisionKid loc_1BCE indexes active body rows unk_31AB0/unk_31ABA"
+        (-7, 7, -7, 7),
+        "ASM Sphere.asm stru_36174 uses LnkTo_unk_C8120..C8130; GfxObjects_CollisionKid loc_1BCE indexes active body rows unk_31AB0/unk_31ABA = dc.w -$7,$E,-$7,$E -> right=left+width, bottom=top+height (kid.asm:3342/3350)"
     );
 
     assert_eq!(
@@ -16690,12 +16690,12 @@ mod chunk_03 {
             "standing support candidates should be marked as active support",
         );
         assert!(
-            support_debug.contains("enemy_16#01 dx=0 top_gap=17"),
+            support_debug.contains("enemy_16#01 dx=1 top_gap=17"),
             "the support trace should include the nearby Drips candidate, got {support_debug}",
         );
         assert!(
-            support_debug.contains("enemy_16#01 dx=0 top_gap=17 x_overlap=9 y_overlap=1"),
-            "Drips support diagnostics should use ASM Drips.asm Enemy16_Drip_Init row unk_3189A, got {support_debug}",
+            support_debug.contains("enemy_16#01 dx=1 top_gap=17 x_overlap=9 y_overlap=2"),
+            "Drips support diagnostics should use ASM Drips.asm Enemy16_Drip_Init row unk_3189A = (-4,6,-2,0): box centre +1px right (dx=1) and bottom at the anchor (y_overlap=2), got {support_debug}",
         );
         assert!(
             support_debug.contains("platform_00 dx=7 top_gap=16 x_overlap=10 y_overlap=15"),

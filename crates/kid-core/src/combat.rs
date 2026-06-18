@@ -11696,13 +11696,16 @@ fn drips_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // ASM Drips.asm Enemy16_Drip_Init writes `LnkTo_unk_C7B0E` to `$22`.
     // GfxObjects_CollisionKid loc_1BCE indexes CollisionSize_Index[550],
     // resolving to `unk_3189A`: `dc.w -$4,$A,-$2,$2`.
+    // GfxObjects_CollisionKid_SubBoxLoop builds the box as right = left +
+    // width(`2(a3)`) and bottom = top + height(`6(a3)`) (kid.asm:3342/3350),
+    // so this row is `(-4, -4+10, -2, -2+2)` = `(-4, 6, -2, 0)`.
     // Falling drops and surface crawlers are separate worker snapshots, so only
     // model the parent/controller row here.
     EnemyContactBounds {
         left_px: -4,
-        right_px: 5,
+        right_px: 6,
         top_px: -2,
-        bottom_px: -1,
+        bottom_px: 0,
     }
 }
 
@@ -11963,6 +11966,12 @@ fn sphere_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
     // loc_1BCE to `unk_31AAE` (zero row) and `unk_31AB0`/`unk_31ABA`:
     // `dc.w -$7,$E,-$7,$E`. `SphereLiveZero` covers the leading zero row;
     // the remaining live phases use the shared active body row.
+    //
+    // GfxObjects_CollisionKid_SubBoxLoop builds the box as right = left +
+    // width(`2(a3)`) and bottom = top + height(`6(a3)`) (kid.asm:3342/3350),
+    // so this row is `(-7, -7+14, -7, -7+14)` = `(-7, 7, -7, 7)`. The Sphere's
+    // `$1E(a2)` anchor is the ball centre, so the contact box is symmetric
+    // about `y_pos`; the box extends 7px below the anchor, not clamped to it.
     let (left_px, right_px) = match enemy.facing {
         Some(Direction::Right) => (-7, 7),
         Some(Direction::Left) | None => (-7, 7),
@@ -11972,7 +11981,7 @@ fn sphere_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
         left_px,
         right_px,
         top_px: -7,
-        bottom_px: 0,
+        bottom_px: 7,
     }
 }
 
