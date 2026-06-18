@@ -7716,6 +7716,27 @@ mod chunk_09 {
     }
 
     #[test]
+    fn metal_block_push_scan_right_loc_11208_aborts_when_the_metal_run_reaches_the_right_edge() {
+        // ASM loc_11208 `cmp.w d4,d1; bge.w loc_11296` (d4 = Level_width_blocks-1)
+        // stops sampling once the index walks past the last column, so a metal
+        // run that reaches the right edge without a non-solid terminator selects
+        // no block (no `j_sub_E02` worker). The native bound is `current_col <
+        // width`; a `<=` slip would index one cell past the row and panic.
+        let row = [
+            terrain::Cell::from_be_bytes(0xE5, 0x00),
+            terrain::Cell::from_be_bytes(0xE5, 0x00),
+            terrain::Cell::from_be_bytes(0xE5, 0x00),
+            terrain::Cell::from_be_bytes(0xE5, 0x00),
+        ];
+
+        assert_eq!(
+            NativeRuntime::metal_block_push_scan_right_loc_11208(&row, 0),
+            None,
+            "ASM loc_11208 should abort at `loc_11296` (selecting no block) when the contiguous metal run extends to the level's right edge",
+        );
+    }
+
+    #[test]
     fn metal_block_push_scan_left_loc_11230_stops_on_the_last_contiguous_metal_block() {
         let row = [
             terrain::Cell::from_be_bytes(0x00, 0x00),
@@ -7744,6 +7765,29 @@ mod chunk_09 {
             NativeRuntime::metal_block_push_scan_left_loc_11230(&row, 3),
             None,
             "ASM loc_11230 should jump to `loc_11296` once the contiguous metal run reaches column zero, because the left scan refuses to sample past the level edge",
+        );
+    }
+
+    #[test]
+    fn metal_block_push_scan_left_loc_11230_aborts_on_in_bounds_solid_non_metal() {
+        // ASM loc_11230 confirms `$6000` collision, then `bclr #$F,d7;
+        // beq.s loc_11296` and `andi.w #$F00,d7; cmpi.w #$500,d7; bne.s
+        // loc_11296`: a solid cell that is a block but NOT `$500` metal aborts
+        // the chain. That is `!has_block || block_type != Metal => None`; an
+        // `&&` slip would walk past the obstruction onto the non-solid cell at
+        // column zero and wrongly select it. cell 0 is left non-solid so the
+        // faithful `None` and the mutated `Some(1)` are distinguishable.
+        let row = [
+            terrain::Cell::from_be_bytes(0x00, 0x00),
+            terrain::Cell::from_be_bytes(0xE0, 0x01),
+            terrain::Cell::from_be_bytes(0xE5, 0x00),
+            terrain::Cell::from_be_bytes(0xE5, 0x00),
+        ];
+
+        assert_eq!(
+            NativeRuntime::metal_block_push_scan_left_loc_11230(&row, 3),
+            None,
+            "ASM loc_11230 should jump to `loc_11296` when the left scan hits an in-bounds solid block whose block-type test is not `$E5xx` metal",
         );
     }
 
@@ -7785,6 +7829,50 @@ mod chunk_09 {
         assert!(
             step.reached_neighbour_check,
             "ASM loc_112FE should branch to `loc_1130C` once the incremented `d3` reaches 4",
+        );
+    }
+
+    #[test]
+    fn step_metal_block_push_workers_sub_1129c_moves_each_worker_in_its_own_direction() {
+        // ASM loc_112E2 `cmpi.w #3,d6; bne.s loc_112FE`: direction 3 ($4C(a5)==3)
+        // adds 4 px to x_pos(a3), every other direction subtracts 4. The
+        // direction select gates the SIGN of the per-wake x_pos step; the
+        // existing Berzerker integration test only asserts the column hand-off,
+        // not x_pos, so a `== -> !=` flip there survives. substep_counter starts
+        // at 0 so this single wake stays short of the `d3 == 4` neighbour check
+        // and both workers survive with their x_pos updated.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.set_block_grid(terrain::BlockGrid::from_level_layout(
+            &[0; 9 * 6 * 2],
+            9,
+            6,
+        ));
+        rt.block_state.metal_block_push_workers = vec![
+            crate::types::MetalBlockPushWorker {
+                col: 2,
+                row: 2,
+                direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT,
+                substep_counter: 0,
+                x_pos_px: 0x0050,
+            },
+            crate::types::MetalBlockPushWorker {
+                col: 5,
+                row: 4,
+                direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_LEFT,
+                substep_counter: 0,
+                x_pos_px: 0x0050,
+            },
+        ];
+
+        rt.step_metal_block_push_workers_sub_1129C();
+
+        assert_eq!(
+            rt.block_state.metal_block_push_workers[0].x_pos_px, 0x0054,
+            "ASM loc_112E2 should add 4 px to a direction-3 (right) worker's x_pos on each wake",
+        );
+        assert_eq!(
+            rt.block_state.metal_block_push_workers[1].x_pos_px, 0x004C,
+            "ASM loc_112FE should subtract 4 px from a non-3 (left) worker's x_pos on each wake",
         );
     }
 

@@ -26,6 +26,22 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+7): **#309 metal-push survivor pinning committed**. Took the
+  latest+6 handoff and ASM-verified the 4 flagged `metal_block_push` mutation survivors against
+  kid.asm:23130-23284. Pinned the **3 genuinely real** ones with exact-value tests (runtime_tests.rs):
+  `4067 < -> <=` (scan_right right-edge bound — metal run to the edge selects no block, `<=` panics),
+  `4099 || -> &&` (scan_left abort on solid non-metal block — only column-zero was tested before),
+  `4242 == -> !=` (step direction-select gates x_pos +4/-4 SIGN — the Berzerker integration test only
+  asserts column hand-off, never x_pos). The 4th, `4258 < -> <=`, is an **equivalent mutant** (handoff
+  guess was wrong): at `col+1==width` both branches yield the same `cell_at`-clamped empty `(0,0)`, and
+  it's short-circuited by the gate's width check anyway. The `4113 | -> ^` pair is **proven equivalent**
+  (bit-disjoint `0x80`/`collision<<4`/`0x0F` for all CollisionKind ≤ Spikes=7). Re-run over the 3
+  functions (`/tmp/mutants-metal-push-309`): **34 caught, 1 missed** (only the 4258 equivalent).
+  `verify-slice-fast` green (6114+9); test-only ⇒ no `verify-tas-full`. #309 stays `[ ]` (umbrella): only
+  the two oracle-gated type-8 Shooter deviations remain open (0 shipped cells; prior removal broke 18
+  tests — do not retry without a type-8 ceiling-headbutt oracle probe). The metal-push helper family now
+  has no non-equivalent mutation gap. Next top open table row is **#308** (combat umbrella, still `[ ]`),
+  then #309 (now mutation-clean) and #310 (terrain) — see `#309` archive for the full survivor breakdown.
 - **Last session** (2026-06-18, latest+6): **#309 verification slice committed**. The blocks audit's
   confirmed behavioural gaps are all RESOLVED candidates; the only open audit rows are the two type-8
   Shooter deviations (oracle-gated, 0 shipped cells, prior removal broke 18 tests — do not retry). With

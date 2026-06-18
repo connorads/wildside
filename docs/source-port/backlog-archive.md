@@ -9841,6 +9841,38 @@ oracle repro = authoritative; minimum gate = fast-slice.
   `0x0F` are disjoint bit ranges when the collision nibble's bit 3 is clear) —
   verify CollisionKind max before treating them as a gap. Next #309 iteration:
   ASM-verify and pin the 4 real metal-push survivors.
+- 2026-06-18 metal-push survivor pinning: ASM-verified all four flagged
+  survivors against kid.asm:23130-23284 and pinned the **3 genuinely real**
+  ones; the 4th turned out **equivalent**. New regressions (runtime_tests.rs):
+  `metal_block_push_scan_right_loc_11208_aborts_when_the_metal_run_reaches_the_right_edge`
+  (kills `4067 < -> <=`: ASM `cmp.w d4,d1; bge.w loc_11296` with `d4 =
+  Level_width_blocks-1` samples cells only while index `< width`, so a metal run
+  to the right edge selects no block — `<=` would index `row[width]` and panic);
+  `metal_block_push_scan_left_loc_11230_aborts_on_in_bounds_solid_non_metal`
+  (kills `4099 || -> &&`: ASM `bclr #$F,d7; beq loc_11296` OR `cmpi.w #$500;
+  bne loc_11296` aborts on a solid non-metal block — existing tests only covered
+  the column-zero abort; cell 0 kept non-solid so faithful `None` vs mutated
+  `Some(1)` separate);
+  `step_metal_block_push_workers_sub_1129c_moves_each_worker_in_its_own_direction`
+  (kills `4242 == -> !=`: ASM loc_112E2 `cmpi.w #3,d6; bne loc_112FE` gates the
+  x_pos step SIGN, +4 right vs -4 left — the Berzerker integration test only
+  asserts the column hand-off, never x_pos, so the flip survived there).
+  **`4258 < -> <=` is an equivalent mutant, NOT a real gap** (the prior handoff's
+  guess was wrong): when `worker.col+1 == width`, `<` rejects the filter ->
+  `unwrap_or` empty `(0,0)`, while `<=` accepts -> `cell_at(width,row)` which
+  clamps OOB to the *same* empty `(0,0)` (terrain.rs:430-433); doubly moot because
+  the gate's `col+1 >= width` short-circuit makes `right_neighbour` unread there.
+  The two `4113 | -> ^` mutants in `metal_block_push_mark_deleted_loc_1125C` are
+  likewise **proven equivalent**: `0x80`(bit7), `(collision<<4)`(collision 0..7
+  -> bits 4..6), and `0x0F`(bits 0..3) are pairwise bit-disjoint for every
+  CollisionKind (max Spikes=7), so `^` == `|`. Confirmed by re-run over the 3
+  functions (`/tmp/mutants-metal-push-309`): **34 caught, 1 missed** (only the
+  4258 equivalent). `verify-slice-fast` green (6114+9); test-only ⇒ no
+  `verify-tas-full`. #309 stays `[ ]`: the umbrella's only remaining open audit
+  rows are the two oracle-gated type-8 Shooter deviations (0 shipped cells, prior
+  removal broke 18 tests — do not retry without a type-8 ceiling-headbutt oracle
+  probe); no narrow behavioural slice remains, and the metal-push helper family
+  now has no non-equivalent mutation gap.
 
 ### #310
 
