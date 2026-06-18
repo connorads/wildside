@@ -1658,8 +1658,9 @@ pub(crate) fn describe_target_projectile_directional_kid_approach_from_frame(
         direction,
         require_healthy_kid,
         frame_start,
-    )
-    .map(|approach| {
+    ).map_or_else(|| {
+        format!("target projectile {kind:?} direction {direction:?} healthy kid <none>")
+    }, |approach| {
         let health = if require_healthy_kid {
             "healthy kid"
         } else {
@@ -1676,9 +1677,6 @@ pub(crate) fn describe_target_projectile_directional_kid_approach_from_frame(
             approach.projectile_x_velocity,
             approach.projectile_y_velocity,
         )
-    })
-    .unwrap_or_else(|| {
-        format!("target projectile {kind:?} direction {direction:?} healthy kid <none>")
     })
 }
 
@@ -1895,8 +1893,12 @@ pub(crate) fn describe_target_projectile_cell_approach_from_frame(
     target_cell: TargetCell,
     frame_start: usize,
 ) -> String {
-    target_projectile_cell_approach_from_frame(trace, kind, target_cell, frame_start)
-        .map(|approach| {
+    target_projectile_cell_approach_from_frame(trace, kind, target_cell, frame_start).map_or_else(|| {
+            format!(
+                "target projectile {kind:?} cell {},{} <none>",
+                target_cell.col, target_cell.row
+            )
+        }, |approach| {
             format!(
                 "target projectile {kind:?} cell {},{} dx_px {:+} dy_px {:+} manhattan_px {} @{} projectile {:08X},{:08X}",
                 target_cell.col,
@@ -1907,12 +1909,6 @@ pub(crate) fn describe_target_projectile_cell_approach_from_frame(
                 approach.replay_frame,
                 approach.projectile_x,
                 approach.projectile_y,
-            )
-        })
-        .unwrap_or_else(|| {
-            format!(
-                "target projectile {kind:?} cell {},{} <none>",
-                target_cell.col, target_cell.row
             )
         })
 }
@@ -2000,8 +1996,12 @@ pub(crate) fn describe_target_projectile_cell_conjunction_from_frame(
     target_cell: TargetCell,
     frame_start: usize,
 ) -> String {
-    target_projectile_cell_conjunction_from_frame(trace, kind, target_cell, frame_start)
-        .map(|approach| {
+    target_projectile_cell_conjunction_from_frame(trace, kind, target_cell, frame_start).map_or_else(|| {
+            format!(
+                "target projectile {kind:?} cell conjunction {},{} <none>",
+                target_cell.col, target_cell.row
+            )
+        }, |approach| {
             format!(
                 "target projectile {kind:?} cell conjunction {},{} kid_dx_px {:+} kid_dy_px {:+} projectile_dx_px {:+} projectile_dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X} projectile {:08X},{:08X}",
                 target_cell.col,
@@ -2016,12 +2016,6 @@ pub(crate) fn describe_target_projectile_cell_conjunction_from_frame(
                 approach.kid_y,
                 approach.projectile_x,
                 approach.projectile_y,
-            )
-        })
-        .unwrap_or_else(|| {
-            format!(
-                "target projectile {kind:?} cell conjunction {},{} <none>",
-                target_cell.col, target_cell.row
             )
         })
 }
@@ -2358,8 +2352,7 @@ pub(crate) fn describe_target_cell_hitbox_approach_from_frame(
             target_cell.col, target_cell.row
         );
     };
-    let healthy = target_cell_hitbox_approach_from_frame(trace, target_cell, true, frame_start)
-        .map(|healthy| {
+    let healthy = target_cell_hitbox_approach_from_frame(trace, target_cell, true, frame_start).map_or_else(|| String::from("; closest healthy kid hitbox <none>"), |healthy| {
             format!(
                 "; closest healthy kid hitbox dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
                 healthy.dx_px,
@@ -2369,8 +2362,7 @@ pub(crate) fn describe_target_cell_hitbox_approach_from_frame(
                 healthy.kid_x,
                 healthy.kid_y,
             )
-        })
-        .unwrap_or_else(|| String::from("; closest healthy kid hitbox <none>"));
+        });
     format!(
         "target cell hitbox {},{}: closest kid hitbox dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}{}",
         target_cell.col,
@@ -2397,8 +2389,7 @@ pub(crate) fn describe_target_cell_approach_from_frame(
             target_cell.col, target_cell.row
         );
     };
-    let healthy = target_cell_approach_from_frame(trace, target_cell, true, frame_start)
-        .map(|healthy| {
+    let healthy = target_cell_approach_from_frame(trace, target_cell, true, frame_start).map_or_else(|| String::from("; closest healthy kid <none>"), |healthy| {
             format!(
                 "; closest healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
                 healthy.dx_px,
@@ -2408,8 +2399,7 @@ pub(crate) fn describe_target_cell_approach_from_frame(
                 healthy.kid_x,
                 healthy.kid_y,
             )
-        })
-        .unwrap_or_else(|| String::from("; closest healthy kid <none>"));
+        });
     format!(
         "target cell {},{}: closest kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}{}",
         target_cell.col,
@@ -2436,8 +2426,7 @@ pub(crate) fn describe_target_point_approach_from_frame(
             target_point.x_px, target_point.y_px
         );
     };
-    let healthy = target_point_approach_from_frame(trace, target_point, true, frame_start)
-        .map(|healthy| {
+    let healthy = target_point_approach_from_frame(trace, target_point, true, frame_start).map_or_else(|| String::from("; closest healthy kid <none>"), |healthy| {
             format!(
                 "; closest healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}",
                 healthy.dx_px,
@@ -2447,8 +2436,7 @@ pub(crate) fn describe_target_point_approach_from_frame(
                 healthy.kid_x,
                 healthy.kid_y,
             )
-        })
-        .unwrap_or_else(|| String::from("; closest healthy kid <none>"));
+        });
     format!(
         "target point {},{}: closest kid dx_px {:+} dy_px {:+} manhattan_px {} @{} kid {:08X},{:08X}{}",
         target_point.x_px,

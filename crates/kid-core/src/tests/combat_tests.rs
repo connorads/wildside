@@ -3882,8 +3882,8 @@ fn live_multi_head_boss_collision_uses_sub_3a292() {
         "ASM sub_3A292 loc_3A2C0 plays `sfx_Big_Hopping_Skull_groan` for boss-head hits"
     );
     assert_eq!(QueuedSoundEffect::BigHoppingSkullGroan.sound_id(), 0x5C);
-    assert_eq!(
-        runtime.active_enemy_roster[0].damage_flash, true,
+    assert!(
+        runtime.active_enemy_roster[0].damage_flash,
         "live boss-head collision must rebuild the trace roster after the sub_3A292 flash update"
     );
 }

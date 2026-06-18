@@ -2198,7 +2198,7 @@ pub(crate) fn native_audio_artifacts_for_settled_trace(
 ) -> RecordingBundleArtifacts {
     let initial_active_bgm_cue = trace_frames
         .first()
-        .and_then(|trace| native_bgm_cue_for_trace(trace));
+        .and_then(native_bgm_cue_for_trace);
     native_audio_artifacts_for_trace_with_initial_bgm(
         manifest,
         trace_frames,
@@ -2608,7 +2608,7 @@ fn play_fallback_queued_sfx_id(sfx: &mut SfxEngine, sound_id: u8) {
             sfx.play(784.0, 95, 0.18);
         }
         gems_sfx::MANIAXE_THROW | gems_sfx::MICROMAX_STICK | gems_sfx::EYECLOPS_BEAM => {
-            sfx.play(659.0, 45, 0.09)
+            sfx.play(659.0, 45, 0.09);
         }
         id if is_transform_sound_id(id) => play_fallback_transform_sfx(sfx),
         _ => {}
@@ -2681,13 +2681,12 @@ fn gems_event_sound_commands(
     // Form change (helmet ID changed). ASM loc_7CD0 skips the unk_7ED8 cue in
     // Demo_Mode_flag, otherwise indexes this table by Current_Helmet whose
     // order differs from the extracted art order.
-    if curr.game_mode != GameMode::DemoPlay && curr.current_helmet_id != prev.current_helmet_id {
-        if let Some(id) = transform_sound_for_helmet_id_loc_7cd0(curr.current_helmet_id)
+    if curr.game_mode != GameMode::DemoPlay && curr.current_helmet_id != prev.current_helmet_id
+        && let Some(id) = transform_sound_for_helmet_id_loc_7cd0(curr.current_helmet_id)
             && !queued_sound_ids.contains(&id)
         {
             sound_commands.push(NativeSoundCommand::play_sound(id));
         }
-    }
 
     // Diamond Power activation
     if curr.diamond_power_active && !prev.diamond_power_active {
@@ -14296,7 +14295,7 @@ mod tests {
             colours: vec![colour(220, 20, 20)],
         });
 
-        let mut priority_layout = [0; 1 * 5 * 2];
+        let mut priority_layout = [0; 5 * 2];
         priority_layout[4 * 2] = 0x01;
         let priority_grid = BlockGrid::from_level_layout(&priority_layout, 1, 5);
         let mut priority_scene = build_scene(&trace, false, Some(&visuals), Some(&priority_grid));
@@ -14360,7 +14359,7 @@ mod tests {
             "ordinary enemy/player DrawCommand::Sprite tiles must follow the same foreground-priority mask, not just terrain-tile commands"
         );
 
-        let low_grid = BlockGrid::from_level_layout(&[0; 1 * 5 * 2], 1, 5);
+        let low_grid = BlockGrid::from_level_layout(&[0; 5 * 2], 1, 5);
         let mut low_scene = build_scene(&trace, false, Some(&visuals), Some(&low_grid));
         low_scene.commands.push(DrawCommand::IndexedTile {
             x: 0,

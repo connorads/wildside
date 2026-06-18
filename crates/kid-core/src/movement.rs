@@ -3785,27 +3785,25 @@ impl OpeningSliceState {
                                 // case; the ordinary floor helper still keeps
                                 // older loc_A99E recontact contracts.
                                 None
+                            } else if form == PlayerForm::IronKnight
+                                && !self.player.on_ground
+                                && prefer_iron_knight_solid_edge_floor_loc_914a(
+                                    grid,
+                                    &mut self.player,
+                                    &mut self.terrain,
+                                    collision_hw,
+                                )
+                            {
+                                direct_compound_landing_loc_a4ee = true;
+                                None
                             } else {
-                                if form == PlayerForm::IronKnight
-                                    && !self.player.on_ground
-                                    && prefer_iron_knight_solid_edge_floor_loc_914a(
-                                        grid,
-                                        &mut self.player,
-                                        &mut self.terrain,
-                                        collision_hw,
-                                    )
-                                {
-                                    direct_compound_landing_loc_a4ee = true;
-                                    None
-                                } else {
-                                    self.apply_floor_collision(
-                                        Some(grid),
-                                        horizontal_step_applied,
-                                        !jump_pressed,
-                                        collision_hw,
-                                        allow_asm_faithful_solid_touch_snap,
-                                    )
-                                }
+                                self.apply_floor_collision(
+                                    Some(grid),
+                                    horizontal_step_applied,
+                                    !jump_pressed,
+                                    collision_hw,
+                                    allow_asm_faithful_solid_touch_snap,
+                                )
                             }
                         }
                     }
@@ -6534,8 +6532,7 @@ impl OpeningSliceState {
                         // list, so keep their Diamond fallback, but real levels must
                         // not invent a prize from an unmatched block-like tile.
                         let content = prize_entry
-                            .map(|entry| entry.content)
-                            .unwrap_or(terrain::PrizeContent::Diamond);
+                            .map_or(terrain::PrizeContent::Diamond, |entry| entry.content);
                         // ASM sub_1007A/loc_101D8 (kid.asm:21345,21459):
                         // the worker branches to reveal-only by testing the
                         // selected Level_Layout cell's low byte (`cmpi.b #1,
@@ -6618,8 +6615,7 @@ impl OpeningSliceState {
                             // list, so keep their Diamond fallback, but real levels must
                             // not invent a prize from an unmatched block-like tile.
                             let content = prize_entry
-                                .map(|entry| entry.content)
-                                .unwrap_or(terrain::PrizeContent::Diamond);
+                                .map_or(terrain::PrizeContent::Diamond, |entry| entry.content);
                             // ASM sub_1007A/loc_101D8 (kid.asm:21345,21459):
                             // `$E101` cells reveal into `$E102` without
                             // running Prize_Init; this decision comes from

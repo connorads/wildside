@@ -764,27 +764,23 @@ impl ViewTasApp {
         // Prefer the engine's own VDP reconstruction (title/Sega/intro/menu)
         // for pixel-faithful native-vs-oracle diffs; fall back to the
         // object-level scene during gameplay where `vdp_state` is `None`.
-        match self
+        if let Some(vdp) = self
             .comparison
             .vdp_snapshots
             .get(frame_index)
-            .and_then(Option::as_ref)
-        {
-            Some(vdp) => render_native_vdp_rgb(vdp, &mut rgb),
-            None => {
-                let level_id = frame.current_level.0;
-                if !self.asset_cache.contains_key(&level_id) {
-                    let assets = load_session_assets(&self.manifest, level_id)?;
-                    self.asset_cache.insert(level_id, assets);
-                }
-
-                let (level_visuals, block_grid) = self
-                    .asset_cache
-                    .get(&level_id)
-                    .ok_or_else(|| anyhow!("asset cache missing level {level_id:02X}"))?;
-                let scene = build_scene(frame, false, Some(level_visuals), Some(block_grid));
-                render_scene(&scene, &mut rgb);
+            .and_then(Option::as_ref) { render_native_vdp_rgb(vdp, &mut rgb) } else {
+            let level_id = frame.current_level.0;
+            if !self.asset_cache.contains_key(&level_id) {
+                let assets = load_session_assets(&self.manifest, level_id)?;
+                self.asset_cache.insert(level_id, assets);
             }
+
+            let (level_visuals, block_grid) = self
+                .asset_cache
+                .get(&level_id)
+                .ok_or_else(|| anyhow!("asset cache missing level {level_id:02X}"))?;
+            let scene = build_scene(frame, false, Some(level_visuals), Some(block_grid));
+            render_scene(&scene, &mut rgb);
         }
 
         let native_dir = self.comparison.run_dir.join("native");

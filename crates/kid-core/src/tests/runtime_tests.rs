@@ -11547,7 +11547,7 @@ mod chunk_09 {
         );
         let expected_lift_y = 0x0063_F8F8u32;
         assert_eq!(
-            rt.block_state.lift_platforms[0].y_pos, expected_lift_y as u32,
+            rt.block_state.lift_platforms[0].y_pos, expected_lift_y,
             "ASM sub_FCA6 should move the lift by the fractional `sub_FD00` step on the second frame",
         );
         assert_eq!(
@@ -13093,7 +13093,7 @@ mod chunk_09 {
     fn fire_demon_walking_trail_skips_unsupported_floor_loc_3a63c() {
         let mut rt = NativeRuntime::new(manifest());
         rt.block_grid = Some(terrain::BlockGrid::from_level_layout(
-            &vec![0u8; 5 * 5 * 2],
+            &[0u8; 5 * 5 * 2],
             5,
             5,
         ));

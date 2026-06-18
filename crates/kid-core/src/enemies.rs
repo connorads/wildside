@@ -10124,7 +10124,7 @@ fn dragon_flying_dive_zero_contact_row_loc_348ce(x_velocity: i32, y_velocity: i3
         // ASM Dragon_Flying.asm loc_348CE / off_345F6: `(2, 0)` selects
         // `LnkTo_unk_C75FE`; `(1, 1)` and `(2, 1..=3)` select
         // `LnkTo_unk_C7616`. All three route to `unk_31DE0`.
-        (2, 0) | (1, 1) | (2, 1..=3)
+        (2, 0..=3) | (1, 1)
     )
 }
 
@@ -10576,11 +10576,10 @@ pub(crate) fn step_active_enemies_with_rng(
                         );
                     }
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
-                    if let Some(projs) = projectiles.as_deref_mut() {
-                        if drips_object_check_in_range_loc_333f6(enemy, camera_x_px, camera_y_px) {
+                    if let Some(projs) = projectiles.as_deref_mut()
+                        && drips_object_check_in_range_loc_333f6(enemy, camera_x_px, camera_y_px) {
                             step_drips(enemy, projs, block_grid);
                         }
-                    }
                 } else if let Some(ref mut projs) = projectiles {
                     step_archer(
                         enemy,
@@ -12004,7 +12003,7 @@ pub(crate) fn step_ufo_beam_with_rng(
 
     if ufo_random_beam_should_start_loc_34f8e(rng.next_byte()) {
         apply_ufo_beam_start_loc_34eec(enemy);
-        if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+        if let Some(sound_effects) = played_sound_effects {
             // ASM UFO.asm loc_34FAE: random beam starts use the same
             // `sfx_UFO_shoots` cue before setting Some_UFO_Shooting.
             sound_effects.push(QueuedSoundEffect::UfoShoots);
@@ -20087,15 +20086,15 @@ pub(crate) fn step_lion(
             enemy.wait_timer = LION_ROAR_FIRE_DELAY;
         }
         LionState::Roaring => {
-            if !enemy.on_ground {
+            if enemy.on_ground {
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+            } else {
                 // ASM Lion.asm loc_3E09E hibernates the object while the roar
                 // animation advances; because Lion projectiles set the parent
                 // up through the shared movement flags, the off-ledge fall can
                 // continue during this wait.
                 step_dragon_walking_airborne(enemy, block_grid);
-            } else {
-                enemy.x_velocity = 0;
-                enemy.y_velocity = 0;
             }
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
@@ -20111,13 +20110,13 @@ pub(crate) fn step_lion(
             enemy.wait_timer = LION_POST_FIRE_RESUME_DELAY;
         }
         LionState::PostFire => {
-            if !enemy.on_ground {
+            if enemy.on_ground {
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+            } else {
                 // ASM Lion.asm loc_3E0F4 is the post-fire hibernate loop; keep
                 // the shared airborne movement active until floor contact.
                 step_dragon_walking_airborne(enemy, block_grid);
-            } else {
-                enemy.x_velocity = 0;
-                enemy.y_velocity = 0;
             }
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
@@ -21226,7 +21225,7 @@ pub(crate) fn step_robot_with_rng(
                 }
             }
             if enemy.wait_timer == 0 {
-                push_robot_shot(enemy, projectiles, played_sound_effects.as_deref_mut());
+                push_robot_shot(enemy, projectiles, played_sound_effects);
                 finish_robot_shoot_sequence(enemy);
             }
         }
@@ -26460,7 +26459,7 @@ pub(crate) fn step_emo_rock_with_rng(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     rng: &mut RomRandomState,
-    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
+    played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     if enemy.wait_timer == EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A {
         step_emo_rock_berzerker_airborne(enemy);
@@ -26497,7 +26496,7 @@ pub(crate) fn step_emo_rock_with_rng(
         let settled = emo_rock_settled_wait_loc_362b6(true, 0, false);
         if matches!(settled.route, EmoRockSettledWaitRouteLoc362B6::Disappear) {
             let disappear = emo_rock_disappear_loc_36320();
-            if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+            if let Some(sound_effects) = played_sound_effects {
                 // ASM Emo_Rock.asm loc_36320: play `sfx_Emo_Rock_disappears`
                 // before `stru_36456` hibernates and branches to loc_361F4.
                 sound_effects.push(QueuedSoundEffect::EmoRockDisappears);
@@ -27852,7 +27851,7 @@ pub(crate) fn step_boss_fire_with_sounds(
     projectiles: &mut Vec<EnemyProjectile>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
-    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
+    played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     if matches!(enemy.family, EnemyFamily::HeadyMetal)
         && 37u16.saturating_sub(u16::from(enemy.hit_points)) >= 0x0025
@@ -27939,7 +27938,7 @@ pub(crate) fn step_boss_fire_with_sounds(
                 (enemy.x_pos >> 16) as u16,
                 (enemy.y_pos >> 16) as u16,
             );
-            if let Some(sound_effects) = played_sound_effects.as_deref_mut() {
+            if let Some(sound_effects) = played_sound_effects {
                 sound_effects.push(QueuedSoundEffect::VoiceDie);
             }
             projectiles.push(EnemyProjectile {
@@ -28009,10 +28008,8 @@ pub(crate) fn step_boss_fire_with_sounds(
     }
 }
 
-pub(crate) fn spawn_x_pos(family: EnemyFamily, object_x: u32) -> u32 {
-    match family {
-        _ => object_x << 16,
-    }
+pub(crate) fn spawn_x_pos(_family: EnemyFamily, object_x: u32) -> u32 {
+    object_x << 16
 }
 
 #[allow(dead_code)]

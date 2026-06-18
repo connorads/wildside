@@ -3362,8 +3362,12 @@ fn probe_dynamic_record_scenario_batch(
                 target_point,
                 true,
                 score_frame_start,
-            )
-                .map(|approach| {
+            ).map_or_else(|| {
+                    format!(
+                        "target {},{} healthy <none>",
+                        target_point.x_px, target_point.y_px
+                    )
+                }, |approach| {
                     if index == 0 {
                         first_target_score = Some(approach.manhattan_px);
                     }
@@ -3378,12 +3382,6 @@ fn probe_dynamic_record_scenario_batch(
                         approach.kid_x,
                         approach.kid_y,
                     )
-                })
-                .unwrap_or_else(|| {
-                    format!(
-                        "target {},{} healthy <none>",
-                        target_point.x_px, target_point.y_px
-                    )
                 });
             target_summaries.push(summary);
         }
@@ -3393,8 +3391,7 @@ fn probe_dynamic_record_scenario_batch(
                 target_cell,
                 true,
                 score_frame_start,
-            )
-            .map(|approach| {
+            ).map_or_else(|| format!("cell {},{} healthy <none>", target_cell.col, target_cell.row), |approach| {
                 if target_points.is_empty() && index == 0 {
                     first_target_score = Some(approach.manhattan_px);
                 }
@@ -3409,8 +3406,7 @@ fn probe_dynamic_record_scenario_batch(
                     approach.kid_x,
                     approach.kid_y,
                 )
-            })
-            .unwrap_or_else(|| format!("cell {},{} healthy <none>", target_cell.col, target_cell.row));
+            });
             target_summaries.push(summary);
         }
         for (index, target_cell) in target_cell_hitboxes.iter().copied().enumerate() {
@@ -3419,8 +3415,12 @@ fn probe_dynamic_record_scenario_batch(
                 target_cell,
                 true,
                 score_frame_start,
-            )
-            .map(|approach| {
+            ).map_or_else(|| {
+                format!(
+                    "cell hitbox {},{} healthy <none>",
+                    target_cell.col, target_cell.row
+                )
+            }, |approach| {
                 if target_points.is_empty() && target_cells.is_empty() && index == 0 {
                     first_target_score = Some(approach.manhattan_px);
                 }
@@ -3435,12 +3435,6 @@ fn probe_dynamic_record_scenario_batch(
                     approach.kid_x,
                     approach.kid_y,
                 )
-            })
-            .unwrap_or_else(|| {
-                format!(
-                    "cell hitbox {},{} healthy <none>",
-                    target_cell.col, target_cell.row
-                )
             });
             target_summaries.push(summary);
         }
@@ -3450,8 +3444,7 @@ fn probe_dynamic_record_scenario_batch(
                 target_projectile,
                 true,
                 score_frame_start,
-            )
-            .map(|approach| {
+            ).map_or_else(|| format!("projectile {target_projectile:?} healthy kid <none>"), |approach| {
                 if target_points.is_empty()
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
@@ -3467,8 +3460,7 @@ fn probe_dynamic_record_scenario_batch(
                     approach.manhattan_px,
                     approach.replay_frame,
                 )
-            })
-            .unwrap_or_else(|| format!("projectile {target_projectile:?} healthy kid <none>"));
+            });
             target_summaries.push(summary);
         }
         for (index, target_projectile_direction) in
@@ -3480,8 +3472,12 @@ fn probe_dynamic_record_scenario_batch(
                 target_projectile_direction.direction,
                 true,
                 score_frame_start,
-            )
-            .map(|approach| {
+            ).map_or_else(|| {
+                format!(
+                    "projectile {:?} direction {:?} healthy kid <none>",
+                    target_projectile_direction.kind, target_projectile_direction.direction
+                )
+            }, |approach| {
                 if target_points.is_empty()
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
@@ -3503,12 +3499,6 @@ fn probe_dynamic_record_scenario_batch(
                     approach.projectile_x_velocity,
                     approach.projectile_y_velocity,
                 )
-            })
-            .unwrap_or_else(|| {
-                format!(
-                    "projectile {:?} direction {:?} healthy kid <none>",
-                    target_projectile_direction.kind, target_projectile_direction.direction
-                )
             });
             target_summaries.push(summary);
         }
@@ -3518,8 +3508,14 @@ fn probe_dynamic_record_scenario_batch(
                 target_projectile_cell.kind,
                 target_projectile_cell.cell,
                 score_frame_start,
-            )
-            .map(|approach| {
+            ).map_or_else(|| {
+                format!(
+                    "projectile {:?} cell {},{} <none>",
+                    target_projectile_cell.kind,
+                    target_projectile_cell.cell.col,
+                    target_projectile_cell.cell.row,
+                )
+            }, |approach| {
                 if target_points.is_empty()
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
@@ -3541,14 +3537,6 @@ fn probe_dynamic_record_scenario_batch(
                     approach.projectile_x,
                     approach.projectile_y,
                 )
-            })
-            .unwrap_or_else(|| {
-                format!(
-                    "projectile {:?} cell {},{} <none>",
-                    target_projectile_cell.kind,
-                    target_projectile_cell.cell.col,
-                    target_projectile_cell.cell.row,
-                )
             });
             target_summaries.push(summary);
         }
@@ -3562,8 +3550,14 @@ fn probe_dynamic_record_scenario_batch(
                 target_projectile_cell.kind,
                 target_projectile_cell.cell,
                 score_frame_start,
-            )
-            .map(|approach| {
+            ).map_or_else(|| {
+                format!(
+                    "projectile {:?} cell conjunction {},{} <none>",
+                    target_projectile_cell.kind,
+                    target_projectile_cell.cell.col,
+                    target_projectile_cell.cell.row,
+                )
+            }, |approach| {
                 if target_points.is_empty()
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
@@ -3590,14 +3584,6 @@ fn probe_dynamic_record_scenario_batch(
                     approach.projectile_x,
                     approach.projectile_y,
                 )
-            })
-            .unwrap_or_else(|| {
-                format!(
-                    "projectile {:?} cell conjunction {},{} <none>",
-                    target_projectile_cell.kind,
-                    target_projectile_cell.cell.col,
-                    target_projectile_cell.cell.row,
-                )
             });
             target_summaries.push(summary);
         }
@@ -3607,8 +3593,14 @@ fn probe_dynamic_record_scenario_batch(
                 target_block_event.kind,
                 target_block_event.cell,
                 score_frame_start,
-            )
-            .map(|event| {
+            ).map_or_else(|| {
+                format!(
+                    "block {:?} cell {},{} <none>",
+                    target_block_event.kind,
+                    target_block_event.cell.col,
+                    target_block_event.cell.row,
+                )
+            }, |event| {
                 if target_points.is_empty()
                     && target_cells.is_empty()
                     && target_cell_hitboxes.is_empty()
@@ -3626,14 +3618,6 @@ fn probe_dynamic_record_scenario_batch(
                     target_block_event.cell.col,
                     target_block_event.cell.row,
                     event.replay_frame,
-                )
-            })
-            .unwrap_or_else(|| {
-                format!(
-                    "block {:?} cell {},{} <none>",
-                    target_block_event.kind,
-                    target_block_event.cell.col,
-                    target_block_event.cell.row,
                 )
             });
             target_summaries.push(summary);
@@ -6571,7 +6555,7 @@ AddrTbl_LevelNames:
             "the #267 route starts left of Highwater Pass 1's flag at (912, 144) so contact comes from walking into the pole"
         );
         assert_eq!(
-            scenario.script.get(0).copied(),
+            scenario.script.first().copied(),
             Some(1 << 3),
             "the #267 route must begin by holding Right, not by spawning inside the flag hitbox"
         );

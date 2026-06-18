@@ -173,7 +173,7 @@ pub(crate) fn capture_scenario_frames(
         let previous_trace = runtime.trace_frame();
         let trace = runtime.step_frame(FrameInput::from_mask(buttons));
 
-        if !requested.peek().is_some_and(|&&wanted| wanted == frame_idx) {
+        if requested.peek().is_none_or(|&&wanted| wanted != frame_idx) {
             continue;
         }
         requested.next();

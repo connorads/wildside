@@ -2155,9 +2155,9 @@ fn trace_frames_match(
         // visible effect.
         normalised_expected.island_shore_cycle_active = actual.island_shore_cycle_active;
         normalised_expected.island_shore_cycle_state_loc_1202a =
-            actual.island_shore_cycle_state_loc_1202a.clone();
+            actual.island_shore_cycle_state_loc_1202a;
         normalised_expected.island_shore_vram_frames_loc_1202a =
-            actual.island_shore_vram_frames_loc_1202a.clone();
+            actual.island_shore_vram_frames_loc_1202a;
         normalised_expected
             .island_shore_dma_uploads_loc_1202a
             .clone_from(&actual.island_shore_dma_uploads_loc_1202a);

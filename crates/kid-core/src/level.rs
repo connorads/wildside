@@ -19396,7 +19396,7 @@ impl NativeRuntime {
         slice: &mut OpeningSliceState,
         level_id: LevelId,
     ) {
-        if !matches!(level_id, LevelId(0x24) | LevelId(0x51)) {
+        if !matches!(level_id, LevelId(0x24 | 0x51)) {
             return;
         }
 

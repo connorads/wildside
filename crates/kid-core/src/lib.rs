@@ -3655,8 +3655,8 @@ impl NativeRuntime {
                     self.progression.number_hitpoints =
                         form.max_hitpoints() + self.progression.extra_hitpoint_slots;
                 }
-                if let Some(form) = self.prize_helmet_collision_hibernate_switch_form {
-                    if self.prize_helmet_collision_hibernate_delay_frames
+                if let Some(form) = self.prize_helmet_collision_hibernate_switch_form
+                    && self.prize_helmet_collision_hibernate_delay_frames
                         == crate::combat::transform_anim_frames(form) as u8
                     {
                         // ASM loc_7CD0 (kid.asm:8426): after the old helmet's
@@ -3666,7 +3666,6 @@ impl NativeRuntime {
                         self.progression.current_form = form;
                         self.prize_helmet_collision_hibernate_switch_form = None;
                     }
-                }
                 if self.trace_physics {
                     slice.physics_trace = Some(PhysicsTrace {
                         pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),

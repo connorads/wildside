@@ -630,12 +630,11 @@ impl PlatformLoaderSlotModelLoc2744 {
             };
         };
         let result = self.pool.deallocate_sub_23B4(slot_addr);
-        if result == DeallocatePlatformSlotResultSub23B4::Deallocated {
-            if let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
+        if result == DeallocatePlatformSlotResultSub23B4::Deallocated
+            && let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
                 self.slot_layout_offsets[slot_index] = None;
                 self.slot_deactivated_flags[slot_index] = 0;
             }
-        }
         result
     }
 
@@ -662,20 +661,16 @@ impl PlatformLoaderSlotModelLoc2744 {
                     // already-linked special slot, clear `$12(a3)`.
                     self.slot_deactivated_flags[slot_index] = 0;
                 }
-            } else {
-                if let AllocatePlatformSlotResultSub238E::Allocated(allocation) =
-                    self.pool.allocate_sub_238E()
-                {
-                    if let Some(slot_index) =
-                        PlatformSlotPoolLoc231C::slot_index_loc_231C(allocation.allocated_slot_addr)
-                    {
-                        // ASM Manage_PlatformLoading/loc_282E (kid.asm:4754):
-                        // stamp the current 12-byte layout offset into
-                        // `$20(a3)` immediately after Allocate_PlatformSlot.
-                        self.slot_layout_offsets[slot_index] = Some(layout_offset_words);
-                        self.slot_deactivated_flags[slot_index] = 0;
-                    }
-                }
+            } else if let AllocatePlatformSlotResultSub238E::Allocated(allocation) =
+            self.pool.allocate_sub_238E()
+            && let Some(slot_index) =
+                PlatformSlotPoolLoc231C::slot_index_loc_231C(allocation.allocated_slot_addr)
+            {
+                // ASM Manage_PlatformLoading/loc_282E (kid.asm:4754):
+                // stamp the current 12-byte layout offset into
+                // `$20(a3)` immediately after Allocate_PlatformSlot.
+                self.slot_layout_offsets[slot_index] = Some(layout_offset_words);
+                self.slot_deactivated_flags[slot_index] = 0;
             }
         } else if let Some(slot_addr) = existing_slot_addr {
             if platform_placement_is_special_loc_2836(placement) {
@@ -688,12 +683,10 @@ impl PlatformLoaderSlotModelLoc2744 {
             }
             if self.pool.deallocate_sub_23B4(slot_addr)
                 == DeallocatePlatformSlotResultSub23B4::Deallocated
-            {
-                if let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
+                && let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
                     self.slot_layout_offsets[slot_index] = None;
                     self.slot_deactivated_flags[slot_index] = 0;
                 }
-            }
         }
     }
 

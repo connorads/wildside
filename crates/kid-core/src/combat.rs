@@ -9449,11 +9449,9 @@ impl NativeRuntime {
                             x_pos: boss_x,
                             y_pos: boss_y,
                             x_velocity: heady_eye_init
-                                .map(|init| init.initial_x_velocity)
-                                .unwrap_or(0x2_0000),
+                                .map_or(0x2_0000, |init| init.initial_x_velocity),
                             y_velocity: heady_eye_init
-                                .map(|init| init.initial_y_velocity)
-                                .unwrap_or(-0x1_0000),
+                                .map_or(-0x1_0000, |init| init.initial_y_velocity),
                             lifetime: if is_heady { 120 } else { 90 },
                             gravity: if is_heady { 0x0BB8 } else { 0x800 },
                             friendly: false,
@@ -9466,11 +9464,9 @@ impl NativeRuntime {
                             x_pos: boss_x,
                             y_pos: boss_y,
                             x_velocity: heady_eye_init
-                                .map(|init| init.initial_x_velocity)
-                                .unwrap_or(-0x2_0000),
+                                .map_or(-0x2_0000, |init| init.initial_x_velocity),
                             y_velocity: heady_eye_init
-                                .map(|init| init.initial_y_velocity)
-                                .unwrap_or(-0x1_0000),
+                                .map_or(-0x1_0000, |init| init.initial_y_velocity),
                             lifetime: if is_heady { 120 } else { 90 },
                             gravity: if is_heady { 0x0BB8 } else { 0x800 },
                             friendly: false,

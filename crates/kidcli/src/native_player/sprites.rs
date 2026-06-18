@@ -1619,12 +1619,10 @@ fn push_heady_metal_sub_37abc_body_piece_markers(
     let anchor_y = (object.y_pos >> 16) as u16;
     let kid_x = trace
         .kid_x_pos
-        .map(|x| (x >> 16) as u16)
-        .unwrap_or(anchor_x);
+        .map_or(anchor_x, |x| (x >> 16) as u16);
     let kid_y = trace
         .kid_y_pos
-        .map(|y| (y >> 16) as u16)
-        .unwrap_or(anchor_y);
+        .map_or(anchor_y, |y| (y >> 16) as u16);
     let camera_x = (trace.camera_x_pos >> 16) as i32;
     let camera_y = (trace.camera_y_pos >> 16) as i32;
 

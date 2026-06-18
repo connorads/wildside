@@ -3196,6 +3196,7 @@ pub(crate) struct MurderWallState {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub(crate) struct PlatformLoaderState {
     pub(crate) next_index: usize,
     pub(crate) offset_words: u16,
@@ -3205,16 +3206,6 @@ pub(crate) struct PlatformLoaderState {
     pub(crate) slot_model: PlatformLoaderSlotModelLoc2744,
 }
 
-impl Default for PlatformLoaderState {
-    fn default() -> Self {
-        Self {
-            next_index: 0,
-            offset_words: 0,
-            loaded_mask: 0,
-            slot_model: PlatformLoaderSlotModelLoc2744::default(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ObjectSystemState {

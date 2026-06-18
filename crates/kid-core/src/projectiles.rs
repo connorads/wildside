@@ -2455,9 +2455,7 @@ impl NativeRuntime {
                 table_index,
                 enemy.drips_surface_table_index,
                 u8::from(spawn_crawler_on_splash),
-                crawler_random_byte
-                    .map(|byte| format!("{byte:#04x}"))
-                    .unwrap_or_else(|| String::from("none")),
+                crawler_random_byte.map_or_else(|| String::from("none"), |byte| format!("{byte:#04x}")),
                 kid_x_word,
                 rng_before,
                 rng_after,
