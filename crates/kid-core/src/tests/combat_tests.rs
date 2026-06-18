@@ -18723,6 +18723,66 @@ mod chunk_05 {
         assert!(velocities.contains(&(4 << 16, 0)));
     }
 
+    // ASM loc_ED52 (kid.asm:19240): after the negative-action sprite emit, the
+    // layout-update path does `lsr.w #1,d0` to consume the layout bit, then
+    // `lsr.w #1,d0; bcs loc_ED7C` — i.e. the *collision-overlay* (theme-collision)
+    // branch is taken only when action bit 1 (`$02`) is set; bit-1-clear actions
+    // fall through to the plain `+$6000` solid write. Native folds the evanescent
+    // hibernate cadence into a timer threshold (the #214 Highwater route). This
+    // pins the exact truth table so the `&`, `&&`, `!=`, and `>=` operators in
+    // `evanescent_collision_overlay_enabled_loc_ED52` cannot be mutated silently.
+    #[test]
+    #[allow(non_snake_case)]
+    fn evanescent_collision_overlay_enabled_loc_ED52_matches_asm_action_bit1_and_timer() {
+        // bit 1 set AND timer at the overlay threshold -> collision overlay.
+        assert!(NativeRuntime::evanescent_collision_overlay_enabled_loc_ED52(0x10, 0x02));
+        // The real `unk_ECEC[13]=$83` action keeps bit 1 set at/after threshold.
+        assert!(NativeRuntime::evanescent_collision_overlay_enabled_loc_ED52(0x10, 0x83));
+        // bit 1 set but timer below threshold -> plain solid, not overlay
+        // (kills `&&` -> `||`).
+        assert!(!NativeRuntime::evanescent_collision_overlay_enabled_loc_ED52(0x0F, 0x02));
+        // bit 1 clear at threshold -> plain solid (kills `&` -> `|`, `!=` -> `==`).
+        assert!(!NativeRuntime::evanescent_collision_overlay_enabled_loc_ED52(0x10, 0x00));
+        // The `$80` sprite-only action and the `$81` plain-solid action both leave
+        // bit 1 clear, so neither takes the overlay path.
+        assert!(!NativeRuntime::evanescent_collision_overlay_enabled_loc_ED52(0x10, 0x80));
+        assert!(!NativeRuntime::evanescent_collision_overlay_enabled_loc_ED52(0x10, 0x81));
+    }
+
+    // ASM loc_EC76 (kid.asm:19127): the bullet loop runs `move.w #3,d4` then
+    // `btst d4,d3; dbf d4,loc_EC76`, allocating one shooter object per set bit of
+    // the direction field `d3` in descending bit order 3,2,1,0 and storing `d4`
+    // (the bit index) as the object's direction word. The shooter velocity table
+    // maps direction 0=up, 1=right, 2=down, 3=left (the round-trip inverse of
+    // `shooter_object_direction_from_velocity_loc_EDFA`). This pins the exact
+    // per-bit (xv,yv) tuples and their order so the table signs cannot be mutated.
+    #[test]
+    #[allow(non_snake_case)]
+    fn fire_evanescent_block_projectiles_loc_EC76_direction_table_matches_asm_bit_order() {
+        let grid = grid_with_evanescent(2, 3, 0x2B);
+        let mut runtime = runtime_with_evanescent_grid(grid);
+
+        // skin $2B -> directions = $2B - $1C = $0F, i.e. all four bits set.
+        runtime.fire_evanescent_block_projectiles_loc_EC76(2, 3, 0x2B);
+
+        let speed = 4 << 16;
+        let velocities = runtime
+            .projectiles
+            .iter()
+            .map(|projectile| (projectile.x_velocity, projectile.y_velocity))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            velocities,
+            vec![
+                (-speed, 0), // bit 3 (d4=3): left
+                (0, speed),  // bit 2 (d4=2): down
+                (speed, 0),  // bit 1 (d4=1): right
+                (0, -speed), // bit 0 (d4=0): up
+            ],
+            "ASM loc_EC76 fires bits 3,2,1,0 in order with left/down/right/up velocities"
+        );
+    }
+
     #[test]
     fn evanescent_block_scan_skips_when_synthetic_bounds_cannot_cover_hitbox() {
         let grid = grid_with_evanescent(2, 3, 0x1F);

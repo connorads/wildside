@@ -10005,6 +10005,43 @@ oracle repro = authoritative; minimum gate = fast-slice.
   `verify-tas-full`. #309 stays `[ ]`: same residual — only the two oracle-gated
   type-8 Shooter deviations remain, no narrow behavioural slice; the
   ice-effect-origin and shooter-span helper families now have no mutation gap.
+- 2026-06-18 evanescent-block helper pinning (new family, not in prior
+  mutation-cleaned list): recovered the prior (uncommitted) WIP — two exact-value
+  tests for the evanescent-block (type-9 `EvanescentBlock`) restore/fire helpers —
+  and verified both from scratch before committing.
+  (1) **`evanescent_collision_overlay_enabled_loc_ED52`** (blocks.rs:2549): ASM-traced
+  loc_ED52 (kid.asm:19240-19255). After the negative-action sprite emit, the layout
+  path does `lsr.w #1,d0; bcc loc_EDB0` (consume bit 0 = layout-update bit), then a
+  *second* `lsr.w #1,d0; bcs loc_ED7C` takes the theme-collision-overlay branch only
+  when original action bit 1 (`$02`) is set; bit-1-clear falls through to the plain
+  `addi.w #$6000,d1` solid write. Native folds the hibernate cadence into the #214
+  Highwater timer threshold (`EVANESCENT_COLLISION_OVERLAY_TIMER=$10`). The helper had
+  **no direct test caller** (only the live restore loop at blocks.rs:2536 reaches it),
+  so its `&`/`&&`/`!=`/`>=` operators were unpinned. New regression
+  `evanescent_collision_overlay_enabled_loc_ED52_matches_asm_action_bit1_and_timer`
+  (combat_tests.rs) pins the full truth table incl. real `unk_ECEC` actions `$83`
+  (overlay), `$80`/`$81` (plain), and the below-threshold timer.
+  (2) **`fire_evanescent_block_projectiles_loc_EC76`** (blocks.rs:2684): ASM-traced
+  loc_EC76 (kid.asm:19124-19144) — `move.w #3,d4; btst d4,d3; ...; move.w d4,(a3)+;
+  dbf d4,loc_EC76` allocates one shooter object per set bit of the direction field in
+  descending bit order 3,2,1,0, storing the bit index as the direction word; velocity
+  is the round-trip inverse of `shooter_object_direction_from_velocity_loc_EDFA`
+  (0=up,1=right,2=down,3=left). New regression
+  `fire_evanescent_block_projectiles_loc_EC76_direction_table_matches_asm_bit_order`
+  (skin $2B → directions $0F, all four bits) pins the exact per-bit (xv,yv) tuples and
+  their emit order (left/down/right/up) so the table signs cannot be mutated.
+  Mutation re-run over both helpers (`cargo mutants -f blocks.rs --re
+  'evanescent_collision_overlay_enabled_loc_ED52|fire_evanescent_block_projectiles_loc_EC76'`,
+  `/tmp/mutants-evanescent-309`): **23 mutants, all 23 caught, 0 missed**. Genuine-gap
+  proof (the documented `--re` unreliability caveat means the count alone is not
+  decisive): hand-mutating `& 0x02 → & 0x01` (ED52) and the bit-3 `-speed → speed`
+  (EC76 left arm) and running the lib suite with the two new tests' patterns skipped
+  shows **no** non-`demo_`/`snapshot` pre-existing test catches either mutation — only
+  the two new regressions fail. `verify-slice-fast` green (6133+9); test-only ⇒ no
+  `verify-tas-full`. #309 stays `[ ]`: same residual — only the two oracle-gated
+  type-8 Shooter deviations remain (0 shipped cells, prior removal broke 18 tests — do
+  not retry without a type-8 ceiling-headbutt oracle probe), no narrow behavioural
+  slice; the evanescent-block restore/fire helper family now has no mutation gap.
 
 ### #310
 

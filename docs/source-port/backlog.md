@@ -26,6 +26,26 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+15): **#309 evanescent-block helper pinning committed**.
+  Recovered the prior (uncommitted) WIP — two exact-value tests for the type-9 evanescent-block
+  restore/fire helpers — and verified both from scratch before committing. (1) `evanescent_collision_overlay_enabled_loc_ED52`
+  (blocks.rs:2549): ASM-confirmed against loc_ED52 kid.asm:19240-19255 — the second `lsr.w #1,d0; bcs loc_ED7C`
+  takes the theme-collision-overlay branch only when original action bit 1 (`$02`) is set; bit-1-clear
+  falls through to plain `+$6000` solid. Native folds the hibernate cadence into the #214 Highwater timer
+  threshold. The helper had **no direct test caller**, so its `&`/`&&`/`!=`/`>=` operators were unpinned;
+  new `evanescent_collision_overlay_enabled_loc_ED52_matches_asm_action_bit1_and_timer` (combat_tests.rs)
+  pins the truth table incl. real `$83`/`$80`/`$81` actions + below-threshold timer. (2) `fire_evanescent_block_projectiles_loc_EC76`
+  (blocks.rs:2684): ASM-confirmed against loc_EC76 kid.asm:19124-19144 — `move.w #3,d4; btst d4,d3; dbf d4`
+  fires bits 3,2,1,0 descending, d4=direction word; velocity is the round-trip inverse of `…loc_EDFA`
+  (0=up,1=right,2=down,3=left). New `fire_evanescent_block_projectiles_loc_EC76_direction_table_matches_asm_bit_order`
+  pins exact per-bit (xv,yv) tuples + emit order (left/down/right/up). Mutation over both helpers
+  (`/tmp/mutants-evanescent-309`): **23/23 caught, 0 missed**; genuine-gap proof by hand-mutation (the
+  documented `--re` caveat means the count alone isn't decisive) — `&0x02→&0x01` and the EC76 bit-3
+  `-speed→speed` are caught by **only** the two new tests, no non-`demo_`/`snapshot` pre-existing test.
+  `verify-slice-fast` green (6133+9); test-only ⇒ no `verify-tas-full`. #309 stays `[ ]` (umbrella — same
+  residual: only the two oracle-gated type-8 Shooter deviations remain, no narrow behavioural slice; the
+  evanescent-block restore/fire helper family now has no mutation gap). Next top open table row is still
+  **#309** then **#310** (terrain). See `#309` archive.
 - **Last session** (2026-06-18, latest+14): **#309 ice-block ABOVE arm + shooter viewport-boundary
   pinning committed**. Recovered the prior (uncommitted) WIP — two exact-value mutation pins for
   `blocks.rs` helpers — and verified both from scratch before committing. (1) ABOVE arm (`d6==2`,
