@@ -1558,6 +1558,16 @@ pub(super) fn push_enemy_sprite(
         return;
     }
 
+    if enemy_visuals.frames.is_empty() {
+        let colour = if object.damage_flash {
+            ENEMY_FLASH_COLOUR
+        } else {
+            enemy_family_colour(object_type)
+        };
+        commands.push(object_rect(object, trace, 16, 16, colour));
+        return;
+    }
+
     let frame = select_enemy_frame(trace, enemy_visuals, object);
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, render_facing);
     let palette = enemy_palette_for_heady_metal_sub_379e8(

@@ -7319,6 +7319,112 @@ mod tests {
         build_scene(trace, debug_overlay_visible, Some(&visuals), block_grid)
     }
 
+    fn sample_enemy_object(object_type: u8, x_pos: u32, y_pos: u32) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
+            x_pos,
+            y_pos,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn build_scene_falls_back_to_enemy_rect_for_empty_loaded_family_issue322() {
+        let mut visuals = sample_level_visuals();
+        visuals.enemies.families.insert(
+            0x0C,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(200, 30, 10)],
+                },
+                extra_palettes: vec![],
+                frames: Vec::new(),
+                frame_duration: 6,
+            },
+        );
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_objects = vec![sample_enemy_object(0x0C, 0x0040_0000, 0x0030_0000)];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Rect {
+                        width: 16,
+                        height: 16,
+                        colour,
+                        ..
+                    } if *colour == enemy_family_colour(0x0C)
+                )
+            }),
+            "#322: a loaded but empty enemy family must use the total rectangle fallback instead of indexing frames[0]"
+        );
+    }
+
+    #[test]
+    fn build_scene_skips_empty_effect_enemy_family_issue322() {
+        let mut visuals = sample_level_visuals();
+        visuals.enemies.families.insert(
+            0x21,
+            AnimatedSpriteVisual {
+                palette: Palette {
+                    colours: vec![colour(0, 0, 0), colour(160, 160, 160)],
+                },
+                extra_palettes: vec![],
+                frames: Vec::new(),
+                frame_duration: 6,
+            },
+        );
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.flag_x = None;
+        trace.flag_y = None;
+        trace.heady_metal_death_splits = vec![kid_core::HeadyMetalDeathSplitTrace {
+            current_x_velocity_delta: -0x0002_6D18,
+            left_worker_x_velocity_delta: 0x0002_6D18,
+            centre_worker_y_velocity_delta: 0x0001_3880,
+            centre_worker_sprite_label: Some("LnkTo_unk_C8458-Data_Index".to_owned()),
+            right_worker_x_velocity_delta: -0x0002_6D18,
+            far_right_worker_x_velocity_delta: 0x0002_6D18,
+            cleanup_worker_slot_offsets: [0xFB72, 0xFB76, 0xFB7A, 0xFBAE, 0xFBB2],
+            pieces: vec![kid_core::HeadyMetalDeathPieceTrace {
+                slot_offset: 0xFB72,
+                x_pos: 100 << 16,
+                y_pos: 120 << 16,
+                x_velocity: -0x0002_6D18,
+                y_velocity: 0,
+            }],
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().all(|command| {
+                !matches!(
+                    command,
+                    DrawCommand::Sprite { x, y, .. } if *x == 100 && *y == 120
+                )
+            }),
+            "#322: effect-only enemy art with no frames should be skipped instead of indexing frames[0]"
+        );
+    }
+
     struct ManifestFixture {
         _root: TempDir,
         manifest: AssetManifest,

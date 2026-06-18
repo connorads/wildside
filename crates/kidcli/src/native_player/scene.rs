@@ -5627,6 +5627,9 @@ fn push_effect_enemy_sprite(
     let Some(enemy_visuals) = level_visuals.enemies.families.get(&object_type) else {
         return;
     };
+    if enemy_visuals.frames.is_empty() {
+        return;
+    }
     let frame = &enemy_visuals.frames[0];
     let (draw_x, draw_y) = sprite_draw_position(frame, screen_x, screen_y, facing);
     commands.push(DrawCommand::Sprite {

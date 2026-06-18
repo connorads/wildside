@@ -10157,6 +10157,21 @@ shoot a flying dragon) — needs a display, which the unattended/headless loop l
 per the status legend's "needs human repro". Once a human supplies the backtrace file:line, the fix is a
 targeted bounds-guard at that one site + a regression scenario — not the speculative render-guard sweep above.
 
+**2026-06-18 (latest+21) — `[b]`→`[?]`, fixed render empty-frame hardening candidate.** Although the exact
+human crash file:line remains unpinned, the renderer totality holes from the crash lead are now closed with
+red/green coverage:
+
+- `build_scene_falls_back_to_enemy_rect_for_empty_loaded_family_issue322` first failed red on
+  `sprites.rs` `% frames.len()` with a divisor-zero panic when object_type 0x0C had a present but empty loaded
+  family. `push_enemy_sprite` now checks `enemy_visuals.frames.is_empty()` before calling `select_enemy_frame`
+  and falls back to the existing `object_rect` placeholder.
+- `build_scene_skips_empty_effect_enemy_family_issue322` covers effect-only enemy art (HeadyMetal split pieces
+  through `push_effect_enemy_sprite`); empty loaded frames now early-return instead of indexing `frames[0]`.
+
+This is a robust render hardening fix, not proof of the original live crash root cause. Human validation remains:
+replay Under Skull Mountain 3 Level 0x06 and shoot a flying dragon with the axe form. If it still crashes, capture
+`RUST_BACKTRACE=1 mise run play-native` and record the file:line for the next targeted fix.
+
 ### #323
 
 **Maniaxe / Iron Knight axe renders as a green dot, and "does not hurt enemies".** Two faults, separated.
