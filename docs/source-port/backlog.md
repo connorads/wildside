@@ -26,6 +26,27 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue). **Exception (2026-06-18 triage):** new rows #322-#328 were appended at the BOTTOM of the table but are the current priority — work them in the order listed in the latest+16 entry below (crash #322 first), not by table position.
+- **NEXT (directed)**: **#322 P0 crash first**, then #327, #324, #325, #323, #326 per the latest+16 triage order. The latest+17 #309 pin below was already in-flight (started before the triage landed) and is proactive verification, not a reprioritisation — do NOT keep mining #309 helper tables while #322-#326 are open.
+- **Last session** (2026-06-18, latest+17): **#309 shifting-block rise-table pinning committed**.
+  Iteration had started on the #309 blocks umbrella (top open row before the latest+16 triage landed
+  mid-session); completed it as proactive verification since #309's only open behavioural slice stays
+  oracle-gated (type-8 Shooter). Discovery via `cargo mutants -f blocks.rs --list` (the full mutation
+  run is blocked in this sandbox; `--list` is fast/allowed, hand-mutation is the documented reliable
+  verifier) cross-referenced against the test files. Found the one block-bounce y-delta table with no
+  exact-value guard: `SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4` (`[-2; 8]`, blocks.rs:360). Its metal
+  siblings `…LOC_1117A/11196` and the prize-wobble table are all pinned
+  (level_tests.rs:19807/19832/19837), but the shifting table feeds only the `BlockBounceKind::Shifting`
+  arm of the `block_bounces` accumulation loop (blocks.rs:4342), and the only `shifting_block*` tests
+  (runtime_tests.rs:7188/7212) assert `has_block` presence — never the rise `y_offset_px`. ASM-confirmed
+  against sub_113C0/loc_113F4 (kid.asm:23332-23339): `move.w #7,d0; subq.w #2,y_pos(a3); dbf d0` = eight
+  unconditional 2px-upward steps; the cell-above worker spawns at `y_offset_px = 16` (blocks.rs:3744) and
+  the all-negative deltas pull it to exactly 0 as the row swap commits. New
+  `shifting_block_rise_y_deltas_match_asm_loc_113f4` (level_tests.rs, beside the metal-table test) pins
+  the table `[-2;8]`, the monotonic cumulative descent to -16, and the +16→0 landing. Genuine-gap proof
+  by hand-mutation: flipping the first entry `-2 → 2` makes ONLY the new test fail — all 8 pre-existing
+  `shifting_block*` tests still pass. `verify-slice-fast` green (6134+9); test-only ⇒ no `verify-tas-full`.
+  #309 stays `[ ]` (umbrella — same residual: only the two oracle-gated type-8 Shooter deviations remain;
+  the block-bounce y-delta table family prize/metal/shifting now has no mutation gap). See `#309` archive.
 - **Last session** (2026-06-18, latest+16): **playtest triage — 7 new rows + 6 reconfirms, no code yet**.
   Triaged a human playtest with a 15-agent parallel workflow (per-symptom ASM+native+git+backlog dedup) plus an
   adversarial crash verify. **Actionable order for the next sessions (all `[ ]` unless noted):**

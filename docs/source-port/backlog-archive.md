@@ -10042,6 +10042,31 @@ oracle repro = authoritative; minimum gate = fast-slice.
   type-8 Shooter deviations remain (0 shipped cells, prior removal broke 18 tests — do
   not retry without a type-8 ceiling-headbutt oracle probe), no narrow behavioural
   slice; the evanescent-block restore/fire helper family now has no mutation gap.
+- 2026-06-18 shifting-block rise-table pinning: discovery via systematic
+  `cargo mutants -f blocks.rs --list` cross-referenced against the test files
+  (the full mutation run is blocked in this sandbox; `--list` is fast/allowed,
+  and hand-mutation is the documented reliable verifier here). Found the one
+  block-bounce y-delta table with NO exact-value guard:
+  `SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4` (`[-2; 8]`, blocks.rs:360). Its metal
+  siblings `METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A/11196` and the prize wobble
+  table are all pinned (level_tests.rs:19807/19832/19837), but the shifting table
+  is consumed only by the `BlockBounceKind::Shifting` arm of the `block_bounces`
+  accumulation loop (blocks.rs:4342), and the only `shifting_block*` tests
+  (runtime_tests.rs:7188/7212) assert `has_block` presence — never the rise
+  `y_offset_px`. ASM-confirmed against sub_113C0/loc_113F4 (kid.asm:23332-23339):
+  `move.w #7,d0; loc_113F4: subq.w #2,y_pos(a3); dbf d0,loc_113F4` = eight
+  unconditional 2px-upward steps; the native cell-above worker spawns at
+  `y_offset_px = 16` (blocks.rs:3744) and the all-negative deltas pull it to
+  exactly 0 as the row swap commits. New regression
+  `shifting_block_rise_y_deltas_match_asm_loc_113f4` (level_tests.rs, beside the
+  metal-table test) pins (1) the table == `[-2; 8]`, (2) the monotonic cumulative
+  descent to -16, and (3) the +16→0 landing. Genuine-gap proof by hand-mutation:
+  flipping the first entry `-2 → 2` makes ONLY the new test fail — all 8
+  pre-existing `shifting_block*` tests still pass. `verify-slice-fast` green
+  (6134+9); test-only ⇒ no `verify-tas-full`. #309 stays `[ ]`: same residual —
+  only the two oracle-gated type-8 Shooter deviations remain, no narrow
+  behavioural slice; the block-bounce y-delta table family (prize/metal/shifting)
+  now has no mutation gap.
 
 ### #310
 

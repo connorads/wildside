@@ -19867,6 +19867,48 @@ mod chunk_02 {
         );
     }
 
+    /// ASM sub_113C0 / loc_113F4 (kid.asm:23332-23339): the shifting-block
+    /// rise worker runs `move.w #7,d0; loc_113F4: subq.w #2,y_pos(a3); dbf
+    /// d0,loc_113F4`, i.e. eight unconditional 2px-upward steps. The native
+    /// bounce starts the cell-above worker at `y_offset_px = 16` (it draws at
+    /// the source row) and these all-negative deltas pull it up to exactly 0
+    /// as the block settles into the reserved higher row. Unlike the metal
+    /// arc, this rise never reverses, so every entry must stay -2 — the metal
+    /// sibling tables are pinned above but this one had no exact-value guard.
+    #[test]
+    fn shifting_block_rise_y_deltas_match_asm_loc_113f4() {
+        assert_eq!(
+            blocks::SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4,
+            [-2, -2, -2, -2, -2, -2, -2, -2],
+            "ASM loc_113F4 is eight unconditional subq.w #2 upward steps"
+        );
+
+        let mut cumulative = 0i16;
+        let cumulative_steps: Vec<i16> = blocks::SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4
+            .iter()
+            .map(|d| {
+                cumulative += d;
+                cumulative
+            })
+            .collect();
+        assert_eq!(
+            cumulative_steps,
+            vec![-2, -4, -6, -8, -10, -12, -14, -16],
+            "cumulative shifting-block rise must descend monotonically to -16 (8x2px up)"
+        );
+
+        // The cell-above worker spawns at y_offset_px = 16 (blocks.rs:3744)
+        // and these deltas must land it at exactly 0 once the row swap commits.
+        let initial_offset: i16 = 16;
+        let final_offset = blocks::SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4
+            .iter()
+            .fold(initial_offset, |acc, d| acc.saturating_add(*d));
+        assert_eq!(
+            final_offset, 0,
+            "starting at +16 and applying every loc_113F4 rise step must settle the block at offset 0"
+        );
+    }
+
     #[test]
     fn prize_block_wobble_y_deltas_sub_1007a_match_the_loc_100da_bounce_script() {
         let deltas = NativeRuntime::prize_block_wobble_y_deltas_sub_1007A();
