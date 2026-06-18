@@ -26,6 +26,21 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+12): **#309 block-debris velocity-table pinning committed**.
+  Recovered the prior (uncommitted) WIP — an exact-value test for the per-direction `sub_292E`
+  shard velocity tables — and verified it from scratch before committing. ASM-verified all four
+  tables byte-for-byte against the `dc.b` data in kid.asm (dispatch 4893-4918; tables 4949-5048):
+  base `unk_29E8`/`unk_29F2`=`[0,0,8,8,4]`/`[0,8,8,0,4]`; ABOVE(2) x`[-1,-1,1,1,1]` y`[-4,-3,-3,-4,-5]`;
+  BELOW(0) x`[-1,-2,1,1,-1]` y`[-2,0,0,-1,-2]`; LEFT(1) x`[-5,-4,-3,-2,-1]` y`[-3]×5`;
+  RIGHT(else) x`[5,4,3,2,1]` y`[-3]×5` — all match the native tables. Only the ABOVE direction had
+  an exact-shard test before, so deleting the BELOW/LEFT match arm (fall through to RIGHT default)
+  survived mutation. New regression `block_debris_velocity_tables_match_asm_sub_292e_all_directions`
+  pins all five shards per direction for BELOW/LEFT/RIGHT. Mutation re-run over the helper + swarm
+  builder (`/tmp/mutants-debris-309`): **17 mutants, 16 caught, 0 missed, 1 unviable**.
+  `verify-slice-fast` green (6128+9); test-only ⇒ no `verify-tas-full`. #309 stays `[ ]` (umbrella —
+  only the two oracle-gated type-8 Shooter deviations remain open; the ice-bullet, metal-push, and
+  now block-debris helper families have no mutation gap). Next top open table row is still **#309**
+  (no narrow behavioural slice left) then **#310** (terrain). See `#309` archive.
 - **Last session** (2026-06-18, latest+11): **#309 ice-bullet directional-table pinning committed**.
   Recovered the prior (uncommitted) WIP — an exact-value test for the per-direction ice-bullet
   offset + velocity tables — and verified it from scratch before committing. ASM-traced all four

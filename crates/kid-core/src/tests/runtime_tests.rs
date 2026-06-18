@@ -11110,6 +11110,64 @@ mod chunk_09 {
     }
 
     #[test]
+    fn block_debris_velocity_tables_match_asm_sub_292e_all_directions() {
+        // ASM sub_292E (kid.asm:4881) dispatches `d6` (the block-destroy
+        // direction) to one of four velocity tables, paired with the shared
+        // base-position offsets unk_29E8/unk_29F2 (x = [0,0,8,8,4], y =
+        // [0,8,8,0,4]). sub_2A4C then advances each shard once per frame.
+        //
+        // The native tables (blocks.rs:1772-1779) are byte-for-byte the ROM
+        // word tables, verified against kid.bin:
+        //   ABOVE  (d6=2, loc_2988): x=unk_29FC [-1,-1, 1, 1, 1]
+        //                            y=unk_2A06 [-4,-3,-3,-4,-5]
+        //   BELOW  (d6=0, loc_297A): x=unk_2A10 [-1,-2, 1, 1,-1]
+        //                            y=unk_2A1A [-2, 0, 0,-1,-2]
+        //   LEFT   (d6=1, loc_296C): x=unk_2A38 [-5,-4,-3,-2,-1]
+        //                            y=unk_2A42 [-3,-3,-3,-3,-3]
+        //   RIGHT  (else,  loc_2994): x=unk_2A24 [ 5, 4, 3, 2, 1]
+        //                             y=unk_2A2E [-3,-3,-3,-3,-3]
+        //
+        // ABOVE is already pinned by
+        // `block_destroy_effect_hands_off_to_falling_sub_2a4c_debris`; the other
+        // three match arms (block_debris_velocity_sub_292e) had no exact-value
+        // test, so deleting the BELOW/LEFT arms (they fall through to the RIGHT
+        // default) or swapping a table survived mutation. This pins all three.
+        //
+        // Each expected piece is the seed (x_px+base_x, y_px+base_y) advanced by
+        // one velocity step; gravity (0x36B0) is sub-pixel on the first frame, so
+        // the integer pixel only reflects the table velocity. x_px=80,y_px=48
+        // keeps every shard on-camera (same anchor as the ABOVE test).
+        let pieces_for = |direction: u16| {
+            let mut rt = NativeRuntime::new(manifest());
+            rt.block_destroy_effects.push(BlockDestroyEffect {
+                x_px: 80,
+                y_px: 48,
+                remaining: 1,
+                direction,
+                pending_ice_origin_nudge: false,
+            });
+            rt.step_visual_effects();
+            rt.trace_frame().block_debris_pieces
+        };
+
+        assert_eq!(
+            pieces_for(NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW),
+            vec![(79, 46), (78, 56), (89, 56), (89, 47), (83, 50)],
+            "ASM loc_297A: d6=0 selects unk_2A10/unk_2A1A (BELOW) velocity table"
+        );
+        assert_eq!(
+            pieces_for(NativeRuntime::BLOCK_DESTROY_DIRECTION_LEFT),
+            vec![(75, 45), (76, 53), (85, 53), (86, 45), (83, 49)],
+            "ASM loc_296C: d6=1 selects unk_2A38/unk_2A42 (LEFT) velocity table"
+        );
+        assert_eq!(
+            pieces_for(NativeRuntime::BLOCK_DESTROY_DIRECTION_RIGHT),
+            vec![(85, 45), (84, 53), (91, 53), (90, 45), (85, 49)],
+            "ASM loc_2994 default: d6=3 selects unk_2A24/unk_2A2E (RIGHT) velocity table"
+        );
+    }
+
+    #[test]
     fn live_block_debris_uses_six_slot_scratch_ring_sub_292e() {
         let mut rt = NativeRuntime::new(manifest());
         for index in 0..7 {

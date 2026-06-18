@@ -9917,6 +9917,33 @@ oracle repro = authoritative; minimum gate = fast-slice.
   (6127+9); test-only ⇒ no `verify-tas-full`. #309 stays `[ ]`: same residual as
   above — only the two oracle-gated type-8 Shooter deviations remain, no narrow
   behavioural slice; the ice-bullet helper family now has no mutation gap.
+- 2026-06-18 block-debris velocity-table pinning: recovered the prior
+  (uncommitted) WIP and verified it from scratch before committing. Closed the
+  last unpinned `sub_292E` mutation gap — the per-direction shard velocity tables
+  in `block_debris_velocity_sub_292e` (blocks.rs:1782). The only prior exact-shard
+  test (`block_destroy_effect_hands_off_to_falling_sub_2a4c_debris`) exercises just
+  the ABOVE (d6=2) direction; the BELOW/LEFT/RIGHT velocity arms had no exact-value
+  test (the `sub_10EDA`/`sub_10F9C` tests assert the single effect-anchor nudge, not
+  the five shard velocities), so deleting the BELOW or LEFT match arm (fall through
+  to the RIGHT default) survived mutation. ASM-verified all four tables byte-for-byte
+  against the `dc.b` data in kid.asm (sub_292E dispatch at kid.asm:4893-4918; tables
+  at 4949-5048): base x/y `unk_29E8`/`unk_29F2` = `[0,0,8,8,4]`/`[0,8,8,0,4]`;
+  ABOVE(2)→`unk_29FC`/`unk_2A06` x`[-1,-1,1,1,1]` y`[-4,-3,-3,-4,-5]`;
+  BELOW(0)→`unk_2A10`/`unk_2A1A` x`[-1,-2,1,1,-1]` y`[-2,0,0,-1,-2]`;
+  LEFT(1)→`unk_2A38`/`unk_2A42` x`[-5,-4,-3,-2,-1]` y`[-3]×5`;
+  RIGHT(else)→`unk_2A24`/`unk_2A2E` x`[5,4,3,2,1]` y`[-3]×5` — all match the native
+  tables exactly. New regression
+  `block_debris_velocity_tables_match_asm_sub_292e_all_directions` (runtime_tests.rs)
+  drives one frame of `step_visual_effects` per direction and pins all five shards'
+  post-step pixels for BELOW/LEFT/RIGHT. Mutation re-run over the helper + swarm
+  builder (`cargo mutants -f blocks.rs --re
+  'block_debris_velocity_sub_292e|block_debris_swarm_sub_2a4c'`,
+  `/tmp/mutants-debris-309`): **17 mutants, 16 caught, 0 missed, 1 unviable** (the
+  BELOW/LEFT arm-delete + table-replace mutants are now caught; the `<<`→`>>` 16.16
+  shifts in the swarm builder too). `verify-slice-fast` green (6128+9); test-only ⇒
+  no `verify-tas-full`. #309 stays `[ ]`: same residual — only the two oracle-gated
+  type-8 Shooter deviations remain, no narrow behavioural slice; the block-debris
+  velocity-table family now has no mutation gap.
 
 ### #310
 
