@@ -6,6 +6,15 @@ pub(crate) const PLATFORM_RAM_SLOT_STRIDE_LOC_231C: u16 = 0x22;
 pub(crate) const PLATFORM_CHAIN_SEGMENT_COUNT_LOC_428C: u8 = 7;
 pub(crate) const PLATFORM_CHAIN_INITIAL_DOWN_FRAMES_LOC_428C: u16 = 0x3D;
 pub(crate) const PLATFORM_CHAIN_LOOP_FRAMES_LOC_42C0: u16 = 0x79;
+pub(crate) const PLATFORM_SCRIPT_BASE_ADDRESS_LOC_2836: u16 = 0x3602;
+
+pub(crate) fn platform_script_relative_offset_loc_2836(offset: u16) -> u16 {
+    if offset >= PLATFORM_SCRIPT_BASE_ADDRESS_LOC_2836 {
+        offset.wrapping_sub(PLATFORM_SCRIPT_BASE_ADDRESS_LOC_2836)
+    } else {
+        offset
+    }
+}
 
 #[allow(non_snake_case)]
 pub(crate) fn execute_scripted_platforms_sub_23EA(

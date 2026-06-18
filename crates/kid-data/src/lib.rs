@@ -1513,7 +1513,7 @@ fn parse_platform_script_ref(value: &str) -> PlatformScriptRef {
     let relative_offset = value
         .strip_prefix("PlatformScript_")
         .and_then(|rest| rest.strip_suffix("-PlatformScript_BaseAddress"))
-        .and_then(|hex| u16::from_str_radix(hex, 16).ok());
+        .and_then(parse_platform_script_label_relative_offset);
     PlatformScriptRef {
         raw: value.to_owned(),
         relative_offset,
@@ -5920,7 +5920,7 @@ AddrTbl_LevelNames:   ;1A842
     #[test]
     fn parses_platform_layout_entries() {
         let layout = parse_platform_layout(
-            "\tptfm\t24,25,0,40,0,19,0,2,3,0,PlatformScript_3C3A-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n",
+            "\tptfm\t24,25,0,40,0,19,0,2,3,0,PlatformScript_361C-PlatformScript_BaseAddress\n\tdc.w\t$FFFF\n",
         )
         .expect("platform layout should parse");
         assert_eq!(layout.placements.len(), 1);
@@ -5934,9 +5934,13 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(placement.v_variant, 0);
         assert_eq!(
             placement.script.raw,
-            "PlatformScript_3C3A-PlatformScript_BaseAddress"
+            "PlatformScript_361C-PlatformScript_BaseAddress"
         );
-        assert_eq!(placement.script.relative_offset, Some(0x3C3A));
+        assert_eq!(
+            placement.script.relative_offset,
+            Some(0x001A),
+            "ASM loc_2836 stores PlatformScript_BaseAddress + `$A(a4)`, so native must keep the placement key relative to PlatformScript_BaseAddress; Level 0x06 `PlatformScript_361C` platforms otherwise never find their movement script and stay static",
+        );
     }
 
     #[test]

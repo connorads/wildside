@@ -14204,7 +14204,7 @@ mod chunk_04 {
     fn active_platform_from_placement_loc_2836_splits_scripted_and_special_platforms() {
         use std::collections::BTreeMap;
 
-        let script_offset = 0x3C3A;
+        let script_offset = 0x001A;
         let script_table = kid_data::PlatformScriptTable {
             scripts: BTreeMap::from([(
                 script_offset,
@@ -14232,8 +14232,13 @@ mod chunk_04 {
                 h_variant: 3,
                 v_variant: 0,
                 script: PlatformScriptRef {
-                    raw: String::from("PlatformScript_3C3A-PlatformScript_BaseAddress"),
-                    relative_offset: Some(script_offset),
+                    raw: String::from("PlatformScript_361C-PlatformScript_BaseAddress"),
+                    // Historical generated caches stored the absolute label
+                    // value. ASM loc_2836 consumes the relative `$A(a4)`
+                    // script offset, so runtime must normalise this to
+                    // `$001A` or Under Skull Mountain 3's moving platforms
+                    // remain static.
+                    relative_offset: Some(0x361C),
                 },
             },
             Some(&script_table),

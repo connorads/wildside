@@ -7196,6 +7196,84 @@ mod chunk_02 {
     }
 
     #[test]
+    fn under_skull_mountain3_platforms_attach_platformscript_361c_loc_2836() {
+        let mut manifest = manifest_with_levels(7);
+        let source_root = unique_temp_path("under-skull-mountain3-platform-script-table");
+        fs::create_dir_all(source_root.join("level")).expect("temp source level dir");
+        fs::write(
+            source_root.join("level/platform_scripts.asm"),
+            "PlatformScript_BaseAddress:\n\
+PlatformScript_361C:   ; relative offset: 001A\n\
+\tptfm_move   $E1, $0, -$11000\n\
+\tptfm_move   $E1, $0, $11000\n\
+\tdc.w    $FFFF\n\
+\tdc.l    PlatformScript_361C\n",
+        )
+        .expect("temp platform scripts");
+        manifest.source_root = source_root.clone();
+        manifest.map_order[6] = 2;
+
+        let resource_level = manifest
+            .levels
+            .iter_mut()
+            .find(|level| level.level_id == 2)
+            .expect("resource level should exist");
+        let platforms = resource_level
+            .platform_metadata
+            .as_mut()
+            .expect("resource platforms should exist");
+        platforms.placements.clear();
+        platforms.placements.push(PlatformPlacement {
+            x: 184,
+            y: 20,
+            buffer_left: 82,
+            buffer_right: 102,
+            buffer_top: 0,
+            buffer_bottom: 14,
+            kind: 0,
+            subtype: 2,
+            h_variant: 4,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_361C-PlatformScript_BaseAddress"),
+                // Historical generated manifests stored the absolute label
+                // value; ASM loc_2836 uses the relative `$001A` script word.
+                relative_offset: Some(0x361C),
+            },
+        });
+
+        let runtime = NativeRuntime::new(manifest);
+        let layout = runtime
+            .platform_layout(LevelId(6))
+            .expect("Under Skull Mountain 3 should use resource level 0x02 platforms");
+        let active = crate::platforms::runtime_active_platforms_loc_2762(
+            layout,
+            1,
+            0b1,
+            crate::enemies::ActivationWindow {
+                x_min: 82 * 32,
+                x_max: 102 * 32,
+                y_min: 0,
+                y_max: 14 * 32,
+            },
+            &[],
+            runtime.platform_script_table.as_ref(),
+        );
+
+        assert_eq!(
+            active.first().and_then(|platform| platform.script),
+            Some(PlatformScriptState {
+                script_offset: 0x001A,
+                command_index: 0,
+                remaining_duration: 0x00E1,
+            }),
+            "ASM loc_2836 must attach PlatformScript_361C's relative `$001A` command; otherwise Skull Mountain 3's moving platforms stay static"
+        );
+
+        fs::remove_dir_all(source_root).expect("temp source dir should be removable");
+    }
+
+    #[test]
     fn platform_layout_loc_2366_does_not_fallback_to_raw_level_after_map_order_tail() {
         let mut manifest = manifest_with_levels(4);
         manifest.map_order = vec![0, 1];

@@ -2642,6 +2642,12 @@ impl ActivePlatform {
             .script
             .relative_offset
             .and_then(|offset| {
+                // ASM loc_2836 stores `PlatformScript_BaseAddress + $A(a4)`.
+                // Regenerated manifests keep `$A(a4)` relative, while older
+                // cache manifests stored the absolute label value; normalise
+                // both so Level 0x06 `PlatformScript_361C` platforms attach
+                // their movement script instead of staying static.
+                let offset = crate::platforms::platform_script_relative_offset_loc_2836(offset);
                 let table = script_table?;
                 let script_data = table.scripts.get(&offset)?;
                 let first_cmd = script_data.commands.first()?;
