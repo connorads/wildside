@@ -112,6 +112,9 @@ pub enum ActiveProjectileKind {
     /// Lion roar projectile: ASM `Lion.asm loc_3E12A`/`loc_3E192` allocates a
     /// hostile homing child worker from the parent roar loop.
     LionProjectile,
+    /// Maniaxe thrown axe: ASM `ManiaxeAxe_Init` installs animation
+    /// `stru_8B86` over the four `maniaxe_axe_1..4` Kid-form frames.
+    ManiaxeAxe,
     /// Boss-head arrow: ASM `loc_3A0D2` moves horizontally for `$40=$32`
     /// frames, then clears x_vel and waits `$42=$C8` frames stuck in place.
     BossHeadArrow,

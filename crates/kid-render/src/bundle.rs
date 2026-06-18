@@ -1122,6 +1122,8 @@ struct PlayerFormSpec {
     slope_walk: &'static [PlayerFrameDescriptor],
     /// Left-facing slope walk frames.
     slope_walk_left: &'static [PlayerFrameDescriptor],
+    /// ASM `ManiaxeAxe_Init` / `stru_8B86`: thrown axe frames.
+    axe: &'static [PlayerFrameDescriptor],
     jump_rise: PlayerFrameDescriptor,
     jump_fall: PlayerFrameDescriptor,
     death: Option<PlayerFrameDescriptor>,
@@ -3110,6 +3112,12 @@ const MANIAXE_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/maniaxe_walk_5.bin", 0x0B, 0x01, 0x16, 0x21),
     pfd("artunc_kid/maniaxe_walk_6.bin", 0x0D, 0x01, 0x16, 0x20),
 ];
+const MANIAXE_AXE_FRAMES: [PlayerFrameDescriptor; 4] = [
+    pfd("artunc_kid/maniaxe_axe_1.bin", 0x04, 0x07, 0x0C, 0x10),
+    pfd("artunc_kid/maniaxe_axe_2.bin", 0x06, 0x07, 0x10, 0x0F),
+    pfd("artunc_kid/maniaxe_axe_3.bin", 0x08, 0x07, 0x10, 0x0C),
+    pfd("artunc_kid/maniaxe_axe_4.bin", 0x07, 0x08, 0x10, 0x10),
+];
 const MANIAXE_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 9] = [
     tfd(
         8,
@@ -3309,6 +3317,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &KID_WALK_FRAMES,
         slope_walk: &KID_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &KID_SLOPE_WALK_LEFT_FRAMES,
+        axe: &[],
         jump_rise: KID_JUMP_RISE_FRAME,
         jump_fall: KID_JUMP_FALL_FRAME,
         death: Some(KID_DEATH_FRAME),
@@ -3326,6 +3335,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &SKYCUTTER_WALK_FRAMES,
         slope_walk: &[],
         slope_walk_left: &[],
+        axe: &[],
         jump_rise: SKYCUTTER_IDLE_FRAME,
         jump_fall: SKYCUTTER_IDLE_FRAME,
         death: None,
@@ -3346,6 +3356,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &CYCLONE_WALK_FRAMES,
         slope_walk: &[],
         slope_walk_left: &[],
+        axe: &[],
         jump_rise: pfd("artunc_kid/cyclone_jumping_1.bin", 0x0D, 0x00, 0x17, 0x22),
         jump_fall: pfd("artunc_kid/cyclone_jumping_3.bin", 0x0C, 0x00, 0x16, 0x23),
         death: None,
@@ -3363,6 +3374,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &RED_STEALTH_WALK_FRAMES,
         slope_walk: &RED_STEALTH_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &RED_STEALTH_SLOPE_WALK_LEFT_FRAMES,
+        axe: &[],
         jump_rise: pfd(
             "artunc_kid/red_stealth_jumping_1.bin",
             0x0B,
@@ -3395,6 +3407,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &EYECLOPS_WALK_FRAMES,
         slope_walk: &[],
         slope_walk_left: &[],
+        axe: &[],
         jump_rise: pfd("artunc_kid/eyeclops_jumping_1.bin", 0x10, 0x00, 0x1C, 0x25),
         jump_fall: pfd("artunc_kid/eyeclops_jumping_2.bin", 0x0A, 0x00, 0x19, 0x21),
         death: None,
@@ -3415,6 +3428,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &IRON_KNIGHT_WALK_FRAMES,
         slope_walk: &IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES,
+        axe: &[],
         jump_rise: IRON_KNIGHT_JUMP_RISE_FRAME,
         jump_fall: IRON_KNIGHT_JUMP_FALL_FRAME,
         death: None,
@@ -3435,6 +3449,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &BERZERKER_WALK_FRAMES,
         slope_walk: &BERZERKER_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &BERZERKER_SLOPE_WALK_LEFT_FRAMES,
+        axe: &[],
         jump_rise: pfd("artunc_kid/berzerker_jumping_1.bin", 0x11, 0x00, 0x20, 0x1F),
         jump_fall: pfd("artunc_kid/berzerker_jumping_3.bin", 0x11, 0x00, 0x1F, 0x21),
         death: None,
@@ -3455,6 +3470,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &MANIAXE_WALK_FRAMES,
         slope_walk: &[],
         slope_walk_left: &[],
+        axe: &MANIAXE_AXE_FRAMES,
         jump_rise: pfd("artunc_kid/maniaxe_jumping_1.bin", 0x0E, 0x02, 0x1C, 0x23),
         jump_fall: pfd("artunc_kid/maniaxe_jumping_2.bin", 0x0F, -0x02, 0x1C, 0x20),
         death: None,
@@ -3472,6 +3488,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         walk: &MICROMAX_WALK_FRAMES,
         slope_walk: &[],
         slope_walk_left: &[],
+        axe: &[],
         jump_rise: pfd("artunc_kid/micromax_jumping_1.bin", 0x09, 0x00, 0x10, 0x14),
         jump_fall: pfd("artunc_kid/micromax_jumping_3.bin", 0x09, 0x00, 0x10, 0x12),
         death: None,
@@ -3826,6 +3843,7 @@ fn load_juggernaut_form_visuals_if_present(
             .collect::<Result<Vec<_>>>()?,
         charge: Vec::new(),
         climb: Vec::new(),
+        axe: Vec::new(),
         // ASM loc_A13A/off_A190 maps Juggernaut helmet id 6 to off_A200,
         // the same Iron Knight slope frame table.
         slope_walk: IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES
@@ -3926,6 +3944,7 @@ fn load_player_form_visuals(
         } else {
             Vec::new()
         },
+        axe: load_player_frames(manifest, spec.axe)?,
         slope_walk: spec
             .slope_walk
             .iter()

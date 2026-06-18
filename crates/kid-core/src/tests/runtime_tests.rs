@@ -13181,6 +13181,27 @@ mod chunk_09 {
     }
 
     #[test]
+    fn maniaxe_axe_projectile_projects_to_trace_stru_8b86() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 0x0064_0000,
+            y_pos: 0x00D0_0000,
+            x_velocity: 0x0005_0000,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+
+        let trace = rt.trace_frame();
+
+        assert_eq!(
+            trace.active_projectile_details[0].kind,
+            ActiveProjectileKind::ManiaxeAxe,
+            "ASM ManiaxeAxe_Init installs `stru_8B86`; trace must keep the axe typed so native play renders the four `maniaxe_axe_1..4` frames instead of a generic green dot"
+        );
+    }
+
+    #[test]
     fn fire_demon_legacy_projectile_trace_signature_requires_all_gates_loc_3a63c() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {

@@ -37,6 +37,9 @@ pub struct PlayerFormVisuals {
     /// ASM `sub_A3BC` / `off_A420`: Iron Knight wall-climb poses.
     /// Empty for forms without separate climb art.
     pub climb: Vec<SpriteFrame>,
+    /// ASM `ManiaxeAxe_Init` / `stru_8B86`: four-frame thrown axe animation.
+    /// Empty for forms without separate thrown-weapon art.
+    pub axe: Vec<SpriteFrame>,
     /// ASM stru_8B6A: pre-drawn tilted sprite frames for slope walking.
     /// Right-facing set (kid_slope_7..12). Empty if not loaded.
     pub slope_walk: Vec<SpriteFrame>,

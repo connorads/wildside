@@ -3368,6 +3368,61 @@ mod tests {
     }
 
     #[test]
+    fn maniaxe_axe_projectile_uses_stru_8b86_player_form_sprite() {
+        let mut visuals = sample_level_visuals();
+        let mut maniaxe_visuals = visuals
+            .player
+            .forms
+            .get(&0)
+            .expect("Kid fallback visuals")
+            .clone();
+        maniaxe_visuals.axe = vec![
+            sample_player_frame(90),
+            sample_player_frame(91),
+            sample_player_frame(92),
+            sample_player_frame(93),
+        ];
+        visuals
+            .player
+            .forms
+            .insert(PlayerForm::Maniaxe.helmet_id(), maniaxe_visuals);
+
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::Maniaxe.helmet_id();
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 5 << 16,
+            y_velocity: 0,
+            friendly: true,
+            remaining_frames: 0,
+            animation_elapsed_frames: 0,
+            kind: ActiveProjectileKind::ManiaxeAxe,
+            boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. }
+                        if tile_sheet.tiles[0].pixels[0] == 90
+                )
+            }),
+            "ASM ManiaxeAxe_Init -> `stru_8B86` should render the first `maniaxe_axe_1..4` frame, not a generic projectile dot"
+        );
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 4, [100, 255, 100]),
+            "typed Maniaxe axes should not fall back to FRIENDLY_PROJECTILE_COLOUR"
+        );
+    }
+
+    #[test]
     fn boss_eye_attack_uses_mapping_index_marker_sub_37abc() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
@@ -5602,6 +5657,7 @@ mod tests {
                 ],
                 charge: Vec::new(),
                 climb: Vec::new(),
+                axe: Vec::new(),
                 slope_walk: vec![
                     sample_player_frame(25),
                     sample_player_frame(26),
@@ -5657,6 +5713,7 @@ mod tests {
                     sample_player_frame(51),
                     sample_player_frame(52),
                 ],
+                axe: Vec::new(),
                 slope_walk: Vec::new(),
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(17),
@@ -5694,6 +5751,7 @@ mod tests {
                 walk: vec![sample_player_frame(22)],
                 charge: Vec::new(),
                 climb: Vec::new(),
+                axe: Vec::new(),
                 slope_walk: vec![
                     sample_player_frame(38),
                     sample_player_frame(39),
@@ -5740,6 +5798,7 @@ mod tests {
                 walk: vec![sample_player_frame(49)],
                 charge: Vec::new(),
                 climb: Vec::new(),
+                axe: Vec::new(),
                 slope_walk: Vec::new(),
                 slope_walk_left: Vec::new(),
                 jump_rise: sample_player_frame(50),
@@ -5791,6 +5850,7 @@ mod tests {
                 sample_player_frame(45),
             ],
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -5841,6 +5901,7 @@ mod tests {
                 sample_player_frame(45),
             ],
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -5892,6 +5953,7 @@ mod tests {
                 sample_player_frame(45),
             ],
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -5943,6 +6005,7 @@ mod tests {
                 sample_player_frame(45),
             ],
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -5995,6 +6058,7 @@ mod tests {
                 sample_player_frame(45),
             ],
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: vec![sample_player_frame(70)],
             slope_walk_left: vec![sample_player_frame(71)],
             jump_rise: sample_player_frame(20),
@@ -6046,6 +6110,7 @@ mod tests {
                 sample_player_frame(45),
             ],
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: vec![sample_player_frame(70), sample_player_frame(71)],
             slope_walk_left: vec![sample_player_frame(80), sample_player_frame(81)],
             jump_rise: sample_player_frame(20),
@@ -6086,6 +6151,7 @@ mod tests {
             walk: vec![sample_player_frame(10), sample_player_frame(11)],
             charge: Vec::new(),
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: vec![
                 sample_player_frame(70),
                 sample_player_frame(71),
@@ -6144,6 +6210,7 @@ mod tests {
             ],
             charge: Vec::new(),
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -6187,6 +6254,7 @@ mod tests {
             ],
             charge: Vec::new(),
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(40),
@@ -6227,6 +6295,7 @@ mod tests {
                 sample_player_frame(61),
                 sample_player_frame(62),
             ],
+            axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
@@ -6271,6 +6340,7 @@ mod tests {
             ],
             charge: Vec::new(),
             climb: Vec::new(),
+            axe: Vec::new(),
             slope_walk: Vec::new(),
             slope_walk_left: Vec::new(),
             jump_rise: sample_player_frame(20),
