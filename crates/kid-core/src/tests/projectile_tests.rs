@@ -4271,6 +4271,37 @@ mod chunk_06 {
     }
 
     #[test]
+    /// ASM ManiaxeAxe_Init installs `stru_8B86`, then loc_8A52 loops through
+    /// `Hibernate_Object_1Frame` while the gfx object animation keeps ticking.
+    /// Native exports that clock for the `maniaxe_axe_1..4` render cycle.
+    fn loc_8a52_axe_advances_stru_8b86_animation_clock() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            x_velocity: 5 << 16,
+            lifetime: 0,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+
+        rt.step_projectiles();
+        rt.step_projectiles();
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].animation_elapsed_frames, 3,
+            "ASM loc_8A52/stru_8B86: live axes must advance the render animation clock instead of staying on the first frame"
+        );
+        assert_eq!(
+            rt.trace_frame().active_projectile_details[0].animation_elapsed_frames,
+            3,
+            "native-player uses this exported clock to spin the Maniaxe axe sprite"
+        );
+    }
+
+    #[test]
     /// ASM loc_8A74 (kid.asm:9879): `subq.w #1,d0; bne.w loc_8A84` — decrement
     /// turnaround counter each frame. When zero: `not.b x_direction(a3);
     /// not.b $17(a3); moveq #$C,d0` — flip direction, flip render, reset to 12.

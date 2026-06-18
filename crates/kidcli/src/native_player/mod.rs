@@ -3423,6 +3423,57 @@ mod tests {
     }
 
     #[test]
+    fn maniaxe_axe_projectile_spins_through_stru_8b86_frames() {
+        let mut visuals = sample_level_visuals();
+        let mut maniaxe_visuals = visuals
+            .player
+            .forms
+            .get(&0)
+            .expect("Kid fallback visuals")
+            .clone();
+        maniaxe_visuals.axe = vec![
+            sample_player_frame(90),
+            sample_player_frame(91),
+            sample_player_frame(92),
+            sample_player_frame(93),
+        ];
+        visuals
+            .player
+            .forms
+            .insert(PlayerForm::Maniaxe.helmet_id(), maniaxe_visuals);
+
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_helmet_id = PlayerForm::Maniaxe.helmet_id();
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 5 << 16,
+            y_velocity: 0,
+            friendly: true,
+            remaining_frames: 0,
+            animation_elapsed_frames: 4,
+            kind: ActiveProjectileKind::ManiaxeAxe,
+            boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. }
+                        if tile_sheet.tiles[0].pixels[0] == 92
+                )
+            }),
+            "ASM loc_8A52/stru_8B86 should use the exported animation clock to spin past the first Maniaxe axe frame"
+        );
+    }
+
+    #[test]
     fn boss_eye_attack_uses_mapping_index_marker_sub_37abc() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {

@@ -2747,6 +2747,13 @@ impl NativeRuntime {
                 // animation clock rather than deleting on timer expiry.
                 p.animation_elapsed_frames = p.animation_elapsed_frames.wrapping_add(1);
             }
+            if is_maniaxe_axe {
+                // ASM ManiaxeAxe_Init installs `stru_8B86`, and loc_8A52
+                // hibernates one frame per loop while that gfx animation keeps
+                // ticking. Native rendering uses this exported clock for the
+                // four `maniaxe_axe_1..4` frames.
+                p.animation_elapsed_frames = p.animation_elapsed_frames.wrapping_add(1);
+            }
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
                 && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8
             {
