@@ -37,9 +37,13 @@ and stop — never commit churn.
   `u8::from_str_radix(_,16)`; new kid-data test pins 0x1B/0x27. (3) **#325 P2 water palette**: theme palette path was
   numeric (`palette_fg/7.bin`) but assets are name-based — added `theme_palette_basename` (ROM-ordered name table)
   for fg+bg paths; replaced the masking numeric fixtures; real-asset Highwater regression confirms the loc_1223C band
-  is non-zero. `verify-slice-fast` green (6135+); `verify-tas-full` running. All three are `[?]` — human must
-  validate visually (teleport: no card; Skydragon card name; Highwater waterfall cycles). See `#325`/`#326`/`#327`
-  archive.
+  is non-zero. `verify-slice-fast` green (6135+); `verify-tas-full` green (advisory number_objects only). All three
+  are `[?]` — human must validate visually (teleport: no card; Skydragon card name; Highwater waterfall cycles).
+  Also INVESTIGATED (no code, deliberately not blind-fixed — both need work that would otherwise be a guess):
+  **#323** axe sprite source pinned to `stru_8B86`→4 frames at ROM 0x0A589E + a 4-file wiring plan, blocked on
+  decoding the mapping pfd offsets; **#324** confirmed the foreground/block two-plane DATA split but the RENDER
+  behaviour needs jgenesis forest-level frames before reverting the scene.rs guards (blind revert risks re-opening
+  the closed #289). See `#323`/`#324`/`#325`/`#326`/`#327` archive.
 - **Last session** (2026-06-18, latest+18): **blocked #322 P0 crash (`[ ]`→`[b]`) — needs human repro. Docs-only.**
   First substantive investigation since the triage filed it. Disproved the archive's proposed "robust render-guard
   fix": it is **dead code**. A present-but-empty enemy family cannot occur in production — `load_enemy_visuals`
