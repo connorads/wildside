@@ -10127,6 +10127,36 @@ oracle repro = authoritative; minimum gate = fast-slice.
 - **Robust engine-level fix (correct regardless of the exact line):** make the render `frames[0]`/`% len()` sites total against empty frames — guard `frames.is_empty()` and fall back to the existing `object_rect(...)` placeholder (sprites.rs:1518) / early-return (scene.rs:5601), and have `load_enemy_visuals` skip inserting a family whose decoded `frames` is empty so `families.get` returns None and the rect fallback fires. Add a probe scenario that shoots a flying dragon + a unit test that `select_enemy_frame`/`push_enemy_sprite` do not panic for object_type 0x0C with empty/len<5 frames (alive and HP==0+wait_timer). Cite ASM `Dragon_Flying.asm loc_346DA stru_34600` / `loc_3492C stru_345E4`.
 - Evidence: combat.rs:8857-8924 (dragon death child/anim, guarded), helmets.rs:5984-6075 (friendly-projectile hit, guarded), enemies.rs:15393 (descent-fire spawn). All these gameplay paths are bounds-checked; the unguarded indexes are the render `frames[0]` and any not-yet-located per-object `[0]`.
 
+**2026-06-18 (latest+18) — `[ ]`→`[b]`, blocked on human repro. Docs-only.** First substantive
+investigation since filing. Two findings that change the disposition:
+
+1. **The proposed "robust render-guard fix" is provably DEAD CODE — do NOT implement it (it would be
+   churn).** A present-but-empty enemy family cannot occur in production: `load_enemy_visuals`
+   (kid-render/src/bundle.rs:3489-3554) inserts a family **only** after `load_compressed_sprite_frames`
+   returns `Ok` — on any `Err` it `eprintln!`s and `continue`s (never inserts). `load_compressed_sprite_frames`
+   (bundle.rs:4175-4194) returns exactly one `SpriteFrame` per descriptor, so its Vec is empty **iff** the
+   spec's `frames` slice is empty — and **no** `ENEMY_FAMILIES` spec has `frames: &[]` (grep over the 34
+   specs: zero matches). So `families.get(&type)` is either absent (→ `push_enemy_sprite` already falls back
+   to `object_rect`, sprites.rs:1512-1520) or present-with-≥1-frame. The `frames[0]`/`% len()` sites
+   (sprites.rs:1494/1502, scene.rs:5602 `push_effect_enemy_sprite` — itself boss-gated to types 0x20/0x21)
+   are therefore unreachable on an empty Vec; guarding them changes no observable behaviour. The archive's
+   "skip empty-frame family inserts" half is likewise a no-op (no empty spec exists).
+2. **The kid-core flying-dragon (0x0C → `EnemyFamily::Dragon`) kill paths are all already bounds-safe.**
+   Re-audited the full shoot→HP0→death→child chain: `DRAGON_DIVE_SCRIPT[descent_index]` is preceded by a
+   `>= len()` check (enemies.rs:15356-15360); the friendly-projectile-hit loops iterate `0..active_enemies.len()`,
+   collect `kill_indices`, and remove in **reverse after** the loop (helmets.rs:5943-5975, 5990-6076) — no
+   stale in-loop index; `step_pending_dragon_death_children` / `apply_dragon_flying_death_status_route_loc_3492C`
+   / `rebuild_active_enemy_roster` use `retain_mut` + iterators + `get_mut` (combat.rs:8957-9012, 8934-8955).
+   The 0x0C death-frame render arm is guarded `len() >= 4` (sprites.rs:1372) and the fallthrough uses `% len()`
+   (a divisor-zero panic, *not* "index out of bounds"), so it isn't the reported panic either.
+
+**Conclusion:** there is no safe blind fix, and the exact `[0]`-on-empty-Vec site cannot be pinned by static
+analysis (this iteration's audit + the original 15-agent triage both failed to). Pinning genuinely requires
+`RUST_BACKTRACE=1 mise run play-native` on Level 0x06 (interactive: enter the Maniaxe/Iron-Knight form, jump,
+shoot a flying dragon) — needs a display, which the unattended/headless loop lacks. Blocked on that human run
+per the status legend's "needs human repro". Once a human supplies the backtrace file:line, the fix is a
+targeted bounds-guard at that one site + a regression scenario — not the speculative render-guard sweep above.
+
 ### #323
 
 **Maniaxe / Iron Knight axe renders as a green dot, and "does not hurt enemies".** Two faults, separated.
