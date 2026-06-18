@@ -270,6 +270,21 @@ pub(crate) use sprites::render_gameplay_frame_evidence_for_level;
 pub(crate) const NATIVE_FRAME_WIDTH: u32 = FRAME_WIDTH;
 pub(crate) const NATIVE_FRAME_HEIGHT: u32 = FRAME_HEIGHT;
 
+/// Render the native engine's own VDP reconstruction into `rgb` (320×224×3).
+///
+/// `VdpState` (kid-core) and `VdpSnapshot` (kid-md) carry identical fields; we
+/// copy lazily on render rather than coupling kid-core capture to kid-md.
+/// `render_vdp_into` hard-codes 320×224, matching `NATIVE_FRAME_WIDTH/HEIGHT`.
+pub(crate) fn render_native_vdp_rgb(vdp: &kid_core::vdp::VdpState, rgb: &mut [u8]) {
+    let snapshot = kid_md::VdpSnapshot {
+        registers: vdp.registers,
+        vram: vdp.vram.clone(),
+        cram: vdp.cram.clone(),
+        vsram: vdp.vsram.clone(),
+    };
+    kid_md::render_vdp_into(&snapshot, rgb);
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct FinalScenePixelDiagnostic {
     pub(crate) x: usize,
@@ -454,13 +469,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     }
 
     if let Some(vdp) = runtime.vdp_state() {
-        let snapshot = kid_md::VdpSnapshot {
-            registers: vdp.registers,
-            vram: vdp.vram.clone(),
-            cram: vdp.cram.clone(),
-            vsram: vdp.vsram.clone(),
-        };
-        kid_md::render_vdp_into(&snapshot, &mut frame);
+        render_native_vdp_rgb(vdp, &mut frame);
         render_vdp_trace_overlay(&trace, &session_assets.level_visuals, &mut frame);
     } else {
         let scene = build_scene(
@@ -859,13 +868,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         } else if let Some(vdp) = runtime.vdp_state() {
             // Non-gameplay mode with VDP state: render directly using the
             // proven software VDP renderer for pixel-accurate output.
-            let snapshot = kid_md::VdpSnapshot {
-                registers: vdp.registers,
-                vram: vdp.vram.clone(),
-                cram: vdp.cram.clone(),
-                vsram: vdp.vsram.clone(),
-            };
-            kid_md::render_vdp_into(&snapshot, &mut frame);
+            render_native_vdp_rgb(vdp, &mut frame);
             render_vdp_trace_overlay(&render_trace, &session_assets.level_visuals, &mut frame);
         } else {
             let scene = build_scene(
@@ -7264,6 +7267,35 @@ mod tests {
         kid_md::render_vdp_into(&snapshot, &mut frame);
         render_vdp_trace_overlay(trace, level_visuals, &mut frame);
         frame
+    }
+
+    #[test]
+    fn render_native_vdp_rgb_produces_non_blank_buffer() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        // Step the Sega/title sequence (default input) until the engine exposes a
+        // VDP shell (vdp_state Some on non-gameplay screens, lib.rs:2491) that
+        // renders visible pixels — the Sega logo fades in, so early frames can be
+        // legitimately black.
+        let mut runtime = NativeRuntime::new(manifest);
+        let mut rgb = vec![0u8; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let mut non_blank = false;
+        for _ in 0..400 {
+            runtime.step_frame(FrameInput::default());
+            if let Some(vdp) = runtime.vdp_state() {
+                let vdp = vdp.clone();
+                render_native_vdp_rgb(&vdp, &mut rgb);
+                if rgb.iter().any(|&byte| byte != 0) {
+                    non_blank = true;
+                    break;
+                }
+            }
+        }
+        assert!(
+            non_blank,
+            "a Sega/title VDP frame should render non-black pixels",
+        );
     }
 
     #[test]

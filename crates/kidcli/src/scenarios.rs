@@ -373,6 +373,31 @@ pub(crate) fn run_native_dynamic_scenario(
     scenario: &DynamicScenario,
     options: NativeDynamicRunOptions,
 ) -> Result<Vec<NativeTraceFrame>> {
+    Ok(configure_script_runner(manifest, scenario, options)?
+        .run(&scenario.script, scenario.frame_count))
+}
+
+/// Like [`run_native_dynamic_scenario`] but also returns the per-frame VDP
+/// snapshots (`Some` on non-gameplay screens, `None` during gameplay). The
+/// TAS viewer uses these to render real VDP pixels for title/Sega/intro
+/// screens instead of the object-level placeholder.
+pub(crate) fn run_native_dynamic_scenario_with_vdp(
+    manifest: AssetManifest,
+    scenario: &DynamicScenario,
+    options: NativeDynamicRunOptions,
+) -> Result<(
+    Vec<NativeTraceFrame>,
+    Vec<Option<kid_core::vdp::VdpState>>,
+)> {
+    Ok(configure_script_runner(manifest, scenario, options)?
+        .run_with_vdp(&scenario.script, scenario.frame_count))
+}
+
+fn configure_script_runner(
+    manifest: AssetManifest,
+    scenario: &DynamicScenario,
+    options: NativeDynamicRunOptions,
+) -> Result<ScriptRunner> {
     let mut runner = ScriptRunner::new(manifest);
     if let Some(level) = scenario.warp_to_level {
         runner = runner.warp_to_level(level);
@@ -406,7 +431,7 @@ pub(crate) fn run_native_dynamic_scenario(
         runner = runner.initial_lives(count);
     }
 
-    Ok(runner.run(&scenario.script, scenario.frame_count))
+    Ok(runner)
 }
 
 /// Idle on a level for `idle_frames` (default 300, ~5 s at 60 fps).

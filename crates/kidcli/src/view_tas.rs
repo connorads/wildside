@@ -1,11 +1,13 @@
 use crate::diff::{annotate_diff, draw_text, generate_diff_composite};
 use crate::inspect::describe_frame_input;
 use crate::native_player::{
-    NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene, load_session_assets, render_scene,
+    NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, build_scene, load_session_assets,
+    render_native_vdp_rgb, render_scene,
 };
 use crate::oracle::{OracleManifest, ensure_oracles, run_jgenesis_capture_dynamic};
 use crate::scenarios::{
-    DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions, run_native_dynamic_scenario,
+    DynamicCheckpoint, DynamicScenario, NativeDynamicRunOptions,
+    run_native_dynamic_scenario_with_vdp,
 };
 use crate::sweep::{
     ADVISORY_FIELDS, FrontierKind, StateDiff, compare_sweep_states_for_frontier,
@@ -38,6 +40,10 @@ pub(crate) struct TasComparisonRun {
     pub(crate) start: usize,
     pub(crate) end: usize,
     pub(crate) native_trace: Vec<NativeTraceFrame>,
+    /// Per-frame VDP snapshot: `Some` on non-gameplay screens (title/Sega/intro)
+    /// where we render real VDP pixels, `None` during gameplay where the
+    /// object-level `build_scene` path renders. See `vdp_state` (lib.rs:2491).
+    pub(crate) vdp_snapshots: Vec<Option<kid_core::vdp::VdpState>>,
     pub(crate) oracle: OracleManifest,
     pub(crate) diff_by_frame: BTreeMap<usize, Vec<StateDiff>>,
     pub(crate) divergent_frames: Vec<usize>,
@@ -165,7 +171,7 @@ pub(crate) fn prepare_tas_comparison_run(
         sliced.slug, frontier_kind
     );
     println!("  running native ({end} frames)...");
-    let native_trace = run_native_dynamic_scenario(
+    let (native_trace, vdp_snapshots) = run_native_dynamic_scenario_with_vdp(
         manifest.clone(),
         &sliced,
         NativeDynamicRunOptions::default(),
@@ -221,6 +227,7 @@ pub(crate) fn prepare_tas_comparison_run(
         start,
         end,
         native_trace,
+        vdp_snapshots,
         oracle,
         diff_by_frame,
         divergent_frames,
@@ -752,19 +759,33 @@ impl ViewTasApp {
             .native_trace
             .get(frame_index)
             .ok_or_else(|| anyhow!("missing native frame {frame_index}"))?;
-        let level_id = frame.current_level.0;
-        if !self.asset_cache.contains_key(&level_id) {
-            let assets = load_session_assets(&self.manifest, level_id)?;
-            self.asset_cache.insert(level_id, assets);
-        }
-
-        let (level_visuals, block_grid) = self
-            .asset_cache
-            .get(&level_id)
-            .ok_or_else(|| anyhow!("asset cache missing level {level_id:02X}"))?;
-        let scene = build_scene(frame, false, Some(level_visuals), Some(block_grid));
         let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
-        render_scene(&scene, &mut rgb);
+
+        // Prefer the engine's own VDP reconstruction (title/Sega/intro/menu)
+        // for pixel-faithful native-vs-oracle diffs; fall back to the
+        // object-level scene during gameplay where `vdp_state` is `None`.
+        match self
+            .comparison
+            .vdp_snapshots
+            .get(frame_index)
+            .and_then(Option::as_ref)
+        {
+            Some(vdp) => render_native_vdp_rgb(vdp, &mut rgb),
+            None => {
+                let level_id = frame.current_level.0;
+                if !self.asset_cache.contains_key(&level_id) {
+                    let assets = load_session_assets(&self.manifest, level_id)?;
+                    self.asset_cache.insert(level_id, assets);
+                }
+
+                let (level_visuals, block_grid) = self
+                    .asset_cache
+                    .get(&level_id)
+                    .ok_or_else(|| anyhow!("asset cache missing level {level_id:02X}"))?;
+                let scene = build_scene(frame, false, Some(level_visuals), Some(block_grid));
+                render_scene(&scene, &mut rgb);
+            }
+        }
 
         let native_dir = self.comparison.run_dir.join("native");
         fs::create_dir_all(&native_dir)
