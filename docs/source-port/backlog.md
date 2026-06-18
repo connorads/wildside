@@ -26,6 +26,21 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+11): **#309 ice-bullet directional-table pinning committed**.
+  Recovered the prior (uncommitted) WIP — an exact-value test for the per-direction ice-bullet
+  offset + velocity tables — and verified it from scratch before committing. ASM-traced all four
+  directions against `IceBlock_BulletPosOffset_Index` (kid.asm:22990), confirming the table holds
+  *incremental* (x2,y2,x3,y3) deltas applied via `add.w (a1)+,d1/d2` at `loc_11052`, so bullet 3 =
+  centre + (t0+t2, t1+t3): up `(4,4)`, right `(-4,4)`, down `(-4,-4)`, left `(4,-4)`. Velocity is the
+  exact round-trip inverse of `shooter_object_direction_from_velocity_loc_EDFA`. The three prior
+  ice-bullet tests only exercise remapped dirs 0/2 and never assert exact offsets/velocity, so the
+  **left arm** (dir 3 third-bullet y-sign + left velocity x-sign) and the exact dir-2/3 tuples survived
+  mutation. New regression `ice_block_bullet_offsets_and_velocity_match_asm_iceblock_bulletposoffset_index`
+  pins all four directions. Mutation re-run over both helpers + wrapper (`/tmp/mutants-ice-dir-309`):
+  **48 mutants, all 48 caught, 0 missed**. `verify-slice-fast` green (6127+9); test-only ⇒ no
+  `verify-tas-full`. #309 stays `[ ]` (umbrella — only the two oracle-gated type-8 Shooter deviations
+  remain open; the ice-bullet + metal-push helper families now have no mutation gap). Next top open
+  table row is still **#309** (no narrow behavioural slice left) then **#310** (terrain). See `#309` archive.
 - **Last session** (2026-06-18, latest+10): **blocked #308 (`[ ]`→`[b]`)** — contact-box vein
   provably exhausted. New angle vs the prior flip/transcription passes: a complete systematic
   re-audit of all 27 `*_contact_bounds` helpers (combat.rs:11595-12287) against their cited ASM

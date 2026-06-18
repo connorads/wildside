@@ -9893,6 +9893,30 @@ oracle repro = authoritative; minimum gate = fast-slice.
   removal broke 18 tests — do not retry without a type-8 ceiling-headbutt oracle
   probe); no narrow behavioural slice remains, and the metal-push helper family
   now has no non-equivalent mutation gap.
+- 2026-06-18 ice-bullet directional-table pinning: closed the last unpinned
+  ice-bullet mutation gap — the per-direction offset and velocity tables in
+  `ice_block_bullet_offsets_loc_11052` / `ice_block_bullet_velocity_loc_110AA`
+  (blocks.rs:2245/2257). The three prior ice-bullet tests only ever exercise
+  remapped directions 0/2 (ceiling headbutt → up; Red Stealth floor `d6=0` → down;
+  the layout-tracking test passes `d6=2` → up) and **none assert exact offset or
+  velocity tuples** — so the left arm (remapped dir 3: third-bullet `(4,-4)`
+  y-sign and velocity `-speed` x-sign) and the exact tuples for dirs 2/3 survived
+  mutation. ASM-verified all four directions against `IceBlock_BulletPosOffset_Index`
+  (kid.asm:22990) by hand-tracing the cumulative `add.w (a1)+,d1/d2` application at
+  `loc_11052` (kid.asm:22958-22978): the table holds *incremental* (x2,y2,x3,y3)
+  deltas, so bullet 3 = centre + (t0+t2, t1+t3) — up `(0,0),(-4,4),(4,4)`; right
+  `(0,0),(-4,-4),(-4,4)`; down `(0,0),(4,-4),(-4,-4)`; left `(0,0),(4,4),(4,-4)`.
+  Velocity is the exact round-trip inverse of `shooter_object_direction_from_velocity_loc_EDFA`
+  (projectiles.rs:1944): 0→`(0,-speed)`,1→`(speed,0)`,2→`(0,speed)`,3→`(-speed,0)`.
+  New regression `ice_block_bullet_offsets_and_velocity_match_asm_iceblock_bulletposoffset_index`
+  (blocks.rs tests) pins all four directions' offsets and velocity. Mutation re-run
+  over both helpers + the wrapper (`cargo mutants -f blocks.rs --re
+  'ice_block_bullet_offsets_loc_11052|ice_block_bullet_velocity_loc_110AA'`,
+  `/tmp/mutants-ice-dir-309`): **48 mutants, all 48 caught, 0 missed** (was: the
+  dir-2/3 arm and left-velocity mutants survived). `verify-slice-fast` green
+  (6127+9); test-only ⇒ no `verify-tas-full`. #309 stays `[ ]`: same residual as
+  above — only the two oracle-gated type-8 Shooter deviations remain, no narrow
+  behavioural slice; the ice-bullet helper family now has no mutation gap.
 
 ### #310
 

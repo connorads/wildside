@@ -6508,4 +6508,41 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn ice_block_bullet_offsets_and_velocity_match_asm_iceblock_bulletposoffset_index() {
+        // ASM IceBlock_BulletPosOffset_Index (kid.asm:22990) stores the
+        // *incremental* (x2,y2,x3,y3) deltas applied via `add.w (a1)+,d1/d2`
+        // between the centre bullet and bullets 2 and 3, so native carries them
+        // as *cumulative* offsets from the centre:
+        //   up    (d6&3==0): dc.w -4, 4, 8, 0  -> (0,0),(-4,4),(4,4)
+        //   right (d6&3==1): dc.w -4,-4, 0, 8  -> (0,0),(-4,-4),(-4,4)
+        //   down  (d6&3==2): dc.w  4,-4,-8, 0  -> (0,0),(4,-4),(-4,-4)
+        //   left  (d6&3==3): dc.w  4, 4, 0,-8  -> (0,0),(4,4),(4,-4)
+        // Velocity follows the same 0=up/1=right/2=down/3=left compass that
+        // `shooter_object_direction_from_velocity_loc_EDFA` (projectiles.rs)
+        // decodes back from the stored ShooterObject velocity, so the left bullet
+        // fires with negative x velocity. The IceBlock integration tests only
+        // exercise directions 0/1/2; without this the left arm's third-bullet
+        // y-sign (4,-4) and the left velocity x-sign (-speed) survive mutation.
+        let speed = NativeRuntime::SHOOTER_PROJECTILE_SPEED;
+        let cases: [(u16, [(i32, i32); 3], (i32, i32)); 4] = [
+            (0, [(0, 0), (-4, 4), (4, 4)], (0, -speed)),
+            (1, [(0, 0), (-4, -4), (-4, 4)], (speed, 0)),
+            (2, [(0, 0), (4, -4), (-4, -4)], (0, speed)),
+            (3, [(0, 0), (4, 4), (4, -4)], (-speed, 0)),
+        ];
+        for (remapped_direction, offsets, velocity) in cases {
+            assert_eq!(
+                NativeRuntime::ice_block_bullet_offsets_loc_11052(remapped_direction),
+                offsets,
+                "remapped direction {remapped_direction} bullet offsets",
+            );
+            assert_eq!(
+                NativeRuntime::ice_block_bullet_velocity_loc_110AA(remapped_direction),
+                velocity,
+                "remapped direction {remapped_direction} bullet velocity",
+            );
+        }
+    }
 }
