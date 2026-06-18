@@ -7750,6 +7750,50 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_A8DE enters wall-cling after sub_8F26 only when the follow-up
+    /// cling loop can keep validating wall continuation through sub_ADB8 /
+    /// sub_AE6E. A one-cell stair nub must clamp the current leftward move
+    /// without latching wall-cling and swallowing later held-left air control.
+    #[test]
+    fn loc_a8de_left_step_nub_clamps_without_wall_cling() {
+        let w: u16 = 5;
+        let h: u16 = 5;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(2 * usize::from(w) + 1) * 2] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        // Same left-moving geometry as loc_8FAC, but the wall column contains
+        // only a single stair cell near Kid's feet instead of a continuing wall.
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = -0x0001_0000;
+
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert_eq!(
+            slice.player.x_velocity, 0,
+            "ASM sub_8F26 should still clamp the current leftward hit",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            37 << 16,
+            "ASM loc_8FAC should snap the centre flush after the left step hit",
+        );
+        assert!(
+            !slice.player.left_wall_sticky,
+            "ASM loc_A8DE/sub_ADB8: one-cell stair nubs must not latch left_wall_sticky",
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction, None,
+            "ASM loc_A8DE/sub_ADB8: one-cell stair nubs must not suppress following held-left air control",
+        );
+    }
+
     /// ASM sub_922C loc_9294 -> loc_92B6: a `$7000` side-wall cell writes
     /// `collision_type=colid_kidbelow` ($28) before falling through to the
     /// normal wall-hit return, so the runtime damage path must see a spike

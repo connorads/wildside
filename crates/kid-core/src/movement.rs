@@ -6268,11 +6268,23 @@ impl OpeningSliceState {
                 }
                 return;
             }
-            self.player.right_wall_sticky = moving_right && !self.player.on_ground;
-            self.player.left_wall_sticky = moving_left && !self.player.on_ground;
-            // ASM loc_A8DE: enter wall-cling on airborne wall hit. Suppresses
-            // sub_B084 (h_accel) in subsequent frames until landing or press-away.
-            if !self.player.on_ground {
+            let latches_wall_cling = Self::side_wall_hit_latches_cling_loc_a8de(
+                grid,
+                probe.cell_x,
+                probe.cell_y,
+                y_px,
+                moving_left,
+            );
+            self.player.right_wall_sticky =
+                moving_right && !self.player.on_ground && latches_wall_cling;
+            self.player.left_wall_sticky =
+                moving_left && !self.player.on_ground && latches_wall_cling;
+            // ASM loc_A8DE enters the wall-cling coroutine after side-wall hits,
+            // and the following loop immediately validates continuation through
+            // sub_ADB8/sub_AE6E. A single left-side stair/step nub at Kid's feet
+            // should clamp this frame's sub_8F26 movement without suppressing
+            // sub_B084 air control on subsequent frames.
+            if !self.player.on_ground && latches_wall_cling {
                 self.player.wall_cling_direction = Some(if moving_right {
                     Direction::Right
                 } else {
@@ -6285,6 +6297,41 @@ impl OpeningSliceState {
             self.player.right_wall_sticky = false;
             self.player.left_wall_sticky = false;
         }
+    }
+
+    fn side_wall_hit_latches_cling_loc_a8de(
+        grid: &terrain::BlockGrid,
+        cell_x: u16,
+        hit_cell_y: u16,
+        y_px: i32,
+        moving_left: bool,
+    ) -> bool {
+        if !moving_left {
+            return true;
+        }
+
+        let foot_cell_y = (y_px.max(0) / 16) as u16;
+        if hit_cell_y != foot_cell_y {
+            return true;
+        }
+
+        let above_continues =
+            hit_cell_y > 0 && Self::side_wall_cell_is_solid_or_spikes(grid, cell_x, hit_cell_y - 1);
+        let below_continues = hit_cell_y
+            .checked_add(1)
+            .is_some_and(|cell_y| Self::side_wall_cell_is_solid_or_spikes(grid, cell_x, cell_y));
+        above_continues || below_continues
+    }
+
+    fn side_wall_cell_is_solid_or_spikes(
+        grid: &terrain::BlockGrid,
+        cell_x: u16,
+        cell_y: u16,
+    ) -> bool {
+        matches!(
+            grid.cell_at(cell_x, cell_y).collision,
+            terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+        )
     }
 
     pub(crate) fn apply_ceiling_collision(
