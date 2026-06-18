@@ -1716,12 +1716,16 @@ pub(crate) fn relative_collision_mask_loc_331D2(
     x_offset_px: i32,
     y_offset_px: i32,
 ) -> u16 {
-    let sample_x = center_x_px + x_offset_px;
-    let sample_y = foot_y_px + y_offset_px;
-    if sample_x < 0 || sample_y < 0 {
+    // ASM loc_331D2 (kid.asm:37627): `add.w x_pos(a3),d1` and
+    // `add.w y_pos(a3),d0` keep only the low 16 bits. The row then uses
+    // signed `asr.w #4`, while the column uses unsigned `lsr.w #4`.
+    let sample_x = (center_x_px as i16 as u16).wrapping_add(x_offset_px as i16 as u16);
+    let sample_y = (foot_y_px as i16 as u16).wrapping_add(y_offset_px as i16 as u16);
+    let cell_y = (sample_y as i16) >> 4;
+    if cell_y < 0 {
         return 0;
     }
-    probe_at(grid, sample_x, sample_y).cell.to_word() & 0x7000
+    grid.cell_at(sample_x >> 4, cell_y as u16).to_word() & 0x7000
 }
 
 /// Mirror the final collision-nibble mask in `loc_33280`.
@@ -1820,20 +1824,14 @@ pub(crate) fn relative_collision_column_loc_331F6(
     x_offset_px: i32,
     sentinel_d4: u16,
 ) -> RelativeCollisionColumnLoc331F6 {
-    let sample_x = center_x_px + x_offset_px;
-    let sample_y = foot_y_px + 14;
-    if sample_x < 0 || sample_y < 0 {
-        return RelativeCollisionColumnLoc331F6 {
-            current_row: 0,
-            one_row_up: 0,
-            two_rows_up: 0,
-        };
-    }
-
-    let probe = probe_at(grid, sample_x, sample_y);
-    let cell_x = probe.cell_x;
-    let cell_y = probe.cell_y;
-    let current_row = probe.cell.to_word();
+    // ASM loc_331F6 (kid.asm:37642): both axes are 16-bit word values and
+    // both cell conversions use `lsr.w #4`; negative wrapped coordinates can
+    // address the ROM's padded layout rows/columns instead of early-emptying.
+    let sample_x = (center_x_px as i16 as u16).wrapping_add(x_offset_px as i16 as u16);
+    let sample_y = (foot_y_px as i16 as u16).wrapping_add(14);
+    let cell_x = sample_x >> 4;
+    let cell_y = sample_y >> 4;
+    let current_row = grid.cell_at(cell_x, cell_y).to_word();
     let one_row_up = if cell_y == 0 {
         0
     } else {
@@ -1876,22 +1874,22 @@ pub(crate) fn relative_collision_row_loc_33286(
     y_offset_px: i32,
     sentinel_d6: u16,
 ) -> RelativeCollisionRowLoc33286 {
-    let sample_y = y_pos_px + y_offset_px;
-    let start_x = center_x_px - 0x0E;
-    if sample_y < 0 || start_x < 0 {
-        return RelativeCollisionRowLoc33286 {
-            left: 0,
-            centre: 0,
-            right: 0,
-        };
-    }
-
-    let probe = probe_at(grid, start_x, sample_y);
-    let cell_x = probe.cell_x;
-    let cell_y = probe.cell_y;
-    let left = probe.cell.to_word();
-    let centre = grid.cell_at(cell_x.wrapping_add(1), cell_y).to_word();
-    let right = grid.cell_at(cell_x.wrapping_add(2), cell_y).to_word();
+    // ASM loc_33286 (kid.asm:37697): `add.w y_pos(a3),d7` and
+    // `subi.w #$E,d7` operate as words, then `lsr.w #4` converts both axes.
+    let sample_y = (y_pos_px as i16 as u16).wrapping_add(y_offset_px as i16 as u16);
+    let start_x = (center_x_px as i16 as u16).wrapping_sub(0x0E);
+    let cell_x = start_x >> 4;
+    let cell_y = sample_y >> 4;
+    let read_next_word = |offset: usize| {
+        let index = usize::from(cell_y)
+            .saturating_mul(usize::from(grid.width_cells))
+            .saturating_add(usize::from(cell_x))
+            .saturating_add(offset);
+        grid.raw_words.get(index).copied().unwrap_or(0)
+    };
+    let left = read_next_word(0);
+    let centre = read_next_word(1);
+    let right = read_next_word(2);
 
     if sentinel_d6 == 0x03E7 {
         RelativeCollisionRowLoc33286 {
@@ -4671,15 +4669,15 @@ mod tests {
     }
 
     #[test]
-    fn relative_collision_mask_loc_331d2_rejects_either_negative_coordinate() {
-        let mut grid = make_empty_grid(2, 2);
-        grid.set_cell_at(0, 0, Cell::from_be_bytes(0x60, 0x01));
+    fn relative_collision_mask_loc_331d2_wraps_x_but_signed_negative_y_is_empty() {
+        let mut grid = make_empty_grid(4096, 1);
+        grid.set_cell_at(4095, 0, Cell::from_be_bytes(0x60, 0x01));
 
-        // ASM sub_B55C/loc_331D2 (kid.asm:14464/37627) samples exactly the
-        // Level_Layout cell addressed by the relative x/y probe. Native must
-        // not let `probe_at` clamp a single negative coordinate onto cell
-        // (0,0), because that would turn out-of-level space into solid terrain.
-        assert_eq!(relative_collision_mask_loc_331D2(&grid, -1, 0, 0, 0), 0);
+        // ASM loc_331D2 (kid.asm:37627): X uses `add.w` followed by unsigned
+        // `lsr.w #4`, so x=-1 resolves to column `$0FFF`. Y uses signed
+        // `asr.w #4`, so y=-1 addresses a negative row; the native grid has no
+        // ROM row-pointer padding there and returns empty.
+        assert_eq!(relative_collision_mask_loc_331D2(&grid, -1, 0, 0, 0), 0x6000);
         assert_eq!(relative_collision_mask_loc_331D2(&grid, 0, -1, 0, 0), 0);
     }
 
@@ -4706,29 +4704,33 @@ mod tests {
     }
 
     #[test]
-    fn relative_collision_column_loc_331f6_rejects_either_negative_coordinate() {
-        let mut grid = make_empty_grid(2, 2);
-        grid.set_cell_at(0, 1, Cell::from_be_bytes(0x60, 0x11));
-        grid.set_cell_at(0, 0, Cell::from_be_bytes(0x70, 0x22));
+    fn relative_collision_column_loc_331f6_wraps_negative_word_coordinates() {
+        let mut x_wrap_grid = make_empty_grid(4096, 2);
+        x_wrap_grid.set_cell_at(4095, 1, Cell::from_be_bytes(0x60, 0x11));
+        x_wrap_grid.set_cell_at(4095, 0, Cell::from_be_bytes(0x70, 0x22));
 
-        // ASM loc_331F6 (kid.asm:37643): the routine derives its current row
-        // from `y_pos(a3) + $E` and its column from `d7 + x_pos(a3)` before
-        // reading that Level_Layout column and two rows above. Native must not
-        // let `probe_at` clamp either negative relative coordinate onto column
-        // zero, because that would promote out-of-level space into terrain.
-        let expected_empty_column = RelativeCollisionColumnLoc331F6 {
-            current_row: 0,
-            one_row_up: 0,
-            two_rows_up: 0,
-        };
+        let mut y_wrap_grid = make_empty_grid(1, 4096);
+        y_wrap_grid.set_cell_at(0, 4095, Cell::from_be_bytes(0x40, 0x33));
+        y_wrap_grid.set_cell_at(0, 4094, Cell::from_be_bytes(0x50, 0x44));
+        y_wrap_grid.set_cell_at(0, 4093, Cell::from_be_bytes(0x60, 0x55));
 
+        // ASM loc_331F6 (kid.asm:37642): both the `d7+x_pos` column and
+        // `y_pos+$E` row use word arithmetic and unsigned `lsr.w #4`.
         assert_eq!(
-            relative_collision_column_loc_331F6(&grid, -1, 2, 0, 0x03E7),
-            expected_empty_column
+            relative_collision_column_loc_331F6(&x_wrap_grid, -1, 2, 0, 0x03E7),
+            RelativeCollisionColumnLoc331F6 {
+                current_row: 0x6011,
+                one_row_up: 0x7022,
+                two_rows_up: 0,
+            }
         );
         assert_eq!(
-            relative_collision_column_loc_331F6(&grid, 0, -15, 0, 0x03E7),
-            expected_empty_column
+            relative_collision_column_loc_331F6(&y_wrap_grid, 0, -15, 0, 0x03E7),
+            RelativeCollisionColumnLoc331F6 {
+                current_row: 0x4033,
+                one_row_up: 0x5044,
+                two_rows_up: 0x6055,
+            }
         );
     }
 
@@ -4798,6 +4800,40 @@ mod tests {
                 left: 0,
                 centre: 0x6000,
                 right: 0x7000,
+            }
+        );
+    }
+
+    #[test]
+    fn relative_collision_row_loc_33286_wraps_negative_word_coordinates() {
+        let mut x_wrap_grid = make_empty_grid(4096, 4);
+        x_wrap_grid.set_cell_at(4095, 2, Cell::from_be_bytes(0x40, 0x11));
+        x_wrap_grid.set_cell_at(0, 3, Cell::from_be_bytes(0x60, 0x22));
+        x_wrap_grid.set_cell_at(1, 3, Cell::from_be_bytes(0x70, 0x33));
+
+        let mut y_wrap_grid = make_empty_grid(3, 4096);
+        y_wrap_grid.set_cell_at(0, 4095, Cell::from_be_bytes(0x50, 0x44));
+        y_wrap_grid.set_cell_at(1, 4095, Cell::from_be_bytes(0x60, 0x55));
+        y_wrap_grid.set_cell_at(2, 4095, Cell::from_be_bytes(0x70, 0x66));
+
+        // ASM loc_33286 (kid.asm:37697): row uses `add.w y_pos(a3),d7`;
+        // start X uses `x_pos(a3)-$E`; both are converted with `lsr.w #4`.
+        // The three words are then read with `(a4)+`, so a wrapped start at
+        // column `$0FFF` continues into the next row in raw layout memory.
+        assert_eq!(
+            relative_collision_row_loc_33286(&x_wrap_grid, 13, 32, 0, 0x03E7),
+            RelativeCollisionRowLoc33286 {
+                left: 0x4011,
+                centre: 0x6022,
+                right: 0x7033,
+            }
+        );
+        assert_eq!(
+            relative_collision_row_loc_33286(&y_wrap_grid, 14, 0, -1, 0x03E7),
+            RelativeCollisionRowLoc33286 {
+                left: 0x5044,
+                centre: 0x6055,
+                right: 0x7066,
             }
         );
     }
