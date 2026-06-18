@@ -26,6 +26,24 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+13): **#309 shooter-block support direction-bit pinning committed**.
+  Recovered the prior (uncommitted) WIP — an exact-value test for the per-direction neighbour-bit
+  dispatch in `shooter_has_support_loc_f106` (blocks.rs:443) — and verified it from scratch before
+  committing. ASM-traced all four directions against `sub_F096` loc_F1DE..loc_F248 (kid.asm:19775-19822):
+  `d6=(word&$FF)-$2D`, then a fixed `lsr.w #1; bcc` chain assigns bit0=up (`a1-width`), bit1=right
+  (`3(a1)`), bit2=down (`a1+width`), bit3=left (`-1(a1)`, `beq`); a set bit whose neighbour skin byte
+  is non-zero marks the slot negative. The helper was private with no direct test — every prior
+  `grid_with_shooter_blocks` test drives only the live scan with a single direction byte, so the
+  bit→neighbour pairing arms had no exact-value pin. New regression
+  `shooter_has_support_loc_f106_matches_asm_per_direction_neighbour_bits` pins each enabled direction
+  vs its own skinned neighbour, the clear-neighbour negative, and the cross-direction negative (skinned
+  neighbour whose bit is NOT set). Made the helper `pub(crate)` for the direct call. Mutation re-run
+  (`/tmp/mutants-shooter-support-309`): **37 mutants, all 37 caught, 0 missed** (27 in the helper, all
+  caught; the 10 incidentally-matched `ice_block_bullets_loc_11052` were already pinned).
+  `verify-slice-fast` green (6129+9); test-only ⇒ no `verify-tas-full`. #309 stays `[ ]` (umbrella —
+  only the two oracle-gated type-8 Shooter deviations remain open; the ice-bullet, metal-push,
+  block-debris, and now shooter-support helper families have no mutation gap). Next top open table row
+  is still **#309** (no narrow behavioural slice left) then **#310** (terrain). See `#309` archive.
 - **Last session** (2026-06-18, latest+12): **#309 block-debris velocity-table pinning committed**.
   Recovered the prior (uncommitted) WIP — an exact-value test for the per-direction `sub_292E`
   shard velocity tables — and verified it from scratch before committing. ASM-verified all four

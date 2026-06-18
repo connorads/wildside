@@ -9944,6 +9944,33 @@ oracle repro = authoritative; minimum gate = fast-slice.
   no `verify-tas-full`. #309 stays `[ ]`: same residual — only the two oracle-gated
   type-8 Shooter deviations remain, no narrow behavioural slice; the block-debris
   velocity-table family now has no mutation gap.
+- 2026-06-18 shooter-block support direction-bit pinning: recovered the prior
+  (uncommitted) WIP and verified it from scratch before committing. Closed the
+  last unpinned mutation gap in `shooter_has_support_loc_f106` (blocks.rs:443) —
+  the per-direction neighbour-bit dispatch that marks a freshly-scanned shooter
+  slot supported/suppressed. The helper was private with no direct test; every
+  prior `grid_with_shooter_blocks` test exercises only the live scan path with a
+  single direction byte, so the four `directions & 0xNN != 0 && <neighbour>` arms
+  (bit→neighbour pairing) had no exact-value pin. ASM-verified all four against
+  `sub_F096` loc_F1DE..loc_F248 (kid.asm:19775-19822): `d6 = (word & $FF) - $2D`,
+  then a fixed `lsr.w #1; bcc` chain assigns bit 0 = up (`a1-Level_width_tiles`,
+  loc_F1FA `tst.b 1(a4)`), bit 1 = right (loc_F224 `tst.b 3(a1)`), bit 2 = down
+  (`a1+Level_width_tiles`, loc_F22E `tst.b 1(a4)`), bit 3 = left (loc_F23E
+  `tst.b -1(a1)` with `beq`); a set bit whose neighbour skin byte is non-zero
+  marks the slot negative (`addi.w #-$8000,-2(a3)`). New regression
+  `shooter_has_support_loc_f106_matches_asm_per_direction_neighbour_bits`
+  (combat_tests.rs) pins each enabled direction against its own skinned neighbour,
+  the unsupported (clear-neighbour) case, and the cross-direction negative case
+  (skinned neighbour whose bit is NOT set must not register support). Made the
+  helper `pub(crate)` for the direct test call. Mutation re-run over the helper
+  (`cargo mutants -f blocks.rs --re 'shooter_has_support_loc_f106'`,
+  `/tmp/mutants-shooter-support-309`): **37 mutants, all 37 caught, 0 missed**
+  (27 in the helper — all `&` masks, `&&`/`||` joins, and bound/`!=0` predicates
+  now caught; the 10 incidentally-matched `ice_block_bullets_loc_11052` mutants
+  were already pinned). `verify-slice-fast` green (6129+9); test-only ⇒ no
+  `verify-tas-full`. #309 stays `[ ]`: same residual — only the two oracle-gated
+  type-8 Shooter deviations remain, no narrow behavioural slice; the
+  shooter-block support helper now has no mutation gap.
 
 ### #310
 

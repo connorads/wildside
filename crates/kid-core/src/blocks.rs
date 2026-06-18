@@ -440,7 +440,7 @@ pub(crate) struct ShooterCollisionRightBottomBlocksLocF580 {
 }
 
 impl NativeRuntime {
-    fn shooter_has_support_loc_f106(
+    pub(crate) fn shooter_has_support_loc_f106(
         grid: &terrain::BlockGrid,
         col: u16,
         row: u16,

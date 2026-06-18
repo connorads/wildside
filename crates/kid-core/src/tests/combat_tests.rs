@@ -19450,6 +19450,71 @@ mod chunk_05 {
     }
 
     #[test]
+    fn shooter_has_support_loc_f106_matches_asm_per_direction_neighbour_bits() {
+        // ASM sub_F096 loc_F1DE..loc_F248 (kid.asm:19789-19823): each set
+        // direction bit in `(word&$FF)-$2D` marks the new shooter slot negative
+        // (supported/suppressed) when the neighbour in that direction has a
+        // non-zero skin byte. The bit order is fixed by the repeated
+        // `lsr.w #1,d6; bcc` chain: bit 0 = up (`a1-Level_width_tiles`,
+        // loc_F1FA), bit 1 = right (`3(a1)`, loc_F224), bit 2 = down
+        // (`a1+Level_width_tiles`, loc_F22E), bit 3 = left (`-1(a1)`, loc_F23E,
+        // tested with `beq` so only a non-zero left skin marks support).
+        const SKIN: u8 = 0x2D;
+        const UP: u8 = 0x01;
+        const RIGHT: u8 = 0x02;
+        const DOWN: u8 = 0x04;
+        const LEFT: u8 = 0x08;
+
+        // Centre shooter at (5,4); neighbours up=(5,3) right=(6,4) down=(5,5)
+        // left=(4,4) are all interior so no edge clamp masks the bound checks.
+        let support = |dirs: u8, up: bool, right: bool, down: bool, left: bool| {
+            let mut grid = grid_with_shooter_blocks(&[]);
+            let skinned = terrain::Cell::from_be_bytes(0x00, SKIN);
+            if up {
+                grid.set_cell_at(5, 3, skinned);
+            }
+            if right {
+                grid.set_cell_at(6, 4, skinned);
+            }
+            if down {
+                grid.set_cell_at(5, 5, skinned);
+            }
+            if left {
+                grid.set_cell_at(4, 4, skinned);
+            }
+            NativeRuntime::shooter_has_support_loc_f106(&grid, 5, 4, dirs)
+        };
+
+        // Each enabled direction is supported when its own neighbour has skin.
+        assert!(support(UP, true, false, false, false), "up bit + skinned up");
+        assert!(
+            support(RIGHT, false, true, false, false),
+            "right bit + skinned right"
+        );
+        assert!(
+            support(DOWN, false, false, true, false),
+            "down bit + skinned down"
+        );
+        assert!(
+            support(LEFT, false, false, false, true),
+            "left bit + skinned left"
+        );
+
+        // Enabled direction with a clear neighbour stays unsupported.
+        assert!(!support(UP, false, false, false, false));
+        assert!(!support(RIGHT, false, false, false, false));
+        assert!(!support(DOWN, false, false, false, false));
+        assert!(!support(LEFT, false, false, false, false));
+
+        // A skinned neighbour whose direction bit is NOT set must not register
+        // support: the ROM only tests the neighbour for an enabled bit.
+        assert!(!support(RIGHT, true, false, false, false), "up off, up skinned");
+        assert!(!support(UP, false, true, false, false), "right off, right skinned");
+        assert!(!support(UP, false, false, true, false), "down off, down skinned");
+        assert!(!support(UP, false, false, false, true), "left off, left skinned");
+    }
+
+    #[test]
     fn loc_f24e_initialises_new_shooter_slot_before_first_tick() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
