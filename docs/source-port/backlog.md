@@ -26,6 +26,19 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+8): **#308 contact-box flip-arm pinning committed** (73b760cbc).
+  Recovered the prior (uncommitted) WIP — 11 right-facing contact-box pins — and verified it from
+  scratch before committing. ASM mirror confirmed against `GfxObjects_CollisionKid_SubBoxLoop_Flipped`
+  (kid.asm:3354-3370): unflipped offsets `(L, L+W)` mirror to `(-(L+W), -L)` = `(-right, -left)`,
+  top/bottom unchanged. Every prior contact-box test used `test_enemy` (defaults `facing=Left`), so the
+  flip-asymmetric families' `Direction::Right` arm had **no** exact-value regression — a sign/value slip
+  there would survive. New pins (Goat walk/damage, Crab, Armadillo, Lion, Scorpion walk + sting-tail
+  child, Robot parent + linked-head child, Tornado live + death-active, DragonWalking damage) each assert
+  the exact mirror of the already-ROM-verified (2026-06-13) unflipped row; all 11 pass. `verify-slice-fast`
+  green (6125+9); test-only ⇒ no `verify-tas-full`. #308 stays `[ ]` (umbrella — remaining open work is
+  sprite-link-aware per-frame hitboxes + the Drips/MiniHoppingSkull/HeadyMetal gaps, neither a narrow
+  unattended slice without an oracle route). Next top open table row is **#309** (blocks umbrella, mutation-clean),
+  then #310 (terrain). See `#308` archive for the full mirror derivation.
 - **Last session** (2026-06-18, latest+7): **#309 metal-push survivor pinning committed**. Took the
   latest+6 handoff and ASM-verified the 4 flagged `metal_block_push` mutation survivors against
   kid.asm:23130-23284. Pinned the **3 genuinely real** ones with exact-value tests (runtime_tests.rs):
