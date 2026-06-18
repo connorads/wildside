@@ -10071,6 +10071,14 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #310
 
 - Filed 2026-06-11 umbrella: terrain-fidelity-audit.md (18 gaps; #295 promoted separately).
+- 2026-06-18 fixed candidate: grounded shared walkers now consume `sub_36972`/`sub_36A58`
+  `d7` bit 2 before the d6 floor-class path or generic wall/floor probes. ASM
+  `loc_3C04E`/`loc_3C0FA` tests `btst #2,d7` and branches to `loc_3C464`, so
+  bit-$4000 body-overlap terrain contact must enter the `$FFFF` terrain-kill
+  tail rather than a recoverable turnaround. Regressions:
+  `loc_3c04e_d7_bit2_body_collision_enters_terrain_kill_before_wall_probe` and
+  `loc_3c0fa_d7_bit2_body_collision_preempts_left_wall_turnaround`. The
+  remaining walker-dispatch row is narrowed to bit-1 wall-turn timing.
 
 ### #311
 

@@ -22883,34 +22883,34 @@ mod chunk_10 {
     }
 
     #[test]
-    fn loc_3c026_wall_turnaround_clears_velocity_and_faces_right() {
-        // ASM loc_3C026 (kid.asm:43493-43498): rightward wall collision path —
-        //   clr.l x_vel(a3); clr.l y_vel(a3); st x_direction(a3)
-        // In step_pacer, hitting a wall clears velocity implicitly (the return
-        // skips further movement) and reverses direction. A leftward-walking
-        // enemy hitting a wall turns right — matching `st x_direction`.
-        // The mirror loc_3C0D2 does `sf x_direction` (turn left after rightward
-        // collision).
+    fn loc_3c0fa_d7_bit2_body_collision_preempts_left_wall_turnaround() {
+        // ASM loc_3C0FA (kid.asm:43585-43589): after sub_36A58, `btst #2,d7`
+        // branches directly to loc_3C464 when the current hitbox rectangle
+        // overlaps any bit-$4000 terrain word. This fixture's wall reaches row
+        // 12, the Crab body scan row at y=208, so the ROM treats it as a terrain
+        // kill before any loc_3C026 turnaround path can run.
         let mut solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
         for row in 10..13 {
             solid.push((2, row)); // wall at col 2
         }
         let grid = grid_with_solid_cells(20, 15, &solid);
-        // Crab walking left, will hit wall at col 2
+        // Crab walking left, will overlap the wall at col 2 before turning.
         let mut enemy = make_pacer(EnemyFamily::Crab, 3, 56, 208);
         assert_eq!(enemy.facing, Direction::Left, "starts facing left");
 
-        // Walk until wall reversal
         for _ in 0..200 {
             step_pacer(&mut enemy, Some(&grid));
-            if enemy.facing == Direction::Right {
+            if enemy.death_animation_active {
                 break;
             }
         }
+        assert!(
+            enemy.death_animation_active,
+            "ASM loc_3C0FA should route sub_36A58 d7 bit 2 to loc_3C464 before loc_3C026 turnaround",
+        );
         assert_eq!(
-            enemy.facing,
-            Direction::Right,
-            "ASM loc_3C026: st x_direction — enemy must face right after leftward wall hit",
+            enemy.hit_points, 0,
+            "ASM loc_3C464 terrain kill should clear HP through the family death tail",
         );
     }
 
@@ -23015,6 +23015,30 @@ mod chunk_10 {
         assert!(
             enemy.x_pos > start_x,
             "ASM loc_3C04E: walker advanced rightward after sub_36972 terrain scan",
+        );
+    }
+
+    #[test]
+    fn loc_3c04e_d7_bit2_body_collision_enters_terrain_kill_before_wall_probe() {
+        // ASM loc_3C04E (kid.asm:43511-43515): after sub_36972, `btst #2,d7`
+        // branches directly to loc_3C464 when the current hitbox rectangle
+        // overlaps any bit-$4000 terrain word. The generic wall/floor probes must
+        // not turn this into a non-fatal turnaround.
+        let mut solid: Vec<(u16, u16)> = (0..20).map(|col| (col, 13)).collect();
+        solid.push((6, 12));
+        let grid = grid_with_solid_cells(20, 15, &solid);
+        let mut enemy = make_pacer(EnemyFamily::Robot, 3, 100, 208);
+        enemy.facing = Direction::Right;
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert!(
+            enemy.death_animation_active,
+            "ASM loc_3C04E should route sub_36972 d7 bit 2 to loc_3C464 terrain kill before native wall probing",
+        );
+        assert_eq!(
+            enemy.hit_points, 0,
+            "ASM loc_3C464 terrain kill should clear HP through the family death tail",
         );
     }
 

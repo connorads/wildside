@@ -17260,6 +17260,15 @@ pub(crate) fn step_pacer(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::B
         )
     };
 
+    if scan.flags_d7 & 0b100 != 0 {
+        // ASM loc_3C04E/loc_3C0FA: after sub_36972/sub_36A58, `btst #2,d7`
+        // branches to loc_3C464 before the d6 floor-class path or the later
+        // wall/floor dispatch. This is body-overlap terrain contact, not a
+        // recoverable wall turnaround.
+        register_enemy_terrain_kill(enemy);
+        return;
+    }
+
     if scan.floor_class_d6 < 0 {
         // ASM loc_3C17A / loc_3C266: a clear following row enters the falling
         // shared-walker loop, first adding one pixel to the parent Y word, then
