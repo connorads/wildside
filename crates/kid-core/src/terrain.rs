@@ -6297,7 +6297,10 @@ mod tests {
         let grid = BlockGrid::from_level_layout(&[0xE0, 0x01, 0x60, 0x02], 2, 1);
         let shifted = grid.with_blank_top_rows_sub_140F6(3);
 
-        assert_eq!(shifted.width_cells, 2, "the shift preserves Level_width_blocks");
+        assert_eq!(
+            shifted.width_cells, 2,
+            "the shift preserves Level_width_blocks"
+        );
         assert_eq!(
             shifted.height_cells, 4,
             "ASM sub_140F6 grows Level_height_blocks by Number_blank_top_rows (1 + 3)"

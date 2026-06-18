@@ -7399,7 +7399,8 @@ impl NativeRuntime {
             teleport_warp_colour: if matches!(
                 self.boot_state,
                 BootState::StartingLevel { .. } | BootState::LevelSkipHold
-            ) || (matches!(self.boot_state, BootState::InGame) && !self.allow_pausing)
+            ) || (matches!(self.boot_state, BootState::InGame)
+                && !self.allow_pausing)
             {
                 self.teleport_warp_colour_fbcc
             } else {

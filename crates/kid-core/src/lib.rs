@@ -1544,6 +1544,17 @@ impl NativeRuntime {
             slot.x_pos = slot.x_pos.wrapping_add_signed(delta_x as i16);
             slot.y_pos = slot.y_pos.wrapping_add_signed(delta_y as i16);
         }
+        if let Some(cached_workers) = self.heady_metal_cached_workers_sub_37708.as_mut() {
+            for worker in cached_workers {
+                worker.x_velocity = heady_metal.x_velocity;
+                worker.y_velocity = heady_metal.y_velocity;
+                if delta_x == 0 && delta_y == 0 {
+                    continue;
+                }
+                worker.x_pos = worker.x_pos.wrapping_add_signed(delta_x as i16);
+                worker.y_pos = worker.y_pos.wrapping_add_signed(delta_y as i16);
+            }
+        }
     }
 
     pub(crate) fn queue_play_sound(&mut self, effect: QueuedSoundEffect) {

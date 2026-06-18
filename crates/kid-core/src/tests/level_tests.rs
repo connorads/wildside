@@ -3243,8 +3243,7 @@ mod chunk_02 {
         // #325: extraction names theme palettes by theme NAME, not the numeric
         // theme id — theme 7 = mountain, theme 4 = island. A numeric
         // palette_fg/7.bin fixture masked the real-asset miss.
-        fs::write(theme_root.join("palette_fg/mountain.bin"), &fg_bytes)
-            .expect("write fg palette");
+        fs::write(theme_root.join("palette_fg/mountain.bin"), &fg_bytes).expect("write fg palette");
         fs::write(theme_root.join("palette_bg/island.bin"), &bg_bytes).expect("write bg palette");
 
         let mut assets = manifest();
@@ -3387,7 +3386,10 @@ mod chunk_02 {
         assert_eq!(crate::level::theme_palette_basename(0), Some("theme0.bin"));
         assert_eq!(crate::level::theme_palette_basename(1), Some("sky.bin"));
         assert_eq!(crate::level::theme_palette_basename(4), Some("island.bin"));
-        assert_eq!(crate::level::theme_palette_basename(7), Some("mountain.bin"));
+        assert_eq!(
+            crate::level::theme_palette_basename(7),
+            Some("mountain.bin")
+        );
         assert_eq!(crate::level::theme_palette_basename(8), Some("cave.bin"));
         assert_eq!(crate::level::theme_palette_basename(9), Some("forest.bin"));
         assert_eq!(crate::level::theme_palette_basename(10), Some("city.bin"));

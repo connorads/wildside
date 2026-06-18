@@ -3598,6 +3598,26 @@ fn live_heady_metal_sub_376ec_moves_body_piece_workers_with_tracker_delta() {
         ),
         "ASM loc_375DE -> sub_376EC copies the live d6/d7 tracker velocities into every body-piece worker, not just their word positions",
     );
+    let cached_workers = runtime.heady_metal_cached_workers_sub_37708.unwrap();
+    assert_eq!(
+        cached_workers.map(|worker| {
+            (
+                worker.slot_offset,
+                worker.x_pos,
+                worker.y_pos,
+                worker.x_velocity,
+                worker.y_velocity,
+            )
+        }),
+        [
+            (0xFB72, 0x0041, 0x009F, 0x0000_8000, -0x0000_5000),
+            (0xFB76, 0x0041, 0x009F, 0x0000_8000, -0x0000_5000),
+            (0xFB7A, 0x0041, 0x00BE, 0x0000_8000, -0x0000_5000),
+            (0xFBAE, 0x0036, 0x009C, 0x0000_8000, -0x0000_5000),
+            (0xFBB2, 0x004D, 0x009C, 0x0000_8000, -0x0000_5000),
+        ],
+        "ASM loc_375DE -> sub_376EC writes the same d6/d7 tracker velocities into `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2` and each cached worker advances by the scheduler's high-word delta",
+    );
 }
 
 #[test]
@@ -19555,7 +19575,10 @@ mod chunk_05 {
         };
 
         // Each enabled direction is supported when its own neighbour has skin.
-        assert!(support(UP, true, false, false, false), "up bit + skinned up");
+        assert!(
+            support(UP, true, false, false, false),
+            "up bit + skinned up"
+        );
         assert!(
             support(RIGHT, false, true, false, false),
             "right bit + skinned right"
@@ -19577,10 +19600,22 @@ mod chunk_05 {
 
         // A skinned neighbour whose direction bit is NOT set must not register
         // support: the ROM only tests the neighbour for an enabled bit.
-        assert!(!support(RIGHT, true, false, false, false), "up off, up skinned");
-        assert!(!support(UP, false, true, false, false), "right off, right skinned");
-        assert!(!support(UP, false, false, true, false), "down off, down skinned");
-        assert!(!support(UP, false, false, false, true), "left off, left skinned");
+        assert!(
+            !support(RIGHT, true, false, false, false),
+            "up off, up skinned"
+        );
+        assert!(
+            !support(UP, false, true, false, false),
+            "right off, right skinned"
+        );
+        assert!(
+            !support(UP, false, false, true, false),
+            "down off, down skinned"
+        );
+        assert!(
+            !support(UP, false, false, false, true),
+            "left off, left skinned"
+        );
     }
 
     #[test]
@@ -19934,8 +19969,9 @@ mod chunk_05 {
     #[test]
     fn shooter_horizontal_span_rejected_loc_f830_matches_asm_coarse_viewport_boundaries() {
         // Window: left=20, right=30, top=4, bottom=18.
-        let rejected =
-            |start_col, row| NativeRuntime::shooter_horizontal_span_rejected_loc_F830(20, 30, 4, 18, start_col, row);
+        let rejected = |start_col, row| {
+            NativeRuntime::shooter_horizontal_span_rejected_loc_F830(20, 30, 4, 18, start_col, row)
+        };
 
         // Row vertical-range edges (kills `row <= bottom && row >= top` -> `||`):
         // a row one above the top edge or one below the bottom edge rejects even

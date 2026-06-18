@@ -18011,8 +18011,8 @@ impl NativeRuntime {
             }
         };
 
-        if let Some(foreground_palette) = foreground_palette_path
-            .and_then(|path| self.theme_palette_words::<15>(&path))
+        if let Some(foreground_palette) =
+            foreground_palette_path.and_then(|path| self.theme_palette_words::<15>(&path))
         {
             copy_foreground_palette_loc_11DB0(&foreground_palette, &mut self.palette_buffer);
         }
@@ -18029,8 +18029,8 @@ impl NativeRuntime {
             theme_palette_basename(background_theme).map(|name| format!("palette_bg/{name}"))
         };
 
-        if let Some(background_palette) = background_palette_path
-            .and_then(|path| self.theme_palette_words::<8>(&path))
+        if let Some(background_palette) =
+            background_palette_path.and_then(|path| self.theme_palette_words::<8>(&path))
         {
             copy_background_palette_loc_11E16(&background_palette, &mut self.palette_buffer);
         }

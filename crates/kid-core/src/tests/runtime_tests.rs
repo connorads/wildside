@@ -7842,11 +7842,7 @@ mod chunk_09 {
         // at 0 so this single wake stays short of the `d3 == 4` neighbour check
         // and both workers survive with their x_pos updated.
         let mut rt = NativeRuntime::new(manifest());
-        rt.set_block_grid(terrain::BlockGrid::from_level_layout(
-            &[0; 9 * 6 * 2],
-            9,
-            6,
-        ));
+        rt.set_block_grid(terrain::BlockGrid::from_level_layout(&[0; 9 * 6 * 2], 9, 6));
         rt.block_state.metal_block_push_workers = vec![
             crate::types::MetalBlockPushWorker {
                 col: 2,
