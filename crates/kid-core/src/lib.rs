@@ -2437,9 +2437,10 @@ impl NativeRuntime {
     }
 
     fn title_screen_vdp_blackout(&self) -> bool {
+        // The second branch's `&& !skip` is redundant: the outer `skip ||` already
+        // short-circuits when skip is set, so it is dropped here.
         (self.intro_sequence_6_start_skip_cursor_trace_priority
             || (self.title_screen_uses_intro_return_hidden_shell
-                && !self.intro_sequence_6_start_skip_cursor_trace_priority
                 && self.title_screen_ready_frame
                     > INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME))
             && !self.title_screen_vdp_ready()
@@ -2562,6 +2563,10 @@ impl NativeRuntime {
         self.pause_toggle_pending = false;
         self.step_pause_restart_round_shell_loc_6b46();
         let pause_last_life_exit_frame = self.step_pause_last_life_give_up_loc_6c0a();
+        // Two distinct ASM pause routines (loc_6b46 restart-round, loc_6c0a
+        // last-life give-up) both suppress the toggle; kept as separate arms to
+        // document that each ROM mechanism independently gates it.
+        #[allow(clippy::if_same_then_else)]
         if self.pending_pause_restart_round.is_some() {
             self.pause_toggle_pending = false;
         } else if self.pending_pause_last_life_give_up {

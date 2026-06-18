@@ -17191,7 +17191,7 @@ fn shared_walker_grounded_scan_turn_plan(
     };
     let edge_bit_set = scan.flags_d7 & 0b001 != 0;
     let wall_bit_set = scan.flags_d7 & 0b010 != 0;
-    if !(edge_bit_set || !wall_bit_set) {
+    if !edge_bit_set && wall_bit_set {
         return None;
     }
 

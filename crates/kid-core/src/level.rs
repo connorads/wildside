@@ -18947,6 +18947,11 @@ impl NativeRuntime {
 
         let base_height_blocks = u16::from(header.height_screens).saturating_mul(14);
         let shifted_height_blocks = base_height_blocks.saturating_add(blank_top_rows);
+        // Distinct cases sharing a 0 result: a recognised shifted layout already
+        // bakes the offset into its cell count (no extra shift), while an
+        // unrecognised height falls back to 0 as the safe default. Kept apart to
+        // document the recognised-shifted case explicitly.
+        #[allow(clippy::if_same_then_else)]
         if loaded_height_cells == base_height_blocks {
             blank_top_rows
         } else if loaded_height_cells == shifted_height_blocks {

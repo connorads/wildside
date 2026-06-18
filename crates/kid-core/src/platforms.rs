@@ -1100,6 +1100,9 @@ pub(crate) fn platform_size_words_loc_2814(kind: u8, h_variant: u8, v_variant: u
     // quirk before the platform-art word is selected.
     let width_px = u16::from(h_variant) * 16 + 15;
     let mut height_px = u16::from(v_variant) * 16 + 15;
+    // `kind & 0x7F` isolates the platform type (low 7 bits) from the high flag
+    // bit, mirroring the ASM; trailing_zeros would obscure that intent.
+    #[allow(clippy::verbose_bit_mask)]
     if kind & 0x7F == 0 {
         height_px = height_px.saturating_sub(2);
     }
