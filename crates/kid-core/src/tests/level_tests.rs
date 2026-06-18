@@ -23043,6 +23043,43 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3c04e_exact_tile_boundary_delta_commits_without_extra_turn_step() {
+        // ASM loc_3C04E (kid.asm:43529-43533): `cmp.w d1,d3; bcc.s loc_3C0C6`
+        // continues when the tile-boundary remainder equals the pixel delta.
+        // Only `d1 > d3` reaches the d7 wall/edge dispatch. A `$5000`
+        // following-lead cell sets d7 bit 0, but equality must still store only
+        // the predicted X through loc_3C0C6 and leave the walker facing right.
+        let grid = grid_with_cells(
+            20,
+            15,
+            &[
+                (5, 13, 0x60, 0x00),
+                (6, 13, 0x60, 0x00),
+                (7, 13, 0x50, 0x00),
+            ],
+        );
+        let mut enemy = make_pacer(EnemyFamily::Robot, 3, 103, 208);
+        enemy.facing = Direction::Right;
+
+        step_pacer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_pos,
+            104 << 16,
+            "ASM loc_3C04E equality branch should store d2 once through loc_3C0C6, not add the native extra turn step",
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM loc_3C04E equality branch should not reach loc_3C0A6 turnaround yet",
+        );
+        assert!(
+            !enemy.shared_walker_right_turn_extra_step_consumed,
+            "ASM loc_3C04E equality branch must not consume the later boundary-turn phase debt",
+        );
+    }
+
+    #[test]
     fn loc_3c0a6_floor_edge_turnaround_reverses_rightward_walker() {
         // ASM loc_3C0A6 (kid.asm:43545-43549): btst #0,d7; beq.s loc_3C0B4;
         //   st $6E(a5); bra.w loc_3C0D2

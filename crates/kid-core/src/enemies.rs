@@ -17196,7 +17196,7 @@ fn shared_walker_grounded_scan_turn_plan(
     }
 
     if !enemy.shared_walker_right_turn_extra_step_consumed {
-        if tile_remainder <= pixel_delta {
+        if tile_remainder < pixel_delta {
             Some(SharedWalkerGroundedTurn::RightBoundaryAfterExtraAdvance)
         } else {
             None
