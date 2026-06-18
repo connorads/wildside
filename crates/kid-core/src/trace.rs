@@ -7391,10 +7391,16 @@ impl NativeRuntime {
                 .collect(),
             played_bgm_ids: self.played_bgm_ids.clone(),
             played_music_speed_updates: self.played_music_speed_updates.clone(),
+            // The FBCC warp colour is visible to the level-entry fade shell.
+            // The title-card path runs that fade under StartingLevel; the
+            // level-skip path under LevelSkipHold; the no-card Teleport
+            // (Load_InGame, loc_BCF6) runs it under InGame while the entry fade
+            // is still in progress (`!allow_pausing`).
             teleport_warp_colour: if matches!(
                 self.boot_state,
                 BootState::StartingLevel { .. } | BootState::LevelSkipHold
-            ) {
+            ) || (matches!(self.boot_state, BootState::InGame) && !self.allow_pausing)
+            {
                 self.teleport_warp_colour_fbcc
             } else {
                 0

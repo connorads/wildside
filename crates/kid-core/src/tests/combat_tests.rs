@@ -2382,9 +2382,18 @@ fn live_same_level_teleporter_reloads_level_entry_loc_bcf6() {
         runtime.pending_level_skip.is_none(),
         "ASM loc_BCEA same-level branch skips setting $FFFFFC36"
     );
+    // ASM loc_BCF6 sets $FFFFFC29 then branches to Teleport, which leaves
+    // Game_Mode=$000C (FC29 set) so loc_6E2 -> LoadGameModeData indexes
+    // Load_InGame ($C), NOT Load_TitleCard ($8). The level reloads with NO
+    // title card — so native must land in BootState::InGame, not the
+    // title-card shell BootState::StartingLevel.
     assert!(
-        matches!(runtime.boot_state, BootState::StartingLevel { .. }),
-        "ASM loc_BCF6 still branches through Teleport -> loc_6E2 for same-level teleports"
+        matches!(runtime.boot_state, BootState::InGame),
+        "ASM loc_BCF6 keeps Game_Mode=$C -> Load_InGame: same-level teleports reload with no title card"
+    );
+    assert!(
+        runtime.starting_level_title_workers.is_empty(),
+        "Load_InGame never allocates the loc_1AC70/loc_1AE2E title-card workers"
     );
     let reloaded = runtime
         .opening_slice

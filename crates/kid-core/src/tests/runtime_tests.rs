@@ -8694,9 +8694,13 @@ mod chunk_09 {
         }
 
         rt.step_frame(FrameInput::default());
+        // ASM loc_BCF6 sets $FFFFFC29 then branches to Teleport, which keeps
+        // Game_Mode=$000C -> Load_InGame ($C), NOT Load_TitleCard ($8): the
+        // telepad warp reloads the level with no title card, so native lands in
+        // BootState::InGame rather than the title-card shell. #327.
         assert!(
-            matches!(rt.boot_state, BootState::StartingLevel { .. }),
-            "ASM loc_BCF6 branches through Teleport -> loc_6E2 after the loc_B522 countdown reaches zero"
+            matches!(rt.boot_state, BootState::InGame),
+            "ASM loc_BCF6 keeps Game_Mode=$C -> Load_InGame after the loc_B522 countdown reaches zero (no title card)"
         );
         let slice = rt
             .opening_slice
@@ -8759,9 +8763,12 @@ mod chunk_09 {
         }
         rt.step_frame(FrameInput::default());
 
+        // ASM loc_BCF6 keeps Game_Mode=$000C (FC29 set) -> Load_InGame ($C),
+        // not Load_TitleCard ($8): same-level telepads reload with no title
+        // card, so native lands in BootState::InGame. #327.
         assert!(
-            matches!(rt.boot_state, BootState::StartingLevel { .. }),
-            "ASM loc_BCF6 branches through Teleport -> loc_6E2 even for same-level telepads"
+            matches!(rt.boot_state, BootState::InGame),
+            "ASM loc_BCF6 keeps Game_Mode=$C -> Load_InGame for same-level telepads (no title card)"
         );
         let slice = rt
             .opening_slice

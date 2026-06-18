@@ -3245,6 +3245,13 @@ impl NativeRuntime {
         self.allow_pausing_fade_frames = self.allow_pausing_fade_frames.saturating_add(1);
         if self.allow_pausing_fade_frames >= 17 {
             self.allow_pausing = true;
+            // ASM Load_InGame leaves FBCC as scratch reset by the next load.
+            // The title-card / level-skip paths cleared the warp colour at
+            // their StartingLevel/Hold -> InGame hand-off (boot.rs:7449/7571);
+            // the no-card Teleport path lands directly in InGame, so clear it
+            // here once the entry fade finishes — otherwise a later normal
+            // level entry (e.g. death respawn) re-tints its black fade yellow.
+            self.teleport_warp_colour_fbcc = 0;
         }
     }
 

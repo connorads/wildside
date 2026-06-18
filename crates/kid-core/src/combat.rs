@@ -12842,10 +12842,15 @@ impl NativeRuntime {
             let player_start_x = dest_x.saturating_mul(16);
             let player_start_y = u16::from(dest_y).saturating_mul(16);
             self.pending_player_start_override_loc_11bd2 = Some((player_start_x, player_start_y));
-            // Same-level teleport: re-enter the level shell. Cross-level:
-            // preserve the existing deferred level-skip transition path.
+            // ASM Teleport keeps Game_Mode=$000C (FC29 set) → Load_InGame, so
+            // teleporters reload the level with NO title card — only the #$EE
+            // fade + sfx_Teleport. This holds for BOTH same- and cross-level
+            // teleports; FC36 (cross-level only) just resets the timer/bonus
+            // flags, it does not gate the loader. Native therefore re-enters
+            // through the Load_InGame-style path (BootState::InGame) rather than
+            // begin_level_entry's title-card shell (BootState::StartingLevel).
             if dest_map == self.current_level.0 {
-                self.begin_level_entry(self.current_level);
+                self.begin_teleport_level_entry_load_ingame_loc_bcf6(self.current_level);
             } else {
                 self.pending_level_skip = Some(LevelId(dest_map));
             }
