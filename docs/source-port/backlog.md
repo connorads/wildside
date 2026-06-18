@@ -26,6 +26,19 @@ and stop — never commit churn.
 ## NOW
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue).
+- **Last session** (2026-06-18, latest+3): **#307 verification-slice scan — dead end, no commit**. Followed the
+  prior session's flagged angle (harden tests on the **live** post-load palette/object helpers). Mutation-tested
+  both relevant live slices: `.cache/mutants/level-loading-live` (`classify_post_load_object_routine_loc_11F96`,
+  `classify_island_background_object_loc_11FB0`, `select_level_start_music_loc_11FD2`/`select_foreground_theme_music_loc_12004`,
+  the three Island palette-cycle bands `loc_12098/12110/12188`, live `step_island_shore_cycle_loc_1202a`) →
+  **31 mutants, 25 caught, 6 unviable, 0 survived**; and `.cache/mutants/lava-rotate` (live `rotate_palette_lava_water_loc_1223C`
+  4-word rotation + `step_rotate_palette_lava_water_loc_1223c` reload branch) → **15 mutants, all 15 caught, 0 survived**.
+  No gap — every viable index/`==`/`&`-wrap mutant is killed by the existing exact-value tests. So the live post-load
+  palette/object slice is already fully pinned; the only remaining #307 work is the architectural dead-islands
+  (theme-art VRAM decompress, BG scroll, block-mapping tilemap, `EnemyStatus_Table`/`Manage_EnemyLoading` streaming),
+  none a narrow unattended slice without an oracle route. First dead-end note on #307, left `[ ]` (not blocked — other
+  live-helper verification slices remain viable). Docs-only (the `cargo mutants` unmutated baselines reconfirm the
+  kid-core lib suite green on HEAD). Next top open item is **#308** (combat umbrella).
 - **Last session** (2026-06-17, latest+2): **#307 verification slice committed**. Recovered the
   prior (uncommitted) test-hardening on the live `sub_140F6` blank-top-rows shift: 4 exact-value
   unit tests in `terrain.rs` pinning `BlockGrid`/`BlockList::with_blank_top_rows_sub_140F6`. Re-verified
