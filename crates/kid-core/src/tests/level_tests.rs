@@ -31317,4 +31317,117 @@ mod native_level_terrain_decoder {
             );
         }
     }
+
+    /// Leftover/aliased levels whose resource foreground is a few trailing bytes
+    /// short of the resource header's cell count, so `decode_level_layout`'s
+    /// strict length guard skipped them in `play-native`. Pairs are
+    /// (logical, resource): shortfalls are 0x2B/0x3B −5, 0x2D/0x33 −2,
+    /// 0x32/0x38 −2, 0x39/0x47 −2 — all within the render's ±5 tolerance.
+    const SHORT_FOREGROUND_LEFTOVER_LEVELS: [u8; 4] = [0x2B, 0x2D, 0x32, 0x39];
+
+    /// `decode_level_layout` must now tolerate the small foreground shortfall and
+    /// build the collision grid (it ignores the level-layout fixture, decoding
+    /// straight from the resource foreground), so the leftover levels stop
+    /// skipping. Backlog #329.
+    #[test]
+    fn decode_level_layout_tolerates_short_leftover_foreground_loc_11c34() {
+        let Some(runtime) = cached_runtime_for_decoder() else {
+            return;
+        };
+        for logical in SHORT_FOREGROUND_LEFTOVER_LEVELS {
+            let header = runtime
+                .level_header(LevelId(logical))
+                .unwrap_or_else(|| panic!("level {logical:#04X} must resolve a resource header"));
+            let expected_width = u16::from(header.width_screens) * 20;
+            let expected_height = u16::from(header.height_screens) * 14
+                + crate::terrain::blank_top_rows_from_height_flag_bits_sub_140F6(
+                    header.height_flag_bits,
+                );
+
+            let grid = runtime
+                .decode_level_layout(LevelId(logical))
+                .unwrap_or_else(|| {
+                    panic!("leftover level {logical:#04X} must decode despite a short foreground")
+                });
+
+            // Geometry follows the resource header (ASM loc_11A50), matching the
+            // rendered foreground after #329's truncation.
+            assert_eq!(
+                grid.width_cells, expected_width,
+                "level {logical:#04X} collision width must match the resource header",
+            );
+            assert_eq!(
+                grid.height_cells, expected_height,
+                "level {logical:#04X} collision height must match the resource header",
+            );
+
+            let solid_cells = (0..grid.height_cells)
+                .flat_map(|row| (0..grid.width_cells).map(move |col| (col, row)))
+                .filter(|&(col, row)| grid.cell_at(col, row).is_solid_floor())
+                .count();
+            assert!(
+                solid_cells > 0,
+                "leftover level {logical:#04X} must have a solid floor so the player does not fall to death",
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod terrain_length_tolerance {
+    use crate::level::{
+        TERRAIN_LAYOUT_LENGTH_TOLERANCE, resolve_terrain_to_expected_cells_loc_11C34,
+    };
+
+    #[test]
+    fn exact_length_is_returned_unchanged() {
+        let bytes = vec![7u8; 100];
+        assert_eq!(
+            resolve_terrain_to_expected_cells_loc_11C34(bytes.clone(), 100),
+            Some(bytes)
+        );
+    }
+
+    #[test]
+    fn longer_buffer_is_returned_unchanged_prefix_used_downstream() {
+        let bytes = vec![7u8; 120];
+        assert_eq!(
+            resolve_terrain_to_expected_cells_loc_11C34(bytes.clone(), 100),
+            Some(bytes)
+        );
+    }
+
+    #[test]
+    fn short_within_tolerance_zero_pads_tail() {
+        let bytes = vec![7u8; 100 - TERRAIN_LAYOUT_LENGTH_TOLERANCE];
+        let padded = resolve_terrain_to_expected_cells_loc_11C34(bytes, 100)
+            .expect("shortfall of exactly the tolerance must pad");
+        assert_eq!(padded.len(), 100);
+        assert!(padded[..95].iter().all(|&b| b == 7));
+        assert!(
+            padded[95..].iter().all(|&b| b == 0),
+            "the missing tail cells must be the passable 0 skin, matching the render"
+        );
+    }
+
+    #[test]
+    fn matches_the_0x39_resource_0x47_shortfall_7838_of_7840() {
+        // 7x4 screens -> 140*56 = 7840 cells; the extracted foreground is 7838 B.
+        let padded = resolve_terrain_to_expected_cells_loc_11C34(vec![3u8; 7838], 7840)
+            .expect("a 2-byte shortfall must pad");
+        assert_eq!(padded.len(), 7840);
+        assert_eq!(&padded[7838..], &[0, 0]);
+    }
+
+    #[test]
+    fn short_beyond_tolerance_is_rejected() {
+        // One byte past the tolerance (e.g. blank-top-row inflation) must not pad.
+        assert_eq!(
+            resolve_terrain_to_expected_cells_loc_11C34(
+                vec![1u8; 100 - TERRAIN_LAYOUT_LENGTH_TOLERANCE - 1],
+                100
+            ),
+            None
+        );
+    }
 }

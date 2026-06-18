@@ -4240,6 +4240,43 @@ pub(crate) fn level_layout_cells_loc_11C34(
     level_layout
 }
 
+/// Tolerance (in bytes) for an extracted foreground/terrain skin buffer that is
+/// a few trailing bytes short of the header's cell count. Mirrors the value in
+/// `ForegroundLayout::parse` (`crates/kid-render/src/level.rs`) so the collision
+/// grid agrees with the rendered foreground on leftover/aliased levels.
+pub(crate) const TERRAIN_LAYOUT_LENGTH_TOLERANCE: usize = 5;
+
+/// Resolve the decoded terrain skin buffer to exactly `expected_cells` bytes for
+/// `level_layout_cells_loc_11C34`, which indexes one byte per cell and asserts a
+/// full-length buffer.
+///
+/// Some leftover/aliased "leftover" levels' extracted foreground is a handful of
+/// trailing bytes short of the resource header's cell count (e.g. logical 0x39 →
+/// resource 0x47: 7838 vs 7840). `ForegroundLayout::parse` already tolerates the
+/// same ±5 mismatch and zero-pads the tail, so the rendered foreground loads;
+/// the collision grid must agree rather than rejecting the whole level. Pad the
+/// missing ≤5 tail cells with 0 (passable skin) to match the render.
+///
+/// UNVERIFIED: the genuine ROM tail for these unreachable levels would read
+/// whatever follows `Level_terrain_layout` in RAM, not 0; there is no oracle for
+/// levels normal play never loads, so this mirrors the render's zero-pad. Larger
+/// shortfalls (e.g. blank-top-row inflation) still return None.
+#[allow(non_snake_case)]
+pub(crate) fn resolve_terrain_to_expected_cells_loc_11C34(
+    terrain_bytes: Vec<u8>,
+    expected_cells: usize,
+) -> Option<Vec<u8>> {
+    if terrain_bytes.len() >= expected_cells {
+        return Some(terrain_bytes);
+    }
+    if expected_cells - terrain_bytes.len() > TERRAIN_LAYOUT_LENGTH_TOLERANCE {
+        return None;
+    }
+    let mut padded = terrain_bytes;
+    padded.resize(expected_cells, 0);
+    Some(padded)
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_words_loc_11C7E(block_layout_words: &[u16]) -> Vec<u16> {
@@ -19106,9 +19143,13 @@ impl NativeRuntime {
             return None;
         }
         let expected_cells = usize::from(width_blocks) * usize::from(height_blocks);
-        if terrain_bytes.len() < expected_cells {
-            return None;
-        }
+        // Mirror the render's ±5 foreground tolerance: leftover/aliased levels'
+        // extracted terrain can be a few trailing bytes short of the resource
+        // header's cell count (e.g. 0x39 → 0x47: 7838 vs 7840). Zero-pad the tail
+        // so the collision grid loads and agrees with the rendered foreground,
+        // instead of skipping the level. Larger shortfalls still return None.
+        let terrain_bytes =
+            resolve_terrain_to_expected_cells_loc_11C34(terrain_bytes, expected_cells)?;
         // `theme_collision_table_loc_11C36` already returns a full 256-entry table
         // (ROM-faithful, reading high skins into adjacent themes), so the skin
         // byte indexes it directly with no zero-padding.
