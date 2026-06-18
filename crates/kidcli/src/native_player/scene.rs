@@ -3674,17 +3674,23 @@ pub(super) fn push_level_layout_terrain(
                 .map(|_| true);
             // ASM sub_302F6/sub_3034A route negative Level_Layout words
             // through Block_Mappings, so static live block cells do not also
-            // draw the immutable foreground layout underneath. ASM loc_11542
-            // rebuilds erased block cells as non-block words; those cells, and
-            // temporary `$6Fxx` prize-wobble cells from sub_1007A, reveal the
-            // separate foreground skin instead.
+            // draw the immutable foreground layout underneath. ASM sub_1007A
+            // owns active `$6Fxx` prize-wobble cells with `unk_E0E4E`/
+            // `unk_E0E5E`; drawing the foreground skin under that live worker
+            // leaks tree/wood pixels through the transparent block-art slots.
+            // Non-active erased cells still reveal the separate foreground
+            // skin after ASM loc_11542/sub_1007A has finished with them.
             let skin = match live_cell {
                 Some(cell) if cell.has_block => continue,
+                Some(_cell)
+                    if active_prize_bounce
+                        && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00) =>
+                {
+                    continue;
+                }
                 Some(cell)
-                    if !(active_prize_bounce
-                        && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00))
-                        && (cell.collision != kid_core::terrain::CollisionKind::Empty
-                            || cell.skin != 0) =>
+                    if cell.collision != kid_core::terrain::CollisionKind::Empty
+                        || cell.skin != 0 =>
                 {
                     cell.skin
                 }

@@ -8038,14 +8038,9 @@ mod tests {
             indexed_tile_at_with_sheet_len(&scene, 16, -2, 0x200).is_none(),
             "the deleted `$6Fxx` phase must not resolve through Block_Mappings as a stray block tile",
         );
-        let Some((_, terrain_tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
-            panic!(
-                "ASM sub_1007A keeps the live wobble object separate from the foreground plane; the forest underlay should stay visible rather than show blank background"
-            );
-        };
-        assert_eq!(
-            terrain_tile.tile_index, 12,
-            "sample foreground skin 3 models the #324 level-0 overlap under prize block (57,1); the terrain plane must not be suppressed by the `$6Fxx` live cell"
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
+            "ASM sub_1007A draws the live wobble object from `unk_E0E4E`/`unk_E0E5E` while Level_Layout is `$6Fxx`; the active wobble cell must not also draw immutable foreground skin through transparent block-art pixels"
         );
     }
 
