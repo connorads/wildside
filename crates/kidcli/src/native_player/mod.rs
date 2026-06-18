@@ -8040,14 +8040,9 @@ mod tests {
             Some(0x011),
             "ASM sub_1007A should copy the `$E102` prize block skin byte unchanged, not decrement it to the hidden `$E101` art"
         );
-        let Some((_, terrain_tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
-            panic!(
-                "foreground terrain should remain in the separate render plane while the prize block wobble object draws copied block art"
-            );
-        };
-        assert_eq!(
-            terrain_tile.tile_index, 12,
-            "ASM sub_1007A draws copied block art as a live object; it does not erase the separate foreground decoration plane"
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
+            "ASM sub_302F6/sub_3034A still render the live `$E102` Level_Layout cell from Block_Mappings; the immutable foreground only reappears after sub_1007A rewrites the cell to `$6Fxx`"
         );
     }
 
@@ -8996,6 +8991,33 @@ mod tests {
             sample.2.rgb,
             [0x24, 0x00, 0x00],
             "ASM loc_12830 copies cave chunk bytes into Plane B and sub_307D8 renders them through palette_bg/cave; MD colour `$0002` is the dark red silhouette behind level 0x06 terrain"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn under_skull_mountain3_scroll_a_keeps_issue289_edge_sliver_blank_sub_30194() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let visuals = load_level_visuals(&manifest, 0x06).expect("Under Skull Mountain 3 visuals");
+
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_level = LevelId(0x06);
+        trace.frame_index = 60;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0x000C_0000;
+
+        let grid =
+            try_load_block_grid(&manifest, 0x06).expect("Under Skull Mountain 3 Level_Layout");
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(
+            pixel_at(&rgb, 276, 151),
+            [0, 0, 0],
+            "oracle frame issue-289-level06-idle-current frame 60 keeps this Scroll A edge pixel blank after ASM sub_30194/sub_302F6 uploads the visible column"
         );
     }
 
@@ -10339,27 +10361,22 @@ mod tests {
     }
 
     #[test]
-    fn foreground_layout_terrain_keeps_separate_foreground_under_live_block_cells_loc_302f6() {
+    fn foreground_layout_terrain_skips_static_live_block_cells_loc_302f6() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
         // ASM sub_302F6/sub_3034A reads one Level_Layout word per Scroll-A
-        // cell, but the renderer also has the extracted foreground tile layout
-        // as a distinct visual layer (formats.txt lists separate foreground
-        // tile-layout and block-layout pointers). #324's level-0 prize block
-        // at (57,1) has foreground skin `$1B` underneath live `$E102`; the
-        // fixture uses skin 3 because the small sample visual table only covers
-        // low skins.
+        // cell. Negative `$E7xx` block cells branch to Block_Mappings, so
+        // transparent pixels in the block art expose Scroll A backdrop, not
+        // the separate foreground byte layout. Erased `$6Fxx`/non-block cells
+        // are covered by the prize-wobble tests above.
         let grid = BlockGrid::from_level_layout(&[0x00, 0x00, 0xE7, 0x01, 0x00, 0x05], 3, 1);
 
         let scene = build_ingame_scene(&trace, false, Some(&grid));
 
-        let Some((_, terrain_tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
-            panic!("expected the separate foreground tile-layout layer under the live block cell");
-        };
-        assert_eq!(
-            terrain_tile.tile_index, 12,
-            "live block cells should not punch blank holes through foreground decoration"
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
+            "ASM sub_302F6/sub_3034A route negative live block cells through Block_Mappings instead of drawing immutable foreground terrain underneath"
         );
         let Some((tile_sheet, tile, _)) =
             topmost_indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200)
@@ -14366,10 +14383,11 @@ mod tests {
         data[2] = 0xE1; // block=true, collision=Solid, block_type=Prize
         let mut grid = BlockGrid::from_level_layout(&data, 2, 2);
 
-        // Before destruction: prize cell visible
+        // Before destruction: the live prize cell is visible from
+        // Block_Mappings and does not also reveal immutable foreground art.
         let scene = build_ingame_scene(&trace, false, Some(&grid));
         assert!(indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200).is_some());
-        assert!(indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_some());
+        assert!(indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none());
 
         // Destroy the block override; the immutable terrain art should remain.
         grid.set_cell_at(1, 0, Cell::from_be_bytes(0, 0));

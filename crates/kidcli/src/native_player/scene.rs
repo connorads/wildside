@@ -3672,19 +3672,24 @@ pub(super) fn push_level_layout_terrain(
             let priority_override = raw_word
                 .filter(|word| word & 0x8100 == 0x0100)
                 .map(|_| true);
-            // ASM loc_11542 rebuilds a non-block Level_Layout word with the
-            // decoded foreground skin after a block is erased. Blank runtime
-            // cells must not punch holes through immutable art, but restored
-            // cells with collision or visible skin should render their live skin.
-            let skin = live_cell
-                .filter(|cell| {
-                    !cell.has_block
-                        && !(active_prize_bounce
-                            && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00))
+            // ASM sub_302F6/sub_3034A route negative Level_Layout words
+            // through Block_Mappings, so static live block cells do not also
+            // draw the immutable foreground layout underneath. ASM loc_11542
+            // rebuilds erased block cells as non-block words; those cells, and
+            // temporary `$6Fxx` prize-wobble cells from sub_1007A, reveal the
+            // separate foreground skin instead.
+            let skin = match live_cell {
+                Some(cell) if cell.has_block => continue,
+                Some(cell)
+                    if !(active_prize_bounce
+                        && raw_word.is_some_and(|word| word & 0xFF00 == 0x6F00))
                         && (cell.collision != kid_core::terrain::CollisionKind::Empty
-                            || cell.skin != 0)
-                })
-                .map_or_else(|| layout.skin_at(col, row), |cell| cell.skin);
+                            || cell.skin != 0) =>
+                {
+                    cell.skin
+                }
+                _ => layout.skin_at(col, row),
+            };
             let Some(resolved) = level_visuals.level.block_mapping.resolve(skin, None) else {
                 continue;
             };
