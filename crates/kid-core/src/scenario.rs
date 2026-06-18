@@ -291,6 +291,27 @@ impl ScriptRunner {
     }
 
     pub fn run(self, script: &[u8], frame_count: usize) -> Vec<NativeTraceFrame> {
+        self.run_inner(script, frame_count, false).0
+    }
+
+    /// Like [`run`](Self::run) but also captures the per-frame VDP snapshot
+    /// (`Some` on non-gameplay screens, `None` during gameplay — see
+    /// `vdp_state` at lib.rs:2491 / `update_vdp_state` at lib.rs:2142). Used by
+    /// the TAS viewer to render real VDP pixels for title/Sega/intro screens.
+    pub fn run_with_vdp(
+        self,
+        script: &[u8],
+        frame_count: usize,
+    ) -> (Vec<NativeTraceFrame>, Vec<Option<vdp::VdpState>>) {
+        self.run_inner(script, frame_count, true)
+    }
+
+    fn run_inner(
+        self,
+        script: &[u8],
+        frame_count: usize,
+        capture_vdp: bool,
+    ) -> (Vec<NativeTraceFrame>, Vec<Option<vdp::VdpState>>) {
         let mut runtime = NativeRuntime::with_generated_level_layout(self.assets);
         if let Some(order) = self.physics_order {
             runtime.set_physics_order(order);
@@ -331,6 +352,11 @@ impl ScriptRunner {
         }
         let delay_recording_input = self.settle_warp == Some(SettleWarpMode::RecordingOracle);
         let mut trace = Vec::with_capacity(frame_count);
+        let mut vdp_snapshots = if capture_vdp {
+            Vec::with_capacity(frame_count)
+        } else {
+            Vec::new()
+        };
         for frame_index in 0..frame_count {
             // ASM Mode_Level (kid.asm:877-917) executes objects/player logic
             // before ReadJoypad, so the settled recording oracle's script byte
@@ -346,8 +372,15 @@ impl ScriptRunner {
                 .map(FrameInput::from_mask)
                 .unwrap_or_default();
             trace.push(runtime.step_frame(input));
+            if capture_vdp {
+                // step_frame can early-return before update_vdp_state (lib.rs:2546,
+                // the DemoPlay no-input path), so the captured snapshot then
+                // reflects the prior frame — identical to what play-native
+                // observes, so viewer/player parity holds.
+                vdp_snapshots.push(runtime.vdp_state().cloned());
+            }
         }
-        trace
+        (trace, vdp_snapshots)
     }
 }
 
@@ -462,5 +495,97 @@ mod tests {
             ingame_assets: Vec::new(),
             decoded_levels: Vec::new(),
         }
+    }
+
+    // VDP capture (run_with_vdp) needs ROM-derived title/Sega art, so these are
+    // cache-backed: set KID_ENABLE_CACHE_BACKED_TESTS=1 after `mise run
+    // extract-assets`. Mirrors the loader in crate::tests::fixtures.
+    fn cached_generated_manifest() -> Option<AssetManifest> {
+        if !matches!(
+            std::env::var("KID_ENABLE_CACHE_BACKED_TESTS").ok().as_deref(),
+            Some("1" | "true" | "TRUE" | "yes" | "YES")
+        ) {
+            return None;
+        }
+        let repo_root = if let Ok(root) = std::env::var("KID_REPO_ROOT")
+            && !root.is_empty()
+        {
+            PathBuf::from(root)
+        } else {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+        };
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.is_file() {
+            return None;
+        }
+        Some(kid_data::load_manifest(&manifest_path).expect("load cached manifest"))
+    }
+
+    // Boot script that presses Start through the Sega/intro/title sequence,
+    // exercising the VDP-shell screens where snapshot capture is active.
+    // 0x80 is the Start button mask.
+    fn boot_through_title_script() -> Vec<u8> {
+        let mut script = vec![0u8; 600];
+        for &frame in &BOOT_TO_LEVEL_START_FRAMES {
+            script[frame] |= 0x80;
+        }
+        script
+    }
+
+    #[test]
+    fn run_and_run_with_vdp_produce_identical_traces() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let script = boot_through_title_script();
+        // The only delta between the two paths is an immutable vdp_state().cloned()
+        // read, so the authoritative trace must be byte-identical frame-by-frame.
+        let plain = ScriptRunner::new(manifest.clone()).run(&script, script.len());
+        let (with_vdp, _snapshots) =
+            ScriptRunner::new(manifest).run_with_vdp(&script, script.len());
+        assert_eq!(plain.len(), with_vdp.len());
+        for (index, (a, b)) in plain.iter().zip(with_vdp.iter()).enumerate() {
+            assert_eq!(
+                a.authoritative_crc32(),
+                b.authoritative_crc32(),
+                "frame {index}: run() vs run_with_vdp().0 diverged",
+            );
+        }
+    }
+
+    #[test]
+    fn vdp_captured_some_on_title_none_on_ingame() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        // update_vdp_state (lib.rs:2142) returns Some only for non-gameplay
+        // screens; BootState::InGame hits the `_ => None` arm (lib.rs:2328), so
+        // the capture splits exactly on the gameplay boundary. Two runs pin both
+        // sides: a plain boot sits on Sega/intro/title (VDP shell), a warp drops
+        // straight into live gameplay (no VDP shell).
+        let (title_trace, title_snapshots) =
+            ScriptRunner::new(manifest.clone()).run_with_vdp(&[0u8; 200], 200);
+        let some_on_non_gameplay = title_trace
+            .iter()
+            .zip(&title_snapshots)
+            .any(|(frame, snapshot)| snapshot.is_some() && frame.game_mode != GameMode::InGame);
+        assert!(
+            some_on_non_gameplay,
+            "Sega/intro/title frames must capture a VDP snapshot",
+        );
+
+        let (game_trace, game_snapshots) = ScriptRunner::new(manifest)
+            .warp_to_level(0)
+            .run_with_vdp(&[0u8; 60], 60);
+        let none_on_gameplay = game_trace
+            .iter()
+            .zip(&game_snapshots)
+            .any(|(frame, snapshot)| snapshot.is_none() && frame.game_mode == GameMode::InGame);
+        assert!(
+            none_on_gameplay,
+            "gameplay frames must leave the VDP snapshot empty",
+        );
     }
 }
