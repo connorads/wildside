@@ -2745,11 +2745,12 @@ impl NativeRuntime {
                         // the state `$8005 -> 0` solid hold.
                         grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0xE3, 0x04));
                     } else {
-                        // ASM loc_F8A6 restores the original terrain bytes for
-                        // the state `0 -> $8001` vanish lead-in. The live path
-                        // lacks the original terrain byte here, so clearing
-                        // preserves the collision-visible effect.
-                        grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, 0));
+                        // ASM loc_F8A6/loc_F90A copies the original
+                        // Level_terrain_layout byte back as a word, so the
+                        // ghost block loses collision but keeps the underlying
+                        // terrain skin visible.
+                        let terrain_skin = grid.erase_cell_at_loc_11542(col, row).skin;
+                        grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0, terrain_skin));
                     }
                 }
             }

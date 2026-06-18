@@ -7063,11 +7063,23 @@ mod chunk_09 {
     // --- Ghost blocks: step_ghost_blocks through NativeRuntime ---
 
     #[test]
-    fn ghost_block_step_sub_f730_zero_state_starts_vanish_lead_in_and_clears_grid() {
+    fn ghost_block_step_sub_f730_zero_state_starts_vanish_lead_in_and_restores_terrain_skin() {
         // ASM sub_F730/loc_F8A6: state 0 is the solid `$E304` hold. On timer
-        // expiry it advances to `$8001` and restores the original terrain.
+        // expiry it advances to `$8001` and restores the original
+        // Level_terrain_layout byte as a no-collision Level_Layout word.
         let mut rt = NativeRuntime::new(manifest());
-        let grid = grid_with_cells(8, 8, &[(3, 5, 0xE3, 0)]);
+        let mut data = vec![0u8; 8 * 8 * 2];
+        let ghost_offset = (5 * 8 + 3) * 2;
+        data[ghost_offset] = 0xE3;
+        data[ghost_offset + 1] = 0x04;
+        let mut erase_words = vec![0u16; 8 * 8];
+        erase_words[5 * 8 + 3] = 0x6005;
+        let grid = terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
+            &data,
+            erase_words,
+            8,
+            8,
+        );
         rt.block_grid = Some(grid);
         rt.block_state.ghost_groups.push(GhostGroup {
             col: 3,
@@ -7091,6 +7103,12 @@ mod chunk_09 {
             !cell.has_block,
             "vanished ghost block should clear grid cell"
         );
+        assert_eq!(
+            cell.collision,
+            terrain::CollisionKind::Empty,
+            "ASM loc_F8A6 restores terrain skin without collision"
+        );
+        assert_eq!(cell.skin, 0x05);
     }
 
     #[test]

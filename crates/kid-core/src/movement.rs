@@ -6318,7 +6318,10 @@ impl OpeningSliceState {
         let below_continues = hit_cell_y
             .checked_add(1)
             .is_some_and(|cell_y| Self::side_wall_cell_is_solid_or_spikes(grid, cell_x, cell_y));
-        above_continues || below_continues
+        let deeper_below_continues = hit_cell_y
+            .checked_add(2)
+            .is_some_and(|cell_y| Self::side_wall_cell_is_solid_or_spikes(grid, cell_x, cell_y));
+        above_continues || (below_continues && deeper_below_continues)
     }
 
     fn side_wall_cell_is_solid_or_spikes(
