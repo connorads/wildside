@@ -235,8 +235,29 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             ),
         },
     };
+    // Foreground BYTES resolve resource-first then logical. When an aliased "leftover" level's resource
+    // has no foreground, the bytes fall back to the logical level (sized to the logical header) yet are
+    // loaded through the mapped resource header (ASM loc_11A50). Detect that borrowed-logical case.
+    let foreground_from_resource = if level_bundle.foreground.is_some() {
+        resource_level_record(manifest, level_id).is_some_and(|r| r.resources.foreground.is_some())
+    } else {
+        resource_decoded.is_some()
+    };
+    // Render must agree with decode_level_layout's collision grid, which truncates the same borrowed
+    // terrain to the resource header's cell count. Affected leftover levels have blank_top_rows = 0, so
+    // this expected size equals the collision grid's expected_cells.
+    let expected_foreground_len = usize::from(visual_theme_header.width_screens)
+        * 20
+        * usize::from(visual_theme_header.height_screens)
+        * 14;
+    let foreground_for_parse: &[u8] =
+        if !foreground_from_resource && foreground_layout.len() > expected_foreground_len {
+            &foreground_layout[..expected_foreground_len]
+        } else {
+            &foreground_layout
+        };
     let parsed_foreground_layout = ForegroundLayout::parse(
-        &foreground_layout,
+        foreground_for_parse,
         visual_theme_header.width_screens,
         visual_theme_header.height_screens,
     )

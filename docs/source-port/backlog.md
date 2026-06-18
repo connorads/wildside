@@ -27,6 +27,15 @@ and stop — never commit churn.
 
 - **Focus**: top of the table = human playtest priority (order in table IS the queue). **Exception (2026-06-18 triage):** new rows #322-#328 were appended at the BOTTOM of the table but are the current priority — work them in the order listed in the latest+16 entry below (crash #322 first), not by table position.
 - **NEXT (directed)**: **#322-#327 are now `[?]` (fix candidates landed, awaiting human validation); #328 stays `[-]`.** Retest the human playtest batch in order: #322 crash repro first, then #327 teleporter no-card, #324 forest block/terrain, #325 Highwater waterfall palette, #323 axe art, #326 Skydragon title card.
+- **Last session** (2026-06-18, latest+22): **fixed #329 leftover/aliased foreground render vs collision grid (`[ ]`→`[?]`).**
+  Logical `0x47`/`0x38` warp targets skipped: `load_level_visuals` parsed the borrowed-logical foreground bytes
+  against the mapped *resource* header (ASM `loc_11A50`) without truncating, so length never matched. Render now
+  truncates the borrowed-logical foreground to the resource grid, agreeing with `decode_level_layout`'s collision
+  grid (affected levels have `blank_top_rows=0`, so the sizes coincide). Gated to the borrowed-logical case only;
+  parser/terrain-decoder untouched. Smoke (real manifest): `0x47`/`0x38` now LOAD, `0x41` still skips
+  (no foreground at all). **Mode B still open** (block-grid `>=` shortfall on `0x39` etc. when no `level-layout`
+  fixture). Regression `load_level_visuals_truncates_borrowed_logical_foreground_to_resource_grid_loc_11a50`;
+  `mise run verify-slice-fast` green.
 - **Last session** (2026-06-18, latest+21): **fixed #322 render empty-frame hardening (`[b]`→`[?]`).**
   Added regressions for two renderer totality holes from the human crash lead: a present-but-empty flying-dragon
   family now falls back to the existing enemy rectangle instead of panicking on `% frames.len()`, and effect-only
@@ -1380,6 +1389,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 320 | [ ] | P3 | camera | Umbrella: camera-fidelity-audit.md — 6 gaps, none high | Per-gap rows in doc |
 | 321 | [?] | P1 | level | Fixed candidate: death respawn now clears `Extra_hitpoint_slots` on the ROM `Death`/`lose_life` path before restoring base The Kid HP | Die after earning extra HP slots; respawn/next helmet pickup must use base+0 slots, not stale DP slots |
 | 291 | [x] | P1 | player | NOT A BUG: BLW2 no-jump left-pit wall gate was asserting the tail frame after the route walked off support; contact/hold frames stay out of loc_ABA4 ledge snap and do not inject upward velocity | cargo test -p kidcli gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut -- --nocapture |
+| 329 | [?] | P2 | render/level | Fixed candidate: leftover/aliased warp targets (logical 0x47/0x38) skipped because `load_level_visuals` parsed the borrowed-logical foreground bytes against the mapped resource header (ASM loc_11A50) without truncating. Render now truncates the borrowed-logical foreground to the resource grid, matching decode_level_layout's collision grid. Mode B (block-grid `>=` shortfall on 0x39 etc.) tracked separately below | New regression `load_level_visuals_truncates_borrowed_logical_foreground_to_resource_grid_loc_11a50`; smoke-confirmed 0x47/0x38 load (was SKIP), 0x41 still skips ("no foreground layout data"). `cargo test -p kid-render load_level_visuals`; `mise run verify-slice-fast` green |
 | 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
 | 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
 | 003 | [?] | P1 | audio | No music or sound effects playing | Blocked on exact human/real-device repro; current deterministic cold-intro and title/options live-SDL routes produce BGM |

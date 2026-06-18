@@ -812,6 +812,72 @@ mod tests {
     }
 
     #[test]
+    fn load_level_visuals_truncates_borrowed_logical_foreground_to_resource_grid_loc_11a50() {
+        // ASM Load_InGame loc_11A50 resolves Current_LevelID through MapOrder_Index, then reads the
+        // foreground through the mapped resource header. When the aliased resource has no foreground
+        // of its own, the bytes fall back to the logical level (sized to the logical header) but the
+        // geometry stays the resource header — exactly the leftover-level case (0x47 -> 0x42, 0x38).
+        // The render must agree with decode_level_layout's collision grid, which truncates the same
+        // borrowed terrain to the resource header's cell count.
+        let mut fixture = TestBundle::new().expect("test bundle");
+
+        // Logical level keeps its own (larger) Saxman foreground: 7x4 screens = 140x56 cells.
+        let logical_foreground: Vec<u8> = (0..(7 * 4 * 20 * 14))
+            .map(|value| (value % 16) as u8)
+            .collect();
+        write_file(
+            fixture.root.path(),
+            "level/00/foreground.sax",
+            &direct_copy_saxman(&logical_foreground),
+        )
+        .expect("write logical foreground");
+        fixture.manifest.levels[0].resources.foreground = Some("00/foreground.sax".to_owned());
+        fixture.manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("logical header")
+            .width_screens = 7; // 7x4 logical -> 140x56 cells
+
+        // Aliased resource has no foreground of its own and a smaller header (4x6 -> 80x84 cells).
+        // It is deliberately absent from decoded_levels, mirroring the leftover resource records.
+        let resource_level_id = 0x4B;
+        let mut resource_level = fixture.manifest.levels[0].clone();
+        resource_level.level_id = resource_level_id;
+        resource_level.display_name = Some(String::from("The Crypt (leftover) resources"));
+        resource_level.resources.foreground = None;
+        {
+            let resource_header = resource_level
+                .header_metadata
+                .as_mut()
+                .expect("resource header");
+            resource_header.width_screens = 4;
+            resource_header.height_screens = 6;
+        }
+        fixture.manifest.levels.push(resource_level);
+        fixture.manifest.map_order = vec![resource_level_id]; // map_order[0x00] = 0x4B
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID)
+            .expect("borrowed-logical aliased visuals should load (today this bails)");
+
+        // Geometry follows the mapped resource header, matching decode_level_layout's collision grid.
+        assert_eq!(visuals.level.foreground_layout.width_cells, 80);
+        assert_eq!(visuals.level.foreground_layout.height_cells, 84);
+
+        // Render indexes the same first expected bytes the collision grid truncates to.
+        let width_cells = 80usize;
+        let expected_cells = width_cells * 84;
+        for index in 0..expected_cells {
+            let row = (index / width_cells) as u16;
+            let col = (index % width_cells) as u16;
+            assert_eq!(
+                visuals.level.foreground_layout.skin_at(col, row),
+                logical_foreground[index],
+                "parsed cell {index} must match the truncated borrowed-logical foreground"
+            );
+        }
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn generated_blue_lake_woods_visuals_use_map_order_forest_theme_loc_11a50() {
         let Some(manifest) = cached_generated_manifest() else {
