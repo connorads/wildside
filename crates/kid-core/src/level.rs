@@ -19136,18 +19136,18 @@ impl NativeRuntime {
         let collision_dir = self.assets.output_root.join("theme").join("collision");
         let collision_index = theme_collision_table_loc_11C36(&collision_dir, header.level_theme)?;
 
-        // ASM Load_LevelData loc_15A0: width_blocks = width_screens * 20,
-        // height_blocks = height_screens * 14 + Number_blank_top_rows.
+        // ASM Load_LevelData loc_15A0 computes the final height with
+        // Number_blank_top_rows included, but loc_11C34 still consumes only the
+        // populated foreground rows. ASM sub_140F6 (kid.asm:26925) shifts the
+        // completed Level_Layout/Level_terrain_layout down afterward.
         let blank_top_rows =
             terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits);
         let width_blocks = u16::from(header.width_screens).saturating_mul(20);
-        let height_blocks = u16::from(header.height_screens)
-            .saturating_mul(14)
-            .saturating_add(blank_top_rows);
-        if width_blocks == 0 || height_blocks == 0 {
+        let populated_height_blocks = u16::from(header.height_screens).saturating_mul(14);
+        if width_blocks == 0 || populated_height_blocks == 0 {
             return None;
         }
-        let expected_cells = usize::from(width_blocks) * usize::from(height_blocks);
+        let expected_cells = usize::from(width_blocks) * usize::from(populated_height_blocks);
         // Mirror the render's ±5 foreground tolerance: leftover/aliased levels'
         // extracted terrain can be a few trailing bytes short of the resource
         // header's cell count (e.g. 0x39 → 0x47: 7838 vs 7840). Zero-pad the tail
@@ -19162,7 +19162,7 @@ impl NativeRuntime {
             &terrain_bytes,
             &collision_index,
             width_blocks,
-            height_blocks,
+            populated_height_blocks,
         );
         let mut erase_words_loc_11542 = cells.clone();
 
@@ -19202,7 +19202,7 @@ impl NativeRuntime {
                 &block_words,
                 &terrain_bytes,
                 width_blocks,
-                height_blocks,
+                populated_height_blocks,
             );
         }
 
@@ -19210,14 +19210,13 @@ impl NativeRuntime {
         for word in &cells {
             bytes.extend_from_slice(&word.to_be_bytes());
         }
-        Some(
-            terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
-                &bytes,
-                erase_words_loc_11542,
-                width_blocks,
-                height_blocks,
-            ),
-        )
+        let grid = terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(
+            &bytes,
+            erase_words_loc_11542,
+            width_blocks,
+            populated_height_blocks,
+        );
+        Some(grid.with_blank_top_rows_sub_140F6(blank_top_rows))
     }
 
     pub(crate) fn load_block_list_for_level(

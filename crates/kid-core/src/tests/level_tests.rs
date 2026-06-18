@@ -31408,6 +31408,58 @@ mod native_level_terrain_decoder {
             );
         }
     }
+
+    /// ASM Load_LevelData derives `Number_blank_top_rows` from the high height
+    /// bits, but `loc_11C34` consumes only the populated foreground rows before
+    /// `sub_140F6` shifts the finished layout down. Logical 0x29 maps to
+    /// resource 0x31 with 6720 foreground cells and two blank top rows; inflating
+    /// the loc_11C34 read length by those rows made the decoder reject it.
+    #[test]
+    fn decode_level_layout_shifts_blank_top_rows_after_loc_11c34_for_mode_b2() {
+        let Some(runtime) = cached_runtime_for_decoder() else {
+            return;
+        };
+        let logical = 0x29;
+        let header = runtime
+            .level_header(LevelId(logical))
+            .expect("level 0x29 must resolve a resource header");
+        let blank_top_rows =
+            crate::terrain::blank_top_rows_from_height_flag_bits_sub_140F6(header.height_flag_bits);
+        assert_eq!(
+            blank_top_rows, 2,
+            "logical 0x29/resource 0x31 is the Mode B2 blank-top-row case"
+        );
+        let expected_width = u16::from(header.width_screens) * 20;
+        let populated_height = u16::from(header.height_screens) * 14;
+
+        let grid = runtime
+            .decode_level_layout(LevelId(logical))
+            .expect("logical 0x29 must decode before sub_140F6 blank-row shift");
+
+        assert_eq!(grid.width_cells, expected_width);
+        assert_eq!(
+            grid.height_cells,
+            populated_height + blank_top_rows,
+            "ASM sub_140F6 should add the inserted blank rows after loc_11C34"
+        );
+        for row in 0..blank_top_rows {
+            for col in 0..grid.width_cells {
+                assert_eq!(
+                    grid.cell_at(col, row),
+                    crate::terrain::Cell::from_be_bytes(0, 0),
+                    "ASM sub_140F6 loc_14156 should zero-fill inserted top row {row}"
+                );
+            }
+        }
+        let solid_cells_below_blank_rows = (blank_top_rows..grid.height_cells)
+            .flat_map(|row| (0..grid.width_cells).map(move |col| (col, row)))
+            .filter(|&(col, row)| grid.cell_at(col, row).is_solid_floor())
+            .count();
+        assert!(
+            solid_cells_below_blank_rows > 0,
+            "Mode B2 must keep populated terrain below the inserted blank rows"
+        );
+    }
 }
 
 #[cfg(test)]
