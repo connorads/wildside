@@ -18093,7 +18093,6 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
-        self.block_state.ghost_groups.clear();
         self.block_state.lift_platforms.clear();
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
@@ -18253,7 +18252,6 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
-        self.block_state.ghost_groups.clear();
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
@@ -18379,7 +18377,6 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
-        self.block_state.ghost_groups.clear();
         self.projectiles.clear();
         self.multi_head_boss_death_count_fb4e = 0;
         self.boss_eye_breakup_trigger_words_fb72_fb74_fb76 = [0; 3];
@@ -18721,7 +18718,6 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
-        self.block_state.ghost_groups.clear();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
         self.init_murder_wall(level_id, 0);
@@ -18842,7 +18838,6 @@ impl NativeRuntime {
         self.block_state.evanescent_blocks.clear();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
-        self.block_state.ghost_groups.clear();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
         self.init_murder_wall(level_id, 0);
@@ -18894,6 +18889,8 @@ impl NativeRuntime {
             reconcile_prize_block_cells_loc_123DC(&mut grid, &block_list);
             self.block_grid = Some(grid);
             self.block_list = Some(block_list);
+            // ASM loc_124A6 seeds ghost block slots from the level block-list;
+            // later entry/reset cleanup must not erase them after terrain load.
             self.block_state.ghost_groups = self
                 .block_list
                 .as_ref()

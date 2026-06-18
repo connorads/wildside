@@ -7062,6 +7062,68 @@ mod chunk_09 {
 
     // --- Ghost blocks: step_ghost_blocks through NativeRuntime ---
 
+    fn assert_under_skull_mountain3_lower_ghost_group_ticks_loc_124a6_f730(rt: &mut NativeRuntime) {
+        let lower_group = rt
+            .block_state
+            .ghost_groups
+            .iter()
+            .find(|group| group.col == 0x17 && group.row == 0x12)
+            .copied()
+            .expect("Level 0x06 should keep the lower Skull Mountain 3 ghost group after load");
+        assert_eq!(lower_group.count, 3);
+        assert!(!lower_group.vertical);
+        assert_eq!(lower_group.timer, 0x28);
+        assert_eq!(lower_group.state, 0);
+
+        for _ in 0..0x28 {
+            rt.step_ghost_blocks();
+        }
+
+        let lower_group = rt
+            .block_state
+            .ghost_groups
+            .iter()
+            .find(|group| group.col == 0x17 && group.row == 0x12)
+            .expect("Level 0x06 lower ghost group should still be tracked after ticking");
+        assert_eq!(
+            lower_group.state, 0x8001,
+            "ASM sub_F730 loc_F8A6 starts the two-frame vanished lead-in when the initial solid hold expires"
+        );
+        let grid = rt.block_grid.as_ref().expect("Level 0x06 grid should exist");
+        for col in 0x17..=0x19 {
+            let cell = grid.cell_at(col, 0x12);
+            assert_eq!(
+                cell.collision,
+                terrain::CollisionKind::Empty,
+                "ASM loc_F8A6/loc_F90A should clear collision for Skull Mountain 3 ghost cell ({col},18)"
+            );
+        }
+    }
+
+    #[test]
+    fn level_entry_preserves_under_skull_mountain3_ghost_groups_loc_124a6_f730() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut rt = NativeRuntime::with_generated_level_layout(manifest);
+
+        rt.begin_level_entry(LevelId(0x06));
+
+        assert_under_skull_mountain3_lower_ghost_group_ticks_loc_124a6_f730(&mut rt);
+    }
+
+    #[test]
+    fn warp_to_level_preserves_under_skull_mountain3_ghost_groups_loc_124a6_f730() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut rt = NativeRuntime::with_generated_level_layout(manifest);
+
+        rt.warp_to_level(LevelId(0x06));
+
+        assert_under_skull_mountain3_lower_ghost_group_ticks_loc_124a6_f730(&mut rt);
+    }
+
     #[test]
     fn ghost_block_step_sub_f730_zero_state_starts_vanish_lead_in_and_restores_terrain_skin() {
         // ASM sub_F730/loc_F8A6: state 0 is the solid `$E304` hold. On timer
