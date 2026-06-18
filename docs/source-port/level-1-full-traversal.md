@@ -12,7 +12,6 @@ This dossier covers the current post-opening frontier:
 
 ## Read first
 
-- `tasks/prd-level-1-full-traversal.md`
 - `docs/source-port/level-1-dossier.md`
 - `docs/source-port/level-1-gameplay-lifecycle.md`
 - `docs/source-port/level-1-full-traversal-goal.json`

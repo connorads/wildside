@@ -9,7 +9,6 @@
       "summary": "Make the PRD, dossier, README, and research map agree that full Level 1 traversal is the current frontier.",
       "prerequisites": [],
       "sources": [
-        "tasks/prd-level-1-full-traversal.md",
         "docs/source-port/level-1-full-traversal.md",
         "README.md",
         "docs/source-port/research-map.md"
@@ -34,7 +33,6 @@
         "traversal_docs_aligned"
       ],
       "sources": [
-        "tasks/prd-level-1-full-traversal.md",
         "docs/source-port/level-1-full-traversal.md",
         "crates/kid-core/src/lib.rs"
       ],
@@ -58,7 +56,6 @@
         "terrain_runtime_authority"
       ],
       "sources": [
-        "tasks/prd-level-1-full-traversal.md",
         "docs/source-port/level-1-full-traversal.md",
         ".cache/native-gameplay-oracle-runs/progress_two_transitions"
       ],
