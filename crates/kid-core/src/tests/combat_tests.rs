@@ -5230,6 +5230,40 @@ mod chunk_03 {
     }
 
     #[test]
+    fn circle_of_doom_activation_uses_slot_lifetime_not_timer_loc_3f7d0() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.progression.diamond_power_frames, 0,
+            "ASM DiamondPower_Init_CircleOfDoom loc_3F7D0 returns without writing Diamond_power_timer"
+        );
+
+        for _ in 0..481 {
+            runtime.step_diamond_power(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::CircleOfDoom,
+            "ASM DiamondPower_Main_CircleOfDoom runs from the DP-object list, not a 480-frame timer"
+        );
+        assert_eq!(
+            runtime.diamond_power_circle_slots.len(),
+            8,
+            "ASM loc_3F7E6 allocated slots must remain active after the old invented 480-frame cutoff"
+        );
+    }
+
+    #[test]
     fn wall_of_death_activation_exposes_live_dp_sprites_loc_3ffea_loc_4009c() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

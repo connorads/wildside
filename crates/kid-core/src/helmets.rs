@@ -1051,7 +1051,9 @@ pub(crate) fn diamond_power_for_form(form: PlayerForm, tier2: bool) -> DiamondPo
 pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
     match power {
         DiamondPowerType::None => 0,
-        DiamondPowerType::CircleOfDoom => 480, // indefinite in ASM, use 480 as practical limit
+        // ASM DiamondPower_Init_CircleOfDoom loc_3F7D0 returns without writing
+        // Diamond_power_timer; the live power is owned by the DP-object list.
+        DiamondPowerType::CircleOfDoom => 0,
         DiamondPowerType::Invulnerability => 480, // $1E0
         DiamondPowerType::SamuraiHaze => 480,  // $1E0
         DiamondPowerType::SlashingRain => 720, // $2D0
@@ -7019,9 +7021,13 @@ impl NativeRuntime {
         self.diamond_power_sprites.clear();
         // Count down active Diamond Power.
         let diamond_power_active = self.progression.diamond_power_frames > 0
-            || !self.diamond_power_invuln_haze_slots.is_empty();
+            || !self.diamond_power_invuln_haze_slots.is_empty()
+            || (self.progression.diamond_power_type == DiamondPowerType::CircleOfDoom
+                && !self.diamond_power_circle_slots.is_empty());
         if diamond_power_active {
-            if self.progression.diamond_power_frames > 0 {
+            if self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
+                && self.progression.diamond_power_frames > 0
+            {
                 self.progression.diamond_power_frames -= 1;
             }
 
@@ -7143,7 +7149,9 @@ impl NativeRuntime {
                 DiamondPowerType::None => {}
             }
 
-            if self.progression.diamond_power_frames == 0 {
+            if self.progression.diamond_power_frames == 0
+                && self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
+            {
                 if matches!(
                     self.progression.diamond_power_type,
                     DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze

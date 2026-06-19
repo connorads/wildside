@@ -22047,9 +22047,15 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         // latch rather than activating on the same sampled frame.
         press_start_a_through_diamond_power_run(&mut runtime);
 
-        assert!(
-            runtime.progression.diamond_power_frames > 0,
-            "Diamond Power should activate"
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::CircleOfDoom,
+            "ASM DiamondPower_Init_Index maps The Kid tier 1 to Circle of Doom"
+        );
+        assert_eq!(
+            runtime.diamond_power_circle_slots.len(),
+            8,
+            "ASM DiamondPower_Init_CircleOfDoom loc_3F7E6 should activate by seeding eight slots"
         );
         assert_eq!(
             runtime.progression.diamond_count, 5,
@@ -22100,9 +22106,15 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         // 49 diamonds: deduct 20, remaining 29 < 30, so tier 1 only
         runtime.progression.diamond_count = 49;
         press_start_a_through_diamond_power_run(&mut runtime);
-        assert!(
-            runtime.progression.diamond_power_frames > 0,
-            "Diamond Power should activate"
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::CircleOfDoom,
+            "ASM DiamondPower_Init_Index maps The Kid tier 1 to Circle of Doom"
+        );
+        assert_eq!(
+            runtime.diamond_power_circle_slots.len(),
+            8,
+            "ASM DiamondPower_Init_CircleOfDoom loc_3F7E6 should activate by seeding eight slots"
         );
         assert_eq!(
             runtime.progression.diamond_count, 29,

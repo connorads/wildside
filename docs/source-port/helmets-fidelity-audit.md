@@ -130,8 +130,8 @@ The ROM clears the `$FFFFFB70` walk/animation accumulator at transform. Native m
 **Tier-2 snake dispatch collapses SwiftMiniSnake into DeathSnake (Micromax T2)** (`DiamondPower_Init_Index +$A`, `DiamondPower_Init_SwiftMiniSnake`)
 The `+$A` tier-2 index math is correct (`helmets.rs:934-955`), but Micromax T2 should index SwiftMiniSnake (sizes `5,4,3,2,1,1`; speed `$480`) not DeathSnake (`6,6,5,4,3,2`; `$400`). Native maps it to `DeathSnake` and the live spawner distinguishes only Mini(`0x300`) vs else(`0x400`) with `lifetime:90`. (Skycutter T2 DeathSnake2 is legitimately `bra DeathSnake`, so that collapse is faithful.)
 
-**CircleOfDoom duration is an invented 480f cap (ROM power is indefinite)** (`DiamondPower_Init_CircleOfDoom`)
-`DiamondPower_Init_CircleOfDoom` never writes `Diamond_power_timer` — the orbiting power runs until cleared elsewhere (effectively indefinite). Native hardcodes 480 frames (`helmets.rs:961`, comment admits no ASM basis), so tier-1 CircleOfDoom auto-expires where the ROM does not.
+**RESOLVED — CircleOfDoom lifetime is owned by the DP-object list, not a 480f timer** (`DiamondPower_Init_CircleOfDoom loc_3F7D0`)
+`DiamondPower_Init_CircleOfDoom` never writes `Diamond_power_timer` — the orbiting power runs from the allocated DP-object list until cleared elsewhere. Native now leaves `diamond_power_frames` at zero for CircleOfDoom and treats the eight live `diamond_power_circle_slots` as the active lifetime, removing the invented 480-frame expiry. Covered by `circle_of_doom_activation_uses_slot_lifetime_not_timer_loc_3f7d0`.
 
 **Diamond Power — `DiamondPower_CompileSprites` (`sub_3F798`) sprite-table compile not wired** (`loc_3F798`)
 The ROM walks the DP sprite buffer emitting VDP entries, fixing each link byte by the running `Number_Sprites` count and masking pattern bit 15. Native does not model the DP sprite buffer (`lib.rs:1746-1750` states it is "not modelled"). Faithful `diamond_power_compile_sprites_sub_3F798` (`helmets.rs:1155`) is dead. Visual/VDP.
