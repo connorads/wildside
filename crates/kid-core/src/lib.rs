@@ -3562,6 +3562,36 @@ impl NativeRuntime {
             })
     }
 
+    fn try_apply_warp_cheat_sub_b43a(
+        &mut self,
+        slice: &OpeningSliceState,
+        movement_input: FrameInput,
+    ) -> bool {
+        let x_px = (slice.player.x_pos >> 16) as u16;
+        let y_px = (slice.player.y_pos >> 16) as u16;
+        if self.current_level != LevelId(1)
+            || !slice.player.on_ground
+            || !movement_input.down
+            || !movement_input.b
+            || x_px != 0x09D3
+            || y_px != 0x005F
+        {
+            return false;
+        }
+
+        // ASM sub_B43A (kid.asm:14352): MoveID_Crawling on level 1 at
+        // x=$09D3/y=$005F with Button_B held writes Current_LevelID=$32,
+        // then fabricates `colid_kidbelow` + `object_meta=$A0`. The latter
+        // routes Character_CheckCollision to CharacterCollision_TouchFlagpole.
+        self.current_level = LevelId(0x32);
+        self.last_kid_collision_type = 0x0028;
+        self.begin_flagpole_level_complete_loc_c056(
+            slice,
+            KidFramePostMotionMutator::WarpCheatFlagTouch,
+        );
+        true
+    }
+
     fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
         if !self.step_lifecycle(input) {
             self.demo_transform_active = false;
@@ -3880,6 +3910,10 @@ impl NativeRuntime {
                         movement_input.down = false;
                     }
                 }
+            }
+
+            if self.try_apply_warp_cheat_sub_b43a(&slice, movement_input) {
+                return;
             }
 
             slice.wall_cling_release_probe = None;

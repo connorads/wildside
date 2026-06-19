@@ -6313,6 +6313,81 @@ mod chunk_11 {
     // `bsr.w sub_7A10` (overhead clearance), MoveID_Crawling → loc_8218.
     // ---------------------------------------------------------------------------
 
+    #[test]
+    fn sub_b43a_warp_cheat_requires_button_b_held() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_level = LevelId(1);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 0x0A00,
+            height_pixels: 0x0200,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 0x09D3_0000;
+        slice.player.y_pos = 0x005F_0000;
+
+        let applied = runtime.try_apply_warp_cheat_sub_b43a(
+            &slice,
+            FrameInput {
+                down: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert!(
+            !applied,
+            "ASM sub_B43A: `btst #Button_B,(Ctrl_Held)` must reject the exact crawl position unless B is held"
+        );
+        assert_eq!(runtime.current_level, LevelId(1));
+        assert!(!matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ));
+    }
+
+    #[test]
+    fn sub_b43a_warp_cheat_completes_destination_level_32() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_level = LevelId(1);
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 0x0A00,
+            height_pixels: 0x0200,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_pos = 0x09D3_0000;
+        slice.player.y_pos = 0x005F_0000;
+
+        let applied = runtime.try_apply_warp_cheat_sub_b43a(
+            &slice,
+            FrameInput {
+                down: true,
+                b: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert!(
+            applied,
+            "ASM sub_B43A: crawling at x=$09D3/y=$005F on level 1 with Button_B held should fabricate the flagpole prize collision"
+        );
+        assert_eq!(
+            runtime.current_level,
+            LevelId(0x32),
+            "ASM sub_B43A writes WarpCheatDest_LevelID ($32) before CharacterCollision_TouchFlagpole"
+        );
+        assert_eq!(
+            runtime.last_kid_collision_type, 0x0028,
+            "ASM sub_B43A writes colid_kidbelow before object_meta=$A0 routes to flagpole completion"
+        );
+        assert_eq!(
+            runtime.last_kid_frame_post_motion_mutator,
+            KidFramePostMotionMutator::WarpCheatFlagTouch
+        );
+        assert!(matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ));
+    }
+
     /// ASM loc_8C70: Micromax (helmet 9) cannot enter crawl.
     #[test]
     fn loc_8c70_micromax_blocked_from_crawl() {

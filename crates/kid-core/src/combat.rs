@@ -12624,6 +12624,32 @@ fn drips_projectile_object_snapshot_loc_3345c(
 }
 
 impl NativeRuntime {
+    pub(crate) fn begin_flagpole_level_complete_loc_c056(
+        &mut self,
+        slice: &OpeningSliceState,
+        mutator: KidFramePostMotionMutator,
+    ) {
+        let remaining_frames = self.level_complete_sequence_frames_loc_D770();
+        let level_complete_gfx_snapshot = self.build_flagpole_stale_gfx_snapshot_loc_C056(slice);
+        let (
+            flagpole_fade_progress_loc_c1d0,
+            flagpole_pending_palette_0_mask_loc_c1dc,
+            flagpole_pending_palette_1_mask_loc_c1dc,
+        ) = self.initialise_flagpole_hologram_fade_loc_C1AA_C1BC();
+        self.apply_level_completion_bonuses();
+        self.clear_flagpole_deleted_objects_loc_C070();
+        self.opening_slice = Some(*slice);
+        self.level_complete_gfx_snapshot = Some(level_complete_gfx_snapshot);
+        self.player_lifecycle = PlayerLifecycle::LevelComplete {
+            remaining_frames,
+            total_frames: remaining_frames,
+            flagpole_fade_progress_loc_c1d0,
+            flagpole_pending_palette_0_mask_loc_c1dc,
+            flagpole_pending_palette_1_mask_loc_c1dc,
+        };
+        self.last_kid_frame_post_motion_mutator = mutator;
+    }
+
     /// Check all frame hazards in priority order. Returns true if the frame was
     /// consumed by a hazard (damage, death, level transition) — caller should
     /// return immediately. Returns false if no hazard fired and gameplay continues.
@@ -12859,26 +12885,10 @@ impl NativeRuntime {
 
         // Flag collision: touching the flag completes the level
         if self.player_touches_flag(slice) {
-            let remaining_frames = self.level_complete_sequence_frames_loc_D770();
-            let level_complete_gfx_snapshot =
-                self.build_flagpole_stale_gfx_snapshot_loc_C056(slice);
-            let (
-                flagpole_fade_progress_loc_c1d0,
-                flagpole_pending_palette_0_mask_loc_c1dc,
-                flagpole_pending_palette_1_mask_loc_c1dc,
-            ) = self.initialise_flagpole_hologram_fade_loc_C1AA_C1BC();
-            self.apply_level_completion_bonuses();
-            self.clear_flagpole_deleted_objects_loc_C070();
-            self.opening_slice = Some(*slice);
-            self.level_complete_gfx_snapshot = Some(level_complete_gfx_snapshot);
-            self.player_lifecycle = PlayerLifecycle::LevelComplete {
-                remaining_frames,
-                total_frames: remaining_frames,
-                flagpole_fade_progress_loc_c1d0,
-                flagpole_pending_palette_0_mask_loc_c1dc,
-                flagpole_pending_palette_1_mask_loc_c1dc,
-            };
-            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::FlagTouch;
+            self.begin_flagpole_level_complete_loc_c056(
+                slice,
+                KidFramePostMotionMutator::FlagTouch,
+            );
             return true;
         }
 
