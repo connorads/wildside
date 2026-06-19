@@ -14916,16 +14916,12 @@ pub(crate) fn step_dragon(
                 return;
             }
             enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_sub(1);
-            if enemy.dragon_phase_frames == 0 {
-                // ASM Dragon_Flying.asm loc_347FC falls through to loc_346DA
-                // when the drift loop counter expires; native stores the
-                // remaining loop count directly in `dragon_phase_frames`.
-                dragon_advance_script(enemy, player_x_pos, projectiles);
-            }
+            let drift_expired = enemy.dragon_phase_frames == 0;
             dragon_apply_velocity(enemy);
             // Wall collision during Drift: reverse direction on terrain hit.
-            // ASM Dragon_Flying.asm loc_347D6: collision_type check after position update.
-            // If terrain collision (not hurt/death), flip direction and negate x_velocity.
+            // ASM Dragon_Flying.asm loc_347D6 checks collision before the
+            // loc_347FC DBF tail advances to the next command, so the final
+            // drift frame still moves and can flip facing before hover/descent.
             if let Some(grid) = block_grid {
                 let cx = (enemy.x_pos >> 16) as i32;
                 let cy = (enemy.y_pos >> 16) as i32;
@@ -14944,6 +14940,11 @@ pub(crate) fn step_dragon(
                     enemy.facing = facing;
                     enemy.x_velocity = x_velocity;
                 }
+            }
+            if drift_expired {
+                // ASM Dragon_Flying.asm loc_347FC falls through to loc_346DA
+                // after the hibernated drift frame has already run.
+                dragon_advance_script(enemy, player_x_pos, projectiles);
             }
         }
         DragonFlyingState::Descending => {

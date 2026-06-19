@@ -11447,6 +11447,40 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flyer_final_drift_frame_moves_before_next_command_loc_347fc() {
+        let mut enemy = test_dragon(0, 0x006D_3000, 0x001F_0000);
+        enemy.dragon_script_cmd = 2;
+        enemy.dragon_phase = DragonFlyingState::Drifting;
+        enemy.dragon_phase_frames = 1;
+        enemy.x_velocity = 0x0000_A600;
+        enemy.y_velocity = 0;
+        enemy.facing = Direction::Right;
+
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        assert_eq!(
+            enemy.x_pos, 0x006D_D800,
+            "ASM Dragon_Flying.asm loc_347C8 stores `$A800`, then loc_347FC falls through only after that hibernated drift frame has moved"
+        );
+        assert_eq!(
+            enemy.dragon_phase,
+            DragonFlyingState::Hovering,
+            "ASM Dragon_Flying.asm unk_34710 advances from Drift($50) to Hover($32) after the final drift frame"
+        );
+        assert_eq!(enemy.x_velocity, 0);
+    }
+
+    #[test]
     fn dragon_flyer_return_to_anchor_rises_then_restarts() {
         // When ReturningToAnchor, dragon decelerates upward until reaching anchor Y.
         let anchor_y = 100u32 << 16;
