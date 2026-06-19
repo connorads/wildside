@@ -1561,7 +1561,6 @@ impl NativeRuntime {
         self.queue_sound_command(QueuedSoundCommand::PlaySound(effect));
     }
 
-    #[allow(dead_code)]
     pub(crate) fn queue_play_sound2(&mut self, effect: QueuedSoundEffect) {
         self.queue_sound_command(QueuedSoundCommand::PlaySound2(effect));
     }

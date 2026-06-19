@@ -43416,6 +43416,44 @@ impl NativeRuntime {
         }
     }
 
+    /// Pooled count of Rock Tanks (either variant) whose drive SFX has started
+    /// this life. Native recomputes the ROM's `$FFFFFA34` drive-sound refcount
+    /// each frame from `shared_walker_patrol_short_next` (see the START in
+    /// `step_active_enemies_with_rng`); both RockTank variants resolve to the
+    /// same sfx slot (`byte_3C46C[1] = sfx_Tank_driving`), so they pool into one
+    /// count here exactly as they do at the START.
+    pub(crate) fn driving_rock_tank_count(&self) -> usize {
+        self.active_enemies
+            .iter()
+            .filter(|enemy| {
+                matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
+                    && enemy.shared_walker_patrol_short_next
+            })
+            .count()
+    }
+
+    /// ASM loc_3C46E -> loc_3C4A8 (kid.asm:43965-43997): the shared deactivation
+    /// routine does `subi.b #1,(a4,d7.w)` on the `$FFFFFA34` drive-sound
+    /// refcount as each Rock Tank leaves, then plays `sfx_Tank_driving` through
+    /// `j_PlaySound2` only when that decrement reaches zero. Both exits route
+    /// here: scroll-off via the loc_3C436 bounds trampoline (kid.asm:43937) and
+    /// death via Tank.asm loc_3B480 / Tank_Shooting.asm (`bra.w loc_3C46E` after
+    /// `Hibernate_UntilAnimFinished`). Native's pooled recompute model collapses
+    /// that per-object decrement to a single edge, and `remove_dead_enemy` only
+    /// drops a corpse once its death animation has finished — matching the
+    /// ROM's post-hibernate timing — so the stop fires when a frame's
+    /// activations and death-removals together drop the pooled count to zero.
+    /// #339: the stop was unported, so the drive drone looped forever once the
+    /// last Rock Tank left the screen.
+    pub(crate) fn stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(
+        &mut self,
+        driving_before: usize,
+    ) {
+        if driving_before > 0 && self.driving_rock_tank_count() == 0 {
+            self.queue_play_sound2(QueuedSoundEffect::TankDriving);
+        }
+    }
+
     pub(crate) fn refresh_active_roster(&mut self) {
         if self.paused {
             return;
@@ -43477,6 +43515,11 @@ impl NativeRuntime {
         });
         if let Some(enemy_layout) = enemy_layout.as_ref() {
             if self.enemy_loading_enabled() {
+                // #339: snapshot the pooled drive-sound refcount before this
+                // frame's activations/death-removals so loc_3C46E's stop can
+                // fire when the last driving Rock Tank leaves (see
+                // `stop_rock_tank_drive_sound_on_last_exit_loc_3c46e`).
+                let driving_rock_tanks_before = self.driving_rock_tank_count();
                 if self.enemy_loading_initial_pass_complete {
                     // ASM Mode_Level loc_80C calls Manage_EnemyLoading after
                     // Execute_Objects for live post-initial-pass entrants.
@@ -43599,6 +43642,7 @@ impl NativeRuntime {
                     &mut self.rom_random,
                 );
                 self.ensure_heady_metal_breakup_slots_loc_39247();
+                self.stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(driving_rock_tanks_before);
                 self.rebuild_active_enemy_roster();
             } else {
                 // ORIGINAL_QUIRK: during title-screen demo playback, the game

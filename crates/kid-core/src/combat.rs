@@ -266,7 +266,6 @@ pub(crate) fn transform_music_speed_byte_loc_7e26(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum QueuedSoundCommand {
     PlaySound(QueuedSoundEffect),
-    #[allow(dead_code)]
     PlaySound2(QueuedSoundEffect),
 }
 

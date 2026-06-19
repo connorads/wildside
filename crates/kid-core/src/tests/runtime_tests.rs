@@ -7799,6 +7799,107 @@ mod chunk_09 {
         );
     }
 
+    // --- RockTank drive SFX stop (#339) ---
+
+    #[test]
+    fn loc_3c46e_last_rock_tank_exit_emits_playsound2_tank_driving_stop() {
+        // ASM loc_3C46E -> loc_3C4A8 (kid.asm:43965-43997): the shared
+        // deactivation routine `subi.b #1`s the $FFFFFA34 drive-sound refcount
+        // as a Rock Tank leaves, then replays byte_3C46C[1] = sfx_Tank_driving
+        // through j_PlaySound2 only when that decrement reaches zero. Both
+        // exits route here — scroll-off via loc_3C436 and death via Tank.asm
+        // loc_3B480 after Hibernate_UntilAnimFinished. #339: the stop was
+        // unported, so the drive drone looped forever once the last tank left.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut tank = make_pacer(EnemyFamily::Tank, 3, 0x100, 0x80);
+        // The drive SFX has already started this life (START latch set).
+        tank.shared_walker_patrol_short_next = true;
+        rt.active_enemies.push(tank);
+        let driving_before = rt.driving_rock_tank_count();
+        assert_eq!(
+            driving_before, 1,
+            "a latched Rock Tank counts toward the pooled $FFFFFA34 drive refcount"
+        );
+
+        // This frame's activations/death-removals drop it from the active list.
+        rt.active_enemies.clear();
+        rt.stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(driving_before);
+
+        assert_eq!(
+            rt.played_sound_commands,
+            vec![QueuedSoundCommand::PlaySound2(
+                QueuedSoundEffect::TankDriving
+            )],
+            "ASM loc_3C4A8: refcount 1->0 must replay sfx_Tank_driving via PlaySound2 ($12), not PlaySound"
+        );
+    }
+
+    #[test]
+    fn loc_3c4a8_drive_stop_holds_while_another_rock_tank_remains() {
+        // ASM loc_3C4A8: `subi.b #1,(a4,d7.w); bne.s loc_3C4C0` — when the
+        // decrement leaves the refcount nonzero, the j_PlaySound2 stop is
+        // skipped. Native pools both RockTank variants into one count
+        // (byte_3C46C[1] is shared), so a surviving tank holds the drone.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut tank = make_pacer(EnemyFamily::Tank, 3, 0x100, 0x80);
+        tank.shared_walker_patrol_short_next = true;
+        let mut shooting_tank = make_pacer(EnemyFamily::TankShooting, 3, 0x200, 0x80);
+        shooting_tank.shared_walker_patrol_short_next = true;
+        rt.active_enemies.push(tank);
+        rt.active_enemies.push(shooting_tank);
+        let driving_before = rt.driving_rock_tank_count();
+        assert_eq!(
+            driving_before, 2,
+            "RockTank and RockTank_shooting pool into one drive refcount (byte_3C46C[1])"
+        );
+
+        rt.active_enemies.remove(0); // one tank leaves; one remains driving
+        rt.stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(driving_before);
+
+        assert!(
+            rt.played_sound_commands.is_empty(),
+            "ASM loc_3C4A8: refcount 2->1 stays nonzero, so no PlaySound2 stop fires"
+        );
+        assert_eq!(
+            rt.driving_rock_tank_count(),
+            1,
+            "the surviving Rock Tank keeps the pooled drive refcount at one"
+        );
+    }
+
+    #[test]
+    fn loc_3c46e_drive_stop_silent_when_no_rock_tank_was_driving() {
+        // No driving Rock Tank last frame => nothing to decrement, so the
+        // deactivation routine never reaches the j_PlaySound2 stop.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(0);
+        assert!(
+            rt.played_sound_commands.is_empty(),
+            "loc_3C46E only plays the stop when a previously-driving tank reaches refcount zero"
+        );
+    }
+
+    #[test]
+    fn driving_rock_tank_count_excludes_unlatched_tanks_and_other_families() {
+        // The pooled drive refcount mirrors the START in
+        // step_active_enemies_with_rng: only Rock Tanks whose drive SFX has
+        // started (shared_walker_patrol_short_next latch) count, and other
+        // pacer families never touch byte_3C46C[1].
+        let mut rt = NativeRuntime::new(manifest());
+        // Spawn-default latch is false for Tank (only DragonWalking defaults
+        // true), so this tank has not yet started its drive SFX.
+        rt.active_enemies
+            .push(make_pacer(EnemyFamily::Tank, 3, 0x100, 0x80));
+        rt.active_enemies
+            .push(make_pacer(EnemyFamily::Crab, 3, 0x140, 0x80));
+
+        assert_eq!(
+            rt.driving_rock_tank_count(),
+            0,
+            "only latched Rock Tanks count as driving; un-started tanks and non-tank families do not"
+        );
+    }
+
     #[test]
     fn iron_knight_metal_block_bounce_uses_loc_1117a_down_then_up_arc() {
         let mut rt = NativeRuntime::new(manifest());
