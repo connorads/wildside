@@ -51,6 +51,40 @@ fn cached_issue260_floor_probe_route_script() -> Option<Vec<u8>> {
     )
 }
 
+fn cached_issue289_level06_walk_right_script() -> Option<(LevelId, Vec<u8>)> {
+    if !cache_backed_tests_enabled() {
+        eprintln!(
+            "skipping cache-backed source-port test: set KID_ENABLE_CACHE_BACKED_TESTS=1 to use generated .cache assets"
+        );
+        return None;
+    }
+    let scenario_path = repo_root()
+        .join(".cache/recordings/issue-289-level06-walk-right-20260618-current/scenario.json");
+    if !scenario_path.is_file() {
+        eprintln!(
+            "skipping cache-backed source-port test: issue #289 route scenario missing at {}",
+            scenario_path.display()
+        );
+        return None;
+    }
+    let scenario_raw = fs::read_to_string(&scenario_path).expect("read issue #289 route scenario");
+    let scenario_json: serde_json::Value =
+        serde_json::from_str(&scenario_raw).expect("parse issue #289 route scenario");
+    let level = scenario_json["warp_to_level"]
+        .as_u64()
+        .map(|level| LevelId(level as u8))
+        .expect("issue #289 route should declare warp_to_level");
+    Some((
+        level,
+        scenario_json["script"]
+            .as_array()
+            .expect("issue #289 route script array")
+            .iter()
+            .map(|value| value.as_u64().expect("issue #289 route script byte") as u8)
+            .collect(),
+    ))
+}
+
 #[test]
 fn tas_title_cursor_moves_do_not_delay_attract_demo_handoff() {
     let Some((mut runtime, script)) = cached_any_percent_demo_runtime_and_script() else {
@@ -7122,6 +7156,60 @@ mod chunk_09 {
         rt.warp_to_level(LevelId(0x06));
 
         assert_under_skull_mountain3_lower_ghost_group_ticks_loc_124a6_f730(&mut rt);
+    }
+
+    #[test]
+    fn issue289_level06_lower_ghost_group_vanishes_before_kid_jump_collision_loc_f730_902a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let Some((level, script)) = cached_issue289_level06_walk_right_script() else {
+            return;
+        };
+        let mut rt = NativeRuntime::with_generated_level_layout(manifest);
+        rt.boot_to_level(level);
+        rt.settle_recording_oracle_warp_live_window(level);
+
+        let mut frame_512 = None;
+        for frame_index in 0usize..513 {
+            let input = frame_index
+                .checked_sub(1)
+                .and_then(|index| script.get(index))
+                .copied()
+                .map(FrameInput::from_mask)
+                .unwrap_or_default();
+            let trace = rt.step_frame(input);
+            if frame_index == 512 {
+                frame_512 = Some(trace);
+                break;
+            }
+        }
+
+        let lower_group = rt
+            .block_state
+            .ghost_groups
+            .iter()
+            .find(|group| group.col == 0x17 && group.row == 0x12)
+            .copied()
+            .expect("Level 0x06 lower ghost group should still be tracked");
+        assert!(
+            !lower_group.solid,
+            "ASM loc_124A6 should preserve the lower ghost group so sub_F730 can clear it during the recorded level-06 route; got timer={:#06x} state={:#06x}",
+            lower_group.timer,
+            lower_group.state
+        );
+
+        let frame_512 = frame_512.expect("issue #289 route should replay through frame 512");
+        assert_eq!(frame_512.current_level, LevelId(0x06));
+        assert_eq!(frame_512.kid_x_pos, Some(0x018A_0000));
+        assert!(
+            frame_512.kid_y_pos < Some(0x014F_0000),
+            "ASM sub_F730 must vanish the lower Skull Mountain 3 ghost group before Kid's sub_902A ceiling probes; otherwise the jump at frame 512 is cancelled by stale solid cell (24,18)"
+        );
+        assert!(
+            frame_512.kid_y_velocity.is_some_and(|velocity| velocity < 0),
+            "ASM sub_902A should preserve the jump launch once sub_F730 has cleared the ghost block collision"
+        );
     }
 
     #[test]

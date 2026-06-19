@@ -91,6 +91,7 @@ impl NativeRuntime {
         self.just_received_damage = false;
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;
+        self.reload_block_grid_for_level(self.current_level);
         self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
         self.level_start_frame = Some(self.frame_index);
         self.allow_pausing = true;
@@ -179,6 +180,12 @@ impl NativeRuntime {
             // ticks from the -$30 px seed, so native must enter the scenario
             // one pre-frame earlier and let the traced frame supply tick 102.
             101
+        } else if level_id == LevelId(0x06) {
+            // Under Skull Mountain 3 exposes the ROM level-skip tail through
+            // loc_124A6/sub_F730 ghost-block phase: the lower row is 0x20
+            // ticks closer to vanishing than native's direct boot shortcut
+            // after the generic 60-frame recording settle.
+            RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x20
         } else {
             RECORDING_SETTLED_WARP_LIVE_FRAMES
         };

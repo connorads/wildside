@@ -2791,6 +2791,10 @@ impl NativeRuntime {
                             self.restore_demo_1_late_fall_velocity();
                             self.refresh_demo_grounded_run_surface_type();
                             self.apply_evanescent_sprite_only_overlays_before_kid_loc_EDB0();
+                            // ASM Execute_Objects order lets the Skull Mountain 3
+                            // ghost-block worker (`sub_F730`) update Level_Layout
+                            // before Kid's `sub_902A` ceiling probes consume it.
+                            self.step_ghost_blocks();
                             self.refresh_opening_slice(gameplay_input, jump_pressed);
                             self.repair_timeout_restart_demo_1_late_jump_reentry();
                         }
@@ -4610,9 +4614,6 @@ impl NativeRuntime {
         // Evanescent blocks: trigger when player stands on one, tick timers,
         // and clear expired blocks from the grid.
         self.step_evanescent_blocks(&slice);
-
-        // Ghost blocks: cycle between solid and vanished states
-        self.step_ghost_blocks();
 
         // Lift platforms: step movement and collision
         let player_before_lift_platforms = slice.player;
