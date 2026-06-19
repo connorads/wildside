@@ -81,6 +81,8 @@ pub(crate) enum QueuedSoundEffect {
     TarMonsterAppears,
     TarMonsterShoots,
     TankDriving,
+    TankMouthOpen,
+    TankMouthClosed,
     TankShoots,
     RobotShoots,
     UfoShoots,
@@ -197,6 +199,14 @@ impl QueuedSoundEffect {
             // Tank.asm loc_3B40A and Tank_Shooting.asm loc_3B690 when the
             // first visible Rock Tank enters the shared walker.
             Self::TankDriving => 0x1F,
+            // constants.asm: sfx_Tank_mouth_open = $3C; Tank.asm loc_3B41C
+            // plays this when the linked mouth child is on `stru_3B27E`'s
+            // `C7F20` frame with animation timer `$A`.
+            Self::TankMouthOpen => 0x3C,
+            // constants.asm: sfx_Tank_mouth_closed = $42; Tank.asm loc_3B446
+            // plays this when the linked mouth child is on `stru_3B27E`'s
+            // `C7EC8` frame with animation timer `$37`.
+            Self::TankMouthClosed => 0x42,
             // constants.asm: sfx_Tank_shoots = $41; Tank_Shooting.asm loc_3B730
             // plays this one hibernate frame after the bullet worker spawns
             // (j_PlaySound -> StartSequence).

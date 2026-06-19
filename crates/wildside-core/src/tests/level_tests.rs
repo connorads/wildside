@@ -3221,8 +3221,10 @@ mod chunk_02 {
 
     #[test]
     fn begin_level_entry_seeds_theme_palette_buffer_loc_11db0_11e16() {
-        let output_root =
-            std::env::temp_dir().join(format!("wildside-core-palette-buffer-{}", std::process::id()));
+        let output_root = std::env::temp_dir().join(format!(
+            "wildside-core-palette-buffer-{}",
+            std::process::id()
+        ));
         let theme_root = output_root.join("theme");
         fs::create_dir_all(theme_root.join("palette_fg")).expect("create fg palette dir");
         fs::create_dir_all(theme_root.join("palette_bg")).expect("create bg palette dir");
@@ -3307,8 +3309,10 @@ mod chunk_02 {
 
     #[test]
     fn begin_level_entry_uses_map_order_palette_overrides_loc_11d8e_11e12() {
-        let output_root =
-            std::env::temp_dir().join(format!("wildside-core-palette-overrides-{}", std::process::id()));
+        let output_root = std::env::temp_dir().join(format!(
+            "wildside-core-palette-overrides-{}",
+            std::process::id()
+        ));
         let theme_root = output_root.join("theme");
         fs::create_dir_all(theme_root.join("palette_fg")).expect("create fg palette dir");
         fs::create_dir_all(theme_root.join("palette_bg")).expect("create bg palette dir");
@@ -25394,6 +25398,7 @@ mod chunk_10 {
             hit_points: 10,
             death_animation_active: false,
             grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
             wait_timer: 0,
@@ -25549,6 +25554,7 @@ mod chunk_10 {
             death_animation_active: true,
             damage_flash_frames: 0,
             grounded_frames: DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES,
+            tank_mouth_animation_phase: 0,
             palette_variant: 0,
             wait_timer: DRAGON_WALKING_BREATH_INITIAL,
             dragon_phase: DragonFlyingState::None,
@@ -25614,6 +25620,7 @@ mod chunk_10 {
             death_animation_active: false,
             damage_flash_frames: 0,
             grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
             palette_variant: 0,
             wait_timer: DRAGON_WALKING_BREATH_INITIAL,
             dragon_phase: DragonFlyingState::None,

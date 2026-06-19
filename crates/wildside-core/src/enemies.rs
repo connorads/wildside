@@ -6513,6 +6513,8 @@ pub(crate) struct ActiveEnemy {
     /// spawned walkers, so scheduler deletion must key off this explicit state.
     pub(crate) death_animation_active: bool,
     pub(crate) grounded_frames: u8,
+    /// Tank.asm `stru_3B27E` linked mouth-child animation phase.
+    pub(crate) tank_mouth_animation_phase: u8,
     pub(crate) damage_flash_frames: u8,
     /// Palette variant (0, 1, or 2) from the enemy type slot.
     pub(crate) palette_variant: u8,
@@ -8650,6 +8652,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         hit_points: spawn_hit_points(family, 0),
         death_animation_active: false,
         grounded_frames: 1,
+        tank_mouth_animation_phase: 0,
         damage_flash_frames: 0,
         palette_variant: parent.palette_variant,
         wait_timer: DRAGON_WALKING_BREATH_INITIAL,
@@ -10015,6 +10018,7 @@ fn activate_enemies_with_rng_inner(
                 } else {
                     0
                 },
+                tank_mouth_animation_phase: spawn_tank_mouth_animation_phase(family),
                 damage_flash_frames: 0,
                 palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
                 wait_timer: spawn_wait_timer(family, enemy_level, player_x, rng),
@@ -10529,6 +10533,23 @@ pub(crate) fn step_active_enemies_with_rng(
                         // their physics-ball collision loop, not loc_3AF14.
                         step_diamond_high_hp(enemy, block_grid);
                         continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Tank) {
+                        let mouth_step =
+                            tank_mouth_animation_step_loc_3b27e(enemy.tank_mouth_animation_phase);
+                        enemy.tank_mouth_animation_phase = mouth_step.next_animation_phase;
+                        let route = tank_update_loc_3b41c(
+                            0,
+                            0,
+                            u16::from(enemy.hit_points),
+                            mouth_step.mouth_frame,
+                            false,
+                        );
+                        if let Some(mouth_sound) = route.mouth_sound
+                            && let Some(sound_effects) = played_sound_effects.as_deref_mut()
+                        {
+                            sound_effects.push(mouth_sound.queued_sound_effect());
+                        }
                     }
                     step_pacer(enemy, block_grid);
                     // Goat: player-tracking callback (Goat.asm loc_3CC18).
@@ -22987,6 +23008,16 @@ pub(crate) fn spawn_shared_walker_patrol_short_next(family: EnemyFamily) -> bool
     matches!(family, EnemyFamily::DragonWalking)
 }
 
+pub(crate) fn spawn_tank_mouth_animation_phase(family: EnemyFamily) -> u8 {
+    match family {
+        // ASM Tank.asm Enemy0A_RockTank_Init loads the linked mouth child with
+        // `stru_3B27E`, then the parent hibernates once through the shared
+        // walker before loc_3B41C can test the child's `$22/$32` cue fields.
+        EnemyFamily::Tank => 1,
+        _ => 0,
+    }
+}
+
 pub(crate) fn spawn_shared_walker_right_turn_extra_step_consumed(
     _family: EnemyFamily,
     _facing: Direction,
@@ -27327,6 +27358,46 @@ pub(crate) enum TankMouthSoundLoc3B41C {
     Closed,
 }
 
+impl TankMouthSoundLoc3B41C {
+    fn queued_sound_effect(self) -> QueuedSoundEffect {
+        match self {
+            Self::Open => QueuedSoundEffect::TankMouthOpen,
+            Self::Closed => QueuedSoundEffect::TankMouthClosed,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct TankMouthAnimationStepLoc3B27E {
+    pub(crate) mouth_frame: TankMouthFrameLoc3B41C,
+    pub(crate) next_animation_phase: u8,
+}
+
+pub(crate) const TANK_MOUTH_ANIMATION_FRAMES_LOC_3B27E: u16 = 0x37 + 0x0A + 6 + 4 + 5;
+pub(crate) const TANK_MOUTH_OPEN_PHASE_LOC_3B27E: u16 = 0x37;
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn tank_mouth_animation_step_loc_3b27e(
+    animation_phase: u8,
+) -> TankMouthAnimationStepLoc3B27E {
+    // ASM ingame/anim/enemy/Tank.asm `stru_3B27E`: closed `$37`,
+    // open `$A`, transition `6`, open `4`, closed `5`, loop. Tank.asm
+    // loc_3B41C/loc_3B446 only plays sounds on the first tick of the
+    // `$A` open frame and the first tick of the loop's `$37` closed frame.
+    let phase = u16::from(animation_phase) % TANK_MOUTH_ANIMATION_FRAMES_LOC_3B27E;
+    let mouth_frame = match phase {
+        0 => TankMouthFrameLoc3B41C::ClosingTimer37,
+        TANK_MOUTH_OPEN_PHASE_LOC_3B27E => TankMouthFrameLoc3B41C::OpeningTimerA,
+        _ => TankMouthFrameLoc3B41C::Other,
+    };
+
+    TankMouthAnimationStepLoc3B27E {
+        mouth_frame,
+        next_animation_phase: ((phase + 1) % TANK_MOUTH_ANIMATION_FRAMES_LOC_3B27E) as u8,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TankUpdateRouteLoc3B41C {
     Walk,
@@ -28214,6 +28285,7 @@ mod tests {
             hit_points: 1,
             death_animation_active: false,
             grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
             wait_timer: 0,
@@ -28339,6 +28411,7 @@ mod tests {
                 family: EnemyFamily::Tank,
                 facing: Direction::Left,
                 hit_points: 2,
+                tank_mouth_animation_phase: spawn_tank_mouth_animation_phase(EnemyFamily::Tank),
                 ..mini_hopping_skull_test_enemy()
             },
             ActiveEnemy {
@@ -28408,6 +28481,99 @@ mod tests {
             sound_effects.is_empty(),
             "ASM loc_3B40A/loc_3B690 are visible-init tails, so an already refcounted live Tank must not restart the drive loop every frame",
         );
+    }
+
+    #[test]
+    fn tank_live_step_queues_mouth_creaks_from_stru_3b27e_cadence() {
+        let tank = ActiveEnemy {
+            family: EnemyFamily::Tank,
+            facing: Direction::Left,
+            hit_points: 2,
+            shared_walker_patrol_short_next: true,
+            tank_mouth_animation_phase: TANK_MOUTH_OPEN_PHASE_LOC_3B27E as u8,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut enemies = [tank];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::TankMouthOpen],
+            "ASM Tank.asm loc_3B41C should queue sfx_Tank_mouth_open=$3C on the `stru_3B27E` `$A` open tick",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x3C);
+
+        sound_effects.clear();
+        enemies[0].tank_mouth_animation_phase = 79;
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            1,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+        assert!(
+            sound_effects.is_empty(),
+            "the final `stru_3B27E` closed frame is timer 5, so loc_3B446 must not play `$42` until wrap",
+        );
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            2,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::TankMouthClosed],
+            "ASM Tank.asm loc_3B446 should queue sfx_Tank_mouth_closed=$42 only when the `stru_3B27E` loop returns to `$37`",
+        );
+        assert_eq!(sound_effects[0].sound_id(), 0x42);
     }
 
     #[test]
@@ -29381,6 +29547,51 @@ mod tests {
                 route: TankUpdateRouteLoc3B41C::Walk,
             },
             "ASM Tank.asm loc_3B444 should join child collision routing after the open-mouth sound, then clear a zero child collision word and resume the walker",
+        );
+    }
+
+    #[test]
+    fn tank_mouth_animation_step_loc_3b27e_maps_only_asm_timer_cues() {
+        assert_eq!(
+            TANK_MOUTH_ANIMATION_FRAMES_LOC_3B27E, 80,
+            "ASM Tank.asm `stru_3B27E` should total closed $37 + open $A + transition 6 + open 4 + closed 5 frames",
+        );
+        assert_eq!(
+            tank_mouth_animation_step_loc_3b27e(0),
+            TankMouthAnimationStepLoc3B27E {
+                mouth_frame: TankMouthFrameLoc3B41C::ClosingTimer37,
+                next_animation_phase: 1,
+            },
+            "ASM Tank.asm loc_3B446 should see `$22=C7EC8` and `$32=$37` only on the first closed tick of the loop",
+        );
+        assert_eq!(
+            tank_mouth_animation_step_loc_3b27e(TANK_MOUTH_OPEN_PHASE_LOC_3B27E as u8),
+            TankMouthAnimationStepLoc3B27E {
+                mouth_frame: TankMouthFrameLoc3B41C::OpeningTimerA,
+                next_animation_phase: (TANK_MOUTH_OPEN_PHASE_LOC_3B27E + 1) as u8,
+            },
+            "ASM Tank.asm loc_3B41C should play the open cue on `stru_3B27E`'s `$A` `C7F20` entry",
+        );
+        assert_eq!(
+            tank_mouth_animation_step_loc_3b27e(79),
+            TankMouthAnimationStepLoc3B27E {
+                mouth_frame: TankMouthFrameLoc3B41C::Other,
+                next_animation_phase: 0,
+            },
+            "ASM Tank.asm `stru_3B27E`'s final 5-frame `C7EC8` entry must not play the `$37` closed cue before the loop wraps",
+        );
+    }
+
+    #[test]
+    fn tank_spawn_mouth_phase_skips_init_hibernate_tick() {
+        assert_eq!(
+            spawn_tank_mouth_animation_phase(EnemyFamily::Tank),
+            1,
+            "ASM Tank.asm Enemy0A_RockTank_Init loads `stru_3B27E`, then hibernates through the shared walker before loc_3B41C can observe the child",
+        );
+        assert_eq!(
+            spawn_tank_mouth_animation_phase(EnemyFamily::TankShooting),
+            0
         );
     }
 
@@ -31797,7 +32008,10 @@ mod tests {
 
         step_tank_shooting_fire(&mut enemy, &mut projectiles, Some(&mut sound_effects));
 
-        assert!(projectiles.is_empty(), "no shot while wait_timer counts down");
+        assert!(
+            projectiles.is_empty(),
+            "no shot while wait_timer counts down"
+        );
         assert!(
             sound_effects.is_empty(),
             "sfx_Tank_shoots only plays on the loc_3B730 spawn frame"
@@ -38194,6 +38408,7 @@ mod tests {
             hit_points: 2,
             death_animation_active: false,
             grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
             wait_timer: 0,
@@ -38296,6 +38511,7 @@ mod tests {
             hit_points: 1,
             death_animation_active: false,
             grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
             damage_flash_frames: ENEMY_DAMAGE_FLASH_FRAMES,
             palette_variant: 0,
             wait_timer: 0,
@@ -40440,6 +40656,7 @@ mod tests {
             y_pos: 32 << 16,
             facing: Direction::Right,
             grounded_frames: 5,
+            tank_mouth_animation_phase: 0,
             ..mini_hopping_skull_test_enemy()
         };
 
@@ -42908,7 +43125,8 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
     SharedEnemyDriveSoundResultSub3C352 {
         next_previous_motion_active: false,
         next_refcount: refcount.wrapping_add(1),
-        sound_call: (refcount == 0).then_some(SharedEnemyDriveSoundCallSub3C352::StartSequence(effect)),
+        sound_call: (refcount == 0)
+            .then_some(SharedEnemyDriveSoundCallSub3C352::StartSequence(effect)),
     }
 }
 

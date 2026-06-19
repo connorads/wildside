@@ -1886,6 +1886,7 @@ mod tests {
             hit_points: 1,
             death_animation_active: false,
             grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
             wait_timer,

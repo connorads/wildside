@@ -11844,6 +11844,7 @@ mod chunk_03 {
             hit_points: 2,
             death_animation_active: false,
             grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
             wait_timer: DRAGON_WALKING_BREATH_INITIAL,
@@ -12781,6 +12782,7 @@ mod chunk_03 {
             hit_points: 1,
             death_animation_active: false,
             grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
             wait_timer: 0,
@@ -28307,8 +28309,10 @@ mod chunk_05 {
 
     #[test]
     fn init_weather_copies_selected_storm_palette_into_live_palette_buffer_loc_14cf2() {
-        let output_root =
-            std::env::temp_dir().join(format!("wildside-core-storm-palette-{}", std::process::id()));
+        let output_root = std::env::temp_dir().join(format!(
+            "wildside-core-storm-palette-{}",
+            std::process::id()
+        ));
         let palette_dir = output_root.join("ingame/palette");
         std::fs::create_dir_all(&palette_dir).expect("create storm palette fixture dir");
         let rain_words = [
