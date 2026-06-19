@@ -7912,6 +7912,95 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_75D4 -> loc_A426 jumps before the standing-still side-wall gate,
+    /// then the following jump-loop frame reaches sub_B084 air control before
+    /// loc_A762/sub_8F26. A one-cell left step can clamp the current frame, but
+    /// it must not latch loc_A8DE wall-cling and swallow held-left movement on
+    /// the next airborne frame.
+    #[test]
+    fn loc_a8de_left_step_jump_keeps_following_held_left_air_control() {
+        let w: u16 = 6;
+        let h: u16 = 6;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(2 * usize::from(w) + 1) * 2] = 0x60;
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = true;
+        slice.player.x_pos = 37 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.terrain.floor_y_pos = 40 << 16;
+
+        slice.step_with_order(
+            FrameInput {
+                left: true,
+                b: true,
+                ..FrameInput::default()
+            },
+            true,
+            PlayerForm::TheKid,
+            Some(&mut grid),
+            None,
+            false,
+            0,
+            PhysicsOrder::AsmFaithful,
+            true,
+            &[],
+        );
+
+        assert_eq!(
+            slice.player.wall_cling_direction, None,
+            "ASM loc_A426 -> loc_A762: the launch frame must not enter loc_A8DE wall-cling from a one-cell left step",
+        );
+
+        let mut samples = Vec::new();
+        for _ in 0..32 {
+            slice.step_with_order(
+                FrameInput {
+                    left: true,
+                    b: true,
+                    ..FrameInput::default()
+                },
+                false,
+                PlayerForm::TheKid,
+                Some(&mut grid),
+                None,
+                false,
+                0,
+                PhysicsOrder::AsmFaithful,
+                true,
+                &[],
+            );
+            samples.push((
+                slice.player.x_pos,
+                slice.player.y_pos,
+                slice.player.x_velocity,
+                slice.player.y_velocity,
+                slice.player.wall_cling_direction,
+            ));
+        }
+
+        assert!(
+            samples
+                .iter()
+                .any(|(_, _, x_velocity, _, _)| *x_velocity < 0),
+            "ASM sub_B084 should apply held-left air control soon after the step jump; samples={samples:#x?}",
+        );
+        assert!(
+            samples
+                .iter()
+                .all(|(_, _, _, _, wall_cling)| wall_cling.is_none()),
+            "ASM loc_A8DE/sub_ADB8: the one-cell step must not become persistent left wall-cling; samples={samples:#x?}",
+        );
+        assert_eq!(
+            slice.player.wall_cling_direction, None,
+            "ASM loc_A8DE/sub_ADB8: the one-cell step must not suppress following held-left movement",
+        );
+    }
+
     /// ASM sub_922C loc_9294 -> loc_92B6: a `$7000` side-wall cell writes
     /// `collision_type=colid_kidbelow` ($28) before falling through to the
     /// normal wall-hit return, so the runtime damage path must see a spike

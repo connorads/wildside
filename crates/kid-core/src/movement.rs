@@ -6309,15 +6309,17 @@ impl OpeningSliceState {
         }
 
         let foot_cell_y = (y_px.max(0) / 16) as u16;
-        if hit_cell_y != foot_cell_y {
-            return true;
-        }
-
         let above_continues =
             hit_cell_y > 0 && Self::side_wall_cell_is_solid_or_spikes(grid, cell_x, hit_cell_y - 1);
         let below_continues = hit_cell_y
             .checked_add(1)
             .is_some_and(|cell_y| Self::side_wall_cell_is_solid_or_spikes(grid, cell_x, cell_y));
+        if !above_continues && !below_continues {
+            return false;
+        }
+        if hit_cell_y.abs_diff(foot_cell_y) > 1 {
+            return true;
+        }
         let deeper_below_continues = hit_cell_y
             .checked_add(2)
             .is_some_and(|cell_y| Self::side_wall_cell_is_solid_or_spikes(grid, cell_x, cell_y));
