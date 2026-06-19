@@ -19,7 +19,7 @@ Findings worth foregrounding:
 
 - **Palette animation is only partially live.** Fixed candidate 2026-06-15: level entry now spawns and ticks Island shore `loc_1202A` plus `RotatePalette_Lava_Water`, and the lava/water worker mutates the runtime `Palette_Buffer+$E..+$14` on the ROM cadence. Follow-up 2026-06-16: lava weather now seeds `Pal_7B8AC` into runtime `Palette_Buffer+$20`, ticks `Animation_Geyser loc_14B2A`, rotates runtime `Palette_Buffer+$28..+$2E` every five lava frames, and native-player loc_14BE8 lava sprites consume those live trace words. Follow-up 2026-06-17: native-player also consumes the Island shore frame tuple and patches the `$F600/$F6C0/$F760` Scroll B window from generated shore art. Remaining gaps: broader level-load/theme palette initialisation and typed Island shore VRAM/source-label provenance.
 
-Murderwall is the best-wired unit: its init and per-frame motion are faithful and live; only the 16.16 initial-X fraction and a graphics palette copy diverge.
+Murderwall is the best-wired unit: its init and per-frame motion are faithful and live; only the 16.16 initial-X fraction still diverges.
 
 ## Coverage summary
 
@@ -147,5 +147,5 @@ Each band uploads `off_1220E[phase]` (one of six frame-art pointers) plus a band
 **Murderwall — init writes full 16.16 X but ROM stores only the integer high word** (`loc_140D2`, `loc_140BE`)
 ASM init stores the initial X with `move.w d0,(MurderWall_X_pos)` — only the integer-pixel high word; the fraction retains prior RAM contents. Native sets a full i64 `(camera<<16)+(0x30<<16)` (`weather.rs:2541-2546`), zeroing the fraction. Practically negligible (speed cleared, first step adds whole pixels), but a strict divergence. `clr.l MurderWall_speed` is matched.
 
-**Murderwall — palette copy (`loc_140EE`) helper is dead — never wired into runtime palette load** (`Murderwall loc_140EE`, `kid.asm:26915`)
-The ROM copies 8 palette words from `Pal_1408A` into `Palette_Buffer+$20` each murder-wall setup. The faithful `copy_murder_wall_palette_loc_140EE` (`weather.rs:8-16`) is `allow(dead_code)` with no live caller; the warning strip is rendered from precomputed `level_visuals.murder_wall` tiles/palette, so the ROM palette-buffer copy is never reproduced.
+**RESOLVED candidate 2026-06-19 — Murderwall palette copy runs from live init** (`Murderwall loc_140EE`, `kid.asm:26915`)
+The ROM copies 8 palette words from `Pal_1408A` into `Palette_Buffer+$20` each murder-wall setup. Native `init_murder_wall` now loads generated `ingame/palette/Murder_wall.bin` and calls `copy_murder_wall_palette_loc_140EE`, so the live `Palette_Buffer+$20` words match the ASM copy loop. Covered by `loc_140ee_copies_eight_murder_wall_palette_words_into_palette_buffer_offset_20` and `init_murder_wall_copies_live_palette_buffer_loc_140ee`. Remaining cosmetic debt is exact `ArtComp_13AA4` decompression to VRAM `$5F60`, not this palette copy.
