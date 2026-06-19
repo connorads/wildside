@@ -40,6 +40,8 @@ const PAUSE_MENU_TEXT_X_LOC_69D2: i32 = 0x78;
 const PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT: i32 = 0x48;
 const PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT: i32 = 0x58;
 const PAUSE_MENU_CURSOR_X_LOC_6A84: i32 = 0x68;
+const PAUSE_MENU_CURSOR_TILE_LOC_6B0E: u16 = 0x0006;
+const PAUSE_MENU_BLANK_TILE_LOC_6B0E: u16 = 0x0002;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
 const BACKGROUND_TILE_VRAM_BASE_LOC_128BA: u16 = 0x0780;
@@ -3276,9 +3278,9 @@ fn push_pause_menu_tilemap_loc_69d2(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
-) {
+) -> bool {
     let Some(pause_menu) = level_visuals.pause_menu.as_ref() else {
-        return;
+        return false;
     };
     let rows = if trace.number_lives > 1 {
         &pause_menu.restart_rows
@@ -3289,6 +3291,8 @@ fn push_pause_menu_tilemap_loc_69d2(
     let palette = Arc::new(foreground_palette_for_scene(trace, level_visuals));
     for (row_index, row) in rows.iter().enumerate() {
         for (column_index, &tile) in row.iter().enumerate() {
+            let tile =
+                pause_menu_tile_with_live_cursor_loc_6b0e(trace, row_index, column_index, tile);
             commands.push(DrawCommand::IndexedTile {
                 x: 0x60 + column_index as i32 * 8,
                 y: 0x40 + row_index as i32 * 8,
@@ -3298,6 +3302,31 @@ fn push_pause_menu_tilemap_loc_69d2(
             });
         }
     }
+    true
+}
+
+fn pause_menu_tile_with_live_cursor_loc_6b0e(
+    trace: &NativeTraceFrame,
+    row_index: usize,
+    column_index: usize,
+    mut tile: TileRef,
+) -> TileRef {
+    // ASM Game_Paused_Loop loc_6B0E rewrites the two cursor slots only:
+    // `$867C` is the arrow tile and `$8678` is blank filler.
+    if column_index == 1 && row_index == 1 {
+        tile.tile_index = if trace.pause_menu_option == 0 {
+            PAUSE_MENU_CURSOR_TILE_LOC_6B0E
+        } else {
+            PAUSE_MENU_BLANK_TILE_LOC_6B0E
+        };
+    } else if column_index == 1 && row_index == 3 {
+        tile.tile_index = if trace.pause_menu_option == 0 {
+            PAUSE_MENU_BLANK_TILE_LOC_6B0E
+        } else {
+            PAUSE_MENU_CURSOR_TILE_LOC_6B0E
+        };
+    }
+    tile
 }
 
 pub(super) fn hide_pause_menu_overwritten_sprite_commands_sub_6874(
@@ -5260,8 +5289,9 @@ fn build_game_scene_filtered(
     // Pause overlay
     if trace.paused && filter.hud {
         hide_pause_menu_overwritten_sprite_commands_sub_6874(&mut commands);
-        push_pause_menu_tilemap_loc_69d2(&mut commands, trace, level_visuals);
-        push_pause_menu_text_loc_69d2(&mut commands, trace);
+        if !push_pause_menu_tilemap_loc_69d2(&mut commands, trace, level_visuals) {
+            push_pause_menu_text_loc_69d2(&mut commands, trace);
+        }
     }
 
     // Level complete overlay

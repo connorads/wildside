@@ -11384,7 +11384,10 @@ mod tests {
             0x0C,
             "more than one life selects MapUnc_PauseMenu_Restart at restart_text"
         );
-        assert!(contains_text(&scene, "RESTART ROUND"));
+        assert!(
+            !contains_text(&scene, "RESTART ROUND"),
+            "when ArtUnc_PauseMenu is available, native should use the ROM tilemap instead of overlay text"
+        );
     }
 
     #[test]
@@ -11413,8 +11416,51 @@ mod tests {
             Some(0x04),
             "last life selects MapUnc_PauseMenu_GiveUp at restart_text"
         );
-        assert!(contains_text(&scene, "GIVE UP"));
+        assert!(
+            !contains_text(&scene, "GIVE UP"),
+            "when ArtUnc_PauseMenu is available, native should use the ROM tilemap instead of overlay text"
+        );
         assert!(!contains_text(&scene, "RESTART ROUND"));
+    }
+
+    #[test]
+    fn paused_scene_moves_tile_cursor_from_pause_option_loc_6b0e() {
+        let mut visuals = sample_level_visuals();
+        visuals.pause_menu = Some(sample_pause_menu_visuals());
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.paused = true;
+        trace.pause_menu_option = 1;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+        let pause_tile_at = |x, y| {
+            scene.commands.iter().find_map(|command| match command {
+                DrawCommand::IndexedTile {
+                    x: command_x,
+                    y: command_y,
+                    tile_sheet,
+                    tile,
+                    ..
+                } if tile_sheet.tiles.len() == 25 && *command_x == x && *command_y == y => {
+                    Some(*tile)
+                }
+                _ => None,
+            })
+        };
+
+        assert_eq!(
+            pause_tile_at(0x68, 0x48).map(|tile| tile.tile_index),
+            Some(0x02),
+            "ASM loc_6B0E writes blank tile $8678 to the upper cursor slot when moving down"
+        );
+        assert_eq!(
+            pause_tile_at(0x68, 0x58).map(|tile| tile.tile_index),
+            Some(0x06),
+            "ASM loc_6B0E writes cursor tile $867C to the lower cursor slot when Pause_Option=1"
+        );
+        assert!(
+            !contains_text(&scene, ">"),
+            "when ArtUnc_PauseMenu is available, native should move the tile cursor rather than overlaying a text cursor"
+        );
     }
 
     #[test]
