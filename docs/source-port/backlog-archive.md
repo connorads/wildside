@@ -9436,6 +9436,7 @@ Column of origin shown in brackets; text is verbatim.
   `trace.floating_items` retained-mask palette path; next work should inspect the
   player transform sprite/frame/palette selected by `stru_7F30` or the ROM VDP
   sprite table for object slot `$FFFF0E14`.
+- [Verify] 2026-06-19 status correction: current HEAD still rejects the cold-idle attract Diamond-prize hypothesis. `cargo run -q -p wildside-cli -- verify-tas --scenario .cache/debug/issue-210/cold_boot_idle_demo_loop_long.json --frame-start 3448 --frame-end 3495 --checkpoint-interval 1 --frontier-kind gameplay --bisect` passes all 3495 frames by CRC through the first demo Cyclone prize/transform window. Mark #274 `[?]` to match the existing fixed-candidate evidence; if a pushed/display-backed build still shows a Diamond in that slot, the next step is an exact live SDL route/frame, not another prize-content patch from this deterministic route.
 
 ### #275
 
