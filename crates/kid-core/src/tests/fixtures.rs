@@ -826,6 +826,26 @@ pub(super) fn grid_with_cells(w: u16, h: u16, cells: &[(u16, u16, u8, u8)]) -> t
     terrain::BlockGrid::from_level_layout(&data, w, h)
 }
 
+pub(super) fn grid_with_cells_and_erase_words(
+    w: u16,
+    h: u16,
+    cells: &[(u16, u16, u8, u8)],
+    erase_words: &[(u16, u16, u16)],
+) -> terrain::BlockGrid {
+    let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+    for &(col, row, hi, lo) in cells {
+        let off = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+        data[off] = hi;
+        data[off + 1] = lo;
+    }
+    let mut erase = vec![0u16; usize::from(w) * usize::from(h)];
+    for &(col, row, word) in erase_words {
+        let off = usize::from(row) * usize::from(w) + usize::from(col);
+        erase[off] = word;
+    }
+    terrain::BlockGrid::from_level_layout_with_erase_words_loc_11542(&data, erase, w, h)
+}
+
 pub(super) fn default_bounds() -> LevelBounds {
     LevelBounds {
         width_pixels: 320,

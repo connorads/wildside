@@ -19996,7 +19996,12 @@ mod chunk_05 {
     fn shooter_object_loc_f02a_ice_block_loads_bullets_loc_11052() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
-        runtime.set_block_grid(grid_with_cells(8, 8, &[(5, 3, 0xE2, 0x01)]));
+        runtime.set_block_grid(grid_with_cells_and_erase_words(
+            8,
+            8,
+            &[(5, 3, 0xE2, 0x77)],
+            &[(5, 3, 0x0077)],
+        ));
         runtime.projectiles.clear();
         runtime.projectiles.push(EnemyProjectile {
             x_pos: ((5 * 16 - 4) as u32) << 16,
@@ -20013,7 +20018,7 @@ mod chunk_05 {
         assert_eq!(
             runtime.block_grid().expect("block grid").cell_at(5, 3),
             terrain::Cell::from_be_bytes(0, 0),
-            "ASM ShooterObject_InteractBlock_Ice -> IceBlock_SmashAndLoadBullets should erase the struck type-2 ice block"
+            "ASM ShooterObject_InteractBlock_Ice -> IceBlock_SmashAndLoadBullets should fully blank the struck type-2 ice block even over Highwater skin $77"
         );
         assert_eq!(
             runtime.block_destroy_effects.len(),

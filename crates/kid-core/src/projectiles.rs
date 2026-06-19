@@ -2196,6 +2196,15 @@ impl NativeRuntime {
                 }
                 if let Some(grid) = &mut self.block_grid {
                     grid.erase_block_from_level_layout_loc_11542(interaction.col, interaction.row);
+                    // ASM loc_F02A routes shooter-object ice hits through the
+                    // transient ice shard worker, so Highwater's `$E277`
+                    // barrier source word is gone rather than restored as
+                    // foreground skin `$77` in the live layout.
+                    grid.set_cell_at(
+                        interaction.col,
+                        interaction.row,
+                        terrain::Cell::from_be_bytes(0, 0),
+                    );
                 }
                 self.spawn_ice_block_effect_sub_10f9c(
                     interaction.col * 16,
