@@ -11477,6 +11477,10 @@ mod chunk_03 {
             DragonFlyingState::Hovering,
             "ASM Dragon_Flying.asm unk_34710 advances from Drift($50) to Hover($32) after the final drift frame"
         );
+        assert_eq!(
+            enemy.dragon_phase_frames, 0x34,
+            "ASM Dragon_Flying.asm loc_347FC falls through into loc_34804/loc_3480A hover hibernation after the drift tail"
+        );
         assert_eq!(enemy.x_velocity, 0);
     }
 

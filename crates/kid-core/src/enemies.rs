@@ -15229,6 +15229,7 @@ fn dragon_advance_script(
     _projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
 ) {
     let script = dragon_script(enemy.dragon_script_variant);
+    let previous_phase = enemy.dragon_phase;
     loop {
         // ASM Dragon_Flying.asm loc_346DA: fetch one script word, restart on
         // $FFFF, then use the low byte as a byte offset into off_3471E.
@@ -15241,7 +15242,19 @@ fn dragon_advance_script(
         match script[enemy.dragon_script_cmd as usize] {
             DragonFlyingCmd::Hover(frames) => {
                 enemy.dragon_phase = DragonFlyingState::Hovering;
-                enemy.dragon_phase_frames = frames;
+                // ASM Dragon_Flying.asm loc_347FC falls through to loc_346DA,
+                // then loc_34804/loc_3480A immediately enters the hover
+                // hibernation loop after a drift command. Native resumes at
+                // frame boundaries, so preserve those suspended hover frames
+                // when a drift tail enters a hover command.
+                enemy.dragon_phase_frames = if matches!(
+                    previous_phase,
+                    DragonFlyingState::Drifting | DragonFlyingState::DriftingWithFire
+                ) {
+                    frames.saturating_add(2)
+                } else {
+                    frames
+                };
                 enemy.x_velocity = 0;
                 enemy.y_velocity = 0;
                 return;
