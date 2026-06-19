@@ -3377,7 +3377,7 @@ impl NativeRuntime {
             true
         });
         for effect in pending_projectile_sound_effects {
-            self.queue_play_sound(effect);
+            self.queue_start_sequence(effect);
         }
         self.resolve_drips_splashes(pending_drips_splashes);
         self.drips_surface_crawler_count_loc_fffffb42 = self

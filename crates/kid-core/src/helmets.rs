@@ -5837,7 +5837,7 @@ impl NativeRuntime {
             just_started_swing = true;
             // ASM sub_868E (kid.asm:9518): the allocated sword worker plays
             // `sfx_Red_Stealth_sword_swinging` before its `#8` hibernate.
-            self.queue_play_sound(QueuedSoundEffect::RedStealthSwordSwinging);
+            self.queue_start_sequence(QueuedSoundEffect::RedStealthSwordSwinging);
         }
 
         // ASM sub_868E (kid.asm:9522): the allocated sword worker begins with
@@ -5910,7 +5910,7 @@ impl NativeRuntime {
 
         self.helmet.red_stealth_airborne_slash_counter = step.next_red_stealth_sword_swing;
         if let Some(sound) = step.queued_sound {
-            self.queue_play_sound(sound);
+            self.queue_start_sequence(sound);
         }
     }
 
@@ -5966,7 +5966,7 @@ impl NativeRuntime {
                 // The airborne attack-down path `sub_B270 loc_B350` has no
                 // equivalent `$5A` call; it only queues `$13` when the slash
                 // counter first reaches `$10`.
-                self.queue_play_sound(QueuedSoundEffect::RedStealthHittingTarget);
+                self.queue_start_sequence(QueuedSoundEffect::RedStealthHittingTarget);
                 self.spawn_kid_projectile_hit_spark_loc_1_f08(sword_x_fp, sword_y_fp);
                 self.helmet.red_stealth_sword_timer = 0;
                 break;

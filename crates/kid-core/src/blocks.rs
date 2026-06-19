@@ -2479,7 +2479,7 @@ impl NativeRuntime {
     ) {
         // ASM EvanescentBlock_Trigger (kid.asm:17283) plays
         // `sfx_Evanescent_block` before checking for a free evanescent slot.
-        self.queue_play_sound(QueuedSoundEffect::EvanescentBlock);
+        self.queue_start_sequence(QueuedSoundEffect::EvanescentBlock);
         if self
             .block_state
             .evanescent_blocks
@@ -3589,7 +3589,7 @@ impl NativeRuntime {
             // directly for the springy-block bounce. Emit it from core like the
             // rubber path instead of feeding the generic `sfx_Block_hit`
             // headbutt counter, which played the brick-break crunch (#242).
-            self.queue_play_sound(QueuedSoundEffect::MetalBlock);
+            self.queue_start_sequence(QueuedSoundEffect::MetalBlock);
             self.block_bounces.push(BlockBounceAnim {
                 cell_x,
                 cell_y,
@@ -3611,7 +3611,7 @@ impl NativeRuntime {
         if let Some((cx, cy)) = slice.rubber_block_hit {
             let contacts = self.rubber_block_contact_cells_sub_10da4(slice, cx, cy);
             for _ in &contacts {
-                self.queue_play_sound(QueuedSoundEffect::RubberBlock);
+                self.queue_start_sequence(QueuedSoundEffect::RubberBlock);
             }
             // ASM loc_10DA4 (kid.asm:22697): `$FFFFFB5A` is a dedicated
             // rubber-worker counter, distinct from Number_Objects at
@@ -3637,7 +3637,7 @@ impl NativeRuntime {
             self.blocks_hit_this_frame += 1;
             // ASM IceBlock_SmashAndLoadBullets (kid.asm:22849) plays
             // `sfx_Prize_block` before IceBlock_LoadBullets and sub_10F9C.
-            self.queue_play_sound(QueuedSoundEffect::PrizeBlock);
+            self.queue_start_sequence(QueuedSoundEffect::PrizeBlock);
             let target_open = self.block_grid.as_ref().is_some_and(|grid| {
                 Self::ice_block_bullet_target_cell_sub_11006(
                     cell_x,
@@ -3747,7 +3747,7 @@ impl NativeRuntime {
                 }
             }
             if shifting_sound {
-                self.queue_play_sound(QueuedSoundEffect::ShiftingBlock);
+                self.queue_start_sequence(QueuedSoundEffect::ShiftingBlock);
             }
         }
 
@@ -3781,7 +3781,7 @@ impl NativeRuntime {
         let y_px = row << 4;
         // ASM sub_FCA6 (kid.asm:21021) plays sfx_Elevator_block before the
         // lift worker begins its hibernate/rise loop.
-        self.queue_play_sound(QueuedSoundEffect::ElevatorBlock);
+        self.queue_start_sequence(QueuedSoundEffect::ElevatorBlock);
         self.block_state.lift_platforms.push(LiftPlatform {
             x_pos: u32::from(x_px) << 16,
             y_pos: u32::from(y_px) << 16,
@@ -4155,7 +4155,7 @@ impl NativeRuntime {
                 substep_counter: 3,
                 x_pos_px,
             });
-        self.queue_play_sound(QueuedSoundEffect::BerzerkerMovingBlock);
+        self.queue_start_sequence(QueuedSoundEffect::BerzerkerMovingBlock);
     }
 
     #[allow(non_snake_case)]
@@ -4542,7 +4542,7 @@ impl NativeRuntime {
                 // did not, so re-collecting an already-owned grounded helmet ran
                 // old+new (= 2*frames+2) hibernate frames and froze Kid for ~1-3s
                 // (#332).
-                self.queue_play_sound(QueuedSoundEffect::ReplenishHealth);
+                self.queue_start_sequence(QueuedSoundEffect::ReplenishHealth);
                 self.progression.number_hitpoints =
                     form.max_hitpoints() + self.progression.extra_hitpoint_slots;
             } else {

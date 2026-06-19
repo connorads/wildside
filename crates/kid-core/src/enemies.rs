@@ -43412,7 +43412,7 @@ impl NativeRuntime {
         {
             // ASM loc_39EE2: `sfx_Boss_dies` plays after the first eight
             // hibernate-until-finished scripts, immediately before loc_39F7A.
-            self.queue_play_sound(QueuedSoundEffect::BossDies);
+            self.queue_start_sequence(QueuedSoundEffect::BossDies);
         }
     }
 
@@ -43450,7 +43450,7 @@ impl NativeRuntime {
         driving_before: usize,
     ) {
         if driving_before > 0 && self.driving_rock_tank_count() == 0 {
-            self.queue_play_sound2(QueuedSoundEffect::TankDriving);
+            self.queue_stop_sequence(QueuedSoundEffect::TankDriving);
         }
     }
 
@@ -43583,7 +43583,7 @@ impl NativeRuntime {
                 );
                 self.move_heady_metal_body_piece_workers_sub_376ec();
                 for effect in played_enemy_sound_effects {
-                    self.queue_play_sound(effect);
+                    self.queue_start_sequence(effect);
                 }
                 self.spawn_fire_demon_walking_trails_loc_3a542();
                 materialize_spinning_twins_drop_splits(&mut self.active_enemies);

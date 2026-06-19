@@ -1557,12 +1557,12 @@ impl NativeRuntime {
         }
     }
 
-    pub(crate) fn queue_play_sound(&mut self, effect: QueuedSoundEffect) {
-        self.queue_sound_command(QueuedSoundCommand::PlaySound(effect));
+    pub(crate) fn queue_start_sequence(&mut self, effect: QueuedSoundEffect) {
+        self.queue_sound_command(QueuedSoundCommand::StartSequence(effect));
     }
 
-    pub(crate) fn queue_play_sound2(&mut self, effect: QueuedSoundEffect) {
-        self.queue_sound_command(QueuedSoundCommand::PlaySound2(effect));
+    pub(crate) fn queue_stop_sequence(&mut self, effect: QueuedSoundEffect) {
+        self.queue_sound_command(QueuedSoundCommand::StopSequence(effect));
     }
 
     pub(crate) fn queue_sound_command(&mut self, command: QueuedSoundCommand) {
@@ -3324,7 +3324,7 @@ impl NativeRuntime {
             self.helmet.red_stealth_jump_threshold_y_velocity = Some(probe.y_velocity_after);
             // ASM sub_A432 loc_A480 plays `sfx_Jump` after the launch velocity
             // is stored and x_vel is scaled by 3/4.
-            self.queue_play_sound(QueuedSoundEffect::Jump);
+            self.queue_start_sequence(QueuedSoundEffect::Jump);
         }
     }
 
@@ -3333,7 +3333,7 @@ impl NativeRuntime {
             // ASM kid_flip loc_ABF0 (kid.asm:13458-13467) initialises
             // `stru_8BB4`, then plays sfx_The_Kid_pullup before hibernating
             // until the pull-up animation finishes.
-            self.queue_play_sound(QueuedSoundEffect::KidPullup);
+            self.queue_start_sequence(QueuedSoundEffect::KidPullup);
         }
     }
 

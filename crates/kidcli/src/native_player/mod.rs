@@ -791,7 +791,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             );
             let maybe_samples = if let Some(ref mut gems) = gems_engine {
                 if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
-                    gems.play_sound(bgm);
+                    gems.start_sequence(bgm);
                 }
                 if !suppress_sfx_this_frame {
                     detect_gems_events(&prev_trace, &trace, gems);
@@ -2226,7 +2226,7 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         // level music. Suppress duplicate event-log commands, but prime the
         // standalone GEMS renderer so block/pickup SFX are mixed over the same
         // active BGM instead of silence until the first SFX.
-        gems.play_sound(bgm);
+        gems.start_sequence(bgm);
     }
 
     let mut active_bgm_cue = initial_active_bgm_cue;
@@ -2246,7 +2246,7 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         active_bgm_cue = next_bgm_cue;
 
         if !queued_bgm_start_this_frame && let Some(bgm) = pending_bgm_start.take() {
-            gems.play_sound(bgm);
+            gems.start_sequence(bgm);
         }
         if !suppress_sfx_this_frame && let Some(prev) = prev_trace {
             for command in gems_event_audio_commands(prev, trace) {
@@ -2286,7 +2286,7 @@ fn apply_native_bgm_command(
 ) -> Option<u8> {
     match command {
         NativeBgmPlaybackCommand::Start(bgm) => {
-            gems.play_sound(bgm);
+            gems.start_sequence(bgm);
             None
         }
         NativeBgmPlaybackCommand::StopMusic => {
@@ -2328,9 +2328,9 @@ fn native_bgm_command_suppresses_same_frame_sfx(
 
 fn apply_native_sound_command(gems: &mut GemsAudioEngine, command: NativeSoundCommand) {
     match command.command_byte {
-        NativeSoundCommand::PLAY_SOUND_COMMAND_BYTE => gems.play_sound(command.sound_id),
-        NativeSoundCommand::PLAY_SOUND2_COMMAND_BYTE => gems.play_sound2(command.sound_id),
-        _ => gems.play_sound(command.sound_id),
+        NativeSoundCommand::START_SEQUENCE_COMMAND_BYTE => gems.start_sequence(command.sound_id),
+        NativeSoundCommand::STOP_SEQUENCE_COMMAND_BYTE => gems.stop_sequence(command.sound_id),
+        _ => gems.start_sequence(command.sound_id),
     }
 }
 
@@ -2441,7 +2441,7 @@ fn queued_gems_sound_commands_since(
         return queued_gems_sound_ids_since(prev, curr)
             .iter()
             .copied()
-            .map(NativeSoundCommand::play_sound)
+            .map(NativeSoundCommand::start_sequence)
             .collect();
     }
 
@@ -2634,7 +2634,7 @@ fn gems_event_sound_commands(
     if curr.sound_test_play_pending
         && let Some(track) = curr.sound_test_track
     {
-        sound_commands.push(NativeSoundCommand::play_sound(track));
+        sound_commands.push(NativeSoundCommand::start_sequence(track));
     }
 
     // Jump
@@ -2644,7 +2644,7 @@ fn gems_event_sound_commands(
         && curr.kid_on_ground == Some(false)
         && curr.kid_y_velocity.is_some_and(|v| v < 0)
     {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::JUMP));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::JUMP));
     }
 
     // Stomp enemy is now driven by the core trace. ASM Jump_On_Enemy
@@ -2668,12 +2668,12 @@ fn gems_event_sound_commands(
         && curr.number_hitpoints < prev.number_hitpoints
         && prev.number_hitpoints > 0
     {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::VOICE_OUCH));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::VOICE_OUCH));
     }
 
     // Death (lives decreased)
     if curr.number_lives < prev.number_lives {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::VOICE_DIE));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::VOICE_DIE));
     }
 
     // Form change (helmet ID changed). ASM loc_7CD0 skips the unk_7ED8 cue in
@@ -2684,12 +2684,12 @@ fn gems_event_sound_commands(
         && let Some(id) = transform_sound_for_helmet_id_loc_7cd0(curr.current_helmet_id)
         && !queued_sound_ids.contains(&id)
     {
-        sound_commands.push(NativeSoundCommand::play_sound(id));
+        sound_commands.push(NativeSoundCommand::start_sequence(id));
     }
 
     // Diamond Power activation
     if curr.diamond_power_active && !prev.diamond_power_active {
-        sound_commands.push(NativeSoundCommand::play_sound(
+        sound_commands.push(NativeSoundCommand::start_sequence(
             gems_sfx::DIAMOND_POWER_AVAILABLE,
         ));
     }
@@ -2700,7 +2700,7 @@ fn gems_event_sound_commands(
         && curr.level_complete_score_counter_elapsed_frames > 0
         && prev.level_complete_score_counter_elapsed_frames == 0
     {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::SCORE_COUNTER));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::SCORE_COUNTER));
     }
 
     // ASM loc_D7F4 (kid.asm:16906-16908): when the counter finishes draining,
@@ -2713,7 +2713,7 @@ fn gems_event_sound_commands(
         && curr.level_complete_score_counter_drained
         && !prev.level_complete_score_counter_drained
     {
-        sound_commands.push(NativeSoundCommand::play_sound2(gems_sfx::SCORE_COUNTER));
+        sound_commands.push(NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER));
     }
 
     // Block headbutt. ASM loc_10DA4 queues rubber blocks as
@@ -2726,7 +2726,7 @@ fn gems_event_sound_commands(
             .copied()
             .any(is_explicit_block_sound_id)
     {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::BLOCK_HIT));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::BLOCK_HIT));
     }
 
     // Block destroyed (new destroy effects appeared). ASM ice blocks queue
@@ -2735,24 +2735,24 @@ fn gems_event_sound_commands(
     if !queued_sound_ids.contains(&gems_sfx::DESTROY_BLOCK)
         && curr.block_destroy_effects.len() > prev.block_destroy_effects.len()
     {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::DESTROY_BLOCK));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::DESTROY_BLOCK));
     }
 
     // Lava geyser erupted (new geysers appeared)
     if curr.active_geysers.len() > prev.active_geysers.len() {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::LAVA_GEYSER));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::LAVA_GEYSER));
     }
 
     // Game complete — ending music
     if curr.game_complete && !prev.game_complete {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_bgm::ENDING));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_bgm::ENDING));
     }
 
     // Clock pickup (timer jumped up)
     if !queued_sound_ids.contains(&gems_sfx::CLOCK_PRIZE)
         && curr.level_timer_seconds > prev.level_timer_seconds + 5
     {
-        sound_commands.push(NativeSoundCommand::play_sound(gems_sfx::CLOCK_PRIZE));
+        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::CLOCK_PRIZE));
     }
 
     sound_commands
@@ -13940,7 +13940,7 @@ mod tests {
         let audio_events =
             fs::read_to_string(record_dir.join("audio-events.txt")).expect("audio events");
         assert!(audio_events.contains("frame=1"));
-        assert!(audio_events.contains("PlaySound(13)"));
+        assert!(audio_events.contains("StartSequence(13)"));
         assert!(manifest_text.contains("\"record_frames\": 900"));
         assert!(manifest_text.contains("--record freeze-repro --record-frames 900"));
     }
@@ -18489,14 +18489,14 @@ mod tests {
                     "frame=1 mode=OptionsMenu level=00 active_before=Some(TitleShell) active_after=Some(Options) command=StopMusicThenStart(101)"
                 ),
                 format!(
-                    "frame=1 mode=OptionsMenu level=00 command=PlaySound({})",
+                    "frame=1 mode=OptionsMenu level=00 command=StartSequence({})",
                     gems_sfx::NAVIGATE_JINGLE
                 ),
                 String::from(
                     "frame=2 mode=InGame level=00 active_before=Some(Options) active_after=Some(Level(LevelId(0))) command=StopMusicThenStart(7)"
                 ),
                 format!(
-                    "frame=2 mode=InGame level=00 command=PlaySound({})",
+                    "frame=2 mode=InGame level=00 command=StartSequence({})",
                     gems_sfx::DESTROY_BLOCK
                 ),
             ],
@@ -18538,7 +18538,7 @@ mod tests {
         assert!(
             settled_events
                 .iter()
-                .any(|event| event.contains("command=PlaySound(35)")),
+                .any(|event| event.contains("command=StartSequence(35)")),
             "settled dynamic probes must still preserve ASM sub_868E Red Stealth sword SFX events"
         );
         Ok(())
@@ -18846,7 +18846,7 @@ mod tests {
         assert!(
             !events
                 .iter()
-                .any(|event| event.contains("command=PlaySound(12)")),
+                .any(|event| event.contains("command=StartSequence(12)")),
             "native condenses ASM loc_D7F4's `sfx_Score_counter` replay and Load_InGame StopMusic into one LevelTransition trace frame; replaying $0C after StopMusic reintroduces the audible counter tail"
         );
         Ok(())
@@ -19408,14 +19408,14 @@ mod tests {
         let prev = sample_trace(GameMode::InGame);
         let mut curr = sample_trace(GameMode::InGame);
         curr.played_music_speed_updates = vec![0x7E];
-        curr.played_sound_commands = vec![NativeSoundCommand::play_sound(gems_sfx::VOICE_BUMMER)];
+        curr.played_sound_commands = vec![NativeSoundCommand::start_sequence(gems_sfx::VOICE_BUMMER)];
         curr.played_sound_effect_ids = vec![gems_sfx::VOICE_BUMMER];
 
         assert_eq!(
             gems_event_audio_commands(&prev, &curr),
             vec![
                 NativeAudioTraceCommand::MusicSpeed(0x7E),
-                NativeAudioTraceCommand::Sound(NativeSoundCommand::play_sound(
+                NativeAudioTraceCommand::Sound(NativeSoundCommand::start_sequence(
                     gems_sfx::VOICE_BUMMER
                 )),
             ],
@@ -19487,7 +19487,7 @@ mod tests {
         );
         assert_eq!(
             gems_event_sound_commands(&scoreboard_setup, &counter_started),
-            vec![NativeSoundCommand::play_sound(gems_sfx::SCORE_COUNTER)],
+            vec![NativeSoundCommand::start_sequence(gems_sfx::SCORE_COUNTER)],
             "ASM loc_D752 reaches `j_PlaySound`, whose GEMS command byte is `$10`"
         );
     }
@@ -19515,7 +19515,7 @@ mod tests {
         );
         assert_eq!(
             gems_event_sound_commands(&draining, &drained),
-            vec![NativeSoundCommand::play_sound2(gems_sfx::SCORE_COUNTER)],
+            vec![NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER)],
             "ASM loc_D7F4 reaches `j_PlaySound2`, whose GEMS command byte is `$12`"
         );
 
@@ -19546,7 +19546,7 @@ mod tests {
             events
                 .iter()
                 .any(|event| event
-                    .contains(&format!("command=PlaySound2({})", gems_sfx::SCORE_COUNTER))),
+                    .contains(&format!("command=StopSequence({})", gems_sfx::SCORE_COUNTER))),
             "recording audio events should preserve ASM loc_D7F4's j_PlaySound2 command byte `$12`, not just the reused score-counter id"
         );
         Ok(())
@@ -19620,7 +19620,7 @@ mod tests {
                     gems_bgm::SCORE_BOARD
                 ),
                 format!(
-                    "frame=2 mode=InGame level=00 command=PlaySound({})",
+                    "frame=2 mode=InGame level=00 command=StartSequence({})",
                     gems_sfx::SCORE_COUNTER
                 ),
             ],

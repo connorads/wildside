@@ -2812,7 +2812,7 @@ impl Z80_io for GemsBus {
 ///
 /// Usage:
 /// 1. `GemsAudioEngine::new(driver, patches, envelopes, sequences, samples)`
-/// 2. `engine.play_sound(sfx_id)` or `engine.play_music(bgm_id)`
+/// 2. `engine.start_sequence(sfx_id)` or `engine.play_music(bgm_id)`
 /// 3. `engine.step_frame()` each game frame (advances Z80 by one VBlank period)
 /// 4. `engine.generate_samples(735)` to pull 735 stereo samples (1 frame @ 44.1kHz)
 pub struct GemsAudioEngine {
@@ -2925,8 +2925,8 @@ impl GemsAudioEngine {
         self.queue_byte(((addr >> 16) & 0xFF) as u8);
     }
 
-    /// Play a sound effect by ID (GEMS command $10).
-    pub fn play_sound(&mut self, sound_id: u8) {
+    /// Start sequence N (GEMS command $10 = cmdstartseq).
+    pub fn start_sequence(&mut self, sound_id: u8) {
         if !self.initialised {
             self.init();
         }
@@ -2935,8 +2935,10 @@ impl GemsAudioEngine {
         self.queue_byte(sound_id);
     }
 
-    /// Play a sound via command $12 (alternate PlaySound).
-    pub fn play_sound2(&mut self, sound_id: u8) {
+    /// Stop sequence N (GEMS command $12 = cmdstopseq). This is the GEMS
+    /// driver's per-sequence stop (matches CCBSNUM in GemsPlay_2-0.c case 18),
+    /// not a second "play" — the misleading `j_PlaySound2` ASM label aside.
+    pub fn stop_sequence(&mut self, sound_id: u8) {
         if !self.initialised {
             self.init();
         }
@@ -5532,7 +5534,7 @@ mod tests {
     }
 
     #[test]
-    fn gems_engine_play_sound_auto_inits_then_queues_command_10() {
+    fn gems_engine_start_sequence_auto_inits_then_queues_command_10() {
         let driver = vec![0u8; 64];
         let patches = vec![0u8; 16];
         let envelopes = vec![0u8; 16];
@@ -5541,7 +5543,7 @@ mod tests {
 
         let mut engine =
             super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
-        engine.play_sound(0x17);
+        engine.start_sequence(0x17);
 
         let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
         assert_eq!(
@@ -5552,7 +5554,7 @@ mod tests {
     }
 
     #[test]
-    fn gems_engine_play_sound2_auto_inits_then_queues_command_12() {
+    fn gems_engine_stop_sequence_auto_inits_then_queues_command_12() {
         let driver = vec![0u8; 64];
         let patches = vec![0u8; 16];
         let envelopes = vec![0u8; 16];
@@ -5561,7 +5563,7 @@ mod tests {
 
         let mut engine =
             super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
-        engine.play_sound2(0x23);
+        engine.stop_sequence(0x23);
 
         let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
         assert_eq!(
@@ -5612,7 +5614,7 @@ mod tests {
     }
 
     #[test]
-    fn gems_engine_stop_all_then_play_sound_keeps_start_command_intact() {
+    fn gems_engine_stop_all_then_start_sequence_keeps_start_command_intact() {
         let driver = vec![0u8; 64];
         let patches = vec![0u8; 16];
         let envelopes = vec![0u8; 16];
@@ -5623,7 +5625,7 @@ mod tests {
             super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
         engine.init();
         engine.stop_all_sequences();
-        engine.play_sound(0x07);
+        engine.start_sequence(0x07);
 
         let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..20];
         assert_eq!(
@@ -5645,7 +5647,7 @@ mod tests {
         let mut engine =
             super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
         engine.init();
-        engine.play_sound(0x03);
+        engine.start_sequence(0x03);
         engine.z80.io.ram[0] = 0x00;
         engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + 30] = 0xAA;
 

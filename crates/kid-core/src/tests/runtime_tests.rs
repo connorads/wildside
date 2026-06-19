@@ -7792,17 +7792,17 @@ mod chunk_09 {
         assert_eq!(
             rt.played_sound_commands,
             vec![
-                QueuedSoundCommand::PlaySound(QueuedSoundEffect::MetalBlock),
-                QueuedSoundCommand::PlaySound(QueuedSoundEffect::RubberBlock)
+                QueuedSoundCommand::StartSequence(QueuedSoundEffect::MetalBlock),
+                QueuedSoundCommand::StartSequence(QueuedSoundEffect::RubberBlock)
             ],
-            "native live playback consumes the ASM-backed PlaySound command trace, not only the legacy sound-id list"
+            "native live playback consumes the ASM-backed StartSequence command trace, not only the legacy sound-id list"
         );
     }
 
     // --- RockTank drive SFX stop (#339) ---
 
     #[test]
-    fn loc_3c46e_last_rock_tank_exit_emits_playsound2_tank_driving_stop() {
+    fn loc_3c46e_last_rock_tank_exit_emits_stopsequence_tank_driving_stop() {
         // ASM loc_3C46E -> loc_3C4A8 (kid.asm:43965-43997): the shared
         // deactivation routine `subi.b #1`s the $FFFFFA34 drive-sound refcount
         // as a Rock Tank leaves, then replays byte_3C46C[1] = sfx_Tank_driving
@@ -7827,10 +7827,10 @@ mod chunk_09 {
 
         assert_eq!(
             rt.played_sound_commands,
-            vec![QueuedSoundCommand::PlaySound2(
+            vec![QueuedSoundCommand::StopSequence(
                 QueuedSoundEffect::TankDriving
             )],
-            "ASM loc_3C4A8: refcount 1->0 must replay sfx_Tank_driving via PlaySound2 ($12), not PlaySound"
+            "ASM loc_3C4A8: refcount 1->0 must stop sfx_Tank_driving via StopSequence ($12 cmdstopseq), not StartSequence ($10)"
         );
     }
 

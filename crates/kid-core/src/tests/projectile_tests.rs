@@ -100,7 +100,7 @@ mod chunk_06 {
         assert!(
             runtime
                 .played_sound_commands
-                .contains(&QueuedSoundCommand::PlaySound(
+                .contains(&QueuedSoundCommand::StartSequence(
                     QueuedSoundEffect::MetalBlock
                 )),
             "live playback drains played_sound_commands, so the steel bounce must queue PlaySound as well as the legacy effect id"

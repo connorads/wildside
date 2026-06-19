@@ -1252,27 +1252,30 @@ pub struct NativeSoundCommand {
 }
 
 impl NativeSoundCommand {
-    pub const PLAY_SOUND_COMMAND_BYTE: u8 = 0x10;
-    pub const PLAY_SOUND2_COMMAND_BYTE: u8 = 0x12;
+    // GEMS $10 = cmdstartseq (start sequence N); $12 = cmdstopseq (stop
+    // sequence N). See the GEMS driver source (gemsplay GemsPlay_2-0.c cases
+    // 16/18). The raw command byte is authoritative and never changes.
+    pub const START_SEQUENCE_COMMAND_BYTE: u8 = 0x10;
+    pub const STOP_SEQUENCE_COMMAND_BYTE: u8 = 0x12;
 
-    pub const fn play_sound(sound_id: u8) -> Self {
+    pub const fn start_sequence(sound_id: u8) -> Self {
         Self {
-            command_byte: Self::PLAY_SOUND_COMMAND_BYTE,
+            command_byte: Self::START_SEQUENCE_COMMAND_BYTE,
             sound_id,
         }
     }
 
-    pub const fn play_sound2(sound_id: u8) -> Self {
+    pub const fn stop_sequence(sound_id: u8) -> Self {
         Self {
-            command_byte: Self::PLAY_SOUND2_COMMAND_BYTE,
+            command_byte: Self::STOP_SEQUENCE_COMMAND_BYTE,
             sound_id,
         }
     }
 
     pub fn command_name(self) -> &'static str {
         match self.command_byte {
-            Self::PLAY_SOUND_COMMAND_BYTE => "PlaySound",
-            Self::PLAY_SOUND2_COMMAND_BYTE => "PlaySound2",
+            Self::START_SEQUENCE_COMMAND_BYTE => "StartSequence",
+            Self::STOP_SEQUENCE_COMMAND_BYTE => "StopSequence",
             _ => "SoundCommand",
         }
     }
