@@ -96,7 +96,7 @@ The agent lane guardrails:
 
 - Never writes `[x]`. A reviewer converts `[?]` → `[x]` once the fix is
   validated.
-- Every investigation commit must either touch `crates/kid-core/src/**` (fix +
+- Every investigation commit must either touch `crates/wildside-core/src/**` (fix +
   regression test) or `docs/source-port/backlog.md` (new evidence block or
   status transition). Pure cache-local churn does not count as progress.
 - On stall, write the dead end (rejected hypotheses included) under the
@@ -155,7 +155,7 @@ On 2026-04-22 those lanes were green but still intentionally separate
 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
 
 - The delegated sweep-parity lane completed (`cycle=127` locally, via the since-retired orchestrator). The previous repeated-fingerprint recovery step `refresh_evidence` remains complete; the regenerated source-port package is cycle `600` with fingerprint `gate-1776819385:sweep-1776819420`.
-- `cargo run --release -p kidcli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels with only advisory/oracle-limitation classifications. The direct sweep report is `.cache/sweep-runs/1776819377/report.json` (`failed=0`, `errors=0`, `advisory=178`, `oracle_limitation=662`), and the release-gate-embedded sweep refreshed `.cache/sweep-runs/1776819420/report.json` with the same zero-blocking shape. Each `field_summary` entry still carries its own `divergence_summary`, concrete BCD `level_ids`, unique checkpoint labels, and checkpoint counts when diffs are present.
+- `cargo run --release -p wildside-cli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels with only advisory/oracle-limitation classifications. The direct sweep report is `.cache/sweep-runs/1776819377/report.json` (`failed=0`, `errors=0`, `advisory=178`, `oracle_limitation=662`), and the release-gate-embedded sweep refreshed `.cache/sweep-runs/1776819420/report.json` with the same zero-blocking shape. Each `field_summary` entry still carries its own `divergence_summary`, concrete BCD `level_ids`, unique checkpoint labels, and checkpoint counts when diffs are present.
 - `mise run release-gate` passed the full `1p-accurate` lane. `.cache/release-gate/1p-accurate/latest.json` now points at timestamp `1776819385`, with report `.cache/release-gate/1p-accurate/1776819385/report.json`; native bootstrap, all gameplay compares, frame-oracle checks, audio-oracle checks, and `state_sweep:0-104` passed.
 - The older `pause_resume_level1` / `level_settle@719` `game_mode` failure is historical context only. A red future gate should still carry `release-gate-failure` plus the matching persisted `release_gate_focus.summary`; a green gate should instead carry `release-gate-status` and `state-sweep-status` so the durable handoff quotes the latest passing evidence.
 - Treat the newest persisted state-tier sweep report in `.cache/sweep-runs/<timestamp>/report.json` as equivalent evidence to the mirrored `sweep-history.jsonl` entry when refreshing that handoff. If the report exists but the history append has not landed yet, the autonomy layer should still consume the fresher report so the state-sweep status does not freeze on an older timestamp.
@@ -174,7 +174,7 @@ TAS recordings are deterministic per-frame button sequences from real full-game 
 
 1. Obtain a BK2 file (BizHawk TAS format) from [TASVideos.org](https://tasvideos.org/UserFiles/Game/180)
 2. Import: `mise run import-tas path/to/recording.bk2`
-3. Quick test (first 1000 frames): `cargo run -p kidcli -- verify-tas --scenario tests/data/tas/<slug>/scenario.json --frame-end 1000`
+3. Quick test (first 1000 frames): `cargo run -p wildside-cli -- verify-tas --scenario tests/data/tas/<slug>/scenario.json --frame-end 1000`
 4. Full run: `mise run verify-tas tests/data/tas/<slug>/scenario.json`
 
 **How it works:**
@@ -187,7 +187,7 @@ TAS recordings are deterministic per-frame button sequences from real full-game 
 - The oracle scenario JSON includes transition checkpoints, giving diagnostic data at level boundaries
 - `--frame-start`/`--frame-end` slicing enables iterative debugging of specific sections
 - `verify-tas` now reports boot diagnostics for the first authoritative mismatch (phase, elapsed, title readiness, menu slot when available)
-- Trimmed 250-frame boot-slice fixtures live in `crates/kidcli/tests/fixtures/tas/` so early boot regressions stay reproducible without cache-local BK2 imports
+- Trimmed 250-frame boot-slice fixtures live in `crates/wildside-cli/tests/fixtures/tas/` so early boot regressions stay reproducible without cache-local BK2 imports
 
 **Available recordings (Kid Chameleon):**
 
@@ -203,11 +203,11 @@ small reduced case bundles derived from replay windows or native recordings.
 
 Phase-1 bundle workflow:
 
-1. `kidcli case derive` creates a per-frame semantic bundle for a chosen window
-2. `kidcli case branch` generates short seeded continuations with a human-like action grammar
-3. `kidcli case verify` compares native vs oracle semantic state for one bundle
-4. `kidcli case reduce` shrinks a failing continuation while preserving the first semantic failure
-5. `kidcli case summarise` refreshes the agent-facing markdown summary
+1. `wildside case derive` creates a per-frame semantic bundle for a chosen window
+2. `wildside case branch` generates short seeded continuations with a human-like action grammar
+3. `wildside case verify` compares native vs oracle semantic state for one bundle
+4. `wildside case reduce` shrinks a failing continuation while preserving the first semantic failure
+5. `wildside case summarise` refreshes the agent-facing markdown summary
 
 Each case bundle should answer:
 
@@ -316,7 +316,7 @@ Mutation testing injects small faults (operator swaps, constant changes, deleted
 ### Workflow
 
 1. Install: `cargo install cargo-mutants`
-2. Run on pure core: `cargo mutants -p kid-core -- --lib`
+2. Run on pure core: `cargo mutants -p wildside-core -- --lib`
 3. Review survivors: each surviving mutant is a candidate for a new test
 4. Target: ≥80% kill rate on `physics.rs` and `terrain.rs` (pure functions)
 
@@ -324,12 +324,12 @@ Mutation testing injects small faults (operator swaps, constant changes, deleted
 
 | When | Scope | Action |
 |------|-------|--------|
-| After major fix batch (3-5 fixes) | `kid-core` pure modules | Run, triage survivors, file test gaps as backlog items |
-| Quarterly | Full `kid-core` | Run, record kill rate in `.cache/metrics/mutation-score.txt` |
+| After major fix batch (3-5 fixes) | `wildside-core` pure modules | Run, triage survivors, file test gaps as backlog items |
+| Quarterly | Full `wildside-core` | Run, record kill rate in `.cache/metrics/mutation-score.txt` |
 
 ### Scope constraints
 
-- Only run on pure-core crates (`kid-core`). Adapter crates (`kidcli`, `kid-render`) have too much I/O coupling for mutation testing to be productive.
+- Only run on pure-core crates (`wildside-core`). Adapter crates (`wildside-cli`, `wildside-render`) have too much I/O coupling for mutation testing to be productive.
 - Exclude `// ORIGINAL_QUIRK` lines from mutation — these are intentional "bugs".
 
 Sources: Trail of Bits ("Use mutation testing to find the bugs your tests don't catch", 2025), `cargo-mutants` (sourcefrog).
@@ -370,7 +370,7 @@ Sweep output should log per-level divergence counts by category:
 }
 ```
 
-Each sweep run appends to `.cache/metrics/sweep-history.jsonl` for trend analysis. As of the 2026-04-03 sweep-parity hardening pass, both the per-run report and the history entry also persist a compact `field_summary` histogram plus `release_gate_focus`; each entry includes per-field category totals in `divergence_summary`, concrete BCD `level_ids`, checkpoint labels, and per-checkpoint diff counts, so operators can tell whether a recurring field belongs to advisory/oracle-limitation debt or to a blocking class without rereading every per-level record. `release_gate_focus` records the current failed release-gate step, checkpoint, failed field, the failing native/oracle value pair, whether the field matched the latest sweep histogram, and the matched histogram metadata when available, including whether the exact pair matched the precise checkpoint label or only some other checkpoint. The CLI also distinguishes mixed advisory+oracle-limitation levels as `NON-BLOCKING` instead of collapsing them into a pure oracle-limitation label, the autonomy sweep-parity lane reuses that histogram to annotate release-gate failures automatically, and `kidcli sweep` now prints the same release-gate-focused field summary inline with the failing scenario/checkpoint context so the output stays honest about the difference between shared field coverage and the exact concrete miss.
+Each sweep run appends to `.cache/metrics/sweep-history.jsonl` for trend analysis. As of the 2026-04-03 sweep-parity hardening pass, both the per-run report and the history entry also persist a compact `field_summary` histogram plus `release_gate_focus`; each entry includes per-field category totals in `divergence_summary`, concrete BCD `level_ids`, checkpoint labels, and per-checkpoint diff counts, so operators can tell whether a recurring field belongs to advisory/oracle-limitation debt or to a blocking class without rereading every per-level record. `release_gate_focus` records the current failed release-gate step, checkpoint, failed field, the failing native/oracle value pair, whether the field matched the latest sweep histogram, and the matched histogram metadata when available, including whether the exact pair matched the precise checkpoint label or only some other checkpoint. The CLI also distinguishes mixed advisory+oracle-limitation levels as `NON-BLOCKING` instead of collapsing them into a pure oracle-limitation label, the autonomy sweep-parity lane reuses that histogram to annotate release-gate failures automatically, and `wildside sweep` now prints the same release-gate-focused field summary inline with the failing scenario/checkpoint context so the output stays honest about the difference between shared field coverage and the exact concrete miss.
 
 ---
 
@@ -436,7 +436,7 @@ Track continuous fidelity indicators to detect regressions, measure progress, an
 |--------|--------|--------|----------|
 | Sweep pass rate | `sweep --tier state` | 63/69 → 69/69 | `.cache/metrics/sweep-history.jsonl` |
 | Test count | `cargo test -- --list 2>&1 \| wc -l` | Monotonically increasing | `.cache/metrics/test-count.txt` |
-| Mutation kill rate | `cargo mutants -p kid-core` | ≥80% on physics.rs, terrain.rs | `.cache/metrics/mutation-score.txt` |
+| Mutation kill rate | `cargo mutants -p wildside-core` | ≥80% on physics.rs, terrain.rs | `.cache/metrics/mutation-score.txt` |
 | Scenario count | `DynamicScenario` definitions | ≥10 per edge-case level | `.cache/metrics/scenario-count.txt` |
 | Divergence by category | Sweep JSON output | Authoritative = 0 | `.cache/metrics/sweep-divergences.json` |
 
@@ -491,7 +491,7 @@ Every fix MUST become a permanent regression test. Chocolate Doom's entire Compe
 - **Pre-commit**: `mise run verify-slice-fast` (timing + gameplay regression tests)
 - **Pre-merge**: full sweep (`sweep --tier state` on all BCD levels)
 - **Post-playtest**: triage new bugs into backlog, write regression tests for each
-- **Post-fix-batch**: run `cargo mutants -p kid-core -- --lib` to check for test gaps
+- **Post-fix-batch**: run `cargo mutants -p wildside-core -- --lib` to check for test gaps
 
 ---
 

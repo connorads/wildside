@@ -20,7 +20,7 @@ Use sources in this order:
 - `.cache/upstream/kid-chameleon-disasm`
 - `.cache/generated/<rom-sha1>/asset-manifest.json`
 - `.cache/native-oracle-runs/<scenario>/`
-- `kidcli inspect-level`, `inspect-enemy`, `probe-native`, `compare-native-oracle`
+- `wildside inspect-level`, `inspect-enemy`, `probe-native`, `compare-native-oracle`
 
 2. Kid bundled docs
 - `.cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt`
@@ -98,7 +98,7 @@ The 68k disassembly at `.cache/upstream/kid-chameleon-disasm/` is the **ultimate
 - Unknown Kid RAM variable or object-state field
   - use `variables.asm` and `doc/ram_layout.txt`
 - Unknown level/header/enemy/platform format
-  - use `doc/formats.txt`, `level/*`, and `kidcli inspect-level`
+  - use `doc/formats.txt`, `level/*`, and `wildside inspect-level`
 - Unknown enemy family logic
   - use `code/enemy/*.asm`, enemy layouts, and oracle checkpoints
 - Unknown GEMS or audio bank behaviour
@@ -115,12 +115,12 @@ mise run bootstrap-upstream
 mise run bootstrap-references
 mise run oracle-setup
 mise run extract-assets
-cargo run -p kidcli -- inspect-level --level 00
-cargo run -p kidcli -- inspect-enemy --enemy 01
-cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
-cargo run -p kidcli -- asm-coverage                    # coverage summary
-cargo run -p kidcli -- asm-coverage --uncovered        # uncovered sub_ labels
-cargo run -p kidcli -- asm-coverage --update           # regenerate asm-coverage.yaml
+cargo run -p wildside-cli -- inspect-level --level 00
+cargo run -p wildside-cli -- inspect-enemy --enemy 01
+cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1
+cargo run -p wildside-cli -- asm-coverage                    # coverage summary
+cargo run -p wildside-cli -- asm-coverage --uncovered        # uncovered sub_ labels
+cargo run -p wildside-cli -- asm-coverage --update           # regenerate asm-coverage.yaml
 ```
 
 ## Level 1 reading order
@@ -174,13 +174,13 @@ Session handoff: the NOW block at the top of `backlog.md` (rewrite it each sessi
 8. Close out (same commit as the fix): flip the issue's status in the
     `backlog.md` table, append any closing evidence to `backlog-archive.md`
     under its `#NNN` (keep `backlog.md` table-only), and update the NOW block
-9. After 3-5 fixes: run `cargo mutants -p kid-core -- --lib` to check for test gaps
+9. After 3-5 fixes: run `cargo mutants -p wildside-core -- --lib` to check for test gaps
 10. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
 
 ### Frontier diagnostics defaults
-- For TAS frontier work, start with `cargo run -p kidcli -- verify-tas --scenario <scenario> --bisect --frontier-kind enemy`
+- For TAS frontier work, start with `cargo run -p wildside-cli -- verify-tas --scenario <scenario> --bisect --frontier-kind enemy`
 - Use `--frontier-kind gameplay` only when Kid/camera/global behaviour is the known first causal divergence
-- Follow with `cargo run -p kidcli -- tas-diff --scenario <scenario> --include-advisory --frontier-kind enemy` so hidden enemy drift is visible before the visible gameplay break
+- Follow with `cargo run -p wildside-cli -- tas-diff --scenario <scenario> --include-advisory --frontier-kind enemy` so hidden enemy drift is visible before the visible gameplay break
 
 ### Debug field promotion workflow
 - Register every emitted `debug_fields` or `gameplay_debug_fields` key in `docs/source-port/debug-field-registry.yaml`
@@ -195,13 +195,13 @@ The Read tool supports viewing PNG/JPEG images directly. Use it to inspect captu
 diff composites, and per-layer diagnostics.
 
 ### Commands
-- `cargo run -p kidcli -- capture-frames --level XX --frames N,N,N --output .cache/debug/`
-- `cargo run -p kidcli -- diagnose-frame --level XX --frame N --output .cache/debug/ --save-layers`
-- `cargo run -p kidcli -- sweep --levels 0-104 --tier state` (full oracle comparison)
-- `cargo run -p kidcli -- diagnose-level XX` (deep single-level analysis)
-- `cargo run -p kidcli -- asm-coverage` (ASM label coverage summary)
-- `cargo run -p kidcli -- asm-coverage --uncovered` (gap list)
-- `cargo run -p kidcli -- asm-coverage --update` (regenerate asm-coverage.yaml)
+- `cargo run -p wildside-cli -- capture-frames --level XX --frames N,N,N --output .cache/debug/`
+- `cargo run -p wildside-cli -- diagnose-frame --level XX --frame N --output .cache/debug/ --save-layers`
+- `cargo run -p wildside-cli -- sweep --levels 0-104 --tier state` (full oracle comparison)
+- `cargo run -p wildside-cli -- diagnose-level XX` (deep single-level analysis)
+- `cargo run -p wildside-cli -- asm-coverage` (ASM label coverage summary)
+- `cargo run -p wildside-cli -- asm-coverage --uncovered` (gap list)
+- `cargo run -p wildside-cli -- asm-coverage --update` (regenerate asm-coverage.yaml)
 
 ### Verification loop
 1. CAPTURE BEFORE: `capture-frames` to `.cache/debug/before/`
@@ -253,7 +253,7 @@ diff composites, and per-layer diagnostics.
 
 Run per-file with demo/TAS/snapshot tests skipped (they have pre-existing failures):
 ```bash
-cargo mutants -p kid-core -f <file>.rs -j 4 -- --lib -- --skip demo_ --skip published_tas --skip snapshot
+cargo mutants -p wildside-core -f <file>.rs -j 4 -- --lib -- --skip demo_ --skip published_tas --skip snapshot
 ```
 
 **Never use `--in-place`** — it silently corrupts source files with `/* ~ changed by cargo-mutants ~ */` markers. Always use `--output /tmp/mutants-<name>`.

@@ -1,4 +1,8 @@
-# Kid Chameleon PC Port
+# Wildside
+
+Wildside is an independent reimplementation of SEGA's *Kid Chameleon* engine in
+Rust. (The name is the in-fiction VR arcade game from *Kid Chameleon*'s own
+story.)
 
 > **Disclaimer.** Kid Chameleon is a trademark of SEGA Corporation. This is an
 > independent, non-commercial reimplementation of the Kid Chameleon engine in
@@ -13,52 +17,52 @@ The current delivery frontier is 1P whole-game fidelity hardening on the native 
 
 ## Current status
 
-Start with `kidcli project-status` or `mise run project-status`.
+Start with `wildside project-status` or `mise run project-status`.
 
-- Headline signal: `kidcli release-gate --target 1p-playable`
-- Supporting signal: `kidcli release-gate --target 1p-accurate`
+- Headline signal: `wildside release-gate --target 1p-playable`
+- Supporting signal: `wildside release-gate --target 1p-accurate`
 - Closed TAS frontier means `replay-matched` on those routes, not whole-game completion
-- `kidcli project-status` keeps these signals separate so a green TAS/release artefact does not get read as "the game is nearly done"
+- `wildside project-status` keeps these signals separate so a green TAS/release artefact does not get read as "the game is nearly done"
 
-- `kidcli play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
-- `kidcli play-native` starts the native runtime in a release build. By default it runs the native boot/title/game flow; use `--warp-level <hex> --settled` for a direct settled level playtest.
+- `wildside play` starts the player-facing Linux alpha shell with ROM discovery, main menu, options, pause menu, persistent settings, and the current SDL host underneath.
+- `wildside play-native` starts the native runtime in a release build. By default it runs the native boot/title/game flow; use `--warp-level <hex> --settled` for a direct settled level playtest.
 - `mise run bootstrap-native` is the canonical native-play setup command. It exports the generated asset bundle and dumps the early gameplay `level-layout` grids for levels `00-02`.
-- `kidcli verify-rom` validates a local ROM and prints its header metadata and SHA-1.
-- `kidcli probe-cpu` loads the ROM into a 68000 core, applies the real reset vector, and steps live instructions for bring-up/debugging.
-- `kidcli verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
-- `kidcli verify-startup` asserts that the current runtime can progress through the early boot loops, reach `GameProgram`, and continue into the later startup VRAM clear path.
-- `kidcli verify-level` asserts that the scripted front-end path can enter the first level and that holding `right` advances the in-level camera.
-- `kidcli verify-gameplay` runs the longer gameplay-hardening scenarios for pause/resume, death/respawn, multi-level transition coverage, and a long transition soak.
-- `kidcli verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing YM2612 and PSG writes by first-level entry.
-- `kidcli oracle-setup` clones pinned external oracle repos under `.cache/oracles/`, builds a cache-local `jgenesis` helper, and clones `BlastEm` for optional manual debugger use.
-- `kidcli extract-assets` runs the upstream split flow for the local ROM and exports a typed generated asset bundle under `.cache/generated/<rom-sha1>/`, including parsed level and enemy metadata in the manifest for native-runtime use.
-- `kidcli dump-level-layout --level <hex>` dumps the generated collision grid used by the native runtime into `.cache/generated/<rom-sha1>/level-layout/`.
-- `kidcli probe-native --scenario ...` runs the native source-port bootstrap path against an existing scripted scenario and prints semantic checkpoints, including active roster state.
-- `kidcli inspect-level --level ...` loads a typed level bundle from the generated cache and prints parsed level header metadata, bgscroll profile summary, platform layout summary, enemy layout summary, and the concrete resource files and byte sizes for that level.
-- `kidcli inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
-- `kidcli verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
-- `kidcli compare-native-oracle --scenario ...` is an optional semantic checkpoint spot-check against the `jgenesis` oracle without using `kid-md`.
-- `kidcli compare-native-gameplay --scenario ...` is an optional differential check against the gameplay oracle capture for pause/resume, death/respawn, and long traversal/transition scenarios.
-- `kidcli play-native --record <slug>` records a live native repro to `.cache/recordings/<slug>/` as input script + native trace, and now writes ROM/build provenance plus record/verify commands into the bundle so the slug can travel as a bug artefact. While recording, press `F10` to dump the current bundle and exit immediately.
-- `kidcli play-native --record <slug> --record-notes <path>` copies text notes into the bundle and now also saves `transcript.txt`, `final-frame.png`, plus `audio.wav` so copied repros carry immediate textual, visual, and audio context before verification.
-- `kidcli verify-recording --slug <slug>` replays a recorded repro from `.cache/recordings/<slug>/`, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
-- `kidcli verify-recording --bundle <path>` does the same for a copied recording bundle outside `.cache/recordings/`, so a remote repro can be verified without manual ingest.
-- `kidcli view-tas --scenario ...` launches an SDL viewer for a TAS scenario, running fresh native + `jgenesis` captures and showing native, oracle, and amplified diff panels frame-by-frame.
-- `kidcli project-status` summarises repo health with `1p-playable` first, `1p-accurate` second, plus backlog risks and human blockers.
-- `kidcli release-gate --target 1p-playable` is the primary native-playability gate. It composes native gameplay smoke coverage, the current required gameplay compares, and the core slope/bounce/block regressions.
-- `kidcli release-gate --target 1p-accurate` remains the parity-heavy sign-off command. It composes native bootstrap, gameplay oracle compares, frame/audio oracle checks, and a full state sweep.
-- `kidcli port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
+- `wildside verify-rom` validates a local ROM and prints its header metadata and SHA-1.
+- `wildside probe-cpu` loads the ROM into a 68000 core, applies the real reset vector, and steps live instructions for bring-up/debugging.
+- `wildside verify-boot` asserts a known cold-boot trace against the current ROM and the current minimal Mega Drive bus stub.
+- `wildside verify-startup` asserts that the current runtime can progress through the early boot loops, reach `GameProgram`, and continue into the later startup VRAM clear path.
+- `wildside verify-level` asserts that the scripted front-end path can enter the first level and that holding `right` advances the in-level camera.
+- `wildside verify-gameplay` runs the longer gameplay-hardening scenarios for pause/resume, death/respawn, multi-level transition coverage, and a long transition soak.
+- `wildside verify-audio-driver` asserts that the integrated Z80 sound CPU reaches the point of issuing YM2612 and PSG writes by first-level entry.
+- `wildside oracle-setup` clones pinned external oracle repos under `.cache/oracles/`, builds a cache-local `jgenesis` helper, and clones `BlastEm` for optional manual debugger use.
+- `wildside extract-assets` runs the upstream split flow for the local ROM and exports a typed generated asset bundle under `.cache/generated/<rom-sha1>/`, including parsed level and enemy metadata in the manifest for native-runtime use.
+- `wildside dump-level-layout --level <hex>` dumps the generated collision grid used by the native runtime into `.cache/generated/<rom-sha1>/level-layout/`.
+- `wildside probe-native --scenario ...` runs the native source-port bootstrap path against an existing scripted scenario and prints semantic checkpoints, including active roster state.
+- `wildside inspect-level --level ...` loads a typed level bundle from the generated cache and prints parsed level header metadata, bgscroll profile summary, platform layout summary, enemy layout summary, and the concrete resource files and byte sizes for that level.
+- `wildside inspect-enemy --enemy ...` resolves an enemy object ID or name from the extracted constants and points at the matching disassembly module when available.
+- `wildside verify-native-bootstrap` asserts that the native bootstrap skeleton reaches the title screen and then native in-game state for level 1.
+- `wildside compare-native-oracle --scenario ...` is an optional semantic checkpoint spot-check against the `jgenesis` oracle without using `wildside-md`.
+- `wildside compare-native-gameplay --scenario ...` is an optional differential check against the gameplay oracle capture for pause/resume, death/respawn, and long traversal/transition scenarios.
+- `wildside play-native --record <slug>` records a live native repro to `.cache/recordings/<slug>/` as input script + native trace, and now writes ROM/build provenance plus record/verify commands into the bundle so the slug can travel as a bug artefact. While recording, press `F10` to dump the current bundle and exit immediately.
+- `wildside play-native --record <slug> --record-notes <path>` copies text notes into the bundle and now also saves `transcript.txt`, `final-frame.png`, plus `audio.wav` so copied repros carry immediate textual, visual, and audio context before verification.
+- `wildside verify-recording --slug <slug>` replays a recorded repro from `.cache/recordings/<slug>/`, compares the replayed native trace against the recorded baseline, and checks sampled checkpoint states/pixels against the oracle.
+- `wildside verify-recording --bundle <path>` does the same for a copied recording bundle outside `.cache/recordings/`, so a remote repro can be verified without manual ingest.
+- `wildside view-tas --scenario ...` launches an SDL viewer for a TAS scenario, running fresh native + `jgenesis` captures and showing native, oracle, and amplified diff panels frame-by-frame.
+- `wildside project-status` summarises repo health with `1p-playable` first, `1p-accurate` second, plus backlog risks and human blockers.
+- `wildside release-gate --target 1p-playable` is the primary native-playability gate. It composes native gameplay smoke coverage, the current required gameplay compares, and the core slope/bounce/block regressions.
+- `wildside release-gate --target 1p-accurate` remains the parity-heavy sign-off command. It composes native bootstrap, gameplay oracle compares, frame/audio oracle checks, and a full state sweep.
+- `wildside port-loop --scenario ... --iterations ...` repeatedly runs the native bootstrap verification plus native-oracle checkpoint comparison for the requested scenario.
 - Loop sessions follow `docs/source-port/loop.md`: the human-ordered backlog table is the queue and the NOW block at its top is the session handoff (the old autonomous-loop orchestrator and RL prompt machinery were removed — see tag `pre-autonomy-demolition`).
-- `kidcli verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
-- `kidcli verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
-- `kidcli verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
-- `kidcli sweep` now appends structured run history to `.cache/metrics/sweep-history.jsonl`, including divergence categories, instead of leaving sweep truth only in one-off run directories.
-- `kidcli render-frame` runs the game headlessly for a fixed number of instructions and writes a PNG using the current software renderer.
-- `kidcli dump-audio` writes a deterministic stereo WAV from the current mixed FM + PSG audio path.
-- `kidcli run-sdl` starts the lower-level SDL host used for bring-up and debugging.
-- `kidcli bootstrap-upstream` clones the pinned public disassembly into `.cache/upstream/kid-chameleon-disasm`.
-- `kidcli bootstrap-references` clones the pinned 68k and GEMS research repos into `.cache/references/`.
-- `kidcli reference-build` replaces the upstream `kid.bin` with the local ROM, runs `split.py`, rebuilds the ROM with the bundled Linux assembler, and verifies whether the rebuilt ROM is bit-perfect.
+- `wildside verify-audio-output --scenario ...` compares native audio against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
+- `wildside verify-frames --scenario ...` compares native rendered frames and checkpoint state against `jgenesis` for a deterministic scripted scenario and writes artefacts under `.cache/oracle-runs/<scenario>/`.
+- `wildside verify-oracle --scenario ...` runs both the audio and frame comparisons for the same scenario.
+- `wildside sweep` now appends structured run history to `.cache/metrics/sweep-history.jsonl`, including divergence categories, instead of leaving sweep truth only in one-off run directories.
+- `wildside render-frame` runs the game headlessly for a fixed number of instructions and writes a PNG using the current software renderer.
+- `wildside dump-audio` writes a deterministic stereo WAV from the current mixed FM + PSG audio path.
+- `wildside run-sdl` starts the lower-level SDL host used for bring-up and debugging.
+- `wildside bootstrap-upstream` clones the pinned public disassembly into `.cache/upstream/kid-chameleon-disasm`.
+- `wildside bootstrap-references` clones the pinned 68k and GEMS research repos into `.cache/references/`.
+- `wildside reference-build` replaces the upstream `kid.bin` with the local ROM, runs `split.py`, rebuilds the ROM with the bundled Linux assembler, and verifies whether the rebuilt ROM is bit-perfect.
 
 ## Containment
 
@@ -106,10 +110,10 @@ mise run verify-1p-playable
 mise run verify-slice-fast
 mise run verify-slice-full
 mise run release-gate
-cargo run --release -p kidcli -- play-native --warp-level 0 --settled --record level1-tree-break
-cargo run --release -p kidcli -- play-native --warp-level 0 --settled --record level1-tree-break --record-notes /tmp/level1-tree-break.txt
-cargo run -p kidcli -- verify-recording --slug level1-tree-break
-cargo run -p kidcli -- verify-recording --bundle /tmp/level1-tree-break
+cargo run --release -p wildside-cli -- play-native --warp-level 0 --settled --record level1-tree-break
+cargo run --release -p wildside-cli -- play-native --warp-level 0 --settled --record level1-tree-break --record-notes /tmp/level1-tree-break.txt
+cargo run -p wildside-cli -- verify-recording --slug level1-tree-break
+cargo run -p wildside-cli -- verify-recording --bundle /tmp/level1-tree-break
 mise run verify-audio-driver
 mise run oracle-setup
 mise run extract-assets
@@ -119,9 +123,9 @@ mise run inspect-level
 mise run inspect-enemy
 mise run verify-native-bootstrap
 mise run compare-native-oracle
-cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
-cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
-cargo run -p kidcli -- diagnose-native-gameplay-drift --scenario pause-resume-level1 --from-frame 719
+cargo run -p wildside-cli -- compare-native-gameplay --scenario pause-resume-level1
+cargo run -p wildside-cli -- compare-native-gameplay --scenario progress-two-transitions
+cargo run -p wildside-cli -- diagnose-native-gameplay-drift --scenario pause-resume-level1 --from-frame 719
 mise run port-loop
 mise run verify-frames
 mise run verify-audio-output
@@ -144,45 +148,45 @@ For the source-port research map and local reference layout, start with `CLAUDE.
 
 If you want to play or test the project, pick the runtime first:
 
-- `cargo run --release -p kidcli -- play` for the emulator-backed shell with menus and audio.
-- `cargo run --release -p kidcli -- play-native --rom ./kc.md` for the native source-port runtime.
+- `cargo run --release -p wildside-cli -- play` for the emulator-backed shell with menus and audio.
+- `cargo run --release -p wildside-cli -- play-native --rom ./kc.md` for the native source-port runtime.
 
 For the fastest Level 1 feedback loop, use:
 
 ```bash
-cargo run --release -p kidcli -- play-native --warp-level 0 --settled
-cargo run -p kidcli -- verify-native-bootstrap
-cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1
-cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1
+cargo run --release -p wildside-cli -- play-native --warp-level 0 --settled
+cargo run -p wildside-cli -- verify-native-bootstrap
+cargo run -p wildside-cli -- verify-native-gameplay --scenario pause-resume-level1
+cargo run -p wildside-cli -- verify-native-gameplay --scenario death-respawn-level1
 ```
 
 For a player-facing launch with the default ROM search path, use:
 
 ```bash
-cargo run -p kidcli -- play
+cargo run -p wildside-cli -- play
 ```
 
 For the native runtime, use:
 
 ```bash
-cargo run --release -p kidcli -- play-native
-cargo run --release -p kidcli -- play-native --rom ./kc.md
-cargo run --release -p kidcli -- play-native --warp-level 0 --settled
-cargo run --release -p kidcli -- play-native --warp-level 0 --settled --record level1-tree-break
+cargo run --release -p wildside-cli -- play-native
+cargo run --release -p wildside-cli -- play-native --rom ./kc.md
+cargo run --release -p wildside-cli -- play-native --warp-level 0 --settled
+cargo run --release -p wildside-cli -- play-native --warp-level 0 --settled --record level1-tree-break
 ```
 
 To turn a manual bug into a reproducible artefact, use:
 
 ```bash
-cargo run --release -p kidcli -- play-native --warp-level 0 --settled --record level1-tree-break
-cargo run -p kidcli -- verify-recording --slug level1-tree-break
-cargo run -p kidcli -- verify-recording --bundle /tmp/level1-tree-break
+cargo run --release -p wildside-cli -- play-native --warp-level 0 --settled --record level1-tree-break
+cargo run -p wildside-cli -- verify-recording --slug level1-tree-break
+cargo run -p wildside-cli -- verify-recording --bundle /tmp/level1-tree-break
 ```
 
 For a freeze repro on the default boot path, run:
 
 ```bash
-cargo run --release -p kidcli -- play-native --record level1-load-freeze
+cargo run --release -p wildside-cli -- play-native --record level1-load-freeze
 ```
 
 Reproduce the stall, then press `F10` to save the current bundle and exit immediately.
@@ -190,32 +194,32 @@ Reproduce the stall, then press `F10` to save the current bundle and exit immedi
 Useful launch overrides:
 
 ```bash
-cargo run -p kidcli -- play --rom ./kc.md
-cargo run -p kidcli -- play --fullscreen
-cargo run -p kidcli -- play --scale 3
-cargo run -p kidcli -- play --mute
-cargo run --release -p kidcli -- play-native --fullscreen
-cargo run --release -p kidcli -- play-native --scale 3
-cargo run --release -p kidcli -- play-native --debug-overlay
+cargo run -p wildside-cli -- play --rom ./kc.md
+cargo run -p wildside-cli -- play --fullscreen
+cargo run -p wildside-cli -- play --scale 3
+cargo run -p wildside-cli -- play --mute
+cargo run --release -p wildside-cli -- play-native --fullscreen
+cargo run --release -p wildside-cli -- play-native --scale 3
+cargo run --release -p wildside-cli -- play-native --debug-overlay
 ```
 
 For long CPU probes, prefer the compact mode so the output stays readable:
 
 ```bash
-cargo run -p kidcli -- probe-cpu --steps 120000 --summary-only
+cargo run -p wildside-cli -- probe-cpu --steps 120000 --summary-only
 ```
 
 You can also script title-screen input while probing or rendering:
 
 ```bash
-cargo run -p kidcli -- probe-cpu --steps 20000000 --press-start-frame 120 --summary-only
-cargo run -p kidcli -- render-frame --steps 5000000 --press-start-frame 120 --out .cache/after-start.png
+cargo run -p wildside-cli -- probe-cpu --steps 20000000 --press-start-frame 120 --summary-only
+cargo run -p wildside-cli -- render-frame --steps 5000000 --press-start-frame 120 --out .cache/after-start.png
 ```
 
 For more control, use `--input FRAME:buttons` or `--input START-END:buttons`:
 
 ```bash
-cargo run -p kidcli -- probe-cpu --steps 8000000 \
+cargo run -p wildside-cli -- probe-cpu --steps 8000000 \
   --press-start-frame 120 --press-start-frame 200 --press-start-frame 280 \
   --press-start-frame 360 --press-start-frame 440 \
   --input 460:start \
@@ -228,7 +232,7 @@ Button names are `up`, `down`, `left`, `right`, `a`, `b`, `c`, and `start`. You 
 To jump straight into the first level in the SDL host, use:
 
 ```bash
-cargo run -p kidcli -- run-sdl --autostart-level
+cargo run -p wildside-cli -- run-sdl --autostart-level
 ```
 
 The player shell searches for a ROM in this order:
@@ -242,15 +246,15 @@ If no supported ROM is found, `play` shows an in-app error screen with the paths
 To dump a longer capture for inspection, use:
 
 ```bash
-cargo run -p kidcli -- dump-audio --scenario boot-title-start-level1 --out .cache/long-audio.wav
+cargo run -p wildside-cli -- dump-audio --scenario boot-title-start-level1 --out .cache/long-audio.wav
 ```
 
 If you want an oracle spot-check after the native path looks right, use:
 
 ```bash
-cargo run -p kidcli -- oracle-setup
-cargo run -p kidcli -- verify-frames --scenario boot-title-start-level1-move-right5s
-cargo run -p kidcli -- verify-audio-output --scenario boot-title-start-level1
+cargo run -p wildside-cli -- oracle-setup
+cargo run -p wildside-cli -- verify-frames --scenario boot-title-start-level1-move-right5s
+cargo run -p wildside-cli -- verify-audio-output --scenario boot-title-start-level1
 ```
 
 Current oracle results on this machine:
@@ -264,11 +268,11 @@ The audio oracle now uses onset-aligned RMS-envelope similarity instead of raw P
 
 The new generated source-port bundle is written under `.cache/generated/<rom-sha1>/asset-manifest.json`. It is built from the public disassembly split output and indexed into typed metadata for levels, constants, RAM variables, enemy source files, and asset groups. The current native runtime path is still intentionally narrow, but it now includes family-aware Level 1 enemy state, richer trace surfaces, and per-enemy checkpoint plumbing for oracle comparison.
 
-The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `kid-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
+The native checkpoint comparison artefacts are written under `.cache/native-oracle-runs/<scenario>/`. This path is separate from the older `wildside-md` oracle artefacts so the new source-port loop can evolve independently while still using `jgenesis` as the behavioural oracle.
 
 `play-native` is the native source-port runtime. By default it uses the native boot/title/game flow, auto-dumping missing early gameplay `level-layout` grids for levels `00-02` before launch. For direct manual bug work on a specific level, use `--warp-level <hex> --settled`. Use `--debug-overlay` or `Tab` if you want the trace overlay while testing.
 
-The default `kid-core` runtime now loads generated `Level_Layout` terrain on construction, so the default gameplay path and the gameplay/oracle harnesses share the same real-terrain authority by default.
+The default `wildside-core` runtime now loads generated `Level_Layout` terrain on construction, so the default gameplay path and the gameplay/oracle harnesses share the same real-terrain authority by default.
 
 Loop sessions are stateless between runs: `docs/source-port/loop.md` is the static session prompt, the backlog table in `docs/source-port/backlog.md` is the queue, and the NOW block at its top carries the handoff. Historical goal contracts from the retired orchestrator remain at `docs/source-port/level-1-goal.json`, `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and `docs/source-port/level-1-full-traversal-goal.json`.
 
@@ -278,7 +282,7 @@ Gameplay-hardening artefacts are written under `.cache/gameplay-runs/<scenario>/
 
 ## Fast regression gate
 
-Use the fast slice gate before each commit touching `kid-core` or `kidcli` gameplay logic:
+Use the fast slice gate before each commit touching `wildside-core` or `wildside-cli` gameplay logic:
 
 ```bash
 mise run verify-slice-fast
@@ -299,7 +303,7 @@ mise run release-gate
 If a gameplay compare reopens, use:
 
 ```bash
-cargo run -p kidcli -- diagnose-native-gameplay-drift --scenario pause-resume-level1 --from-frame 719
+cargo run -p wildside-cli -- diagnose-native-gameplay-drift --scenario pause-resume-level1 --from-frame 719
 ```
 
 Tracked hooks now live under `.hk-hooks/`. Run `git config --local core.hooksPath .hk-hooks` once in the repo to enable the `hk` pre-commit gate.
@@ -358,4 +362,4 @@ sudo apt-get install -y libsdl2-dev libglew-dev libgl1-mesa-dev
 
 ## Arm64 note
 
-This machine is `aarch64`, while the upstream disassembly ships x86-64 Linux build tools. `kidcli reference-build` now handles that automatically by building a native copy of Macroassembler AS under `.cache/tooling/asl-releases` and using it as a fallback. No system package install was needed for that path here.
+This machine is `aarch64`, while the upstream disassembly ships x86-64 Linux build tools. `wildside reference-build` now handles that automatically by building a native copy of Macroassembler AS under `.cache/tooling/asl-releases` and using it as a fallback. No system package install was needed for that path here.

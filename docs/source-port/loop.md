@@ -32,6 +32,6 @@ playtest does:
 - **Audit one enemy family vs ASM**: pick a family in `code/enemy/*.asm`, compare
   each branch against the native implementation, write probe scenarios for any
   behaviour the sweep doesn't already exercise.
-- **Extend ASM coverage**: `cargo run -p kidcli -- asm-coverage --uncovered`, pick
+- **Extend ASM coverage**: `cargo run -p wildside-cli -- asm-coverage --uncovered`, pick
   an uncovered `sub_` label, trace and cite it. Coverage is a discovery aid, not
   the lead selector — backlog truth always beats raw coverage.
