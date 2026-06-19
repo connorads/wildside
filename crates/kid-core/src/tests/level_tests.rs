@@ -7274,6 +7274,156 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn under_skull_mountain3_live_platforms_move_from_generated_cache_loc_2836() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.enter_level_playtest(LevelId(0x06));
+        let live_layout_len = runtime
+            .platform_layout(LevelId(0x06))
+            .map(|layout| layout.placements.len());
+        let live_first_platform = runtime
+            .platform_layout(LevelId(0x06))
+            .and_then(|layout| layout.placements.first().cloned());
+        assert_eq!(
+            live_layout_len,
+            Some(11),
+            "ASM sub_2366 should resolve logical level 0x06 through MapOrder to resource level 0x02 platforms; first={live_first_platform:?}"
+        );
+        let mut loader_history = Vec::new();
+        for frame in 0..12 {
+            let mut slice = runtime
+                .opening_slice
+                .expect("level 0x06 playtest should expose an opening slice");
+            // ASM loc_2762/loc_2836 loads platforms whose placement window
+            // contains Kid. The real Under Skull Mountain 3 stair platforms
+            // live in resource-level 0x02 window `x=82..102, y=0..14` (32px).
+            slice.player.x_pos = 90 << 21;
+            slice.player.y_pos = 10 << 21;
+            runtime.opening_slice = Some(slice);
+            runtime.refresh_active_roster();
+            let slice = runtime
+                .opening_slice
+                .expect("level 0x06 playtest should keep exposing an opening slice");
+            loader_history.push((
+                frame,
+                slice.player.x_pos >> 16,
+                slice.player.y_pos >> 16,
+                slice.objects.platform_loader.next_index,
+                slice.objects.platform_loader.offset_words,
+                slice.objects.platform_loader.loaded_mask,
+            ));
+        }
+
+        let active_platform_debug: Vec<_> = runtime
+            .active_platforms
+            .iter()
+            .map(|platform| {
+                (
+                    platform.layout_index,
+                    platform.x_pos,
+                    platform.y_pos,
+                    platform.y_velocity,
+                    platform.script,
+                    platform.slot_addr,
+                    platform.deactivated_flag,
+                )
+            })
+            .collect();
+        let loader_debug = runtime
+            .opening_slice
+            .map(|slice| slice.objects.platform_loader);
+        let boot_debug = &runtime.boot_state;
+        let lifecycle_debug = runtime.player_lifecycle;
+        let platform = runtime
+            .active_platforms
+            .iter()
+            .find(|platform| platform.layout_index == Some(0))
+            .unwrap_or_else(|| {
+                panic!(
+                    "real level 0x06 should materialise the first stair platform; boot={boot_debug:?}; lifecycle={lifecycle_debug:?}; history={loader_history:?}; loader={loader_debug:?}; active={active_platform_debug:?}"
+                )
+            });
+        assert_eq!(
+            platform.script,
+            Some(PlatformScriptState {
+                script_offset: 0x001A,
+                command_index: 0,
+                remaining_duration: 0x00E1,
+            }),
+            "ASM loc_2836 should attach the real PlatformScript_361C script in live generated play, so the Skull Mountain 3 climb platforms do not stay solid/static"
+        );
+        let y_before = platform.y_pos;
+        let y_velocity_before = platform.y_velocity;
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level 0x06 playtest should keep exposing an opening slice");
+        slice.player.x_pos = 90 << 21;
+        slice.player.y_pos = 10 << 21;
+        runtime.opening_slice = Some(slice);
+        runtime.step_frame(FrameInput::default());
+
+        let platform = runtime
+            .active_platforms
+            .iter()
+            .find(|platform| platform.layout_index == Some(0))
+            .expect("real level 0x06 should keep the first stair platform after script step");
+        assert_ne!(
+            platform.y_velocity, 0,
+            "ASM sub_23EA must run through the live frame loop and start PlatformScript_361C's first ptfm_move command"
+        );
+        assert_ne!(
+            platform.y_pos, y_before,
+            "ASM sub_23EA live frame loop should move the Skull Mountain 3 stair platform; y_before={y_before:#010x}, y_velocity_before={y_velocity_before:#010x}"
+        );
+    }
+
+    #[test]
+    fn under_skull_mountain3_live_flying_dragon_loads_from_generated_cache_loc_36900() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.enter_level_playtest(LevelId(0x06));
+        let layout = runtime
+            .enemy_layout(LevelId(0x06))
+            .expect("Under Skull Mountain 3 should use resource level 0x02 enemies");
+        assert!(
+            layout
+                .objects
+                .iter()
+                .any(|object| object.object_type == EnemyFamily::Dragon.object_type()
+                    && object.x == 504
+                    && object.y == 239),
+            "ASM enemy layout lookup should expose the Flying Dragon under Skull Mountain 3"
+        );
+
+        let mut slice = runtime
+            .opening_slice
+            .expect("level 0x06 playtest should expose an opening slice");
+        // ASM Manage_EnemyLoading/loc_36900 loads enemies from the camera
+        // activation window. The reported missing Flying Dragon is the
+        // resource-level 0x02 entry at x=$01F8, y=$00EF.
+        slice.camera.x_pos = 384 << 16;
+        slice.camera.y_pos = 160 << 16;
+        slice.player.x_pos = 504 << 16;
+        slice.player.y_pos = 239 << 16;
+        runtime.opening_slice = Some(slice);
+        runtime.refresh_active_roster();
+
+        assert!(
+            runtime.active_enemies.iter().any(|enemy| {
+                enemy.family == EnemyFamily::Dragon
+                    && (enemy.x_pos >> 16) == 504
+                    && (enemy.y_pos >> 16) == 239
+            }),
+            "ASM loc_36900 should materialise the generated Flying Dragon under Skull Mountain 3"
+        );
+    }
+
+    #[test]
     fn platform_layout_loc_2366_does_not_fallback_to_raw_level_after_map_order_tail() {
         let mut manifest = manifest_with_levels(4);
         manifest.map_order = vec![0, 1];
