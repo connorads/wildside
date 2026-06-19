@@ -4203,9 +4203,9 @@ mod chunk_06 {
         );
         assert_eq!(
             rt.helmet.maniaxe_turnaround,
-            MANIAXE_TRAVEL_FRAMES - 1,
-            "ASM loc_8A42: `moveq #$C,d0` sets counter to 12; native decrements in the same \
-             step_maniaxe_axe call, so observed value is 11 after the first tick"
+            MANIAXE_TRAVEL_FRAMES,
+            "ASM loc_8A42/loc_8A52: `moveq #$C,d0` seeds the counter, then the first \
+             `Hibernate_Object_1Frame` occurs before loc_8A74 decrements it on the next tick"
         );
     }
 

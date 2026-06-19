@@ -6575,8 +6575,10 @@ impl NativeRuntime {
 
         // C rising edge throws axe (only one at a time)
         let c_pressed = input.c && !self.prior_input.c;
+        let mut spawned_axe_this_frame = false;
         if c_pressed && !self.helmet.maniaxe_axe_active {
             self.helmet.maniaxe_axe_active = true;
+            spawned_axe_this_frame = true;
             self.helmet.maniaxe_throw_latch_frames = MANIAXE_THROW_LATCH_FRAMES_LOC_794C;
             self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
             let player_x_velocity_word = slice.player.x_velocity >> 16;
@@ -6605,7 +6607,7 @@ impl NativeRuntime {
         }
 
         // Turnaround: reverse axe projectile direction after travel frames
-        if self.helmet.maniaxe_axe_active {
+        if self.helmet.maniaxe_axe_active && !spawned_axe_this_frame {
             if self.helmet.maniaxe_turnaround > 0 {
                 self.helmet.maniaxe_turnaround -= 1;
             }
