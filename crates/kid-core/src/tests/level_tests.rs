@@ -23913,7 +23913,7 @@ mod chunk_10 {
         // the stopped→moving edge. subi.b #1 on the shared refcount at
         // ($FFFFFA34+d7); when the counter wraps to zero, j_PlaySound2 is
         // called with byte_3C46C[d6]. Verify Driller edge with refcount=1
-        // triggers PlaySound2(DrillMoving).
+        // triggers StopSequence(DrillMoving).
         let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Driller, true, false, 1);
 
         assert_eq!(
@@ -23922,10 +23922,10 @@ mod chunk_10 {
         );
         assert_eq!(
             result.sound_call,
-            Some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(
+            Some(SharedEnemyDriveSoundCallSub3C352::StopSequence(
                 SharedEnemyDriveSoundEffectSub3C352::DrillMoving,
             )),
-            "ASM loc_3C372: PlaySound2 with DrillMoving when refcount reaches zero",
+            "ASM loc_3C372: StopSequence with DrillMoving when refcount reaches zero",
         );
         assert!(
             result.next_previous_motion_active,
@@ -23940,7 +23940,7 @@ mod chunk_10 {
         // the moving→stopped edge. If shared refcount at ($FFFFFA34+d7) is
         // zero, j_PlaySound is called with byte_3C46C[d6]; then addi.b #1
         // increments the counter. Verify Tank edge with refcount=0 triggers
-        // PlaySound(TankDriving) and increments to 1.
+        // StartSequence(TankDriving) and increments to 1.
         let result = shared_enemy_drive_sound_sub_3C352(EnemyFamily::Tank, false, true, 0);
 
         assert_eq!(
@@ -23949,10 +23949,10 @@ mod chunk_10 {
         );
         assert_eq!(
             result.sound_call,
-            Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+            Some(SharedEnemyDriveSoundCallSub3C352::StartSequence(
                 SharedEnemyDriveSoundEffectSub3C352::TankDriving,
             )),
-            "ASM loc_3C39C: PlaySound with TankDriving when refcount was zero",
+            "ASM loc_3C39C: StartSequence with TankDriving when refcount was zero",
         );
         assert!(
             !result.next_previous_motion_active,
@@ -24052,11 +24052,11 @@ mod chunk_10 {
             SharedEnemyDriveSoundResultSub3C352 {
                 next_previous_motion_active: true,
                 next_refcount: 0,
-                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(
+                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::StopSequence(
                     SharedEnemyDriveSoundEffectSub3C352::DrillMoving,
                 )),
             },
-            "ASM sub_3C352 should decrement the shared Driller refcount on the stopped->moving edge and call `PlaySound2` when that counter reaches zero",
+            "ASM sub_3C352 should decrement the shared Driller refcount on the stopped->moving edge and call `StopSequence` when that counter reaches zero",
         );
     }
 
@@ -24069,11 +24069,11 @@ mod chunk_10 {
             SharedEnemyDriveSoundResultSub3C352 {
                 next_previous_motion_active: false,
                 next_refcount: 1,
-                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::StartSequence(
                     SharedEnemyDriveSoundEffectSub3C352::TankDriving,
                 )),
             },
-            "ASM sub_3C352 should call `PlaySound` on the moving->stopped edge before incrementing the shared Tank refcount back to one",
+            "ASM sub_3C352 should call `StartSequence` on the moving->stopped edge before incrementing the shared Tank refcount back to one",
         );
     }
 

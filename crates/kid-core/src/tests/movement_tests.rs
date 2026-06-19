@@ -1765,11 +1765,11 @@ mod chunk_11 {
             result,
             DeactivationDriveSoundResultLoc3C494 {
                 next_refcount: 0,
-                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(
+                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::StopSequence(
                     SharedEnemyDriveSoundEffectSub3C352::TankDriving,
                 )),
             },
-            "ASM loc_3C4A8: refcount 1→0 must trigger PlaySound2 with Tank sfx from byte_3C46C[1]",
+            "ASM loc_3C4A8: refcount 1→0 must trigger StopSequence with Tank sfx from byte_3C46C[1]",
         );
     }
 

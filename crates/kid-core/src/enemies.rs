@@ -9886,7 +9886,8 @@ fn activate_enemies_with_rng_inner(
     // ASM loc_3C46E (kid.asm:43965-44020): the shared deactivation routine
     // entered via loc_3C436 trampoline. Reads object_meta, dispatches
     // SpinningTwins to loc_3BC56, Driller/Tank to loc_3C494 (drive sound
-    // stop with refcount decrement and optional PlaySound2), then falls
+    // stop with refcount decrement and optional StopSequence via
+    // j_PlaySound2), then falls
     // through to loc_3C4C0 which decrements Number_of_Enemy, updates
     // EnemyStatus_Table from $42(a5), and calls j_Delete_CurrentObject.
     //
@@ -10234,7 +10235,7 @@ pub(crate) fn step_active_enemies_with_rng(
             enemy.shared_walker_patrol_short_next = true;
             if matches!(
                 result.sound_call,
-                Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                Some(SharedEnemyDriveSoundCallSub3C352::StartSequence(
                     SharedEnemyDriveSoundEffectSub3C352::TankDriving
                 ))
             ) && let Some(sound_effects) = played_sound_effects.as_deref_mut()
@@ -27298,7 +27299,7 @@ pub(crate) fn tank_init_drive_sound_loc_3b40a(
     TankInitDriveSoundLoc3B40A {
         next_tank_drive_refcount: tank_drive_refcount.wrapping_add(1),
         sound_call: (tank_drive_refcount == 0 && !motion_active_flag_19).then_some(
-            SharedEnemyDriveSoundCallSub3C352::PlaySound(
+            SharedEnemyDriveSoundCallSub3C352::StartSequence(
                 SharedEnemyDriveSoundEffectSub3C352::TankDriving,
             ),
         ),
@@ -27654,7 +27655,7 @@ pub(crate) fn tank_shooting_init_drive_sound_loc_3b690(
     TankShootingInitDriveSoundLoc3B690 {
         next_tank_drive_refcount: tank_drive_refcount.wrapping_add(1),
         sound_call: (tank_drive_refcount == 0 && !motion_active_flag_19).then_some(
-            SharedEnemyDriveSoundCallSub3C352::PlaySound(
+            SharedEnemyDriveSoundCallSub3C352::StartSequence(
                 SharedEnemyDriveSoundEffectSub3C352::TankDriving,
             ),
         ),
@@ -29330,7 +29331,7 @@ mod tests {
             result,
             TankInitDriveSoundLoc3B40A {
                 next_tank_drive_refcount: 1,
-                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::StartSequence(
                     SharedEnemyDriveSoundEffectSub3C352::TankDriving,
                 )),
                 walker_entry: TankInitWalkerEntryLoc3B40A::LeftLoc3C0D2,
@@ -31505,7 +31506,7 @@ mod tests {
             result,
             TankShootingInitDriveSoundLoc3B690 {
                 next_tank_drive_refcount: 1,
-                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::PlaySound(
+                sound_call: Some(SharedEnemyDriveSoundCallSub3C352::StartSequence(
                     SharedEnemyDriveSoundEffectSub3C352::TankDriving,
                 )),
                 walker_entry: TankShootingInitWalkerEntryLoc3B690::LeftLoc3C0D2,
@@ -42662,8 +42663,11 @@ pub(crate) enum SharedEnemyDriveSoundEffectSub3C352 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SharedEnemyDriveSoundCallSub3C352 {
-    PlaySound(SharedEnemyDriveSoundEffectSub3C352),
-    PlaySound2(SharedEnemyDriveSoundEffectSub3C352),
+    // sub_3C352 starts the pooled drive drone via j_PlaySound (GEMS $10
+    // cmdstartseq) on first activation, and stops it via j_PlaySound2 (GEMS
+    // $12 cmdstopseq) when the last driver exits and the refcount hits zero.
+    StartSequence(SharedEnemyDriveSoundEffectSub3C352),
+    StopSequence(SharedEnemyDriveSoundEffectSub3C352),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42806,7 +42810,7 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
             next_previous_motion_active: true,
             next_refcount,
             sound_call: (next_refcount == 0)
-                .then_some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(effect)),
+                .then_some(SharedEnemyDriveSoundCallSub3C352::StopSequence(effect)),
         };
     }
 
@@ -42831,7 +42835,7 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
     SharedEnemyDriveSoundResultSub3C352 {
         next_previous_motion_active: false,
         next_refcount: refcount.wrapping_add(1),
-        sound_call: (refcount == 0).then_some(SharedEnemyDriveSoundCallSub3C352::PlaySound(effect)),
+        sound_call: (refcount == 0).then_some(SharedEnemyDriveSoundCallSub3C352::StartSequence(effect)),
     }
 }
 
@@ -42906,7 +42910,7 @@ pub(crate) fn deactivation_drive_sound_cleanup_loc_3C494(
     DeactivationDriveSoundResultLoc3C494 {
         next_refcount,
         sound_call: (next_refcount == 0)
-            .then_some(SharedEnemyDriveSoundCallSub3C352::PlaySound2(effect)),
+            .then_some(SharedEnemyDriveSoundCallSub3C352::StopSequence(effect)),
     }
 }
 
