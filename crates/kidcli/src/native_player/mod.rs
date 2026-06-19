@@ -11317,6 +11317,61 @@ mod tests {
     }
 
     #[test]
+    fn paused_scene_hides_sprites_using_pause_menu_vram_tiles_sub_6874() {
+        let tile_sheet = Arc::new(TileSheet {
+            tiles: vec![make_tile(&[(0, 0, 1)])],
+        });
+        let palette = Arc::new(Palette {
+            colours: vec![colour(255, 255, 255)],
+        });
+        let sprite = |x, tile_index| DrawCommand::Sprite {
+            x,
+            y: 16,
+            tile_sheet: Arc::clone(&tile_sheet),
+            palette: Arc::clone(&palette),
+            tiles: vec![SpriteTile {
+                offset_x: 0,
+                offset_y: 0,
+                tile: sample_tile_ref(tile_index),
+            }],
+        };
+        let mut commands = vec![
+            sprite(0, 0x0675),
+            sprite(1, 0x0676),
+            sprite(2, 0x8676),
+            sprite(3, 0x068E),
+            sprite(4, 0x068F),
+            text(8, 8, "CONTINUE", [255, 255, 255], 1),
+        ];
+
+        hide_pause_menu_overwritten_sprite_commands_sub_6874(&mut commands);
+
+        let remaining_sprite_x = commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, .. } => Some(*x),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            remaining_sprite_x,
+            vec![0, 4],
+            "ASM loc_68AC masks the first sprite pattern word with `$7FF` and hides only `$676..=$68E` before the pause-menu art upload"
+        );
+        assert!(
+            contains_text(
+                &Scene {
+                    background: [0, 0, 0],
+                    commands,
+                    pause_palette_darken: true,
+                },
+                "CONTINUE"
+            ),
+            "pause text is written after ASM sub_6874's sprite-table hide step and must remain visible"
+        );
+    }
+
+    #[test]
     fn pause_menu_uses_give_up_text_on_last_life_restart_text() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.paused = true;

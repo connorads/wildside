@@ -3272,6 +3272,24 @@ fn push_pause_menu_text_loc_69d2(commands: &mut Vec<DrawCommand>, trace: &Native
     ));
 }
 
+pub(super) fn hide_pause_menu_overwritten_sprite_commands_sub_6874(
+    commands: &mut Vec<DrawCommand>,
+) {
+    // ASM loc_68AC-loc_68C0: sub_6874 scans the hardware sprite table and
+    // clears the Y word for sprites whose masked first pattern tile overlaps
+    // the pause-menu art upload range `$676..=$68E`.
+    commands.retain(|command| {
+        let DrawCommand::Sprite { tiles, .. } = command else {
+            return true;
+        };
+        let Some(first_tile) = tiles.first() else {
+            return true;
+        };
+        let masked_tile = first_tile.tile.tile_index & 0x07FF;
+        !(0x0676..=0x068E).contains(&masked_tile)
+    });
+}
+
 // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
 // (kid.asm line 34310). 64 signed byte entries, max amplitude 8px.
 const FOREST_RIPPLE: [i8; 64] = [
@@ -5213,6 +5231,7 @@ fn build_game_scene_filtered(
 
     // Pause overlay
     if trace.paused && filter.hud {
+        hide_pause_menu_overwritten_sprite_commands_sub_6874(&mut commands);
         push_pause_menu_text_loc_69d2(&mut commands, trace);
     }
 
