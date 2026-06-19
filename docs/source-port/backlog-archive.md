@@ -10087,6 +10087,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #312
 
 - Filed 2026-06-11 umbrella: level-flow-fidelity-audit.md (16 gaps; #299/#300 promoted separately). Notables: death respawn never clears `Extra_hitpoint_slots`; cause-specific death variants.
+- Staleness check 2026-06-19: the audit's low-severity `sub_B43A` WarpCheat row was stale. Native already implements ASM `sub_B43A`/`loc_B482` in `try_apply_warp_cheat_sub_b43a`, including the level-1 crawl exact-pixel held-B gate, `Current_LevelID=$32`, Kid collision `$28`, and `$A0` flag-touch routing. Regression coverage: `sub_b43a_warp_cheat_requires_button_b_held` and `sub_b43a_warp_cheat_completes_destination_level_32`.
 
 ### #313
 

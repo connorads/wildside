@@ -70,8 +70,8 @@ Native `fell_below_level` now returns false when `y_velocity < 0`, matching `sub
 **Resolved — GameOver hold runs the full 419-frame timer before the continue decision; the ASM reaches the continue screen after the short shared fade when continues remain** (`loc_D0C0` / `loc_D15E` / `loc_D25E` / `Continue_Screen` / `loc_D2CE`)
 Native now clamps continues-present GameOver to the short pre-continue fade (`loc_D0C0` plus the `loc_D15E` fade loop) before entering `ContinueCountdown`, while the `$3C + $1A3` no-continues title-return hold remains on the zero-continues path. Covered by `game_over_with_continues_reaches_continue_screen_after_short_fade` and the existing GameOver routing tests.
 
-**`sub_B43A` WarpCheat dest-level override branch absent from the native floor probe** (`sub_B43A` / `loc_B482` / `WarpCheatStart_LevelID` / `WarpCheatDest_LevelID`)
-`sub_B43A`'s entry preamble (kid.asm:14352-14364) implements a developer warp cheat: when `Character_Movement == MoveID_Crawling`, the level is `WarpCheatStart_LevelID` (1), the Kid is at exact pixel `x=$09D3,y=$005F`, and Button_B is held, it writes `move.w #WarpCheatDest_LevelID,(Current_LevelID).w` (`$32`), sets `collision_type=colid_kidbelow` and `object_meta=$A0`. This is the only non-HundredKTrip secret level-destination routing path in the engine. The native port `walking_floor_support_exists_at_current_position` (movement.rs:5664, live-called at 2858/3115/4217/4234) is faithful from `loc_B4A0` onward but entirely omits the crawling-check + warp-cheat block; no `Current_LevelID` override exists in `movement.rs`. Low: a cheat reachable only via held B at one exact crawl position, no effect in normal play — flagged because the unit asked whether *any* native non-100K secret routing path exists; it does not. Kind: missing.
+**Resolved — `sub_B43A` WarpCheat dest-level override is implemented outside the floor-probe helper** (`sub_B43A` / `loc_B482` / `WarpCheatStart_LevelID` / `WarpCheatDest_LevelID`)
+`sub_B43A`'s entry preamble (kid.asm:14352-14364) implements a developer warp cheat: when `Character_Movement == MoveID_Crawling`, the level is `WarpCheatStart_LevelID` (1), the Kid is at exact pixel `x=$09D3,y=$005F`, and Button_B is held, it writes `move.w #WarpCheatDest_LevelID,(Current_LevelID).w` (`$32`), sets `collision_type=colid_kidbelow` and `object_meta=$A0`. Native handles that side-effect in the live walking/crawling shell via `try_apply_warp_cheat_sub_b43a` before continuing ordinary movement, then routes the fabricated `$A0` flag-touch through `begin_flagpole_level_complete_loc_c056`. Covered by `sub_b43a_warp_cheat_requires_button_b_held` and `sub_b43a_warp_cheat_completes_destination_level_32`. Kind: fixed-candidate.
 
 ## Already tracked
 
@@ -94,7 +94,7 @@ Native now clamps continues-present GameOver to the short pre-continue fade (`lo
 | NEW | [x] | P3 | level | `fell_below_level` ignores y-velocity sign; ROM pit kill only from the downward floor-probe branch; guard the check on `y_vel >= 0` | `loc_908c_sub_902a_upward_below_level_height_does_not_trigger_pit_death` |
 | NEW | [x] | P3 | level | GameOver hold runs full 419 frames before the continue decision; ROM reaches the continue screen in ~34; run only the short fade tail when continues remain | `game_over_with_continues_reaches_continue_screen_after_short_fade` |
 
-Not worth a backlog row: the `sub_B43A` WarpCheat dest-level override (a held-B developer cheat at one exact crawl pixel, no normal-play effect — note only that no native non-100K secret routing path exists); the death-cause unit's `Extra_hitpoint_slots` re-report (folded into the P1 row above).
+Not worth a backlog row: the death-cause unit's `Extra_hitpoint_slots` re-report (folded into the P1 row above).
 
 ## Not audited
 
