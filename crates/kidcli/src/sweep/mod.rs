@@ -1847,7 +1847,24 @@ fn enemy_roster_entries_match(native: &OracleEnemyState, oracle: &OracleEnemySta
         && (native.y_velocity - oracle.y_velocity).abs() <= ENEMY_VELOCITY_TOLERANCE
         && native.facing == oracle.facing
         && native.layout_index == oracle.layout_index
-        && native.current_hp.unwrap_or(0) == oracle.current_hp.unwrap_or(0)
+        && enemy_roster_current_hp_matches(native, oracle)
+}
+
+fn enemy_roster_current_hp_matches(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
+    const DRAGON_FLYING_OBJECT_TYPE: u8 = 0x0C;
+
+    if native.object_type == DRAGON_FLYING_OBJECT_TYPE
+        && oracle.object_type == DRAGON_FLYING_OBJECT_TYPE
+    {
+        // ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init stores the script
+        // variant in `$46(a5)` and later states use nearby object/GfxObject
+        // words for coroutine handoff (`loc_348A0`, `loc_34BAC`). The oracle
+        // helper samples GfxObject+$44 as `current_hp` for normal enemies, but
+        // for flying dragons that word is not an authoritative HP counter.
+        return true;
+    }
+
+    native.current_hp.unwrap_or(0) == oracle.current_hp.unwrap_or(0)
 }
 
 fn enemy_roster_x_pos_matches(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
@@ -3525,6 +3542,46 @@ mod tests {
             "expected single enemy_roster diff for current_hp drift, got {enemy_diffs:?}"
         );
         assert_eq!(enemy_diffs[0].field, "enemy_roster");
+    }
+
+    #[test]
+    fn enemy_frontier_ignores_flying_dragon_gfx_44_as_hp_but_keeps_position_strict() {
+        let native = OracleEnemyState {
+            object_type: 0x0C,
+            x_pos: 0x0257_BE00,
+            y_pos: 0x002F_0000,
+            x_velocity: 0x0000_4C00,
+            y_velocity: 0,
+            facing: EnemyFacing::Right,
+            collision_type: Some(0),
+            collision_source: Some(0x000C),
+            layout_index: None,
+            layout_ptr: None,
+            parent_object_ptr: Some(0x00FF_10CC),
+            gfx_slot_index: Some(7),
+            on_ground: None,
+            current_hp: Some(1),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let oracle_same_position = OracleEnemyState {
+            current_hp: Some(0),
+            ..native.clone()
+        };
+
+        assert!(
+            enemy_roster_entries_match(&native, &oracle_same_position),
+            "ASM Dragon_Flying.asm loc_34664/loc_348A0 reuses GfxObject+$44, so enemy frontier must not treat flying-dragon current_hp as authoritative"
+        );
+
+        let oracle_moved = OracleEnemyState {
+            x_pos: native.x_pos.wrapping_add(0x0001_0000),
+            current_hp: Some(0),
+            ..native.clone()
+        };
+        assert!(
+            !enemy_roster_entries_match(&native, &oracle_moved),
+            "ignoring flying-dragon GfxObject+$44 must still leave position drift authoritative"
+        );
     }
 
     #[test]
