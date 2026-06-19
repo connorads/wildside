@@ -9455,10 +9455,18 @@ mod chunk_03 {
     }
 
     #[test]
-    fn hundred_k_trip_timer_loc_7452_counts_down_and_enters_teleport_loc_da4a() {
+    fn hundred_k_trip_timer_loc_7452_counts_down_and_enters_loc_d980_transition() {
         let mut runtime = NativeRuntime::new(manifest_with_levels(0x20));
         start_level(&mut runtime);
         runtime.current_level = LevelId(4);
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0040_0000, 0x0060_0000, 1)];
+        runtime.projectiles = vec![EnemyProjectile {
+            kind: EnemyProjectileKind::DripsDrop,
+            x_pos: 0x0040_0000,
+            y_pos: 0x0060_0000,
+            lifetime: 30,
+            ..Default::default()
+        }];
         runtime.progression.score = 90_000;
 
         runtime.apply_prize_content(terrain::PrizeContent::Points10000);
@@ -9475,6 +9483,56 @@ mod chunk_03 {
         runtime.step_frame(FrameInput::default());
 
         assert_eq!(runtime.hundred_k_trip_timer, 0);
+        assert!(
+            matches!(
+                runtime.boot_state,
+                BootState::HundredKTripTransition {
+                    cleanup_frames_remaining:
+                        crate::level::HUNDRED_K_TRIP_CLEANUP_WAIT_FRAMES_LOC_D99E_D9EA,
+                    fade_countdown: crate::level::HUNDRED_K_TRIP_FADE_COUNTDOWN_LOC_DA30,
+                    palette_seeded: false,
+                    ..
+                }
+            ),
+            "ASM loc_7452 should branch to loc_D980 first, not jump directly to terminal loc_DA4A"
+        );
+        assert!(
+            runtime.active_enemies.is_empty() && runtime.projectiles.is_empty(),
+            "ASM loc_D99E should run Delete_AllButCurrentObject-style cleanup before the Hundred K Trip fade"
+        );
+        assert_eq!(
+            runtime.progression.score, 100_000,
+            "ASM loc_DA4A's #1000001 score write must wait for the loc_D980..loc_DA30 transition"
+        );
+        assert_eq!(runtime.current_level, LevelId(4));
+    }
+
+    #[test]
+    fn hundred_k_trip_transition_loc_d980_delays_terminal_loc_da4a_until_fade_ends() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(0x20));
+        start_level(&mut runtime);
+        runtime.current_level = LevelId(4);
+        runtime.progression.score = 90_000;
+        runtime.apply_prize_content(terrain::PrizeContent::Points10000);
+        for _ in 0..0x003C {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        let transition_frames =
+            usize::from(crate::level::HUNDRED_K_TRIP_CLEANUP_WAIT_FRAMES_LOC_D99E_D9EA)
+                + 1
+                + usize::from(crate::level::HUNDRED_K_TRIP_FADE_COUNTDOWN_LOC_DA30);
+        for _ in 1..transition_frames {
+            runtime.step_frame(FrameInput::default());
+            assert!(
+                matches!(runtime.boot_state, BootState::HundredKTripTransition { .. }),
+                "ASM loc_D980..loc_DA30 should hibernate through cleanup and fade frames before loc_DA4A"
+            );
+            assert_eq!(runtime.current_level, LevelId(4));
+        }
+
+        runtime.step_frame(FrameInput::default());
+
         assert_eq!(
             runtime.progression.score, 1_000_001,
             "ASM loc_DA4A writes `#1000001` to `(Score).w` before branching to Teleport"
@@ -9482,9 +9540,10 @@ mod chunk_03 {
         assert_eq!(runtime.progression.current_form, PlayerForm::TheKid);
         assert_eq!(runtime.current_level, LevelId(0x1F));
         assert!(
-            matches!(runtime.boot_state, BootState::StartingLevel { .. }),
-            "ASM loc_DA4A branches through Teleport, whose native equivalent enters the mode-$0008 level-entry shell"
+            matches!(runtime.boot_state, BootState::InGame),
+            "ASM loc_DA4A sets `$FFFFFC29`; Teleport therefore keeps Game_Mode=$000C and reloads through Load_InGame"
         );
+        assert!(runtime.starting_level_title_workers.is_empty());
         let opening = runtime
             .opening_slice
             .expect("Teleport should seed the Hundred K Trip destination opening slice");
@@ -9493,8 +9552,8 @@ mod chunk_03 {
             "ASM loc_DA4A writes PlayerStart_X_pos=$20 and sets `$FFFFFC29`; loc_11BD2 preserves it instead of reading the destination header"
         );
         assert_eq!(
-            opening.player.y_pos, 0x09B2_0000,
-            "ASM loc_7526 first copies PlayerStart_Y_pos=$48F and subtracts one pixel, then loc_11BD2/loc_11BEC still runs the hidden Load_InGame floor settle before gameplay"
+            opening.player.y_pos, 0x09BA_0000,
+            "ASM loc_DA4A clears Current_Helmet before Teleport, so the loc_11BD2/loc_11BEC hidden Load_InGame settle uses Kid-form support"
         );
     }
 

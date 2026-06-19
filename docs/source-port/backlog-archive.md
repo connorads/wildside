@@ -10097,6 +10097,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 - Filed 2026-06-11 umbrella: scoring-economy-fidelity-audit.md (9 gaps). Notables: Hundred-K-Trip `$FFFFFB4C` timer armed (combat.rs:8643) but never decremented so the `loc_D980` warp can never fire (its body is also test-only); `OneTimePrize_CheckCollected` anti-farming unwired so 1-ups/10000pt prizes are re-farmable; `collect_diamond` invents +500 score and a life at 50 diamonds.
 - Staleness check 2026-06-19: the top-level backlog summary was stale. `scoring-economy-fidelity-audit.md` and `blocks-fidelity-audit.md` now mark the one-time-prize gate, score/life quotient crossing, Continue pickup cue, Hundred-K-Trip live countdown/terminal Teleport, and 9-vs-99 life cap as fixed candidates with regressions. The remaining #314 scoring/economy debt is the skipped Hundred-K-Trip `loc_D980` object cleanup/fade body before terminal `loc_DA4A`.
+- Fixed-candidate update 2026-06-19: native now models the Hundred-K timer-zero route as `BootState::HundredKTripTransition`, clears live engine rosters, waits through the `loc_D99E`/`loc_D9EA` cleanup hibernation, runs the `loc_DA16`/`loc_DA30` fade countdown, then applies `loc_DA4A` through the `$FFFFFC29` no-card Load_InGame Teleport path. Keep #314 `[?]` pending visual parity confirmation of exact fade/object-slot details rather than authoritative score/level-flow absence.
 
 ### #315
 

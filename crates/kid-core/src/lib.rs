@@ -2673,9 +2673,12 @@ impl NativeRuntime {
         let hundred_k_trip_teleport_started = !freeze_demo_auto_timeout_snapshot
             && !preserve_demo_title_snapshot_frame
             && self.step_hundred_k_trip_timer_loc_7452();
+        let hundred_k_trip_transition_active =
+            matches!(self.boot_state, BootState::HundredKTripTransition { .. });
         if !freeze_demo_auto_timeout_snapshot
             && !preserve_demo_title_snapshot_frame
             && !hundred_k_trip_teleport_started
+            && !hundred_k_trip_transition_active
         {
             self.refresh_active_roster();
             self.step_pending_prize_diamond_awards();

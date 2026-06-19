@@ -2254,6 +2254,17 @@ pub(crate) enum BootState {
     },
     LevelSkipHold,
     InGame,
+    HundredKTripTransition {
+        /// ASM loc_D99E hibernates `$24` frames before the GFX cleanup pass,
+        /// then loc_D9EA hibernates one more frame before seeding loc_DA16.
+        cleanup_frames_remaining: u16,
+        /// Shared palette fade word `$FFFFF876` used by loc_DA30.
+        fade_progress: u16,
+        /// ASM loc_DA30 decrements `d0` from `$12C` to zero before loc_DA4A.
+        fade_countdown: u16,
+        /// True once loc_D9EA/loc_DA16 have copied and darkened the palette.
+        palette_seeded: bool,
+    },
     /// Demo playback: auto-plays a recorded input sequence on a demo level.
     /// `frame_counter` counts VBlanks (0..1010), `data_index` indexes into the
     /// demo byte array, advancing every 2 frames.

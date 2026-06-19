@@ -6348,6 +6348,7 @@ impl NativeRuntime {
             BootState::LevelSkipHold => Some("level_skip_hold"),
             BootState::DemoPlay { .. } => Some("demo_play"),
             BootState::EndingSequence { .. } => Some("ending_sequence"),
+            BootState::HundredKTripTransition { .. } => Some("hundred_k_trip_transition"),
             BootState::InGame => None,
         }
     }
@@ -6371,6 +6372,21 @@ impl NativeRuntime {
             BootState::StartingLevel { .. } => None,
             BootState::DemoPlay { frame_counter, .. } => Some(frame_counter as usize),
             BootState::EndingSequence { elapsed } => Some(elapsed),
+            BootState::HundredKTripTransition {
+                cleanup_frames_remaining,
+                fade_countdown,
+                palette_seeded,
+                ..
+            } => {
+                let cleanup_elapsed =
+                    0x25usize.saturating_sub(usize::from(cleanup_frames_remaining));
+                let fade_elapsed = if palette_seeded {
+                    0x12Cusize.saturating_sub(usize::from(fade_countdown))
+                } else {
+                    0
+                };
+                Some(cleanup_elapsed + fade_elapsed)
+            }
             BootState::LevelSkipHold | BootState::InGame => None,
         }
     }
@@ -7452,6 +7468,9 @@ impl NativeRuntime {
             }
             BootState::LevelSkipHold => {}
             BootState::InGame => {}
+            BootState::HundredKTripTransition { .. } => {
+                self.step_hundred_k_trip_transition_loc_d980();
+            }
             BootState::DemoPlay { .. } => {
                 // Demo input feeding and frame counting handled in step_demo_input()
             }
@@ -7636,6 +7655,7 @@ impl NativeRuntime {
             BootState::StartingLevel { .. }
                 | BootState::LevelSkipHold
                 | BootState::InGame
+                | BootState::HundredKTripTransition { .. }
                 | BootState::DemoPlay { .. }
         ) {
             // ASM loc_65C (kid.asm:793): new-game init — clears Game_Mode,

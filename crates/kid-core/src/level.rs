@@ -16505,6 +16505,9 @@ pub(crate) fn end_credits_hundred_k_trip_teleport_loc_DA4A() -> EndCreditsHundre
     }
 }
 
+pub(crate) const HUNDRED_K_TRIP_CLEANUP_WAIT_FRAMES_LOC_D99E_D9EA: u16 = 0x0025;
+pub(crate) const HUNDRED_K_TRIP_FADE_COUNTDOWN_LOC_DA30: u16 = 0x012C;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelSpriteStripForwardSetupLocE650 {
     pub(crate) source_x: i16,
@@ -18313,8 +18316,95 @@ impl NativeRuntime {
             return false;
         }
 
-        self.apply_hundred_k_trip_teleport_loc_da4a();
+        self.begin_hundred_k_trip_transition_loc_d980();
         true
+    }
+
+    fn begin_hundred_k_trip_transition_loc_d980(&mut self) {
+        let _cleanup = end_credits_cleanup_setup_loc_D99E();
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
+        self.active_platform_roster.clear();
+        self.active_platforms.clear();
+        self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
+        self.floating_items.clear();
+        self.projectiles.clear();
+        self.clear_block_object_workers_loc_6e2();
+        self.allow_pausing = false;
+        self.boot_state = BootState::HundredKTripTransition {
+            cleanup_frames_remaining: HUNDRED_K_TRIP_CLEANUP_WAIT_FRAMES_LOC_D99E_D9EA,
+            fade_progress: 0,
+            fade_countdown: HUNDRED_K_TRIP_FADE_COUNTDOWN_LOC_DA30,
+            palette_seeded: false,
+        };
+    }
+
+    pub(crate) fn step_hundred_k_trip_transition_loc_d980(&mut self) {
+        let BootState::HundredKTripTransition {
+            cleanup_frames_remaining,
+            fade_progress,
+            fade_countdown,
+            palette_seeded,
+        } = self.boot_state.clone()
+        else {
+            return;
+        };
+
+        if cleanup_frames_remaining > 0 {
+            self.boot_state = BootState::HundredKTripTransition {
+                cleanup_frames_remaining: cleanup_frames_remaining.saturating_sub(1),
+                fade_progress,
+                fade_countdown,
+                palette_seeded,
+            };
+            return;
+        }
+
+        if !palette_seeded {
+            let _setup = end_credits_hundred_k_trip_setup_loc_D9EA();
+            let palette_setup =
+                end_credits_hundred_k_trip_palette_setup_loc_DA16(self.palette_buffer);
+            let loopback = end_credits_hundred_k_trip_fade_loopback_loc_DA3E();
+            self.palette_buffer_2 = palette_setup.palette_buffer_2;
+            self.palette_buffer_3 = palette_setup.palette_buffer_3;
+            self.level_entry_pending_palette_0_mask_sub_73d0 = loopback.pending_palette_0_mask;
+            self.level_entry_pending_palette_1_mask_sub_73d0 = loopback.pending_palette_1_mask;
+            self.boot_state = BootState::HundredKTripTransition {
+                cleanup_frames_remaining,
+                fade_progress: palette_setup.fade_progress,
+                fade_countdown,
+                palette_seeded: true,
+            };
+            return;
+        }
+
+        apply_pending_palette_fade_sub_14C0(
+            fade_progress,
+            &mut self.level_entry_pending_palette_0_mask_sub_73d0,
+            &mut self.level_entry_pending_palette_1_mask_sub_73d0,
+            &self.palette_buffer_2,
+            &self.palette_buffer_3,
+            &mut self.palette_buffer,
+        );
+        let fade_step =
+            end_credits_hundred_k_trip_fade_step_loc_DA30(fade_progress, fade_countdown);
+        if fade_step.exits_to_loc_da4a {
+            self.apply_hundred_k_trip_teleport_loc_da4a();
+            return;
+        }
+
+        let loopback = end_credits_hundred_k_trip_fade_loopback_loc_DA3E();
+        self.level_entry_pending_palette_0_mask_sub_73d0 = loopback.pending_palette_0_mask;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = loopback.pending_palette_1_mask;
+        self.boot_state = BootState::HundredKTripTransition {
+            cleanup_frames_remaining,
+            fade_progress: fade_step.fade_progress,
+            fade_countdown: fade_step.countdown,
+            palette_seeded,
+        };
     }
 
     fn apply_hundred_k_trip_teleport_loc_da4a(&mut self) {
@@ -18326,10 +18416,12 @@ impl NativeRuntime {
         self.progression.form_width_delta = 0;
         self.pending_player_start_override_loc_11bd2 =
             Some((teleport.player_start_x, teleport.player_start_y));
-        // TODO(fidelity): loc_D980-loc_DA3E perform object cleanup and a fade
-        // worker before loc_DA4A. Native currently applies the terminal
-        // loc_DA4A Teleport state directly when `$FFFFFB4C` expires.
-        self.begin_level_entry(LevelId(teleport.current_level_id as u8));
+        // ASM loc_DA4A sets `$FFFFFC29` before `bra.w Teleport`; Teleport
+        // leaves Game_Mode at `$000C`, so Load_InGame consumes the preserved
+        // PlayerStart words without drawing a title card.
+        self.begin_teleport_level_entry_load_ingame_loc_bcf6(LevelId(
+            teleport.current_level_id as u8,
+        ));
     }
 
     /// Previous logical level ID (for debug warping).

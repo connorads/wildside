@@ -9169,6 +9169,7 @@ impl NativeRuntime {
                 }
             }
             BootState::InGame => GameMode::InGame,
+            BootState::HundredKTripTransition { .. } => GameMode::LevelTransition,
             BootState::DemoPlay { .. } => GameMode::DemoPlay,
             BootState::EndingSequence { .. } => GameMode::EndingSequence,
         }
@@ -9337,6 +9338,9 @@ impl NativeRuntime {
                 None
             }
             BootState::LevelSkipHold => self.level_skip_player_state(),
+            BootState::HundredKTripTransition { .. } => {
+                self.opening_slice.map(|slice| slice.player)
+            }
             BootState::StartingLevel { elapsed_frames, .. } => self
                 .title_menu_cursor_player_state()
                 .filter(|_| self.early_start_title_menu_cursor_pose_carry_active())
