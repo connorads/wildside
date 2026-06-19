@@ -2,6 +2,15 @@
 
 # Level-Flow & Timer Fidelity Audit
 
+2026-06-19 status: the backlog candidate table below has no open `[ ]` rows.
+The remaining `[?]` entries are fixed candidates awaiting human validation, not
+new coding targets. Current `crates/wildside-core` code contains the named
+regressions for death extra-HP reset, final-level `$33` routing, teleporter
+MapOrder reverse scan, 181-second timer/clock normalisation, Continue/GameOver
+routing, FC36 NoHit/NoPrize reset, respawn invulnerability source, pit/timer
+ordering, and the stale `sub_B43A` WarpCheat row. Backlog #312 is therefore a
+fixed candidate; continue with #313 for the next actionable fidelity row.
+
 Adversarially-verified per-unit audit of the Kid Chameleon source-port level-flow, timer, death and end-of-level subsystems. The dominant failure pattern is the codebase-wide "faithful-but-untranslated normalisation": the ROM keeps several state variables in a deliberately pre-compensated form (the `addq #1,(Time_Seconds_low_digit)` + `SubSeconds=1` timer normalisation at level start and at each clock collect; the `clr.w (Extra_hitpoint_slots)` that `lose_life` performs before reseeding HP; the MapOrder reverse/forward index translation), and the native port previously either dropped the compensating step or substituted a structurally simpler model. The timer normalisation, death extra-HP clear, final-level `$33` ending check, and teleporter MapOrder reverse scan are now fixed-candidates with regressions.
 
 ## Coverage summary

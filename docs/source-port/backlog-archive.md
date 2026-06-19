@@ -10126,6 +10126,14 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 - Filed 2026-06-11 umbrella: level-flow-fidelity-audit.md (16 gaps; #299/#300 promoted separately). Notables: death respawn never clears `Extra_hitpoint_slots`; cause-specific death variants.
 - Staleness check 2026-06-19: the audit's low-severity `sub_B43A` WarpCheat row was stale. Native already implements ASM `sub_B43A`/`loc_B482` in `try_apply_warp_cheat_sub_b43a`, including the level-1 crawl exact-pixel held-B gate, `Current_LevelID=$32`, Kid collision `$28`, and `$A0` flag-touch routing. Regression coverage: `sub_b43a_warp_cheat_requires_button_b_held` and `sub_b43a_warp_cheat_completes_destination_level_32`.
+- 2026-06-19 status-corrected to fixed candidate: `level-flow-fidelity-audit.md`
+  has no remaining `[ ]` rows. Current code has the audit's named fixes and
+  regressions for death extra-HP reset (`loc_b7ea_death_strips_helmet...`),
+  final-level `$33` routing, teleporter MapOrder reverse scan, timer/clock
+  constants (`LEVEL_TIMER_START_SECONDS=181`, `LEVEL_TIMER_CLOCK_COLLECT_SECONDS=181`),
+  Continue/GameOver routing, FC36 NoHit/NoPrize reset, respawn invulnerability
+  source, and pit/timer ordering. Leave #312 at `[?]` for human validation rather
+  than another coding pass; next actionable table row is #313.
 
 ### #313
 
