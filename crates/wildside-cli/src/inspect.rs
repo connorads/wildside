@@ -1,4 +1,5 @@
 use super::*;
+use wildside_data::resource_level_record;
 use wildside_core::{ActiveProjectileSnapshot, terrain};
 
 pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
@@ -21,7 +22,11 @@ pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Resul
     if let Some(title_text_id) = level.title_text_id {
         println!("title text id: 0x{title_text_id:02X}");
     }
-    println!("resource paths: {}", level.resource_paths.join(", "));
+    let resource_level = resource_level_record(manifest, level_id).unwrap_or(level);
+    println!(
+        "resource paths: {}",
+        resource_level.resource_paths.join(", ")
+    );
     if let Some(header) = &bundle.parsed_header {
         println!(
             "header: size {}x{} screens, theme 0x{:02X}, bg theme 0x{:02X}, weather 0x{:X}, murder wall 0x{:X}",
