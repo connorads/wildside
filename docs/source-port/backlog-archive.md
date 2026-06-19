@@ -10138,6 +10138,19 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #313
 
 - Filed 2026-06-11 umbrella: shell-fidelity-audit.md (15 gaps; #292/#293/#303/#304 promoted separately). Notables: `Allow_Pausing` entry gate, `Use_Continue` extra-HP clear, 2P bank omits `Extra_hitpoint_slots`.
+- 2026-06-19 blocked/exhausted status recheck: all non-visual shell-audit rows are
+  fixed candidates or done, and the live pause renderer already draws the ROM
+  pause tilemap/cursor/darken/sprite-hide substitute (`push_pause_menu_tilemap_loc_69d2`,
+  `pause_menu_tile_with_live_cursor_loc_6b0e`,
+  `apply_pause_palette_darken_loc_6c70`,
+  `hide_pause_menu_overwritten_sprite_commands_sub_6874`). The residual
+  `loc_695C`/`loc_6B68` save/restore gap is specifically a mutable VDP plane-A
+  concern: the ROM saves five menu-covered rows into `Decompression_Buffer` and
+  writes them back on unpause, but native-player rebuilds draw commands from
+  world/trace state every frame and has no persistent nametable to corrupt or
+  restore. Mark #313 `[b]` until there is a mutable VDP/plane-A renderer or a
+  pixel-oracle pause route; do not add fake save/restore state to the stateless
+  renderer. Next actionable row is #315 because #314 is already `[?]`.
 
 ### #314
 

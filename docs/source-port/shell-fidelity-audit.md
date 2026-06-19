@@ -2,6 +2,15 @@
 
 # Game Shell & HUD Fidelity Audit
 
+2026-06-19 status: backlog #313 is blocked/exhausted. The remaining audit row
+is the visual pause-render VDP save/restore cluster: `loc_695C` saves five
+plane-A rows into `Decompression_Buffer` and `loc_6B68` restores them on
+unpause. Current native-player rendering is stateless and rebuilds draw
+commands from world/trace data every frame; it already covers the visible pause
+menu tilemap, live cursor, final-RGB darken pass, and sprite-hide rule, but it
+does not own a persistent VDP nametable that tile save/restore could mutate.
+Reopen only with a mutable VDP/plane-A renderer or a pixel-oracle pause route.
+
 Adversarially-verified per-unit audit of the Kid Chameleon source-port game shell — pause, death/game-over/continue, the level clock, the HUD, the title/attract/demo loop, and the 2P state bank. The dominant failure pattern is the one that recurs across the codebase: ASM-faithful pure helpers exist and are unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live frame step, so the runtime falls back on an invented substitute. The live pause decision path is now a fixed candidate: Restart-Round / Give-Up cursor movement, life cost, level restart, and last-life forced game-over are wired. The remaining pause gap in this audit is visual/VDP pause-render wiring.
 
 ## Coverage summary
@@ -88,7 +97,7 @@ The live level-frame path now calls the ASM-backed `hud_lives_clamp_loc_BF2A` he
 | NEW | [x] | P2 | score | `Use_Continue` clears `extra_hitpoint_slots` before reseeding base HP | `use_continue_clears_extra_hitpoint_slots_loc_d3c4` |
 | NEW | [x] | P2 | score | Continue countdown includes the `loc_D3AA` second Start window / 239-frame tail before title return | `loc_d3aa_second_start_window_extends_continue_timeout`; `loc_d3aa_start_uses_continue_during_second_window` |
 | NEW | [x] | P3 | level | 2P per-player bank preserves `Extra_hitpoint_slots` through `PlayerSlot` save/load | `loc_b8ba_two_player_switch_from_p2_wraps_back_to_p1_slot` |
-| NEW | [~] | P3 | shell | Pause-render cluster partially wired: native-player now draws the ROM `MapUnc_PauseMenu_Restart` / `MapUnc_PauseMenu_GiveUp` 16x5 tile block from `loc_69D2` using the 25 `ArtUnc_PauseMenu` tiles at VRAM base `$676`, live `Pause_Option` cursor row from `Game_Paused_Loop loc_6B0E`, final-RGB pause darkening from `Pause_DarkenPalette loc_6C70`, and `sub_6874`/`loc_68AC` sprite-hide for first pattern tiles in `$676..=$68E`; VDP palette upload/state capture and tile save/restore remain open | Pause; assert the palette darkens, the menu overlay draws, cursor movement is visible, covered-range sprites hide, and the background restores cleanly on unpause |
+| NEW | [b] | P3 | shell | Pause-render cluster is exhausted without a mutable VDP plane: native-player now draws the ROM `MapUnc_PauseMenu_Restart` / `MapUnc_PauseMenu_GiveUp` 16x5 tile block from `loc_69D2` using the 25 `ArtUnc_PauseMenu` tiles at VRAM base `$676`, live `Pause_Option` cursor row from `Game_Paused_Loop loc_6B0E`, final-RGB pause darkening from `Pause_DarkenPalette loc_6C70`, and `sub_6874`/`loc_68AC` sprite-hide for first pattern tiles in `$676..=$68E`; remaining VDP palette upload/state capture and tile save/restore need a persistent plane-A model or pixel-oracle route | Pause; assert the palette darkens, the menu overlay draws, cursor movement is visible, covered-range sprites hide, and the background restores cleanly on unpause |
 | NEW | [x] | P3 | shell | No-continue GAME OVER hold now includes the `$3C` pre-hibernate before the `$1A3` Start-skippable wait | `loc_d2ce_zero_continue_game_over_hold_includes_pre_hibernate` |
 | NEW | [x] | P2 | shell | Options control schemes 1-5 now apply `with_abc_buttons_permuted` (`Permute_ABCButtons`/sub_CCE) before live input edge detection, demo-mode skipped | `readjoypad_options_scheme_2_swaps_a_b_before_latch_loc_bb6` |
 | NEW | [x] | P2 | shell | Options Fast-Action now applies `with_speed_option_a_inverted` (`loc_749C` `not.b Ctrl_A_Held`) each live player-update frame, demo-mode skipped | `gameplay_input_fast_action_inverts_a_latch_loc_749c` |
