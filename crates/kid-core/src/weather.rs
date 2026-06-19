@@ -1002,6 +1002,7 @@ pub(crate) fn apply_weather_worker_output_to_state_sub_61ca(
     weather.storm_free_falling_slots = output.free_falling_slots;
     weather.storm_falling_slots_sub_61ca = output.falling_slots;
     weather.storm_impact_slots_sub_61ca = output.impact_slots;
+    weather.storm_sprites_sub_61ca = output.sprites.clone();
     if let Some(kid_collision_timer) = output.kid_collision_timer {
         weather.storm_kid_collision_timer_sub_61ca = kid_collision_timer;
     }
@@ -2708,6 +2709,7 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_weather(&mut self, slice: &OpeningSliceState) {
+        self.weather.storm_sprites_sub_61ca.clear();
         if dispatch_level_special_effects_sub_6034(u16::from(self.weather.weather_type)).is_none() {
             return;
         }
@@ -2833,6 +2835,7 @@ impl NativeRuntime {
         self.weather.storm_impact_slots_sub_61ca =
             [WeatherImpactSlotSub61CA::default(); WEATHER_IMPACT_SLOT_COUNT_SUB_61CA];
         self.weather.storm_kid_collision_timer_sub_61ca = 0;
+        self.weather.storm_sprites_sub_61ca.clear();
         self.weather.storm_weather_mode_byte = 0;
         self.weather.storm_fade_countdown = 0;
         self.weather.storm_thunder_timer = 0;

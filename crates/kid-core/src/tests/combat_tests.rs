@@ -24354,6 +24354,16 @@ mod chunk_05 {
             weather.storm_kid_collision_timer_sub_61ca, 0x28,
             "ASM sub_61CA loc_62D6 writes Kid GfxObject `$38(a5)` when a falling weather slot overlaps Kid"
         );
+        assert_eq!(
+            weather.storm_sprites_sub_61ca,
+            vec![WeatherSpriteSub61CA {
+                y: 0x0080,
+                link: 0x0501,
+                tile_word: 0xA3C9,
+                x: 0x00A8,
+            }],
+            "ASM sub_61CA loc_63C4/loc_6462 writes current-frame weather sprite attrs"
+        );
     }
 
     #[test]

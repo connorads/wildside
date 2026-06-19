@@ -1084,6 +1084,7 @@ mod tests {
             special_effect_unknown_plane_fill_loc_14e42: None,
             storm_falling_slots_sub_61ca: Vec::new(),
             storm_impact_slots_sub_61ca: Vec::new(),
+            storm_sprites_sub_61ca: Vec::new(),
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             active_objects: vec![NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x0D },

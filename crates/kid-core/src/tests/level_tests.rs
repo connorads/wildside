@@ -195,6 +195,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         ),
         unknown_art_upload_loc_14df6: None,
         unknown_plane_fill_loc_14e42: None,
+        storm_sprites_sub_61ca: Vec::new(),
         hail_spawn_timer: 11,
         hail_active: true,
         hail_period_timer: 22,

@@ -5440,6 +5440,15 @@ mod tests {
         };
         runtime.weather.storm_impact_slots_sub_61ca[1] =
             crate::weather::WeatherImpactSlotSub61CA::inactive(1, 0);
+        runtime
+            .weather
+            .storm_sprites_sub_61ca
+            .push(crate::weather::WeatherSpriteSub61CA {
+                y: 0x0088,
+                link: 0x0501,
+                tile_word: 0xA3CD,
+                x: 0x019F,
+            });
 
         let trace = runtime.trace_frame();
 
@@ -5452,6 +5461,11 @@ mod tests {
             trace.storm_impact_slots_sub_61ca,
             vec![(0x0050, 0x011F, 5, 1)],
             "ASM sub_61CA loc_63C4 impact slot RAM should be trace-visible for splash/render diagnostics"
+        );
+        assert_eq!(
+            trace.storm_sprites_sub_61ca,
+            vec![(0x0088, 0x0501, 0xA3CD, 0x019F)],
+            "ASM sub_61CA loc_63C4/loc_6462 emitted sprite words should be trace-visible for renderer diagnostics"
         );
     }
 
@@ -7647,6 +7661,12 @@ impl NativeRuntime {
                         slot.animation_frame,
                     )
                 })
+                .collect(),
+            storm_sprites_sub_61ca: self
+                .weather
+                .storm_sprites_sub_61ca
+                .iter()
+                .map(|sprite| (sprite.y, sprite.link, sprite.tile_word, sprite.x))
                 .collect(),
             block_bounces: self
                 .block_bounces

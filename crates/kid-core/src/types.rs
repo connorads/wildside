@@ -732,6 +732,8 @@ pub(crate) struct WeatherState {
     /// ASM sub_61CA loc_62D6 writes `#$28` to Kid GfxObject `$38(a5)` when a
     /// falling storm slot overlaps Kid's hitbox.
     pub(crate) storm_kid_collision_timer_sub_61ca: u16,
+    /// ASM sub_61CA loc_63C4/loc_6462: sprite entries emitted this frame.
+    pub(crate) storm_sprites_sub_61ca: Vec<crate::weather::WeatherSpriteSub61CA>,
     /// ASM loc_14DAC/sub_6048 `$FFFFFAD6`: storm worker mode byte.
     pub(crate) storm_weather_mode_byte: u8,
     /// ASM loc_14DAC/sub_6048 `$FFFFFADA`: storm fade countdown.
@@ -1530,6 +1532,9 @@ pub struct NativeTraceFrame {
     /// Active ASM `sub_61CA` impact/splash slots: (y_px, x_px, animation_cooldown, animation_frame).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub storm_impact_slots_sub_61ca: Vec<(i16, i16, u8, u8)>,
+    /// ASM `sub_61CA` emitted sprites this frame: (screen_y, link_word, tile_word, screen_x).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub storm_sprites_sub_61ca: Vec<(u16, u16, u16, u16)>,
     /// Block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
     /// Kept for legacy trace compatibility; new renderers should prefer
     /// `block_bounce_details` when they need the ASM worker kind.
@@ -1751,6 +1756,7 @@ impl Default for NativeTraceFrame {
             special_effect_unknown_plane_fill_loc_14e42: None,
             storm_falling_slots_sub_61ca: Vec::new(),
             storm_impact_slots_sub_61ca: Vec::new(),
+            storm_sprites_sub_61ca: Vec::new(),
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),
