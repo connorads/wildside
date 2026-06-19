@@ -8,8 +8,8 @@ use font8x8::{BASIC_FONTS, UnicodeFonts};
 use kid_core::{
     ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
     DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, FrameInput, GameMode, LevelId,
-    NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand, NativeTraceFrame,
-    PlayerForm, physics::Direction, terrain::BlockGrid,
+    NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand,
+    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
 use kid_data::{AssetManifest, LevelHeader, resource_level_id, resource_level_record};
 use kid_md::GemsAudioEngine;
@@ -7461,6 +7461,90 @@ mod tests {
         assert_eq!(
             later.tile_base_index, 0x02F,
             "ASM Diamond.asm `stru_3ACA8` loops over the five live frames only; layout-index desync shows C8180 on issue289 level 0D frame 120 instead of the oracle's first crystal frame"
+        );
+    }
+
+    #[test]
+    fn live_tar_sphere_emorock_hold_body_frames_not_death_tail_off_32290_stru_36174_stru_363fe() {
+        // ASM Tar_Monster.asm off_32290 / Sphere.asm stru_36174 / Emo_Rock.asm
+        // loc_3621A: a LIVE enemy must hold its body/phase frame, never free-run
+        // the extracted sheet's DEATH-tail frames (#243/#333 render free-run).
+        // Before the select_live_* helpers, the generic free-run cycled the whole
+        // sheet off trace.frame_index, exposing the submerge/disappear/shatter
+        // death frames on a live enemy.
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        let base = |object_type: u8| NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(false),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        // Tar Monster 0x05: hidden phase holds frame 0 (C77A6, sig 59); visible
+        // phase holds frame 1 (C77D6, sig 60). Never the 61..=65 submerge tail.
+        // frame_index 12 makes the pre-fix free-run pick frame (12/3)%7 = 4
+        // (sig 63, a death frame), so these phase assertions fail without the helper.
+        trace.frame_index = 12;
+        let tar = visuals.enemies.families.get(&0x05).expect("tar visuals");
+        let mut tar_hidden = base(0x05);
+        tar_hidden.contact_phase = Some(NativeContactPhase::TarMonsterHidden);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, tar, &tar_hidden).tile_sheet.tiles[0].pixels[0],
+            59,
+            "ASM Tar_Monster.asm stru_3274C: hidden tar holds the underground body frame, not the submerge death tail"
+        );
+        let tar_visible = base(0x05); // contact_phase None => Visible/Attacking
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, tar, &tar_visible).tile_sheet.tiles[0].pixels[0],
+            60,
+            "ASM Tar_Monster.asm stru_3272E: visible tar holds the emerged body frame C77D6"
+        );
+
+        // Sphere 0x06: live spin uses only frames 0,1,2 (C8120/C8128/C8130, sigs
+        // 151/152/153). Never the 154..=156 stru_36182 disappear tail.
+        // frame_index 27 makes the pre-fix free-run pick frame (27/9)%6 = 3
+        // (sig 154, a death frame), so this assertion fails without the helper.
+        trace.frame_index = 27;
+        let sphere = visuals.enemies.families.get(&0x06).expect("sphere visuals");
+        let sphere_sig = sprites::select_enemy_frame(&trace, sphere, &base(0x06))
+            .tile_sheet
+            .tiles[0]
+            .pixels[0];
+        assert!(
+            matches!(sphere_sig, 151 | 152 | 153),
+            "ASM Sphere.asm stru_36174: live sphere spins frames 0-2 only, not the stru_36182 disappear tail (got sig {sphere_sig})"
+        );
+
+        // EmoRock 0x1B: live rock holds a body frame 0,1,2 (C7F40/C7F58/C7F60,
+        // sigs 241/242/243). Never the 244..=248 stru_36468 shatter tail the
+        // free-run was cycling. frame_index 60 makes the pre-fix free-run pick
+        // frame (60/20)%8 = 3 (sig 244, a shatter frame), so this fails without
+        // the helper.
+        trace.frame_index = 60;
+        let emo = visuals.enemies.families.get(&0x1B).expect("emo rock visuals");
+        let emo_sig = sprites::select_enemy_frame(&trace, emo, &base(0x1B))
+            .tile_sheet
+            .tiles[0]
+            .pixels[0];
+        assert!(
+            matches!(emo_sig, 241 | 242 | 243),
+            "ASM Emo_Rock.asm loc_3621A/loc_362A4: live emo rock shows a body frame, not the stru_36468 shatter tail (got sig {emo_sig})"
         );
     }
 

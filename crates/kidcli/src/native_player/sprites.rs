@@ -1066,6 +1066,80 @@ fn select_flying_dragon_dive_frame<'a>(
     Some(&enemy_visuals.frames[frame_index])
 }
 
+fn select_live_tar_monster_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a kid_render::SpriteFrame> {
+    let _ = trace;
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x05 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 2
+    {
+        return None;
+    }
+    // ASM Tar_Monster.asm off_32290 dispatches stru_3272E (emerge,
+    // C77A6->C77D6) and stru_3274C (submerge, C77D6->C77A6). The extracted
+    // sheet keeps only the hidden body (frame 0 = C77A6) and the fully emerged
+    // body (frame 1 = C77D6); frames 2.. are the stru_32700 submerge DEATH
+    // tail. A live tar monster holds one of the two body frames off its phase
+    // instead of free-running the whole sheet into the death frames. The 7-frame
+    // emerge/submerge intermediates are not extracted, so the transition pops
+    // rather than tweens (atlas limit, not a regression). contact_phase
+    // TarMonsterHidden is set whenever tar_monster_state is not Visible/Attacking
+    // (enemies.rs:9399-9408).
+    let frame = if matches!(object.contact_phase, Some(NativeContactPhase::TarMonsterHidden)) {
+        0
+    } else {
+        1
+    };
+    Some(&enemy_visuals.frames[frame])
+}
+
+fn select_live_sphere_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a kid_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x06 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 3
+    {
+        return None;
+    }
+    // ASM Sphere.asm installs stru_36174 once at Enemy06_Sphere_Init and
+    // Enemy06_Sphere_Loop never re-inits, so the live sphere spins through
+    // exactly three frames C8120/C8128/C8130 (frames 0,1,2) via the `dc.b 2,$D`
+    // rewind. Frames 3.. are the stru_36182 disappear/death tail and must not
+    // appear while alive.
+    let phase = (trace.frame_index / enemy_visuals.frame_duration.max(1)) % 3;
+    Some(&enemy_visuals.frames[phase])
+}
+
+fn select_live_emo_rock_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a kid_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x1B })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 3
+    {
+        return None;
+    }
+    // ASM Emo_Rock.asm: loc_3621A hovers with stru_3647E (C7F48/C7F50/C7F38) and
+    // loc_362A4 drops with stru_363FE (C7F40/C7F58/C7F60 = atlas frames 0/1/2);
+    // loc_36346 installs the stru_36468 SHATTER death tail (atlas frames 3..7).
+    // The live bug was the generic free-run cycling those shatter frames on a
+    // live rock. Restrict a live Emo Rock to its body frames 0..2 so the death
+    // tail can never show. TODO(fidelity): the hover frames stru_3647E are not
+    // extracted into the atlas, so cycling the stru_363FE drop frames is an
+    // approximation of the hover phase; extract C7F48/C7F50/C7F38 and gate the
+    // drop animation on the landed phase for an exact match.
+    let phase = (trace.frame_index / enemy_visuals.frame_duration.max(1)) % 3;
+    Some(&enemy_visuals.frames[phase])
+}
+
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a kid_render::AnimatedSpriteVisual,
@@ -1482,6 +1556,15 @@ pub(super) fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_flying_dragon_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_tar_monster_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_sphere_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_emo_rock_frame(trace, enemy_visuals, object) {
         return frame;
     }
     let keeps_base_animation = matches!(
