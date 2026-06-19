@@ -729,6 +729,9 @@ pub(crate) struct WeatherState {
     /// ASM loc_14DAC/sub_61CA `$FFFFFB00`: ten impact/splash slots.
     pub(crate) storm_impact_slots_sub_61ca: [crate::weather::WeatherImpactSlotSub61CA;
         crate::weather::WEATHER_IMPACT_SLOT_COUNT_SUB_61CA],
+    /// ASM sub_61CA loc_62D6 writes `#$28` to Kid GfxObject `$38(a5)` when a
+    /// falling storm slot overlaps Kid's hitbox.
+    pub(crate) storm_kid_collision_timer_sub_61ca: u16,
     /// ASM loc_14DAC/sub_6048 `$FFFFFAD6`: storm worker mode byte.
     pub(crate) storm_weather_mode_byte: u8,
     /// ASM loc_14DAC/sub_6048 `$FFFFFADA`: storm fade countdown.

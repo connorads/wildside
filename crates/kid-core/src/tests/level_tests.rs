@@ -175,6 +175,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         storm_free_falling_slots: 5,
         storm_falling_slots_sub_61ca: [crate::weather::FallingWeatherSlotSub61CA::default(); 5],
         storm_impact_slots_sub_61ca: [crate::weather::WeatherImpactSlotSub61CA::default(); 10],
+        storm_kid_collision_timer_sub_61ca: 0,
         storm_weather_mode_byte: 4,
         storm_fade_countdown: 0x0100,
         storm_thunder_timer: 1,

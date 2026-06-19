@@ -20585,6 +20585,31 @@ mod chunk_05 {
     }
 
     #[test]
+    fn hail_overlap_sets_kid_collision_timer_loc_62d6() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 3;
+        runtime.frame_index = 0x0896;
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_spawn_cooldown = 3;
+        runtime.weather.hail_spawn_timer = 3;
+        runtime.weather.storm_free_falling_slots = 4;
+        runtime.weather.storm_falling_slots_sub_61ca[0] = FallingWeatherSlotSub61CA {
+            y_px: 0x0084,
+            x_px: 0x011C,
+            animation_cooldown: 6,
+            animation_frame: 0,
+        };
+
+        runtime.step_weather(&make_airborne_slice(0x0120, 0x00A0));
+
+        assert_eq!(
+            runtime.weather.storm_kid_collision_timer_sub_61ca, 0x0028,
+            "ASM sub_61CA loc_62D6 writes `#$28` to Kid GfxObject `$38(a5)` when hail overlaps Kid's hitbox"
+        );
+    }
+
+    #[test]
     fn no_hail_without_storm_weather() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 0; // No weather
@@ -24131,6 +24156,10 @@ mod chunk_05 {
         assert_eq!(
             weather.storm_impact_slots_sub_61ca[6], impact_slots[6],
             "ASM sub_61CA writes impact slot RAM at `$FFFFFB00`"
+        );
+        assert_eq!(
+            weather.storm_kid_collision_timer_sub_61ca, 0x28,
+            "ASM sub_61CA loc_62D6 writes Kid GfxObject `$38(a5)` when a falling weather slot overlaps Kid"
         );
     }
 
@@ -27690,6 +27719,7 @@ mod chunk_05 {
             animation_cooldown: 4,
             animation_frame: 1,
         };
+        runtime.weather.storm_kid_collision_timer_sub_61ca = 0x28;
         runtime.weather.storm_weather_mode_byte = 4;
         runtime.weather.storm_fade_countdown = 0x0100;
         runtime.weather.storm_thunder_timer = -3;
@@ -27738,6 +27768,7 @@ mod chunk_05 {
             [crate::weather::WeatherImpactSlotSub61CA::default(); 10],
             "ASM loc_14DAC impact RAM must not leak from a previous storm level"
         );
+        assert_eq!(runtime.weather.storm_kid_collision_timer_sub_61ca, 0);
         assert_eq!(runtime.weather.storm_weather_mode_byte, 0);
         assert_eq!(runtime.weather.storm_fade_countdown, 0);
         assert_eq!(runtime.weather.storm_thunder_timer, 0);
