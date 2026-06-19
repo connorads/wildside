@@ -7391,12 +7391,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             .enemy_layout(LevelId(0x06))
             .expect("Under Skull Mountain 3 should use resource level 0x02 enemies");
         assert!(
-            layout
-                .objects
-                .iter()
-                .any(|object| object.object_type == EnemyFamily::Dragon.object_type()
-                    && object.x == 504
-                    && object.y == 239),
+            layout.objects.iter().any(|object| object.object_type
+                == EnemyFamily::Dragon.object_type()
+                && object.x == 504
+                && object.y == 239),
             "ASM enemy layout lookup should expose the Flying Dragon under Skull Mountain 3"
         );
 
