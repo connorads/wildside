@@ -94,6 +94,15 @@ pub struct LavaVisuals {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WeatherVisuals {
+    pub palette: Palette,
+    pub tile_sheet: TileSheet,
+    /// ASM Init_SpecialEffect_Storm loc_14CCE/loc_14CD8 uploads rain/hail art
+    /// to VRAM byte offset `$7000`, i.e. tile `$380`.
+    pub vram_base_tile_index: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EolScoreVisuals {
     pub palette: Palette,
     pub bonus: SpriteFrame,

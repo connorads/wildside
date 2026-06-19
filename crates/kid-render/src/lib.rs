@@ -24,7 +24,7 @@ pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
     FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpriteFrame,
+    PlayerTransformStep, PlayerVisuals, SpriteFrame, WeatherVisuals,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
@@ -119,6 +119,31 @@ mod tests {
             .expect("ASM Init_SpecialEffect_Lava loc_14C6A art should load");
         assert_eq!(lava.vram_base_tile_index, 0x02FB);
         assert_eq!(lava.palette.colours.len(), 8);
+        assert!(visuals.weather.is_none());
+    }
+
+    #[test]
+    fn load_level_visuals_loads_storm_weather_art_loc_14cce_14cd8() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture.manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture header")
+            .weather_flags = 3;
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        let weather = visuals
+            .weather
+            .as_ref()
+            .expect("ASM Init_SpecialEffect_Storm loc_14CD8 weather art should load");
+        assert_eq!(weather.vram_base_tile_index, 0x0380);
+        assert_eq!(weather.tile_sheet.tiles.len(), 0x60);
+        assert_eq!(weather.palette.colours.len(), 8);
+        assert_eq!(
+            weather.palette.colours[0].raw_word, 0x0600,
+            "ASM loc_14CF2 copies the non-Ice storm palette Pal_7B8BC into Palette_Buffer+$20"
+        );
     }
 
     #[test]
@@ -1020,6 +1045,40 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/artcomp/Rain.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0x60))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Hail_Sparkles.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0x60))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette/hail_mountain.bin",
+                &(0..8)
+                    .map(|value| 0x0600_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette/hail_ice.bin",
+                &(0..8)
+                    .map(|value| 0x0700_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
                 "ingame/artcomp/HUD_numbers.bin",
                 &direct_copy_saxman(&(0..384).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
             )?;
@@ -1634,6 +1693,8 @@ mod tests {
                     asset_file(root.path(), "ingame/artcomp/Blocks.bin"),
                     asset_file(root.path(), "ingame/artcomp/Murder_wall.bin"),
                     asset_file(root.path(), "ingame/artcomp/Lava.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Rain.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Hail_Sparkles.bin"),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
                     asset_file(root.path(), "ingame/artunc/Hitpoint_display.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
@@ -1658,6 +1719,8 @@ mod tests {
                     ),
                     asset_file(root.path(), "ingame/artunc/Flag_bottom.bin"),
                     asset_file(root.path(), "ingame/palette/Murder_wall.bin"),
+                    asset_file(root.path(), "ingame/palette/hail_mountain.bin"),
+                    asset_file(root.path(), "ingame/palette/hail_ice.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
                     asset_file(root.path(), "ingame/palette_enemy/Cloud_1.bin"),

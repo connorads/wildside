@@ -9,7 +9,7 @@ use crate::palette::{MdColour, Palette, PaletteSet};
 use crate::player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
     FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpriteFrame,
+    PlayerTransformStep, PlayerVisuals, SpriteFrame, WeatherVisuals,
 };
 use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -53,6 +53,12 @@ const MURDER_WALL_VRAM_BASE_TILE_INDEX: u16 = 0x02FB;
 const LAVA_ART_PATH: &str = "artcomp/Lava.bin";
 const LAVA_PALETTE_PATH: &str = "palette/lava.bin";
 const LAVA_VRAM_BASE_TILE_INDEX: u16 = 0x02FB;
+const WEATHER_RAIN_ART_PATH: &str = "artcomp/Rain.bin";
+const WEATHER_HAIL_ART_PATH: &str = "artcomp/Hail_Sparkles.bin";
+const WEATHER_HAIL_MOUNTAIN_PALETTE_PATH: &str = "palette/hail_mountain.bin";
+const WEATHER_HAIL_ICE_PALETTE_PATH: &str = "palette/hail_ice.bin";
+const WEATHER_VRAM_BASE_TILE_INDEX_LOC_14CCE: u16 = 0x0380;
+const BACKGROUND_THEME_ICE_ID: u8 = 2;
 const EOL_HOLOGRAM_BACKGROUND_ART_PATH: &str = "artcomp/Hologram_background.bin";
 const EOL_HOLOGRAM_BLOCKS_ART_PATH: &str = "artcomp/Hologram_blocks.bin";
 const EOL_HOLOGRAM_TILEMAP_PATH: &str = "mapeni/hologram_background.bin";
@@ -133,6 +139,9 @@ pub struct NativeLevelVisuals {
     /// ASM Init_SpecialEffect_Lava loc_14C6A loads `Lava.bin` art to VRAM
     /// `$5F60` and copies `ingame/palette/lava.bin` to CRAM line 1.
     pub lava: Option<LavaVisuals>,
+    /// ASM Init_SpecialEffect_Storm loc_14CCE/loc_14CD8 loads rain/hail art to
+    /// VRAM `$7000` and copies the selected hail palette to CRAM line 1.
+    pub weather: Option<WeatherVisuals>,
     pub platforms: PlatformVisuals,
     /// ASM `loc_D55E` / `Load_Object_EOL_Text` / `Load_Object_EOL_Number`
     /// draw score-screen labels and digits from `End_level_stats_text`.
@@ -385,6 +394,17 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         }
         None
     });
+    let weather = load_weather_visuals(
+        manifest,
+        visual_theme_header.background_theme,
+        visual_theme_header.weather_flags,
+    )
+    .unwrap_or_else(|err| {
+        if !cfg!(test) {
+            eprintln!("warning: weather art unavailable: {err}");
+        }
+        None
+    });
     let platforms = load_platform_visuals(manifest, foreground_theme)?;
 
     let palettes = PaletteSet {
@@ -457,6 +477,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         flag,
         murder_wall,
         lava,
+        weather,
         platforms,
         eol_score: load_eol_score_visuals(manifest).unwrap_or_else(|err| {
             if !cfg!(test) {
@@ -560,6 +581,45 @@ fn load_lava_visuals(manifest: &AssetManifest) -> Result<Option<LavaVisuals>> {
         palette,
         tile_sheet,
         vram_base_tile_index: LAVA_VRAM_BASE_TILE_INDEX,
+    }))
+}
+
+fn load_weather_visuals(
+    manifest: &AssetManifest,
+    background_theme_id: u8,
+    weather_flags: u8,
+) -> Result<Option<WeatherVisuals>> {
+    if !matches!(weather_flags, 2 | 3) {
+        return Ok(None);
+    }
+    let art_path = if background_theme_id == BACKGROUND_THEME_ICE_ID {
+        WEATHER_HAIL_ART_PATH
+    } else {
+        WEATHER_RAIN_ART_PATH
+    };
+    let Some(art) = find_ingame_asset(manifest, art_path) else {
+        return Ok(None);
+    };
+    let palette_path = if background_theme_id == BACKGROUND_THEME_ICE_ID {
+        WEATHER_HAIL_ICE_PALETTE_PATH
+    } else {
+        WEATHER_HAIL_MOUNTAIN_PALETTE_PATH
+    };
+    let Some(palette_asset) = find_ingame_asset(manifest, palette_path) else {
+        return Ok(None);
+    };
+    let tile_sheet = load_tile_sheet(manifest, "ingame", art, "hail weather tile sheet")?;
+    let palette = Palette::from_bytes(&read_root_asset(
+        manifest,
+        "ingame",
+        palette_asset,
+        "hail weather palette",
+    )?)
+    .context("failed to parse hail weather palette")?;
+    Ok(Some(WeatherVisuals {
+        palette,
+        tile_sheet,
+        vram_base_tile_index: WEATHER_VRAM_BASE_TILE_INDEX_LOC_14CCE,
     }))
 }
 

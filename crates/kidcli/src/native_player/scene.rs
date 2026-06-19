@@ -2589,6 +2589,46 @@ fn push_lava_geyser_chunk_loc_14be8(
     true
 }
 
+fn push_storm_weather_sprite_sub_61ca(
+    commands: &mut Vec<DrawCommand>,
+    visuals: &kid_render::WeatherVisuals,
+    sprite: (u16, u16, u16, u16),
+) -> bool {
+    let (screen_y, _link_word, tile_word, screen_x) = sprite;
+    let tile_ref = TileRef::from_attr_word(tile_word);
+    let Some(tile_base_index) = tile_ref
+        .tile_index
+        .checked_sub(visuals.vram_base_tile_index)
+    else {
+        return false;
+    };
+    if usize::from(tile_base_index) >= visuals.tile_sheet.tiles.len() {
+        return false;
+    }
+    let frame = kid_render::SpriteFrame {
+        origin_x: 0,
+        origin_y: 0,
+        width_px: 8,
+        height_px: 8,
+        tile_base_index,
+        tile_sheet: visuals.tile_sheet.clone(),
+    };
+    let mut tiles = build_sprite_tiles(&frame, Direction::Right, tile_ref.palette_line);
+    for tile in &mut tiles {
+        tile.tile.priority = tile_ref.priority;
+        tile.tile.flip_x = tile_ref.flip_x;
+        tile.tile.flip_y = tile_ref.flip_y;
+    }
+    commands.push(DrawCommand::Sprite {
+        x: i32::from(screen_x) - VDP_SPRITE_SCREEN_BIAS_LOC_13C0,
+        y: i32::from(screen_y) - VDP_SPRITE_SCREEN_BIAS_LOC_13C0,
+        tile_sheet: Arc::new(visuals.tile_sheet.clone()),
+        palette: Arc::new(visuals.palette.clone()),
+        tiles,
+    });
+    true
+}
+
 fn push_lava_geyser_template_loc_14be8(
     commands: &mut Vec<DrawCommand>,
     visuals: &kid_render::LavaVisuals,
@@ -4423,6 +4463,15 @@ fn build_game_scene_filtered(
                     height: i32::from(height),
                     colour: [255, 120, 20],
                 });
+            }
+        }
+
+        // ASM sub_61CA loc_63C4/loc_6462 emits storm weather sprites with
+        // VDP-biased screen coordinates and absolute tile words rooted at the
+        // Init_SpecialEffect_Storm loc_14CCE/loc_14CD8 `$7000` art upload.
+        if let Some(weather_visuals) = &level_visuals.weather {
+            for &sprite in &trace.storm_sprites_sub_61ca {
+                let _ = push_storm_weather_sprite_sub_61ca(&mut commands, weather_visuals, sprite);
             }
         }
 
