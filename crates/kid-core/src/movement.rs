@@ -6272,6 +6272,7 @@ impl OpeningSliceState {
                 probe.cell_y,
                 y_px,
                 moving_left,
+                wall_scan_height,
             );
             if !self.player.on_ground && !latches_wall_cling {
                 // ASM loc_A8DE only enters the wall-cling coroutine after a
@@ -6314,6 +6315,7 @@ impl OpeningSliceState {
         hit_cell_y: u16,
         y_px: i32,
         moving_left: bool,
+        wall_scan_height: i32,
     ) -> bool {
         if !moving_left {
             return true;
@@ -6330,6 +6332,22 @@ impl OpeningSliceState {
         }
         if hit_cell_y.abs_diff(foot_cell_y) > 1 {
             return true;
+        }
+        if moving_left
+            && wall_scan_height >= PLAYER_HEIGHT
+            && hit_cell_y >= foot_cell_y
+            && hit_cell_y > 1
+        {
+            // ASM loc_A8DE -> sub_ADB8/sub_AE6E validates wall-cling against
+            // a continuing body-height side wall. A left-moving hit at Kid's
+            // foot row with only solid floor mass below is a stair face: clamp
+            // sub_8F26 this frame, but keep sub_B084 air control alive. Keep
+            // the top rows and short-form scans clingable: existing loc_8FAC
+            // wall cases can strike the top of a continuing column before the
+            // body-height scan has any solid cell above, and Juggernaut/
+            // Micromax use ASM sub_DAA6's 15px scan rather than The Kid's
+            // 31px body-height probe.
+            return above_continues;
         }
         let deeper_below_continues = hit_cell_y
             .checked_add(2)

@@ -7912,6 +7912,48 @@ mod chunk_11 {
         );
     }
 
+    /// ASM loc_A8DE's wall-cling loop validates a continuing side wall through
+    /// sub_ADB8/sub_AE6E. A foot-level left step that only continues downward
+    /// into solid floor mass is still a stair face, not a clingable wall, so
+    /// the current sub_8F26 clamp must preserve the held-left air-control
+    /// velocity for the next jump-loop frame.
+    #[test]
+    fn loc_a8de_left_step_with_deep_solid_floor_below_does_not_latch_wall_cling() {
+        let w: u16 = 5;
+        let h: u16 = 6;
+        let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+        data[(2 * usize::from(w) + 1) * 2] = 0x60;
+        data[(3 * usize::from(w) + 1) * 2] = 0x60;
+        data[(4 * usize::from(w) + 1) * 2] = 0x60;
+        let grid = terrain::BlockGrid::from_level_layout(&data, w, h);
+        let bounds = LevelBounds {
+            width_pixels: w * 16,
+            height_pixels: h * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.on_ground = false;
+        slice.player.x_pos = 36 << 16;
+        slice.player.y_pos = 40 << 16;
+        slice.player.x_velocity = -0x0001_0000;
+
+        slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
+
+        assert_eq!(
+            slice.player.x_velocity, -0x0001_0000,
+            "ASM sub_8F26 should preserve leftward air-control velocity after a foot-level step clamp",
+        );
+        assert_eq!(
+            slice.player.x_pos,
+            37 << 16,
+            "ASM loc_8FAC should snap the centre flush after the left step hit",
+        );
+        assert!(
+            !slice.player.left_wall_sticky,
+            "ASM loc_A8DE/sub_ADB8 should not classify below-only solid floor mass as a left wall",
+        );
+        assert_eq!(slice.player.wall_cling_direction, None);
+    }
+
     /// ASM loc_75D4 -> loc_A426 jumps before the standing-still side-wall gate,
     /// then the following jump-loop frame reaches sub_B084 air control before
     /// loc_A762/sub_8F26. A one-cell left step can clamp the current frame, but
