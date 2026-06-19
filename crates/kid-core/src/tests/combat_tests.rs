@@ -22180,6 +22180,38 @@ mod chunk_05 {
     }
 
     #[test]
+    fn init_murder_wall_preserves_fractional_low_word_loc_140d2() {
+        let mut manifest = manifest_with_levels(2);
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .murder_wall_flags = 0b10;
+
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: 0x0120_3456,
+            speed: 0x0100,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+
+        let camera_x = 0x0100_u32;
+        runtime.init_murder_wall(LevelId(0), camera_x);
+
+        let wall = runtime.murder_wall.expect("wall should be active");
+        assert_eq!(
+            wall.x_pos,
+            ((i64::from(camera_x) + i64::from(MURDER_WALL_CAMERA_OFFSET_PX)) << 16) | 0x3456,
+            "ASM loc_140D2 uses `move.w d0,(MurderWall_X_pos)`, so init replaces only the integer word and leaves the fractional low word intact"
+        );
+        assert_eq!(
+            wall.speed, 0,
+            "ASM loc_140BE should still clear `MurderWall_speed` during reinitialisation"
+        );
+    }
+
+    #[test]
     fn init_murder_wall_zero_camera_starts_offscreen_left() {
         let mut manifest = manifest_with_levels(2);
         manifest.levels[0]

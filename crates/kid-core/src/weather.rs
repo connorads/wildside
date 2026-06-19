@@ -3144,16 +3144,21 @@ impl NativeRuntime {
             };
             // ASM loc_140BE clears `MurderWall_speed` after the level-specific
             // max-speed branch, so native always starts the wall from rest.
-            let initial_x = if camera_x == 0 {
+            let previous_fraction = self.murder_wall.map_or(0, |wall| wall.x_pos & 0xFFFF);
+            let initial_x_word = if camera_x == 0 {
                 // ASM loc_140CE runs after `move.w (Camera_X_pos).w,d0` / `beq.s`,
                 // so the zero-camera case subtracts `$30` from zero before the
                 // shared `loc_140D2` store.
-                -(i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16)
+                -i64::from(MURDER_WALL_CAMERA_OFFSET_PX)
             } else {
                 // ASM loc_140D2 receives the non-zero-camera `addi.w #$30,d0`
                 // result and stores that shared branch value as Murderwall X.
-                (i64::from(camera_x) << 16) + (i64::from(MURDER_WALL_CAMERA_OFFSET_PX) << 16)
+                i64::from(camera_x) + i64::from(MURDER_WALL_CAMERA_OFFSET_PX)
             };
+            // ASM loc_140D2 (kid.asm:26906): `move.w d0,(MurderWall_X_pos)`
+            // replaces only the integer word; the 16.16 fractional low word is
+            // whatever RAM already held.
+            let initial_x = (initial_x_word << 16) | previous_fraction;
             self.murder_wall = Some(MurderWallState {
                 x_pos: initial_x,
                 speed: 0,
