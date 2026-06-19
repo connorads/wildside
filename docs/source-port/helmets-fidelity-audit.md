@@ -139,8 +139,8 @@ The ROM walks the DP sprite buffer emitting VDP entries, fixing each link byte b
 **Snake invulnerability set ad hoc in live path; full snake state untracked** (`DiamondPower_Main_Snake`)
 The live path forces `invulnerable_frames = max(1)` each frame (`helmets.rs:6015-6016`) as a stand-in; the ROM snake routine does not itself set Kid invulnerability. There is no live snake-slot field, so the faithful chain-state model is unreachable.
 
-**Rain — non-tracking Y movement uses 32-bit add instead of ROM's word-only update** (`loc_3FF70` vs `loc_3FE98`)
-The ROM updates non-tracking rain Y as **word-only** (subpixel low word untouched) while tracking uses 32-bit (`kid.asm:45226,45317`). The live path always does 32-bit Y (`projectiles.rs:1542`). Masked because seed y_pos/velocity have zero subpixel, so the two agree; the faithful word-only helper (`helmets.rs:1828`) is dead.
+**RESOLVED — Rain non-tracking Y movement uses the ROM's word-only update** (`loc_3FF70` vs `loc_3FE98`)
+The ROM updates non-tracking rain Y as **word-only** (subpixel low word untouched) while tracking uses 32-bit (`kid.asm:45226,45317`). Live `step_diamond_power_rain_slots` now routes non-tracking slots through `diamond_power_rain_non_tracking_move`, preserving the low word while tracking slots keep the 32-bit velocity path. Covered by `diamond_power_rain_live_non_tracking_slot_uses_word_y_update_loc_3ff70`.
 
 **Rain — dead duplicate cull path for `EnemyProjectileKind::DiamondPowerRain` in `step_projectiles`** (`loc_3FF90/loc_3FFC0`)
 `step_projectiles` contains a second rain handler over `self.projectiles` entries of kind `DiamondPowerRain` (`projectiles.rs:1895-1913`), but the live spawn only pushes into `self.diamond_power_rain_slots` — no code ever creates a `DiamondPowerRain` projectile, so this block is vestigial dead code. Harmless; maintenance hazard (two cull paths).

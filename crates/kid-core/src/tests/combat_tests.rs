@@ -4782,6 +4782,34 @@ mod chunk_03 {
         );
     }
 
+    #[test]
+    fn diamond_power_rain_live_non_tracking_slot_uses_word_y_update_loc_3ff70() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        slice.player.x_velocity = 0;
+        runtime.opening_slice = Some(slice);
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
+            x_pos: 0x0080_0000,
+            y_pos: 0x0080_1234,
+            y_velocity: 0x2_0040,
+            size_word_24: 4,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+
+        let slot = runtime
+            .diamond_power_rain_slots
+            .first()
+            .expect("visible rain slot should remain live");
+        assert_eq!(
+            slot.y_pos, 0x0082_1234,
+            "ASM loc_3FF70 uses `move.w $1E(a0),d1; add.w $2A(a0),d1; move.w d1,$1E(a0)`, so live non-tracking rain must preserve the low word"
+        );
+    }
+
     /// ASM loc_3FEBC -> loc_3FF3C: Tracking Rain scans on the `(Time_Frames&7)==1`
     /// cadence, finds an on-screen enemy in the [8,$40) distance window, and
     /// turns the rain slot into a tracking slot by writing `$26/$2A` velocity.

@@ -39,7 +39,8 @@ use crate::enemies::{
 };
 use crate::helmets::{
     RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
-    diamond_power_rain_find_nearest_enemy, diamond_power_rain_screen_cull_and_compile,
+    diamond_power_rain_find_nearest_enemy, diamond_power_rain_non_tracking_move,
+    diamond_power_rain_screen_cull_and_compile,
 };
 use crate::terrain::{
     relative_collision_column_loc_331F6, relative_collision_mask_loc_331D2,
@@ -2532,18 +2533,24 @@ impl NativeRuntime {
                 slot.tracking_word_3e = slot.tracking_word_3e.wrapping_add(1);
             }
 
-            let x_velocity = if slot.tracking_word_3e == 0 {
+            if slot.tracking_word_3e == 0 {
                 // ASM loc_3FE62: a5 = Kid x_vel * 3/4.
                 // ASM loc_3FF70: non-tracking rain adds that drift after the
                 // slot's own `$26(a0)` x velocity.
                 let kid_drift = player_x_velocity - (player_x_velocity >> 2);
-                slot.x_velocity.wrapping_add(kid_drift)
+                let (x_pos, y_word) = diamond_power_rain_non_tracking_move(
+                    slot.x_pos,
+                    (slot.y_pos >> 16) as u16,
+                    slot.x_velocity as u32,
+                    (slot.y_velocity >> 16) as u16,
+                    kid_drift as u32,
+                );
+                slot.x_pos = x_pos;
+                slot.y_pos = (u32::from(y_word) << 16) | (slot.y_pos & 0xFFFF);
             } else {
-                slot.x_velocity
-            };
-
-            slot.x_pos = (slot.x_pos as i64 + i64::from(x_velocity)) as u32;
-            slot.y_pos = (slot.y_pos as i64 + i64::from(slot.y_velocity)) as u32;
+                slot.x_pos = (slot.x_pos as i64 + i64::from(slot.x_velocity)) as u32;
+                slot.y_pos = (slot.y_pos as i64 + i64::from(slot.y_velocity)) as u32;
+            }
 
             if let Some(camera) = camera {
                 let screen_x = ((slot.x_pos >> 16) as i32)
