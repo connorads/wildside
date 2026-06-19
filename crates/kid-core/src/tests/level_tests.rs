@@ -23238,6 +23238,50 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3c0d2_rightward_wall_turn_reverses_in_place_not_extra_advance() {
+        // ASM loc_3C04E (kid.asm:43529-43542): once the predicted step crosses the
+        // next 16px boundary, the wall-ahead dispatch (d7 bit 1) with a narrow body
+        // column span (`lsl.w #3,d4; cmp.w $48(a5),d4; bcs.s loc_3C0A6`) reverses in
+        // place via loc_3C0A6 -> loc_3C0D2 (clr.l x_vel/y_vel, sf x_direction) and
+        // NEVER commits the predicted x step. The right-edge "extra half-step" body
+        // exposure (RightBoundaryAfterExtraAdvance) is a CLIFF-edge behaviour (issue
+        // #260, wall bit clear) only.
+        //
+        // Regression for #331: BLW2 (0x01) RockTank #03 self-killed turning at a
+        // wall (oracle keeps it alive). The body-overlap kill (d7 bit 2 -> loc_3C464
+        // collision_type=$FFFF -> loc_3B41C bmi death) is faithful, but taking the
+        // cliff extra half-step at a wall advanced the 32px Tank body one pixel into
+        // the wall column, so the next body scan read that wall tile and set bit 2.
+        // The Tank probe is height 32 (2 body rows) / half_width 11; the prior bit-2
+        // tests used the 16px Robot, which never exposed this turn.
+        //
+        // Geometry: Solid floor row 13 (cols 0..7) plus a wall at col 8 (body rows
+        // 11/12 + foot row 13) sets d7 bits 0 (body-ahead) and 1 (foot-ahead). At the
+        // half-pixel boundary-crossing frame the body (cols 6/7, span 1, span*8 < 11)
+        // clears col 8; the cliff extra step would pull col 8 into the rightward body
+        // rect.
+        let mut cells: Vec<(u16, u16, u8, u8)> =
+            (0..=7).map(|col| (col, 13, 0x60u8, 0x00u8)).collect();
+        cells.push((8, 11, 0x60, 0x00));
+        cells.push((8, 12, 0x60, 0x00));
+        cells.push((8, 13, 0x60, 0x00));
+        let grid = grid_with_cells(16, 15, &cells);
+        let mut enemy = make_pacer(EnemyFamily::Tank, 2, 117, 208);
+        enemy.facing = Direction::Right;
+        // Half-pixel x so the +0.5px (0x8000) walk step crosses the col-8 boundary
+        // this frame, mirroring the BLW2 #03 turn at x=1877.5.
+        enemy.x_pos = (117 << 16) | 0x8000;
+
+        let plan = shared_walker_grounded_scan_turn_plan(&enemy, &grid, 0x8000, 11, 32);
+
+        assert_eq!(
+            plan,
+            Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition),
+            "ASM loc_3C0D2 (#331): a rightward Tank crossing a tile boundary into a wall (d7 bit 1, narrow span) must reverse in place, not take the cliff-edge RightBoundaryAfterExtraAdvance that advances the body into the wall column and triggers the bit-2 terrain self-kill",
+        );
+    }
+
+    #[test]
     fn loc_3c04e_d7_bit2_body_collision_enters_terrain_kill_before_wall_probe() {
         // ASM loc_3C04E (kid.asm:43511-43515): after sub_36972, `btst #2,d7`
         // branches directly to loc_3C464 when the current hitbox rectangle

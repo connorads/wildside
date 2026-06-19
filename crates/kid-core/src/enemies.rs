@@ -17168,13 +17168,13 @@ fn register_enemy_terrain_kill(enemy: &mut ActiveEnemy) {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum SharedWalkerGroundedTurn {
+pub(crate) enum SharedWalkerGroundedTurn {
     BoundaryWallSnapContinue(i32),
     RightBoundaryAfterExtraAdvance,
     RightBoundaryAtCurrentPosition,
 }
 
-fn shared_walker_grounded_scan_turn_plan(
+pub(crate) fn shared_walker_grounded_scan_turn_plan(
     enemy: &ActiveEnemy,
     grid: &terrain::BlockGrid,
     walk_delta: i32,
@@ -17247,6 +17247,31 @@ fn shared_walker_grounded_scan_turn_plan(
 
     if wall_bit_set && !edge_bit_set {
         return None;
+    }
+
+    if wall_bit_set
+        && moving_right
+        && crossed_boundary
+        && i32::from(scan.column_span_d3) * 8 < half_width
+    {
+        // ASM loc_3C04E (kid.asm:43529-43542): only once the predicted step crosses
+        // the next 16px boundary (`cmp.w d1,d3; bcc.s loc_3C0C6` continues
+        // otherwise) does the wall dispatch run. With the wall bit (d7 bit 1) set
+        // and the scanned body column span * 8 below the half-width (`lsl.w #3,d4;
+        // cmp.w $48(a5),d4; bcs.s loc_3C0A6`), it reverses in place via loc_3C0A6 ->
+        // loc_3C0D2 (clr.l x_vel/y_vel, sf x_direction) and NEVER commits the
+        // predicted x step. The right-edge "extra half-step" body
+        // exposure modelled below is a CLIFF-edge behaviour (issue #260, wall bit
+        // clear) only — advancing into a wall is wrong. Flip at the current body X.
+        //
+        // issue #331: the body-overlap kill (d7 bit 2 -> loc_3C464
+        // collision_type=$FFFF -> loc_3B41C bmi death) is faithful, but it must scan
+        // the ROM's resting x. The extra half-step advanced the body one pixel into
+        // the wall column, so the next body scan read that wall tile and spuriously
+        // set bit 2 -> a terrain self-kill the ROM tank never takes (BLW2 0x01
+        // RockTank #03 at the col-118 wall: ROM rests at x=1877, native had
+        // over-advanced to x=1878).
+        return Some(SharedWalkerGroundedTurn::RightBoundaryAtCurrentPosition);
     }
 
     if moving_right && !enemy.shared_walker_right_turn_extra_step_consumed {
