@@ -8940,7 +8940,15 @@ impl NativeRuntime {
             .iter()
             .flat_map(|enemy| {
                 let mut snapshots = Vec::new();
-                if !matches!(enemy.family, EnemyFamily::Drips) {
+                if matches!(enemy.family, EnemyFamily::FireDemon)
+                    && enemy.wall_pinned
+                    && enemy.grounded_frames != 0
+                {
+                    // ASM Fire_Demon.asm Enemy00_FireDemon_Init hibernates
+                    // before loading the visible gfx object; after the native
+                    // first skipped tick this object exists only as the hidden
+                    // pending init slot seen in oracle object-slot traces.
+                } else if !matches!(enemy.family, EnemyFamily::Drips) {
                     // ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the
                     // parent/controller gfx object hidden; visible Drips
                     // children are exported through projectile snapshots.

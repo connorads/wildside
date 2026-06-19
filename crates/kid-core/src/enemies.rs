@@ -6541,6 +6541,9 @@ pub(crate) struct ActiveEnemy {
     pub(crate) robot_state: RobotState,
     pub(crate) orca_state: OrcaState,
     /// Orca: wall-pinned flag ($5C(a5)), suppresses X accel during lunge.
+    /// Fire Demon reuses this native-only flag for the two scheduler frames
+    /// around ASM Fire_Demon.asm Enemy00_FireDemon_Init's leading
+    /// `j_Hibernate_Object_1Frame`: hidden init, then visible-but-not-stepped.
     pub(crate) wall_pinned: bool,
     /// Drips: set once the ceiling-attach phase (ASM `Drips.asm loc_333F6`)
     /// converges. Until attached, the slime rises with `y_velocity = -$1_0000`
@@ -10033,7 +10036,7 @@ fn activate_enemies_with_rng_inner(
                 lion_state: spawn_lion_state_loc_3e030(family),
                 robot_state: RobotState::Walking,
                 orca_state: OrcaState::Walking,
-                wall_pinned: false,
+                wall_pinned: matches!(family, EnemyFamily::FireDemon),
                 drips_attached: false,
                 drips_surface_table_index: 0,
                 drips_pending_splash_x_pos: 0,
@@ -10436,6 +10439,23 @@ pub(crate) fn step_active_enemies_with_rng(
                         && enemy.wait_timer == FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
                     {
                         step_fire_demon_berzerker_launch(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::FireDemon) && enemy.wall_pinned {
+                        // ASM Fire_Demon.asm Enemy00_FireDemon_Init first calls
+                        // j_Hibernate_Object_1Frame before loading/copying the
+                        // visible gfx object. The first shared walker entry
+                        // (kid.asm loc_3C0F0) hibernates once more before
+                        // loc_3C0FA can move left, so native must expose one
+                        // hidden frame followed by one stationary visible frame.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        if enemy.grounded_frames == 0 {
+                            enemy.grounded_frames = 1;
+                        } else {
+                            enemy.grounded_frames = 0;
+                            enemy.wall_pinned = false;
+                        }
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::FireDemon)
@@ -43210,6 +43230,7 @@ impl NativeRuntime {
             if !matches!(enemy.family, EnemyFamily::FireDemon)
                 || !enemy.on_ground
                 || enemy.death_animation_active
+                || enemy.wall_pinned
                 || enemy.damage_flash_frames > 0
                 || enemy.wait_timer == FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610
             {

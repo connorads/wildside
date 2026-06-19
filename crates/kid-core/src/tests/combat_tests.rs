@@ -14589,6 +14589,109 @@ mod chunk_03 {
     }
 
     #[test]
+    fn fire_demon_init_hibernates_before_visible_shared_walker_loc_3a392_3c0f0() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![],
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 1,
+            objects: vec![kid_data::EnemyLayoutObject {
+                object_type: 0x00,
+                flags: 0xFF,
+                hit_points_plus_one: 0,
+                x: 80,
+                y: 64,
+            }],
+            segments: vec![],
+        };
+        let window = ActivationWindow::from_camera(CameraState { x_pos: 0, y_pos: 0 });
+        let bounds = physics::LevelBounds {
+            width_pixels: 512,
+            height_pixels: 256,
+        };
+        let mut active = Vec::new();
+        activate_enemies(
+            &mut active,
+            &layout,
+            window,
+            0,
+            0,
+            bounds,
+            0,
+            64 << 16,
+            &std::collections::HashSet::new(),
+        );
+        assert_eq!(active.len(), 1);
+        assert!(
+            active[0].wall_pinned,
+            "ASM Fire_Demon.asm Enemy00_FireDemon_Init starts with j_Hibernate_Object_1Frame before the visible object setup"
+        );
+
+        let grid = grid_with_floor_at_row(4);
+        let mut drilled_blocks = Vec::new();
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            Some(0),
+            Some(64 << 16),
+            Some(Direction::Right),
+            Some(0),
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.active_enemies = active.clone();
+        runtime.rebuild_active_enemy_roster();
+        assert!(
+            runtime.active_enemy_roster.is_empty(),
+            "the init hibernate frame should match oracle's hidden object slot, not the canonical enemy roster"
+        );
+        assert_eq!(active[0].x_pos, 80 << 16);
+        assert_eq!(active[0].y_pos, 64 << 16);
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            Some(0),
+            Some(64 << 16),
+            Some(Direction::Right),
+            Some(0),
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+        runtime.active_enemies = active.clone();
+        runtime.rebuild_active_enemy_roster();
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM kid.asm loc_3C0F0 hibernates once after loc_3A476 dispatches to the left shared walker"
+        );
+        assert_eq!(runtime.active_enemy_roster[0].x_pos, 80 << 16);
+        assert_eq!(runtime.active_enemy_roster[0].x_velocity, Some(0));
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            Some(0),
+            Some(64 << 16),
+            Some(Direction::Right),
+            Some(0),
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+        assert_eq!(
+            active[0].x_pos,
+            (80 << 16) - 0x8000,
+            "ASM kid.asm loc_3C0FA only starts applying Fire Demon `$50(a5)` leftward speed after the two hibernate frames"
+        );
+    }
+
+    #[test]
     fn fire_demon_pending_hurt_collision_enters_loc_3a5be_hibernate() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 4);
