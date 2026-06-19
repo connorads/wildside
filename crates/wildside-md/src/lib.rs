@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use r68k_emu::cpu::{ConfiguredCore, Cycles};
 use r68k_emu::interrupts::AutoInterruptController;
 use r68k_emu::ram::{AddressBus, AddressSpace};
@@ -2736,6 +2736,8 @@ const GEMS_PATCH_ADDR: u32 = 0x0E_160E;
 const GEMS_ENVELOPE_ADDR: u32 = 0x0E_25EA;
 const GEMS_SEQUENCE_ADDR: u32 = 0x0E_2766;
 const GEMS_SAMPLE_ADDR: u32 = 0x0E_8716;
+const GEMS_DRIVER_ADDR: u32 = 0x0F_E976;
+const GEMS_DRIVER_END_ADDR: u32 = 0x0F_FFFA;
 /// GEMS command queue: 64-byte circular buffer in Z80 RAM.
 const GEMS_QUEUE_ADDR: u16 = 0x1A40;
 /// Queue write pointer location in Z80 RAM.
@@ -2896,6 +2898,31 @@ impl GemsAudioEngine {
             initialised: false,
             driver: driver.to_vec(),
         }
+    }
+
+    /// Create a GEMS engine backed directly by the Kid Chameleon ROM.
+    ///
+    /// This uses the ROM's `GEMS_Sounddriver` bytes and lets the Z80 driver's
+    /// banked reads resolve against the full ROM image. `start_sequence` still
+    /// queues ASM `PlaySound`/`sub_E151C` command bytes through the real GEMS
+    /// FIFO (`FF,10,<id>`).
+    pub fn from_kid_rom(rom: &[u8]) -> Result<Self> {
+        ensure!(
+            rom.len() >= GEMS_DRIVER_END_ADDR as usize,
+            "ROM is too small for Kid Chameleon GEMS driver"
+        );
+        let driver = &rom[GEMS_DRIVER_ADDR as usize..GEMS_DRIVER_END_ADDR as usize];
+        let bus = GemsBus::new(driver, rom.to_vec());
+        let mut z80 = Z80::new(bus);
+        z80.reset();
+
+        Ok(Self {
+            z80,
+            mixer: AudioMixer::default(),
+            vblank_irq_cycles_remaining: 0,
+            initialised: false,
+            driver: driver.to_vec(),
+        })
     }
 
     fn place_data(rom: &mut [u8], base_addr: u32, data: &[u8]) {
@@ -5597,6 +5624,31 @@ mod tests {
             &queue[14..17],
             [0xFF, 0x10, 0x17],
             "ASM PlaySound/sub_E151C writes command marker $FF, command $10, then the sound id after auto-init"
+        );
+    }
+
+    #[test]
+    fn gems_engine_from_kid_rom_uses_rom_driver_and_queues_command_10() {
+        let mut rom = vec![0u8; super::GEMS_DRIVER_END_ADDR as usize];
+        rom[super::GEMS_DRIVER_ADDR as usize] = 0xF3;
+        rom[super::GEMS_PATCH_ADDR as usize] = 0xA1;
+
+        let mut engine = super::GemsAudioEngine::from_kid_rom(&rom).unwrap();
+        assert_eq!(
+            engine.z80.io.ram[0], 0xF3,
+            "ASM StopMusic copies GEMS_Sounddriver from ROM to Z80 RAM"
+        );
+        assert_eq!(
+            engine.z80.io.virtual_rom[super::GEMS_PATCH_ADDR as usize], 0xA1,
+            "ROM-backed audit must expose exact Kid ROM bytes to banked Z80 reads"
+        );
+
+        engine.start_sequence(0x41);
+        let queue = &engine.z80.io.ram[usize::from(GEMS_QUEUE_ADDR)..][..17];
+        assert_eq!(
+            &queue[14..17],
+            [0xFF, 0x10, 0x41],
+            "ASM j_PlaySound/sub_E151C queues `FF 10 <sound-id>` after ROM pointer init"
         );
     }
 

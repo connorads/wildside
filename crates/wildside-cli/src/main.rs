@@ -1738,11 +1738,14 @@ fn main() -> Result<()> {
             if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
                 bail!("audio-audit currently supports only the known Kid Chameleon ROM dump");
             }
+            let rom_bytes = fs::read(&rom_path)
+                .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             run_audio_audit(
                 &repo_root,
                 &upstream_dir,
                 &manifest,
+                &rom_bytes,
                 sound_id,
                 frames,
                 sample_rate,
@@ -4281,8 +4284,13 @@ struct AudioAuditRow {
     ym2612_writes: usize,
     psg_writes: usize,
     oracle_dur_frames: Option<usize>,
+    oracle_dur_ms: Option<u32>,
+    oracle_rms: Option<f32>,
+    oracle_peak: Option<f32>,
+    oracle_peak_freq_hz: Option<u32>,
+    oracle_looping: Option<bool>,
     duration_delta_frames: Option<i32>,
-    oracle_status: &'static str,
+    oracle_status: String,
 }
 
 #[derive(Debug, Default)]
@@ -4297,6 +4305,7 @@ fn run_audio_audit(
     repo_root: &Path,
     upstream_dir: &Path,
     manifest: &AssetManifest,
+    rom_bytes: &[u8],
     sound_id: Option<u8>,
     frames: usize,
     sample_rate: u32,
@@ -4339,26 +4348,36 @@ fn run_audio_audit(
             &envelopes,
             &sequences,
             &samples,
+            rom_bytes,
         ));
     }
 
     if json {
         println!("{}", serde_json::to_string_pretty(&rows)?);
     } else {
-        println!("id   type   dur  rms      peak     freq   loop  writes  name  oracle");
+        println!("id   type   ndur odur diff  nrms     orms     loop  writes  name  oracle");
         for row in &rows {
-            let freq = row
-                .peak_freq_hz
-                .map(|freq| freq.to_string())
+            let oracle_dur = row
+                .oracle_dur_frames
+                .map(|dur| dur.to_string())
+                .unwrap_or_else(|| "-".to_string());
+            let delta = row
+                .duration_delta_frames
+                .map(|delta| delta.to_string())
+                .unwrap_or_else(|| "-".to_string());
+            let oracle_rms = row
+                .oracle_rms
+                .map(|rms| format!("{rms:.5}"))
                 .unwrap_or_else(|| "-".to_string());
             println!(
-                "{:02X}   {:5}  {:3}  {:.5}  {:.5}  {:>5}  {:5} {:>3}/{:<3} {}  {}",
+                "{:02X}   {:5}  {:3}  {:>3} {:>4}  {:.5}  {:>7}  {:5} {:>3}/{:<3} {}  {}",
                 row.id,
                 row.chip_type,
                 row.native_dur_frames,
+                oracle_dur,
+                delta,
                 row.native_rms,
-                row.native_peak,
-                freq,
+                oracle_rms,
                 row.looping,
                 row.ym2612_writes,
                 row.psg_writes,
@@ -4414,24 +4433,112 @@ fn audit_one_sound_id(
     envelopes: &[u8],
     sequences: &[u8],
     samples: &[u8],
+    rom_bytes: &[u8],
 ) -> AudioAuditRow {
     let mut engine = GemsAudioEngine::new(driver, instruments, envelopes, sequences, samples);
     engine.start_sequence(id);
     let samples_per_frame = ((u64::from(sample_rate) + 30) / 60).max(1) as usize;
-    let mut all_samples = Vec::with_capacity(frames * samples_per_frame * 2);
     let mut activity = AudioChipActivity::default();
-    let mut audible_frames = Vec::with_capacity(frames);
-    const AUDIBLE_RMS: f32 = 0.0005;
+    let native = render_standalone_gems_audit(
+        &mut engine,
+        frames,
+        sample_rate,
+        samples_per_frame,
+        Some(&mut activity),
+    );
+    let oracle = render_rom_gems_audit(rom_bytes, id, frames, sample_rate, samples_per_frame);
+    let (chip_type, channels) = summarise_chip_activity(&activity);
+    let duration_delta_frames = oracle
+        .as_ref()
+        .ok()
+        .map(|oracle| native.dur_frames as i32 - oracle.dur_frames as i32);
+    let oracle_metrics = oracle.as_ref().ok();
 
+    AudioAuditRow {
+        id,
+        name,
+        chip_type,
+        channels,
+        native_dur_frames: native.dur_frames,
+        native_dur_ms: native.dur_ms,
+        native_rms: native.rms,
+        native_peak: native.peak,
+        peak_freq_hz: native.peak_freq_hz,
+        looping: native.looping,
+        ym2612_writes: activity.ym2612_writes,
+        psg_writes: activity.psg_writes,
+        oracle_dur_frames: oracle_metrics.map(|metrics| metrics.dur_frames),
+        oracle_dur_ms: oracle_metrics.map(|metrics| metrics.dur_ms),
+        oracle_rms: oracle_metrics.map(|metrics| metrics.rms),
+        oracle_peak: oracle_metrics.map(|metrics| metrics.peak),
+        oracle_peak_freq_hz: oracle_metrics.and_then(|metrics| metrics.peak_freq_hz),
+        oracle_looping: oracle_metrics.map(|metrics| metrics.looping),
+        duration_delta_frames,
+        oracle_status: oracle
+            .as_ref()
+            .map(|_| "ok".to_string())
+            .unwrap_or_else(|error| error.to_string()),
+    }
+}
+
+#[derive(Debug, Clone)]
+struct AudioAuditMetrics {
+    dur_frames: usize,
+    dur_ms: u32,
+    rms: f32,
+    peak: f32,
+    peak_freq_hz: Option<u32>,
+    looping: bool,
+}
+
+fn render_standalone_gems_audit(
+    engine: &mut GemsAudioEngine,
+    frames: usize,
+    sample_rate: u32,
+    samples_per_frame: usize,
+    mut activity: Option<&mut AudioChipActivity>,
+) -> AudioAuditMetrics {
+    let mut all_samples = Vec::with_capacity(frames * samples_per_frame * 2);
+    let mut audible_frames = Vec::with_capacity(frames);
     for _ in 0..frames {
         let writes = engine.step_frame_with_audio_writes();
-        classify_audio_writes(&writes, &mut activity);
+        if let Some(activity) = activity.as_deref_mut() {
+            classify_audio_writes(&writes, activity);
+        }
         let frame_samples = engine.generate_samples_at_rate(sample_rate, samples_per_frame);
         let frame_rms = rms(&frame_samples);
         audible_frames.push(frame_rms > AUDIBLE_RMS);
         all_samples.extend(frame_samples);
     }
+    audio_audit_metrics(frames, sample_rate, &audible_frames, &all_samples)
+}
 
+fn render_rom_gems_audit(
+    rom_bytes: &[u8],
+    sound_id: u8,
+    frames: usize,
+    sample_rate: u32,
+    samples_per_frame: usize,
+) -> Result<AudioAuditMetrics> {
+    let mut engine = GemsAudioEngine::from_kid_rom(rom_bytes)?;
+    engine.start_sequence(sound_id);
+    Ok(render_standalone_gems_audit(
+        &mut engine,
+        frames,
+        sample_rate,
+        samples_per_frame,
+        None,
+    ))
+}
+
+const AUDIBLE_RMS: f32 = 0.0005;
+
+fn audio_audit_metrics(
+    frames: usize,
+    sample_rate: u32,
+    audible_frames: &[bool],
+    samples: &[f32],
+) -> AudioAuditMetrics {
     let native_dur_frames = audible_frames
         .iter()
         .rposition(|audible| *audible)
@@ -4442,28 +4549,17 @@ fn audit_one_sound_id(
         && audible_frames[frames - tail..]
             .iter()
             .any(|audible| *audible);
-    let native_rms = rms(&all_samples);
-    let native_peak = all_samples
+    let native_rms = rms(samples);
+    let native_peak = samples
         .iter()
         .fold(0.0_f32, |peak, sample| peak.max(sample.abs()));
-    let (chip_type, channels) = summarise_chip_activity(&activity);
-
-    AudioAuditRow {
-        id,
-        name,
-        chip_type,
-        channels,
-        native_dur_frames,
-        native_dur_ms: ((native_dur_frames as u64 * 1000) / 60) as u32,
-        native_rms,
-        native_peak,
-        peak_freq_hz: estimate_zero_crossing_frequency(&all_samples, sample_rate),
+    AudioAuditMetrics {
+        dur_frames: native_dur_frames,
+        dur_ms: ((native_dur_frames as u64 * 1000) / 60) as u32,
+        rms: native_rms,
+        peak: native_peak,
+        peak_freq_hz: estimate_zero_crossing_frequency(samples, sample_rate),
         looping,
-        ym2612_writes: activity.ym2612_writes,
-        psg_writes: activity.psg_writes,
-        oracle_dur_frames: None,
-        duration_delta_frames: None,
-        oracle_status: "pending-mdruntime-injection",
     }
 }
 
