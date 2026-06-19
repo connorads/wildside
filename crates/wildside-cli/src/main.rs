@@ -84,7 +84,7 @@ use scenarios::{
     walk_right_red_stealth_scenario, walk_right_scenario,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -3302,6 +3302,8 @@ struct BatchProbeResult {
     final_mode_value: u16,
     lives: u16,
     hitpoints: u16,
+    helmet_id: u16,
+    sound_ids: Vec<u8>,
     first_target_score: Option<i64>,
     target_summaries: Vec<String>,
 }
@@ -3692,6 +3694,8 @@ fn probe_dynamic_record_scenario_batch(
             final_mode_value: final_frame.game_mode_value,
             lives: final_frame.number_lives,
             hitpoints: final_frame.number_hitpoints,
+            helmet_id: final_frame.current_helmet_id,
+            sound_ids: batch_probe_sound_ids(&trace),
             first_target_score,
             target_summaries,
         });
@@ -3699,12 +3703,14 @@ fn probe_dynamic_record_scenario_batch(
 
     for result in sorted_batch_probe_results(results).into_iter().take(limit) {
         println!(
-            "candidate {}: final {:?} (0x{:04X}) lives/hp {}/{} score {} | {}",
+            "candidate {}: final {:?} (0x{:04X}) lives/hp {}/{} helmet {} sounds {} score {} | {}",
             result.label,
             result.final_mode,
             result.final_mode_value,
             result.lives,
             result.hitpoints,
+            result.helmet_id,
+            format_sound_id_list(&result.sound_ids),
             result
                 .first_target_score
                 .map_or_else(|| String::from("<none>"), |score| score.to_string()),
@@ -3713,6 +3719,27 @@ fn probe_dynamic_record_scenario_batch(
     }
 
     Ok(())
+}
+
+fn batch_probe_sound_ids(trace: &[NativeTraceFrame]) -> Vec<u8> {
+    trace
+        .iter()
+        .flat_map(|frame| frame.played_sound_effect_ids.iter().copied())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn format_sound_id_list(sound_ids: &[u8]) -> String {
+    if sound_ids.is_empty() {
+        return String::from("[]");
+    }
+    let ids = sound_ids
+        .iter()
+        .map(|id| format!("0x{id:02X}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("[{ids}]")
 }
 
 fn dynamic_scenario_with_frame_checkpoints(
@@ -4719,15 +4746,15 @@ mod tests {
         BatchTargetProjectileDirection, DynamicCheckpoint, DynamicScenario, GameplayCapture,
         GameplayScenario, GameplayState, PlayerForm, RecordScenarioKind, ReferenceName,
         TargetBlockEventKind, TargetCell, TargetProjectileDirection, analyse_audio_samples,
-        apply_dynamic_scenario_input_overlays, audio_envelope_similarity, batch_probe_window_specs,
-        build_controller_script, build_record_scenario, capture_native_gameplay_run,
-        capture_native_gameplay_scenario, classify_audio_writes, compare_native_gameplay_with,
-        compare_native_states_against_oracle, dynamic_scenario_with_frame_checkpoints,
-        ensure_gameplay_level_layouts_with, ensure_level_layouts_with,
-        ensure_play_native_level_layouts_with, find_gameplay_live_drifts,
-        gameplay_checkpoint_window, generated_batch_probe_candidates, native_trace_to_oracle_state,
-        oracle_probe_watch_row_in_range, parse_batch_probe_candidate, parse_batch_probe_window,
-        parse_batch_target_block_event, parse_batch_target_projectile_cell,
+        apply_dynamic_scenario_input_overlays, audio_envelope_similarity, batch_probe_sound_ids,
+        batch_probe_window_specs, build_controller_script, build_record_scenario,
+        capture_native_gameplay_run, capture_native_gameplay_scenario, classify_audio_writes,
+        compare_native_gameplay_with, compare_native_states_against_oracle,
+        dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
+        ensure_level_layouts_with, ensure_play_native_level_layouts_with, find_gameplay_live_drifts,
+        format_sound_id_list, gameplay_checkpoint_window, generated_batch_probe_candidates,
+        native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_batch_probe_candidate,
+        parse_batch_probe_window, parse_batch_target_block_event, parse_batch_target_projectile_cell,
         parse_batch_target_projectile_direction, parse_button_mask, parse_input_spec,
         parse_sfx_constants, prepare_generated_assets_with, record_scenario_command,
         record_scenario_file_command, recording_scenario_manifest,
@@ -5049,6 +5076,8 @@ AddrTbl_LevelNames:
                 final_mode_value: 0x000C,
                 lives: 3,
                 hitpoints: 1,
+                helmet_id: 0,
+                sound_ids: Vec::new(),
                 first_target_score: None,
                 target_summaries: Vec::new(),
             },
@@ -5058,6 +5087,8 @@ AddrTbl_LevelNames:
                 final_mode_value: 0x000C,
                 lives: 3,
                 hitpoints: 1,
+                helmet_id: 0,
+                sound_ids: Vec::new(),
                 first_target_score: Some(4),
                 target_summaries: Vec::new(),
             },
@@ -5067,6 +5098,8 @@ AddrTbl_LevelNames:
                 final_mode_value: 0x000C,
                 lives: 3,
                 hitpoints: 1,
+                helmet_id: 0,
+                sound_ids: Vec::new(),
                 first_target_score: Some(4),
                 target_summaries: Vec::new(),
             },
@@ -5076,6 +5109,8 @@ AddrTbl_LevelNames:
                 final_mode_value: 0x000C,
                 lives: 3,
                 hitpoints: 1,
+                helmet_id: 0,
+                sound_ids: Vec::new(),
                 first_target_score: Some(2),
                 target_summaries: Vec::new(),
             },
@@ -5088,6 +5123,20 @@ AddrTbl_LevelNames:
                 .collect::<Vec<_>>(),
             vec!["best", "a", "b", "z-no-score"]
         );
+    }
+
+    #[test]
+    fn batch_probe_sound_ids_reports_unique_sorted_sfx_ids() {
+        let mut trace = vec![NativeTraceFrame::default(); 3];
+        trace[0].played_sound_effect_ids = vec![0x2E, 0x17];
+        trace[1].played_sound_effect_ids = vec![0x17, 0x41];
+
+        assert_eq!(batch_probe_sound_ids(&trace), vec![0x17, 0x2E, 0x41]);
+        assert_eq!(
+            format_sound_id_list(&[0x17, 0x2E, 0x41]),
+            "[0x17,0x2E,0x41]"
+        );
+        assert_eq!(format_sound_id_list(&[]), "[]");
     }
 
     #[test]
