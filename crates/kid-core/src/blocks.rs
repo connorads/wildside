@@ -4531,18 +4531,35 @@ impl NativeRuntime {
             });
         self.floating_items.retain(|f| !f.collision_latched);
         if let Some(form) = deleted_collision_latched_prize_form {
-            // ASM PrizeHelmet* loc_105D6 observes the object-side collision on
-            // its wake frame and deletes the prize while Kid's airborne object
-            // is already at the loc_A6F8 hibernate point. Oracle keeps
-            // Current_Helmet unchanged through the old helmet's reverse table,
-            // then loc_7CD0 writes the new helmet before the forward table.
-            let old_frames = crate::combat::transform_anim_frames(self.progression.current_form);
-            let new_frames = crate::combat::transform_anim_frames(form);
-            self.prize_helmet_collision_hibernate_delay_frames = self
-                .prize_helmet_collision_hibernate_delay_frames
-                .max((old_frames + new_frames + 2) as u8);
-            self.prize_helmet_collision_hibernate_hitpoints_form = Some(form);
-            self.prize_helmet_collision_hibernate_switch_form = Some(form);
+            if form == self.progression.current_form {
+                // ASM Kid_Transform loc_7C76 (kid.asm:8387): when the collected
+                // helmet matches the current form (Current_Helmet ==
+                // Current_Helmet_Available), the ROM plays sfx_Replenish_Health
+                // and `bra.w loc_7E14`, skipping BOTH transform-animation tables
+                // -- no long hibernate, just an HP top-up. The direct-pickup
+                // route already does this (resolve_pending_form_change's
+                // `same_helmet_replenish`); the dropped/collision-latched route
+                // did not, so re-collecting an already-owned grounded helmet ran
+                // old+new (= 2*frames+2) hibernate frames and froze Kid for ~1-3s
+                // (#332).
+                self.queue_play_sound(QueuedSoundEffect::ReplenishHealth);
+                self.progression.number_hitpoints =
+                    form.max_hitpoints() + self.progression.extra_hitpoint_slots;
+            } else {
+                // ASM PrizeHelmet* loc_105D6 observes the object-side collision on
+                // its wake frame and deletes the prize while Kid's airborne object
+                // is already at the loc_A6F8 hibernate point. Oracle keeps
+                // Current_Helmet unchanged through the old helmet's reverse table,
+                // then loc_7CD0 writes the new helmet before the forward table.
+                let old_frames =
+                    crate::combat::transform_anim_frames(self.progression.current_form);
+                let new_frames = crate::combat::transform_anim_frames(form);
+                self.prize_helmet_collision_hibernate_delay_frames = self
+                    .prize_helmet_collision_hibernate_delay_frames
+                    .max((old_frames + new_frames + 2) as u8);
+                self.prize_helmet_collision_hibernate_hitpoints_form = Some(form);
+                self.prize_helmet_collision_hibernate_switch_form = Some(form);
+            }
         }
 
         for f in &mut self.floating_items {

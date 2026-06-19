@@ -21388,6 +21388,63 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn floating_helmet_same_form_replenishes_without_hibernate_loc_7c76() {
+        // #332: re-collecting a helmet for the form Kid already has must follow
+        // ASM Kid_Transform loc_7C76 (kid.asm:8387) -- play sfx_Replenish_Health
+        // and `bra.w loc_7E14`, skipping BOTH transform tables (no long
+        // hibernate), just re-seeding HP. The dropped / collision-latched route
+        // previously ran old+new (= 2*frames+2) hibernate frames and froze Kid
+        // for ~1-3s when a grounded already-owned helmet was re-collected.
+        // Same geometry as the cross-form test above (tuned to latch the
+        // Juggernaut form-box), but the collected helmet matches the current
+        // Juggernaut form.
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Juggernaut;
+        runtime.progression.number_hitpoints = 1; // damaged, so the top-up is observable
+        runtime.floating_items.push(FloatingItem {
+            x_pos: 728 << 16,
+            y_pos: i64::from(179 << 16),
+            y_velocity: 0,
+            remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+            spawn_delay: 0,
+            level_col: 45,
+            level_row: 11,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Juggernaut,
+            collected: false,
+            collision_latched: false,
+        });
+        let mut slice = make_airborne_slice(752, 196);
+
+        runtime.collect_floating_items(&mut slice);
+        runtime.step_visual_effects();
+
+        assert!(
+            runtime.floating_items.is_empty(),
+            "the latched same-form helmet prize is still deleted on the next tick (loc_105D6)"
+        );
+        assert_eq!(
+            runtime.prize_helmet_collision_hibernate_delay_frames, 0,
+            "ASM loc_7C76: a same-form helmet skips both transform tables -- no hibernate freeze"
+        );
+        assert_eq!(
+            runtime.prize_helmet_collision_hibernate_switch_form, None,
+            "ASM loc_7C76 branches to loc_7E14 without loc_7CD0, so Current_Helmet is not re-switched"
+        );
+        assert_eq!(
+            runtime.progression.number_hitpoints,
+            PlayerForm::Juggernaut.max_hitpoints(),
+            "ASM sub_7EB2: re-collecting the same helmet tops HP back up to the form maximum"
+        );
+        assert!(
+            runtime
+                .played_sound_effects
+                .contains(&crate::combat::QueuedSoundEffect::ReplenishHealth),
+            "ASM loc_7C76 plays sfx_Replenish_Health on a same-form re-collect"
+        );
+    }
+
+    #[test]
     fn floating_helmet_prize_entering_lower_body_collects() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.floating_items.push(FloatingItem {
