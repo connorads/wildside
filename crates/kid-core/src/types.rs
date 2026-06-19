@@ -1524,6 +1524,12 @@ pub struct NativeTraceFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub special_effect_unknown_plane_fill_loc_14e42:
         Option<crate::weather::SpecialEffectUnknownPlaneFillRuntimeLoc14E42>,
+    /// Active ASM `sub_61CA` falling weather slots: (y_px, x_px, animation_cooldown, animation_frame).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub storm_falling_slots_sub_61ca: Vec<(i16, i16, u8, u8)>,
+    /// Active ASM `sub_61CA` impact/splash slots: (y_px, x_px, animation_cooldown, animation_frame).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub storm_impact_slots_sub_61ca: Vec<(i16, i16, u8, u8)>,
     /// Block bounce animations: (cell_x, cell_y, remaining_frames, y_offset_px).
     /// Kept for legacy trace compatibility; new renderers should prefer
     /// `block_bounce_details` when they need the ASM worker kind.
@@ -1743,6 +1749,8 @@ impl Default for NativeTraceFrame {
             lava_geyser_palette_words_loc_14b2a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,
+            storm_falling_slots_sub_61ca: Vec::new(),
+            storm_impact_slots_sub_61ca: Vec::new(),
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             block_destroy_effects: Vec::new(),

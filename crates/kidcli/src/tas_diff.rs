@@ -1082,6 +1082,8 @@ mod tests {
             lava_geyser_palette_words_loc_14b2a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,
+            storm_falling_slots_sub_61ca: Vec::new(),
+            storm_impact_slots_sub_61ca: Vec::new(),
             gameplay_debug_fields: std::collections::BTreeMap::new(),
             active_objects: vec![NativeObjectSnapshot {
                 kind: NativeObjectKind::Enemy { object_type: 0x0D },

@@ -5420,6 +5420,42 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_exports_sub_61ca_weather_slots() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.weather.weather_type = 3;
+        runtime.weather.storm_falling_slots_sub_61ca[0] = crate::weather::FallingWeatherSlotSub61CA {
+            y_px: 0x0040,
+            x_px: 0x0120,
+            animation_cooldown: 6,
+            animation_frame: 2,
+        };
+        runtime.weather.storm_falling_slots_sub_61ca[1] =
+            crate::weather::FallingWeatherSlotSub61CA::inactive(1, 0);
+        runtime.weather.storm_impact_slots_sub_61ca[0] = crate::weather::WeatherImpactSlotSub61CA {
+            y_px: 0x0050,
+            x_px: 0x011F,
+            animation_cooldown: 5,
+            animation_frame: 1,
+        };
+        runtime.weather.storm_impact_slots_sub_61ca[1] =
+            crate::weather::WeatherImpactSlotSub61CA::inactive(1, 0);
+
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.storm_falling_slots_sub_61ca,
+            vec![(0x0040, 0x0120, 6, 2)],
+            "ASM sub_61CA loc_61E2 falling slot RAM should be trace-visible for oracle/weather diagnostics"
+        );
+        assert_eq!(
+            trace.storm_impact_slots_sub_61ca,
+            vec![(0x0050, 0x011F, 5, 1)],
+            "ASM sub_61CA loc_63C4 impact slot RAM should be trace-visible for splash/render diagnostics"
+        );
+    }
+
+    #[test]
     fn trace_frame_ground_probe_uses_left_and_right_form_edges() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -7584,6 +7620,34 @@ impl NativeRuntime {
                 .unknown_art_upload_loc_14df6
                 .clone(),
             special_effect_unknown_plane_fill_loc_14e42: self.weather.unknown_plane_fill_loc_14e42,
+            storm_falling_slots_sub_61ca: self
+                .weather
+                .storm_falling_slots_sub_61ca
+                .iter()
+                .filter(|slot| slot.y_px >= 0)
+                .map(|slot| {
+                    (
+                        slot.y_px,
+                        slot.x_px,
+                        slot.animation_cooldown,
+                        slot.animation_frame,
+                    )
+                })
+                .collect(),
+            storm_impact_slots_sub_61ca: self
+                .weather
+                .storm_impact_slots_sub_61ca
+                .iter()
+                .filter(|slot| slot.y_px >= 0)
+                .map(|slot| {
+                    (
+                        slot.y_px,
+                        slot.x_px,
+                        slot.animation_cooldown,
+                        slot.animation_frame,
+                    )
+                })
+                .collect(),
             block_bounces: self
                 .block_bounces
                 .iter()
