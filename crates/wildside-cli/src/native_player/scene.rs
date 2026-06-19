@@ -3442,17 +3442,14 @@ pub(super) fn layered_background_row_wraps_loc_3050a(
 ) -> bool {
     // ASM BackgroundScroll_ComputeShiftLayers loc_3050A resolves bgscroll rows
     // from the per-level profile and writes 224 scanline scroll values into
-    // Plane B.  Hills `$08` rows are finite map rows inside a horizontally
-    // wrapping VDP plane, so Level 0x08's early sky rows must re-enter at the
-    // right edge instead of exposing the CRAM backdrop.  Auto-scrolling forest
-    // rows (`$00/$08`) are still left finite here; wrapping them paints scenery
-    // into the oracle's clear sky during the flagpole hand-off before loc_C0CC
-    // sets no-scroll mode.
+    // the hardware-wrapping Plane B nametable. Static `$10` rows can remain
+    // finite, but moving rows need native repetition when parallax exposes the
+    // right seam; the flagpole hand-off guard below handles the one known
+    // forest no-scroll transition case.
     let layer_speed = background_layer_speed_loc_3050a(level_visuals, y_tiles);
-    if level_visuals.level.background_theme_id == 3 && layer_speed == 0x08 {
-        return true;
-    }
-    matches!(layer_speed, 0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8))
+    layer_speed != 0x00
+        && layer_speed != 0x10
+        && matches!(layer_speed, 0x08..=0x88 if layer_speed.is_multiple_of(8))
 }
 
 pub(super) fn layered_background_row_wraps_for_trace_loc_3050a(

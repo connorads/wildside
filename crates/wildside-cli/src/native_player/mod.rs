@@ -10561,7 +10561,7 @@ mod tests {
     }
 
     #[test]
-    fn layered_background_wraps_only_camera_parallax_rows_loc_3050a() {
+    fn layered_background_wraps_moving_plane_b_rows_loc_3050a() {
         let mut visuals = sample_level_visuals();
         visuals.level.background_theme_id = 9;
         visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
@@ -10571,19 +10571,19 @@ mod tests {
 
         assert!(
             !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 0),
-            "ASM loc_3050A auto-scrolling `$00` rows stay finite during the flagpole hand-off"
+            "ASM loc_3050A keeps `$00` rows on the finite path; the captured seam comes from moving nonzero rows"
         );
         assert!(
-            !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 1),
-            "ASM loc_3050A auto-scrolling `$08` rows stay finite during the flagpole hand-off"
+            super::scene::layered_background_row_wraps_loc_3050a(&visuals, 1),
+            "ASM loc_3050A feeds `$08` rows into the horizontally wrapping Plane B nametable; this is not Hills-only"
         );
         assert!(
             !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 2),
-            "ASM loc_3050A no-scroll `$10` rows do not need native row repetition"
+            "ASM loc_3050A no-scroll `$10` rows stay static and do not need native row repetition"
         );
         assert!(
             super::scene::layered_background_row_wraps_loc_3050a(&visuals, 3),
-            "ASM loc_3050A camera-parallax rows should repeat so long-travel forest rows do not disappear"
+            "ASM loc_3050A camera-parallax rows also repeat so long-travel rows do not expose the backdrop"
         );
     }
 
@@ -10598,7 +10598,7 @@ mod tests {
 
         assert!(
             !super::scene::layered_background_row_wraps_loc_3050a(&visuals, 0),
-            "ASM loc_3050A keeps Hills `$00` rows on the normal auto-scroll path"
+            "this sample keeps Hills `$00` rows on an explicit finite path; nonzero `$08` rows are the captured Level 0x08 seam"
         );
         assert!(
             super::scene::layered_background_row_wraps_loc_3050a(&visuals, 1),
