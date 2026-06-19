@@ -1821,6 +1821,7 @@ fn normalised_enemy_roster_for_frontier_with_peer<'a>(
         .iter()
         .filter(|enemy| !enemy_is_uninitialised_tank_gfx_proxy(state, enemy))
         .filter(|enemy| !oracle_enemy_parent_object_is_orphaned_loc_e1e(state, enemy))
+        .filter(|enemy| !dragon_flying_descent_fire_child_is_native_projectile(state, peer, enemy))
         .filter(|enemy| {
             !peer_orphaned_rock_tank_layout_matches(enemy, &orphaned_peer_rock_tank_layouts)
         })
@@ -1837,6 +1838,36 @@ fn normalised_enemy_roster_for_frontier_with_peer<'a>(
     enemies
 }
 
+fn dragon_flying_descent_fire_child_is_native_projectile(
+    _state: &OracleState,
+    peer: &OracleState,
+    enemy: &OracleEnemyState,
+) -> bool {
+    const DRAGON_FLYING_OBJECT_TYPE: u8 = 0x0C;
+
+    if enemy.object_type != DRAGON_FLYING_OBJECT_TYPE {
+        return false;
+    }
+
+    let native_projectiles = peer
+        .gameplay_debug_fields
+        .get("kid_projectile_damage_probe")
+        .map_or("", String::as_str);
+    let x_velocity = enemy.x_velocity as u32;
+    let y_velocity = enemy.y_velocity as u32;
+    let projectile_marker = format!(
+        "DragonFlyingDescentFire@0x{:08x},0x{:08x} vel=0x{x_velocity:08x},0x{y_velocity:08x}",
+        enemy.x_pos, enemy.y_pos
+    );
+
+    // ASM Dragon_Flying.asm loc_348A0 allocates a helper Object that enters
+    // loc_34BAC and writes object_meta `$C` before loc_32146. Native models
+    // that gameplay-visible descent fire as an EnemyProjectile, so enemy
+    // frontier should compare the parent dragon while letting the projectile
+    // debug prove the child is present at the same position/velocity.
+    native_projectiles.contains(&projectile_marker)
+}
+
 fn enemy_roster_entries_match(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
     const ENEMY_VELOCITY_TOLERANCE: i32 = 0x0001_0000;
 
@@ -1846,8 +1877,25 @@ fn enemy_roster_entries_match(native: &OracleEnemyState, oracle: &OracleEnemySta
         && (native.x_velocity - oracle.x_velocity).abs() <= ENEMY_VELOCITY_TOLERANCE
         && (native.y_velocity - oracle.y_velocity).abs() <= ENEMY_VELOCITY_TOLERANCE
         && native.facing == oracle.facing
-        && native.layout_index == oracle.layout_index
+        && enemy_roster_layout_index_matches(native, oracle)
         && enemy_roster_current_hp_matches(native, oracle)
+}
+
+fn enemy_roster_layout_index_matches(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
+    const DRAGON_FLYING_OBJECT_TYPE: u8 = 0x0C;
+
+    if native.object_type == DRAGON_FLYING_OBJECT_TYPE
+        && oracle.object_type == DRAGON_FLYING_OBJECT_TYPE
+    {
+        // ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init/loc_34BAC writes
+        // `object_meta #$C` before loc_32146 links the GfxObject collision
+        // source. In later hibernated states the oracle object slot can no
+        // longer recover the enemy layout pointer, so collision-source fallback
+        // proves the type but not the original layout index.
+        return true;
+    }
+
+    native.layout_index == oracle.layout_index
 }
 
 fn enemy_roster_current_hp_matches(native: &OracleEnemyState, oracle: &OracleEnemyState) -> bool {
@@ -3545,7 +3593,7 @@ mod tests {
     }
 
     #[test]
-    fn enemy_frontier_ignores_flying_dragon_gfx_44_as_hp_but_keeps_position_strict() {
+    fn enemy_frontier_ignores_flying_dragon_oracle_metadata_but_keeps_position_strict() {
         let native = OracleEnemyState {
             object_type: 0x0C,
             x_pos: 0x0257_BE00,
@@ -3555,7 +3603,7 @@ mod tests {
             facing: EnemyFacing::Right,
             collision_type: Some(0),
             collision_source: Some(0x000C),
-            layout_index: None,
+            layout_index: Some(0),
             layout_ptr: None,
             parent_object_ptr: Some(0x00FF_10CC),
             gfx_slot_index: Some(7),
@@ -3573,6 +3621,16 @@ mod tests {
             "ASM Dragon_Flying.asm loc_34664/loc_348A0 reuses GfxObject+$44, so enemy frontier must not treat flying-dragon current_hp as authoritative"
         );
 
+        let oracle_collision_source_without_layout = OracleEnemyState {
+            layout_index: None,
+            current_hp: Some(0),
+            ..native.clone()
+        };
+        assert!(
+            enemy_roster_entries_match(&native, &oracle_collision_source_without_layout),
+            "ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init/loc_34BAC only leaves collision-source object_meta=$C available to the oracle fallback, not the original layout index"
+        );
+
         let oracle_moved = OracleEnemyState {
             x_pos: native.x_pos.wrapping_add(0x0001_0000),
             current_hp: Some(0),
@@ -3581,6 +3639,106 @@ mod tests {
         assert!(
             !enemy_roster_entries_match(&native, &oracle_moved),
             "ignoring flying-dragon GfxObject+$44 must still leave position drift authoritative"
+        );
+    }
+
+    #[test]
+    fn enemy_frontier_maps_flying_dragon_descent_fire_child_to_native_projectile() {
+        let parent = OracleEnemyState {
+            object_type: 0x0C,
+            x_pos: 0x006C_0000,
+            y_pos: 0x0053_0000,
+            x_velocity: -0x0001_0000,
+            y_velocity: 0x0004_0000,
+            facing: EnemyFacing::Left,
+            collision_type: Some(0),
+            collision_source: Some(0x000C),
+            layout_index: Some(0),
+            layout_ptr: None,
+            parent_object_ptr: Some(0xFFFF_0FE4),
+            gfx_slot_index: Some(4),
+            on_ground: Some(false),
+            current_hp: Some(1),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+        let fire_child = OracleEnemyState {
+            x_pos: 0x0062_0000,
+            y_pos: 0x005C_0000,
+            x_velocity: -0x0001_0000,
+            y_velocity: 0x0003_0000,
+            layout_index: None,
+            parent_object_ptr: Some(0xFFFF_0F70),
+            gfx_slot_index: Some(5),
+            current_hp: Some(0),
+            ..parent.clone()
+        };
+        let mut native_debug = std::collections::BTreeMap::new();
+        native_debug.insert(
+            "kid_projectile_damage_probe".to_string(),
+            "#00:DragonFlyingDescentFire@0x00620000,0x005c0000 vel=0xffff0000,0x00030000 life=0 owner=none".to_string(),
+        );
+        let native_state = OracleState {
+            label: "frame_36".into(),
+            frame_index: 36,
+            game_mode: 0x0010,
+            boot_phase: None,
+            boot_phase_elapsed: None,
+            title_screen_ready: false,
+            main_menu_option: None,
+            current_player: 0,
+            number_hitpoints: 3,
+            current_helmet_id: 0,
+            current_level_id: 6,
+            player_1_level_id: 6,
+            camera_x_pos: 0,
+            camera_y_pos: 0,
+            kid_x_pos: 0,
+            kid_y_pos: 0,
+            number_objects: 5,
+            number_gfx_objects: 5,
+            game_paused: false,
+            active_enemies: vec![parent.clone()],
+            score: 0,
+            number_lives: 3,
+            number_diamonds: 0,
+            diamond_power_active: false,
+            murder_wall_x: None,
+            kid_x_vel: None,
+            kid_y_vel: None,
+            character_movement: None,
+            just_received_damage: None,
+            kid_collision_type: None,
+            kid_collision_source: None,
+            kid_x_direction: None,
+            invulnerable_frames: None,
+            currently_transforming: None,
+            rng_offset: None,
+            rng_last_byte: None,
+            level_special_effects: None,
+            gameplay_debug_fields: native_debug,
+            cpu_registers: None,
+        };
+        let mut oracle_debug = std::collections::BTreeMap::new();
+        oracle_debug.insert(
+            "oracle_object_slots_loc_e1e".to_string(),
+            "0xffff0fe4:code=0x034900,hib=1@108,83:disp=0xff,col=0x0000(empty),src=0x000c;0xffff0f70:code=0x034c2a,hib=1@98,92:disp=0xff,col=0x0000(empty),src=0x000c".to_string(),
+        );
+        let oracle_state = OracleState {
+            active_enemies: vec![
+                fire_child,
+                OracleEnemyState {
+                    layout_index: None,
+                    current_hp: Some(0),
+                    ..parent
+                },
+            ],
+            gameplay_debug_fields: oracle_debug,
+            ..native_state.clone()
+        };
+
+        assert!(
+            enemy_roster_frontier_matches(&native_state, &oracle_state),
+            "ASM Dragon_Flying.asm loc_348A0/loc_34BAC exposes descent fire as an oracle child GfxObject, while native tracks the same gameplay object as DragonFlyingDescentFire"
         );
     }
 

@@ -6,6 +6,7 @@ use super::*;
 // that tail, so settled full-frame traces need the oracle-observed live age.
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
+const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 const LEVEL_ONE_RECORDING_SETTLE_RNG_OFFSET: u16 = 0xFFCB;
 // Oracle `issue260_p11` settle tracing reaches Level 1 target_live step 59 at
@@ -182,14 +183,26 @@ impl NativeRuntime {
             101
         } else if level_id == LevelId(0x06) {
             // Under Skull Mountain 3 exposes the ROM level-skip tail through
-            // loc_124A6/sub_F730 ghost-block phase: the lower row is 0x20
-            // ticks closer to vanishing than native's direct boot shortcut
-            // after the generic 60-frame recording settle.
-            RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x20
+            // loc_124A6/sub_F730 ghost-block phase. Once oracle enemy capture
+            // can see Dragon_Flying.asm loc_3480A via loc_32146's collision
+            // source, the same issue #289 recording pins the live tail at 0x18
+            // frames for object scheduling; the final eight ticks belong only
+            // to the ghost-block timer below.
+            RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x18
         } else {
             RECORDING_SETTLED_WARP_LIVE_FRAMES
         };
         self.settle_target_level_live_window(level_id, target_live_frames);
+        if level_id == LevelId(0x06) {
+            // ASM loc_124A6 calls sub_F730 for ghost blocks on the level-skip
+            // tail that the recording helper observes. Dragon_Flying.asm
+            // loc_3480A oracle frames prove object scheduling is eight frames
+            // younger than the ghost-block phase here, so advance only the
+            // block timer for those remaining ticks.
+            for _ in 0..LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS {
+                self.step_ghost_blocks();
+            }
+        }
         if level_id == LevelId(1) {
             self.rom_random = RomRandomState::from_raw_parts(
                 LEVEL_ONE_RECORDING_SETTLE_RNG_RING,

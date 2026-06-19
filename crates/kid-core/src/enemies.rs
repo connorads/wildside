@@ -43247,9 +43247,7 @@ impl NativeRuntime {
         // atomically, so replay the load windows here.
         let settle_frames = self.inspect_respawn_settle(level_id, 180);
         let final_camera_x_pos = settle_frames.last().map_or(0, |frame| frame.camera_x_pos);
-        let mut final_settle_frame = None;
         for frame in settle_frames {
-            final_settle_frame = Some(frame);
             let camera = CameraState {
                 x_pos: frame.camera_x_pos,
                 y_pos: frame.camera_y_pos,
@@ -43281,49 +43279,6 @@ impl NativeRuntime {
                 // proves the same tail must age every active family through
                 // Dragon_Flying.asm loc_34710 -> loc_348A0 -> loc_34BAC before
                 // the recording helper's 60 visible live frames begin.
-                step_active_enemies_with_rng(
-                    &mut self.active_enemies,
-                    self.block_grid.as_ref(),
-                    Some(frame.kid_x_pos),
-                    Some(frame.kid_y_pos),
-                    Some(frame.camera_x_pos >> 16),
-                    Some(frame.camera_y_pos >> 16),
-                    None,
-                    Some(frame.kid_x_velocity),
-                    Some(frame.kid_y_velocity),
-                    self.progression.current_form,
-                    self.frame_index as u16,
-                    false,
-                    Some(&mut self.projectiles),
-                    &mut self.rom_random,
-                    &mut self.drilled_blocks,
-                    None,
-                );
-                self.move_heady_metal_body_piece_workers_sub_376ec();
-                self.spawn_fire_demon_walking_trails_loc_3a542();
-                materialize_spinning_twins_drop_splits(&mut self.active_enemies);
-                let drilled_blocks = std::mem::take(&mut self.drilled_blocks);
-                for drilled_block in drilled_blocks {
-                    self.apply_drilled_block_loc_3bede_3bef2(drilled_block);
-                }
-            }
-        }
-        let needs_dragon_flying_live_tail = self
-            .active_enemies
-            .iter()
-            .any(|enemy| enemy.family == EnemyFamily::Dragon);
-        if let Some(frame) = final_settle_frame
-            && level_id != LevelId(0)
-            && level_id != LevelId(1)
-            && needs_dragon_flying_live_tail
-        {
-            // The oracle helper's `target_live` trace starts after the direct
-            // level-skip bootstrap has already executed a small untraced
-            // Mode_Level tail for Flying Dragon. Issue #289 pins this at 24
-            // object-scheduler ticks for Dragon_Flying.asm loc_348A0 ->
-            // loc_34BAC; Lion.asm loc_3E078/loc_3E09E oracle frames prove the
-            // same tail must not pre-age every active family.
-            for _ in 0..24 {
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
