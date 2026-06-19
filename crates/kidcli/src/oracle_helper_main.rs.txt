@@ -1276,7 +1276,7 @@ fn capture_state(
         if !shooter_debug.is_empty() {
             gameplay_debug_fields.insert("oracle_shooter_slots_loc_ec22".into(), shooter_debug);
         }
-        let object_debug = object_slots_debug_loc_e1e(&work_ram);
+        let object_debug = object_slots_debug_loc_e1e(&work_ram, rom.as_ref());
         if !object_debug.is_empty() {
             gameplay_debug_fields.insert("oracle_object_slots_loc_e1e".into(), object_debug);
         }
@@ -1383,22 +1383,29 @@ fn capture_enemy_states(
         if !(OBJECT_RAM_ADDR..OBJECT_RAM_END_ADDR).contains(&parent_object) {
             continue;
         }
-        let layout_ptr = read_wram_u32(work_ram, parent_object + OBJECT_LAYOUT_PTR_OFFSET) as usize;
-        if layout_ptr == 0 {
-            continue;
-        }
-        let Some(layout_index) =
-            layout_index_from_ptr(layout_object_ptr, layout_object_count, layout_ptr)
-        else {
-            continue;
-        };
-        let object_type = read_rom_u8(rom, layout_ptr);
         let collision_type = read_wram_u16(work_ram, base + OBJECT_COLLISION_TYPE_OFFSET);
         let collision_source = read_wram_u16(work_ram, base + OBJECT_COLLISION_SOURCE_OFFSET);
+        let layout_ptr = read_wram_u32(work_ram, parent_object + OBJECT_LAYOUT_PTR_OFFSET) as usize;
+        let layout_index = layout_index_from_ptr(layout_object_ptr, layout_object_count, layout_ptr);
+        let object_type = if let Some(_layout_index) = layout_index {
+            read_rom_u8(rom, layout_ptr)
+        } else if let Some(object_type) =
+            direct_enemy_object_type_from_collision_source(collision_source)
+        {
+            object_type
+        } else {
+            continue;
+        };
         let mut debug_fields = BTreeMap::new();
         if collision_type != 0 || collision_source != 0 {
             debug_fields.insert("collision_type".into(), format_collision_type(collision_type));
             debug_fields.insert("collision_source".into(), format!("{collision_source:#06x}"));
+        }
+        if layout_index.is_none() && collision_source != 0 {
+            debug_fields.insert(
+                "object_type_source".into(),
+                "collision_source_direct_loc_32146".into(),
+            );
         }
         enemies.push(OracleEnemyState {
             object_type,
@@ -1413,8 +1420,8 @@ fn capture_enemy_states(
             },
             collision_type: Some(collision_type),
             collision_source: Some(collision_source),
-            layout_index: Some(layout_index),
-            layout_ptr: Some(layout_ptr as u32),
+            layout_index,
+            layout_ptr: layout_index.map(|_layout_index| layout_ptr as u32),
             parent_object_ptr: Some(parent_object as u32),
             gfx_slot_index: Some(slot_index),
             on_ground: None,
@@ -1521,13 +1528,18 @@ fn shooter_object_slots_debug_loc_ec22(work_ram: &[u8]) -> String {
     slots.join(";")
 }
 
-fn object_slots_debug_loc_e1e(work_ram: &[u8]) -> String {
+fn object_slots_debug_loc_e1e(
+    work_ram: &[u8],
+    rom: &dyn jgenesis_common::debug::DebugMemoryView,
+) -> String {
     // ASM Execute_Objects loc_E1E (kid.asm:1636): the active object list is
     // threaded from Addr_FirstObjectSlot through the longword at offset 0.
     // Dump code pointer + hibernate counter + owned gfx position so #214 can
     // distinguish real sub_10EDA/sub_10F9C hibernating workers from native
     // synthetic block_fx accounting.
     let mut slots = Vec::new();
+    let layout_object_ptr = read_wram_u32(work_ram, ENEMY_LAYOUT_OBJECT_PTR_ADDR) as usize;
+    let layout_object_count = read_rom_u8(rom, layout_object_ptr + 1);
     let mut object_addr = read_wram_u32(work_ram, ADDR_FIRST_OBJECT_SLOT_ADDR) as usize;
     let mut guard = 0usize;
     while object_addr != 0
@@ -1536,21 +1548,37 @@ fn object_slots_debug_loc_e1e(work_ram: &[u8]) -> String {
     {
         let code = read_wram_u32(work_ram, object_addr + 4);
         let hibernate = read_wram_u16(work_ram, object_addr + 8);
+        let layout_ptr = read_wram_u32(work_ram, object_addr + OBJECT_LAYOUT_PTR_OFFSET) as usize;
+        let layout = layout_index_from_ptr(layout_object_ptr, layout_object_count, layout_ptr)
+            .map(|layout_index| {
+                let object_type = read_rom_u8(rom, layout_ptr);
+                format!(",li={layout_index},type={object_type:#04x},lp={layout_ptr:#08x}")
+            })
+            .unwrap_or_default();
         let gfx_addr = read_wram_u32(work_ram, object_addr + 0x36) as usize;
         let gfx = if (GFX_OBJECT_RAM_ADDR
             ..GFX_OBJECT_RAM_ADDR + GFX_OBJECT_SLOT_SIZE * GFX_OBJECT_SLOT_COUNT)
             .contains(&gfx_addr)
         {
+            // ASM Dragon_Flying.asm loc_34664 stores the visible GfxObject at
+            // Object+$36 and loc_3478C can keep the Object live while the
+            // helper's active-enemy GfxObject scan omits display-cleared slots.
             format!(
-                "@{},{}",
+                "@{},{}:disp={:#04x},col={},src={:#06x}",
                 read_wram_u16(work_ram, gfx_addr + OBJECT_X_POS_OFFSET),
-                read_wram_u16(work_ram, gfx_addr + OBJECT_Y_POS_OFFSET)
+                read_wram_u16(work_ram, gfx_addr + OBJECT_Y_POS_OFFSET),
+                read_wram_u8(work_ram, gfx_addr + DISPLAY_FLAG_OFFSET),
+                format_collision_type(read_wram_u16(
+                    work_ram,
+                    gfx_addr + OBJECT_COLLISION_TYPE_OFFSET
+                )),
+                read_wram_u16(work_ram, gfx_addr + OBJECT_COLLISION_SOURCE_OFFSET),
             )
         } else {
             String::from("@-")
         };
         slots.push(format!(
-            "{object_addr:#08x}:code={code:#08x},hib={hibernate}{gfx}"
+            "{object_addr:#08x}:code={code:#08x},hib={hibernate}{layout}{gfx}"
         ));
         object_addr = read_wram_u32(work_ram, object_addr) as usize;
         guard += 1;
@@ -1652,6 +1680,16 @@ fn layout_index_from_ptr(
     }
     let relative_offset = layout_ptr - (layout_object_ptr + 2);
     (relative_offset % 8 == 0).then_some(relative_offset / 8)
+}
+
+fn direct_enemy_object_type_from_collision_source(collision_source: u16) -> Option<u8> {
+    // ASM Dragon_Flying.asm loc_34664/loc_34BAC writes object_meta `$C`
+    // before calling loc_32146, which copies the direct enemy id into the
+    // GfxObject collision source. Some live dragon Object states later clear
+    // or repurpose Object+$44, so the enemy-layout pointer path above cannot
+    // identify them even though the displayed GfxObject is still authoritative.
+    let object_type = u8::try_from(collision_source).ok()?;
+    (object_type != 0).then_some(object_type)
 }
 
 fn format_collision_type(collision_type: u16) -> String {
