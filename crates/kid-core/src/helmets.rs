@@ -5153,6 +5153,35 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM sub_942A loc_9454 (kid.asm:10892): the airborne/walking Kid dispatch
+    /// clears `Maniaxe_throwing_axe` once the throw animation finishes
+    /// (`$18(a3)`), independent of the axe object's lifetime — exactly like the
+    /// grounded `sub_78E8 loc_794C` path. Native models the grounded clear in
+    /// `refresh_grounded_helmet_state_sub_78E8`, which the per-frame loop only
+    /// runs while `on_ground` (lib.rs). The airborne dispatch was unmodelled, so
+    /// an airborne Kid whose boomerang axe (loc_8A74) oscillates inside the
+    /// camera box and never culls had no clear path: the gate stayed latched and
+    /// every further throw was blocked (#337).
+    ///
+    /// This is the airborne sibling of the grounded latch tick, wired as the
+    /// `else` of the `on_ground` dispatch (lib.rs) so exactly ONE of the two
+    /// ticks runs per frame — the ROM dispatches through a single mutually-
+    /// exclusive branch each frame, so the latch must never decrement twice on
+    /// the same frame (e.g. on a landing frame).
+    pub(crate) fn tick_maniaxe_airborne_throw_latch_loc_9454(&mut self) {
+        if self.progression.current_form != PlayerForm::Maniaxe {
+            return;
+        }
+        if self.helmet.maniaxe_axe_active && self.helmet.maniaxe_throw_latch_frames > 0 {
+            self.helmet.maniaxe_throw_latch_frames -= 1;
+            if self.helmet.maniaxe_throw_latch_frames == 0 {
+                // ASM loc_9454: the throw animation's done flag clears the C
+                // gate while the axe object may still be in flight.
+                self.helmet.maniaxe_axe_active = false;
+            }
+        }
+    }
+
     // Skycutter has no special enemy-attack routine in the ROM: contact-only
     // damage via the standard Kid jump/contact path. Verified 2026-04-25 — no
     // `Skycutter` reference in `.cache/upstream/kid-chameleon-disasm/code/enemy/`,

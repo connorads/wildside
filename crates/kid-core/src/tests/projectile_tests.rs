@@ -4000,6 +4000,61 @@ mod chunk_06 {
     }
 
     #[test]
+    fn airborne_helmet_state_sub_942a_releases_maniaxe_gate_loc_9454() {
+        // ASM sub_942A loc_9454 (kid.asm:10892): the airborne/walking dispatch
+        // clears Maniaxe_throwing_axe once the throw animation finishes, decoupled
+        // from the axe object's lifetime. A boomerang axe (loc_8A74) can oscillate
+        // inside the camera box and never cull, so the absent-projectile clear
+        // never fires; airborne, the grounded loc_794C latch never ticks either.
+        // Without the airborne tick the gate stays stuck and further throws lock
+        // out (#337). Mirror of grounded_helmet_state_sub_78e8_releases_*, but the
+        // gate must clear via the airborne dispatch.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        let slice = combat_slice();
+
+        rt.step_maniaxe_axe(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+        assert_eq!(rt.projectiles.len(), 1, "first axe thrown");
+        assert!(rt.helmet.maniaxe_axe_active, "throw gate set after throw");
+
+        // Airborne: only the loc_9454 dispatch runs (the grounded refresh is
+        // on_ground-gated in lib.rs). The axe object stays live the whole time.
+        for _ in 0..MANIAXE_THROW_LATCH_FRAMES_LOC_794C {
+            rt.tick_maniaxe_airborne_throw_latch_loc_9454();
+        }
+
+        assert!(
+            !rt.helmet.maniaxe_axe_active,
+            "ASM sub_942A loc_9454: the airborne dispatch clears Maniaxe_throwing_axe after the throw animation finishes, even while the axe object is still live",
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM loc_8A52: the first axe keeps flying after the airborne gate clears",
+        );
+
+        // A second axe can now be thrown while still airborne.
+        rt.step_maniaxe_axe(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            2,
+            "ASM loc_76E4: a second axe may be thrown once the airborne gate clears (#337 lockout fixed)",
+        );
+    }
+
+    #[test]
     fn grounded_helmet_state_sub_78e8_clears_inactive_maniaxe_axe() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;

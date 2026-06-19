@@ -4650,6 +4650,13 @@ impl NativeRuntime {
         // (loc_789C) paths.
         if slice.player.on_ground {
             self.refresh_grounded_helmet_state_sub_78E8();
+        } else {
+            // ASM sub_942A loc_9454: airborne frames run the moving/airborne
+            // dispatch, which clears Maniaxe_throwing_axe on the throw-anim-done
+            // flag just like the grounded sub_78E8 loc_794C path. Mutually
+            // exclusive with the grounded branch above (post-physics on_ground),
+            // so the throw latch decrements exactly once per frame (#337).
+            self.tick_maniaxe_airborne_throw_latch_loc_9454();
         }
 
         // ASM loc_7FC (kid.asm:915): `jsr (j_sub_F7E0).l; bsr.w sub_6034`
