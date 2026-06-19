@@ -8511,7 +8511,7 @@ mod chunk_04 {
         };
         let mut projs = Vec::new();
         enemy.family = EnemyFamily::TankShooting;
-        step_tank_shooting_fire(&mut enemy, &mut projs);
+        step_tank_shooting_fire(&mut enemy, &mut projs, None);
         assert_eq!(projs.len(), 1, "shooting tank should fire a bullet");
         assert!(
             projs[0].x_velocity > 0,
@@ -8593,7 +8593,7 @@ mod chunk_04 {
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
         };
         let mut projs = Vec::new();
-        step_tank_shooting_fire(&mut enemy, &mut projs);
+        step_tank_shooting_fire(&mut enemy, &mut projs, None);
         assert!(projs.is_empty(), "should not fire while timer > 0");
         assert_eq!(enemy.wait_timer, 9, "timer should decrement");
     }

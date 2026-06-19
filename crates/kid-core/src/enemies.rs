@@ -10577,7 +10577,7 @@ pub(crate) fn step_active_enemies_with_rng(
                     if matches!(enemy.family, EnemyFamily::TankShooting)
                         && let Some(ref mut projs) = projectiles
                     {
-                        step_tank_shooting_fire(enemy, projs);
+                        step_tank_shooting_fire(enemy, projs, played_sound_effects.as_deref_mut());
                     }
                 }
             }
@@ -27692,6 +27692,7 @@ fn tank_shooting_spawn_worker_now_sub_3c4f8() -> bool {
 pub(crate) fn step_tank_shooting_fire(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,
+    played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     if enemy.wait_timer > 0 {
         enemy.wait_timer -= 1;
@@ -27726,6 +27727,13 @@ pub(crate) fn step_tank_shooting_fire(
         kind: EnemyProjectileKind::TankBullet,
         ..Default::default()
     });
+
+    // ASM Tank_Shooting.asm loc_3B730 (line 190): one hibernate frame after the
+    // shot worker is loaded, `moveq #sfx_Tank_shoots,d0; jsr j_PlaySound` plays
+    // $41. The native spawn edge above is the equivalent of that worker load.
+    if let Some(sound_effects) = played_sound_effects {
+        sound_effects.push(QueuedSoundEffect::TankShoots);
+    }
 }
 
 /// Boss tracking movement: chase the player with fixed velocity components.
@@ -31709,7 +31717,7 @@ mod tests {
         };
         let mut projectiles = Vec::new();
 
-        step_tank_shooting_fire(&mut enemy, &mut projectiles);
+        step_tank_shooting_fire(&mut enemy, &mut projectiles, None);
 
         assert_eq!(projectiles.len(), 1);
         assert_eq!(
@@ -31728,6 +31736,71 @@ mod tests {
             enemy.wait_timer,
             TANK_SHOOTING_FAST_CYCLE_FRAMES - 1,
             "ASM `stru_3B4D8` loops every 116 frames, so the countdown reload is 115 after a shot"
+        );
+    }
+
+    #[test]
+    fn tank_shooting_fire_queues_tank_shoots_sfx_loc_3b730() {
+        // ASM Tank_Shooting.asm loc_3B730 (line 190): one hibernate frame after
+        // the bullet worker spawns, `moveq #sfx_Tank_shoots,d0; jsr j_PlaySound`
+        // plays sfx id $41 (constants.asm:89). #338: native had no emit site, so
+        // the shot was silent. The projectile-spawn edge in step_tank_shooting_fire
+        // is the native equivalent of the loc_3B730 worker load.
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::TankShooting,
+            hit_points: 4,
+            death_animation_active: false,
+            facing: Direction::Right,
+            x_pos: 100 << 16,
+            y_pos: 80 << 16,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_tank_shooting_fire(&mut enemy, &mut projectiles, Some(&mut sound_effects));
+
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "the loc_3C50E gate fires one bullet on the first ready frame"
+        );
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::TankShoots],
+            "ASM Tank_Shooting.asm loc_3B730 plays sfx_Tank_shoots=$41 on the shot frame; native must queue it on the projectile-spawn edge"
+        );
+        assert_eq!(
+            QueuedSoundEffect::TankShoots.sound_id(),
+            0x41,
+            "constants.asm: sfx_Tank_shoots = $41"
+        );
+    }
+
+    #[test]
+    fn tank_shooting_fire_silent_when_no_shot_this_frame_loc_3c50e() {
+        // ASM loc_3C50E only spawns loc_3B730 on the turret gate; off-gate
+        // frames must neither spawn a bullet nor play sfx_Tank_shoots.
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::TankShooting,
+            hit_points: 4,
+            death_animation_active: false,
+            facing: Direction::Right,
+            x_pos: 100 << 16,
+            y_pos: 80 << 16,
+            wait_timer: 5,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_tank_shooting_fire(&mut enemy, &mut projectiles, Some(&mut sound_effects));
+
+        assert!(projectiles.is_empty(), "no shot while wait_timer counts down");
+        assert!(
+            sound_effects.is_empty(),
+            "sfx_Tank_shoots only plays on the loc_3B730 spawn frame"
         );
     }
 
