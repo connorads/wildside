@@ -10104,6 +10104,19 @@ oracle repro = authoritative; minimum gate = fast-slice.
   `loc_3c04e_d7_bit2_body_collision_enters_terrain_kill_before_wall_probe` and
   `loc_3c0fa_d7_bit2_body_collision_preempts_left_wall_turnaround`. The
   remaining walker-dispatch row is narrowed to bit-1 wall-turn timing.
+- 2026-06-19 blocked/exhausted status recheck: `terrain-fidelity-audit.md`'s
+  backlog candidate table is now fully `[x]`. Current code/tests already cover
+  the remaining named fixed candidates: `loc_331D2` signed-negative-y is
+  intentionally represented as empty and pinned by
+  `relative_collision_mask_loc_331d2_wraps_x_but_signed_negative_y_is_empty`;
+  `loc_93D4`/`loc_9402` one-row-below slope entry is pinned by
+  `loc_93d4_slope_up_one_row_below_detected` and
+  `loc_9402_slope_down_one_row_below_detected`, with broader slope-entry
+  behaviour owned by #211/#204/#258 movement evidence; the extra
+  `update_camera_axis` result clamp is documented in code as a native bound
+  guard, edge-only in the audit, and the camera-axis helper was mutation-clean.
+  Mark #310 `[b]` until a concrete oracle route/probe demonstrates one of those
+  trivia items matters. Next actionable row is #312.
 
 ### #311
 

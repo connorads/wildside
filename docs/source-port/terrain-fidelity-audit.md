@@ -2,6 +2,20 @@
 
 # Terrain Collision & Physics Fidelity Audit
 
+2026-06-19 status: the concrete backlog candidate table below is exhausted.
+All listed rows are fixed candidates in current `crates/wildside-core` code.
+The only remaining notes are deliberately not action rows without new oracle
+evidence: `loc_331D2` signed-negative rows are represented as out-of-bounds
+empty and pinned by
+`relative_collision_mask_loc_331d2_wraps_x_but_signed_negative_y_is_empty`;
+the extra `update_camera_axis` result clamp is an edge-only native bound guard
+already documented at the `loc_724E`/`loc_72E2` apply-velocity site; and
+`loc_93D4`/`loc_9402` single-frame slope-entry constants are movement-fidelity
+scope, with current one-row-below probes pinned by
+`loc_93d4_slope_up_one_row_below_detected` and
+`loc_9402_slope_down_one_row_below_detected`. Backlog #310 is blocked until a
+concrete oracle route/probe shows one of those trivia items matters.
+
 Adversarially-verified audit of the terrain collision and physics layer of the Kid Chameleon source-port. The probe geometry and tile decode are largely faithful: row/column arithmetic, span endpoints, the half-width tables, the disguised-ghost filter and the slope-nibble mapping all match the ROM. The dominant failure pattern is in the *consumption* of what those probes find. The ROM's shared horizontal cell scan (`sub_914A`/`sub_922C`) walks the whole hitbox span and tags `collision_type=colid_kidbelow` ($28) on any spike cell it crosses; the native floor/wall/ceiling paths collapse each scan to a single selected cell and drop that tag entirely — so a spike above the head deals no damage, a spike masked by a taller solid deals no damage, and floor-spike contact is rewritten as unconditional instant death rather than the ROM's helmet/HP/invuln-gated hit. Alongside this, Lion airborne charge now consumes `sub_36B3C`/`sub_36BD6` body-overlap and lead-column X-stop results plus the `sub_36C6A`/`sub_36CB8` vertical full-span scans, while the down-look camera pan is dead because the look accumulator is capped at exactly the value at which the pan would begin.
 
 ## Coverage summary
