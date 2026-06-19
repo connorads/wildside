@@ -10096,6 +10096,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #314
 
 - Filed 2026-06-11 umbrella: scoring-economy-fidelity-audit.md (9 gaps). Notables: Hundred-K-Trip `$FFFFFB4C` timer armed (combat.rs:8643) but never decremented so the `loc_D980` warp can never fire (its body is also test-only); `OneTimePrize_CheckCollected` anti-farming unwired so 1-ups/10000pt prizes are re-farmable; `collect_diamond` invents +500 score and a life at 50 diamonds.
+- Staleness check 2026-06-19: the top-level backlog summary was stale. `scoring-economy-fidelity-audit.md` and `blocks-fidelity-audit.md` now mark the one-time-prize gate, score/life quotient crossing, Continue pickup cue, Hundred-K-Trip live countdown/terminal Teleport, and 9-vs-99 life cap as fixed candidates with regressions. The remaining #314 scoring/economy debt is the skipped Hundred-K-Trip `loc_D980` object cleanup/fade body before terminal `loc_DA4A`.
 
 ### #315
 
