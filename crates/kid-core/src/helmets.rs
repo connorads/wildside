@@ -1013,7 +1013,9 @@ pub(crate) enum DiamondPowerType {
     FiveWayShot,
     /// Micromax(T1): 6 forward-firing diamond chain, 480f.
     MiniSnake,
-    /// Micromax(T2)/Kid(T2)/Skycutter(T2)/RedStealth(T2): faster snake, 1200f.
+    /// Micromax(T2): faster mini snake, 1200f.
+    SwiftMiniSnake,
+    /// Kid(T2)/Skycutter(T2)/RedStealth(T2): faster snake, 1200f.
     DeathSnake,
     /// IronKnight(T2): instant +1 HP.
     ExtraHitPoint,
@@ -1043,7 +1045,7 @@ pub(crate) fn diamond_power_for_form(form: PlayerForm, tier2: bool) -> DiamondPo
         (PlayerForm::Maniaxe, false) => DiamondPowerType::CircleOfDoom,
         (PlayerForm::Maniaxe, true) => DiamondPowerType::ExtraLife,
         (PlayerForm::Micromax, false) => DiamondPowerType::MiniSnake,
-        (PlayerForm::Micromax, true) => DiamondPowerType::DeathSnake,
+        (PlayerForm::Micromax, true) => DiamondPowerType::SwiftMiniSnake,
     }
 }
 
@@ -1060,6 +1062,7 @@ pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
         DiamondPowerType::TrackingRain => 1800, // $708
         DiamondPowerType::FiveWayShot => 80,   // $50
         DiamondPowerType::MiniSnake => 480,    // $1E0
+        DiamondPowerType::SwiftMiniSnake => 1200, // $4B0
         DiamondPowerType::DeathSnake => 1200,  // $4B0
         // ASM ExtraHPLife clears Diamond_power_timer at init and increments
         // it in DiamondPower_Main_ExtraHPLife until the orbit converges. The
@@ -4724,6 +4727,7 @@ impl NativeRuntime {
 
         let (turn_rate, movement_speed, init_data, power_timer) = match power {
             DiamondPowerType::MiniSnake => (6, 0x300, &SNAKE_INIT_DATA_MINI, 0x1E0),
+            DiamondPowerType::SwiftMiniSnake => (0x10, 0x480, &SNAKE_INIT_DATA_SWIFT_MINI, 0x4B0),
             DiamondPowerType::DeathSnake => (6, 0x400, &SNAKE_INIT_DATA_DEATH, 0x4B0),
             _ => return,
         };
@@ -7126,7 +7130,9 @@ impl NativeRuntime {
                     }
                     self.step_diamond_power_five_way_shot_slots_loc_40140();
                 }
-                DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake => {
+                DiamondPowerType::MiniSnake
+                | DiamondPowerType::SwiftMiniSnake
+                | DiamondPowerType::DeathSnake => {
                     // ASM DiamondPower_Main_Snake loc_3F978 shifts the six
                     // DP-object slots, steers the head from loc_3F9A2 through
                     // loc_3FAD4, then compiles `word_4020E` sprites at
@@ -7263,7 +7269,9 @@ impl NativeRuntime {
         }
         if matches!(
             power,
-            DiamondPowerType::MiniSnake | DiamondPowerType::DeathSnake
+            DiamondPowerType::MiniSnake
+                | DiamondPowerType::SwiftMiniSnake
+                | DiamondPowerType::DeathSnake
         ) {
             self.initialise_diamond_power_snake_slots_loc_3f91c(power);
         }

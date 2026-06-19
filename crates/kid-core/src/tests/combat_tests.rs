@@ -5088,6 +5088,46 @@ mod chunk_03 {
         );
     }
 
+    /// ASM DiamondPower_Init_Index maps Micromax tier 2 to SwiftMiniSnake,
+    /// which uses its own speed, turn rate, and size table.
+    #[test]
+    fn diamond_power_micromax_tier2_uses_swift_mini_snake_loc_3f8d0() {
+        assert_eq!(
+            helmets::diamond_power_for_form(PlayerForm::Micromax, true),
+            helmets::DiamondPowerType::SwiftMiniSnake,
+            "ASM DiamondPower_Init_Index entry for Micromax tier 2 points at DiamondPower_Init_SwiftMiniSnake"
+        );
+
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::SwiftMiniSnake;
+        runtime.progression.diamond_power_frames = 17;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0060_0000;
+        slice.player.y_pos = 0x0070_0000;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.diamond_power_snake_turn_rate, 0x10,
+            "ASM loc_3F8D0: SwiftMiniSnake d4=$10"
+        );
+        assert_eq!(
+            runtime.diamond_power_snake_movement_speed, 0x480,
+            "ASM loc_3F8D0: SwiftMiniSnake d5=$480"
+        );
+        let sizes: Vec<u16> = runtime
+            .diamond_power_snake_slots
+            .iter()
+            .map(|slot| slot.diamond_size)
+            .collect();
+        assert_eq!(
+            sizes,
+            vec![1, 1, 2, 3, 4, 5],
+            "ASM loc_3F946 reads DiamondPower_InitData_SwiftMiniSnake, and Allocate_DiamondPowerObjectSlot prepends traversal order"
+        );
+    }
+
     /// ASM loc_3F92A allocates from the DP-object list, independent of the
     /// native generic projectile list.
     #[test]
