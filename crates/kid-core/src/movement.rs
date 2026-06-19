@@ -6273,6 +6273,17 @@ impl OpeningSliceState {
                 y_px,
                 moving_left,
             );
+            if !self.player.on_ground && !latches_wall_cling {
+                // ASM loc_A8DE only enters the wall-cling coroutine after a
+                // real side-wall hit. A one-cell stair nub at Kid's feet still
+                // clamps this sub_8F26 step, but must not erase the airborne
+                // sub_B084 velocity that lets the next frame clear the step.
+                self.player.x_velocity = incoming_x_velocity;
+                self.player.wall_cling_direction = None;
+                self.player.right_wall_sticky = false;
+                self.player.left_wall_sticky = false;
+                return;
+            }
             self.player.right_wall_sticky =
                 moving_right && !self.player.on_ground && latches_wall_cling;
             self.player.left_wall_sticky =

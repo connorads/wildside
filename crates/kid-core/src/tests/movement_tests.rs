@@ -7851,8 +7851,8 @@ mod chunk_11 {
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
 
         assert_eq!(
-            slice.player.x_velocity, 0,
-            "ASM sub_8F26 should still clamp the current leftward hit",
+            slice.player.x_velocity, -0x0001_0000,
+            "ASM sub_8F26 should clamp the current leftward hit without erasing following air control",
         );
         assert_eq!(
             slice.player.x_pos,
@@ -7894,8 +7894,8 @@ mod chunk_11 {
         slice.apply_wall_collision(Some(&grid), PLAYER_HALF_WIDTH);
 
         assert_eq!(
-            slice.player.x_velocity, 0,
-            "ASM sub_8F26 should still clamp the current leftward stair-face hit",
+            slice.player.x_velocity, -0x0001_0000,
+            "ASM sub_8F26 should clamp the current stair-face hit without erasing following air control",
         );
         assert_eq!(
             slice.player.x_pos,
@@ -9942,6 +9942,91 @@ mod chunk_11 {
                 "loc_A268: SlopeDown at x_px={x_px} should give cell_top({cell_top}) + {x_offset}"
             );
         }
+    }
+    /// ASM loc_A74E -> sub_B084 then loc_A762 -> sub_8F26: while jumping away
+    /// from a one-cell step nub, the side-wall clamp may stop the current X
+    /// step but must not erase the airborne air-control velocity unless loc_A8DE
+    /// actually latches a wall-cling.
+    #[test]
+    fn airborne_step_nub_clamp_preserves_leftward_air_control_velocity() {
+        fn make_grid(step_col: u16, step_row: u16, floor_row: u16) -> terrain::BlockGrid {
+            let w = 10u16;
+            let h = 8u16;
+            let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+            let set_solid = |data: &mut Vec<u8>, col: u16, row: u16| {
+                let offset = (usize::from(row) * usize::from(w) + usize::from(col)) * 2;
+                data[offset] = 0x60;
+            };
+            for col in 0..w {
+                set_solid(&mut data, col, floor_row);
+            }
+            set_solid(&mut data, step_col, step_row);
+            terrain::BlockGrid::from_level_layout(&data, w, h)
+        }
+
+        fn run(moving_left: bool) -> OpeningSliceState {
+            let mut grid = make_grid(4, 4, 5);
+            let mut slice = OpeningSliceState::new(LevelBounds {
+                width_pixels: 160,
+                height_pixels: 128,
+            });
+            slice.player.on_ground = true;
+            slice.player.facing = if moving_left {
+                Direction::Left
+            } else {
+                Direction::Right
+            };
+            slice.player.x_pos = if moving_left { 86 << 16 } else { 58 << 16 };
+            slice.player.y_pos = 80 << 16;
+            slice.terrain.floor_y_pos = 80 << 16;
+            slice.terrain.floor_terrain_type = TerrainType::Normal;
+            slice.physics_trace = Some(PhysicsTrace::default());
+            for frame in 0..14 {
+                let input = FrameInput {
+                    left: moving_left,
+                    right: !moving_left,
+                    b: frame >= 12,
+                    ..FrameInput::default()
+                };
+                slice.step_with_order(
+                    input,
+                    frame == 12,
+                    PlayerForm::TheKid,
+                    Some(&mut grid),
+                    None,
+                    false,
+                    0,
+                    PhysicsOrder::AsmFaithful,
+                    true,
+                    &[],
+                );
+            }
+            slice
+        }
+
+        let left = run(true);
+        let right = run(false);
+
+        assert_eq!(
+            (left.player.x_pos >> 16, left.player.y_pos >> 16),
+            (85, 70),
+            "leftward step-nub clamp should hold position on the first controlled airborne frame"
+        );
+        assert_eq!(
+            (right.player.x_pos >> 16, right.player.y_pos >> 16),
+            (58, 70),
+            "mirrored rightward setup should be at the same airborne height"
+        );
+        assert!(
+            left.player.x_velocity < 0,
+            "ASM sub_B084 left input must remain visible after the non-latching sub_8F26 step clamp"
+        );
+        assert!(
+            right.player.x_velocity > 0,
+            "mirrored right input should gain airborne velocity by the same frame"
+        );
+        assert_eq!(left.player.wall_cling_direction, None);
+        assert!(!left.player.left_wall_sticky);
     }
 }
 
