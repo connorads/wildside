@@ -1,0 +1,17 @@
+[package]
+name = "wildside-render"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+wildside-data = { path = "../wildside-data" }
+sha1.workspace = true
+
+[dev-dependencies]
+sha1.workspace = true
+tempfile.workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "wildside-rom"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+sha1.workspace = true
+thiserror.workspace = true

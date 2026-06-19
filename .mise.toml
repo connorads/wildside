@@ -18,52 +18,52 @@ run = "cargo clippy --workspace --all-targets -- -D warnings"
 run = "scripts/strict-rust.sh cargo test --workspace"
 
 [tasks.verify-rom]
-run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-rom"
+run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-rom"
 
 [tasks.play]
-run = "cargo run --release -p kidcli -- play"
+run = "cargo run --release -p wildside-cli -- play"
 
 [tasks.play-native]
-run = "cargo run --release -p kidcli -- play-native"
+run = "cargo run --release -p wildside-cli -- play-native"
 
 [tasks.bootstrap-native]
 run = """
 sh -ec '
-cargo run -p kidcli -- extract-assets
+cargo run -p wildside-cli -- extract-assets
 for level in 00 01 02; do
-  cargo run -p kidcli -- dump-level-layout --level "$level"
+  cargo run -p wildside-cli -- dump-level-layout --level "$level"
 done
 '
 """
 description = "Prepare native-play assets plus early gameplay level-layout dumps for levels 00-02"
 
 [tasks.probe-cpu]
-run = "cargo run -p kidcli -- probe-cpu"
+run = "cargo run -p wildside-cli -- probe-cpu"
 
 [tasks.verify-boot]
-run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-boot"
+run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-boot"
 
 [tasks.verify-startup]
-run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-startup"
+run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-startup"
 
 [tasks.verify-level]
-run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-level"
+run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-level"
 
 [tasks.verify-gameplay]
-run = "scripts/strict-rust.sh cargo run --release -p kidcli -- verify-gameplay --all"
+run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- verify-gameplay --all"
 
 [tasks.verify-slice-fast]
 depends = ["verify-tas-frontier"]
 run = """
 scripts/strict-rust.sh sh -ec '
-cargo test -q -p kid-core --lib -- --skip demo_ --skip published_tas --skip snapshot \
-  && cargo test -q -p kidcli gameplay_regression_
+cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas --skip snapshot \
+  && cargo test -q -p wildside-cli gameplay_regression_
 '
 """
-description = "Canonical green-gate: kid-core unit sweep + kidcli gameplay regressions + TAS frontier replay. Must pass at every commit."
+description = "Canonical green-gate: wildside-core unit sweep + wildside-cli gameplay regressions + TAS frontier replay. Must pass at every commit."
 
 [tasks.verify-1p-playable]
-run = "scripts/strict-rust.sh cargo run --release -p kidcli -- release-gate --target 1p-playable"
+run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- release-gate --target 1p-playable"
 description = "Native 1P-playable smoke gate: boot flow, level progress, death/respawn, slopes, and common bounce/block interactions"
 
 [tasks.verify-slice-full]
@@ -73,95 +73,95 @@ description = "Native 1P-playable smoke gate: boot flow, level progress, death/r
 # inclusion decision.
 run = """
 scripts/strict-rust.sh sh -ec '
-cargo test -q -p kid-core \
-  && cargo test -q -p kidcli \
-  && cargo run -q -p kidcli -- compare-native-gameplay --scenario pause-resume-level1 \
-  && cargo run -q -p kidcli -- compare-native-gameplay --scenario progress-two-transitions \
-  && KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -q -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
+cargo test -q -p wildside-core \
+  && cargo test -q -p wildside-cli \
+  && cargo run -q -p wildside-cli -- compare-native-gameplay --scenario pause-resume-level1 \
+  && cargo run -q -p wildside-cli -- compare-native-gameplay --scenario progress-two-transitions \
+  && KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -q -p wildside-cli -- compare-native-gameplay --scenario death-respawn-level1
 '
 """
 
 [tasks.release-gate]
-run = "scripts/strict-rust.sh cargo run --release -p kidcli -- release-gate --target 1p-accurate"
+run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- release-gate --target 1p-accurate"
 description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares, frame/audio oracle, full state sweep"
 
 [tasks.project-status]
-run = "cargo run -q -p kidcli -- project-status"
+run = "cargo run -q -p wildside-cli -- project-status"
 description = "Summarise repo health: 1P-playable first, 1P-accurate second, backlog risks and human blockers"
 
 [tasks.completion-audit]
-run = "cargo run -q -p kidcli -- project-status --fail-on-human-blockers"
+run = "cargo run -q -p wildside-cli -- project-status --fail-on-human-blockers"
 description = "Fail until all source-port validation/repro blockers ([?]/[b] rows) are resolved by a human playtest"
 
 [tasks.verify-audio-driver]
-run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-audio-driver"
+run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-audio-driver"
 
 [tasks.verify-audio-output]
-run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-audio-output --scenario boot-title-start-level1"
+run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-audio-output --scenario boot-title-start-level1"
 
 [tasks.verify-frames]
-run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-frames --scenario boot-title-start-level1-move-right5s"
+run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-frames --scenario boot-title-start-level1-move-right5s"
 
 [tasks.verify-oracle]
-run = "scripts/strict-rust.sh cargo run -p kidcli -- verify-oracle --scenario boot-title-start-level1"
+run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-oracle --scenario boot-title-start-level1"
 
 [tasks.render-frame]
-run = "cargo run --release -p kidcli -- render-frame --steps 2000000 --out .cache/title-frame.png"
+run = "cargo run --release -p wildside-cli -- render-frame --steps 2000000 --out .cache/title-frame.png"
 
 [tasks.run-sdl]
-run = "cargo run --release -p kidcli -- run-sdl"
+run = "cargo run --release -p wildside-cli -- run-sdl"
 
 [tasks.dump-audio]
-run = "cargo run -p kidcli -- dump-audio --scenario boot-title-start-level1 --out .cache/audio.wav"
+run = "cargo run -p wildside-cli -- dump-audio --scenario boot-title-start-level1 --out .cache/audio.wav"
 
 [tasks.bootstrap-upstream]
-run = "cargo run -p kidcli -- bootstrap-upstream"
+run = "cargo run -p wildside-cli -- bootstrap-upstream"
 
 [tasks.bootstrap-references]
-run = "cargo run -p kidcli -- bootstrap-references"
+run = "cargo run -p wildside-cli -- bootstrap-references"
 
 [tasks.oracle-setup]
-run = "cargo run -p kidcli -- oracle-setup"
+run = "cargo run -p wildside-cli -- oracle-setup"
 
 [tasks.extract-assets]
-run = "cargo run -p kidcli -- extract-assets"
+run = "cargo run -p wildside-cli -- extract-assets"
 
 [tasks.reference-build]
-run = "cargo run -p kidcli -- reference-build"
+run = "cargo run -p wildside-cli -- reference-build"
 
 [tasks.dump-level-layout]
-run = "sh -c 'cargo run -p kidcli -- dump-level-layout --level \"${1:-00}\"' --"
+run = "sh -c 'cargo run -p wildside-cli -- dump-level-layout --level \"${1:-00}\"' --"
 
 [tasks.sweep]
-run = "scripts/strict-rust.sh cargo run --release -p kidcli -- sweep"
+run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- sweep"
 description = "Sweep all 105 levels for native vs oracle parity"
 
 [tasks.warm-cache]
-run = "cargo run --release -p kidcli -- sweep --warm-cache-only"
+run = "cargo run --release -p wildside-cli -- sweep --warm-cache-only"
 description = "Pre-populate oracle cache for all levels (no native comparison)"
 
 [tasks.perf-baseline]
-run = "cargo bench -p kid-core --bench frame_step"
+run = "cargo bench -p wildside-core --bench frame_step"
 description = "Run performance benchmarks (criterion); results in target/criterion/"
 
 [tasks.sweep-gameplay]
-run = "scripts/strict-rust.sh cargo run --release -p kidcli -- sweep --levels 0-104 --tier gameplay"
+run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- sweep --levels 0-104 --tier gameplay"
 description = "Self-consistency gameplay sweep: walk-right + jump + stomp on all 69 BCD levels"
 
 [tasks.collect-metrics]
 run = """
 mkdir -p .cache/metrics
-echo "$(date -Iseconds) test_count=$(cargo test --workspace 2>&1 | grep -oP '\\d+ passed' | awk '{s+=int($1)}END{print s}') sweep_pass=$(cargo run --release -p kidcli -- sweep --levels 0-104 --tier state 2>&1 | grep -oP '\\d+ passed' | head -1 | awk '{print $1}') gameplay_pass=$(cargo run --release -p kidcli -- sweep --levels 0-104 --tier gameplay 2>&1 | grep -oP '\\d+ passed' | head -1 | awk '{print $1}') todo_fidelity=$(grep -r 'TODO(fidelity)' crates/ | wc -l) deviation=$(grep -r 'DEVIATION:' crates/ | wc -l)" >> .cache/metrics/history.log
+echo "$(date -Iseconds) test_count=$(cargo test --workspace 2>&1 | grep -oP '\\d+ passed' | awk '{s+=int($1)}END{print s}') sweep_pass=$(cargo run --release -p wildside-cli -- sweep --levels 0-104 --tier state 2>&1 | grep -oP '\\d+ passed' | head -1 | awk '{print $1}') gameplay_pass=$(cargo run --release -p wildside-cli -- sweep --levels 0-104 --tier gameplay 2>&1 | grep -oP '\\d+ passed' | head -1 | awk '{print $1}') todo_fidelity=$(grep -r 'TODO(fidelity)' crates/ | wc -l) deviation=$(grep -r 'DEVIATION:' crates/ | wc -l)" >> .cache/metrics/history.log
 tail -1 .cache/metrics/history.log
 """
 description = "Collect sweep/test/annotation metrics to .cache/metrics/history.log"
 
 [tasks.import-tas]
-run = "cargo run -p kidcli -- import-tas --bk2 ${1:?usage: mise run import-tas <path.bk2>}"
+run = "cargo run -p wildside-cli -- import-tas --bk2 ${1:?usage: mise run import-tas <path.bk2>}"
 description = "Import a BK2 TAS recording as a DynamicScenario JSON"
 
 [tasks.verify-tas]
-run = "scripts/strict-rust.sh cargo run --release -p kidcli -- verify-tas --scenario ${1:?usage: mise run verify-tas <scenario.json>}"
+run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- verify-tas --scenario ${1:?usage: mise run verify-tas <scenario.json>}"
 description = "Verify a TAS scenario against the oracle (native vs emulator)"
 
 [tasks.view-tas]
@@ -201,7 +201,7 @@ $START-$END"
     ARGS="$ARGS --frame-start ${CHOICE%-*} --frame-end ${CHOICE#*-}"
   fi
 fi
-cargo run --release -p kidcli -- view-tas $ARGS
+cargo run --release -p wildside-cli -- view-tas $ARGS
 ' --
 """
 description = "Open the SDL TAS viewer (fzf-pick scenario + frame window)"
@@ -227,7 +227,7 @@ for slug in $(jq -r '"'"'.recordings | keys[]'"'"' "$FRONTIER"); do
   echo "checking $slug frames $start..$frame..."
   args="--scenario $scenario --frame-start $start --frame-end $frame"
   if [ -n "$checkpoint_interval" ]; then args="$args --checkpoint-interval $checkpoint_interval"; fi
-  if ! cargo run --release -q -p kidcli -- verify-tas $args; then
+  if ! cargo run --release -q -p wildside-cli -- verify-tas $args; then
     echo "FAIL: $slug verifier errored for frames $start..$frame"
     FAIL=1
     continue
@@ -249,7 +249,7 @@ description = "Local-first TAS frontier gate; verify no regression before curren
 [tasks.verify-tas-full]
 # Same no-strict-rust caveat as verify-tas-frontier: TAS replay must use the
 # no-RUSTFLAGS binary to stay deterministic.
-run = "cargo run --release -q -p kidcli -- verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 0 --frame-end 37759 --checkpoint-interval 25 --frontier-kind gameplay"
+run = "cargo run --release -q -p wildside-cli -- verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 0 --frame-end 37759 --checkpoint-interval 25 --frontier-kind gameplay"
 description = "Full any-percent TAS verification — run after gameplay-affecting commits"
 
 [tasks.audit-debug-fields]
@@ -263,10 +263,10 @@ FILE=${FILE:?usage: mise run mutants-file FILE=<module.rs>}
 STEM=${FILE%.rs}
 OUTPUT=${OUTPUT:-.cache/mutants/${STEM}}
 rm -rf "$OUTPUT/mutants.out" "$OUTPUT/mutants.out.old"
-KID_REPO_ROOT="$PWD" cargo mutants -p kid-core -f "$FILE" -j 1 --gitignore=true --output "$OUTPUT" -- --lib -- --skip demo_ --skip published_tas --skip snapshot
+KID_REPO_ROOT="$PWD" cargo mutants -p wildside-core -f "$FILE" -j 1 --gitignore=true --output "$OUTPUT" -- --lib -- --skip demo_ --skip published_tas --skip snapshot
 '
 """
-description = "Run cargo-mutants against a single kid-core source file (FILE=<module.rs>), matching the rotation strategy's invocation"
+description = "Run cargo-mutants against a single wildside-core source file (FILE=<module.rs>), matching the rotation strategy's invocation"
 
 [tasks.clean-build]
 run = "cargo clean"

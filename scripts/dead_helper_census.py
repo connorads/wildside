@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Dead-helper census extractor.
 
-Scans kid-core (and optionally kidcli) Rust sources for items carrying
+Scans wildside-core (and optionally wildside-cli) Rust sources for items carrying
 `#[allow(dead_code)]` or `#[cfg_attr(not(test), allow(dead_code))]`, captures the
 item name/kind/line, the ASM labels cited in its doc comment (or embedded in its
 name), and a crate-wide call-site count split by test vs non-test context.
@@ -16,7 +16,7 @@ import re
 import sys
 from pathlib import Path
 
-SRC = Path("crates/kid-core/src")
+SRC = Path("crates/wildside-core/src")
 ATTR_RE = re.compile(r"#\[(cfg_attr\(not\(test\),\s*allow\(dead_code\)\)|allow\(dead_code\))\]")
 ITEM_RE = re.compile(
     r"^\s*(?:pub(?:\([^)]*\))?\s+)?"
@@ -90,7 +90,7 @@ def build_test_line_mask(text):
 def main():
     files = sorted(SRC.glob("*.rs"))  # subsystem source files (declaration scan)
     # Call-site search must also see the test tree: tests live in separate files
-    # under crates/kid-core/src/tests/*.rs, NOT inline #[cfg(test)] mods. Treat every
+    # under crates/wildside-core/src/tests/*.rs, NOT inline #[cfg(test)] mods. Treat every
     # reference in that directory as a test call.
     test_files = sorted((SRC / "tests").glob("*.rs"))
     search_text = {f: f.read_text() for f in files + test_files}

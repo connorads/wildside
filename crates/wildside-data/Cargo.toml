@@ -1,0 +1,18 @@
+[package]
+name = "wildside-data"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

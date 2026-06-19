@@ -1,0 +1,4837 @@
+mod blocks;
+mod boot;
+mod combat;
+pub(crate) mod constants;
+mod demo;
+pub(crate) mod enemies;
+mod gfx_animation;
+mod helmets;
+mod level;
+mod movement;
+pub mod physics;
+mod platforms;
+mod projectiles;
+mod scenario;
+pub mod terrain;
+mod trace;
+pub(crate) mod types;
+pub mod vdp;
+mod weather;
+
+use combat::{
+    HeadyMetalBreakupPieceSub37708, HeadyMetalCachedWorkerSub37708, HeadyMetalScatterVelocities,
+    PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect,
+};
+use constants::*;
+use enemies::*;
+use wildside_data::{
+    AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement,
+    load_level_asset_bundle, resource_level_id, resource_level_record,
+};
+use physics::{Direction, HorizontalInput, LevelBounds};
+use platforms::*;
+pub use scenario::{
+    ScriptRunner, run_script, run_script_with_physics_order, run_script_with_settled_warp,
+    run_script_with_trace, run_script_with_warp,
+};
+pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
+pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
+pub use boot::{
+    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A,
+    hud_timer_low_time_check_end_decrease_time_left, hud_timer_sprite_layout_sub_BD0A,
+};
+pub use combat::{
+    HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266, speed_bonus_threshold_loc_d660,
+    time_bonus_loc_d56e,
+};
+pub use level::{
+    EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE, EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
+    EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE,
+    EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770,
+    EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC, EOL_SCORE_COUNTER_START_LEAD_FRAMES_LOC_D754_ORACLE,
+    EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
+    EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE, EolScoreCounterSnapshotLocD770,
+    FlagpoleScoreboardRevealTileLocC21E, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
+    eol_score_counter_snapshot_loc_D770, eol_score_counter_transfer_frames_from_trace_loc_D770,
+    eol_title_return_faded_palette_word_loc_D734, flagpole_scoreboard_reveal_tiles_loc_C21E,
+};
+use std::collections::HashSet;
+use std::fs;
+#[cfg(test)]
+pub(crate) use trace::opening_level_one_object_counts;
+pub use types::*;
+pub use weather::{
+    LavaGeyserSpriteChunkLoc14BE8, LavaGeyserSpriteTemplateLoc14BE8, MurderWallWarningInputSub5E02,
+    MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
+    compile_murder_wall_warning_sprites_sub_5E02, lava_geyser_sprite_chunks_loc_14BE8,
+};
+
+#[allow(non_snake_case)]
+fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
+    anchor_x: u16,
+    anchor_y: u16,
+) -> [Option<HeadyMetalBreakupPieceSub37708>; 13] {
+    // ASM Enemy20_HeadyMetal_Init loc_39247 seeds `$FFFFFB7A` at y+$1F,
+    // then `sub_37680` installs the twelve body-piece workers through loc_39266.
+    let mut slots = [None; 13];
+    slots[0] = Some(HeadyMetalBreakupPieceSub37708 {
+        sprite_word_y: 0,
+        x_pos: anchor_x,
+        y_pos: anchor_y.wrapping_add(0x001F),
+        x_velocity: 0,
+        y_velocity: 0,
+    });
+    for (index, (x_offset, y_offset)) in HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266
+        .iter()
+        .copied()
+        .enumerate()
+    {
+        slots[index + 1] = Some(HeadyMetalBreakupPieceSub37708 {
+            sprite_word_y: 0,
+            x_pos: anchor_x.wrapping_add_signed(x_offset),
+            y_pos: anchor_y.wrapping_add_signed(y_offset),
+            x_velocity: 0,
+            y_velocity: 0,
+        });
+    }
+    slots
+}
+
+#[allow(non_snake_case)]
+fn heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
+    anchor_x: u16,
+    anchor_y: u16,
+) -> [HeadyMetalCachedWorkerSub37708; 5] {
+    // ASM Enemy20_HeadyMetal_Init loc_39247 stores the five final-scatter
+    // worker pointers at `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`. The second head
+    // slot starts at the boss anchor, `$FB7A` is shifted down `$1F`, and the
+    // two eye workers come from the `sub_376B6` offsets near loc_39326.
+    [
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFB72,
+            x_pos: anchor_x,
+            y_pos: anchor_y,
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFB76,
+            x_pos: anchor_x,
+            y_pos: anchor_y,
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFB7A,
+            x_pos: anchor_x,
+            y_pos: anchor_y.wrapping_add(0x001F),
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFBAE,
+            x_pos: anchor_x.wrapping_add_signed(-0x000B),
+            y_pos: anchor_y.wrapping_add_signed(-0x0003),
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+        HeadyMetalCachedWorkerSub37708 {
+            slot_offset: 0xFBB2,
+            x_pos: anchor_x.wrapping_add(0x000C),
+            y_pos: anchor_y.wrapping_add_signed(-0x0003),
+            x_velocity: 0,
+            y_velocity: 0,
+        },
+    ]
+}
+
+#[derive(Debug, Clone)]
+pub struct NativeRuntime {
+    assets: AssetManifest,
+    frame_index: usize,
+    boot_state: BootState,
+    trace_input: FrameInput,
+    prior_input: FrameInput,
+    previous_input: FrameInput,
+    respawn_start_held_frames: u8,
+    respawn_live_handoff_frames: u8,
+    title_card_live_handoff_frames: u8,
+    debug_level_entry_suppresses_title_card_live_handoff: bool,
+    start_press_count: usize,
+    current_level: LevelId,
+    level_start_frame: Option<usize>,
+    progression: PlayerProgression,
+    helmet: HelmetState,
+    paused: bool,
+    pause_menu_option: u8,
+    pause_toggle_pending: bool,
+    pending_pause_restart_round: Option<PauseRestartRoundState>,
+    pending_pause_last_life_give_up: bool,
+    allow_pausing: bool,
+    allow_pausing_fade_frames: u8,
+    pending_level_skip: Option<LevelId>,
+    pending_level_skip_resume: bool,
+    /// ASM `$FFFFFBCC`: palette fade target colour. Teleporter `loc_BCF6`
+    /// seeds `$00EE` before branching through `Teleport`; the level-entry
+    /// fade shell copies this word into `Palette_Buffer_3`.
+    teleport_warp_colour_fbcc: u16,
+    /// ASM `sub_73D0` fade progress word `$FFFFF876` for the live level-entry
+    /// fullscreen fade worker.
+    level_entry_fade_progress_sub_73d0: u16,
+    /// ASM `$FFFFF888`: pending palette mask for `Palette_Buffer+$00..+$3E`
+    /// during the live `sub_73D0` level-entry fullscreen fade.
+    level_entry_pending_palette_0_mask_sub_73d0: u32,
+    /// ASM `$FFFFF88C`: pending palette mask for `Palette_Buffer+$40..+$7E`
+    /// during the live `sub_73D0` level-entry fullscreen fade.
+    level_entry_pending_palette_1_mask_sub_73d0: u32,
+    /// ASM loc_DA4A writes PlayerStart_X/Y and sets `$FFFFFC29` before the
+    /// Teleport tail. Load_InGame's loc_11BD2 then preserves those start words
+    /// instead of reading the destination level header pair.
+    pending_player_start_override_loc_11bd2: Option<(u16, u16)>,
+    player_lifecycle: PlayerLifecycle,
+    opening_slice: Option<OpeningSliceState>,
+    probe_start_slope_settle_frames: u8,
+    starting_level_title_workers: Vec<LevelEntryTitleWorker>,
+    starting_level_title_rng: Option<RomRandomState>,
+    death_camera_lock: Option<CameraState>,
+    death_windup_path: DeathWindupPath,
+    death_preserved_object_velocity: Option<(i32, i32)>,
+    death_respawn_trace_profile: Option<DeathRespawnTraceProfile>,
+    level_skip_transition: Option<LevelSkipTransitionState>,
+    death_shell_snapshot: Option<LevelSkipTransitionState>,
+    level_complete_gfx_snapshot: Option<LevelCompleteGfxSnapshot>,
+    level_entry_camera_handoff: Option<(usize, CameraState)>,
+    level_entry_player_handoff: Option<(usize, PlayerState)>,
+    level_skip_resume_hold: bool,
+    active_enemy_roster: Vec<NativeObjectSnapshot>,
+    active_enemies: Vec<ActiveEnemy>,
+    /// Enemies killed during this level — (segment_index, layout_index).
+    /// Prevents respawn when their spawn point re-enters the activation window.
+    /// ASM: per-segment killed bitfield at $FFFFF66A.
+    killed_enemies: HashSet<(usize, usize)>,
+    /// Native mirror of the 30-word EnemyStatus_Table cleared by ASM
+    /// `loc_31F9A`. Loader usage is still approximated by `killed_enemies`,
+    /// but death/deactivation routes write their table side effects here.
+    enemy_status_words: [u16; 0x001E],
+    /// ASM `$FFFFFB51`: set after `Manage_EnemyLoading` has completed one pass.
+    /// Native currently mirrors it for settled recording/oracle-warps, where
+    /// probe frames start after the hidden first pass has already happened.
+    enemy_loading_initial_pass_complete: bool,
+    /// Blocks drilled by Driller enemies this frame.
+    /// Driller.asm loc_3BE78: checks sprite timer, destroys Smash/Ice blocks ahead.
+    drilled_blocks: Vec<DrilledBlockLoc3BE78>,
+    active_platforms: Vec<ActivePlatform>,
+    active_platform_roster: Vec<NativeObjectSnapshot>,
+    active_platform_standing_on: Option<u16>,
+    active_lift_platform_standing_on: Option<u16>,
+    platform_script_table: Option<wildside_data::PlatformScriptTable>,
+    block_grid: Option<terrain::BlockGrid>,
+    block_list: Option<terrain::BlockList>,
+    block_grid_source: BlockGridSource,
+    /// Player has beaten the final level — show victory/ending.
+    game_complete: bool,
+    block_state: BlockInteractionState,
+    projectiles: Vec<EnemyProjectile>,
+    /// ASM Enemy20_HeadyMetal_Init installs the `$FFFFFB7A..$FFFFFBAA`
+    /// breakup workers once; sub_37708 then mutates and clears those slots.
+    pub(crate) heady_metal_breakup_slots_sub_37708:
+        Option<[Option<HeadyMetalBreakupPieceSub37708>; 13]>,
+    /// ASM `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`: fixed HeadyMetal cached
+    /// workers used by the final `sub_3787C/sub_378A2` scatter phase.
+    pub(crate) heady_metal_cached_workers_sub_37708: Option<[HeadyMetalCachedWorkerSub37708; 5]>,
+    /// ASM sub_3787C/sub_378A2 final-scatter velocities for the five cached
+    /// HeadyMetal workers at `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`.
+    pub(crate) heady_metal_cached_worker_velocities_sub_3787c: HeadyMetalScatterVelocities,
+    /// ASM `$FFFFFB4E`: multi-head boss death counter. Shared death entry
+    /// `loc_39EBE` increments it; Shishkaboss skewer pieces launch once it is 3.
+    pub(crate) multi_head_boss_death_count_fb4e: u8,
+    /// ASM `$FFFFFB72/$FFFFFB74/$FFFFFB76`: per-head boss-eye breakup trigger
+    /// words. Boss head routines mirror nonzero `d7` here before sibling
+    /// eye-piece loops branch from orbit to detach.
+    pub(crate) boss_eye_breakup_trigger_words_fb72_fb74_fb76: [u16; 3],
+    diamond_power_rain_slots: Vec<DiamondPowerRainSlot>,
+    diamond_power_circle_slots: Vec<helmets::CircleOfDoomSlot>,
+    diamond_power_wall_slots: Vec<helmets::WallOfDeathSlot>,
+    diamond_power_five_way_slots: Vec<helmets::FiveWayShotSlot>,
+    diamond_power_snake_slots: Vec<helmets::SnakeSlot>,
+    diamond_power_extra_hp_life_slots: Vec<helmets::ExtraHPLifeSlot>,
+    diamond_power_invuln_haze_slots: Vec<helmets::InvulnHazeSlot>,
+    diamond_power_invuln_haze_timer: i16,
+    /// ROM `KidIsInvulnerable` byte (`$FFFFFA2B`), set only by
+    /// `DiamondPower_Init_Invulnerability loc_3FC78` and cleared by the shared
+    /// Diamond Power reset tails. Damage flash uses `progression.invulnerable_frames`.
+    kid_is_invulnerable: bool,
+    diamond_power_snake_head_angle: u16,
+    diamond_power_snake_turn_rate: u16,
+    diamond_power_snake_movement_speed: u16,
+    diamond_power_sprites: Vec<DiamondPowerSpriteSnapshot>,
+    fire_demon_trails: Vec<FireDemonTrailChild>,
+    weather: WeatherState,
+    /// Native mirror of the ROM's 64-word `Palette_Buffer`.
+    /// Most live render paths still use extracted assets directly, but
+    /// environment workers mutate this buffer so palette side effects are no
+    /// longer trapped in test-only helpers.
+    palette_buffer: [u16; 0x40],
+    /// Native mirror of the ROM's `Palette_Buffer_2`, used by storm and global
+    /// palette fade workers as the source side of `sub_14C0`.
+    palette_buffer_2: [u16; 0x40],
+    /// Native mirror of the ROM's `Palette_Buffer_3`, used by storm and global
+    /// palette fade workers as the target side of `sub_14C0`.
+    palette_buffer_3: [u16; 0x40],
+    /// ASM Animation_Geyser loc_14B2A: five one-frame hibernations before
+    /// rotating `Palette_Buffer+$28/$2A/$2C/$2E`.
+    lava_geyser_palette_delay_loc_14b2a: u16,
+    rotate_palette_lava_water_loc_1223c: Option<RotatePaletteLavaWaterStateLoc1223C>,
+    island_shore_cycle_loc_1202a: Option<IslandShoreCycleStateLoc1202A>,
+    island_shore_dma_uploads_loc_1202a: Vec<IslandShoreDmaUploadLoc1202A>,
+    lava_geyser_art_uploads_loc_14c6a: Vec<LavaGeyserArtUploadLoc14C6A>,
+    murder_wall: Option<MurderWallState>,
+    /// Metal block bounce animations in progress.
+    block_bounces: Vec<BlockBounceAnim>,
+    /// ASM sub_1007A count-only prize-block worker tail after the visible
+    /// wobble table has finished but before the coroutine's spawn hand-off
+    /// deletes its object/gfx allocation.
+    prize_block_worker_tails: Vec<PrizeBlockWorkerTail>,
+    /// ASM loc_102B8 flash workers spawned by sub_1007A. Their position comes
+    /// from `cell_x * 16 + 8`, `cell_y * 16 - 8`, matching the ROM object.
+    prize_block_spawn_flashes: Vec<PrizeBlockSpawnFlash>,
+    /// ASM `sub_1D84 loc_1E5E` allocates a `loc_1F08` hit-spark helper for
+    /// pass-0 Kid projectile/sword hits, copying the worker's `$1A/$1E`.
+    kid_projectile_hit_sparks: Vec<KidProjectileHitSparkLoc1F08>,
+    /// ASM sub_E446 hidden-block reveal workers queued by EyeClops beam strip
+    /// scans, one `$12C`-frame worker plus foreground-cell upload per reveal.
+    pub(crate) hidden_block_fg_update_workers: Vec<terrain::HiddenBlockColumnUpdateSubE446>,
+    /// Block destruction fragment effects.
+    block_destroy_effects: Vec<BlockDestroyEffect>,
+    /// ASM sub_2A4C falling block debris scratch workers.
+    block_debris_swarms: Vec<BlockDebrisSwarmSub2A4C>,
+    /// Sprite positions emitted by the most recent ASM sub_2A4C live step.
+    block_debris_sprite_pieces_sub_2a4c: Vec<(i16, i16)>,
+    /// ASM sub_292E cursor `$FFFFFA9C` expressed as a six-slot index.
+    block_debris_scratch_cursor_sub_292e: usize,
+    /// Floating prize items rising from blocks.
+    floating_items: Vec<FloatingItem>,
+    /// ASM PrizeHelmet* loc_105D6 deletes after object-side collision, then
+    /// Kid remains visible at the loc_A6F8 hibernate point without changing
+    /// Current_Helmet.
+    prize_helmet_collision_hibernate_delay_frames: u8,
+    /// Helmet whose sub_7EB2 hitpoint seed is exposed on the held loc_A6F8
+    /// frames after a PrizeHelmet* object-side collision.
+    prize_helmet_collision_hibernate_hitpoints_form: Option<PlayerForm>,
+    /// Helmet written to Current_Helmet after the old-helmet reverse table
+    /// finishes during the latched prize collision hibernate.
+    prize_helmet_collision_hibernate_switch_form: Option<PlayerForm>,
+    /// ASM `Iron_Knight_block_breaker` ($FFFFFA6B): set by sub_AF7A after a
+    /// handled Iron Knight block impact, cleared by sub_DB22 on the normal
+    /// grounded clean-up path.
+    iron_knight_block_breaker: bool,
+    /// Native guard for a same-cell metal rebound: ASM loc_110D0 creates one
+    /// sub_11120 worker for the contacted metal block, then a later normal
+    /// landing path reaches sub_DB22 and clears the Iron Knight latch.
+    iron_knight_last_metal_block_hit: Option<(u16, u16)>,
+    /// Prize diamonds award their count later via PrizeDiamondCollected_Init,
+    /// not on the touch frame.
+    pending_prize_diamond_awards: Vec<u8>,
+    /// Visual mirror of ASM PrizeDiamondCollected_Init `$3E/$42` HUD-flight
+    /// objects. The award delay above remains the authoritative count timing.
+    pending_prize_diamond_hud_flights: Vec<PrizeDiamondHudFlight>,
+    /// ASM Mini_Hopping_Skull.asm sub_3F3F0 spawns a transient worker that
+    /// hibernates 15 frames, then optionally plays the scream SFX before
+    /// deleting itself.
+    pending_sound_effects: Vec<PendingSoundEffect>,
+    /// Internal log used by focused sound-worker tests.
+    played_sound_effects: Vec<QueuedSoundEffect>,
+    /// Internal log preserving ASM `j_PlaySound`/`j_PlaySound2` command bytes.
+    played_sound_commands: Vec<QueuedSoundCommand>,
+    /// Internal log of ASM `j_PlaySound` BGM command bytes.
+    played_bgm_ids: Vec<u8>,
+    /// Internal log of ASM sub_E1330/sub_E1338 music-speed command bytes.
+    played_music_speed_updates: Vec<u8>,
+    /// Enemy death particle effects.
+    enemy_death_effects: Vec<EnemyDeathEffect>,
+    /// ASM Dragon_Flying.asm loc_3492C hibernates before allocating the
+    /// walking-dragon child; keep that delayed child outside the active roster.
+    pending_dragon_death_children: Vec<PendingDragonDeathChild>,
+    /// Visual-only dying flying-dragon GfxObject kept alive until `stru_345E4`
+    /// completes. It is appended to the trace roster but is not interactive.
+    pending_dragon_death_animations: Vec<PendingDragonDeathAnimation>,
+    /// Set each frame if a stomp occurred.
+    stomped_this_frame: bool,
+    /// ASM `$FFFFFA74` (kid.asm:936): "Kid touched an enemy LAST frame". Each
+    /// Mode_Level frame copies `$FFFFFA75` here before the
+    /// GfxObjects_CollisionKid passes. While set, GfxObjects_CollisionKid_Collide
+    /// (kid.asm:3384) skips the loc_1C42 side classifier entirely and routes to
+    /// loc_1D4C: `colid_kidbelow` written to the Kid slot only — sustained
+    /// contact can never register a stomp and never writes the enemy colid.
+    kid_touched_enemy_last_frame_loc_fa74: bool,
+    /// ASM `$FFFFFA75` (kid.asm:3383): `st` on any Kid/enemy hitbox overlap in
+    /// GfxObjects_CollisionKid_Collide, cleared each frame after the FA74 copy.
+    kid_touched_enemy_this_frame_loc_fa75: bool,
+    /// `kidabove` collisions resolve on the next frame, not immediately on the
+    /// overlap frame.
+    pending_stomp_bounce: Option<PendingStompBounce>,
+    /// ASM Mode_Level writes Kid/object collision words near the end of the
+    /// frame; Character_CheckCollision consumes them on the next object pass.
+    pending_player_contact_damage: Option<PendingPlayerContactDamage>,
+    /// Collision words emitted from object execution after this frame's
+    /// Character_CheckCollision point. Promoted to
+    /// `pending_player_contact_damage` once that consume point has passed.
+    delayed_player_contact_damage: Option<PendingPlayerContactDamage>,
+    /// ASM sub_1F52 writes `colid_kidbelow` when Kid overlaps a live shooter
+    /// barrel rectangle. Native detects the rectangle before movement, then
+    /// consumes the collision after terrain has resolved for this frame.
+    shooter_barrel_damage_latched_loc_1f52: bool,
+    /// Landing DragonWalking grazes already spent one frame in the fresh
+    /// falling-to-ground hand-off, so the following grounded frame consumes
+    /// them without adding the normal pending-contact delay.
+    pending_grounded_dragon_landing_graze: Option<PendingPlayerContactDamage>,
+    pending_enemy_collisions: Vec<PendingEnemyCollision>,
+    /// ASM Init_RNG / Get_RandomNumber_byte global gameplay RNG state.
+    rom_random: RomRandomState,
+    /// Count of blocks hit by headbutt this frame.
+    blocks_hit_this_frame: u8,
+    /// Sound test play pending (consumed each frame).
+    sound_test_play_pending: bool,
+    /// Cached Sega screen art and palette data (loaded once, reused each frame).
+    sega_screen_data: Option<vdp::SegaScreenData>,
+    /// Cached intro sequence art/tilemap/palette for sub_1B850 segments.
+    intro_sub_1b850_data: Option<vdp::IntroSub1B850Data>,
+    /// Cached title screen art/tilemap/palette for sub_1B2A4.
+    title_screen_data: Option<vdp::TitleScreenData>,
+    /// Cached Load_TitleCard art/tilemap/palette by low theme nibble.
+    title_card_data: Option<vdp::TitleCardData>,
+    /// Software VDP state for non-gameplay screens (Sega logo, intro, title).
+    /// Populated each frame during boot modes so the VDP renderer can produce
+    /// accurate frames; `None` during gameplay where the pre-extracted asset
+    /// pipeline handles rendering.
+    vdp_state: Option<vdp::VdpState>,
+    /// ASM sub_914 / sub_924 nest counter at `$FFFFF805`: active Z80 stop
+    /// requests. Zero means the Z80 bus may run; non-zero keeps it halted.
+    #[allow(dead_code)]
+    z80_stop_request_depth: u8,
+    /// ASM sub_914 / sub_924 writes SR directly before stopping/starting the
+    /// Z80 so later gameplay code can observe the current interrupt mask.
+    #[allow(dead_code)]
+    z80_guard_sr: u16,
+    /// Native mirror of the Z80 run state toggled by ASM `j_Stop_z80` /
+    /// `j_Start_z80`.
+    #[allow(dead_code)]
+    z80_running: bool,
+    /// ASM OptionScreen_Input `Option_2PInput`: false = one controller, true = two.
+    ///
+    /// ASM ReadJoypad (kid.asm:1332): routes Ctrl_Held/Ctrl_Pressed to
+    /// per-player variables depending on this flag and Current_player:
+    ///   - loc_B8C (kid.asm:1342): default path (1P mode or Current_player==0)
+    ///     stores `Ctrl_Held → Ctrl_1_Held`, `Ctrl_Pressed → Ctrl_1_Pressed`.
+    ///   - 2P + Current_player!=0: stores to Ctrl_2_Held/Ctrl_2_Pressed.
+    ///   - loc_BB6 (kid.asm:1358): common post-cheat path wraps the hardware
+    ///     poll with sub_914/sub_924 and reads ports $A10003/$A10005 into
+    ///     Ctrl_1/Ctrl_2.
+    ///
+    /// Native: single FrameInput consumed directly — no per-player routing.
+    options_two_player_two_controllers: bool,
+    /// ASM OptionScreen_Input `Options_Suboption_Controls`: 0..=5.
+    options_controls_scheme: u8,
+    /// ASM OptionScreen_Input `Option_SpeedButton`: false = normal action, true = fast.
+    options_speed_button_fast: bool,
+    /// ASM sub_1CC88 (kid.asm:31808): option-menu worker byte toggled by
+    /// `not.b ($FFFFFB5C).w` before applying the symmetric `$FFFFFB5E` offset.
+    options_menu_panel_toggle_byte: u8,
+    /// ASM loc_1CB2C / sub_1CC88: left option-menu worker word at `$24(a0)`.
+    options_menu_left_panel_x: i16,
+    /// ASM loc_1CB2C / sub_1CC88: right option-menu worker word at `$24(a1)`.
+    options_menu_right_panel_x: i16,
+    /// ASM loc_1CB2C / sub_1CC88: shared signed offset seeded from
+    /// `($FFFFFB5E).w`.
+    options_menu_panel_delta: i16,
+    level_timer: LevelTimer,
+    hud_animation_state: boot::HudAnimationStateSub44DC,
+    /// Camera Y look-ahead accumulator ($FFFFFB58): +1 per frame while down held
+    /// and grounded, -8 per frame on release, clamped to [0, 30].
+    y_look_offset: i16,
+    /// ASM $FFFFFA2E: Kid's y_pos from the previous camera-follow invocation.
+    /// Used by loc_726C to detect upward motion near the level ceiling.
+    camera_last_kid_y: i16,
+    /// Set to true when player takes damage during current level (for no-hit bonus).
+    level_damage_taken: bool,
+    /// Exact per-frame damage latch, mirroring ROM `Just_received_damage`.
+    just_received_damage: bool,
+    /// Debug-only attribution for the hostile projectile that triggered Kid
+    /// damage during the current frame.
+    last_projectile_damage_probe: Option<String>,
+    /// Debug-only Drips splash reseed trace for ASM loc_33488 -> loc_3340E.
+    last_drips_splash_reseed_probe: Option<String>,
+    /// ASM Lion.asm loc_3E192/sub_3E2CE child worker remains count-visible in
+    /// the hit frame even when native has consumed the projectile collision.
+    lion_projectile_object_only_tail_count: u16,
+    /// ASM Drips.asm loc_33488/loc_3392C mirror of `$FFFFFB42`: incremented
+    /// when loc_335D8 allocates a surface crawler and decremented only after
+    /// the crawler's finish animation reaches loc_3392C. Native cannot derive
+    /// this from visible helper projectiles because loc_338F8 also spawns a
+    /// separate Tar-style visual worker.
+    drips_surface_crawler_count_loc_fffffb42: usize,
+    /// Set to true when player collects any prize from a block (disqualifies no-prize bonus).
+    level_prize_collected: bool,
+    /// Set to true when `apply_level_completion_bonuses` awarded the
+    /// ASM loc_D660 speed bonus (10,000 points) for the current
+    /// level-complete sequence. Cleared on level restart.
+    level_speed_bonus_awarded: bool,
+    /// Amount added by `apply_level_completion_bonuses` for the
+    /// ASM loc_D60E path bonus (PathBonus_Values[level] × 1000) on the
+    /// current level-complete sequence. Cleared on level restart.
+    level_path_bonus_amount: u32,
+    /// ASM loc_D17E copies live `(Score).w` into the EOL score object before
+    /// clearing the live score word. Native keeps the copied value here for
+    /// render-facing traces while progression retains the awarded total.
+    level_complete_initial_score: u32,
+    /// Number of clock pickups collected during current level (for completion time calc).
+    clocks_collected: u16,
+    /// ASM Prize10000Points_Init loc_10AC2 / main-loop loc_7452 share the
+    /// `$FFFFFB4C` countdown that starts the Hundred K Trip event in level 4.
+    hundred_k_trip_timer: u16,
+    /// Title screen phase timer: counts down to demo playback in both the
+    /// pre-menu attract phase and the interactive title menu. The interactive
+    /// loop resets this on Up/Down navigation, matching the ASM.
+    ///
+    // NOTE (was TODO, resolved 2026-06-04 — timing subsumed, not a gap):
+    // ASM loc_1BAB4 (kid.asm) is the pre-menu intro bridge — a
+    // `jsr Hibernate_Object_1Frame; bsr sub_1C246; dbf d0,loc_1BAB4` loop for
+    // d0=$B8 (184) frames (set at loc_1BAB0) before Obj_TitleMenu's setup, with
+    // each frame polling Start via sub_1C246.
+    //
+    // Native folds intro→title timing into oracle-calibrated duration constants
+    // rather than simulating the per-object hibernate loop, and the resulting
+    // transition timing is frame-exact vs jgenesis. The $B8 wait is captured by
+    // `INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES` (constants.rs): oracle frame
+    // probes for the cold IntroSequence6 route show the Start latch is not
+    // consumed by sub_1C246 until cold frame 2634 — 237 local frames after
+    // Game_Mode first becomes $28 at frame 2396 (the $B8 wait plus the
+    // surrounding loc_1B37C/sub_1B43A worker overhead). The full
+    // `Load_IntroSequence6 -> loc_1BAB0 -> loc_1BAEA -> loc_1BB02` cold path is
+    // locked to enter DemoPlay on global frame 3270 by
+    // `cold_boot_intro_sequence_6_enters_demo_play_on_frame_3270`, with the
+    // sub_1C246 Start-poll modelled and verified by
+    // `cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce`.
+    // So the loop body itself is intentionally not simulated frame-by-frame; its
+    // observable timing is oracle-verified through these constants and tests.
+    //
+    // NOTE (was TODO, resolved 2026-06-04 — NOT a gap): ASM loc_1C5A4 (kid.asm)
+    // is the shared init tail for the two slide-in GfxObjects (sub_1C572 enters
+    // from x=$3A moving +1, loc_1C58C from x=$DE moving -1). loc_1C5A4 sets
+    // `st $13(a3)`, y_pos=$C8, vram_tile=$140, then `Hibernate_Object $3C`
+    // before a per-frame `add.w d0,x_pos` slide loop (loc_1C5BE).
+    //
+    // These objects are allocated ONLY by Load_IntroSequence3 (kid.asm:29085-
+    // 29088), not by Obj_TitleMenu — they are the Wild Side intro's sliding door
+    // halves, not a title-screen decoration (the earlier wording on this field
+    // was wrong). Native ALREADY simulates them per-frame: `boot.rs`
+    // `title_menu_sliding_sprites_sub_1C572` seeds both halves with the exact
+    // loc_1C5A4 values (y_pos=$C8, vram_tile=$140, hibernate=$3C, moving=$42 =
+    // $41+1, x=$3A/+1 and x=$DE/-1) and `vdp.rs`
+    // `push_intro_sequence_3_sliding_sprites_sub_1C572` advances their x_pos one
+    // pixel per frame into the IntroSequence3 VDP sprite table. So this is NOT
+    // rendered from a static tilemap snapshot and is NOT a gap. Covered by
+    // `boot.rs` sub_1c572_* tests and `vdp.rs`
+    // intro_sequence_3_sub_1C572_draws_and_slides_door_halves.
+    title_idle_frames: u16,
+    /// Title screen local elapsed frames, used for diagnostics and demo timing.
+    title_screen_elapsed_frames: usize,
+    /// Cold-boot intro-return title rebuild uses Obj_TitleMenu's hidden shell
+    /// staging before the later title pose becomes ready.
+    title_screen_uses_intro_return_hidden_shell: bool,
+    /// The cold IntroSequence6 Start-skip route keeps Obj_TitleMenu's cursor
+    /// as the trace-facing gfx object after the hidden title rebuild. Earlier
+    /// title-entry routes keep reporting the standard title pose.
+    intro_sequence_6_start_skip_cursor_trace_priority: bool,
+    /// ASM `$FFFFFC82`: title/intro region selector. Load_IntroSequence5 calls
+    /// sub_1C278 before selecting its helmet art and palette overlay.
+    title_screen_region_byte: u8,
+    /// First global boot frame where the title pose becomes visible in trace output.
+    title_screen_ready_frame: usize,
+    /// Last global boot frame of the initial title attract lock.
+    title_menu_arm_frame: usize,
+    /// False during the initial title attract wait where only Start matters.
+    /// True once the Start press arms the real interactive title menu.
+    title_menu_active: bool,
+    /// True on the exact frame the title menu gets armed; the cursor sprite
+    /// only becomes visible on the following traced frame.
+    title_menu_cursor_pending: bool,
+    /// Hidden title Start consumed before trace-facing readiness. The ROM's
+    /// title-loop countdown is live, but the next Start should expose the
+    /// interactive menu rather than selecting the current row.
+    title_menu_hidden_prearm_pending: bool,
+    /// Pending title-menu selection (0=1P, 1=2P, 2=options) applied on the
+    /// following frame to match Obj_TitleMenu's deferred hand-off.
+    title_menu_selection_pending: Option<u8>,
+    /// ASM Obj_TitleMenu `Title_InputLoop` hibernates once before the Start
+    /// edge flips into `Game_Mode=$0008`, so visible level entry lands one
+    /// traced frame after the pending selection wakes.
+    title_menu_selection_delay_frames: usize,
+    /// Demo playback reads inputs after game logic (ASM ReadJoypad path), so
+    /// the byte fetched this frame becomes the controller state for the next
+    /// frame.
+    demo_buffered_input: Option<FrameInput>,
+    /// Demo Start abort uses a hibernating object coroutine (`loc_119D8`):
+    /// the live Start press arms the return, then title only becomes visible
+    /// two frames later when that object wakes and flips Game_Mode.
+    pending_demo_title_return: u8,
+    /// Once the wake-up lands, preserve the current frame's updated gameplay
+    /// slice under title mode instead of freezing the previous frame.
+    demo_title_return_after_frame: bool,
+    /// Demo auto-timeout runs in ReadJoypad after the current gameplay frame,
+    /// so the hand-off should not become visible until the next native step.
+    demo_auto_timeout_return_pending: bool,
+    /// When the ROM timeout counter trips, the current trace frame already
+    /// exposes the frozen gameplay snapshot rather than another live physics
+    /// step. Skip the remaining per-frame gameplay work once for that frame.
+    demo_auto_timeout_freeze_gameplay_frame: bool,
+    /// The ROM auto-timeout path clears Game_Mode to 0 instead of taking the
+    /// paused title helper used by manual Start aborts.
+    demo_auto_timeout_handoff_active: bool,
+    /// The cold IntroSequence6 timeout-return path preserves the late demo-1
+    /// controller sample into the first mode-0 timeout frames.
+    demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot: bool,
+    /// Timeout restart hands the generic intro state machine a different
+    /// sequence-1 duration than cold boot.
+    demo_auto_timeout_intro_sequence_1_frames_override: Option<usize>,
+    /// Timeout restart also keeps intro sequence 2 alive much longer than the
+    /// shared post-sequence-1 attract timer.
+    demo_auto_timeout_intro_sequence_2_frames_override: Option<usize>,
+    /// Timeout restart keeps intro sequence 3 alive far longer than cold boot.
+    /// Its direct title return is still Start-driven; the natural timeout
+    /// path continues through the later intro sequences.
+    demo_auto_timeout_intro_sequence_3_frames_override: Option<usize>,
+    /// ASM sub_1B988 / loc_1B9B6 hibernate intro sequence 4 for `#$21B+1`
+    /// frames before exposing intro sequence 5 on the timeout-restart path.
+    demo_auto_timeout_intro_sequence_4_frames_override: Option<usize>,
+    /// ASM loc_1BA28 / sub_1C204 / loc_1BA5C keep timeout-restart intro
+    /// sequence 5 alive far longer than the shared 80-frame cold-boot timer.
+    demo_auto_timeout_intro_sequence_5_frames_override: Option<usize>,
+    /// A Start-driven timeout-restart intro-sequence-3 title jump can still
+    /// pass through the shared deferred Start→title skip countdown before
+    /// title mode becomes visible, so the later handoff must remember to keep
+    /// the intro pose.
+    timeout_restart_title_intro_sequence_3_return_pending: bool,
+    /// ASM sub_1C246 can also jump straight from the carried intro-sequence-4
+    /// camera hand-off into title after the shared 2-frame deferral.
+    timeout_restart_title_intro_sequence_4_return_pending: bool,
+    /// ASM sub_1C246 can also jump straight from timeout-restart intro
+    /// sequence 5 into title mode after the shared 2-frame Start deferral.
+    timeout_restart_title_intro_sequence_5_return_pending: bool,
+    /// Demo abort returns to title without rebuilding Kid/camera RAM
+    /// immediately; oracle traces keep exposing the live gameplay snapshot
+    /// under title mode until later title objects take over.
+    preserve_demo_title_snapshot: bool,
+    demo_title_snapshot_object_counts: Option<(u16, u16)>,
+    /// The timeout-restart intro-sequence-3 return reaches title mode before
+    /// the standard title pose appears; oracle traces keep the last intro pose
+    /// alive for the first title frames, then hide Kid again.
+    timeout_restart_title_intro_sequence_3_pose: bool,
+    /// ASM sub_1C246 enters title mode before the title objects rebuild, so
+    /// the timeout-restart intro-sequence-5 slot-2 pose survives briefly into
+    /// title mode before Kid blanks again.
+    timeout_restart_title_intro_sequence_5_pose: bool,
+    /// The later intro-sequence-4 Start return reaches title mode while the
+    /// carried `sub_1B988` camera hand-off is still latched.
+    timeout_restart_title_intro_sequence_4_camera_carry: bool,
+    /// The later Start-skip intro-return lineage reaches the same
+    /// `sub_1C246 -> Game_Mode=$2C` hand-off, but oracle keeps the rebuilt
+    /// title pose hidden for one extra frame before the standard title pose
+    /// returns.
+    timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: bool,
+    /// ASM loc_1B96A switches to `Game_Mode=$20` before Load_IntroSequence4 /
+    /// sub_1B988 clear the old intro-sequence-3 roster, so timeout-restart
+    /// intro sequence 4 briefly keeps the previous pose visible. The same
+    /// latch also carries sub_1B988's `Camera_Y_pos=4` hand-off through the
+    /// later intro-sequence-5 window until title setup takes over.
+    timeout_restart_intro_sequence_4_pose_carry: bool,
+    /// After the live snapshot is fully cleared, oracle traces still keep Kid
+    /// hidden for a longer title-object rebuild window on the demo-return path.
+    hide_demo_return_title_player: bool,
+    /// Timeout-restart demo playback ignores queued manual Start aborts until
+    /// the restarted attract demo reaches its live gameplay hand-off.
+    ignore_demo_start_abort_until_gameplay: bool,
+    /// The active demo started from the timeout-restart title shell. It keeps
+    /// the late demo-1 velocity sample, but oracle does not expose the older
+    /// cold-boot controller pause/count sample on that lineage.
+    demo_started_from_timeout_restart_shell: bool,
+    /// The current mode-$28 title shell came from a timeout-restart intro
+    /// replay rather than the original cold boot.
+    intro_sequence_6_entered_from_timeout_restart: bool,
+    /// The next demo start comes from a Start-skip intro return rather than
+    /// the cold-boot attract path.
+    next_demo_uses_start_skip_intro_return_camera_wrap: bool,
+    /// Active demo bootstrap should expose the Start-skip intro-return hidden
+    /// camera wrap instead of the cold-boot row.
+    demo_uses_start_skip_intro_return_camera_wrap: bool,
+    /// The next demo start comes from the generic `loc_119D8 -> loc_6E2`
+    /// demo-title return rather than the cold-boot attract path.
+    next_demo_uses_demo_title_return_camera_wrap: bool,
+    /// Active demo bootstrap should expose the demo-title-return hidden camera
+    /// wrap instead of the cold-boot row.
+    demo_uses_demo_title_return_camera_wrap: bool,
+    /// Load_IntroSequence6 can also flow into Obj_TitleMenu `loc_1BB02 ->
+    /// Load_DemoPlay -> Load_InGame`; oracle keeps that timeout-restart
+    /// lineage's demo-1 hidden wrap distinct from cold boot and the earlier
+    /// Start-skip intro return.
+    demo_uses_intro_sequence_6_hidden_camera_wrap: bool,
+    /// A later attract demo can also start from a title shell that already had
+    /// loc_1B5CE's standard pose restored, either on the timeout-restart
+    /// IntroSequence6 lineage or the later intro-sequence-4 title return.
+    /// When that demo returns to title, oracle re-exposes the pose two frames
+    /// earlier than the generic demo-title rebuild.
+    demo_uses_intro_sequence_6_early_title_restore: bool,
+    /// A later demo auto-timeout can re-enter intro sequence 1 after the
+    /// timeout-restart shell already restored loc_1B5CE's standard title pose.
+    /// If Start skips that intro-1 revisit back to title, oracle exposes the
+    /// rebuilt title pose two local frames earlier than the generic
+    /// intro-return settle window.
+    timeout_restart_intro_sequence_1_uses_early_title_restore: bool,
+    /// ASM Obj_TitleMenu `loc_1BB02 -> Load_DemoPlay -> Load_InGame` keeps a
+    /// distinct demo-2 preload row only on the later IntroSequence6 revisit
+    /// that still carries the old `loc_1BCD0` slot-2 pose but no longer uses
+    /// the earlier hidden-camera wrap.
+    demo_uses_intro_sequence_6_later_demo_2_preload_row: bool,
+    /// Active demo-2 bootstrap came from the original cold-boot
+    /// IntroSequence6 shell rather than a later timeout-restart revisit.
+    demo_uses_cold_intro_sequence_6_demo_2_preload_rows: bool,
+    /// Active demo-1 bootstrap came from the cold demo-timeout
+    /// IntroSequence6 shell and still exposes the controller-side `$60000`
+    /// y-velocity sample at the `loc_1BB02 -> Load_DemoPlay` hand-off.
+    demo_uses_intro_sequence_6_timeout_return_velocity_sample: bool,
+    /// Active demo-2 bootstrap came from the direct timeout-restart
+    /// intro-sequence-5 title return. That `sub_1C246 -> loc_1C264` lineage
+    /// exposes a lower one-frame camera preload row than the generic demo-2
+    /// attract path.
+    demo_uses_intro_sequence_5_title_return_preload_row: bool,
+    /// ASM loc_1B5CE has already restored the standard title pose before a
+    /// later timeout-restart demo starts. When that lineage returns to title,
+    /// oracle exposes the pose two frames earlier than the generic demo-title
+    /// rebuild window before the usual hide/rebuild choreography finishes.
+    demo_title_return_uses_intro_sequence_6_early_title_restore: bool,
+    /// ASM sub_1B8F4 / loc_1B920 can re-enter the title shell via
+    /// sub_1C246's deferred Start skip. Oracle later exposes that demo's
+    /// timeout-restart `loc_1BCD0` slot-2 pose one frame earlier than the
+    /// plain timeout path, so keep that lineage alive through the demo's
+    /// later auto-timeout return.
+    demo_timeout_restart_uses_intro_return_slot_2_early_visibility: bool,
+    /// Only the earlier Start-skip intro-return lineage keeps intro sequence 5
+    /// alive for one extra shared fade window before `loc_1BA5C` reaches its
+    /// `move.w #$28,(Game_Mode).w` hand-off. The later intro-sequence-6 title
+    /// restore still inherits the one-frame-earlier slot-2 visibility, but it
+    /// must not reuse this extra intro-sequence-5 timeout delay.
+    demo_timeout_restart_uses_start_skip_intro_sequence_5_delay: bool,
+    /// A later attract demo that starts after IntroSequence6 has already
+    /// restored the standard title pose reaches the next timeout-restart
+    /// `loc_1BA5C -> Game_Mode=$28` edge one frame earlier than the earlier
+    /// Start-skip revisit, even though both lineages share the same early
+    /// `loc_1BCD0` slot-2 visibility.
+    demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff: bool,
+    /// Next Load_IntroSequence3 roster index from ROM byte `$FFFFFC83`.
+    next_intro_sequence_3_roster_index: usize,
+    /// Active/last Load_IntroSequence3 roster used by trace-visible intro pose.
+    active_intro_sequence_3_roster_index: usize,
+    /// Alternates between demo 1 and demo 2 (ASM $FFFFFBC8 toggle).
+    demo_toggle: bool,
+    /// Tracks whether demo playback is currently inside Kid_Transform so the
+    /// post-transform demo counter parity can be restored on the exit frame.
+    demo_transform_active: bool,
+    /// Trace-only velocity export hold after demo Kid_Transform exits.
+    demo_post_transform_trace_velocity_hold_frames: u8,
+    /// Trace-only stale GFX-slot y velocity after a wall-cling boundary settle.
+    wall_cling_boundary_trace_y_velocity: Option<(i32, u8)>,
+    /// Two-player alternating mode enabled.
+    two_player: bool,
+    /// Current player index (0=P1, 1=P2). Mirrors ASM $FFFFFC39.
+    current_player_index: u8,
+    /// Per-player persistent state slots.
+    player_slots: [PlayerSlot; 2],
+    /// Physics sub-step ordering (default: GravityFirst = current native order).
+    physics_order: PhysicsOrder,
+    /// When true, populate `PhysicsTrace` on each frame for sub-step debugging.
+    trace_physics: bool,
+    /// Debug label for the gameplay branch that last controlled Kid this frame.
+    last_kid_frame_motion_branch: KidFrameMotionBranch,
+    /// Debug label for the first post-motion system that moved or consumed Kid.
+    last_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
+    /// Debug label for the prior frame's first post-motion system that touched Kid.
+    previous_kid_frame_post_motion_mutator: KidFramePostMotionMutator,
+    /// Native mirror of `Platforms_CheckCollision` scratch cells
+    /// `$FFFFFAA2..$FFFFFAA5` plus `$FFFFFA96` from ASM `loc_257E`.
+    last_platform_collision_scratch_loc_257e: PlatformCollisionScratchLoc257E,
+    /// Native mirror of Kid object `collision_type(a4)` for frame-local handoffs.
+    last_kid_collision_type: u16,
+    /// Debug snapshot of Kid before any pre-physics mutator runs this frame.
+    last_kid_frame_pre_physics_start: Option<PlayerState>,
+    /// Debug snapshot of Kid immediately before `step_with_order(...)`.
+    last_kid_frame_pre_physics_before_physics: Option<PlayerState>,
+    /// Ordered list of pre-physics handlers that changed Kid state this frame.
+    last_kid_frame_pre_physics_mutators: Vec<KidFramePrePhysicsMutator>,
+    /// Debug snapshot of native carry-style state before pre-physics consumption,
+    /// including the closest native equivalent to ROM's pre-sub_B168
+    /// Character_CheckCollision / Jump_On_Enemy handoff.
+    last_kid_frame_collision_handoff_probe: Option<KidCollisionHandoffProbe>,
+    /// Debug snapshot of stomp eligibility immediately after physics and before
+    /// any post-motion consumer can move Kid again.
+    last_kid_frame_same_frame_stomp_probe: Option<KidSameFrameStompProbe>,
+    /// Debug snapshot of the Iron Knight wall-attach gate at the pre-physics
+    /// consumer boundary.
+    last_kid_frame_iron_knight_attach_probe: Option<KidIronKnightAttachProbe>,
+    /// Debug snapshot of the shared kid_flip branch-selection fan-out after the
+    /// post-sub_AF10 wall scan.
+    last_kid_frame_kid_flip_branch_probe: Option<KidFlipBranchProbe>,
+    /// Debug snapshot of the shared post-kid_flip follow-on stages inside the
+    /// native loc_AA22 mirror.
+    last_kid_frame_kid_flip_follow_on_probe: Option<KidFlipFollowOnProbe>,
+    /// Debug snapshot of the gate inputs and branch taken by the native
+    /// `apply_jump_and_gravity_vel_only(...)` call.
+    last_kid_frame_jump_gravity_probe: Option<KidJumpGravityProbe>,
+    /// Debug snapshot of the AsmFaithful grounded-release scan before normal physics.
+    last_kid_frame_grounded_release_probe: Option<KidGroundedReleaseProbe>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PauseRestartRoundState {
+    remaining_lives: u16,
+    elapsed_frames: u8,
+    level_state_cleared: bool,
+}
+
+const PAUSE_RESTART_APPLY_LIFE_FRAME_LOC_6B46: u8 = 1;
+const PAUSE_RESTART_ZERO_KID_FRAME_LOC_6E2: u8 = 29;
+const PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2: u8 = 33;
+const PAUSE_RESTART_REBUILD_LEVEL_STATE_FRAME_LOC_6E2: u8 = 71;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteSubE1330 {
+    pub(crate) queued_bytes: [u8; 3],
+    pub(crate) preserves_a0: bool,
+    pub(crate) preserves_d0: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteSubE1334 {
+    pub(crate) queued_bytes: [u8; 2],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteSubE1338 {
+    pub(crate) queued_bytes: [u8; 2],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteSubE133C {
+    pub(crate) queued_bytes: [u8; 0],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverZ80HandshakeLocE136C {
+    pub(crate) bus_request_register: u32,
+    pub(crate) bus_latch_register: u32,
+    pub(crate) bus_status_register: u32,
+    pub(crate) requests_z80_bus: bool,
+    pub(crate) waits_for_bus_grant: bool,
+    pub(crate) latch_value: u8,
+    pub(crate) observed_status: u8,
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) delay_iterations: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverUploadSubE13DA {
+    pub(crate) source_relative_path: &'static str,
+    pub(crate) destination_start: u32,
+    pub(crate) destination_end_exclusive: u32,
+    pub(crate) driver_bytes: Vec<u8>,
+    pub(crate) driver_copy_iterations: usize,
+    pub(crate) zero_fill_len: usize,
+    pub(crate) requests_z80_reset: bool,
+    pub(crate) stops_z80: bool,
+    pub(crate) preserves_a1: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverResetSubE1416 {
+    pub(crate) requests_z80_reset: bool,
+    pub(crate) reset_assert_delay_iterations: u32,
+    pub(crate) restarts_z80_bus: bool,
+    pub(crate) releases_z80_reset: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverBeginWriteSubE143A {
+    pub(crate) command_head_address: u32,
+    pub(crate) ring_buffer_address: u32,
+    pub(crate) write_index: u8,
+    pub(crate) interrupt_mask: u16,
+    pub(crate) requests_z80_bus: bool,
+    pub(crate) waits_for_bus_grant: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteCommandSubE1482 {
+    pub(crate) queued_bytes: [u8; 2],
+    pub(crate) next_write_index: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteByteSubE148E {
+    pub(crate) queued_byte: u8,
+    pub(crate) next_write_index: u8,
+    pub(crate) committed_write_index: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteLongLowByteSubE149C {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) write: SoundDriverWriteByteSubE148E,
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWritePointerSubE14AC {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) writes: [SoundDriverWriteByteSubE148E; 3],
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteCommandAndByte {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) command_write: SoundDriverWriteCommandSubE1482,
+    pub(crate) payload_write: SoundDriverWriteByteSubE148E,
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteCommandAndTwoBytes {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) command_write: SoundDriverWriteCommandSubE1482,
+    pub(crate) payload_writes: [SoundDriverWriteByteSubE148E; 2],
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SoundDriverWriteCommandAndThreeBytes {
+    pub(crate) begin_write: SoundDriverBeginWriteSubE143A,
+    pub(crate) command_write: SoundDriverWriteCommandSubE1482,
+    pub(crate) payload_writes: [SoundDriverWriteByteSubE148E; 3],
+    pub(crate) releases_z80_bus: bool,
+    pub(crate) restores_previous_sr: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct PlaneClearPassSetupLoc1698 {
+    pub(crate) target_addr: u32,
+    pub(crate) dbf_seed: u16,
+    pub(crate) next_source_longword: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct PlaneClearWordFillLoc16B6 {
+    pub(crate) target_addr: u32,
+    pub(crate) next_addr: u32,
+    pub(crate) words: Vec<u16>,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E1330(sound_id: u8) -> SoundDriverWriteSubE1330 {
+    // ASM sub_E1330 -> sub_E1546 -> sub_E1552 (kid.asm:49481, 49806):
+    // preserve `a0`/`d0`, then queue `FF 05 <sound-id>` into the GEMS ring.
+    SoundDriverWriteSubE1330 {
+        queued_bytes: [0xFF, 0x05, sound_id],
+        preserves_a0: true,
+        preserves_d0: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E1334() -> SoundDriverWriteSubE1334 {
+    // ASM sub_E1334 -> sub_E155A (kid.asm:49490, 49829): queue `FF 0C`
+    // into the GEMS ring with no extra payload byte.
+    SoundDriverWriteSubE1334 {
+        queued_bytes: [0xFF, 0x0C],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E1338() -> SoundDriverWriteSubE1338 {
+    // ASM sub_E1338 -> sub_E1568 (kid.asm:49499, 49840): queue `FF 0D`
+    // into the GEMS ring with no extra payload byte.
+    SoundDriverWriteSubE1338 {
+        queued_bytes: [0xFF, 0x0D],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E133C() -> SoundDriverWriteSubE133C {
+    // ASM sub_E133C -> loc_E1576 (kid.asm:49508, 49847): enter the shared
+    // Z80 write critical section, then return without queueing any command.
+    SoundDriverWriteSubE133C { queued_bytes: [] }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_z80_handshake_loc_E136C(
+    status_byte: u8,
+) -> SoundDriverZ80HandshakeLocE136C {
+    // ASM loc_E136C (kid.asm:49540): after requesting `$A11100=$0100`, spin
+    // until bit 0 clears, write `1` to `$A01A20`, read `$A01A21`, release
+    // `$A11100`, and only burn the `$44` DBF delay when the read byte is non-zero.
+    // ASM loc_E1392 (kid.asm:49550): `dbf d0,loc_E1392` uses the inclusive
+    // DBF count, so `moveq #$44,d0` burns `$44 + 1` delay iterations.
+    SoundDriverZ80HandshakeLocE136C {
+        bus_request_register: 0xA11100,
+        bus_latch_register: 0xA01A20,
+        bus_status_register: 0xA01A21,
+        requests_z80_bus: true,
+        waits_for_bus_grant: true,
+        latch_value: 1,
+        observed_status: status_byte,
+        releases_z80_bus: true,
+        delay_iterations: if status_byte == 0 { 0 } else { 0x45 },
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_vdp_dma_wait_loc_E13B0(vdp_control_port_word: u16) -> bool {
+    // ASM loc_E13B0 (kid.asm:49569): after restarting the Z80, repeatedly
+    // read VDP control port `4(a6)` and loop while bit 1 remains set.
+    // ASM loc_964 (kid.asm:1084) is the same VDP DMA-busy predicate:
+    // `move.w 4(a6),d6; btst #1,d6; bne.s loc_964`.
+    (vdp_control_port_word & 0x0002) != 0
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn plane_clear_word_fill_loc_16B6(
+    target_addr: u32,
+    source_word: u16,
+    dbf_seed: u16,
+) -> PlaneClearWordFillLoc16B6 {
+    // ASM loc_16B6 (kid.asm:2811): `move.w (a6),(a0)+` followed by `dbf d0`
+    // copies the same source word `d0+1` times and advances `a0` by two bytes
+    // per iteration.
+    let repeat_count = usize::from(dbf_seed).wrapping_add(1);
+    PlaneClearWordFillLoc16B6 {
+        target_addr,
+        next_addr: target_addr.wrapping_add((repeat_count as u32) * 2),
+        words: vec![source_word; repeat_count],
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn plane_clear_word_fill_loc_16C8(
+    target_addr: u32,
+    source_word: u16,
+    dbf_seed: u16,
+) -> PlaneClearWordFillLoc16B6 {
+    // ASM loc_16C8 (kid.asm:2817): the second clear pass uses the same
+    // `move.w (a6),(a0)+` / `dbf d0` loop body as loc_16B6, so it emits
+    // `d0+1` copies of the current source word and advances `a0` by two bytes
+    // per iteration.
+    plane_clear_word_fill_loc_16B6(target_addr, source_word, dbf_seed)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn plane_clear_word_fill_loc_16E0(
+    target_addr: u32,
+    source_word: u16,
+    dbf_seed: u16,
+) -> PlaneClearWordFillLoc16B6 {
+    // ASM loc_16E0 (kid.asm:2824): the final clear pass reuses the same
+    // word-fill loop body, then falls through to `j_sub_924` after the
+    // inclusive `dbf` count reaches `-1`.
+    plane_clear_word_fill_loc_16B6(target_addr, source_word, dbf_seed)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_upload_sub_E13DA(
+    manifest: &AssetManifest,
+) -> std::io::Result<SoundDriverUploadSubE13DA> {
+    // ASM sub_E13DA (kid.asm:49599): assert Z80 reset, stop the Z80 bus,
+    // copy `sound/GEMS_Sounddriver.bin` into `$A00000`, then zero-fill the
+    // remainder of `$A00000..$A02000` before restoring `a1`.
+    // ASM loc_E1400 (kid.asm:49610): `move.b (a0)+,(a1)+; dbf d0,loc_E1400`
+    // runs for the inclusive count seeded from `GEMS_Sounddriver_End -
+    // GEMS_Sounddriver - 1`, so it copies exactly the driver byte length.
+    // ASM loc_E1406 (kid.asm:49614): after the copy loop, write zero bytes
+    // until `a1 == $A02000`, clearing the rest of the Z80 RAM upload window.
+    let source_relative_path = "sound/GEMS_Sounddriver.bin";
+    let driver_bytes = fs::read(manifest.source_root.join(source_relative_path))?;
+    let z80_ram_len = 0x2000usize;
+    let zero_fill_len = z80_ram_len.saturating_sub(driver_bytes.len());
+    Ok(SoundDriverUploadSubE13DA {
+        source_relative_path,
+        destination_start: 0xA00000,
+        destination_end_exclusive: 0xA02000,
+        driver_copy_iterations: driver_bytes.len(),
+        driver_bytes,
+        zero_fill_len,
+        requests_z80_reset: true,
+        stops_z80: true,
+        preserves_a1: true,
+    })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_reset_sub_E1416() -> SoundDriverResetSubE1416 {
+    // ASM sub_E1416 (kid.asm:49626): assert Z80 reset, burn the fixed
+    // 15-iteration delay loop, restart the bus, then release reset.
+    // ASM loc_E1424 (kid.asm:49630): `subq.l #1,d0; bne.s loc_E1424`
+    // decrements from `$F` to zero before `$A11100` and `$A11200` are written.
+    SoundDriverResetSubE1416 {
+        requests_z80_reset: true,
+        reset_assert_delay_iterations: 15,
+        restarts_z80_bus: true,
+        releases_z80_reset: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_begin_write_sub_E143A(
+    command_head_byte: u8,
+) -> SoundDriverBeginWriteSubE143A {
+    // ASM sub_E143A (kid.asm:49642): raise the interrupt mask to `$0700`,
+    // request the Z80 bus, spin until bit 0 clears, then expose the command
+    // head byte from `$A00036` plus the shared GEMS ring base at `$A01A40`.
+    // ASM loc_E1460 (kid.asm:49653): `btst #0,($A11100).l; bne.s loc_E1460`
+    // waits for the bus-request bit to clear before reading `(a0)`.
+    SoundDriverBeginWriteSubE143A {
+        command_head_address: 0xA00036,
+        ring_buffer_address: 0xA01A40,
+        write_index: command_head_byte,
+        interrupt_mask: 0x0700,
+        requests_z80_bus: true,
+        waits_for_bus_grant: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_sub_E1482(
+    write_index: u8,
+    command_byte: u8,
+) -> SoundDriverWriteCommandSubE1482 {
+    // ASM sub_E1482 (kid.asm:49675): write the leading `FF`, advance the
+    // 6-bit ring index, then fall through into the shared byte writer so the
+    // command byte lands immediately afterwards and the head byte commits.
+    SoundDriverWriteCommandSubE1482 {
+        queued_bytes: [0xFF, command_byte],
+        next_write_index: write_index.wrapping_add(2) & 0x3F,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_byte_sub_E148E(
+    write_index: u8,
+    command_byte: u8,
+) -> SoundDriverWriteByteSubE148E {
+    // ASM sub_E148E (kid.asm:49685): write `d0` into `(a1,d1.w)`, advance the
+    // 6-bit GEMS ring index by one, then commit the updated head byte through
+    // `a0`.
+    let next_write_index = write_index.wrapping_add(1) & 0x3F;
+    SoundDriverWriteByteSubE148E {
+        queued_byte: command_byte,
+        next_write_index,
+        committed_write_index: next_write_index,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_long_low_byte_sub_E149C(
+    command_head_byte: u8,
+    value: u32,
+) -> SoundDriverWriteLongLowByteSubE149C {
+    // ASM sub_E149C (kid.asm:49697): enter the shared Z80/GEMS write section,
+    // queue only the low byte from `8(a6)` through sub_E148E, then drop the
+    // bus request and restore the caller SR in loc_E1470.
+    SoundDriverWriteLongLowByteSubE149C {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        write: sound_driver_write_byte_sub_E148E(command_head_byte, value as u8),
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_pointer_sub_E14AC(
+    command_head_byte: u8,
+    value: u32,
+) -> SoundDriverWritePointerSubE14AC {
+    // ASM sub_E14AC (kid.asm:49711): enter the shared GEMS write section, then
+    // queue the low three bytes from `8(a6)` by writing `d0`, arithmetic
+    // shifting right eight bits, and repeating sub_E148E three times before
+    // releasing the Z80 bus in loc_E1470.
+    let first = sound_driver_write_byte_sub_E148E(command_head_byte, value as u8);
+    let second = sound_driver_write_byte_sub_E148E(first.committed_write_index, (value >> 8) as u8);
+    let third =
+        sound_driver_write_byte_sub_E148E(second.committed_write_index, (value >> 16) as u8);
+    SoundDriverWritePointerSubE14AC {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        writes: [first, second, third],
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_and_byte_loc_E1522(
+    command_head_byte: u8,
+    command_byte: u8,
+    sound_id: u8,
+) -> SoundDriverWriteCommandAndByte {
+    // ASM loc_E1522 (kid.asm:49770): after the caller selects `d0`, queue the
+    // `FF,<command>` pair through sub_E1482, then queue only the low byte from
+    // `8(a6)` through sub_E148E before releasing the Z80 bus in loc_E1470.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, command_byte);
+    SoundDriverWriteCommandAndByte {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        command_write,
+        payload_write: sound_driver_write_byte_sub_E148E(command_write.next_write_index, sound_id),
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E151C(
+    command_head_byte: u8,
+    sound_id: u8,
+) -> SoundDriverWriteCommandAndByte {
+    // ASM sub_E151C (kid.asm:49766): enter the shared Z80/GEMS write section,
+    // load command `$10`, then fall through to loc_E1522 for the payload write.
+    sound_driver_write_command_and_byte_loc_E1522(command_head_byte, 0x10, sound_id)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_sub_E153E(
+    command_head_byte: u8,
+    sound_id: u8,
+) -> SoundDriverWriteCommandAndByte {
+    // ASM sub_E153E (kid.asm:49796): enter the shared Z80/GEMS write section,
+    // load command `$12`, then branch to loc_E1522 for the payload write.
+    sound_driver_write_command_and_byte_loc_E1522(command_head_byte, 0x12, sound_id)
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_and_two_bytes_loc_E1584(
+    command_head_byte: u8,
+    command_byte: u8,
+    first_payload: u8,
+    second_payload: u8,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E1584 (kid.asm:49858): after the caller selects `d0`, queue the
+    // `FF,<command>` pair through sub_E1482, then queue the low bytes from
+    // `8(a6)` and `$C(a6)` through two sub_E148E calls before loc_E1470.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, command_byte);
+    let first_write =
+        sound_driver_write_byte_sub_E148E(command_write.next_write_index, first_payload);
+    let second_write =
+        sound_driver_write_byte_sub_E148E(first_write.committed_write_index, second_payload);
+    SoundDriverWriteCommandAndTwoBytes {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        command_write,
+        payload_writes: [first_write, second_write],
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_02_two_bytes_loc_E157E(
+    command_head_byte: u8,
+    first_payload: u8,
+    second_payload: u8,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E157E (kid.asm:49854): enter the shared Z80/GEMS write section,
+    // load command `$02` into `d0`, then fall through to loc_E1584 for the two
+    // low-byte payload writes.
+    sound_driver_write_command_and_two_bytes_loc_E1584(
+        command_head_byte,
+        0x02,
+        first_payload,
+        second_payload,
+    )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_00_two_bytes_loc_E159C(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E159C (kid.asm:49867): enter sub_E143A, load command `$00`,
+    // then branch to loc_E1584, which queues the command and the low bytes
+    // from `8(a6)` and `$C(a6)`.
+    sound_driver_write_command_and_two_bytes_loc_E1584(
+        command_head_byte,
+        0x00,
+        first_payload as u8,
+        second_payload as u8,
+    )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_01_two_bytes_loc_E15A4(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E15A4 (kid.asm:49873): enter sub_E143A, load command `$01`,
+    // then branch to loc_E1584, preserving the same low-byte writes from
+    // `8(a6)` and `$C(a6)`.
+    sound_driver_write_command_and_two_bytes_loc_E1584(
+        command_head_byte,
+        0x01,
+        first_payload as u8,
+        second_payload as u8,
+    )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_05_three_bytes_loc_E15AC(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+) -> SoundDriverWriteCommandAndThreeBytes {
+    // ASM loc_E15AC (kid.asm:49879): enter sub_E143A, queue command `$05`,
+    // write the low bytes from `8(a6)` and `$C(a6)`, then `asr.l #8,d0`
+    // using the `$C(a6)` value and write that shifted low byte as a third
+    // payload before loc_E1470 releases the Z80 bus.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, 0x05);
+    let first_write =
+        sound_driver_write_byte_sub_E148E(command_write.next_write_index, first_payload as u8);
+    let second_write =
+        sound_driver_write_byte_sub_E148E(first_write.committed_write_index, second_payload as u8);
+    let shifted_second_payload = ((second_payload as i32) >> 8) as u8;
+    let third_write = sound_driver_write_byte_sub_E148E(
+        second_write.committed_write_index,
+        shifted_second_payload,
+    );
+    SoundDriverWriteCommandAndThreeBytes {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        command_write,
+        payload_writes: [first_write, second_write, third_write],
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_06_two_bytes_loc_E15D0(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E15D0 (kid.asm:49892): enter sub_E143A, load command `$06`,
+    // then branch to loc_E1584 for the two low-byte payload writes.
+    sound_driver_write_command_and_two_bytes_loc_E1584(
+        command_head_byte,
+        0x06,
+        first_payload as u8,
+        second_payload as u8,
+    )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_07_two_bytes_loc_E15D8(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E15D8 (kid.asm:49898): enter sub_E143A, load command `$07`,
+    // then branch to loc_E1584 for the two low-byte payload writes.
+    sound_driver_write_command_and_two_bytes_loc_E1584(
+        command_head_byte,
+        0x07,
+        first_payload as u8,
+        second_payload as u8,
+    )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_17_three_bytes_loc_E15E8(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+    third_payload: u32,
+) -> SoundDriverWriteCommandAndThreeBytes {
+    // ASM loc_E15E8 (kid.asm:49910): enter sub_E143A, queue command `$17`,
+    // then write the low bytes from `8(a6)`, `$C(a6)`, and `$10(a6)` through
+    // three consecutive sub_E148E calls before loc_E1470 releases the Z80 bus.
+    let command_write = sound_driver_write_command_sub_E1482(command_head_byte, 0x17);
+    let first_write =
+        sound_driver_write_byte_sub_E148E(command_write.next_write_index, first_payload as u8);
+    let second_write =
+        sound_driver_write_byte_sub_E148E(first_write.committed_write_index, second_payload as u8);
+    let third_write =
+        sound_driver_write_byte_sub_E148E(second_write.committed_write_index, third_payload as u8);
+    SoundDriverWriteCommandAndThreeBytes {
+        begin_write: sound_driver_begin_write_sub_E143A(command_head_byte),
+        command_write,
+        payload_writes: [first_write, second_write, third_write],
+        releases_z80_bus: true,
+        restores_previous_sr: true,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn sound_driver_write_command_0E_two_bytes_loc_E15E0(
+    command_head_byte: u8,
+    first_payload: u32,
+    second_payload: u32,
+) -> SoundDriverWriteCommandAndTwoBytes {
+    // ASM loc_E15E0 (kid.asm:49904): enter sub_E143A, load command `$0E`,
+    // then branch to loc_E1584 for the two low-byte payload writes.
+    sound_driver_write_command_and_two_bytes_loc_E1584(
+        command_head_byte,
+        0x0E,
+        first_payload as u8,
+        second_payload as u8,
+    )
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PendingStompBounce {
+    anchor_x_pos: u32,
+    anchor_y_pos: u32,
+    causes_contact_damage: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PendingPlayerContactDamage {
+    enemy_x: u32,
+    enemy_family: EnemyFamily,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct PendingEnemyCollision {
+    segment_index: usize,
+    layout_index: usize,
+    collision_type: u16,
+    target: PendingEnemyCollisionTarget,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StompContactTarget {
+    ActiveEnemy(usize),
+    DripsDropProjectile(usize),
+    DripsSurfaceCrawlerProjectile(usize),
+    DripsSurfaceCrawlerBurstProjectile(usize),
+}
+
+#[derive(Debug, Clone)]
+struct StompContactCandidate {
+    target: StompContactTarget,
+    snapshot: NativeObjectSnapshot,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PendingEnemyCollisionTarget {
+    Parent,
+    ChildAttachment,
+}
+
+impl NativeRuntime {
+    pub(crate) fn ensure_heady_metal_breakup_slots_loc_39247(&mut self) {
+        if self.heady_metal_breakup_slots_sub_37708.is_some()
+            && self.heady_metal_cached_workers_sub_37708.is_some()
+        {
+            return;
+        }
+        let Some(heady_metal) = self
+            .active_enemies
+            .iter()
+            .find(|enemy| matches!(enemy.family, EnemyFamily::HeadyMetal))
+        else {
+            return;
+        };
+
+        // ASM Enemy20_HeadyMetal_Init loc_39247 seeds `$FFFFFB7A..$FFFFFBAA`
+        // once; loc_3763A/sub_37ABC refreshes the live table instead of
+        // re-projecting body pieces from the tracking anchor.
+        let anchor_x = (heady_metal.x_pos >> 16) as u16;
+        let anchor_y = (heady_metal.y_pos >> 16) as u16;
+        if self.heady_metal_breakup_slots_sub_37708.is_none() {
+            self.heady_metal_breakup_slots_sub_37708 = Some(
+                heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(anchor_x, anchor_y),
+            );
+        }
+        if self.heady_metal_cached_workers_sub_37708.is_none() {
+            self.heady_metal_cached_workers_sub_37708 = Some(
+                heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(anchor_x, anchor_y),
+            );
+        }
+    }
+
+    pub(crate) fn move_heady_metal_body_piece_workers_sub_376ec(&mut self) {
+        let Some(heady_metal) = self
+            .active_enemies
+            .iter()
+            .find(|enemy| matches!(enemy.family, EnemyFamily::HeadyMetal))
+        else {
+            return;
+        };
+        let Some(piece_slots) = self.heady_metal_breakup_slots_sub_37708.as_mut() else {
+            return;
+        };
+
+        // ASM sub_376EC (kid.asm:39483) copies the current d6/d7 tracker
+        // velocities into every live `$FFFFFB72..$FFFFFBB2` worker, then the
+        // scheduler advances each worker. Native stores this table at word
+        // precision, so persist the velocities and advance by the high-word
+        // delta the live tracking anchor just crossed.
+        let old_x = heady_metal
+            .x_pos
+            .wrapping_add_signed(heady_metal.x_velocity.wrapping_neg());
+        let old_y = heady_metal
+            .y_pos
+            .wrapping_add_signed(heady_metal.y_velocity.wrapping_neg());
+        let delta_x = ((heady_metal.x_pos >> 16) as i32) - ((old_x >> 16) as i32);
+        let delta_y = ((heady_metal.y_pos >> 16) as i32) - ((old_y >> 16) as i32);
+        for slot in piece_slots.iter_mut().flatten() {
+            slot.x_velocity = heady_metal.x_velocity;
+            slot.y_velocity = heady_metal.y_velocity;
+            if delta_x == 0 && delta_y == 0 {
+                continue;
+            }
+            slot.x_pos = slot.x_pos.wrapping_add_signed(delta_x as i16);
+            slot.y_pos = slot.y_pos.wrapping_add_signed(delta_y as i16);
+        }
+        if let Some(cached_workers) = self.heady_metal_cached_workers_sub_37708.as_mut() {
+            for worker in cached_workers {
+                worker.x_velocity = heady_metal.x_velocity;
+                worker.y_velocity = heady_metal.y_velocity;
+                if delta_x == 0 && delta_y == 0 {
+                    continue;
+                }
+                worker.x_pos = worker.x_pos.wrapping_add_signed(delta_x as i16);
+                worker.y_pos = worker.y_pos.wrapping_add_signed(delta_y as i16);
+            }
+        }
+    }
+
+    pub(crate) fn queue_start_sequence(&mut self, effect: QueuedSoundEffect) {
+        self.queue_sound_command(QueuedSoundCommand::StartSequence(effect));
+    }
+
+    pub(crate) fn queue_stop_sequence(&mut self, effect: QueuedSoundEffect) {
+        self.queue_sound_command(QueuedSoundCommand::StopSequence(effect));
+    }
+
+    pub(crate) fn queue_sound_command(&mut self, command: QueuedSoundCommand) {
+        self.played_sound_effects.push(command.effect());
+        self.played_sound_commands.push(command);
+    }
+
+    pub fn new(assets: AssetManifest) -> Self {
+        let sega_screen_data = vdp::load_sega_screen_data(&assets).ok();
+        let intro_sub_1b850_data = vdp::load_intro_sub_1b850_data(&assets).ok();
+        let title_screen_data = vdp::load_title_screen_data(&assets).ok();
+        let title_card_data = vdp::load_title_card_data(&assets).ok();
+        let mut runtime = Self {
+            assets,
+            frame_index: 0,
+            boot_state: BootState::SegaScreen { elapsed: 0 },
+            trace_input: FrameInput::default(),
+            prior_input: FrameInput::default(),
+            previous_input: FrameInput::default(),
+            respawn_start_held_frames: 0,
+            respawn_live_handoff_frames: 0,
+            title_card_live_handoff_frames: 0,
+            debug_level_entry_suppresses_title_card_live_handoff: false,
+            start_press_count: 0,
+            current_level: LevelId(0),
+            level_start_frame: None,
+            progression: PlayerProgression::default(),
+            helmet: HelmetState::default(),
+            paused: false,
+            pause_menu_option: 0,
+            pause_toggle_pending: false,
+            pending_pause_restart_round: None,
+            pending_pause_last_life_give_up: false,
+            allow_pausing: false,
+            allow_pausing_fade_frames: 0,
+            pending_level_skip: None,
+            pending_level_skip_resume: false,
+            teleport_warp_colour_fbcc: 0,
+            level_entry_fade_progress_sub_73d0: 0,
+            level_entry_pending_palette_0_mask_sub_73d0: 0,
+            level_entry_pending_palette_1_mask_sub_73d0: 0,
+            pending_player_start_override_loc_11bd2: None,
+            player_lifecycle: PlayerLifecycle::Alive,
+            opening_slice: None,
+            probe_start_slope_settle_frames: 0,
+            starting_level_title_workers: Vec::new(),
+            starting_level_title_rng: None,
+            death_camera_lock: None,
+            death_windup_path: DeathWindupPath::default(),
+            death_preserved_object_velocity: None,
+            death_respawn_trace_profile: None,
+            level_skip_transition: None,
+            death_shell_snapshot: None,
+            level_complete_gfx_snapshot: None,
+            level_entry_camera_handoff: None,
+            level_entry_player_handoff: None,
+            level_skip_resume_hold: false,
+            active_enemy_roster: Vec::new(),
+            active_enemies: Vec::new(),
+            killed_enemies: HashSet::new(),
+            enemy_status_words: [0; 0x001E],
+            enemy_loading_initial_pass_complete: false,
+            drilled_blocks: Vec::new(),
+            active_platforms: Vec::new(),
+            active_platform_roster: Vec::new(),
+            active_platform_standing_on: None,
+            active_lift_platform_standing_on: None,
+            platform_script_table: None,
+            block_grid: None,
+            block_list: None,
+            block_grid_source: BlockGridSource::None,
+            game_complete: false,
+            block_state: BlockInteractionState::default(),
+            projectiles: Vec::new(),
+            heady_metal_breakup_slots_sub_37708: None,
+            heady_metal_cached_workers_sub_37708: None,
+            heady_metal_cached_worker_velocities_sub_3787c: HeadyMetalScatterVelocities::default(),
+            multi_head_boss_death_count_fb4e: 0,
+            boss_eye_breakup_trigger_words_fb72_fb74_fb76: [0; 3],
+            diamond_power_rain_slots: Vec::new(),
+            diamond_power_circle_slots: Vec::new(),
+            diamond_power_wall_slots: Vec::new(),
+            diamond_power_five_way_slots: Vec::new(),
+            diamond_power_snake_slots: Vec::new(),
+            diamond_power_extra_hp_life_slots: Vec::new(),
+            diamond_power_invuln_haze_slots: Vec::new(),
+            diamond_power_invuln_haze_timer: 0,
+            kid_is_invulnerable: false,
+            diamond_power_snake_head_angle: 0,
+            diamond_power_snake_turn_rate: 0,
+            diamond_power_snake_movement_speed: 0,
+            diamond_power_sprites: Vec::new(),
+            fire_demon_trails: Vec::new(),
+            weather: WeatherState::default(),
+            palette_buffer: [0; 0x40],
+            palette_buffer_2: [0; 0x40],
+            palette_buffer_3: [0; 0x40],
+            lava_geyser_palette_delay_loc_14b2a: 5,
+            rotate_palette_lava_water_loc_1223c: None,
+            island_shore_cycle_loc_1202a: None,
+            island_shore_dma_uploads_loc_1202a: Vec::new(),
+            lava_geyser_art_uploads_loc_14c6a: Vec::new(),
+            murder_wall: None,
+            block_bounces: Vec::new(),
+            prize_block_worker_tails: Vec::new(),
+            prize_block_spawn_flashes: Vec::new(),
+            kid_projectile_hit_sparks: Vec::new(),
+            hidden_block_fg_update_workers: Vec::new(),
+            block_destroy_effects: Vec::new(),
+            block_debris_swarms: Vec::new(),
+            block_debris_sprite_pieces_sub_2a4c: Vec::new(),
+            block_debris_scratch_cursor_sub_292e: 0,
+            floating_items: Vec::new(),
+            prize_helmet_collision_hibernate_delay_frames: 0,
+            prize_helmet_collision_hibernate_hitpoints_form: None,
+            prize_helmet_collision_hibernate_switch_form: None,
+            iron_knight_block_breaker: false,
+            iron_knight_last_metal_block_hit: None,
+            pending_prize_diamond_awards: Vec::new(),
+            pending_prize_diamond_hud_flights: Vec::new(),
+            pending_sound_effects: Vec::new(),
+            played_sound_effects: Vec::new(),
+            played_sound_commands: Vec::new(),
+            played_bgm_ids: Vec::new(),
+            played_music_speed_updates: Vec::new(),
+            enemy_death_effects: Vec::new(),
+            pending_dragon_death_children: Vec::new(),
+            pending_dragon_death_animations: Vec::new(),
+            stomped_this_frame: false,
+            kid_touched_enemy_last_frame_loc_fa74: false,
+            kid_touched_enemy_this_frame_loc_fa75: false,
+            pending_stomp_bounce: None,
+            pending_player_contact_damage: None,
+            delayed_player_contact_damage: None,
+            shooter_barrel_damage_latched_loc_1f52: false,
+            pending_grounded_dragon_landing_graze: None,
+            pending_enemy_collisions: Vec::new(),
+            rom_random: RomRandomState::default(),
+            blocks_hit_this_frame: 0,
+            sound_test_play_pending: false,
+            sega_screen_data,
+            intro_sub_1b850_data,
+            title_screen_data,
+            title_card_data,
+            vdp_state: None,
+            z80_stop_request_depth: 0,
+            z80_guard_sr: 0x2500,
+            z80_running: true,
+            options_two_player_two_controllers: false,
+            options_controls_scheme: 0,
+            options_speed_button_fast: false,
+            options_menu_panel_toggle_byte: 0,
+            options_menu_left_panel_x: 0x0030,
+            options_menu_right_panel_x: 0x0110,
+            options_menu_panel_delta: 0x0118,
+            level_timer: LevelTimer::new(),
+            hud_animation_state: boot::HudAnimationStateSub44DC::initialised_from_sub_44_b0(),
+            y_look_offset: 0,
+            camera_last_kid_y: 0,
+            level_damage_taken: false,
+            just_received_damage: false,
+            last_projectile_damage_probe: None,
+            last_drips_splash_reseed_probe: None,
+            lion_projectile_object_only_tail_count: 0,
+            drips_surface_crawler_count_loc_fffffb42: 0,
+            level_prize_collected: false,
+            level_speed_bonus_awarded: false,
+            level_path_bonus_amount: 0,
+            level_complete_initial_score: 0,
+            clocks_collected: 0,
+            hundred_k_trip_timer: 0,
+            title_idle_frames: 0,
+            title_screen_elapsed_frames: 0,
+            title_screen_uses_intro_return_hidden_shell: false,
+            intro_sequence_6_start_skip_cursor_trace_priority: false,
+            // ASM loc_61C seeds `$FFFFFC82` to 2 before the cold-boot intro;
+            // Load_IntroSequence5's first sub_1C278 call then wraps it to 0.
+            title_screen_region_byte: 2,
+            title_screen_ready_frame: TITLE_SCREEN_READY_GLOBAL_FRAME,
+            title_menu_arm_frame: 0,
+            title_menu_active: false,
+            title_menu_cursor_pending: false,
+            title_menu_hidden_prearm_pending: false,
+            title_menu_selection_pending: None,
+            title_menu_selection_delay_frames: 0,
+            demo_buffered_input: None,
+            pending_demo_title_return: 0,
+            demo_title_return_after_frame: false,
+            demo_auto_timeout_return_pending: false,
+            demo_auto_timeout_freeze_gameplay_frame: false,
+            demo_auto_timeout_handoff_active: false,
+            demo_auto_timeout_handoff_uses_intro_sequence_6_timeout_return_snapshot: false,
+            demo_auto_timeout_intro_sequence_1_frames_override: None,
+            demo_auto_timeout_intro_sequence_2_frames_override: None,
+            demo_auto_timeout_intro_sequence_3_frames_override: None,
+            demo_auto_timeout_intro_sequence_4_frames_override: None,
+            demo_auto_timeout_intro_sequence_5_frames_override: None,
+            timeout_restart_title_intro_sequence_3_return_pending: false,
+            timeout_restart_title_intro_sequence_4_return_pending: false,
+            timeout_restart_title_intro_sequence_5_return_pending: false,
+            preserve_demo_title_snapshot: false,
+            demo_title_snapshot_object_counts: None,
+            timeout_restart_title_intro_sequence_3_pose: false,
+            timeout_restart_title_intro_sequence_4_camera_carry: false,
+            timeout_restart_title_intro_sequence_5_pose: false,
+            timeout_restart_title_intro_sequence_5_uses_intro_return_hidden_delay: false,
+            timeout_restart_intro_sequence_4_pose_carry: false,
+            hide_demo_return_title_player: false,
+            ignore_demo_start_abort_until_gameplay: false,
+            demo_started_from_timeout_restart_shell: false,
+            intro_sequence_6_entered_from_timeout_restart: false,
+            next_demo_uses_start_skip_intro_return_camera_wrap: false,
+            demo_uses_start_skip_intro_return_camera_wrap: false,
+            next_demo_uses_demo_title_return_camera_wrap: false,
+            demo_uses_demo_title_return_camera_wrap: false,
+            demo_uses_intro_sequence_6_hidden_camera_wrap: false,
+            demo_uses_intro_sequence_6_early_title_restore: false,
+            timeout_restart_intro_sequence_1_uses_early_title_restore: false,
+            demo_uses_intro_sequence_6_later_demo_2_preload_row: false,
+            demo_uses_cold_intro_sequence_6_demo_2_preload_rows: false,
+            demo_uses_intro_sequence_6_timeout_return_velocity_sample: false,
+            demo_uses_intro_sequence_5_title_return_preload_row: false,
+            demo_title_return_uses_intro_sequence_6_early_title_restore: false,
+            demo_timeout_restart_uses_intro_return_slot_2_early_visibility: false,
+            demo_timeout_restart_uses_start_skip_intro_sequence_5_delay: false,
+            demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff: false,
+            next_intro_sequence_3_roster_index: 0,
+            active_intro_sequence_3_roster_index: 0,
+            demo_toggle: false,
+            demo_transform_active: false,
+            demo_post_transform_trace_velocity_hold_frames: 0,
+            wall_cling_boundary_trace_y_velocity: None,
+            two_player: false,
+            current_player_index: 0,
+            player_slots: [PlayerSlot::default(), PlayerSlot::default()],
+            physics_order: PhysicsOrder::default(),
+            trace_physics: false,
+            last_kid_frame_motion_branch: KidFrameMotionBranch::default(),
+            last_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
+            previous_kid_frame_post_motion_mutator: KidFramePostMotionMutator::default(),
+            last_platform_collision_scratch_loc_257e: PlatformCollisionScratchLoc257E::default(),
+            last_kid_collision_type: 0,
+            last_kid_frame_pre_physics_start: None,
+            last_kid_frame_pre_physics_before_physics: None,
+            last_kid_frame_pre_physics_mutators: Vec::new(),
+            last_kid_frame_collision_handoff_probe: None,
+            last_kid_frame_same_frame_stomp_probe: None,
+            last_kid_frame_iron_knight_attach_probe: None,
+            last_kid_frame_kid_flip_branch_probe: None,
+            last_kid_frame_kid_flip_follow_on_probe: None,
+            last_kid_frame_jump_gravity_probe: None,
+            last_kid_frame_grounded_release_probe: None,
+        };
+        runtime.reload_block_grid_for_level(LevelId(0));
+        runtime.load_platform_script_table();
+        runtime.update_vdp_state();
+        runtime
+    }
+
+    pub fn set_player_probe_position(&mut self, x_px: u16, y_px: u16) {
+        // ASM loc_C4E maintains held/pressed joypad latches outside the live
+        // GfxObject. Direct probe starts are WRAM seeds, so clear native's
+        // cached latches with the position seed instead of carrying whatever
+        // the settle route last held into frame 0.
+        self.prior_input = FrameInput::default();
+        self.previous_input = FrameInput::default();
+        // ASM loc_9F18 / direct WRAM probe bootstrap: oracle frame 0 exposes
+        // the patched slope snap before neutral loc_A13A slope continuation
+        // advances. Keep that as a probe-only synthetic first-frame guard.
+        self.probe_start_slope_settle_frames = 2;
+        if self.opening_slice.is_none() {
+            self.opening_slice = Some(if self.block_grid().is_some() {
+                self.level_respawn_slice_with_floor_snap(self.current_level)
+            } else {
+                self.level_respawn_slice(self.current_level)
+            });
+        }
+        if let Some(slice) = self.opening_slice.as_mut() {
+            slice.player.x_pos = u32::from(x_px) << 16;
+            slice.player.y_pos = u32::from(y_px) << 16;
+            slice.player.x_velocity = 0;
+            slice.player.y_velocity = 0;
+            slice.player.facing = Direction::Right;
+            slice.player.on_ground = true;
+            slice.player.just_jumped = false;
+            slice.player.jump_buffer_frames = 0;
+            slice.player.right_wall_sticky = false;
+            slice.player.left_wall_sticky = false;
+            slice.player.wall_cling_direction = None;
+            slice.terrain.floor_y_pos = u32::from(y_px) << 16;
+            slice.terrain.floor_terrain_type = TerrainType::Normal;
+            slice.terrain.slope_walk_kind = None;
+            slice.terrain.slope_sliding = false;
+        }
+    }
+
+    pub fn set_player_probe_velocity(&mut self, x_velocity: i32, y_velocity: i32) {
+        if let Some(slice) = self.opening_slice.as_mut() {
+            slice.player.x_velocity = x_velocity;
+            slice.player.y_velocity = y_velocity;
+            slice.player.on_ground = false;
+        }
+    }
+
+    pub fn set_camera_probe_position(&mut self, x_px: u16, y_px: u16) {
+        if let Some(slice) = self.opening_slice.as_mut() {
+            slice.camera.x_pos = u32::from(x_px) << 16;
+            slice.camera.y_pos = u32::from(y_px) << 16;
+        }
+    }
+
+    pub fn set_playtest_form(&mut self, form: PlayerForm) {
+        self.progression.current_form = form;
+        self.progression.number_hitpoints = form.max_hitpoints();
+    }
+
+    pub fn set_probe_diamond_count(&mut self, count: u16) {
+        self.progression.diamond_count = count;
+    }
+
+    pub fn set_probe_lives_count(&mut self, count: u16) {
+        // ASM variables.asm: `Number_Lives` is `$FFFFFC3E`; pause menu
+        // `Game_Paused_ChkStart` (kid.asm:6865) compares/decrements this word.
+        self.progression.number_lives = count;
+    }
+
+    fn apply_pause_menu_frame_loc_6ae0(&mut self, input: FrameInput, start_pressed: bool) {
+        // ASM Game_Paused_Loop (kid.asm:6829-6857): Up/Down only move the
+        // two-entry cursor when they are fresh Ctrl_Pressed edges.
+        if input.up && !self.previous_input.up {
+            if let Some(cursor) =
+                boot::pause_loop_up_handler_game_paused_loop(true, self.pause_menu_option)
+            {
+                self.pause_menu_option = cursor.new_pause_option;
+            }
+        } else if input.down
+            && !self.previous_input.down
+            && let Some(cursor) =
+                boot::pause_loop_down_handler_loc_6B0E(true, self.pause_menu_option)
+        {
+            self.pause_menu_option = cursor.new_pause_option;
+        }
+
+        match boot::pause_loop_start_handler_chk_start(
+            start_pressed,
+            self.pause_menu_option,
+            self.progression.number_lives,
+        ) {
+            boot::PauseMenuStartResult::NotPressed => {}
+            boot::PauseMenuStartResult::ContinueGame => {
+                self.paused = false;
+                self.pause_menu_option = 0;
+                self.pause_toggle_pending = false;
+                self.pending_pause_restart_round = None;
+                self.pending_pause_last_life_give_up = false;
+            }
+            boot::PauseMenuStartResult::RestartLevel { remaining_lives } => {
+                // ASM Game_Paused_ChkStart (kid.asm:6865-6876): after
+                // `subi.w #1,(Number_Lives).w`, the restart branch clears
+                // Extra_hitpoint_slots and Current_Helmet, restores Kid HP,
+                // sets the restart flag, then jumps through loc_6E2.
+                self.pause_toggle_pending = false;
+                self.pending_pause_last_life_give_up = false;
+                self.pending_pause_restart_round = Some(PauseRestartRoundState {
+                    remaining_lives,
+                    elapsed_frames: 0,
+                    level_state_cleared: false,
+                });
+            }
+            boot::PauseMenuStartResult::LastLifeGameOver => {
+                // ASM Game_Paused_ChkStart loc_6B62: the Start frame only
+                // decrements `Number_Lives` to zero and sets Game_Paused=3.
+                // The later loc_6C0A pause-exit tail runs on the next frame.
+                self.progression.number_lives = 0;
+                self.pause_toggle_pending = false;
+                self.pending_pause_restart_round = None;
+                self.pending_pause_last_life_give_up = true;
+            }
+        }
+    }
+
+    fn step_pause_last_life_give_up_loc_6c0a(&mut self) -> bool {
+        if !self.pending_pause_last_life_give_up {
+            return false;
+        }
+        self.pending_pause_last_life_give_up = false;
+        if let boot::PauseMenuUnpauseExitLoc6C0A::LastLifeGameOver { number_lives, .. } =
+            boot::pause_menu_unpause_exit_loc_6C0A(3)
+        {
+            // ASM loc_6C0A (kid.asm:6964-6973): last-life Give Up plays the
+            // bummer voice, sets Kid object action fields `$38/$3A`, writes
+            // Number_Lives=1, and clears Game_Paused. It does not write
+            // Number_Hitpoints; the subsequent death action advances later.
+            self.progression.number_lives = number_lives;
+            self.player_lifecycle = PlayerLifecycle::DeathWindup {
+                remaining_frames: PLAYER_DEATH_WINDUP_FRAMES,
+            };
+            self.paused = false;
+            self.pause_menu_option = 0;
+            self.pause_toggle_pending = false;
+            self.pending_pause_restart_round = None;
+            self.allow_pausing = false;
+            self.clear_level_entry_fade_sub_73d0();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn apply_pause_restart_life_spend_loc_6b46(&mut self, remaining_lives: u16) {
+        // ASM Game_Paused_ChkStart loc_6B46-loc_6B5E: the restart path spends
+        // one life, clears Extra_hitpoint_slots/Current_Helmet, restores Kid's
+        // base hitpoints, sets the restart flag, then jumps to loc_6E2.
+        self.progression.number_lives = remaining_lives;
+        self.progression.extra_hitpoint_slots = 0;
+        self.progression.current_form = PlayerForm::TheKid;
+        self.progression.pending_form = None;
+        self.progression.number_hitpoints = PlayerForm::TheKid.max_hitpoints();
+        self.progression.form_change_flash_frames = 0;
+        self.progression.form_width_delta = 0;
+        self.helmet.reset();
+    }
+
+    fn clear_pause_restart_level_state_loc_6e2(&mut self) {
+        // ASM loc_6E2 enters the Load_InGame reload shell before loc_6C3E
+        // finally clears Game_Paused. Oracle WRAM exposes a short blank object
+        // window here rather than live gameplay continuing under the menu.
+        self.opening_slice = None;
+        self.active_enemy_roster.clear();
+        self.active_enemies.clear();
+        self.pending_dragon_death_children.clear();
+        self.pending_dragon_death_animations.clear();
+        self.active_platforms.clear();
+        self.active_platform_roster.clear();
+        self.active_platform_standing_on = None;
+        self.active_lift_platform_standing_on = None;
+        self.projectiles.clear();
+        self.heady_metal_breakup_slots_sub_37708 = None;
+        self.floating_items.clear();
+        self.enemy_death_effects.clear();
+        self.pending_prize_diamond_awards.clear();
+        self.pending_prize_diamond_hud_flights.clear();
+        self.clear_block_object_workers_loc_6e2();
+    }
+
+    fn finish_pause_restart_round_loc_6c3e(&mut self) {
+        self.reset_current_level_runtime_state_for_respawn();
+        // ASM loc_6C3E clears Game_Paused after the loc_6E2 restart shell.
+        self.paused = false;
+        self.pause_menu_option = 0;
+        self.pause_toggle_pending = false;
+        self.pending_pause_restart_round = None;
+        self.initialise_level_entry_fade_sub_73d0();
+    }
+
+    fn step_pause_restart_round_shell_loc_6b46(&mut self) {
+        let Some(mut state) = self.pending_pause_restart_round else {
+            return;
+        };
+
+        state.elapsed_frames = state.elapsed_frames.saturating_add(1);
+        if state.elapsed_frames == PAUSE_RESTART_APPLY_LIFE_FRAME_LOC_6B46 {
+            self.apply_pause_restart_life_spend_loc_6b46(state.remaining_lives);
+        }
+        if state.elapsed_frames >= PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2
+            && !state.level_state_cleared
+        {
+            self.clear_pause_restart_level_state_loc_6e2();
+            state.level_state_cleared = true;
+        }
+        if state.elapsed_frames == PAUSE_RESTART_CLEAR_LEVEL_STATE_FRAME_LOC_6E2 {
+            // ASM loc_6C3E clears Game_Paused while the loc_6E2 reload shell
+            // is still blank; the live level state is rebuilt later.
+            self.paused = false;
+            self.pause_menu_option = 0;
+            self.pause_toggle_pending = false;
+        }
+        if state.elapsed_frames >= PAUSE_RESTART_REBUILD_LEVEL_STATE_FRAME_LOC_6E2 {
+            self.finish_pause_restart_round_loc_6c3e();
+        } else {
+            self.pending_pause_restart_round = Some(state);
+        }
+    }
+
+    #[allow(non_snake_case)]
+    #[allow(dead_code)]
+    fn stop_z80_guard_sub_914(&mut self) {
+        // ASM sub_914 (kid.asm:1027): increment `$FFFFF805`, raise SR to
+        // `$2700`, then call `j_Stop_z80` unconditionally. Nested callers keep
+        // stacking the byte counter even though the bus is already halted.
+        self.z80_stop_request_depth = self.z80_stop_request_depth.wrapping_add(1);
+        self.z80_guard_sr = 0x2700;
+        self.z80_running = false;
+    }
+
+    #[allow(non_snake_case)]
+    #[allow(dead_code)]
+    fn prepare_plane_clear_pass_loc_1698(&mut self) -> PlaneClearPassSetupLoc1698 {
+        self.stop_z80_guard_sub_914();
+        // ASM loc_1698 (kid.asm:2803): after `j_sub_914`, the ROM targets
+        // `$FE0000`, seeds `d0` with `#$3F` for the first 64-word `dbf` fill
+        // pass, and stores `#$20` into `4(a6)` before entering `loc_16B6`.
+        PlaneClearPassSetupLoc1698 {
+            target_addr: 0x00FE_0000,
+            dbf_seed: 0x003F,
+            next_source_longword: 0x0000_0020,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn start_z80_guard_sub_924(&mut self) {
+        // ASM sub_924 (kid.asm:1038): decrement the shared byte, branch on a
+        // signed `bgt` if nested stops remain, otherwise clear the byte,
+        // restore SR=`$2500`, and call `j_Start_z80`.
+        let remaining_depth = self.z80_stop_request_depth.wrapping_sub(1);
+        self.z80_stop_request_depth = remaining_depth;
+        if (remaining_depth as i8) > 0 {
+            return;
+        }
+        self.z80_stop_request_depth = 0;
+        self.z80_guard_sr = 0x2500;
+        self.z80_running = true;
+    }
+
+    fn load_platform_script_table(&mut self) {
+        let scripts_path = self.assets.source_root.join("level/platform_scripts.asm");
+        if let Ok(contents) = std::fs::read_to_string(&scripts_path) {
+            self.platform_script_table = Some(wildside_data::parse_platform_scripts(&contents));
+        }
+    }
+
+    pub fn with_generated_level_layout(assets: AssetManifest) -> Self {
+        Self::new(assets)
+    }
+
+    /// Override the physics sub-step ordering (for sweep comparison experiments).
+    pub fn set_physics_order(&mut self, order: PhysicsOrder) {
+        self.physics_order = order;
+    }
+
+    /// Enable sub-frame physics tracing for TAS debugging.
+    pub fn set_trace_physics(&mut self, enabled: bool) {
+        self.trace_physics = enabled;
+    }
+
+    /// Set the block collision grid for the current level.
+    /// Call after constructing the runtime, before stepping frames.
+    pub fn set_block_grid(&mut self, grid: terrain::BlockGrid) {
+        self.block_grid = Some(grid);
+        self.block_grid_source = BlockGridSource::Manual;
+    }
+
+    /// Set the block collision grid during a level-entry shell and rebuild the
+    /// hidden opening slice against that exact terrain.
+    pub fn set_level_entry_block_grid(&mut self, grid: terrain::BlockGrid) {
+        self.set_block_grid(grid);
+        if matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::LevelSkipHold
+        ) {
+            // ASM loc_74E0/loc_1AE2E re-enters Load_InGame with the target
+            // level terrain already loaded; play-native swaps generated assets
+            // at the shell boundary, so the hidden spawn settle must be rebuilt
+            // from the freshly loaded grid before gameplay is released.
+            self.opening_slice = Some(self.level_respawn_slice_with_floor_snap(self.current_level));
+        }
+    }
+
+    pub fn level_entry_opening_player_position(&self) -> Option<(u32, u32)> {
+        self.opening_slice
+            .map(|slice| (slice.player.x_pos, slice.player.y_pos))
+    }
+
+    /// Rebuild VDP state based on the current boot phase.
+    /// Called once per frame after `step_boot_state`.
+    fn update_vdp_state(&mut self) {
+        let previous_vdp_state = self.vdp_state.clone();
+        self.vdp_state = match &self.boot_state {
+            BootState::SegaScreen { elapsed } => self
+                .sega_screen_data
+                .as_ref()
+                .map(|data| vdp::build_sega_screen_vdp(data, *elapsed)),
+            BootState::TitleScreen { .. } if self.demo_auto_timeout_handoff_active => {
+                self.sega_screen_data.as_ref().map(|data| {
+                    // ASM ReadJoypad loc_C0A writes Game_Mode=$00 for the demo
+                    // auto-timeout restart. Native keeps the title-state timer
+                    // as scheduling state until IntroSequence1 takes over, but
+                    // the visible VDP must be the mode-0 Sega logo, not the
+                    // stale title shell.
+                    vdp::build_sega_screen_vdp(data, self.title_screen_elapsed_frames)
+                })
+            }
+            BootState::IntroSequence {
+                segment, elapsed, ..
+            } => self.intro_sub_1b850_data.as_ref().map(|data| {
+                if *segment == 0
+                    && let Some(sega_data) = self.sega_screen_data.as_ref()
+                {
+                    return vdp::build_intro_sequence_1_cold_boot_vdp_at_elapsed(
+                        data,
+                        sega_data,
+                        self.title_screen_region_byte,
+                        *elapsed,
+                    );
+                }
+                if *segment == 4
+                    && *elapsed == 0
+                    && let Some(vdp) = previous_vdp_state.clone()
+                {
+                    // ASM sub_1B988 writes Game_Mode=$24 and jumps through
+                    // j_loc_6E2; the oracle still displays the final
+                    // intro-sequence-4 VDP on that first trace frame before
+                    // loc_1BA28's hidden sub_1C204 shell goes black.
+                    return vdp;
+                }
+                vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
+                    data,
+                    *segment,
+                    self.title_screen_region_byte,
+                    *elapsed,
+                    self.active_intro_sequence_3_roster_index,
+                )
+            }),
+            BootState::IntroSequence6 { .. }
+                if !self.title_screen_vdp_ready()
+                    && self
+                        .intro_sequence_6_hidden_shell_frame_index_loc_1b43a()
+                        .is_none() =>
+            {
+                self.intro_sub_1b850_data.as_ref().map(|data| {
+                    // ASM loc_1BA5C writes `Game_Mode=$28`, then loc_1BA90 keeps
+                    // the intro-5 worker shell alive through the fade counter.
+                    // Load_IntroSequence6 then clears/fills VRAM, but
+                    // sub_1B43A/loc_1B446 still hibernates for `$2A` frames
+                    // before the first sub_1BF24 transformation frame is
+                    // visible. Keep the fully faded `$AAA` shell during that
+                    // blank interval; rebuilding the title-character tilemap
+                    // earlier leaves the stale white ninja silhouette visible.
+                    vdp::build_intro_sequence_5_fade_hold_vdp_at_elapsed(
+                        data,
+                        self.title_screen_region_byte,
+                        self.title_screen_elapsed_frames,
+                        self.active_intro_sequence_3_roster_index,
+                    )
+                })
+            }
+            BootState::IntroSequence6 { .. }
+                if self.intro_sequence_6_natural_title_vdp_rebuilt() =>
+            {
+                self.title_screen_data.as_ref().map(|data| {
+                    vdp::build_intro_sequence_6_vdp_after_loc_1b45a_title_art(
+                        data,
+                        self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                        self.title_screen_region_byte,
+                        self.current_camera_state().y_pos,
+                    )
+                })
+            }
+            BootState::IntroSequence6 { .. } if !self.title_screen_vdp_ready() => {
+                self.title_screen_data.as_ref().map(|data| {
+                    vdp::build_intro_sequence_6_vdp_with_character_frame(
+                        data,
+                        self.intro_sequence_6_hidden_shell_frame_index_loc_1b43a(),
+                        self.intro_sequence_6_lightning_flash_frame_loc_1b37c(),
+                        self.title_screen_region_byte,
+                        self.current_camera_state().y_pos,
+                    )
+                })
+            }
+            BootState::TitleScreen { .. }
+                if self.title_screen_uses_intro_return_hidden_shell
+                    && !self.intro_sequence_6_start_skip_cursor_trace_priority
+                    && !self.title_screen_vdp_ready()
+                    && self.title_screen_ready_frame
+                        <= INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME =>
+            {
+                self.title_screen_data.as_ref().map(|data| {
+                    // ASM loc_1BAB0 (kid.asm:30370) can switch Game_Mode via
+                    // sub_1C246 while the sibling sub_1B43A worker is still
+                    // presenting loc_1B446 hidden-shell frames. Until the
+                    // early fast-restore title shell is ready, keep rebuilding
+                    // that still-visible IntroSequence6 VDP from the cold
+                    // Load_IntroSequence6 global timeline.
+                    let intro_sequence_6_elapsed = self
+                        .frame_index
+                        .saturating_sub(INTRO_SEQUENCE_6_COLD_BOOT_GLOBAL_START_FRAME);
+                    vdp::build_intro_sequence_6_vdp_with_character_frame_at_elapsed(
+                        data,
+                        intro_sequence_6_elapsed,
+                        self.title_screen_region_byte,
+                        self.current_camera_state().y_pos,
+                    )
+                })
+            }
+            BootState::TitleScreen { .. } if self.title_screen_vdp_blackout() => {
+                Some(vdp::blank_vdp_state())
+            }
+            BootState::IntroSequence6 { .. } | BootState::TitleScreen { .. } => {
+                self.title_screen_data.as_ref().map(|data| {
+                    let menu_cursor = if self.title_menu_active && !self.title_menu_cursor_pending {
+                        match self.boot_state {
+                            BootState::TitleScreen { cursor }
+                            | BootState::IntroSequence6 { cursor, .. } => Some(cursor),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    };
+                    let title_vdp_ready = self.title_screen_vdp_ready();
+                    let frame_index = if title_vdp_ready {
+                        7
+                    } else {
+                        self.title_screen_character_frame_index_sub_1bf24()
+                    };
+                    let natural_intro_sequence_6_pre_ready_shell =
+                        matches!(self.boot_state, BootState::IntroSequence6 { .. })
+                            && !self.intro_sequence_6_start_skip_cursor_trace_priority
+                            && title_vdp_ready
+                            && !self.title_screen_ready();
+                    vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                        data,
+                        frame_index,
+                        self.title_screen_region_byte,
+                        menu_cursor,
+                        title_vdp_ready,
+                        self.title_screen_elapsed_frames,
+                        vdp::TitleScreenVdpLineage {
+                            intro_return_hidden_shell: self
+                                .title_screen_uses_intro_return_hidden_shell,
+                            natural_intro_sequence_6_pre_ready_shell,
+                        },
+                    )
+                })
+            }
+            BootState::StartingLevel { .. } => {
+                let theme_index = self.current_level_title_card_theme_index();
+                self.title_card_data
+                    .as_ref()
+                    .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
+            }
+            BootState::DemoPlay {
+                frame_counter,
+                use_demo_2,
+                ..
+            } if *frame_counter < self.demo_gameplay_start_frame(*use_demo_2) => {
+                // ASM Obj_TitleMenu loc_1BB02 -> Load_DemoPlay -> Load_InGame
+                // keeps the pre-gameplay demo bootstrap visually black even
+                // after Game_Mode has become DemoPlay.
+                Some(vdp::blank_vdp_state())
+            }
+            _ if matches!(self.player_lifecycle, PlayerLifecycle::Respawning { .. }) => {
+                // ASM lose_life -> Teleport loc_B8DE writes Game_Mode=$0008
+                // and re-enters loc_6E2, which dispatches Load_TitleCard
+                // before Load_InGame. The hidden respawn shell therefore
+                // renders the current level's title-card VDP background, not
+                // a plain black transition frame.
+                let theme_index = self.current_level_title_card_theme_index();
+                self.title_card_data
+                    .as_ref()
+                    .and_then(|data| vdp::build_title_card_vdp(data, theme_index))
+            }
+            _ => None,
+        };
+    }
+
+    fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a(&self) -> Option<u8> {
+        let script = crate::boot::title_screen_hidden_shell_script_loc_1B446();
+        const LOC_1B446_NATIVE_PRESENTATION_ADVANCE_FRAMES: usize = 16;
+
+        // ASM loc_1BA90 runs the intro-5 fade hold before j_loc_6E2 enters
+        // Load_IntroSequence6. Native's title_screen_elapsed_frames includes
+        // that handoff window, but sub_1B43A's `$2A` wait starts afterwards.
+        // Oracle full-frame captures show the first loc_1B446/sub_1BF24
+        // hidden-shell upload already visible at cold-boot frame 2432 and
+        // still blank at 2428, 16 native-local frames earlier than the raw
+        // object-loop count because the VDP upload is presented before the
+        // next traced object snapshot.
+        let elapsed = self
+            .title_screen_elapsed_frames
+            .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS)
+            .saturating_add(LOC_1B446_NATIVE_PRESENTATION_ADVANCE_FRAMES);
+        let initial = usize::from(script.initial_hibernate_frames);
+        if elapsed < initial {
+            return None;
+        }
+        let local = elapsed - initial;
+        // ASM loc_1B446 hibernates before each `unk_1B4D6` byte. Oracle frame
+        // 2460 still lands in the early `0,1,0` flicker, so native's VDP
+        // reconstruction keeps that first repeated-zero window before applying
+        // the ROM's 3-frame byte cadence.
+        let step = usize::from(script.loop_hibernate_frames).max(1);
+        // ASM loc_1B446 presents the initial sub_1BF24(d4=0) title mapping
+        // through the first long hidden-shell hold. Oracle VRAM frame 2460
+        // still has the `$20C1` frame-0 mapping and only starts the
+        // `unk_1B4D6` 0/1 flicker at frame 2481, so the native reconstruction
+        // keeps the retained zero frame before advancing through the byte
+        // stream at the ROM's 3-frame cadence.
+        let frame_index = local.saturating_sub((step * 15) + 1) / step;
+        script.title_frames.get(frame_index).copied().or_else(|| {
+            // ASM sub_1B43A/loc_1B446 stops dispatching sub_1BF24 after the
+            // `$FF` sentinel, but it does not clear the VRAM rectangle; the
+            // final `unk_1B4D6` frame remains visible until loc_1B45A/loc_1B5CE
+            // overwrite it. Native rebuilds VDP state from scratch each frame,
+            // so replay the retained frame explicitly.
+            script.title_frames.last().copied()
+        })
+    }
+
+    fn intro_sequence_6_lightning_flash_frame_loc_1b37c(&self) -> u8 {
+        const LOC_1B37C_FIRST_PRESENTED_UPLOAD_DELAY_FRAMES: usize = 3;
+        const LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES: usize = 49;
+        const LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES: usize =
+            LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES + 3;
+        const LOC_1B3BC_LAST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES: usize =
+            LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES + ((0x002C + 1) * 3) + 2;
+
+        let sequence = crate::boot::title_screen_lightning_sequence_loc_1B37C();
+        if (LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES
+            ..=LOC_1B3BC_LAST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES)
+            .contains(&self.title_screen_elapsed_frames)
+        {
+            // ASM loc_1B3BC (kid.asm:29608): after the opening flashes, the
+            // DBF loop uploads `(d1 & 3) + 1` for d1=$2C..0. Oracle WRAM at
+            // cold-boot frames 2460/2520/2580 shows this loop starts on native
+            // title elapsed 49 and keeps d1=0's flash visible while hibernating
+            // before the first post-loop zero upload.
+            let loop_uploads =
+                (self.title_screen_elapsed_frames - LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES) / 3;
+            let d1 = 0x002C_u16
+                .saturating_add(1)
+                .saturating_sub(loop_uploads.try_into().unwrap_or(u16::MAX));
+            return ((d1 & 3) + 1) as u8;
+        }
+        // ASM loc_1BA90's intro-5 fade hold precedes Load_IntroSequence6, and
+        // loc_1B37C then begins with `j_Hibernate_Object #3` before its first
+        // `sub_1B41C` upload is visible. Native rebuilds the whole VDP image
+        // from counters, so model that local presentation delay explicitly.
+        let worker_elapsed = self
+            .title_screen_elapsed_frames
+            .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS)
+            .saturating_sub(LOC_1B37C_FIRST_PRESENTED_UPLOAD_DELAY_FRAMES);
+        let mut elapsed_at_step = 0usize;
+        let mut flash_frame = 0u8;
+        for step in sequence.steps {
+            elapsed_at_step += usize::from(step.hibernate_frames);
+            if worker_elapsed < elapsed_at_step {
+                break;
+            }
+            flash_frame = step.flash_frame;
+        }
+        flash_frame
+    }
+
+    fn title_screen_vdp_ready(&self) -> bool {
+        self.title_screen_ready()
+            || (self.intro_sequence_6_start_skip_cursor_trace_priority
+                && self.title_screen_elapsed_frames
+                    >= INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES)
+            || (matches!(self.boot_state, BootState::IntroSequence6 { .. })
+                && !self.intro_sequence_6_start_skip_cursor_trace_priority
+                && self.title_screen_elapsed_frames
+                    >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES)
+    }
+
+    fn intro_sequence_6_natural_title_vdp_rebuilt(&self) -> bool {
+        matches!(self.boot_state, BootState::IntroSequence6 { .. })
+            && !self.intro_sequence_6_start_skip_cursor_trace_priority
+            && !self.title_screen_ready()
+            && self.title_screen_elapsed_frames >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES
+            && self.title_screen_elapsed_frames < INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES
+    }
+
+    fn title_screen_vdp_blackout(&self) -> bool {
+        // The second branch's `&& !skip` is redundant: the outer `skip ||` already
+        // short-circuits when skip is set, so it is dropped here.
+        (self.intro_sequence_6_start_skip_cursor_trace_priority
+            || (self.title_screen_uses_intro_return_hidden_shell
+                && self.title_screen_ready_frame
+                    > INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME))
+            && !self.title_screen_vdp_ready()
+    }
+
+    fn title_screen_character_frame_index_sub_1bf24(&self) -> u8 {
+        if self.title_screen_ready() {
+            // ASM Load_TitleScreen (kid.asm:29456): `moveq #7,d4; bsr.w
+            // sub_1BF24` draws the visible title character once the hidden
+            // intro-return rebuild has completed.
+            return 7;
+        }
+        if !self.title_screen_uses_intro_return_hidden_shell {
+            return 0;
+        }
+
+        let script = crate::boot::title_screen_hidden_shell_script_loc_1B446();
+        let elapsed = self.title_screen_elapsed_frames;
+        let initial = usize::from(script.initial_hibernate_frames);
+        if elapsed < initial {
+            return 0;
+        }
+        let local = elapsed - initial;
+        let step = usize::from(script.loop_hibernate_frames).max(1);
+        let frame_index = local / step;
+        script
+            .title_frames
+            .get(frame_index)
+            .copied()
+            .unwrap_or_else(|| {
+                crate::boot::title_screen_hidden_shell_palette_restore_loc_1B45A().blackout_frame
+            })
+    }
+
+    fn current_level_title_card_theme_index(&self) -> u8 {
+        load_level_asset_bundle(&self.assets, self.current_level.0)
+            .ok()
+            .and_then(|bundle| bundle.parsed_header.map(|header| header.level_theme & 0x0F))
+            .unwrap_or(0)
+    }
+
+    pub fn block_grid(&self) -> Option<&terrain::BlockGrid> {
+        self.block_grid.as_ref()
+    }
+
+    /// Returns the current VDP state for non-gameplay screen rendering.
+    /// `Some` during Sega screen, intro sequences, and title screen;
+    /// `None` during gameplay where the pre-extracted asset pipeline renders.
+    pub fn vdp_state(&self) -> Option<&vdp::VdpState> {
+        self.vdp_state.as_ref()
+    }
+
+    pub fn step_frame(&mut self, input: FrameInput) -> NativeTraceFrame {
+        let title_card_live_handoff_active_at_frame_start = self.title_card_live_handoff_frames > 0;
+        if title_card_live_handoff_active_at_frame_start {
+            self.title_card_live_handoff_frames =
+                self.title_card_live_handoff_frames.saturating_sub(1);
+        }
+
+        let raw_input = input;
+        self.trace_input = input;
+        self.previous_kid_frame_post_motion_mutator = self.last_kid_frame_post_motion_mutator;
+        self.last_kid_frame_motion_branch = KidFrameMotionBranch::None;
+        self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::None;
+        self.last_platform_collision_scratch_loc_257e = PlatformCollisionScratchLoc257E::default();
+        self.shooter_barrel_damage_latched_loc_1f52 = false;
+        self.last_kid_collision_type = 0;
+        self.last_kid_frame_pre_physics_start = None;
+        self.last_kid_frame_pre_physics_before_physics = None;
+        self.last_kid_frame_pre_physics_mutators.clear();
+        self.last_kid_frame_collision_handoff_probe = None;
+        self.last_kid_frame_same_frame_stomp_probe = None;
+        self.last_kid_frame_iron_knight_attach_probe = None;
+        self.last_kid_frame_kid_flip_branch_probe = None;
+        self.last_kid_frame_kid_flip_follow_on_probe = None;
+        self.last_kid_frame_jump_gravity_probe = None;
+        self.last_kid_frame_grounded_release_probe = None;
+        self.last_drips_splash_reseed_probe = None;
+        self.wall_cling_boundary_trace_y_velocity = self
+            .wall_cling_boundary_trace_y_velocity
+            .and_then(|(y_velocity, frames)| {
+                frames
+                    .checked_sub(1)
+                    .filter(|remaining| *remaining > 0)
+                    .map(|remaining| (y_velocity, remaining))
+            });
+        let replay_demo_1_timeout_handoff_frame = matches!(
+            self.boot_state,
+            BootState::DemoPlay {
+                use_demo_2: false,
+                ..
+            }
+        ) && self.demo_auto_timeout_return_pending
+            && self.demo_buffered_input.is_some();
+        if replay_demo_1_timeout_handoff_frame {
+            self.demo_auto_timeout_return_pending = false;
+        } else if self.demo_auto_timeout_return_pending {
+            self.demo_auto_timeout_return_pending = false;
+            self.finish_demo_auto_timeout_return();
+        }
+        let demo_mode_active = matches!(self.boot_state, BootState::DemoPlay { .. });
+        let Some(input) = self.step_demo_input(input, replay_demo_1_timeout_handoff_frame) else {
+            self.trace_input = raw_input;
+            return self.trace_frame();
+        };
+        let input = self.readjoypad_input_with_options_loc_bb6(input, demo_mode_active);
+        self.trace_input = input;
+        self.maybe_begin_pending_level_skip();
+        self.maybe_begin_pending_level_skip_resume();
+        self.maybe_finish_level_skip_resume();
+        let freeze_demo_auto_timeout_snapshot = self.demo_auto_timeout_freeze_gameplay_frame;
+        // ASM loc_C4E (kid.asm:1404): ReadJoypad edge detection —
+        // `eor.b d1,d0; and.b (Ctrl_1).w,d0; or.b d0,(Ctrl_1_Pressed).w`
+        // computes newly-pressed bits, then copies held state:
+        // `move.b (Ctrl_1).w,(Ctrl_1_Held).w`. Native equivalent: compare
+        // current `input` fields against `self.previous_input` for rising
+        // edges, then store `self.previous_input = input` at frame end.
+        let start_pressed = input.start && !self.previous_input.start;
+        let apply_pending_pause_toggle = self.pause_toggle_pending;
+        self.pause_toggle_pending = false;
+        self.step_pause_restart_round_shell_loc_6b46();
+        let pause_last_life_exit_frame = self.step_pause_last_life_give_up_loc_6c0a();
+        // Two distinct ASM pause routines (loc_6b46 restart-round, loc_6c0a
+        // last-life give-up) both suppress the toggle; kept as separate arms to
+        // document that each ROM mechanism independently gates it.
+        #[allow(clippy::if_same_then_else)]
+        if self.pending_pause_restart_round.is_some() {
+            self.pause_toggle_pending = false;
+        } else if self.pending_pause_last_life_give_up {
+            self.pause_toggle_pending = false;
+        } else if self.paused {
+            self.apply_pause_menu_frame_loc_6ae0(input, start_pressed);
+        } else {
+            self.handle_start_press(input, start_pressed);
+        }
+        let frame_started_in_sega_screen = matches!(self.boot_state, BootState::SegaScreen { .. });
+        let frame_started_in_title_screen =
+            matches!(self.boot_state, BootState::TitleScreen { .. });
+        let frame_started_in_level_entry =
+            matches!(self.boot_state, BootState::StartingLevel { .. });
+        let level_entry_hibernated_gameplay_input =
+            self.starting_level_title_card_bootstrap_active_loc_1ae2e();
+        self.step_boot_state(input, start_pressed);
+        self.update_vdp_state();
+        if frame_started_in_sega_screen
+            && matches!(self.boot_state, BootState::IntroSequence { .. })
+        {
+            // ASM Sega/logo boot still runs through Mode_Standard on the frame
+            // that flips into `Game_Mode=$0004`, so Execute_Objects burns one
+            // `Get_RandomNumber_long` before IntroSequence1 becomes visible on
+            // the traced frame.
+            let _ = self.rom_random.next_long();
+        }
+        if frame_started_in_title_screen && self.title_screen_rng_long_burn_active() {
+            // ASM TitleScreen still runs through Mode_Standard
+            // (kid.asm:854-894), but oracle keeps `RNG_Offset` frozen through
+            // the hidden title rebuild window after the early `$002C`
+            // hand-off. Only burn `Get_RandomNumber_long` outside that
+            // oracle-backed freeze range.
+            let _ = self.rom_random.next_long();
+        }
+        self.step_allow_pausing_fade_sub_73d0();
+        if frame_started_in_level_entry
+            && let BootState::StartingLevel {
+                elapsed_frames,
+                uses_load_ingame_bootstrap,
+                ..
+            } = self.boot_state
+        {
+            let cold_boot_titlecard_long_burn =
+                    // Oracle WRAM watches keep the cold-boot mode-$0008 shell
+                    // RNG-idle through the hidden carry window, then expose a
+                    // single pre-visible `Execute_Objects` burn on the frame
+                    // immediately before the loc_1AB26 / loc_1AD48 seed
+                    // batches wake.
+                    elapsed_frames
+                        == crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME
+                            .saturating_sub(4)
+                        // The burn resumes on the first visible frame when
+                        // Execute_Objects first runs the loc_1AB26/loc_1AD48
+                        // workers, and continues every frame after.
+                        || elapsed_frames
+                            >= crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME;
+            if uses_load_ingame_bootstrap || cold_boot_titlecard_long_burn {
+                // ASM loc_6E2 -> Load_TitleCard keeps the cold-boot
+                // mode-$0008 title-card shell dormant through an early
+                // hidden pre-roll. The burn resumes once the
+                // loc_1AB26/loc_1AD48 workers are live within
+                // Execute_Objects — frame 43 (letter batch) and 44
+                // (deferred number) both burn, matching oracle delta of
+                // 38 bytes (4 long + 34 worker bytes).
+                let _ = self.rom_random.next_long();
+            }
+        }
+        if let BootState::StartingLevel {
+            elapsed_frames,
+            uses_load_ingame_bootstrap,
+            load_ingame_bootstrap_started,
+            ..
+        } = self.boot_state
+        {
+            if uses_load_ingame_bootstrap
+                && !load_ingame_bootstrap_started
+                // ASM Obj_TitleMenu Title_InputLoop/loc_1BB52 still owns the
+                // carried early-start shell for this window. Keep a separate
+                // loc_1AC70 seed stream that only begins burning RNG once the
+                // later Load_TitleCard worker lineage is active.
+                && elapsed_frames >= EARLY_START_TITLE_MENU_SHELL_CARRY_FRAMES
+                && let Some(title_rng) = self.starting_level_title_rng.as_mut()
+            {
+                let _ = title_rng.next_long();
+            }
+            self.maybe_seed_starting_level_title_workers(elapsed_frames);
+        }
+        if let BootState::DemoPlay { use_demo_2, .. } = self.boot_state
+            && self.demo_gameplay_active()
+            && self.opening_slice.is_none()
+        {
+            self.begin_demo_gameplay(NativeRuntime::demo_level_id(use_demo_2));
+        }
+
+        let gameplay_slice_active = matches!(
+            self.boot_state,
+            BootState::StartingLevel { .. } | BootState::InGame
+        ) || (self.demo_gameplay_active()
+            && self.opening_slice.is_some());
+        let preserve_demo_title_snapshot_frame =
+            matches!(self.boot_state, BootState::TitleScreen { .. })
+                && self.preserve_demo_title_snapshot;
+        let hundred_k_trip_teleport_started = !freeze_demo_auto_timeout_snapshot
+            && !preserve_demo_title_snapshot_frame
+            && self.step_hundred_k_trip_timer_loc_7452();
+        let hundred_k_trip_transition_active =
+            matches!(self.boot_state, BootState::HundredKTripTransition { .. });
+        if !freeze_demo_auto_timeout_snapshot
+            && !preserve_demo_title_snapshot_frame
+            && !hundred_k_trip_teleport_started
+            && !hundred_k_trip_transition_active
+        {
+            self.refresh_active_roster();
+            self.step_pending_prize_diamond_awards();
+            self.step_pending_sound_effects();
+            self.step_pending_dragon_death_children();
+            // ASM loc_892 (kid.asm:956): Mode_Level rendering tail join point.
+            // When $FFFFFB49 (paused), skip j_DiamondPower_CompileSprites and
+            // Make_SpritesFromPlatforms but still run j_sub_30194 (HUD sprites),
+            // j_loc_3038A (scroll data transfer / Time_Frames), sub_14C0
+            // (palette fade). All three tail calls are visual/VDP — not modelled.
+            // Diamond Power uses raw input (Start+A held) since gameplay_input delays A by 1 frame
+            if matches!(self.player_lifecycle, PlayerLifecycle::Alive)
+                && gameplay_slice_active
+                && !self.paused
+                && self.pending_pause_restart_round.is_none()
+                && !pause_last_life_exit_frame
+            {
+                // ASM Mode_Level calls DiamondPower_Run before ReadJoypad.
+                // In native's post-step trace indexing, the ROM `Ctrl_Held`
+                // value visible to DiamondPower_Run is the two-frame
+                // `prior_input` latch; `previous_input` is already the value
+                // movement sees for this traced frame.
+                self.step_diamond_power(self.prior_input);
+            }
+            if gameplay_slice_active
+                && !self.paused
+                && self.pending_pause_restart_round.is_none()
+                && !pause_last_life_exit_frame
+            {
+                if matches!(self.boot_state, BootState::InGame)
+                    || (self.demo_gameplay_active() && self.opening_slice.is_some())
+                {
+                    // ASM Execute_Objects loc_E12 (kid.asm:1636) starts every
+                    // live Mode_Level object pass with Get_RandomNumber_long
+                    // before object coroutines, Diamond Power, and Kid motion.
+                    let _ = self.rom_random.next_long();
+                }
+                // ASM loc_1AE2E only gates the later `Game_Mode=$000C`
+                // transition; the hidden mode-$0008 level-entry shell still
+                // runs the gameplay/object slice before that visible Start.
+                let title_card_hibernates_gameplay_input =
+                    self.starting_level_title_card_bootstrap_active_loc_1ae2e();
+                let demo_live_input = matches!(self.boot_state, BootState::DemoPlay { .. })
+                    && self
+                        .demo_startup_frame()
+                        .is_some_and(|frame| frame > demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
+                let gameplay_input = if title_card_hibernates_gameplay_input {
+                    FrameInput::default()
+                } else if demo_live_input {
+                    input
+                } else {
+                    self.gameplay_input(input)
+                };
+                let jump_pressed = if title_card_hibernates_gameplay_input {
+                    false
+                } else if demo_live_input {
+                    input.b && !self.previous_input.b
+                } else {
+                    self.gameplay_jump_pressed()
+                };
+                let demo_use_demo_2 = self.demo_uses_second_recording();
+                let demo_gameplay_start = demo_use_demo_2
+                    .map_or(demo::DEMO_GAMEPLAY_START_FRAME, |use_demo_2| {
+                        self.demo_gameplay_start_frame(use_demo_2)
+                    });
+                match self.demo_startup_frame() {
+                    Some(frame)
+                        if demo_use_demo_2 == Some(false)
+                            && (demo_gameplay_start..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
+                                .contains(&frame) =>
+                    {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapPoseHold;
+                        self.apply_demo_1_bootstrap_pose_hold();
+                    }
+                    Some(frame) if frame == demo_gameplay_start => {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapCameraHandoff;
+                        self.apply_demo_bootstrap_camera_handoff();
+                    }
+                    Some(frame) if frame == demo::DEMO_BOOTSTRAP_INIT_FRAME => {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapInitialSettle;
+                        self.apply_demo_bootstrap_initial_settle();
+                    }
+                    Some(frame)
+                        if frame > demo::DEMO_BOOTSTRAP_INIT_FRAME
+                            && frame < demo::DEMO_BOOTSTRAP_GROUNDED_FRAME =>
+                    {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapFreefall;
+                        self.apply_demo_bootstrap_freefall(frame);
+                    }
+                    Some(frame)
+                        if (demo::DEMO_BOOTSTRAP_GROUNDED_FRAME
+                            ..=demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME)
+                            .contains(&frame) =>
+                    {
+                        self.last_kid_frame_motion_branch =
+                            KidFrameMotionBranch::DemoBootstrapGroundedHold;
+                        self.apply_demo_bootstrap_grounded_hold();
+                    }
+                    _ => {
+                        if self.try_apply_demo_bootstrap_grounded_run(gameplay_input, jump_pressed)
+                        {
+                            self.last_kid_frame_motion_branch =
+                                KidFrameMotionBranch::DemoBootstrapGroundedRun;
+                        } else {
+                            self.seed_demo_1_late_jump_reentry();
+                            self.restore_demo_1_late_fall_velocity();
+                            self.refresh_demo_grounded_run_surface_type();
+                            self.apply_evanescent_sprite_only_overlays_before_kid_loc_EDB0();
+                            // ASM Execute_Objects order lets the Skull Mountain 3
+                            // ghost-block worker (`sub_F730`) update Level_Layout
+                            // before Kid's `sub_902A` ceiling probes consume it.
+                            self.step_ghost_blocks();
+                            self.refresh_opening_slice(gameplay_input, jump_pressed);
+                            self.repair_timeout_restart_demo_1_late_jump_reentry();
+                        }
+                    }
+                }
+            }
+        } else {
+            self.last_kid_frame_motion_branch = KidFrameMotionBranch::DemoAutoTimeoutFrozen;
+        }
+        if apply_pending_pause_toggle {
+            self.paused = !self.paused;
+        }
+        if self.demo_title_return_after_frame {
+            self.demo_title_return_after_frame = false;
+            self.finish_demo_title_return(raw_input);
+        }
+        if replay_demo_1_timeout_handoff_frame {
+            self.finish_demo_auto_timeout_return();
+        }
+
+        if gameplay_slice_active {
+            // ASM Mode_Level loc_80C (kid.asm:923): `bsr.w sub_44DC` advances
+            // animated HUD VRAM pages once per level frame before the rendered
+            // frame is sampled.
+            let step = boot::step_hud_animation_sub_44DC(self.hud_animation_state);
+            self.hud_animation_state = step.next_state;
+            // ASM loc_BF2A (kid.asm:15526): the lives HUD path clamps
+            // Number_Lives to 99 during display, not when prizes/score award
+            // extra lives.
+            self.progression.number_lives =
+                boot::hud_lives_clamp_loc_BF2A(self.progression.number_lives);
+        }
+
+        let trace = self.trace_frame();
+        if self.demo_post_transform_trace_velocity_hold_frames > 0 {
+            self.demo_post_transform_trace_velocity_hold_frames -= 1;
+        }
+        self.demo_auto_timeout_freeze_gameplay_frame = false;
+        self.prior_input = self.previous_input;
+        // ASM loc_C4E (kid.asm:1410): `move.b (Ctrl_1).w,(Ctrl_1_Held).w` —
+        // latch current held state for next-frame edge detection. Also
+        // loc_C9C: route Ctrl_1_Held/Pressed → Ctrl_Held/Pressed (1P default).
+        self.previous_input = if level_entry_hibernated_gameplay_input {
+            // ASM loc_1AE2E consumes only Ctrl_Pressed Start while the
+            // title-card shell owns mode $0008. Gameplay bits held on that
+            // handoff frame must not become the first live Mode_Level latch.
+            FrameInput {
+                start: input.start,
+                ..FrameInput::default()
+            }
+        } else {
+            input
+        };
+        if matches!(self.boot_state, BootState::LevelSkipHold)
+            && let Some(transition) = self.level_skip_transition.as_mut()
+        {
+            transition.elapsed_frames += 1;
+        }
+        self.frame_index += 1;
+        trace
+    }
+
+    fn begin_kid_pre_physics_probe(&mut self, player: PlayerState) {
+        self.last_kid_frame_pre_physics_start = Some(player);
+        self.last_kid_frame_pre_physics_before_physics = Some(player);
+        self.last_kid_frame_pre_physics_mutators.clear();
+    }
+
+    fn begin_kid_collision_handoff_probe(&mut self, slice: &OpeningSliceState) {
+        let player = slice.player;
+        // ROM loc_AA22 runs Character_CheckCollision immediately before sub_B168,
+        // and Jump_On_Enemy can already restore the saved anchor and inject the
+        // bounce velocity there. Native does not have the same collision payload,
+        // so record the closest pre-physics stomp/collision carry state here.
+        let stomp_candidate =
+            self.first_stomp_contact_candidate(slice, player.y_velocity, player.y_pos);
+        self.last_kid_frame_collision_handoff_probe = Some(KidCollisionHandoffProbe {
+            player_lifecycle: self.player_lifecycle,
+            previous_post_motion_mutator: self.previous_kid_frame_post_motion_mutator,
+            pending_stomp_bounce: self.pending_stomp_bounce.is_some(),
+            pending_contact_damage: self.pending_player_contact_damage.is_some(),
+            pending_form: self.progression.pending_form,
+            pending_level_skip: self.pending_level_skip,
+            form_change_flash_frames: self.progression.form_change_flash_frames,
+            on_ground_before: player.on_ground,
+            jump_buffer_frames: player.jump_buffer_frames,
+            wall_cling_direction: player.wall_cling_direction,
+            stomp_candidate: stomp_candidate.is_some(),
+            stomp_enemy_object_type: stomp_candidate.as_ref().and_then(|enemy| match enemy.kind {
+                NativeObjectKind::Enemy { object_type } => Some(object_type),
+                _ => None,
+            }),
+            stomp_enemy_x_pos: stomp_candidate.as_ref().map(|enemy| enemy.x_pos),
+            stomp_enemy_y_pos: stomp_candidate.as_ref().map(|enemy| enemy.y_pos),
+            anchor_x_pos: player.x_pos,
+            anchor_y_pos: player.y_pos,
+        });
+    }
+
+    fn note_kid_same_frame_stomp_probe(
+        &mut self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+        pre_physics_y_pos: u32,
+        frame_start_x_pos: u32,
+        frame_start_y_pos: u32,
+    ) {
+        let candidate =
+            self.first_stomp_contact_candidate(slice, pre_physics_y_velocity, pre_physics_y_pos);
+        self.last_kid_frame_same_frame_stomp_probe = Some(KidSameFrameStompProbe {
+            stomp_candidate: candidate.is_some(),
+            enemy_object_type: candidate.as_ref().and_then(|enemy| match enemy.kind {
+                NativeObjectKind::Enemy { object_type } => Some(object_type),
+                _ => None,
+            }),
+            enemy_x_pos: candidate.as_ref().map(|enemy| enemy.x_pos),
+            enemy_y_pos: candidate.as_ref().map(|enemy| enemy.y_pos),
+            pre_physics_y_velocity,
+            post_physics_y_velocity: slice.player.y_velocity,
+            anchor_x_pos: frame_start_x_pos,
+            anchor_y_pos: frame_start_y_pos,
+        });
+    }
+
+    fn note_kid_iron_knight_attach_probe(
+        &mut self,
+        input: FrameInput,
+        player_before: PlayerState,
+        climbing_before: bool,
+        player_after: PlayerState,
+    ) {
+        if self.progression.current_form != PlayerForm::IronKnight {
+            self.last_kid_frame_iron_knight_attach_probe = None;
+            return;
+        }
+
+        let c_pressed = input.c && !self.previous_input.c;
+        let wall_probe = self.block_grid.as_ref().and_then(|grid| {
+            let x_px = (player_before.x_pos >> 16) as i32;
+            let y_px = (player_before.y_pos >> 16) as i32;
+            let facing_right = player_before.facing == Direction::Right;
+
+            if climbing_before {
+                Some(terrain::probe_iron_knight_climb_resume_wall(
+                    grid,
+                    x_px,
+                    y_px,
+                    self.progression.current_form.half_width(),
+                    facing_right,
+                ))
+            } else if player_before.on_ground {
+                Some(terrain::probe_wall_column(
+                    grid,
+                    x_px,
+                    y_px,
+                    self.progression.current_form.half_width(),
+                    PLAYER_HEIGHT,
+                    facing_right,
+                ))
+            } else {
+                None
+            }
+        });
+        let candidate = c_pressed
+            && player_before.on_ground
+            && !climbing_before
+            && wall_probe.is_some_and(|probe| probe.hit);
+        let climbing_after = self.helmet.iron_knight_climbing;
+        let attach_triggered = !climbing_before
+            && climbing_after
+            && player_after.y_velocity == IRON_KNIGHT_ATTACH_Y_VEL;
+
+        self.last_kid_frame_iron_knight_attach_probe = Some(KidIronKnightAttachProbe {
+            c_pressed,
+            on_ground_before: player_before.on_ground,
+            facing: Some(player_before.facing),
+            climbing_before,
+            climbing_after,
+            y_velocity_before: player_before.y_velocity,
+            y_velocity_after: player_after.y_velocity,
+            wall_probe,
+            candidate,
+            attach_triggered,
+        });
+    }
+
+    fn note_kid_flip_branch_probe(
+        &mut self,
+        input: FrameInput,
+        player_before: PlayerState,
+        player_after: PlayerState,
+        slice: &OpeningSliceState,
+    ) {
+        // sub_AF10 (kid.asm:13750): kid_flip wall scan — called at
+        // kid_flip entry (`bsr.w sub_AF10; beq.w loc_AD34`). Scans the
+        // player's leading-edge column for wall tiles across the full
+        // body height.
+        //   loc_AF2E (kid.asm:13760): helmet-size merge point. d5=$F
+        //   for Micromax/Juggernaut (16px body), $1F for others (32px).
+        //   `sub.w d5,d6` → d6 = top of body. `asr.w #4` both → row
+        //   indices. `sub.w d6,d7` → row count. Load row pointer from
+        //   $4A04, add FA78+1 column offset (negated if FA72≠0).
+        //   loc_AF52 (kid.asm:13774): column resolve — `add.w x_pos,d6;
+        //   asr.w #4,d6; add.w d6,d6; add.w d6,a4` → tile pointer.
+        //   loc_AF5C (kid.asm:13780): scan loop — `move.w (a4),d6;
+        //   andi.w #$7000,d6; cmpi.w #$6000,d6; bge loc_AF76` — if
+        //   wall ($6000+) → hit. Else `add.w Level_width_tiles,a4;
+        //   dbf d7,loc_AF5C` — step down one row, repeat.
+        //   loc_AF76 (kid.asm:13791): `moveq #1,d7; rts` — wall found.
+        //   Fall-through: `moveq #0,d7; rts` — no wall in column.
+        // Native: `probe_wall` (3-point body scan) covers the same
+        // column. The 3-point probe at y-8, y-h/2, y-h+8 samples every
+        // tile row for 32px bodies; for Micromax (16px) the points
+        // collapse to fewer distinct rows but still cover the column.
+        let wall_probe = self.block_grid.as_ref().map(|grid| {
+            terrain::probe_wall(
+                grid,
+                (player_before.x_pos >> 16) as i32,
+                (player_before.y_pos >> 16) as i32,
+                self.progression.current_form.half_width(),
+                PLAYER_HEIGHT,
+                player_before.facing == Direction::Right,
+            )
+        });
+        let wall_scan_hit = wall_probe.is_some_and(|probe| probe.hit);
+        let b_pressed = input.b && !self.previous_input.b;
+        let c_pressed = input.c && !self.previous_input.c;
+        let branch = if !wall_scan_hit {
+            KidFlipBranchSelection::NoWallPath
+        } else if b_pressed {
+            match self.progression.current_form {
+                PlayerForm::TheKid => KidFlipBranchSelection::BPressedTheKid,
+                // ASM loc_AC42 (kid.asm:13474): non-Kid B-press in kid_flip.
+                // Micromax: y_vel=$FFFC0000, x_vel=±$FFFE0000, flip direction,
+                // init stru_8B74, bra loc_A6F8. Same velocities as loc_A6AE
+                // (platform-grab detach).
+                PlayerForm::Micromax => KidFlipBranchSelection::BPressedMicromax,
+                // ASM loc_AC88 (kid.asm:13495): non-Kid/non-Micromax B-press
+                // in kid_flip. `tst.b ($FFFFFA6A); beq loc_AD2C` — if on
+                // Skycutter board: floor probe (sub_B43A) or y near top →
+                // loc_ACA4 (`move.l #$30000,y_vel` — board dive). Otherwise
+                // fall through to loc_AD2C (no action). In practice only
+                // Skycutter can have $FA6A set, so other helmets always skip.
+                // Native: step_skycutter_flipboard B-press handles the dive.
+                _ if player_before.on_ground => KidFlipBranchSelection::BPressedGroundedLaunch,
+                _ => KidFlipBranchSelection::BPressedFallthrough,
+            }
+        } else if c_pressed {
+            // ASM loc_ACB0 (kid.asm:13510): kid_flip C-press dispatch.
+            // Cyclone → st (Cyclone_flying). Maniaxe → loc_ACCC: axe throw.
+            // Skycutter → loc_AD00/loc_AD26: flipboard deploy. Others → skip.
+            match self.progression.current_form {
+                PlayerForm::Cyclone => KidFlipBranchSelection::CPressedCyclone,
+                PlayerForm::Maniaxe => KidFlipBranchSelection::CPressedManiaxe,
+                PlayerForm::Skycutter => KidFlipBranchSelection::CPressedSkycutter,
+                _ => KidFlipBranchSelection::CPressedFallthrough,
+            }
+        } else {
+            KidFlipBranchSelection::NoButtonBranch
+        };
+
+        self.last_kid_frame_kid_flip_branch_probe = Some(KidFlipBranchProbe {
+            wall_scan_hit,
+            b_pressed,
+            c_pressed,
+            helmet_id: self.progression.current_form.helmet_id(),
+            facing: Some(player_before.facing),
+            on_ground_before: player_before.on_ground,
+            on_ground_after: player_after.on_ground,
+            branch,
+            wall_probe,
+        });
+        self.last_kid_frame_kid_flip_follow_on_probe =
+            slice
+                .kid_flip_follow_on_stages
+                .map(|stages| KidFlipFollowOnProbe {
+                    branch,
+                    motion_branch: self.last_kid_frame_motion_branch,
+                    post_motion_mutator: self.last_kid_frame_post_motion_mutator,
+                    wall_hit_after_floor: slice.physics_trace.is_some_and(|trace| trace.wall_hit),
+                    stages,
+                });
+    }
+
+    fn maybe_hold_wall_cling_boundary_trace_y_velocity(&mut self, player: PlayerState) {
+        let Some(probe) = self.last_kid_frame_kid_flip_follow_on_probe else {
+            return;
+        };
+        let sampled = probe.stages.after_floor.y_velocity;
+        if sampled == 0
+            || probe.stages.after_floor.on_ground
+            || probe.stages.after_floor.wall_cling_direction.is_none()
+            || !probe.stages.after_wall.on_ground
+            || probe.stages.after_wall.y_velocity != 0
+            || !player.on_ground
+            || player.y_velocity != 0
+        {
+            return;
+        }
+
+        // ASM loc_A762 -> loc_A8DE/sub_902A: after a wall-cling jump-loop frame
+        // settles on the wall/floor boundary, the live player state is grounded
+        // with cleared y_vel, but oracle frames 957..977 of any-percent-published
+        // still expose the post-gravity y_vel sample through the Kid GFX slot.
+        self.wall_cling_boundary_trace_y_velocity = Some((sampled, 21));
+    }
+
+    fn kid_pre_physics_probe_state_changed(before: PlayerState, after: PlayerState) -> bool {
+        before.x_pos != after.x_pos
+            || before.y_pos != after.y_pos
+            || before.x_velocity != after.x_velocity
+            || before.y_velocity != after.y_velocity
+            || before.on_ground != after.on_ground
+    }
+
+    fn note_kid_pre_physics_mutator(
+        &mut self,
+        mutator: KidFramePrePhysicsMutator,
+        before: PlayerState,
+        after: PlayerState,
+    ) {
+        self.last_kid_frame_pre_physics_before_physics = Some(after);
+        if Self::kid_pre_physics_probe_state_changed(before, after) {
+            self.last_kid_frame_pre_physics_mutators.push(mutator);
+        }
+    }
+
+    fn begin_kid_grounded_release_probe(
+        &mut self,
+        player: PlayerState,
+        input: FrameInput,
+        jump_pressed: bool,
+        custom_gravity: bool,
+    ) {
+        if self.physics_order != PhysicsOrder::AsmFaithful {
+            self.last_kid_frame_grounded_release_probe = None;
+            return;
+        }
+
+        let held_direction = match (input.left, input.right) {
+            (true, false) => Some(Direction::Left),
+            (false, true) => Some(Direction::Right),
+            _ => None,
+        };
+        let mut probe = KidGroundedReleaseProbe {
+            on_ground_before: player.on_ground,
+            held_direction,
+            jump_pressed,
+            jump_buffer_frames: player.jump_buffer_frames,
+            custom_gravity,
+            wall_cling_direction: player.wall_cling_direction,
+            velocity_branch: if player.on_ground && jump_pressed {
+                KidGroundedReleaseVelocityBranch::JumpPressed
+            } else if player.on_ground && player.jump_buffer_frames > 0 {
+                KidGroundedReleaseVelocityBranch::JumpBuffered
+            } else if !player.on_ground && custom_gravity {
+                KidGroundedReleaseVelocityBranch::AirborneCustomGravity
+            } else if !player.on_ground {
+                KidGroundedReleaseVelocityBranch::AirborneGravity
+            } else {
+                KidGroundedReleaseVelocityBranch::GroundedHold
+            },
+            ..KidGroundedReleaseProbe::default()
+        };
+
+        if !player.on_ground {
+            self.last_kid_frame_grounded_release_probe = Some(probe);
+            return;
+        }
+
+        let Some(grid) = self.block_grid.as_ref() else {
+            self.last_kid_frame_grounded_release_probe = Some(probe);
+            return;
+        };
+
+        let collision_hw = self.progression.current_form.half_width();
+        let x_px = (player.x_pos >> 16) as i16 as i32;
+        let y_px = (player.y_pos >> 16) as i16 as i32;
+        let probe_row = ((y_px + 1) >> 4).max(0) as u16;
+        let left_col = ((x_px - collision_hw) >> 4).max(0) as u16;
+        let right_col = ((x_px + collision_hw) >> 4)
+            .max(0)
+            .min(grid.width_cells as i32 - 1) as u16;
+
+        probe.probe_row = Some(probe_row);
+        probe.left_col = Some(left_col);
+        probe.right_col = Some(right_col);
+
+        for col in left_col..=right_col {
+            let cell = grid.cell_at(col, probe_row);
+            if matches!(
+                cell.collision,
+                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+            ) {
+                probe.support_col = Some(col);
+                probe.support_collision = Some(cell.collision);
+                probe.support_block_type = Some(cell.block_type);
+                break;
+            }
+        }
+
+        probe.release_triggered = probe.support_col.is_none();
+        self.last_kid_frame_grounded_release_probe = Some(probe);
+    }
+
+    fn gameplay_input(&self, input: FrameInput) -> FrameInput {
+        let held = self.previous_input.with_left_right_conflict_resolved();
+        let mut a_held = if self.progression.current_form == PlayerForm::Skycutter {
+            self.prior_input.a
+        } else {
+            self.previous_input.a
+        };
+        if self.options_speed_button_fast {
+            // ASM loc_749C (kid.asm:7616): after loc_7464 unpacks `Ctrl_A_Held`
+            // and resolves Left+Right, Fast Action executes `not.b Ctrl_A_Held`.
+            // Demo play skips `gameplay_input`, matching the `Demo_Mode_flag` gate.
+            a_held = !a_held;
+        }
+        FrameInput {
+            up: held.up,
+            down: held.down,
+            // ASM loc_7464 clears Ctrl_Right_Held when Left+Right are both
+            // latched, before gameplay movement reads the direction bytes.
+            left: held.left,
+            right: held.right,
+            // ASM loc_7452 hibernates before loc_7464 refreshes `Ctrl_A_Held`.
+            // The Skycutter ground path at sub_9A20 exposes that older A/run
+            // latch in the Invulnerability audit; non-Skycutter movement stays
+            // on the existing oracle-locked held latch.
+            a: a_held,
+            // Gameplay motion consumes the previous controller state, including jump hold.
+            b: self.previous_input.b,
+            c: input.c,
+            start: input.start,
+        }
+    }
+
+    fn readjoypad_input_with_options_loc_bb6(
+        &self,
+        input: FrameInput,
+        demo_mode_active: bool,
+    ) -> FrameInput {
+        if demo_mode_active {
+            return input;
+        }
+        // ASM loc_BB6 (kid.asm:1361-1368) calls Permute_ABCButtons before
+        // loc_C4E computes pressed edges and latches Ctrl_1_Held.
+        input.with_abc_buttons_permuted(self.options_controls_scheme)
+    }
+
+    fn step_allow_pausing_fade_sub_73d0(&mut self) {
+        if self.allow_pausing || !matches!(self.boot_state, BootState::InGame) {
+            return;
+        }
+        level::apply_pending_palette_fade_sub_14C0(
+            self.level_entry_fade_progress_sub_73d0,
+            &mut self.level_entry_pending_palette_0_mask_sub_73d0,
+            &mut self.level_entry_pending_palette_1_mask_sub_73d0,
+            &self.palette_buffer_2,
+            &self.palette_buffer_3,
+            &mut self.palette_buffer,
+        );
+        // ASM sub_73D0 / loc_7420 (kid.asm:7527-7561): Load_InGame's
+        // fullscreen fade worker adds `$10` to `$FFFFF876` each hibernating
+        // frame and only sets `Allow_Pausing` once the value is greater than
+        // `$0100`, i.e. on the seventeenth refresh.
+        self.level_entry_pending_palette_0_mask_sub_73d0 = u32::MAX;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = u32::MAX;
+        self.level_entry_fade_progress_sub_73d0 =
+            self.level_entry_fade_progress_sub_73d0.wrapping_add(0x10);
+        self.allow_pausing_fade_frames = self.allow_pausing_fade_frames.saturating_add(1);
+        if self.allow_pausing_fade_frames >= 17 {
+            self.allow_pausing = true;
+            // ASM Load_InGame leaves FBCC as scratch reset by the next load.
+            // The title-card / level-skip paths cleared the warp colour at
+            // their StartingLevel/Hold -> InGame hand-off (boot.rs:7449/7571);
+            // the no-card Teleport path lands directly in InGame, so clear it
+            // here once the entry fade finishes — otherwise a later normal
+            // level entry (e.g. death respawn) re-tints its black fade yellow.
+            self.teleport_warp_colour_fbcc = 0;
+        }
+    }
+
+    pub(crate) fn initialise_level_entry_fade_sub_73d0(&mut self) {
+        let fade = level::initialise_fullscreen_palette_fade_sub_73D0(
+            self.palette_buffer,
+            self.teleport_warp_colour_fbcc,
+        );
+        self.palette_buffer_2 = fade.palette_buffer_2;
+        self.palette_buffer_3 = fade.palette_buffer_3;
+        self.level_entry_fade_progress_sub_73d0 = fade.fade_progress;
+        // ASM sub_73D0 / loc_7414 (kid.asm:7549): the worker seeds both
+        // pending masks to `-1` before its first one-frame hibernate, so the
+        // first live InGame refresh has a pending full-palette blend.
+        self.level_entry_pending_palette_0_mask_sub_73d0 = u32::MAX;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = u32::MAX;
+        self.allow_pausing = fade.allow_pausing;
+        self.allow_pausing_fade_frames = 0;
+    }
+
+    pub(crate) fn clear_level_entry_fade_sub_73d0(&mut self) {
+        self.level_entry_fade_progress_sub_73d0 = 0;
+        self.level_entry_pending_palette_0_mask_sub_73d0 = 0;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = 0;
+        self.allow_pausing_fade_frames = 0;
+    }
+
+    fn gameplay_jump_pressed(&self) -> bool {
+        self.previous_input.b && !self.prior_input.b
+    }
+
+    fn starting_level_title_card_bootstrap_active_loc_1ae2e(&self) -> bool {
+        matches!(self.boot_state, BootState::StartingLevel { .. })
+    }
+
+    #[allow(non_snake_case)]
+    fn queue_jump_sound_from_probe_loc_A480(&mut self) {
+        let Some(probe) = self.last_kid_frame_jump_gravity_probe else {
+            return;
+        };
+        if matches!(
+            probe.branch,
+            KidJumpGravityBranch::JumpPressed | KidJumpGravityBranch::JumpBuffered
+        ) {
+            // ASM sub_A432 loc_A466 stores the launch y velocity in
+            // `$FFFFFAAA`; Red Stealth's sub_B270 downward slash compares
+            // against that dynamic threshold on later airborne frames.
+            self.helmet.red_stealth_jump_threshold_y_velocity = Some(probe.y_velocity_after);
+            // ASM sub_A432 loc_A480 plays `sfx_Jump` after the launch velocity
+            // is stored and x_vel is scaled by 3/4.
+            self.queue_start_sequence(QueuedSoundEffect::Jump);
+        }
+    }
+
+    fn queue_kid_pullup_sound_if_started_loc_abf0(&mut self, previous_cooldown: u8, cooldown: u8) {
+        if previous_cooldown == 0 && cooldown == LEDGE_SNAP_PULLUP_FRAMES {
+            // ASM kid_flip loc_ABF0 (kid.asm:13458-13467) initialises
+            // `stru_8BB4`, then plays sfx_The_Kid_pullup before hibernating
+            // until the pull-up animation finishes.
+            self.queue_start_sequence(QueuedSoundEffect::KidPullup);
+        }
+    }
+
+    fn update_demo_transform_parity(&mut self) {
+        let transform_active = self.progression.form_change_flash_frames > 0;
+        if let BootState::DemoPlay {
+            frame_counter,
+            data_index,
+            use_demo_2,
+            ..
+        } = &mut self.boot_state
+        {
+            if self.demo_transform_active && !transform_active {
+                // During Kid_Transform, step_demo_input freezes frame_counter.
+                // When the coroutine exits, native would otherwise resume one
+                // frame too far ahead, flipping the 2-frame byte parity for the
+                // rest of the demo playback. The first transform frame still
+                // consumes one ReadJoypad byte before the coroutine freeze, so
+                // restore that skipped byte advance when the transform exits.
+                *frame_counter = frame_counter.saturating_sub(1);
+                *data_index += 1;
+                let byte = demo::demo_byte(*use_demo_2, *data_index);
+                self.demo_buffered_input = Some(demo::decode_demo_byte(byte));
+                self.demo_post_transform_trace_velocity_hold_frames =
+                    demo::DEMO_POST_TRANSFORM_TRACE_VELOCITY_HOLD_FRAMES;
+            }
+            self.demo_transform_active = transform_active;
+        } else {
+            self.demo_transform_active = false;
+            self.demo_post_transform_trace_velocity_hold_frames = 0;
+        }
+    }
+
+    pub(crate) fn gameplay_hibernating_for_transform(&self) -> bool {
+        self.progression.form_change_flash_frames > 0
+    }
+
+    fn apply_form_width_overlap_fixup(&mut self, slice: &mut OpeningSliceState) {
+        if self.progression.form_width_delta == 0 {
+            return;
+        }
+        if self.block_grid.is_none() {
+            self.progression.form_width_delta = 0;
+            return;
+        }
+
+        if let Some(aligned_x) =
+            self.resolve_transform_overlap_sub_7b30(slice, self.progression.current_form)
+        {
+            slice.player.x_pos = (aligned_x as u32) << 16;
+        }
+
+        self.progression.form_width_delta = 0;
+    }
+
+    fn resolve_transform_overlap_sub_7b30(
+        &self,
+        slice: &OpeningSliceState,
+        target_form: PlayerForm,
+    ) -> Option<i32> {
+        let grid = self.block_grid.as_ref()?;
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let foot_y_px = (slice.player.y_pos >> 16) as i32;
+        let half_width = target_form.half_width();
+        // ASM loc_757E (kid.asm:7691–7698): `moveq #$10,d6` then adds $10
+        // unless Current_Helmet_Available is Micromax (9) or Juggernaut (5).
+        // d6=$10 → short form (1 cell tall), d6=$20 → tall form (2 cells).
+        // sub_7B30 converts: d6==$10 → d5=0 rows, else d5=1 row.
+        let probe_height = target_form.ceiling_probe_height() + 1;
+        let mut rows_up = if probe_height == 0x10 { 0 } else { 1 };
+        // ASM loc_7B48 (kid.asm:8241): `move.w y_pos(a3),d4; andi.w #$F,d4;
+        // cmpi.w #$F,d4; beq.w loc_7B5A; addq.w #1,d5` — if foot pixel is
+        // NOT tile-aligned (y_pos & $F != $F), add one extra row to scan.
+        if foot_y_px & 0xF != 0xF {
+            rows_up += 1;
+        }
+
+        // ASM loc_7B5A (kid.asm:8248): `move.w x_pos(a3),d6; sub.w d7,d6;
+        // bpl.w loc_7B74` — compute left_edge = x_pos - half_width. If
+        // negative (off-screen left), snap x to half_width and check right.
+        let left_edge = x_px - half_width;
+        if left_edge < 0 {
+            let cleared_x = half_width;
+            let right_edge = cleared_x + half_width;
+            // ASM loc_7BB6 (kid.asm:8287): `move.w 2(sp),d7; bsr.w sub_7BEA;
+            // beq.s loc_7B9E` — shared right-column probe entry. Reached from
+            // both the negative-left-edge snap (loc_7B5A) and the left-blocked
+            // snap-right (loc_7BA4). Probes right_edge column upward; if clear
+            // → loc_7B9E (success). If blocked → loc_7BC0 (restore & fail).
+            return if terrain::transform_overlap_column_blocked_sub_7bea(
+                grid, right_edge, foot_y_px, rows_up,
+            ) {
+                // ASM loc_7BC0 (kid.asm:8292): `moveq #1,d7; addq.w #4,sp;
+                // move.l d0,x_pos(a3); move.l d1,y_pos(a3); rts` — both
+                // snaps failed, restore original position and return blocked.
+                None
+            } else {
+                Some(cleared_x)
+            };
+        }
+
+        // ASM loc_7B74 (kid.asm:8259): `move.w d6,d4; move.w 2(sp),d7;
+        // bsr.w sub_7BEA; bne.w loc_7BA4` — left edge non-negative; probe
+        // left column for walls. If blocked, jump to loc_7BA4 (snap right).
+        if terrain::transform_overlap_column_blocked_sub_7bea(grid, left_edge, foot_y_px, rows_up) {
+            // ASM loc_7BA4 (kid.asm:8279): `andi.w #$FFF0,d4; addi.w #$10,d4;
+            // add.w (sp),d4; move.w d4,x_pos(a3)` — snap x_pos right to the
+            // next tile boundary + half_width, then check the right column.
+            let cleared_x = (left_edge & !0xF) + 16 + half_width;
+            let right_edge = cleared_x + half_width;
+            // Falls through to loc_7BB6 (kid.asm:8287) — right-column probe
+            // after snap. loc_7BC0 if still blocked.
+            return if terrain::transform_overlap_column_blocked_sub_7bea(
+                grid, right_edge, foot_y_px, rows_up,
+            ) {
+                None
+            } else {
+                Some(cleared_x)
+            };
+        }
+
+        // ASM loc_7B74 continued (kid.asm:8264–8271): left clear — probe right
+        // column. `cmp.w (Level_width_pixels).w,d6; bge.w loc_7BCE` — if right
+        // edge >= level width, snap left. Otherwise sub_7BEA on right column.
+        let right_edge = x_px + half_width;
+        if right_edge < grid.width_pixels()
+            && !terrain::transform_overlap_column_blocked_sub_7bea(
+                grid, right_edge, foot_y_px, rows_up,
+            )
+        {
+            // ASM loc_7B9E (kid.asm:8273): `moveq #0,d7; addq.w #4,sp; rts`
+            // — both columns clear, return success with position unchanged.
+            return Some(x_px);
+        }
+
+        // ASM loc_7BCE (kid.asm:8300): right column blocked or off-level —
+        // snap x_pos left: `(right_edge & $FFF0) - 1 - half_width`.
+        let cleared_x = (right_edge & !0xF) - 1 - half_width;
+        if cleared_x < 0 {
+            return None;
+        }
+        let left_edge = cleared_x - half_width;
+        // ASM loc_7BCE cont. (kid.asm:8307–8310): `bsr.w sub_7BEA; beq.s loc_7B9E;
+        // bra.s loc_7BC0` — if left probe after snap-left also blocked → loc_7BC0.
+        if terrain::transform_overlap_column_blocked_sub_7bea(grid, left_edge, foot_y_px, rows_up) {
+            None
+        } else {
+            Some(cleared_x)
+        }
+    }
+
+    fn handle_pending_form_change_sub_7acc(&mut self, slice: &mut OpeningSliceState) -> bool {
+        let Some(target_form) = self.progression.pending_form else {
+            return false;
+        };
+
+        // ASM sub_7ACC (kid.asm:8178): when `Check_Helmet_Change` is set, try
+        // sub_7B30's space-clear using the target helmet hitbox. If it fails,
+        // Kid drops the queued helmet, while any already-helmeted form dies.
+        // ASM loc_8252 (kid.asm:9013): in crawling state (loc_8218), after
+        // sub_7ACC returns NE, Micromax(9) and Juggernaut(5) exit crawling
+        // via `bclr #Button_B; bra.w loc_8E16`; other forms continue
+        // crawling. Native: no separate crawling state, so transforms
+        // resolve uniformly here.
+        //
+        // ASM loc_7AD6 (kid.asm:8185): `cmpi.w #6,($FFFFFA56).w; beq.w loc_7B12`
+        // — if Character_Movement == 6 (uphill-downhill/slope), skip the
+        // sub_7B30 overlap check entirely and jump straight to Kid_Transform.
+        if self.slope_transform_bypass_loc_7ad6(slice) {
+            self.resolve_pending_form_change();
+            self.apply_form_width_overlap_fixup(slice);
+            return false;
+        }
+        //
+        // ASM loc_7B0A (kid.asm:8202): short-form helmets (Micromax=9,
+        // Juggernaut=5) keep d6=$10; others get d6=$20 via `addi.w #$10,d6`.
+        // Native: `ceiling_probe_height()` returns 15 vs 31, producing the
+        // same rows_up values in `resolve_transform_overlap_sub_7b30`.
+        if let Some(aligned_x) = self
+            .block_grid
+            .as_ref()
+            .and_then(|_| self.resolve_transform_overlap_sub_7b30(slice, target_form))
+        {
+            // ASM loc_7B12 (kid.asm:8206): `bra.w Kid_Transform` — sub_7B30
+            // returned 0 (space clear), proceed with the helmet transform.
+            slice.player.x_pos = (aligned_x as u32) << 16;
+            self.resolve_pending_form_change();
+            self.apply_form_width_overlap_fixup(slice);
+            return false;
+        }
+
+        if self.block_grid.is_none() {
+            self.resolve_pending_form_change();
+            self.apply_form_width_overlap_fixup(slice);
+            return false;
+        }
+
+        // ASM loc_7B1A (kid.asm:8213): sub_7B30 returned non-zero (blocked).
+        // `tst.w (Current_Helmet).w` — if helmeted, `bra.w Death` (crush).
+        // ASM loc_7B28 (kid.asm:8220): if unhelmeted Kid, `sf (Check_Helmet_Change).w`
+        // — cancel the pending transform silently and return d7=0.
+        self.progression.pending_form = None;
+        if self.progression.current_form == PlayerForm::TheKid {
+            return false;
+        }
+
+        self.progression.number_hitpoints = 0;
+        self.opening_slice = Some(*slice);
+        self.begin_death_windup();
+        true
+    }
+
+    fn slope_transform_bypass_loc_7ad6(&self, slice: &OpeningSliceState) -> bool {
+        if !slice.player.on_ground || slice.player.x_velocity == 0 {
+            return false;
+        }
+        let Some(grid) = self.block_grid.as_ref() else {
+            return false;
+        };
+        let half_width = self.progression.current_form.half_width();
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let foot_y_px = (slice.player.y_pos >> 16) as i32;
+        [x_px - half_width, x_px, x_px + half_width]
+            .into_iter()
+            .map(|probe_x| terrain::probe_floor(grid, probe_x, foot_y_px))
+            .any(|probe| {
+                probe.on_ground
+                    && matches!(
+                        probe.cell.collision,
+                        terrain::CollisionKind::SlopeUp | terrain::CollisionKind::SlopeDown
+                    )
+            })
+    }
+
+    fn try_apply_warp_cheat_sub_b43a(
+        &mut self,
+        slice: &OpeningSliceState,
+        movement_input: FrameInput,
+    ) -> bool {
+        let x_px = (slice.player.x_pos >> 16) as u16;
+        let y_px = (slice.player.y_pos >> 16) as u16;
+        if self.current_level != LevelId(1)
+            || !slice.player.on_ground
+            || !movement_input.down
+            || !movement_input.b
+            || x_px != 0x09D3
+            || y_px != 0x005F
+        {
+            return false;
+        }
+
+        // ASM sub_B43A (kid.asm:14352): MoveID_Crawling on level 1 at
+        // x=$09D3/y=$005F with Button_B held writes Current_LevelID=$32,
+        // then fabricates `colid_kidbelow` + `object_meta=$A0`. The latter
+        // routes Character_CheckCollision to CharacterCollision_TouchFlagpole.
+        self.current_level = LevelId(0x32);
+        self.last_kid_collision_type = 0x0028;
+        self.begin_flagpole_level_complete_loc_c056(
+            slice,
+            KidFramePostMotionMutator::WarpCheatFlagTouch,
+        );
+        true
+    }
+
+    fn refresh_opening_slice(&mut self, input: FrameInput, jump_pressed: bool) {
+        if !self.step_lifecycle(input) {
+            self.demo_transform_active = false;
+            return;
+        }
+        self.update_demo_transform_parity();
+
+        let bounds = self.level_bounds(self.current_level);
+        let mut slice = self.opening_slice.unwrap_or_else(|| {
+            if matches!(self.boot_state, BootState::DemoPlay { .. })
+                && self.current_level != LevelId(0)
+            {
+                self.level_respawn_slice(self.current_level)
+            } else {
+                OpeningSliceState::new(bounds)
+            }
+        });
+        // ASM sub_7B30 (kid.asm:8230): before Kid_Transform, checks if the
+        // new helmet's wider hitbox overlaps walls and immediately pushes the
+        // player clear. This can come from a transform resolved last frame or
+        // from a floating helmet prize collected later in this frame.
+        self.stomped_this_frame = false;
+        self.begin_kid_collision_handoff_probe(&slice);
+        self.begin_kid_pre_physics_probe(slice.player);
+        let player_before_form_width_overlap_fixup = slice.player;
+        self.apply_form_width_overlap_fixup(&mut slice);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::FormWidthOverlapFixup,
+            player_before_form_width_overlap_fixup,
+            slice.player,
+        );
+        let player_before_pending_stomp_bounce = slice.player;
+        self.apply_pending_stomp_bounce(&mut slice);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::PendingStompBounce,
+            player_before_pending_stomp_bounce,
+            slice.player,
+        );
+        slice.prize_block_hit = None;
+        slice.lift_block_hit = None;
+        slice.shifting_block_hit = None;
+        slice.metal_block_hit = None;
+        slice.rubber_block_hit = None;
+        slice.smash_block_hit = None;
+        slice.ice_block_hit = None;
+        slice.shooter_block_hit = None;
+        slice.teleporter_contact = None;
+        slice.ceiling_prize_clear = None;
+        self.blocks_hit_this_frame = 0;
+        self.sound_test_play_pending = false;
+        // ASM Kid_Transform replaces the normal frame loop with a coroutine
+        // that hibernates gameplay objects. Keep the previous slice/roster
+        // stable until the transform flash countdown finishes.
+        if self.gameplay_hibernating_for_transform() {
+            self.last_kid_frame_motion_branch = KidFrameMotionBranch::TransformHibernating;
+            self.opening_slice = Some(slice);
+            return;
+        }
+        // Tick visual effects
+        self.step_visual_effects();
+        // Prize blocks headbutted from below update their queued sub_1007A
+        // lifecycle before movement, so the clear frame is collision-visible.
+        self.step_deferred_ceiling_clears();
+        // ASM sub_114C0 / sub_114F4 are the same style of coroutine: shooter
+        // headbutt tiles update before physics on their wake frames.
+        self.step_shooter_headbutt_workers();
+        if self.prize_helmet_collision_hibernate_delay_frames > 0 {
+            self.prize_helmet_collision_hibernate_delay_frames -= 1;
+            if self.prize_helmet_collision_hibernate_delay_frames == 0 {
+                // ASM loc_7E90 (kid.asm:8597): transform cleanup clears both
+                // velocity longwords before returning to the regular movement
+                // loop. The #258 latched-prize path reaches the same cleanup
+                // timing even though native models the visual transform as a
+                // hibernate-only special case.
+                slice.player.x_velocity = 0;
+                slice.player.y_velocity = 0;
+                // ASM loc_7CD0 must have written the new helmet before the
+                // cleanup returns. The to-Kid form break (loc_B786) has
+                // transform_anim_frames(TheKid)=0, so its switch point never
+                // matches inside the hibernate window — consume it here.
+                if let Some(form) = self.prize_helmet_collision_hibernate_switch_form.take() {
+                    self.progression.current_form = form;
+                }
+            } else if self.prize_helmet_collision_hibernate_delay_frames < 115 {
+                // ASM loc_A6F8 (kid.asm:13038): the airborne path has already
+                // run movement and Hibernate_Object_1Frame. PrizeHelmet*
+                // loc_105D6 can expose that held Kid pose after the object
+                // sees collision_type(a3) and deletes itself.
+                self.last_kid_frame_motion_branch =
+                    KidFrameMotionBranch::PrizeHelmetCollisionHibernate;
+                if let Some(form) = self.prize_helmet_collision_hibernate_hitpoints_form.take() {
+                    // ASM sub_7EB2 (kid.asm:8614): the latched collision
+                    // exposes the touched helmet's hitpoint seed even though
+                    // oracle keeps Current_Helmet unchanged until the old
+                    // helmet reverse table reaches loc_7CD0.
+                    self.progression.number_hitpoints =
+                        form.max_hitpoints() + self.progression.extra_hitpoint_slots;
+                }
+                if let Some(form) = self.prize_helmet_collision_hibernate_switch_form
+                    && self.prize_helmet_collision_hibernate_delay_frames
+                        == crate::combat::transform_anim_frames(form) as u8
+                {
+                    // ASM loc_7CD0 (kid.asm:8426): after the old helmet's
+                    // reverse animation entries have hibernated, write
+                    // Current_Helmet_Available into Current_Helmet before
+                    // walking the new helmet's forward table.
+                    self.progression.current_form = form;
+                    self.prize_helmet_collision_hibernate_switch_form = None;
+                }
+                if self.trace_physics {
+                    slice.physics_trace = Some(PhysicsTrace {
+                        pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        post_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        horizontal_step_applied: false,
+                        pre_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        post_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        pre_gravity_y_vel: slice.player.y_velocity,
+                        post_gravity_y_vel: slice.player.y_velocity,
+                        gravity_applied: false,
+                        on_ground_before: slice.player.on_ground,
+                        on_ground_after: slice.player.on_ground,
+                        final_pos: (slice.player.x_pos, slice.player.y_pos),
+                        final_vel: (slice.player.x_velocity, slice.player.y_velocity),
+                        ..PhysicsTrace::default()
+                    });
+                }
+                self.opening_slice = Some(slice);
+                return;
+            }
+        }
+        // Step helmet abilities BEFORE physics
+        let player_before_skycutter_flipboard = slice.player;
+        self.step_skycutter_flipboard(&mut slice, input);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::SkycutterFlipboard,
+            player_before_skycutter_flipboard,
+            slice.player,
+        );
+        let player_before_cyclone_flight = slice.player;
+        self.step_cyclone_flight(&mut slice, input);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::CycloneFlight,
+            player_before_cyclone_flight,
+            slice.player,
+        );
+        let player_before_iron_knight_climb = slice.player;
+        let iron_knight_climbing_before = self.helmet.iron_knight_climbing;
+        let iron_knight_climb_step = self.step_iron_knight_climb(&mut slice, input);
+        self.note_kid_iron_knight_attach_probe(
+            input,
+            player_before_iron_knight_climb,
+            iron_knight_climbing_before,
+            slice.player,
+        );
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::IronKnightClimb,
+            player_before_iron_knight_climb,
+            slice.player,
+        );
+        // ASM loc_8CB6 (kid.asm:10100): walking-state C-press → Maniaxe axe throw.
+        // ASM loc_8CF8 (kid.asm:10117): walking-state C-press → Red Stealth sword.
+        // ASM loc_8C26 (kid.asm:10058): walking-state sub_7428 + Eyeclops hard beam.
+        // Native runs these helpers every frame, so Red Stealth keeps the
+        // C-press allocation gated to the grounded walking path while the
+        // already-allocated sword worker timer can keep ticking.
+        self.step_red_stealth_sword_with_start_gate(input, slice.player.on_ground);
+        // ASM sub_B270 loc_B350 (kid.asm:14220-14248) drives the Red Stealth
+        // airborne attack-down slash counter independently of the ground swing
+        // timer. Wired here so the counter advances even though the renderer
+        // hasn't yet consumed the returned sprite mapping (#153 first layer).
+        self.step_red_stealth_airborne_slash(&slice, input);
+        self.step_eyeclops_beam(&slice, input);
+        self.step_maniaxe_axe(&slice, input);
+        self.step_berzerker_charge(&mut slice);
+        self.step_juggernaut_skull(&slice, input);
+        let player_before_micromax_stick = slice.player;
+        self.step_micromax_stick(&mut slice, input);
+        self.note_kid_pre_physics_mutator(
+            KidFramePrePhysicsMutator::MicromaxStick,
+            player_before_micromax_stick,
+            slice.player,
+        );
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+
+        // Capture pre-physics velocity for stomp detection: after physics,
+        // floor collision zeroes y_velocity so the stomp check would always fail.
+        let pre_physics_y_velocity = slice.player.y_velocity;
+        let pre_physics_y_pos = slice.player.y_pos;
+
+        // Initialise physics trace for this frame if tracing is enabled.
+        slice.physics_trace = if self.trace_physics {
+            Some(PhysicsTrace::default())
+        } else {
+            None
+        };
+
+        // ASM Kid_Transform runs as a coroutine: during the transform animation,
+        // the player object is in the transform state and normal movement/physics
+        // don't run. Suppress physics while form_change_flash_frames > 0.
+        let mut platform_support_crawling = false;
+        if self.progression.form_change_flash_frames == 0 {
+            let deferred_prize_ceiling_cells: Vec<(u16, u16, DeferredPrizeBlockPhase)> = self
+                .block_state
+                .deferred_ceiling_clears
+                .iter()
+                .filter(|entry| entry.phase != DeferredPrizeBlockPhase::Deleted)
+                .map(|entry| (entry.col, entry.row, entry.phase))
+                .collect();
+            // Helmet abilities that override normal gravity
+            let custom_gravity = self.helmet.skycutter_on_board
+                || self.helmet.cyclone_flying
+                || self.helmet.iron_knight_climbing
+                || self.helmet.micromax_stuck;
+            let crawl_standup_platform_blocked = !input.down
+                && self.previous_input.down
+                && slice.player.on_ground
+                && crawl_standup_platform_overhead_sub_DAA6(
+                    &self.active_platforms,
+                    slice.player.x_pos,
+                    slice.player.y_pos,
+                    self.progression.current_form,
+                );
+            let mut movement_input = if crawl_standup_platform_blocked {
+                // ASM loc_8270 -> sub_DAA6: NE returns to loc_82D8, so the
+                // frame remains on the crawling movement path even after Down
+                // is released. Native has no explicit movement ID, so keep the
+                // physics input in crawl mode for this frame only.
+                FrameInput {
+                    down: true,
+                    ..input
+                }
+            } else {
+                input
+            };
+
+            if !input.down
+                && self.previous_input.down
+                && slice.player.on_ground
+                && !crawl_standup_platform_blocked
+                && let Some(grid) = self.block_grid.as_ref()
+                && movement::crawl_standup_head_blocked_loc_8270(
+                    grid,
+                    slice.player.x_pos,
+                    slice.player.y_pos,
+                    self.progression.current_form.half_width(),
+                )
+            {
+                if self.progression.current_form == PlayerForm::Skycutter {
+                    // ASM loc_8270: a blocked Skycutter stand-up branches
+                    // straight back to loc_82D8 instead of calling sub_81B4.
+                    movement_input.down = true;
+                } else {
+                    let standup_escape = movement::crawl_wall_escape_sub_81B4(
+                        grid,
+                        slice.player.x_pos,
+                        slice.player.y_pos,
+                        self.progression.current_form.half_width(),
+                    );
+                    slice.player.x_pos = standup_escape.x_pos;
+                    if standup_escape.blocked {
+                        // ASM sub_81B4 returns NE only when both crawl side
+                        // probes are solid, so the release frame stays crawling.
+                        movement_input.down = true;
+                    }
+                }
+            }
+
+            // ASM loc_726C/loc_727E (kid.asm:7377/7385): Y-axis look-offset
+            // pull-back adjustments run once per frame inside sub_71E4.
+            // loc_728C's bottom-bound adjustment happens after the shifted
+            // target is clamped, so it affects the accumulator for future
+            // frames while the current camera step still uses the pre-decrement
+            // target.
+            {
+                let kid_y = (slice.player.y_pos >> 16) as i16;
+                let cam_y = (slice.camera.y_pos >> 16) as i16;
+                let max_y = i32::from(slice.level_bounds.height_pixels) - physics::VIEWPORT_HEIGHT;
+                let target_y = (i32::from(kid_y) - physics::CAMERA_PLAYER_OFFSET)
+                    .max(0)
+                    .min(max_y);
+                self.y_look_offset += physics::camera_y_ceiling_look_adjust_loc_726c(
+                    target_y,
+                    kid_y,
+                    self.camera_last_kid_y,
+                );
+                self.y_look_offset +=
+                    physics::camera_y_viewport_top_look_adjust_loc_727e(kid_y, cam_y);
+                self.y_look_offset += physics::camera_y_bottom_look_adjust_loc_728c(
+                    target_y,
+                    max_y,
+                    self.y_look_offset,
+                );
+            }
+
+            // ASM loc_8C70 (kid.asm:10079): walking-state crawl transition —
+            // Micromax/Juggernaut and sub_7A10-blocked frames branch to
+            // loc_8CB6 instead of entering MoveID_Crawling. Native has no
+            // explicit crawl movement ID, so suppress Down only for gameplay
+            // movement while keeping the original input for look offset.
+            if input.down && slice.player.on_ground {
+                if matches!(
+                    self.progression.current_form,
+                    PlayerForm::Micromax | PlayerForm::Juggernaut
+                ) {
+                    movement_input.down = false;
+                } else if let Some(grid) = self.block_grid.as_ref() {
+                    let down_hold_alignment = movement::align_player_for_down_hold_sub_7A10(
+                        grid,
+                        slice.player.x_pos,
+                        slice.player.y_pos,
+                        slice.level_bounds.width_pixels,
+                    );
+                    slice.player.x_pos = down_hold_alignment.x_pos;
+                    if down_hold_alignment.blocked {
+                        movement_input.down = false;
+                    }
+                }
+            }
+
+            if self.try_apply_warp_cheat_sub_b43a(&slice, movement_input) {
+                return;
+            }
+
+            slice.wall_cling_release_probe = None;
+            slice.kid_flip_follow_on_stages = None;
+            slice.kid_jump_gravity_probe = None;
+            let shooter_barrel_support_floor_y = self
+                .apply_shooter_barrel_support_sub_1f52(&mut slice, self.progression.current_form);
+            self.shooter_barrel_damage_latched_loc_1f52 = shooter_barrel_support_floor_y.is_some();
+            let shooter_damage_landing_handoff = shooter_barrel_support_floor_y.filter(|_| {
+                self.previous_kid_frame_post_motion_mutator
+                    == KidFramePostMotionMutator::ProjectileDamage
+                    && self.block_grid.as_ref().is_none_or(|grid| {
+                        let x_px = (slice.player.x_pos >> 16) as i32;
+                        let y_px = (pre_physics_y_pos >> 16) as i32;
+                        let half_width = self.progression.current_form.half_width();
+                        let row = ((y_px + 1) >> 4).max(0) as u16;
+                        let left_col = ((x_px - half_width) >> 4).max(0) as u16;
+                        let right_col = ((x_px + half_width) >> 4)
+                            .max(0)
+                            .min(grid.width_cells as i32 - 1)
+                            as u16;
+                        !(left_col..=right_col).any(|col| {
+                            matches!(
+                                grid.cell_at(col, row).collision,
+                                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                            )
+                        })
+                    })
+            });
+
+            if iron_knight_climb_step == IronKnightClimbStep::AttachHibernate {
+                // ORIGINAL_QUIRK: `loc_A276` seeds wall-climb state, then
+                // `Hibernate_Object_1Frame` stops Kid immediately. The attach
+                // frame preserves position while the new upward velocity becomes
+                // visible in object state. `loc_A28A` still runs `sub_71E4`, so
+                // camera follow advances once on the hibernated attach frame.
+                self.last_kid_frame_motion_branch = KidFrameMotionBranch::IronKnightAttachHibernate;
+                if self.trace_physics {
+                    slice.physics_trace = Some(PhysicsTrace {
+                        pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        post_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        horizontal_step_applied: false,
+                        pre_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        post_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        pre_gravity_y_vel: slice.player.y_velocity,
+                        post_gravity_y_vel: slice.player.y_velocity,
+                        gravity_applied: false,
+                        on_ground_before: slice.player.on_ground,
+                        on_ground_after: slice.player.on_ground,
+                        final_pos: (slice.player.x_pos, slice.player.y_pos),
+                        final_vel: (slice.player.x_velocity, slice.player.y_velocity),
+                        ..PhysicsTrace::default()
+                    });
+                }
+                slice.update_camera_follow(self.y_look_offset);
+            } else if iron_knight_climb_step == IronKnightClimbStep::ExitHibernate {
+                // ORIGINAL_QUIRK: `loc_A2E2`/`loc_A2F6` flip facing and jump
+                // into `loc_A6F8`, which hibernates the release frame before
+                // normal jump physics consumes the preserved climb velocity on
+                // the next frame. `loc_A6F8` still runs `sub_71E4`, so camera
+                // follow advances once on the hibernated release frame.
+                self.last_kid_frame_motion_branch =
+                    KidFrameMotionBranch::IronKnightClimbExitHibernate;
+                if self.trace_physics {
+                    slice.physics_trace = Some(PhysicsTrace {
+                        pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        post_horizontal: (slice.player.x_pos, slice.player.x_velocity),
+                        horizontal_step_applied: false,
+                        pre_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        post_vertical: (slice.player.y_pos, slice.player.y_velocity),
+                        pre_gravity_y_vel: slice.player.y_velocity,
+                        post_gravity_y_vel: slice.player.y_velocity,
+                        gravity_applied: false,
+                        on_ground_before: slice.player.on_ground,
+                        on_ground_after: slice.player.on_ground,
+                        final_pos: (slice.player.x_pos, slice.player.y_pos),
+                        final_vel: (slice.player.x_velocity, slice.player.y_velocity),
+                        ..PhysicsTrace::default()
+                    });
+                }
+                slice.update_camera_follow(self.y_look_offset);
+            } else if let Some(support_floor_y) = shooter_damage_landing_handoff {
+                self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
+                self.begin_kid_grounded_release_probe(
+                    slice.player,
+                    movement_input,
+                    jump_pressed,
+                    custom_gravity,
+                );
+                let jump_profile = physics::JUMP_AIR_PROFILES
+                    [usize::from(self.progression.current_form.helmet_id())];
+                let pre_handoff_x_velocity = slice.player.x_velocity;
+                let (x_velocity, facing) = physics::update_jump_horizontal_velocity(
+                    slice.player.x_velocity,
+                    slice.player.facing,
+                    physics::HorizontalInput {
+                        left: movement_input.left,
+                        right: movement_input.right,
+                        run: movement_input.a,
+                    },
+                    jump_profile,
+                );
+                // ASM Mode_Level calls sub_1F52 after the Kid/projectile
+                // collision passes. If ShooterBlock damage consumed the prior
+                // frame, the late `colid_kidbelow` latch is visible as the
+                // next frame's landing handoff, not as loc_B5F6's one-pixel
+                // walking release from the old airborne Y.
+                slice.player.x_velocity = x_velocity;
+                slice.player.facing = facing;
+                slice.player.y_pos = support_floor_y;
+                slice.player.y_velocity = 0;
+                slice.player.on_ground = true;
+                slice.player.on_spikes = false;
+                slice.player.wall_cling_direction = None;
+                slice.terrain.floor_y_pos = support_floor_y;
+                slice.terrain.floor_terrain_type = TerrainType::Normal;
+                slice.terrain.slope_walk_kind = None;
+                slice.terrain.slope_sliding = false;
+                slice.player.jump_buffer_frames = 0;
+                if let Some(ref mut t) = slice.physics_trace {
+                    t.pre_horizontal = (frame_start_x_pos, pre_handoff_x_velocity);
+                    t.post_horizontal = (frame_start_x_pos, x_velocity);
+                    t.horizontal_step_applied = false;
+                    t.pre_vertical = (pre_physics_y_pos, pre_physics_y_velocity);
+                    t.post_vertical = (support_floor_y, 0);
+                    t.pre_gravity_y_vel = pre_physics_y_velocity;
+                    t.post_gravity_y_vel = 0;
+                    t.gravity_applied = false;
+                    t.on_ground_before = false;
+                    t.on_ground_after = true;
+                    t.final_pos = (slice.player.x_pos, slice.player.y_pos);
+                    t.final_vel = (slice.player.x_velocity, slice.player.y_velocity);
+                }
+                slice.update_camera_follow(self.y_look_offset);
+            } else if iron_knight_climb_step == IronKnightClimbStep::ResumeClimb {
+                self.last_kid_frame_motion_branch = KidFrameMotionBranch::IronKnightClimbResume;
+                let allow_asm_faithful_solid_touch_snap = !self.demo_gameplay_active();
+                self.begin_kid_grounded_release_probe(
+                    slice.player,
+                    input,
+                    jump_pressed,
+                    custom_gravity,
+                );
+                slice.step_iron_knight_climb_resume(
+                    movement_input,
+                    jump_pressed,
+                    self.progression.current_form,
+                    self.block_grid.as_mut(),
+                    self.block_list.as_ref(),
+                    self.y_look_offset,
+                    allow_asm_faithful_solid_touch_snap,
+                    &deferred_prize_ceiling_cells,
+                );
+                self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
+                self.queue_jump_sound_from_probe_loc_A480();
+            } else {
+                self.last_kid_frame_motion_branch = KidFrameMotionBranch::NormalPhysics;
+                let ledge_snap_cooldown_before = slice.player.ledge_snap_cooldown;
+                // ASM sub_902A lands only after the contact row is reached. The
+                // legacy touch-snap shortcut is useful for non-AsmFaithful
+                // orders, but AsmFaithful must preserve the remaining
+                // sub-half-pixel gap until the real contact row or gameplay and
+                // demo arcs land one frame early.
+                let allow_asm_faithful_solid_touch_snap =
+                    self.physics_order != PhysicsOrder::AsmFaithful;
+                let suppress_probe_slope_velocity = self.probe_start_slope_settle_frames == 2;
+                self.probe_start_slope_settle_frames =
+                    self.probe_start_slope_settle_frames.saturating_sub(1);
+                self.begin_kid_grounded_release_probe(
+                    slice.player,
+                    movement_input,
+                    jump_pressed,
+                    custom_gravity,
+                );
+                slice.step_with_order_and_maniaxe_axe(
+                    movement_input,
+                    jump_pressed,
+                    self.progression.current_form,
+                    self.block_grid.as_mut(),
+                    self.block_list.as_ref(),
+                    custom_gravity,
+                    self.y_look_offset,
+                    self.helmet.maniaxe_axe_active,
+                    self.physics_order,
+                    allow_asm_faithful_solid_touch_snap,
+                    self.demo_post_transform_trace_velocity_hold_frames > 0,
+                    suppress_probe_slope_velocity,
+                    &deferred_prize_ceiling_cells,
+                );
+                self.last_kid_frame_jump_gravity_probe = slice.kid_jump_gravity_probe;
+                if suppress_probe_slope_velocity
+                    && slice.player.on_ground
+                    && slice.player.x_velocity == 0
+                    && slice.player.y_velocity == 0
+                {
+                    // ASM loc_9F18 direct probe WRAM seed: oracle frame 0
+                    // exposes the patched slope contact row after physics
+                    // finishes, but before neutral loc_A13A slope continuation.
+                    slice.player.y_pos = slice.player.y_pos.wrapping_add(0x0001_0000);
+                    slice.terrain.floor_y_pos = slice.player.y_pos;
+                }
+                self.queue_jump_sound_from_probe_loc_A480();
+                self.queue_kid_pullup_sound_if_started_loc_abf0(
+                    ledge_snap_cooldown_before,
+                    slice.player.ledge_snap_cooldown,
+                );
+            }
+            if !matches!(
+                iron_knight_climb_step,
+                IronKnightClimbStep::AttachHibernate | IronKnightClimbStep::ExitHibernate
+            ) {
+                // ASM loc_75D4/loc_8218/loc_8BF0: after sub_71E4 and
+                // Character_CheckCollision, store y_pos(a3) into $FFFFFA2E.
+                // Native only models the Y component; $FFFFFA2C is not consumed
+                // by camera logic.
+                self.camera_last_kid_y = (slice.player.y_pos >> 16) as i16;
+            }
+            self.trigger_skycutter_top_boundary_bounce_loc_9114(&slice, pre_physics_y_velocity);
+            // ASM sub_AF7A: IronKnight breaks floor blocks on landing.
+            // Called from loc_A94E (kid.asm:13239) in the jump-loop landing
+            // sequence: `bsr.w sub_AF7A; bne.w loc_A762`. Runs after
+            // sub_B000 (Red Stealth floor impact) and before sub_DB22.
+            // Checks after physics so we know the player just touched a floor cell.
+            // Not-IK or velocity < $48000 (without prior flag) → loc_AFD0
+            // (kid.asm:13830): `moveq #0,d7; rts` — no break, return 0.
+            if slice.player.on_ground && pre_physics_y_velocity > 0 {
+                let px = (slice.player.x_pos >> 16) as i32;
+                let py = (slice.player.y_pos >> 16) as i32;
+                let hw = self.progression.current_form.half_width();
+                let block_list = self.block_list.as_ref();
+                if let Some(ref mut grid) = self.block_grid {
+                    let red_stealth_impact = helmets::red_stealth_floor_impact_sub_B000(
+                        self.progression.current_form,
+                        // ASM sub_B270 and sub_B000 both read the same
+                        // Red_Stealth_sword_swing byte; native stores the
+                        // airborne down-slash phase separately so the renderer
+                        // can distinguish it from the ground slash timer.
+                        self.helmet.red_stealth_sword_timer > 0
+                            || self.helmet.red_stealth_airborne_slash_counter > 0,
+                        grid,
+                        px,
+                        py,
+                    );
+                    if red_stealth_impact.kind != helmets::RedStealthFloorImpactKindSubB000::None {
+                        let block_x = red_stealth_impact.block_col * 16;
+                        let block_y = red_stealth_impact.block_row * 16;
+                        match red_stealth_impact.kind {
+                            // ASM loc_B070 (kid.asm:13904): off_B058 block
+                            // type 0 (Smash) handler — `moveq #2,d6; jmp
+                            // (j_Block_LoadSmashBits).l`.
+                            helmets::RedStealthFloorImpactKindSubB000::Smash => {
+                                grid.erase_block_from_level_layout_loc_11542(
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                );
+                                self.block_destroy_effects.push(BlockDestroyEffect {
+                                    // ASM loc_10F1A/loc_10F2A: d6=2 nudges
+                                    // smash debris 4 px upward, then the
+                                    // worker hibernates for 2 frames.
+                                    x_px: block_x,
+                                    y_px: block_y.saturating_sub(4),
+                                    remaining: 2,
+                                    direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                    pending_ice_origin_nudge: false,
+                                });
+                            }
+                            // ASM off_B058 block type 1 (Prize) jumps through
+                            // j_loc_1002E before the common rebound tail.
+                            helmets::RedStealthFloorImpactKindSubB000::Prize => {
+                                Self::start_prize_block_wobble_sub_1007A(
+                                    grid,
+                                    block_list,
+                                    &mut self.block_state.deferred_ceiling_clears,
+                                    &mut self.block_bounces,
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                );
+                            }
+                            // ASM off_B058 block type 2 (Ice) jumps through
+                            // IceBlock_SmashAndLoadBullets before rebounding.
+                            helmets::RedStealthFloorImpactKindSubB000::Ice => {
+                                // ASM off_B058[2] -> IceBlock_SmashAndLoadBullets
+                                // (kid.asm:13898, 22849): sub_B000 sets d6=0
+                                // before the ice jump-table entry, so sub_11006
+                                // remaps it to downward bullets.
+                                let target_open = Self::ice_block_bullet_target_cell_sub_11006(
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                    grid.width_cells,
+                                    grid.height_cells,
+                                )
+                                .is_some_and(
+                                    |(target_col, target_row)| {
+                                        Self::ice_block_bullet_target_cell_open_loc_11052(
+                                            grid.cell_at(target_col, target_row),
+                                        )
+                                    },
+                                );
+                                if target_open {
+                                    self.projectiles.extend(Self::ice_block_bullets_loc_11052(
+                                        red_stealth_impact.block_col,
+                                        red_stealth_impact.block_row,
+                                        Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                    ));
+                                }
+                                grid.erase_block_from_level_layout_loc_11542(
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                );
+                                self.block_destroy_effects.push(BlockDestroyEffect {
+                                    // ASM sub_10F9C (kid.asm:22881): d6=0
+                                    // falls through to the downward ice-shard
+                                    // nudge after the first visible frame.
+                                    x_px: block_x,
+                                    y_px: block_y,
+                                    remaining: 4,
+                                    direction: Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                    pending_ice_origin_nudge: true,
+                                });
+                            }
+                            // ASM off_B058 block types 3/4 return directly to
+                            // the common `y_vel=-$38000` rebound tail.
+                            helmets::RedStealthFloorImpactKindSubB000::BounceOnly => {}
+                            // ASM off_B058 block type 5 jumps to loc_110D0:
+                            // metal hit effect plus block restoration.
+                            helmets::RedStealthFloorImpactKindSubB000::MetalBounce => {
+                                slice.metal_block_hit = Some((
+                                    red_stealth_impact.block_col,
+                                    red_stealth_impact.block_row,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                ));
+                            }
+                            helmets::RedStealthFloorImpactKindSubB000::None => {}
+                        }
+                        slice.player.y_velocity = red_stealth_impact.bounce_y_velocity;
+                        slice.player.on_ground = false;
+                    }
+                    let probe = terrain::probe_floor_hitbox(grid, px, py, hw);
+                    // ASM loc_AF96 (kid.asm:13808): active break path — `st
+                    // (Iron_Knight_block_breaker).w`, save regs, `bsr.w
+                    // sub_BBE2` to probe for a block, then dispatch through
+                    // off_AFD8 jump table.  On hit: `move.l #$FFFF8000,
+                    // y_vel(a3); moveq #1,d7; rts`.  No block or block ID
+                    // > 5 → loc_AFCA (kid.asm:13826): restore regs, fall
+                    // through to loc_AFD0 (`moveq #0,d7; rts`).
+                    let probed_cell = (probe.cell_x, probe.cell_y);
+                    let same_metal_rebound_cell = self.iron_knight_last_metal_block_hit
+                        == Some(probed_cell)
+                        && self.iron_knight_block_breaker
+                        && probe.on_ground
+                        && probe.cell.has_block
+                        && probe.cell.block_type == terrain::BlockType::Metal;
+                    let collision = if same_metal_rebound_cell {
+                        // ASM loc_A94E/sub_DB22: after loc_110D0's tiny
+                        // rebound, re-touching the same restored metal cell
+                        // settles through the normal grounded clean-up instead
+                        // of spawning another sub_11120 worker.
+                        blocks::IronKnightBlockBreakerCollisionSubAF7A {
+                            next_block_breaker: false,
+                            handled_collision: false,
+                            next_y_velocity: None,
+                            effect: None,
+                        }
+                    } else {
+                        Self::iron_knight_block_breaker_collision_sub_AF7A(
+                            self.progression.current_form == PlayerForm::IronKnight,
+                            self.iron_knight_block_breaker,
+                            pre_physics_y_velocity,
+                            probe.on_ground && probe.cell.has_block,
+                            probe.cell.block_type,
+                        )
+                    };
+                    self.iron_knight_block_breaker = if collision.handled_collision {
+                        collision.next_block_breaker
+                    } else {
+                        // ASM loc_A94E falls through to sub_DB22 when sub_AF7A
+                        // returns zero; sub_DB22 clears Iron_Knight_block_breaker.
+                        false
+                    };
+                    if !self.iron_knight_block_breaker {
+                        self.iron_knight_last_metal_block_hit = None;
+                    }
+
+                    if let Some(effect) = collision.effect {
+                        if effect != blocks::IronKnightBlockEffectSubAF7A::Metal {
+                            self.iron_knight_last_metal_block_hit = None;
+                        }
+                        match effect {
+                            // ASM loc_AFF0 (kid.asm:13854): off_AFD8 block
+                            // type 0 (Smash) handler — `moveq #2,d6; jmp
+                            // (j_Block_LoadSmashBits).l`.
+                            blocks::IronKnightBlockEffectSubAF7A::Smash => {
+                                grid.erase_block_from_level_layout_loc_11542(
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                );
+                                self.spawn_smash_block_effect_sub_10eda(
+                                    probe.cell_x * 16,
+                                    probe.cell_y * 16,
+                                    Self::BLOCK_DESTROY_DIRECTION_ABOVE,
+                                );
+                                slice.player.y_velocity =
+                                    collision.next_y_velocity.unwrap_or(-0x8000);
+                                slice.player.on_ground = false;
+                            }
+                            blocks::IronKnightBlockEffectSubAF7A::Prize => {
+                                Self::start_prize_block_wobble_sub_1007A(
+                                    grid,
+                                    block_list,
+                                    &mut self.block_state.deferred_ceiling_clears,
+                                    &mut self.block_bounces,
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                );
+                                slice.player.y_velocity =
+                                    collision.next_y_velocity.unwrap_or(-0x8000);
+                                slice.player.on_ground = false;
+                            }
+                            blocks::IronKnightBlockEffectSubAF7A::Ice => {
+                                // ASM off_AFD8[2] -> IceBlock_SmashAndLoadBullets
+                                // (kid.asm:13845, 22849): Iron Knight ice
+                                // breaks keep sub_AF7A's d6=0, then load
+                                // bullets through sub_11006 before the
+                                // sub_10F9C cosmetic worker is spawned.
+                                let target_open = Self::ice_block_bullet_target_cell_sub_11006(
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                    grid.width_cells,
+                                    grid.height_cells,
+                                )
+                                .is_some_and(
+                                    |(target_col, target_row)| {
+                                        Self::ice_block_bullet_target_cell_open_loc_11052(
+                                            grid.cell_at(target_col, target_row),
+                                        )
+                                    },
+                                );
+                                if target_open {
+                                    self.projectiles.extend(Self::ice_block_bullets_loc_11052(
+                                        probe.cell_x,
+                                        probe.cell_y,
+                                        Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                    ));
+                                }
+                                grid.erase_block_from_level_layout_loc_11542(
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                );
+                                self.spawn_ice_block_effect_sub_10f9c(
+                                    probe.cell_x * 16,
+                                    probe.cell_y * 16,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                );
+                                slice.player.y_velocity =
+                                    collision.next_y_velocity.unwrap_or(-0x8000);
+                                slice.player.on_ground = false;
+                            }
+                            // ASM off_AFD8 -> loc_110D0/sub_11120: metal
+                            // blocks bounce, play the steel hit effect, then
+                            // restore $E50B instead of being deleted.
+                            blocks::IronKnightBlockEffectSubAF7A::Metal => {
+                                slice.metal_block_hit = Some((
+                                    probe.cell_x,
+                                    probe.cell_y,
+                                    Self::BLOCK_DESTROY_DIRECTION_BELOW,
+                                ));
+                                self.iron_knight_last_metal_block_hit =
+                                    Some((probe.cell_x, probe.cell_y));
+                                slice.player.y_velocity =
+                                    collision.next_y_velocity.unwrap_or(-0x8000);
+                                slice.player.on_ground = false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            self.note_kid_same_frame_stomp_probe(
+                &slice,
+                pre_physics_y_velocity,
+                pre_physics_y_pos,
+                frame_start_x_pos,
+                frame_start_y_pos,
+            );
+            // ASM kid_flip (loc_ACB0): Cyclone flight activation from C press
+            // runs AFTER physics so flight takes effect next frame.
+            self.step_cyclone_activation(&slice, input);
+            self.note_kid_flip_branch_probe(
+                input,
+                player_before_iron_knight_climb,
+                slice.player,
+                &slice,
+            );
+            self.maybe_hold_wall_cling_boundary_trace_y_velocity(slice.player);
+            // ASM loc_833E -> sub_8ED0 checks `Character_Movement` for
+            // MoveID_Crawling before choosing the platform-support width.
+            // Native has no persistent movement ID, so preserve the post
+            // stand-up-check crawl-path decision for the later platform pass.
+            platform_support_crawling = movement_input.down && slice.player.on_ground;
+        }
+        self.finish_deferred_ceiling_clears();
+        // Wide spawn-support settling is a bootstrap/respawn helper, not
+        // general demo gameplay logic. Keeping it live after the hidden demo
+        // settle finishes yanks Kid down onto nearby support during later arcs,
+        // which in turn makes the frame-1406 diamond collectible too early.
+        let demo_bootstrap_support_active = self
+            .demo_startup_frame()
+            .is_some_and(|frame| frame <= demo::DEMO_OBJECT_BOOTSTRAP_END_FRAME);
+        let spawn_support_snapped = demo_bootstrap_support_active
+            && self
+                .block_grid
+                .as_ref()
+                .is_some_and(|grid| self.try_settle_on_spawn_support(&mut slice, grid));
+        let demo_bootstrap_floor_snapped = self.try_snap_demo_bootstrap_floor(&mut slice);
+        if spawn_support_snapped || demo_bootstrap_floor_snapped {
+            slice.update_camera_follow(self.y_look_offset);
+        }
+
+        // ASM loc_8218 (kid.asm:8997): crawling state entry — sets
+        // `Character_Movement = MoveID_Crawling`, calls sub_71E4 (camera
+        // follow), hibernates 1 frame, sets half_width = $E (14px), runs
+        // Character_CheckCollision, saves x/y to $FFFFFA2C/$FFFFFA2E, then
+        // sub_7ACC (helmet change check). Native: the crawling state is not
+        // a separate movement ID — down-held+grounded is handled inline.
+        //
+        // ASM loc_825C (kid.asm:9018): crawl continuation — if down still
+        // held (`tst.b (Ctrl_Down_Held)`), branch to loc_82D8 (crawl loop).
+        // If released, `subi.w #8,($FFFFFB58)` decrements the look offset,
+        // clamped to 0, then falls through to loc_8270 (stand-up check).
+        //
+        // ASM loc_8C12 (kid.asm:10051): walking-state version —
+        // `tst.b (Ctrl_Down_Held); bne.s loc_8C26` skips decrement when down
+        // held; `subi.w #8,($FFFFFB58); bge.s loc_8C26` decrements, clamp to 0.
+        //
+        // ASM loc_7772/loc_82D8/loc_8C70: grounded Down-held paths run
+        // `addq.w #1,($FFFFFB58)` with no cap only while `KidGrabbedByHand`
+        // is clear; sub_71E4 loc_728C treats `$1E` as the camera-shift
+        // threshold, not a maximum accumulator.
+        // ASM loc_7650 (kid.asm:7741-7746): same offset decay in other
+        // movement states. Native merges the increment/decay paths here.
+        if input.down {
+            if slice.player.on_ground && !slice.kid_grabbed_by_hand {
+                self.y_look_offset += 1;
+            }
+        } else if self.y_look_offset > 0 {
+            self.y_look_offset = (self.y_look_offset - 8).max(0);
+        }
+
+        // ASM loc_8270 (kid.asm:9025): stand-up from crawl — `bsr.w
+        // sub_DAA6` checks for platform overhead (returns NE → can't stand),
+        // `moveq #-$11,d7; bsr.w sub_B43A` floor probe, Skycutter gate,
+        // then `bsr.w sub_81B4` wall escape. Native: physics handles floor
+        // probe implicitly; sub_81B4 is crawl_wall_escape_sub_81B4;
+        // sub_DAA6 is crawl_standup_platform_overhead_sub_DAA6, which keeps
+        // the physics input on the crawl path for the blocked stand-up frame.
+        //
+        // ASM loc_8298 (kid.asm:9038): when sub_B43A finds floor (EQ),
+        // `bsr.w sub_B41C` restores the standing half_width from unk_B408
+        // (e.g. TheKid=5, Skycutter=10). Falls through to loc_829C which
+        // clears Button_B and dispatches: Skycutter → walking (sub_942A →
+        // loc_8BF0), others → loc_82BA.
+        // Native: collision half_width always comes from
+        // `PlayerForm::half_width()`, so the sub_B41C restore is implicit.
+        //
+        // ASM loc_82BA (kid.asm:9050): non-Skycutter path after stand-up —
+        // `tst.l x_vel(a3)`: if non-zero, `bsr.w sub_78E8` then `bra.w
+        // loc_75D4` (standing loop); if zero → loc_82CA.
+        // Native: `refresh_grounded_helmet_state_sub_78E8` runs every
+        // grounded frame (below), covering both x_vel paths.
+        //
+        // ASM loc_82CA (kid.asm:9057): zero-velocity idle entry from crawl
+        // stand-up — `clr.w ($FFFFF8F0)` (walk accumulator), `bclr
+        // #Button_B,(Ctrl_Pressed)`, `bra.w loc_8E3E`. Visual-only: the
+        // walk accumulator and sprite dispatch at loc_8E3E are not modelled.
+        //
+        // Berzerker charge: break Smash blocks on wall contact
+        if self.helmet.berzerker_charging {
+            self.berzerker_break_wall_block(&slice);
+        }
+
+        // Step platform movement scripts
+        if let Some(ref script_table) = self.platform_script_table {
+            platforms::execute_scripted_platforms_sub_23EA(
+                &mut self.active_platforms,
+                script_table,
+                matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }),
+            );
+        }
+        let platform_standing_before_index = standing_platform_index_loc_8ED0(
+            &self.active_platforms,
+            self.active_platform_standing_on,
+            slice.player,
+            self.progression.current_form,
+            platform_support_crawling,
+        );
+        let platform_standing_before = platform_standing_before_index
+            .and_then(|platform_index| self.active_platforms.get(platform_index))
+            .and_then(|platform| platform.slot_addr);
+        let kid_y_px = (slice.player.y_pos >> 16) as i16;
+        let active_platforms_before_special_step = self.active_platforms.clone();
+        let mut stepped_platforms = Vec::with_capacity(self.active_platforms.len());
+        for mut platform in self.active_platforms.iter().copied() {
+            let action = platform.step_special_platform_loc_40D2(
+                platform
+                    .slot_addr
+                    .is_some_and(|slot_addr| self.active_platform_standing_on == Some(slot_addr)),
+                kid_y_px,
+                platform.deactivated_flag,
+            );
+            if action == SpecialPlatformStepActionLoc40D2::Delete {
+                if let Some(layout_index) = platform.layout_index {
+                    // ASM TrapPlatformDown_Delete / TrapPlatformUp_Delete
+                    // tail-calls Deallocate_PlatformSlot before
+                    // Delete_CurrentObject. Mirror that through the live
+                    // PlatformLoaderState slot model so the freed slot becomes
+                    // the next Allocate_PlatformSlot head.
+                    slice
+                        .objects
+                        .platform_loader
+                        .deallocate_layout_offset_sub_23B4(
+                            platform_loader_offset_for_index_loc_286E(layout_index),
+                        );
+                }
+            } else {
+                stepped_platforms.push(platform);
+            }
+        }
+        self.active_platforms = stepped_platforms;
+        // ASM Addr_PlatformStandingOn is a slot address; after native vector
+        // compaction from loc_2850/delete actions, preserve that identity.
+        let platform_standing_before = remap_standing_platform_addr_by_layout_index_loc_2850(
+            platform_standing_before,
+            &active_platforms_before_special_step,
+            &self.active_platforms,
+        );
+        self.active_platform_standing_on = platform_standing_before;
+
+        // Platform collision: player can stand on top of platforms
+        let player_before_platform_collision = slice.player;
+        let character_movement_is_jump = self.current_character_movement(slice.player) == 3;
+        let platform_collision_result = apply_platform_collision_with_ceiling_probe_trace_loc_257E(
+            &mut slice,
+            &self.active_platforms,
+            self.block_grid.as_ref(),
+            self.progression.current_form,
+            platform_support_crawling,
+            platform_standing_before,
+            character_movement_is_jump,
+        );
+        self.last_platform_collision_scratch_loc_257e = platform_collision_result.scratch;
+        let platform_collision_outcome = platform_collision_result.outcome;
+        if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
+            && slice.player != player_before_platform_collision
+        {
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::PlatformCollision;
+        }
+        match platform_collision_outcome {
+            PlatformCollisionOutcome::CrushDeath => {
+                self.opening_slice = Some(slice);
+                self.begin_death_windup();
+                return;
+            }
+            PlatformCollisionOutcome::StandingOn(platform_addr) => {
+                self.active_platform_standing_on = Some(platform_addr);
+            }
+            PlatformCollisionOutcome::None => {
+                self.active_platform_standing_on = standing_platform_index_loc_8ED0(
+                    &self.active_platforms,
+                    self.active_platform_standing_on,
+                    slice.player,
+                    self.progression.current_form,
+                    platform_support_crawling,
+                )
+                .and_then(|platform_index| self.active_platforms.get(platform_index))
+                .and_then(|platform| platform.slot_addr);
+            }
+        }
+        self.exit_iron_knight_climb_on_platform_landing_loc_A9AA(
+            player_before_platform_collision,
+            &slice,
+        );
+        self.trigger_standing_special_platform_loc_40D2(&slice, platform_support_crawling);
+        self.active_platform_roster = self
+            .active_platforms
+            .iter()
+            .map(ActivePlatform::snapshot)
+            .collect();
+
+        // Evanescent blocks: trigger when player stands on one, tick timers,
+        // and clear expired blocks from the grid.
+        self.step_evanescent_blocks(&slice);
+
+        // Lift platforms: step movement and collision
+        let player_before_lift_platforms = slice.player;
+        let lift_collision_outcome = self.step_lift_platforms(&mut slice);
+        if self.last_kid_frame_post_motion_mutator == KidFramePostMotionMutator::None
+            && slice.player != player_before_lift_platforms
+        {
+            self.last_kid_frame_post_motion_mutator = KidFramePostMotionMutator::LiftPlatform;
+        }
+        match lift_collision_outcome {
+            PlatformCollisionOutcome::CrushDeath => {
+                self.opening_slice = Some(slice);
+                self.begin_death_windup();
+                return;
+            }
+            PlatformCollisionOutcome::StandingOn(_) | PlatformCollisionOutcome::None => {}
+        }
+
+        // ASM loc_787E (kid.asm:7924): when the standing-still platform block
+        // (loc_7828) clears Addr_PlatformStandingOn and x_vel is zero, the ROM
+        // calls sub_78E8 then returns to loc_75D4.
+        // ASM loc_78C6 (kid.asm:7957): when Addr_PlatformStandingOn is null at
+        // loc_7828, the ROM zeroes x_vel/y_vel, runs sub_B43A floor check:
+        //   bmi → loc_BC80 (no floor, death/fall state)
+        //   beq → loc_B5F6 (no solid/spikes cell, drop 1px)
+        //   positive → sub_78E8 + loop back to loc_75D4 (standing-still).
+        // Native: grounded flag already set; velocity is zero from the movement
+        // system; sub_78E8 runs unconditionally below.
+        // ASM loc_789C (kid.asm:7937): when sub_902A finds floor and sub_8ED0
+        // confirms platform support, the ROM loads $FFFFFA98 into d0 (dead —
+        // immediately overwritten by sub_78E8's `move.w (Current_Helmet),d0`),
+        // calls sub_78E8, and returns to loc_75D4.
+        // Native runs sub_78E8 unconditionally each grounded frame, covering
+        // the "platform gone" (loc_787E/loc_78C6) and "platform supported"
+        // (loc_789C) paths.
+        if slice.player.on_ground {
+            self.refresh_grounded_helmet_state_sub_78E8();
+        } else {
+            // ASM sub_942A loc_9454: airborne frames run the moving/airborne
+            // dispatch, which clears Maniaxe_throwing_axe on the throw-anim-done
+            // flag just like the grounded sub_78E8 loc_794C path. Mutually
+            // exclusive with the grounded branch above (post-physics on_ground),
+            // so the throw latch decrements exactly once per frame (#337).
+            self.tick_maniaxe_airborne_throw_latch_loc_9454();
+        }
+
+        // ASM loc_7FC (kid.asm:915): `jsr (j_sub_F7E0).l; bsr.w sub_6034`
+        // Mode_Level mid-loop calls shooter slot tick (sub_F730 via the
+        // j_sub_F7E0 trampoline) then dispatches level special effects
+        // (storm/hail weather via sub_6034). Both are skipped when
+        // $FFFFFB49 is set (paused); native gates on gameplay_slice_active.
+        //
+        // ASM loc_80C (kid.asm:922): pause-skip resumes the gameplay tail at
+        // collision setup, enemy loading, object motion, input, platform
+        // scripts/collision, then Kid/object collision. Native covers that resumed
+        // Mode_Level tail inside refresh_opening_slice before these shooter
+        // and weather follow-on workers.
+        //
+        // ASM loc_806 (kid.asm:919): `jsr (j_sub_F096).l` — shooter block
+        // scan. Detects new shooter blocks entering Kid's ±3-col / -5..+2-row
+        // window when Kid crosses a block boundary, registers them for the
+        // 22-frame fire-and-expire cycle driven by sub_F730. Native merges
+        // both scan (sub_F096) and tick (sub_F730) into step_shooter_blocks.
+        self.step_shooter_blocks(&slice);
+
+        // Weather: hail spawns falling projectiles, lava geysers erupt
+        self.island_shore_dma_uploads_loc_1202a.clear();
+        self.lava_geyser_art_uploads_loc_14c6a.clear();
+        self.step_weather(&slice);
+        self.step_lava_geysers(&slice);
+        self.step_rotate_palette_lava_water_loc_1223c();
+        self.step_island_shore_cycle_loc_1202a();
+
+        // Queue the full prize-block lifecycle from a headbutt. The tile stays
+        // Solid (0x6F) until the coroutine completes, then the same state
+        // record clears the tile and spawns the prize object.
+        if let Some(prize_clear) = slice.ceiling_prize_clear
+            && let Some((content, _, _)) = slice.prize_block_hit
+        {
+            self.block_state
+                .deferred_ceiling_clears
+                .push(DeferredCeilingClear {
+                    col: prize_clear.col,
+                    row: prize_clear.row,
+                    content,
+                    restore_cell: prize_clear.restore_cell,
+                    reveal_only: prize_clear.reveal_only,
+                    deleted_frames_remaining: Self::PRIZE_BLOCK_DELETED_FRAMES,
+                    phase: DeferredPrizeBlockPhase::Deleted,
+                });
+            // ASM sub_1007A (kid.asm:21345-21599) drives the prize-block
+            // headbutt wobble for 31 frames with the delta pattern in
+            // PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A. The engine computes the
+            // cumulative y_offset each frame and the renderer applies it to
+            // the block draw, replacing the earlier 8-frame placeholder arc.
+            self.block_bounces.push(BlockBounceAnim {
+                cell_x: prize_clear.col,
+                cell_y: prize_clear.row,
+                remaining: 31,
+                initial_duration: 31,
+                kind: BlockBounceKind::Prize,
+                prize_content: Some(content),
+                metal_direction: 0,
+                y_offset_px: 0,
+            });
+        }
+
+        self.process_block_effects(&mut slice);
+        self.collect_floating_items(&mut slice);
+        // ASM loc_75D4 (kid.asm:7715): `bsr.w sub_7ACC` — check pending
+        // helmet transform after collision processing.  In native, this runs
+        // for all movement states (the ROM calls it from each state handler).
+        if self.handle_pending_form_change_sub_7acc(&mut slice) {
+            return;
+        }
+        if self.resolve_frame_hazards(
+            &mut slice,
+            input,
+            pre_physics_y_velocity,
+            pre_physics_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        ) {
+            return;
+        }
+        self.opening_slice = Some(slice);
+    }
+
+    #[allow(non_snake_case)]
+    fn exit_iron_knight_climb_on_platform_landing_loc_A9AA(
+        &mut self,
+        player_before_platform_collision: PlayerState,
+        slice: &OpeningSliceState,
+    ) {
+        if self.progression.current_form != PlayerForm::IronKnight
+            || !self.helmet.iron_knight_climbing
+            || player_before_platform_collision.on_ground
+            || !slice.player.on_ground
+            || standing_platform_index_loc_8ED0(
+                &self.active_platforms,
+                self.active_platform_standing_on,
+                slice.player,
+                self.progression.current_form,
+                false,
+            )
+            .is_none()
+        {
+            return;
+        }
+
+        // ASM loc_A9AA: a platform object wrote Addr_PlatformStandingOn during
+        // the wall-climb hibernate frame; with Skycutter's board flag clear,
+        // loc_A9BE leaves wall climb for the platform-walking path.
+        self.helmet.iron_knight_climbing = false;
+        self.helmet.iron_knight_climb_accel = 0;
+        self.helmet.iron_knight_climb_pose_accum = 0;
+    }
+
+    #[allow(non_snake_case)]
+    fn trigger_standing_special_platform_loc_40D2(
+        &mut self,
+        slice: &OpeningSliceState,
+        platform_support_crawling: bool,
+    ) {
+        if let Some(platform_index) = standing_platform_index_loc_8ED0(
+            &self.active_platforms,
+            self.active_platform_standing_on,
+            slice.player,
+            self.progression.current_form,
+            platform_support_crawling,
+        ) && let Some(platform) = self.active_platforms.get_mut(platform_index)
+        {
+            // ASM SoftPlatform_WaitLoop loc_40E2 (kid.asm:5206): `move.l
+            // $2A(a2),d1` samples Kid's y velocity before the platform
+            // hibernates for this frame, so use the native pre-gravity sample
+            // rather than the post-platform-collision velocity.
+            platform.trigger_special_platform_standing_loc_40D2(
+                slice.pre_gravity_y_vel,
+                self.progression.current_form,
+            );
+        }
+    }
+
+    #[cfg(test)]
+    #[allow(non_snake_case)]
+    fn trigger_standing_soft_platform_bounce_loc_40E2(
+        &mut self,
+        slice: &OpeningSliceState,
+        platform_support_crawling: bool,
+    ) {
+        self.trigger_standing_special_platform_loc_40D2(slice, platform_support_crawling);
+    }
+
+    pub(crate) fn trigger_skycutter_top_boundary_bounce_loc_9114(
+        &mut self,
+        slice: &OpeningSliceState,
+        pre_physics_y_velocity: i32,
+    ) {
+        if self.progression.current_form != PlayerForm::Skycutter
+            || !self.helmet.skycutter_on_board
+            || pre_physics_y_velocity >= 0
+            || slice.player.y_velocity != 0x0003_0000
+        {
+            return;
+        }
+
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        if y_px != PlayerForm::Skycutter.ceiling_probe_height() {
+            return;
+        }
+
+        // ASM loc_9114 (kid.asm:10524): mounted Skycutter above-level ceiling
+        // contact stores `move.b #1,($FFFFFA69)` before the `$30000` downward
+        // velocity. Native movement owns the velocity; the runtime shell owns
+        // the helmet latch that drives the flipboard coroutine.
+        self.helmet.skycutter_flipboard = 1;
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::assertions_on_constants)]
+mod tests;

@@ -739,90 +739,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kid-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "crc32fast",
- "criterion",
- "insta",
- "kid-data",
- "proptest",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "kid-data"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "image",
- "serde",
- "serde_json",
- "sha1",
- "tempfile",
-]
-
-[[package]]
-name = "kid-md"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "r68k-emu",
- "thiserror",
- "ymfm-sys",
- "z80",
-]
-
-[[package]]
-name = "kid-render"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "kid-data",
- "sha1",
- "tempfile",
-]
-
-[[package]]
-name = "kid-rom"
-version = "0.1.0"
-dependencies = [
- "sha1",
- "thiserror",
-]
-
-[[package]]
-name = "kidcli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "crc32fast",
- "crossterm",
- "font8x8",
- "hound",
- "image",
- "kid-core",
- "kid-data",
- "kid-md",
- "kid-render",
- "kid-rom",
- "ratatui",
- "rayon",
- "sdl2",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha1",
- "tempfile",
- "toml",
- "ymfm-sys",
- "zip",
-]
-
-[[package]]
 name = "lazy_static"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1856,6 +1772,90 @@ checksum = "854ba17bb104abfb26ba36da9729addc7ce7f06f5c0f90f3c391f8461cca21f9"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "wildside-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crc32fast",
+ "crossterm",
+ "font8x8",
+ "hound",
+ "image",
+ "ratatui",
+ "rayon",
+ "sdl2",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha1",
+ "tempfile",
+ "toml",
+ "wildside-core",
+ "wildside-data",
+ "wildside-md",
+ "wildside-render",
+ "wildside-rom",
+ "ymfm-sys",
+ "zip",
+]
+
+[[package]]
+name = "wildside-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crc32fast",
+ "criterion",
+ "insta",
+ "proptest",
+ "serde",
+ "serde_json",
+ "wildside-data",
+]
+
+[[package]]
+name = "wildside-data"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "image",
+ "serde",
+ "serde_json",
+ "sha1",
+ "tempfile",
+]
+
+[[package]]
+name = "wildside-md"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "r68k-emu",
+ "thiserror",
+ "ymfm-sys",
+ "z80",
+]
+
+[[package]]
+name = "wildside-render"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "sha1",
+ "tempfile",
+ "wildside-data",
+]
+
+[[package]]
+name = "wildside-rom"
+version = "0.1.0"
+dependencies = [
+ "sha1",
+ "thiserror",
 ]
 
 [[package]]

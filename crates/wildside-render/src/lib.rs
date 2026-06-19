@@ -1,0 +1,2175 @@
+mod background;
+mod bundle;
+mod hud;
+mod level;
+mod palette;
+mod player;
+mod tiles;
+
+pub use background::{
+    BackgroundChunk, BackgroundPlacement, BackgroundTile, BackgroundVisuals,
+    ChunkedBackgroundVisuals, LayeredBackgroundLayout, LayeredBackgroundPlane,
+    LayeredBackgroundRow, LayeredBackgroundVisuals, compose_layered_background,
+    parse_background_chunk, parse_chunked_background_layout, parse_layered_background_layout,
+    parse_layered_background_plane,
+};
+pub use bundle::{
+    IslandShoreVisualsLoc1202A, NativeLevelVisuals, PauseMenuVisuals, TitleCardLettersVisuals,
+    load_level_visuals,
+};
+pub use hud::{HudIcon, HudVisuals};
+pub use level::{
+    BlockVisualKind, BlockVisualMapping, ForegroundLayout, LevelVisuals, ResolvedBlockVisual,
+};
+pub use palette::{MdColour, Palette, PaletteSet};
+pub use player::{
+    AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
+    FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
+    PlayerTransformStep, PlayerVisuals, SpriteFrame, WeatherVisuals,
+};
+pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
+
+#[cfg(test)]
+mod tests {
+    use super::{BackgroundVisuals, BlockVisualKind, TileRef, load_level_visuals};
+    use wildside_data::{
+        AssetFile, AssetManifest, DECODED_LEVEL_ASSET_VERSION, DecodedAssetFile,
+        DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord, LevelResources,
+        load_manifest, resource_level_record,
+    };
+    use sha1::{Digest, Sha1};
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use tempfile::TempDir;
+
+    const LEVEL_ID: u8 = 0x00;
+    const CAVE_THEME_ID: u8 = 0x08;
+    const FOREST_THEME_ID: u8 = 0x09;
+    const ENIGMA_COMMON_RUN_FIXTURE: &[u8] =
+        &[0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7D, 0xFF, 0xE0, 0x00];
+    const FLOATING_PRIZE_HELMET_FIXTURE_ASSETS: [(&str, &str, &str); 9] = [
+        (
+            "ingame/artunc_kid/skycutter_mask.bin",
+            "ingame/palette_kid/Skycutter.bin",
+            "ingame/palette_kid/Skycutter_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/cyclone_mask.bin",
+            "ingame/palette_kid/Cyclone.bin",
+            "ingame/palette_kid/Cyclone_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/red_stealth_mask.bin",
+            "ingame/palette_kid/Red_Stealth.bin",
+            "ingame/palette_kid/Red_Stealth_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/eyeclops_mask.bin",
+            "ingame/palette_kid/Eyeclops.bin",
+            "ingame/palette_kid/Eyeclops_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/juggernaut_mask.bin",
+            "ingame/palette_kid/Juggernaut.bin",
+            "ingame/palette_kid/Juggernaut_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/iron_knight_mask.bin",
+            "ingame/palette_kid/Iron_Knight.bin",
+            "ingame/palette_kid/Iron_Knight_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/berzerker_mask.bin",
+            "ingame/palette_kid/Berzerker.bin",
+            "ingame/palette_kid/Berzerker_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/maniaxe_mask.bin",
+            "ingame/palette_kid/Maniaxe.bin",
+            "ingame/palette_kid/Maniaxe_Helmet.bin",
+        ),
+        (
+            "ingame/artunc_kid/micromax_mask.bin",
+            "ingame/palette_kid/Micromax.bin",
+            "ingame/palette_kid/Micromax_Helmet.bin",
+        ),
+    ];
+
+    #[test]
+    fn load_level1_tile_sheet_and_palettes() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(visuals.foreground_tiles.tiles.len(), 2);
+        assert_eq!(visuals.background_tiles.tiles.len(), 1);
+        assert_eq!(visuals.block_tiles.tiles.len(), 2);
+        assert_eq!(visuals.palettes.foreground.colours.len(), 15);
+        assert_eq!(visuals.palettes.background.colours.len(), 8);
+        assert_eq!(visuals.foreground_tiles.tile_size(), (8, 8));
+        assert_eq!(visuals.background_tiles.tile_size(), (8, 8));
+        let murder_wall = visuals
+            .murder_wall
+            .as_ref()
+            .expect("ASM Murderwall loc_140D2 art should load");
+        assert_eq!(murder_wall.vram_base_tile_index, 0x02FB);
+        assert_eq!(murder_wall.palette.colours.len(), 8);
+        let lava = visuals
+            .lava
+            .as_ref()
+            .expect("ASM Init_SpecialEffect_Lava loc_14C6A art should load");
+        assert_eq!(lava.vram_base_tile_index, 0x02FB);
+        assert_eq!(lava.palette.colours.len(), 8);
+        assert!(visuals.weather.is_none());
+    }
+
+    #[test]
+    fn load_level_visuals_loads_storm_weather_art_loc_14cce_14cd8() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture.manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture header")
+            .weather_flags = 3;
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        let weather = visuals
+            .weather
+            .as_ref()
+            .expect("ASM Init_SpecialEffect_Storm loc_14CD8 weather art should load");
+        assert_eq!(weather.vram_base_tile_index, 0x0380);
+        assert_eq!(weather.tile_sheet.tiles.len(), 0x60);
+        assert_eq!(weather.palette.colours.len(), 8);
+        assert_eq!(
+            weather.palette.colours[0].raw_word, 0x0600,
+            "ASM loc_14CF2 copies the non-Ice storm palette Pal_7B8BC into Palette_Buffer+$20"
+        );
+    }
+
+    #[test]
+    fn load_block_visual_mapping_uses_skin_byte_for_every_block_type() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let terrain = visuals
+            .level
+            .block_mapping
+            .resolve(0, None)
+            .expect("terrain mapping");
+        let smash = visuals
+            .level
+            .block_mapping
+            .resolve(1, Some(0))
+            .expect("smash block mapping");
+        let prize = visuals
+            .level
+            .block_mapping
+            .resolve(1, Some(1))
+            .expect("prize block mapping");
+        let ice = visuals
+            .level
+            .block_mapping
+            .resolve(1, Some(2))
+            .expect("ice block mapping");
+        let metal = visuals
+            .level
+            .block_mapping
+            .resolve(1, Some(5))
+            .expect("metal block mapping");
+        let rubber = visuals
+            .level
+            .block_mapping
+            .resolve(1, Some(6))
+            .expect("rubber block mapping");
+        let shifting = visuals
+            .level
+            .block_mapping
+            .resolve(1, Some(7))
+            .expect("shifting block mapping");
+        let high_skin = visuals
+            .level
+            .block_mapping
+            .resolve(0xEA, Some(10))
+            .expect("type-10 high skin block mapping");
+
+        assert_eq!(terrain.kind, BlockVisualKind::Terrain);
+        assert_eq!(terrain.quad.tiles[0].tile_index, 10);
+        assert_eq!(terrain.quad.tiles[1].tile_index, 11);
+
+        assert_eq!(smash.kind, BlockVisualKind::Smash);
+        assert_eq!(smash.quad.tiles[0].tile_index, 0x0204);
+        assert_eq!(prize.kind, BlockVisualKind::Prize);
+        assert_eq!(prize.quad.tiles[0].tile_index, 0x0204);
+        assert_eq!(ice.kind, BlockVisualKind::Ice);
+        assert_eq!(ice.quad.tiles[0].tile_index, 0x0204);
+        assert_eq!(metal.kind, BlockVisualKind::Metal);
+        assert_eq!(metal.quad.tiles[0].tile_index, 0x0204);
+        assert_eq!(rubber.kind, BlockVisualKind::Rubber);
+        assert_eq!(rubber.quad.tiles[0].tile_index, 0x0204);
+        assert_eq!(shifting.kind, BlockVisualKind::GenericBlock);
+        assert_eq!(
+            shifting.quad.tiles[0].tile_index, 0x0204,
+            "ASM sub_30194 sets d4=$FF, so sub_302F6/loc_30336 and sub_3034A/loc_3037C use the skin byte directly for all block types"
+        );
+        assert_eq!(high_skin.kind, BlockVisualKind::GenericBlock);
+        assert_eq!(
+            high_skin.quad.tiles[0].tile_index, 0x0009,
+            "ASM loc_3037C indexes past the 81 static Block_Mappings quads into Level_terrain_layout for high skins instead of falling back to entry zero"
+        );
+        assert!(
+            high_skin.quad.tiles[0].flip_x,
+            "the over-read bytes are interpreted as raw VDP attribute words"
+        );
+    }
+
+    #[test]
+    fn load_hud_visuals_returns_digit_and_icon_metadata() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(visuals.hud.digits.tiles.len(), 12);
+        assert_eq!(visuals.hud.digit_base_tile_index, 0x06BA);
+        assert_eq!(visuals.hud.diamond_tiles.tiles.len(), 16);
+        assert_eq!(visuals.hud.diamond_base_tile_index, 0x06EA);
+        assert_eq!(
+            visuals.hud.hitpoint_sheet.tiles.len(),
+            4,
+            "ASM loc_12C34 DMA streams 4 HUD hitpoint tiles from ArtUnc_12C3C"
+        );
+        assert!(visuals.hud.icons.iter().any(|icon| {
+            icon.name == "ankh"
+                && icon.position == (0x01A1, 0x008D)
+                && icon.tile.tile_index == 0x0231
+        }));
+        assert!(visuals.hud.icons.iter().any(|icon| {
+            icon.name == "diamond"
+                && icon.position == (0x01A0, 0x00A2)
+                && icon.tile.tile_index == 0x06F2
+        }));
+    }
+
+    #[test]
+    fn load_player_visuals_returns_required_kid_frames() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let kid = visuals.player.forms.get(&0).expect("Kid visuals");
+        let red_stealth = visuals.player.forms.get(&3).expect("Red Stealth visuals");
+        let juggernaut = visuals.player.forms.get(&5).expect("Juggernaut visuals");
+        let iron_knight = visuals.player.forms.get(&6).expect("Iron Knight visuals");
+
+        assert_eq!(kid.palette.colours.len(), 15);
+        assert_eq!(kid.idle.origin_x, 0x0B);
+        assert_eq!(kid.idle.origin_y, 0x01);
+        assert_eq!(kid.idle.width_px, 0x14);
+        assert_eq!(kid.idle.height_px, 0x20);
+        assert_eq!(kid.idle.tile_sheet.tiles.len(), 12);
+        assert_eq!(kid.walk.len(), 6);
+        assert_eq!(kid.walk[0].origin_x, 0x0A);
+        assert_eq!(kid.walk[0].width_px, 0x13);
+        assert_eq!(kid.jump_rise.origin_x, 0x0A);
+        assert_eq!(kid.jump_rise.width_px, 0x16);
+        assert_eq!(kid.jump_fall.origin_x, 0x09);
+        assert_eq!(kid.jump_fall.width_px, 0x14);
+        let death = kid.death.as_ref().expect("Kid death frame");
+        assert_eq!(death.origin_x, 0x0F);
+        assert_eq!(death.origin_y, 0x03);
+        assert_eq!(death.width_px, 0x1C);
+        assert_eq!(
+            death.height_px, 0x1B,
+            "ASM Death loc_B7FA installs unk_A3FF8 / kid_death.bin for the visible tumble"
+        );
+        assert_eq!(kid.pull_up.len(), 7);
+        assert_eq!(kid.pull_up[0].origin_x, 0x19);
+        assert_eq!(kid.pull_up[0].width_px, 0x1C);
+        assert_eq!(kid.idle.tile_base_index, 0);
+        assert_eq!(red_stealth.slash_ground.len(), 4);
+        assert_eq!(red_stealth.slash_ground[0].origin_x, 0x0E);
+        assert_eq!(red_stealth.slash_ground[0].width_px, 0x18);
+        assert_eq!(red_stealth.slash_air.len(), 4);
+        assert_eq!(red_stealth.slash_air[0].origin_x, 0x0C);
+        assert_eq!(red_stealth.slash_air[0].height_px, 0x28);
+
+        assert_eq!(
+            juggernaut.idle.width_px, 0x2F,
+            "ASM unk_BEDF0 + unk_BF714 compose Juggernaut's split head/body idle sprite"
+        );
+        assert_eq!(juggernaut.idle.height_px, 0x20);
+        assert_eq!(juggernaut.idle.tile_sheet.tiles.len(), 24);
+        assert_eq!(juggernaut.walk.len(), 6);
+        assert_eq!(
+            juggernaut.walk[3].tile_sheet.tiles[12].pixels[13], 0x01,
+            "ASM loc_94B4 writes the Juggernaut body sprite first and sub_975C keeps the companion head visible over it"
+        );
+        assert_eq!(
+            juggernaut.slope_walk.len(),
+            6,
+            "ASM loc_A13A/off_A190 maps Juggernaut id 6 to off_A200, the Iron Knight slope table"
+        );
+        assert_eq!(
+            juggernaut.slope_walk[0].origin_x, iron_knight.slope_walk[0].origin_x,
+            "ASM off_A200+$0C means Juggernaut should use Iron Knight's right-facing slope bank"
+        );
+        assert_eq!(
+            juggernaut.slope_walk_left.len(),
+            6,
+            "ASM off_A200 first bank gives Juggernaut left-facing Iron Knight slope frames"
+        );
+        assert_eq!(
+            juggernaut.jump_rise.height_px, 0x25,
+            "ASM unk_BFAE0 pairs the taller rising body with the shared head"
+        );
+        assert_eq!(
+            juggernaut
+                .transform_palette
+                .as_ref()
+                .expect("transform palette")
+                .colours
+                .len(),
+            15
+        );
+        assert_eq!(juggernaut.transform_steps.len(), 11);
+
+        assert_eq!(iron_knight.palette.colours.len(), 15);
+        assert_eq!(iron_knight.idle.origin_x, 0x13);
+        assert_eq!(iron_knight.walk.len(), 6);
+        assert_eq!(iron_knight.climb.len(), 3);
+        assert_eq!(
+            iron_knight.climb[0].origin_x, 0x13,
+            "ASM sub_A3BC/off_A420 selects unk_C209E / iron_knight_climbing_3 for the bottom climb bucket"
+        );
+        assert_eq!(iron_knight.jump_rise.width_px, 0x1F);
+        assert_eq!(
+            iron_knight.jump_fall.origin_y, -0x02,
+            "ASM Iron Knight jump-fall sprite descriptor stores origin_y=-$02"
+        );
+        assert_eq!(
+            iron_knight
+                .transform_palette
+                .as_ref()
+                .expect("transform palette")
+                .colours
+                .len(),
+            15
+        );
+        assert_eq!(iron_knight.transform_steps.len(), 16);
+        assert!(
+            iron_knight
+                .transform_steps
+                .iter()
+                .any(|step| step.frame.is_none())
+        );
+    }
+
+    #[test]
+    fn load_floating_prize_visuals_returns_rom_icon_frames() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(visuals.floating_prizes.diamond.frame_duration, 3);
+        assert_eq!(visuals.floating_prizes.diamond.frames.len(), 4);
+        for diamond in &visuals.floating_prizes.diamond.frames {
+            assert_eq!(
+                diamond.origin_y, -2,
+                "ASM PrizeDiamond_Init frame unk_E0E66 places diamond art two pixels above object origin"
+            );
+            assert_eq!(
+                diamond.tile_base_index, 0x08,
+                "ASM PrizeDiamond_Init uses tile $6F2 relative to HUD diamond DMA base $6EA"
+            );
+        }
+
+        for (content_id, origin_x, origin_y, width_px, height_px, tile_count) in [
+            // ASM PrizeAnkh_Init -> stru_10C08 -> unk_E0FE6.
+            (0x0B, 0x06, -2, 0x10, 0x10, 12),
+            // ASM PrizeClock_Init -> stru_10C18 -> unk_E0FCE.
+            (0x0C, 0x07, -2, 0x10, 0x10, 12),
+            // ASM PrizeContinue_Init -> stru_10C28 -> unk_E0FD6.
+            (0x0D, 0x07, -2, 0x10, 0x10, 24),
+        ] {
+            let visual = visuals
+                .floating_prizes
+                .icons
+                .get(&content_id)
+                .expect("floating prize icon visual");
+            assert_eq!(visual.frame_duration, 1);
+            assert_eq!(visual.frames.len(), 1);
+            let frame = &visual.frames[0];
+            assert_eq!(frame.origin_x, origin_x);
+            assert_eq!(frame.origin_y, origin_y);
+            assert_eq!(frame.width_px, width_px);
+            assert_eq!(frame.height_px, height_px);
+            assert_eq!(frame.tile_base_index, 0);
+            assert_eq!(frame.tile_sheet.tiles.len(), tile_count);
+        }
+
+        for (content_id, origin_x, width_px, height_px) in [
+            // ASM PrizeHelmetSkycutter_Init -> artunc_kid/skycutter_mask.bin.
+            (0x02, 0x08, 0x11, 0x0E),
+            // ASM PrizeHelmetCyclone_Init -> artunc_kid/cyclone_mask.bin.
+            (0x03, 0x0B, 0x17, 0x0F),
+            // ASM PrizeHelmetRedStealth_Init -> artunc_kid/red_stealth_mask.bin.
+            (0x04, 0x0A, 0x15, 0x11),
+            // ASM PrizeHelmetEyeclops_Init -> artunc_kid/eyeclops_mask.bin.
+            (0x05, 0x0A, 0x15, 0x10),
+            // ASM PrizeHelmetJuggernaut_Init -> artunc_kid/juggernaut_mask.bin.
+            (0x06, 0x08, 0x12, 0x14),
+            // ASM PrizeHelmetIronKnight_Init -> artunc_kid/iron_knight_mask.bin.
+            (0x07, 0x09, 0x16, 0x15),
+            // ASM PrizeHelmetBerzerker_Init -> artunc_kid/berzerker_mask.bin.
+            (0x08, 0x09, 0x13, 0x14),
+            // ASM PrizeHelmetManiaxe_Init -> artunc_kid/maniaxe_mask.bin.
+            (0x09, 0x08, 0x10, 0x12),
+            // ASM PrizeHelmetMicromax_Init -> artunc_kid/micromax_mask.bin.
+            (0x0A, 0x09, 0x13, 0x12),
+        ] {
+            let visual = visuals
+                .floating_prizes
+                .helmets
+                .get(&content_id)
+                .expect("floating prize helmet visual");
+            let frame = &visual.frames[0];
+
+            assert_eq!(visual.frame_duration, 1);
+            assert_eq!(frame.origin_x, origin_x);
+            assert_eq!(
+                frame.origin_y, -2,
+                "ASM floating helmet sprite descriptors all place mask art two pixels above the object origin"
+            );
+            assert_eq!(frame.width_px, width_px);
+            assert_eq!(frame.height_px, height_px);
+            assert_eq!(
+                visual.palette.colours.len(),
+                15,
+                "ASM sub_10CB0 copies three helmet palette words into slots $D..$F; native expands the extracted partial palette so mask pixels $D..$F resolve"
+            );
+            assert!(
+                visual.palette.colours[12..15]
+                    .iter()
+                    .all(|colour| colour.raw_word != 0)
+            );
+        }
+    }
+
+    #[test]
+    fn load_floating_prize_helmets_skip_incomplete_art_palette_pairs() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture
+            .manifest
+            .ingame_assets
+            .retain(|asset| asset.relative_path != "palette_kid/Cyclone_Helmet.bin");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert!(
+            !visuals.floating_prizes.helmets.contains_key(&0x03),
+            "ASM floating helmet visuals need both mask art and palette assets before native can render the pickup"
+        );
+        assert!(visuals.floating_prizes.helmets.contains_key(&0x02));
+    }
+
+    #[test]
+    fn load_flag_visuals_returns_rom_flag_and_pole_frames() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(
+            visuals.flag.frame_duration, 6,
+            "ASM AniArt_Flag stores six-frame timing entries before each frame index"
+        );
+        assert_eq!(visuals.flag.waving.len(), 6);
+        assert_eq!(
+            visuals.flag.waving[0].tile_sheet.tiles.len(),
+            120,
+            "ASM AniArt_Flag uses six $280-byte frames from ArtUnc_4C92"
+        );
+        assert_eq!(visuals.flag.waving[0].tile_base_index, 0);
+        assert_eq!(visuals.flag.waving[5].tile_base_index, 100);
+        assert_eq!(visuals.flag.waving[0].origin_x, 0x06);
+        assert_eq!(visuals.flag.waving[0].width_px, 0x28);
+        assert_eq!(
+            visuals.flag.pole_bottom.tile_sheet.tiles.len(),
+            4,
+            "ASM Load_FlagBottomArt copies $20 longwords from ArtUnc_12BA4"
+        );
+        assert_eq!(visuals.flag.pole_bottom.origin_x, 0x08);
+        assert_eq!(visuals.flag.pole_bottom.height_px, 0x10);
+    }
+
+    #[test]
+    fn load_enemy_and_platform_visuals_returns_visible_level1_families() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        let diamond = visuals
+            .enemies
+            .families
+            .get(&0x01)
+            .expect("diamond visuals");
+        assert_eq!(diamond.frames.len(), 10);
+        assert_eq!(diamond.frames[0].tile_base_index, 0x002F);
+        assert_eq!(
+            diamond.frames[5].tile_base_index, 0x0023,
+            "ASM Diamond.asm loc_3AE28/loc_3AEE6 death frames stay appended after the live cycle"
+        );
+        let dragon = visuals.enemies.families.get(&0x0C).expect("dragon visuals");
+        assert_eq!(
+            dragon.frames.len(),
+            9,
+            "Dragon visuals keep the live frames plus appended routed animation frames"
+        );
+        assert_eq!(dragon.frames[0].tile_base_index, 0x011D);
+        let skull = visuals.enemies.families.get(&0x1C).expect("skull visuals");
+        assert_eq!(skull.frames.len(), 8);
+        assert_eq!(skull.frames[0].tile_base_index, 0x002C);
+        assert_eq!(skull.frames[6].tile_base_index, 0x0020);
+        assert_eq!(skull.frames[7].tile_base_index, 0x0024);
+        let cloud = visuals.enemies.families.get(&0x0E).expect("cloud visuals");
+        assert_eq!(cloud.frame_duration, 11);
+        assert_eq!(
+            cloud
+                .frames
+                .iter()
+                .map(|frame| frame.origin_y)
+                .collect::<Vec<_>>(),
+            vec![0, -1, -1, -2, -1, -1, -1, 0, -2],
+            "ASM Enemy0E Cloud live and death frame tables keep the bobbing offsets in the sprite descriptors"
+        );
+        assert_eq!(visuals.platforms.horizontal.width_px, 0x48);
+        assert_eq!(visuals.platforms.horizontal.height_px, 0x10);
+    }
+
+    #[test]
+    fn load_eol_score_visuals_returns_rom_label_and_digit_frames() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let eol = visuals.eol_score.expect("EOL score visuals");
+
+        assert_eq!(eol.time.tile_base_index, 0x0B9);
+        assert_eq!(eol.time.width_px, 0x2D);
+        assert_eq!(eol.bonus.tile_base_index, 0x000);
+        assert_eq!(eol.bonus.width_px, 0x40);
+        assert_eq!(eol.continues.tile_base_index, 0x008);
+        assert_eq!(eol.continues.width_px, 0x6C);
+        assert_eq!(eol.game.tile_base_index, 0x031);
+        assert_eq!(eol.game.width_px, 0x5D);
+        assert_eq!(eol.over.tile_base_index, 0x049);
+        assert_eq!(eol.over.width_px, 0x60);
+        assert_eq!(eol.digits.len(), 10);
+        assert_eq!(eol.digits[0].tile_base_index, 0x0CB);
+        assert_eq!(eol.digits[1].origin_x, -0x03);
+        assert_eq!(
+            eol.digits[9].tile_base_index, 0x061,
+            "ASM Spr_EOL_Digits_Index maps digit 9 to Spr_EOL_Digit9",
+        );
+        let digit3 = &eol.digits[3];
+        let right_tile = digit3
+            .tile_sheet
+            .tiles
+            .get(usize::from(digit3.tile_base_index + 2))
+            .expect("digit 3 right tile should keep its ROM VRAM slot");
+        assert!(
+            (0..8).all(|row| right_tile.pixels[row * 8 + 3..row * 8 + 8]
+                .iter()
+                .all(|&pixel| pixel == 0)),
+            "ASM Spr_EOL_Digit3 is 11px wide, so native must not render packed score art past the declared bounds"
+        );
+        let bottom_tile = digit3
+            .tile_sheet
+            .tiles
+            .get(usize::from(digit3.tile_base_index + 1))
+            .expect("digit 3 bottom tile should keep its ROM VRAM slot");
+        assert!(
+            (3..8).all(|row| bottom_tile.pixels[row * 8..row * 8 + 8]
+                .iter()
+                .all(|&pixel| pixel == 0)),
+            "ASM Spr_EOL_Digit3 is 11px tall, so native must clear the rounded sprite tile tail"
+        );
+    }
+
+    #[test]
+    fn load_eol_hologram_visuals_returns_loc_c186_tilemap_and_art() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let hologram = visuals
+            .eol_hologram
+            .expect("ASM loc_C186 EOL hologram visuals");
+
+        assert_eq!(
+            hologram.palette.colours.len(),
+            15,
+            "ASM loc_C1BC copies the 15 visible words from Pal_D00C"
+        );
+        assert!(
+            hologram.tile_sheet.tiles.len() > 0x0409,
+            "ASM loc_C140 uploads HoloBlocks at tile $409 after HoloBG at tile $2FB"
+        );
+        assert_eq!(
+            hologram.rows[0][0].tile_index, 0x02FB,
+            "ASM loc_C140 decodes MapEni_CC0E with base tile word $42FB"
+        );
+        assert_eq!(
+            hologram.rows[0][0].palette_line, 0,
+            "the extracted Pal_D00C slice is standalone, so native normalises the ROM line-2 tile words to palette line 0 for rendering"
+        );
+    }
+
+    #[test]
+    fn load_title_card_letters_returns_rom_letter_sheet_and_palette() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let letters = visuals
+            .title_card_letters
+            .expect("ASM Load_TitleCard loc_1AB26 letter visuals");
+
+        assert_eq!(
+            letters.tile_sheet.tiles.len(),
+            35,
+            "ASM off_1AC2A indexes 35 title-card letter/marker sprite frames"
+        );
+        assert_eq!(
+            letters.palette.colours.len(),
+            16,
+            "ASM loc_1AB26 copies Pal_19C48 as one complete 16-colour line"
+        );
+        assert_eq!(letters.tile_sheet.tiles[0].pixels[0], 0);
+        assert_eq!(letters.tile_sheet.tiles[34].pixels[63], 15);
+    }
+
+    #[test]
+    fn load_pause_menu_visuals_returns_loc_690c_vram_sheet() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let pause = visuals
+            .pause_menu
+            .expect("ASM loc_690C pause menu tile upload visuals");
+
+        assert_eq!(
+            pause.vram_base_tile_index, 0x0676,
+            "ASM loc_690C uploads ArtUnc_PauseMenu to VRAM $CEC0, tile $676"
+        );
+        assert_eq!(
+            pause.tile_sheet.tiles.len(),
+            0x19,
+            "ASM loc_690C copies the header word count from ArtUnc_PauseMenu: 25 tiles"
+        );
+        assert_eq!(pause.restart_rows.len(), 5);
+        assert!(pause.restart_rows.iter().all(|row| row.len() == 16));
+        assert_eq!(pause.give_up_rows.len(), 5);
+        assert!(pause.give_up_rows.iter().all(|row| row.len() == 16));
+        assert_eq!(
+            pause.restart_rows[0][0],
+            TileRef {
+                tile_index: 0,
+                palette_line: 0,
+                priority: true,
+                flip_x: false,
+                flip_y: false,
+            },
+            "ASM MapUnc_PauseMenu_Restart starts with absolute word $8676, normalised to tile 0 from VRAM base $676"
+        );
+        assert_eq!(
+            pause.restart_rows[3][2].tile_index, 0x0C,
+            "ASM MapUnc_PauseMenu_Restart row 3 spells Restart Round using tile $682 at the R"
+        );
+        assert_eq!(
+            pause.give_up_rows[3][2].tile_index, 0x04,
+            "ASM MapUnc_PauseMenu_GiveUp row 3 spells Give Up using tile $67A at the G"
+        );
+        assert_eq!(pause.tile_sheet.tiles[0].pixels[0], 0);
+        assert_eq!(pause.tile_sheet.tiles[24].pixels[63], 15);
+    }
+
+    #[test]
+    fn missing_required_asset_reports_contextual_error() {
+        let fixture = TestBundle::new().expect("test bundle");
+        let missing_path = fixture
+            .root
+            .path()
+            .join("theme")
+            .join("palette_fg")
+            .join("cave.bin");
+        fs::remove_file(&missing_path).expect("remove palette");
+
+        let error =
+            load_level_visuals(&fixture.manifest, LEVEL_ID).expect_err("missing asset should fail");
+        let message = format!("{error:#}");
+        assert!(message.contains("theme/palette_fg/cave.bin"));
+        assert!(message.contains("missing"));
+    }
+
+    #[test]
+    fn kid_render_loads_complete_level1_bundle_from_generated_assets() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(visuals.level.level_id, LEVEL_ID);
+        assert_eq!(visuals.level.foreground_theme_id, CAVE_THEME_ID);
+        assert_eq!(visuals.level.background_theme_id, CAVE_THEME_ID);
+        assert!(!visuals.level.foreground_layout_bytes.is_empty());
+        assert!(!visuals.level.block_layout_bytes.is_empty());
+        assert!(!visuals.level.background_layout_bytes.is_empty());
+    }
+
+    #[test]
+    fn load_level_visuals_decodes_compressed_foreground_resource() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture
+            .enable_compressed_foreground_resource()
+            .expect("compressed foreground fixture");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(
+            visuals.level.foreground_layout_bytes,
+            foreground_layout_fixture_bytes(),
+            "ASM level foreground resources are Saxman-compressed before native parses the layout"
+        );
+    }
+
+    #[test]
+    fn load_level_visuals_decodes_layered_forest_background_planes() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        fixture
+            .enable_layered_forest_background()
+            .expect("layered forest fixture");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+
+        assert_eq!(visuals.level.background_theme_id, FOREST_THEME_ID);
+        let BackgroundVisuals::Layered(background) = visuals.background else {
+            panic!("forest background should load through the layered renderer path");
+        };
+        assert_eq!(background.rows.len(), 1);
+        assert_eq!(background.rows[0].tiles.len(), 64);
+        assert_eq!(background.rows[0].tiles[0].tile_index, 0);
+        assert_eq!(background.rows[0].tiles[32].tile_index, 1);
+    }
+
+    #[test]
+    fn load_level_visuals_uses_resource_decoded_layouts_for_aliased_levels() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        let resource_foreground = vec![0x04; 6 * 4 * 20 * 14];
+        fixture
+            .enable_decoded_resource_alias(0x01, 0x4B, &resource_foreground)
+            .expect("resource alias fixture");
+
+        let visuals =
+            load_level_visuals(&fixture.manifest, 0x01).expect("aliased visuals should load");
+
+        // ASM Load_InGame loc_11A50 resolves Current_LevelID through
+        // MapOrder_Index before reading the map header and layout pointers.
+        assert_eq!(visuals.level.level_id, 0x01);
+        assert_eq!(visuals.level.foreground_layout_bytes, resource_foreground);
+        assert_eq!(
+            visuals.level.block_layout_bytes,
+            vec![0x4B, 0x4C, 0x4D, 0x4E]
+        );
+    }
+
+    #[test]
+    fn load_level_visuals_resolves_decoded_layouts_through_map_order_loc_11a50() {
+        let mut fixture = TestBundle::new().expect("test bundle");
+        let resource_foreground = vec![0x04; 6 * 4 * 20 * 14];
+        fixture
+            .enable_decoded_resource_alias(0x01, 0x4B, &resource_foreground)
+            .expect("resource alias fixture");
+        let logical_foreground = vec![0x05; 2 * 2 * 20 * 14];
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/foreground.bin",
+            &logical_foreground,
+        )
+        .expect("write logical foreground");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/foreground.bin.png",
+            b"preview",
+        )
+        .expect("write logical foreground preview");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/block.bin",
+            &[0x01, 0x02, 0x03, 0x04],
+        )
+        .expect("write logical block");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/block.bin.png",
+            b"preview",
+        )
+        .expect("write logical block preview");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/background.bin",
+            &[0x00, 0x00],
+        )
+        .expect("write logical background");
+        write_file(
+            fixture.root.path(),
+            "decoded/level/01/background.bin.png",
+            b"preview",
+        )
+        .expect("write logical background preview");
+        fixture.manifest.decoded_levels.push(DecodedLevelAssets {
+            contract_version: DECODED_LEVEL_ASSET_VERSION,
+            level_id: 0x01,
+            foreground: decoded_asset(fixture.root.path(), "decoded/level/01/foreground.bin"),
+            block: decoded_asset(fixture.root.path(), "decoded/level/01/block.bin"),
+            background: decoded_asset(fixture.root.path(), "decoded/level/01/background.bin"),
+        });
+        fixture.manifest.levels[1].header_metadata = Some(wildside_data::LevelHeader {
+            width_screens: 2,
+            height_screens: 2,
+            height_flag_bits: 0,
+            level_theme: CAVE_THEME_ID,
+            murder_wall_flags: 0,
+            background_theme: CAVE_THEME_ID,
+            weather_flags: 0,
+            player_start_x: 0x20,
+            player_start_y: 0x60,
+            flag_x: 0x220,
+            flag_y: 0x970,
+        });
+        fixture.manifest.levels[2]
+            .header_metadata
+            .as_mut()
+            .expect("resource header")
+            .level_theme = FOREST_THEME_ID;
+        fixture.manifest.levels[2]
+            .header_metadata
+            .as_mut()
+            .expect("resource header")
+            .background_theme = FOREST_THEME_ID;
+
+        let visuals =
+            load_level_visuals(&fixture.manifest, 0x01).expect("aliased visuals should load");
+
+        // ASM Load_InGame loc_11A50 resolves Current_LevelID through
+        // MapOrder_Index before reading the map header. The same header
+        // cursor then supplies the foreground, block, and background pointers
+        // consumed at loc_11BEC, loc_11C7E, and loc_11D0C.
+        assert_eq!(visuals.level.level_id, 0x01);
+        assert_eq!(visuals.level.foreground_theme_id, FOREST_THEME_ID);
+        assert_eq!(visuals.level.background_theme_id, FOREST_THEME_ID);
+        assert_eq!(visuals.level.foreground_layout.width_cells, 120);
+        assert_eq!(visuals.level.foreground_layout.height_cells, 56);
+        assert_eq!(visuals.level.foreground_layout_bytes, resource_foreground);
+        assert_eq!(
+            visuals.level.block_layout_bytes,
+            vec![0x4B, 0x4C, 0x4D, 0x4E]
+        );
+        let BackgroundVisuals::Layered(background) = &visuals.background else {
+            panic!("mapped forest resource should use layered background visuals");
+        };
+        assert_eq!(
+            background.rows[0].tiles[0].tile_index, 0,
+            "ASM Load_InGame loc_11A50 maps visual theme ids before loc_128BA normalises layered background tile base"
+        );
+        assert_eq!(
+            background.rows[0].tiles[32].tile_index, 1,
+            "ASM Load_InGame loc_11A50 maps visual theme ids before loc_128BA normalises layered background tile base"
+        );
+    }
+
+    #[test]
+    fn load_level_visuals_truncates_borrowed_logical_foreground_to_resource_grid_loc_11a50() {
+        // ASM Load_InGame loc_11A50 resolves Current_LevelID through MapOrder_Index, then reads the
+        // foreground through the mapped resource header. When the aliased resource has no foreground
+        // of its own, the bytes fall back to the logical level (sized to the logical header) but the
+        // geometry stays the resource header — exactly the leftover-level case (0x47 -> 0x42, 0x38).
+        // The render must agree with decode_level_layout's collision grid, which truncates the same
+        // borrowed terrain to the resource header's cell count.
+        let mut fixture = TestBundle::new().expect("test bundle");
+
+        // Logical level keeps its own (larger) Saxman foreground: 7x4 screens = 140x56 cells.
+        let logical_foreground: Vec<u8> = (0..(7 * 4 * 20 * 14))
+            .map(|value| (value % 16) as u8)
+            .collect();
+        write_file(
+            fixture.root.path(),
+            "level/00/foreground.sax",
+            &direct_copy_saxman(&logical_foreground),
+        )
+        .expect("write logical foreground");
+        fixture.manifest.levels[0].resources.foreground = Some("00/foreground.sax".to_owned());
+        fixture.manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("logical header")
+            .width_screens = 7; // 7x4 logical -> 140x56 cells
+
+        // Aliased resource has no foreground of its own and a smaller header (4x6 -> 80x84 cells).
+        // It is deliberately absent from decoded_levels, mirroring the leftover resource records.
+        let resource_level_id = 0x4B;
+        let mut resource_level = fixture.manifest.levels[0].clone();
+        resource_level.level_id = resource_level_id;
+        resource_level.display_name = Some(String::from("The Crypt (leftover) resources"));
+        resource_level.resources.foreground = None;
+        {
+            let resource_header = resource_level
+                .header_metadata
+                .as_mut()
+                .expect("resource header");
+            resource_header.width_screens = 4;
+            resource_header.height_screens = 6;
+        }
+        fixture.manifest.levels.push(resource_level);
+        fixture.manifest.map_order = vec![resource_level_id]; // map_order[0x00] = 0x4B
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID)
+            .expect("borrowed-logical aliased visuals should load (today this bails)");
+
+        // Geometry follows the mapped resource header, matching decode_level_layout's collision grid.
+        assert_eq!(visuals.level.foreground_layout.width_cells, 80);
+        assert_eq!(visuals.level.foreground_layout.height_cells, 84);
+
+        // Render indexes the same first expected bytes the collision grid truncates to.
+        let width_cells = 80usize;
+        let expected_cells = width_cells * 84;
+        for (index, &expected) in logical_foreground.iter().take(expected_cells).enumerate() {
+            let row = (index / width_cells) as u16;
+            let col = (index % width_cells) as u16;
+            assert_eq!(
+                visuals.level.foreground_layout.skin_at(col, row),
+                expected,
+                "parsed cell {index} must match the truncated borrowed-logical foreground"
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
+    fn generated_blue_lake_woods_visuals_use_map_order_forest_theme_loc_11a50() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+
+        for level_id in [0x00, 0x01] {
+            let resource_header = resource_level_record(&manifest, level_id)
+                .and_then(|level| level.header_metadata.as_ref())
+                .expect("mapped resource header should exist");
+            let visuals =
+                load_level_visuals(&manifest, level_id).expect("generated BLW visuals should load");
+
+            // ASM Load_InGame loc_11A50 resolves Current_LevelID through
+            // MapOrder_Index before reading the map header. Generated BLW
+            // geometry remains logical, but the visible art/palette theme is
+            // the mapped forest resource; using the logical 0x08 theme draws
+            // the cave-eyes background reported in playtests.
+            assert_eq!(resource_header.level_theme, 0x09);
+            assert_eq!(resource_header.background_theme, 0x09);
+            assert_eq!(
+                (
+                    visuals.level.foreground_theme_id,
+                    visuals.level.background_theme_id
+                ),
+                (
+                    resource_header.level_theme,
+                    resource_header.background_theme
+                ),
+                "logical level 0x{level_id:02X} should draw mapped resource theme 0x{:02X}/0x{:02X}",
+                resource_header.level_theme,
+                resource_header.background_theme
+            );
+            let BackgroundVisuals::Layered(background) = &visuals.background else {
+                panic!("generated BLW should draw the mapped forest layered background");
+            };
+            assert!(
+                background
+                    .rows
+                    .iter()
+                    .flat_map(|row| &row.tiles)
+                    .all(|tile| tile.tile_index < 0x0780),
+                "logical level 0x{level_id:02X} should not retain absolute VRAM tile indices for mapped forest background tiles"
+            );
+        }
+    }
+
+    struct TestBundle {
+        root: TempDir,
+        manifest: AssetManifest,
+    }
+
+    impl TestBundle {
+        fn new() -> anyhow::Result<Self> {
+            let root = TempDir::new()?;
+            write_file(
+                root.path(),
+                "decoded/level/00/foreground.bin",
+                &foreground_layout_fixture_bytes(),
+            )?;
+            write_file(
+                root.path(),
+                "decoded/level/00/foreground.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                root.path(),
+                "decoded/level/00/block.bin",
+                &[0x20, 0x21, 0x22, 0x23],
+            )?;
+            write_file(root.path(), "decoded/level/00/block.bin.png", b"preview")?;
+            write_file(
+                root.path(),
+                "decoded/level/00/background.bin",
+                &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF],
+            )?;
+            write_file(
+                root.path(),
+                "decoded/level/00/background.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                root.path(),
+                "theme/artcomp_fg/cave.bin",
+                &direct_copy_saxman(&(0u8..64).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "theme/artcomp_bg/cave.bin",
+                &direct_copy_saxman(&(64u8..96).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "theme/artcomp_fg/forest.bin",
+                &direct_copy_saxman(&(32u8..96).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "theme/artcomp_bg/forest.bin",
+                &direct_copy_saxman(&(96u8..128).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Blocks.bin",
+                &direct_copy_saxman(&(96u8..160).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Murder_wall.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0x90))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette/Murder_wall.bin",
+                &(0..8)
+                    .map(|value| 0x0400_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Lava.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0xC0))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette/lava.bin",
+                &(0..8)
+                    .map(|value| 0x0500_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Rain.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0x60))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Hail_Sparkles.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0x60))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette/hail_mountain.bin",
+                &(0..8)
+                    .map(|value| 0x0600_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette/hail_ice.bin",
+                &(0..8)
+                    .map(|value| 0x0700_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/HUD_numbers.bin",
+                &direct_copy_saxman(&(0..384).map(|value| (value % 16) as u8).collect::<Vec<_>>()),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Hitpoint_display.bin",
+                &(0..128).map(|value| (value % 16) as u8).collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Pause_menu.bin",
+                &(0..(32 * 0x19))
+                    .map(|value| (value % 16) as u8)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Enemy01_Diamond.bin",
+                &direct_copy_saxman(
+                    &(0..4096)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Enemy1C_Mini_hopping_skull.bin",
+                &direct_copy_saxman(
+                    &(0..2048)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Enemy0E_Cloud.bin",
+                &direct_copy_saxman(
+                    &(0..4096)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Cloud_1.bin",
+                &(0..15)
+                    .map(|value| 0x01A0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Horizontal_platform.bin",
+                &direct_copy_saxman(
+                    &(0..1024)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Vertical_platform.bin",
+                &direct_copy_saxman(
+                    &(0..1024)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/diamond_1.bin",
+                &(0..512).map(|value| (value % 16) as u8).collect::<Vec<_>>(),
+            )?;
+            for (path, fill) in [
+                ("ingame/artunc/diamond_2.bin", 0x2D),
+                ("ingame/artunc/diamond_3.bin", 0x3D),
+                ("ingame/artunc/diamond_4.bin", 0x4D),
+            ] {
+                write_file(root.path(), path, &vec![fill; 512])?;
+            }
+            write_file(
+                root.path(),
+                "ingame/artunc/Life_icon_(3_frames).bin",
+                &vec![0x6B; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Clock_icon_(3_frames).bin",
+                &vec![0x6C; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Coin_continue_icon_(6_frames).bin",
+                &vec![0x6D; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/End_of_level_Flag_(6_frames).bin",
+                &vec![0x6E; 32 * 120],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Flag_bottom.bin",
+                &[0x6F; 32 * 4],
+            )?;
+            write_file(
+                root.path(),
+                "scenes/artcomp/End_level_stats_text.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0xD8))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/artcomp/Hologram_background.bin",
+                &direct_copy_saxman(&[0x11; 32 * 2]),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/artcomp/Hologram_blocks.bin",
+                &direct_copy_saxman(&[0x22; 32 * 2]),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/mapeni/hologram_background.bin",
+                ENIGMA_COMMON_RUN_FIXTURE,
+            )?;
+            write_file(
+                root.path(),
+                "scenes/palette/Score_screen.bin",
+                &(0..15)
+                    .map(|value| 0x0340_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/artcomp/Title_card_letters.bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 35))
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "scenes/palette/Title_card_letters.bin",
+                &(0..16)
+                    .map(|value| 0x0380_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Crystal_1.bin",
+                &(0..15)
+                    .map(|value| 0x0100_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artcomp/Enemy0C_Dragon.bin",
+                &direct_copy_saxman(
+                    &(0..16_384)
+                        .map(|value| (value % 16) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Dragon_1.bin",
+                &(0..15)
+                    .map(|value| 0x0120_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_enemy/Mini_Hopping_Skull_1.bin",
+                &(0..15)
+                    .map(|value| 0x0180_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Kid.bin",
+                &(0..15)
+                    .map(|value| 0x0200_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Iron_Knight.bin",
+                &(0..15)
+                    .map(|value| 0x0240_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Iron_Knight_Transformation.bin",
+                &(0..15)
+                    .map(|value| 0x0280_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Juggernaut.bin",
+                &(0..15)
+                    .map(|value| 0x02A0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Juggernaut_Transformation.bin",
+                &(0..15)
+                    .map(|value| 0x02B0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid.bin",
+                &vec![0x11; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_1.bin",
+                &vec![0x22; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_2.bin",
+                &vec![0x23; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_3.bin",
+                &vec![0x24; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_4.bin",
+                &vec![0x25; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_5.bin",
+                &vec![0x26; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_walk_6.bin",
+                &vec![0x27; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_jumping_1.bin",
+                &vec![0x31; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_jumping_2.bin",
+                &vec![0x32; 32 * 12],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/kid_death.bin",
+                &vec![0x3A; 32 * 12],
+            )?;
+            for (path, tile_count, fill) in [
+                ("ingame/artunc_kid/kid_flip_1.bin", 16, 0x33),
+                ("ingame/artunc_kid/kid_flip_2.bin", 12, 0x34),
+                ("ingame/artunc_kid/kid_flip_3.bin", 16, 0x35),
+                ("ingame/artunc_kid/kid_flip_4.bin", 12, 0x36),
+                ("ingame/artunc_kid/kid_flip_5.bin", 16, 0x37),
+                ("ingame/artunc_kid/kid_flip_6.bin", 16, 0x38),
+                ("ingame/artunc_kid/kid_flip_7.bin", 12, 0x39),
+            ] {
+                write_file(root.path(), path, &vec![fill; 32 * tile_count])?;
+            }
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight.bin",
+                &vec![0x41; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_1.bin",
+                &vec![0x42; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_2.bin",
+                &vec![0x43; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_3.bin",
+                &vec![0x44; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_4.bin",
+                &vec![0x45; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_5.bin",
+                &vec![0x46; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_walk_6.bin",
+                &vec![0x47; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_jumping_1.bin",
+                &vec![0x48; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_jumping_2.bin",
+                &vec![0x49; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_climbing_1.bin",
+                &vec![0x4E; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_climbing_2.bin",
+                &vec![0x4F; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_climbing_3.bin",
+                &vec![0x50; 32 * 24],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_transformation_1.bin",
+                &vec![0x4A; 32 * 40],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_transformation_2.bin",
+                &vec![0x4B; 32 * 40],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_transformation_3.bin",
+                &vec![0x4C; 32 * 48],
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc_kid/iron_knight_transformation_4.bin",
+                &vec![0x4D; 32 * 40],
+            )?;
+            for index in 1..=12 {
+                write_file(
+                    root.path(),
+                    &format!("ingame/artunc_kid/iron_knight_slope_{index}.bin"),
+                    &vec![0x60 + index as u8; 32 * 48],
+                )?;
+            }
+            for (path, tile_count, fill) in [
+                ("ingame/artunc_kid/juggernaut_head.bin", 12, 0x4E),
+                ("ingame/artunc_kid/juggernaut_head_walk_2.bin", 12, 0x4F),
+                ("ingame/artunc_kid/juggernaut_head_walk_3.bin", 12, 0x50),
+                ("ingame/artunc_kid/juggernaut_head_walk_4.bin", 12, 0x51),
+                ("ingame/artunc_kid/juggernaut_head_walk_5.bin", 12, 0x52),
+                ("ingame/artunc_kid/juggernaut_head_walk_6.bin", 12, 0x53),
+                ("ingame/artunc_kid/juggernaut_bottom.bin", 12, 0x54),
+                ("ingame/artunc_kid/juggernaut_bottom_move_1.bin", 12, 0x55),
+                ("ingame/artunc_kid/juggernaut_bottom_move_2.bin", 12, 0x56),
+                ("ingame/artunc_kid/juggernaut_bottom_move_3.bin", 12, 0x57),
+                ("ingame/artunc_kid/juggernaut_bottom_move_4.bin", 12, 0x58),
+                (
+                    "ingame/artunc_kid/juggernaut_bottom_jumping_1.bin",
+                    18,
+                    0x59,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_bottom_jumping_3.bin",
+                    18,
+                    0x5A,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_transformation_1.bin",
+                    25,
+                    0x5B,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_transformation_2.bin",
+                    25,
+                    0x5C,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_transformation_3.bin",
+                    30,
+                    0x5D,
+                ),
+                (
+                    "ingame/artunc_kid/juggernaut_transformation_4.bin",
+                    48,
+                    0x5E,
+                ),
+            ] {
+                write_file(root.path(), path, &vec![fill; 32 * tile_count])?;
+            }
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Red_Stealth.bin",
+                &(0..15)
+                    .map(|value| 0x02C0_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/palette_kid/Red_Stealth_Transformation.bin",
+                &(0..15)
+                    .map(|value| 0x0300_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            for (path, fill) in [
+                ("ingame/artunc_kid/red_stealth.bin", 0x51),
+                ("ingame/artunc_kid/red_stealth_walk_1.bin", 0x52),
+                ("ingame/artunc_kid/red_stealth_walk_2.bin", 0x53),
+                ("ingame/artunc_kid/red_stealth_walk_3.bin", 0x54),
+                ("ingame/artunc_kid/red_stealth_walk_4.bin", 0x55),
+                ("ingame/artunc_kid/red_stealth_walk_5.bin", 0x56),
+                ("ingame/artunc_kid/red_stealth_walk_6.bin", 0x57),
+                ("ingame/artunc_kid/red_stealth_jumping_1.bin", 0x58),
+                ("ingame/artunc_kid/red_stealth_jumping_2.bin", 0x59),
+                ("ingame/artunc_kid/red_stealth_transformation_1.bin", 0x5A),
+                ("ingame/artunc_kid/red_stealth_transformation_2.bin", 0x5B),
+                ("ingame/artunc_kid/red_stealth_slash_1.bin", 0x5C),
+                ("ingame/artunc_kid/red_stealth_slash_2.bin", 0x5D),
+                ("ingame/artunc_kid/red_stealth_slash_3.bin", 0x5E),
+                ("ingame/artunc_kid/red_stealth_slash_4.bin", 0x5F),
+                ("ingame/artunc_kid/red_stealth_slash_air_1.bin", 0x60),
+                ("ingame/artunc_kid/red_stealth_slash_air_2.bin", 0x61),
+                ("ingame/artunc_kid/red_stealth_slash_air_3.bin", 0x62),
+                ("ingame/artunc_kid/red_stealth_slash_air_4.bin", 0x63),
+            ] {
+                write_file(root.path(), path, &vec![fill; 32 * 48])?;
+            }
+            for (index, (art_path, base_palette_path, palette_path)) in
+                FLOATING_PRIZE_HELMET_FIXTURE_ASSETS.iter().enumerate()
+            {
+                let fill = 0x70 + u8::try_from(index).expect("helmet fixture index fits in u8");
+                write_file(root.path(), art_path, &vec![fill; 32 * 24])?;
+                write_file(
+                    root.path(),
+                    base_palette_path,
+                    &(0..15)
+                        .map(|value| (0x0390_u16 + u16::from(fill) + value).to_be_bytes())
+                        .collect::<Vec<_>>()
+                        .concat(),
+                )?;
+                write_file(
+                    root.path(),
+                    palette_path,
+                    &(0..3)
+                        .map(|value| (0x0490_u16 + u16::from(fill) + value).to_be_bytes())
+                        .collect::<Vec<_>>()
+                        .concat(),
+                )?;
+            }
+            write_file(
+                root.path(),
+                "theme/palette_fg/cave.bin",
+                &(0..15)
+                    .flat_map(|value| (value as u16).to_be_bytes())
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/palette_bg/cave.bin",
+                &(0..8)
+                    .map(|value| 0x0100_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/palette_fg/forest.bin",
+                &(0..15)
+                    .map(|value| 0x0200_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/palette_bg/forest.bin",
+                &(0..8)
+                    .map(|value| 0x0300_u16 + value)
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/mappings/cave.bin",
+                &[
+                    0x000A_u16, 0x000B, 0x000C, 0x000D, 0x0010, 0x0011, 0x0012, 0x0013,
+                ]
+                .into_iter()
+                .flat_map(u16::to_be_bytes)
+                .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/block_mappings.bin",
+                &block_mapping_words()
+                    .into_iter()
+                    .flat_map(u16::to_be_bytes)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/mappings/forest.bin",
+                &[
+                    0x002A_u16, 0x002B, 0x002C, 0x002D, 0x0030, 0x0031, 0x0032, 0x0033,
+                ]
+                .into_iter()
+                .flat_map(u16::to_be_bytes)
+                .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "theme/bg_chunks/cave_00.bin",
+                &[0x00, 0x02, 0x00, 0x01, 0x00, 0x01],
+            )?;
+            write_file(
+                root.path(),
+                "theme/bg_chunks/forest_eni_00.bin",
+                &layered_background_enigma_plane(0),
+            )?;
+            write_file(
+                root.path(),
+                "theme/bg_chunks/forest_eni_01.bin",
+                &layered_background_enigma_plane(1),
+            )?;
+
+            let mut manifest = AssetManifest {
+                generated_bundle_version: GENERATED_BUNDLE_VERSION,
+                rom_sha1: String::from("fixture"),
+                upstream_commit: String::from("fixture"),
+                source_root: root.path().to_path_buf(),
+                output_root: root.path().to_path_buf(),
+                map_order: Vec::new(),
+                levels: vec![LevelRecord {
+                    level_id: LEVEL_ID,
+                    title_text_id: Some(0x4A),
+                    display_name: Some(String::from("Blue Lake Woods 1")),
+                    title_card: None,
+                    resource_paths: Vec::new(),
+                    resources: LevelResources::default(),
+                    header_metadata: Some(LevelHeader {
+                        width_screens: 6,
+                        height_screens: 4,
+                        height_flag_bits: 0,
+                        level_theme: CAVE_THEME_ID,
+                        murder_wall_flags: 0,
+                        background_theme: CAVE_THEME_ID,
+                        weather_flags: 0,
+                        player_start_x: 0x0750,
+                        player_start_y: 0x00E0,
+                        flag_x: 0x0750,
+                        flag_y: 0x0300,
+                    }),
+                    enemy_layout_metadata: None,
+                    bgscroll_metadata: None,
+                    platform_metadata: None,
+                }],
+                constants: Vec::new(),
+                ram_variables: Vec::new(),
+                enemy_sources: Vec::new(),
+                theme_assets: vec![
+                    asset_file(root.path(), "theme/artcomp_fg/cave.bin"),
+                    asset_file(root.path(), "theme/artcomp_bg/cave.bin"),
+                    asset_file(root.path(), "theme/artcomp_fg/forest.bin"),
+                    asset_file(root.path(), "theme/artcomp_bg/forest.bin"),
+                    asset_file(root.path(), "theme/palette_fg/cave.bin"),
+                    asset_file(root.path(), "theme/palette_bg/cave.bin"),
+                    asset_file(root.path(), "theme/palette_fg/forest.bin"),
+                    asset_file(root.path(), "theme/palette_bg/forest.bin"),
+                    asset_file(root.path(), "theme/mappings/cave.bin"),
+                    asset_file(root.path(), "theme/mappings/forest.bin"),
+                    asset_file(root.path(), "theme/block_mappings.bin"),
+                    asset_file(root.path(), "theme/bg_chunks/cave_00.bin"),
+                    asset_file(root.path(), "theme/bg_chunks/forest_eni_00.bin"),
+                    asset_file(root.path(), "theme/bg_chunks/forest_eni_01.bin"),
+                ],
+                scene_assets: vec![
+                    asset_file(root.path(), "scenes/artcomp/End_level_stats_text.bin"),
+                    asset_file(root.path(), "scenes/artcomp/Hologram_background.bin"),
+                    asset_file(root.path(), "scenes/artcomp/Hologram_blocks.bin"),
+                    asset_file(root.path(), "scenes/mapeni/hologram_background.bin"),
+                    asset_file(root.path(), "scenes/palette/Score_screen.bin"),
+                    asset_file(root.path(), "scenes/artcomp/Title_card_letters.bin"),
+                    asset_file(root.path(), "scenes/palette/Title_card_letters.bin"),
+                ],
+                animation_assets: Vec::new(),
+                sound_assets: Vec::new(),
+                ingame_assets: vec![
+                    asset_file(root.path(), "ingame/artcomp/Blocks.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Murder_wall.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Lava.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Rain.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Hail_Sparkles.bin"),
+                    asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
+                    asset_file(root.path(), "ingame/artunc/Hitpoint_display.bin"),
+                    asset_file(root.path(), "ingame/artunc/Pause_menu.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy0E_Cloud.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Enemy1C_Mini_hopping_skull.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Horizontal_platform.bin"),
+                    asset_file(root.path(), "ingame/artcomp/Vertical_platform.bin"),
+                    asset_file(root.path(), "ingame/artunc/diamond_1.bin"),
+                    asset_file(root.path(), "ingame/artunc/diamond_2.bin"),
+                    asset_file(root.path(), "ingame/artunc/diamond_3.bin"),
+                    asset_file(root.path(), "ingame/artunc/diamond_4.bin"),
+                    asset_file(root.path(), "ingame/artunc/Life_icon_(3_frames).bin"),
+                    asset_file(root.path(), "ingame/artunc/Clock_icon_(3_frames).bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc/Coin_continue_icon_(6_frames).bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc/End_of_level_Flag_(6_frames).bin",
+                    ),
+                    asset_file(root.path(), "ingame/artunc/Flag_bottom.bin"),
+                    asset_file(root.path(), "ingame/palette/Murder_wall.bin"),
+                    asset_file(root.path(), "ingame/palette/hail_mountain.bin"),
+                    asset_file(root.path(), "ingame/palette/hail_ice.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Crystal_1.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Dragon_1.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Cloud_1.bin"),
+                    asset_file(root.path(), "ingame/palette_enemy/Mini_Hopping_Skull_1.bin"),
+                    asset_file(root.path(), "ingame/palette_kid/Kid.bin"),
+                    asset_file(root.path(), "ingame/palette_kid/Iron_Knight.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/palette_kid/Iron_Knight_Transformation.bin",
+                    ),
+                    asset_file(root.path(), "ingame/palette_kid/Juggernaut.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/palette_kid/Juggernaut_Transformation.bin",
+                    ),
+                    asset_file(root.path(), "ingame/palette_kid/Red_Stealth.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/palette_kid/Red_Stealth_Transformation.bin",
+                    ),
+                    asset_file(root.path(), "ingame/artunc_kid/kid.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_jumping_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_jumping_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_death.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/kid_flip_7.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_jumping_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_climbing_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_7.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_8.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_9.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_10.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_11.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/iron_knight_slope_12.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/iron_knight_transformation_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/iron_knight_transformation_2.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/iron_knight_transformation_3.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/iron_knight_transformation_4.bin",
+                    ),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_head_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/juggernaut_bottom.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_move_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_move_2.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_move_3.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_move_4.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_jumping_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_bottom_jumping_3.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_transformation_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_transformation_2.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_transformation_3.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/juggernaut_transformation_4.bin",
+                    ),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_5.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_walk_6.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_jumping_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_jumping_2.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/red_stealth_transformation_1.bin",
+                    ),
+                    asset_file(
+                        root.path(),
+                        "ingame/artunc_kid/red_stealth_transformation_2.bin",
+                    ),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_4.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_air_1.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_air_2.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_air_3.bin"),
+                    asset_file(root.path(), "ingame/artunc_kid/red_stealth_slash_air_4.bin"),
+                ],
+                decoded_levels: vec![DecodedLevelAssets {
+                    contract_version: DECODED_LEVEL_ASSET_VERSION,
+                    level_id: LEVEL_ID,
+                    foreground: decoded_asset(root.path(), "decoded/level/00/foreground.bin"),
+                    block: decoded_asset(root.path(), "decoded/level/00/block.bin"),
+                    background: decoded_asset(root.path(), "decoded/level/00/background.bin"),
+                }],
+            };
+
+            for (art_path, _base_palette_path, palette_path) in FLOATING_PRIZE_HELMET_FIXTURE_ASSETS
+            {
+                manifest.ingame_assets.extend([
+                    asset_file(root.path(), art_path),
+                    asset_file(root.path(), palette_path),
+                ]);
+            }
+
+            Ok(Self { root, manifest })
+        }
+
+        fn enable_compressed_foreground_resource(&mut self) -> anyhow::Result<()> {
+            write_file(
+                self.root.path(),
+                "level/00/foreground.sax",
+                &direct_copy_saxman(&foreground_layout_fixture_bytes()),
+            )?;
+            self.manifest.levels[0].resources.foreground = Some("00/foreground.sax".to_owned());
+            Ok(())
+        }
+
+        fn enable_layered_forest_background(&mut self) -> anyhow::Result<()> {
+            write_file(
+                self.root.path(),
+                "decoded/level/00/background.bin",
+                &[0x00, 0x00],
+            )?;
+
+            self.manifest.levels[0]
+                .header_metadata
+                .as_mut()
+                .expect("level header")
+                .background_theme = FOREST_THEME_ID;
+            self.manifest.decoded_levels[0].background =
+                decoded_asset(self.root.path(), "decoded/level/00/background.bin");
+
+            Ok(())
+        }
+
+        fn enable_decoded_resource_alias(
+            &mut self,
+            logical_level_id: u8,
+            resource_level_id: u8,
+            resource_foreground: &[u8],
+        ) -> anyhow::Result<()> {
+            write_file(
+                self.root.path(),
+                "decoded/level/01/foreground.bin",
+                &vec![0x01; 6 * 4 * 20 * 14],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/foreground.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/block.bin",
+                &[0x01, 0x02, 0x03, 0x04],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/block.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/background.bin",
+                &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/01/background.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/foreground.bin",
+                resource_foreground,
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/foreground.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/block.bin",
+                &[0x4B, 0x4C, 0x4D, 0x4E],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/block.bin.png",
+                b"preview",
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/background.bin",
+                &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF],
+            )?;
+            write_file(
+                self.root.path(),
+                "decoded/level/4B/background.bin.png",
+                b"preview",
+            )?;
+
+            let base_level = self.manifest.levels[0].clone();
+            let mut logical_level = base_level.clone();
+            logical_level.level_id = logical_level_id;
+            logical_level.display_name = Some(String::from("Blue Lake Woods 2"));
+            let mut resource_level = base_level;
+            resource_level.level_id = resource_level_id;
+            resource_level.display_name = Some(String::from("Blue Lake Woods 2 resources"));
+            self.manifest.levels.extend([logical_level, resource_level]);
+            self.manifest.map_order = vec![LEVEL_ID, resource_level_id];
+            self.manifest.decoded_levels.push(DecodedLevelAssets {
+                contract_version: DECODED_LEVEL_ASSET_VERSION,
+                level_id: resource_level_id,
+                foreground: decoded_asset(self.root.path(), "decoded/level/4B/foreground.bin"),
+                block: decoded_asset(self.root.path(), "decoded/level/4B/block.bin"),
+                background: decoded_asset(self.root.path(), "decoded/level/4B/background.bin"),
+            });
+
+            Ok(())
+        }
+    }
+
+    fn write_file(root: &Path, relative_path: &str, bytes: &[u8]) -> anyhow::Result<()> {
+        let path = root.join(relative_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, bytes)?;
+        Ok(())
+    }
+
+    fn foreground_layout_fixture_bytes() -> Vec<u8> {
+        (0..(6 * 4 * 20 * 14))
+            .map(|value| (value % 16) as u8)
+            .collect::<Vec<_>>()
+    }
+
+    fn asset_file(root: &Path, relative_path: &str) -> AssetFile {
+        let bytes = fs::read(root.join(relative_path)).expect("asset bytes");
+        let stored_relative_path = relative_path
+            .strip_prefix("theme/")
+            .or_else(|| relative_path.strip_prefix("ingame/"))
+            .unwrap_or(relative_path);
+        AssetFile {
+            relative_path: stored_relative_path.to_owned(),
+            size_bytes: bytes.len() as u64,
+            sha1: sha1_hex(&bytes),
+        }
+    }
+
+    fn decoded_asset(root: &Path, relative_path: &str) -> DecodedAssetFile {
+        let bytes = fs::read(root.join(relative_path)).expect("asset bytes");
+        DecodedAssetFile {
+            relative_path: relative_path.to_owned(),
+            preview_png_path: format!("{relative_path}.png"),
+            size_bytes: bytes.len() as u64,
+            sha1: sha1_hex(&bytes),
+        }
+    }
+
+    fn direct_copy_saxman(bytes: &[u8]) -> Vec<u8> {
+        let mut bits = vec![1_u8; bytes.len()];
+        bits.extend([0, 1, 0, 0, 0, 1, 1]);
+        let mut process = Vec::new();
+        let mut current = 0_u8;
+        for (index, bit) in bits.into_iter().enumerate() {
+            current = (current << 1) | bit;
+            if index % 8 == 7 {
+                process.push(current);
+                current = 0;
+            }
+        }
+        let remaining = bytes.len() + 7;
+        if !remaining.is_multiple_of(8) {
+            current <<= 8 - (remaining % 8);
+            process.push(current);
+        }
+
+        let input_offset = process.len() as u16;
+        let mut compressed = Vec::with_capacity(2 + process.len() + bytes.len() + 2);
+        compressed.extend(input_offset.to_be_bytes());
+        compressed.extend(process);
+        compressed.extend(bytes);
+        compressed.extend([0x00, 0x00]);
+        compressed
+    }
+
+    fn layered_background_enigma_plane(common_value: u16) -> Vec<u8> {
+        let [common_hi, common_lo] = common_value.to_be_bytes();
+        vec![
+            0x01, 0x00, 0x00, 0x00, common_hi, common_lo, 0x7D, 0xFF, 0xE0, 0x00,
+        ]
+    }
+
+    fn block_mapping_words() -> Vec<u16> {
+        let mut words = Vec::new();
+        for skin in 0..81_u16 {
+            let tile_base = 0x0200_u16 + skin * 4;
+            words.extend([tile_base, tile_base + 2, tile_base + 1, tile_base + 3]);
+        }
+        words
+    }
+
+    fn cached_generated_manifest() -> Option<AssetManifest> {
+        let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
+            && !override_root.is_empty()
+        {
+            PathBuf::from(override_root)
+        } else {
+            let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+            crate_dir
+                .parent()
+                .and_then(Path::parent)
+                .expect("wildside-render crate should live under <repo>/crates/wildside-render")
+                .to_path_buf()
+        };
+        let manifest_path = repo_root
+            .join(".cache/generated/28b904000b2863b6760531807760b571f1a5fc1d/asset-manifest.json");
+        if !manifest_path.is_file() {
+            eprintln!(
+                "skipping cache-backed render test: generated asset manifest missing at {}",
+                manifest_path.display()
+            );
+            return None;
+        }
+        Some(load_manifest(&manifest_path).expect("load cached generated asset manifest"))
+    }
+
+    fn sha1_hex(bytes: &[u8]) -> String {
+        let mut hasher = Sha1::new();
+        hasher.update(bytes);
+        format!("{:x}", hasher.finalize())
+    }
+}

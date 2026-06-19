@@ -1,0 +1,7320 @@
+use super::*;
+use crate::constants::SINE_TABLE_WORD_402B0;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EyeclopsBeamRenderSetupLocE4B2 {
+    pub(crate) beam_counter: u16,
+    pub(crate) x_offset_px: i16,
+    pub(crate) y_offset_px: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EyeclopsBeamScreenOriginLocE4C4 {
+    pub(crate) screen_x_word: u16,
+    pub(crate) screen_y_word: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EyeclopsBeamMirroredAnchorLocE50A {
+    pub(crate) anchor_x_word: u16,
+    pub(crate) tile_flip_bit: u16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EyeclopsBeamTableDispatchLocE512 {
+    pub(crate) pc_table_byte_offset: u16,
+    pub(crate) table_label: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EyeclopsBeamSpriteLocE51A {
+    pub(crate) y: u16,
+    pub(crate) size_link: u16,
+    pub(crate) tile_word: u16,
+    pub(crate) x: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct EyeclopsBeamSpritesLocE51A {
+    pub(crate) sprites: Vec<EyeclopsBeamSpriteLocE51A>,
+    pub(crate) number_sprites: u8,
+    pub(crate) collision_top_y_word: u16,
+    pub(crate) collision_bottom_y_word: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
+    beam_counter: u16,
+    latched_x_direction: u8,
+) -> EyeclopsBeamRenderSetupLocE4B2 {
+    // ASM loc_E4B2 (kid.asm:18008): subq.w #1,d7; d0=$12; d1=-$0F;
+    // `tst.b ($FFFFFABE).w` keeps that positive offset for a zero latch,
+    // otherwise `neg.w d0`. The latched x-direction byte mirrors Kid's
+    // `x_direction` at fire time.
+    let x_offset_px = if latched_x_direction == 0 {
+        0x12
+    } else {
+        -0x12
+    };
+    EyeclopsBeamRenderSetupLocE4B2 {
+        beam_counter: beam_counter.wrapping_sub(1),
+        x_offset_px,
+        y_offset_px: -0x0F,
+    }
+}
+
+fn kid_projectile_hit_spark_loc_1_f08(x_pos: u32, y_pos: u32) -> KidProjectileHitSparkLoc1F08 {
+    // ASM loc_1E5E (kid.asm:3642) allocates a helper and installs `loc_1F08`;
+    // loc_1F08 (kid.asm:3716) copies `$44/$46` to the gfx object and runs the
+    // four-frame `stru_1F40` script (`E0F2E/E0F36/E0F3E/E0F46`) before delete.
+    KidProjectileHitSparkLoc1F08 {
+        x_px: (x_pos >> 16) as u16,
+        y_px: (y_pos >> 16) as u16,
+        remaining: 4,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_screen_origin_loc_E4C4(
+    kid_x_word: u16,
+    kid_y_word: u16,
+    camera_x_word: u16,
+    camera_y_word: u16,
+    x_offset_px: i16,
+    y_offset_px: i16,
+) -> EyeclopsBeamScreenOriginLocE4C4 {
+    // ASM loc_E4C4 (kid.asm:18017): add Kid's word X/Y into d0/d1, subtract
+    // Camera_X_pos/Camera_Y_pos, then add the sprite-table bias `$80`.
+    let screen_x_word = kid_x_word
+        .wrapping_add(x_offset_px as u16)
+        .wrapping_sub(camera_x_word)
+        .wrapping_add(0x0080);
+    let screen_y_word = kid_y_word
+        .wrapping_add(y_offset_px as u16)
+        .wrapping_sub(camera_y_word)
+        .wrapping_add(0x0080);
+    EyeclopsBeamScreenOriginLocE4C4 {
+        screen_x_word,
+        screen_y_word,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_mirrored_anchor_loc_E50A(
+    screen_x_word: u16,
+    beam_segment_index: u16,
+) -> EyeclopsBeamMirroredAnchorLocE50A {
+    // ASM loc_E50A (kid.asm:18042): restore `a1` from beam screen X, subtract
+    // `d5 = $10 + (d7 << 3)`, then set the sprite tile horizontal flip bit.
+    let segment_span = 0x0010_u16.wrapping_add(beam_segment_index.wrapping_shl(3));
+    EyeclopsBeamMirroredAnchorLocE50A {
+        anchor_x_word: screen_x_word.wrapping_sub(segment_span),
+        tile_flip_bit: 0x0800,
+    }
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_table_dispatch_loc_E512(
+    beam_segment_index: u16,
+) -> Option<EyeclopsBeamTableDispatchLocE512> {
+    // ASM loc_E512 (kid.asm:18047): `d5 = d7 << 2` indexes the four longword
+    // pointers in `off_E560`, selecting one of the short-beam sprite tables.
+    let table_label = match beam_segment_index {
+        0 => "unk_E570",
+        1 => "unk_E596",
+        2 => "unk_E5C4",
+        3 => "unk_E5FA",
+        _ => return None,
+    };
+
+    Some(EyeclopsBeamTableDispatchLocE512 {
+        pc_table_byte_offset: beam_segment_index.wrapping_shl(2),
+        table_label,
+    })
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn eyeclops_beam_sprites_loc_E51A(
+    table_label: &str,
+    screen_x_word: u16,
+    screen_y_word: u16,
+    latched_x_direction: u8,
+    tile_flip_bit: u16,
+    starting_number_sprites: u8,
+) -> Option<EyeclopsBeamSpritesLocE51A> {
+    // ASM loc_E51A (kid.asm:18052): consume `(y,size,tile,x)` words from the
+    // `off_E560` table until `$8000`, add the biased beam origin, update the
+    // VDP link byte from `Number_Sprites`, OR in d4's flip bit, and for
+    // mirrored beams subtract both table X and the sprite width bucket.
+    let entries = match table_label {
+        "unk_E570" => &EYECLOPS_BEAM_TABLE_UNK_E570[..],
+        _ => return None,
+    };
+
+    let mut number_sprites = starting_number_sprites;
+    let mut sprites = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let y = screen_y_word.wrapping_add(i16_bits(entry.y_offset));
+        let sprite_width = ((entry.size_word >> 7) & 0x0018).wrapping_add(8);
+        number_sprites = number_sprites.wrapping_add(1);
+        let size_link = (entry.size_word & 0xFF00).wrapping_add(u16::from(number_sprites));
+        let tile_word = entry.tile_word | tile_flip_bit;
+        let x = if latched_x_direction == 0 {
+            // ASM loc_E54E (kid.asm:18078): clear `$FFFFFABE` stores
+            // `d0 + (a0)+` directly, with no width compensation.
+            screen_x_word.wrapping_add(i16_bits(entry.x_offset))
+        } else {
+            screen_x_word
+                .wrapping_sub(i16_bits(entry.x_offset))
+                .wrapping_sub(sprite_width)
+        };
+        sprites.push(EyeclopsBeamSpriteLocE51A {
+            y,
+            size_link,
+            tile_word,
+            x,
+        });
+    }
+
+    Some(EyeclopsBeamSpritesLocE51A {
+        sprites,
+        number_sprites,
+        // ASM loc_E554 (kid.asm:18084): after the `$8000` sentinel, the next
+        // two words are added to d1 and carried as d5/d6 into the bounds path.
+        collision_top_y_word: screen_y_word.wrapping_add(i16_bits(EYECLOPS_BEAM_UNK_E570_TOP_Y)),
+        collision_bottom_y_word: screen_y_word
+            .wrapping_add(i16_bits(EYECLOPS_BEAM_UNK_E570_BOTTOM_Y)),
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(not(test), allow(dead_code))]
+struct EyeclopsBeamTableEntryLocE51A {
+    y_offset: i16,
+    size_word: u16,
+    tile_word: u16,
+    x_offset: i16,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -0x10,
+        size_word: 0x0500,
+        tile_word: 0xE676,
+        x_offset: 0,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE67E,
+        x_offset: 0,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE682,
+        x_offset: 8,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 8,
+        size_word: 0x0500,
+        tile_word: 0xF676,
+        x_offset: 0,
+    },
+];
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_UNK_E570_TOP_Y: i16 = -0x08;
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_UNK_E570_BOTTOM_Y: i16 = 0x10;
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn i16_bits(value: i16) -> u16 {
+    u16::from_ne_bytes(value.to_ne_bytes())
+}
+
+fn u16_bits_as_i16(value: u16) -> i16 {
+    i16::from_ne_bytes(value.to_ne_bytes())
+}
+
+#[allow(non_snake_case)]
+fn eyeclops_beam_collision_probe_loc_E70A(
+    beam_segment_index: u16,
+    screen_x_word: u16,
+    screen_y_word: u16,
+    latched_x_direction: u8,
+) -> Option<(i16, i16, i16)> {
+    if beam_segment_index < 4 {
+        let segment_span = 0x0010_u16.wrapping_add(beam_segment_index.wrapping_shl(3));
+        let map_probe_screen_x = if latched_x_direction == 0 {
+            screen_x_word.wrapping_add(segment_span)
+        } else {
+            screen_x_word.wrapping_sub(segment_span)
+        };
+        let tile_flip_bit = if latched_x_direction == 0 { 0 } else { 0x0800 };
+        let dispatch = eyeclops_beam_table_dispatch_loc_E512(beam_segment_index)?;
+        let sprites = eyeclops_beam_sprites_loc_E51A(
+            dispatch.table_label,
+            screen_x_word,
+            screen_y_word,
+            latched_x_direction,
+            tile_flip_bit,
+            0,
+        )?;
+        return Some((
+            u16_bits_as_i16(map_probe_screen_x),
+            u16_bits_as_i16(sprites.collision_top_y_word),
+            u16_bits_as_i16(sprites.collision_bottom_y_word),
+        ));
+    }
+
+    let screen_x = u16_bits_as_i16(screen_x_word);
+    let screen_y = u16_bits_as_i16(screen_y_word);
+    let (source_x, d3_span_word, tile_attr_mask, map_probe_screen_x) = if latched_x_direction == 0 {
+        let setup = crate::level::level_sprite_strip_forward_setup_loc_E650(
+            screen_x,
+            beam_segment_index as i16,
+        )?;
+        (
+            setup.source_x,
+            setup.d3_span_word,
+            setup.tile_attr_mask,
+            setup.map_probe_x,
+        )
+    } else {
+        let d3_span_word = (beam_segment_index as i16).wrapping_sub(2).wrapping_mul(6);
+        let setup =
+            crate::level::level_sprite_strip_reverse_setup_loc_E67E(screen_x, d3_span_word)?;
+        (
+            setup.source_x,
+            setup.d3_span_word,
+            setup.tile_attr_mask,
+            setup.map_probe_x,
+        )
+    };
+    let strip = crate::level::level_sprite_strip_first_write_loc_E692(
+        screen_y,
+        0,
+        source_x,
+        d3_span_word,
+        tile_attr_mask,
+    );
+
+    Some((map_probe_screen_x, strip.top_probe_y, strip.bottom_probe_y))
+}
+
+/// Replace the upper word of a 32-bit longword with `hi`, preserving the lower
+/// word. Mirrors the 68k pattern `move.w D0,$3E(a0)` where the destination is
+/// the high half of a longword (e.g. radius longword $3E:$40 or angle $42:$44).
+///
+/// The two halves are bit-disjoint by construction, so `|`, `^`, and `+` all
+/// produce identical results — cargo-mutants flags `|` ↔ `^` here as a
+/// distinct mutation but the variants are mathematically equivalent. The
+/// helper centralises the bit-pack and is `mutants::skip`-annotated so the
+/// otherwise-unkillable mutation does not pollute the missed list at every
+/// call site (kid.asm `move.w Dn,$3E(a0)` / `move.w Dn,$42(a0)`).
+#[cfg_attr(any(), mutants::skip)]
+#[inline]
+fn replace_long_high_word(long: u32, hi: u16) -> u32 {
+    (u32::from(hi) << 16) | (long & 0xFFFF)
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u32) {
+    // ASM sub_868E (kid.asm:9522): the spawned sword worker copies Kid's
+    // position, subtracts 10px from Y, then offsets X by 28px toward the
+    // active facing. Native `Direction::Right` mirrors the clear x-direction
+    // player pose used by the existing Red Stealth combat path.
+    //
+    // ASM loc_86CE (kid.asm:9541): `add.w $1A(a0),d7; move.w d7,x_pos(a3)`.
+    // Before this label, d7=$1C (28) if `$16(a0)==0` (beq taken = default
+    // facing = Right in native terms) or d7=-$1C if flipped. loc_86CE is the
+    // common path that adds Kid's x_pos to d7 and stores it on the sword.
+    let x_offset_px = if player.facing == Direction::Right {
+        RED_STEALTH_REACH_X
+    } else {
+        -RED_STEALTH_REACH_X
+    };
+    // ASM sub_868E writes only word positions (`move.w`) after `add.w`/`subi.w`;
+    // positions that cross zero wrap in 16-bit world space instead of clamping.
+    let x_px = u32::from(((player.x_pos >> 16) as u16).wrapping_add_signed(x_offset_px as i16));
+    let y_px =
+        u32::from(((player.y_pos >> 16) as u16).wrapping_add_signed(RED_STEALTH_OFFSET_Y as i16));
+    (x_px << 16, y_px << 16)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RedStealthFloorImpactKindSubB000 {
+    None,
+    Smash,
+    Prize,
+    Ice,
+    BounceOnly,
+    MetalBounce,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RedStealthFloorImpactSubB000 {
+    pub(crate) kind: RedStealthFloorImpactKindSubB000,
+    pub(crate) block_col: u16,
+    pub(crate) block_row: u16,
+    pub(crate) bounce_y_velocity: i32,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn red_stealth_floor_impact_sub_B000(
+    current_form: PlayerForm,
+    sword_swing_active: bool,
+    grid: &terrain::BlockGrid,
+    center_x_px: i32,
+    foot_y_px: i32,
+) -> RedStealthFloorImpactSubB000 {
+    // ASM sub_B000 (kid.asm:13864): only Red Stealth with a live sword swing
+    // samples `sub_B55C` at `(x_pos(a3), y_pos(a3)+1)`.  Not Red Stealth or
+    // no swing → loc_B080 (`moveq #0,d7; rts`).  Direction branch:
+    // `moveq #0,d7; tst.b x_direction(a3); beq.w loc_B01E; neg.w d7` — d7
+    // is always 0 (x offset), so the neg is a no-op.
+    // ASM loc_B01E (kid.asm:13874): `moveq #1,d6; bsr.w sub_B55C` — probes
+    // one pixel below foot with x_offset=0, y_offset=1.  If bit 15 of tile
+    // word is clear → loc_B080.  Otherwise dispatches block type via
+    // off_B058, sets `y_vel(a3)=-$38000`, returns d7=1.
+    let none = RedStealthFloorImpactSubB000 {
+        kind: RedStealthFloorImpactKindSubB000::None,
+        block_col: 0,
+        block_row: 0,
+        bounce_y_velocity: 0,
+    };
+
+    if current_form != PlayerForm::RedStealth || !sword_swing_active {
+        return none;
+    }
+
+    if terrain::probe_relative_collision_sub_B55C(grid, center_x_px, foot_y_px, 0, 1)
+        != terrain::CollisionKind::Solid
+    {
+        return none;
+    }
+
+    let probe = terrain::probe_at(grid, center_x_px, foot_y_px + 1);
+    if !probe.cell.has_block {
+        return none;
+    }
+
+    let kind = match probe.cell.block_type {
+        // ASM loc_B070 (kid.asm:13904): smash-block table entry sets d6=2
+        // and jumps to Block_LoadSmashBits before the common bounce tail.
+        terrain::BlockType::Smash => RedStealthFloorImpactKindSubB000::Smash,
+        terrain::BlockType::Prize => RedStealthFloorImpactKindSubB000::Prize,
+        terrain::BlockType::Ice => RedStealthFloorImpactKindSubB000::Ice,
+        terrain::BlockType::SolidGhost | terrain::BlockType::Teleporter => {
+            RedStealthFloorImpactKindSubB000::BounceOnly
+        }
+        terrain::BlockType::Metal => RedStealthFloorImpactKindSubB000::MetalBounce,
+        _ => RedStealthFloorImpactKindSubB000::None,
+    };
+
+    if kind == RedStealthFloorImpactKindSubB000::None {
+        return none;
+    }
+
+    RedStealthFloorImpactSubB000 {
+        kind,
+        block_col: probe.cell_x,
+        block_row: probe.cell_y,
+        bounce_y_velocity: -0x0003_8000,
+    }
+}
+
+fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
+    projectile.friendly
+        && projectile.gravity == JUGGERNAUT_SKULL_GRAVITY
+        && projectile.homing_accel == 0
+        && projectile.speed_cap == 0
+        && !projectile.terrain_kill
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+const MOVE_ID_STANDINGSTILL: u16 = 0;
+#[cfg_attr(not(test), allow(dead_code))]
+const MOVE_ID_WALKING: u16 = 2;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct JuggernautCompanionStateSub975C {
+    pub(crate) byte_15_active: bool,
+    pub(crate) byte_18_active: bool,
+    pub(crate) blocked_latch: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum JuggernautCompanionVisualSub975C {
+    PreserveCurrent,
+    InitAnimation(&'static str),
+    SetMapping(&'static str),
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct JuggernautCompanionStepSub975C {
+    pub(crate) byte_15_active: bool,
+    pub(crate) blocked_latch: bool,
+    pub(crate) visual: JuggernautCompanionVisualSub975C,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn juggernaut_companion_step_sub_975C(
+    state: JuggernautCompanionStateSub975C,
+    wall_scan_blocked: bool,
+    object_overlap: bool,
+    down_held: bool,
+    character_movement: u16,
+    walking_table_byte_offset: u16,
+) -> JuggernautCompanionStepSub975C {
+    // ASM sub_975C (kid.asm:11286): byte `$15(a4)` keeps the current support
+    // animation locked until byte `$18(a4)` becomes non-zero. Once unlocked,
+    // the shared `$FFFFFA6C` latch flips between `stru_9812` and `stru_981C`
+    // based on the tile/object/down predicates, otherwise the routine picks a
+    // standing or walking mapping for the support sprite.
+    if state.byte_15_active && !state.byte_18_active {
+        return JuggernautCompanionStepSub975C {
+            byte_15_active: state.byte_15_active,
+            blocked_latch: state.blocked_latch,
+            visual: JuggernautCompanionVisualSub975C::PreserveCurrent,
+        };
+    }
+
+    // ASM loc_976C (kid.asm:11292): clear `$15(a4)`, then branch on the
+    // shared `$FFFFFA6C` latch before testing wall, object, and Down blockers.
+    // ASM loc_97A6 (kid.asm:11310): with the latch clear, run the same
+    // blocker sequence and only fall through to mapping selection when all
+    // three predicates are open.
+    let blocked = wall_scan_blocked || object_overlap || down_held;
+    let visual = if state.blocked_latch {
+        if blocked {
+            JuggernautCompanionVisualSub975C::None
+        } else {
+            JuggernautCompanionVisualSub975C::InitAnimation("stru_9812")
+        }
+    } else if blocked {
+        // ASM loc_97BE (kid.asm:11318): any clear-latch blocker starts the
+        // lower animation `stru_981C` and stores `$FF` into `$FFFFFA6C`.
+        JuggernautCompanionVisualSub975C::InitAnimation("stru_981C")
+    } else if character_movement == MOVE_ID_STANDINGSTILL {
+        // ASM loc_97D4 (kid.asm:11327): standing-still movement writes the
+        // fixed `LnkTo_unk_BEDF0` mapping before the common position sync.
+        JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index")
+    } else if character_movement == MOVE_ID_WALKING {
+        // ASM loc_97E8 (kid.asm:11334): walking movement indexes `off_9826`
+        // with the caller-provided byte offset and writes the selected mapping.
+        const WALK_TABLE: [&str; 6] = [
+            "LnkTo_unk_BEDF0-Data_Index",
+            "LnkTo_unk_BEF76-Data_Index",
+            "LnkTo_unk_BF0FC-Data_Index",
+            "LnkTo_unk_BF282-Data_Index",
+            "LnkTo_unk_BF408-Data_Index",
+            "LnkTo_unk_BF58E-Data_Index",
+        ];
+        let table_index = usize::from(walking_table_byte_offset >> 1);
+        WALK_TABLE.get(table_index).copied().map_or(
+            JuggernautCompanionVisualSub975C::None,
+            JuggernautCompanionVisualSub975C::SetMapping,
+        )
+    } else {
+        JuggernautCompanionVisualSub975C::None
+    };
+
+    // ASM loc_97FE (kid.asm:11341): every live branch reaches the common
+    // companion sync/return. Native does not persist the visual-only GFX object,
+    // so the convergence is represented by returning the resolved step.
+    JuggernautCompanionStepSub975C {
+        byte_15_active: false,
+        blocked_latch: blocked,
+        visual,
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u32, u32, i32) {
+    // ASM sub_87B0 (kid.asm:9625): the spawned skull starts 8px above Kid and
+    // 26px toward the current facing, with `x_vel=±4px/frame`.
+    //
+    // ASM loc_87EC (kid.asm:9641): `move.w d7,x_vel(a3); add.w d6,x_pos(a3)`
+    // — after the direction branch (d7=4/d6=$1A for right, d7=-4/d6=-$1A for
+    // left), stores x_vel and adds the facing-dependent x offset to x_pos.
+    // Then `bsr.w sub_B55C` does an initial terrain probe (d0=4 height);
+    // `cmpi.w #$6000,d5; beq.w loc_899C` — if the spawn position is inside
+    // solid terrain, the skull is immediately deleted before its first
+    // hibernated main-loop frame.
+    let x_offset_px = if player.facing == Direction::Right {
+        JUGGERNAUT_SKULL_OFFSET_X
+    } else {
+        -JUGGERNAUT_SKULL_OFFSET_X
+    };
+    let x_vel = if player.facing == Direction::Right {
+        JUGGERNAUT_SKULL_X_SPEED
+    } else {
+        -JUGGERNAUT_SKULL_X_SPEED
+    };
+    let x_px = ((player.x_pos >> 16) as i32 + x_offset_px).max(0) as u32;
+    let y_px = ((player.y_pos >> 16) as i32 + JUGGERNAUT_SKULL_OFFSET_Y).max(0) as u32;
+    (x_px << 16, y_px << 16, x_vel)
+}
+
+#[allow(non_snake_case)]
+fn juggernaut_skull_spawn_blocked_loc_87EC(
+    grid: &terrain::BlockGrid,
+    x_pos: u32,
+    y_pos: u32,
+) -> bool {
+    // ASM loc_87EC: after applying the facing x offset, `moveq #0,d7;
+    // moveq #0,d6; bsr.w sub_B55C; cmpi.w #$6000,d5`.
+    terrain::probe_relative_collision_sub_B55C(
+        grid,
+        (x_pos >> 16) as i32,
+        (y_pos >> 16) as i32,
+        0,
+        0,
+    ) == terrain::CollisionKind::Solid
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SkycutterVisualStateSub98F2 {
+    pub(crate) flipboard_counter: u8,
+    pub(crate) on_board: bool,
+    pub(crate) facing: Direction,
+    pub(crate) motion_phase: u8,
+    pub(crate) motion_timer: u8,
+    pub(crate) motion_script_index: Option<u8>,
+    pub(crate) roll_accum: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SkycutterVisualStepSub98F2 {
+    pub(crate) state: SkycutterVisualStateSub98F2,
+    pub(crate) player_sprite_mapping: Option<&'static str>,
+    pub(crate) board_sprite_mapping: Option<&'static str>,
+    pub(crate) board_priority_word: u16,
+    pub(crate) board_y_offset_px: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum KidAirborneVisualKindSubB270 {
+    PreserveCurrent,
+    DelegateToSkycutter,
+    UseMapping(&'static str),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidAirborneVisualInputSubB270 {
+    pub(crate) helmet_id: u16,
+    pub(crate) is_animated: bool,
+    pub(crate) on_ground: bool,
+    pub(crate) global_lock_active: bool,
+    pub(crate) airborne_latch_active: bool,
+    pub(crate) cyclone_flying: bool,
+    pub(crate) cyclone_y_accel: i16,
+    pub(crate) cyclone_frame_accum: u16,
+    pub(crate) juggernaut_companion_animation_active: bool,
+    pub(crate) maniaxe_throwing_axe: bool,
+    pub(crate) y_velocity: i32,
+    pub(crate) jump_threshold: i32,
+    pub(crate) c_held: bool,
+    pub(crate) red_stealth_sword_swing: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct KidAirborneVisualStepSubB270 {
+    pub(crate) visual: KidAirborneVisualKindSubB270,
+    pub(crate) next_is_animated: bool,
+    pub(crate) next_airborne_latch_active: bool,
+    pub(crate) next_cyclone_frame_accum: u16,
+    pub(crate) next_maniaxe_throwing_axe: bool,
+    pub(crate) next_red_stealth_sword_swing: u8,
+    pub(crate) queued_sound: Option<QueuedSoundEffect>,
+}
+
+#[allow(non_snake_case)]
+fn red_stealth_downward_slash_swing_loc_B380(current_swing: u8) -> u8 {
+    // ASM loc_B350 -> loc_B380 (kid.asm:14230): load the byte sword counter,
+    // add `$10` as a word, then clamp values above `$7F` to `$7F` before
+    // selecting the downward-slash mapping.
+    let next_swing = u16::from(current_swing) + 0x10;
+    if next_swing <= 0x7F {
+        u8::try_from(next_swing).unwrap_or(0x7F)
+    } else {
+        0x7F
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn kid_airborne_visual_sub_B270(
+    input: KidAirborneVisualInputSubB270,
+) -> KidAirborneVisualStepSubB270 {
+    // ASM sub_B270 (kid.asm:14132): early-out for Eyeclops animation, the
+    // shared `$FFFFFA66/$FFFFFA67` locks, Cyclone flight, and Juggernaut's
+    // helper cloud before the common four-state airborne mapping table.
+    if input.helmet_id == PlayerForm::Eyeclops.helmet_id() && input.is_animated {
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::PreserveCurrent,
+            next_is_animated: input.is_animated,
+            next_airborne_latch_active: input.airborne_latch_active,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    // ASM loc_B284 (kid.asm:14140): non-Eyeclops path — checks the global
+    // animation lock `$FFFFFA66`. If set, return immediately (preserve current
+    // visual). `tst.b ($FFFFFA66).w; beq.w loc_B28E; rts`
+    // The second condition covers `$FFFFFA67` (airborne latch): if set AND
+    // `$18(a3)` (on_ground) is zero, also return early (loc_B28E..loc_B2A0).
+    if input.global_lock_active || (input.airborne_latch_active && !input.on_ground) {
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::PreserveCurrent,
+            next_is_animated: input.is_animated,
+            next_airborne_latch_active: input.airborne_latch_active,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    if input.cyclone_flying {
+        // ASM loc_B2A0 (kid.asm:14154): Cyclone flight animation accumulator.
+        // `neg.w d7; addi.w #$2000,d7; asl.w #2,d7; lsr.w #8,d7` computes a
+        // phase delta from Cyclone_YAcceleration, adds to the accumulator at
+        // `$FFFFF8F0`.  If the result >= $300, wraps by subtracting $300.
+        let mut phase_word = (0i16)
+            .wrapping_sub(input.cyclone_y_accel)
+            .wrapping_add(0x2000) as u16;
+        phase_word = phase_word.wrapping_shl(2);
+        phase_word >>= 8;
+        phase_word = phase_word.wrapping_add(input.cyclone_frame_accum);
+        if phase_word >= 0x0300 {
+            phase_word = phase_word.wrapping_sub(0x0300);
+        }
+        // ASM loc_B2CA (kid.asm:14168): store phase to $FFFFF8F0, then
+        // `asr.w #8,d7; add.w d7,d7; add.w d7,d7` = phase_word>>8 * 4 indexes
+        // into three Cyclone spinning frames via LnkTo offsets.
+        let mapping = wildside_data::cyclone_flight_sprite_mapping_sub_B270(phase_word >> 8)
+            .expect("ASM sub_B270 Cyclone phase should stay within 0..=2");
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::UseMapping(mapping),
+            next_is_animated: input.is_animated,
+            next_airborne_latch_active: false,
+            next_cyclone_frame_accum: phase_word,
+            next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    // ASM loc_B2DE (kid.asm:14180): non-Cyclone path checks helmet == #5
+    // (Juggernaut).  `bsr.w sub_975C` runs the companion cloud animation.
+    // If `is_animated(a3)` is set and Kid is airborne (`$18(a3)` == 0),
+    // preserve current visual.  If on ground, `sf is_animated(a3)` clears it
+    // and falls through to loc_B304.
+    let mut next_is_animated = input.is_animated;
+    if input.helmet_id == PlayerForm::Juggernaut.helmet_id()
+        && input.juggernaut_companion_animation_active
+    {
+        if !input.on_ground {
+            return KidAirborneVisualStepSubB270 {
+                visual: KidAirborneVisualKindSubB270::PreserveCurrent,
+                next_is_animated,
+                next_airborne_latch_active: false,
+                next_cyclone_frame_accum: input.cyclone_frame_accum,
+                next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+                next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+                queued_sound: None,
+            };
+        }
+        next_is_animated = false;
+    }
+
+    if input.helmet_id == PlayerForm::Skycutter.helmet_id() {
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::DelegateToSkycutter,
+            next_is_animated,
+            next_airborne_latch_active: false,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: input.maniaxe_throwing_axe,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    // ASM loc_B304 (kid.asm:14192): common airborne mapping dispatch.
+    // `cmpi.w #1,d7` (Skycutter) → loc_B3B2 special path.  Otherwise
+    // `lsl.w #3,d7; lea off_B3B8(pc),a4; add.w d7,a4` indexes the 4-entry
+    // per-helmet table.  Then checks Maniaxe throwing axe active.
+    if input.helmet_id == PlayerForm::Maniaxe.helmet_id()
+        && input.maniaxe_throwing_axe
+        && !input.on_ground
+    {
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::PreserveCurrent,
+            next_is_animated,
+            next_airborne_latch_active: false,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: true,
+            next_red_stealth_sword_swing: input.red_stealth_sword_swing,
+            queued_sound: None,
+        };
+    }
+
+    // ASM loc_B334 (kid.asm:14208): `sf (Maniaxe_throwing_axe).w` clears axe
+    // flag, then loads threshold from `($FFFFFAAA).w`, computes `y_vel(a3)<<2`.
+    // `bpl.s loc_B350` splits negative (ascending) vs positive (descending).
+    // Negative: `cmp.l d7,d6; ble loc_B3A8` → state 0 if below threshold,
+    // else state 1 (`addq.w #2,a4`).
+    // ASM loc_B350 (kid.asm:14220): positive branch — `addq.w #4,a4` (state 2),
+    // then `cmp.l d7,d6; ble loc_B3A8` → state 2 if below threshold, else
+    // `addq.w #2,a4` (state 3) + Red Stealth C-held slash check.
+    let scaled_y_velocity = input.y_velocity.wrapping_shl(2);
+    let state_index = if scaled_y_velocity < 0 {
+        if scaled_y_velocity > input.jump_threshold {
+            1
+        } else {
+            0
+        }
+    } else if scaled_y_velocity > input.jump_threshold {
+        3
+    } else {
+        2
+    };
+
+    if input.helmet_id == PlayerForm::RedStealth.helmet_id() && state_index == 3 && input.c_held {
+        let next_sword = red_stealth_downward_slash_swing_loc_B380(input.red_stealth_sword_swing);
+        let mapping = wildside_data::red_stealth_downward_slash_sprite_mapping_sub_B270(next_sword)
+            .expect("ASM sub_B270 Red Stealth slash should stay within 0..=3");
+        return KidAirborneVisualStepSubB270 {
+            visual: KidAirborneVisualKindSubB270::UseMapping(mapping),
+            next_is_animated,
+            next_airborne_latch_active: false,
+            next_cyclone_frame_accum: input.cyclone_frame_accum,
+            next_maniaxe_throwing_axe: false,
+            next_red_stealth_sword_swing: next_sword,
+            queued_sound: (next_sword == 0x10).then_some(QueuedSoundEffect::RedStealthAttackDown),
+        };
+    }
+
+    let mapping = wildside_data::airborne_helmet_sprite_mapping_sub_B270(input.helmet_id, state_index)
+        .expect("ASM sub_B270 off_B3B8 should cover all live helmet ids");
+    KidAirborneVisualStepSubB270 {
+        visual: KidAirborneVisualKindSubB270::UseMapping(mapping),
+        next_is_animated,
+        next_airborne_latch_active: false,
+        next_cyclone_frame_accum: input.cyclone_frame_accum,
+        next_maniaxe_throwing_axe: false,
+        next_red_stealth_sword_swing: 0,
+        queued_sound: None,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct IronKnightClimbVisualSubA3BC {
+    pub(crate) pose_accum: u16,
+    pub(crate) sprite_mapping: &'static str,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn skycutter_visual_step_sub_98F2(
+    mut state: SkycutterVisualStateSub98F2,
+    a_held: bool,
+    crawling: bool,
+) -> SkycutterVisualStepSub98F2 {
+    // ASM sub_98F2 (kid.asm:11454): `$FFFFFA69` runs the transient flipboard
+    // deploy/retract pose, toggling `$FFFFFA6A` and `x_direction(a3)` at
+    // counter `$11`. With no transient pose active, the routine advances the
+    // helper-board animation script `unk_96AC`, rolls `$FFFFFA0C`, and picks
+    // the `off_99FE` mapping unless crawling forces `LnkTo_unk_A94AC`.
+    //
+    // Called from sub_942A walking dispatch at loc_9472 (kid.asm:10902):
+    // `cmpi.w #1,d1 / bne.w loc_9484 / bsr.w sub_98F2 / rts` — Skycutter
+    // is the only helmet that dispatches to sub_98F2 during walking.
+    const SCRIPT: [(u8, u8); 18] = [
+        (0, 6),
+        (1, 0x0A),
+        (2, 0x1E),
+        (3, 0x14),
+        (4, 6),
+        (5, 0x0A),
+        (0, 0x0A),
+        (1, 8),
+        (2, 0x0C),
+        (3, 8),
+        (4, 0x0A),
+        (5, 0x0C),
+        (0, 0x0F),
+        (1, 0x0F),
+        (2, 0x19),
+        (3, 0x0F),
+        (4, 0x19),
+        (5, 0x0A),
+    ];
+
+    if state.flipboard_counter != 0 {
+        let next_counter = state
+            .flipboard_counter
+            .saturating_add(SKYCUTTER_COUNTER_STEP);
+        if next_counter >= SKYCUTTER_FLIPBOARD_TIMEOUT {
+            state.flipboard_counter = 0;
+        } else {
+            if next_counter == SKYCUTTER_MOUNT_FRAME {
+                state.on_board = !state.on_board;
+                state.facing = match state.facing {
+                    Direction::Right => Direction::Left,
+                    Direction::Left => Direction::Right,
+                };
+            }
+            state.flipboard_counter = next_counter;
+            // ASM loc_992A (kid.asm:11474): store the advanced `$FA69`
+            // counter, shift it by three, and index `off_993A` for Kid's
+            // transient flipboard sprite mapping.
+            return SkycutterVisualStepSub98F2 {
+                player_sprite_mapping: wildside_data::skycutter_flipboard_sprite_mapping_sub_98F2(
+                    next_counter,
+                ),
+                board_sprite_mapping: None,
+                board_priority_word: 0,
+                board_y_offset_px: 0,
+                state,
+            };
+        }
+    }
+
+    // ASM loc_9942 (kid.asm:11487): the no-transient-board path decrements
+    // `$FFFFFA0D`; an expired timer reloads `d6` from the `unk_96AC` script.
+    if state.motion_timer <= 1 {
+        let index = usize::from(state.motion_script_index.unwrap_or(u8::MAX));
+        let (phase, timer, next_index) = if let Some(&(phase, timer)) = SCRIPT.get(index) {
+            // ASM loc_996A (kid.asm:11504): read the next `(phase, timer)`
+            // pair from `a0`, then store the post-incremented pointer.
+            (phase, timer, Some((index + 1) as u8))
+        } else {
+            // ASM loc_9968 (kid.asm:11501): if `$FFFFFA0E` is outside
+            // `unk_96AC..unk_96D0`, reset `a0` to the script start.
+            let (phase, timer) = SCRIPT[0];
+            (phase, timer, Some(1))
+        };
+        state.motion_phase = phase;
+        state.motion_timer = timer;
+        state.motion_script_index = next_index;
+    } else {
+        state.motion_timer -= 1;
+    }
+
+    // ASM loc_9974 (kid.asm:11509): `moveq #$10,d7`;
+    // the following A-held test keeps that speed or replaces it with `$20`,
+    // picking the Skycutter board roll speed from the A-button latch.
+    // ASM loc_997E (kid.asm:11515): `add.b d7,($FFFFFA0C).w`
+    // wraps that speed into the board roll accumulator.
+    state.roll_accum = state
+        .roll_accum
+        .wrapping_add(if a_held { 0x20 } else { 0x10 });
+    let board_priority_word = match state.roll_accum.wrapping_mul(2) {
+        0x00..=0x54 => 0x012C,
+        0x55..=0xA9 => 0x0130,
+        _ => 0x0134,
+    };
+    let board_mapping = wildside_data::skycutter_board_sprite_mapping_sub_98F2(
+        u16::from(state.motion_phase.min(5)),
+        crawling,
+    );
+
+    // ASM loc_99E6 (kid.asm:11547): store the selected priority word into
+    // the board helper, then subtract `$1A` from its y-position when
+    // `$FFFFFA6A` says Kid is riding the board.
+    // ASM loc_99F8 (kid.asm:11553): common `movem.l (sp)+,a0-a2; rts`
+    // exit after both the on-board offset path and the no-offset branch.
+    SkycutterVisualStepSub98F2 {
+        player_sprite_mapping: board_mapping,
+        board_sprite_mapping: board_mapping,
+        board_priority_word,
+        board_y_offset_px: if state.on_board { -0x1A } else { 0 },
+        state,
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn iron_knight_climb_visual_sub_A3BC(
+    pose_accum: u16,
+    y_velocity: i32,
+) -> IronKnightClimbVisualSubA3BC {
+    // ASM sub_A3BC (kid.asm:12694): add `(y_vel << 3) >> 16` into the running
+    // climb pose accumulator `d3`, wrap the upper/lower limits across the
+    // 0..$BF cycle, then bucket `d3 >> 2` through `unk_A3F0/off_A420`.
+    let next = i32::from(pose_accum) + (y_velocity >> 13);
+    // ASM loc_A3DA (kid.asm:12707): `move.w #$BF,d7` — if accumulated
+    // position goes negative (bmi at loc_A3CA), wrap to $BF (top of cycle).
+    let pose_accum = if next < 0 {
+        0x00BF
+    } else if next >= 0x00BF {
+        0
+    } else {
+        next as u16
+    };
+
+    // ASM loc_A3DE (kid.asm:12710): `move.w d7,d3; asr.w #2,d7;
+    // move.b unk_A3F0(pc,d7.w),d7; ext.w d7;
+    // move.w off_A420(pc,d7.w),addroffset_sprite(a3)` — bucket the
+    // accumulator into one of three sprite poses via the unk_A3F0 lookup
+    // table: 0..15→pose C (bottom), 16..31→pose B (mid), 32+→pose A (top).
+    let sprite_mapping = match pose_accum >> 2 {
+        0..=15 => "LnkTo_unk_C209E-Data_Index",
+        16..=31 => "LnkTo_unk_C1E18-Data_Index",
+        _ => "LnkTo_unk_C1B92-Data_Index",
+    };
+
+    IronKnightClimbVisualSubA3BC {
+        pose_accum,
+        sprite_mapping,
+    }
+}
+
+/// Diamond Power type active for the current activation.
+/// ASM: DiamondPower_Init_Index (kid.asm:44375) maps form+tier to power type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum DiamondPowerType {
+    #[default]
+    None,
+    /// Kid/IronKnight(T1)/Maniaxe(T1): orbiting diamonds damage enemies on contact.
+    CircleOfDoom,
+    /// Skycutter(T1)/Berzerker(T1): pure invulnerability, 480f.
+    Invulnerability,
+    /// RedStealth(T1): invulnerability variant, 480f.
+    SamuraiHaze,
+    /// Cyclone(T1): projectiles rain from top of screen, 720f.
+    SlashingRain,
+    /// Cyclone(T2): longer rain with tracking, 1800f.
+    TrackingRain,
+    /// Juggernaut: 5 projectiles in spread, costs 5 diamonds, 80f.
+    FiveWayShot,
+    /// Micromax(T1): 6 forward-firing diamond chain, 480f.
+    MiniSnake,
+    /// Micromax(T2): faster mini snake, 1200f.
+    SwiftMiniSnake,
+    /// Kid(T2)/Skycutter(T2)/RedStealth(T2): faster snake, 1200f.
+    DeathSnake,
+    /// IronKnight(T2): instant +1 HP.
+    ExtraHitPoint,
+    /// Maniaxe(T2): instant +1 life.
+    ExtraLife,
+    /// Berzerker(T2): vertical diamond wall slides across screen, 1200f.
+    WallOfDeath,
+}
+
+/// Map form + tier to Diamond Power type. ASM: DiamondPower_Init_Index.
+pub(crate) fn diamond_power_for_form(form: PlayerForm, tier2: bool) -> DiamondPowerType {
+    match (form, tier2) {
+        (PlayerForm::TheKid, false) => DiamondPowerType::CircleOfDoom,
+        (PlayerForm::TheKid, true) => DiamondPowerType::DeathSnake,
+        (PlayerForm::Skycutter, false) => DiamondPowerType::Invulnerability,
+        (PlayerForm::Skycutter, true) => DiamondPowerType::DeathSnake,
+        (PlayerForm::Cyclone, false) => DiamondPowerType::SlashingRain,
+        (PlayerForm::Cyclone, true) => DiamondPowerType::TrackingRain,
+        (PlayerForm::RedStealth, false) => DiamondPowerType::SamuraiHaze,
+        (PlayerForm::RedStealth, true) => DiamondPowerType::DeathSnake,
+        (PlayerForm::Eyeclops, _) => DiamondPowerType::None, // blocked
+        (PlayerForm::Juggernaut, _) => DiamondPowerType::FiveWayShot,
+        (PlayerForm::IronKnight, false) => DiamondPowerType::CircleOfDoom,
+        (PlayerForm::IronKnight, true) => DiamondPowerType::ExtraHitPoint,
+        (PlayerForm::Berzerker, false) => DiamondPowerType::Invulnerability,
+        (PlayerForm::Berzerker, true) => DiamondPowerType::WallOfDeath,
+        (PlayerForm::Maniaxe, false) => DiamondPowerType::CircleOfDoom,
+        (PlayerForm::Maniaxe, true) => DiamondPowerType::ExtraLife,
+        (PlayerForm::Micromax, false) => DiamondPowerType::MiniSnake,
+        (PlayerForm::Micromax, true) => DiamondPowerType::SwiftMiniSnake,
+    }
+}
+
+/// Duration in frames for each Diamond Power type.
+pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
+    match power {
+        DiamondPowerType::None => 0,
+        // ASM DiamondPower_Init_CircleOfDoom loc_3F7D0 returns without writing
+        // Diamond_power_timer; the live power is owned by the DP-object list.
+        DiamondPowerType::CircleOfDoom => 0,
+        DiamondPowerType::Invulnerability => 480, // $1E0
+        DiamondPowerType::SamuraiHaze => 480,     // $1E0
+        DiamondPowerType::SlashingRain => 720,    // $2D0
+        DiamondPowerType::TrackingRain => 1800,   // $708
+        DiamondPowerType::FiveWayShot => 80,      // $50
+        DiamondPowerType::MiniSnake => 480,       // $1E0
+        DiamondPowerType::SwiftMiniSnake => 1200, // $4B0
+        DiamondPowerType::DeathSnake => 1200,     // $4B0
+        // ASM ExtraHPLife clears Diamond_power_timer at init and increments
+        // it in DiamondPower_Main_ExtraHPLife until the orbit converges. The
+        // native countdown uses this window to keep the runtime path active.
+        DiamondPowerType::ExtraHitPoint => 96,
+        DiamondPowerType::ExtraLife => 96,
+        DiamondPowerType::WallOfDeath => 1200, // $4B0
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn juggernaut_five_way_shot_ready_sub_7428(
+    current_form: PlayerForm,
+    input: FrameInput,
+    diamond_count: u16,
+) -> bool {
+    // ASM sub_7428 (kid.asm:7569): only Juggernaut with Start+A held and at
+    // least 5 diamonds may arm `FiveWayShotReady`.
+    // Called from loc_7606 (kid.asm:7720) during standing-still state.
+    current_form == PlayerForm::Juggernaut && input.start && input.a && diamond_count >= 5
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondPowerObjectListsSub3F5E8 {
+    pub(crate) active_slots: Vec<u16>,
+    pub(crate) free_slots: Vec<u16>,
+    pub(crate) last_active_slot: Option<u16>,
+    pub(crate) diamond_power_active: bool,
+    pub(crate) five_way_shot_ready: bool,
+    pub(crate) samurai_haze_active: bool,
+    pub(crate) kid_is_invulnerable: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct DiamondPowerAllocatedSlotSub3F5BC {
+    pub(crate) slot: u16,
+    pub(crate) active_word_8: u16,
+    pub(crate) status_word_38: u16,
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_clear_ram_sub_3F586(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+) -> DiamondPowerObjectListsSub3F5E8 {
+    // ASM sub_3F586: clear words from Addr_FirstDPObjectSlot ($F5A4)
+    // through $F610, covering the DP object list heads and shared flags.
+    lists.active_slots.clear();
+    lists.free_slots.clear();
+    lists.last_active_slot = None;
+    lists.diamond_power_active = false;
+    lists.five_way_shot_ready = false;
+    lists.samurai_haze_active = false;
+    lists.kid_is_invulnerable = false;
+    lists
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_initialize_sub_3F596(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+) -> DiamondPowerObjectListsSub3F5E8 {
+    // ASM sub_3F596: Addr_NextFreeDPObjectSlot starts at $FFFFF2AC, then
+    // nine DBF iterations link each slot's 4(a0) to the next $4C-byte slot.
+    const FIRST_SLOT: u16 = 0xF2AC;
+    const SLOT_STRIDE: u16 = 0x004C;
+    const SLOT_COUNT: u16 = 10;
+
+    lists.free_slots = (0..SLOT_COUNT)
+        .map(|index| FIRST_SLOT + SLOT_STRIDE * index)
+        .collect();
+    lists.active_slots.clear();
+    lists.last_active_slot = None;
+    lists
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_allocate_sub_3F5BC(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+) -> (
+    DiamondPowerObjectListsSub3F5E8,
+    DiamondPowerAllocatedSlotSub3F5BC,
+) {
+    // ASM sub_3F5BC: pop Addr_NextFreeDPObjectSlot, link the previous active
+    // head as 4(a0), and install the allocated slot as the new active head.
+    let slot = lists
+        .free_slots
+        .first()
+        .copied()
+        .expect("ASM sub_3F5BC expects an available diamond-power slot");
+    lists.free_slots.remove(0);
+    if lists.active_slots.is_empty() {
+        // ASM: if Addr_FirstDPObjectSlot was empty, also seed Addr_LastDPObjectSlot.
+        lists.last_active_slot = Some(slot);
+    }
+    lists.active_slots.insert(0, slot);
+
+    (
+        lists,
+        DiamondPowerAllocatedSlotSub3F5BC {
+            slot,
+            active_word_8: 1,
+            status_word_38: 0,
+        },
+    )
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_remove_sub_3F5E8(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+    remove_slot: u16,
+) -> DiamondPowerObjectListsSub3F5E8 {
+    // ASM loc_3F5EC: traversal loop — `move.l 4(a1),d0; cmp.l d0,a0;
+    // beq.s loc_3F5F8; move.l d0,a1; bra.s loc_3F5EC` walks the singly-
+    // linked active list from the sentinel ($FFFFF5A0) to find the
+    // predecessor of `a0`.
+    let remove_index = lists
+        .active_slots
+        .iter()
+        .position(|&slot| slot == remove_slot)
+        .expect("ASM sub_3F5E8 expects a live diamond-power slot");
+    lists.active_slots.remove(remove_index);
+    lists.free_slots.insert(0, remove_slot);
+
+    // ASM loc_3F5F8: `cmp.l (Addr_LastDPObjectSlot).w,a0; bne.s loc_3F610`
+    // checks whether the removed slot was the tail. If the predecessor is
+    // the sentinel, `clr.l (Addr_LastDPObjectSlot).w`; otherwise
+    // ASM loc_3F60C: `move.l a1,(Addr_LastDPObjectSlot).w` updates the
+    // tail pointer to the predecessor.
+    if lists.last_active_slot == Some(remove_slot) {
+        lists.last_active_slot = lists.active_slots.last().copied();
+    }
+
+    // ASM loc_3F610: `tst.l (Addr_FirstDPObjectSlot).w; sne (Diamond_power_active).w`.
+    // If no active slots remain, it also clears the three shared flags (loc_3F62E).
+    lists.diamond_power_active = !lists.active_slots.is_empty();
+    if !lists.diamond_power_active {
+        lists.five_way_shot_ready = false;
+        lists.samurai_haze_active = false;
+        lists.kid_is_invulnerable = false;
+    }
+
+    lists
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_object_reset_sub_3F63C(
+    mut lists: DiamondPowerObjectListsSub3F5E8,
+) -> DiamondPowerObjectListsSub3F5E8 {
+    // ASM sub_3F63C clears `Addr_FirstDPObjectSlot` and
+    // `Addr_NextFreeDPObjectSlot`, then drops the shared diamond-power flags.
+    // It does not touch `Addr_LastDPObjectSlot`.
+    lists.active_slots.clear();
+    lists.free_slots.clear();
+    lists.diamond_power_active = false;
+    lists.five_way_shot_ready = false;
+    lists.samurai_haze_active = false;
+    lists.kid_is_invulnerable = false;
+    lists
+}
+
+/// A single VDP sprite entry as compiled by DiamondPower_CompileSprites.
+/// ASM sprite table format: Y (word), size+link (word), pattern (word), X (word).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct CompiledDpSprite {
+    pub(crate) y: u16,
+    pub(crate) size_link: u16,
+    pub(crate) pattern: u16,
+    pub(crate) x: u16,
+}
+
+/// ASM DiamondPower_CompileSprites (kid.asm:44441, loc_3F798).
+/// Copies diamond-power sprite entries from the DP sprite buffer into the VDP
+/// sprite table, adjusting each entry's link byte by adding the running sprite
+/// count and masking the pattern's high bit.
+///
+/// ASM loc_3F7AE: inner loop — for each 8-byte entry:
+///   `move.w (a1)+,(a2)+` copies Y;
+///   `addq.w #1,d2; add.w d2,d0; move.w d0,(a2)+` adjusts size+link;
+///   `andi.w #$7FFF,d0; move.w d0,(a2)+` masks pattern bit 15;
+///   `move.w (a1)+,(a2)+` copies X;
+///   loops until a1 reaches a0 (buffer end).
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_compile_sprites_sub_3F798(
+    buffer: &[[u16; 4]],
+    initial_sprite_count: u8,
+) -> (Vec<CompiledDpSprite>, u8) {
+    // ASM: if buffer empty (a0 == a1), return immediately.
+    if buffer.is_empty() {
+        return (Vec::new(), initial_sprite_count);
+    }
+    let mut d2 = initial_sprite_count as u16;
+    let mut out = Vec::with_capacity(buffer.len());
+    for entry in buffer {
+        // ASM loc_3F7AE: copy Y word
+        let y = entry[0];
+        // addq.w #1,d2; add.w d2,d0 — adjust link by running count
+        d2 = d2.wrapping_add(1);
+        let size_link = entry[1].wrapping_add(d2);
+        // andi.w #$7FFF,d0 — clear pattern high bit
+        let pattern = entry[2] & 0x7FFF;
+        // copy X word
+        let x = entry[3];
+        out.push(CompiledDpSprite {
+            y,
+            size_link,
+            pattern,
+            x,
+        });
+    }
+    (out, d2 as u8)
+}
+
+/// State of a single Circle-of-Doom diamond-power object slot.
+/// ASM fields: $3E(a0)=radius (longword), $40(a0)=shrink flag (word),
+/// $42(a0)=angle (longword), $38(a0)=status (word).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CircleOfDoomSlot {
+    /// ASM $3E(a0): radius in 8.8 fixed point (longword). Upper word is the
+    /// integer radius used for position calculation; lower 16 bits are fractional.
+    pub(crate) radius: u32,
+    /// ASM $40(a0): cleared to 0 on init (word).
+    pub(crate) shrink_flag: u16,
+    /// ASM $42(a0): angle in 16.16 fixed point (longword). Upper word is the
+    /// 8-bit angle fed to sub_40236; lower 16 bits are fractional.
+    pub(crate) angle: u32,
+    /// ASM $38(a0): status word — nonzero triggers sub_3F5E8 (removal).
+    pub(crate) status: u16,
+}
+
+/// ASM DiamondPower_Init_CircleOfDoom (kid.asm:44469, loc_3F7D0).
+/// Allocates 8 diamond-power object slots with evenly-spaced angles.
+///
+/// d1=8 (count), d2 = ($10000 / 8) << 8 = $2000 << 8 = $200000 (angle step),
+/// d3 starts at 0 (first angle), d0 = $00210000 (gfx ID, unused in native).
+///
+/// ASM loc_3F7E6: allocation loop — for each slot:
+///   `bsr.w Allocate_DiamondPowerObjectSlot` allocates;
+///   `move.l d0,$3E(a0)` stores gfx ID as initial radius (=$00210000);
+///   `clr.w $40(a0)` clears shrink flag;
+///   `move.l d3,$42(a0)` stores angle;
+///   `add.l d2,d3` advances angle by step;
+///   `dbf d1,loc_3F7E6` loops 8 times (d1=7 after subq).
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_init_circle_of_doom_sub_3F7D0() -> Vec<CircleOfDoomSlot> {
+    let count: u16 = 8;
+    // ASM: divu.w d1,d2 → $10000 / 8 = $2000; lsl.l #8,d2 → $200000
+    let angle_step: u32 = (0x10000u32 / count as u32) << 8;
+    // ASM: moveq #$21,d0; swap d0; clr.w d0 → d0 = $00210000
+    let initial_radius: u32 = 0x0021_0000;
+    let mut d3: u32 = 0;
+    let mut slots = Vec::with_capacity(count as usize);
+    for _ in 0..count {
+        slots.push(CircleOfDoomSlot {
+            radius: initial_radius,
+            shrink_flag: 0,
+            angle: d3,
+            status: 0,
+        });
+        d3 = d3.wrapping_add(angle_step);
+    }
+    slots
+}
+
+/// Radius-to-sprite-size lookup table.
+/// ASM byte_3F8B4 (kid.asm:44560): 28 entries indexed by `$3E(a0).w >> 1`.
+/// Each entry is the pixel half-size for the diamond sprite at that radius.
+pub(crate) const CIRCLE_OF_DOOM_SIZE_TABLE: [u8; 28] = [
+    0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+];
+
+/// ASM word_4020E (kid.asm:45605): sprite size/tile pairs used by
+/// DiamondPower_Main_CircleOfDoom loc_3F880 after the half-size lookup.
+#[allow(non_snake_case)]
+pub(crate) const CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E: [(u16, u16); 10] = [
+    (0x0000, 0x86EA),
+    (0x0000, 0x86EB),
+    (0x0000, 0x86EC),
+    (0x0000, 0x86ED),
+    (0x0500, 0x86EE),
+    (0x0500, 0x86F2),
+    (0x0500, 0x86F6),
+    (0x0500, 0x8231),
+    (0x0000, 0x822D),
+    (0x0500, 0xE6FA),
+];
+
+/// Per-slot position and size result from DiamondPower_Main_CircleOfDoom.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CircleOfDoomSpriteResult {
+    /// $1A(a0) world X before camera offset.
+    pub(crate) world_x: i16,
+    /// $1E(a0) world Y before camera offset.
+    pub(crate) world_y: i16,
+    /// Screen X after camera offset (d0 + d3 in ASM).
+    pub(crate) screen_x: i16,
+    /// Screen Y after camera offset (d1 + d4 in ASM).
+    pub(crate) screen_y: i16,
+    /// Sprite half-size from byte_3F8B4 table.
+    pub(crate) half_size: u8,
+    /// Whether the slot was removed (status nonzero or radius depleted).
+    pub(crate) removed: bool,
+}
+
+/// ASM DiamondPower_Main_CircleOfDoom (kid.asm:44490) per-slot processing.
+///
+/// For each slot in the linked list starting at Addr_FirstDPObjectSlot:
+///
+/// ASM loc_3F81A: per-slot body —
+///   d5 = $3E(a0) >> 8 (radius integer part);
+///   angle = $42(a0).w (upper word of angle longword);
+///   (cos, sin) = sub_40236(angle);
+///   x = (cos * d5) >> 16 >> 6 + kid_x;
+///   y = -(sin * d5) >> 16 >> 6 + kid_y - $10;
+///   half_size = byte_3F8B4[$3E(a0).w >> 1];
+///   if $38(a0) != 0 → call sub_3F5E8 (remove slot);
+///   else shrink radius: $3E -= $400; if $3E.w >> 1 < $C → $3E -= $19000;
+///     if $3E < 0 → remove slot;
+///   angle -= 4 ($42 subq.w #4);
+///   next slot via 4(a0).
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_main_circle_of_doom_slot(
+    slot: &mut CircleOfDoomSlot,
+    kid_x: i16,
+    kid_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+) -> CircleOfDoomSpriteResult {
+    use crate::boot::sin_cos_sub_40236;
+
+    // ASM: d3 = $7F - Camera_X_pos; d4 = $7F - Camera_Y_pos
+    let d3 = 0x7Fi16.wrapping_sub(camera_x);
+    let d4 = 0x7Fi16.wrapping_sub(camera_y);
+
+    // ASM loc_3F81A: d5 = $3E(a0) >> 8 (lsr.l #8,d5)
+    let d5 = (slot.radius >> 8) as u16;
+
+    // ASM: angle = upper word of $42(a0) — move.w $42(a0),d0
+    let angle = (slot.angle >> 16) as u8;
+    let (cos, sin) = sin_cos_sub_40236(angle);
+
+    // ASM: muls.w d5,d0; swap d0; asr.w #6,d0; add.w x_pos(a3),d0
+    let x_offset = ((cos as i32 * d5 as i32) >> 16) as i16 >> 6;
+    let world_x = kid_x.wrapping_add(x_offset);
+    // ASM: move.w d0,$1A(a0); add.w d3,d0 — screen X
+    let screen_x = world_x.wrapping_add(d3);
+
+    // ASM: muls.w d5,d1; swap d1; asr.w #6,d1; neg.w d1; add.w y_pos(a3),d1; subi.w #$10,d1
+    let y_offset = -(((sin as i32 * d5 as i32) >> 16) as i16 >> 6);
+    let world_y = kid_y.wrapping_add(y_offset).wrapping_sub(0x10);
+    // ASM: move.w d1,$1E(a0); add.w d4,d1 — screen Y
+    let screen_y = world_y.wrapping_add(d4);
+
+    // ASM: d5 = $3E(a0).w (upper word); d6 = byte_3F8B4[d5 >> 1]
+    let radius_word = (slot.radius >> 16) as u16;
+    let size_index = (radius_word >> 1) as usize;
+    let half_size = if size_index < CIRCLE_OF_DOOM_SIZE_TABLE.len() {
+        CIRCLE_OF_DOOM_SIZE_TABLE[size_index]
+    } else {
+        *CIRCLE_OF_DOOM_SIZE_TABLE.last().unwrap()
+    };
+
+    // ASM: tst.w $38(a0); bne.s loc_3F87A (remove)
+    if slot.status != 0 {
+        return CircleOfDoomSpriteResult {
+            world_x,
+            world_y,
+            screen_x,
+            screen_y,
+            half_size,
+            removed: true,
+        };
+    }
+
+    // ASM: subi.l #$400,$3E(a0) — shrink radius
+    slot.radius = slot.radius.wrapping_sub(0x400);
+    // ASM: cmpi.w #$C,d5 — compare upper word >> 1 to $C
+    if size_index < 0xC {
+        // ASM: subi.l #$19000,$3E(a0); bge.s loc_3F880
+        slot.radius = slot.radius.wrapping_sub(0x19000);
+        if (slot.radius as i32) < 0 {
+            return CircleOfDoomSpriteResult {
+                world_x,
+                world_y,
+                screen_x,
+                screen_y,
+                half_size,
+                removed: true,
+            };
+        }
+    }
+
+    // ASM loc_3F880: `subq.w #4,$42(a0)` decrements the high word of the
+    // angle longword in place, preserving the low word unchanged.
+    slot.angle = slot.angle.wrapping_sub(4 << 16);
+
+    // ASM loc_3F8AA: move.l 4(a0),d0; bne.w loc_3F81A; rts
+    // The linked-list traversal tail: loads the next-slot pointer from offset 4
+    // of the current slot. Nonzero continues the loop (back to loc_3F81A);
+    // zero terminates. Both the removal path (loc_3F87A → sub_3F5E8 → bra.s
+    // loc_3F8AA) and the compile-sprite path (loc_3F880 fallthrough) converge
+    // here. In native code the caller iterates the slot Vec, so this
+    // linked-list plumbing is implicit.
+    CircleOfDoomSpriteResult {
+        world_x,
+        world_y,
+        screen_x,
+        screen_y,
+        half_size,
+        removed: false,
+    }
+}
+
+/// A single snake diamond-power slot.
+/// ASM: each slot occupies the standard DP-object layout, with:
+///   $1A(a0): x_pos (word)
+///   $1E(a0): y_pos (word)
+///   $24(a0): diamond size (word, from init-data table)
+///   $2E(a0): wander speed d4 (word, first slot only)
+///   $30(a0): movement speed d5 (word, first slot only)
+///   $3E(a0): timer $40 (word, first slot only)
+///   $40(a0)-$4A(a0): 3 trail positions (x,y,x,y,x,y)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SnakeSlot {
+    pub(crate) x_pos: i16,
+    pub(crate) y_pos: i16,
+    /// Low word of the ROM longword at `$1A(a0)`.
+    pub(crate) x_subpixel: u16,
+    /// Low word of the ROM longword at `$1E(a0)`.
+    pub(crate) y_subpixel: u16,
+    /// Diamond size from the variant's init-data table.
+    pub(crate) diamond_size: u16,
+    /// Trail buffer: 3 previous positions (x,y pairs).
+    pub(crate) trail: [(i16, i16); 3],
+}
+
+/// Result of `diamond_power_init_snake`: the full snake state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SnakeInitResult {
+    pub(crate) slots: Vec<SnakeSlot>,
+    /// Timer stored at $3E(a0) of the head slot ($40).
+    pub(crate) head_timer: u16,
+    /// Wander speed stored at $2E(a0) of the head slot (d4).
+    pub(crate) wander_speed: u16,
+    /// Movement speed stored at $30(a0) of the head slot (d5).
+    pub(crate) movement_speed: u16,
+    /// Diamond power timer value written to (Diamond_power_timer).w.
+    pub(crate) power_timer: u16,
+}
+
+/// Init-data tables for each snake variant.
+/// ASM: DiamondPower_InitData_SwiftMiniSnake (kid.asm:44598),
+///      DiamondPower_InitData_MiniSnake (kid.asm:44610),
+///      DiamondPower_InitData_DeathSnake (kid.asm:44651).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const SNAKE_INIT_DATA_SWIFT_MINI: [u16; 6] = [5, 4, 3, 2, 1, 1];
+pub(crate) const SNAKE_INIT_DATA_MINI: [u16; 6] = [4, 3, 2, 1, 1, 1];
+pub(crate) const SNAKE_INIT_DATA_DEATH: [u16; 6] = [6, 6, 5, 4, 3, 2];
+
+/// ASM DiamondPower_Init_Snake (kid.asm:44621, loc_3F91C).
+///
+/// Shared init for all three snake variants (SwiftMiniSnake, MiniSnake,
+/// DeathSnake). Allocates 6 slots (d1 counts 5..0), each at Kid's position
+/// with diamond sizes from the variant's init-data table and a 3-position
+/// trail buffer filled with Kid's coordinates.
+///
+/// Parameters mirror the ASM registers at entry:
+///   d4 = wander speed ($10 for swift, 6 for mini/death)
+///   d5 = movement speed ($480/$300/$400)
+///   init_data = 6-entry size table
+///   power_timer = value for (Diamond_power_timer).w
+///   kid_x, kid_y = Kid's current position
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_init_snake(
+    wander_speed: u16,
+    movement_speed: u16,
+    init_data: &[u16; 6],
+    power_timer: u16,
+    kid_x: i16,
+    kid_y: i16,
+) -> SnakeInitResult {
+    // ASM loc_3F91C: move.l (Addr_GfxObject_Kid).w,a3; moveq #5,d1.
+    // Allocate_DiamondPowerObjectSlot prepends to Addr_FirstDPObjectSlot, while
+    // loc_3F92A saves the first allocated object as the Snake head at
+    // $FFFFF5B4. Native keeps traversal order here, so the saved head is last.
+    let mut allocated_slots = Vec::with_capacity(6);
+
+    for i in 0..6u16 {
+        // ASM loc_3F92A: bsr.w Allocate_DiamondPowerObjectSlot
+        // (allocation is implicit in native — we just create the slot)
+
+        // ASM loc_3F946: store Kid x/y, read size from table, fill trail
+        // move.w d6,$1A(a0) — x_pos = kid_x
+        // move.w d7,$1E(a0) — y_pos = kid_y
+        // move.w (a2)+,$24(a0) — diamond size from init table
+        // lea $40(a0),a1 — trail buffer at offset $40
+        // 3x move.w d6,(a1)+; move.w d7,(a1)+
+        let slot = SnakeSlot {
+            x_pos: kid_x,
+            y_pos: kid_y,
+            x_subpixel: 0,
+            y_subpixel: 0,
+            diamond_size: init_data[i as usize],
+            trail: [(kid_x, kid_y); 3],
+        };
+        allocated_slots.push(slot);
+    }
+    let slots = allocated_slots.into_iter().rev().collect();
+
+    // ASM loc_3F92A: first slot (d1==5) stores head pointer at $FFFFF5B4,
+    // timer $40 at $3E(a0), d4 at $2E(a0), d5 at $30(a0)
+    SnakeInitResult {
+        slots,
+        head_timer: 0x40,
+        wander_speed,
+        movement_speed,
+        power_timer,
+    }
+}
+
+/// ASM DiamondPower_Main_Snake trail update loop (kid.asm:44658, loc_3F978).
+///
+/// Iterates the snake's linked-list traversal order. For each non-head slot,
+/// the visible position is shifted from trail[0], the trail buffer is shifted
+/// down by one entry, and the next slot's current position fills trail[2]. The
+/// saved head slot is last in traversal order, so it is left unchanged before
+/// loc_3FAD4 moves it.
+///
+/// ASM loc_3F978:
+///   move.l a1,a0; move.l 4(a0),d1; beq.s loc_3F9A2
+///   — follow linked list; exit when next pointer is null
+///   lea $40(a0),a3
+///   move.w (a3),$1A(a0); move.w 2(a3),$1E(a0)
+///   — copy trail[0] → x_pos, y_pos
+///   move.l 4(a3),(a3)+; move.l 4(a3),(a3)+
+///   — shift trail[1]→[0], trail[2]→[1]
+///   move.w $1A(a1),(a3)+; move.w $1E(a1),(a3)+
+///   — copy next slot's current position → trail[2]
+///   bra.s loc_3F978
+pub(crate) fn diamond_power_snake_update_trails(slots: &mut [SnakeSlot]) {
+    // ASM loc_3F978: iterate pairs (current, next) in order
+    for i in 0..slots.len().saturating_sub(1) {
+        // ASM: move.w (a3),$1A(a0); move.w 2(a3),$1E(a0)
+        // — trail[0] becomes the slot's visible position
+        let (tx, ty) = slots[i].trail[0];
+        slots[i].x_pos = tx;
+        slots[i].y_pos = ty;
+
+        // ASM: move.l 4(a3),(a3)+; move.l 4(a3),(a3)+
+        // — shift trail entries down: [1]→[0], [2]→[1]
+        slots[i].trail[0] = slots[i].trail[1];
+        slots[i].trail[1] = slots[i].trail[2];
+
+        // ASM: move.w $1A(a1),(a3)+; move.w $1E(a1),(a3)+
+        // — next slot's current position fills trail[2]
+        let next_pos = (slots[i + 1].x_pos, slots[i + 1].y_pos);
+        slots[i].trail[2] = next_pos;
+    }
+}
+
+/// An on-screen enemy position for the snake target scan.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct SnakeTargetCandidate {
+    pub(crate) x_pos: i16,
+    pub(crate) y_pos: i16,
+}
+
+/// Result of `diamond_power_snake_find_target`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct SnakeTarget {
+    /// Target x_pos (from nearest enemy, or Kid if none on-screen).
+    pub(crate) x: i16,
+    /// Target y_pos (from nearest enemy, or Kid if none on-screen).
+    pub(crate) y: i16,
+}
+
+/// ASM loc_3F9A2 + loc_3F9C2: snake target selection after trail update.
+///
+/// loc_3F9A2 (kid.asm:44673): decrements Diamond_power_timer, loads the
+/// head slot's screen-relative position, then scans the enemy list for
+/// the nearest on-screen enemy by Manhattan distance.
+///
+/// loc_3F9C2 (kid.asm:44684): per-enemy proximity scan:
+///   — load enemy x/y, subtract 16 from y
+///   — cull off-screen: x in [-8, $148), y in [$10, $F0)
+///   — compute |dx| + |dy| Manhattan distance to head
+///   — track nearest (smallest distance in d3)
+///
+/// If no on-screen enemy found (d3 remains $FFFF), defaults to Kid.
+///
+/// Returns the target position (enemy or Kid).
+pub(crate) fn diamond_power_snake_find_target(
+    head_x: i16,
+    head_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    enemies: &[SnakeTargetCandidate],
+    kid_x: i16,
+    kid_y: i16,
+) -> SnakeTarget {
+    // ASM loc_3F9A2: d0 = head_x - Camera_X_pos, d1 = head_y - Camera_Y_pos
+    let screen_head_x = head_x.wrapping_sub(camera_x);
+    let screen_head_y = head_y.wrapping_sub(camera_y);
+
+    // ASM: moveq #-1,d3 — initial "no target" sentinel
+    let mut best_dist: i16 = -1;
+    let mut best_target: Option<(i16, i16)> = None;
+
+    // ASM loc_3F9C2: iterate enemy linked list ($FFFFF86A)
+    for enemy in enemies {
+        // ASM: move.w $1A(a1),d4; move.w $1E(a1),d5; subi.w #$10,d5
+        let ex = enemy.x_pos;
+        let ey = enemy.y_pos.wrapping_sub(0x10);
+
+        // ASM: sub.w (Camera_X_pos).w,d4; screen-relative X
+        let screen_ex = ex.wrapping_sub(camera_x);
+        // ASM: cmpi.w #$FFF8,d4; blt.s loc_3FA06
+        if screen_ex < -8 {
+            continue;
+        }
+        // ASM: cmpi.w #$148,d4; bge.s loc_3FA06
+        if screen_ex >= 0x148 {
+            continue;
+        }
+        // ASM: sub.w (Camera_Y_pos).w,d5
+        let screen_ey = ey.wrapping_sub(camera_y);
+        // ASM: cmpi.w #$10,d5; blt.s loc_3FA06
+        if screen_ey < 0x10 {
+            continue;
+        }
+        // ASM: cmpi.w #$F0,d5; bge.s loc_3FA06
+        if screen_ey >= 0xF0 {
+            continue;
+        }
+
+        // ASM: sub.w d0,d4; bge.s loc_3F9F6; neg.w d4
+        let dx = (screen_ex.wrapping_sub(screen_head_x)).abs();
+        // ASM: sub.w d1,d5; bge.s loc_3F9FC; neg.w d5
+        let dy = (screen_ey.wrapping_sub(screen_head_y)).abs();
+
+        // ASM: add.w d4,d5; cmp.w d5,d3; bcs.s loc_3FA06
+        let dist = dx.wrapping_add(dy);
+        // ASM: cmp.w d5,d3 — unsigned compare (bcs = below/carry set)
+        if (best_dist as u16) < (dist as u16) {
+            continue;
+        }
+        best_dist = dist;
+        best_target = Some((enemy.x_pos, enemy.y_pos));
+    }
+
+    // ASM loc_3FA0C: cmpi.w #$FFFF,d3; bne.s loc_3FA16
+    // — if no enemy found, use Kid
+    match best_target {
+        Some((x, y)) => SnakeTarget { x, y },
+        None => SnakeTarget { x: kid_x, y: kid_y },
+    }
+}
+
+/// Result of `diamond_power_rain_find_nearest_enemy`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RainNearestEnemy {
+    /// Manhattan distance to nearest on-screen enemy.
+    pub(crate) distance: u16,
+    /// Target enemy x_pos (world coordinates).
+    pub(crate) x: i16,
+    /// Target enemy y_pos (world coordinates).
+    pub(crate) y: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DiamondPowerRainSpawnSlotLoc3FDFE {
+    pub(crate) x_pos: u32,
+    pub(crate) y_pos: u32,
+    pub(crate) tracking_word_3e: u16,
+    pub(crate) size_word_24: u16,
+    pub(crate) x_velocity: i32,
+    pub(crate) y_velocity: i32,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_rain_spawn_gate_loc_3FDFE(
+    diamond_power_timer: i16,
+    active_rain_count: usize,
+    time_frames: u16,
+) -> bool {
+    // ASM DiamondPower_Main_SlashingRain: after `subq.w #1,(Diamond_power_timer)`,
+    // `bmi.w loc_3FE62` skips allocation, `cmp.w ($FFFFF5C0),#6; ble.w`
+    // enforces the six-object rain cap, and `Time_Frames&$F` gates cadence.
+    diamond_power_timer >= 0
+        && active_rain_count < DIAMOND_POWER_RAIN_MAX_OBJECTS
+        && time_frames.is_multiple_of(16)
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_rain_spawn_slot_loc_3FDFE(
+    camera_x_pos: u32,
+    camera_y_pos: u32,
+    random_byte: u8,
+) -> DiamondPowerRainSpawnSlotLoc3FDFE {
+    // ASM loc_3FE20: random byte is shifted left twice, divided by $140,
+    // then the swapped remainder becomes the camera-relative X offset.
+    let offset = u32::from(random_byte).wrapping_mul(4) % 0x140;
+    DiamondPowerRainSpawnSlotLoc3FDFE {
+        x_pos: camera_x_pos.wrapping_add(offset << 16),
+        // ASM loc_3FE42: move.w Camera_Y_pos,d1; subq.w #8,d1; move.w d1,$1E(a0).
+        y_pos: camera_y_pos.wrapping_sub(8 << 16),
+        tracking_word_3e: 0,
+        size_word_24: 4,
+        x_velocity: 0,
+        y_velocity: 0x2_0000,
+    }
+}
+
+/// ASM loc_3FEE2 (kid.asm:45253): rain tracking enemy scan.
+///
+/// Called from loc_3FEBC when a non-tracking rain object's timer expires
+/// and tracking is enabled ($FFFFF5B9 != 0, i.e. TrackingRain).
+///
+/// Iterates the enemy linked list ($FFFFF86A), for each enemy:
+///   — load x/y, subtract 8 from y (vs 16 for snake)
+///   — cull off-screen: x in [-8, $148), y in [$10, $F0) after camera
+///   — loc_3FF16 (kid.asm:45272): abs(dx) after sub.w d0,d5; bge.s; neg.w d5
+///   — loc_3FF1C (kid.asm:45277): abs(dy) after sub.w d1,d6; bge.s; neg.w d6,
+///     then add.w d5,d6 for Manhattan distance, cmp.w d6,d7 tracks nearest
+///
+/// Returns the nearest on-screen enemy, or None if no enemies visible.
+pub(crate) fn diamond_power_rain_find_nearest_enemy(
+    rain_x: i16,
+    rain_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    enemies: &[SnakeTargetCandidate],
+) -> Option<RainNearestEnemy> {
+    // ASM loc_3FEBC: d0 = rain $1A(a0) - Camera_X_pos, d1 = rain $1E(a0) - Camera_Y_pos
+    let screen_rain_x = rain_x.wrapping_sub(camera_x);
+    let screen_rain_y = rain_y.wrapping_sub(camera_y);
+
+    // ASM: moveq #-1,d7 — initial "no target" sentinel
+    let mut best_dist: u16 = 0xFFFF;
+    let mut best_target: Option<(i16, i16)> = None;
+
+    // ASM loc_3FEE2: iterate enemy linked list ($FFFFF86A)
+    for enemy in enemies {
+        // ASM loc_3FEE2: move.w $1A(a1),d5; move.w $1E(a1),d6; subi.w #8,d6
+        let ex = enemy.x_pos;
+        let ey = enemy.y_pos.wrapping_sub(8);
+
+        // ASM: sub.w (Camera_X_pos).w,d5
+        let screen_ex = ex.wrapping_sub(camera_x);
+        // ASM: cmpi.w #$FFF8,d5; blt.s loc_3FF26
+        if screen_ex < -8 {
+            continue;
+        }
+        // ASM: cmpi.w #$148,d5; bge.s loc_3FF26
+        if screen_ex >= 0x148 {
+            continue;
+        }
+        // ASM: sub.w (Camera_Y_pos).w,d6
+        let screen_ey = ey.wrapping_sub(camera_y);
+        // ASM: cmpi.w #$10,d6; blt.s loc_3FF26
+        if screen_ey < 0x10 {
+            continue;
+        }
+        // ASM: cmpi.w #$F0,d6; bge.s loc_3FF26
+        if screen_ey >= 0xF0 {
+            continue;
+        }
+
+        // ASM loc_3FF16: sub.w d0,d5; bge.s loc_3FF16; neg.w d5
+        let dx = (screen_ex.wrapping_sub(screen_rain_x)).unsigned_abs();
+        // ASM loc_3FF1C: sub.w d1,d6; bge.s loc_3FF1C; neg.w d6
+        let dy = (screen_ey.wrapping_sub(screen_rain_y)).unsigned_abs();
+
+        // ASM loc_3FF1C: add.w d5,d6; cmp.w d6,d7; bcs.s loc_3FF26
+        let dist = dx.wrapping_add(dy);
+        if best_dist < dist {
+            continue;
+        }
+        best_dist = dist;
+        best_target = Some((enemy.x_pos, enemy.y_pos));
+    }
+
+    best_target.map(|(x, y)| RainNearestEnemy {
+        distance: best_dist,
+        x,
+        y,
+    })
+}
+
+/// Result of `diamond_power_rain_compute_tracking_velocity`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct RainTrackingVelocity {
+    /// 32-bit x velocity toward the enemy.
+    pub(crate) x_vel: i32,
+    /// 32-bit y velocity toward the enemy (aimed 8px above).
+    pub(crate) y_vel: i32,
+    /// Shift amount used (d6): floor(log2(distance >> 3)) + 1.
+    pub(crate) shift: u32,
+}
+
+/// ASM loc_3FF3C (kid.asm:45296): tracking velocity computation loop.
+///
+/// After `diamond_power_rain_find_nearest_enemy` finds a target and the
+/// gate at loc_3FF2C validates distance in [8, $40):
+///
+/// 1. `lsr.w #3,d7` — shift distance right by 3
+/// 2. loc_3FF3C loop: `addq.w #1,d6; lsr.w #1,d7; bne.s loc_3FF3C` —
+///    count bits remaining, giving d6 = floor(log2(distance >> 3)) + 1
+/// 3. `move.l x_pos(a3),d0; sub.l $1A(a0),d0; asr.l d6,d0; move.l d0,$26(a0)`
+///    — x_vel = (enemy_x - rain_x) >> d6
+/// 4. `move.l y_pos(a3),d0; subi.l #$80000,d0; sub.l $1E(a0),d0; asr.l d6,d0`
+///    — y_vel = (enemy_y - $80000 - rain_y) >> d6
+///    The $80000 (8 pixels in 16.16 fixed-point) aims slightly above the enemy.
+/// 5. `addq.w #1,$3E(a0)` marks the rain object as tracking.
+///
+/// Returns `None` if distance is outside [8, $40) (loc_3FF2C branches
+/// to loc_3FF6E, resetting the frame counter without engaging tracking).
+pub(crate) fn diamond_power_rain_compute_tracking_velocity(
+    distance: u16,
+    enemy_x_pos: u32,
+    enemy_y_pos: u32,
+    rain_x_pos: u32,
+    rain_y_pos: u32,
+) -> Option<RainTrackingVelocity> {
+    // ASM loc_3FF2C: cmpi.w #8,d7; bcs.s loc_3FF6E
+    if distance < 8 {
+        return None;
+    }
+    // ASM loc_3FF2C: cmpi.w #$40,d7; bcc.s loc_3FF6E
+    if distance >= 0x40 {
+        return None;
+    }
+    // ASM: moveq #0,d6; lsr.w #3,d7
+    let mut d7 = distance >> 3;
+    let mut d6: u32 = 0;
+    // ASM loc_3FF3C: addq.w #1,d6; lsr.w #1,d7; bne.s loc_3FF3C
+    loop {
+        d6 += 1;
+        d7 >>= 1;
+        if d7 == 0 {
+            break;
+        }
+    }
+    // ASM: move.l x_pos(a3),d0; sub.l $1A(a0),d0; asr.l d6,d0
+    let x_vel = (enemy_x_pos as i32).wrapping_sub(rain_x_pos as i32) >> d6;
+    // ASM: move.l y_pos(a3),d0; subi.l #$80000,d0; sub.l $1E(a0),d0; asr.l d6,d0
+    let y_vel = (enemy_y_pos as i32)
+        .wrapping_sub(0x8_0000)
+        .wrapping_sub(rain_y_pos as i32)
+        >> d6;
+    Some(RainTrackingVelocity {
+        x_vel,
+        y_vel,
+        shift: d6,
+    })
+}
+
+/// ASM loc_3FF70 (kid.asm:45317): non-tracking rain object movement.
+///
+/// loc_3FF6E (kid.asm:45314): entry when no valid tracking target found —
+/// resets d7 to $14 (20 frames until next scan), then falls through to
+/// loc_3FF70.
+///
+/// loc_3FF70: applies movement for non-tracking rain:
+/// - X: 32-bit update: `move.l $1A(a0),d0; add.l $26(a0),d0; add.l a5,d0`
+///   where a5 = Kid x_vel * 3/4 (drift computed at loc_3FE62).
+/// - Y: word-only update: `move.w $1E(a0),d1; add.w $2A(a0),d1`
+///   (no subpixel precision, unlike the tracking path at loc_3FE98 which
+///   uses 32-bit Y).
+///
+/// Returns (new_x_pos_32bit, new_y_pos_word).
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn diamond_power_rain_non_tracking_move(
+    rain_x: u32,
+    rain_y: u16,
+    rain_x_vel: u32,
+    rain_y_vel: u16,
+    kid_drift: u32,
+) -> (u32, u16) {
+    // ASM loc_3FF70: move.l $1A(a0),d0; add.l $26(a0),d0; add.l a5,d0
+    let new_x = rain_x.wrapping_add(rain_x_vel).wrapping_add(kid_drift);
+    // ASM loc_3FF70: move.w $1E(a0),d1; add.w $2A(a0),d1
+    let new_y = rain_y.wrapping_add(rain_y_vel);
+    (new_x, new_y)
+}
+
+/// Result of rain sprite screen-cull and compilation at loc_3FF90.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum RainSlotSpriteAction {
+    /// Slot on-screen — sprite compiled into a2 buffer.
+    /// ASM loc_3FFCA: writes (Y, size_byte, link, pattern, X).
+    Visible {
+        y: u16,
+        size_byte: u8,
+        pattern: u16,
+        x: u16,
+    },
+    /// Slot off-screen — removed via sub_3F5E8 and active count decremented.
+    /// ASM loc_3FFC0: bsr.w sub_3F5E8; subq.w #1,($FFFFF5C0).w
+    Removed,
+}
+
+/// ASM loc_3FF90 (kid.asm:45329): rain sprite screen-cull and compilation.
+///
+/// Shared entry point for both tracking (from loc_3FE98 via `bra.w loc_3FF90`)
+/// and non-tracking (fallthrough from loc_3FF70) rain paths.
+///
+/// Inputs: d0 = screen X (world X.hi + camera offset d3),
+///         d1 = screen Y (world Y + camera offset d4),
+///         $24(a0) = diamond_size.
+///
+/// loc_3FF90: load d6 = $24(a0); sub d6 from d0,d1 (centre sprite);
+///   d6 *= 4 (table byte index); compute VRAM attr d5 = d6 + $1144,
+///   store in $22(a0).
+///
+/// Screen bounds (asymmetric — tighter Y range than snake):
+///   d0 in (0, $1C8), d1 in ($68, $168).
+///   If outside → loc_3FFC0 (remove + decrement count).
+///   If inside → loc_3FFCA (compile sprite).
+///
+/// loc_3FFC0 (kid.asm:45348): off-screen path — `bsr.w sub_3F5E8` removes
+///   the slot from the linked list, `subq.w #1,($FFFFF5C0).w` decrements
+///   the active rain object count. Falls through to loc_3FFDA (next element).
+///
+/// loc_3FFCA (kid.asm:45354): on-screen path — writes sprite entry into a2
+///   buffer: `move.w d1,(a2)+` (Y), `move.b (a1,d6.w),(a2)+` (size_byte
+///   from word_4020E), `addq.b #1,d2; move.b d2,(a2)+` (link counter),
+///   `move.w 2(a1,d6.w),(a2)+` (pattern from word_4020E), `move.w d0,(a2)+`
+///   (X). Falls through to loc_3FFDA.
+///
+/// Returns the VRAM attribute word ($22) as a side-effect field, plus the
+/// sprite action.
+pub(crate) fn diamond_power_rain_screen_cull_and_compile(
+    screen_x: i16,
+    screen_y: i16,
+    diamond_size: u16,
+) -> (u16, RainSlotSpriteAction) {
+    // ASM loc_3FF90: move.w $24(a0),d6
+    let d6 = diamond_size as i16;
+
+    // ASM: sub.w d6,d0; sub.w d6,d1 — centre sprite
+    let d0 = screen_x.wrapping_sub(d6);
+    let d1 = screen_y.wrapping_sub(d6);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table byte index)
+    let table_index = (diamond_size as usize).wrapping_mul(4);
+
+    // ASM: move.w d6,d5; addi.w #$1144,d5; move.w d5,$22(a0)
+    let vram_attr = (table_index as u16).wrapping_add(0x1144);
+
+    // ASM: screen bounds check
+    // tst.w d0; ble.s loc_3FFC0
+    if d0 <= 0 {
+        return (vram_attr, RainSlotSpriteAction::Removed);
+    }
+    // cmpi.w #$1C8,d0; bge.s loc_3FFC0
+    if d0 >= 0x1C8 {
+        return (vram_attr, RainSlotSpriteAction::Removed);
+    }
+    // cmpi.w #$68,d1; ble.s loc_3FFC0
+    if d1 <= 0x68 {
+        return (vram_attr, RainSlotSpriteAction::Removed);
+    }
+    // cmpi.w #$168,d1; ble.s loc_3FFCA
+    if d1 <= 0x168 {
+        // ASM loc_3FFCA: on-screen — compile sprite
+        let entry_index = table_index / 4;
+        let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
+
+        return (
+            vram_attr,
+            RainSlotSpriteAction::Visible {
+                y: d1 as u16,
+                size_byte,
+                pattern,
+                x: d0 as u16,
+            },
+        );
+    }
+
+    // d1 > $168 — falls through to loc_3FFC0 (off-screen below)
+    (vram_attr, RainSlotSpriteAction::Removed)
+}
+
+/// Single slot from WallOfDeath init.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WallOfDeathSlot {
+    /// $3E(a0) — x offset relative to camera. Starts at 0 for slot 0,
+    /// decreases by 8 for each subsequent slot.
+    pub(crate) x_offset: i16,
+    /// $40(a0) — y offset relative to camera. Starts at $D for slot 0,
+    /// increases by $16 for each subsequent slot.
+    pub(crate) y_offset: i16,
+    /// $42(a0) — has-reached-right-edge flag. Cleared (false) on init.
+    pub(crate) reached_right_edge: bool,
+    /// $24(a0) — size index for sprite lookup. Initialised to 6.
+    pub(crate) size_index: u16,
+}
+
+/// Result of `diamond_power_init_wall_of_death`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WallOfDeathInitResult {
+    pub(crate) slots: Vec<WallOfDeathSlot>,
+    /// Diamond_power_timer set to $4B0 (1200).
+    pub(crate) diamond_power_timer: u16,
+}
+
+/// ASM DiamondPower_Init_WallOfDeath (kid.asm:45368, loc_3FFE4).
+///
+/// `moveq #9,d1; moveq #0,d2; moveq #$D,d3` — 10 slots, x starts at 0,
+/// y starts at $D.
+///
+/// loc_3FFEA (kid.asm:45373): allocation loop —
+///   `bsr.w Allocate_DiamondPowerObjectSlot`
+///   `move.w d2,$3E(a0)` — x_offset = d2
+///   `move.w d3,$40(a0)` — y_offset = d3
+///   `sf $42(a0)` — clear reached-right-edge flag
+///   `move.w #6,$24(a0)` — size index = 6
+///   `subq.w #8,d2` — next x_offset -= 8
+///
+/// loc_40002 (kid.asm:45381): `addi.w #$16,d3` — next y_offset += $16 (22)
+///
+/// loc_40006 (kid.asm:45384): `dbf d1,loc_3FFEA` — loop 10 times.
+///   `move.w #$4B0,(Diamond_power_timer).w` — set timer to 1200.
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_init_wall_of_death() -> WallOfDeathInitResult {
+    // ASM: moveq #9,d1 — 10 slots via dbf
+    let count = 10u16;
+    // ASM: moveq #0,d2 — initial x offset
+    let mut d2: i16 = 0;
+    // ASM: moveq #$D,d3 — initial y offset
+    let mut d3: i16 = 0x0D;
+
+    let mut slots = Vec::with_capacity(count as usize);
+
+    // ASM loc_3FFEA: allocation loop
+    for _ in 0..count {
+        slots.push(WallOfDeathSlot {
+            x_offset: d2,              // move.w d2,$3E(a0)
+            y_offset: d3,              // move.w d3,$40(a0)
+            reached_right_edge: false, // sf $42(a0)
+            size_index: 6,             // move.w #6,$24(a0)
+        });
+        d2 -= 8; // subq.w #8,d2
+        // ASM loc_40002: addi.w #$16,d3
+        d3 += 0x16;
+        // ASM loc_40006: dbf d1,loc_3FFEA
+    }
+
+    // ASM: move.w #$4B0,(Diamond_power_timer).w
+    WallOfDeathInitResult {
+        slots,
+        diamond_power_timer: 0x4B0, // 1200
+    }
+}
+
+/// Result of processing a single WallOfDeath slot in the main loop.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum WallOfDeathSlotAction {
+    /// Slot on-screen — sprite compiled into a2 buffer.
+    /// ASM loc_4009C: writes (Y, size_byte, link, pattern, X).
+    Visible {
+        /// $1A(a0) — world X (x_offset + camera_x).
+        world_x: i16,
+        /// $1E(a0) — world Y (y_offset + camera_y).
+        world_y: i16,
+        /// $22(a0) — VRAM attribute word.
+        vram_attr: u16,
+        /// Sprite buffer Y.
+        y: u16,
+        /// size_byte from word_4020E.
+        size_byte: u8,
+        /// pattern from word_4020E.
+        pattern: u16,
+        /// Sprite buffer X.
+        x: u16,
+    },
+    /// Slot removed during fade-out (size < 0 after decrement).
+    /// ASM loc_40044: bsr.w sub_3F5E8.
+    Removed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct DiamondPowerCollisionRectLoc1D84 {
+    pub(crate) left_px: i32,
+    pub(crate) right_px: i32,
+    pub(crate) top_px: i32,
+    pub(crate) bottom_px: i32,
+}
+
+const DIAMOND_POWER_SLOT_COLID_RIGHTWALL_LOC_1EA0: u16 = 0x0004;
+
+fn diamond_power_collision_rect_loc_1d84(
+    world_x: i16,
+    world_y: i16,
+    size_index: u16,
+) -> DiamondPowerCollisionRectLoc1D84 {
+    // ASM sub_1D84 (kid.asm:3558) uses `$22(a2)` as a CollisionSize_Index
+    // word. Circle loc_3F880 and Wall loc_4006E both write
+    // `$22 = $1144 + size*4`; size `$06` selects `unk_31DCC`
+    // (`dc.w -$7,$E,-$7,$E`), with smaller sizes walking back through
+    // `unk_31D90`..`unk_31DC2`.
+    let half_size = i32::from(size_index.saturating_add(1));
+    let world_x = i32::from(world_x);
+    let world_y = i32::from(world_y);
+    DiamondPowerCollisionRectLoc1D84 {
+        left_px: world_x - half_size,
+        right_px: world_x + half_size,
+        top_px: world_y - half_size,
+        bottom_px: world_y + half_size,
+    }
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn wall_of_death_collision_rect_loc_1d84(
+    world_x: i16,
+    world_y: i16,
+    size_index: u16,
+) -> DiamondPowerCollisionRectLoc1D84 {
+    diamond_power_collision_rect_loc_1d84(world_x, world_y, size_index)
+}
+
+fn diamond_power_rects_overlap_loc_1d84(
+    target: DiamondPowerCollisionRectLoc1D84,
+    candidate: DiamondPowerCollisionRectLoc1D84,
+) -> bool {
+    // ASM sub_1D84 loc_1DF2/loc_1E1E uses inclusive signed comparisons:
+    // candidate.left <= target.right, candidate.right >= target.left,
+    // candidate.top <= target.bottom, candidate.bottom >= target.top.
+    candidate.left_px <= target.right_px
+        && candidate.right_px >= target.left_px
+        && candidate.top_px <= target.bottom_px
+        && candidate.bottom_px >= target.top_px
+}
+
+/// ASM DiamondPower_Main_WallOfDeath (kid.asm:45390) per-slot processing.
+///
+/// Called once per slot in the linked list. The outer loop decrements
+/// Diamond_power_timer and loads camera coordinates before iterating.
+///
+/// loc_40026 (kid.asm:45399): per-slot entry — load d0 = $3E(a0) (x_offset),
+///   d1 = $40(a0) (y_offset). Check $42(a0) (reached_right_edge).
+///
+///   If NOT reached_right_edge:
+///     addq.w #8,$3E(a0) — move slot rightward.
+///     cmpi.w #$139,d0 — if old x_offset >= $139, st $42(a0) sets flag,
+///     then falls through to loc_40044.
+///     If old x_offset < $139, jumps to loc_4006E (sprite compile).
+///
+/// loc_40044 (kid.asm:45410): timer expiry / fade-out —
+///   If Diamond_power_timer >= 0 → loc_40060.
+///   If timer < 0 AND (timer & 7) == 0: subq.w #1,$24(a0).
+///     If size < 0 → sub_3F5E8 (remove), skip to next slot.
+///     Else → loc_40060.
+///   If (timer & 7) != 0 → loc_40060.
+///
+/// loc_40060 (kid.asm:45422): leftward movement —
+///   subq.w #8,$3E(a0) — move slot leftward.
+///   cmpi.w #7,d0 — if old x_offset <= 7, sf $42(a0) clears flag.
+///   Falls through to loc_4006E (sprite compile).
+///
+/// loc_4006E: sprite compilation — screen coords from d0 + camera, centre
+///   by size_index, VRAM attr = size_index*4 + $1144, compile into buffer.
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_main_wall_of_death_slot(
+    slot: &mut WallOfDeathSlot,
+    camera_x: i16,
+    camera_y: i16,
+    diamond_power_timer: i16,
+) -> WallOfDeathSlotAction {
+    // ASM loc_40026: move.w $3E(a0),d0; move.w $40(a0),d1
+    let d0 = slot.x_offset;
+    let d1 = slot.y_offset;
+
+    // ASM: tst.b $42(a0); bne.s loc_40044
+    if !slot.reached_right_edge {
+        // ASM: addq.w #8,$3E(a0)
+        slot.x_offset = slot.x_offset.wrapping_add(8);
+        // ASM: cmpi.w #$139,d0; blt.s loc_4006E
+        if d0 < 0x139 {
+            // Jump straight to sprite compile with old d0
+            return wall_of_death_compile_sprite(slot, d0, d1, camera_x, camera_y);
+        }
+        // ASM: st $42(a0) — reached right edge
+        slot.reached_right_edge = true;
+        // Falls through to loc_40044
+    }
+
+    // ASM loc_40044: tst.w (Diamond_power_timer).w; bpl.s loc_40060
+    if diamond_power_timer < 0 {
+        // ASM: move.w (Diamond_power_timer).w,d7; andi.w #7,d7; bne.s loc_40060
+        if diamond_power_timer.trailing_zeros() >= 3 {
+            // ASM: subq.w #1,$24(a0); bpl.s loc_40060
+            slot.size_index = slot.size_index.wrapping_sub(1);
+            if (slot.size_index as i16) < 0 {
+                // ASM: bsr.w sub_3F5E8; bra.s loc_400B0
+                return WallOfDeathSlotAction::Removed;
+            }
+        }
+    }
+
+    // ASM loc_40060: subq.w #8,$3E(a0)
+    slot.x_offset = slot.x_offset.wrapping_sub(8);
+    // ASM: cmpi.w #7,d0; bgt.s loc_4006E
+    if d0 <= 7 {
+        // ASM: sf $42(a0)
+        slot.reached_right_edge = false;
+    }
+
+    // ASM loc_4006E: sprite compilation
+    wall_of_death_compile_sprite(slot, d0, d1, camera_x, camera_y)
+}
+
+/// Shared sprite compilation for WallOfDeath slots (ASM loc_4006E through loc_4009C).
+///
+/// d0 = old x_offset, d1 = y_offset, d3 = Camera_X_pos, d4 = Camera_Y_pos.
+fn wall_of_death_compile_sprite(
+    slot: &WallOfDeathSlot,
+    d0: i16,
+    d1: i16,
+    camera_x: i16,
+    camera_y: i16,
+) -> WallOfDeathSlotAction {
+    // ASM loc_4006E: move.w d0,d5; add.w d3,d5; move.w d5,$1A(a0)
+    let world_x = d0.wrapping_add(camera_x);
+    // ASM: move.w d1,d5; add.w d4,d5; move.w d5,$1E(a0)
+    let world_y = d1.wrapping_add(camera_y);
+
+    // ASM: addi.w #$7F,d0; addi.w #$7F,d1
+    let mut sprite_x = d0.wrapping_add(0x7F);
+    let mut sprite_y = d1.wrapping_add(0x7F);
+
+    // ASM: move.w $24(a0),d6; sub.w d6,d0; sub.w d6,d1
+    let d6 = slot.size_index;
+    sprite_x = sprite_x.wrapping_sub(d6 as i16);
+    sprite_y = sprite_y.wrapping_sub(d6 as i16);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table byte index)
+    let table_byte_index = (d6 as usize).wrapping_mul(4);
+
+    // ASM: move.w d6,d5; addi.w #$1144,d5
+    let vram_attr = (table_byte_index as u16).wrapping_add(0x1144);
+
+    // ASM loc_4009C: compile sprite into buffer
+    let entry_index = table_byte_index / 4;
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
+
+    WallOfDeathSlotAction::Visible {
+        world_x,
+        world_y,
+        vram_attr,
+        y: sprite_y as u16,
+        size_byte,
+        pattern,
+        x: sprite_x as u16,
+    }
+}
+
+/// Velocity table for FiveWayShot slots (ASM word_40124, kid.asm:45501).
+///
+/// Each entry is (x_vel_hi, y_vel_hi) — written to the high word of x_vel/y_vel.
+/// The 5 slots form a fan: upward-left, upward, straight, downward, downward-right
+/// (when Kid faces right; mirrored when facing left).
+const FIVE_WAY_SHOT_VELOCITY_TABLE: [(i16, i16); 5] = [
+    (6, -4), // dc.w 6, $FFFC
+    (7, -2), // dc.w 7, $FFFE
+    (8, 0),  // dc.w 8, 0
+    (7, 2),  // dc.w 7, 2
+    (6, 4),  // dc.w 6, 4
+];
+
+/// Single slot from FiveWayShot init.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FiveWayShotSlot {
+    /// $3E(a0) — screen-relative x position (Kid x - camera x + offset).
+    pub(crate) screen_x: i16,
+    /// $40(a0) — screen-relative y position (Kid y - camera y).
+    pub(crate) screen_y: i16,
+    /// $26(a0) high word — screen-space x velocity per frame.
+    pub(crate) x_vel: i16,
+    /// $2A(a0) high word — screen-space y velocity per frame.
+    pub(crate) y_vel: i16,
+    /// $24(a0) — size index for sprite lookup. Initialised to 5.
+    pub(crate) size_index: u16,
+}
+
+/// Result of `diamond_power_init_five_way_shot`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FiveWayShotInitResult {
+    pub(crate) slots: Vec<FiveWayShotSlot>,
+    /// Diamond_power_timer set to $50 (80).
+    pub(crate) diamond_power_timer: u16,
+}
+
+/// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461).
+///
+/// `moveq #4,d1` — 5 slots via dbf. `move.w #$20,d4` — initial x offset.
+/// `tst.b x_direction(a3); beq.s loc_400DE; neg.w d4` — negate offset
+/// when x_direction is nonzero (Kid facing left).
+///
+/// loc_400DE (kid.asm:45474): compute screen-relative spawn position —
+///   `move.w x_pos(a3),d2; sub.w (Camera_X_pos).w,d2; add.w d4,d2` — screen X
+///   `move.w y_pos(a3),d3; sub.w (Camera_Y_pos).w,d3` — screen Y
+///   `lea word_40124(pc),a5` — load velocity table pointer.
+///
+/// loc_400F4 (kid.asm:45482): per-slot allocation loop —
+///   `bsr.w Allocate_DiamondPowerObjectSlot`
+///   `move.w #5,$24(a0)` — size_index = 5
+///   `move.w d2,$3E(a0)` — screen_x
+///   `move.w d3,$40(a0)` — screen_y
+///   `move.w (a5)+,d4` — load x_vel from table
+///   `tst.b x_direction(a3); beq.s loc_40110; neg.w d4` — mirror x_vel
+///
+/// loc_40110 (kid.asm:45492): store velocities and loop —
+///   `move.w d4,$26(a0)` — x_vel high word
+///   `move.w (a5)+,$2A(a0)` — y_vel high word
+///   `dbf d1,loc_400F4` — loop 5 times
+///   `move.w #$50,(Diamond_power_timer).w` — timer = 80.
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_init_five_way_shot(
+    kid_x: i16,
+    kid_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    x_direction_nonzero: bool,
+) -> FiveWayShotInitResult {
+    // ASM: move.w #$20,d4; tst.b x_direction(a3); beq.s loc_400DE; neg.w d4
+    let offset: i16 = if x_direction_nonzero { -0x20 } else { 0x20 };
+
+    // ASM loc_400DE: screen-relative spawn position
+    // move.w x_pos(a3),d2; sub.w (Camera_X_pos).w,d2; add.w d4,d2
+    let screen_x = kid_x.wrapping_sub(camera_x).wrapping_add(offset);
+    // move.w y_pos(a3),d3; sub.w (Camera_Y_pos).w,d3
+    let screen_y = kid_y.wrapping_sub(camera_y);
+
+    let mut slots = Vec::with_capacity(5);
+
+    // ASM loc_400F4: per-slot allocation loop (moveq #4,d1 → 5 iterations)
+    for &(raw_x_vel, y_vel) in &FIVE_WAY_SHOT_VELOCITY_TABLE {
+        // ASM: move.w (a5)+,d4; tst.b x_direction(a3); beq.s loc_40110; neg.w d4
+        let x_vel = if x_direction_nonzero {
+            raw_x_vel.wrapping_neg()
+        } else {
+            raw_x_vel
+        };
+
+        // ASM loc_40110: move.w d4,$26(a0); move.w (a5)+,$2A(a0)
+        slots.push(FiveWayShotSlot {
+            screen_x,      // move.w d2,$3E(a0)
+            screen_y,      // move.w d3,$40(a0)
+            x_vel,         // move.w d4,$26(a0)
+            y_vel,         // move.w (a5)+,$2A(a0)
+            size_index: 5, // move.w #5,$24(a0)
+        });
+    }
+
+    // ASM: move.w #$50,(Diamond_power_timer).w
+    FiveWayShotInitResult {
+        slots,
+        diamond_power_timer: 0x50, // 80
+    }
+}
+
+/// Result of processing a single FiveWayShot slot in the main loop.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FiveWayShotSlotAction {
+    /// Slot on-screen — sprite compiled into a2 buffer.
+    /// ASM loc_401BA: writes (Y, size_byte, link, pattern, X).
+    Visible {
+        /// $1A(a0) — world X (screen_x + camera_x).
+        world_x: i16,
+        /// $1E(a0) — world Y (screen_y + camera_y).
+        world_y: i16,
+        /// $22(a0) — VRAM attribute word.
+        vram_attr: u16,
+        /// Sprite buffer Y.
+        y: u16,
+        /// size_byte from word_4020E.
+        size_byte: u8,
+        /// pattern from word_4020E.
+        pattern: u16,
+        /// Sprite buffer X.
+        x: u16,
+    },
+    /// Slot removed during fade-out (size < 0 after decrement).
+    /// ASM loc_4019A: bsr.w sub_3F5E8.
+    Removed,
+}
+
+/// ASM DiamondPower_Main_FiveWayShot (kid.asm:45513) per-slot processing.
+///
+/// Called once per slot in the linked list. The outer loop decrements
+/// Diamond_power_timer and loads camera coordinates before iterating.
+///
+/// loc_4014C (kid.asm:45522): per-slot entry — load d0 = $3E(a0) (screen_x),
+///   d1 = $40(a0) (screen_y). `add.w $26(a0),d0` — advance X by x_vel.
+///   `bpl.s loc_40166` — if result >= 0, skip left-edge bounce.
+///   `tst.w $26(a0); bge.s loc_40166` — if x_vel >= 0, skip.
+///   `neg.w $26(a0)` — negate x_vel (bounce off left edge).
+///
+/// loc_40166 (kid.asm:45532): right-edge bounce —
+///   `cmpi.w #$140,d0; blt.s loc_40176` — if d0 < 320, skip.
+///   `tst.w $26(a0); ble.s loc_40176` — if x_vel <= 0, skip.
+///   `neg.w $26(a0)` — negate x_vel (bounce off right edge).
+///
+/// loc_40176 (kid.asm:45539): store updated screen_x, process Y —
+///   `move.w d0,$3E(a0)` — store screen_x.
+///   `add.w $2A(a0),d1` — advance Y by y_vel.
+///   Top bounce: if d1 < 0 AND y_vel < 0, negate y_vel.
+///   Bottom bounce (loc_4018A): if d1 >= $E0 (224) AND y_vel > 0, negate y_vel.
+///   loc_4019A: store screen_y. Timer check: if timer < 0 AND (timer & 7) == 0,
+///   decrement size_index. If size < 0, remove slot. Otherwise compile sprite.
+///
+/// loc_401BA: sprite compilation — world coords = screen + camera, centre by
+///   size_index, VRAM attr = size_index*4 + $1144, compile into buffer.
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_main_five_way_shot_slot(
+    slot: &mut FiveWayShotSlot,
+    camera_x: i16,
+    camera_y: i16,
+    diamond_power_timer: i16,
+) -> FiveWayShotSlotAction {
+    // ASM loc_4014C: move.w $3E(a0),d0; move.w $40(a0),d1
+    let mut d0 = slot.screen_x;
+    let mut d1 = slot.screen_y;
+
+    // ASM: add.w $26(a0),d0
+    d0 = d0.wrapping_add(slot.x_vel);
+
+    // ASM: bpl.s loc_40166; tst.w $26(a0); bge.s loc_40166; neg.w $26(a0)
+    // Left-edge bounce: if d0 < 0 AND x_vel < 0, negate x_vel
+    if d0 < 0 && slot.x_vel.is_negative() {
+        slot.x_vel = slot.x_vel.wrapping_neg();
+    }
+
+    // ASM loc_40166: cmpi.w #$140,d0; blt.s loc_40176; tst.w $26(a0); ble.s loc_40176; neg.w $26(a0)
+    // Right-edge bounce: if d0 >= 320 AND x_vel > 0, negate x_vel
+    if d0 >= 0x140 && slot.x_vel.is_positive() {
+        slot.x_vel = slot.x_vel.wrapping_neg();
+    }
+
+    // ASM loc_40176: move.w d0,$3E(a0)
+    slot.screen_x = d0;
+
+    // ASM: add.w $2A(a0),d1
+    d1 = d1.wrapping_add(slot.y_vel);
+
+    // ASM: bpl.s loc_4018A; tst.w $2A(a0); bge.s loc_4018A; neg.w $2A(a0)
+    // Top-edge bounce: if d1 < 0 AND y_vel < 0, negate y_vel
+    if d1 < 0 && slot.y_vel.is_negative() {
+        slot.y_vel = slot.y_vel.wrapping_neg();
+    }
+
+    // ASM loc_4018A: cmpi.w #$E0,d1; blt.s loc_4019A; tst.w $2A(a0); ble.s loc_4019A; neg.w $2A(a0)
+    // Bottom-edge bounce: if d1 >= 224 AND y_vel > 0, negate y_vel
+    if d1 >= 0xE0 && slot.y_vel.is_positive() {
+        slot.y_vel = slot.y_vel.wrapping_neg();
+    }
+
+    // ASM loc_4019A: move.w d1,$40(a0)
+    slot.screen_y = d1;
+
+    // ASM: tst.w (Diamond_power_timer).w; bpl.s loc_401BA
+    if diamond_power_timer < 0 {
+        // ASM: move.w (Diamond_power_timer).w,d7; andi.w #7,d7; bne.s loc_401BA
+        if diamond_power_timer.trailing_zeros() >= 3 {
+            // ASM: subq.w #1,$24(a0); bpl.s loc_401BA
+            slot.size_index = slot.size_index.wrapping_sub(1);
+            if (slot.size_index as i16) < 0 {
+                // ASM: bsr.w sub_3F5E8; bra.s loc_401FC
+                return FiveWayShotSlotAction::Removed;
+            }
+        }
+    }
+
+    // ASM loc_401BA: sprite compilation
+    five_way_shot_compile_sprite(slot, d0, d1, camera_x, camera_y)
+}
+
+/// Shared sprite compilation for FiveWayShot slots (ASM loc_401BA through loc_401FC).
+///
+/// d0 = screen_x, d1 = screen_y, d3 = Camera_X_pos, d4 = Camera_Y_pos.
+fn five_way_shot_compile_sprite(
+    slot: &FiveWayShotSlot,
+    d0: i16,
+    d1: i16,
+    camera_x: i16,
+    camera_y: i16,
+) -> FiveWayShotSlotAction {
+    // ASM loc_401BA: move.w d0,d5; add.w d3,d5; move.w d5,$1A(a0)
+    let world_x = d0.wrapping_add(camera_x);
+    // ASM: move.w d1,d5; add.w d4,d5; move.w d5,$1E(a0)
+    let world_y = d1.wrapping_add(camera_y);
+
+    // ASM: addi.w #$7F,d0; addi.w #$7F,d1
+    let mut sprite_x = d0.wrapping_add(0x7F);
+    let mut sprite_y = d1.wrapping_add(0x7F);
+
+    // ASM: move.w $24(a0),d6; sub.w d6,d0; sub.w d6,d1
+    let d6 = slot.size_index;
+    sprite_x = sprite_x.wrapping_sub(d6 as i16);
+    sprite_y = sprite_y.wrapping_sub(d6 as i16);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table byte index)
+    let table_byte_index = (d6 as usize).wrapping_mul(4);
+
+    // ASM: move.w d6,d5; addi.w #$1144,d5
+    let vram_attr = (table_byte_index as u16).wrapping_add(0x1144);
+
+    // ASM: compile sprite into buffer
+    let entry_index = table_byte_index / 4;
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
+
+    FiveWayShotSlotAction::Visible {
+        world_x,
+        world_y,
+        vram_attr,
+        y: sprite_y as u16,
+        size_byte,
+        pattern,
+        x: sprite_x as u16,
+    }
+}
+
+/// ASM loc_3FA16 through loc_3FA46: compute 8-way octant direction from
+/// the snake head to its target, used by the snake steering loop.
+///
+/// loc_3FA16 (kid.asm:44724): compute relative dx/dy from head to target,
+/// initialise octant base d3=0. If dy (head_y - (target_y-$10)) < 0: d3=6,
+/// negate dy.
+///
+/// loc_3FA36 (kid.asm:44737): tst.w d0; bpl.s loc_3FA40; eori.w #2,d3;
+/// neg.w d0 — if dx (target_x - head_x) < 0, flip bit 1 of octant and
+/// take |dx|.
+///
+/// loc_3FA40 (kid.asm:44743): cmp.w d0,d1; bge.s loc_3FA46; addq.w #1,d3
+/// — if |dy| < |dx| (more horizontal), add 1 to octant.
+///
+/// loc_3FA46 (kid.asm:44748): btst #1,d3; bne.s loc_3FA50; eori.w #1,d3
+/// — when bit 1 is clear, flip bit 0 (corrects axis alignment encoding).
+///
+/// Returns a 3-bit octant index (0–7).
+pub(crate) fn diamond_power_snake_octant(
+    target_x: i16,
+    target_y: i16,
+    head_x: i16,
+    head_y: i16,
+) -> u16 {
+    // ASM loc_3FA16: d0 = x_pos(a3) - $1A(a0) = target_x - head_x
+    let dx_raw = target_x.wrapping_sub(head_x);
+    // ASM: d1 = y_pos(a3) - $10; sub.w $1E(a0),d1; neg.w d1
+    //    = head_y - (target_y - $10)
+    let dy_raw = head_y.wrapping_sub(target_y.wrapping_sub(0x10));
+
+    // ASM: moveq #0,d3; tst.w d1; bpl.s loc_3FA36
+    let mut d3: u16 = 0;
+    let abs_dy = if dy_raw < 0 {
+        // ASM: moveq #6,d3; neg.w d1
+        d3 = 6;
+        (dy_raw as u16).wrapping_neg() as i16
+    } else {
+        dy_raw
+    };
+
+    // ASM loc_3FA36: tst.w d0; bpl.s loc_3FA40; eori.w #2,d3; neg.w d0
+    let abs_dx = if dx_raw < 0 {
+        d3 ^= 2;
+        (dx_raw as u16).wrapping_neg() as i16
+    } else {
+        dx_raw
+    };
+
+    // ASM loc_3FA40: cmp.w d0,d1; bge.s loc_3FA46; addq.w #1,d3
+    if abs_dy < abs_dx {
+        d3 = d3.wrapping_add(1);
+    }
+
+    // ASM loc_3FA46: btst #1,d3; bne.s loc_3FA50; eori.w #1,d3
+    if d3 & 2 == 0 {
+        d3 ^= 1;
+    }
+
+    d3
+}
+
+/// Angle-steering result from `diamond_power_snake_steer`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SnakeSteerResult {
+    /// Angle was adjusted (turn toward target or speed-based correction).
+    Adjusted(u16),
+    /// Angle unchanged (same octant, target at same position as head).
+    Unchanged,
+}
+
+/// ASM loc_3FA50 through loc_3FAD4 (kid.asm:44753–44822): steer the snake
+/// head's angle toward the target octant, with speed control when already
+/// aimed correctly.
+///
+/// loc_3FA50: extract current octant from angle (`($3E >> 5) & 7`), compare
+/// to target octant d3. If equal, branch to loc_3FA72 speed control.
+///
+/// loc_3FA6A (kid.asm:44766): negative octant difference path —
+/// `cmpi.w #$FFFC,d3; bge.s loc_3FAC2` — when diff in [-4, -1], subtract
+/// turn_rate (shortest counter-clockwise); when diff < -4, add turn_rate
+/// (shorter clockwise wrap).
+///
+/// loc_3FA72 (kid.asm:44772): same-octant speed control — `move.w d0,d5;
+/// or.w d1,d5; beq.s loc_3FAD4` skips adjustment when target==head. Otherwise
+/// loads angle into d5, negates if octant bit 0 set, then falls through to
+/// loc_3FA84 for trig-based speed comparison.
+///
+/// loc_3FA84 (kid.asm:44781): diagonal octant axis swap — `moveq #$66,d6;
+/// btst d3,d6; beq.s loc_3FA8C; exg d0,d1`. For diagonal octants (bits
+/// 1,2,5,6 of $66), swaps abs_dx/abs_dy before computing the ratio
+/// `(abs_dy/2 << 16) / abs_dx` vs trig-table tangent to decide whether to
+/// add or subtract turn_rate.
+///
+/// Returns the updated angle word, or `Unchanged` when loc_3FAD4 is reached
+/// without modification (same octant, zero displacement).
+pub(crate) fn diamond_power_snake_steer(
+    target_octant: u16,
+    abs_dx: u16,
+    abs_dy: u16,
+    current_angle: u16,
+    turn_rate: u16,
+) -> SnakeSteerResult {
+    // ASM loc_3FA50: d4 = ($3E(a0) >> 5) & 7 — current octant from angle
+    let current_octant = (current_angle >> 5) & 7;
+
+    // ASM: cmp.w d3,d4; beq.s loc_3FA72
+    if target_octant == current_octant {
+        // ASM loc_3FA72: move.w d0,d5; or.w d1,d5; beq.s loc_3FAD4
+        if abs_dx == 0 && abs_dy == 0 {
+            return SnakeSteerResult::Unchanged;
+        }
+
+        // ASM: move.w $3E(a0),d5
+        let mut d5 = current_angle;
+        // ASM: btst #0,d3; beq.s loc_3FA84; neg.w d5
+        if target_octant & 1 != 0 {
+            d5 = d5.wrapping_neg();
+        }
+
+        // ASM loc_3FA84: moveq #$66,d6; btst d3,d6; beq.s loc_3FA8C; exg d0,d1
+        let diagonal_mask: u32 = 0x66; // bits 1,2,5,6
+        let (d0, d1) = if (diagonal_mask >> target_octant) & 1 != 0 {
+            (abs_dy, abs_dx)
+        } else {
+            (abs_dx, abs_dy)
+        };
+
+        // ASM loc_3FA8C: d4 = ((d1/2) << 16) / d0 — displacement ratio
+        // M68K DIVU: if quotient >= $10000, overflow leaves register unchanged
+        // (low word was 0 before DIVU since value was swap'd from high word).
+        if d0 == 0 {
+            // Avoid division by zero — ASM would trap, but in practice d0|d1!=0
+            // and the diagonal swap ensures d0 is the larger component.
+            return SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate));
+        }
+        let d4_full = (((d1 as u32) / 2) << 16) / (d0 as u32);
+        let d4_ratio: u16 = if d4_full >= 0x10000 {
+            0
+        } else {
+            d4_full as u16
+        };
+
+        // ASM: andi.w #$1F,d5; add.w d5,d5
+        let sub_octant = (d5 & 0x1F) as usize;
+        let sin_idx = sub_octant * 2; // word offset
+
+        // ASM: move.w (a1,d5.w),d0; lsr.w #1,d0; swap d0
+        let sin_val = SINE_TABLE_WORD_402B0[sub_octant];
+        let d0_trig = ((sin_val as u32) / 2) << 16;
+
+        // ASM: neg.w d5; addi.w #$80,d5; move.w (a1,d5.w),d1
+        let cos_idx = (0x80u16.wrapping_sub(sin_idx as u16)) / 2;
+        let cos_val = SINE_TABLE_WORD_402B0[cos_idx as usize];
+
+        // ASM: divu.w d1,d0 — tangent approximation
+        // Same M68K DIVU overflow semantics: unchanged register → low word 0.
+        let d0_full = if cos_val == 0 {
+            0xFFFF_FFFF_u32 // overflow guaranteed
+        } else {
+            d0_trig / (cos_val as u32)
+        };
+        let d0_tan: u16 = if d0_full >= 0x10000 {
+            0
+        } else {
+            d0_full as u16
+        };
+
+        // ASM: btst #0,d3; beq.s loc_3FABE; exg d0,d4
+        let (cmp_a, cmp_b) = if target_octant & 1 != 0 {
+            (d4_ratio, d0_tan) // swapped
+        } else {
+            (d0_tan, d4_ratio)
+        };
+
+        // ASM loc_3FABE: cmp.w d4,d0; ble.s loc_3FACC
+        if cmp_a <= cmp_b {
+            // loc_3FACC: add turn_rate
+            SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+        } else {
+            // loc_3FAC2: subtract turn_rate
+            SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
+        }
+    } else {
+        // ASM: sub.w d4,d3 — octant difference
+        let diff = (target_octant as i16).wrapping_sub(current_octant as i16);
+        match diff.cmp(&0) {
+            // ASM loc_3FA50 (kid.asm:44758): `cmp.w d3,d4; beq.s loc_3FA72`
+            // routes equal octants into the trig path above, so loc_3FA6A and
+            // the positive-diff path below only see strictly non-zero deltas.
+            std::cmp::Ordering::Less => {
+                // ASM loc_3FA6A: cmpi.w #$FFFC,d3; bge.s loc_3FAC2; bra.s loc_3FACC
+                if diff >= -4 {
+                    // Shortest path: subtract turn_rate
+                    SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
+                } else {
+                    // Wrap around: add turn_rate
+                    SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+                }
+            }
+            std::cmp::Ordering::Equal => {
+                unreachable!("ASM loc_3FA50 routes equal octants to loc_3FA72 before diff")
+            }
+            std::cmp::Ordering::Greater => {
+                // ASM: cmpi.w #4,d3; bge.s loc_3FAC2; bra.s loc_3FACC
+                if diff >= 4 {
+                    // Wrap around: subtract turn_rate
+                    SnakeSteerResult::Adjusted(current_angle.wrapping_sub(turn_rate))
+                } else {
+                    // Shortest path: add turn_rate
+                    SnakeSteerResult::Adjusted(current_angle.wrapping_add(turn_rate))
+                }
+            }
+        }
+    }
+}
+
+/// ASM loc_3FAD4 (kid.asm:44822): move the Snake head as a 32-bit object
+/// position.
+///
+/// The ROM stores `$1A/$1E` as longwords. Most Snake code reads/writes only
+/// the high word, but the head movement uses `add.l`/`sub.l`, so the low word
+/// must survive between frames or slow fractional motion truncates away.
+pub(crate) fn diamond_power_snake_move_head_loc_3fad4(
+    slot: &mut SnakeSlot,
+    angle: u16,
+    movement_speed: u16,
+    kid_x_velocity: i32,
+    kid_y_velocity: i32,
+) {
+    use crate::boot::sin_cos_sub_40236;
+
+    let (cos, sin) = sin_cos_sub_40236(angle as u8);
+    let dx_fp = ((cos as i32).wrapping_mul(i32::from(movement_speed))) >> 6;
+    let dy_fp = ((sin as i32).wrapping_mul(i32::from(movement_speed))) >> 6;
+
+    let mut x_fp = (i32::from(slot.x_pos) << 16) | i32::from(slot.x_subpixel);
+    let mut y_fp = (i32::from(slot.y_pos) << 16) | i32::from(slot.y_subpixel);
+    x_fp = x_fp.wrapping_add(dx_fp).wrapping_add(kid_x_velocity >> 1);
+    y_fp = y_fp.wrapping_sub(dy_fp).wrapping_add(kid_y_velocity >> 1);
+
+    slot.x_pos = (x_fp >> 16) as i16;
+    slot.y_pos = (y_fp >> 16) as i16;
+    slot.x_subpixel = x_fp as u16;
+    slot.y_subpixel = y_fp as u16;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn minimal_manifest() -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: wildside_data::GENERATED_BUNDLE_VERSION,
+            rom_sha1: String::from("helmets-test"),
+            upstream_commit: String::from("helmets-test"),
+            source_root: PathBuf::from("/tmp/source"),
+            output_root: PathBuf::from("/tmp/output"),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn diamond_power_circle_of_doom_clamps_size_table_upper_bound_loc_3f81a() {
+        // ASM loc_3F81A / byte_3F8B4 (kid.asm:44537, 44560): the ROM indexes
+        // the 28-byte table with `$3E(a0).w >> 1`. Native keeps the last ROM
+        // half-size as the defensive value for radii beyond that table.
+        let mut slot = CircleOfDoomSlot {
+            radius: 0x0038_0000,
+            shrink_flag: 0,
+            angle: 0,
+            status: 1,
+        };
+
+        let result = diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0x10, 0, 0);
+
+        assert_eq!(result.half_size, 6);
+        assert!(result.removed);
+    }
+
+    #[test]
+    fn diamond_power_circle_of_doom_decrements_angle_high_word_loc_3f880() {
+        // ASM loc_3F880 (kid.asm:44553): `subq.w #4,$42(a0)` updates only the
+        // high word of the angle longword, so fractional low-word bits survive.
+        let mut slot = CircleOfDoomSlot {
+            radius: 0x0021_0000,
+            shrink_flag: 0,
+            angle: 0x0004_BEEF,
+            status: 0,
+        };
+
+        let result = diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0x10, 0, 0);
+
+        assert!(!result.removed);
+        assert_eq!(slot.angle, 0x0000_BEEF);
+    }
+
+    #[test]
+    fn diamond_power_circle_of_doom_quarter_turn_uses_scaled_sine_y_offset_loc_3f81a() {
+        // ASM loc_3F81A (kid.asm:44509-44517): `muls.w d5,d1; swap d1;
+        // asr.w #6,d1; neg.w d1; add.w y_pos(a3),d1; subi.w #$10,d1`.
+        // At angle $40, `sub_40236` returns the quarter-turn sine peak. With
+        // radius $00210000, the scaled sine contributes 32px upward before the
+        // fixed $10 lift, so screen Y lands at $8F rather than the idle $AF.
+        let mut slot = CircleOfDoomSlot {
+            radius: 0x0021_0000,
+            shrink_flag: 0,
+            angle: 0x0040_0000,
+            status: 0,
+        };
+
+        let result = diamond_power_main_circle_of_doom_slot(&mut slot, 0, 0x40, 0, 0);
+
+        assert!(!result.removed);
+        assert_eq!(result.screen_y, 0x008F);
+        assert_eq!(result.half_size, 5);
+    }
+
+    #[test]
+    fn diamond_power_snake_find_target_keeps_lower_screen_bounds_loc_3f9c2() {
+        // ASM loc_3F9C2 (kid.asm:44684): `cmpi.w #$FFF8,d4; blt.s loc_3FA06`
+        // and `cmpi.w #$10,d5; blt.s loc_3FA06` reject values below the
+        // lower bounds, so exact -8 X and $10 Y remain valid target candidates.
+        let target = diamond_power_snake_find_target(
+            0,
+            0x10,
+            0,
+            0,
+            &[SnakeTargetCandidate {
+                x_pos: -8,
+                y_pos: 0x20,
+            }],
+            0x1234,
+            0x5678,
+        );
+
+        assert_eq!(target, SnakeTarget { x: -8, y: 0x20 });
+    }
+
+    #[test]
+    fn diamond_power_snake_find_target_replaces_equal_distance_target_loc_3f9fc() {
+        // ASM loc_3F9FC (kid.asm:44708): `cmp.w d5,d3; bcs.s loc_3FA06`
+        // skips only when the current best distance is unsigned-below the
+        // candidate distance. Equal distances fall through and replace `a3`.
+        let target = diamond_power_snake_find_target(
+            0,
+            0x20,
+            0,
+            0,
+            &[
+                SnakeTargetCandidate {
+                    x_pos: -8,
+                    y_pos: 0x30,
+                },
+                SnakeTargetCandidate {
+                    x_pos: 8,
+                    y_pos: 0x30,
+                },
+            ],
+            0x1234,
+            0x5678,
+        );
+
+        assert_eq!(target, SnakeTarget { x: 8, y: 0x30 });
+    }
+
+    #[test]
+    fn diamond_power_five_way_exact_left_edge_keeps_left_velocity_loc_4014c() {
+        // ASM loc_4014C (kid.asm:45526): `add.w $26(a0),d0; bpl.s loc_40166`
+        // branches for zero, so an exact left-edge position is stored without
+        // negating a still-leftward velocity. Only negative screen X bounces.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 6,
+            screen_y: 0x20,
+            x_vel: -6,
+            y_vel: 0,
+            size_index: 5,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 1);
+
+        assert_eq!(slot.screen_x, 0);
+        assert_eq!(slot.x_vel, -6);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0,
+                world_y: 0x20,
+                vram_attr: 0x1158,
+                y: 0x9A,
+                size_byte: 0x05,
+                pattern: 0x86F2,
+                x: 0x7A,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_exact_right_edge_bounces_right_velocity_loc_40166() {
+        // ASM loc_40166 (kid.asm:45533): `cmpi.w #$140,d0; blt.s loc_40176`
+        // skips only while updated screen X is below 320. At exactly 320,
+        // positive X velocity is negated before the position is stored.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x13F,
+            screen_y: 0x20,
+            x_vel: 1,
+            y_vel: 0,
+            size_index: 5,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 1);
+
+        assert_eq!(slot.screen_x, 0x140);
+        assert_eq!(slot.x_vel, -1);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x140,
+                world_y: 0x20,
+                vram_attr: 0x1158,
+                y: 0x9A,
+                size_byte: 0x05,
+                pattern: 0x86F2,
+                x: 0x1BA,
+            }
+        );
+    }
+
+    #[test]
+    fn maniaxe_axe_spawn_uses_no_dbf_lifetime_loc_8a52_8b32() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.progression.current_form = PlayerForm::Maniaxe;
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 0x0140,
+            height_pixels: 0x00E0,
+        });
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0050_0000;
+
+        runtime.step_maniaxe_axe(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+
+        let axe = runtime
+            .projectiles
+            .iter()
+            .find(|projectile| projectile.kind == EnemyProjectileKind::ManiaxeAxe)
+            .expect("C press should spawn ManiaxeAxe");
+        assert_eq!(
+            axe.lifetime, 0,
+            "ASM loc_8A52/loc_8B32 loops until collision or camera-relative out-of-bounds, with no DBF lifetime counter",
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_top_edge_requires_negative_position_and_velocity_loc_40176() {
+        // ASM loc_40176 (kid.asm:45541): `add.w $2A(a0),d1; bpl.s loc_4018A`
+        // skips the top bounce whenever the updated screen Y is non-negative,
+        // even if the slot is still travelling upward.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x20,
+            screen_y: 4,
+            x_vel: 0,
+            y_vel: -4,
+            size_index: 5,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 1);
+
+        assert_eq!(slot.screen_y, 0);
+        assert_eq!(slot.y_vel, -4);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x20,
+                world_y: 0,
+                vram_attr: 0x1158,
+                y: 0x7A,
+                size_byte: 0x05,
+                pattern: 0x86F2,
+                x: 0x9A,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_stationary_slots_do_not_bounce_at_bounds_loc_40166() {
+        // ASM loc_4014C/loc_40166/loc_40176/loc_4018A (kid.asm:45528,
+        // 45535, 45542, 45549): after an edge breach, the ROM still checks
+        // the matching velocity sign with `tst.w`; zero velocity takes the
+        // `bge`/`ble` skip path and is not negated.
+        let cases = [
+            FiveWayShotSlot {
+                screen_x: -1,
+                screen_y: 0x20,
+                x_vel: 0,
+                y_vel: 0,
+                size_index: 5,
+            },
+            FiveWayShotSlot {
+                screen_x: 0x140,
+                screen_y: 0x20,
+                x_vel: 0,
+                y_vel: 0,
+                size_index: 5,
+            },
+            FiveWayShotSlot {
+                screen_x: 0x20,
+                screen_y: -1,
+                x_vel: 0,
+                y_vel: 0,
+                size_index: 5,
+            },
+            FiveWayShotSlot {
+                screen_x: 0x20,
+                screen_y: 0xE0,
+                x_vel: 0,
+                y_vel: 0,
+                size_index: 5,
+            },
+        ];
+
+        for mut slot in cases {
+            let action = diamond_power_main_five_way_shot_slot(&mut slot, 0, 0, 1);
+
+            assert_eq!(slot.x_vel, 0);
+            assert_eq!(slot.y_vel, 0);
+            assert!(matches!(action, FiveWayShotSlotAction::Visible { .. }));
+        }
+    }
+
+    #[test]
+    fn diamond_power_five_way_timer_zero_does_not_fade_loc_4019a() {
+        // ASM loc_4019A (kid.asm:45556): `tst.w (Diamond_power_timer).w;
+        // bpl.s loc_401BA` skips the fade decrement for timer zero.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x20,
+            screen_y: 0x30,
+            x_vel: 0,
+            y_vel: 0,
+            size_index: 0,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0x100, 0x200, 0);
+
+        assert_eq!(slot.size_index, 0);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x1144,
+                y: 0xAF,
+                size_byte: 0x00,
+                pattern: 0x86EA,
+                x: 0x9F,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_fade_to_zero_stays_visible_loc_4019a() {
+        // ASM loc_4019A (kid.asm:45561): `subq.w #1,$24(a0); bpl.s loc_401BA`.
+        // Decrementing to exactly zero is still non-negative, so removal starts
+        // only after the size word underflows to -1.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x20,
+            screen_y: 0x30,
+            x_vel: 0,
+            y_vel: 0,
+            size_index: 1,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0x100, 0x200, -8);
+
+        assert_eq!(slot.size_index, 0);
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x1144,
+                y: 0xAF,
+                size_byte: 0x00,
+                pattern: 0x86EA,
+                x: 0x9F,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_five_way_compiles_first_post_table_word_loc_401ba() {
+        // ASM loc_401BA / word_4020E (kid.asm:45567, 45605): the ROM reads
+        // `(a1,d6.w)` and `2(a1,d6.w)` without a bounds check. For size 10,
+        // the read lands on `sub_40236` (`andi.w #$FF,d0`) and yields size
+        // byte $02 from opcode $0240 plus pattern $00FF.
+        let mut slot = FiveWayShotSlot {
+            screen_x: 0x20,
+            screen_y: 0x30,
+            x_vel: 0,
+            y_vel: 0,
+            size_index: 10,
+        };
+
+        let action = diamond_power_main_five_way_shot_slot(&mut slot, 0x100, 0x200, 1);
+
+        assert_eq!(
+            action,
+            FiveWayShotSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x116C,
+                y: 0xA5,
+                size_byte: 0x02,
+                pattern: 0x00FF,
+                x: 0x95,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_octant_treats_zero_vertical_delta_as_positive_loc_3fa16() {
+        // ASM loc_3FA16 (kid.asm:44732): `tst.w d1; bpl.s loc_3FA36`.
+        // A zero vertical delta takes the positive branch, leaving d3=0 before
+        // the loc_3FA46 axis-alignment flip returns octant 1.
+        assert_eq!(diamond_power_snake_octant(0x20, 0x40, 0x20, 0x30), 1);
+    }
+
+    #[test]
+    fn diamond_power_snake_octant_equal_axes_do_not_add_horizontal_bit_loc_3fa40() {
+        // ASM loc_3FA40 (kid.asm:44744): `cmp.w d0,d1; bge.s loc_3FA46`
+        // skips `addq.w #1,d3` for equal absolute axes. Only strictly more
+        // horizontal displacement increments the octant base.
+        assert_eq!(diamond_power_snake_octant(0x25, 0x40, 0x20, 0x35), 1);
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_same_octant_requires_both_components_zero_loc_3fa72() {
+        // ASM loc_3FA72 (kid.asm:44773): `move.w d0,d5; or.w d1,d5; beq`
+        // reaches Unchanged only when both displacement components are zero.
+        assert_eq!(
+            diamond_power_snake_steer(0, 0, 8, 0, 3),
+            SnakeSteerResult::Adjusted(3)
+        );
+        assert_eq!(
+            diamond_power_snake_steer(0, 0, 0, 0, 3),
+            SnakeSteerResult::Unchanged
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_zero_octant_diff_turns_forward_loc_3fa5e() {
+        // ASM `bmi.s loc_3FA6A` (kid.asm:44760) only takes the negative-diff
+        // branch when d3 is strictly below zero. An exact zero octant
+        // difference falls through to `cmpi.w #4,d3` and adds turn_rate.
+        assert_eq!(
+            diamond_power_snake_steer(2, 8, 1, 0x20, 3),
+            SnakeSteerResult::Adjusted(0x23)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_odd_octant_negates_angle_for_ratio_loc_3fa72() {
+        // ASM loc_3FA72 (kid.asm:44777): `btst #0,d3; beq.s loc_3FA84;
+        // neg.w d5` changes the sub-octant table index for odd target octants.
+        assert_eq!(
+            diamond_power_snake_steer(1, 8, 8, 0x28, 3),
+            SnakeSteerResult::Adjusted(0x25)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_non_diagonal_octant_keeps_axes_loc_3fa84() {
+        // ASM loc_3FA84 (kid.asm:44782): mask `$66` swaps d0/d1 only for
+        // diagonal octants. Octant 0 keeps dx as the divisor before loc_3FA8C.
+        assert_eq!(
+            diamond_power_snake_steer(0, 4, 8, 8, 3),
+            SnakeSteerResult::Adjusted(5)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_diagonal_octant_swaps_axes_loc_3fa84() {
+        // ASM loc_3FA84 (kid.asm:44783): `btst d3,d6; beq.s loc_3FA8C;
+        // exg d0,d1` swaps the ratio axes for diagonal octant 2.
+        assert_eq!(
+            diamond_power_snake_steer(2, 4, 32, 0x48, 3),
+            SnakeSteerResult::Adjusted(0x45)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_tangent_divu_uses_quotient_loc_3fa8c() {
+        // ASM loc_3FA8C / loc_3FABE (kid.asm:44794, 44809): `divu.w d1,d0`
+        // keeps the tangent quotient before `cmp.w d4,d0; ble.s loc_3FACC`.
+        // With angle sub-octant 1 and shallow displacement, the quotient turns
+        // right; using the division remainder would incorrectly subtract.
+        assert_eq!(
+            diamond_power_snake_steer(0, 14, 2, 0x01, 3),
+            SnakeSteerResult::Adjusted(0x04)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_cosine_index_uses_word_offset_loc_3fa8c() {
+        // ASM loc_3FA8C (kid.asm:44798): `andi.w #$1F,d5; add.w d5,d5`
+        // converts the sub-octant into a byte offset before the cosine lookup.
+        // Sub-octant $10 sits close enough to the tangent comparison boundary
+        // that using `$10 + 2` or `$10 / 2` for the cosine offset turns the
+        // wrong way.
+        assert_eq!(
+            diamond_power_snake_steer(0, 64, 62, 0x10, 3),
+            SnakeSteerResult::Adjusted(0x13)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_steer_cosine_offset_doubles_sub_octant_loc_3fa8c() {
+        // ASM loc_3FA8C (kid.asm:44798): `andi.w #$1F,d5; add.w d5,d5`
+        // doubles sub-octant 4 to byte offset 8. That selects cosine index 60,
+        // making tangent quotient 3227 exceed the displacement ratio 3223, so
+        // loc_3FABE falls through to loc_3FAC2 and subtracts turn_rate.
+        assert_eq!(
+            diamond_power_snake_steer(0, 61, 6, 0x04, 3),
+            SnakeSteerResult::Adjusted(0x01)
+        );
+    }
+
+    #[test]
+    fn diamond_power_rain_find_nearest_enemy_keeps_left_screen_edge_loc_3fee2() {
+        // ASM loc_3FEE2 (kid.asm:45253): `cmpi.w #$FFF8,d5; blt.s loc_3FF26`
+        // rejects only values below -8, so exact screen X -8 remains targetable.
+        let target = diamond_power_rain_find_nearest_enemy(
+            0,
+            0x20,
+            0,
+            0,
+            &[SnakeTargetCandidate {
+                x_pos: -8,
+                y_pos: 0x28,
+            }],
+        );
+
+        assert_eq!(
+            target,
+            Some(RainNearestEnemy {
+                distance: 8,
+                x: -8,
+                y: 0x28,
+            })
+        );
+    }
+
+    #[test]
+    fn diamond_power_rain_find_nearest_enemy_replaces_equal_distance_enemy_loc_3ff1c() {
+        // ASM loc_3FF1C (kid.asm:45277): `cmp.w d6,d7; bcs.s loc_3FF26`
+        // skips only when the current best distance is unsigned-below the
+        // candidate distance. Equal Manhattan distances fall through and
+        // replace `a3`, so the later enemy in the linked-list scan wins ties.
+        let target = diamond_power_rain_find_nearest_enemy(
+            0,
+            0x20,
+            0,
+            0,
+            &[
+                SnakeTargetCandidate {
+                    x_pos: -8,
+                    y_pos: 0x28,
+                },
+                SnakeTargetCandidate {
+                    x_pos: 8,
+                    y_pos: 0x28,
+                },
+            ],
+        );
+
+        assert_eq!(
+            target,
+            Some(RainNearestEnemy {
+                distance: 8,
+                x: 8,
+                y: 0x28,
+            })
+        );
+    }
+
+    #[test]
+    fn diamond_power_rain_compiles_first_post_table_word_loc_3ffca() {
+        // ASM loc_3FFCA (kid.asm:45354) indexes `word_4020E` with
+        // `diamond_size * 4` and does not clamp. For size 10, the read lands
+        // on the first two words of `sub_40236` (`andi.w #$FF,d0`), yielding
+        // size byte $02 from opcode $0240 and pattern $00FF.
+        let (_, action) = diamond_power_rain_screen_cull_and_compile(0x20, 0x90, 10);
+
+        assert_eq!(
+            action,
+            RainSlotSpriteAction::Visible {
+                y: 0x86,
+                size_byte: 0x02,
+                pattern: 0x00FF,
+                x: 0x16,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_timer_zero_does_not_fade_loc_40044() {
+        // ASM loc_40044 (kid.asm:45410): `tst.w (Diamond_power_timer).w;
+        // bpl.s loc_40060` skips the fade decrement for timer zero. A zero
+        // size slot stays visible instead of underflowing into removal.
+        let mut slot = WallOfDeathSlot {
+            x_offset: 0x20,
+            y_offset: 0x30,
+            size_index: 0,
+            reached_right_edge: true,
+        };
+
+        let action = diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x200, 0);
+
+        assert_eq!(slot.size_index, 0);
+        assert_eq!(slot.x_offset, 0x18);
+        assert_eq!(
+            action,
+            WallOfDeathSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x1144,
+                y: 0xAF,
+                size_byte: 0x00,
+                pattern: 0x86EA,
+                x: 0x9F,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_fade_to_zero_stays_visible_loc_40044() {
+        // ASM loc_40044 (kid.asm:45417): `subq.w #1,$24(a0); bpl.s loc_40060`.
+        // The branch is signed non-negative, so a size index decremented to
+        // exactly zero stays visible; only underflow to -1 removes the slot.
+        let mut slot = WallOfDeathSlot {
+            x_offset: 0x20,
+            y_offset: 0x30,
+            size_index: 1,
+            reached_right_edge: true,
+        };
+
+        let action = diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x200, -8);
+
+        assert_eq!(slot.size_index, 0);
+        assert_eq!(slot.x_offset, 0x18);
+        assert_eq!(
+            action,
+            WallOfDeathSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x1144,
+                y: 0xAF,
+                size_byte: 0x00,
+                pattern: 0x86EA,
+                x: 0x9F,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_right_edge_equality_turns_back_loc_40026() {
+        // ASM loc_40026 (kid.asm:45404): `cmpi.w #$139,d0; blt.s loc_4006E`.
+        // Equality falls through, sets $42(a0), then loc_40060 subtracts the
+        // earlier +8 so the boundary frame compiles from old d0 without moving.
+        let mut slot = WallOfDeathSlot {
+            x_offset: 0x139,
+            y_offset: 0x30,
+            size_index: 6,
+            reached_right_edge: false,
+        };
+
+        let action = diamond_power_main_wall_of_death_slot(&mut slot, 0x100, 0x200, 1);
+
+        assert!(slot.reached_right_edge);
+        assert_eq!(slot.x_offset, 0x139);
+        assert_eq!(
+            action,
+            WallOfDeathSlotAction::Visible {
+                world_x: 0x239,
+                world_y: 0x230,
+                vram_attr: 0x115C,
+                y: 0xA9,
+                size_byte: 0x05,
+                pattern: 0x86F6,
+                x: 0x1B2,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_compiles_first_post_table_word_loc_4009c() {
+        // ASM loc_4009C / word_4020E (kid.asm:45446, 45605): the ROM reads
+        // `(a1,d6.w)` and `2(a1,d6.w)` without a bounds check. For size 10,
+        // the read lands on `sub_40236` (`andi.w #$FF,d0`) and yields size
+        // byte $02 from opcode $0240 plus pattern $00FF.
+        let slot = WallOfDeathSlot {
+            x_offset: 0x20,
+            y_offset: 0x30,
+            size_index: 10,
+            reached_right_edge: true,
+        };
+
+        let action = wall_of_death_compile_sprite(&slot, 0x20, 0x30, 0x100, 0x200);
+
+        assert_eq!(
+            action,
+            WallOfDeathSlotAction::Visible {
+                world_x: 0x120,
+                world_y: 0x230,
+                vram_attr: 0x116C,
+                y: 0xA5,
+                size_byte: 0x02,
+                pattern: 0x00FF,
+                x: 0x95,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_collision_rect_uses_unk_31dcc_loc_1d84() {
+        assert_eq!(
+            wall_of_death_collision_rect_loc_1d84(0x0091, 0x0104, 6),
+            DiamondPowerCollisionRectLoc1D84 {
+                left_px: 0x008A,
+                right_px: 0x0098,
+                top_px: 0x00FD,
+                bottom_px: 0x010B,
+            },
+            "ASM sub_1D84 should resolve Wall `$22=$115C` through CollisionSize_Index to `unk_31DCC` (-7,+14,-7,+14)",
+        );
+    }
+
+    #[test]
+    fn diamond_power_wall_of_death_overlap_loc_1d84_is_inclusive() {
+        let enemy_rect = DiamondPowerCollisionRectLoc1D84 {
+            left_px: 138,
+            right_px: 170,
+            top_px: 240,
+            bottom_px: 272,
+        };
+        let touching_slot = DiamondPowerCollisionRectLoc1D84 {
+            left_px: 170,
+            right_px: 184,
+            top_px: 253,
+            bottom_px: 267,
+        };
+        let separated_slot = DiamondPowerCollisionRectLoc1D84 {
+            left_px: 171,
+            right_px: 185,
+            top_px: 253,
+            bottom_px: 267,
+        };
+
+        assert!(
+            diamond_power_rects_overlap_loc_1d84(enemy_rect, touching_slot),
+            "ASM sub_1D84 loc_1DF2/loc_1E1E uses inclusive `bgt`/`blt` rejection, so equal edges still collide",
+        );
+        assert!(
+            !diamond_power_rects_overlap_loc_1d84(enemy_rect, separated_slot),
+            "ASM sub_1D84 should reject only once the candidate edge is beyond the target edge",
+        );
+    }
+
+    #[test]
+    fn diamond_sprite_attr_reads_first_post_table_word_from_sub_40236_loc_3ffca() {
+        // ASM loc_3FFCA / word_4020E / sub_40236
+        // (kid.asm:45354, 45605, 45618): `move.b (a1,d6.w)` and
+        // `move.w 2(a1,d6.w)` read straight through the ten 4-byte entries.
+        // With `d6 = $28` (size index 10), the ROM consumes opcode `$0240`
+        // from `andi.w #$FF,d0` as size byte $02 and pattern $00FF.
+        assert_eq!(
+            diamond_sprite_attr_for_word_4020e_index(DIAMOND_SPRITE_ATTR_TABLE.len()),
+            (0x02, 0x00FF)
+        );
+    }
+
+    #[test]
+    fn diamond_power_snake_compiles_first_post_table_word_loc_3fb3e() {
+        // ASM loc_3FB3E / word_4020E / sub_40236
+        // (kid.asm:44861, 45605, 45618): `move.b (a1,d6.w)` and
+        // `move.w 2(a1,d6.w)` read straight through the ten 4-byte entries.
+        // With `diamond_size = 10`, `d6 = $28`, so the ROM consumes opcode
+        // `$0240` from `andi.w #$FF,d0` as size byte $02 and pattern $00FF.
+        let mut slot = SnakeSlot {
+            x_pos: 0x20,
+            y_pos: 0x90,
+            x_subpixel: 0,
+            y_subpixel: 0,
+            diamond_size: 10,
+            trail: [(0, 0); 3],
+        };
+
+        let action = diamond_power_snake_slot_sprite(&mut slot, 0, 0, 0, 0);
+
+        assert_eq!(
+            action,
+            SnakeSlotSpriteAction::Visible {
+                y: 0x0105,
+                size_byte: 0x02,
+                pattern: 0x00FF,
+                x: 0x0095,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_init_invulnerability_preserves_signed_rom_offsets_loc_3fc8c() {
+        // ASM loc_3FC8C / DiamondPower_InitData_Invulnerability
+        // (kid.asm:45010, 45055): the second byte is sign-extended with
+        // `ext.w d3`, while phase and rotation speed stay unsigned bytes.
+        let result = diamond_power_init_invuln_haze(true);
+
+        assert_eq!(
+            result,
+            InvulnHazeInitResult {
+                slots: vec![
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: -0x24,
+                        phase: 0x00,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: -0x24,
+                        phase: 0x80,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: 0x04,
+                        phase: 0x40,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: 0x04,
+                        phase: 0xC0,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x1A,
+                        phase: 0x10,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x1A,
+                        phase: 0x90,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x06,
+                        phase: 0x30,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x06,
+                        phase: 0xB0,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x18,
+                        radius_frac: 0,
+                        y_offset: -0x10,
+                        phase: 0x20,
+                        rotation_speed: 0x06
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x18,
+                        radius_frac: 0,
+                        y_offset: -0x10,
+                        phase: 0xA0,
+                        rotation_speed: 0x06
+                    },
+                ],
+                diamond_power_timer: 0x01E0,
+            }
+        );
+    }
+
+    #[test]
+    fn diamond_power_init_samurai_haze_preserves_signed_rom_offsets_loc_3fc8c() {
+        // ASM loc_3FC8C / DiamondPower_InitData_SamuraiHaze
+        // (kid.asm:45010, 45043): the ROM table mixes signed Y offsets with
+        // unsigned phase bytes, so $80/$A0/$C0/$E0 must survive as 8-bit
+        // phases instead of being sign-extended like the second byte.
+        let result = diamond_power_init_invuln_haze(false);
+
+        assert_eq!(
+            result,
+            InvulnHazeInitResult {
+                slots: vec![
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: -0x24,
+                        phase: 0x00,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: -0x24,
+                        phase: 0x80,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: 0x04,
+                        phase: 0x80,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x0C,
+                        radius_frac: 0,
+                        y_offset: 0x04,
+                        phase: 0x00,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x1A,
+                        phase: 0x20,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x1A,
+                        phase: 0xA0,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x06,
+                        phase: 0x60,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x15,
+                        radius_frac: 0,
+                        y_offset: -0x06,
+                        phase: 0xE0,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x18,
+                        radius_frac: 0,
+                        y_offset: -0x10,
+                        phase: 0x40,
+                        rotation_speed: 0x02
+                    },
+                    InvulnHazeSlot {
+                        radius: 0x18,
+                        radius_frac: 0,
+                        y_offset: -0x10,
+                        phase: 0xC0,
+                        rotation_speed: 0x02
+                    },
+                ],
+                diamond_power_timer: 0x01E0,
+            }
+        );
+    }
+}
+
+/// Diamond-power sprite attribute table.
+/// ASM word_4020E (kid.asm:45605): 10 entries of (size_byte, pattern_word),
+/// stored as 4-byte pairs. Indexed by `diamond_size * 4`.
+///
+/// Each entry's first byte is the VDP sprite size field and the word at
+/// offset +2 is the base pattern index.
+pub(crate) const DIAMOND_SPRITE_ATTR_TABLE: [(u8, u16); 10] = [
+    (0x00, 0x86EA), // d6=0x00
+    (0x00, 0x86EB), // d6=0x04
+    (0x00, 0x86EC), // d6=0x08
+    (0x00, 0x86ED), // d6=0x0C
+    (0x05, 0x86EE), // d6=0x10
+    (0x05, 0x86F2), // d6=0x14
+    (0x05, 0x86F6), // d6=0x18
+    (0x05, 0x8231), // d6=0x1C
+    (0x00, 0x822D), // d6=0x20
+    (0x05, 0xE6FA), // d6=0x24
+];
+
+pub(crate) fn diamond_sprite_attr_for_word_4020e_index(entry_index: usize) -> (u8, u16) {
+    match entry_index.cmp(&DIAMOND_SPRITE_ATTR_TABLE.len()) {
+        std::cmp::Ordering::Less => DIAMOND_SPRITE_ATTR_TABLE[entry_index],
+        std::cmp::Ordering::Equal => {
+            // ASM loc_3FFCA / word_4020E (kid.asm:45354, 45605): the ROM does
+            // no bounds check before reading `(a1,d6.w)` and `2(a1,d6.w)`.
+            // The first post-table words are `sub_40236: andi.w #$FF,d0` =
+            // `$0240,$00FF`.
+            (0x02, 0x00FF)
+        }
+        std::cmp::Ordering::Greater => *DIAMOND_SPRITE_ATTR_TABLE.last().unwrap(),
+    }
+}
+
+/// Result of processing a single snake slot in the sprite compilation loop.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SnakeSlotSpriteAction {
+    /// Slot produced a visible sprite entry (Y, size_byte, pattern, X).
+    Visible {
+        y: u16,
+        size_byte: u8,
+        pattern: u16,
+        x: u16,
+    },
+    /// Slot off-screen or not yet ready — no sprite emitted.
+    Skipped,
+    /// Slot size reached zero during fade-out — slot should be removed.
+    Removed,
+}
+
+/// ASM loc_3FB20 through loc_3FB88 (kid.asm:44848–44893): per-slot sprite
+/// compilation for DiamondPower_Main_Snake.
+///
+/// loc_3FB20: fade-out check — when `Diamond_power_timer < 0`, every 16 frames
+/// (`Time_Frames & $F == 0`) decrements `$24(a0)` (diamond_size). If size
+/// reaches zero, calls `sub_3F5E8` (deallocate) and skips to `loc_3FB88`.
+///
+/// loc_3FB3E: sprite compilation — computes screen position from slot world
+/// coords + camera offsets (d3=$7F-Camera_X, d4=$7F-Camera_Y), centres by
+/// subtracting diamond_size, bounds-checks x,y in `(0, $1E0)`, and writes
+/// the sprite entry (Y, size+link, pattern, X) to the buffer.
+///
+/// loc_3FB88: linked-list traversal tail — `move.l 4(a0),d0; bne.s loc_3FB20;
+/// rts`. In native code the caller iterates the slot Vec, so this is implicit.
+pub(crate) fn diamond_power_snake_slot_sprite(
+    slot: &mut SnakeSlot,
+    camera_x: i16,
+    camera_y: i16,
+    power_timer: i16,
+    time_frames: u16,
+) -> SnakeSlotSpriteAction {
+    // ASM: d3 = $7F - Camera_X_pos; d4 = $7F - Camera_Y_pos
+    let d3 = 0x7Fi16.wrapping_sub(camera_x);
+    let d4 = 0x7Fi16.wrapping_sub(camera_y);
+
+    // ASM loc_3FB20: tst.w (Diamond_power_timer).w; bge.s loc_3FB3E
+    if power_timer < 0 {
+        // ASM: move.w (Time_Frames).w,d1; andi.w #$F,d1; bne.s loc_3FB3E
+        if time_frames.trailing_zeros() >= 4 {
+            // ASM: subq.w #1,$24(a0); bne.s loc_3FB3E
+            slot.diamond_size = slot.diamond_size.wrapping_sub(1);
+            if slot.diamond_size == 0 {
+                // ASM: bsr.w sub_3F5E8; bra.s loc_3FB88
+                return SnakeSlotSpriteAction::Removed;
+            }
+        }
+    }
+
+    // ASM loc_3FB3E: screen position = world pos + camera offset
+    let d0 = slot.x_pos.wrapping_add(d3);
+    let d1 = slot.y_pos.wrapping_add(d4);
+
+    // ASM: sub.w d6,d0; sub.w d6,d1 — centre by diamond_size
+    let d6 = slot.diamond_size as i16;
+    let x = d0.wrapping_sub(d6);
+    let y = d1.wrapping_sub(d6);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table index)
+    let table_index = (slot.diamond_size as usize).wrapping_mul(4);
+
+    // ASM: d5 = d6 + $1144; move.w d5,$22(a0) — pattern stored in slot
+    // (VDP attribute, not used in native rendering pipeline)
+
+    // ASM: bounds check — x in (0, $1E0), y in (0, $1E0)
+    // tst.w d0; ble.s loc_3FB88
+    if x <= 0 {
+        return SnakeSlotSpriteAction::Skipped;
+    }
+    // cmpi.w #$1E0,d0; bge.s loc_3FB88
+    if x >= 0x1E0 {
+        return SnakeSlotSpriteAction::Skipped;
+    }
+    // tst.w d1; ble.s loc_3FB88
+    if y <= 0 {
+        return SnakeSlotSpriteAction::Skipped;
+    }
+    // cmpi.w #$1E0,d1; bge.s loc_3FB88
+    if y >= 0x1E0 {
+        return SnakeSlotSpriteAction::Skipped;
+    }
+
+    // ASM: look up sprite attributes from word_4020E
+    let entry_index = table_index / 4;
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
+
+    SnakeSlotSpriteAction::Visible {
+        y: y as u16,
+        size_byte,
+        pattern,
+        x: x as u16,
+    }
+}
+
+/// State of a single ExtraHitPoint/ExtraLife diamond-power object slot.
+/// ASM fields: $3E(a0)=radius (longword), $42(a0)=angle (longword),
+/// $24(a0)=power_type (word: 8=ExtraHP, 7=ExtraLife), $22(a0)=unused (word).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ExtraHPLifeSlot {
+    /// ASM $3E(a0): radius in 16.16 fixed-point (longword). Initial $400000.
+    pub(crate) radius: u32,
+    /// ASM $42(a0): angle (longword). Upper word is the 8-bit angle for sub_40236.
+    pub(crate) angle: u32,
+    /// ASM $24(a0): power type — 8 = ExtraHitPoint, 7 = ExtraLife.
+    pub(crate) power_type: u16,
+}
+
+/// Result of `diamond_power_init_extra_hp_life`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ExtraHPLifeInitResult {
+    pub(crate) slots: Vec<ExtraHPLifeSlot>,
+}
+
+/// ASM DiamondPower_Init_ExtraHitPoint (loc_3FB90) / DiamondPower_Init_ExtraLife (loc_3FB94).
+///
+/// loc_3FB90: `moveq #8,d2; bra.s loc_3FB96` — ExtraHitPoint sets type=8.
+/// loc_3FB94: `moveq #7,d2` — ExtraLife sets type=7, falls through.
+///
+/// loc_3FB96 (kid.asm:44904): common entry — `moveq #0,d3; moveq #9,d1`.
+///   d3=0 (initial angle), d1=9 (loop counter → 10 slots).
+///
+/// loc_3FB9A (kid.asm:44908): allocation loop —
+///   `bsr.w Allocate_DiamondPowerObjectSlot`
+///   `move.l #$400000,$3E(a0)` — radius = $400000
+///   `move.l d3,$42(a0)` — angle = d3
+///   `addi.l #$199999,d3` — advance angle by $199999 (~1/10 of $1000000)
+///   `move.w d2,$24(a0)` — power type
+///   `move.w #0,$22(a0)` — clear field $22
+///   `dbf d1,loc_3FB9A` — loop 10 times
+///   `clr.w (Diamond_power_timer).w` — reset timer to 0
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_init_extra_hp_life(is_extra_life: bool) -> ExtraHPLifeInitResult {
+    // ASM loc_3FB90/loc_3FB94: d2 = 8 (ExtraHP) or 7 (ExtraLife)
+    let d2: u16 = if is_extra_life { 7 } else { 8 };
+
+    // ASM loc_3FB96: moveq #0,d3; moveq #9,d1
+    let mut d3: u32 = 0;
+    let count = 10u16; // d1=9 → dbf loops 10 times
+
+    let mut slots = Vec::with_capacity(count as usize);
+
+    // ASM loc_3FB9A: allocation loop
+    for _ in 0..count {
+        slots.push(ExtraHPLifeSlot {
+            radius: 0x0040_0000, // move.l #$400000,$3E(a0)
+            angle: d3,           // move.l d3,$42(a0)
+            power_type: d2,      // move.w d2,$24(a0)
+        });
+        d3 = d3.wrapping_add(0x0019_9999); // addi.l #$199999,d3
+    }
+    // ASM: clr.w (Diamond_power_timer).w — caller is responsible for clearing timer
+
+    ExtraHPLifeInitResult { slots }
+}
+
+/// Single slot from Invulnerability / SamuraiHaze init.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct InvulnHazeSlot {
+    pub(crate) radius: u16,         // $3E(a0) — byte from init data
+    pub(crate) radius_frac: u16,    // $40(a0) — always 0
+    pub(crate) y_offset: i16,       // $46(a0) — sign-extended byte
+    pub(crate) phase: u16,          // $42(a0) — byte from init data
+    pub(crate) rotation_speed: u16, // $48(a0) — byte from init data
+}
+
+/// Result of `diamond_power_init_invuln_haze`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct InvulnHazeInitResult {
+    pub(crate) slots: Vec<InvulnHazeSlot>,
+    pub(crate) diamond_power_timer: u16,
+}
+
+/// ASM DiamondPower_Init_Invulnerability (loc_3FC78) /
+///     DiamondPower_Init_SamuraiHaze (loc_3FC82).
+///
+/// loc_3FC78: `st (KidIsInvulnerable).w; lea DiamondPower_InitData_Invulnerability(pc),a1; bra.s loc_3FC8A`
+/// loc_3FC82: `st (SamuraiHazeActive).w; lea DiamondPower_InitData_SamuraiHaze(pc),a1`
+///
+/// loc_3FC8A (kid.asm:45006): common entry — `moveq #9,d1` (10 slots via dbf).
+///
+/// loc_3FC8C (kid.asm:45010): allocation loop —
+///   `bsr.w Allocate_DiamondPowerObjectSlot`
+///   `moveq #0,d3; move.b (a1)+,d3; move.w d3,$3E(a0)` — radius from table
+///   `clr.w $40(a0)` — radius fraction = 0
+///   `move.b (a1)+,d3; ext.w d3; move.w d3,$46(a0)` — y_offset (sign-extended byte)
+///   `moveq #0,d3; move.b (a1)+,d3; move.w d3,$42(a0)` — phase from table
+///   `move.b (a1)+,d3; move.w d3,$48(a0)` — rotation speed from table
+///   `move.w #0,$22(a0)` — clear field $22
+///   `dbf d1,loc_3FC8C` — loop 10 times
+///   `move.w #$1E0,(Diamond_power_timer).w` — timer = 480
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_init_invuln_haze(is_invulnerability: bool) -> InvulnHazeInitResult {
+    // ASM DiamondPower_InitData_Invulnerability (kid.asm:45043) /
+    //     DiamondPower_InitData_SamuraiHaze (kid.asm:45030):
+    // 10 entries × 4 bytes: (radius, y_offset, phase, rotation_speed)
+    #[rustfmt::skip]
+    const SAMURAI_HAZE_DATA: [[i8; 4]; 10] = [
+        [0x0C, -0x24, 0x00, 0x02],
+        [0x0C, -0x24, -0x80i8, 0x02], // $80 as signed = -128
+        [0x0C, 0x04,  -0x80i8, 0x02],
+        [0x0C, 0x04,  0x00, 0x02],
+        [0x15, -0x1A, 0x20, 0x02],
+        [0x15, -0x1A, -0x60i8, 0x02], // $A0 = -96
+        [0x15, -0x06, 0x60, 0x02],
+        [0x15, -0x06, -0x20i8, 0x02], // $E0 = -32
+        [0x18, -0x10, 0x40, 0x02],
+        [0x18, -0x10, -0x40i8, 0x02], // $C0 = -64
+    ];
+    #[rustfmt::skip]
+    const INVULNERABILITY_DATA: [[i8; 4]; 10] = [
+        [0x0C, -0x24, 0x00, 0x06],
+        [0x0C, -0x24, -0x80i8, 0x06],
+        [0x0C, 0x04,  0x40, 0x06],
+        [0x0C, 0x04,  -0x40i8, 0x06], // $C0 = -64
+        [0x15, -0x1A, 0x10, 0x06],
+        [0x15, -0x1A, -0x70i8, 0x06], // $90 = -112
+        [0x15, -0x06, 0x30, 0x06],
+        [0x15, -0x06, -0x50i8, 0x06], // $B0 = -80
+        [0x18, -0x10, 0x20, 0x06],
+        [0x18, -0x10, -0x60i8, 0x06], // $A0 = -96
+    ];
+
+    let data = if is_invulnerability {
+        &INVULNERABILITY_DATA
+    } else {
+        &SAMURAI_HAZE_DATA
+    };
+
+    // ASM loc_3FC8A: moveq #9,d1 → 10 slots
+    let mut slots = Vec::with_capacity(10);
+
+    // ASM loc_3FC8C: allocation loop
+    for entry in data {
+        // moveq #0,d3; move.b (a1)+,d3 → unsigned byte for radius
+        let radius = entry[0] as u8 as u16;
+        // move.b (a1)+,d3; ext.w d3 → sign-extended byte for y_offset
+        let y_offset = entry[1] as i16;
+        // moveq #0,d3; move.b (a1)+,d3 → unsigned byte for phase
+        let phase = entry[2] as u8 as u16;
+        // move.b (a1)+,d3 → note: d3 still has prior upper byte from ext.w,
+        // but move.w d3,$48(a0) writes only the low word. The byte is loaded
+        // with moveq #0,d3 clearing first... actually: the ASM does NOT do
+        // moveq #0 before the 4th byte — it does `move.b (a1)+,d3` then
+        // `move.w d3,$48(a0)`. But d3 was cleared by the prior `moveq #0,d3`
+        // at the phase step and only the low byte is overwritten by move.b,
+        // so the upper byte of d3.w is 0. Result: unsigned byte.
+        let rotation_speed = entry[3] as u8 as u16;
+
+        slots.push(InvulnHazeSlot {
+            radius,
+            radius_frac: 0, // clr.w $40(a0)
+            y_offset,
+            phase,
+            rotation_speed,
+        });
+    }
+
+    // ASM: move.w #$1E0,(Diamond_power_timer).w
+    InvulnHazeInitResult {
+        slots,
+        diamond_power_timer: 0x1E0, // 480
+    }
+}
+
+/// Per-slot update action from `diamond_power_main_extra_hp_life_slot`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ExtraHPLifeSlotAction {
+    /// Slot produced a visible sprite. ASM loc_3FC56: sprite compiled into buffer.
+    Visible {
+        y: u16,
+        size_byte: u8,
+        pattern: u16,
+        x: u16,
+    },
+    /// Slot converged (radius < 0): award HP or life. ASM bra.w sub_3F63C.
+    Converged {
+        /// True if ExtraHitPoint was awarded (type=8, cap not reached).
+        awarded_hp: bool,
+        /// True if ExtraLife was awarded (type=7).
+        awarded_life: bool,
+    },
+}
+
+/// ASM DiamondPower_Main_ExtraHPLife (kid.asm:44920).
+///
+/// Caller sets up:
+///   `addq.w #1,(Diamond_power_timer).w` — caller increments timer
+///   d3 = $7F - Camera_X_pos, d4 = $7F - Camera_Y_pos
+///   a3 = Addr_GfxObject_Kid
+///
+/// loc_3FBE4 (kid.asm:44932): per-object loop body —
+///   `move.l d0,a0` — a0 = slot
+///   `move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5` — d5 = radius >> 9
+///   `move.w $42(a0),d0; bsr.w sub_40236` — (cos, sin) from angle
+///   `muls.w d5,d0; swap d0; asr.w #5,d0` — x_offset = cos * d5 >> 21
+///   `add.w x_pos(a3),d0; add.w d3,d0` — screen x
+///   `muls.w d5,d1; swap d1; asr.w #5,d1; neg.w d1` — y_offset
+///   `add.w y_pos(a3),d1; subi.w #$10,d1; add.w d4,d1` — screen y
+///   Timer < $40: `addq.w #2,$3E(a0); subq.w #2,$42(a0)` (expanding)
+///   Timer >= $40 (loc_3FC2A): `addq.w #1,$42(a0); subq.w #6,$3E(a0)`
+///     if radius < 0: award HP/life, bra.w sub_3F63C (remove)
+///   loc_3FC56: compile sprite from word_4020E
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_main_extra_hp_life_slot(
+    slot: &mut ExtraHPLifeSlot,
+    kid_x: i16,
+    kid_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    diamond_power_timer: u16,
+    extra_hitpoint_slots: u16,
+) -> ExtraHPLifeSlotAction {
+    use crate::boot::sin_cos_sub_40236;
+
+    // ASM: d3 = $7F - Camera_X_pos; d4 = $7F - Camera_Y_pos
+    let d3 = 0x7Fi16.wrapping_sub(camera_x);
+    let d4 = 0x7Fi16.wrapping_sub(camera_y);
+
+    // ASM loc_3FBE4: move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5
+    let d5 = (slot.radius >> 9) as u16;
+
+    // ASM: move.w $42(a0),d0 — upper word of angle longword
+    let angle = (slot.angle >> 16) as u8;
+    let (cos, sin) = sin_cos_sub_40236(angle);
+
+    // ASM: muls.w d5,d0; swap d0; asr.w #5,d0; add.w x_pos(a3),d0; add.w d3,d0
+    let x_offset = ((cos as i32 * d5 as i32) >> 16) as i16 >> 5;
+    let screen_x = kid_x.wrapping_add(x_offset).wrapping_add(d3);
+
+    // ASM: muls.w d5,d1; swap d1; asr.w #5,d1; neg.w d1;
+    //      add.w y_pos(a3),d1; subi.w #$10,d1; add.w d4,d1
+    let y_offset = -(((sin as i32 * d5 as i32) >> 16) as i16 >> 5);
+    let screen_y = kid_y
+        .wrapping_add(y_offset)
+        .wrapping_sub(0x10)
+        .wrapping_add(d4);
+
+    // ASM: move.w $24(a0),d6 — sprite index
+    let d6 = slot.power_type;
+
+    // ASM: cmpi.w #$40,(Diamond_power_timer).w; bge.s loc_3FC2A
+    if diamond_power_timer < 0x40 {
+        // Phase 1: expanding — addq.w #2,$3E(a0); subq.w #2,$42(a0)
+        let radius_hi = (slot.radius >> 16) as u16;
+        slot.radius = replace_long_high_word(slot.radius, radius_hi.wrapping_add(2));
+        let angle_hi = (slot.angle >> 16) as u16;
+        slot.angle = replace_long_high_word(slot.angle, angle_hi.wrapping_sub(2));
+    } else {
+        // Phase 2: contracting (loc_3FC2A) — addq.w #1,$42(a0); subq.w #6,$3E(a0)
+        let angle_hi = (slot.angle >> 16) as u16;
+        slot.angle = replace_long_high_word(slot.angle, angle_hi.wrapping_add(1));
+        let radius_hi = (slot.radius >> 16) as u16;
+        let new_radius_hi = radius_hi.wrapping_sub(6);
+        slot.radius = replace_long_high_word(slot.radius, new_radius_hi);
+        // ASM: bge.s loc_3FC56 — if radius_hi >= 0 (unsigned sub didn't go negative)
+        if (new_radius_hi as i16) < 0 {
+            // Slot converged: award HP or life, then cleanup.
+            // ASM loc_3FC4E: type=7 → addq.w #1,(Number_Lives).w
+            // ASM loc_3FC4C/loc_3FC52: bra.w sub_3F63C (dealloc slot).
+            // ASM: cmpi.w #7,$24(a0); beq.s loc_3FC4E
+            if slot.power_type == 7 {
+                // ExtraLife: addq.w #1,(Number_Lives).w
+                return ExtraHPLifeSlotAction::Converged {
+                    awarded_hp: false,
+                    awarded_life: true,
+                };
+            }
+            // ExtraHitPoint: cmpi.w #4,(Extra_hitpoint_slots).w; bge.s loc_3FC4C
+            let awarded_hp = extra_hitpoint_slots < 4;
+            return ExtraHPLifeSlotAction::Converged {
+                awarded_hp,
+                awarded_life: false,
+            };
+        }
+    }
+
+    // ASM loc_3FC56: compile sprite — add.w d6,d6; add.w d6,d6; lea word_4020E(pc),a1
+    let entry_index = d6 as usize;
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
+
+    ExtraHPLifeSlotAction::Visible {
+        y: screen_y as u16,
+        size_byte,
+        pattern,
+        x: screen_x as u16,
+    }
+}
+
+/// Result of the per-frame timer check in `DiamondPower_Main_InvulnAndHaze`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum InvulnHazeFrameAction {
+    /// Timer < -$1B → call sub_3F63C (dealloc all slots). ASM `bsr.w sub_3F63C; rts`.
+    Expired,
+    /// Timer >= -$1B → continue with per-slot processing. `fade` is the shrink
+    /// parameter passed to each slot (d7 after neg/clamp/lsr).
+    Active { fade: u16 },
+}
+
+/// ASM DiamondPower_Main_InvulnAndHaze (kid.asm:45056) frame-level timer logic.
+///
+/// Decrements `Diamond_power_timer`, then:
+///
+/// - If timer < -$1B: all slots expired → return `Expired` (caller deallocs).
+///
+/// - loc_3FD28 (kid.asm:45065): `neg.w d7` — negate the timer value.
+///   `bpl.s loc_3FD2E` — if result >= 0, keep it; otherwise clamp to 0.
+///
+/// - loc_3FD2E (kid.asm:45070): `lsr.w #2,d7` — divide by 4 to get fade amount.
+///   The fade is 0 while timer is positive (diamonds are fully visible and
+///   rotating); once timer goes negative the fade grows, shrinking sprites
+///   until the power expires.
+pub(crate) fn diamond_power_invuln_haze_frame(timer: &mut i16) -> InvulnHazeFrameAction {
+    // ASM: subq.w #1,(Diamond_power_timer).w
+    *timer = timer.wrapping_sub(1);
+    let d7 = *timer;
+
+    // ASM: cmpi.w #-$1B,d7; bge.s loc_3FD28
+    if d7 < -0x1B {
+        return InvulnHazeFrameAction::Expired;
+    }
+
+    // ASM loc_3FD28: neg.w d7; bpl.s loc_3FD2E; moveq #0,d7
+    // `bpl` keeps non-negative; otherwise clamp to 0. `i16::max(0)` collapses
+    // both branches into a single saturating-non-negative cast — equivalent to
+    // the `< 0` / `<= 0` clamp pattern but without an `<` ↔ `<=` boundary
+    // ambiguity (cargo-mutants would mark the original conditional as a missed
+    // mutation because both `<` and `<=` produce 0 at d7=0).
+    let d7 = (-(d7 as i32)) as i16;
+    let d7 = d7.max(0) as u16;
+
+    // ASM loc_3FD2E: lsr.w #2,d7
+    let fade = d7 >> 2;
+
+    InvulnHazeFrameAction::Active { fade }
+}
+
+/// Per-slot sprite result from `diamond_power_invuln_haze_slot_sprite`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum InvulnHazeSpriteAction {
+    /// Small sprite (table index < $C / entry < 3): write to a4 buffer.
+    /// 4 words: Y, size_link word, pattern word, X.
+    SmallSprite {
+        y: u16,
+        size_link: u16,
+        pattern: u16,
+        x: u16,
+    },
+    /// Large sprite (table index >= $C / entry >= 3): write to a2 buffer.
+    /// Format: Y word, size byte, pattern word, X word (link managed by caller).
+    LargeSprite {
+        y: u16,
+        size_byte: u8,
+        pattern: u16,
+        x: u16,
+    },
+    /// Sprite invisible (size - fade < 0). ASM: `sub.w d7,d6; bmi.s loc_3FDD2`.
+    Skipped,
+}
+
+/// Invuln/Haze size lookup table.
+/// ASM byte_3FDDC (kid.asm:45148): 12 entries indexed by the clamped
+/// `(sin_offset + $18) >> 2` value (0–11). Maps depth-based sin offset
+/// to sprite half-size.
+pub(crate) const INVULN_HAZE_SIZE_TABLE: [u8; 12] = [1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5];
+
+/// ASM loc_3FD4C through loc_3FDD2 (kid.asm:45082–45146): per-slot sprite
+/// compilation for DiamondPower_Main_InvulnAndHaze.
+///
+/// loc_3FD4C (kid.asm:45082): per-slot entry —
+///   `move.l d0,a0` — a0 = slot pointer.
+///   `tst.w d7; bne.s loc_3FD5A` — when fade == 0 (timer still positive),
+///   update angle: `$42(a0) += $48(a0)` (phase += rotation_speed).
+///
+///   Polar-to-screen via sub_40236:
+///   - d5 = `move.l $3E(a0)` >> 9 (radius with fraction, shifted).
+///   - cos from sub_40236 → x_offset = `(cos * d5) >> 21 + kid_x + ($7F - cam_x)`.
+///   - sin from sub_40236 → size index = `((sin * d5) >> 21 + $18)`, clamped [0, $B].
+///   - d6 = byte_3FDDC[size_index] - fade; if < 0 → Skipped.
+///   - Screen Y from slot y_offset ($46) + kid_y + ($7F - cam_y).
+///   - Centre by subtracting d6 from both x and y.
+///   - d6 * 4 → index into word_4020E:
+///     < $C → SmallSprite (a4 buffer); >= $C → LargeSprite (a2 buffer).
+#[allow(non_snake_case)]
+pub(crate) fn diamond_power_invuln_haze_slot_sprite(
+    slot: &mut InvulnHazeSlot,
+    fade: u16,
+    kid_x: i16,
+    kid_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+) -> InvulnHazeSpriteAction {
+    use crate::boot::sin_cos_sub_40236;
+
+    // ASM loc_3FD2E: d3 = $7F - Camera_X_pos; d4 = $7F - Camera_Y_pos
+    let d3 = 0x7Fi16.wrapping_sub(camera_x);
+    let d4 = 0x7Fi16.wrapping_sub(camera_y);
+
+    // ASM loc_3FD4C: tst.w d7; bne.s loc_3FD5A — only update angle when fade == 0
+    if fade == 0 {
+        // ASM: move.w $48(a0),d1; add.w d1,$42(a0)
+        slot.phase = slot.phase.wrapping_add(slot.rotation_speed);
+    }
+
+    // ASM loc_3FD5A: move.l $3E(a0),d5; lsr.l #8,d5; lsr.l #1,d5
+    // $3E is radius (word), $40 is radius_frac (word) — longword read combines them.
+    let radius_long = replace_long_high_word(u32::from(slot.radius_frac), slot.radius);
+    let d5 = (radius_long >> 9) as u16;
+
+    // ASM: move.w $42(a0),d0; bsr.w sub_40236
+    let angle = slot.phase as u8;
+    let (cos, sin) = sin_cos_sub_40236(angle);
+
+    // ASM: muls.w d5,d0; swap d0; asr.w #5,d0; add.w x_pos(a3),d0; add.w d3,d0
+    let x_offset = ((cos as i32 * d5 as i32) >> 16) as i16 >> 5;
+    let mut screen_x = kid_x.wrapping_add(x_offset).wrapping_add(d3);
+
+    // ASM: muls.w d5,d1; swap d1; asr.w #5,d1; addi.w #$18,d1
+    let sin_offset = ((sin as i32 * d5 as i32) >> 16) as i16 >> 5;
+    let size_index = sin_offset.wrapping_add(0x18);
+
+    // ASM: bpl.s loc_3FD84; moveq #0,d1 — clamp to non-negative.
+    // ASM loc_3FD84: lsr.w #2,d1; cmpi.w #$B,d1; ble.s loc_3FD8E; moveq #$B,d1
+    // Combine the lower (`< 0` / `<= 0`) and upper (`> 0xB` / `>= 0xB`) clamps
+    // via `.max(0)`/`.min(0xB)` so the boundary cases (size_index == 0 or
+    // size_index == 0xB) cannot produce equivalent `<` ↔ `<=` mutations: the
+    // assignment branch and the skip branch would be value-identical at the
+    // boundary if expressed as if-statements.
+    let size_index = (size_index.max(0) as u16) >> 2;
+    let size_index = size_index.min(0xB);
+
+    // ASM loc_3FD8E: moveq #0,d6; move.b byte_3FDDC(pc,d1.w),d6; sub.w d7,d6
+    let raw_size = INVULN_HAZE_SIZE_TABLE[size_index as usize] as i16;
+    let d6 = raw_size - fade as i16;
+
+    // ASM: bmi.s loc_3FDD2 — invisible if size - fade < 0
+    if d6 < 0 {
+        return InvulnHazeSpriteAction::Skipped;
+    }
+    let d6 = d6 as u16;
+
+    // ASM: move.w $46(a0),d1; add.w y_pos(a3),d1; add.w d4,d1
+    let mut screen_y = slot.y_offset.wrapping_add(kid_y).wrapping_add(d4);
+
+    // ASM: sub.w d6,d0; sub.w d6,d1 — centre sprite by size
+    screen_x = screen_x.wrapping_sub(d6 as i16);
+    screen_y = screen_y.wrapping_sub(d6 as i16);
+
+    // ASM: add.w d6,d6; add.w d6,d6 — d6 *= 4 (table byte index)
+    let table_index = (d6 as usize) * 4;
+
+    // ASM: lea word_4020E(pc),a1; cmpi.w #$C,d6
+    let entry_index = table_index / 4;
+    let (size_byte, pattern) = diamond_sprite_attr_for_word_4020e_index(entry_index);
+
+    if table_index < 0xC {
+        // ASM: small sprite path → a4 buffer
+        // move.w (a1,d6.w),(a4)+ — full size_link word: high byte = sprite size,
+        // low byte = link (filled by caller). `from_be_bytes` packs the byte at
+        // the high half by construction, avoiding a `<<` ↔ `>>` mutation that
+        // the existing table data (size_byte == 0 for all SmallSprite entries
+        // 0..2 of DIAMOND_SPRITE_ATTR_TABLE) cannot distinguish.
+        let size_link = u16::from_be_bytes([size_byte, 0]);
+        InvulnHazeSpriteAction::SmallSprite {
+            y: screen_y as u16,
+            size_link,
+            pattern,
+            x: screen_x as u16,
+        }
+    } else {
+        // ASM loc_3FDC2: large sprite path → a2 buffer
+        InvulnHazeSpriteAction::LargeSprite {
+            y: screen_y as u16,
+            size_byte,
+            pattern,
+            x: screen_x as u16,
+        }
+    }
+}
+
+fn friendly_projectile_enemy_hit_extents(projectile: &EnemyProjectile) -> (i32, i32) {
+    match projectile.kind {
+        // ASM ManiaxeAxe_Init (kid.asm:9833) loops `stru_8B86`; active frames
+        // use CollisionSize_Index `unk_318B2` (left=-7, width=14,
+        // top=-14, height=14). Native keeps the existing centred contact
+        // approximation but uses the ROM dimensions for axe enemy damage.
+        EnemyProjectileKind::ManiaxeAxe => (
+            MANIAXE_AXE_ENEMY_HIT_HALF_WIDTH,
+            MANIAXE_AXE_ENEMY_HIT_HALF_HEIGHT,
+        ),
+        _ => (PROJECTILE_HITBOX_HALF, PROJECTILE_HITBOX_HALF),
+    }
+}
+
+fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObjectSnapshot> {
+    if enemy.hit_points == 0 {
+        return None;
+    }
+
+    if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+        // ASM Tank.asm loc_3B464 / Tank_Shooting.asm loc_3B700 route
+        // projectile damage through the attached mouth/turret object, then
+        // apply the result to the parent.
+        return enemy.child_attachment_snapshot();
+    }
+
+    Some(enemy.snapshot())
+}
+
+fn helmet_enemy_berzerker_damage_target_snapshot(
+    enemy: &ActiveEnemy,
+) -> Option<NativeObjectSnapshot> {
+    if matches!(enemy.family, EnemyFamily::Diamond) {
+        // ASM Diamond.asm loc_3AE84/loc_3AF24: charging Berzerker side contact
+        // is a live Kid/enemy collision word that enters the Diamond launch
+        // gate instead of the ordinary `colid_hurt` HP path.
+        return (enemy.hit_points != 0).then(|| enemy.snapshot());
+    }
+    if matches!(enemy.family, EnemyFamily::Robot) {
+        // ASM Robot.asm loc_3A8AE: charging-Berzerker `$20/$24` side
+        // contacts are read from the linked head collision word `$38(a2)`.
+        return enemy.child_attachment_snapshot();
+    }
+
+    helmet_enemy_damage_target_snapshot(enemy)
+}
+
+fn berzerker_charge_reflects_player_velocity_loc_b678(enemy: &ActiveEnemy) -> bool {
+    // ASM Character_CheckCollision loc_B678: Kid-side contact copies the other
+    // object's `object_meta` into d6, then `bclr #$F,d6; bne.w loc_B692`.
+    // Scorpion.asm loc_3DDEE ORs `$C000` into `object_meta` during the sting
+    // animation. Multi-head boss init sets bit 7 only, so it must not reflect.
+    matches!(enemy.family, EnemyFamily::Scorpion) && enemy.scorpion_sting_frames > 0
+}
+
+fn helmet_enemy_projectile_damage_target_snapshots(
+    enemy: &ActiveEnemy,
+) -> Vec<NativeObjectSnapshot> {
+    if enemy.hit_points == 0 {
+        return Vec::new();
+    }
+
+    if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+        // ASM Tank.asm loc_3B464 / Tank_Shooting.asm loc_3B700 route
+        // projectile damage through the attached mouth/turret object, then
+        // apply the result to the parent.
+        return enemy.child_attachment_snapshot().into_iter().collect();
+    }
+
+    if matches!(enemy.family, EnemyFamily::Robot) {
+        // ASM Robot.asm loc_3A8AE checks parent `collision_type(a3)` first,
+        // then the linked head `$38(a2)`, and routes both `$1C/$2C` hits into
+        // loc_3A8FC. Native projectile damage must therefore scan both boxes.
+        let mut targets = vec![enemy.snapshot()];
+        targets.extend(enemy.child_attachment_snapshot());
+        return targets;
+    }
+
+    vec![enemy.snapshot()]
+}
+
+impl NativeRuntime {
+    fn queue_diamond_power_slot_collisions_loc_1d84(
+        &mut self,
+        world_x: i16,
+        world_y: i16,
+        size_index: u16,
+        queued_collisions: &mut Vec<(usize, usize)>,
+    ) -> bool {
+        let slot_rect = diamond_power_collision_rect_loc_1d84(world_x, world_y, size_index);
+        let mut collisions = Vec::new();
+
+        for enemy in &self.active_enemies {
+            if queued_collisions
+                .iter()
+                .any(|&(segment_index, layout_index)| {
+                    segment_index == enemy.segment_index && layout_index == enemy.layout_index
+                })
+            {
+                continue;
+            }
+
+            let mut targets = vec![(enemy.snapshot(), PendingEnemyCollisionTarget::Parent)];
+            if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+                targets.clear();
+            }
+            if matches!(
+                enemy.family,
+                EnemyFamily::Tank | EnemyFamily::TankShooting | EnemyFamily::Robot
+            ) {
+                targets.extend(
+                    enemy
+                        .child_attachment_snapshot()
+                        .map(|snapshot| (snapshot, PendingEnemyCollisionTarget::ChildAttachment)),
+                );
+            }
+
+            for (snapshot, target) in targets {
+                let bounds = crate::combat::enemy_contact_bounds(&snapshot);
+                let enemy_x = (snapshot.x_pos >> 16) as i32;
+                let enemy_y = (snapshot.y_pos >> 16) as i32;
+                let enemy_rect = DiamondPowerCollisionRectLoc1D84 {
+                    left_px: enemy_x + bounds.left_px as i32,
+                    right_px: enemy_x + bounds.right_px as i32,
+                    top_px: enemy_y + bounds.top_px as i32,
+                    bottom_px: enemy_y + bounds.bottom_px as i32,
+                };
+
+                if diamond_power_rects_overlap_loc_1d84(enemy_rect, slot_rect) {
+                    // ASM loc_1EA0 (kid.asm:3665) maps the collided object's
+                    // `$3A(a2) & $FF` through `unk_1EBE`; the family object
+                    // type is the native equivalent for live enemy objects.
+                    let collision_type =
+                        crate::projectiles::kid_projectile_dp_collision_word_loc_1EA0(
+                            enemy.family.object_type(),
+                        );
+                    collisions.push((*enemy, collision_type, target));
+                    queued_collisions.push((enemy.segment_index, enemy.layout_index));
+                    break;
+                }
+            }
+        }
+
+        let collided = !collisions.is_empty();
+        for (enemy, collision_type, target) in collisions {
+            self.queue_pending_enemy_collision_target(&enemy, collision_type, target);
+        }
+        collided
+    }
+
+    fn queue_wall_of_death_slot_collisions_loc_1d84(
+        &mut self,
+        world_x: i16,
+        world_y: i16,
+        size_index: u16,
+        queued_collisions: &mut Vec<(usize, usize)>,
+    ) {
+        let _ = self.queue_diamond_power_slot_collisions_loc_1d84(
+            world_x,
+            world_y,
+            size_index,
+            queued_collisions,
+        );
+    }
+
+    fn step_diamond_power_circle_of_doom_slots_loc_3f81a(&mut self) {
+        self.diamond_power_sprites.clear();
+        let Some(slice) = self.opening_slice.as_ref() else {
+            return;
+        };
+        let kid_x = (slice.player.x_pos >> 16) as i16;
+        let kid_y = (slice.player.y_pos >> 16) as i16;
+        let camera_x = (slice.camera.x_pos >> 16) as i16;
+        let camera_y = (slice.camera.y_pos >> 16) as i16;
+
+        let circle_slots = std::mem::take(&mut self.diamond_power_circle_slots);
+        let mut retained_slots = Vec::with_capacity(circle_slots.len());
+        let mut queued_collisions = Vec::new();
+        for mut slot in circle_slots {
+            let result =
+                diamond_power_main_circle_of_doom_slot(&mut slot, kid_x, kid_y, camera_x, camera_y);
+            if result.removed {
+                continue;
+            }
+            let (size_word, pattern_word) = CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E
+                .get(usize::from(result.half_size))
+                .copied()
+                .unwrap_or(CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E[0]);
+            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                screen_x: result.screen_x,
+                screen_y: result.screen_y,
+                size_word,
+                pattern_word,
+            });
+            if self.queue_diamond_power_slot_collisions_loc_1d84(
+                result.world_x,
+                result.world_y,
+                u16::from(result.half_size),
+                &mut queued_collisions,
+            ) {
+                // ASM loc_1EA0 writes `colid_rightwall` to the DP object
+                // `$38(a0)` after writing the collided object's collision word.
+                slot.status = DIAMOND_POWER_SLOT_COLID_RIGHTWALL_LOC_1EA0;
+            }
+            retained_slots.push(slot);
+        }
+        self.diamond_power_circle_slots = retained_slots;
+    }
+
+    fn step_diamond_power_wall_of_death_slots_loc_40026(&mut self) {
+        self.diamond_power_sprites.clear();
+        let camera_x = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |slice| (slice.camera.x_pos >> 16) as i16);
+        let camera_y = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |slice| (slice.camera.y_pos >> 16) as i16);
+        let timer = self.progression.diamond_power_frames as i16;
+
+        let wall_slots = std::mem::take(&mut self.diamond_power_wall_slots);
+        let mut retained_slots = Vec::with_capacity(wall_slots.len());
+        let mut queued_collisions = Vec::new();
+        for mut slot in wall_slots {
+            match diamond_power_main_wall_of_death_slot(&mut slot, camera_x, camera_y, timer) {
+                WallOfDeathSlotAction::Visible {
+                    world_x,
+                    world_y,
+                    y,
+                    size_byte,
+                    pattern,
+                    x,
+                    ..
+                } => {
+                    // ASM DiamondPower_Main_WallOfDeath loc_4006E/loc_4009C
+                    // compiles sprite-buffer coordinates and `word_4020E`
+                    // attrs after moving each DP-object slot.
+                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                        screen_x: x as i16,
+                        screen_y: y as i16,
+                        size_word: u16::from(size_byte) << 8,
+                        pattern_word: pattern,
+                    });
+                    self.queue_wall_of_death_slot_collisions_loc_1d84(
+                        world_x,
+                        world_y,
+                        slot.size_index,
+                        &mut queued_collisions,
+                    );
+                    retained_slots.push(slot);
+                }
+                WallOfDeathSlotAction::Removed => {}
+            }
+        }
+        self.diamond_power_wall_slots = retained_slots;
+    }
+
+    fn step_diamond_power_five_way_shot_slots_loc_40140(&mut self) {
+        self.diamond_power_sprites.clear();
+        let camera_x = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |slice| (slice.camera.x_pos >> 16) as i16);
+        let camera_y = self
+            .opening_slice
+            .as_ref()
+            .map_or(0, |slice| (slice.camera.y_pos >> 16) as i16);
+        let timer = self.progression.diamond_power_frames as i16;
+
+        let five_way_slots = std::mem::take(&mut self.diamond_power_five_way_slots);
+        let mut retained_slots = Vec::with_capacity(five_way_slots.len());
+        let mut queued_collisions = Vec::new();
+        for mut slot in five_way_slots {
+            match diamond_power_main_five_way_shot_slot(&mut slot, camera_x, camera_y, timer) {
+                FiveWayShotSlotAction::Visible {
+                    world_x,
+                    world_y,
+                    y,
+                    size_byte,
+                    pattern,
+                    x,
+                    ..
+                } => {
+                    // ASM DiamondPower_Main_FiveWayShot loc_401BA compiles
+                    // sprite-buffer coordinates and `word_4020E` attrs after
+                    // moving each DP-object slot.
+                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                        screen_x: x as i16,
+                        screen_y: y as i16,
+                        size_word: u16::from(size_byte) << 8,
+                        pattern_word: pattern,
+                    });
+                    let _ = self.queue_diamond_power_slot_collisions_loc_1d84(
+                        world_x,
+                        world_y,
+                        slot.size_index,
+                        &mut queued_collisions,
+                    );
+                    retained_slots.push(slot);
+                }
+                FiveWayShotSlotAction::Removed => {}
+            }
+        }
+        self.diamond_power_five_way_slots = retained_slots;
+    }
+
+    fn initialise_diamond_power_snake_slots_loc_3f91c(&mut self, power: DiamondPowerType) {
+        let slice = self.opening_slice.as_ref();
+        let (kid_x, kid_y) = slice.map_or((0, 0), |s| {
+            ((s.player.x_pos >> 16) as i16, (s.player.y_pos >> 16) as i16)
+        });
+
+        let (turn_rate, movement_speed, init_data, power_timer) = match power {
+            DiamondPowerType::MiniSnake => (6, 0x300, &SNAKE_INIT_DATA_MINI, 0x1E0),
+            DiamondPowerType::SwiftMiniSnake => (0x10, 0x480, &SNAKE_INIT_DATA_SWIFT_MINI, 0x4B0),
+            DiamondPowerType::DeathSnake => (6, 0x400, &SNAKE_INIT_DATA_DEATH, 0x4B0),
+            _ => return,
+        };
+
+        // ASM DiamondPower_Init_Snake loc_3F91C/loc_3F946 allocates six
+        // DP-object slots at Kid's current position, with slot 0 carrying the
+        // head angle/turn/speed fields from loc_3F92A.
+        let init = diamond_power_init_snake(
+            turn_rate,
+            movement_speed,
+            init_data,
+            power_timer,
+            kid_x,
+            kid_y,
+        );
+        self.diamond_power_snake_slots = init.slots;
+        self.diamond_power_snake_head_angle = init.head_timer;
+        self.diamond_power_snake_turn_rate = init.wander_speed;
+        self.diamond_power_snake_movement_speed = init.movement_speed;
+    }
+
+    fn step_diamond_power_snake_slots_loc_3f978(&mut self) {
+        self.diamond_power_sprites.clear();
+        if self.diamond_power_snake_slots.is_empty() {
+            return;
+        }
+
+        let (camera_x, camera_y, kid_x, kid_y, kid_x_velocity, kid_y_velocity) = self
+            .opening_slice
+            .as_ref()
+            .map_or((0, 0, 0, 0, 0, 0), |slice| {
+                (
+                    (slice.camera.x_pos >> 16) as i16,
+                    (slice.camera.y_pos >> 16) as i16,
+                    (slice.player.x_pos >> 16) as i16,
+                    (slice.player.y_pos >> 16) as i16,
+                    slice.player.x_velocity,
+                    slice.player.y_velocity,
+                )
+            });
+        let enemies: Vec<SnakeTargetCandidate> = self
+            .active_enemies
+            .iter()
+            .map(|enemy| {
+                let snapshot = enemy.snapshot();
+                SnakeTargetCandidate {
+                    x_pos: (snapshot.x_pos >> 16) as i16,
+                    y_pos: (snapshot.y_pos >> 16) as i16,
+                }
+            })
+            .collect();
+
+        // ASM DiamondPower_Main_Snake loc_3F978 shifts the trail slots before
+        // steering the head at loc_3F9A2.
+        diamond_power_snake_update_trails(&mut self.diamond_power_snake_slots);
+
+        if let Some(head) = self.diamond_power_snake_slots.last_mut() {
+            let target = diamond_power_snake_find_target(
+                head.x_pos, head.y_pos, camera_x, camera_y, &enemies, kid_x, kid_y,
+            );
+            let target_octant =
+                diamond_power_snake_octant(target.x, target.y, head.x_pos, head.y_pos);
+            let abs_dx = target.x.wrapping_sub(head.x_pos).unsigned_abs();
+            let abs_dy = head
+                .y_pos
+                .wrapping_sub(target.y.wrapping_sub(0x10))
+                .unsigned_abs();
+            if let SnakeSteerResult::Adjusted(angle) = diamond_power_snake_steer(
+                target_octant,
+                abs_dx,
+                abs_dy,
+                self.diamond_power_snake_head_angle,
+                self.diamond_power_snake_turn_rate,
+            ) {
+                self.diamond_power_snake_head_angle = angle;
+            }
+
+            diamond_power_snake_move_head_loc_3fad4(
+                head,
+                self.diamond_power_snake_head_angle,
+                self.diamond_power_snake_movement_speed,
+                kid_x_velocity,
+                kid_y_velocity,
+            );
+        }
+
+        let timer = self.progression.diamond_power_frames as i16;
+        let time_frames = self.frame_index as u16;
+        let snake_slots = std::mem::take(&mut self.diamond_power_snake_slots);
+        let mut retained_slots = Vec::with_capacity(snake_slots.len());
+        let mut queued_collisions = Vec::new();
+        for mut slot in snake_slots {
+            match diamond_power_snake_slot_sprite(&mut slot, camera_x, camera_y, timer, time_frames)
+            {
+                SnakeSlotSpriteAction::Visible {
+                    y,
+                    size_byte,
+                    pattern,
+                    x,
+                } => {
+                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                        screen_x: x as i16,
+                        screen_y: y as i16,
+                        size_word: u16::from(size_byte) << 8,
+                        pattern_word: pattern,
+                    });
+                    let _ = self.queue_diamond_power_slot_collisions_loc_1d84(
+                        slot.x_pos,
+                        slot.y_pos,
+                        slot.diamond_size,
+                        &mut queued_collisions,
+                    );
+                    retained_slots.push(slot);
+                }
+                SnakeSlotSpriteAction::Skipped => retained_slots.push(slot),
+                SnakeSlotSpriteAction::Removed => {}
+            }
+        }
+        self.diamond_power_snake_slots = retained_slots;
+    }
+
+    fn initialise_diamond_power_extra_hp_life_slots_loc_3fb96(&mut self, power: DiamondPowerType) {
+        let is_extra_life = match power {
+            DiamondPowerType::ExtraHitPoint => false,
+            DiamondPowerType::ExtraLife => true,
+            _ => return,
+        };
+
+        // ASM DiamondPower_Init_ExtraHitPoint loc_3FB90 /
+        // DiamondPower_Init_ExtraLife loc_3FB94 fall through to loc_3FB96,
+        // allocate ten DP-object slots, then clear Diamond_power_timer.
+        self.diamond_power_extra_hp_life_slots =
+            diamond_power_init_extra_hp_life(is_extra_life).slots;
+    }
+
+    fn step_diamond_power_extra_hp_life_slots_loc_3fbe4(&mut self) {
+        self.diamond_power_sprites.clear();
+        let Some(slice) = self.opening_slice.as_ref() else {
+            return;
+        };
+        let kid_x = (slice.player.x_pos >> 16) as i16;
+        let kid_y = (slice.player.y_pos >> 16) as i16;
+        let camera_x = (slice.camera.x_pos >> 16) as i16;
+        let camera_y = (slice.camera.y_pos >> 16) as i16;
+        let duration = diamond_power_duration(self.progression.diamond_power_type);
+        let timer = duration.saturating_sub(self.progression.diamond_power_frames);
+
+        let slots = std::mem::take(&mut self.diamond_power_extra_hp_life_slots);
+        let mut retained_slots = Vec::with_capacity(slots.len());
+        for mut slot in slots {
+            match diamond_power_main_extra_hp_life_slot(
+                &mut slot,
+                kid_x,
+                kid_y,
+                camera_x,
+                camera_y,
+                timer,
+                self.progression.extra_hitpoint_slots,
+            ) {
+                ExtraHPLifeSlotAction::Visible {
+                    y,
+                    size_byte,
+                    pattern,
+                    x,
+                } => {
+                    // ASM loc_3FC56 compiles the orbiting reward sprites
+                    // through word_4020E while the slots expand/contract.
+                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                        screen_x: x as i16,
+                        screen_y: y as i16,
+                        size_word: u16::from(size_byte) << 8,
+                        pattern_word: pattern,
+                    });
+                    retained_slots.push(slot);
+                }
+                ExtraHPLifeSlotAction::Converged {
+                    awarded_hp,
+                    awarded_life,
+                } => {
+                    if awarded_hp {
+                        self.progression.extra_hitpoint_slots =
+                            self.progression.extra_hitpoint_slots.saturating_add(1);
+                        self.progression.number_hitpoints =
+                            self.progression.number_hitpoints.saturating_add(1);
+                    }
+                    if awarded_life {
+                        self.progression.number_lives =
+                            self.progression.number_lives.saturating_add(1);
+                    }
+                    // ASM loc_3FC52 branches to sub_3F63C, clearing all live
+                    // DP-object slots after the first converged reward.
+                    self.progression.diamond_power_frames = 0;
+                    self.progression.diamond_power_type = DiamondPowerType::None;
+                    self.diamond_power_sprites.clear();
+                    self.diamond_power_extra_hp_life_slots.clear();
+                    return;
+                }
+            }
+        }
+        self.diamond_power_extra_hp_life_slots = retained_slots;
+    }
+
+    fn initialise_diamond_power_invuln_haze_slots_loc_3fc8a(&mut self, power: DiamondPowerType) {
+        let is_invulnerability = match power {
+            DiamondPowerType::Invulnerability => true,
+            DiamondPowerType::SamuraiHaze => false,
+            _ => return,
+        };
+
+        // ASM DiamondPower_Init_Invulnerability loc_3FC78 /
+        // DiamondPower_Init_SamuraiHaze loc_3FC82 fall through to loc_3FC8A,
+        // allocate ten orbiting slots, then set Diamond_power_timer=$1E0.
+        self.kid_is_invulnerable = is_invulnerability;
+        let init = diamond_power_init_invuln_haze(is_invulnerability);
+        self.diamond_power_invuln_haze_slots = init.slots;
+        self.diamond_power_invuln_haze_timer = init.diamond_power_timer as i16;
+    }
+
+    fn step_diamond_power_invuln_haze_slots_loc_3fd28(&mut self) {
+        self.diamond_power_sprites.clear();
+        let Some(slice) = self.opening_slice.as_ref() else {
+            return;
+        };
+        let kid_x = (slice.player.x_pos >> 16) as i16;
+        let kid_y = (slice.player.y_pos >> 16) as i16;
+        let camera_x = (slice.camera.x_pos >> 16) as i16;
+        let camera_y = (slice.camera.y_pos >> 16) as i16;
+
+        match diamond_power_invuln_haze_frame(&mut self.diamond_power_invuln_haze_timer) {
+            InvulnHazeFrameAction::Expired => {
+                // ASM DiamondPower_Main_InvulnAndHaze: timer below -$1B
+                // branches to sub_3F63C and clears the DP-object list.
+                self.diamond_power_invuln_haze_slots.clear();
+                self.progression.diamond_power_frames = 0;
+                self.progression.diamond_power_type = DiamondPowerType::None;
+                self.kid_is_invulnerable = false;
+            }
+            InvulnHazeFrameAction::Active { fade } => {
+                for slot in &mut self.diamond_power_invuln_haze_slots {
+                    match diamond_power_invuln_haze_slot_sprite(
+                        slot, fade, kid_x, kid_y, camera_x, camera_y,
+                    ) {
+                        InvulnHazeSpriteAction::SmallSprite {
+                            y,
+                            size_link,
+                            pattern,
+                            x,
+                        } => {
+                            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                                screen_x: x as i16,
+                                screen_y: y as i16,
+                                size_word: size_link,
+                                pattern_word: pattern,
+                            });
+                        }
+                        InvulnHazeSpriteAction::LargeSprite {
+                            y,
+                            size_byte,
+                            pattern,
+                            x,
+                        } => {
+                            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+                                screen_x: x as i16,
+                                screen_y: y as i16,
+                                size_word: u16::from(size_byte) << 8,
+                                pattern_word: pattern,
+                            });
+                        }
+                        InvulnHazeSpriteAction::Skipped => {}
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    #[allow(non_snake_case)]
+    pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
+        // ASM sub_DB22 (kid.asm:17170): grounded/default-pose recovery clears
+        // the per-form transient action flags: Cyclone flight, Skycutter's
+        // flipboard/on-board latch, Red Stealth's downward slash, Maniaxe's
+        // thrown-axe state, and Berzerker / Iron Knight special motion.
+        //
+        // Also covers sub_942A walking-animation dispatch flag clearing:
+        // ASM loc_9454 (kid.asm:10891): `sf (Maniaxe_throwing_axe).w` —
+        //   unconditionally clears the axe flag unless the Maniaxe early-
+        //   return at sub_942A+$16 kept it (helmet==8 && flag && $18(a3)).
+        //   Native: maniaxe_axe_active = false below.
+        // ASM loc_9472 (kid.asm:10902): `sf (Red_Stealth_sword_swing).w` —
+        //   unconditionally clears the sword flag unless the Red Stealth
+        //   early-return at loc_9454+$10 kept it (helmet==3 && flag && $18).
+        //   Native: red_stealth_sword_timer and the split airborne slash
+        //   counter are both parts of that one ROM byte, so clear both.
+        self.helmet.cyclone_flying = false;
+        self.helmet.skycutter_on_board = false;
+        self.helmet.skycutter_flipboard = 0;
+        self.helmet.red_stealth_sword_timer = 0;
+        self.helmet.red_stealth_airborne_slash_counter = 0;
+        self.helmet.maniaxe_axe_active = false;
+        self.helmet.maniaxe_throw_latch_frames = 0;
+        self.helmet.berzerker_charging = false;
+        self.helmet.berzerker_charge_accum = 0;
+        self.helmet.iron_knight_climbing = false;
+        self.helmet.iron_knight_climb_accel = 0;
+        self.helmet.iron_knight_climb_pose_accum = 0;
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn refresh_grounded_helmet_state_sub_78E8(&mut self) {
+        // ASM sub_78E8 (kid.asm:7973): grounded frames reset the default
+        // helmet pose unless the form-specific grounded action is still live.
+        //
+        // Inner branches by helmet ID:
+        //   loc_7988 (kid.asm:8037): Juggernaut (helmet=5) — `tst.b
+        //     is_animated(a3) / beq loc_7998 / tst.b $18(a3) / beq loc_79A2`.
+        //     If not animated → loc_7998 (default sprite + companion step).
+        //     Animated + $18 clear → loc_79A2 (companion step only, keep anim).
+        //     Animated + $18 set → fall through to loc_7998 (anim done, reset).
+        //     Native: Juggernaut falls to `_ => {}` — companion step (sub_975C)
+        //     is visual-only and modelled as a standalone pure function.
+        //   loc_7998 (kid.asm:8043): Juggernaut default standing sprite —
+        //     `move.w #(LnkTo_unk_C0246-Data_Index),addroffset_sprite(a3) /
+        //     sf is_animated(a3)`. Visual-only sprite + animation-flag clear.
+        //     Falls through to loc_79A2 for companion step.
+        //   loc_79A2 (kid.asm:8047): Juggernaut companion step — `move.l
+        //     ($FFFFF862).w,a4 / bsr.w sub_975C`. Every Juggernaut standing-
+        //     still path converges here. Native: sub_975C modelled as pure fn
+        //     `juggernaut_companion_step_sub_975C`; not called in frame tick
+        //     (visual-only).
+        //   loc_79AC (kid.asm:8053): Skycutter (helmet=1) — `bsr.w sub_98F2 /
+        //     rts`. Calls the flipboard visual step directly, bypassing the
+        //     loc_794C default-sprite path. Native: flipboard managed by
+        //     `step_skycutter_flipboard` which runs independently each frame.
+        //   loc_7920 (kid.asm:7991): Eyeclops (helmet=4) — if is_animated(a3),
+        //     rts (keep current animation); else fall through to loc_794C.
+        //     Native: Eyeclops beam state cleanup runs in the Eyeclops match arm.
+        //   loc_7932 (kid.asm:7999): Red Stealth (helmet=3) — if
+        //     Red_Stealth_sword_swing && $18(a3), rts (keep swing animation);
+        //     else loc_794C. Native: preserves red_stealth_sword_timer when > 0.
+        //   loc_794C (kid.asm:8009): default standing sprite — sf Maniaxe_throwing_axe,
+        //     sf Red_Stealth_sword_swing, index off_79B2[helmet_id] for sprite.
+        //     This does not call sub_DB22, so unrelated action state such as
+        //     Berzerker_charging survives the visual refresh.
+        //   loc_7962 (kid.asm:8019): Micromax (helmet=9) — increment walk
+        //     accumulator ($FFFFF8F0) mod 8, pick between two sprite frames
+        //     (>= 5 → LnkTo_unk_ABDE0, < 5 → LnkTo_unk_ABEA6). Visual-only;
+        //     native does not model the Micromax idle animation cycle.
+        //   loc_7974 (kid.asm:8026): the shared Micromax branch seeds d1 with
+        //     the high-frame sprite and replaces it with the low-frame sprite
+        //     only while the wrapped accumulator is below 5.
+        //   loc_7982 (kid.asm:8032): Micromax idle sprite store — `move.w
+        //     d1,addroffset_sprite(a3) / rts`. Common exit for loc_7962's
+        //     two-frame sprite selection. Visual-only.
+        //   loc_79DE (kid.asm:8079): unreachable Iron Knight companion block
+        //     would force `LnkTo_unk_C0552` before branching to the shared tail.
+        //     Native has no implementation path for it because no ROM caller
+        //     reaches the unlabelled `$79C6` entry after off_79B2.
+        //   loc_79E6 (kid.asm:8084): unreachable zero-state companion init
+        //     would copy Kid pose fields into the `a2` object and switch Kid
+        //     to `LnkTo_unk_BF0FC`. Native intentionally has no Iron Knight
+        //     companion object because the ROM block is not entered.
+        //   loc_7A02 (kid.asm:8091): unreachable shared tail clears
+        //     `$FFFFFA0D` and seeds `$FFFFFA0E` with `$96D4`. Live Iron Knight
+        //     walking animation state is driven elsewhere, so native keeps
+        //     this reset unmodelled with the rest of the dead block.
+        let previous_maniaxe_axe_active = self.helmet.maniaxe_axe_active;
+        let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
+
+        match self.progression.current_form {
+            PlayerForm::Juggernaut | PlayerForm::Micromax | PlayerForm::Skycutter => {}
+            PlayerForm::Maniaxe => {
+                if previous_maniaxe_axe_active && self.helmet.maniaxe_throw_latch_frames > 0 {
+                    self.helmet.maniaxe_throw_latch_frames -= 1;
+                    if self.helmet.maniaxe_throw_latch_frames > 0 {
+                        self.helmet.maniaxe_axe_active = true;
+                    } else {
+                        // ASM loc_794C: the throw animation's done flag
+                        // routes Maniaxe through the default-pose refresh,
+                        // clearing the C gate while the axe object may remain.
+                        self.helmet.maniaxe_axe_active = false;
+                    }
+                } else {
+                    // ASM loc_794C: the default-pose refresh clears only
+                    // Maniaxe's axe and Red Stealth's sword latch. Full
+                    // transient-state cleanup belongs to explicit sub_DB22
+                    // call sites such as landing and recovery.
+                    self.helmet.maniaxe_axe_active = false;
+                    self.helmet.maniaxe_throw_latch_frames = 0;
+                    self.helmet.red_stealth_sword_timer = 0;
+                    self.helmet.red_stealth_airborne_slash_counter = 0;
+                }
+            }
+            PlayerForm::RedStealth => {
+                if previous_red_stealth_sword_timer > 0 {
+                    self.helmet.red_stealth_sword_timer = previous_red_stealth_sword_timer;
+                    self.helmet.red_stealth_airborne_slash_counter = 0;
+                } else {
+                    // ASM loc_7932 falls through to loc_794C when the prior
+                    // sword latch is clear.
+                    self.helmet.maniaxe_axe_active = false;
+                    self.helmet.red_stealth_sword_timer = 0;
+                    self.helmet.red_stealth_airborne_slash_counter = 0;
+                }
+            }
+            PlayerForm::Eyeclops => {
+                self.helmet.maniaxe_axe_active = false;
+                self.helmet.red_stealth_sword_timer = 0;
+                self.helmet.red_stealth_airborne_slash_counter = 0;
+                self.helmet.eyeclops_beam_active = self.projectiles.iter().any(|projectile| {
+                    projectile.friendly && projectile.lifetime > 0 && projectile.gravity == 0
+                });
+                if !self.helmet.eyeclops_beam_active {
+                    self.helmet.eyeclops_beam_counter = 0;
+                    self.helmet.eyeclops_beam_hard = false;
+                }
+            }
+            _ => {
+                // ASM loc_794C: default standing sprite path.
+                self.helmet.maniaxe_axe_active = false;
+                self.helmet.red_stealth_sword_timer = 0;
+                self.helmet.red_stealth_airborne_slash_counter = 0;
+            }
+        }
+    }
+
+    /// ASM sub_942A loc_9454 (kid.asm:10892): the airborne/walking Kid dispatch
+    /// clears `Maniaxe_throwing_axe` once the throw animation finishes
+    /// (`$18(a3)`), independent of the axe object's lifetime — exactly like the
+    /// grounded `sub_78E8 loc_794C` path. Native models the grounded clear in
+    /// `refresh_grounded_helmet_state_sub_78E8`, which the per-frame loop only
+    /// runs while `on_ground` (lib.rs). The airborne dispatch was unmodelled, so
+    /// an airborne Kid whose boomerang axe (loc_8A74) oscillates inside the
+    /// camera box and never culls had no clear path: the gate stayed latched and
+    /// every further throw was blocked (#337).
+    ///
+    /// This is the airborne sibling of the grounded latch tick, wired as the
+    /// `else` of the `on_ground` dispatch (lib.rs) so exactly ONE of the two
+    /// ticks runs per frame — the ROM dispatches through a single mutually-
+    /// exclusive branch each frame, so the latch must never decrement twice on
+    /// the same frame (e.g. on a landing frame).
+    pub(crate) fn tick_maniaxe_airborne_throw_latch_loc_9454(&mut self) {
+        if self.progression.current_form != PlayerForm::Maniaxe {
+            return;
+        }
+        if self.helmet.maniaxe_axe_active && self.helmet.maniaxe_throw_latch_frames > 0 {
+            self.helmet.maniaxe_throw_latch_frames -= 1;
+            if self.helmet.maniaxe_throw_latch_frames == 0 {
+                // ASM loc_9454: the throw animation's done flag clears the C
+                // gate while the axe object may still be in flight.
+                self.helmet.maniaxe_axe_active = false;
+            }
+        }
+    }
+
+    // Skycutter has no special enemy-attack routine in the ROM: contact-only
+    // damage via the standard Kid jump/contact path. Verified 2026-04-25 — no
+    // `Skycutter` reference in `.cache/upstream/kid-chameleon-disasm/code/enemy/`,
+    // no `Skycutter_*` flag in `variables.asm`. Helmet-specific attacks come
+    // through diamond powers (Invulnerability/DeathSnake — see
+    // `assigned_diamond_power`).
+    pub(crate) fn step_skycutter_flipboard(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        input: FrameInput,
+    ) {
+        if self.progression.current_form != PlayerForm::Skycutter {
+            self.helmet.skycutter_flipboard = 0;
+            self.helmet.skycutter_on_board = false;
+            return;
+        }
+
+        // ASM loc_A840 (kid.asm:13141): jump-loop C-press Skycutter dispatch.
+        //   `cmpi.w #1,d7; bne.w loc_A87A` — helmet == Skycutter? If yes:
+        //   `tst.b ($FFFFFA6A); beq.w loc_A864` — if NOT on board → loc_A864.
+        //   If on board: y_pos top check + sub_B43A floor probe; if safe,
+        //   skip (already airborne on board). Otherwise `move.b #1,($FFFFFA69)`
+        //   → trigger flipboard deploy + sfx_Skycutter_flipboard.
+        //
+        // ASM loc_AD00 (kid.asm:13533): kid_flip (wall-cling) C-press
+        //   Skycutter dispatch — same logic as loc_A840 but from wall-cling:
+        //   `cmpi.w #Skycutter; bne.w loc_AD2C` — helmet == Skycutter? If yes:
+        //   `tst.b ($FFFFFA6A); beq.w loc_AD26` — NOT on board → deploy.
+        //   If on board: `moveq #-$21,d7; add.w y_pos,d6; bmi loc_AD2C`
+        //   (near top → skip), `bsr.w sub_B43A; bne loc_AD2C` (floor → skip).
+        //   loc_AD26 (kid.asm:13545): `move.b #1,($FFFFFA69)` — set flipboard
+        //   deploy trigger ($FA69). Native: unified C-press logic below, with
+        //   the same near-top / sub_B43A floor-support gate.
+        // C button rising edge → deploy/retract flipboard
+        let c_pressed = input.c && !self.prior_input.c;
+        if c_pressed
+            && self.helmet.skycutter_flipboard == 0
+            && self.skycutter_flipboard_deploy_allowed_loc_ad00(slice)
+        {
+            self.helmet.skycutter_flipboard = 1;
+        }
+
+        // Step flipboard counter
+        if self.helmet.skycutter_flipboard > 0 {
+            let next = self
+                .helmet
+                .skycutter_flipboard
+                .saturating_add(SKYCUTTER_COUNTER_STEP);
+            if next >= SKYCUTTER_FLIPBOARD_TIMEOUT {
+                // Animation complete: retract
+                self.helmet.skycutter_flipboard = 0;
+            } else {
+                // Mount toggle at midpoint
+                if self.helmet.skycutter_flipboard < SKYCUTTER_MOUNT_FRAME
+                    && next >= SKYCUTTER_MOUNT_FRAME
+                {
+                    // ASM sub_98F2 / loc_991A: midpoint `$11` toggles both
+                    // `$FFFFFA6A` and `x_direction(a3)`, so the mounted board
+                    // reverses Kid's facing on the same frame it flips the
+                    // board latch.
+                    self.helmet.skycutter_on_board = !self.helmet.skycutter_on_board;
+                    slice.player.facing = match slice.player.facing {
+                        Direction::Right => Direction::Left,
+                        Direction::Left => Direction::Right,
+                    };
+                }
+                self.helmet.skycutter_flipboard = next;
+            }
+        }
+
+        // While on board: override gravity with Skycutter flight physics
+        // ASM loc_B19C (kid.asm:14040): sub_B168 Skycutter on_board check.
+        // `tst.b ($FFFFFA6A); beq loc_B1D4` — if not on board, fall through to
+        // normal gravity at loc_B1D4. When on board: `move.l y_vel(a3),d7;
+        // move.l #$2000,d6; tst.w (Ctrl_B_Held); bne loc_B1BC; move.l #$4000,d6`
+        // — selects lighter gravity ($2000) when B held, heavier ($4000) otherwise.
+        //
+        // ASM loc_B1BC (kid.asm:14049): B-held Skycutter gravity application.
+        // `sub.l d6,d7` — subtracts gravity from y_vel (ROM positive=down, so
+        // subtracting makes kid rise). `cmpi.l #$FFF88000,d7; bgt loc_B1CE;
+        // move.l #$FFF88000,d7` — caps upward speed at $FFF88000 (-$78000).
+        // Native adds gravity (positive=down convention inverted) and clamps.
+        if self.helmet.skycutter_on_board && !slice.player.on_ground {
+            let gravity = if input.b {
+                SKYCUTTER_GRAVITY_B_HELD
+            } else {
+                SKYCUTTER_GRAVITY_NO_B
+            };
+            // ASM sub.l d6,d7: ROM subtracts (positive y_vel = down), native adds
+            // (positive y_vel = down in our convention too, but Skycutter gravity
+            // constants are positive to slow descent).
+            slice.player.y_velocity += gravity;
+            // ASM loc_B1BC: clamp at $FFF88000 (-$78000 = SKYCUTTER_MAX_UPWARD_VEL).
+            // Expressed as `.max(MAX_UPWARD)` so the cap-equality boundary
+            // cannot produce an equivalent `<` ↔ `<=` mutation (both branches
+            // end at MAX_UPWARD when y_velocity already sits on the cap).
+            slice.player.y_velocity = slice.player.y_velocity.max(SKYCUTTER_MAX_UPWARD_VEL);
+
+            // ASM loc_A7B4 (kid.asm:13095): B-press gate in the jump loop.
+            //   `bclr #Button_B,(Ctrl_Pressed); beq.w loc_A7F8` — B rising edge.
+            //   `tst.b ($FFFFFA6A); beq.w loc_A7F8` — must be on Skycutter board.
+            //   `moveq #-$21,d7; move.l d7,d6; add.w y_pos(a3),d6; bmi.w loc_A7DE`
+            //   — if y_pos near top of level, dive immediately.
+            //   `bsr.w sub_B43A; beq.w loc_A7F8` — floor probe; no floor → skip.
+            //
+            // ASM loc_A7DE (kid.asm:13108): slam velocity entry.
+            //   `move.l x_vel(a3),d6; bpl.w loc_A7E8; neg.l d6` — abs(x_vel).
+            //
+            // ASM loc_A7E8 (kid.asm:13113): velocity calculation.
+            //   `asr.l #1,d6; addi.l #$30000,d6; move.l d6,y_vel(a3)` —
+            //   y_vel = abs(x_vel)/2 + $30000 (DOWNWARD in ASM convention).
+            //
+            // ASM loc_AC88 (kid.asm:13495): kid_flip (wall-cling) B-press for
+            //   non-Kid/non-Micromax. `tst.b ($FFFFFA6A); beq loc_AD2C` — only
+            //   fires when on Skycutter board. Same sub_B43A floor probe + y_pos
+            //   top check. loc_ACA4 (kid.asm:13505): `move.l #$30000,y_vel` —
+            //   flat $30000 board dive (no x_vel component, since wall-cling
+            //   suppresses horizontal velocity → abs(0)/2 + $30000 = $30000).
+            //
+            let b_pressed = input.b && !self.prior_input.b;
+            if b_pressed && self.skycutter_board_dive_allowed_loc_a7b4(slice) {
+                // ASM loc_A7E8 (kid.asm:13113): `asr.l #1,d6; addi.l #$30000,d6;
+                // move.l d6,y_vel(a3)` writes a positive downward dive velocity.
+                let dive_velocity = slice.player.x_velocity.unsigned_abs() as i32 / 2 + 0x3_0000;
+                slice.player.y_velocity = dive_velocity;
+            }
+        }
+
+        // Landing while on board: bounce upward
+        if self.helmet.skycutter_on_board && slice.player.on_ground {
+            slice.player.y_velocity = SKYCUTTER_LANDING_BOUNCE;
+            slice.player.on_ground = false;
+            self.helmet.skycutter_flipboard = 1; // restart deploy animation
+        }
+    }
+
+    fn skycutter_board_dive_allowed_loc_a7b4(&self, slice: &OpeningSliceState) -> bool {
+        // ASM loc_A7B4/loc_AC88: `moveq #-$21,d7; move.l d7,d6;
+        // add.w y_pos(a3),d6; bmi` lets the dive fire near the level top
+        // before checking floor support. `add.w` sets flags from the low word,
+        // so this is a signed 16-bit `(y_pos - $21) < 0` check.
+        let y_word = (slice.player.y_pos >> 16) as u16 as i16;
+        if y_word.wrapping_sub(0x21).is_negative() {
+            return true;
+        }
+
+        self.skycutter_board_floor_support_loc_b43a(slice)
+    }
+
+    fn skycutter_flipboard_deploy_allowed_loc_ad00(&self, slice: &OpeningSliceState) -> bool {
+        if !self.helmet.skycutter_on_board {
+            return true;
+        }
+
+        // ASM loc_AD00 (kid.asm:13533): when Skycutter is already on-board,
+        // the C-press deploy path first rejects the near-top signed word case,
+        // then rejects frames where sub_B43A finds floor support.  Only an
+        // on-board, away-from-top, no-floor frame reaches loc_AD26.
+        let y_word = (slice.player.y_pos >> 16) as u16 as i16;
+        if y_word.wrapping_sub(0x21).is_negative() {
+            return false;
+        }
+
+        !self.skycutter_board_floor_support_loc_b43a(slice)
+    }
+
+    fn skycutter_board_floor_support_loc_b43a(&self, slice: &OpeningSliceState) -> bool {
+        let Some(grid) = self.block_grid.as_ref() else {
+            return false;
+        };
+        let y_word = (slice.player.y_pos >> 16) as u16 as i16;
+        let x_int = (slice.player.x_pos >> 16) as u16 as i16 as i32;
+        let y_int = y_word as i32;
+        let collision_hw = PlayerForm::Skycutter.half_width();
+        // ASM sub_B43A loc_B4A0/loc_B4B2: scan columns from
+        // `(x_pos - hw) >> 4` to `(x_pos + hw) >> 4`, clamped to the layout.
+        let left_col = ((x_int - collision_hw) >> 4).max(0) as u16;
+        let right_col = ((x_int + collision_hw) >> 4)
+            .max(0)
+            .min(grid.width_cells as i32 - 1) as u16;
+        // ASM loc_B4C0: `move.w y_pos(a3),d0; addq.w #1,d0; add.w d7,d0;
+        // lsr.w #4,d0`; these Skycutter callers pass d7=0.
+        let probe_row = ((y_int + 1) >> 4).max(0) as u16;
+
+        (left_col..=right_col).any(|col| {
+            matches!(
+                grid.cell_at(col, probe_row).collision,
+                terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+            )
+        })
+    }
+
+    /// Step Cyclone vertical flight: acceleration-based with C-button thrust.
+    ///
+    /// When flying, an acceleration accumulator drifts downward by $400/frame
+    /// (gravity). Holding C subtracts $3000 (thrust). The accumulator is added
+    /// to y_velocity each frame, with velocity clamped to [-$30000, $28000].
+    /// Landing clears the flying flag.
+    /// ASM sub_B168 (loc_B214): when Cyclone_flying is already set, replace
+    /// normal gravity with the flight accumulator. The thrust check uses
+    /// `bclr #Button_C,(Ctrl_Pressed)` — a rising-edge test that consumes the
+    /// C press bit so kid_flip won't see it. Native equivalent: check
+    /// `previous_input` for 1-frame edge detection (not `prior_input` which
+    /// has a 2-frame gap).
+    pub(crate) fn step_cyclone_flight(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
+        if self.progression.current_form != PlayerForm::Cyclone {
+            self.helmet.cyclone_flying = false;
+            self.helmet.cyclone_y_accel = 0;
+            return;
+        }
+
+        // Landing clears flight.
+        // ASM loc_818A (kid.asm:8934): walking→airborne exit when floor
+        // vanishes. `moveq #-$11,d7; bsr.w sub_B43A` probes floor; if
+        // found, `addi.w #$10,y_pos(a3)` snaps y down.
+        // ASM loc_819A (kid.asm:8940): common path after optional y snap:
+        // `sf (Cyclone_flying).w; bsr.w sub_B41C` (half-width); `move.w
+        // #MoveID_Jump,(Character_Movement).w; sf (Cyclone_flying).w;
+        // bsr.w sub_B270; bra.w loc_A6F8`. The double `sf` is redundant
+        // in ASM. Native: on_ground detection in the physics loop handles
+        // the walking→airborne transition; this flag clear covers landing.
+        if self.helmet.cyclone_flying && slice.player.on_ground {
+            self.helmet.cyclone_flying = false;
+            return;
+        }
+
+        if !self.helmet.cyclone_flying {
+            return;
+        }
+
+        // ASM uses `addi.w` which wraps on M68K 16-bit word arithmetic.
+        // Must use wrapping_add, not saturating_add — the wrap behaviour is
+        // load-bearing when the accumulator gets very negative.
+        self.helmet.cyclone_y_accel = self
+            .helmet
+            .cyclone_y_accel
+            .wrapping_add(CYCLONE_ACCEL_GRAVITY);
+
+        // ASM: `bclr #Button_C,(Ctrl_Pressed)` — thrust on C rising edge only,
+        // not while held. Uses previous_input for proper 1-frame edge detection
+        // (prior_input is 2 frames back due to gameplay_input asymmetry).
+        let c_newly_pressed = input.c && !self.previous_input.c;
+        if c_newly_pressed {
+            // ASM `subi.w` wraps: e.g. 0xAA00 - 0x3000 = 0x7A00 (negative →
+            // positive wrap). This is intentional — the wrap produces a sudden
+            // downward push that's part of the flight feel.
+            // ASM loc_B214+ (kid.asm:14097): `subi.w #$3000,d7; cmpi.w
+            // #$8001,d7; bgt.w loc_B246; move.w #$8001,d7` — clamp upward
+            // thrust to MIN ($8001 = -$7FFF). Expressed as `.max(MIN)` so the
+            // boundary case (accel == MIN) cannot produce equivalent
+            // `<`↔`<=`↔`==` mutations: an if-statement re-assigns MIN to
+            // itself at the boundary, so all three operators are
+            // observationally identical.
+            self.helmet.cyclone_y_accel = self
+                .helmet
+                .cyclone_y_accel
+                .wrapping_sub(CYCLONE_ACCEL_THRUST)
+                .max(CYCLONE_ACCEL_MIN);
+        } else {
+            // ASM loc_B23A (kid.asm:14104): flying button not pressed — cap
+            // descent acceleration at $1200 so Cyclone drifts down gently.
+            // `cmpi.w #$1200,d7; ble.w loc_B246; move.w #$1200,d7`. Expressed
+            // as `.min(MAX)` so the boundary case (accel == MAX) cannot
+            // produce an equivalent `>`↔`>=` mutation: the if-statement
+            // re-assigns MAX to itself at the boundary.
+            self.helmet.cyclone_y_accel =
+                self.helmet.cyclone_y_accel.min(CYCLONE_ACCEL_MAX_DESCENT);
+        }
+
+        // ASM loc_B246 (kid.asm:14109): store acceleration back to
+        // Cyclone_YAcceleration, sign-extend to long (`ext.l d7`), add to
+        // y_vel(a3). `move.w d7,(Cyclone_YAcceleration).w; ext.l d7;
+        // add.l y_vel(a3),d7`
+        slice.player.y_velocity += i32::from(self.helmet.cyclone_y_accel);
+
+        // ASM loc_B25E (kid.asm:14119): upward speed cap at -$30000 (3 px/frame).
+        // `cmpi.l #-$30000,d7; bgt.s loc_B26C; move.l #-$30000,d7`
+        // Downward cap checked just before at loc_B246+8: $28000 (2.5 px/frame).
+        slice.player.y_velocity = slice
+            .player
+            .y_velocity
+            .clamp(CYCLONE_MAX_RISE_VEL, CYCLONE_MAX_FALL_VEL);
+    }
+
+    /// ASM kid_flip (loc_ACB0): C rising edge activates flight when airborne.
+    ///
+    /// ASM loc_A830 (kid.asm:13134): jump-loop C-press dispatch for Cyclone.
+    /// `cmpi.w #2,d7; bne.w loc_A840` — helmet == Cyclone? If yes:
+    /// `st (Cyclone_flying); bra.w loc_A8D6` — set flying flag and skip
+    /// remaining helmet checks. Native: `step_cyclone_activation` runs after
+    /// physics as a separate per-frame step function.
+    ///
+    /// Runs AFTER physics, so flight takes effect on the next frame. Uses
+    /// `bclr #Button_C,(Ctrl_Pressed)` which is consumed by sub_B168 when
+    /// already flying — so only activates when cyclone_flying is false.
+    pub(crate) fn step_cyclone_activation(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.progression.current_form != PlayerForm::Cyclone {
+            return;
+        }
+        // Only activate when not already flying (ASM: sub_B168 consumes C
+        // pressed bit via bclr when flying, so kid_flip never sees it).
+        if self.helmet.cyclone_flying {
+            return;
+        }
+        let c_pressed = input.c && !self.previous_input.c;
+        if c_pressed && !slice.player.on_ground {
+            self.helmet.cyclone_flying = true;
+            self.helmet.cyclone_y_accel = CYCLONE_ACCEL_INITIAL;
+        }
+    }
+
+    /// IronKnight wall climb: the ROM accepts the attach from the grounded
+    /// standing/walking path at loc_7664. C presses while climbing boost
+    /// upward, natural drift slides down.
+    //
+    // Iron Knight has no enemy-damage path in the ROM during climb. Verified
+    // 2026-04-25 — no enemy ASM file in
+    // `.cache/upstream/kid-chameleon-disasm/code/enemy/` checks a
+    // `Iron_Knight_climbing` or equivalent flag, and no `cmpi.w
+    // #Iron_Knight,(Current_Helmet)` appears anywhere. Only `Berzerker_charging`
+    // is consulted by enemies (Robot/Ninja/Crab/Drips/Diamond/Mini_Hopping_Skull
+    // and ~14 others). Iron Knight's only damage-dealing capability is the
+    // block-break latch (`Iron_Knight_block_breaker` $FFFFFA6B, modelled in
+    // `blocks.rs::sub_AF7A`) — never enemy contact during climb. Implementing
+    // climb-damage here would be a deviation, not a fix.
+    pub(crate) fn step_iron_knight_climb(
+        &mut self,
+        slice: &mut OpeningSliceState,
+        input: FrameInput,
+    ) -> IronKnightClimbStep {
+        if self.progression.current_form != PlayerForm::IronKnight {
+            self.helmet.iron_knight_climbing = false;
+            self.helmet.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climb_pose_accum = 0;
+            return IronKnightClimbStep::None;
+        }
+
+        // ASM `Get_RandomNumber_wordC` consumes `Ctrl_Pressed`, so climb boost
+        // only triggers on the immediate rising edge, not two frames later.
+        let c_pressed = input.c && !self.previous_input.c;
+
+        // ROM walking state `loc_7664` allows a raw C edge to enter wall
+        // climbing when Iron Knight is pressed against a wall in the facing
+        // direction. The airborne `kid_flip` C-press path handles Cyclone,
+        // Maniaxe, and Skycutter only, so airborne Iron Knight must not attach.
+        // ASM loc_7696: add.w d6,d7 / bmi skip / cmp.w Level_width_pixels,d7 /
+        //   bge skip / bsr.w sub_922C / beq skip / bra.w loc_A276
+        //   — offset x_pos by half_width+1 (direction-adjusted), bounds-check,
+        //   wall-probe, then enter wall climb if hit.
+        if c_pressed
+            && slice.player.on_ground
+            && !self.helmet.iron_knight_climbing
+            && let Some(ref grid) = self.block_grid
+        {
+            let facing_right = slice.player.facing == Direction::Right;
+            let px = (slice.player.x_pos >> 16) as i32;
+            let py = (slice.player.y_pos >> 16) as i32;
+            // ROM walking-state `loc_7664` uses `sub_922C`: a single edge
+            // column at half_width + 1 through the form's full height.
+            let probe = terrain::probe_wall_column(
+                grid,
+                px,
+                py,
+                self.progression.current_form.half_width(),
+                PLAYER_HEIGHT,
+                facing_right,
+            );
+            if probe.hit {
+                self.helmet.iron_knight_climbing = true;
+                self.helmet.iron_knight_climb_accel = 0;
+                self.helmet.iron_knight_climb_pose_accum = 0;
+                slice.player.y_velocity = IRON_KNIGHT_ATTACH_Y_VEL;
+                slice.player.x_velocity = 0;
+                slice.player.on_ground = false;
+                return IronKnightClimbStep::AttachHibernate;
+            }
+        }
+
+        if !self.helmet.iron_knight_climbing {
+            return IronKnightClimbStep::None;
+        }
+
+        // ASM loc_A338 (kid.asm:12637): after sub_902A applies y_vel and
+        // detects floor (d7=1), `cmpi.w #2,d7; bge.s loc_A330` continues
+        // climbing only for ceiling hits (d7>=2). Floor landing (d7<2)
+        // falls through to `sub_78E8; bra.w loc_75D4` → dismount.
+        // Native: on_ground is set by the physics step that applies y_vel.
+        if slice.player.on_ground {
+            self.helmet.iron_knight_climbing = false;
+            self.helmet.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climb_pose_accum = 0;
+            return IronKnightClimbStep::None;
+        }
+
+        // B press = jump off wall
+        let b_pressed = input.b && !self.previous_input.b;
+        if b_pressed {
+            self.helmet.iron_knight_climbing = false;
+            self.helmet.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climb_pose_accum = 0;
+            let jump_height =
+                physics::JUMP_HEIGHTS[usize::from(PlayerForm::IronKnight.helmet_id())];
+            // ASM loc_A426 -> sub_A432/loc_A466: climb B-press jumps through
+            // the shared launch routine, so KidGrabbedByHand weakens y_vel by
+            // `addi.l #$20000,d0` before the store.
+            let (_, y_vel) =
+                physics::initiate_jump_with_hand_grab(0, jump_height, slice.kid_grabbed_by_hand);
+            slice.player.y_velocity = y_vel;
+            return IronKnightClimbStep::None;
+        }
+
+        let release_direction = match slice.player.facing {
+            Direction::Right if input.left => Some(Direction::Left),
+            Direction::Left if input.right => Some(Direction::Right),
+            _ => None,
+        };
+        if let Some(direction) = release_direction {
+            self.helmet.iron_knight_climbing = false;
+            self.helmet.iron_knight_climb_accel = 0;
+            self.helmet.iron_knight_climb_pose_accum = 0;
+            slice.player.facing = direction;
+            return IronKnightClimbStep::ExitHibernate;
+        }
+
+        // ASM loc_A2F6→loc_A30A→loc_A328 (kid.asm:12610–12628): probes
+        // the wall at (half_width+1, -$18) via sub_B55C. If d5==$6000
+        // (Solid), calls sub_902A to apply y_vel + check floor/ceiling.
+        // loc_A328: `bsr.w sub_902A; bne.w loc_A338` — non-zero d7 means
+        // a surface interaction (floor d7=1 or ceiling d7=2).
+        // loc_A330 (kid.asm:12632): `bsr.w sub_A3BC; bra.w loc_A28A` —
+        // no collision: advance climb animation, loop back to main climb.
+        // Native: wall check via probe_iron_knight_climb_resume_wall;
+        // sub_902A physics handled by caller; sub_A3BC pose at end.
+        if let Some(ref grid) = self.block_grid {
+            let facing_right = slice.player.facing == Direction::Right;
+            let px = (slice.player.x_pos >> 16) as i32;
+            let py = (slice.player.y_pos >> 16) as i32;
+            let probe = terrain::probe_iron_knight_climb_resume_wall(
+                grid,
+                px,
+                py,
+                self.progression.current_form.half_width(),
+                facing_right,
+            );
+            if !probe.hit {
+                // ASM loc_A30A: wall probe no longer sees `$6000`; seed the
+                // upward pop velocity before leaving the climb loop.
+                self.helmet.iron_knight_climbing = false;
+                self.helmet.iron_knight_climb_accel = 0;
+                self.helmet.iron_knight_climb_pose_accum = 0;
+                slice.player.y_velocity = -0x4_0000;
+                return IronKnightClimbStep::ExitHibernate;
+            }
+        }
+
+        // Accumulate drift (sliding down)
+        self.helmet.iron_knight_climb_accel = self
+            .helmet
+            .iron_knight_climb_accel
+            .saturating_add(IRON_KNIGHT_SLIDE_DRIFT);
+
+        // C press: boost upward
+        if c_pressed {
+            self.helmet.iron_knight_climb_accel = self
+                .helmet
+                .iron_knight_climb_accel
+                .saturating_sub(IRON_KNIGHT_CLIMB_BOOST);
+            if self.helmet.iron_knight_climb_accel < IRON_KNIGHT_MIN_ACCEL {
+                self.helmet.iron_knight_climb_accel = IRON_KNIGHT_MIN_ACCEL;
+            }
+        } else {
+            // ASM loc_A382 (kid.asm:12666): C not pressed — passive cap.
+            // `cmpi.w #$1800,d7; ble.w loc_A38E; move.w #$1800,d7`
+            // Caps Cyclone_YAcceleration at $1800 so natural slide-down
+            // acceleration doesn't exceed the boost magnitude.
+            if self.helmet.iron_knight_climb_accel > IRON_KNIGHT_MAX_SLIDE_ACCEL {
+                self.helmet.iron_knight_climb_accel = IRON_KNIGHT_MAX_SLIDE_ACCEL;
+            }
+        }
+
+        // Apply acceleration to velocity
+        slice.player.y_velocity += i32::from(self.helmet.iron_knight_climb_accel);
+
+        // ASM loc_A3A6 (kid.asm:12679): `cmpi.l #$40000,d7; blt.s loc_A3B4;
+        // move.l #$40000,d7` — cap downward velocity at $40000.
+        // ASM loc_A38E..loc_A3A6: `cmpi.l #$FFFE8000,d7; bgt.s loc_A3A6;
+        // move.l #$FFFE8000,d7` — cap upward velocity at -$18000.
+        // ASM loc_A3B4 (kid.asm:12684): `move.l d7,y_vel(a3); tst.w d6; rts`
+        // — store clamped velocity; d6 flags whether C was pressed (used by
+        // caller to decide sound / climb boost path).
+        slice.player.y_velocity = slice
+            .player
+            .y_velocity
+            .clamp(IRON_KNIGHT_MAX_CLIMB_VEL, IRON_KNIGHT_MAX_FALL_VEL);
+        self.helmet.iron_knight_climb_pose_accum = iron_knight_climb_visual_sub_A3BC(
+            self.helmet.iron_knight_climb_pose_accum,
+            slice.player.y_velocity,
+        )
+        .pose_accum;
+
+        // Zero horizontal velocity while climbing
+        slice.player.x_velocity = 0;
+        IronKnightClimbStep::ResumeClimb
+    }
+
+    /// Micromax wall/ceiling stick: auto-attach on contact while airborne,
+    /// reduced gravity while stuck, B press detaches with kick velocity.
+    ///
+    /// ASM loc_A5EA (kid.asm:12952): platform-grab entry — init animation
+    /// stru_8B6A, `bclr #Button_B,(Ctrl_Pressed)`, `clr.l ($FFFFFA98)`
+    /// (gravity accumulator), `move.b ($FFFFFAA3),($FFFFFA72)` (copy approach
+    /// direction).  Reached from loc_A6F8 (kid.asm:13050–13052): after the
+    /// jump-state hibernate, if `($FFFFFA96) != 0` (a platform object wrote
+    /// its address during collision) AND `Current_Helmet == Micromax`, the ASM
+    /// re-enters the grab loop.
+    ///
+    /// ASM loc_A606 (kid.asm:12960): main grab loop — `bsr.w sub_71E4`
+    /// (camera), hibernate, check `Addr_PlatformStandingOn`, then ride the
+    /// platform's velocity: `x_vel = platform.$A`, `y_vel = ($FFFFFA98) +
+    /// platform.$E` where `($FFFFFA98) += $800` each frame (gravity
+    /// accumulator).  `bsr.w sub_902A` (floor check) — NE: clear $FFFFFA96,
+    /// bra loc_A8F6.
+    ///
+    /// ASM loc_A656 (kid.asm:12981): if sub_902A returned EQ (no floor),
+    /// `bsr.w sub_8F26` (wall check).  NE: clear $FFFFFA96, bra loc_A8DE
+    /// (enter wall-cling).  EQ: fall through to loc_A666 bounds check.
+    ///
+    /// ASM loc_A666 (kid.asm:12988): bounds check — `cmp.w platform.y_pos,
+    /// Kid.y_pos; blt loc_A6F8` (too high, detach). Then `(Kid.y_pos - $F)
+    /// vs (platform.y_pos + platform.$1C); bgt loc_A6F8` (too low, detach).
+    /// If in range, check directional input for facing change: if $FFFFFA72
+    /// set → loc_A69E (right input path), else check Ctrl_Left_Held →
+    /// `st x_direction` (face left), bra loc_A6F8.
+    ///
+    /// ASM loc_A69E (kid.asm:13006): right-input detach mirror — if
+    /// `Ctrl_Right_Held`, `sf x_direction` (face right), bra loc_A6F8.
+    /// Falls through to loc_A6AE (B-press jump-off): y_vel=$FFFC0000,
+    /// x_vel=$FFFE0000 (negated if $FFFFFA72 set), `x_direction = NOT
+    /// ($FFFFFA72)`.
+    ///
+    /// Native architectural difference: the ASM uses a platform-object
+    /// reference ($FFFFFA96) set by platform collision code; native uses
+    /// terrain probes (ceiling/wall) to detect and maintain stick state.
+    /// The grab loop's gravity accumulator is modelled with
+    /// MICROMAX_STUCK_GRAVITY ($800/frame).  Native still omits the platform
+    /// y_vel contribution because it has no live platform-object reference.
+    //
+    // Micromax has no special enemy-attack routine in the ROM: contact-only
+    // damage via the standard Kid jump/contact path. Verified 2026-04-25 — no
+    // `Micromax` reference in `.cache/upstream/kid-chameleon-disasm/code/enemy/`,
+    // no `Micromax_*` flag in `variables.asm`. Helmet-specific attacks come
+    // through diamond powers (MiniSnake/DeathSnake — see
+    // `assigned_diamond_power`).
+    pub(crate) fn step_micromax_stick(&mut self, slice: &mut OpeningSliceState, input: FrameInput) {
+        // Only active for Micromax form
+        if self.progression.current_form != PlayerForm::Micromax {
+            self.helmet.micromax_stuck = false;
+            return;
+        }
+
+        // Already stuck: handle slide and detach
+        // ASM loc_A606 main loop: each frame applies gravity + platform vel,
+        // then checks floor/wall/bounds.  loc_A6AE: B-press jump-off.
+        if self.helmet.micromax_stuck {
+            let b_pressed = input.b && !self.prior_input.b;
+            if b_pressed {
+                // ASM loc_A6AE (kid.asm:13013): `bclr #Button_B,(Ctrl_Pressed);
+                // beq loc_A6F4` (no press → loop). On press:
+                // `move.l #$FFFC0000,y_vel; move.l #$FFFE0000,d7; tst.b
+                // ($FFFFFA72); beq loc_A6D0; neg.l d7` — x kick direction
+                // depends on approach side. `x_direction = NOT($FFFFFA72)`.
+                self.helmet.micromax_stuck = false;
+                slice.player.y_velocity = MICROMAX_DETACH_Y_VEL;
+                // Reverse facing direction
+                slice.player.facing = match slice.player.facing {
+                    Direction::Right => Direction::Left,
+                    Direction::Left => Direction::Right,
+                };
+                let kick_x = match slice.player.facing {
+                    Direction::Right => MICROMAX_DETACH_X_SPEED,
+                    Direction::Left => -MICROMAX_DETACH_X_SPEED,
+                };
+                slice.player.x_velocity = kick_x;
+                slice.player.on_ground = false;
+                return;
+            }
+
+            // ASM loc_A606: `($FFFFFA98) += $800` per frame, then y_vel =
+            // accumulator + platform.y_vel.  Native currently has no live
+            // platform-object reference, so the platform vel component is 0.
+            slice.player.y_velocity += MICROMAX_STUCK_GRAVITY;
+            if slice.player.y_velocity > MICROMAX_STUCK_MAX_FALL {
+                // Peeled off
+                self.helmet.micromax_stuck = false;
+                return;
+            }
+
+            // Zero horizontal velocity while stuck (player can't walk)
+            slice.player.x_velocity = 0;
+
+            // ASM loc_A656/loc_A666: after sub_902A (floor) and sub_8F26
+            // (wall) checks, bounds-check Kid against the platform's Y extent.
+            // Native: terrain probe replaces the platform-object bounds check.
+            if let Some(ref grid) = self.block_grid {
+                let px = (slice.player.x_pos >> 16) as i32;
+                let py = (slice.player.y_pos >> 16) as i32;
+                let ceiling = terrain::probe_ceiling(grid, px, py, MICROMAX_HALF_W, MICROMAX_H);
+                let wall_r = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, true);
+                let wall_l = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, false);
+                if !ceiling.hit && !wall_r.hit && !wall_l.hit {
+                    self.helmet.micromax_stuck = false;
+                }
+            }
+            return;
+        }
+
+        // ASM loc_A5EA: entry point — reached from loc_A6F8 when $FFFFFA96
+        // (platform-grab address) is set and helmet == Micromax.  Native:
+        // attach on terrain contact while airborne instead.
+        if slice.player.on_ground {
+            return;
+        }
+        // Only stick when falling or neutral (y_vel >= 0) per ASM
+        if slice.player.y_velocity < 0 {
+            return;
+        }
+
+        if let Some(ref grid) = self.block_grid {
+            let px = (slice.player.x_pos >> 16) as i32;
+            let py = (slice.player.y_pos >> 16) as i32;
+
+            // Check ceiling contact
+            let ceiling = terrain::probe_ceiling(grid, px, py, MICROMAX_HALF_W, MICROMAX_H);
+            if ceiling.hit {
+                self.helmet.micromax_stuck = true;
+                slice.player.y_velocity = 0;
+                slice.player.x_velocity = 0;
+                return;
+            }
+
+            // Check wall contact in facing direction
+            let facing_right = slice.player.facing == Direction::Right;
+            let wall = terrain::probe_wall(grid, px, py, MICROMAX_HALF_W, MICROMAX_H, facing_right);
+            if wall.hit {
+                self.helmet.micromax_stuck = true;
+                slice.player.y_velocity = 0;
+                slice.player.x_velocity = 0;
+            }
+        }
+    }
+
+    /// Step RedStealth sword swing: C press starts swing, hitbox active after startup.
+    /// ASM loc_76B0: cmpi.w #Red_Stealth,(Current_Helmet) / bne skip /
+    ///   tst.b (Red_Stealth_sword_swing) / bne skip / init animation stru_8B3C /
+    ///   allocate object sub_868E / st (Red_Stealth_sword_swing)
+    ///
+    /// ASM loc_8CF8 (kid.asm:10117): walking-state duplicate — `cmpi.w
+    ///   #Red_Stealth; tst.b (Red_Stealth_sword_swing); bne.w loc_8D72`,
+    ///   init animation stru_8B3C, allocate sub_868E worker,
+    ///   `st (Red_Stealth_sword_swing)`. Same gate as loc_76B0.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn step_red_stealth_sword(&mut self, input: FrameInput) {
+        self.step_red_stealth_sword_with_start_gate(input, true);
+    }
+
+    pub(crate) fn step_red_stealth_sword_with_start_gate(
+        &mut self,
+        input: FrameInput,
+        walking_state_c_press: bool,
+    ) {
+        if self.progression.current_form != PlayerForm::RedStealth {
+            self.helmet.red_stealth_sword_timer = 0;
+            return;
+        }
+
+        // C rising edge starts a new swing (only if not already swinging)
+        let c_pressed = input.c && !self.prior_input.c;
+        let mut just_started_swing = false;
+        if walking_state_c_press && c_pressed && self.helmet.red_stealth_sword_timer == 0 {
+            self.helmet.red_stealth_sword_timer =
+                RED_STEALTH_STARTUP_FRAMES + RED_STEALTH_ACTIVE_FRAMES;
+            just_started_swing = true;
+            // ASM sub_868E (kid.asm:9518): the allocated sword worker plays
+            // `sfx_Red_Stealth_sword_swinging` before its `#8` hibernate.
+            self.queue_start_sequence(QueuedSoundEffect::RedStealthSwordSwinging);
+        }
+
+        // ASM sub_868E (kid.asm:9522): the allocated sword worker begins with
+        // `move.w #8,-(sp); jsr Hibernate_Object`, so the allocation frame
+        // itself must not consume one of the startup hibernate frames.
+        if self.helmet.red_stealth_sword_timer > 0 && !just_started_swing {
+            self.helmet.red_stealth_sword_timer -= 1;
+        }
+    }
+
+    /// Step the Red Stealth airborne attack-down slash counter.
+    ///
+    /// ASM loc_B350 -> loc_B380 (kid.asm:14220-14248): while airborne and
+    /// fast-falling (`y_vel<<2 > $FFFFFAAA`) with `Ctrl_C_Held`, the ROM
+    /// increments `Red_Stealth_sword_swing` by `$10` per frame, caps at `$7F`,
+    /// and selects one of four downward-slash sprite phases. Releasing C or
+    /// transitioning out of the fast-fall state clears the counter via the
+    /// `next_red_stealth_sword_swing: 0` branch.
+    ///
+    /// Delegates the per-frame phase computation to the already-tested helper
+    /// `kid_airborne_visual_sub_B270` (`crates/wildside-core/src/helmets.rs:571`)
+    /// rather than duplicating its branch table. The returned sprite mapping
+    /// is currently dropped — renderer plumbing is a follow-up — but the
+    /// counter state is correct, which is what `process_sword_hits` will need
+    /// once the airborne hitbox is wired through.
+    pub(crate) fn step_red_stealth_airborne_slash(
+        &mut self,
+        slice: &OpeningSliceState,
+        input: FrameInput,
+    ) {
+        if self.progression.current_form != PlayerForm::RedStealth {
+            self.helmet.red_stealth_airborne_slash_counter = 0;
+            return;
+        }
+
+        if slice.player.on_ground {
+            self.helmet.red_stealth_airborne_slash_counter = 0;
+            return;
+        }
+
+        // ASM loc_A466 writes the jump launch y velocity to `$FFFFFAAA`;
+        // sub_B270 loc_B334/loc_B350 reads it as the dynamic fast-fall
+        // threshold for Red Stealth's airborne downward slash.
+        const RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FALLBACK_FP: i32 = 0x0001_0000;
+        let jump_threshold = self
+            .helmet
+            .red_stealth_jump_threshold_y_velocity
+            .unwrap_or(RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FALLBACK_FP);
+
+        let step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+            helmet_id: self.progression.current_form.helmet_id(),
+            // Red Stealth has no is_animated/airborne_latch/cyclone/juggernaut
+            // state machinery — feed defaults so only the shared loc_B304
+            // mapping dispatch and the Red Stealth loc_B350/B380 branch are
+            // reachable for this form.
+            is_animated: false,
+            on_ground: slice.player.on_ground,
+            global_lock_active: false,
+            airborne_latch_active: false,
+            cyclone_flying: false,
+            cyclone_y_accel: 0,
+            cyclone_frame_accum: 0,
+            juggernaut_companion_animation_active: false,
+            maniaxe_throwing_axe: false,
+            y_velocity: slice.player.y_velocity,
+            jump_threshold,
+            c_held: input.c,
+            red_stealth_sword_swing: self.helmet.red_stealth_airborne_slash_counter,
+        });
+
+        self.helmet.red_stealth_airborne_slash_counter = step.next_red_stealth_sword_swing;
+        if let Some(sound) = step.queued_sound {
+            self.queue_start_sequence(sound);
+        }
+    }
+
+    /// Returns true if the sword hitbox is active (past startup, within active frames).
+    /// ASM loc_86D8 (kid.asm:9546): each iteration of the `dbf d0,loc_86D8` loop
+    /// hibernates one frame and checks `collision_type(a3)`. Native models this
+    /// as `timer > 0 && timer <= ACTIVE_FRAMES`.
+    /// ASM loc_86E8 (kid.asm:9552): `jmp Delete_CurrentObject` — reached when
+    /// the loop exhausts (no collision). Native: `timer` reaches 0 →
+    /// `sword_is_active()` returns false, ending hit checks.
+    pub(crate) fn sword_is_active(&self) -> bool {
+        self.helmet.red_stealth_sword_timer > 0
+            && self.helmet.red_stealth_sword_timer <= RED_STEALTH_ACTIVE_FRAMES
+    }
+
+    /// Check the grounded sword-worker hitbox against active enemies.
+    /// Damages hit enemies and removes dead ones.
+    /// ASM loc_86EC (kid.asm:9556): `collision_type(a3)` non-zero → play
+    /// `sfx_Red_Stealth_hitting_a_target`, then `bra.s loc_86E8` (delete).
+    /// Native consumes the swing timer on first contact to mirror the sword
+    /// worker deletion path.
+    pub(crate) fn process_sword_hits(&mut self, slice: &OpeningSliceState) {
+        let ground_active = self.sword_is_active();
+        if !ground_active {
+            return;
+        }
+
+        // ASM sub_868E (kid.asm:9522) anchors the only damaging Red Stealth
+        // sword worker 28px ahead of Kid and 10px above the foot. ASM sub_B270
+        // loc_B350/loc_B380 only drives the airborne attack-down sprite/sound
+        // byte and allocates no below-foot enemy hitbox.
+        let (sword_x_fp, sword_y_fp) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let (sword_x, sword_y) = ((sword_x_fp >> 16) as i32, (sword_y_fp >> 16) as i32);
+
+        let mut kill_indices = Vec::new();
+        for i in 0..self.active_enemies.len() {
+            let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[i]) else {
+                continue;
+            };
+            let ex = (target.x_pos >> 16) as i32;
+            let ey = (target.y_pos >> 16) as i32;
+            let dx = (sword_x - ex).abs();
+            let dy = (sword_y - ey).abs();
+            if dx <= RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32
+                && dy <= RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32
+            {
+                let enemy = &mut self.active_enemies[i];
+                if enemy.take_colid_hurt_or_queue_death(Some(slice.player.x_pos)) {
+                    kill_indices.push(i);
+                }
+                // ASM loc_86EC (kid.asm:9556) is reached only by the grounded
+                // `sub_868E` sword worker and plays `$5A` before deleting it.
+                // The airborne attack-down path `sub_B270 loc_B350` has no
+                // equivalent `$5A` call; it only queues `$13` when the slash
+                // counter first reaches `$10`.
+                self.queue_start_sequence(QueuedSoundEffect::RedStealthHittingTarget);
+                self.spawn_kid_projectile_hit_spark_loc_1_f08(sword_x_fp, sword_y_fp);
+                self.helmet.red_stealth_sword_timer = 0;
+                break;
+            }
+        }
+
+        for &idx in kill_indices.iter().rev() {
+            self.remove_dead_enemy(idx);
+        }
+        if !kill_indices.is_empty() {
+            self.rebuild_active_enemy_roster();
+        }
+    }
+
+    /// Check friendly projectiles (Eyeclops beam, Maniaxe axe) against enemies.
+    ///
+    /// ASM loc_8ABC (kid.asm:9905): `tst.w collision_type(a3); beq.s loc_8A52` — when
+    ///   collision_type is non-zero the axe hit an enemy. Play sfx_Maniaxe_hitting_enemy,
+    ///   then `jmp Delete_CurrentObject`. Native: consumed projectile is removed from
+    ///   `self.projectiles` via `projectile_consumed` indices.
+    pub(crate) fn process_friendly_projectile_hits(&mut self) {
+        let mut kill_indices = Vec::new();
+        let mut projectile_consumed = Vec::new();
+        let mut hit_sparks = Vec::new();
+        let player_x_pos = self.opening_slice.as_ref().map(|slice| slice.player.x_pos);
+
+        for (pi, proj) in self.projectiles.iter().enumerate() {
+            if !proj.friendly
+                || (proj.lifetime == 0 && proj.kind != EnemyProjectileKind::ManiaxeAxe)
+            {
+                continue;
+            }
+            let prx = (proj.x_pos >> 16) as i32;
+            let pry = (proj.y_pos >> 16) as i32;
+
+            let (hit_half_width, hit_half_height) = friendly_projectile_enemy_hit_extents(proj);
+            for ei in 0..self.active_enemies.len() {
+                let targets =
+                    helmet_enemy_projectile_damage_target_snapshots(&self.active_enemies[ei]);
+                if targets.iter().any(|target| {
+                    let ex = (target.x_pos >> 16) as i32;
+                    let ey = (target.y_pos >> 16) as i32;
+                    let dx = (prx - ex).abs();
+                    let dy = (pry - ey).abs();
+                    dx <= hit_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
+                        && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
+                }) {
+                    let spark_x_pos = proj.x_pos;
+                    let spark_y_pos = proj.y_pos;
+                    let enemy = &mut self.active_enemies[ei];
+                    if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
+                        kill_indices.push(ei);
+                    }
+                    hit_sparks.push((spark_x_pos, spark_y_pos));
+                    projectile_consumed.push(pi);
+                    break; // one enemy per projectile per frame
+                }
+            }
+        }
+
+        for slot in &self.diamond_power_rain_slots {
+            let prx = (slot.x_pos >> 16) as i32;
+            let pry = (slot.y_pos >> 16) as i32;
+
+            for ei in 0..self.active_enemies.len() {
+                let targets =
+                    helmet_enemy_projectile_damage_target_snapshots(&self.active_enemies[ei]);
+                if targets.iter().any(|target| {
+                    let ex = (target.x_pos >> 16) as i32;
+                    let ey = (target.y_pos >> 16) as i32;
+                    let dx = (prx - ex).abs();
+                    let dy = (pry - ey).abs();
+                    dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
+                        && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
+                }) {
+                    let spark_x_pos = slot.x_pos;
+                    let spark_y_pos = slot.y_pos;
+                    let enemy = &mut self.active_enemies[ei];
+                    if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
+                        kill_indices.push(ei);
+                    }
+                    hit_sparks.push((spark_x_pos, spark_y_pos));
+                    // ASM DiamondPower_Main_SlashingRain loc_3FF90/loc_3FFC0:
+                    // rain slots stay in the DP list after enemy contact and
+                    // are removed only by the screen-cull path.
+                    break;
+                }
+            }
+        }
+
+        // Remove consumed projectiles
+        for &pi in projectile_consumed.iter().rev() {
+            self.projectiles.remove(pi);
+        }
+
+        for (x_pos, y_pos) in hit_sparks {
+            self.spawn_kid_projectile_hit_spark_loc_1_f08(x_pos, y_pos);
+        }
+
+        // Remove dead enemies, spawn death effects, and award points
+        for &idx in kill_indices.iter().rev() {
+            self.remove_dead_enemy(idx);
+        }
+        if !kill_indices.is_empty() || !projectile_consumed.is_empty() {
+            self.rebuild_active_enemy_roster();
+        }
+    }
+
+    fn spawn_kid_projectile_hit_spark_loc_1_f08(&mut self, x_pos: u32, y_pos: u32) {
+        self.kid_projectile_hit_sparks
+            .push(kid_projectile_hit_spark_loc_1_f08(x_pos, y_pos));
+    }
+
+    /// When Berzerker is charging, side contact with enemies damages them.
+    pub(crate) fn process_berzerker_charge_hits(&mut self, slice: &mut OpeningSliceState) {
+        if !self.helmet.berzerker_charging {
+            return;
+        }
+
+        let px = (slice.player.x_pos >> 16) as i32;
+        let py = (slice.player.y_pos >> 16) as i32;
+        let player_contact_half_width = self.progression.current_form.half_width();
+
+        let mut reflected_player_velocity = false;
+        let incoming_player_x_velocity = slice.player.x_velocity;
+        let mut kill_indices = Vec::new();
+        let mut changed_enemy_state = false;
+        for i in 0..self.active_enemies.len() {
+            let Some(target) =
+                helmet_enemy_berzerker_damage_target_snapshot(&self.active_enemies[i])
+            else {
+                continue;
+            };
+            let ex = (target.x_pos >> 16) as i32;
+            let ey = (target.y_pos >> 16) as i32;
+            let dx = (px - ex).abs();
+            let dy = (py - ey).abs();
+            if dx <= player_contact_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
+                && dy <= ENEMY_CONTACT_HALF_HEIGHT as i32
+            {
+                if !reflected_player_velocity
+                    && berzerker_charge_reflects_player_velocity_loc_b678(&self.active_enemies[i])
+                {
+                    // ASM loc_B692: charging Berzerker side contact with
+                    // object_meta bit 15 set performs `neg.l x_vel(a3)`.
+                    slice.player.x_velocity = slice.player.x_velocity.wrapping_neg();
+                    reflected_player_velocity = true;
+                }
+                let enemy = &mut self.active_enemies[i];
+                if matches!(enemy.family, EnemyFamily::Crab)
+                    && let CrabBerzerkerSideGateLoc3B180::Knockback(knockback) =
+                        crab_berzerker_side_gate_loc_3b180(true, incoming_player_x_velocity)
+                {
+                    // ASM Crab.asm loc_3B180: charging Berzerker side contact
+                    // launches the crab from Kid's incoming x_vel instead of
+                    // taking the generic hurt/death path.
+                    enemy.x_velocity = knockback.x_velocity;
+                    enemy.y_velocity = knockback.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.crab_frozen = false;
+                    enemy.crab_berzerker_knockback = true;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Diamond)
+                    && let DiamondLowHpBerzerkerSideGateRouteLoc3AF24::Launch(launch) =
+                        diamond_low_hp_berzerker_side_gate_loc_3af24(
+                            true,
+                            matches!(enemy.facing, Direction::Right),
+                        )
+                {
+                    // ASM Diamond.asm loc_3AF24: charging Berzerker side
+                    // contact disables level collision, keeps Kid collision,
+                    // freezes the displayed Diamond frame, and enters the
+                    // upward loc_3AF50 loop instead of generic HP damage.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::FireDemon)
+                    && let FireDemonBerzerkerSideGateLoc3A5E4::Launch(launch) =
+                        fire_demon_berzerker_side_gate_loc_3a5e4(true, enemy.facing)
+                {
+                    // ASM Fire_Demon.asm loc_3A5E4: charging Berzerker side
+                    // contact launches the demon upward and enters loc_3A610,
+                    // instead of routing through the generic HP/death path.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = FIRE_DEMON_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3A610;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Goat)
+                    && let GoatBerzerkerSideGateLoc3CB76::AirborneKnockback(knockback) =
+                        goat_berzerker_side_gate_loc_3cb76(true, enemy.shared_walker_state)
+                {
+                    // ASM Goat.asm loc_3CB76: with no positive recoil word,
+                    // charging Berzerker side contact launches Goat into the
+                    // airborne loc_3CBA8 loop instead of generic HP damage.
+                    enemy.x_velocity = knockback.x_velocity;
+                    enemy.y_velocity = knockback.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Armadillo)
+                    && let ArmadilloBerzerkerSideContactLoc3C898::Launch(launch) =
+                        armadillo_berzerker_side_contact_loc_3c898(true, enemy.shared_walker_state)
+                {
+                    // ASM Armadillo.asm loc_3C898: with no positive recoil
+                    // word, charging Berzerker side contact enters the
+                    // launched loc_3C8CC loop instead of generic HP damage.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::SpinningTwins)
+                    && let SpinningTwinsBerzerkerSideGateLoc3BBF6::Launch(launch) =
+                        spinning_twins_berzerker_side_gate_loc_3bbf6(true, 0)
+                {
+                    // ASM Spinning_Twins.asm loc_3BBF6: charging Berzerker
+                    // side contact freezes the settled twin frame and enters
+                    // the upward loc_3BC22 loop instead of generic HP damage.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::EmoRock) && enemy.on_ground {
+                    let launch = emo_rock_berzerker_launch_loc_362ee(incoming_player_x_velocity);
+                    // ASM Emo_Rock.asm loc_362EE: settled side contact with
+                    // a charging Berzerker copies Kid's incoming x_vel, seeds
+                    // y_vel, and enters the loc_3630A airborne loop.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = EMO_ROCK_BERZERKER_AIRBORNE_WAIT_TIMER_LOC_3630A;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
+                    && matches!(
+                        mini_hopping_skull_air_side_contact_loc_3f244(true),
+                        MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
+                    )
+                {
+                    // ASM Mini_Hopping_Skull.asm loc_3F262: charging
+                    // Berzerker side contact disables level collision, fixes
+                    // the sprite frame, zeroes X, and enters loc_3F288.
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = -0x0004_8000;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Ninja)
+                    && let NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(launch) =
+                        ninja_berzerker_side_contact_loc_3db0a(true)
+                {
+                    // ASM Ninja.asm loc_3D698/loc_3DB0A: charging Berzerker
+                    // side contact launches Ninja upward into the loc_3DB3C
+                    // loop instead of generic HP damage/death.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Orca)
+                    && let OrcaBerzerkerSideGateLoc3D27E::Knockback(knockback) =
+                        orca_berzerker_side_gate_loc_3d27e(true)
+                {
+                    // ASM Orca.asm loc_3D27E: charging Berzerker side contact
+                    // zeroes X velocity, launches upward, and enters the
+                    // loc_3D2AA loop instead of generic HP damage/death.
+                    enemy.x_velocity = knockback.x_velocity;
+                    enemy.y_velocity = knockback.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Scorpion)
+                    && let ScorpionBerzerkerSideGateLoc3DD0E::Knockback(knockback) =
+                        scorpion_berzerker_side_gate_loc_3dd0e(
+                            true,
+                            enemy.scorpion_sting_frames == 0,
+                        )
+                {
+                    // ASM Scorpion.asm loc_3DD0E: charging Berzerker side
+                    // contact sets the linked tail flag, disables the shared
+                    // walker, and enters the loc_3DD4A airborne loop instead
+                    // of generic HP damage/death.
+                    enemy.x_velocity = knockback.x_velocity;
+                    enemy.y_velocity = knockback.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = SCORPION_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3DD4A;
+                    enemy.scorpion_sting_frames = 0;
+                    enemy.walk_speed_override = 0;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                    continue;
+                }
+                if matches!(enemy.family, EnemyFamily::Robot) {
+                    // ASM Robot.asm loc_3A8AE -> loc_3A9CC -> loc_3A9D2:
+                    // charging Berzerker side contact on the linked head
+                    // skips HP damage and enters the Robot destroy animation.
+                    kill_indices.push(i);
+                    continue;
+                }
+                if enemy.take_damage_or_queue_death() {
+                    kill_indices.push(i);
+                } else {
+                    changed_enemy_state = true;
+                }
+            }
+        }
+
+        for &idx in kill_indices.iter().rev() {
+            self.remove_dead_enemy(idx);
+        }
+        if changed_enemy_state || !kill_indices.is_empty() {
+            self.rebuild_active_enemy_roster();
+        }
+    }
+
+    /// Step Eyeclops beam: C press fires a horizontal beam projectile.
+    ///
+    /// ASM loc_7606 (kid.asm:7722–7739): the ROM's standing-still state checks
+    /// `Eyeclops`, `andi.b #$C0,d0` (A+Start held), `$FFFFFAB8` (beam active),
+    /// and `Number_Diamonds >= 2` before arming the hard beam with `$8001`.
+    ///
+    /// ASM loc_8C26 (kid.asm:10058): walking-state duplicate of loc_7606 —
+    /// `bsr.w sub_7428` (Juggernaut 5-way), then same Eyeclops hard beam
+    /// sequence: `cmpi.w #Eyeclops; andi.b #$C0,d0; cmpi.b #$C0,d0;
+    /// tst.w ($FFFFFAB8); cmpi.w #2,(Number_Diamonds); move.w #$8001`.
+    ///
+    /// ASM loc_8D58 (kid.asm:10142): walking-on-platform Eyeclops C-press
+    /// beam — fall-through from Juggernaut skull check (loc_8D2C).  `cmpi.w
+    /// #Eyeclops,(Current_Helmet); bne.s loc_8D72` (not Eyeclops → skip),
+    /// `tst.w ($FFFFFAB8); bne.s loc_8D72` (beam active → skip), `move.w
+    /// #1,($FFFFFAB8)` (arm beam), `move.b x_direction(a3),($FFFFFABE)`
+    /// (latch direction).  Native: same `step_eyeclops_beam` runs every
+    /// frame regardless of standing/walking/platform state.
+    ///
+    /// Native runs this check every frame (not just standing-still).
+    pub(crate) fn step_eyeclops_beam(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.progression.current_form != PlayerForm::Eyeclops {
+            self.helmet.eyeclops_beam_active = false;
+            self.helmet.eyeclops_beam_counter = 0;
+            self.helmet.eyeclops_beam_hard = false;
+            return;
+        }
+
+        let beam_still_live = self
+            .projectiles
+            .iter()
+            .any(|p| p.friendly && p.lifetime > 0 && p.gravity == 0);
+        if self.helmet.eyeclops_beam_active && !beam_still_live {
+            self.helmet.eyeclops_beam_active = false;
+            self.helmet.eyeclops_beam_counter = 0;
+            self.helmet.eyeclops_beam_hard = false;
+        }
+
+        let fire_beam = |runtime: &mut NativeRuntime, x_velocity: i32| {
+            runtime.projectiles.push(EnemyProjectile {
+                // ASM sub_E49A latches the current x_direction in `$FFFFFABE`
+                // and grows the beam from Kid's live coordinates on each wake.
+                // Native still models the gameplay effect as one horizontal
+                // friendly projectile, but it now mirrors the same beam-state
+                // counter in `eyeclops_beam_counter`.
+                x_pos: slice.player.x_pos,
+                y_pos: (slice.player.y_pos as i64 - (8 << 16)) as u32,
+                x_velocity,
+                lifetime: EYECLOPS_BEAM_LIFETIME,
+                friendly: true,
+                ..Default::default()
+            });
+        };
+        let beam_velocity = if slice.player.facing == Direction::Right {
+            EYECLOPS_BEAM_SPEED
+        } else {
+            -EYECLOPS_BEAM_SPEED
+        };
+        // ASM loc_7606 / loc_8C26: `move.b (Ctrl_Held),d0; andi.b #$C0,d0;
+        // cmpi.b #$C0,d0` gates the hard beam on held A+Start.
+        let hard_beam_requested = input.a && input.start;
+        if hard_beam_requested
+            && !self.helmet.eyeclops_beam_active
+            && self.progression.diamond_count >= 2
+        {
+            // ASM sub_E49A seeds `$FFFFFAB8` with `$8001` for the hard beam and
+            // immediately spends two diamonds before the beam object renders.
+            self.progression.diamond_count -= 2;
+            self.helmet.eyeclops_beam_active = true;
+            self.helmet.eyeclops_beam_counter = 0x8001;
+            self.helmet.eyeclops_beam_hard = true;
+            fire_beam(self, beam_velocity);
+            self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
+            return;
+        }
+
+        // ASM loc_7742 (kid.asm:7815): standing-still C-press normal beam:
+        //   cmpi.w #Eyeclops,(Current_Helmet) / bne.s loc_7772 /
+        //   tst.w ($FFFFFAB8) / bne.s loc_7772 /
+        //   move.w #1,($FFFFFAB8) / move.b x_direction(a3),($FFFFFABE) /
+        //   Init_Animation stru_8B36 / PlaySound sfx_Eyeclops_normal_lightbeam
+        //
+        // ASM loc_A8A6 (kid.asm:13173): jump-loop C-press Eyeclops normal beam.
+        //   `cmpi.w #Eyeclops,(Current_Helmet); bne.s loc_A8D6` — not Eyeclops
+        //   → skip. `tst.w ($FFFFFAB8); bne.s loc_A8D6` — beam active → skip.
+        //   `move.w #1,($FFFFFAB8); move.b x_direction(a3),($FFFFFABE)` — arm
+        //   normal beam, latch direction.  Native: same `step_eyeclops_beam`.
+        // C rising edge fires beam (one at a time)
+        let c_pressed = input.c && !self.prior_input.c;
+        if c_pressed && !self.helmet.eyeclops_beam_active {
+            self.helmet.eyeclops_beam_active = true;
+            self.helmet.eyeclops_beam_counter = 1;
+            self.helmet.eyeclops_beam_hard = false;
+            fire_beam(self, beam_velocity);
+            self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
+        } else if self.helmet.eyeclops_beam_active {
+            self.helmet.eyeclops_beam_counter = self.helmet.eyeclops_beam_counter.wrapping_add(1);
+            self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
+        }
+    }
+
+    #[allow(non_snake_case)]
+    fn reveal_eyeclops_beam_hidden_blocks_loc_E70A(&mut self, slice: &OpeningSliceState) {
+        let Some(block_list) = self.block_list.as_ref() else {
+            return;
+        };
+        let Some(grid) = self.block_grid.as_mut() else {
+            return;
+        };
+
+        let latched_x_direction = if slice.player.facing == Direction::Right {
+            0
+        } else {
+            0xFF
+        };
+        let setup = eyeclops_beam_render_setup_loc_E4B2(
+            self.helmet.eyeclops_beam_counter,
+            latched_x_direction,
+        );
+        if setup.beam_counter & 0x8000 != 0 {
+            return;
+        }
+
+        let origin = eyeclops_beam_screen_origin_loc_E4C4(
+            (slice.player.x_pos >> 16) as u16,
+            (slice.player.y_pos >> 16) as u16,
+            (slice.camera.x_pos >> 16) as u16,
+            (slice.camera.y_pos >> 16) as u16,
+            setup.x_offset_px,
+            setup.y_offset_px,
+        );
+        let Some((map_probe_screen_x, top_probe_screen_y, bottom_probe_screen_y)) =
+            eyeclops_beam_collision_probe_loc_E70A(
+                setup.beam_counter,
+                origin.screen_x_word,
+                origin.screen_y_word,
+                latched_x_direction,
+            )
+        else {
+            return;
+        };
+
+        let column = crate::level::level_sprite_strip_collision_column_loc_E70A(
+            crate::level::LevelSpriteStripCollisionColumnInputLocE70A {
+                addr_next_sprite_slot_offset: 0,
+                number_sprites: 0,
+                map_probe_screen_x,
+                top_probe_screen_y,
+                bottom_probe_screen_y,
+                camera_x: (slice.camera.x_pos >> 16) as i16,
+                camera_y: (slice.camera.y_pos >> 16) as i16,
+                level_width_blocks: grid.width_cells as i16,
+            },
+        );
+        let Some(tile_column) = column.tile_column else {
+            return;
+        };
+        let top_tile_row = crate::level::level_sprite_strip_top_row_upper_clamp_loc_E738(
+            column.top_tile_row_lower_clamped,
+            grid.height_cells as i16,
+        );
+        let bottom_tile_row = crate::level::level_sprite_strip_bottom_row_upper_clamp_loc_E74A(
+            crate::level::level_sprite_strip_bottom_row_lower_clamp_loc_E744(column.bottom_world_y),
+            grid.height_cells as i16,
+        );
+        let row_count = bottom_tile_row.wrapping_sub(top_tile_row) as u16;
+        // ASM sub_E446 (kid.asm:17963) mutates Level_Layout, then queues both
+        // the `$12C` reveal worker and the foreground-cell upload descriptor.
+        let updates = block_list.hidden_block_column_updates_sub_E446(
+            grid,
+            tile_column as u16,
+            top_tile_row as u16,
+            row_count,
+        );
+        self.hidden_block_fg_update_workers.extend(updates);
+
+        let adjacent_column = if latched_x_direction == 0 {
+            tile_column.checked_sub(1)
+        } else {
+            crate::level::level_sprite_strip_right_adjacent_column_loc_E786(
+                tile_column,
+                0,
+                grid.width_cells as i16,
+            )
+            .map(|adjacent| adjacent.tile_column)
+        };
+        if crate::level::level_sprite_strip_should_scan_adjacent_column_loc_E790(
+            self.helmet.eyeclops_beam_counter,
+        ) && let Some(adjacent_column) = adjacent_column
+        {
+            let updates = block_list.hidden_block_column_updates_sub_E446(
+                grid,
+                adjacent_column as u16,
+                top_tile_row as u16,
+                row_count,
+            );
+            self.hidden_block_fg_update_workers.extend(updates);
+        }
+    }
+
+    /// Step Maniaxe thrown axe: boomerang projectile that reverses after 12 frames.
+    /// ASM loc_76E4: cmpi.w #Maniaxe,(Current_Helmet) / bne skip /
+    ///   tst.b (Maniaxe_throwing_axe) / bne skip / allocate ManiaxeAxe_Init /
+    ///   init animation stru_8B4E / st (Maniaxe_throwing_axe)
+    ///
+    /// ASM loc_A7F8 (kid.asm:13120): jump-loop C-press dispatch entry.
+    ///   `bclr #Button_C,(Ctrl_Pressed); beq.w loc_A8D6` — no C → skip all.
+    ///   `cmpi.w #8,d7; bne.w loc_A830` — helmet == Maniaxe? If yes:
+    ///   `tst.b (Maniaxe_throwing_axe); bne.w loc_A8D6` — already active → skip.
+    ///   `st (Maniaxe_throwing_axe); allocate ManiaxeAxe_Init; Init_Animation
+    ///   stru_8B60`. Native: same `step_maniaxe_axe` runs every frame.
+    ///
+    /// ASM loc_ACCC (kid.asm:13519): kid_flip (wall-cling) C-press dispatch.
+    ///   `cmpi.w #Maniaxe; bne.w loc_AD00` — helmet == Maniaxe? If yes:
+    ///   `tst.b (Maniaxe_throwing_axe); bne.w loc_AD2C` — already active → skip.
+    ///   `st (Maniaxe_throwing_axe); allocate ManiaxeAxe_Init; Init_Animation
+    ///   stru_8B60; bra loc_AD2C`. Same logic as loc_A7F8 (jump-loop) and
+    ///   loc_8CB6 (walking). Native: unified `step_maniaxe_axe` runs every frame.
+    ///
+    /// ASM loc_8CB6 (kid.asm:10100): walking-state duplicate — `bclr
+    ///   #Button_C,(Ctrl_Pressed); beq.w loc_8D72` (skip if C not pressed),
+    ///   `cmpi.w #Maniaxe; tst.b (Maniaxe_throwing_axe); bne.w loc_8D72`,
+    ///   allocate ManiaxeAxe_Init, `clr.l x_vel(a3)`, `st Maniaxe_throwing_axe`.
+    ///   Native: same logic; the `clr.l x_vel` is a visual stop (not modelled).
+    ///
+    /// ASM loc_8A42 (kid.asm:9862): `add.w $26(a0),d7; move.w d7,x_vel(a3)` —
+    ///   axe velocity = base_speed (±5) + Kid x_vel high word. moveq #$C,d0
+    ///   sets turnaround counter to 12.
+    ///
+    /// ASM loc_8A52 (kid.asm:9868): main flight loop body —
+    ///   `jsr Hibernate_Object_1Frame; tst.b $18(a3); beq loc_8A74` —
+    ///   1-frame hibernate, check animation-done flag. If set, reinit animation
+    ///   (stru_8B86) and play sfx_Maniaxe_throw_axe (visual/audio loop).
+    ///
+    /// ASM loc_8A74 (kid.asm:9879): `subq.w #1,d0; bne loc_8A84` —
+    ///   decrement turnaround counter. At zero: `not.b x_direction(a3);
+    ///   not.b $17(a3); moveq #$C,d0` — flip direction, flip render, reset
+    ///   counter. Native: `maniaxe_turnaround` decrement + velocity reversal.
+    ///
+    /// ASM loc_8ACC (kid.asm:9913): axe hits solid block (`andi.w #$7000,d7;
+    ///   cmpi.w #$6000,d7; beq loc_8ACC`) — clear x_vel, play sfx, animate
+    ///   stru_8BDE explosion, `jmp Delete_CurrentObject`. Native: uses the
+    ///   shared terrain-kill projectile path for solid-terrain deletion.
+    ///
+    /// ASM loc_8AF2 (kid.asm:9925): `jmp Delete_CurrentObject` — reached after
+    ///   solid-block explosion animation (loc_8ACC) or out-of-bounds check
+    ///   (ManiaxeAxe_CheckOutOfBounds). Native: shared projectile deletion.
+    ///
+    /// ASM loc_8B32 (kid.asm:9954): `moveq #1,d7; rts` — true return of
+    ///   ManiaxeAxe_CheckOutOfBounds (sub_8AF6). Camera-relative bounds:
+    ///   x in [cam_x - $10, cam_x + $150], y in [cam_y - $10, cam_y + $F0].
+    ///   Native: same camera-relative bounds in `step_projectiles`.
+    pub(crate) fn step_maniaxe_axe(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.progression.current_form != PlayerForm::Maniaxe {
+            self.helmet.maniaxe_axe_active = false;
+            self.helmet.maniaxe_throw_latch_frames = 0;
+            return;
+        }
+
+        // C rising edge throws axe (only one at a time)
+        let c_pressed = input.c && !self.prior_input.c;
+        let mut spawned_axe_this_frame = false;
+        if c_pressed && !self.helmet.maniaxe_axe_active {
+            self.helmet.maniaxe_axe_active = true;
+            spawned_axe_this_frame = true;
+            self.helmet.maniaxe_throw_latch_frames = MANIAXE_THROW_LATCH_FRAMES_LOC_794C;
+            self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
+            let player_x_velocity_word = slice.player.x_velocity >> 16;
+            let base_x_velocity_word = if slice.player.facing == Direction::Right {
+                MANIAXE_BASE_SPEED
+            } else {
+                -MANIAXE_BASE_SPEED
+            };
+            // ASM loc_8A42: add Kid's signed x_vel high word before storing the
+            // axe object's 16.16 x velocity.
+            let x_velocity = (base_x_velocity_word + player_x_velocity_word) << 16;
+            self.projectiles.push(EnemyProjectile {
+                x_pos: slice.player.x_pos,
+                y_pos: (slice.player.y_pos as i64 - (16 << 16)) as u32,
+                x_velocity,
+                // ASM loc_8A52/loc_8B32: the axe loops until collision or
+                // camera-relative out-of-bounds; there is no DBF lifetime.
+                lifetime: 0,
+                friendly: true,
+                // ASM loc_8ACC (kid.asm:9913): solid terrain routes the axe
+                // through its hit animation and then deletes it.
+                terrain_kill: true,
+                kind: EnemyProjectileKind::ManiaxeAxe,
+                ..Default::default()
+            });
+        }
+
+        // Turnaround: reverse axe projectile direction after travel frames
+        if self.helmet.maniaxe_axe_active && !spawned_axe_this_frame {
+            if self.helmet.maniaxe_turnaround > 0 {
+                self.helmet.maniaxe_turnaround -= 1;
+            }
+            if self.helmet.maniaxe_turnaround == 0 {
+                // ASM loc_8A74 (kid.asm:9879): the turnaround mutates the
+                // Maniaxe axe object being stepped in a3, not the newest
+                // projectile in the global list.
+                if let Some(p) = self
+                    .projectiles
+                    .iter_mut()
+                    .find(|p| p.kind == EnemyProjectileKind::ManiaxeAxe)
+                {
+                    p.x_velocity = -p.x_velocity;
+                    self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
+                }
+            }
+            // ASM loc_8ABC/loc_8AF2 delete the axe object, while `sub_78E8
+            // loc_794C` clears `Maniaxe_throwing_axe` independently when the
+            // Kid throw animation completes.
+            if !self
+                .projectiles
+                .iter()
+                .any(|p| p.kind == EnemyProjectileKind::ManiaxeAxe)
+            {
+                self.helmet.maniaxe_axe_active = false;
+                self.helmet.maniaxe_throw_latch_frames = 0;
+            }
+        }
+    }
+
+    // ASM loc_9564 selects one of six `off_9688` head-forward sprite mappings.
+    // Collision can clear `Berzerker_charging` at loc_9326 in the same wall
+    // contact, but the sprite write remains the live hitbox/renderer pose for
+    // subsequent evanescent-shooter scans in the stacked Highwater columns.
+    const BERZERKER_CHARGE_POSE_FRAMES_LOC_9564: u8 = 6;
+
+    #[allow(non_snake_case)]
+    pub(crate) fn berzerker_regular_walk_visual_accumulator_loc_95DA(
+        current_accumulator: u16,
+        x_velocity: i32,
+    ) -> u16 {
+        // ASM loc_95DA (kid.asm:11059): ordinary Berzerker walking reloads
+        // `$FFFFF8F0`, takes `abs(d0)`, then `swap; rol.l #5` to derive the
+        // off_967C phase increment, wrapping once at `$600`.
+        let speed = x_velocity.unsigned_abs();
+        let delta = (speed.rotate_left(21) & 0xFFFF) as u16;
+        let next = current_accumulator.wrapping_add(delta);
+        if next >= 0x0600 {
+            next.wrapping_sub(0x0600)
+        } else {
+            next
+        }
+    }
+
+    /// Update Berzerker charge state: builds accumulator when moving fast, activates on overflow.
+    pub(crate) fn step_berzerker_charge(&mut self, slice: &mut OpeningSliceState) {
+        if self.progression.current_form != PlayerForm::Berzerker {
+            self.helmet.berzerker_charging = false;
+            self.helmet.berzerker_charge_accum = 0;
+            self.helmet.berzerker_charge_pose = false;
+            self.helmet.berzerker_charge_pose_frames = 0;
+            self.helmet.berzerker_walk_pose = false;
+            return;
+        }
+        self.helmet.berzerker_walk_pose = false;
+        if self.helmet.berzerker_charge_pose_frames > 0 {
+            self.helmet.berzerker_charge_pose_frames -= 1;
+        }
+        self.helmet.berzerker_charge_pose = self.helmet.berzerker_charge_pose_frames > 0;
+
+        // ASM loc_950A (kid.asm:10973): negative Berzerker `x_vel` clears the
+        // charge accumulator when `x_direction(a3)` is clear (facing right);
+        // otherwise `neg.l d0` normalises the forward-left speed for the
+        // charge-accumulator path.
+        let moving_forward = match slice.player.x_velocity.cmp(&0) {
+            std::cmp::Ordering::Greater => slice.player.facing == Direction::Right,
+            std::cmp::Ordering::Less => slice.player.facing == Direction::Left,
+            std::cmp::Ordering::Equal => false,
+        };
+        // ASM loc_9512 (kid.asm:10978): on ice (`$FFFFFA0A == 1`), the charge
+        // accumulator only continues while left or right is held; no held
+        // direction branches to the clear path before the velocity threshold.
+        let ice_without_directional_input = slice.terrain.floor_terrain_type == TerrainType::Ice
+            && !self.previous_input.left
+            && !self.previous_input.right;
+        let vel_abs = slice.player.x_velocity.unsigned_abs() as i32;
+        if !moving_forward
+            || ice_without_directional_input
+            || vel_abs < BERZERKER_CHARGE_VEL_THRESHOLD
+        {
+            // ASM loc_957C (kid.asm:11023): every rejected charge frame clears
+            // `$FFFFFA13`, the byte accumulator represented by this native field.
+            // ASM loc_9580 (kid.asm:11026): fall-through clears
+            // `(Berzerker_charging).w`; native stores that flag directly.
+            self.helmet.berzerker_charging = false;
+            self.helmet.berzerker_charge_accum = 0;
+            if slice.player.x_velocity != 0 {
+                // ASM loc_957C -> loc_9580 -> loc_95DA -> loc_9600: rejected
+                // Berzerker charge frames still write the ordinary off_967C
+                // walk sprite before later collision may zero x_vel.
+                slice.walk_visual_accumulator =
+                    Self::berzerker_regular_walk_visual_accumulator_loc_95DA(
+                        slice.walk_visual_accumulator,
+                        slice.player.x_velocity,
+                    );
+                self.helmet.berzerker_walk_pose = true;
+            }
+            return;
+        }
+
+        // ASM loc_9526 (kid.asm:10986): once the direction/ice gate admits the
+        // frame, require `abs(x_vel) >= $10000`, then `addi.b #$10,$FFFFFA13`;
+        // carry promotes this into the Berzerker/Cyclone charge flag below.
+        let (new_accum, overflow) = self
+            .helmet
+            .berzerker_charge_accum
+            .overflowing_add(BERZERKER_CHARGE_ACCUM_STEP);
+        if overflow {
+            // ASM loc_9534/loc_9556/loc_9564 (kid.asm:10993-11013): carried
+            // `$FFFFFA13` advances `$FFFFF8F0`, stores it, then indexes
+            // off_9688 for the Berzerker walk/charge pose. Native exposes the
+            // stored phase to the renderer so the head-forward frames are not
+            // lost behind a global frame-index cycle.
+            let delta = if slice.terrain.floor_terrain_type == TerrainType::Ice {
+                0x40
+            } else {
+                let speed = vel_abs as u32;
+                let scaled = speed.rotate_left(2).wrapping_add(speed.rotate_left(4));
+                ((scaled >> 16) & 0xFFFF) as u16
+            };
+            let mut visual_accumulator = slice.walk_visual_accumulator.wrapping_add(delta);
+            // ASM loc_955A (kid.asm:11007): both ice and velocity-derived
+            // increments wrap the shared `$FFFFF8F0` phase once at `$600`
+            // before loc_9564 stores it and selects the charge pose.
+            if visual_accumulator >= 0x0600 {
+                visual_accumulator = visual_accumulator.wrapping_sub(0x0600);
+            }
+            slice.walk_visual_accumulator = visual_accumulator;
+            self.helmet.berzerker_charge_accum = 0xFF;
+            self.helmet.berzerker_charging = true;
+            self.helmet.berzerker_charge_pose = true;
+            self.helmet.berzerker_charge_pose_frames = Self::BERZERKER_CHARGE_POSE_FRAMES_LOC_9564;
+        } else {
+            self.helmet.berzerker_charge_accum = new_accum;
+            // ASM `addi.b #$10,($FFFFFA13); bcc.s loc_9580` clears
+            // `(Berzerker_charging).w` until the byte accumulator carries.
+            self.helmet.berzerker_charging = false;
+            // ASM loc_9580 -> loc_95DA -> loc_9600 writes the regular
+            // Berzerker walk sprite on non-overflow accumulator frames.
+            slice.walk_visual_accumulator =
+                Self::berzerker_regular_walk_visual_accumulator_loc_95DA(
+                    slice.walk_visual_accumulator,
+                    slice.player.x_velocity,
+                );
+            self.helmet.berzerker_walk_pose = true;
+        }
+    }
+
+    /// Berzerker charge wall break: when charging into a Smash block wall, break it.
+    pub(crate) fn berzerker_break_wall_block(&mut self, slice: &OpeningSliceState) {
+        let x_px = (slice.player.x_pos >> 16) as i32;
+        let y_px = (slice.player.y_pos >> 16) as i32;
+        let moving_right = slice.player.x_velocity > 0
+            || (slice.player.x_velocity == 0 && slice.player.facing == Direction::Right);
+        let half_width = self.progression.current_form.half_width();
+        let edge_x = if moving_right {
+            x_px + half_width + 1
+        } else {
+            x_px - half_width - 1
+        };
+        let smash_direction = if moving_right {
+            Self::BLOCK_DESTROY_DIRECTION_RIGHT
+        } else {
+            Self::BLOCK_DESTROY_DIRECTION_LEFT
+        };
+        let mut smash_effects = Vec::new();
+        let mut ice_effects = Vec::new();
+        let mut ice_projectiles = Vec::new();
+        let mut metal_pushes = Vec::new();
+        let hit_wall = {
+            let Some(grid) = self.block_grid.as_mut() else {
+                return;
+            };
+            if edge_x < 0 || edge_x >= grid.width_pixels() {
+                return;
+            }
+
+            let col = (edge_x / 16).clamp(0, i32::from(grid.width_cells).saturating_sub(1)) as u16;
+            let top_row = ((y_px - PLAYER_HEIGHT).max(0) / 16) as u16;
+            let foot_row =
+                (y_px / 16).clamp(0, i32::from(grid.height_cells).saturating_sub(1)) as u16;
+            let mut hit_wall = false;
+
+            // ASM loc_9294 -> loc_930E (kid.asm:10699-10752): scan every row in
+            // the leading column, dispatch handled blocks, then continue upward.
+            for row in (top_row..=foot_row).rev() {
+                let cell = grid.cell_at(col, row);
+                if !matches!(
+                    cell.collision,
+                    terrain::CollisionKind::Solid | terrain::CollisionKind::Spikes
+                ) {
+                    continue;
+                }
+                hit_wall = true;
+                if slice.player.on_ground
+                    && cell.has_block
+                    && matches!(
+                        cell.block_type,
+                        terrain::BlockType::Smash | terrain::BlockType::Prize
+                    )
+                {
+                    // ASM loc_92DE -> loc_92EC: non-Rubber block handlers are
+                    // gated behind Berzerker charge and `Character_Movement !=
+                    // MoveID_Jump`; native approximates that movement gate with
+                    // grounded state while keeping loc_9326's charge-clear below.
+                    // ASM off_933E[0/1]: Smash and Prize both jump through
+                    // Block_LoadSmashBits for Berzerker side impacts.
+                    grid.erase_block_from_level_layout_loc_11542(col, row);
+                    smash_effects.push((col * 16, row * 16, smash_direction));
+                }
+                if slice.player.on_ground
+                    && cell.has_block
+                    && cell.block_type == terrain::BlockType::Ice
+                {
+                    // ASM off_933E[2] -> IceBlock_SmashAndLoadBullets
+                    // (kid.asm:10778,22849): side-hit ice blocks use the
+                    // same direction register as the smash-bit path, then
+                    // run the bullet loader before the shard worker.
+                    let target_open = Self::ice_block_bullet_target_cell_sub_11006(
+                        col,
+                        row,
+                        smash_direction,
+                        grid.width_cells,
+                        grid.height_cells,
+                    )
+                    .is_some_and(|(target_col, target_row)| {
+                        Self::ice_block_bullet_target_cell_open_loc_11052(
+                            grid.cell_at(target_col, target_row),
+                        )
+                    });
+                    if target_open {
+                        ice_projectiles.extend(Self::ice_block_bullets_loc_11052(
+                            col,
+                            row,
+                            smash_direction,
+                        ));
+                    }
+                    grid.erase_block_from_level_layout_loc_11542(col, row);
+                    ice_effects.push((col * 16, row * 16, smash_direction));
+                }
+                if slice.player.on_ground
+                    && cell.has_block
+                    && cell.block_type == terrain::BlockType::Metal
+                {
+                    // ASM off_933E[5] -> loc_111F4: charging Berzerker side
+                    // impacts select the edge metal block in the struck run
+                    // and hand it to sub_1129C's moving-block worker.
+                    metal_pushes.push((col, row, smash_direction));
+                }
+            }
+
+            hit_wall
+        };
+
+        self.projectiles.extend(ice_projectiles);
+        for (col, row, direction) in metal_pushes {
+            if let Some(mut grid) = self.block_grid.take() {
+                self.start_metal_block_push_loc_111F4(&mut grid, col, row, direction);
+                self.block_grid = Some(grid);
+            }
+        }
+        for (block_x_px, block_y_px, direction) in smash_effects {
+            // ASM off_933E[0] -> j_Block_LoadSmashBits -> sub_10EDA:
+            // Berzerker side Smash hits use d6=1 when moving left and d6=3
+            // when moving right, so the visible debris nudges horizontally
+            // instead of simply deleting the block.
+            self.spawn_smash_block_effect_sub_10eda(block_x_px, block_y_px, direction);
+        }
+        for (block_x_px, block_y_px, direction) in ice_effects {
+            self.spawn_ice_block_effect_sub_10f9c(block_x_px, block_y_px, direction);
+        }
+
+        if hit_wall {
+            // ASM loc_9326 (kid.asm:10762): any non-rubber wall hit reaches
+            // `sf (Berzerker_charging).w` after the scan, even if loc_92DE
+            // skipped every block dispatch.
+            self.helmet.berzerker_charging = false;
+        }
+    }
+
+    /// Juggernaut skull shot: C fires a skull projectile with gravity arc.
+    ///
+    /// ASM loc_A87A (kid.asm:13162): jump-loop C-press Juggernaut dispatch.
+    ///   `cmpi.w #Juggernaut,(Current_Helmet); bne.w loc_A8A6` — not Juggernaut
+    ///   → skip to Eyeclops. `tst.b is_animated(a3); bne.w loc_A8D6` — animated
+    ///   → skip. `cmpi.w #8,($FFFFFB70); bge.w loc_A8D6` — ≥8 skulls → skip.
+    ///   Allocate object slot with `sub_86FA`. Native: same `step_juggernaut_skull`.
+    ///
+    /// ASM loc_7718 (kid.asm:7800): standing-still C-press gate —
+    ///   cmpi.w #Juggernaut,(Current_Helmet) / bne.s loc_7742 /
+    ///   tst.b is_animated(a3) / bne.s loc_7772 /
+    ///   cmpi.w #8,($FFFFFB70) / bge.w loc_7772 /
+    ///   jsr (j_Allocate_ObjectSlot) → loc_7738
+    /// `$FFFFFB70` is the live skull count (incremented at kid.asm:9626,
+    ///   decremented at kid.asm:9813); native counts `active_skulls` inline.
+    /// `is_animated(a3)` gates on Kid not being mid-animation; native runs
+    ///   this every frame so the gate is implicit (animations don't press C).
+    ///
+    /// ASM loc_7738 (kid.asm:7810): move.l #sub_86FA,4(a0) / bra.s loc_7772 —
+    ///   assigns the allocated object slot to the skull worker (`sub_86FA`).
+    ///   Native models the 3-frame hibernate via `juggernaut_skull_delay_frames`.
+    pub(crate) fn step_juggernaut_skull(&mut self, slice: &OpeningSliceState, input: FrameInput) {
+        if self.progression.current_form != PlayerForm::Juggernaut {
+            self.helmet.juggernaut_skull_delay_frames = 0;
+            self.helmet.juggernaut_skull_pending_delay_frames.clear();
+            return;
+        }
+
+        let mut ready_workers = 0usize;
+        for delay_frames in &mut self.helmet.juggernaut_skull_pending_delay_frames {
+            // ASM loc_876A (kid.asm:9599): `jsr Hibernate_Object_1Frame;
+            // subq.w #1,d0; bne.w loc_879A` — each allocated sub_86FA
+            // object owns and ticks its own 3-frame counter.
+            *delay_frames = delay_frames.saturating_sub(1);
+            if *delay_frames == 0 {
+                ready_workers += 1;
+            }
+        }
+        self.helmet
+            .juggernaut_skull_pending_delay_frames
+            .retain(|delay_frames| *delay_frames > 0);
+        for _ in 0..ready_workers {
+            let (x_pos, y_pos, x_velocity) = juggernaut_skull_spawn_anchor_sub_87B0(&slice.player);
+            if self
+                .block_grid
+                .as_ref()
+                .is_some_and(|grid| juggernaut_skull_spawn_blocked_loc_87EC(grid, x_pos, y_pos))
+            {
+                continue;
+            }
+            self.projectiles.push(EnemyProjectile {
+                x_pos,
+                y_pos,
+                x_velocity,
+                lifetime: JUGGERNAUT_SKULL_LIFETIME,
+                friendly: true,
+                gravity: JUGGERNAUT_SKULL_GRAVITY,
+                reaim_countdown: u16::from(JUGGERNAUT_SKULL_BOUNCES),
+                ..Default::default()
+            });
+        }
+
+        let c_pressed = input.c && !self.prior_input.c;
+        if !c_pressed {
+            self.helmet.juggernaut_skull_delay_frames = self
+                .helmet
+                .juggernaut_skull_pending_delay_frames
+                .first()
+                .copied()
+                .unwrap_or(0);
+            return;
+        }
+
+        // ASM loc_7718 (kid.asm:7800): cmpi.w #8,($FFFFFB70) / bge.w loc_7772
+        // ASM loc_8D2C (kid.asm:10136) checks the same shared live-skull count.
+        let active_skulls = self
+            .projectiles
+            .iter()
+            .filter(|projectile| is_juggernaut_skull_projectile(projectile))
+            .count();
+        if active_skulls >= JUGGERNAUT_MAX_SKULLS {
+            self.helmet.juggernaut_skull_delay_frames = self
+                .helmet
+                .juggernaut_skull_pending_delay_frames
+                .first()
+                .copied()
+                .unwrap_or(0);
+            return;
+        }
+
+        // ASM loc_7738 (kid.asm:7810): move.l #sub_86FA,4(a0) — assigns the
+        // skull worker. sub_86FA (kid.asm:9568) hibernates for three frames
+        // while tracking Kid, then spawns `sub_87B0`.
+        //
+        // ASM loc_874C (kid.asm:9591): `move.l $1A(a2),x_pos(a3)` — copies
+        // Kid's position and facing to the skull GFX object each frame during
+        // the 3-frame delay (`moveq #3,d0` at kid.asm:9597). The position
+        // tracking is visual-only; native reads player position at spawn time.
+        // `tst.b ($FFFFFA6C); bne.w loc_874C` at kid.asm:9583 skips companion
+        // GFX init when the companion already exists — also visual-only.
+        //
+        // ASM loc_87A0 (kid.asm:9614): `move.l $1E(a2),y_pos(a3); tst.b $18(a3);
+        // beq.s loc_876A; jmp Delete_CurrentObject` — after spawn, the skull
+        // worker continues copying Kid's y_pos to the skull GFX each frame and
+        // loops (loc_876A) until the GFX animation completes ($18 flag), then
+        // deletes itself. This post-spawn tracking is visual-only; native does
+        // not model the companion GFX object lifecycle.
+        self.helmet
+            .juggernaut_skull_pending_delay_frames
+            .push(JUGGERNAUT_SKULL_STARTUP_FRAMES);
+        self.helmet.juggernaut_skull_delay_frames = self
+            .helmet
+            .juggernaut_skull_pending_delay_frames
+            .first()
+            .copied()
+            .unwrap_or(0);
+    }
+
+    /// Diamond Power: Start+A with 20+ diamonds activates a per-form special.
+    /// ASM: DiamondPower_Run (kid.asm:44331). Eyeclops excluded.
+    ///
+    /// Two tiers: 20 diamonds = basic power, 50 diamonds (20+30) = enhanced power.
+    /// Each form has a unique effect per tier (ASM: DiamondPower_Init_Index).
+    pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
+        self.diamond_power_sprites.clear();
+        // Count down active Diamond Power.
+        let diamond_power_active = self.progression.diamond_power_frames > 0
+            || !self.diamond_power_invuln_haze_slots.is_empty()
+            || (self.progression.diamond_power_type == DiamondPowerType::CircleOfDoom
+                && !self.diamond_power_circle_slots.is_empty());
+        if diamond_power_active {
+            if self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
+                && self.progression.diamond_power_frames > 0
+            {
+                self.progression.diamond_power_frames -= 1;
+            }
+
+            match self.progression.diamond_power_type {
+                DiamondPowerType::CircleOfDoom => {
+                    // ASM DiamondPower_Main_CircleOfDoom loc_3F81A walks the
+                    // DP-object linked list, compiles `word_4020E` sprites at
+                    // loc_3F880, then converges through loc_3F8AA.
+                    self.step_diamond_power_circle_of_doom_slots_loc_3f81a();
+                    self.progression.invulnerable_frames =
+                        self.progression.invulnerable_frames.max(1);
+                }
+                DiamondPowerType::WallOfDeath => {
+                    // ASM DiamondPower_Main_WallOfDeath loc_40026 moves the
+                    // ten DP-object slots and compiles `word_4020E` sprites at
+                    // loc_4009C. Enemy damage belongs to the generic
+                    // DP-object collision word path; native does not model
+                    // those collision words for Wall yet.
+                    self.step_diamond_power_wall_of_death_slots_loc_40026();
+                    self.progression.invulnerable_frames =
+                        self.progression.invulnerable_frames.max(1);
+                }
+                DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze => {
+                    // ASM DiamondPower_Main_InvulnAndHaze loc_3FD28 keeps
+                    // rendering its ten DP slots while the signed timer fades.
+                    self.step_diamond_power_invuln_haze_slots_loc_3fd28();
+                    self.progression.invulnerable_frames =
+                        self.progression.invulnerable_frames.max(1);
+                }
+                DiamondPowerType::SlashingRain | DiamondPowerType::TrackingRain => {
+                    // ASM loc_3FE62 (kid.asm:45204): rain main loop preamble —
+                    // d3=$7F-Camera_X, d4=$7F-Camera_Y screen offsets,
+                    // a5=Kid x_vel*3/4 (drift for non-tracking rain),
+                    // d7=Time_Frames&7 (tracking check cadence), then
+                    // iterates diamond power object linked list via loc_3FE90.
+                    //
+                    // ASM loc_3FE90 (kid.asm:45221): per-object loop entry —
+                    // tst.w $3E(a0): nonzero → loc_3FE98 (tracking: apply own
+                    // velocities), zero → loc_3FEBC (not yet tracking: check
+                    // frame timing, search enemies, possibly start tracking).
+                    // Native keeps the same dedicated DP rain list: spawn
+                    // here, then `step_diamond_power_rain_slots` walks it like
+                    // loc_3FE90 through loc_3FFDA.
+                    let rain_count = self.diamond_power_rain_slots.len();
+                    if diamond_power_rain_spawn_gate_loc_3FDFE(
+                        self.progression.diamond_power_frames as i16,
+                        rain_count,
+                        self.frame_index as u16,
+                    ) {
+                        let slice = self.opening_slice.as_ref();
+                        let cam_x = slice.map_or(0, |s| s.camera.x_pos);
+                        let cam_y = slice.map_or(0, |s| s.camera.y_pos);
+                        let rain_slot = diamond_power_rain_spawn_slot_loc_3FDFE(
+                            cam_x,
+                            cam_y,
+                            self.rom_random.next_byte(),
+                        );
+                        self.diamond_power_rain_slots.push(DiamondPowerRainSlot {
+                            x_pos: rain_slot.x_pos,
+                            y_pos: rain_slot.y_pos,
+                            x_velocity: rain_slot.x_velocity,
+                            y_velocity: rain_slot.y_velocity,
+                            tracking_word_3e: rain_slot.tracking_word_3e,
+                            size_word_24: rain_slot.size_word_24,
+                        });
+                    }
+                }
+                DiamondPowerType::FiveWayShot => {
+                    // ASM DiamondPower_Main_FiveWayShot loc_40140 walks the
+                    // five DP-object slots seeded by loc_400DE/loc_400F4,
+                    // bounces them in screen space, then compiles sprites at
+                    // loc_401BA.
+                    if self.progression.diamond_power_frames
+                        == diamond_power_duration(DiamondPowerType::FiveWayShot) - 1
+                        && self.diamond_power_five_way_slots.is_empty()
+                    {
+                        let slice = self.opening_slice.as_ref();
+                        let (px, py, camera_x, camera_y, x_direction_nonzero) =
+                            slice.map_or((0, 0, 0, 0, false), |s| {
+                                (
+                                    (s.player.x_pos >> 16) as i16,
+                                    (s.player.y_pos >> 16) as i16,
+                                    (s.camera.x_pos >> 16) as i16,
+                                    (s.camera.y_pos >> 16) as i16,
+                                    s.player.facing == Direction::Left,
+                                )
+                            });
+                        self.diamond_power_five_way_slots = diamond_power_init_five_way_shot(
+                            px,
+                            py,
+                            camera_x,
+                            camera_y,
+                            x_direction_nonzero,
+                        )
+                        .slots;
+                    }
+                    self.step_diamond_power_five_way_shot_slots_loc_40140();
+                }
+                DiamondPowerType::MiniSnake
+                | DiamondPowerType::SwiftMiniSnake
+                | DiamondPowerType::DeathSnake => {
+                    // ASM DiamondPower_Main_Snake loc_3F978 shifts the six
+                    // DP-object slots, steers the head from loc_3F9A2 through
+                    // loc_3FAD4, then compiles `word_4020E` sprites at
+                    // loc_3FB3E.
+                    self.progression.invulnerable_frames =
+                        self.progression.invulnerable_frames.max(1);
+                    if self.diamond_power_snake_slots.is_empty() {
+                        self.initialise_diamond_power_snake_slots_loc_3f91c(
+                            self.progression.diamond_power_type,
+                        );
+                    }
+                    self.step_diamond_power_snake_slots_loc_3f978();
+                }
+                DiamondPowerType::ExtraHitPoint | DiamondPowerType::ExtraLife => {
+                    // ASM DiamondPower_Main_ExtraHPLife increments
+                    // Diamond_power_timer, renders the ten reward slots, and
+                    // awards HP/life only when loc_3FC2A converges.
+                    self.step_diamond_power_extra_hp_life_slots_loc_3fbe4();
+                }
+                DiamondPowerType::None => {}
+            }
+
+            if self.progression.diamond_power_frames == 0
+                && self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
+            {
+                if matches!(
+                    self.progression.diamond_power_type,
+                    DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze
+                ) {
+                    // The ROM keeps these slots alive for the negative timer
+                    // fade window; `step_diamond_power_invuln_haze_slots_loc_3fd28`
+                    // clears them when the signed timer drops below -$1B.
+                } else {
+                    self.progression.diamond_power_type = DiamondPowerType::None;
+                    self.diamond_power_rain_slots.clear();
+                    self.diamond_power_circle_slots.clear();
+                    self.diamond_power_wall_slots.clear();
+                    self.diamond_power_five_way_slots.clear();
+                    self.diamond_power_snake_slots.clear();
+                    self.diamond_power_extra_hp_life_slots.clear();
+                    self.diamond_power_invuln_haze_slots.clear();
+                    self.diamond_power_invuln_haze_timer = 0;
+                    self.kid_is_invulnerable = false;
+                    self.diamond_power_sprites.clear();
+                }
+            }
+            return;
+        }
+
+        // Activation: Start+A held, not Eyeclops, 20+ diamonds
+        // ASM: DiamondPower_Check (kid.asm:44357)
+        if !(input.start && input.a) {
+            return;
+        }
+        if self.progression.current_form == PlayerForm::Eyeclops {
+            return;
+        }
+
+        // ASM sub_7428 (kid.asm:7569) arms Juggernaut's 5-way shot once
+        // Start+A is held with 5+ diamonds; the shared DiamondPower_Run path
+        // then spends that reduced cost instead of the normal 20.
+        let cost = if juggernaut_five_way_shot_ready_sub_7428(
+            self.progression.current_form,
+            input,
+            self.progression.diamond_count,
+        ) {
+            5
+        } else {
+            20
+        };
+        if self.progression.diamond_count < cost {
+            return;
+        }
+
+        // Two-tier diamond cost (ASM: DiamondPower_Check):
+        // Always costs base amount. If remaining >= 30 after first deduction, costs 30 more
+        // (50 total for non-Juggernaut) for enhanced tier-2 power.
+        self.progression.diamond_count -= cost;
+        let tier2 = if self.progression.current_form != PlayerForm::Juggernaut
+            && self.progression.diamond_count >= 30
+        {
+            self.progression.diamond_count -= 30;
+            true
+        } else {
+            false
+        };
+
+        let power = diamond_power_for_form(self.progression.current_form, tier2);
+        self.progression.diamond_power_type = power;
+        self.diamond_power_rain_slots.clear();
+        self.diamond_power_circle_slots.clear();
+        self.diamond_power_wall_slots.clear();
+        self.diamond_power_five_way_slots.clear();
+        self.diamond_power_snake_slots.clear();
+        self.diamond_power_extra_hp_life_slots.clear();
+        self.diamond_power_invuln_haze_slots.clear();
+        self.diamond_power_invuln_haze_timer = 0;
+        self.kid_is_invulnerable = false;
+        self.diamond_power_sprites.clear();
+
+        // ASM loc_3FDFE (kid.asm:45172): shared init epilogue for
+        // DiamondPower_Init_TrackingRain/SlashingRain — clr.w ($FFFFF5C0).w
+        // resets active rain object count to 0. Native has no explicit count
+        // (projectile list length serves as the equivalent).
+        self.progression.diamond_power_frames = diamond_power_duration(power);
+        if power == DiamondPowerType::CircleOfDoom {
+            // ASM DiamondPower_Check calls Initialize_DiamondPowerObjectSlots,
+            // then DiamondPower_Init_CircleOfDoom loc_3F7D0/loc_3F7E6 seeds
+            // eight live DP-object slots before the main loop renders them.
+            self.diamond_power_circle_slots = diamond_power_init_circle_of_doom_sub_3F7D0();
+        }
+        if power == DiamondPowerType::WallOfDeath {
+            // ASM DiamondPower_Init_WallOfDeath loc_3FFE4/loc_3FFEA seeds ten
+            // DP-object slots and stores `$4B0` into `Diamond_power_timer`.
+            self.diamond_power_wall_slots = diamond_power_init_wall_of_death().slots;
+        }
+        if power == DiamondPowerType::FiveWayShot {
+            // ASM DiamondPower_Init_FiveWayShot loc_400DE/loc_400F4 seeds
+            // five DP-object slots at Kid's screen-relative position.
+            let slice = self.opening_slice.as_ref();
+            let (px, py, camera_x, camera_y, x_direction_nonzero) =
+                slice.map_or((0, 0, 0, 0, false), |s| {
+                    (
+                        (s.player.x_pos >> 16) as i16,
+                        (s.player.y_pos >> 16) as i16,
+                        (s.camera.x_pos >> 16) as i16,
+                        (s.camera.y_pos >> 16) as i16,
+                        s.player.facing == Direction::Left,
+                    )
+                });
+            self.diamond_power_five_way_slots =
+                diamond_power_init_five_way_shot(px, py, camera_x, camera_y, x_direction_nonzero)
+                    .slots;
+        }
+        if matches!(
+            power,
+            DiamondPowerType::MiniSnake
+                | DiamondPowerType::SwiftMiniSnake
+                | DiamondPowerType::DeathSnake
+        ) {
+            self.initialise_diamond_power_snake_slots_loc_3f91c(power);
+        }
+        if matches!(
+            power,
+            DiamondPowerType::ExtraHitPoint | DiamondPowerType::ExtraLife
+        ) {
+            self.initialise_diamond_power_extra_hp_life_slots_loc_3fb96(power);
+        }
+        if matches!(
+            power,
+            DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze
+        ) {
+            self.initialise_diamond_power_invuln_haze_slots_loc_3fc8a(power);
+        }
+    }
+}
