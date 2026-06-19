@@ -1057,13 +1057,13 @@ pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
         // Diamond_power_timer; the live power is owned by the DP-object list.
         DiamondPowerType::CircleOfDoom => 0,
         DiamondPowerType::Invulnerability => 480, // $1E0
-        DiamondPowerType::SamuraiHaze => 480,  // $1E0
-        DiamondPowerType::SlashingRain => 720, // $2D0
-        DiamondPowerType::TrackingRain => 1800, // $708
-        DiamondPowerType::FiveWayShot => 80,   // $50
-        DiamondPowerType::MiniSnake => 480,    // $1E0
+        DiamondPowerType::SamuraiHaze => 480,     // $1E0
+        DiamondPowerType::SlashingRain => 720,    // $2D0
+        DiamondPowerType::TrackingRain => 1800,   // $708
+        DiamondPowerType::FiveWayShot => 80,      // $50
+        DiamondPowerType::MiniSnake => 480,       // $1E0
         DiamondPowerType::SwiftMiniSnake => 1200, // $4B0
-        DiamondPowerType::DeathSnake => 1200,  // $4B0
+        DiamondPowerType::DeathSnake => 1200,     // $4B0
         // ASM ExtraHPLife clears Diamond_power_timer at init and increments
         // it in DiamondPower_Main_ExtraHPLife until the orbit converges. The
         // native countdown uses this window to keep the runtime path active.

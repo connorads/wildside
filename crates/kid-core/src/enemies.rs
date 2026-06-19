@@ -10577,9 +10577,10 @@ pub(crate) fn step_active_enemies_with_rng(
                     }
                 } else if matches!(enemy.family, EnemyFamily::Drips) {
                     if let Some(projs) = projectiles.as_deref_mut()
-                        && drips_object_check_in_range_loc_333f6(enemy, camera_x_px, camera_y_px) {
-                            step_drips(enemy, projs, block_grid);
-                        }
+                        && drips_object_check_in_range_loc_333f6(enemy, camera_x_px, camera_y_px)
+                    {
+                        step_drips(enemy, projs, block_grid);
+                    }
                 } else if let Some(ref mut projs) = projectiles {
                     step_archer(
                         enemy,

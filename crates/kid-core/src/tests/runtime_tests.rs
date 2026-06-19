@@ -7123,7 +7123,10 @@ mod chunk_09 {
             lower_group.state, 0x8001,
             "ASM sub_F730 loc_F8A6 starts the two-frame vanished lead-in when the initial solid hold expires"
         );
-        let grid = rt.block_grid.as_ref().expect("Level 0x06 grid should exist");
+        let grid = rt
+            .block_grid
+            .as_ref()
+            .expect("Level 0x06 grid should exist");
         for col in 0x17..=0x19 {
             let cell = grid.cell_at(col, 0x12);
             assert_eq!(
@@ -7195,8 +7198,7 @@ mod chunk_09 {
         assert!(
             !lower_group.solid,
             "ASM loc_124A6 should preserve the lower ghost group so sub_F730 can clear it during the recorded level-06 route; got timer={:#06x} state={:#06x}",
-            lower_group.timer,
-            lower_group.state
+            lower_group.timer, lower_group.state
         );
 
         let frame_512 = frame_512.expect("issue #289 route should replay through frame 512");
@@ -7207,7 +7209,9 @@ mod chunk_09 {
             "ASM sub_F730 must vanish the lower Skull Mountain 3 ghost group before Kid's sub_902A ceiling probes; otherwise the jump at frame 512 is cancelled by stale solid cell (24,18)"
         );
         assert!(
-            frame_512.kid_y_velocity.is_some_and(|velocity| velocity < 0),
+            frame_512
+                .kid_y_velocity
+                .is_some_and(|velocity| velocity < 0),
             "ASM sub_902A should preserve the jump launch once sub_F730 has cleared the ghost block collision"
         );
     }

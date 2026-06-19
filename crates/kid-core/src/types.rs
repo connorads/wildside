@@ -3218,8 +3218,7 @@ pub(crate) struct MurderWallState {
     pub(crate) reversed: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct PlatformLoaderState {
     pub(crate) next_index: usize,
     pub(crate) offset_words: u16,
@@ -3228,7 +3227,6 @@ pub(crate) struct PlatformLoaderState {
     pub(crate) loaded_mask: u64,
     pub(crate) slot_model: PlatformLoaderSlotModelLoc2744,
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ObjectSystemState {

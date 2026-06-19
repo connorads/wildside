@@ -768,7 +768,10 @@ impl ViewTasApp {
             .comparison
             .vdp_snapshots
             .get(frame_index)
-            .and_then(Option::as_ref) { render_native_vdp_rgb(vdp, &mut rgb) } else {
+            .and_then(Option::as_ref)
+        {
+            render_native_vdp_rgb(vdp, &mut rgb)
+        } else {
             let level_id = frame.current_level.0;
             if !self.asset_cache.contains_key(&level_id) {
                 let assets = load_session_assets(&self.manifest, level_id)?;

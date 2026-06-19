@@ -945,12 +945,14 @@ pub(crate) fn weather_worker_input_from_runtime_sub_61ca(
         kid_hitbox_right_px: kid_hitbox_right_px as i16,
         random_byte,
         spawn_random_byte,
-        collision_rows: block_grid.map_or_else(|| WeatherCollisionRowsSub61CA { rows: Vec::new() }, weather_collision_rows_from_block_grid_sub_61ca),
+        collision_rows: block_grid.map_or_else(
+            || WeatherCollisionRowsSub61CA { rows: Vec::new() },
+            weather_collision_rows_from_block_grid_sub_61ca,
+        ),
         starting_number_sprites,
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WeatherSpriteSub61CA {
     pub(crate) y: u16,
@@ -2727,7 +2729,9 @@ impl NativeRuntime {
             .unwrap_or([0; 15]);
         let thunder_flash_palette = self
             .theme_palette_words::<8>(STORM_THUNDER_FLASH_PALETTE_PATH_LOC_6123)
-            .map_or([0; 7], |palette| core::array::from_fn(|index| palette[index]));
+            .map_or([0; 7], |palette| {
+                core::array::from_fn(|index| palette[index])
+            });
         let thunder_calm_palette = saved_storm_palette;
 
         let stepped = step_level_special_effects_sub_6048(
@@ -3124,9 +3128,10 @@ impl NativeRuntime {
         for fireball in &mut self.weather.lava_fireballs {
             if fireball.cooldown_timer == 0
                 && let Some(segment) = lava_fireball_live_segment_loc_149E4(fireball.segment_index)
-                    && lava_fireball_hits_kid_sub_14AB0(fireball, slice, segment.sprite_kind) {
-                        should_damage = true;
-                    }
+                && lava_fireball_hits_kid_sub_14AB0(fireball, slice, segment.sprite_kind)
+            {
+                should_damage = true;
+            }
             advance_lava_fireball(fireball);
         }
 

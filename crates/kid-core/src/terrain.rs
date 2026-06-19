@@ -756,7 +756,8 @@ const LEVEL_LAYOUT_LOW_WORD_START: u16 = 0xA652;
 const LEVEL_LAYOUT_LOW_WORD_END: u16 = 0xE7F2;
 
 fn is_level_layout_low_word_addr(addr: u16) -> bool {
-    (LEVEL_LAYOUT_LOW_WORD_START..LEVEL_LAYOUT_LOW_WORD_END).contains(&addr) && addr.is_multiple_of(2)
+    (LEVEL_LAYOUT_LOW_WORD_START..LEVEL_LAYOUT_LOW_WORD_END).contains(&addr)
+        && addr.is_multiple_of(2)
 }
 
 impl BlockList {
@@ -820,9 +821,9 @@ impl BlockList {
     fn from_raw_with_grid(data: &[u8], layout_width: u16, grid: Option<&BlockGrid>) -> Self {
         let mut prize_blocks = Vec::new();
         let mut offset = 0;
-        let enforce_level_layout_addr_bounds = data
-            .get(0..2)
-            .is_some_and(|bytes| is_level_layout_low_word_addr(u16::from_be_bytes([bytes[0], bytes[1]])));
+        let enforce_level_layout_addr_bounds = data.get(0..2).is_some_and(|bytes| {
+            is_level_layout_low_word_addr(u16::from_be_bytes([bytes[0], bytes[1]]))
+        });
         while offset + PRIZE_BLOCK_RECORD_BYTES <= data.len() {
             let layout_addr = u16::from_be_bytes([data[offset], data[offset + 1]]);
             if layout_addr == 0 {
@@ -907,8 +908,9 @@ impl BlockList {
             if enforce_level_layout_addr_bounds
                 && (!is_level_layout_low_word_addr(layout_addr)
                     || layout_addr != Self::level_layout_low_word_addr(col, row, layout_width)
-                    || grid
-                        .is_some_and(|grid| grid.cell_at(col, row).block_type != BlockType::Teleporter)
+                    || grid.is_some_and(|grid| {
+                        grid.cell_at(col, row).block_type != BlockType::Teleporter
+                    })
                     || is_level_layout_low_word_addr(dest_x)
                     || dest_x > 0x03FF)
             {
@@ -947,8 +949,9 @@ impl BlockList {
             if enforce_level_layout_addr_bounds
                 && (!is_level_layout_low_word_addr(layout_addr)
                     || layout_addr != Self::level_layout_low_word_addr(col, row, layout_width)
-                    || grid
-                        .is_some_and(|grid| grid.cell_at(col, row).collision != CollisionKind::HiddenBlock))
+                    || grid.is_some_and(|grid| {
+                        grid.cell_at(col, row).collision != CollisionKind::HiddenBlock
+                    }))
             {
                 // ASM loc_11CF6 bounds generated hidden/background records by
                 // `$FFFFF8EA << 3`; without the live count, native stops when a
@@ -4677,7 +4680,10 @@ mod tests {
         // `lsr.w #4`, so x=-1 resolves to column `$0FFF`. Y uses signed
         // `asr.w #4`, so y=-1 addresses a negative row; the native grid has no
         // ROM row-pointer padding there and returns empty.
-        assert_eq!(relative_collision_mask_loc_331D2(&grid, -1, 0, 0, 0), 0x6000);
+        assert_eq!(
+            relative_collision_mask_loc_331D2(&grid, -1, 0, 0, 0),
+            0x6000
+        );
         assert_eq!(relative_collision_mask_loc_331D2(&grid, 0, -1, 0, 0), 0);
     }
 

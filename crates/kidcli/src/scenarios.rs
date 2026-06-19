@@ -385,10 +385,7 @@ pub(crate) fn run_native_dynamic_scenario_with_vdp(
     manifest: AssetManifest,
     scenario: &DynamicScenario,
     options: NativeDynamicRunOptions,
-) -> Result<(
-    Vec<NativeTraceFrame>,
-    Vec<Option<kid_core::vdp::VdpState>>,
-)> {
+) -> Result<(Vec<NativeTraceFrame>, Vec<Option<kid_core::vdp::VdpState>>)> {
     Ok(configure_script_runner(manifest, scenario, options)?
         .run_with_vdp(&scenario.script, scenario.frame_count))
 }

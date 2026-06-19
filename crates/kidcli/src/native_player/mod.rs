@@ -2196,9 +2196,7 @@ pub(crate) fn native_audio_artifacts_for_settled_trace(
     manifest: &AssetManifest,
     trace_frames: &[NativeTraceFrame],
 ) -> RecordingBundleArtifacts {
-    let initial_active_bgm_cue = trace_frames
-        .first()
-        .and_then(native_bgm_cue_for_trace);
+    let initial_active_bgm_cue = trace_frames.first().and_then(native_bgm_cue_for_trace);
     native_audio_artifacts_for_trace_with_initial_bgm(
         manifest,
         trace_frames,
@@ -2681,12 +2679,13 @@ fn gems_event_sound_commands(
     // Form change (helmet ID changed). ASM loc_7CD0 skips the unk_7ED8 cue in
     // Demo_Mode_flag, otherwise indexes this table by Current_Helmet whose
     // order differs from the extracted art order.
-    if curr.game_mode != GameMode::DemoPlay && curr.current_helmet_id != prev.current_helmet_id
+    if curr.game_mode != GameMode::DemoPlay
+        && curr.current_helmet_id != prev.current_helmet_id
         && let Some(id) = transform_sound_for_helmet_id_loc_7cd0(curr.current_helmet_id)
-            && !queued_sound_ids.contains(&id)
-        {
-            sound_commands.push(NativeSoundCommand::play_sound(id));
-        }
+        && !queued_sound_ids.contains(&id)
+    {
+        sound_commands.push(NativeSoundCommand::play_sound(id));
+    }
 
     // Diamond Power activation
     if curr.diamond_power_active && !prev.diamond_power_active {

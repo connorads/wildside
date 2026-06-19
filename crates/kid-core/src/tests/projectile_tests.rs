@@ -4202,8 +4202,7 @@ mod chunk_06 {
             "ASM loc_8A42: right-facing axe velocity should add Kid's signed x_vel high word"
         );
         assert_eq!(
-            rt.helmet.maniaxe_turnaround,
-            MANIAXE_TRAVEL_FRAMES,
+            rt.helmet.maniaxe_turnaround, MANIAXE_TRAVEL_FRAMES,
             "ASM loc_8A42/loc_8A52: `moveq #$C,d0` seeds the counter, then the first \
              `Hibernate_Object_1Frame` occurs before loc_8A74 decrements it on the next tick"
         );

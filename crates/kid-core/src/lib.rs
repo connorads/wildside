@@ -3700,14 +3700,14 @@ impl NativeRuntime {
                 if let Some(form) = self.prize_helmet_collision_hibernate_switch_form
                     && self.prize_helmet_collision_hibernate_delay_frames
                         == crate::combat::transform_anim_frames(form) as u8
-                    {
-                        // ASM loc_7CD0 (kid.asm:8426): after the old helmet's
-                        // reverse animation entries have hibernated, write
-                        // Current_Helmet_Available into Current_Helmet before
-                        // walking the new helmet's forward table.
-                        self.progression.current_form = form;
-                        self.prize_helmet_collision_hibernate_switch_form = None;
-                    }
+                {
+                    // ASM loc_7CD0 (kid.asm:8426): after the old helmet's
+                    // reverse animation entries have hibernated, write
+                    // Current_Helmet_Available into Current_Helmet before
+                    // walking the new helmet's forward table.
+                    self.progression.current_form = form;
+                    self.prize_helmet_collision_hibernate_switch_form = None;
+                }
                 if self.trace_physics {
                     slice.physics_trace = Some(PhysicsTrace {
                         pre_horizontal: (slice.player.x_pos, slice.player.x_velocity),

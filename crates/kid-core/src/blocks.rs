@@ -3810,7 +3810,9 @@ impl NativeRuntime {
 
         let collision_anchor = self
             .last_kid_frame_collision_handoff_probe
-            .map_or((slice.player.x_pos, slice.player.y_pos), |probe| (probe.anchor_x_pos, probe.anchor_y_pos));
+            .map_or((slice.player.x_pos, slice.player.y_pos), |probe| {
+                (probe.anchor_x_pos, probe.anchor_y_pos)
+            });
         // ASM GfxObjects_CollisionKid (kid.asm:3310) reads Kid_hitbox_* from
         // the collision handoff that precedes native's later post-motion prize
         // collection point. Using the current post-physics Kid position lets
@@ -4255,16 +4257,21 @@ impl NativeRuntime {
                 let right_neighbour = worker
                     .col
                     .checked_add(1)
-                    .filter(|col| *col < level_width_blocks).map_or_else(|| terrain::Cell::from_be_bytes(0, 0), |col| grid.cell_at(col, worker.row));
+                    .filter(|col| *col < level_width_blocks)
+                    .map_or_else(
+                        || terrain::Cell::from_be_bytes(0, 0),
+                        |col| grid.cell_at(col, worker.row),
+                    );
                 Self::metal_block_push_right_delete_gate_loc_11358(
                     worker.col,
                     level_width_blocks,
                     right_neighbour,
                 )
             } else {
-                let left_neighbour = worker
-                    .col
-                    .checked_sub(1).map_or_else(|| terrain::Cell::from_be_bytes(0, 0), |col| grid.cell_at(col, worker.row));
+                let left_neighbour = worker.col.checked_sub(1).map_or_else(
+                    || terrain::Cell::from_be_bytes(0, 0),
+                    |col| grid.cell_at(col, worker.row),
+                );
                 Self::metal_block_push_left_delete_gate_loc_11328(worker.col, left_neighbour)
             };
 

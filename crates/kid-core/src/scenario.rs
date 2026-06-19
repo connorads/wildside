@@ -509,7 +509,9 @@ mod tests {
     // extract-assets`. Mirrors the loader in crate::tests::fixtures.
     fn cached_generated_manifest() -> Option<AssetManifest> {
         if !matches!(
-            std::env::var("KID_ENABLE_CACHE_BACKED_TESTS").ok().as_deref(),
+            std::env::var("KID_ENABLE_CACHE_BACKED_TESTS")
+                .ok()
+                .as_deref(),
             Some("1" | "true" | "TRUE" | "yes" | "YES")
         ) {
             return None;

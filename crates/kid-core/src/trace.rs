@@ -5424,12 +5424,13 @@ mod tests {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
         runtime.weather.weather_type = 3;
-        runtime.weather.storm_falling_slots_sub_61ca[0] = crate::weather::FallingWeatherSlotSub61CA {
-            y_px: 0x0040,
-            x_px: 0x0120,
-            animation_cooldown: 6,
-            animation_frame: 2,
-        };
+        runtime.weather.storm_falling_slots_sub_61ca[0] =
+            crate::weather::FallingWeatherSlotSub61CA {
+                y_px: 0x0040,
+                x_px: 0x0120,
+                animation_cooldown: 6,
+                animation_frame: 2,
+            };
         runtime.weather.storm_falling_slots_sub_61ca[1] =
             crate::weather::FallingWeatherSlotSub61CA::inactive(1, 0);
         runtime.weather.storm_impact_slots_sub_61ca[0] = crate::weather::WeatherImpactSlotSub61CA {
@@ -7694,9 +7695,8 @@ impl NativeRuntime {
                 .iter()
                 .map(|e| (e.x_px, e.y_px, e.remaining, e.direction))
                 .collect(),
-            block_debris_pieces: if self
-                .block_debris_sprite_pieces_sub_2a4c
-                .is_empty() { {
+            block_debris_pieces: if self.block_debris_sprite_pieces_sub_2a4c.is_empty() {
+                {
                     self.block_debris_swarms
                         .iter()
                         .flat_map(|swarm| {
@@ -7705,7 +7705,10 @@ impl NativeRuntime {
                             })
                         })
                         .collect()
-                } } else { self.block_debris_sprite_pieces_sub_2a4c.clone() },
+                }
+            } else {
+                self.block_debris_sprite_pieces_sub_2a4c.clone()
+            },
             prize_block_spawn_flashes: self
                 .prize_block_spawn_flashes
                 .iter()
@@ -8916,7 +8919,9 @@ impl NativeRuntime {
 
         let collision_anchor = self
             .last_kid_frame_collision_handoff_probe
-            .map_or((player.x_pos, player.y_pos), |probe| (probe.anchor_x_pos, probe.anchor_y_pos));
+            .map_or((player.x_pos, player.y_pos), |probe| {
+                (probe.anchor_x_pos, probe.anchor_y_pos)
+            });
         let player_x_px = (collision_anchor.0 >> 16) as i32;
         let player_y_px = (collision_anchor.1 >> 16) as i32;
         let player_half_width = self.progression.current_form.half_width();
@@ -9020,9 +9025,9 @@ impl NativeRuntime {
             let form_overlap_x = form_left <= asm_right && form_right >= asm_left;
             let form_overlap_y = form_top <= asm_bottom && player_y_px >= asm_top;
 
-            let cell_summary = self
-                .block_grid
-                .as_ref().map_or_else(|| "cell=none/open=1/below=none/below_open=1".to_string(), |grid| {
+            let cell_summary = self.block_grid.as_ref().map_or_else(
+                || "cell=none/open=1/below=none/below_open=1".to_string(),
+                |grid| {
                     let current_cell = grid.cell_at(item.level_col, item.level_row);
                     let current_open = matches!(
                         current_cell.collision,
@@ -9040,7 +9045,8 @@ impl NativeRuntime {
                         below_cell.collision,
                         u8::from(below_open),
                     )
-                });
+                },
+            );
 
             let dx_px = item_x_px - player_x_px;
             let dy_px = item_y_px - player_y_px;

@@ -108,10 +108,14 @@ pub fn run_tas_diff(
                 checkpoint_state(&oracle.states, &label).and_then(|state| state.rng_last_byte);
             let native_delta = format_rng_delta(previous_native_rng, native_rng_offset);
             let oracle_delta = format_rng_delta(previous_oracle_rng, oracle_rng_offset);
-            let native_rng = native_rng_offset.map_or_else(|| "-".to_owned(), |offset| format!("{offset:#06x}"));
-            let native_byte = native_rng_last_byte.map_or_else(|| "-".to_owned(), |byte| format!("{byte:#04x}"));
-            let oracle_rng = oracle_rng_offset.map_or_else(|| "-".to_owned(), |offset| format!("{offset:#06x}"));
-            let oracle_byte = oracle_rng_last_byte.map_or_else(|| "-".to_owned(), |byte| format!("{byte:#04x}"));
+            let native_rng =
+                native_rng_offset.map_or_else(|| "-".to_owned(), |offset| format!("{offset:#06x}"));
+            let native_byte =
+                native_rng_last_byte.map_or_else(|| "-".to_owned(), |byte| format!("{byte:#04x}"));
+            let oracle_rng =
+                oracle_rng_offset.map_or_else(|| "-".to_owned(), |offset| format!("{offset:#06x}"));
+            let oracle_byte =
+                oracle_rng_last_byte.map_or_else(|| "-".to_owned(), |byte| format!("{byte:#04x}"));
             println!(
                 "{frame_idx:>5} {native_rng:>10} {native_byte:>11} {native_delta:>12} {oracle_rng:>10} {oracle_byte:>11} {oracle_delta:>12}"
             );
@@ -131,7 +135,8 @@ pub fn run_tas_diff(
             let oracle_state = checkpoint_state(&oracle.states, &label);
             let input = scenario
                 .script
-                .get(frame_idx).map_or_else(|| "-".to_owned(), |mask| format!("{mask:#04x}"));
+                .get(frame_idx)
+                .map_or_else(|| "-".to_owned(), |mask| format!("{mask:#04x}"));
             println!(
                 "{frame_idx:>5} {input:>5} {:>8} {:>8} {:>9} {:>9} {:>11} {:>13} {:>13} {:>10} {:>8} {:>8} {:>9} {:>9} {:>11} {:>13} {:>10} {:>10}",
                 format_opt_u32(native_frame.and_then(|frame| frame.kid_x_pos)),
@@ -141,7 +146,8 @@ pub fn run_tas_diff(
                 format_opt_u16(native_frame.and_then(|frame| frame.character_movement)),
                 format_opt_bool(native_frame.and_then(|frame| frame.kid_on_ground)),
                 native_frame
-                    .and_then(|frame| frame.kid_facing).map_or_else(|| "-".to_owned(), |facing| format!("{facing:?}")),
+                    .and_then(|frame| frame.kid_facing)
+                    .map_or_else(|| "-".to_owned(), |facing| format!("{facing:?}")),
                 format_opt_u16_hex(native_frame.and_then(|frame| frame.rng_offset)),
                 oracle_state.map_or_else(|| "-".to_owned(), |state| state.kid_x_pos.to_string()),
                 oracle_state.map_or_else(|| "-".to_owned(), |state| state.kid_y_pos.to_string()),
@@ -153,7 +159,8 @@ pub fn run_tas_diff(
                     .cloned()
                     .unwrap_or_else(|| "-".to_owned()),
                 oracle_state
-                    .and_then(|state| state.kid_x_direction).map_or_else(|| "-".to_owned(), |direction| format!("{direction:#04x}")),
+                    .and_then(|state| state.kid_x_direction)
+                    .map_or_else(|| "-".to_owned(), |direction| format!("{direction:#04x}")),
                 format_opt_u16_hex(oracle_state.and_then(|state| state.rng_offset)),
             );
         }
@@ -169,12 +176,18 @@ pub fn run_tas_diff(
             let native_frame = native_trace.get(frame_idx);
             let oracle_state = checkpoint_state(&oracle.states, &label);
             let native_rng = native_frame
-                .and_then(|frame| frame.rng_offset).map_or_else(|| "-".to_owned(), |offset| format!("{offset:#06x}"));
+                .and_then(|frame| frame.rng_offset)
+                .map_or_else(|| "-".to_owned(), |offset| format!("{offset:#06x}"));
             let oracle_rng = oracle_state
-                .and_then(|state| state.rng_offset).map_or_else(|| "-".to_owned(), |offset| format!("{offset:#06x}"));
+                .and_then(|state| state.rng_offset)
+                .map_or_else(|| "-".to_owned(), |offset| format!("{offset:#06x}"));
             let native_kid_x = native_frame
-                .and_then(|frame| frame.kid_x_pos).map_or_else(|| "-".to_owned(), |x_pos| format!("{x_pos:#010x}"));
-            let oracle_kid_x = oracle_state.map_or_else(|| "-".to_owned(), |state| format!("{:#010x}", state.kid_x_pos));
+                .and_then(|frame| frame.kid_x_pos)
+                .map_or_else(|| "-".to_owned(), |x_pos| format!("{x_pos:#010x}"));
+            let oracle_kid_x = oracle_state.map_or_else(
+                || "-".to_owned(),
+                |state| format!("{:#010x}", state.kid_x_pos),
+            );
             println!(
                 "{frame_idx:>5} {native_rng:>10} {oracle_rng:>10} {native_kid_x:>12} {oracle_kid_x:>12} {} {} {}",
                 native_gameplay_field(native_frame, "drips_lifecycle_probe"),

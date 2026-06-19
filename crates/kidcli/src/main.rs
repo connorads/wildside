@@ -3444,23 +3444,27 @@ fn probe_dynamic_record_scenario_batch(
                 target_projectile,
                 true,
                 score_frame_start,
-            ).map_or_else(|| format!("projectile {target_projectile:?} healthy kid <none>"), |approach| {
-                if target_points.is_empty()
-                    && target_cells.is_empty()
-                    && target_cell_hitboxes.is_empty()
-                    && index == 0
-                {
-                    first_target_score = Some(approach.manhattan_px);
-                }
-                format!(
-                    "projectile {:?} healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{}",
-                    target_projectile,
-                    approach.dx_px,
-                    approach.dy_px,
-                    approach.manhattan_px,
-                    approach.replay_frame,
-                )
-            });
+            )
+            .map_or_else(
+                || format!("projectile {target_projectile:?} healthy kid <none>"),
+                |approach| {
+                    if target_points.is_empty()
+                        && target_cells.is_empty()
+                        && target_cell_hitboxes.is_empty()
+                        && index == 0
+                    {
+                        first_target_score = Some(approach.manhattan_px);
+                    }
+                    format!(
+                        "projectile {:?} healthy kid dx_px {:+} dy_px {:+} manhattan_px {} @{}",
+                        target_projectile,
+                        approach.dx_px,
+                        approach.dy_px,
+                        approach.manhattan_px,
+                        approach.replay_frame,
+                    )
+                },
+            );
             target_summaries.push(summary);
         }
         for (index, target_projectile_direction) in
@@ -3593,33 +3597,37 @@ fn probe_dynamic_record_scenario_batch(
                 target_block_event.kind,
                 target_block_event.cell,
                 score_frame_start,
-            ).map_or_else(|| {
-                format!(
-                    "block {:?} cell {},{} <none>",
-                    target_block_event.kind,
-                    target_block_event.cell.col,
-                    target_block_event.cell.row,
-                )
-            }, |event| {
-                if target_points.is_empty()
-                    && target_cells.is_empty()
-                    && target_cell_hitboxes.is_empty()
-                    && target_projectiles.is_empty()
-                    && target_projectile_directions.is_empty()
-                    && target_projectile_cells.is_empty()
-                    && target_projectile_cell_conjunctions.is_empty()
-                    && index == 0
-                {
-                    first_target_score = Some(0);
-                }
-                format!(
-                    "block {:?} cell {},{} @{}",
-                    target_block_event.kind,
-                    target_block_event.cell.col,
-                    target_block_event.cell.row,
-                    event.replay_frame,
-                )
-            });
+            )
+            .map_or_else(
+                || {
+                    format!(
+                        "block {:?} cell {},{} <none>",
+                        target_block_event.kind,
+                        target_block_event.cell.col,
+                        target_block_event.cell.row,
+                    )
+                },
+                |event| {
+                    if target_points.is_empty()
+                        && target_cells.is_empty()
+                        && target_cell_hitboxes.is_empty()
+                        && target_projectiles.is_empty()
+                        && target_projectile_directions.is_empty()
+                        && target_projectile_cells.is_empty()
+                        && target_projectile_cell_conjunctions.is_empty()
+                        && index == 0
+                    {
+                        first_target_score = Some(0);
+                    }
+                    format!(
+                        "block {:?} cell {},{} @{}",
+                        target_block_event.kind,
+                        target_block_event.cell.col,
+                        target_block_event.cell.row,
+                        event.replay_frame,
+                    )
+                },
+            );
             target_summaries.push(summary);
         }
         results.push(BatchProbeResult {
