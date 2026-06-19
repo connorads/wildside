@@ -10475,6 +10475,53 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ninja_red_stealth_side_threat_enters_guard_pose_loc_3d734_3d826() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0x0001_0000;
+        let player_x = Some((100 + 0x30) << 16);
+        let player_y = Some(200 << 16);
+
+        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::RedStealth);
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::Guard,
+            "ASM Ninja.asm loc_3D734 should route Red Stealth in the close side band to loc_3D826 instead of pacing"
+        );
+        assert_eq!(enemy.shared_walker_state, -1);
+        assert_eq!(enemy.walk_speed_override, 0);
+        assert_eq!(enemy.facing, Direction::Right);
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+    }
+
+    #[test]
+    fn ninja_red_stealth_guard_releases_when_kid_leaves_band_loc_3d79c_3d7ca() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Guard;
+        enemy.shared_walker_state = -1;
+        enemy.facing = Direction::Right;
+        enemy.walk_speed_override = 0;
+        let player_x = Some((100 + 0x31) << 16);
+        let player_y = Some(200 << 16);
+
+        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::RedStealth);
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::Stealth,
+            "ASM Ninja.asm loc_3D79C should reset the negative guard state via loc_3D7CA once Red Stealth leaves the inclusive +/-$30 band"
+        );
+        assert_eq!(enemy.shared_walker_state, 0);
+        assert_eq!(
+            enemy.walk_speed_override,
+            pacer_walk_speed(EnemyFamily::Ninja, enemy.hit_points)
+        );
+    }
+
+    #[test]
     fn ninja_lands_and_returns_to_stealth() {
         // Floor at row 17 spanning full width — ninja will land on it
         let grid = grid_with_platform(17, 0, 120);

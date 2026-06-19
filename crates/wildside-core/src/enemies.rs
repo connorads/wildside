@@ -6378,13 +6378,14 @@ impl DragonFlyingState {
     }
 }
 
-/// Ninja stealth/attack state machine (Ninja.asm).
-/// Stealth = pacing invisibly. JumpAttack = airborne lunge at player.
+/// Ninja stealth/guard/attack state machine (Ninja.asm).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum NinjaState {
     /// Walking invisibly, checking detection cone each frame.
     #[default]
     Stealth,
+    /// ASM Ninja.asm loc_3D826: Red Stealth / projectile guard pose.
+    Guard,
     /// Airborne jump-attack toward the player.
     JumpAttack,
 }
@@ -18997,14 +18998,13 @@ pub(crate) fn step_ninja(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
-    _player_form: PlayerForm,
+    player_form: PlayerForm,
 ) {
     match enemy.ninja_state {
         NinjaState::Stealth => {
-            // Pace like normal
-            step_pacer(enemy, block_grid);
-
             let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+                // Pace like normal
+                step_pacer(enemy, block_grid);
                 return;
             };
             let dx = (px as i64 - enemy.x_pos as i64) >> 16;
@@ -19027,6 +19027,63 @@ pub(crate) fn step_ninja(
                 enemy.x_velocity = jump_start.x_velocity;
                 enemy.y_velocity = jump_start.y_velocity;
                 enemy.on_ground = false;
+                return;
+            }
+
+            let kid_minus_ninja_y = ((py as i64 - enemy.y_pos as i64) >> 16)
+                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
+                as i16;
+            let kid_minus_ninja_x = dx.clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16;
+            if matches!(
+                ninja_kid_threat_route_loc_3d734(
+                    kid_minus_ninja_x,
+                    kid_minus_ninja_y,
+                    player_form,
+                    false,
+                ),
+                NinjaKidThreatRouteLoc3D734::GuardPose
+            ) {
+                let guard = ninja_guard_pose_loc_3d826(kid_minus_ninja_x);
+                enemy.ninja_state = NinjaState::Guard;
+                enemy.shared_walker_state = i16::from(guard.threat_state_4c);
+                enemy.walk_speed_override = guard.walk_speed_override;
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                enemy.facing = if guard.x_direction_right {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                };
+                return;
+            }
+
+            // Pace like normal
+            step_pacer(enemy, block_grid);
+        }
+        NinjaState::Guard => {
+            let Some(px) = player_x_pos else {
+                enemy.ninja_state = NinjaState::Stealth;
+                enemy.shared_walker_state = 0;
+                return;
+            };
+            let kid_minus_ninja_x = ((px as i64 - enemy.x_pos as i64) >> 16)
+                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
+                as i16;
+            match ninja_post_threat_route_loc_3d79c(-1, false, kid_minus_ninja_x, player_form) {
+                NinjaPostThreatRouteLoc3D79C::ResumePacing => {
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = 0;
+                }
+                NinjaPostThreatRouteLoc3D79C::ResetStealthPacing => {
+                    let reset = ninja_reset_stealth_pacing_loc_3d7ca(
+                        pacer_walk_speed(enemy.family, enemy.hit_points),
+                        matches!(enemy.facing, Direction::Right),
+                    );
+                    enemy.ninja_state = NinjaState::Stealth;
+                    enemy.shared_walker_state = i16::from(reset.threat_state_4c);
+                    enemy.walk_speed_override = reset.walk_speed_override;
+                }
+                NinjaPostThreatRouteLoc3D79C::PositiveStateCheck => {}
             }
         }
         NinjaState::JumpAttack => {

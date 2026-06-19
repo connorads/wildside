@@ -98,6 +98,8 @@ ROM fires on a periodic timer gated by the throw-frame; native fires off an over
 **Ninja — blocking/guard-pose state machine + block counter not executed** (`loc_3D606 / loc_3D65A / loc_3D670 / loc_3D734 / loc_3D826 / loc_3D84E`)
 NinjaState has only Stealth/JumpAttack; no Block/Guard, no $44, no sfx_Ninja_blocking. Hits go through generic HP death. `enemies.rs:16613-16695`, `enemies.rs:6257`, `combat.rs:7647-7662`.
 
+2026-06-19 partial: live `step_ninja` now enters and releases `NinjaState::Guard` for the Red Stealth `loc_3D734` -> `loc_3D826` side-threat branch. Still open: `$44` block counter, `sfx_Ninja_blocking`, hit/contact dispatch through `loc_3D65A`/`loc_3D670`, Maniaxe projectile guard, and the positive `$4C` jump-threat pose.
+
 **Ninja — Berzerker side-contact knockback launch not wired** (`loc_3D698 / loc_3DB0A / loc_3D8A8 / loc_3D8BC`)
 `step_ninja` never reads Berzerker_charging; helpers dead. `enemies.rs:16606`, `enemies.rs:16054/15842/16167`.
 
