@@ -14,7 +14,8 @@ pub use background::{
     parse_layered_background_plane,
 };
 pub use bundle::{
-    IslandShoreVisualsLoc1202A, NativeLevelVisuals, TitleCardLettersVisuals, load_level_visuals,
+    IslandShoreVisualsLoc1202A, NativeLevelVisuals, PauseMenuVisuals, TitleCardLettersVisuals,
+    load_level_visuals,
 };
 pub use hud::{HudIcon, HudVisuals};
 pub use level::{
@@ -644,6 +645,28 @@ mod tests {
     }
 
     #[test]
+    fn load_pause_menu_visuals_returns_loc_690c_vram_sheet() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let pause = visuals
+            .pause_menu
+            .expect("ASM loc_690C pause menu tile upload visuals");
+
+        assert_eq!(
+            pause.vram_base_tile_index, 0x0676,
+            "ASM loc_690C uploads ArtUnc_PauseMenu to VRAM $CEC0, tile $676"
+        );
+        assert_eq!(
+            pause.tile_sheet.tiles.len(),
+            0x19,
+            "ASM loc_690C copies the header word count from ArtUnc_PauseMenu: 25 tiles"
+        );
+        assert_eq!(pause.tile_sheet.tiles[0].pixels[0], 0);
+        assert_eq!(pause.tile_sheet.tiles[24].pixels[63], 15);
+    }
+
+    #[test]
     fn missing_required_asset_reports_contextual_error() {
         let fixture = TestBundle::new().expect("test bundle");
         let missing_path = fixture
@@ -1086,6 +1109,13 @@ mod tests {
                 root.path(),
                 "ingame/artunc/Hitpoint_display.bin",
                 &(0..128).map(|value| (value % 16) as u8).collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Pause_menu.bin",
+                &(0..(32 * 0x19))
+                    .map(|value| (value % 16) as u8)
+                    .collect::<Vec<_>>(),
             )?;
             write_file(
                 root.path(),
@@ -1697,6 +1727,7 @@ mod tests {
                     asset_file(root.path(), "ingame/artcomp/Hail_Sparkles.bin"),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
                     asset_file(root.path(), "ingame/artunc/Hitpoint_display.bin"),
+                    asset_file(root.path(), "ingame/artunc/Pause_menu.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0E_Cloud.bin"),

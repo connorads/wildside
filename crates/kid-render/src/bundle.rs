@@ -28,6 +28,8 @@ const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
 const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
 const HUD_HITPOINT_ART_PATH: &str = "artunc/Hitpoint_display.bin";
+const PAUSE_MENU_ART_PATH: &str = "artunc/Pause_menu.bin";
+const PAUSE_MENU_VRAM_BASE_TILE_INDEX_LOC_690C: u16 = 0x0676;
 const ISLAND_SHORE_ART_PATHS_LOC_1202A: [&str; 4] = [
     "artunc/shore_1.bin",
     "artunc/shore_2.bin",
@@ -152,6 +154,10 @@ pub struct NativeLevelVisuals {
     /// `Hologram_blocks` at tile `$409`; native keeps the absolute tile
     /// indices so the renderer follows the ROM nametable directly.
     pub eol_hologram: Option<EolHologramVisuals>,
+    /// ASM pause menu `loc_690C` copies `ArtUnc_PauseMenu` to VRAM `$CEC0`,
+    /// which is tile `$676`; `sub_6874` hides sprites whose tiles are about to
+    /// be overwritten before the plane text is emitted.
+    pub pause_menu: Option<PauseMenuVisuals>,
     /// ASM `Load_TitleCard` `loc_1AB26` (kid.asm:28750) decompresses
     /// `ArtComp_19C68_TtlCardLetters` to VRAM tile `$8120` and copies
     /// `Pal_19C48` (16 colours, palette line 1) before the per-glyph
@@ -166,6 +172,12 @@ pub struct NativeLevelVisuals {
 pub struct TitleCardLettersVisuals {
     pub tile_sheet: TileSheet,
     pub palette: Palette,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PauseMenuVisuals {
+    pub tile_sheet: TileSheet,
+    pub vram_base_tile_index: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -491,6 +503,12 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             }
             None
         }),
+        pause_menu: load_pause_menu_visuals(manifest).unwrap_or_else(|err| {
+            if !cfg!(test) {
+                eprintln!("warning: pause menu art unavailable: {err}");
+            }
+            None
+        }),
         title_card_letters: load_title_card_letters_visuals(manifest).unwrap_or_else(|err| {
             if !cfg!(test) {
                 eprintln!("warning: title card letter art unavailable: {err}");
@@ -498,6 +516,18 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             None
         }),
     })
+}
+
+fn load_pause_menu_visuals(manifest: &AssetManifest) -> Result<Option<PauseMenuVisuals>> {
+    let Some(asset) = find_ingame_asset(manifest, PAUSE_MENU_ART_PATH) else {
+        return Ok(None);
+    };
+    let tile_sheet =
+        load_uncompressed_tile_sheet(manifest, "ingame", asset, "pause menu tile sheet loc_690C")?;
+    Ok(Some(PauseMenuVisuals {
+        tile_sheet,
+        vram_base_tile_index: PAUSE_MENU_VRAM_BASE_TILE_INDEX_LOC_690C,
+    }))
 }
 
 /// Load the Title Card letter sprite sheet + palette extracted from the

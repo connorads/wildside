@@ -7297,6 +7297,7 @@ mod tests {
             platforms: sample_platform_visuals(),
             eol_score: Some(sample_eol_score_visuals()),
             eol_hologram: None,
+            pause_menu: None,
             title_card_letters: None,
         }
     }
