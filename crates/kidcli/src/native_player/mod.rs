@@ -3084,6 +3084,7 @@ fn try_load_generated_level_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scenarios::prize_block_scenario;
     use kid_core::BlockBounceTrace;
     use kid_core::{
         EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, LevelId, NativeObjectKind,
@@ -3472,6 +3473,83 @@ mod tests {
                 )
             }),
             "ASM loc_8A52/stru_8B86 should use the exported animation clock to spin past the first Maniaxe axe frame"
+        );
+    }
+
+    #[test]
+    fn live_maniaxe_throw_renders_spinning_stru_8b86_frames() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.enter_level_playtest(LevelId(0x00));
+        runtime.set_playtest_form(PlayerForm::Maniaxe);
+
+        let mut visuals = sample_level_visuals();
+        let mut maniaxe_visuals = visuals
+            .player
+            .forms
+            .get(&0)
+            .expect("Kid fallback visuals")
+            .clone();
+        maniaxe_visuals.axe = vec![
+            sample_player_frame(90),
+            sample_player_frame(91),
+            sample_player_frame(92),
+            sample_player_frame(93),
+        ];
+        visuals
+            .player
+            .forms
+            .insert(PlayerForm::Maniaxe.helmet_id(), maniaxe_visuals);
+
+        let mut first_seen_signature = None;
+        let mut later_seen_signature = None;
+        for frame in 0..8 {
+            let trace = runtime.step_frame(FrameInput {
+                c: frame == 0,
+                ..FrameInput::default()
+            });
+            let Some(projectile) = trace.active_projectile_details.first() else {
+                continue;
+            };
+            assert_eq!(
+                projectile.kind,
+                ActiveProjectileKind::ManiaxeAxe,
+                "ASM ManiaxeAxe_Init installs `stru_8B86`; live traces must keep the thrown axe typed for native-player rendering"
+            );
+            let scene = build_scene(&trace, false, Some(&visuals), runtime.block_grid());
+            let Some(signature) = scene.commands.iter().find_map(|command| match command {
+                DrawCommand::Sprite { tile_sheet, .. }
+                    if tile_sheet
+                        .tiles
+                        .first()
+                        .is_some_and(|tile| matches!(tile.pixels[0], 90..=93)) =>
+                {
+                    Some(tile_sheet.tiles[0].pixels[0])
+                }
+                _ => None,
+            }) else {
+                panic!(
+                    "ASM loc_8A52/stru_8B86 live Maniaxe axe should render a sprite frame, not the generic projectile rect"
+                );
+            };
+            first_seen_signature.get_or_insert(signature);
+            if Some(signature) != first_seen_signature {
+                later_seen_signature = Some(signature);
+                break;
+            }
+        }
+
+        assert_eq!(
+            first_seen_signature,
+            Some(90),
+            "live Maniaxe axe render should start on `maniaxe_axe_1` from ASM `stru_8B86`"
+        );
+        assert_eq!(
+            later_seen_signature,
+            Some(91),
+            "ASM loc_8A52/stru_8B86 should advance the live thrown axe to the next render frame instead of staying visually static"
         );
     }
 
@@ -8120,6 +8198,89 @@ mod tests {
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80).is_none(),
             "ASM sub_302F6/sub_3034A still render the live `$E102` Level_Layout cell from Block_Mappings; the immutable foreground only reappears after sub_1007A rewrites the cell to `$6Fxx`"
+        );
+    }
+
+    #[test]
+    fn live_prize_block_scenario_renders_sub_1007a_wobble_sprite_not_terrain() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let scenario = prize_block_scenario(0x00);
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest.clone());
+        runtime.enter_level_playtest(LevelId(0x00));
+        let (visuals, fallback_grid) =
+            load_session_assets(&manifest, 0x00).expect("Level 0x00 visuals");
+
+        let mut previous_trace = runtime.trace_frame();
+        for frame_index in 0..=scenario.frame_count {
+            let buttons = scenario.script.get(frame_index).copied().unwrap_or(0);
+            let trace = runtime.step_frame(FrameInput::from_mask(buttons));
+            let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+            let Some(bounce) = trace
+                .block_bounce_details
+                .iter()
+                .find(|bounce| bounce.kind == BlockBounceTraceKind::Prize && bounce.remaining > 0)
+            else {
+                previous_trace = trace;
+                continue;
+            };
+            let Some(&(col, row, _, y_offset)) =
+                render_trace
+                    .block_bounces
+                    .iter()
+                    .find(|(col, row, remaining, _)| {
+                        *col == bounce.cell_x && *row == bounce.cell_y && *remaining > 0
+                    })
+            else {
+                previous_trace = trace;
+                continue;
+            };
+            let camera_x_px = (render_trace.camera_x_pos >> 16) as i32;
+            let camera_y_px = (render_trace.camera_y_pos >> 16) as i32;
+            let draw_x = i32::from(col) * 16 - camera_x_px;
+            let draw_y = i32::from(row) * 16 - camera_y_px + i32::from(y_offset);
+            let block_grid = runtime.block_grid().unwrap_or(&fallback_grid);
+            let raw_word = block_grid.raw_word_at(col, row);
+            let cell = block_grid.cell_at(col, row);
+            let expected_skin = if raw_word & 0xFF00 == 0x6F00 {
+                raw_word as u8
+            } else if cell.has_block {
+                cell.skin
+            } else {
+                (raw_word & 0x00FF) as u8
+            };
+            let expected_resolves = visuals
+                .level
+                .block_mapping
+                .resolve(expected_skin, Some(BlockType::Prize as u8))
+                .is_some();
+            let scene = build_scene(&render_trace, false, Some(&visuals), Some(block_grid));
+
+            assert!(
+                scene.commands.iter().any(|command| matches!(
+                    command,
+                    DrawCommand::Sprite {
+                        x,
+                        y,
+                        tile_sheet,
+                        ..
+                    } if *x == draw_x
+                        && *y == draw_y
+                        && tile_sheet.tiles.len() == visuals.block_tiles.tiles.len()
+                )),
+                "ASM sub_1007A should draw the live prize-block wobble sprite at cell ({col},{row}) on frame {frame_index}, not terrain or a stale block fallback; expected ({draw_x},{draw_y}); raw={raw_word:#06X} cell={cell:?} skin={expected_skin:#04X} resolves={expected_resolves}"
+            );
+            assert!(
+                indexed_tile_at_with_sheet_len(&scene, draw_x, draw_y - i32::from(y_offset), 0x80)
+                    .is_none(),
+                "ASM sub_1007A owns the active prize wobble cell; immutable foreground terrain must not leak through while the block is bouncing"
+            );
+            return;
+        }
+
+        panic!(
+            "prize_block_scenario should exercise an ASM sub_1007A prize-block wobble in the render-latched trace"
         );
     }
 

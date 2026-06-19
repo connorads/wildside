@@ -3831,9 +3831,7 @@ pub(super) fn push_block_grid_overrides(
             |grid| {
                 let word = grid.raw_word_at(col, row);
                 let cell = grid.cell_at(col, row);
-                if word & 0xFF00 == 0x6F00 {
-                    word as u8
-                } else if cell.has_block {
+                if cell.has_block {
                     // ASM sub_1007A (`move.b (a1,d0.w),d4` then
                     // `move.b #$6F,(a0)`) preserves the source low byte. The
                     // `$E101` and `$E102` prize cells therefore resolve as
@@ -3841,6 +3839,11 @@ pub(super) fn push_block_grid_overrides(
                     // makes visible prize blocks lose their `P` glyph.
                     cell.skin
                 } else {
+                    // ASM sub_1007A continues drawing the copied prize-block
+                    // gfx object after the live Level_Layout word has moved
+                    // through no-block solid/restored phases (`$60xx` as well
+                    // as `$6Fxx`). The low byte is still the copied block-art
+                    // selector consumed by Block_Mappings.
                     (word & 0x00FF) as u8
                 }
             },
