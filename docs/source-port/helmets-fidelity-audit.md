@@ -101,8 +101,8 @@ The ROM tests `andi.w #$7000,d7; cmpi.w #$6000,d7; beq` — only collision nibbl
 **RESOLVED — Maniaxe axe turnaround targets the live axe object, not `projectiles.last_mut()`** (`loc_8A74`, `kid.asm:9879`)
 The ROM turnaround flips the axe object itself (`a3` = the specific slot). Native now locates the active `EnemyProjectileKind::ManiaxeAxe` when the turnaround counter expires, so unrelated projectiles spawned later in the vector are not reversed. Covered by `loc_8a74_turnaround_reverses_live_axe_not_last_projectile`.
 
-**Red Stealth airborne down-slash — invented fast-fall threshold (hardcoded `0x10000` vs dynamic `$FFFFFAAA` launch velocity)** (`loc_B334 / loc_B350 / loc_B380`, `kid.asm:14208-14248`)
-The ROM gates the downward-slash on `$FFFFFAAA` (the y-velocity captured at jump launch, a dynamic per-jump value). Native hardcodes `RED_STEALTH_AIRBORNE_JUMP_THRESHOLD_FP = 0x0001_0000` (`helmets.rs:5076`, with an in-source admission it is "pending proper jump-velocity capture"), so the slash engages at a frame that diverges from the ROM, especially for jumps whose launch impulse differs from `0x10000`.
+**RESOLVED — Red Stealth airborne down-slash uses the dynamic jump-launch velocity** (`loc_A466` / `loc_B334 / loc_B350 / loc_B380`, `kid.asm:13965-13973`, `kid.asm:14208-14248`)
+The ROM stores the jump-launch y-velocity at `$FFFFFAAA` in `loc_A466`, then gates the downward-slash by comparing `(y_vel << 2)` against that stored threshold. Native now captures that launch velocity in `red_stealth_jump_threshold_y_velocity` and `step_red_stealth_airborne_slash` uses it instead of the old hardcoded `0x0001_0000` fallback. Covered by `red_stealth_airborne_slash_uses_loc_a466_dynamic_jump_threshold`.
 
 ### Low severity
 
