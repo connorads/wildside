@@ -2704,11 +2704,12 @@ fn gems_event_sound_commands(
     }
 
     // ASM loc_D7F4 (kid.asm:16906-16908): when the counter finishes draining,
-    // the ROM replays `sfx_Score_counter` ($0C) a *second* time via
-    // `j_PlaySound2` before hibernating and routing to Teleport/End_Credits.
-    // Native previously only emitted the drain-start cue, so the level-complete
-    // tally ended without the closing chime (#216 "level-complete sound does
-    // not finish cleanly").
+    // the ROM issues GEMS `$12` (cmdstopseq, the call labelled `j_PlaySound2`
+    // in the disassembly) to *stop* sequence `$0C` (`sfx_Score_counter`) before
+    // hibernating and routing to Teleport/End_Credits. loc_D752 starts the tick
+    // with `$10` (cmdstartseq); loc_D7F4 stops it with `$12`, cleanly silencing
+    // the tick once the tally lands instead of leaving it ringing (#216
+    // "level-complete sound does not finish cleanly").
     if curr.level_complete
         && curr.level_complete_score_counter_drained
         && !prev.level_complete_score_counter_drained
@@ -19493,12 +19494,12 @@ mod tests {
     }
 
     #[test]
-    fn play_native_replays_eol_score_counter_sfx_again_at_loc_d7f4() {
+    fn play_native_stops_eol_score_counter_at_loc_d7f4() {
         // ASM loc_D7F4 (kid.asm:16906-16908): once the score-counter drain
-        // completes, the ROM replays `sfx_Score_counter` ($0C) a second time
-        // via `j_PlaySound2` before hibernating and routing to Teleport. The
-        // drain-start cue alone left the level-complete jingle ending abruptly
-        // (#216 "level-complete sound does not finish cleanly").
+        // completes, the ROM issues GEMS `$12` (cmdstopseq, the `j_PlaySound2`
+        // call) to *stop* sequence `$0C` (`sfx_Score_counter`) before
+        // hibernating and routing to Teleport — cleanly silencing the tick once
+        // the tally lands (#216 "level-complete sound does not finish cleanly").
         let mut draining = sample_trace(GameMode::InGame);
         draining.level_complete = true;
         draining.level_complete_score_counter_elapsed_frames = 10;
@@ -19511,25 +19512,25 @@ mod tests {
         assert_eq!(
             gems_event_sound_ids(&draining, &drained),
             vec![gems_sfx::SCORE_COUNTER],
-            "ASM loc_D7F4 replays sfx_Score_counter when the EOL counter finishes draining"
+            "ASM loc_D7F4 targets sfx_Score_counter when the EOL counter finishes draining"
         );
         assert_eq!(
             gems_event_sound_commands(&draining, &drained),
             vec![NativeSoundCommand::stop_sequence(gems_sfx::SCORE_COUNTER)],
-            "ASM loc_D7F4 reaches `j_PlaySound2`, whose GEMS command byte is `$12`"
+            "ASM loc_D7F4 reaches `j_PlaySound2`, GEMS command byte `$12` = cmdstopseq (stop sequence N)"
         );
 
-        // The cue must fire exactly once: the next frame is still drained.
+        // The stop must fire exactly once: the next frame is still drained.
         let mut still_drained = drained.clone();
         still_drained.level_complete_score_counter_elapsed_frames = 12;
         assert!(
             !gems_event_sound_ids(&drained, &still_drained).contains(&gems_sfx::SCORE_COUNTER),
-            "the loc_D7F4 cue is a single replay, not a per-frame repeat"
+            "the loc_D7F4 stop is a single edge-triggered cue, not a per-frame repeat"
         );
     }
 
     #[test]
-    fn scripted_recording_audio_events_label_loc_d7f4_score_counter_as_playsound2()
+    fn scripted_recording_audio_events_label_loc_d7f4_score_counter_as_stopsequence()
     -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let mut draining = sample_trace(GameMode::InGame);

@@ -9184,7 +9184,7 @@ mod chunk_03 {
                 should_play_stop_sound: true,
                 should_delete_current_object: true,
             },
-            "ASM loc_107E0 should play `sfx_Clock_prize` through `PlaySound2` only when the decremented shared refcount reaches zero",
+            "ASM loc_107E0 should stop `sfx_Clock_prize` via `j_PlaySound2` ($12 cmdstopseq) only when the decremented shared refcount reaches zero",
         );
         assert_eq!(
             NativeRuntime::prize_clock_sound_cleanup_loc_107E0(4),

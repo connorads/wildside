@@ -631,8 +631,8 @@ impl NativeRuntime {
         active_clock_prize_sounds: u8,
     ) -> PrizeClockSoundCleanupLoc107E0 {
         // ASM loc_107E0 (kid.asm:22028-22033): once the clock exits its fall
-        // loop, decrement the shared `$FFFFFB55` refcount and play
-        // `sfx_Clock_prize` through `PlaySound2` only when that decremented
+        // loop, decrement the shared `$FFFFFB55` refcount and stop
+        // `sfx_Clock_prize` via `j_PlaySound2` ($12 cmdstopseq) only when that decremented
         // count reaches zero.
         // ASM loc_107EE (kid.asm:22034): the routine then jumps straight to
         // `Delete_CurrentObject` regardless of whether the stop sound ran.

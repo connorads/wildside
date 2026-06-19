@@ -7858,7 +7858,7 @@ mod chunk_09 {
 
         assert!(
             rt.played_sound_commands.is_empty(),
-            "ASM loc_3C4A8: refcount 2->1 stays nonzero, so no PlaySound2 stop fires"
+            "ASM loc_3C4A8: refcount 2->1 stays nonzero, so no StopSequence stop fires"
         );
         assert_eq!(
             rt.driving_rock_tank_count(),

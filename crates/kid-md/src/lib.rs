@@ -5569,7 +5569,7 @@ mod tests {
         assert_eq!(
             &queue[14..17],
             [0xFF, 0x12, 0x23],
-            "ASM PlaySound2/sub_E153E differs from PlaySound only by queueing command $12"
+            "ASM j_PlaySound2/sub_E153E queues command $12 (cmdstopseq, stop sequence N) where j_PlaySound/sub_E151C queues $10 (cmdstartseq)"
         );
     }
 
