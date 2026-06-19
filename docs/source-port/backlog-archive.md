@@ -10078,6 +10078,20 @@ oracle repro = authoritative; minimum gate = fast-slice.
   only the two oracle-gated type-8 Shooter deviations remain, no narrow
   behavioural slice; the block-bounce y-delta table family (prize/metal/shifting)
   now has no mutation gap.
+- 2026-06-19 blocked/exhausted status recheck: current code has moved from the
+  old `kid-core` paths to `wildside-core`, but the residual #309 facts are
+  unchanged. ASM `loc_F106`/`loc_F1DE` still accept only raw type `$C` shooter
+  scan cells (`andi.w #$F00; cmpi.w #$C00`), and `off_BB80[8]` still dispatches
+  to `j_return_1142E` while `off_BB80[9]` reaches `loc_BBC2`/`loc_11430`.
+  Native still keeps `BlockType::Shooter` handling in
+  `shooter_direction_bits_loc_F106` and the ceiling dispatch because prior
+  branch removal broke the established #250 shooter convention. Rechecked the
+  generated two-hex-digit Level_Layout grids only (excluding `.terrain.bin` and
+  `.blocklist.bin`): type-8 cells are still absent, while type-9 cells count 562
+  and type-C cells count 864. Therefore the umbrella's behavioural slices are
+  exhausted; mark #309 `[b]` until a synthetic/oracle type-8 scanner or ceiling
+  headbutt probe exists. Do not change the native type-8 branches from the audit
+  prose alone, and do not repeat the direct branch-removal experiment.
 
 ### #310
 
