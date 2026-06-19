@@ -39,14 +39,6 @@ use inspect::*;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand, ValueEnum};
 use image::{ColorType, ImageFormat};
-use wildside_core::physics::Direction as NativeDirection;
-use wildside_core::{
-    ActiveProjectileKind, FrameInput, GameMode as NativeGameMode, LevelId, NativeRuntime,
-    NativeTraceFrame, PlayerForm, run_script,
-};
-use wildside_data::{AssetManifest, find_enemy_definition, load_level_asset_bundle, resource_level_id};
-use wildside_md::{MdRuntime, probe_rom, probe_rom_with_script, render_frame};
-use wildside_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
 use native_player::{
     NativePlayOptions, NativeScriptedRoute, render_dynamic_gameplay_frame_evidence,
     render_gameplay_frame_evidence, run_native_player,
@@ -98,6 +90,19 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
+use wildside_core::physics::Direction as NativeDirection;
+use wildside_core::{
+    ActiveProjectileKind, FrameInput, GameMode as NativeGameMode, LevelId, NativeRuntime,
+    NativeTraceFrame, PlayerForm, run_script,
+};
+use wildside_data::{
+    AssetManifest, find_enemy_definition, load_level_asset_bundle, resource_level_id,
+};
+use wildside_md::{
+    GemsAudioEngine, GemsAudioWrite, GemsAudioWriteKind, MdRuntime, probe_rom,
+    probe_rom_with_script, render_frame,
+};
+use wildside_rom::{RomIdentity, VerifiedRom, find_default_rom, known_sha1, verify_rom};
 use ymfm_sys::Ym2612;
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -134,7 +139,9 @@ enum TargetBlockEventKind {
 
 #[derive(Debug, Parser)]
 #[command(name = "wildside")]
-#[command(about = "Contained tooling for the Wildside workspace (a Kid Chameleon reimplementation)")]
+#[command(
+    about = "Contained tooling for the Wildside workspace (a Kid Chameleon reimplementation)"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -561,6 +568,25 @@ enum Commands {
         rom: Option<PathBuf>,
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
         scenario: Scenario,
+    },
+    /// Enumerate GEMS SFX ids and measure standalone native driver output.
+    AudioAudit {
+        #[arg(long)]
+        rom: Option<PathBuf>,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// Audit one sound id, e.g. 0x41. Defaults to every sfx_* constant.
+        #[arg(long, value_parser = parse_level_id)]
+        sound_id: Option<u8>,
+        /// Frames to render after starting each sequence.
+        #[arg(long, default_value_t = 180)]
+        frames: usize,
+        /// Host sample rate for generated waveform metrics.
+        #[arg(long, default_value_t = 44_100)]
+        sample_rate: u32,
+        /// Output JSON instead of the compact table.
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
     VerifyNativeAudioOutputFile {
         #[arg(long)]
@@ -1695,6 +1721,33 @@ fn main() -> Result<()> {
                 .with_context(|| format!("failed to read ROM from {}", rom_path.display()))?;
             verify_audio_output(&repo_root, &rom_path, &rom_bytes, &manifest, scenario)?;
             println!("audio-output verification passed");
+        }
+        Commands::AudioAudit {
+            rom,
+            dir,
+            sound_id,
+            frames,
+            sample_rate,
+            json,
+        } => {
+            let repo_root = current_dir()?;
+            let rom_path = resolve_rom_path(&repo_root, rom)?;
+            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
+            bootstrap_upstream(&upstream_dir)?;
+            let verified = verify_rom(&rom_path)?;
+            if !matches!(verified.identity, RomIdentity::KnownKidChameleon) {
+                bail!("audio-audit currently supports only the known Kid Chameleon ROM dump");
+            }
+            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
+            run_audio_audit(
+                &repo_root,
+                &upstream_dir,
+                &manifest,
+                sound_id,
+                frames,
+                sample_rate,
+                json,
+            )?;
         }
         Commands::VerifyNativeAudioOutputFile { rom, dir, scenario } => {
             let repo_root = current_dir()?;
@@ -4213,6 +4266,298 @@ fn controller_buttons(controller: Option<&sdl2::controller::GameController>) -> 
     buttons
 }
 
+#[derive(Debug, Serialize)]
+struct AudioAuditRow {
+    id: u8,
+    name: String,
+    chip_type: String,
+    channels: Vec<String>,
+    native_dur_frames: usize,
+    native_dur_ms: u32,
+    native_rms: f32,
+    native_peak: f32,
+    peak_freq_hz: Option<u32>,
+    looping: bool,
+    ym2612_writes: usize,
+    psg_writes: usize,
+    oracle_dur_frames: Option<usize>,
+    duration_delta_frames: Option<i32>,
+    oracle_status: &'static str,
+}
+
+#[derive(Debug, Default)]
+struct AudioChipActivity {
+    ym2612_writes: usize,
+    psg_writes: usize,
+    uses_dac: bool,
+    uses_fm: bool,
+}
+
+fn run_audio_audit(
+    repo_root: &Path,
+    upstream_dir: &Path,
+    manifest: &AssetManifest,
+    sound_id: Option<u8>,
+    frames: usize,
+    sample_rate: u32,
+    json: bool,
+) -> Result<()> {
+    if frames == 0 {
+        bail!("audio-audit requires --frames > 0");
+    }
+    if sample_rate == 0 {
+        bail!("audio-audit requires --sample-rate > 0");
+    }
+
+    let sound_dir = manifest.output_root.join("sound");
+    let driver = read_sound_asset(&sound_dir, "GEMS_Sounddriver.bin")?;
+    let instruments = read_sound_asset(&sound_dir, "instruments.bin")?;
+    let envelopes = read_sound_asset(&sound_dir, "envelopes.bin")?;
+    let sequences = read_sound_asset(&sound_dir, "sequences.bin")?;
+    let samples = read_sound_asset(&sound_dir, "samples.bin")?;
+    let names = parse_sfx_constants(&upstream_dir.join("constants.asm"))?;
+
+    let ids: Vec<u8> = if let Some(id) = sound_id {
+        vec![id]
+    } else {
+        names.keys().copied().collect()
+    };
+
+    let mut rows = Vec::with_capacity(ids.len());
+    for id in ids {
+        let name = names
+            .get(&id)
+            .map(|labels| labels.join("|"))
+            .unwrap_or_else(|| format!("sfx_{id:02X}"));
+        rows.push(audit_one_sound_id(
+            id,
+            name,
+            frames,
+            sample_rate,
+            &driver,
+            &instruments,
+            &envelopes,
+            &sequences,
+            &samples,
+        ));
+    }
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&rows)?);
+    } else {
+        println!("id   type   dur  rms      peak     freq   loop  writes  name  oracle");
+        for row in &rows {
+            let freq = row
+                .peak_freq_hz
+                .map(|freq| freq.to_string())
+                .unwrap_or_else(|| "-".to_string());
+            println!(
+                "{:02X}   {:5}  {:3}  {:.5}  {:.5}  {:>5}  {:5} {:>3}/{:<3} {}  {}",
+                row.id,
+                row.chip_type,
+                row.native_dur_frames,
+                row.native_rms,
+                row.native_peak,
+                freq,
+                row.looping,
+                row.ym2612_writes,
+                row.psg_writes,
+                row.name,
+                row.oracle_status,
+            );
+        }
+        let asset_path = sound_dir
+            .strip_prefix(repo_root)
+            .unwrap_or(sound_dir.as_path());
+        println!("assets: {}", asset_path.display());
+    }
+    Ok(())
+}
+
+fn read_sound_asset(sound_dir: &Path, filename: &str) -> Result<Vec<u8>> {
+    let path = sound_dir.join(filename);
+    fs::read(&path).with_context(|| format!("failed to read sound asset {}", path.display()))
+}
+
+fn parse_sfx_constants(path: &Path) -> Result<BTreeMap<u8, Vec<String>>> {
+    let text = fs::read_to_string(path)
+        .with_context(|| format!("failed to read ASM constants from {}", path.display()))?;
+    let mut names: BTreeMap<u8, Vec<String>> = BTreeMap::new();
+    for raw_line in text.lines() {
+        let line = raw_line.split(';').next().unwrap_or_default().trim();
+        let Some((name, value)) = line.split_once('=') else {
+            continue;
+        };
+        let name = name.trim();
+        if !name.starts_with("sfx_") {
+            continue;
+        }
+        let value = value.trim();
+        let id = if let Some(hex) = value.strip_prefix('$') {
+            u8::from_str_radix(hex, 16)
+        } else {
+            value.parse()
+        };
+        let id = id.with_context(|| format!("failed to parse {name} sound id `{value}`"))?;
+        names.entry(id).or_default().push(name.to_string());
+    }
+    Ok(names)
+}
+
+fn audit_one_sound_id(
+    id: u8,
+    name: String,
+    frames: usize,
+    sample_rate: u32,
+    driver: &[u8],
+    instruments: &[u8],
+    envelopes: &[u8],
+    sequences: &[u8],
+    samples: &[u8],
+) -> AudioAuditRow {
+    let mut engine = GemsAudioEngine::new(driver, instruments, envelopes, sequences, samples);
+    engine.start_sequence(id);
+    let samples_per_frame = ((u64::from(sample_rate) + 30) / 60).max(1) as usize;
+    let mut all_samples = Vec::with_capacity(frames * samples_per_frame * 2);
+    let mut activity = AudioChipActivity::default();
+    let mut audible_frames = Vec::with_capacity(frames);
+    const AUDIBLE_RMS: f32 = 0.0005;
+
+    for _ in 0..frames {
+        let writes = engine.step_frame_with_audio_writes();
+        classify_audio_writes(&writes, &mut activity);
+        let frame_samples = engine.generate_samples_at_rate(sample_rate, samples_per_frame);
+        let frame_rms = rms(&frame_samples);
+        audible_frames.push(frame_rms > AUDIBLE_RMS);
+        all_samples.extend(frame_samples);
+    }
+
+    let native_dur_frames = audible_frames
+        .iter()
+        .rposition(|audible| *audible)
+        .map(|idx| idx + 1)
+        .unwrap_or(0);
+    let tail = (frames / 10).clamp(6, 30).min(frames);
+    let looping = tail != 0
+        && audible_frames[frames - tail..]
+            .iter()
+            .any(|audible| *audible);
+    let native_rms = rms(&all_samples);
+    let native_peak = all_samples
+        .iter()
+        .fold(0.0_f32, |peak, sample| peak.max(sample.abs()));
+    let (chip_type, channels) = summarise_chip_activity(&activity);
+
+    AudioAuditRow {
+        id,
+        name,
+        chip_type,
+        channels,
+        native_dur_frames,
+        native_dur_ms: ((native_dur_frames as u64 * 1000) / 60) as u32,
+        native_rms,
+        native_peak,
+        peak_freq_hz: estimate_zero_crossing_frequency(&all_samples, sample_rate),
+        looping,
+        ym2612_writes: activity.ym2612_writes,
+        psg_writes: activity.psg_writes,
+        oracle_dur_frames: None,
+        duration_delta_frames: None,
+        oracle_status: "pending-mdruntime-injection",
+    }
+}
+
+fn classify_audio_writes(writes: &[GemsAudioWrite], activity: &mut AudioChipActivity) {
+    let mut ym_addr = [0u8; 2];
+    for write in writes {
+        match write.kind {
+            GemsAudioWriteKind::Psg => {
+                activity.psg_writes += 1;
+            }
+            GemsAudioWriteKind::Ym2612 => {
+                activity.ym2612_writes += 1;
+                match write.port {
+                    0 | 2 => ym_addr[usize::from(write.port / 2)] = write.value,
+                    1 | 3 => {
+                        let addr = ym_addr[usize::from(write.port / 2)];
+                        if addr == 0x2A || addr == 0x2B {
+                            activity.uses_dac = true;
+                        } else {
+                            activity.uses_fm = true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+fn summarise_chip_activity(activity: &AudioChipActivity) -> (String, Vec<String>) {
+    let mut channels = Vec::new();
+    if activity.uses_fm {
+        channels.push("fm".to_string());
+    }
+    if activity.uses_dac {
+        channels.push("dac".to_string());
+    }
+    if activity.psg_writes != 0 {
+        channels.push("psg".to_string());
+    }
+    let chip_type = match (
+        activity.uses_fm,
+        activity.uses_dac,
+        activity.psg_writes != 0,
+    ) {
+        (false, false, false) => "silent",
+        (true, false, false) => "fm",
+        (false, true, false) => "dac",
+        (false, false, true) => "psg",
+        _ => "mixed",
+    };
+    (chip_type.to_string(), channels)
+}
+
+fn rms(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let sum_squares: f64 = samples
+        .iter()
+        .map(|sample| {
+            let sample = f64::from(*sample);
+            sample * sample
+        })
+        .sum();
+    (sum_squares / samples.len() as f64).sqrt() as f32
+}
+
+fn estimate_zero_crossing_frequency(samples: &[f32], sample_rate: u32) -> Option<u32> {
+    if samples.len() < 4 {
+        return None;
+    }
+    let mut previous = 0.0_f32;
+    let mut crossings = 0usize;
+    let mut mono_samples = 0usize;
+    for stereo in samples.chunks_exact(2) {
+        let mono = (stereo[0] + stereo[1]) * 0.5;
+        if mono.abs() < 0.001 {
+            mono_samples += 1;
+            continue;
+        }
+        if previous != 0.0 && mono.signum() != previous.signum() {
+            crossings += 1;
+        }
+        previous = mono;
+        mono_samples += 1;
+    }
+    if crossings < 2 || mono_samples == 0 {
+        return None;
+    }
+    let seconds = mono_samples as f64 / f64::from(sample_rate);
+    Some(((crossings as f64 / 2.0) / seconds).round() as u32)
+}
+
 fn current_dir() -> Result<PathBuf> {
     env::current_dir().context("failed to determine current directory")
 }
@@ -4274,13 +4619,13 @@ fn print_asset_manifest(manifest: &AssetManifest) {
 #[cfg(test)]
 mod tests {
     use super::{
-        BatchProbeResult, BatchTargetBlockEvent, BatchTargetProjectileCell,
+        AudioChipActivity, BatchProbeResult, BatchTargetBlockEvent, BatchTargetProjectileCell,
         BatchTargetProjectileDirection, DynamicCheckpoint, DynamicScenario, GameplayCapture,
         GameplayScenario, GameplayState, PlayerForm, RecordScenarioKind, ReferenceName,
         TargetBlockEventKind, TargetCell, TargetProjectileDirection, analyse_audio_samples,
         apply_dynamic_scenario_input_overlays, audio_envelope_similarity, batch_probe_window_specs,
         build_controller_script, build_record_scenario, capture_native_gameplay_run,
-        capture_native_gameplay_scenario, compare_native_gameplay_with,
+        capture_native_gameplay_scenario, classify_audio_writes, compare_native_gameplay_with,
         compare_native_states_against_oracle, dynamic_scenario_with_frame_checkpoints,
         ensure_gameplay_level_layouts_with, ensure_level_layouts_with,
         ensure_play_native_level_layouts_with, find_gameplay_live_drifts,
@@ -4288,9 +4633,10 @@ mod tests {
         oracle_probe_watch_row_in_range, parse_batch_probe_candidate, parse_batch_probe_window,
         parse_batch_target_block_event, parse_batch_target_projectile_cell,
         parse_batch_target_projectile_direction, parse_button_mask, parse_input_spec,
-        prepare_generated_assets_with, record_scenario_command, record_scenario_file_command,
-        recording_scenario_manifest, recording_start_for_dynamic_scenario,
-        selected_reference_repos, sorted_batch_probe_results, target_block_event_from_frame,
+        parse_sfx_constants, prepare_generated_assets_with, record_scenario_command,
+        record_scenario_file_command, recording_scenario_manifest,
+        recording_start_for_dynamic_scenario, selected_reference_repos, sorted_batch_probe_results,
+        summarise_chip_activity, target_block_event_from_frame,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -4299,6 +4645,10 @@ mod tests {
         DynamicStartPosition, NativeDynamicRunOptions, run_native_dynamic_scenario,
     };
     use crate::verify::verify_soak_level_10m;
+    use std::cell::{Cell, RefCell};
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use tempfile::TempDir;
     use wildside_core::{
         ActiveProjectileKind, GameMode, GameMode as NativeGameMode, LevelId, NativeObjectKind,
         NativeObjectSnapshot, NativeTraceFrame,
@@ -4306,11 +4656,8 @@ mod tests {
     use wildside_data::{
         AssetManifest, export_split_bundle, load_manifest, manifest_path as generated_manifest_path,
     };
+    use wildside_md::{GemsAudioWrite, GemsAudioWriteKind};
     use wildside_rom::{RomHeader, RomIdentity, VerifiedRom};
-    use std::cell::{Cell, RefCell};
-    use std::fs;
-    use std::path::{Path, PathBuf};
-    use tempfile::TempDir;
 
     const SAXMAN_FIXTURE: &[u8] = &[0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
     const ENIGMA_FIXTURE: &[u8] = &[0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE];
@@ -7393,5 +7740,74 @@ AddrTbl_LevelNames:
             .is_none(),
             "score-frame-start should filter earlier block events"
         );
+    }
+
+    #[test]
+    fn audio_audit_parses_duplicate_sfx_constants_from_asm() {
+        let temp = TempDir::new().expect("tempdir");
+        let constants = temp.path().join("constants.asm");
+        fs::write(
+            &constants,
+            "sfx_UFO_shoots = $3A ; duplicate\nsfx_Robot_shoots = $3A\nmusic_Level_1 = $06\n",
+        )
+        .expect("constants fixture");
+
+        let names = parse_sfx_constants(&constants).expect("sfx constants should parse");
+
+        assert_eq!(
+            names.get(&0x3A).expect("duplicate id should exist"),
+            &vec!["sfx_UFO_shoots".to_string(), "sfx_Robot_shoots".to_string()],
+            "audio-audit must preserve duplicate constants.asm SFX labels such as the shared $3A shooter cue"
+        );
+        assert!(
+            !names.values().flatten().any(|name| name == "music_Level_1"),
+            "audio-audit enumerates sfx_* ids, not BGM constants"
+        );
+    }
+
+    #[test]
+    fn audio_audit_classifies_fm_dac_and_psg_writes() {
+        let mut activity = AudioChipActivity::default();
+        classify_audio_writes(
+            &[
+                GemsAudioWrite {
+                    z80_cycles: 1,
+                    kind: GemsAudioWriteKind::Ym2612,
+                    port: 0,
+                    value: 0x2A,
+                },
+                GemsAudioWrite {
+                    z80_cycles: 2,
+                    kind: GemsAudioWriteKind::Ym2612,
+                    port: 1,
+                    value: 0x80,
+                },
+                GemsAudioWrite {
+                    z80_cycles: 3,
+                    kind: GemsAudioWriteKind::Ym2612,
+                    port: 0,
+                    value: 0x28,
+                },
+                GemsAudioWrite {
+                    z80_cycles: 4,
+                    kind: GemsAudioWriteKind::Ym2612,
+                    port: 1,
+                    value: 0xF0,
+                },
+                GemsAudioWrite {
+                    z80_cycles: 5,
+                    kind: GemsAudioWriteKind::Psg,
+                    port: 0,
+                    value: 0x9F,
+                },
+            ],
+            &mut activity,
+        );
+
+        let (chip_type, channels) = summarise_chip_activity(&activity);
+        assert_eq!(chip_type, "mixed");
+        assert_eq!(channels, vec!["fm", "dac", "psg"]);
+        assert_eq!(activity.ym2612_writes, 4);
+        assert_eq!(activity.psg_writes, 1);
     }
 }

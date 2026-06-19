@@ -222,6 +222,20 @@ enum AudioEvent {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GemsAudioWriteKind {
+    Ym2612,
+    Psg,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GemsAudioWrite {
+    pub z80_cycles: u64,
+    pub kind: GemsAudioWriteKind,
+    pub port: u8,
+    pub value: u8,
+}
+
 #[derive(Debug, Clone)]
 struct FirstOrderFilter {
     b0: f32,
@@ -311,6 +325,27 @@ impl AudioEvent {
     fn z80_cycles(self) -> u64 {
         match self {
             Self::Ym2612Write { z80_cycles, .. } | Self::PsgWrite { z80_cycles, .. } => z80_cycles,
+        }
+    }
+
+    fn as_gems_write(self) -> GemsAudioWrite {
+        match self {
+            Self::Ym2612Write {
+                z80_cycles,
+                port,
+                value,
+            } => GemsAudioWrite {
+                z80_cycles,
+                kind: GemsAudioWriteKind::Ym2612,
+                port,
+                value,
+            },
+            Self::PsgWrite { z80_cycles, value } => GemsAudioWrite {
+                z80_cycles,
+                kind: GemsAudioWriteKind::Psg,
+                port: 0,
+                value,
+            },
         }
     }
 }
@@ -2975,10 +3010,22 @@ impl GemsAudioEngine {
     /// Advance Z80 by one frame's worth of cycles.
     /// Call once per game frame (60 Hz).
     pub fn step_frame(&mut self) {
+        let _ = self.step_frame_with_audio_writes();
+    }
+
+    /// Advance one frame and return the sound-chip writes emitted by the real
+    /// GEMS Z80 driver during that frame.
+    pub fn step_frame_with_audio_writes(&mut self) -> Vec<GemsAudioWrite> {
         self.step_z80_frame();
         // Drain audio events from bus into mixer
         let events = std::mem::take(&mut self.z80.io.audio_events);
+        let writes = events
+            .iter()
+            .copied()
+            .map(AudioEvent::as_gems_write)
+            .collect();
         self.mixer.push_events(events);
+        writes
     }
 
     fn step_z80_frame(&mut self) {
