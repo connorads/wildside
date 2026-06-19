@@ -30,6 +30,26 @@ const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
 const HUD_HITPOINT_ART_PATH: &str = "artunc/Hitpoint_display.bin";
 const PAUSE_MENU_ART_PATH: &str = "artunc/Pause_menu.bin";
 const PAUSE_MENU_VRAM_BASE_TILE_INDEX_LOC_690C: u16 = 0x0676;
+const PAUSE_MENU_MAP_WIDTH_LOC_69D2: usize = 16;
+const PAUSE_MENU_MAP_HEIGHT_LOC_69D2: usize = 5;
+const PAUSE_MENU_GIVE_UP_MAP_LOC_6CE4: [u16; 80] = [
+    0x8676, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677,
+    0x8677, 0x8677, 0x8677, 0x8E76, 0x867B, 0x867C, 0x8682, 0x8681, 0x8680, 0x867D, 0x8685, 0x8681,
+    0x8678, 0x8684, 0x868A, 0x8683, 0x8689, 0x8678, 0x8678, 0x8E7B, 0x867B, 0x8678, 0x8678, 0x8678,
+    0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8E7B,
+    0x867B, 0x8678, 0x867A, 0x867E, 0x867F, 0x8681, 0x8678, 0x867D, 0x8684, 0x8678, 0x8678, 0x8678,
+    0x8678, 0x8678, 0x8678, 0x8E7B, 0x9676, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677,
+    0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9E76,
+];
+const PAUSE_MENU_RESTART_MAP_LOC_6D84: [u16; 80] = [
+    0x8676, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677, 0x8677,
+    0x8677, 0x8677, 0x8677, 0x8E76, 0x867B, 0x867C, 0x8682, 0x8681, 0x8680, 0x867D, 0x8685, 0x8681,
+    0x8678, 0x8684, 0x868A, 0x8683, 0x8689, 0x8678, 0x8678, 0x8E7B, 0x867B, 0x8678, 0x8678, 0x8678,
+    0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8678, 0x8E7B,
+    0x867B, 0x8678, 0x8682, 0x8681, 0x8680, 0x8688, 0x8683, 0x8682, 0x8688, 0x8678, 0x8682, 0x8686,
+    0x867D, 0x8687, 0x8679, 0x8E7B, 0x9676, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677,
+    0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9677, 0x9E76,
+];
 const ISLAND_SHORE_ART_PATHS_LOC_1202A: [&str; 4] = [
     "artunc/shore_1.bin",
     "artunc/shore_2.bin",
@@ -178,6 +198,8 @@ pub struct TitleCardLettersVisuals {
 pub struct PauseMenuVisuals {
     pub tile_sheet: TileSheet,
     pub vram_base_tile_index: u16,
+    pub give_up_rows: Vec<Vec<TileRef>>,
+    pub restart_rows: Vec<Vec<TileRef>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -527,7 +549,27 @@ fn load_pause_menu_visuals(manifest: &AssetManifest) -> Result<Option<PauseMenuV
     Ok(Some(PauseMenuVisuals {
         tile_sheet,
         vram_base_tile_index: PAUSE_MENU_VRAM_BASE_TILE_INDEX_LOC_690C,
+        give_up_rows: pause_menu_rows_from_rom_words_loc_6ce4(&PAUSE_MENU_GIVE_UP_MAP_LOC_6CE4),
+        restart_rows: pause_menu_rows_from_rom_words_loc_6ce4(&PAUSE_MENU_RESTART_MAP_LOC_6D84),
     }))
+}
+
+fn pause_menu_rows_from_rom_words_loc_6ce4(words: &[u16; 80]) -> Vec<Vec<TileRef>> {
+    words
+        .chunks_exact(PAUSE_MENU_MAP_WIDTH_LOC_69D2)
+        .take(PAUSE_MENU_MAP_HEIGHT_LOC_69D2)
+        .map(|row| {
+            row.iter()
+                .map(|&word| {
+                    let mut tile = TileRef::from_attr_word(word);
+                    tile.tile_index = tile
+                        .tile_index
+                        .saturating_sub(PAUSE_MENU_VRAM_BASE_TILE_INDEX_LOC_690C);
+                    tile
+                })
+                .collect()
+        })
+        .collect()
 }
 
 /// Load the Title Card letter sprite sheet + palette extracted from the

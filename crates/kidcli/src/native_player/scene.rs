@@ -3272,6 +3272,34 @@ fn push_pause_menu_text_loc_69d2(commands: &mut Vec<DrawCommand>, trace: &Native
     ));
 }
 
+fn push_pause_menu_tilemap_loc_69d2(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
+    let Some(pause_menu) = level_visuals.pause_menu.as_ref() else {
+        return;
+    };
+    let rows = if trace.number_lives > 1 {
+        &pause_menu.restart_rows
+    } else {
+        &pause_menu.give_up_rows
+    };
+    let tile_sheet = Arc::new(pause_menu.tile_sheet.clone());
+    let palette = Arc::new(foreground_palette_for_scene(trace, level_visuals));
+    for (row_index, row) in rows.iter().enumerate() {
+        for (column_index, &tile) in row.iter().enumerate() {
+            commands.push(DrawCommand::IndexedTile {
+                x: 0x60 + column_index as i32 * 8,
+                y: 0x40 + row_index as i32 * 8,
+                tile_sheet: Arc::clone(&tile_sheet),
+                tile,
+                palette: Arc::clone(&palette),
+            });
+        }
+    }
+}
+
 pub(super) fn hide_pause_menu_overwritten_sprite_commands_sub_6874(
     commands: &mut Vec<DrawCommand>,
 ) {
@@ -5232,6 +5260,7 @@ fn build_game_scene_filtered(
     // Pause overlay
     if trace.paused && filter.hud {
         hide_pause_menu_overwritten_sprite_commands_sub_6874(&mut commands);
+        push_pause_menu_tilemap_loc_69d2(&mut commands, trace, level_visuals);
         push_pause_menu_text_loc_69d2(&mut commands, trace);
     }
 

@@ -31,7 +31,7 @@ pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
 #[cfg(test)]
 mod tests {
-    use super::{BackgroundVisuals, BlockVisualKind, load_level_visuals};
+    use super::{BackgroundVisuals, BlockVisualKind, TileRef, load_level_visuals};
     use kid_data::{
         AssetFile, AssetManifest, DECODED_LEVEL_ASSET_VERSION, DecodedAssetFile,
         DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord, LevelResources,
@@ -661,6 +661,29 @@ mod tests {
             pause.tile_sheet.tiles.len(),
             0x19,
             "ASM loc_690C copies the header word count from ArtUnc_PauseMenu: 25 tiles"
+        );
+        assert_eq!(pause.restart_rows.len(), 5);
+        assert!(pause.restart_rows.iter().all(|row| row.len() == 16));
+        assert_eq!(pause.give_up_rows.len(), 5);
+        assert!(pause.give_up_rows.iter().all(|row| row.len() == 16));
+        assert_eq!(
+            pause.restart_rows[0][0],
+            TileRef {
+                tile_index: 0,
+                palette_line: 0,
+                priority: true,
+                flip_x: false,
+                flip_y: false,
+            },
+            "ASM MapUnc_PauseMenu_Restart starts with absolute word $8676, normalised to tile 0 from VRAM base $676"
+        );
+        assert_eq!(
+            pause.restart_rows[3][2].tile_index, 0x0C,
+            "ASM MapUnc_PauseMenu_Restart row 3 spells Restart Round using tile $682 at the R"
+        );
+        assert_eq!(
+            pause.give_up_rows[3][2].tile_index, 0x04,
+            "ASM MapUnc_PauseMenu_GiveUp row 3 spells Give Up using tile $67A at the G"
         );
         assert_eq!(pause.tile_sheet.tiles[0].pixels[0], 0);
         assert_eq!(pause.tile_sheet.tiles[24].pixels[63], 15);

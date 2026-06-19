@@ -5684,6 +5684,31 @@ mod tests {
         }
     }
 
+    fn sample_pause_menu_visuals() -> kid_render::PauseMenuVisuals {
+        let mut tile_sheet = blank_tile_sheet(25);
+        for (index, tile) in tile_sheet.tiles.iter_mut().enumerate() {
+            tile.pixels = [0xA0 + index as u8; 64];
+        }
+        kid_render::PauseMenuVisuals {
+            tile_sheet,
+            vram_base_tile_index: 0x0676,
+            give_up_rows: vec![
+                vec![TileRef::from_attr_word(0x8000); 16],
+                vec![TileRef::from_attr_word(0x0001); 16],
+                vec![TileRef::from_attr_word(0x0002); 16],
+                vec![TileRef::from_attr_word(0x0004); 16],
+                vec![TileRef::from_attr_word(0x1000); 16],
+            ],
+            restart_rows: vec![
+                vec![TileRef::from_attr_word(0x8000); 16],
+                vec![TileRef::from_attr_word(0x0001); 16],
+                vec![TileRef::from_attr_word(0x0002); 16],
+                vec![TileRef::from_attr_word(0x000C); 16],
+                vec![TileRef::from_attr_word(0x1000); 16],
+            ],
+        }
+    }
+
     fn sample_player_frame(signature: u8) -> SpriteFrame {
         let tile = Tile {
             pixels: [signature; 64],
@@ -11302,6 +11327,94 @@ mod tests {
             !contains_text(&scene, "Press Start to resume"),
             "ASM loc_6A84 only writes cursor locations; native should not add an invented instruction hint"
         );
+    }
+
+    #[test]
+    fn paused_scene_draws_pause_menu_tilemap_loc_69d2() {
+        let mut visuals = sample_level_visuals();
+        visuals.pause_menu = Some(sample_pause_menu_visuals());
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.paused = true;
+        trace.number_lives = 3;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let pause_tiles = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::IndexedTile {
+                    x,
+                    y,
+                    tile_sheet,
+                    tile,
+                    ..
+                } if tile_sheet.tiles.len() == 25
+                    && (0x60..0xE0).contains(x)
+                    && (0x40..0x68).contains(y) =>
+                {
+                    Some((*x, *y, *tile))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            pause_tiles.len(),
+            80,
+            "ASM loc_69D2 writes a 16x5 tile pause menu block"
+        );
+        assert_eq!(
+            pause_tiles[0],
+            (
+                0x60,
+                0x40,
+                TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: true,
+                    flip_x: false,
+                    flip_y: false,
+                },
+            ),
+            "ASM loc_69D2 places the top-left MapUnc_PauseMenu tile at Camera_X+$60, Camera_Y+$40"
+        );
+        assert_eq!(
+            pause_tiles[3 * 16 + 2].2.tile_index,
+            0x0C,
+            "more than one life selects MapUnc_PauseMenu_Restart at restart_text"
+        );
+        assert!(contains_text(&scene, "RESTART ROUND"));
+    }
+
+    #[test]
+    fn paused_scene_draws_give_up_tilemap_on_last_life_loc_69d2() {
+        let mut visuals = sample_level_visuals();
+        visuals.pause_menu = Some(sample_pause_menu_visuals());
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.paused = true;
+        trace.number_lives = 1;
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let give_up_marker = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::IndexedTile {
+                x,
+                y,
+                tile_sheet,
+                tile,
+                ..
+            } if tile_sheet.tiles.len() == 25 && *x == 0x70 && *y == 0x58 => Some(*tile),
+            _ => None,
+        });
+
+        assert_eq!(
+            give_up_marker.map(|tile| tile.tile_index),
+            Some(0x04),
+            "last life selects MapUnc_PauseMenu_GiveUp at restart_text"
+        );
+        assert!(contains_text(&scene, "GIVE UP"));
+        assert!(!contains_text(&scene, "RESTART ROUND"));
     }
 
     #[test]
