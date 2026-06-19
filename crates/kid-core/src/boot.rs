@@ -479,14 +479,20 @@ pub fn hud_timer_sprite_layout_sub_BD0A(
 ///
 /// Each entry is 8 bytes in the VDP sprite table: y-pos(2), size+link(2), tile(2), x-pos(2).
 /// - Tile `$822D` = full (2 HP filled), `$822E` = half (1 HP filled), `$822F` = empty (0 HP).
-/// - `visible=true` means `size=$04` (1×1 sprite shown); `false` means `size=$00` (hidden).
+/// - `size` is the VDP sprite size byte: `$04` = 16×8 (two-tile full pip,
+///   loc_BE20/BE34/BE5C); `$00` = 8×8 (one-tile trailing odd-HP pip,
+///   loc_BE4C/BE74). Both are VISIBLE — on the Mega Drive a sprite with size
+///   byte `$00` is an 8×8 (1×1-tile) sprite that DOES render, not a hidden
+///   sprite. (#276: the long-standing "size 0 = invisible" reading was wrong, so
+///   the ROM draws all five Iron Knight pips and greys the trailing one on the
+///   first hit.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub(crate) struct HudHitpointSpriteSubBDC0 {
     pub(crate) y_pos: u16,
     pub(crate) x_pos: u16,
     pub(crate) tile: u16,
-    pub(crate) visible: bool,
+    pub(crate) size: u8,
 }
 
 /// ASM Make_SpriteAttr_HUD / sub_BDC0 (kid.asm:15382): builds hitpoint sprite
@@ -546,7 +552,7 @@ pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
                 y_pos: y,
                 x_pos: d2,
                 tile: 0x822D,
-                visible: true,
+                size: 0x04,
             });
             if d1 <= 0 {
                 break;
@@ -554,12 +560,13 @@ pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
         } else if d0 == -1 {
             // ASM loc_BE34: half hitpoint.
             if d1 < 0 {
-                // loc_BE4C: hidden half — size=$00, tile=$822D. `bra.s loc_BE82`.
+                // loc_BE4C: trailing odd-HP pip — size=$00 (8×8, VISIBLE),
+                // tile=$822D. `bra.s loc_BE82`.
                 sprites.push(HudHitpointSpriteSubBDC0 {
                     y_pos: y,
                     x_pos: d2,
                     tile: 0x822D,
-                    visible: false,
+                    size: 0x00,
                 });
                 break;
             }
@@ -568,7 +575,7 @@ pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
                 y_pos: y,
                 x_pos: d2,
                 tile: 0x822E,
-                visible: true,
+                size: 0x04,
             });
             if d1 <= 0 {
                 break;
@@ -576,12 +583,13 @@ pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
         } else {
             // ASM loc_BE5C: empty hitpoint.
             if d1 < 0 {
-                // loc_BE74: hidden empty — size=$00, tile=$822F. Falls through to loc_BE82.
+                // loc_BE74: trailing odd-HP pip — size=$00 (8×8, VISIBLE),
+                // tile=$822F. Falls through to loc_BE82.
                 sprites.push(HudHitpointSpriteSubBDC0 {
                     y_pos: y,
                     x_pos: d2,
                     tile: 0x822F,
-                    visible: false,
+                    size: 0x00,
                 });
                 break;
             }
@@ -590,7 +598,7 @@ pub(crate) fn make_hud_hitpoint_layout_sub_BDC0(
                 y_pos: y,
                 x_pos: d2,
                 tile: 0x822F,
-                visible: true,
+                size: 0x04,
             });
             if d1 <= 0 {
                 break;

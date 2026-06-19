@@ -24,11 +24,14 @@ enum HudHitpointTile {
     Empty,
 }
 
-fn hud_hitpoint_tiles(number_hitpoints: u16, max_hitpoints: u16) -> Vec<HudHitpointTile> {
-    // ASM Make_SpriteAttr_HUD loc_BE0C..loc_BE74 (kid.asm:15407): d0
-    // (current HP) and d1 (capacity) decrement by two per visible slot. A
-    // remainder of one current HP emits $822E; an odd trailing capacity slot is
-    // written with size 0 and is therefore skipped by native rendering.
+fn hud_hitpoint_tiles(number_hitpoints: u16, max_hitpoints: u16) -> Vec<(HudHitpointTile, bool)> {
+    // ASM Make_SpriteAttr_HUD loc_BE0C..loc_BE74 (kid.asm:15407): d0 (current
+    // HP) and d1 (capacity) decrement by two per slot. A full 16×8 slot emits
+    // $822D/$822E/$822F at size $04; an odd trailing capacity slot (loc_BE4C /
+    // loc_BE74) emits a single 8×8 pip at size $00. Size $00 is a VISIBLE 8×8
+    // sprite, NOT hidden (#276 — the prior code dropped this trailing pip, so an
+    // Iron Knight showed 4 dots for both 5 and 4 HP). The bool flags that
+    // narrow trailing slot so the renderer draws one tile, not two.
     let mut current = number_hitpoints as i16;
     let mut capacity = max_hitpoints as i16;
     let mut tiles = Vec::new();
@@ -36,22 +39,24 @@ fn hud_hitpoint_tiles(number_hitpoints: u16, max_hitpoints: u16) -> Vec<HudHitpo
     loop {
         capacity -= 2;
         current -= 2;
-        let tile = if current >= 0 {
-            Some(HudHitpointTile::Full)
-        } else if current == -1 {
-            if capacity < 0 {
-                None
+        // `capacity < 0` after the decrement is the odd trailing slot
+        // (loc_BE4C / loc_BE74): a single 8×8 pip representing one HP, so it is
+        // only ever filled ($822D, present) or grey ($822F, spent) — never half.
+        let narrow = capacity < 0;
+        let tile = if narrow {
+            if current >= -1 {
+                HudHitpointTile::Full
             } else {
-                Some(HudHitpointTile::Half)
+                HudHitpointTile::Empty
             }
-        } else if capacity < 0 {
-            None
+        } else if current >= 0 {
+            HudHitpointTile::Full
+        } else if current == -1 {
+            HudHitpointTile::Half
         } else {
-            Some(HudHitpointTile::Empty)
+            HudHitpointTile::Empty
         };
-        if let Some(tile) = tile {
-            tiles.push(tile);
-        }
+        tiles.push((tile, narrow));
         if capacity <= 0 {
             break;
         }
@@ -119,13 +124,16 @@ fn push_hud_hitpoint_sprite(
     base_tile: TileRef,
     x: i32,
     y: i32,
+    narrow: bool,
 ) {
     // ASM Make_SpriteAttr_HUD loc_BE20/BE34/BE5C writes size byte #4 for
     // $822D/$822E/$822F. On Mega Drive this is a 2x1 tile sprite, so the
     // visible pip includes the following tile as well as the base tile. ASM
     // loc_12C34 DMAs ArtUnc_12C3C into VRAM tile $22D, overlapping the block
     // VRAM page; draw from the dedicated HUD hitpoint sheet, not block art.
-    for tile_offset in 0..2 {
+    // The odd trailing pip (loc_BE4C/BE74) is size $00 = a single 8×8 tile.
+    let tile_count: u16 = if narrow { 1 } else { 2 };
+    for tile_offset in 0..tile_count {
         let Some(tile_index) = base_tile
             .tile_index
             .checked_sub(0x022D)
@@ -408,7 +416,7 @@ pub(super) fn push_game_hud(
     ) as i32
         + i32::from(trace.extra_hitpoint_slots);
     if hud_hitpoints_visible_loc_bdc0(trace, level_visuals) {
-        for (i, hitpoint_tile) in hud_hitpoint_tiles(trace.number_hitpoints, max_hp as u16)
+        for (i, (hitpoint_tile, narrow)) in hud_hitpoint_tiles(trace.number_hitpoints, max_hp as u16)
             .iter()
             .enumerate()
         {
@@ -423,6 +431,7 @@ pub(super) fn push_game_hud(
                 pip_tile,
                 HUD_HITPOINT_START_X + i as i32 * HUD_HITPOINT_SPACING_X,
                 HUD_HITPOINT_Y,
+                *narrow,
             );
         }
     }

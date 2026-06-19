@@ -1746,7 +1746,7 @@ mod chunk_01 {
                 y_pos: 0x00A4,
                 x_pos: 0x0090,
                 tile: 0x822D,
-                visible: true,
+                size: 0x04,
             },
             "loc_BE0C/loc_BE20: single full sprite at x=$90, y=$A4, tile=$822D"
         );
@@ -1756,44 +1756,63 @@ mod chunk_01 {
     /// (HelmetHitpoint_Table[IronKnight]=5, Extra_hitpoint_slots=0).
     /// Iteration 1: d2=$90, d1=3, d0=3 → ≥0 → loc_BE20 ($822D), d1>0 loop.
     /// Iteration 2: d2=$A0, d1=1, d0=1 → ≥0 → loc_BE20 ($822D), d1>0 loop.
-    /// Iteration 3: d2=$B0, d1=-1, d0=-1 → loc_BE34 → d1<0 → loc_BE4C (hidden $822D).
+    /// Iteration 3: d2=$B0, d1=-1, d0=-1 → loc_BE34 → d1<0 → loc_BE4C (VISIBLE 8×8 $822D).
     #[test]
-    fn loc_be0c_iron_knight_5hp_produces_two_full_one_hidden_half() {
+    fn loc_be0c_iron_knight_5hp_produces_two_full_one_visible_trailing() {
         let sprites = make_hud_hitpoint_layout_sub_BDC0(5, 5, false, 0, false);
         assert_eq!(sprites.len(), 3, "5 HP / 5 max → 3 sprites");
         assert_eq!(sprites[0].tile, 0x822D, "first: full");
-        assert!(sprites[0].visible);
+        assert_eq!(sprites[0].size, 0x04);
         assert_eq!(sprites[1].tile, 0x822D, "second: full");
-        assert!(sprites[1].visible);
-        // Third is the odd-HP hidden half (loc_BE4C)
-        assert_eq!(sprites[2].tile, 0x822D, "third: hidden half tile");
-        assert!(!sprites[2].visible, "loc_BE4C: hidden because d1<0");
+        assert_eq!(sprites[1].size, 0x04);
+        // Third is the odd 5th-HP pip (loc_BE4C): a VISIBLE 8×8 sprite ($822D,
+        // size $00), NOT hidden — so a full Iron Knight shows all five dots (#276).
+        assert_eq!(sprites[2].tile, 0x822D, "third: filled trailing odd-HP pip");
+        assert_eq!(
+            sprites[2].size, 0x00,
+            "loc_BE4C: size $00 = 8×8 sprite, VISIBLE not hidden"
+        );
     }
 
     /// ASM loc_B700 (kid.asm:14641-14658) caps Iron Knight damage through
-    /// `HelmetHitpoint_Table[6]=5`, then subtracts one HP.  The first
-    /// non-fatal hit therefore changes Number_Hitpoints 5 -> 4, but
-    /// Make_SpriteAttr_HUD/sub_BDC0 hides the odd fifth slot at loc_BE4C, so
-    /// the visible pip row remains two full sprites until the next hit.
+    /// `HelmetHitpoint_Table[6]=5`, then subtracts one HP.  The first non-fatal
+    /// hit changes Number_Hitpoints 5 -> 4, and because the odd fifth pip at
+    /// loc_BE4C is a VISIBLE 8×8 sprite (#276 — size $00 is not hidden), the HUD
+    /// visibly greys the trailing pip ($822D -> $822F) on that first hit.
     #[test]
-    fn loc_b700_iron_knight_first_hit_is_visually_hidden_by_sub_bdc0() {
+    fn loc_b700_iron_knight_first_hit_visibly_greys_trailing_pip_sub_bdc0() {
         let before = make_hud_hitpoint_layout_sub_BDC0(5, 5, false, 0, false);
         let after = make_hud_hitpoint_layout_sub_BDC0(4, 5, false, 0, false);
 
-        let visible_before = before
-            .iter()
-            .filter(|sprite| sprite.visible)
-            .map(|sprite| (sprite.x_pos, sprite.tile))
-            .collect::<Vec<_>>();
-        let visible_after = after
-            .iter()
-            .filter(|sprite| sprite.visible)
-            .map(|sprite| (sprite.x_pos, sprite.tile))
-            .collect::<Vec<_>>();
+        let row = |sprites: &[HudHitpointSpriteSubBDC0]| {
+            sprites
+                .iter()
+                .map(|sprite| (sprite.x_pos, sprite.tile, sprite.size))
+                .collect::<Vec<_>>()
+        };
 
         assert_eq!(
-            visible_before, visible_after,
-            "ASM sub_BDC0: Iron Knight 5 HP and 4 HP both show two visible full pips; the odd fifth slot is hidden"
+            row(&before),
+            vec![
+                (0x0090, 0x822D, 0x04),
+                (0x00A0, 0x822D, 0x04),
+                (0x00B0, 0x822D, 0x00),
+            ],
+            "5 HP: two full 16×8 pips + a filled trailing 8×8 pip = five dots"
+        );
+        assert_eq!(
+            row(&after),
+            vec![
+                (0x0090, 0x822D, 0x04),
+                (0x00A0, 0x822D, 0x04),
+                (0x00B0, 0x822F, 0x00),
+            ],
+            "4 HP: the trailing 8×8 pip greys ($822D -> $822F) — the first hit IS visible"
+        );
+        assert_ne!(
+            row(&before),
+            row(&after),
+            "ASM sub_BDC0: the first Iron Knight hit must visibly change the HUD"
         );
     }
 
@@ -1806,26 +1825,30 @@ mod chunk_01 {
         let before = make_hud_hitpoint_layout_sub_BDC0(4, 5, false, 0, false);
         let after = make_hud_hitpoint_layout_sub_BDC0(3, 5, false, 0, false);
 
-        let visible_before = before
-            .iter()
-            .filter(|sprite| sprite.visible)
-            .map(|sprite| (sprite.x_pos, sprite.tile))
-            .collect::<Vec<_>>();
-        let visible_after = after
-            .iter()
-            .filter(|sprite| sprite.visible)
-            .map(|sprite| (sprite.x_pos, sprite.tile))
-            .collect::<Vec<_>>();
+        let row = |sprites: &[HudHitpointSpriteSubBDC0]| {
+            sprites
+                .iter()
+                .map(|sprite| (sprite.x_pos, sprite.tile, sprite.size))
+                .collect::<Vec<_>>()
+        };
 
         assert_eq!(
-            visible_before,
-            vec![(0x0090, 0x822D), (0x00A0, 0x822D)],
-            "ASM sub_BDC0: Iron Knight 4 HP still shows two full pips"
+            row(&before),
+            vec![
+                (0x0090, 0x822D, 0x04),
+                (0x00A0, 0x822D, 0x04),
+                (0x00B0, 0x822F, 0x00),
+            ],
+            "ASM sub_BDC0: Iron Knight 4 HP shows two full pips + grey trailing pip"
         );
         assert_eq!(
-            visible_after,
-            vec![(0x0090, 0x822D), (0x00A0, 0x822E)],
-            "ASM loc_BE34: Iron Knight 3 HP shows the second pip as half"
+            row(&after),
+            vec![
+                (0x0090, 0x822D, 0x04),
+                (0x00A0, 0x822E, 0x04),
+                (0x00B0, 0x822F, 0x00),
+            ],
+            "ASM loc_BE34: Iron Knight 3 HP shows the second pip as half + grey trailing pip"
         );
     }
 
@@ -1902,9 +1925,9 @@ mod chunk_01 {
         let sprites = make_hud_hitpoint_layout_sub_BDC0(3, 4, false, 0, false);
         assert_eq!(sprites.len(), 2);
         assert_eq!(sprites[0].tile, 0x822D, "first: full");
-        assert!(sprites[0].visible);
+        assert_eq!(sprites[0].size, 0x04);
         assert_eq!(sprites[1].tile, 0x822E, "second: half (loc_BE34)");
-        assert!(sprites[1].visible);
+        assert_eq!(sprites[1].size, 0x04);
     }
 
     /// ASM Make_SpriteAttr_HUD: 0 HP with 4 max_slots produces 2 empty sprites.
@@ -1915,9 +1938,9 @@ mod chunk_01 {
         let sprites = make_hud_hitpoint_layout_sub_BDC0(0, 4, false, 0, false);
         assert_eq!(sprites.len(), 2);
         assert_eq!(sprites[0].tile, 0x822F, "first: empty");
-        assert!(sprites[0].visible);
+        assert_eq!(sprites[0].size, 0x04);
         assert_eq!(sprites[1].tile, 0x822F, "second: empty");
-        assert!(sprites[1].visible);
+        assert_eq!(sprites[1].size, 0x04);
     }
 
     /// ASM loc_BEE8 (kid.asm:15505): timer digit 0 → tile $86BA (base).

@@ -17992,9 +17992,12 @@ mod tests {
 
         let skycutter_scene = build_ingame_scene(&skycutter, false, None);
 
+        // At full HP every HP is one coloured dot: full slots draw two 8×8 tiles
+        // and the odd trailing slot (#276) draws one, so the tile count equals
+        // the form's max HP (Skycutter 3, Iron Knight 5) — not max/2*2.
         assert_eq!(
             count_hud_hitpoint_tiles(&skycutter_scene),
-            (PlayerForm::Skycutter.max_hitpoints() / 2) as usize * 2
+            PlayerForm::Skycutter.max_hitpoints() as usize
         );
 
         let mut iron_knight = sample_trace(GameMode::InGame);
@@ -18005,7 +18008,49 @@ mod tests {
 
         assert_eq!(
             count_hud_hitpoint_tiles(&iron_knight_scene),
-            (PlayerForm::IronKnight.max_hitpoints() / 2) as usize * 2
+            PlayerForm::IronKnight.max_hitpoints() as usize
+        );
+    }
+
+    #[test]
+    fn game_hud_iron_knight_first_hit_visibly_greys_fifth_pip_issue276() {
+        // #276: a 5-HP Iron Knight draws five dots (two 16×8 pips + one trailing
+        // 8×8 pip at loc_BE4C), and the first hit greys that trailing pip. The
+        // prior code dropped the size-$00 trailing pip, so HP 5 and HP 4 both
+        // rendered four dots — the "4 -> 4" the player kept reporting.
+        let mut hp5 = sample_trace(GameMode::InGame);
+        hp5.current_helmet_id = PlayerForm::IronKnight.helmet_id();
+        hp5.number_hitpoints = 5;
+        let mut hp4 = hp5.clone();
+        hp4.number_hitpoints = 4;
+
+        let hp5_scene = build_ingame_scene(&hp5, false, None);
+        let hp4_scene = build_ingame_scene(&hp4, false, None);
+
+        // Five dots render at both 5 and 4 HP (the trailing pip is not dropped).
+        assert_eq!(count_hud_hitpoint_tiles(&hp5_scene), 5);
+        assert_eq!(count_hud_hitpoint_tiles(&hp4_scene), 5);
+
+        // The trailing odd pip lives at the third slot x = $B0. At 5 HP it is
+        // filled ($822D -> tile_index 0); the first hit greys it
+        // ($822F -> tile_index 2).
+        let (_, hp5_tail, _) =
+            indexed_tile_at_with_sheet_len(&hp5_scene, 0xB0 - 128, 0xA4 - 128, 4)
+                .expect("filled trailing 5th pip at 5 HP");
+        assert_eq!(hp5_tail.tile_index, 0, "5 HP: trailing pip is filled ($822D)");
+        let (_, hp4_tail, _) =
+            indexed_tile_at_with_sheet_len(&hp4_scene, 0xB0 - 128, 0xA4 - 128, 4)
+                .expect("grey trailing 5th pip at 4 HP");
+        assert_eq!(
+            hp4_tail.tile_index, 2,
+            "4 HP: the first hit greys the trailing pip ($822F) — the change is visible"
+        );
+
+        // The trailing pip is a single 8×8 (size $00) tile, so nothing renders
+        // at the second-tile position $B8.
+        assert!(
+            indexed_tile_at_with_sheet_len(&hp5_scene, 0xB8 - 128, 0xA4 - 128, 4).is_none(),
+            "trailing pip is one 8×8 tile, not a 16×8 two-tile sprite"
         );
     }
 
@@ -18036,13 +18081,22 @@ mod tests {
             hit_first.tile_index, 1,
             "ASM loc_B700 decrements non-Iron helmet HP 2 -> 1, and sub_BDC0 loc_BE34 renders the slot as a visible half pip"
         );
-        assert!(
-            indexed_tile_at_with_sheet_len(&before_hit_scene, 0xA0 - 128, 0xA4 - 128, 4).is_none(),
-            "ASM sub_BDC0 exits after the single non-Iron 2 HP slot"
+        // A 3-HP non-Iron form has an odd trailing slot (loc_BE74): with 2 (or
+        // 1) of 3 HP the third dot is spent, so it draws a VISIBLE grey 8×8 pip
+        // ($822F, tile_index 2) — the prior code wrongly dropped it (#276).
+        let (_, before_tail, _) =
+            indexed_tile_at_with_sheet_len(&before_hit_scene, 0xA0 - 128, 0xA4 - 128, 4)
+                .expect("trailing grey pip for the spent 3rd HP at 2 HP");
+        assert_eq!(
+            before_tail.tile_index, 2,
+            "ASM sub_BDC0 loc_BE74: the odd 3rd HP slot draws a grey empty pip when spent"
         );
-        assert!(
-            indexed_tile_at_with_sheet_len(&after_hit_scene, 0xA0 - 128, 0xA4 - 128, 4).is_none(),
-            "ASM sub_BDC0 exits after the single non-Iron 1 HP slot"
+        let (_, after_tail, _) =
+            indexed_tile_at_with_sheet_len(&after_hit_scene, 0xA0 - 128, 0xA4 - 128, 4)
+                .expect("trailing grey pip for the spent 3rd HP at 1 HP");
+        assert_eq!(
+            after_tail.tile_index, 2,
+            "ASM sub_BDC0 loc_BE74: the odd 3rd HP slot stays grey at 1 HP"
         );
     }
 
