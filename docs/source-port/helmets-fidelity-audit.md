@@ -142,8 +142,8 @@ The live path forces `invulnerable_frames = max(1)` each frame (`helmets.rs:6015
 **RESOLVED — Rain non-tracking Y movement uses the ROM's word-only update** (`loc_3FF70` vs `loc_3FE98`)
 The ROM updates non-tracking rain Y as **word-only** (subpixel low word untouched) while tracking uses 32-bit (`kid.asm:45226,45317`). Live `step_diamond_power_rain_slots` now routes non-tracking slots through `diamond_power_rain_non_tracking_move`, preserving the low word while tracking slots keep the 32-bit velocity path. Covered by `diamond_power_rain_live_non_tracking_slot_uses_word_y_update_loc_3ff70`.
 
-**Rain — dead duplicate cull path for `EnemyProjectileKind::DiamondPowerRain` in `step_projectiles`** (`loc_3FF90/loc_3FFC0`)
-`step_projectiles` contains a second rain handler over `self.projectiles` entries of kind `DiamondPowerRain` (`projectiles.rs:1895-1913`), but the live spawn only pushes into `self.diamond_power_rain_slots` — no code ever creates a `DiamondPowerRain` projectile, so this block is vestigial dead code. Harmless; maintenance hazard (two cull paths).
+**RESOLVED — Rain has no duplicate generic projectile cull path** (`loc_3FF90/loc_3FFC0`)
+Rain now lives only in the dedicated `diamond_power_rain_slots` DP object-list model; the unused `EnemyProjectileKind::DiamondPowerRain` carrier, its Rain-only generic projectile fields, and the duplicate `step_projectiles` rain movement/cull branches were removed. This leaves `step_diamond_power_rain_slots` as the single live implementation for `loc_3FF90/loc_3FFC0`.
 
 **Rain tracking — enemy target subpixel truncated before velocity computation** (`loc_3FF4A`, `kid.asm:45300-45308`)
 The ROM computes tracking velocity from the enemy's full 32-bit position. Native reconstructs the target from the word-only `find_nearest_enemy` result (`(target.x as i32 as u32) << 16`, `projectiles.rs:1517-1518`), zeroing the enemy's subpixel; the delta is then `asr` by ≥1, so the lost low word affects at most the sub-LSB. Negligible precision divergence.

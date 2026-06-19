@@ -2586,27 +2586,12 @@ impl NativeRuntime {
 
         let player_x = self.opening_slice.as_ref().map(|s| s.player.x_pos);
         let player_y = self.opening_slice.as_ref().map(|s| s.player.y_pos);
-        let player_x_velocity = self
-            .opening_slice
-            .as_ref()
-            .map_or(0, |s| s.player.x_velocity);
         let camera = self.opening_slice.as_ref().map(|s| s.camera);
         let level_bounds = self.level_bounds(self.current_level);
         let current_frame_index = self.frame_index;
-        let tracking_rain_scan_enabled = self.progression.diamond_power_type
-            == crate::helmets::DiamondPowerType::TrackingRain
-            && (self.frame_index & 7) == 1;
         let diamond_power_active = self.progression.diamond_power_frames > 0
             || !self.diamond_power_invuln_haze_slots.is_empty();
         let v_int_counter_fff809 = self.frame_index as u8;
-        let rain_target_candidates: Vec<SnakeTargetCandidate> = self
-            .active_enemies
-            .iter()
-            .map(|enemy| SnakeTargetCandidate {
-                x_pos: (enemy.x_pos >> 16) as u16 as i16,
-                y_pos: (enemy.y_pos >> 16) as u16 as i16,
-            })
-            .collect();
         let active_lion_projectile_owners: Vec<EnemyProjectileOwner> = self
             .active_enemies
             .iter()
@@ -2657,7 +2642,6 @@ impl NativeRuntime {
             let is_dragon_flying_descent_fire =
                 p.kind == EnemyProjectileKind::DragonFlyingDescentFire;
             let is_hail = p.kind == EnemyProjectileKind::Hail;
-            let is_diamond_power_rain = p.kind == EnemyProjectileKind::DiamondPowerRain;
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
             let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
             let is_lion_projectile = p.kind == EnemyProjectileKind::LionProjectile;
@@ -2704,7 +2688,6 @@ impl NativeRuntime {
                 && !is_cloud_lightning
                 && !is_dragon_flying_descent_fire
                 && !is_hail
-                && !is_diamond_power_rain
                 && !is_maniaxe_axe
                 && !is_boss_head_arrow
                 && !is_boss_head_boomerang
@@ -2729,7 +2712,6 @@ impl NativeRuntime {
                 && !is_cloud_lightning
                 && !is_dragon_flying_descent_fire
                 && !is_hail
-                && !is_diamond_power_rain
                 && !is_maniaxe_axe
                 && !is_boss_head_arrow
                 && !is_boss_head_boomerang
@@ -3009,34 +2991,6 @@ impl NativeRuntime {
                 }
             }
 
-            if is_diamond_power_rain
-                && p.diamond_power_rain_tracking_word_3e == 0
-                && tracking_rain_scan_enabled
-                && let Some(camera) = camera
-                && let Some(target) = diamond_power_rain_find_nearest_enemy(
-                    (p.x_pos >> 16) as u16 as i16,
-                    (p.y_pos >> 16) as u16 as i16,
-                    (camera.x_pos >> 16) as u16 as i16,
-                    (camera.y_pos >> 16) as u16 as i16,
-                    &rain_target_candidates,
-                )
-                && let Some(tracking) = diamond_power_rain_compute_tracking_velocity(
-                    target.distance,
-                    (target.x as i32 as u32) << 16,
-                    (target.y as i32 as u32) << 16,
-                    p.x_pos,
-                    p.y_pos,
-                )
-            {
-                // ASM loc_3FF3C: once a valid target in [8,$40) is found, the
-                // rain slot stores `$26/$2A` tracking velocities and increments
-                // `$3E(a0)`, causing future frames to skip the scan path.
-                p.x_velocity = tracking.x_vel;
-                p.y_velocity = tracking.y_vel;
-                p.diamond_power_rain_tracking_word_3e =
-                    p.diamond_power_rain_tracking_word_3e.wrapping_add(1);
-            }
-
             if p.kind == EnemyProjectileKind::ShooterBlock
                 && p.shooter_tracks_layout
                 && let Some(g) = grid
@@ -3054,18 +3008,7 @@ impl NativeRuntime {
                 }
             }
 
-            let x_velocity = if is_diamond_power_rain && p.diamond_power_rain_tracking_word_3e == 0
-            {
-                // ASM loc_3FE62 (kid.asm:45210): a5 = Kid x_vel * 3/4.
-                // ASM loc_3FF70: non-tracking rain adds that drift after the
-                // slot's own `$26(a0)` x velocity.
-                let kid_drift = player_x_velocity - (player_x_velocity >> 2);
-                p.x_velocity.wrapping_add(kid_drift)
-            } else {
-                p.x_velocity
-            };
-
-            p.x_pos = (p.x_pos as i64 + i64::from(x_velocity)) as u32;
+            p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
             p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
             if is_boss_eye_attack {
                 let step = crate::combat::boss_eye_attack_step_sub_37332(
@@ -3146,26 +3089,6 @@ impl NativeRuntime {
             {
                 pending_shooter_layout_interactions.push(interaction);
                 return false;
-            }
-
-            if is_diamond_power_rain && let Some(camera) = camera {
-                let screen_x = ((p.x_pos >> 16) as i32)
-                    .wrapping_add(0x7F)
-                    .wrapping_sub((camera.x_pos >> 16) as i32);
-                let screen_y = ((p.y_pos >> 16) as i32)
-                    .wrapping_add(0x7F)
-                    .wrapping_sub((camera.y_pos >> 16) as i32);
-                // ASM loc_3FF90/loc_3FFC0: DiamondPower_Main_SlashingRain
-                // removes rain slots only when the compiled diamond sprite
-                // leaves the ROM's camera-relative screen bounds.
-                let (_, action) = diamond_power_rain_screen_cull_and_compile(
-                    screen_x as i16,
-                    screen_y as i16,
-                    p.diamond_power_rain_size_word_24,
-                );
-                if action == RainSlotSpriteAction::Removed {
-                    return false;
-                }
             }
 
             if is_hail && let Some(camera) = camera {

@@ -3006,7 +3006,6 @@ pub(crate) enum EnemyProjectileKind {
     DragonFlyingDescentFire,
     ShooterBlock,
     ManiaxeAxe,
-    DiamondPowerRain,
     FireDemonDeathTrail,
     /// Lion.asm loc_3E12A/loc_3E192 homing roar child. The ROM allocates this
     /// as a separate object worker and decrements parent `$5B` on delete.
@@ -3126,12 +3125,6 @@ pub(crate) struct EnemyProjectile {
     /// ASM loc_3A1EA stores the high byte of `$48(a5)` in d0 before entering
     /// loc_3A24C; nonzero keeps adding `+$7D0`, zero keeps adding `-$7D0`.
     pub(crate) boss_head_boomerang_direction_byte_d0: u8,
-    /// DiamondPower_Main_SlashingRain `$3E(a0)`: zero for non-tracking rain;
-    /// incremented by loc_3FF6A after Tracking Rain writes `$26/$2A` velocity.
-    pub(crate) diamond_power_rain_tracking_word_3e: u16,
-    /// DiamondPower_Main_SlashingRain `$24(a0)`: diamond sprite size used by
-    /// loc_3FF90 when centring and culling the compiled rain sprite.
-    pub(crate) diamond_power_rain_size_word_24: u16,
     /// Drips surface-crawler movement coroutine label. ASM turn scripts under
     /// `loc_33AF6` dispatch through `off_33ADA`; native persists the subset of
     /// labels wired into the simplified projectile carrier.
