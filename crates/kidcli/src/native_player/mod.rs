@@ -7615,6 +7615,84 @@ mod tests {
         );
     }
 
+    #[test]
+    fn under_skull_mountain3_present_flying_dragon_renders_rom_sprite_issue322() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let session_assets = load_native_session_assets(&manifest, 0x06)
+            .expect("Level 0x06 generated native-player assets");
+        let dragon_visuals = session_assets
+            .level_visuals
+            .enemies
+            .families
+            .get(&0x0C)
+            .expect("Under Skull Mountain 3 should load Flying Dragon visuals");
+        assert!(
+            !dragon_visuals.frames.is_empty(),
+            "ASM Dragon_Flying.asm Enemy0C_Dragon_flying_Init must have decoded sprite frames in generated Level 0x06 assets"
+        );
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.current_level = LevelId(0x06);
+        trace.current_level_name = Some(String::from("Under Skull Mountain 3"));
+        trace.camera_x_pos = 384 << 16;
+        trace.camera_y_pos = 160 << 16;
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0C },
+            x_pos: 504 << 16,
+            y_pos: 239 << 16,
+            layout_index: Some(0),
+            x_velocity: Some(-0x0002_0000),
+            y_velocity: Some(-0x0003_0000),
+            facing: Some(Direction::Left),
+            on_ground: Some(false),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }];
+
+        let scene = build_scene(
+            &trace,
+            false,
+            Some(&session_assets.level_visuals),
+            Some(&session_assets.block_grid),
+        );
+
+        assert!(
+            scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { x, y, tiles, .. }
+                        if *x >= 80 && *x <= 140 && *y >= 40 && *y <= 100 && !tiles.is_empty()
+                )
+            }),
+            "ASM Dragon_Flying.asm loc_348CE/stru_34600: a present Level 0x06 Flying Dragon must render a ROM sprite, not disappear or fall back to an empty-frame path"
+        );
+        assert!(
+            scene.commands.iter().all(|command| {
+                !matches!(
+                    command,
+                    DrawCommand::Rect {
+                        x,
+                        y,
+                        width: 16,
+                        height: 16,
+                        ..
+                    } if *x == 120 && *y == 79
+                )
+            }),
+            "Level 0x06 Flying Dragon should use decoded Dragon_Flying.asm frames instead of the #322 empty-art rectangle fallback"
+        );
+    }
+
     struct ManifestFixture {
         _root: TempDir,
         manifest: AssetManifest,
