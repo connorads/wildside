@@ -10220,6 +10220,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #316
 
 - Filed 2026-06-11 umbrella: helmets-fidelity-audit.md, 25 of 38 still open after the staleness check.
+- Progress 2026-06-20: fixed the Five-Way Shot projectile lifecycle row. ASM `DiamondPower_Main_FiveWayShot loc_4019A` treats `Diamond_power_timer` as a signed word after it reaches zero: visible slots stay alive at timer zero, then negative multiples of eight decrement each slot's size and `sub_3F5E8` removes them on underflow. Native was clearing slot-owned Five-Way Shot at generic timer zero because `diamond_power_frames` was an unsigned countdown and the live path never reached the negative fade. Runtime now treats Five-Way Shot and Wall of Death as slot-owned fade powers, wraps the timer word through signed negative values while slots remain, and clears only after the slot list self-removes. Regression: `diamond_power_five_way_survives_zero_timer_and_fades_negative_loc_4019a`. Verification: `cargo test -p wildside-core diamond_power_five_way -- --nocapture`, `cargo test -p wildside-core diamond_power_wall -- --nocapture`, `cargo test -p wildside-core wall_of_death -- --nocapture`, `git diff --check`, `mise run verify-slice-fast` (TAS frontier + 6258+9 tests), and `mise run verify-tas-full` (CRC all 37759 frames match; 212 authoritative divergences baseline + 2 oracle limitations). Continue #316 from the next open `helmets-fidelity-audit.md` row.
 
 ### #317
 

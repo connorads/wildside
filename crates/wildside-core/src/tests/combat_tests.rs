@@ -5019,6 +5019,54 @@ mod chunk_03 {
         );
     }
 
+    /// ASM DiamondPower_Main_FiveWayShot loc_4019A keeps the five DP objects
+    /// alive at timer zero, then shrinks them only on negative timer multiples
+    /// of eight before `sub_3F5E8` removes each slot.
+    #[test]
+    fn diamond_power_five_way_survives_zero_timer_and_fades_negative_loc_4019a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::FiveWayShot;
+        runtime.progression.diamond_power_frames = 1;
+        runtime.diamond_power_five_way_slots =
+            helmets::diamond_power_init_five_way_shot(0x100, 0x80, 0, 0, false).slots;
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::FiveWayShot,
+            "ASM loc_4019A: timer zero is still the visible `bpl.s loc_401BA` path, not DiamondPower clear"
+        );
+        assert_eq!(
+            runtime.diamond_power_five_way_slots.len(),
+            5,
+            "ASM loc_401BA still compiles all five slots when Diamond_power_timer reaches zero"
+        );
+        assert!(
+            runtime
+                .diamond_power_five_way_slots
+                .iter()
+                .all(|slot| slot.size_index == 5),
+            "ASM loc_4019A should not shrink FiveWayShot slots until the timer is negative"
+        );
+
+        for _ in 0..8 {
+            runtime.step_diamond_power(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.progression.diamond_power_frames as i16, -8,
+            "ASM DiamondPower_Main_FiveWayShot uses the signed word timer after it underflows"
+        );
+        assert!(
+            runtime
+                .diamond_power_five_way_slots
+                .iter()
+                .all(|slot| slot.size_index == 4),
+            "ASM loc_4019A: negative timer multiple of eight decrements `$24(a0)` before removal"
+        );
+    }
+
     /// ASM loc_400DE/loc_400F4 mirrors the spawn X offset and X velocities when
     /// Kid's `x_direction` byte is nonzero.
     #[test]

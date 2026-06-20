@@ -7090,15 +7090,25 @@ impl NativeRuntime {
     pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
         self.diamond_power_sprites.clear();
         // Count down active Diamond Power.
+        let slot_owned_fade_power_active = matches!(
+            self.progression.diamond_power_type,
+            DiamondPowerType::WallOfDeath
+        ) && !self.diamond_power_wall_slots.is_empty()
+            || matches!(
+                self.progression.diamond_power_type,
+                DiamondPowerType::FiveWayShot
+            ) && !self.diamond_power_five_way_slots.is_empty();
         let diamond_power_active = self.progression.diamond_power_frames > 0
             || !self.diamond_power_invuln_haze_slots.is_empty()
             || (self.progression.diamond_power_type == DiamondPowerType::CircleOfDoom
-                && !self.diamond_power_circle_slots.is_empty());
+                && !self.diamond_power_circle_slots.is_empty())
+            || slot_owned_fade_power_active;
         if diamond_power_active {
             if self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
-                && self.progression.diamond_power_frames > 0
+                && (self.progression.diamond_power_frames > 0 || slot_owned_fade_power_active)
             {
-                self.progression.diamond_power_frames -= 1;
+                self.progression.diamond_power_frames =
+                    self.progression.diamond_power_frames.wrapping_sub(1);
             }
 
             match self.progression.diamond_power_type {
@@ -7221,8 +7231,20 @@ impl NativeRuntime {
                 DiamondPowerType::None => {}
             }
 
-            if self.progression.diamond_power_frames == 0
+            let slot_owned_fade_power_finished = (self.progression.diamond_power_type
+                == DiamondPowerType::WallOfDeath
+                && self.diamond_power_wall_slots.is_empty())
+                || (self.progression.diamond_power_type == DiamondPowerType::FiveWayShot
+                    && self.diamond_power_five_way_slots.is_empty());
+            let slot_owned_fade_power = matches!(
+                self.progression.diamond_power_type,
+                DiamondPowerType::WallOfDeath | DiamondPowerType::FiveWayShot
+            );
+            if (self.progression.diamond_power_frames == 0
                 && self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
+                && !slot_owned_fade_power)
+                || (slot_owned_fade_power_finished
+                    && (self.progression.diamond_power_frames as i16).is_negative())
             {
                 if matches!(
                     self.progression.diamond_power_type,
