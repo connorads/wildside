@@ -5277,6 +5277,90 @@ mod chunk_03 {
         );
     }
 
+    /// ASM DiamondPower_Main_Snake loc_3FB20 keeps the slot list alive when
+    /// `Diamond_power_timer` reaches zero, then shrinks/removes slots only on
+    /// negative timer frames where `Time_Frames & $F == 0`.
+    #[test]
+    fn diamond_power_snake_survives_zero_timer_and_fades_negative_loc_3fb20() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
+        runtime.progression.diamond_power_frames = 1;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0060_0000;
+        slice.player.y_pos = 0x0070_0000;
+        runtime.opening_slice = Some(slice);
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::MiniSnake,
+            "ASM loc_3FB20: timer zero is still the visible `bge.s loc_3FB3E` path, not DP clear"
+        );
+        assert_eq!(
+            runtime.progression.diamond_power_frames, 0,
+            "native timer should reach the ROM zero boundary before the signed fade"
+        );
+        assert_eq!(
+            runtime.diamond_power_snake_slots.len(),
+            6,
+            "ASM DiamondPower_Main_Snake keeps all six slots alive at timer zero"
+        );
+
+        runtime.frame_index = 0x10;
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.diamond_power_frames as i16, -1,
+            "ASM loc_3F9A2 decrements Diamond_power_timer through signed negative values"
+        );
+        let sizes: Vec<u16> = runtime
+            .diamond_power_snake_slots
+            .iter()
+            .map(|slot| slot.diamond_size)
+            .collect();
+        assert_eq!(
+            sizes,
+            vec![1, 2, 3],
+            "ASM loc_3FB20 shrinks every slot on `Time_Frames & $F == 0` and removes size-1 slots"
+        );
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::MiniSnake,
+            "ASM sub_3F5E8 leaves Diamond_power_active set while any snake slots remain"
+        );
+    }
+
+    /// ASM sub_3F5E8 clears the Diamond Power active bytes only after the last
+    /// snake slot removes itself from the DP-object list.
+    #[test]
+    fn diamond_power_snake_clears_after_last_negative_fade_slot_loc_3fb20_sub_3f5e8() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::MiniSnake;
+        runtime.progression.diamond_power_frames = 0;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0060_0000;
+        slice.player.y_pos = 0x0070_0000;
+        runtime.opening_slice = Some(slice);
+        runtime.diamond_power_snake_slots =
+            helmets::diamond_power_init_snake(6, 0x300, &[1, 1, 1, 1, 1, 1], 0x1E0, 0x60, 0x70)
+                .slots;
+        runtime.frame_index = 0x10;
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.diamond_power_frames as i16, -1,
+            "ASM loc_3F9A2 decrements the timer before loc_3FB20 removes final faded slots"
+        );
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::None,
+            "ASM sub_3F5E8 clears Diamond_power_active after the final snake slot leaves the list"
+        );
+        assert!(runtime.diamond_power_snake_slots.is_empty());
+    }
+
     /// ASM DiamondPower_Run checks held Start+A before entering
     /// DiamondPower_Check; either button alone must leave the power inactive.
     #[test]

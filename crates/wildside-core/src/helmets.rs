@@ -7111,7 +7111,13 @@ impl NativeRuntime {
             || matches!(
                 self.progression.diamond_power_type,
                 DiamondPowerType::FiveWayShot
-            ) && !self.diamond_power_five_way_slots.is_empty();
+            ) && !self.diamond_power_five_way_slots.is_empty()
+            || matches!(
+                self.progression.diamond_power_type,
+                DiamondPowerType::MiniSnake
+                    | DiamondPowerType::SwiftMiniSnake
+                    | DiamondPowerType::DeathSnake
+            ) && !self.diamond_power_snake_slots.is_empty();
         let diamond_power_active = self.progression.diamond_power_frames > 0
             || !self.diamond_power_invuln_haze_slots.is_empty()
             || (self.progression.diamond_power_type == DiamondPowerType::CircleOfDoom
@@ -7249,10 +7255,20 @@ impl NativeRuntime {
                 == DiamondPowerType::WallOfDeath
                 && self.diamond_power_wall_slots.is_empty())
                 || (self.progression.diamond_power_type == DiamondPowerType::FiveWayShot
-                    && self.diamond_power_five_way_slots.is_empty());
+                    && self.diamond_power_five_way_slots.is_empty())
+                || (matches!(
+                    self.progression.diamond_power_type,
+                    DiamondPowerType::MiniSnake
+                        | DiamondPowerType::SwiftMiniSnake
+                        | DiamondPowerType::DeathSnake
+                ) && self.diamond_power_snake_slots.is_empty());
             let slot_owned_fade_power = matches!(
                 self.progression.diamond_power_type,
-                DiamondPowerType::WallOfDeath | DiamondPowerType::FiveWayShot
+                DiamondPowerType::WallOfDeath
+                    | DiamondPowerType::FiveWayShot
+                    | DiamondPowerType::MiniSnake
+                    | DiamondPowerType::SwiftMiniSnake
+                    | DiamondPowerType::DeathSnake
             );
             if (self.progression.diamond_power_frames == 0
                 && self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
