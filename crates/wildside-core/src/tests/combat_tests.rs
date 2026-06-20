@@ -15097,6 +15097,68 @@ mod chunk_03 {
     }
 
     #[test]
+    fn ninja_jump_attack_kid_above_bounces_and_decrements_loc_3da0c_3da98() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 2);
+        ninja.layout_index = 15;
+        ninja.ninja_state = NinjaState::JumpAttack;
+        ninja.x_velocity = 0x0001_0000;
+        ninja.y_velocity = -0x0001_0000;
+        ninja.on_ground = false;
+        runtime.active_enemies = vec![ninja];
+        let collision_target = runtime.active_enemies[0].clone();
+
+        runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDABOVE);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].ninja_state,
+            NinjaState::JumpAttack,
+            "ASM Ninja.asm loc_3DA98 should return to loc_3D9DA while `$44(a3)` remains non-zero"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Ninja.asm loc_3DA98 decrements `$44(a3)` for Kid-above contact during jump attack"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity,
+            NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98
+        );
+        assert!(!runtime.active_enemies[0].death_animation_active);
+    }
+
+    #[test]
+    fn ninja_jump_attack_kid_above_final_hit_enters_landing_loop_loc_3dabc() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 1);
+        ninja.layout_index = 16;
+        ninja.ninja_state = NinjaState::JumpAttack;
+        ninja.x_velocity = 0x0001_0000;
+        ninja.y_velocity = -0x0001_0000;
+        ninja.on_ground = false;
+        runtime.active_enemies = vec![ninja];
+        let collision_target = runtime.active_enemies[0].clone();
+
+        runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDABOVE);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].ninja_state,
+            NinjaState::KidAboveKnockdown,
+            "ASM Ninja.asm loc_3DA98 should fall through to loc_3DABC when `$44(a3)` reaches zero"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity,
+            NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98
+        );
+        assert!(
+            !runtime.active_enemies[0].death_animation_active,
+            "ASM Ninja.asm loc_3DABC waits for floor contact before loc_3DB4E starts the death animation"
+        );
+    }
+
+    #[test]
     fn tank_death_waits_for_stru_3b29a_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tank = test_enemy(EnemyFamily::Tank, 0x0080_0000, 0x0040_0000, 1);

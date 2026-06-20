@@ -6388,6 +6388,8 @@ pub(crate) enum NinjaState {
     Guard,
     /// Airborne jump-attack toward the player.
     JumpAttack,
+    /// ASM Ninja.asm loc_3DABC: HP-depleted Kid-above contact falls until floor before death.
+    KidAboveKnockdown,
 }
 
 /// Orca lunge state machine (Orca.asm).
@@ -19143,6 +19145,54 @@ pub(crate) fn step_ninja(
                     enemy.walk_speed_override = reset.walk_speed_override;
                 }
                 NinjaPostThreatRouteLoc3D79C::PositiveStateCheck => {}
+            }
+        }
+        NinjaState::KidAboveKnockdown => {
+            let Some(grid) = block_grid else {
+                enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+                let fall = ninja_kid_above_landing_loop_loc_3dabc(
+                    0,
+                    enemy.x_velocity,
+                    enemy.y_velocity,
+                    enemy.y_pos,
+                );
+                enemy.x_velocity = fall.x_velocity;
+                enemy.y_velocity = fall.y_velocity;
+                return;
+            };
+
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+            let cx = (enemy.x_pos >> 16) as i32;
+            let cy = (enemy.y_pos >> 16) as i32;
+            let floor = terrain::probe_floor(grid, cx, cy);
+            let collision_type = if floor.on_ground
+                && enemy.y_pos >= ((floor.floor_y_px as u32) << 16)
+            {
+                NINJA_COLID_FLOOR
+            } else {
+                0
+            };
+            let fall = ninja_kid_above_landing_loop_loc_3dabc(
+                collision_type,
+                enemy.x_velocity,
+                enemy.y_velocity,
+                enemy.y_pos,
+            );
+            enemy.x_velocity = fall.x_velocity;
+            enemy.y_velocity = fall.y_velocity;
+            enemy.y_pos = fall.y_position;
+            match fall.route {
+                NinjaKidAboveLandingLoopRouteLoc3DABC::Loop => {
+                    enemy.on_ground = false;
+                }
+                NinjaKidAboveLandingLoopRouteLoc3DABC::To3DB4E => {
+                    // ASM Ninja.asm loc_3DABC reaches loc_3DB4E only after
+                    // floor contact, then hibernates through `stru_3D50A`.
+                    enemy.on_ground = true;
+                    enemy.hit_points = 0;
+                    enemy.death_animation_active = true;
+                    enemy.wait_timer = NINJA_DEATH_ANIMATION_FRAMES;
+                }
             }
         }
         NinjaState::JumpAttack => {

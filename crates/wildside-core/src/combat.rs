@@ -8385,6 +8385,50 @@ impl NativeRuntime {
 
             if matches!(enemy.family, EnemyFamily::Ninja) {
                 let x_direction_right = matches!(enemy.facing, Direction::Right);
+                if matches!(enemy.ninja_state, NinjaState::JumpAttack) {
+                    match ninja_jump_attack_collision_dispatch_loc_3da0c(collision.collision_type)
+                        .route
+                    {
+                        NinjaJumpAttackCollisionRouteLoc3DA0C::KidAboveContact => {
+                            let contact =
+                                ninja_kid_above_contact_loc_3da98(u16::from(enemy.hit_points));
+                            // ASM Ninja.asm loc_3DA98: Kid-above contact sets
+                            // y_vel=$38000 and decrements `$44(a3)`. Only the
+                            // post-decrement zero falls into loc_3DABC.
+                            enemy.hit_points = contact.block_timer_44 as u8;
+                            enemy.y_velocity = contact.y_velocity;
+                            match contact.route {
+                                NinjaKidAboveContactRouteLoc3DA98::ContinueAirborneLoop => {}
+                                NinjaKidAboveContactRouteLoc3DA98::FallthroughLandingLoop => {
+                                    enemy.ninja_state = NinjaState::KidAboveKnockdown;
+                                    enemy.on_ground = false;
+                                }
+                            }
+                            changed_enemy_state = true;
+                        }
+                        NinjaJumpAttackCollisionRouteLoc3DA0C::KidSideContact => {
+                            if let NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(launch) =
+                                ninja_berzerker_side_contact_loc_3db0a(berzerker_charging)
+                            {
+                                // ASM Ninja.asm loc_3DA0C -> loc_3DB0A:
+                                // charging Berzerker side contact during the
+                                // jump attack enters the same launch loop.
+                                enemy.x_velocity = launch.x_velocity;
+                                enemy.y_velocity = launch.y_velocity;
+                                enemy.on_ground = false;
+                                enemy.wait_timer =
+                                    NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
+                                enemy.damage_flash_frames = 0;
+                                changed_enemy_state = true;
+                            }
+                        }
+                        NinjaJumpAttackCollisionRouteLoc3DA0C::Land
+                        | NinjaJumpAttackCollisionRouteLoc3DA0C::WallBounce
+                        | NinjaJumpAttackCollisionRouteLoc3DA0C::CeilingContact
+                        | NinjaJumpAttackCollisionRouteLoc3DA0C::ContinueAirborneLoop => {}
+                    }
+                    continue;
+                }
                 match ninja_collision_dispatch_loc_3d606(
                     collision.collision_type as i16,
                     false,

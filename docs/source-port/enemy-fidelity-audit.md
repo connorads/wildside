@@ -104,11 +104,15 @@ NinjaState has only Stealth/JumpAttack; no Block/Guard, no $44, no sfx_Ninja_blo
 
 2026-06-20 partial: live active-enemy stepping now threads the active Maniaxe axe X delta into Ninja `loc_3D776`; a live `ManiaxeAxe` inside the half-open `[-$5A,+$5A)` band routes to `loc_3D826` guard pose. Regression: `ninja_maniaxe_projectile_threat_enters_guard_pose_loc_3d776_3d826`. Still open: positive `$4C` jump-threat pose, `$54/$6E` cadence, and Kid-above/airborne knockdown dispatch.
 
+2026-06-20 partial: pending jump-attack collisions now route through `loc_3DA0C`; Kid-above enters `loc_3DA98`, decrements `$44(a3)`, bounces at `$38000`, and final hits enter a new `KidAboveKnockdown` state that runs the `loc_3DABC` floor-wait before `loc_3DB4E` death animation. Regressions: `ninja_jump_attack_kid_above_bounces_and_decrements_loc_3da0c_3da98`, `ninja_jump_attack_kid_above_final_hit_enters_landing_loop_loc_3dabc`, `ninja_kid_above_knockdown_starts_death_after_floor_loc_3dabc_3db4e`. Still open: positive `$4C` jump-threat pose, `$54/$6E` cadence, and the separate airborne `loc_3D878`/`loc_3D8BC` Berzerker side-contact knockdown branch.
+
 **Ninja — Berzerker side-contact knockback launch not wired** (`loc_3D698 / loc_3DB0A / loc_3D8A8 / loc_3D8BC`)
 Fixed candidate 2026-06-20: live pending-collision handling now routes Ninja side contact through `loc_3D606` -> `loc_3D698`; charging Berzerker contact applies the existing `loc_3DB0A` launch state and enters the `loc_3DB3C` airborne loop. Regression: `ninja_pending_berzerker_side_collision_enters_launch_loc_3d698_3db0a`. Still open: the airborne `loc_3D8A8`/`loc_3D8BC` side-contact knockdown branch needs raw jump-attack collision dispatch.
 
 **Ninja — HP-depleted knockdown fall (above-stomp) absent** (`loc_3D8BC / loc_3D8D6 / loc_3DA98`)
 No kid-above contact handling and no knockdown state. `enemies.rs:6257-6263`, `enemies.rs:16680-16693`; knockdown helpers test-only.
+
+Fixed candidate 2026-06-20 for jump-attack Kid-above: live pending collision dispatch now covers `loc_3DA0C -> loc_3DA98 -> loc_3DABC`, including the floor-wait before `loc_3DB4E`. Still open under the Berzerker side-contact branch: `loc_3D878`/`loc_3D8BC` airborne side-contact knockdown.
 
 **Robot — live collision/hit routing into charge still absent** (`loc_3A96C / loc_3A890 / loc_3A9F0`)
 ROM enters charge via routed damaging contact ($38(a2)<0 or $44 hits 0). Native final damage now enters `loc_3A96C` charge instead of generic death, but child-negative collision and shoot-time collision routes are still not fully live.
