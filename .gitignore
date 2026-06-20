@@ -9,11 +9,5 @@ hypothesis_log.jsonl
 kc.md
 __pycache__/
 *.pyc
-/.ralph-tui/
-/.ralph/
-/ralph.yml
 /.agents/planning/
 /.agents/scratchpad/implementation/kc-level1-graphics/
-/mutants.out/
-mutants.out.old/
-mutants.out.level/
