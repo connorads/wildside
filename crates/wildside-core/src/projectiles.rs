@@ -2601,8 +2601,7 @@ impl NativeRuntime {
         let camera = self.opening_slice.as_ref().map(|s| s.camera);
         let level_bounds = self.level_bounds(self.current_level);
         let current_frame_index = self.frame_index;
-        let diamond_power_active = self.progression.diamond_power_frames > 0
-            || !self.diamond_power_invuln_haze_slots.is_empty();
+        let diamond_power_active = self.diamond_power_active_loc_3f610();
         let v_int_counter_fff809 = self.frame_index as u8;
         let active_lion_projectile_owners: Vec<EnemyProjectileOwner> = self
             .active_enemies

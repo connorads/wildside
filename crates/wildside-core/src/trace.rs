@@ -5024,8 +5024,9 @@ mod tests {
         runtime.just_received_damage = true;
         runtime.progression.diamond_power_frames = 1;
 
-        // ASM damage paths pulse the trace damage flag directly, while the
-        // diamond-power state is live only while its countdown is non-zero.
+        // ASM damage paths pulse the trace damage flag directly. Diamond
+        // Power activity starts at DiamondPower_Check and then follows the
+        // DP-object list at sub_3F5E8 loc_3F610.
         let direct_damage = runtime.trace_frame();
         assert!(direct_damage.just_received_damage);
         assert!(direct_damage.diamond_power_active);
@@ -7479,8 +7480,7 @@ impl NativeRuntime {
                     || (self.death_shell_snapshot.is_some()
                         && matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }))
             },
-            diamond_power_active: self.progression.diamond_power_frames > 0
-                || !self.diamond_power_invuln_haze_slots.is_empty(),
+            diamond_power_active: self.diamond_power_active_loc_3f610(),
             diamond_count: self.progression.diamond_count,
             // ASM loc_D770 (kid.asm:16855): the flagpole EOL score counter
             // drains visible bonus rows into live `(Score).w`. Native

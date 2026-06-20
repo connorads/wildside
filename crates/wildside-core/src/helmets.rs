@@ -1168,6 +1168,21 @@ impl NativeRuntime {
             self.five_way_shot_ready = true;
         }
     }
+
+    pub(crate) fn diamond_power_active_loc_3f610(&self) -> bool {
+        // ASM DiamondPower_Check loc_3F6B0 sets Diamond_power_active at
+        // activation, then sub_3F5E8 loc_3F610 keeps it nonzero while
+        // Addr_FirstDPObjectSlot points at any live DP object. Native stores
+        // the shared list as per-power slot vectors.
+        self.progression.diamond_power_frames > 0
+            || !self.diamond_power_circle_slots.is_empty()
+            || !self.diamond_power_wall_slots.is_empty()
+            || !self.diamond_power_five_way_slots.is_empty()
+            || !self.diamond_power_snake_slots.is_empty()
+            || !self.diamond_power_rain_slots.is_empty()
+            || !self.diamond_power_extra_hp_life_slots.is_empty()
+            || !self.diamond_power_invuln_haze_slots.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

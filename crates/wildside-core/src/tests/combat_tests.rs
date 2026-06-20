@@ -5489,6 +5489,10 @@ mod chunk_03 {
             "ASM DiamondPower_Init_CircleOfDoom loc_3F7D0/loc_3F7E6 seeds eight DP-object slots"
         );
         assert!(
+            runtime.trace_frame().diamond_power_active,
+            "ASM DiamondPower_Check loc_3F6B0 sets Diamond_power_active before Circle starts; sub_3F5E8 loc_3F610 keeps it set while any DP-object slot remains"
+        );
+        assert!(
             runtime.trace_frame().diamond_power_sprites.is_empty(),
             "ASM DiamondPower_Run initialises slots on activation; sprites are emitted by the next Circle main pass"
         );
