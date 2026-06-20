@@ -19125,6 +19125,15 @@ pub(crate) fn step_ninja(
                 };
             }
 
+            let ceiling =
+                terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+            if ceiling.hit && enemy.y_velocity < 0 {
+                // ASM Ninja.asm loc_3DA0C dispatches `colid_ceiling` to
+                // loc_3DAB0, which clears the collision word, negates y_vel,
+                // and returns to the airborne loop.
+                enemy.y_velocity = ninja_ceiling_contact_loc_3dab0(enemy.y_velocity).y_velocity;
+            }
+
             // Floor landing: return to stealth
             if enemy.y_velocity > 0 {
                 let floor = terrain::probe_floor(grid, cx, cy);

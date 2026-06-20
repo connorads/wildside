@@ -10162,6 +10162,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 
 - Filed 2026-06-11 umbrella: enemy-fidelity-audit.md, 25 of 67 still open plus 9 partial remainders after the staleness check (e.g. Big Hopping Skull patrol x-bounds reachable only via test-only entry; Ninja `loc_3D8A8`/`loc_3D8BC` knockdown branch). Staleness report lists each remainder with current file:line.
 - Progress 2026-06-19: wired the live Ninja Red Stealth side-threat guard branch for `loc_3D734` -> `loc_3D826`, adding `NinjaState::Guard` and holding/releasing it through the negative `$4C(a5)` `loc_3D79C`/`loc_3D7CA` rule. Regressions: `ninja_red_stealth_side_threat_enters_guard_pose_loc_3d734_3d826`, `ninja_red_stealth_guard_releases_when_kid_leaves_band_loc_3d79c_3d7ca`, plus the existing `ninja_red_stealth_still_triggers_overhead_jump_loc_3d706` ordering guard. Remaining Ninja #315 work includes the full `$44` block counter, blocking SFX, cadence `$54/$6E`, and knockdown/airborne contact branches.
+- Progress 2026-06-19: wired Ninja jump-attack ceiling contact from ASM `loc_3DA0C` to `loc_3DAB0`; live `step_ninja` now probes the ceiling during `NinjaState::JumpAttack` and negates `y_vel` instead of continuing upward through solid cells. Regression: `ninja_jump_attack_ceiling_contact_negates_y_velocity_loc_3da0c_3dab0`. Remaining jump-attack contact debt: Kid-above `loc_3DA98` / knockdown `loc_3D8BC` and side-contact Berzerker branch.
 
 ### #316
 

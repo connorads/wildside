@@ -204,6 +204,8 @@ ROM flips x_direction and restarts the grounded wait until facing matches Kid; n
 **Ninja — jump-attack airborne loop omits ceiling/kid-above branches** (`loc_3DA0C / loc_3DAB0 / loc_3DA98`)
 Native handles only wall/floor contact during jump attack; ceiling reflection and Kid-above contact remain helper-only. `enemies.rs:17664-17710`; dispatcher `enemies.rs:16846/16960/17132` unused.
 
+2026-06-19 partial: live jump attack now probes ceiling contact and applies `loc_3DAB0` y-velocity negation. Still open: Kid-above `loc_3DA98`, side-contact `loc_3DB0A`, and the broader `loc_3DA0C` collision-word dispatch.
+
 **Ninja — far-Kid facing turn during pacing not applied** (`loc_3D92A / loc_3D978 / loc_3D98A`)
 ROM turns to face Kid when >$80 away; native sets facing only inside the attack trigger. `enemies.rs:16614-16641`, `enemies.rs:16306` test-only.
 

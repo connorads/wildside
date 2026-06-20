@@ -10522,6 +10522,35 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ninja_jump_attack_ceiling_contact_negates_y_velocity_loc_3da0c_3dab0() {
+        let width_cells = 20u16;
+        let height_cells = 8u16;
+        let mut data = vec![0u8; usize::from(width_cells) * usize::from(height_cells) * 2];
+        for col in 0..width_cells {
+            let offset = (usize::from(2u16) * usize::from(width_cells) + usize::from(col)) * 2;
+            data[offset] = 0x60;
+        }
+        let grid = terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells);
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 80 << 16, 63 << 16, 2);
+        enemy.ninja_state = NinjaState::JumpAttack;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = -0x0002_0000;
+        enemy.on_ground = false;
+
+        step_ninja(&mut enemy, Some(&grid), None, None, PlayerForm::TheKid);
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::JumpAttack,
+            "ASM Ninja.asm loc_3DAB0 returns to the loc_3D9DA airborne loop after ceiling contact"
+        );
+        assert_eq!(
+            enemy.y_velocity, 0x0001_D800,
+            "ASM Ninja.asm loc_3D9DA adds $2800, then loc_3DA0C dispatches colid_ceiling to loc_3DAB0, which negates y_vel"
+        );
+    }
+
+    #[test]
     fn ninja_lands_and_returns_to_stealth() {
         // Floor at row 17 spanning full width — ninja will land on it
         let grid = grid_with_platform(17, 0, 120);
