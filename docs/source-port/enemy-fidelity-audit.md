@@ -144,7 +144,7 @@ Fixed candidate: the row's "ceiling-hit" wording was stale (`colid_ceiling` rout
 Fixed candidate: both RockTank variants now expose the linked mouth/turret child as the stomp candidate instead of the parent body. Plain Tank already queued child hits through `loc_3B464`; Tank_Shooting now mirrors `loc_3B6C0`, so Kid-above contact writes `$2C` to the linked turret child and the parent consumes it on the later object pass. Regressions: existing `tank_child_stomp_hit_latches_contact_damage_through_loc_3b49a_hibernate`, new `tank_shooting_stomp_candidate_is_turret_child_loc_3b6c0`.
 
 **Tank — negative parent-collision instant-death route not wired** (`loc_3B41C→loc_3B480 / loc_3B6C0→loc_3B6E6`)
-Negative collision should bypass HP and run the child-hide/Kid-collision-restore death. Runtime death is HP-only. `enemies.rs:24086`, `enemies.rs:8519-8526`, `combat.rs:7813`.
+Fixed candidate: queued parent negative collision words now bypass HP decrement for both RockTank variants and enter the waited child-hide death scripts. Plain Tank is covered by `tank_negative_parent_collision_enters_loc_3b480_death_before_hp_damage`; Tank_Shooting is covered by `tank_shooting_negative_parent_collision_enters_loc_3b6e6_before_hp_damage`.
 
 **Tar_Monster — 5-projectile burst fires on every non-fatal hit instead of on death** (`loc_323E6 / loc_323C0`)
 `spawn_tar_monster_retaliation` is called only in the non-fatal branch; death path spawns no burst — inverse of ROM. `combat.rs:7865-7869`, `combat.rs:7813-7814`, `combat.rs:7647-7662`.

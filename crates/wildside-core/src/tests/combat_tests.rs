@@ -15803,6 +15803,53 @@ mod chunk_03 {
     }
 
     #[test]
+    fn tank_shooting_negative_parent_collision_enters_loc_3b6e6_before_hp_damage() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut tank = test_enemy(EnemyFamily::TankShooting, 0x0080_0000, 0x0040_0000, 4);
+        tank.layout_index = 14;
+        tank.x_velocity = 0x0001_0000;
+        let killed_identity = (tank.segment_index, tank.layout_index);
+        runtime.active_enemies = vec![tank];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: tank.segment_index,
+                layout_index: tank.layout_index,
+                collision_type: 0xFFFF,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Tank_Shooting.asm loc_3B6C0 routes negative parent collision_type directly to loc_3B6E6, which hibernates before delete"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 0,
+            "ASM Tank_Shooting.asm loc_3B6C0 must bypass the nonfatal turret-child HP decrement route"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            TANK_SHOOTING_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            runtime.active_enemies[0].death_animation_active,
+            "ASM Tank_Shooting.asm loc_3B6E6 should leave the parent in its death animation"
+        );
+        assert_eq!(
+            runtime.active_enemy_roster.len(),
+            1,
+            "ASM Tank_Shooting.asm loc_3B6E6 hides the turret child before the death-animation hibernate"
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM Tank_Shooting.asm loc_3C46E marks the layout killed only after stru_3B518 finishes"
+        );
+    }
+
+    #[test]
     fn tank_shooting_death_waits_for_stru_3b518_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tank = test_enemy(EnemyFamily::TankShooting, 0x0080_0000, 0x0040_0000, 1);
