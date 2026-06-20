@@ -4690,6 +4690,16 @@ fn build_game_scene_filtered(
                         colour: ENEMY_PROJECTILE_COLOUR,
                     });
                 }
+                ActiveProjectileKind::UfoFirstHurtDebris => {
+                    // ASM UFO.asm loc_354DA links debris children to sprite mapping LnkTo_unk_C8408.
+                    commands.push(DrawCommand::Rect {
+                        x: sx - 2,
+                        y: sy - 2,
+                        width: 4,
+                        height: 4,
+                        colour: ENEMY_PROJECTILE_COLOUR,
+                    });
+                }
                 ActiveProjectileKind::BossEyeAttack | ActiveProjectileKind::BossEyeSatellite => {
                     sprites::push_boss_eye_attack_marker_sub_37abc(
                         &mut commands,

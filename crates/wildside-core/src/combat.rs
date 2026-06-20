@@ -8576,7 +8576,10 @@ impl NativeRuntime {
                         kill_indices.push(active_idx);
                     }
                     CrabCollisionRouteLoc3B048::Damage => {
-                        if enemy.take_colid_hurt_or_queue_death(Some(slice.player.x_pos)) {
+                        if enemy.take_colid_hurt_or_queue_death_with_effects(
+                            &mut self.projectiles,
+                            Some(slice.player.x_pos),
+                        ) {
                             kill_indices.push(active_idx);
                         } else {
                             changed_enemy_state = true;
@@ -9006,7 +9009,8 @@ impl NativeRuntime {
                             // child `$2C`, stale child `$1C`, or parent
                             // colid_hurt enter the Robot hit reaction before
                             // either resuming walk or charging on the final HP.
-                            if enemy.take_damage_or_queue_death() {
+                            if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles)
+                            {
                                 kill_indices.push(active_idx);
                             }
                             changed_enemy_state = true;
@@ -9049,7 +9053,7 @@ impl NativeRuntime {
                         changed_enemy_state = true;
                     }
                     RobotCollisionRouteLoc3A8Ae::HitReaction => {
-                        if enemy.take_damage_or_queue_death() {
+                        if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                             kill_indices.push(active_idx);
                         }
                         changed_enemy_state = true;
@@ -9301,7 +9305,7 @@ impl NativeRuntime {
                         kill_indices.push(active_idx);
                     }
                     SpinningTwinsSettledCollisionRouteLoc3BBC4::Damage => {
-                        if enemy.take_damage_or_queue_death() {
+                        if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                             kill_indices.push(active_idx);
                         } else {
                             changed_enemy_state = true;
@@ -9343,7 +9347,7 @@ impl NativeRuntime {
                         kill_indices.push(active_idx);
                     }
                     GoatCollisionRouteLoc3CB14::Damage => {
-                        if enemy.take_damage_or_queue_death() {
+                        if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                             kill_indices.push(active_idx);
                         } else {
                             enemy.x_velocity = 0;
@@ -9400,7 +9404,7 @@ impl NativeRuntime {
             {
                 // ASM loc_1CF2 stores colid_kidabove into the object collision
                 // word; Dragon.asm loc_3CE9A consumes it on the next object pass.
-                if enemy.take_damage_or_queue_death() {
+                if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                     kill_indices.push(active_idx);
                 } else {
                     Self::apply_dragon_walking_stomp_hibernate(enemy);
@@ -10326,7 +10330,7 @@ impl NativeRuntime {
                     // enters the loc_3F200 landing loop instead of generic
                     // flash damage or immediate deletion.
                     enemy.start_mini_hopping_skull_air_damage_loc_3f1e6();
-                } else if enemy.take_damage_or_queue_death() {
+                } else if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                     kill_indices.push(active_idx);
                 } else {
                     // Bosses retaliate with projectiles when damaged

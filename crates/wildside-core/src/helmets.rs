@@ -5987,7 +5987,10 @@ impl NativeRuntime {
                 && dy <= RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32
             {
                 let enemy = &mut self.active_enemies[i];
-                if enemy.take_colid_hurt_or_queue_death(Some(slice.player.x_pos)) {
+                if enemy.take_colid_hurt_or_queue_death_with_effects(
+                    &mut self.projectiles,
+                    Some(slice.player.x_pos),
+                ) {
                     kill_indices.push(i);
                 }
                 // ASM loc_86EC (kid.asm:9556) is reached only by the grounded
@@ -6020,6 +6023,7 @@ impl NativeRuntime {
         let mut kill_indices = Vec::new();
         let mut projectile_consumed = Vec::new();
         let mut hit_sparks = Vec::new();
+        let mut pending_damage_effects = Vec::new();
         let player_x_pos = self.opening_slice.as_ref().map(|slice| slice.player.x_pos);
 
         for (pi, proj) in self.projectiles.iter().enumerate() {
@@ -6046,7 +6050,10 @@ impl NativeRuntime {
                     let spark_x_pos = proj.x_pos;
                     let spark_y_pos = proj.y_pos;
                     let enemy = &mut self.active_enemies[ei];
-                    if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
+                    if enemy.take_colid_hurt_or_queue_death_with_effects(
+                        &mut pending_damage_effects,
+                        player_x_pos,
+                    ) {
                         kill_indices.push(ei);
                     }
                     hit_sparks.push((spark_x_pos, spark_y_pos));
@@ -6074,7 +6081,10 @@ impl NativeRuntime {
                     let spark_x_pos = slot.x_pos;
                     let spark_y_pos = slot.y_pos;
                     let enemy = &mut self.active_enemies[ei];
-                    if enemy.take_colid_hurt_or_queue_death(player_x_pos) {
+                    if enemy.take_colid_hurt_or_queue_death_with_effects(
+                        &mut pending_damage_effects,
+                        player_x_pos,
+                    ) {
                         kill_indices.push(ei);
                     }
                     hit_sparks.push((spark_x_pos, spark_y_pos));
@@ -6090,6 +6100,7 @@ impl NativeRuntime {
         for &pi in projectile_consumed.iter().rev() {
             self.projectiles.remove(pi);
         }
+        self.projectiles.extend(pending_damage_effects);
 
         for (x_pos, y_pos) in hit_sparks {
             self.spawn_kid_projectile_hit_spark_loc_1_f08(x_pos, y_pos);

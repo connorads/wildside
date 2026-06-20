@@ -2662,11 +2662,13 @@ impl NativeRuntime {
             let is_boss_eye_satellite = p.kind == EnemyProjectileKind::BossEyeSatellite;
             let is_boss_eye_pop_effect = p.kind == EnemyProjectileKind::BossEyePopEffect;
             let is_boss_skewer = p.kind == EnemyProjectileKind::BossSkewer;
+            let is_ufo_first_hurt_debris = p.kind == EnemyProjectileKind::UfoFirstHurtDebris;
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
             let uses_loc_3263c_post_move_gravity = matches!(
                 p.kind,
                 EnemyProjectileKind::TarMonsterBurstChild
                     | EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                    | EnemyProjectileKind::UfoFirstHurtDebris
             );
             if is_boss_death_burst {
                 return step_boss_death_burst_sub_370d2(
@@ -3092,6 +3094,14 @@ impl NativeRuntime {
             {
                 return false;
             }
+            if is_ufo_first_hurt_debris
+                && let Some(g) = grid
+                && projectile_terrain_contact_loc_3345c(g, p)
+            {
+                // ASM UFO.asm loc_3555A deletes loc_354DA debris when its
+                // level-collision byte becomes non-zero.
+                return false;
+            }
 
             if p.kind == EnemyProjectileKind::ShooterBlock
                 && let Some(g) = grid
@@ -3446,6 +3456,7 @@ impl NativeRuntime {
                 p.kind,
                 EnemyProjectileKind::DripsSurfaceCrawlerBurst
                     | EnemyProjectileKind::DripsSurfaceCrawlerFinish
+                    | EnemyProjectileKind::UfoFirstHurtDebris
             ) {
                 return false;
             }
@@ -3487,11 +3498,13 @@ impl NativeRuntime {
                 p.kind,
                 EnemyProjectileKind::DripsSurfaceCrawlerBurst
                     | EnemyProjectileKind::DripsSurfaceCrawlerFinish
+                    | EnemyProjectileKind::UfoFirstHurtDebris
             ) {
                 // ASM Drips.asm loc_338F8 allocates Tar_Monster.asm loc_325B6
                 // after the crawler has already resolved contact, while
                 // loc_3392C keeps the original crawler alive only for its
-                // finish animation. Neither performs a fresh Kid damage check.
+                // finish animation. UFO.asm loc_354DA debris is likewise a
+                // visual/terrain-collision child, not a Kid damage worker.
                 return true;
             }
             if drips_surface_crawler_suppresses_kid_contact_loc_335d8(p) {

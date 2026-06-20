@@ -13863,6 +13863,75 @@ mod chunk_03 {
     }
 
     #[test]
+    fn ufo_first_hurt_projectile_hit_spawns_loc_351ee_debris_before_loc_35228() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.opening_slice = Some(combat_slice());
+        let mut ufo = test_enemy(EnemyFamily::UFO, 0x0100_0000, 0x0080_0000, 2);
+        ufo.x_velocity = 0x0002_0000;
+        ufo.y_velocity = -0x0001_0000;
+        ufo.facing = Direction::Left;
+        runtime.active_enemies = vec![ufo];
+        runtime.projectiles.push(EnemyProjectile {
+            x_pos: 0x0100_0000,
+            y_pos: 0x0080_0000,
+            lifetime: 100,
+            friendly: true,
+            ..EnemyProjectile::default()
+        });
+
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        let frame_start_x = slice.player.x_pos;
+        let frame_start_y = slice.player.y_pos;
+
+        runtime.resolve_frame_hazards(
+            &mut slice,
+            FrameInput::default(),
+            0,
+            frame_start_y,
+            frame_start_x,
+            frame_start_y,
+        );
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM UFO.asm loc_35228 marks the first-hit saucer as hurt without deleting it"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity, 0x0003_0000,
+            "ASM UFO.asm loc_35228 adds `$40000` to parent y_vel after loc_351EE debris allocation"
+        );
+        let debris = runtime
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::UfoFirstHurtDebris)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            debris.len(),
+            10,
+            "ASM UFO.asm loc_351EE allocates one debris worker for each non-zero x-word in unk_351C4"
+        );
+        assert_eq!(
+            debris[0].x_pos, 0x00F5_0000,
+            "ASM UFO.asm loc_354DA positions default-facing debris at linked UFO X-$B"
+        );
+        assert_eq!(
+            debris[0].y_pos, 0x0068_0000,
+            "ASM UFO.asm loc_354DA positions debris at linked UFO Y-$18"
+        );
+        assert_eq!(
+            debris[0].x_velocity, -0x0001_8000,
+            "ASM UFO.asm loc_351F2 shifts raw x=-5 by 15 and adds half parent x_vel"
+        );
+        assert_eq!(
+            debris[0].y_velocity, -0x0001_8000,
+            "ASM UFO.asm loc_351F2 shifts raw y=-3 by 15"
+        );
+        assert_eq!(debris[0].gravity, 0x0000_3000);
+    }
+
+    #[test]
     fn mini_hopping_skull_death_waits_for_loc_3f158_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 1);

@@ -150,7 +150,7 @@ Fixed candidate: queued parent negative collision words now bypass HP decrement 
 Fixed candidate: queued Tar Monster collision now follows `loc_3237A`/`loc_32386`/`loc_323C0`. Nonterminal hurt decrements HP and runs the hurt response without allocating `loc_32468`; terminal hurt/signed-negative/charging side routes enter `loc_323E6`, play the death-side `loc_32468` shoot cue, and spawn the `loc_324F8` five-child burst at the copied source position minus `$10` y before the waited death animation. Regressions: `tar_monster_nonfatal_hurt_does_not_spawn_burst_loc_323c0_323d6`, `tar_monster_terminal_hurt_spawns_death_burst_loc_323e6_324f8`.
 
 **UFO — two-phase hurt ($47) absent: first hit should spray debris and survive** (`Enemy0F_UFO_Hurt / loc_35150 / loc_351EE / loc_354DA`)
-`remove_dead_enemy` treats UFO as single death; no $47 latch. First-hit debris helpers test-only. `combat.rs:7630-7645`, `enemies.rs:10978/10913`.
+Fixed candidate: first hit now routes through `loc_351EE`/`loc_354DA`, spawning the ten debris children from `unk_351C4` before the saucer survives through `loc_35228`; final damage remains on the waited `loc_35174`/`loc_35180` parent death animation. Regressions: `ufo_first_hurt_projectile_hit_spawns_loc_351ee_debris_before_loc_35228`, `ufo_first_hurt_survives_and_primes_loc_35228`, `ufo_death_uses_loc_35174_parent_animation_before_delete`.
 
 ### Medium severity
 

@@ -9090,6 +9090,33 @@ impl ActiveEnemy {
         self.take_damage_or_queue_death()
     }
 
+    pub(crate) fn take_colid_hurt_or_queue_death_with_effects(
+        &mut self,
+        projectiles: &mut Vec<EnemyProjectile>,
+        player_x_pos: Option<u32>,
+    ) -> bool {
+        let spawn_ufo_first_hurt_debris =
+            matches!(self.family, EnemyFamily::UFO) && self.hit_points > 1;
+        let parent_x_pos = self.x_pos;
+        let parent_y_pos = self.y_pos;
+        let parent_x_velocity = self.x_velocity;
+        let parent_facing = self.facing;
+        let dies = self.take_colid_hurt_or_queue_death(player_x_pos);
+        if spawn_ufo_first_hurt_debris && !dies {
+            // ASM UFO.asm loc_35150: clear `$47(a5)` routes the first hit
+            // through loc_351EE debris allocation before loc_35228 marks the
+            // saucer hurt.
+            spawn_ufo_first_hurt_debris_loc_351ee(
+                projectiles,
+                parent_x_pos,
+                parent_y_pos,
+                parent_x_velocity,
+                parent_facing,
+            );
+        }
+        dies
+    }
+
     pub(crate) fn take_damage_or_queue_death(&mut self) -> bool {
         if matches!(self.family, EnemyFamily::DragonWalking) {
             return self.take_dragon_walking_damage_or_queue_death();
@@ -9260,6 +9287,32 @@ impl ActiveEnemy {
             self.y_velocity = 0;
         }
         false
+    }
+
+    pub(crate) fn take_damage_or_queue_death_with_effects(
+        &mut self,
+        projectiles: &mut Vec<EnemyProjectile>,
+    ) -> bool {
+        let spawn_ufo_first_hurt_debris =
+            matches!(self.family, EnemyFamily::UFO) && self.hit_points > 1;
+        let parent_x_pos = self.x_pos;
+        let parent_y_pos = self.y_pos;
+        let parent_x_velocity = self.x_velocity;
+        let parent_facing = self.facing;
+        let dies = self.take_damage_or_queue_death();
+        if spawn_ufo_first_hurt_debris && !dies {
+            // ASM UFO.asm loc_35150: clear `$47(a5)` routes the first hit
+            // through loc_351EE debris allocation before loc_35228 marks the
+            // saucer hurt.
+            spawn_ufo_first_hurt_debris_loc_351ee(
+                projectiles,
+                parent_x_pos,
+                parent_y_pos,
+                parent_x_velocity,
+                parent_facing,
+            );
+        }
+        dies
     }
 
     pub(crate) fn start_mini_hopping_skull_air_damage_loc_3f1e6(&mut self) {
@@ -12826,6 +12879,54 @@ pub(crate) fn ufo_beam_spawn_loc_351ee(
     }
 
     spawns
+}
+
+const UFO_FIRST_HURT_DEBRIS_VELOCITIES_LOC_351C4: [(i16, i16); 11] = [
+    (-5, -3),
+    (-3, -4),
+    (-6, -5),
+    (-4, -7),
+    (-2, -6),
+    (1, -6),
+    (1, -2),
+    (3, -4),
+    (4, -6),
+    (5, -3),
+    (0, 0),
+];
+
+pub(crate) fn spawn_ufo_first_hurt_debris_loc_351ee(
+    projectiles: &mut Vec<EnemyProjectile>,
+    parent_x_pos: u32,
+    parent_y_pos: u32,
+    parent_x_velocity: i32,
+    parent_facing: Direction,
+) {
+    let x_offset_px = match parent_facing {
+        // ASM UFO.asm loc_354DA: x starts at linked `$1A-$B`; non-zero
+        // x_direction adds `$16`, yielding `$1A+$B`.
+        Direction::Left => -0x0B,
+        Direction::Right => 0x0B,
+    };
+    let x_pos = (i64::from(parent_x_pos) + (i64::from(x_offset_px) << 16)) as u32;
+    let y_pos = (i64::from(parent_y_pos) - (0x18_i64 << 16)) as u32;
+
+    for debris in ufo_beam_spawn_loc_351ee(
+        parent_x_velocity,
+        &UFO_FIRST_HURT_DEBRIS_VELOCITIES_LOC_351C4,
+    ) {
+        projectiles.push(EnemyProjectile {
+            x_pos,
+            y_pos,
+            x_velocity: debris.beam_x_velocity,
+            y_velocity: debris.beam_y_velocity,
+            gravity: 0x0000_3000,
+            terrain_kill: true,
+            lifetime: u16::MAX,
+            kind: EnemyProjectileKind::UfoFirstHurtDebris,
+            ..EnemyProjectile::default()
+        });
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

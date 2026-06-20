@@ -82,6 +82,9 @@ pub enum ActiveProjectileKind {
     /// Walking Dragon breath child: ASM `Dragon.asm loc_3D02A` initialises
     /// `stru_3CCC8` as a stationary hostile GfxObject at the dragon mouth.
     DragonWalkingBreath,
+    /// UFO first-hurt debris child: ASM `UFO.asm loc_351EE` allocates
+    /// `loc_354DA` pieces before the saucer survives through `loc_35228`.
+    UfoFirstHurtDebris,
     /// Drips slime drop: ASM `Drips.asm loc_33424`/`loc_3345C` spawn a falling
     /// child object that accelerates under `$2000` gravity.
     DripsDrop,
@@ -3039,6 +3042,8 @@ pub(crate) enum EnemyProjectileKind {
     TarMonsterStraightGlob,
     /// Tar_Monster.asm loc_325E6 burst child; bounces through off_32656.
     TarMonsterBurstChild,
+    /// UFO.asm loc_351EE/loc_354DA first-hurt debris child.
+    UfoFirstHurtDebris,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
