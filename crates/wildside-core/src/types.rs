@@ -187,6 +187,16 @@ pub struct DiamondPowerSpriteSnapshot {
     pub pattern_word: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct EyeclopsHardBeamObjectSnapshot {
+    /// ASM loc_E948 stores `d6 - $80 + Camera_X_pos` in the companion GFX object.
+    pub x_pos: i32,
+    /// ASM loc_E948 stores `d5 - $80 + Camera_Y_pos` in the companion GFX object.
+    pub y_pos: i32,
+    /// ASM loc_E972 stores `$1160 + min((d7 & $FE) * 2, $20)`.
+    pub mapping_word: u16,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FireDemonTrailChild {
     pub(crate) x_pos: u32,
@@ -1499,6 +1509,9 @@ pub struct NativeTraceFrame {
     /// DP-object slots. Gameplay parity still comes from the core fields above.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diamond_power_sprites: Vec<DiamondPowerSpriteSnapshot>,
+    /// Visual-only Eyeclops hard-beam companion object (`$FFFFFABA`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eyeclops_hard_beam_object: Option<EyeclopsHardBeamObjectSnapshot>,
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
     /// ASM `loc_1202A` Island shore-animation object is active.
@@ -1751,6 +1764,7 @@ impl Default for NativeTraceFrame {
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),
             diamond_power_sprites: Vec::new(),
+            eyeclops_hard_beam_object: None,
             active_geysers: Vec::new(),
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,

@@ -17431,6 +17431,104 @@ pub(crate) fn eyeclops_hard_beam_object_mapping_loc_E972(beam_counter: u16) -> u
     0x1160 + doubled_even_counter.min(0x0020)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct EyeclopsHardBeamObjectLocE948 {
+    pub(crate) sprites: Vec<LevelSpriteStripEntryLocE692>,
+    pub(crate) next_link: u8,
+    pub(crate) x_pos: i32,
+    pub(crate) y_pos: i32,
+    pub(crate) mapping_word: u16,
+}
+
+/// ASM loc_E948 (kid.asm:18662): all hard-beam sprite writers carry `d6/d5`
+/// as the companion object's screen-space collision probe. The shared tail
+/// stores camera-adjusted object coordinates, writes the mapping word via
+/// loc_E972, and advances `$FFFFFAB8`.
+#[allow(non_snake_case)]
+#[allow(dead_code)]
+pub(crate) fn eyeclops_hard_beam_object_loc_E948(
+    beam_counter: u16,
+    source_x: i16,
+    base_y: i16,
+    camera_x: i16,
+    camera_y: i16,
+    number_sprites: u8,
+    direction_latch_nonzero: bool,
+) -> Option<EyeclopsHardBeamObjectLocE948> {
+    let mut sprites = Vec::new();
+    let (next_link, collision_probe_screen_x, collision_probe_screen_y) = if beam_counter == 0 {
+        let strip = eyeclops_hard_beam_zero_width_sprites_loc_E7E0(
+            source_x,
+            base_y,
+            number_sprites,
+            direction_latch_nonzero,
+        );
+        sprites.extend_from_slice(&strip.sprites);
+        (
+            strip.next_link,
+            strip.collision_probe_screen_x,
+            strip.collision_probe_screen_y,
+        )
+    } else if beam_counter == 1 {
+        let strip = eyeclops_hard_beam_one_width_sprites_loc_E842(
+            beam_counter,
+            source_x,
+            base_y,
+            number_sprites,
+            direction_latch_nonzero,
+        )?;
+        sprites.extend_from_slice(&strip.sprites);
+        (
+            strip.next_link,
+            strip.collision_probe_screen_x,
+            strip.collision_probe_screen_y,
+        )
+    } else {
+        let setup =
+            eyeclops_hard_beam_wide_setup_loc_E8A6(beam_counter, source_x, direction_latch_nonzero)?;
+        let first = eyeclops_hard_beam_wide_first_write_loc_E8DE(
+            beam_counter,
+            base_y,
+            number_sprites,
+            setup.sprite_x,
+            setup.tile_attr_mask,
+        );
+        sprites.push(first.first_sprite);
+        let middle = eyeclops_hard_beam_wide_middle_loc_E902(
+            first.middle_loop_counter,
+            beam_counter,
+            first.next_y,
+            first.next_link,
+            setup.sprite_x,
+            setup.tile_attr_mask,
+        );
+        sprites.extend(middle.middle_sprites);
+        if let Some(odd_width_sprite) = middle.odd_width_sprite {
+            sprites.push(odd_width_sprite);
+        }
+        let tail = eyeclops_hard_beam_wide_tail_loc_E936(
+            middle.next_y,
+            middle.next_link,
+            setup.sprite_x,
+            setup.tile_attr_mask,
+        );
+        sprites.push(tail.tail_sprite);
+        (
+            tail.next_link,
+            setup.collision_probe_screen_x,
+            first.collision_probe_screen_y,
+        )
+    };
+
+    Some(EyeclopsHardBeamObjectLocE948 {
+        sprites,
+        next_link,
+        x_pos: i32::from(collision_probe_screen_x) - 0x80 + i32::from(camera_x),
+        y_pos: i32::from(collision_probe_screen_y) - 0x80 + i32::from(camera_y),
+        mapping_word: eyeclops_hard_beam_object_mapping_loc_E972(beam_counter),
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TimedBlockVisibleSlotLocE9CA {
     pub(crate) object_id_index: u16,

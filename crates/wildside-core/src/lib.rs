@@ -268,6 +268,7 @@ pub struct NativeRuntime {
     diamond_power_snake_turn_rate: u16,
     diamond_power_snake_movement_speed: u16,
     diamond_power_sprites: Vec<DiamondPowerSpriteSnapshot>,
+    eyeclops_hard_beam_object: Option<EyeclopsHardBeamObjectSnapshot>,
     fire_demon_trails: Vec<FireDemonTrailChild>,
     weather: WeatherState,
     /// Native mirror of the ROM's 64-word `Palette_Buffer`.
@@ -1660,6 +1661,7 @@ impl NativeRuntime {
             diamond_power_snake_turn_rate: 0,
             diamond_power_snake_movement_speed: 0,
             diamond_power_sprites: Vec::new(),
+            eyeclops_hard_beam_object: None,
             fire_demon_trails: Vec::new(),
             weather: WeatherState::default(),
             palette_buffer: [0; 0x40],

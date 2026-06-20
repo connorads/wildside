@@ -5903,6 +5903,57 @@ mod chunk_06 {
         );
     }
 
+    #[test]
+    fn eyeclops_hard_beam_runtime_commits_companion_object_loc_e948() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Eyeclops;
+        rt.progression.diamond_count = 2;
+        let slice = combat_slice();
+
+        rt.step_eyeclops_beam(
+            &slice,
+            FrameInput {
+                start: true,
+                a: true,
+                ..FrameInput::default()
+            },
+        );
+        rt.step_eyeclops_beam(&slice, FrameInput::default());
+
+        let setup = helmets::eyeclops_beam_render_setup_loc_E4B2(
+            0x8001,
+            rt.helmet.eyeclops_beam_x_direction,
+        );
+        let origin = helmets::eyeclops_beam_screen_origin_loc_E4C4(
+            (slice.player.x_pos >> 16) as u16,
+            (slice.player.y_pos >> 16) as u16,
+            (slice.camera.x_pos >> 16) as u16,
+            (slice.camera.y_pos >> 16) as u16,
+            setup.x_offset_px,
+            setup.y_offset_px,
+        );
+        let expected = crate::level::eyeclops_hard_beam_object_loc_E948(
+            setup.beam_counter & 0x7FFF,
+            origin.screen_x_word as i16,
+            origin.screen_y_word as i16,
+            (slice.camera.x_pos >> 16) as i16,
+            (slice.camera.y_pos >> 16) as i16,
+            0,
+            rt.helmet.eyeclops_beam_x_direction != 0,
+        )
+        .expect("ASM loc_E7AC zero-width hard beam should fall through to loc_E948");
+
+        assert_eq!(
+            rt.eyeclops_hard_beam_object,
+            Some(EyeclopsHardBeamObjectSnapshot {
+                x_pos: expected.x_pos,
+                y_pos: expected.y_pos,
+                mapping_word: expected.mapping_word,
+            }),
+            "ASM loc_E948 must keep the hard-beam companion object positioned and mapped for rendering"
+        );
+    }
+
     /// ASM loc_E70A/loc_E756/sub_E446 (kid.asm:18405/18440/17963): the live
     /// Eyeclops beam's rendered strip scans its terrain column, reveals hidden
     /// blocks inside the vertical collision band, and queues the `$12C` worker

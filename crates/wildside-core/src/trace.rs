@@ -7568,6 +7568,7 @@ impl NativeRuntime {
                 .chain(self.boss_eye_satellite_snapshots_sub_393c8())
                 .collect(),
             diamond_power_sprites: self.diamond_power_sprites.clone(),
+            eyeclops_hard_beam_object: self.eyeclops_hard_beam_object,
             active_geysers: self
                 .weather
                 .lava_geysers

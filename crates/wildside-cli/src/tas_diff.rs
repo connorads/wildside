@@ -1084,6 +1084,7 @@ mod tests {
             active_projectiles: Vec::new(),
             active_projectile_details: Vec::new(),
             diamond_power_sprites: Vec::new(),
+            eyeclops_hard_beam_object: None,
             active_geysers: Vec::new(),
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
