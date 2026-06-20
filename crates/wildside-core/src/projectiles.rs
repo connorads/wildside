@@ -38,7 +38,7 @@ use crate::enemies::{
     tar_monster_projectile_velocity_swap_loc_326DC,
 };
 use crate::helmets::{
-    RainSlotSpriteAction, SnakeTargetCandidate, diamond_power_rain_compute_tracking_velocity,
+    RainSlotSpriteAction, RainTargetCandidate, diamond_power_rain_compute_tracking_velocity,
     diamond_power_rain_find_nearest_enemy, diamond_power_rain_non_tracking_move,
     diamond_power_rain_screen_cull_and_compile,
 };
@@ -2507,12 +2507,14 @@ impl NativeRuntime {
         let tracking_rain_scan_enabled = self.progression.diamond_power_type
             == crate::helmets::DiamondPowerType::TrackingRain
             && (self.frame_index & 7) == 1;
-        let rain_target_candidates: Vec<SnakeTargetCandidate> = self
+        let rain_target_candidates: Vec<RainTargetCandidate> = self
             .active_enemies
             .iter()
-            .map(|enemy| SnakeTargetCandidate {
-                x_pos: (enemy.x_pos >> 16) as u16 as i16,
-                y_pos: (enemy.y_pos >> 16) as u16 as i16,
+            .map(|enemy| RainTargetCandidate {
+                x_word: (enemy.x_pos >> 16) as u16 as i16,
+                y_word: (enemy.y_pos >> 16) as u16 as i16,
+                x_pos: enemy.x_pos,
+                y_pos: enemy.y_pos,
             })
             .collect();
 
@@ -2529,8 +2531,8 @@ impl NativeRuntime {
                 )
                 && let Some(tracking) = diamond_power_rain_compute_tracking_velocity(
                     target.distance,
-                    (target.x as i32 as u32) << 16,
-                    (target.y as i32 as u32) << 16,
+                    target.x_pos,
+                    target.y_pos,
                     slot.x_pos,
                     slot.y_pos,
                 )

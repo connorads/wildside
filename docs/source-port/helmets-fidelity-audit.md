@@ -34,12 +34,12 @@ The transform/HP core (`Kid_Transform`, `sub_7EB2`) is, by contrast, well-wired 
 | Diamond Power object list + sprite compile (`Addr_*DPObjectSlot`, `sub_3F5xx`) | stub | 3 |
 | Circle of Doom / Wall of Death (geometry vs kill-all AoE) | stub | 3 |
 | Snake Diamond Powers (Mini/Death/Swift/Death2) and tracking | stub | 4 |
-| Slashing Rain / Tracking Rain Diamond Power | partial | 3 |
+| Slashing Rain / Tracking Rain Diamond Power | partial | 2 |
 | Five-Way Shot (Juggernaut) Diamond Power | partial | 3 |
 | Eyeclops light beam (normal C-press vs hard A+Start) | partial | 4 |
 | Maniaxe thrown axe + Red Stealth sword | partial | 7 |
 
-Totals: 11 units audited, 0 full, 8 partial, 3 stub. **38 confirmed gaps** (10 high, 9 medium, 19 low).
+Totals: 11 units audited, 0 full, 8 partial, 3 stub. **37 confirmed gaps** (10 high, 9 medium, 18 low).
 
 ## Confirmed gaps
 
@@ -145,8 +145,8 @@ The ROM updates non-tracking rain Y as **word-only** (subpixel low word untouche
 **RESOLVED — Rain has no duplicate generic projectile cull path** (`loc_3FF90/loc_3FFC0`)
 Rain now lives only in the dedicated `diamond_power_rain_slots` DP object-list model; the unused `EnemyProjectileKind::DiamondPowerRain` carrier, its Rain-only generic projectile fields, and the duplicate `step_projectiles` rain movement/cull branches were removed. This leaves `step_diamond_power_rain_slots` as the single live implementation for `loc_3FF90/loc_3FFC0`.
 
-**Rain tracking — enemy target subpixel truncated before velocity computation** (`loc_3FF4A`, `kid.asm:45300-45308`)
-The ROM computes tracking velocity from the enemy's full 32-bit position. Native reconstructs the target from the word-only `find_nearest_enemy` result (`(target.x as i32 as u32) << 16`, `projectiles.rs:1517-1518`), zeroing the enemy's subpixel; the delta is then `asr` by ≥1, so the lost low word affects at most the sub-LSB. Negligible precision divergence.
+**FIXED CANDIDATE 2026-06-20 — Rain tracking velocity preserves target subpixels** (`loc_3FEE2`, `loc_3FF4A`, `kid.asm:45253-45308`)
+The ROM selects the nearest Tracking Rain target with word positions in `loc_3FEE2`, but keeps `a3` pointing at the target object and later computes `$26/$2A` from the target's full 32-bit `x_pos/y_pos` at `loc_3FF4A`/`loc_3FF52`. Native now carries both forms: word coordinates for culling/Manhattan distance and long coordinates for velocity, instead of reconstructing the target as `word << 16`. Covered by `tracking_rain_velocity_preserves_enemy_subpixel_loc_3ff4a` plus the existing `diamond_power_rain` helper tests.
 
 **Five-Way Shot — cost gate routed through generic `DiamondPower_Check` (5-vs-20 branch) instead of Juggernaut's dedicated init; 20-cost branch is dead** (`DiamondPower_Run Juggernaut branch → DiamondPower_Init_FiveWayShot subq #5`, `sub_7428`)
 In the ROM Juggernaut never enters the 20-diamond path — `DiamondPower_Run` diverts it straight to `DiamondPower_Init_FiveWayShot` (`subq #5`). Native funnels Juggernaut through the shared `DiamondPower_Check` decomposition (`helmets.rs:6056-6092`); because the outer gate already requires Start+A, the readiness helper always returns true, so cost is effectively always 5 and the `else 20` branch (`6074`) is unreachable for Juggernaut. Lands on the correct numeric result.

@@ -1818,10 +1818,23 @@ pub(crate) fn diamond_power_snake_find_target(
 pub(crate) struct RainNearestEnemy {
     /// Manhattan distance to nearest on-screen enemy.
     pub(crate) distance: u16,
-    /// Target enemy x_pos (world coordinates).
-    pub(crate) x: i16,
-    /// Target enemy y_pos (world coordinates).
-    pub(crate) y: i16,
+    /// Target enemy x_pos, preserving the full long read used by loc_3FF4A.
+    pub(crate) x_pos: u32,
+    /// Target enemy y_pos, preserving the full long read used by loc_3FF52.
+    pub(crate) y_pos: u32,
+}
+
+/// An on-screen enemy position for Tracking Rain's target scan.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct RainTargetCandidate {
+    /// Word x_pos used by ASM loc_3FEE2 for screen culling and distance.
+    pub(crate) x_word: i16,
+    /// Word y_pos used by ASM loc_3FEE2 for screen culling and distance.
+    pub(crate) y_word: i16,
+    /// Full long x_pos used later by ASM loc_3FF4A for velocity.
+    pub(crate) x_pos: u32,
+    /// Full long y_pos used later by ASM loc_3FF52 for velocity.
+    pub(crate) y_pos: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1886,7 +1899,7 @@ pub(crate) fn diamond_power_rain_find_nearest_enemy(
     rain_y: i16,
     camera_x: i16,
     camera_y: i16,
-    enemies: &[SnakeTargetCandidate],
+    enemies: &[RainTargetCandidate],
 ) -> Option<RainNearestEnemy> {
     // ASM loc_3FEBC: d0 = rain $1A(a0) - Camera_X_pos, d1 = rain $1E(a0) - Camera_Y_pos
     let screen_rain_x = rain_x.wrapping_sub(camera_x);
@@ -1894,13 +1907,13 @@ pub(crate) fn diamond_power_rain_find_nearest_enemy(
 
     // ASM: moveq #-1,d7 — initial "no target" sentinel
     let mut best_dist: u16 = 0xFFFF;
-    let mut best_target: Option<(i16, i16)> = None;
+    let mut best_target: Option<(u32, u32)> = None;
 
     // ASM loc_3FEE2: iterate enemy linked list ($FFFFF86A)
     for enemy in enemies {
         // ASM loc_3FEE2: move.w $1A(a1),d5; move.w $1E(a1),d6; subi.w #8,d6
-        let ex = enemy.x_pos;
-        let ey = enemy.y_pos.wrapping_sub(8);
+        let ex = enemy.x_word;
+        let ey = enemy.y_word.wrapping_sub(8);
 
         // ASM: sub.w (Camera_X_pos).w,d5
         let screen_ex = ex.wrapping_sub(camera_x);
@@ -1934,13 +1947,15 @@ pub(crate) fn diamond_power_rain_find_nearest_enemy(
             continue;
         }
         best_dist = dist;
+        // ASM loc_3FF1C keeps a3 = target object; loc_3FF4A later reads the
+        // target's long x_pos/y_pos, not the word values used for distance.
         best_target = Some((enemy.x_pos, enemy.y_pos));
     }
 
-    best_target.map(|(x, y)| RainNearestEnemy {
+    best_target.map(|(x_pos, y_pos)| RainNearestEnemy {
         distance: best_dist,
-        x,
-        y,
+        x_pos,
+        y_pos,
     })
 }
 
@@ -3430,9 +3445,11 @@ mod tests {
             0x20,
             0,
             0,
-            &[SnakeTargetCandidate {
-                x_pos: -8,
-                y_pos: 0x28,
+            &[RainTargetCandidate {
+                x_word: -8,
+                y_word: 0x28,
+                x_pos: 0xFFF8_0000,
+                y_pos: 0x0028_0000,
             }],
         );
 
@@ -3440,8 +3457,8 @@ mod tests {
             target,
             Some(RainNearestEnemy {
                 distance: 8,
-                x: -8,
-                y: 0x28,
+                x_pos: 0xFFF8_0000,
+                y_pos: 0x0028_0000,
             })
         );
     }
@@ -3458,13 +3475,17 @@ mod tests {
             0,
             0,
             &[
-                SnakeTargetCandidate {
-                    x_pos: -8,
-                    y_pos: 0x28,
+                RainTargetCandidate {
+                    x_word: -8,
+                    y_word: 0x28,
+                    x_pos: 0xFFF8_0000,
+                    y_pos: 0x0028_0000,
                 },
-                SnakeTargetCandidate {
-                    x_pos: 8,
-                    y_pos: 0x28,
+                RainTargetCandidate {
+                    x_word: 8,
+                    y_word: 0x28,
+                    x_pos: 0x0008_8000,
+                    y_pos: 0x0028_8000,
                 },
             ],
         );
@@ -3473,8 +3494,8 @@ mod tests {
             target,
             Some(RainNearestEnemy {
                 distance: 8,
-                x: 8,
-                y: 0x28,
+                x_pos: 0x0008_8000,
+                y_pos: 0x0028_8000,
             })
         );
     }

@@ -4923,6 +4923,43 @@ mod chunk_03 {
         );
     }
 
+    /// ASM loc_3FEE2 selects a target using word positions, but loc_3FF4A
+    /// computes velocity from that target's full 32-bit `x_pos/y_pos`.
+    #[test]
+    fn tracking_rain_velocity_preserves_enemy_subpixel_loc_3ff4a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::TrackingRain;
+        runtime.frame_index = 1;
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        runtime.opening_slice = Some(slice);
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0098_8000, 0x0088_8000, 1)];
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
+            x_pos: 0x0080_0000,
+            y_pos: 0x0080_0000,
+            y_velocity: 0x2_0000,
+            size_word_24: 4,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+
+        let slot = runtime
+            .diamond_power_rain_slots
+            .first()
+            .expect("tracking rain slot should remain visible");
+        assert_eq!(
+            slot.x_velocity, 0x0006_2000,
+            "ASM loc_3FF4A: x velocity uses enemy long x_pos, not word<<16"
+        );
+        assert_eq!(
+            slot.y_velocity, 0x0000_2000,
+            "ASM loc_3FF52: y velocity uses enemy long y_pos before subtracting 8px"
+        );
+        assert_eq!(slot.tracking_word_3e, 1);
+    }
+
     /// ASM DiamondPower_Init_FiveWayShot (kid.asm:45461) seeds five shot
     /// vectors in word_40124 and allocates all five via `moveq #4,d1`/`dbf`.
     #[test]
@@ -6110,22 +6147,26 @@ mod chunk_03 {
         let rain_y: i16 = 0x80; // screen-relative: 0x80-0x40 = 0x40
         let enemies = [
             // Enemy A: screen (0xA0, 0x70) after y-8 offset → dx=0x20, dy=0x30 → dist=0x50
-            helmets::SnakeTargetCandidate {
-                x_pos: 0x120,
-                y_pos: 0xB8, // (0xB8-8)-0x40 = 0x70
+            helmets::RainTargetCandidate {
+                x_word: 0x120,
+                y_word: 0xB8, // (0xB8-8)-0x40 = 0x70
+                x_pos: 0x0120_0000,
+                y_pos: 0x00B8_0000,
             },
             // Enemy B: screen (0x90, 0x50) after y-8 offset → dx=0x10, dy=0x10 → dist=0x20
-            helmets::SnakeTargetCandidate {
-                x_pos: 0x110,
-                y_pos: 0x98, // (0x98-8)-0x40 = 0x50
+            helmets::RainTargetCandidate {
+                x_word: 0x110,
+                y_word: 0x98, // (0x98-8)-0x40 = 0x50
+                x_pos: 0x0110_8000,
+                y_pos: 0x0098_8000,
             },
         ];
         let result =
             helmets::diamond_power_rain_find_nearest_enemy(rain_x, rain_y, cam_x, cam_y, &enemies);
         let target = result.expect("should find nearest enemy");
         // ASM loc_3FF1C: enemy B is nearer (dist=0x20 < 0x50)
-        assert_eq!(target.x, 0x110, "nearest enemy x_pos");
-        assert_eq!(target.y, 0x98, "nearest enemy y_pos");
+        assert_eq!(target.x_pos, 0x0110_8000, "nearest enemy long x_pos");
+        assert_eq!(target.y_pos, 0x0098_8000, "nearest enemy long y_pos");
         assert_eq!(target.distance, 0x20, "Manhattan distance |dx|+|dy|");
     }
 
@@ -6146,24 +6187,32 @@ mod chunk_03 {
         let cam_y: i16 = 0;
         let enemies = [
             // x too far left: screen_x = -9 < -8
-            helmets::SnakeTargetCandidate {
-                x_pos: -9,
-                y_pos: 0x80,
+            helmets::RainTargetCandidate {
+                x_word: -9,
+                y_word: 0x80,
+                x_pos: 0xFFF7_0000,
+                y_pos: 0x0080_0000,
             },
             // x too far right: screen_x = 0x148 >= 0x148
-            helmets::SnakeTargetCandidate {
-                x_pos: 0x148,
-                y_pos: 0x80,
+            helmets::RainTargetCandidate {
+                x_word: 0x148,
+                y_word: 0x80,
+                x_pos: 0x0148_0000,
+                y_pos: 0x0080_0000,
             },
             // y too high: (0x17-8)=0xF < 0x10
-            helmets::SnakeTargetCandidate {
-                x_pos: 0x80,
-                y_pos: 0x17,
+            helmets::RainTargetCandidate {
+                x_word: 0x80,
+                y_word: 0x17,
+                x_pos: 0x0080_0000,
+                y_pos: 0x0017_0000,
             },
             // y too low: (0xF8-8)=0xF0 >= 0xF0
-            helmets::SnakeTargetCandidate {
-                x_pos: 0x80,
-                y_pos: 0xF8,
+            helmets::RainTargetCandidate {
+                x_word: 0x80,
+                y_word: 0xF8,
+                x_pos: 0x0080_0000,
+                y_pos: 0x00F8_0000,
             },
         ];
         let result =
@@ -6178,9 +6227,11 @@ mod chunk_03 {
         // If the offset were 16: screen_ey = (0x18-16)-0 = 0x02 < 0x10 → would be culled.
         let cam_x: i16 = 0;
         let cam_y: i16 = 0;
-        let enemies = [helmets::SnakeTargetCandidate {
-            x_pos: 0x80,
-            y_pos: 0x18,
+        let enemies = [helmets::RainTargetCandidate {
+            x_word: 0x80,
+            y_word: 0x18,
+            x_pos: 0x0080_0000,
+            y_pos: 0x0018_0000,
         }];
         let result =
             helmets::diamond_power_rain_find_nearest_enemy(0x80, 0x80, cam_x, cam_y, &enemies);
