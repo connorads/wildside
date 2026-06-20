@@ -14,7 +14,7 @@ use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
@@ -39,6 +39,7 @@ const AUDIO_SAMPLE_RATE: u32 = 44_100;
 const AUDIO_FRAME_RATE_HZ: u32 = 60;
 const AUDIO_SAMPLES_PER_FRAME: usize = 735;
 const AUDIO_QUEUE_TARGET_FRAMES: usize = 2;
+const AUDIO_SOFTWARE_BACKLOG_MAX_FRAMES: usize = 60;
 const SDL_AUDIO_CALLBACK_SAMPLES: u16 = 512;
 #[cfg(test)]
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
@@ -456,6 +457,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
     );
     let mut final_frame_rgb = options.record_to.as_ref().map(|_| frame.clone());
     let mut audio_queue_priming = audio_queue.is_some();
+    let mut live_audio_backlog = LiveAudioBacklog::new(AUDIO_SOFTWARE_BACKLOG_MAX_FRAMES);
     let audio_recording_sample_rate = if audio_queue.is_some() {
         audio_output_sample_rate
     } else {
@@ -775,6 +777,7 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
             {
                 aq.pause();
                 aq.clear();
+                live_audio_backlog.clear();
                 audio_queue_priming = true;
                 audio_diagnostics.record_queue_clear();
                 audio_diagnostics.record_queue_prime();
@@ -786,6 +789,14 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
         let should_capture_audio = options.record_to.is_some();
         let should_step_audio = should_capture_audio || audio_queue.is_some();
         if should_step_audio {
+            if let Some(ref aq) = audio_queue {
+                queue_live_audio_backlog(
+                    aq,
+                    &mut live_audio_backlog,
+                    &mut audio_diagnostics,
+                    &mut audio_queue_priming,
+                );
+            }
             let audio_generation = native_audio_generation_plan(
                 audio_queue.is_some(),
                 audio_output_sample_rate,
@@ -816,35 +827,18 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                     recorded_audio.extend_from_slice(&samples);
                 }
                 if let Some(ref aq) = audio_queue {
-                    let queued_bytes = aq.size();
-                    let preserve_current_frame_sfx = !suppress_sfx_this_frame
-                        && trace_has_native_sound_command(&prev_trace, &trace);
-                    if should_queue_audio_frame(
-                        queued_bytes,
-                        samples.len(),
-                        preserve_current_frame_sfx,
-                    ) {
-                        match aq.queue_audio(&samples) {
-                            Ok(()) => {
-                                audio_diagnostics.record_queued_frame(samples.len(), queued_bytes);
-                                if audio_queue_priming
-                                    && should_resume_audio_queue_after_queue(
-                                        queued_bytes,
-                                        samples.len(),
-                                    )
-                                {
-                                    aq.resume();
-                                    audio_queue_priming = false;
-                                    audio_diagnostics.record_queue_resume();
-                                }
-                            }
-                            Err(_) => {
-                                audio_diagnostics.record_queue_error(queued_bytes);
-                            }
-                        }
+                    if live_audio_backlog.push_frame(samples) {
+                        audio_diagnostics.record_backlog_frame(live_audio_backlog.pending_frames());
                     } else {
-                        audio_diagnostics.record_skipped_full_frame(queued_bytes);
+                        audio_diagnostics
+                            .record_backlog_full_frame(live_audio_backlog.pending_frames());
                     }
+                    queue_live_audio_backlog(
+                        aq,
+                        &mut live_audio_backlog,
+                        &mut audio_diagnostics,
+                        &mut audio_queue_priming,
+                    );
                 }
             }
         }
@@ -1737,11 +1731,7 @@ fn native_audio_generation_plan(
     }
 }
 
-fn should_queue_audio_frame(
-    queued_bytes: u32,
-    generated_sample_count: usize,
-    preserve_current_frame_sfx: bool,
-) -> bool {
+fn should_queue_audio_frame(queued_bytes: u32, generated_sample_count: usize) -> bool {
     let queued_bytes = usize::try_from(queued_bytes).unwrap_or(usize::MAX);
     // SDL_GetQueuedAudioSize reports bytes, while `generate_samples` returns
     // interleaved f32 samples. Keep only a small live queue so gameplay SFX
@@ -1749,16 +1739,43 @@ fn should_queue_audio_frame(
     // Two generated frames still cover SDL's 512-sample callback without the
     // three-frame SFX latency that made pickup/block sounds feel detached.
     let target_bytes = live_audio_queue_target_bytes(generated_sample_count);
-    if queued_bytes < target_bytes {
-        return true;
-    }
+    queued_bytes < target_bytes
+}
 
-    // A one-frame SFX cue has already been applied to the generated audio by
-    // this point. If we drop this frame at the normal cap, the GEMS/fallback
-    // state advances but the cue never reaches SDL. Allow one burst frame for
-    // current-frame commands; keep larger backlogs capped so SFX do not drift
-    // further behind live gameplay.
-    preserve_current_frame_sfx && queued_bytes <= target_bytes
+fn queue_live_audio_backlog(
+    audio_queue: &AudioQueue<f32>,
+    backlog: &mut LiveAudioBacklog,
+    diagnostics: &mut NativeAudioDiagnostics,
+    audio_queue_priming: &mut bool,
+) {
+    while let Some(sample_count) = backlog.front_sample_count() {
+        let queued_bytes = audio_queue.size();
+        if !should_queue_audio_frame(queued_bytes, sample_count) {
+            diagnostics.record_queue_observation(queued_bytes);
+            break;
+        }
+        let Some(samples) = backlog.pop_front() else {
+            break;
+        };
+        match audio_queue.queue_audio(&samples) {
+            Ok(()) => {
+                diagnostics.record_queued_frame(samples.len(), queued_bytes);
+                if *audio_queue_priming
+                    && should_resume_audio_queue_after_queue(queued_bytes, samples.len())
+                {
+                    audio_queue.resume();
+                    *audio_queue_priming = false;
+                    diagnostics.record_queue_resume();
+                }
+            }
+            Err(_) => {
+                backlog.push_front(samples);
+                diagnostics.record_queue_error(queued_bytes);
+                break;
+            }
+        }
+    }
+    diagnostics.record_backlog_depth(backlog.pending_frames());
 }
 
 fn should_resume_audio_queue_after_queue(
@@ -1780,6 +1797,49 @@ fn generated_audio_sample_bytes(generated_sample_count: usize) -> usize {
     generated_sample_count.saturating_mul(std::mem::size_of::<f32>())
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct LiveAudioBacklog {
+    frames: VecDeque<Vec<f32>>,
+    max_frames: usize,
+}
+
+impl LiveAudioBacklog {
+    fn new(max_frames: usize) -> Self {
+        Self {
+            frames: VecDeque::new(),
+            max_frames,
+        }
+    }
+
+    fn pending_frames(&self) -> usize {
+        self.frames.len()
+    }
+
+    fn front_sample_count(&self) -> Option<usize> {
+        self.frames.front().map(Vec::len)
+    }
+
+    fn push_frame(&mut self, samples: Vec<f32>) -> bool {
+        if self.frames.len() >= self.max_frames {
+            return false;
+        }
+        self.frames.push_back(samples);
+        true
+    }
+
+    fn push_front(&mut self, samples: Vec<f32>) {
+        self.frames.push_front(samples);
+    }
+
+    fn pop_front(&mut self) -> Option<Vec<f32>> {
+        self.frames.pop_front()
+    }
+
+    fn clear(&mut self) {
+        self.frames.clear();
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct NativeAudioDiagnostics {
     gems_loaded: bool,
@@ -1791,6 +1851,9 @@ struct NativeAudioDiagnostics {
     queued_frames: usize,
     queued_samples: usize,
     skipped_full_frames: usize,
+    backlog_frames: usize,
+    backlog_full_frames: usize,
+    max_backlog_frames: usize,
     queue_errors: usize,
     queue_prime_events: usize,
     queue_resume_events: usize,
@@ -1821,6 +1884,9 @@ impl NativeAudioDiagnostics {
             queued_frames: 0,
             queued_samples: 0,
             skipped_full_frames: 0,
+            backlog_frames: 0,
+            backlog_full_frames: 0,
+            max_backlog_frames: 0,
             queue_errors: 0,
             queue_prime_events: 0,
             queue_resume_events: 0,
@@ -1858,9 +1924,18 @@ impl NativeAudioDiagnostics {
         self.queued_samples += sample_count;
     }
 
-    fn record_skipped_full_frame(&mut self, queued_bytes: u32) {
-        self.record_queue_observation(queued_bytes);
-        self.skipped_full_frames += 1;
+    fn record_backlog_frame(&mut self, backlog_frames: usize) {
+        self.backlog_frames += 1;
+        self.record_backlog_depth(backlog_frames);
+    }
+
+    fn record_backlog_full_frame(&mut self, backlog_frames: usize) {
+        self.backlog_full_frames += 1;
+        self.record_backlog_depth(backlog_frames);
+    }
+
+    fn record_backlog_depth(&mut self, backlog_frames: usize) {
+        self.max_backlog_frames = self.max_backlog_frames.max(backlog_frames);
     }
 
     fn record_queue_error(&mut self, queued_bytes: u32) {
@@ -1900,6 +1975,9 @@ impl NativeAudioDiagnostics {
             format!("queued_frames={}", self.queued_frames),
             format!("queued_samples={}", self.queued_samples),
             format!("skipped_full_frames={}", self.skipped_full_frames),
+            format!("backlog_frames={}", self.backlog_frames),
+            format!("backlog_full_frames={}", self.backlog_full_frames),
+            format!("max_backlog_frames={}", self.max_backlog_frames),
             format!("queue_errors={}", self.queue_errors),
             format!("queue_prime_events={}", self.queue_prime_events),
             format!("queue_resume_events={}", self.queue_resume_events),
@@ -2403,10 +2481,6 @@ fn gems_event_audio_commands(
                 .map(NativeAudioTraceCommand::Sound),
         )
         .collect()
-}
-
-fn trace_has_native_sound_command(prev: &NativeTraceFrame, curr: &NativeTraceFrame) -> bool {
-    !gems_event_sound_commands(prev, curr).is_empty()
 }
 
 fn bgm_for_native_cue(manifest: &AssetManifest, cue: NativeBgmCue) -> Option<u8> {
@@ -18321,7 +18395,6 @@ mod tests {
             should_queue_audio_frame(
                 u32::try_from(target_generated_frame_bytes - 1).expect("fits u32"),
                 generated_stereo_samples,
-                false,
             ),
             "SDL_GetQueuedAudioSize reports bytes; just under the live queue target should accept the next audio frame"
         );
@@ -18329,35 +18402,8 @@ mod tests {
             !should_queue_audio_frame(
                 u32::try_from(target_generated_frame_bytes).expect("fits u32"),
                 generated_stereo_samples,
-                false,
             ),
             "play-native should cap the SDL queue at the two-frame target so pickup and block SFX do not drift far behind the visual frame"
-        );
-        assert!(
-            should_queue_audio_frame(
-                u32::try_from(target_generated_frame_bytes).expect("fits u32"),
-                generated_stereo_samples,
-                true,
-            ),
-            "a current-frame SFX cue has already been mixed into this generated frame; dropping it at the normal cap consumes the GEMS command and makes stacked pickup/block sounds disappear"
-        );
-        assert!(
-            !should_queue_audio_frame(
-                u32::try_from(target_generated_frame_bytes + one_generated_frame_bytes)
-                    .expect("fits u32"),
-                generated_stereo_samples,
-                true,
-            ),
-            "the SFX preservation path may burst by one frame but must not rebuild the old multi-frame latency"
-        );
-        assert!(
-            !should_queue_audio_frame(
-                u32::try_from(target_generated_frame_bytes + one_generated_frame_bytes - 1)
-                    .expect("fits u32"),
-                generated_stereo_samples,
-                true,
-            ),
-            "a nearly one-frame SFX burst must not accept another full generated frame; stacked cues should stay close to gameplay instead of drifting late"
         );
 
         assert!(
@@ -18371,6 +18417,30 @@ mod tests {
             ),
             "live SDL playback should resume once queuing this frame reaches the same two-frame target used by the queue cap"
         );
+    }
+
+    #[test]
+    fn play_native_live_audio_backlog_retains_frames_while_sdl_queue_is_full() {
+        let mut backlog = LiveAudioBacklog::new(2);
+        let sfx_frame = vec![0.25; AUDIO_SAMPLES_PER_FRAME * 2];
+        let bgm_frame = vec![-0.25; AUDIO_SAMPLES_PER_FRAME * 2];
+
+        assert!(backlog.push_frame(sfx_frame.clone()));
+        assert!(backlog.push_frame(bgm_frame.clone()));
+        assert!(!backlog.push_frame(vec![0.0; AUDIO_SAMPLES_PER_FRAME * 2]));
+        assert_eq!(backlog.pending_frames(), 2);
+        assert_eq!(backlog.front_sample_count(), Some(sfx_frame.len()));
+        assert_eq!(
+            backlog.pop_front(),
+            Some(sfx_frame),
+            "the first GEMS frame generated at the SDL cap must be queued later, not discarded after advancing the audio engine (#264)"
+        );
+        assert_eq!(
+            backlog.pop_front(),
+            Some(bgm_frame),
+            "deferred audio frames must keep generation order so block/diamond SFX stay attached to the BGM frame they were mixed into"
+        );
+        assert_eq!(backlog.pop_front(), None);
     }
 
     #[test]
@@ -18448,12 +18518,14 @@ mod tests {
         let mut diagnostics = NativeAudioDiagnostics::new(true, true, 2, 48_000);
 
         diagnostics.record_generated_frame(AUDIO_SAMPLES_PER_FRAME * 2);
+        diagnostics.record_backlog_frame(1);
         diagnostics.record_queued_frame(AUDIO_SAMPLES_PER_FRAME * 2, 0);
         diagnostics.record_queue_prime();
         diagnostics.record_queue_resume();
         diagnostics.record_frame_timing(Duration::from_micros(12_000), FRAME_TIME);
         diagnostics.record_generated_frame(AUDIO_SAMPLES_PER_FRAME * 2);
-        diagnostics.record_skipped_full_frame(8192);
+        diagnostics.record_backlog_frame(2);
+        diagnostics.record_backlog_full_frame(2);
         diagnostics.record_queue_clear();
         diagnostics.record_queue_prime();
         diagnostics.record_frame_timing(Duration::from_micros(20_000), FRAME_TIME);
@@ -18465,13 +18537,16 @@ mod tests {
                 && lines.contains(&String::from("output_sample_rate=48000"))
                 && lines.contains(&String::from("generated_frames=2"))
                 && lines.contains(&String::from("queued_frames=1"))
-                && lines.contains(&String::from("skipped_full_frames=1"))
+                && lines.contains(&String::from("skipped_full_frames=0"))
+                && lines.contains(&String::from("backlog_frames=2"))
+                && lines.contains(&String::from("backlog_full_frames=1"))
+                && lines.contains(&String::from("max_backlog_frames=2"))
                 && lines.contains(&String::from("queue_errors=0"))
                 && lines.contains(&String::from("queue_prime_events=2"))
                 && lines.contains(&String::from("queue_resume_events=1"))
                 && lines.contains(&String::from("queue_clear_events=1"))
                 && lines.contains(&String::from("min_queue_bytes_before_queue=0"))
-                && lines.contains(&String::from("max_queue_bytes_before_queue=8192"))
+                && lines.contains(&String::from("max_queue_bytes_before_queue=0"))
                 && lines.contains(&String::from("frame_timing_observations=2"))
                 && lines.contains(&String::from("max_frame_micros=20000"))
                 && lines.contains(&String::from("over_budget_frames=1"))

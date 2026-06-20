@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-20 handoff (#264 fixed candidate)
+
+- **#264 live audio slowdown moved `[~]` -> `[?]`.** Live `play-native` now keeps generated GEMS/fallback frames in a small software backlog whenever SDL's two-frame device queue is full, then drains those frames in order before/after later video frames. This removes the old path where GEMS advanced and an already-mixed block/diamond/BGM frame was discarded at the cap. Hard BGM resets still clear SDL plus the backlog. Diagnostics now expose backlog pressure (`backlog_frames`, `backlog_full_frames`, `max_backlog_frames`) and `skipped_full_frames` stays 0 for compatibility. Verification: focused audio regressions, `cargo fmt`, `mise run backlog-lint`, `mise run verify-slice-fast`, and `mise run verify-tas-full` exits 0 with CRC matching all 37759 frames; current baseline state-report divergences still start at `transition_15_to_00_post`.
+- **NEXT**: continue with `mise run project-status`; #264 is no longer in the open queue and awaits real audio-device validation. Current thrust remains audio (#272/#342/#339 family), then block render (#324), entry presentation (#336/#348/#254/#210), then combat/render lifecycle (#343/#345/#346/#350).
+
+---
+
 ## 2026-06-20 handoff (#335 fixed candidate)
 
 - **#335 Hills 0x08 instant death moved `[~]` -> `[?]`.** The headless generated-assets debug entry path reproduced the human N/A+C skip failure: first visible InGame frame was already `DeathWindup` with a pre-aged Hills murder wall, then life dropped shortly after. Native debug title-card entry suppresses the loc_1AE2E carry frames, so the handoff now collapses the hidden Load_InGame shell back to a fresh settled target spawn and clears the hidden death windup before exposing Mode_Level. Verification: cache-backed core regression `debug_level_entry_hills_resets_murder_wall_before_live_handoff_loc_74e0`, ignored native-player generated-assets skip regression, `cargo fmt`, `mise run verify-slice-fast` green, and `mise run verify-tas-full` exits 0 with the current baseline state-report divergences unchanged (CRC all 37759 frames match).

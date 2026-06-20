@@ -30,20 +30,21 @@ and stop — never commit churn.
   [`session-log.md`](./session-log.md)): audio first, then block render (#324), then
   entry-presentation (#336/#348/#254/#210), then combat lifecycle (#343/#345/#346/#350).
 - **Audio is THREE separate root causes, do not merge them**: #264 BGM stutter / "every
-  other sound slows" (decouple audio onto a thread or ring buffer; stop tweaking the
-  2-frame queue cap; triggers are ASM-correct); #272 DAC voices low/deep (needs a real
+  other sound slows" is now a fixed candidate awaiting real-device validation (software
+  backlog in front of the 2-frame SDL cap; triggers are ASM-correct); #272 DAC voices
+  low/deep (needs a real
   jgenesis WAV peak-freq compare, since the audio-audit oracle is the same native engine
   and is blind to systematic pitch error; `$6C`/`$6D` are intentionally slow in the ROM);
   #339/#342 looping-SFX leaks (wire the dead-code stop helpers on death / level-skip /
   pickup-expiry).
 - **In progress**: #316 helmets-fidelity umbrella; continue from the next open concrete
   row in `audits/helmets-fidelity-audit.md`.
-- **Fixed candidate this session**: #335 loc_74E0/debug skip into Hills 0x08 no longer
-  exposes the hidden title-card murder-wall death state. The debug-title-card handoff now
-  collapses the hidden Load_InGame shell back to a fresh settled target spawn before
-  Mode_Level is visible; cache-backed core and native-player regressions pass.
-  `verify-slice-fast` is green; `verify-tas-full` exits 0 with the current baseline
-  state-report divergences still starting at `transition_15_to_00_post`.
+- **Fixed candidate this session**: #264 live `play-native` audio now keeps generated
+  GEMS/fallback frames in a small software backlog when SDL's two-frame device queue is
+  full, instead of advancing the audio engine and dropping the samples. This preserves
+  block/diamond SFX frames and BGM sample continuity while keeping the device queue cap
+  low for latency. Focused audio regressions, `verify-slice-fast`, and
+  `verify-tas-full` pass; real audio-device validation is still required.
 - **Blocked on you (human repro/validation)**: #334 (Caves-of-Ice live leak). The large
   `[?]` set in `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the
   recurring "needs a real audio device" block IS that playtest.
@@ -80,7 +81,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 210 | [ ] | P0 | gameflow/render | 2026-05-30 playtest: intro/title/menu path still visually corrupt and can re-enter demo loop over Start/menu | Evidence source: human playtest after pushed commits. Symptoms: Wild Side kids… |
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
-| 264 | [ ] | P1 | audio/perf | 2026-06-07 playtest: music slows down when hitting blocks and collecting diamonds | Fixed candidate 2026-06-13: live `play-native` caps the SDL queue at two generated frames and keeps the queue paused until that two-frame target is primed, including after BGM flushes, reducing start/restart underrun risk without reintroduc (full history: archive #264) |
 | 272 | [ ] | P1 | audio | 2026-06-08 latest-pushed playtest: Samurai air attack, helmet pickup voice, and bouncy sounds play slow/low | Reconfirmed 2026-06-11: Samurai noises still sound slowed/low. (full history: archive #272) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
 | 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Partial 2026-06-13: Level 0x06 / Under Skull Mountain 3 remains clean, and Level 0x07 / Isle of the Lion Lord no longer pre-ages the Lion through the 24-frame hidden Flying Dragon tail. (full history: archive #289) |
