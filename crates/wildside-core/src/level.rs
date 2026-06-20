@@ -17484,8 +17484,11 @@ pub(crate) fn eyeclops_hard_beam_object_loc_E948(
             strip.collision_probe_screen_y,
         )
     } else {
-        let setup =
-            eyeclops_hard_beam_wide_setup_loc_E8A6(beam_counter, source_x, direction_latch_nonzero)?;
+        let setup = eyeclops_hard_beam_wide_setup_loc_E8A6(
+            beam_counter,
+            source_x,
+            direction_latch_nonzero,
+        )?;
         let first = eyeclops_hard_beam_wide_first_write_loc_E8DE(
             beam_counter,
             base_y,
@@ -20241,7 +20244,10 @@ impl NativeRuntime {
             })
     }
 
-    pub(crate) fn platform_layout(&self, level_id: LevelId) -> Option<&wildside_data::PlatformLayout> {
+    pub(crate) fn platform_layout(
+        &self,
+        level_id: LevelId,
+    ) -> Option<&wildside_data::PlatformLayout> {
         if let Some(&resource_level_id) = self.assets.map_order.get(usize::from(level_id.0)) {
             // ASM Get_PlatformLayoutAddress/sub_2366 reads
             // MapOrder_Index[Current_LevelID] directly; it never falls back to

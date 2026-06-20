@@ -1,9 +1,9 @@
 use anyhow::Result;
 use clap::ValueEnum;
-use wildside_core::{NativeTraceFrame, PlayerForm, ScriptRunner};
-use wildside_data::AssetManifest;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use wildside_core::{NativeTraceFrame, PlayerForm, ScriptRunner};
+use wildside_data::AssetManifest;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Scenario {
@@ -385,7 +385,10 @@ pub(crate) fn run_native_dynamic_scenario_with_vdp(
     manifest: AssetManifest,
     scenario: &DynamicScenario,
     options: NativeDynamicRunOptions,
-) -> Result<(Vec<NativeTraceFrame>, Vec<Option<wildside_core::vdp::VdpState>>)> {
+) -> Result<(
+    Vec<NativeTraceFrame>,
+    Vec<Option<wildside_core::vdp::VdpState>>,
+)> {
     Ok(configure_script_runner(manifest, scenario, options)?
         .run_with_vdp(&scenario.script, scenario.frame_count))
 }

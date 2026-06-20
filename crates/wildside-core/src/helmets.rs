@@ -1056,8 +1056,9 @@ pub(crate) fn kid_airborne_visual_sub_B270(
         };
     }
 
-    let mapping = wildside_data::airborne_helmet_sprite_mapping_sub_B270(input.helmet_id, state_index)
-        .expect("ASM sub_B270 off_B3B8 should cover all live helmet ids");
+    let mapping =
+        wildside_data::airborne_helmet_sprite_mapping_sub_B270(input.helmet_id, state_index)
+            .expect("ASM sub_B270 off_B3B8 should cover all live helmet ids");
     KidAirborneVisualStepSubB270 {
         visual: KidAirborneVisualKindSubB270::UseMapping(mapping),
         next_is_animated,
@@ -7519,14 +7520,10 @@ impl NativeRuntime {
         self.diamond_power_sprites.clear();
         let active_power = self.diamond_power_dispatch_type_loc_3f71e();
         // Count down active Diamond Power.
-        let slot_owned_fade_power_active = matches!(
-            active_power,
-            DiamondPowerType::WallOfDeath
-        ) && !self.diamond_power_wall_slots.is_empty()
-            || matches!(
-                active_power,
-                DiamondPowerType::FiveWayShot
-            ) && !self.diamond_power_five_way_slots.is_empty()
+        let slot_owned_fade_power_active = matches!(active_power, DiamondPowerType::WallOfDeath)
+            && !self.diamond_power_wall_slots.is_empty()
+            || matches!(active_power, DiamondPowerType::FiveWayShot)
+                && !self.diamond_power_five_way_slots.is_empty()
             || matches!(
                 active_power,
                 DiamondPowerType::MiniSnake
@@ -7648,9 +7645,7 @@ impl NativeRuntime {
                     // loc_3FB3E. It does not set KidIsInvulnerable or the
                     // native damage-flash countdown.
                     if self.diamond_power_snake_slots.is_empty() {
-                        self.initialise_diamond_power_snake_slots_loc_3f91c(
-                            active_power,
-                        );
+                        self.initialise_diamond_power_snake_slots_loc_3f91c(active_power);
                     }
                     self.step_diamond_power_snake_slots_loc_3f978();
                 }
@@ -7733,11 +7728,7 @@ impl NativeRuntime {
         // ASM DiamondPower_Run Juggernaut branch (kid.asm:44333): the
         // persistent FiveWayShotReady byte diverts straight to
         // DiamondPower_Init_FiveWayShot, whose init spends 5 diamonds.
-        let cost = if juggernaut_ready {
-            5
-        } else {
-            20
-        };
+        let cost = if juggernaut_ready { 5 } else { 20 };
         if self.progression.diamond_count < cost {
             return;
         }

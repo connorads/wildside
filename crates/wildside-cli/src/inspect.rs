@@ -1,6 +1,6 @@
 use super::*;
-use wildside_data::resource_level_record;
 use wildside_core::{ActiveProjectileSnapshot, terrain};
+use wildside_data::resource_level_record;
 
 pub(crate) fn inspect_level(manifest: &AssetManifest, level_spec: &str) -> Result<()> {
     let level_id = parse_level_id(level_spec)?;
@@ -2695,11 +2695,11 @@ pub(crate) fn dump_level_layout(rom_bytes: &[u8], level_id: u8, out_dir: &Path) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use wildside_core::{
         ActiveProjectileKind, ActiveProjectileSnapshot, DragonFlyingDescentFireState, GameMode,
         NativeObjectKind, NativeObjectSnapshot,
     };
-    use std::path::PathBuf;
 
     fn cached_generated_manifest() -> Option<AssetManifest> {
         let repo_root = if let Ok(override_root) = std::env::var("KID_REPO_ROOT")
@@ -2723,7 +2723,10 @@ mod tests {
             );
             return None;
         }
-        Some(wildside_data::load_manifest(&manifest_path).expect("load cached generated asset manifest"))
+        Some(
+            wildside_data::load_manifest(&manifest_path)
+                .expect("load cached generated asset manifest"),
+        )
     }
 
     fn manifest_with_drips_definition() -> AssetManifest {
@@ -2798,8 +2801,8 @@ mod tests {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
-        let bundle =
-            wildside_data::load_level_asset_bundle(&manifest, 0x01).expect("load level 0x01 bundle");
+        let bundle = wildside_data::load_level_asset_bundle(&manifest, 0x01)
+            .expect("load level 0x01 bundle");
         let resource_level = resource_level_id(&manifest, 0x01);
         let grid = load_inspect_block_grid(&manifest, 0x01, resource_level, &bundle)
             .expect("level 0x01 generated layout grid");

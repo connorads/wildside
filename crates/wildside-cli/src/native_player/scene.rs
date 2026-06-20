@@ -2940,7 +2940,9 @@ fn eol_bonus_amounts_for_trace(trace: &NativeTraceFrame) -> ([u32; 5], usize) {
         count += 1;
     };
 
-    push(wildside_core::time_bonus_loc_d56e(trace.level_timer_seconds));
+    push(wildside_core::time_bonus_loc_d56e(
+        trace.level_timer_seconds,
+    ));
     if !trace.level_damage_taken {
         push(5_000);
     }
@@ -2970,7 +2972,11 @@ fn eol_score_counter_snapshot_for_trace(
     let transfer_frames = wildside_core::eol_score_counter_transfer_frames_from_trace_loc_D770(
         trace.level_complete_score_counter_elapsed_frames,
     );
-    wildside_core::eol_score_counter_snapshot_loc_D770(initial_score, &amounts[..count], transfer_frames)
+    wildside_core::eol_score_counter_snapshot_loc_D770(
+        initial_score,
+        &amounts[..count],
+        transfer_frames,
+    )
 }
 
 fn eol_score_room_palette_loc_d734(trace: &NativeTraceFrame, palette: &Palette) -> Palette {
@@ -2993,7 +2999,9 @@ fn eol_score_room_palette_loc_d734(trace: &NativeTraceFrame, palette: &Palette) 
             .map(|colour| {
                 let raw_word = match colour.raw_word {
                     0x0000 | 0x0040 | 0x00E0 | 0x0EEE => colour.raw_word,
-                    raw_word => wildside_core::eol_title_return_faded_palette_word_loc_D734(raw_word),
+                    raw_word => {
+                        wildside_core::eol_title_return_faded_palette_word_loc_D734(raw_word)
+                    }
                 };
                 wildside_render::MdColour::from_word(raw_word)
             })
@@ -4318,11 +4326,12 @@ fn build_game_scene_filtered(
     }
 
     if !eol_hologram_visible && filter.platforms {
-        for object in trace
-            .active_objects
-            .iter()
-            .filter(|object| matches!(object.kind, wildside_core::NativeObjectKind::Platform { .. }))
-        {
+        for object in trace.active_objects.iter().filter(|object| {
+            matches!(
+                object.kind,
+                wildside_core::NativeObjectKind::Platform { .. }
+            )
+        }) {
             if let NativeObjectKind::Platform { kind, .. } = object.kind {
                 push_platform_tiles(&mut commands, object, trace, level_visuals, kind);
             }
@@ -5835,7 +5844,9 @@ fn push_collision_box(
 pub(super) fn floating_item_graphics_spec(
     content_id: u8,
 ) -> Option<wildside_core::FloatingPrizeGraphicsSpec> {
-    wildside_core::floating_prize_graphics_spec(wildside_core::terrain::PrizeContent::from_id(content_id))
+    wildside_core::floating_prize_graphics_spec(wildside_core::terrain::PrizeContent::from_id(
+        content_id,
+    ))
 }
 
 fn floating_prize_visuals(
@@ -5845,7 +5856,9 @@ fn floating_prize_visuals(
     match wildside_core::terrain::PrizeContent::from_id(content_id) {
         // ASM PrizeDiamond_Init: `stru_10D6E` selects `unk_E0E66`, a VRAM
         // sprite frame over the HUD diamond tiles.
-        wildside_core::terrain::PrizeContent::Diamond => Some(&level_visuals.floating_prizes.diamond),
+        wildside_core::terrain::PrizeContent::Diamond => {
+            Some(&level_visuals.floating_prizes.diamond)
+        }
         // ASM sub_10CB0 followed by PrizeHelmet*_Init selects the mask frame
         // and helmet palette for content ids 2..A.
         wildside_core::terrain::PrizeContent::Skycutter

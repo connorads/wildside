@@ -376,7 +376,8 @@ fn hud_timer_layout_loc_bd0a(
         0,
     );
     let track_kid =
-        wildside_core::hud_timer_low_time_check_end_decrease_time_left(minutes, seconds_tens).track_kid;
+        wildside_core::hud_timer_low_time_check_end_decrease_time_left(minutes, seconds_tens)
+            .track_kid;
     let Some(kid_x_pos) = trace.kid_x_pos else {
         return seeded;
     };
@@ -416,9 +417,10 @@ pub(super) fn push_game_hud(
     ) as i32
         + i32::from(trace.extra_hitpoint_slots);
     if hud_hitpoints_visible_loc_bdc0(trace, level_visuals) {
-        for (i, (hitpoint_tile, narrow)) in hud_hitpoint_tiles(trace.number_hitpoints, max_hp as u16)
-            .iter()
-            .enumerate()
+        for (i, (hitpoint_tile, narrow)) in
+            hud_hitpoint_tiles(trace.number_hitpoints, max_hp as u16)
+                .iter()
+                .enumerate()
         {
             let pip_tile = match hitpoint_tile {
                 HudHitpointTile::Full => level_visuals.hud.hitpoint_tiles[0],

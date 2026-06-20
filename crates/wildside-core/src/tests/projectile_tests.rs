@@ -9592,7 +9592,10 @@ mod chunk_06 {
         assert_eq!(goat.x_velocity, 0);
         assert_eq!(goat.y_velocity, 0);
         assert_eq!(goat.shared_walker_state, -0x0078);
-        assert_eq!(goat.walk_speed_override, pacer_walk_speed(EnemyFamily::Goat, 2));
+        assert_eq!(
+            goat.walk_speed_override,
+            pacer_walk_speed(EnemyFamily::Goat, 2)
+        );
         assert_eq!(goat.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
         assert_eq!(goat.wait_timer, 0);
     }

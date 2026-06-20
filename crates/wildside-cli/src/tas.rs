@@ -1377,8 +1377,16 @@ mod tests {
             settle_oracle_warp: false,
         };
         let transitions = vec![
-            (500, wildside_core::LevelId(0x00), wildside_core::LevelId(0x01)),
-            (800, wildside_core::LevelId(0x01), wildside_core::LevelId(0x02)),
+            (
+                500,
+                wildside_core::LevelId(0x00),
+                wildside_core::LevelId(0x01),
+            ),
+            (
+                800,
+                wildside_core::LevelId(0x01),
+                wildside_core::LevelId(0x02),
+            ),
         ];
         super::merge_transition_checkpoints(&mut scenario, &transitions, 0, 1000);
 
@@ -1423,7 +1431,11 @@ mod tests {
             settle_oracle_warp: false,
         };
         // Transition at frame 200 — already a checkpoint
-        let transitions = vec![(200, wildside_core::LevelId(0x00), wildside_core::LevelId(0x01))];
+        let transitions = vec![(
+            200,
+            wildside_core::LevelId(0x00),
+            wildside_core::LevelId(0x01),
+        )];
         super::merge_transition_checkpoints(&mut scenario, &transitions, 0, 500);
 
         let indices: Vec<usize> = scenario
@@ -1455,9 +1467,21 @@ mod tests {
             settle_oracle_warp: false,
         };
         let transitions = vec![
-            (500, wildside_core::LevelId(0x00), wildside_core::LevelId(0x01)),
-            (800, wildside_core::LevelId(0x01), wildside_core::LevelId(0x02)),
-            (900, wildside_core::LevelId(0x02), wildside_core::LevelId(0x03)),
+            (
+                500,
+                wildside_core::LevelId(0x00),
+                wildside_core::LevelId(0x01),
+            ),
+            (
+                800,
+                wildside_core::LevelId(0x01),
+                wildside_core::LevelId(0x02),
+            ),
+            (
+                900,
+                wildside_core::LevelId(0x02),
+                wildside_core::LevelId(0x03),
+            ),
         ];
         super::merge_transition_checkpoints(&mut scenario, &transitions, 780, 850);
 

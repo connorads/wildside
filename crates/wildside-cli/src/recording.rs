@@ -12,6 +12,8 @@ use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_captu
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
 use crate::verify::{compare_rgb_frames, load_png_rgb};
 use image::{ColorType, ImageFormat};
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
 #[cfg(test)]
 use wildside_core::{
     BlockBounceTrace, BlockBounceTraceKind, IslandShoreDmaUploadLoc1202A, NativeObjectKind,
@@ -19,8 +21,6 @@ use wildside_core::{
 };
 use wildside_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm};
 use wildside_render::NativeLevelVisuals;
-use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
 
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
 const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
@@ -2657,7 +2657,10 @@ mod tests {
             );
             return None;
         }
-        Some(wildside_data::load_manifest(&manifest_path).expect("load cached generated asset manifest"))
+        Some(
+            wildside_data::load_manifest(&manifest_path)
+                .expect("load cached generated asset manifest"),
+        )
     }
 
     fn sample_trace_frame(frame_index: usize) -> NativeTraceFrame {
@@ -3807,7 +3810,9 @@ mod tests {
         assert!(readme.contains("Kid Chameleon native recording bundle v4"));
         assert!(readme.contains("rom_sha1: fixture-rom"));
         assert!(readme.contains("--warp-level 01 --settled --record level1-tree-bug"));
-        assert!(readme.contains("cargo run -p wildside-cli -- verify-recording --slug level1-tree-bug"));
+        assert!(
+            readme.contains("cargo run -p wildside-cli -- verify-recording --slug level1-tree-bug")
+        );
         assert!(readme.contains("- transcript.txt (trace-transcript)"));
     }
 

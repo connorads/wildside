@@ -1,9 +1,9 @@
 use super::*;
-use wildside_core::{FrameInput, LevelId, NativeRuntime, PlayerForm};
 use scenarios::{
     DynamicScenario, NativeDynamicRunOptions, idle_level_scenario, prize_block_scenario,
     run_native_dynamic_scenario, stomp_enemy_scenario, walk_right_scenario,
 };
+use wildside_core::{FrameInput, LevelId, NativeRuntime, PlayerForm};
 
 fn capture_frame_block_grid<'a>(
     runtime: &'a NativeRuntime,
@@ -832,9 +832,9 @@ fn count_non_background_pixels(rgb: &[u8], pixel_count: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use wildside_core::terrain::{BlockGrid, Cell};
     use wildside_data::AssetManifest;
-    use std::path::PathBuf;
 
     fn fixture_manifest() -> AssetManifest {
         AssetManifest {

@@ -32,15 +32,15 @@ pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 #[cfg(test)]
 mod tests {
     use super::{BackgroundVisuals, BlockVisualKind, TileRef, load_level_visuals};
+    use sha1::{Digest, Sha1};
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use tempfile::TempDir;
     use wildside_data::{
         AssetFile, AssetManifest, DECODED_LEVEL_ASSET_VERSION, DecodedAssetFile,
         DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord, LevelResources,
         load_manifest, resource_level_record,
     };
-    use sha1::{Digest, Sha1};
-    use std::fs;
-    use std::path::{Path, PathBuf};
-    use tempfile::TempDir;
 
     const LEVEL_ID: u8 = 0x00;
     const CAVE_THEME_ID: u8 = 0x08;

@@ -5639,7 +5639,8 @@ mod tests {
             "ASM StopMusic copies GEMS_Sounddriver from ROM to Z80 RAM"
         );
         assert_eq!(
-            engine.z80.io.virtual_rom[super::GEMS_PATCH_ADDR as usize], 0xA1,
+            engine.z80.io.virtual_rom[super::GEMS_PATCH_ADDR as usize],
+            0xA1,
             "ROM-backed audit must expose exact Kid ROM bytes to banked Z80 reads"
         );
 

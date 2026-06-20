@@ -1,16 +1,16 @@
 use anyhow::{Context, Result, anyhow, bail};
 use clap::ValueEnum;
-use wildside_data::{
-    AssetManifest, ensure_generated_bundle_contract, export_split_bundle, generated_bundle_dir,
-    load_manifest, manifest_path as generated_manifest_path,
-};
-use wildside_rom::{VerifiedRom, verify_rom};
 use std::fs;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
+use wildside_data::{
+    AssetManifest, ensure_generated_bundle_contract, export_split_bundle, generated_bundle_dir,
+    load_manifest, manifest_path as generated_manifest_path,
+};
+use wildside_rom::{VerifiedRom, verify_rom};
 
 use crate::scenarios::GameplayScenario;
 

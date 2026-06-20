@@ -1,10 +1,10 @@
 use criterion::{Criterion, criterion_group, criterion_main};
+use std::path::PathBuf;
 use wildside_core::{FrameInput, NativeRuntime};
 use wildside_data::{
     AssetManifest, BgscrollProfile, EnemyLayout, EnemyLayoutObject, LevelHeader, LevelRecord,
     LevelResources, PlatformLayout,
 };
-use std::path::PathBuf;
 
 fn test_manifest() -> AssetManifest {
     AssetManifest {

@@ -557,7 +557,10 @@ fn native_gameplay_debug(native_frame: Option<&wildside_core::NativeTraceFrame>)
     Some(format!("{fields:?}"))
 }
 
-fn native_gameplay_field(native_frame: Option<&wildside_core::NativeTraceFrame>, key: &str) -> String {
+fn native_gameplay_field(
+    native_frame: Option<&wildside_core::NativeTraceFrame>,
+    key: &str,
+) -> String {
     native_frame
         .and_then(|frame| frame.gameplay_debug_fields.get(key))
         .cloned()
@@ -595,7 +598,10 @@ fn oracle_gameplay_field(oracle_state: Option<&OracleState>, key: &str) -> Strin
         .unwrap_or_else(|| "-".to_owned())
 }
 
-fn format_native_enemy_debug(object_type: u8, object: &wildside_core::NativeObjectSnapshot) -> String {
+fn format_native_enemy_debug(
+    object_type: u8,
+    object: &wildside_core::NativeObjectSnapshot,
+) -> String {
     let layout = object
         .layout_index
         .map(|index| format!("#{index:02}"))

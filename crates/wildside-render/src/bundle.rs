@@ -13,14 +13,14 @@ use crate::player::{
 };
 use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
+use sha1::{Digest, Sha1};
+use std::fs;
+use std::path::Path;
 use wildside_data::{
     AssetFile, AssetManifest, DecodedAssetFile, EnemyLayout, decode_enigma, decode_saxman,
     ensure_generated_bundle_contract, load_level_asset_bundle, resource_level_id,
     resource_level_record,
 };
-use sha1::{Digest, Sha1};
-use std::fs;
-use std::path::Path;
 
 const HUD_DIGIT_BASE_TILE_INDEX: u16 = 0x06BA;
 const HUD_DIAMOND_BASE_TILE_INDEX: u16 = 0x06EA;
@@ -4670,10 +4670,10 @@ mod tests {
     use crate::{
         LayeredBackgroundPlane, MdColour, Palette, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
-    use wildside_data::{AssetFile, AssetManifest, EnemyLayout};
     use sha1::{Digest, Sha1};
     use std::fs;
     use tempfile::TempDir;
+    use wildside_data::{AssetFile, AssetManifest, EnemyLayout};
 
     fn tile_ref(tile_index: u16) -> TileRef {
         TileRef {

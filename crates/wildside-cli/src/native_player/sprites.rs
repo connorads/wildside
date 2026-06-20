@@ -1088,7 +1088,10 @@ fn select_live_tar_monster_frame<'a>(
     // rather than tweens (atlas limit, not a regression). contact_phase
     // TarMonsterHidden is set whenever tar_monster_state is not Visible/Attacking
     // (enemies.rs:9399-9408).
-    let frame = if matches!(object.contact_phase, Some(NativeContactPhase::TarMonsterHidden)) {
+    let frame = if matches!(
+        object.contact_phase,
+        Some(NativeContactPhase::TarMonsterHidden)
+    ) {
         0
     } else {
         1
@@ -1720,7 +1723,8 @@ fn push_heady_metal_sub_37abc_body_piece_markers(
         return;
     }
 
-    for &(x_offset, y_offset) in &wildside_core::HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266 {
+    for &(x_offset, y_offset) in &wildside_core::HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266
+    {
         // ASM Enemy20_HeadyMetal_Init (kid.asm:39266-39321) seeds the twelve
         // `$FFFFFB7E` body-piece workers with these offsets. ASM sub_37ABC
         // then refreshes each worker's mapping every `loc_3763A` loop.

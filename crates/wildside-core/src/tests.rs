@@ -287,10 +287,6 @@ use crate::weather::{
     copy_murder_wall_palette_loc_140EE, dispatch_level_special_effects_sub_6034,
     step_level_special_effects_sub_6048, step_weather_worker_sub_61CA,
 };
-use wildside_data::{
-    AssetManifest, BgscrollProfile, DecodedAssetFile, DecodedLevelAssets, EnemyLayout, LevelHeader,
-    LevelRecord, LevelResources, PlatformLayout, PlatformPlacement, PlatformScriptRef,
-};
 use std::path::PathBuf;
 use std::{
     collections::{BTreeMap, HashSet},
@@ -298,6 +294,10 @@ use std::{
     ops::RangeInclusive,
     process,
     time::{SystemTime, UNIX_EPOCH},
+};
+use wildside_data::{
+    AssetManifest, BgscrollProfile, DecodedAssetFile, DecodedLevelAssets, EnemyLayout, LevelHeader,
+    LevelRecord, LevelResources, PlatformLayout, PlatformPlacement, PlatformScriptRef,
 };
 
 mod fixtures;

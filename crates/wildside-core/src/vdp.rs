@@ -236,8 +236,8 @@ pub(crate) fn load_sega_screen_data(manifest: &AssetManifest) -> Result<SegaScre
     let art_path = scenes_root.join("artcomp/Sega_Logo.bin");
     let art_compressed = std::fs::read(&art_path)
         .with_context(|| format!("failed to read Sega logo art: {}", art_path.display()))?;
-    let art_bytes =
-        wildside_data::decode_saxman(&art_compressed).context("failed to decompress Sega logo art")?;
+    let art_bytes = wildside_data::decode_saxman(&art_compressed)
+        .context("failed to decompress Sega logo art")?;
 
     // Load raw palette data (SegaLogo.bin = 66 bytes = 33 big-endian words).
     let palette_path = scenes_root.join("palette/SegaLogo.bin");
@@ -342,8 +342,8 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     let tilemap_path = scenes.join("mapeni/intro1_wildside.bin");
     let tilemap_raw = std::fs::read(&tilemap_path)
         .with_context(|| format!("failed to read intro tilemap: {}", tilemap_path.display()))?;
-    let plane_a_tilemap =
-        wildside_data::decode_enigma(&tilemap_raw, 0x80BC).context("failed to decode intro tilemap")?;
+    let plane_a_tilemap = wildside_data::decode_enigma(&tilemap_raw, 0x80BC)
+        .context("failed to decode intro tilemap")?;
 
     // Decode plane B row words: unk_2FDCE with base tile $413A → 28+ words.
     // ASM sub_1B850: `move.w #$413A,d0` then `jsr (j_EniDec)`.
@@ -355,8 +355,8 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
             row_tilemap_path.display()
         )
     })?;
-    let decoded_row_words =
-        wildside_data::decode_enigma(&row_raw, 0x413A).context("failed to decode intro row tilemap")?;
+    let decoded_row_words = wildside_data::decode_enigma(&row_raw, 0x413A)
+        .context("failed to decode intro row tilemap")?;
 
     // Use wildside_data to build the load plan (validates and stamps rows).
     let load_plan = wildside_data::title_intro_load_plan_sub_1B850(&decoded_row_words)
@@ -374,15 +374,18 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
 
     let hologram_tilemap_raw = std::fs::read(scenes.join("mapeni/hologram_background.bin"))
         .context("failed to read hologram background tilemap")?;
-    let intro_sequence_2_hologram_tilemap = wildside_data::decode_enigma(&hologram_tilemap_raw, 0x2114)
-        .context("failed to decode intro sequence 2 hologram tilemap")?;
-    let intro_sequence_4_hologram_tilemap = wildside_data::decode_enigma(&hologram_tilemap_raw, 0x20BC)
-        .context("failed to decode intro sequence 4 hologram tilemap")?;
+    let intro_sequence_2_hologram_tilemap =
+        wildside_data::decode_enigma(&hologram_tilemap_raw, 0x2114)
+            .context("failed to decode intro sequence 2 hologram tilemap")?;
+    let intro_sequence_4_hologram_tilemap =
+        wildside_data::decode_enigma(&hologram_tilemap_raw, 0x20BC)
+            .context("failed to decode intro sequence 4 hologram tilemap")?;
 
     let intro_sequence_2_tilemap_raw = std::fs::read(scenes.join("mapeni/intro2_sky.bin"))
         .context("failed to read intro sequence 2 tilemap")?;
-    let intro_sequence_2_tilemap = wildside_data::decode_enigma(&intro_sequence_2_tilemap_raw, 0x00BC)
-        .context("failed to decode intro sequence 2 tilemap")?;
+    let intro_sequence_2_tilemap =
+        wildside_data::decode_enigma(&intro_sequence_2_tilemap_raw, 0x00BC)
+            .context("failed to decode intro sequence 2 tilemap")?;
     let intro_sequence_2_sky_castle_art = intro_sequence_2_special_sky_art_loc_1B00A(
         load_saxman_art(&scenes.join("artcomp/Sky_castle_and_night_sky_from_intro_scene.bin"))?,
     );
@@ -424,8 +427,9 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         load_palette_words(&scenes.join("palette/title_juggernaut_mask.bin"))?;
     let intro_sequence_5_tilemap_raw = std::fs::read(scenes.join("mapeni/intro3_alley.bin"))
         .context("failed to read intro sequence 5 tilemap")?;
-    let intro_sequence_5_tilemap = wildside_data::decode_enigma(&intro_sequence_5_tilemap_raw, 0x00BC)
-        .context("failed to decode intro sequence 5 tilemap")?;
+    let intro_sequence_5_tilemap =
+        wildside_data::decode_enigma(&intro_sequence_5_tilemap_raw, 0x00BC)
+            .context("failed to decode intro sequence 5 tilemap")?;
     let mut intro_sequence_5_frame_tilemaps = Vec::new();
     for frame_index in 0..8u16 {
         let plan = wildside_data::intro_sequence_5_frame_load_plan_sub_1C034(frame_index)
@@ -2012,7 +2016,8 @@ fn apply_intro_sequence_5_panel_sub_1C0EE(
     plane_cell_x: u16,
     plane_cell_y: u16,
 ) {
-    let plan = wildside_data::intro_sequence_5_panel_load_plan_sub_1C0EE(plane_cell_x, plane_cell_y);
+    let plan =
+        wildside_data::intro_sequence_5_panel_load_plan_sub_1C0EE(plane_cell_x, plane_cell_y);
     write_plane_rect_words(
         vdp,
         &data.intro_sequence_5_panel_tilemap,
@@ -2212,8 +2217,8 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     let tilemap_path = scenes.join("mapeni/2F7D0.bin");
     let tilemap_raw = std::fs::read(&tilemap_path)
         .with_context(|| format!("failed to read title tilemap: {}", tilemap_path.display()))?;
-    let plane_a_tilemap =
-        wildside_data::decode_enigma(&tilemap_raw, 0x20C1).context("failed to decode title tilemap")?;
+    let plane_a_tilemap = wildside_data::decode_enigma(&tilemap_raw, 0x20C1)
+        .context("failed to decode title tilemap")?;
     let chameleon_tilemap_path = scenes.join("mapeni/2F840.bin");
     let chameleon_tilemap_raw = std::fs::read(&chameleon_tilemap_path).with_context(|| {
         format!(
@@ -2251,8 +2256,11 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
             let filename = asset_label_mapeni_filename(plan.tilemap_load.asset_label);
             let raw = std::fs::read(scenes.join("mapeni").join(&filename))
                 .with_context(|| format!("failed to read title character tilemap: {filename}"))?;
-            let tilemap_words = wildside_data::decode_enigma(&raw, plan.tilemap_load.vram_word_address)
-                .with_context(|| format!("failed to decode title character tilemap: {filename}"))?;
+            let tilemap_words =
+                wildside_data::decode_enigma(&raw, plan.tilemap_load.vram_word_address)
+                    .with_context(|| {
+                        format!("failed to decode title character tilemap: {filename}")
+                    })?;
             character_frames.push(TitleScreenCharacterFrameData {
                 frame_index,
                 region_byte,
@@ -5163,7 +5171,8 @@ mod tests {
             0x67FD,
             "ASM SegaText starts with byte `$6B`, which sub_1C7F6 renders as base `$67D3` plus glyph `$2A`"
         );
-        let sega_s_write = wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 0x20, 0x19, 0x12);
+        let sega_s_write =
+            wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 0x20, 0x19, 0x12);
         assert_eq!(
             vram_word(&visible, usize::from(sega_s_write.vram_word_address)),
             0x67E5,

@@ -15,14 +15,14 @@ use crate::scenarios::{
 };
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Subcommand, ValueEnum};
-use wildside_core::{NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
-use wildside_data::AssetManifest;
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
+use wildside_core::{NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame};
+use wildside_data::AssetManifest;
 
 const CASE_BUNDLE_VERSION: u32 = 1;
 const MASK_LEFT: u8 = 1 << 2;

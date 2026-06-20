@@ -1,8 +1,6 @@
 use crate::cheats::{CHEATS, CheatEffect};
 use anyhow::{Context, Result, anyhow};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
-use wildside_md::{AudioLevels, GameState, MdRuntime};
-use wildside_rom::{RomError, RomIdentity, VerifiedRom, default_rom_candidates, verify_rom};
 use sdl2::AudioSubsystem;
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
@@ -18,6 +16,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
+use wildside_md::{AudioLevels, GameState, MdRuntime};
+use wildside_rom::{RomError, RomIdentity, VerifiedRom, default_rom_candidates, verify_rom};
 
 const FRAME_WIDTH: u32 = 320;
 const FRAME_HEIGHT: u32 = 224;
@@ -994,7 +994,9 @@ pub fn run_player(repo_root: &Path, options: &PlayOptions) -> Result<()> {
         }
 
         let debug_game_state = match screen {
-            ScreenState::DebugMenu { .. } => runtime.as_ref().map(wildside_md::MdRuntime::game_state),
+            ScreenState::DebugMenu { .. } => {
+                runtime.as_ref().map(wildside_md::MdRuntime::game_state)
+            }
             _ => None,
         };
         apply_overlay(
@@ -1715,8 +1717,8 @@ mod tests {
         gameplay_buttons_after_ui_release, gameplay_buttons_for_mode, initial_screen,
         main_menu_action, pause_menu_action,
     };
-    use wildside_rom::{RomHeader, RomIdentity, VerifiedRom};
     use std::path::PathBuf;
+    use wildside_rom::{RomHeader, RomIdentity, VerifiedRom};
 
     #[test]
     fn keyboard_rebind_rejects_conflicts() {
