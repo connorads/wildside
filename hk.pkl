@@ -23,7 +23,13 @@ hooks {
                 exclude = binary_excludes
             }
             ["check-merge-conflict"] = (Builtins.check_merge_conflict) {}
-            ["cargo-fmt"] = (Builtins.cargo_fmt) {}
+            // Workspace-wide (not just staged files) so rustfmt drift in
+            // untouched files cannot accumulate. (#45)
+            ["cargo-fmt"] {
+                glob = List("crates/**/*.rs", "tests/**/*.rs")
+                check = "cargo fmt --all -- --check"
+                fix = "cargo fmt --all"
+            }
             ["typos"] {
                 exclude = binary_excludes + List("*.lock")
                 fix = "typos --write-changes"
