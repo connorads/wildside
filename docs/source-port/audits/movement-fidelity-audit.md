@@ -1,5 +1,5 @@
 <!-- Generated 2026-05-30 by the `player-movement-fidelity-audit` workflow (1 read-only Explore scout enumerated 15 player move-states; one read-only Explore auditor per move-state compared native to kid.asm; every gap adversarially verified by an independent refuter, defaulting to refuted, before inclusion). 44 agents total. This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
-<!-- Staleness-checked 2026-06-10: verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. Maintained 2026-06-13 as stale entries are fixed or reclassified below. -->
+<!-- Staleness-checked 2026-06-10. Maintained 2026-06-13 as stale entries are fixed or reclassified below. -->
 
 # Player Movement Fidelity Audit
 

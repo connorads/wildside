@@ -4,8 +4,8 @@
 
 > Historical note (2026-06-10): references to `frontier-state.yaml` below
 > predate the autonomy demolition. That ledger is retired. Its issue-tagged
-> evidence moved to `backlog-archive.md` (grep `#NNN`), the rest to
-> `tas-era-ledger.md`. Read "frontier-state.yaml audience" as "the backlog".
+> evidence moved to `backlog-archive.md` (grep `#NNN`); the per-frame remainder
+> was retired with it. Read "frontier-state.yaml audience" as "the backlog".
 
 A codebase-wide follow-up to the [enemy fidelity audit](audits/enemy-fidelity-audit.md). That audit found a systemic failure mode in `enemies.rs`: ASM-faithful pure helpers that are modelled and unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live step/combat path. This census asks how far the pattern extends across the whole crate, and where wiring is highest-leverage.
 
@@ -204,7 +204,7 @@ Clusters:
 Cross-links:
 - docs/source-port/audits/enemy-fidelity-audit.md. same root cause: ASM-faithful pure helpers modelled+unit-tested but cfg_not_test-gated and never wired; runtime uses generic fallbacks (here: inline geyser phase machine + static fireball script table)
 - open block/wall bugs #139/#140/#143. murder-wall warning sprite path (sub_5E02) re-exported and likely live; murder-wall palette copy loc_140EE here is the unwired remainder; relevant if murder-wall rendering/palette is implicated
-- docs/source-port/tas-roadmap.md / TAS frontier. lava geyser eruption timing (loc_14772 delay, peak-hold/collapse script) and fireball trajectory drive position divergence; wiring the geyser/fireball script state machines would tighten frame-level parity on lava levels
+- TAS frontier (TAS-era roadmap retired). lava geyser eruption timing (loc_14772 delay, peak-hold/collapse script) and fireball trajectory drive position divergence; wiring the geyser/fireball script state machines would tighten frame-level parity on lava levels
 - docs/source-port/frontier-state.yaml + backlog.md. falling-weather worker sub_61CA and level special-effects dispatcher sub_6048/sub_6034 are whole unwired subsystems; candidate frontier items
 - docs/source-port/asm-coverage.yaml. these lava/storm/weather loc_ labels are 'covered' (modelled+tested) but not reachable at runtime; coverage metric overstates fidelity for this file
 
@@ -298,7 +298,7 @@ Clusters:
 Cross-links:
 - docs/source-port/audits/enemy-fidelity-audit.md (same cfg_not_test-unwired systemic pattern across subsystems)
 - Open block bugs #139/#140/#143. the hidden-block reveal cluster (sub_DFB0/loc_E0C2/E2D2 family) is the unwired model for that mechanic
-- TAS frontier (docs/source-port/frontier-state.yaml, tas-roadmap). grounded_surface_type_sub_8600 / crawl_slope_snap_sub_83E6 / juggernaut walk accumulator are the Kid-physics helpers that gate frame-accurate movement
+- TAS frontier (frontier-state.yaml + TAS-era roadmap, both retired). grounded_surface_type_sub_8600 / crawl_slope_snap_sub_83E6 / juggernaut walk accumulator are the Kid-physics helpers that gate frame-accurate movement
 - docs/source-port/backlog.md. GFX-object linked-list subsystem (sub_E02/loc_10C6/loc_17C6) is a large unwired cluster worth a dedicated backlog item
 - docs/source-port/debug-field-registry.yaml. none of these helpers emit debug fields yet; wiring them would need parity instrumentation
 

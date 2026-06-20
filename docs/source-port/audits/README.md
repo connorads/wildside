@@ -16,7 +16,6 @@ Dated research artefacts: per-subsystem fidelity audits plus the meta-audits tha
 | [bosses-fidelity-audit.md](bosses-fidelity-audit.md) | 2026-06-11 | 2026-06-20 | Boss Encounters Fidelity Audit |
 | [camera-fidelity-audit.md](camera-fidelity-audit.md) | 2026-06-11 | 2026-06-13 | Camera & Scroll Fidelity Audit |
 | [combat-fidelity-audit.md](combat-fidelity-audit.md) | 2026-06-11 | 2026-06-20 | Combat & Collision-Routing Fidelity Audit |
-| [fidelity-audit-staleness-2026-06-10.md](fidelity-audit-staleness-2026-06-10.md) | 2026-06-11 | 2026-06-16 | Fidelity-Audit Staleness Report (2026-06-10) |
 | [level-flow-fidelity-audit.md](level-flow-fidelity-audit.md) | 2026-06-11 | 2026-06-20 | Level-Flow and Timer Fidelity Audit |
 | [projectiles-fidelity-audit.md](projectiles-fidelity-audit.md) | 2026-06-11 | 2026-06-20 | Projectile System Fidelity Audit |
 | [scoring-economy-fidelity-audit.md](scoring-economy-fidelity-audit.md) | 2026-06-11 | 2026-06-20 | Scoring & Prize-Economy Fidelity Audit |

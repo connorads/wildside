@@ -4,8 +4,8 @@
 
 > Historical note (2026-06-10): references to `frontier-state.yaml` below
 > predate the autonomy demolition. That ledger is retired. Its issue-tagged
-> evidence moved to `backlog-archive.md` (grep `#NNN`), the rest to
-> `tas-era-ledger.md`. Read "frontier-state.yaml audience" as "the backlog".
+> evidence moved to `backlog-archive.md` (grep `#NNN`); the per-frame remainder
+> was retired with it. Read "frontier-state.yaml audience" as "the backlog".
 
 The [dead-helper census](dead-helper-census.md) mapped ~2540 ASM-faithful, unit-tested helpers carrying `#[cfg_attr(not(test), allow(dead_code))]` that are never wired into the live runtime. The census answered what is dark. This triage answers the question it did not: which dark subsystems close a real oracle divergence (worth wiring) versus which have a live fallback that is already oracle-clean (redundant, leave dark).
 
@@ -124,7 +124,7 @@ Why divergence_holds=false despite a real mechanism gap: the audit standard is a
 ### 5. Geyser/fireball animation script decoders + falling-weather worker + storm FX dispatcher (crates/wildside-core/src/weather.rs)  `[UNKNOWN]`
 
 - **id**: `weather-scripts-storm` · **status**: partially_wired · **risk**: medium · **effort**: medium · **refuter verdict**: None (None)
-- **backlog**: docs/source-port/dead-helper-census.md weather.rs sections (lines 31,57-58,181-204), docs/source-port/tas-roadmap.md (lava geyser eruption timing / fireball trajectory position divergence), backlog #059 (Fireball ceiling bounce, adjacent, already done, not this), no dedicated open #NNN for weather script machines; candidate frontier item per census line 203
+- **backlog**: docs/source-port/dead-helper-census.md weather.rs sections (lines 31,57-58,181-204), the retired TAS-era roadmap (lava geyser eruption timing / fireball trajectory position divergence), backlog #059 (Fireball ceiling bounce, adjacent, already done, not this), no dedicated open #NNN for weather script machines; candidate frontier item per census line 203
 - **ASM**: loc_149E4, loc_149CC, loc_1499C, loc_149FC, loc_14A46, loc_147BA, loc_147A0, loc_1496C, loc_1498C, loc_14772, sub_61CA, sub_6048, sub_6034, unk_146CC
 - **dead entrypoint**: step_weather_worker_sub_61CA (crates/wildside-core/src/weather.rs:726); decode_lava_fireball_script_step_loc_149E4 (weather.rs:1653); decode_lava_geyser_script_step_loc_147BA (weather.rs:1852), all #[cfg_attr(not(test), allow(dead_code))], 0 non-test callers
 - **live fallback**: step_weather inlines hail spawn (weather.rs:2344-2459); step_lava_geysers runs inline 4-phase geyser machine + fireball table (weather.rs:2528-2596); advance_lava_fireball uses baked LAVA_FIREBALL_SCRIPT (weather.rs:2226-2251, table weather.rs:1244). NOTE: storm FX dispatcher sub_6034 + special-effects step sub_6048 + storm setup loc_14D8A/loc_14DAC ARE now wired (recent commits e0ecf788/95733ca5/608e528a/6f2eb4c3), called at weather.rs:2345, 2365, 2477-2478, so the census's "FX dispatcher dark" claim is stale; only the worker + script decoders + storm VRAM/palette upload helpers remain dark.

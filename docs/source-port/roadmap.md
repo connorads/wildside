@@ -6,7 +6,7 @@ The TAS frontier is settled:
 
 - `kc_any_percent_2024` is authoritative-clean through frame `4916`
 - `any-percent-published` is authoritative-clean through frame `37759`
-- the TAS frontier closed `status: complete` (history in `tas-era-ledger.md`)
+- the TAS frontier closed `status: complete`; TAS-frontier history is tracked in the backlog and the `verify-tas-frontier` gate, and the per-frame ledger was retired
 
 A closed TAS frontier is not a finished game. The current `1p-accurate` release
 gate is narrower than "the game works". Native play has no open agent-actionable
@@ -39,7 +39,7 @@ Tasks:
 - keep this roadmap as the top-level programme document
 - treat `backlog.md` as the canonical queue for active source-port work
 - use `audits/completion-audit.md` before claiming the source-port objective is done
-- the backlog NOW block is the compact session truth; `tas-era-ledger.md` holds the retired TAS-frontier ledger
+- the backlog NOW block is the compact session truth; TAS-frontier history lives in the backlog and `verify-tas-frontier` gate (the per-frame ledger was retired)
 - archive or rewrite any doc that still says "full playable game", "all done", or similar
 
 Exit criteria:
