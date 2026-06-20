@@ -14943,6 +14943,83 @@ mod chunk_03 {
     }
 
     #[test]
+    fn goat_negative_parent_collision_enters_loc_3cb64_death_before_hp_damage() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut goat = test_enemy(EnemyFamily::Goat, 0x0080_0000, 0x0040_0000, 4);
+        goat.layout_index = 29;
+        let killed_identity = (goat.segment_index, goat.layout_index);
+        runtime.active_enemies = vec![goat];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: goat.segment_index,
+                layout_index: goat.layout_index,
+                collision_type: 0xFFFF,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Goat.asm loc_3CB14 routes signed-negative collision_type to loc_3CB64, which hibernates before delete"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 0,
+            "ASM Goat.asm loc_3CB14 must bypass the loc_3CB38 HP decrement route for negative collision words"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            GOAT_DEATH_ANIMATION_FRAMES
+        );
+        assert!(runtime.active_enemies[0].death_animation_active);
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM Goat.asm loc_3CB64 should not mark the layout killed until the death animation finishes"
+        );
+    }
+
+    #[test]
+    fn goat_pending_hurt_collision_enters_loc_3cb38_recoil_hibernate() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut goat = test_enemy(EnemyFamily::Goat, 0x0080_0000, 0x0040_0000, 4);
+        goat.layout_index = 30;
+        goat.x_velocity = 0x0001_8000;
+        goat.y_velocity = 0x0000_4000;
+        runtime.active_enemies = vec![goat];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: goat.segment_index,
+                layout_index: goat.layout_index,
+                collision_type: GOAT_COLID_HURT as u16,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let goat = runtime.active_enemies[0];
+        assert_eq!(
+            goat.hit_points, 3,
+            "ASM Goat.asm loc_3CB38 decrements `$44(a3)` once for a nonfatal hurt collision"
+        );
+        assert_eq!(
+            goat.shared_walker_state, -0x0078,
+            "ASM Goat.asm loc_3CB38 seeds `$42(a3)` with `$FF88` after the hurt animation"
+        );
+        assert_eq!(
+            goat.walk_speed_override,
+            pacer_walk_speed(EnemyFamily::Goat, 4),
+            "ASM Goat.asm loc_3CB38 restores `$50(a5)` from the saved Goat walk speed"
+        );
+        assert_eq!(goat.x_velocity, 0);
+        assert_eq!(goat.y_velocity, 0);
+        assert_eq!(goat.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert!(!goat.death_animation_active);
+    }
+
+    #[test]
     fn crab_death_waits_for_stru_3af82_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut crab = test_enemy(EnemyFamily::Crab, 0x0080_0000, 0x0040_0000, 1);
@@ -15033,8 +15110,7 @@ mod chunk_03 {
         );
         assert!(!runtime.active_enemies[0].on_ground);
         assert_eq!(
-            runtime.active_enemies[0].wait_timer,
-            NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C,
+            runtime.active_enemies[0].wait_timer, NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C,
             "ASM Ninja.asm loc_3D698 -> loc_3DB0A seeds the airborne launch loop instead of the generic HP path"
         );
     }
@@ -15192,8 +15268,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn ninja_airborne_berzerker_side_contact_final_hit_enters_landing_loop_loc_3d8bc_3d8d6()
-    {
+    fn ninja_airborne_berzerker_side_contact_final_hit_enters_landing_loop_loc_3d8bc_3d8d6() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.progression.current_form = PlayerForm::Berzerker;
         let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 1);

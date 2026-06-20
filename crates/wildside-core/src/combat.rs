@@ -8455,8 +8455,7 @@ impl NativeRuntime {
                                 enemy.x_velocity = launch.x_velocity;
                                 enemy.y_velocity = launch.y_velocity;
                                 enemy.on_ground = false;
-                                enemy.wait_timer =
-                                    NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
+                                enemy.wait_timer = NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
                                 enemy.damage_flash_frames = 0;
                                 changed_enemy_state = true;
                             }
@@ -8690,6 +8689,67 @@ impl NativeRuntime {
                         }
                     }
                     FireDemonCollisionRouteLoc3A586::ResumeSharedWalker { .. } => {}
+                }
+                continue;
+            }
+
+            if matches!(enemy.family, EnemyFamily::Goat) {
+                match goat_collision_dispatch_loc_3cb14(collision.collision_type as i16) {
+                    GoatCollisionRouteLoc3CB14::Death => {
+                        // ASM Goat.asm loc_3CB14 branches signed-negative
+                        // collision words straight to loc_3CB64 before the
+                        // loc_3CB38 HP decrement path can run.
+                        kill_indices.push(active_idx);
+                    }
+                    GoatCollisionRouteLoc3CB14::Damage => {
+                        if enemy.take_damage_or_queue_death() {
+                            kill_indices.push(active_idx);
+                        } else {
+                            enemy.x_velocity = 0;
+                            enemy.y_velocity = 0;
+                            changed_enemy_state = true;
+                        }
+                    }
+                    GoatCollisionRouteLoc3CB14::BerzerkerSideGate => {
+                        let saved_walk_speed = if enemy.walk_speed_override != 0 {
+                            enemy.walk_speed_override
+                        } else {
+                            pacer_walk_speed(enemy.family, enemy.hit_points)
+                        };
+                        match goat_berzerker_side_gate_loc_3cb76(
+                            berzerker_charging,
+                            enemy.shared_walker_state,
+                        ) {
+                            GoatBerzerkerSideGateLoc3CB76::AirborneKnockback(knockback) => {
+                                // ASM Goat.asm loc_3CB76: charging side
+                                // contact with non-positive `$42(a3)` launches
+                                // the Goat into the loc_3CBA8 airborne loop.
+                                enemy.x_velocity = knockback.x_velocity;
+                                enemy.y_velocity = knockback.y_velocity;
+                                enemy.on_ground = false;
+                                enemy.wait_timer = GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8;
+                                enemy.damage_flash_frames = 0;
+                                changed_enemy_state = true;
+                            }
+                            GoatBerzerkerSideGateLoc3CB76::SideShoveThenHurtResume => {
+                                let shove = goat_berzerker_side_shove_loc_3cbba(
+                                    enemy.facing,
+                                    enemy.x_pos as i32,
+                                    saved_walk_speed,
+                                );
+                                enemy.x_pos = shove.x_position as u32;
+                                enemy.x_velocity = 0;
+                                enemy.y_velocity = 0;
+                                enemy.shared_walker_state = shove.recoil_state_word;
+                                enemy.walk_speed_override = shove.restored_walk_speed;
+                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                enemy.wait_timer = 0;
+                                changed_enemy_state = true;
+                            }
+                            GoatBerzerkerSideGateLoc3CB76::ResumeSharedWalker { .. } => {}
+                        }
+                    }
+                    GoatCollisionRouteLoc3CB14::ContinueSharedWalker => {}
                 }
                 continue;
             }

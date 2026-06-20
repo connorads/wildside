@@ -194,7 +194,7 @@ ROM allocates trail children (≤5) on every bounce/slope; `step_bouncer_with_rn
 Fixed candidate 2026-06-20: charging Berzerker side contact during positive `$42(a3)` now shoves Goat by ±$14 pixels through `loc_3CBBA`, restores the hurt-resume recoil state/saved walk speed, and skips generic HP damage. Regression: `berzerker_charge_recoil_goat_shoves_without_damage_loc_3cbba`.
 
 **Goat — collision-type dispatch (death-on-negative, side-contact gate) not wired** (`loc_3CB14`)
-Side-contact→berzerker and HP-decrement routing absent; generic combat branches only on 0x1C/0x2C/-1, never GOAT 0x20/0x24. `enemies.rs:4069-4085`, `enemies.rs:9227-9254`, `combat.rs:6643/6674/7336`.
+Fixed candidate 2026-06-20: queued parent collision words now route through `goat_collision_dispatch_loc_3cb14`; signed-negative collisions enter the `loc_3CB64` death animation before any HP decrement, `colid_hurt`/`colid_kidabove` use the `loc_3CB38` recoil hibernate, and side contacts share the `loc_3CB76` Berzerker gate used by live player contact. Regressions: `goat_negative_parent_collision_enters_loc_3cb64_death_before_hp_damage`, `goat_pending_hurt_collision_enters_loc_3cb38_recoil_hibernate`.
 
 **Hand — grab entry gate conditions not checked** (`loc_32A86`)
 Grab fires on distance/height only; no crawl/Juggernaut/already-grabbed check. `enemies.rs:17600-17603`, gate `enemies.rs:16899` dead.
