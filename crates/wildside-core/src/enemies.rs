@@ -15865,6 +15865,15 @@ fn mini_hopping_skull_snap_slopedown_x(grid: &terrain::BlockGrid, x_px: i32, y_p
     (x_px.max(0) as u32) << 16
 }
 
+fn mini_hopping_skull_facing_from_x_direction(x_direction: u8) -> Direction {
+    // ASM enemy art faces left by default: x_direction=0 is left, `$FF` flips right.
+    if x_direction == 0 {
+        Direction::Left
+    } else {
+        Direction::Right
+    }
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_air_sprite_after_loc_3ea88(
     is_animated: bool,
@@ -17264,18 +17273,67 @@ pub(crate) fn step_hopper(
     if floor.on_ground {
         let floor_y_fp = (floor.floor_y_px as u32) << 16;
         if enemy.y_velocity >= 0 && enemy.y_pos >= floor_y_fp {
-            if floor.cell.collision == terrain::CollisionKind::SlopeUp {
-                enemy.x_pos = mini_hopping_skull_snap_slopeup_x(
-                    grid,
-                    (enemy.x_pos >> 16) as i32,
-                    (enemy.y_pos >> 16) as i32,
-                );
-            } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
-                enemy.x_pos = mini_hopping_skull_snap_slopedown_x(
-                    grid,
-                    (enemy.x_pos >> 16) as i32,
-                    (enemy.y_pos >> 16) as i32,
-                );
+            if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
+                if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                    let x_velocity = enemy.x_velocity;
+                    enemy.x_pos = mini_hopping_skull_snap_slopeup_x(
+                        grid,
+                        (enemy.x_pos >> 16) as i32,
+                        (enemy.y_pos >> 16) as i32,
+                    );
+                    if x_velocity > 0 {
+                        let setup = mini_hopping_skull_ground_wait_setup_loc_3eb00();
+                        enemy.facing =
+                            mini_hopping_skull_facing_from_x_direction(setup.x_direction);
+                        enemy.x_velocity = setup.x_velocity;
+                        enemy.y_velocity = setup.y_velocity;
+                        enemy.on_ground = true;
+                        enemy.grounded_frames = setup.wait_frames;
+                        enemy.y_pos = floor_y_fp;
+                        return;
+                    }
+
+                    let setup = mini_hopping_skull_left_hop_wait_setup_loc_3ed80();
+                    enemy.facing = mini_hopping_skull_facing_from_x_direction(setup.x_direction);
+                    enemy.x_velocity = setup.x_velocity;
+                    enemy.y_velocity = setup.y_velocity;
+                    enemy.on_ground = true;
+                    enemy.grounded_frames = setup.wait_frames;
+                    enemy.y_pos = floor_y_fp;
+                    return;
+                }
+
+                if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+                    let x_velocity = enemy.x_velocity;
+                    enemy.x_pos = mini_hopping_skull_snap_slopedown_x(
+                        grid,
+                        (enemy.x_pos >> 16) as i32,
+                        (enemy.y_pos >> 16) as i32,
+                    );
+                    let contact = mini_hopping_skull_slopedown_contact_loc_3ed6c(x_velocity);
+                    enemy.facing =
+                        mini_hopping_skull_facing_from_x_direction(contact.x_direction);
+                    enemy.x_velocity = contact.x_velocity;
+                    enemy.y_velocity = contact.y_velocity;
+                    enemy.on_ground = true;
+                    enemy.grounded_frames = contact.wait_frames;
+                    enemy.y_pos = floor_y_fp;
+                    return;
+                }
+            } else {
+                if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                    enemy.x_pos = mini_hopping_skull_snap_slopeup_x(
+                        grid,
+                        (enemy.x_pos >> 16) as i32,
+                        (enemy.y_pos >> 16) as i32,
+                    );
+                } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+                    enemy.x_pos = mini_hopping_skull_snap_slopedown_x(
+                        grid,
+                        (enemy.x_pos >> 16) as i32,
+                        (enemy.y_pos >> 16) as i32,
+                    );
+                }
             }
             enemy.y_pos = floor_y_fp;
             enemy.x_velocity = 0;
@@ -39148,6 +39206,60 @@ mod tests {
             (32 << 16) + 0x0002_9200,
             "ASM Mini_Hopping_Skull.asm loc_3EA88 applies the gravity-adjusted velocity during the airborne frame"
         );
+    }
+
+    #[test]
+    fn mini_hopping_skull_slopeup_nonpositive_x_enters_left_wait_loc_3ead8_3ec32() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut enemy = ActiveEnemy {
+            on_ground: false,
+            facing: Direction::Right,
+            x_pos: 41 << 16,
+            y_pos: 38 << 16,
+            x_velocity: -0x0001_0000,
+            y_velocity: 0x0002_0000,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_hopper(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Mini_Hopping_Skull.asm loc_3EAD8 -> loc_3EC32 clears x_direction for slope-up contact with non-positive x_vel"
+        );
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(enemy.grounded_frames, MINI_SKULL_GROUND_DELAY_FRAMES);
+        assert!(enemy.on_ground);
+    }
+
+    #[test]
+    fn mini_hopping_skull_slopedown_negative_x_enters_left_wait_loc_3ed6c() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x50, 0x00));
+        let mut enemy = ActiveEnemy {
+            on_ground: false,
+            facing: Direction::Right,
+            x_pos: 41 << 16,
+            y_pos: 38 << 16,
+            x_velocity: -0x0001_0000,
+            y_velocity: 0x0002_0000,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_hopper(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Mini_Hopping_Skull.asm loc_3ED6C clears x_direction for slope-down contact with negative x_vel"
+        );
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(enemy.grounded_frames, MINI_SKULL_GROUND_DELAY_FRAMES);
+        assert!(enemy.on_ground);
     }
 
     #[test]
