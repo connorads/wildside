@@ -10357,7 +10357,18 @@ pub(crate) fn step_active_enemies_with_rng(
                     if enemy.wait_timer == NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C {
                         step_ninja_berzerker_side_launch(enemy);
                     } else {
-                        step_ninja(enemy, block_grid, player_x_pos, player_y_pos, player_form);
+                        let maniaxe_projectile_dx =
+                            projectiles.as_deref().and_then(|projectiles| {
+                                ninja_maniaxe_projectile_dx(projectiles, enemy)
+                            });
+                        step_ninja(
+                            enemy,
+                            block_grid,
+                            player_x_pos,
+                            player_y_pos,
+                            player_form,
+                            maniaxe_projectile_dx,
+                        );
                     }
                 } else if matches!(enemy.family, EnemyFamily::Hand) {
                     step_hand(enemy, block_grid, player_x_pos, player_y_pos, player_facing);
@@ -18991,6 +19002,19 @@ pub(crate) fn ninja_collision_stun_loop_loc_3d6c8(y_velocity: i32) -> NinjaColli
     }
 }
 
+fn ninja_maniaxe_projectile_dx(
+    projectiles: &[EnemyProjectile],
+    enemy: &ActiveEnemy,
+) -> Option<i16> {
+    projectiles
+        .iter()
+        .find(|projectile| projectile.kind == EnemyProjectileKind::ManiaxeAxe)
+        .map(|projectile| {
+            ((i64::from(projectile.x_pos) - i64::from(enemy.x_pos)) >> 16)
+                .clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16
+        })
+}
+
 /// Step a Ninja enemy: stealth-paces until player enters detection cone,
 /// then faces player and jump-attacks. Returns to stealth on landing.
 pub(crate) fn step_ninja(
@@ -18999,6 +19023,7 @@ pub(crate) fn step_ninja(
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     player_form: PlayerForm,
+    maniaxe_projectile_minus_ninja_x_px: Option<i16>,
 ) {
     match enemy.ninja_state {
         NinjaState::Stealth => {
@@ -19044,6 +19069,28 @@ pub(crate) fn step_ninja(
                 NinjaKidThreatRouteLoc3D734::GuardPose
             ) {
                 let guard = ninja_guard_pose_loc_3d826(kid_minus_ninja_x);
+                enemy.ninja_state = NinjaState::Guard;
+                enemy.shared_walker_state = i16::from(guard.threat_state_4c);
+                enemy.walk_speed_override = guard.walk_speed_override;
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                enemy.facing = if guard.x_direction_right {
+                    Direction::Right
+                } else {
+                    Direction::Left
+                };
+                return;
+            }
+
+            if matches!(
+                ninja_projectile_threat_route_loc_3d776(
+                    maniaxe_projectile_minus_ninja_x_px,
+                    player_form,
+                ),
+                NinjaProjectileThreatRouteLoc3D776::GuardPose
+            ) {
+                let guard =
+                    ninja_guard_pose_loc_3d826(maniaxe_projectile_minus_ninja_x_px.unwrap_or(0));
                 enemy.ninja_state = NinjaState::Guard;
                 enemy.shared_walker_state = i16::from(guard.threat_state_4c);
                 enemy.walk_speed_override = guard.walk_speed_override;
@@ -41538,6 +41585,7 @@ mod tests {
             Some(player_x),
             Some(player_y),
             PlayerForm::TheKid,
+            None,
         );
 
         assert_eq!(enemy.ninja_state, NinjaState::Stealth);

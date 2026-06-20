@@ -10442,7 +10442,14 @@ mod chunk_04 {
         enemy.ninja_state = NinjaState::Stealth;
         enemy.on_ground = true;
         let start_x = enemy.x_pos;
-        step_ninja(&mut enemy, Some(&grid), None, None, PlayerForm::TheKid);
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
         assert_eq!(enemy.ninja_state, NinjaState::Stealth);
         assert_ne!(enemy.x_pos, start_x, "should move while pacing");
     }
@@ -10454,7 +10461,14 @@ mod chunk_04 {
         // Player 0x30 px above (within 0x20-0x50 range) and 0x08 px right (within ±0x10)
         let player_x = Some((100 + 0x08) << 16);
         let player_y = Some((200 - 0x30) << 16);
-        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::TheKid);
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::TheKid,
+            None,
+        );
         assert_eq!(enemy.ninja_state, NinjaState::JumpAttack);
         assert_eq!(enemy.facing, Direction::Right);
         assert!(enemy.y_velocity < 0, "should jump upward");
@@ -10468,7 +10482,14 @@ mod chunk_04 {
         let player_x = Some((100 + 0x81) << 16);
         let player_y = Some(200 << 16);
 
-        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::TheKid);
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::TheKid,
+            None,
+        );
 
         assert_eq!(
             enemy.facing,
@@ -10485,7 +10506,14 @@ mod chunk_04 {
         let player_x = Some((200 - 0x81) << 16);
         let player_y = Some(200 << 16);
 
-        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::TheKid);
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::TheKid,
+            None,
+        );
 
         assert_eq!(
             enemy.facing,
@@ -10500,7 +10528,14 @@ mod chunk_04 {
         enemy.ninja_state = NinjaState::Stealth;
         let player_x = Some(100 << 16);
         let player_y = Some((200 - 0x30) << 16);
-        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::RedStealth);
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::RedStealth,
+            None,
+        );
         assert_eq!(
             enemy.ninja_state,
             NinjaState::JumpAttack,
@@ -10517,7 +10552,14 @@ mod chunk_04 {
         let player_x = Some((100 + 0x30) << 16);
         let player_y = Some(200 << 16);
 
-        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::RedStealth);
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::RedStealth,
+            None,
+        );
 
         assert_eq!(
             enemy.ninja_state,
@@ -10532,6 +10574,46 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ninja_maniaxe_projectile_threat_enters_guard_pose_loc_3d776_3d826() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0x0001_0000;
+        let mut active = vec![enemy];
+        let mut projectiles = vec![EnemyProjectile {
+            x_pos: (100 + 0x59) << 16,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..EnemyProjectile::default()
+        }];
+        let mut drilled_blocks = Vec::new();
+        let player_x = Some((100 + 0x70) << 16);
+        let player_y = Some(200 << 16);
+
+        step_active_enemies(
+            &mut active,
+            None,
+            player_x,
+            player_y,
+            None,
+            None,
+            PlayerForm::Maniaxe,
+            Some(&mut projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            active[0].ninja_state,
+            NinjaState::Guard,
+            "ASM Ninja.asm loc_3D776 should route a live Maniaxe projectile inside the half-open +$5A band to loc_3D826"
+        );
+        assert_eq!(active[0].shared_walker_state, -1);
+        assert_eq!(active[0].walk_speed_override, 0);
+        assert_eq!(active[0].facing, Direction::Right);
+        assert_eq!(active[0].x_velocity, 0);
+        assert_eq!(active[0].y_velocity, 0);
+    }
+
+    #[test]
     fn ninja_red_stealth_guard_releases_when_kid_leaves_band_loc_3d79c_3d7ca() {
         let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
         enemy.ninja_state = NinjaState::Guard;
@@ -10541,7 +10623,14 @@ mod chunk_04 {
         let player_x = Some((100 + 0x31) << 16);
         let player_y = Some(200 << 16);
 
-        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::RedStealth);
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::RedStealth,
+            None,
+        );
 
         assert_eq!(
             enemy.ninja_state,
@@ -10571,7 +10660,14 @@ mod chunk_04 {
         enemy.y_velocity = -0x0002_0000;
         enemy.on_ground = false;
 
-        step_ninja(&mut enemy, Some(&grid), None, None, PlayerForm::TheKid);
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
 
         assert_eq!(
             enemy.ninja_state,
@@ -10595,7 +10691,14 @@ mod chunk_04 {
         enemy.on_ground = false;
         // Step until ninja lands (gravity pulls it down)
         for _ in 0..300 {
-            step_ninja(&mut enemy, Some(&grid), None, None, PlayerForm::TheKid);
+            step_ninja(
+                &mut enemy,
+                Some(&grid),
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+            );
             if enemy.ninja_state == NinjaState::Stealth {
                 break;
             }
@@ -10615,7 +10718,7 @@ mod chunk_04 {
         enemy.y_velocity = physics::MAX_FALL_SPEED;
         enemy.on_ground = false;
 
-        step_ninja(&mut enemy, None, None, None, PlayerForm::TheKid);
+        step_ninja(&mut enemy, None, None, None, PlayerForm::TheKid, None);
 
         assert_eq!(
             enemy.y_velocity,
