@@ -10525,6 +10525,92 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ninja_cadence_timer_blocks_jump_until_zero_loc_3d942() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.facing = Direction::Right;
+        enemy.shared_walker_patrol_timer = 2;
+        enemy.wait_timer = 37;
+        let player_x = Some(100 << 16);
+        let player_y = Some(200 << 16);
+
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::Stealth,
+            "ASM Ninja.asm loc_3D942 should continue pacing while `$54(a5)` remains non-zero after decrement"
+        );
+        assert_eq!(enemy.shared_walker_patrol_timer, 1);
+    }
+
+    #[test]
+    fn ninja_cadence_wrong_walk_phase_resets_timer_one_loc_3d958() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.facing = Direction::Right;
+        enemy.shared_walker_patrol_timer = 1;
+        enemy.wait_timer = 36;
+        let player_x = Some(100 << 16);
+        let player_y = Some(200 << 16);
+
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::Stealth,
+            "ASM Ninja.asm loc_3D958 should require the exact C7DBE frame with animation_timer 3 before rotating `$6E(a5)`"
+        );
+        assert_eq!(enemy.shared_walker_patrol_timer, 1);
+    }
+
+    #[test]
+    fn ninja_cadence_throw_frame_starts_jump_loc_3d960_3d9a4() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.facing = Direction::Right;
+        enemy.shared_walker_patrol_timer = 1;
+        enemy.shared_walker_patrol_short_next = true;
+        enemy.wait_timer = 37;
+        let player_x = Some(100 << 16);
+        let player_y = Some(200 << 16);
+
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::JumpAttack,
+            "ASM Ninja.asm loc_3D960 should fall through to loc_3D9A4 when `$4C(a5)` is zero on the throw-frame gate"
+        );
+        assert_eq!(enemy.shared_walker_patrol_timer, 0x0032);
+        assert!(!enemy.shared_walker_patrol_short_next);
+        assert_eq!(enemy.x_velocity, 0x0001_0000);
+        assert_eq!(enemy.y_velocity, -0x0004_8000);
+        assert!(!enemy.on_ground);
+    }
+
+    #[test]
     fn ninja_red_stealth_still_enters_overhead_jump_threat_loc_3d706() {
         let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
         enemy.ninja_state = NinjaState::Stealth;

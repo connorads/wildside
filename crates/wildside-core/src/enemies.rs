@@ -6389,7 +6389,6 @@ pub(crate) enum NinjaState {
     /// ASM Ninja.asm loc_3D84E: positive `$4C(a5)` jump-threat pose.
     JumpThreat,
     /// Airborne jump-attack toward the player.
-    #[cfg_attr(not(test), allow(dead_code))]
     JumpAttack,
     /// ASM Ninja.asm loc_3DABC: HP-depleted Kid-above contact falls until floor before death.
     KidAboveKnockdown,
@@ -6612,7 +6611,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) crab_berzerker_knockback: bool,
     /// Shared Dragon/Lion grounded-state word ($42(a3)).
     pub(crate) shared_walker_state: i16,
-    /// Shared Dragon/Lion patrol cadence countdown ($54(a5)).
+    /// Shared Dragon/Lion patrol cadence countdown; Ninja reuses this for
+    /// its attack cooldown `$54(a5)`.
     pub(crate) shared_walker_patrol_timer: u16,
     /// Shared walker stuck-turnaround byte `$5A(a5)`. `loc_3C026/loc_3C0D2`
     /// add 4 on each forced turnaround and route to `loc_3C464` on overflow.
@@ -6622,6 +6622,7 @@ pub(crate) struct ActiveEnemy {
     /// turn has consumed the extra half-step.
     pub(crate) shared_walker_right_turn_extra_step_consumed: bool,
     /// Dragon alternates the next patrol cadence reload between $32 and $12C via $6E(a5).
+    /// Ninja reuses the same two-period phase for `$6E(a5)` attack cadence.
     pub(crate) shared_walker_patrol_short_next: bool,
     /// Frontier-only trace label for the last shared-walker branch taken.
     pub(crate) shared_walker_debug_branch: Option<&'static str>,
@@ -18137,11 +18138,8 @@ pub(crate) fn ninja_jump_threat_pose_loc_3d84e(
 }
 
 /// Ninja jump-attack velocities (Ninja.asm loc_3D9A4).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
 #[cfg_attr(not(test), allow(dead_code))]
@@ -18150,7 +18148,6 @@ pub(crate) const NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6: i32 = 0x0001_8000;
 pub(crate) const NINJA_KNOCKDOWN_GRAVITY_LOC_3D8E6: i32 = 0x0000_1800;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaJumpAttackStartStateLoc3D9A4 {
     pub(crate) next_collision_type: u16,
     pub(crate) x_velocity: i32,
@@ -18169,7 +18166,6 @@ pub(crate) struct NinjaJumpAttackAirborneStateLoc3D9DA {
     pub(crate) sprite_link: Option<&'static str>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
     x_direction_right: bool,
 ) -> NinjaJumpAttackStartStateLoc3D9A4 {
@@ -18752,6 +18748,22 @@ pub(crate) fn ninja_far_kid_facing_loc_3d92a(
     }
 }
 
+pub(crate) const NINJA_ATTACK_TIMER_INIT_LOC_3D5AA: u16 = 0x012C;
+pub(crate) const NINJA_ATTACK_PERIOD_SHORT_LOC_3D960: u16 = 0x0032;
+pub(crate) const NINJA_ATTACK_PERIOD_LONG_LOC_3D960: u16 = 0x012C;
+pub(crate) const NINJA_WALK_ANIMATION_CYCLE_FRAMES_LOC_3D4EA: u16 = 40;
+pub(crate) const NINJA_THROW_FRAME_PHASE_LOC_3D958: u16 = 37;
+
+pub(crate) fn ninja_walk_throw_frame_phase_loc_3d958(walk_phase: u16) -> bool {
+    // ASM ingame/anim/enemy/Ninja.asm stru_3D4EA: frame C7DBE starts after
+    // 34 ticks; loc_3D958 wants its third remaining animation tick.
+    walk_phase % NINJA_WALK_ANIMATION_CYCLE_FRAMES_LOC_3D4EA == NINJA_THROW_FRAME_PHASE_LOC_3D958
+}
+
+pub(crate) fn ninja_advance_walk_phase_loc_3d4ea(walk_phase: u16) -> u16 {
+    (walk_phase + 1) % NINJA_WALK_ANIMATION_CYCLE_FRAMES_LOC_3D4EA
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaAttackCooldownRouteLoc3D942 {
@@ -19025,6 +19037,49 @@ fn ninja_maniaxe_projectile_dx(
         })
 }
 
+fn step_ninja_stealth_cadence_loc_3d942(enemy: &mut ActiveEnemy) -> bool {
+    let cooldown = ninja_attack_cooldown_tick_loc_3d942(enemy.shared_walker_patrol_timer);
+    enemy.shared_walker_patrol_timer = cooldown.attack_timer;
+    if cooldown.route == NinjaAttackCooldownRouteLoc3D942::ContinuePacing {
+        return false;
+    }
+
+    let throw_frame = ninja_walk_throw_frame_phase_loc_3d958(enemy.wait_timer);
+    let animation_timer = if throw_frame { 3 } else { 0 };
+    match ninja_throw_frame_gate_loc_3d958(throw_frame, animation_timer) {
+        NinjaThrowFrameGateRouteLoc3D958::ContinuePacing { attack_timer } => {
+            enemy.shared_walker_patrol_timer = attack_timer;
+            false
+        }
+        NinjaThrowFrameGateRouteLoc3D958::RotateAttackPeriod => {
+            let attack_period_pair = if enemy.shared_walker_patrol_short_next {
+                (u32::from(NINJA_ATTACK_PERIOD_SHORT_LOC_3D960) << 16)
+                    | u32::from(NINJA_ATTACK_PERIOD_LONG_LOC_3D960)
+            } else {
+                (u32::from(NINJA_ATTACK_PERIOD_LONG_LOC_3D960) << 16)
+                    | u32::from(NINJA_ATTACK_PERIOD_SHORT_LOC_3D960)
+            };
+            let rotation = ninja_attack_period_rotate_loc_3d960(
+                attack_period_pair,
+                enemy.shared_walker_state as i8,
+            );
+            enemy.shared_walker_patrol_timer = rotation.attack_timer;
+            enemy.shared_walker_patrol_short_next = !enemy.shared_walker_patrol_short_next;
+
+            if rotation.route == NinjaAttackPeriodRotationRouteLoc3D960::ContinuePacing {
+                return false;
+            }
+
+            let jump = ninja_jump_attack_start_loc_3d9a4(matches!(enemy.facing, Direction::Right));
+            enemy.ninja_state = NinjaState::JumpAttack;
+            enemy.x_velocity = jump.x_velocity;
+            enemy.y_velocity = jump.y_velocity;
+            enemy.on_ground = false;
+            true
+        }
+    }
+}
+
 /// Step a Ninja enemy: stealth-paces until player enters detection cone,
 /// then faces player and jump-attacks. Returns to stealth on landing.
 pub(crate) fn step_ninja(
@@ -19123,6 +19178,11 @@ pub(crate) fn step_ninja(
             } else {
                 Direction::Left
             };
+
+            if step_ninja_stealth_cadence_loc_3d942(enemy) {
+                return;
+            }
+            enemy.wait_timer = ninja_advance_walk_phase_loc_3d4ea(enemy.wait_timer);
 
             // Pace like normal
             step_pacer(enemy, block_grid);
@@ -23221,12 +23281,13 @@ pub(crate) fn spawn_shared_walker_patrol_timer(family: EnemyFamily) -> u16 {
     match family {
         EnemyFamily::DragonWalking => DRAGON_WALKING_PATROL_LONG_FRAMES,
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
+        EnemyFamily::Ninja => NINJA_ATTACK_TIMER_INIT_LOC_3D5AA,
         _ => 0,
     }
 }
 
 pub(crate) fn spawn_shared_walker_patrol_short_next(family: EnemyFamily) -> bool {
-    matches!(family, EnemyFamily::DragonWalking)
+    matches!(family, EnemyFamily::DragonWalking | EnemyFamily::Ninja)
 }
 
 pub(crate) fn spawn_tank_mouth_animation_phase(family: EnemyFamily) -> u8 {
@@ -42154,6 +42215,33 @@ mod tests {
                 route: NinjaAttackCooldownRouteLoc3D942::ContinuePacing,
             },
             "ASM Ninja.asm loc_3D942 uses word wrapping arithmetic, so zero underflows and branches to loc_3D998"
+        );
+    }
+
+    #[test]
+    fn ninja_spawn_attack_cadence_matches_init_loc_3d5aa() {
+        assert_eq!(
+            spawn_shared_walker_patrol_timer(EnemyFamily::Ninja),
+            NINJA_ATTACK_TIMER_INIT_LOC_3D5AA,
+            "ASM Ninja.asm loc_3D5AA should seed `$54(a5)` with $12C"
+        );
+        assert!(
+            spawn_shared_walker_patrol_short_next(EnemyFamily::Ninja),
+            "ASM Ninja.asm loc_3D5AA should seed `$6E(a5)` as $0032/$012C, making the first successful reload short"
+        );
+    }
+
+    #[test]
+    fn ninja_walk_throw_frame_phase_loc_3d958_matches_c7dbe_timer_three() {
+        assert!(!ninja_walk_throw_frame_phase_loc_3d958(36));
+        assert!(
+            ninja_walk_throw_frame_phase_loc_3d958(37),
+            "ASM ingame/anim/enemy/Ninja.asm stru_3D4EA should expose C7DBE with animation_timer(a3) == 3 on phase 37"
+        );
+        assert_eq!(
+            ninja_advance_walk_phase_loc_3d4ea(39),
+            0,
+            "ASM ingame/anim/enemy/Ninja.asm stru_3D4EA has a 40-frame walk cycle"
         );
     }
 
