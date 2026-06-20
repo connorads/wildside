@@ -25,7 +25,6 @@ mod scenarios;
 mod sweep;
 mod tas;
 mod tas_diff;
-mod tui_debugger;
 mod verify;
 mod view_tas;
 
@@ -45,9 +44,8 @@ use native_player::{
     render_gameplay_frame_evidence, run_native_player,
 };
 use oracle::{
-    EnemyFacing, OracleEnemyLayoutTraceManifest, OracleEnemyState, OracleEnvironment,
-    OracleManifest, OracleState, ensure_oracles, run_jgenesis_capture,
-    run_jgenesis_capture_dynamic, run_jgenesis_enemy_layout_trace,
+    EnemyFacing, OracleEnemyState, OracleEnvironment, OracleManifest, OracleState, ensure_oracles,
+    run_jgenesis_capture, run_jgenesis_capture_dynamic,
 };
 use player::{PlayOptions, run_player};
 use project_status::{ProjectStatusFormat, run_project_status};
@@ -733,12 +731,6 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
         scenario: Scenario,
     },
-    TraceOracleEnemyLayout {
-        #[arg(long)]
-        rom: Option<PathBuf>,
-        #[arg(long, value_enum, default_value_t = Scenario::BootTitleStartLevel1)]
-        scenario: Scenario,
-    },
     CompareNativeGameplay {
         #[arg(long)]
         rom: Option<PathBuf>,
@@ -904,15 +896,6 @@ enum Commands {
         /// Hex level ID (e.g. 05)
         #[arg(long)]
         level: String,
-    },
-    /// Agent-driven parity loop: sweep → diagnose worst → report.
-    ParityLoop {
-        #[arg(long)]
-        rom: Option<PathBuf>,
-        #[arg(long)]
-        dir: Option<PathBuf>,
-        #[arg(long, default_value_t = 1)]
-        max_cycles: u32,
     },
     /// Capture native gameplay frames at specified indices as PNGs.
     CaptureFrames {
@@ -1081,19 +1064,6 @@ enum Commands {
         #[arg(long, default_value = ".cache/diagnose")]
         output: PathBuf,
     },
-    /// Interactive TUI for comparing native vs oracle state frame-by-frame.
-    DebugTui {
-        #[arg(long)]
-        rom: Option<PathBuf>,
-        #[arg(long)]
-        dir: Option<PathBuf>,
-        /// Path to a DynamicScenario JSON
-        #[arg(long)]
-        scenario: PathBuf,
-        /// Only run up to this frame
-        #[arg(long)]
-        frame_end: Option<usize>,
-    },
     /// SDL viewer for stepping a TAS scenario with native, oracle, and diff panels.
     ViewTas {
         #[arg(long)]
@@ -1181,24 +1151,6 @@ enum Commands {
         /// Collection tier
         #[arg(long, value_enum, default_value_t = sweep::SweepTier::State)]
         tier: sweep::SweepTier,
-    },
-    /// Rank the top-N pixel-diff checkpoints from a frames-tier sweep for
-    /// visual triage. Copies native_*.png and diff_*.png into an output
-    /// directory with a manifest, ordered by worst mismatch first.
-    ///
-    /// Filters out levels whose only state divergences are `oracle_limitation`
-    /// — otherwise the top-N is polluted by oracle-pause noise. Requires a
-    /// frames-tier sweep (state-tier runs have no pixel metrics).
-    RankPixelDiffs {
-        /// Path to a sweep report.json. Defaults to `.cache/sweep-runs/latest/report.json`.
-        #[arg(long)]
-        report: Option<PathBuf>,
-        /// Number of top-ranked checkpoints to copy.
-        #[arg(long, default_value_t = 10)]
-        top: usize,
-        /// Output directory.
-        #[arg(long, default_value = ".cache/pixel-review/latest")]
-        output: PathBuf,
     },
     /// Diff two WRAM dump files byte-by-byte, highlighting changed addresses.
     RamDiff {
@@ -1968,11 +1920,6 @@ fn main() -> Result<()> {
             let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
             compare_native_oracle(&repo_root, &rom_path, &manifest, scenario)?;
         }
-        Commands::TraceOracleEnemyLayout { rom, scenario } => {
-            let repo_root = current_dir()?;
-            let rom_path = resolve_rom_path(&repo_root, rom)?;
-            trace_oracle_enemy_layout(&repo_root, &rom_path, scenario)?;
-        }
         Commands::CompareNativeGameplay { rom, dir, scenario } => {
             let repo_root = current_dir()?;
             let rom_path = resolve_rom_path(&repo_root, rom)?;
@@ -2155,17 +2102,6 @@ fn main() -> Result<()> {
             let level_id =
                 u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 05)")?;
             sweep::diagnose_level(&repo_root, &rom_path, &manifest, level_id)?;
-        }
-        Commands::ParityLoop {
-            rom,
-            dir,
-            max_cycles,
-        } => {
-            let repo_root = current_dir()?;
-            let rom_path = resolve_rom_path(&repo_root, rom)?;
-            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
-            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            sweep::run_parity_loop(&repo_root, &rom_path, &manifest, max_cycles)?;
         }
         Commands::CaptureFrames {
             rom,
@@ -2418,42 +2354,6 @@ fn main() -> Result<()> {
             let level_id =
                 u8::from_str_radix(&level, 16).context("level must be a hex byte (e.g. 05)")?;
             sweep::diagnose_frame(&manifest, level_id, frame, save_layers, &output)?;
-        }
-        Commands::DebugTui {
-            rom,
-            dir,
-            scenario,
-            frame_end,
-        } => {
-            let repo_root = current_dir()?;
-            let rom_path = resolve_rom_path(&repo_root, rom)?;
-            let upstream_dir = resolve_upstream_dir(&repo_root, dir);
-            let manifest = prepare_generated_assets(&repo_root, &rom_path, &upstream_dir)?;
-            let dyn_scenario = view_tas::load_dynamic_scenario(&scenario)?;
-            let end = frame_end
-                .unwrap_or(dyn_scenario.frame_count)
-                .min(dyn_scenario.frame_count);
-            let comparison = view_tas::prepare_tas_comparison_run(
-                &repo_root,
-                &rom_path,
-                &manifest,
-                &dyn_scenario,
-                0,
-                end,
-                "debug-tui",
-                sweep::FrontierKind::Gameplay,
-            )?;
-
-            println!(
-                "Launching TUI ({} native frames, {} oracle checkpoints, {} CRCs)...",
-                comparison.native_trace.len(),
-                comparison.oracle.states.len(),
-                comparison.oracle.frame_crcs.len()
-            );
-
-            let debugger =
-                tui_debugger::TuiDebugger::new(comparison.native_trace, &comparison.oracle);
-            debugger.run()?;
         }
         Commands::ViewTas {
             rom,
@@ -2772,33 +2672,6 @@ fn main() -> Result<()> {
             let level_ids = sweep::parse_level_range(&levels)?;
 
             sweep::run_sweep_compare(&repo_root, &rom_path, &manifest, &level_ids, tier)?;
-        }
-        Commands::RankPixelDiffs {
-            report,
-            top,
-            output,
-        } => {
-            let repo_root = current_dir()?;
-            let report_path =
-                report.unwrap_or_else(|| repo_root.join(".cache/sweep-runs/latest/report.json"));
-            let manifest = sweep::run_rank_pixel_diffs(&report_path, top, &output)?;
-            println!(
-                "ranked {} entries (skipped {} oracle-limitation-only, {} without pixel data)",
-                manifest.entries.len(),
-                manifest.skipped_oracle_limitation_only,
-                manifest.skipped_no_pixel_data
-            );
-            for entry in &manifest.entries {
-                println!(
-                    "  #{:02} level {:02x} {} — {} mismatches (mae {:.1})",
-                    entry.rank,
-                    entry.level_id,
-                    entry.slug,
-                    entry.pixel_mismatches.unwrap_or(0),
-                    entry.mae.unwrap_or(0.0),
-                );
-            }
-            println!("manifest written to {}/manifest.json", output.display());
         }
         Commands::RamDiff {
             file_a,

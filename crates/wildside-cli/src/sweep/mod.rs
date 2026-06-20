@@ -1,6 +1,5 @@
 mod frames;
 mod gameplay;
-mod pixel_rank;
 mod release_gate;
 
 pub(crate) use frames::{
@@ -8,7 +7,6 @@ pub(crate) use frames::{
     golden_diff,
 };
 pub(crate) use gameplay::run_gameplay_sweep;
-pub(crate) use pixel_rank::run_rank_pixel_diffs;
 pub(crate) use release_gate::ReleaseGateFocusSummary;
 
 // Re-export submodule items needed by tests in this module
@@ -2209,53 +2207,6 @@ pub(crate) fn diagnose_level(
     }
     if diverged_fields.contains(&"current_level_id") {
         println!("    - Level ID: check level transition / warp logic");
-    }
-
-    Ok(())
-}
-
-/// Agent-driven parity loop: sweep → find worst → diagnose → report.
-pub(crate) fn run_parity_loop(
-    repo_root: &Path,
-    rom_path: &Path,
-    manifest: &AssetManifest,
-    max_cycles: u32,
-) -> Result<()> {
-    let all_levels: Vec<u8> = (0..=104).collect();
-    let source_hash = kid_core_source_hash(repo_root).unwrap_or_else(|_| "unknown".into());
-
-    for cycle in 1..=max_cycles {
-        println!("=== parity loop cycle {cycle}/{max_cycles} ===");
-        println!("wildside-core source hash: {source_hash}\n");
-
-        // Tier 1: state-only sweep
-        let report = run_sweep(repo_root, rom_path, manifest, &all_levels, SweepTier::State)?;
-
-        if report.failed == 0 && report.errors == 0 {
-            println!("\nAll {0} levels passed!", report.passed);
-            return Ok(());
-        }
-
-        // Find worst failure (most state diffs)
-        let worst = report
-            .levels
-            .iter()
-            .filter(|r| !r.passed)
-            .max_by_key(|r| r.state_diffs.len());
-
-        if let Some(worst) = worst {
-            println!(
-                "\nWorst failure: level {:#04x} ({} state diffs)",
-                worst.level_id,
-                worst.state_diffs.len()
-            );
-            diagnose_level(repo_root, rom_path, manifest, worst.level_id)?;
-        }
-
-        println!(
-            "\nCycle {cycle} summary: {} passed, {} failed, {} errors",
-            report.passed, report.failed, report.errors
-        );
     }
 
     Ok(())
