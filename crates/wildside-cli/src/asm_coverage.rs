@@ -562,7 +562,7 @@ fn load_open_backlog_signal_counts(repo_root: &Path) -> BTreeMap<String, usize> 
         }
         let status = columns[1];
         let priority = columns[2];
-        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2") {
+        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2" | "P3") {
             continue;
         }
         *counts.entry(columns[3].to_owned()).or_insert(0) += 1;

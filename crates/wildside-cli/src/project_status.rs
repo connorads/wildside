@@ -197,9 +197,10 @@ fn classify_backlog_focus(system: &str, summary: &str) -> BacklogFocus {
 }
 
 fn backlog_row_has_root_cause(summary: &str, verify: &str) -> bool {
-    let summary = summary.to_ascii_lowercase();
-    let verify = verify.to_ascii_lowercase();
-    summary.contains("root cause identified") || verify.contains("root cause identified")
+    let text = format!("{summary} {verify}").to_ascii_lowercase();
+    // The documented marker is "root cause identified"; also accept the natural variant
+    // "root-caused" so rows do not have to use the exact phrase to be picked up.
+    text.contains("root cause identified") || text.contains("root-caused")
 }
 
 fn load_top_open_items(
@@ -223,7 +224,9 @@ fn load_top_open_items(
         }
         let status = columns[1];
         let priority = columns[2];
-        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2") {
+        // Every open row is selectable; P3 ranks last so P0-P2 always come first, but P3
+        // is no longer permanently invisible to the CLI-driven loop.
+        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2" | "P3") {
             continue;
         }
         let system = columns[3];
@@ -272,7 +275,7 @@ fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<B
         }
         let status = columns[1];
         let priority = columns[2];
-        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2") {
+        if !matches!(status, "[ ]" | "[~]") || !matches!(priority, "P0" | "P1" | "P2" | "P3") {
             continue;
         }
         if !backlog_row_has_root_cause(columns[4], columns[5]) {
@@ -463,6 +466,30 @@ mod tests {
             load_top_open_items(temp_dir.path(), 5, BacklogFocus::VisualParity).expect("items");
         assert_eq!(visual_items.len(), 1);
         assert_eq!(visual_items[0].id, "005");
+    }
+
+    #[test]
+    fn open_p3_rows_are_selectable_ranked_last() {
+        // P3 open rows must be reachable via the CLI-driven loop (not permanently filtered
+        // out), but always after P0-P2.
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 010 | [ ] | P3 | foo | polish item | no |
+| 011 | [ ] | P1 | foo | core risk | no |
+",
+        )
+        .expect("backlog");
+
+        let items =
+            load_top_open_items(temp_dir.path(), 5, BacklogFocus::Playability).expect("items");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].id, "011"); // P1 first
+        assert_eq!(items[1].id, "010"); // P3 last but present
     }
 
     #[test]
