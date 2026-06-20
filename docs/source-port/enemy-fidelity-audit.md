@@ -24,7 +24,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Fire_Demon (0x00) | partial | 1 |
 | Goat (0x10) | partial | 3 |
 | Hand (0x17) | full | 0 |
-| Lion (0x12) | partial | 2 |
+| Lion (0x12) | partial | 1 |
 | Mini_Hopping_Skull (0x1C) | partial | 2 |
 | Ninja (0x11) | partial | 6 |
 | Orca (0x08) | partial | 3 |
@@ -203,10 +203,10 @@ Fixed candidate 2026-06-20: the combat Hand grab path now routes through `hand_k
 Fixed candidate 2026-06-20: `step_hand` now runs the shared `loc_3639E` clearance probe on grab release using Hand's `d6=9` height and `d7=$E` half-width, branches to `loc_32AA2` death animation when blocked, and only restarts `loc_328AA` jump setup when clear. Regressions: `hand_release_probe_uses_loc_32970_dimensions`, `hand_release_rejump_requires_free_space_loc_32970`, `hand_release_restarts_jump_when_space_is_free_loc_32970`.
 
 **Lion — charge is purely horizontal; ledge-launch leap with gravity not reproduced** (`loc_3E682 / loc_3E6AE / loc_3E6F6 / loc_3E732`)
-Charging arm advances x only; no y_vel/gravity/$180000 cap or floor-landing snap. `enemies.rs:17771-17823`; charge-physics helpers `enemies.rs:1909/1960/2040/2071` test-only.
+Fixed candidate 2026-06-20: live charge now uses the Lion/Dragon airborne charge tail, including ledge launch, lead-column snap, full-width ceiling/floor scans, gravity, landing resume, and terrain death. Regressions include `lion_airborne_charge_lands_on_full_width_floor_scan_loc_3e732`, `lion_airborne_charge_hits_full_width_ceiling_scan_loc_3e6f6`, `lion_airborne_charge_consumes_right_lead_column_boundary_loc_3e6ae`, and `lion_left_airborne_charge_body_terrain_enters_death_animation_loc_3e94e`.
 
-**Lion — close-band tracker + $42 charge-windup state machine not used** (`loc_3E054 / loc_3E434 / loc_3E450`)
-Flat wait_timer + single >112px overshoot instead of ±$60/±$70 engagement windows and $42 count-up. `enemies.rs:17699-17822/6290-6296`; helpers `enemies.rs:205/1758` test-only.
+**Lion — $42 charge-windup/window state machine is compressed** (`loc_3E434 / loc_3E450 / loc_3E604`)
+Fixed candidate 2026-06-20 for the close-band tracker: live walking now applies `loc_3E03C`/`loc_3E054`, holds `$4E(a5)` inside the wider band, clears it through `loc_3E066`, and sets it on charge exits through `loc_3E48E`/`loc_3E642`. Regressions: `lion_walking_tracks_far_kid_before_timer_tick_loc_3e03c_3e074`, `lion_walking_tracking_latch_holds_until_outer_band_exit_loc_3e054_3e066`. Remaining debt: native still compresses `$42(a3)` charge-windup and the ±$60/±$70 engagement-window count-up into one overshoot check.
 
 **Mini_Hopping_Skull — post-landing facing-flip re-orientation pause not reproduced** (`loc_3F000 / loc_3F074 / loc_3F090 / loc_3F09E`)
 Fixed candidate 2026-06-20: live `step_hopper` now preserves the stopped wait until `loc_3F074`, flips toward Kid through `loc_3F090` only after expiry, restarts `loc_3F000` on mismatch, and uses an 11-frame `loc_3F09E` matched-facing pause before `loc_3F112` relaunch. Regressions: `mini_hopping_skull_restarts_wait_after_facing_flip_loc_3f090`, `mini_hopping_skull_does_not_edge_reverse_before_launch_loc_3f090`.

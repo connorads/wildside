@@ -11869,6 +11869,66 @@ mod chunk_04 {
     }
 
     #[test]
+    fn lion_walking_tracks_far_kid_before_timer_tick_loc_3e03c_3e074() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
+        enemy.lion_state = LionState::Walking;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Left;
+        enemy.wait_timer = 2;
+        let player_x = Some((60 + 0x50) << 16);
+
+        step_lion(&mut enemy, Some(&grid), player_x, &mut None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Lion.asm loc_3E03C -> loc_3E074 should face Kid on the right before loc_3E078 ticks `$54(a5)`"
+        );
+        assert_eq!(
+            enemy.wait_timer, 1,
+            "ASM Lion.asm loc_3E078 should still tick the charge timer after tracking"
+        );
+    }
+
+    #[test]
+    fn lion_walking_tracking_latch_holds_until_outer_band_exit_loc_3e054_3e066() {
+        let grid = grid_with_platform(17, 0, 240);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Lion, 120 << 16, floor_y, 6);
+        enemy.lion_state = LionState::Walking;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Left;
+        enemy.wait_timer = 4;
+        enemy.scorpion_tracking_lock = true;
+
+        step_lion(&mut enemy, Some(&grid), Some((120 + 0x50) << 16), &mut None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Lion.asm loc_3E054 should hold current facing while `$4E(a5)` is set and Kid is inside the wider +/-$A0 band"
+        );
+        assert!(
+            enemy.scorpion_tracking_lock,
+            "ASM Lion.asm loc_3E054 should keep `$4E(a5)` set while holding"
+        );
+
+        step_lion(&mut enemy, Some(&grid), Some((120 + 0xA0) << 16), &mut None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Lion.asm loc_3E066 -> loc_3E074 should clear `$4E(a5)` and face Kid once the outer band is exceeded"
+        );
+        assert!(
+            !enemy.scorpion_tracking_lock,
+            "ASM Lion.asm loc_3E066 should clear `$4E(a5)` on outer-band exit"
+        );
+    }
+
+    #[test]
     fn lion_charge_returns_to_walking_on_overshoot() {
         // Lion charge ends when overshooting player by >112px ($70), not a
         // fixed duration timer. ASM: Lion.asm loc_3E450/3E604.

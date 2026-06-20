@@ -6595,7 +6595,9 @@ pub(crate) struct ActiveEnemy {
     pub(crate) heady_metal_palette_phase_counter: u16,
     /// HeadyMetal ASM `sub_379E8`: word written to `Palette_Buffer+$5E`.
     pub(crate) heady_metal_palette_word_5e: u16,
-    /// Scorpion: tracking-lock flag ($4E(a5)). Suppresses re-facing when locked onto player.
+    /// Tracking-lock flag at `$4E(a5)` for families that use this work slot.
+    /// Scorpion suppresses re-facing while locked; Lion uses it as the
+    /// loc_3E054 wider-range latch after a charge exit.
     pub(crate) scorpion_tracking_lock: bool,
     /// Scorpion.asm loc_3DDEE: frames remaining in `stru_3DB8E` while the
     /// linked tail object has Kid collision enabled.
@@ -20705,6 +20707,37 @@ fn fire_lion_projectile_loc_3e09e(
     }
 }
 
+fn step_lion_walking_tracking_loc_3e03c(enemy: &mut ActiveEnemy, player_x_pos: Option<u32>) {
+    let Some(px) = player_x_pos else { return };
+    let lion_x_word = fixed_position_integer_word(enemy.x_pos);
+    let kid_x_word = fixed_position_integer_word(px);
+    let lion_x = i16::from_ne_bytes(lion_x_word.to_ne_bytes());
+    let kid_x = i16::from_ne_bytes(kid_x_word.to_ne_bytes());
+    let delta = lion_x.wrapping_sub(kid_x);
+
+    // ASM Lion.asm loc_3E03C: signed `d4 = lion_x - Kid_x` values in
+    // `(-$40..=$40)` skip tracking and fall straight into loc_3E078.
+    if delta <= 0x40 && delta > -0x40 {
+        return;
+    }
+
+    match lion_tracking_gate_loc_3e054(lion_x_word, kid_x_word, enemy.scorpion_tracking_lock) {
+        LionTrackingGate::Hold => {}
+        LionTrackingGate::ClearLatchAndTrackKid => {
+            let cleared = lion_clear_tracking_latch_loc_3e066(lion_x_word, kid_x_word);
+            enemy.scorpion_tracking_lock = cleared.range_latch_set;
+            enemy.facing = cleared.facing;
+        }
+        LionTrackingGate::TrackKid => {
+            enemy.facing = if delta < 0 {
+                lion_track_kid_negative_delta_facing_loc_3e074(lion_x_word, kid_x_word)
+            } else {
+                lion_track_kid_nonnegative_delta_facing_loc_3e06a(lion_x_word, kid_x_word)
+            };
+        }
+    }
+}
+
 /// Step a Lion enemy: paces normally, then charges toward player and fires a
 /// homing projectile. Charge ends on wall/edge or player overshoot >112px.
 /// ASM: Lion.asm — full state machine with detection, charge, and cooldown.
@@ -20718,6 +20751,7 @@ pub(crate) fn step_lion(
         LionState::Walking => {
             // Pace like normal
             step_pacer(enemy, block_grid);
+            step_lion_walking_tracking_loc_3e03c(enemy, player_x_pos);
 
             // Count down charge timer. ASM Lion.asm loc_3E03C only resolves
             // facing/tracking before falling into loc_3E078, where the timer
@@ -20911,6 +20945,8 @@ fn step_lion_charge_movement_loc_3e11e(
             shared_walker_turnaround(enemy);
             enemy.lion_state = LionState::Walking;
             enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+            // ASM Lion.asm loc_3E48E/loc_3E642: charge exits set `$4E(a5)`.
+            enemy.scorpion_tracking_lock = true;
             return;
         }
 
@@ -20946,6 +20982,8 @@ fn step_lion_charge_movement_loc_3e11e(
         if dx > i64::from(LION_CHARGE_OVERSHOOT) {
             enemy.lion_state = LionState::Walking;
             enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+            // ASM Lion.asm loc_3E48E/loc_3E642: overshoot exits set `$4E(a5)`.
+            enemy.scorpion_tracking_lock = true;
         }
     }
 }
