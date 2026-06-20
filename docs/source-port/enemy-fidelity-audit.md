@@ -224,7 +224,7 @@ Fixed candidate: pending collision dispatch now follows `loc_3DCB0`; signed-nega
 Fixed candidate: snapshots expose the paired tail gfx object from `loc_3DC86`, including the direction-sensitive X/Y offsets, walking/sting contact phases, and hidden tail state during death. Regressions: `scorpion_active_snapshot_exposes_tail_child_from_loc_3dc86`, `scorpion_tail_sync_clear_direction_matches_loc_3dc86`, `scorpion_tail_sync_set_direction_matches_loc_3dcaa`, `scorpion_sting_tail_contact_uses_rom_collision_size_rows_loc_1bce`, `scorpion_death_waits_for_stru_3db80_animation_before_delete`.
 
 **Spinning_Twins — Berzerker side-collision upward launch not reproduced** (`loc_3BBF6`)
-Walking branch never reads Berzerker_charging. `enemies.rs:22914-22933`; helpers `enemies.rs:22466/22503` dead.
+Fixed candidate: direct charging-Berzerker side contact and queued settled side-contact collision both route through `loc_3BBF6`; native preserves HP, seeds `y_vel=$FFFB8000`, disables walking motion, and loops through `loc_3BC22` gravity instead of generic damage. Regressions: `berzerker_charge_launches_spinning_twins_instead_of_damaging_loc_3bbf6`, `spinning_twins_berzerker_side_gate_loc_3bbf6_requires_active_charge`, `spinning_twins_berzerker_launch_loop_loc_3bc22_adds_gravity_and_repeats`, plus `spinning_twins_settled_collision_dispatch_loc_3bbc4_routes_contact_words`.
 
 **Spinning_Twins — orbit oscillation timing + transition trigger diverge** (`loc_3B904`)
 Native advances the orbit index every frame (no animation_timer==1 gate), applies offset to its own x_pos (not a child slot), and transitions on geometric overlap instead of collision_type (neg/$2C/$1C). `enemies.rs:22889-22894/22899-22908`.
