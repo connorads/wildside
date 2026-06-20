@@ -66,7 +66,7 @@ Skull should be pinned to a fixed corridor ($3E/$40) with constant launch height
 Demon should leave up to 7 trail children while pacing. Only runtime trail push is a single death trail (`combat.rs:7676-7678`); walking-trail gate `enemies.rs:5067` is dead. `step_fire_demon_trails` (`projectiles.rs:1293-1307`) only ages trails.
 
 **Goat — Berzerker-charge side contact does not launch airborne** (`loc_3CB76 / loc_3CBA8`)
-Same Crab-only special-case; Goat hits generic kill. `helmets.rs:5250-5266`; `enemies.rs:4162/4205` dead.
+Fixed candidate 2026-05-29: charging Berzerker side contact with no positive `$42(a3)` now launches Goat into the `loc_3CBA8` airborne loop instead of generic HP damage. Regressions: `berzerker_charge_launches_goat_instead_of_damaging_loc_3cb76`, `goat_berzerker_airborne_loop_matches_loc_3cba8`.
 
 **Crab — directional vulnerability gate (front-immune) not enforced** (`loc_3B048 / loc_3B086 / loc_3B08C`)
 Crab should take damage only from the side it does not face. Live damage gates on `is_vulnerable` (returns true for Crab) then unconditional `take_damage_or_queue_death`. `combat.rs:7789-7813`, `enemies.rs:8519-8540`; facing gate `enemies.rs:574-610` test-only.
@@ -191,7 +191,7 @@ The earlier audit overstated the remaining gap. `$38(a4)` is `collision_type`, n
 ROM allocates trail children (≤5) on every bounce/slope; `step_bouncer_with_rng` only mutates velocity. `enemies.rs:12824-12845`; trail helpers `enemies.rs:12116/12564` dead.
 
 **Goat — Berzerker side contact during recoil ($42>0) does not shove+hurt-resume** (`loc_3CBBA`)
-No $42/recoil branch or ±$14 positional shove in `process_berzerker_charge_hits`. `helmets.rs:5220-5272`, `enemies.rs:4236` dead.
+Fixed candidate 2026-06-20: charging Berzerker side contact during positive `$42(a3)` now shoves Goat by ±$14 pixels through `loc_3CBBA`, restores the hurt-resume recoil state/saved walk speed, and skips generic HP damage. Regression: `berzerker_charge_recoil_goat_shoves_without_damage_loc_3cbba`.
 
 **Goat — collision-type dispatch (death-on-negative, side-contact gate) not wired** (`loc_3CB14`)
 Side-contact→berzerker and HP-decrement routing absent; generic combat branches only on 0x1C/0x2C/-1, never GOAT 0x20/0x24. `enemies.rs:4069-4085`, `enemies.rs:9227-9254`, `combat.rs:6643/6674/7336`.

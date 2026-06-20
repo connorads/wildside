@@ -6194,20 +6194,46 @@ impl NativeRuntime {
                     changed_enemy_state = true;
                     continue;
                 }
-                if matches!(enemy.family, EnemyFamily::Goat)
-                    && let GoatBerzerkerSideGateLoc3CB76::AirborneKnockback(knockback) =
-                        goat_berzerker_side_gate_loc_3cb76(true, enemy.shared_walker_state)
-                {
-                    // ASM Goat.asm loc_3CB76: with no positive recoil word,
-                    // charging Berzerker side contact launches Goat into the
-                    // airborne loc_3CBA8 loop instead of generic HP damage.
-                    enemy.x_velocity = knockback.x_velocity;
-                    enemy.y_velocity = knockback.y_velocity;
-                    enemy.on_ground = false;
-                    enemy.wait_timer = GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8;
-                    enemy.damage_flash_frames = 0;
-                    changed_enemy_state = true;
-                    continue;
+                if matches!(enemy.family, EnemyFamily::Goat) {
+                    match goat_berzerker_side_gate_loc_3cb76(true, enemy.shared_walker_state) {
+                        GoatBerzerkerSideGateLoc3CB76::AirborneKnockback(knockback) => {
+                            // ASM Goat.asm loc_3CB76: with no positive recoil word,
+                            // charging Berzerker side contact launches Goat into the
+                            // airborne loc_3CBA8 loop instead of generic HP damage.
+                            enemy.x_velocity = knockback.x_velocity;
+                            enemy.y_velocity = knockback.y_velocity;
+                            enemy.on_ground = false;
+                            enemy.wait_timer = GOAT_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CBA8;
+                            enemy.damage_flash_frames = 0;
+                            changed_enemy_state = true;
+                            continue;
+                        }
+                        GoatBerzerkerSideGateLoc3CB76::SideShoveThenHurtResume => {
+                            let saved_walk_speed = if enemy.walk_speed_override != 0 {
+                                enemy.walk_speed_override
+                            } else {
+                                pacer_walk_speed(enemy.family, enemy.hit_points)
+                            };
+                            let shove = goat_berzerker_side_shove_loc_3cbba(
+                                enemy.facing,
+                                enemy.x_pos as i32,
+                                saved_walk_speed,
+                            );
+                            // ASM Goat.asm loc_3CBBA/loc_3CBCE: positive
+                            // `$42(a3)` shoves the Goat, plays the hurt
+                            // animation, restores saved walker speed, and
+                            // resumes without decrementing HP.
+                            enemy.x_pos = shove.x_position as u32;
+                            enemy.x_velocity = 0;
+                            enemy.y_velocity = 0;
+                            enemy.shared_walker_state = shove.recoil_state_word;
+                            enemy.walk_speed_override = shove.restored_walk_speed;
+                            enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                            changed_enemy_state = true;
+                            continue;
+                        }
+                        GoatBerzerkerSideGateLoc3CB76::ResumeSharedWalker { .. } => {}
+                    }
                 }
                 if matches!(enemy.family, EnemyFamily::Armadillo)
                     && let ArmadilloBerzerkerSideContactLoc3C898::Launch(launch) =

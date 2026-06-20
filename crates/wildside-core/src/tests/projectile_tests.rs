@@ -9512,6 +9512,43 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Goat.asm loc_3CB76 -> loc_3CBBA: charging Berzerker side contact
+    /// during positive recoil shoves the Goat and resumes hurt recovery instead
+    /// of applying another HP hit.
+    #[test]
+    fn berzerker_charge_recoil_goat_shoves_without_damage_loc_3cbba() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        let mut goat = test_enemy(EnemyFamily::Goat, 0x0040_0000, 0x0040_0000, 2);
+        goat.facing = Direction::Left;
+        goat.shared_walker_state = 1;
+        rt.active_enemies.push(goat);
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let goat = rt.active_enemies[0];
+        assert_eq!(
+            goat.hit_points, 2,
+            "ASM Goat.asm loc_3CBBA should not decrement HP while `$42(a3)` is positive"
+        );
+        assert_eq!(
+            goat.x_pos, 0x0054_0000,
+            "ASM Goat.asm loc_3CBBA adds `$14` pixels when x_direction is clear"
+        );
+        assert_eq!(goat.x_velocity, 0);
+        assert_eq!(goat.y_velocity, 0);
+        assert_eq!(goat.shared_walker_state, -0x0078);
+        assert_eq!(goat.walk_speed_override, pacer_walk_speed(EnemyFamily::Goat, 2));
+        assert_eq!(goat.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert_eq!(goat.wait_timer, 0);
+    }
+
     /// ASM Armadillo.asm loc_3C898: charging Berzerker side contact with no
     /// positive recoil word launches the Armadillo into loc_3C8CC instead of
     /// consuming HP through generic damage/death.
