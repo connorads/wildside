@@ -167,7 +167,7 @@ Fixed candidate: accepted Big Hopping Skull hurt/Kid-above contacts now apply th
 Fixed candidate: Big Hopping Skull death now waits through `stru_367FA`, then positive `$42(a5)` writes `$2168` to `EnemyStatus_Table` before `loc_366B2` deletion and the killed-enemy bit. Regression: `big_hopping_skull_death_waits_for_stru_367fa_animation_before_delete`.
 
 **Cloud — lightning projectile has fixed 31-frame lifetime instead of collision-bound persistence** (`loc_35DF0 / loc_35E8A`)
-ROM deletes only on collision_type≠0 or flag $19; native caps at 31 frames via the generic step. `enemies.rs:9869`, `projectiles.rs:1432-1439`; model fn `enemies.rs:9699` dead.
+Fixed candidate: Cloud lightning workers now spawn with `lifetime = 0`, are exempt from generic lifetime expiry/decrement, and keep moving until the terrain/collision route deletes them, matching `loc_35E8A`'s collision/$19-bound loop instead of the old 31-frame cap. Regressions: `cloud_attack_projectile_loop_loc_35e8a_waits_until_collision_or_animation_flag`, `cloud_runtime_loc_35cd8_latches_then_spawns_diagonal_lightning`, `cloud_lightning_loc_35e8a_persists_without_generic_lifetime_expiry`.
 
 **Dragon (walking) — breath flame deleted on first Kid contact instead of persisting its animation** (`loc_3D02A / loc_3D082`)
 Flame is a stationary multi-frame hazard in ROM; native pushes a generic projectile removed on first overlap (only FireDemonDeathTrail is exempt). `projectiles.rs:1934-1944`, `enemies.rs:20598-20610`.
