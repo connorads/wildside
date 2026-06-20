@@ -1,5 +1,5 @@
 <!-- Generated 2026-05-29 by the `enemy-fidelity-audit` workflow (28 read-only Explore auditors, one per enemy family; every high/medium gap adversarially verified by an independent refuter before inclusion). This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
-<!-- Status-corrected 2026-06-20: all concrete rows below now have fixed-candidate evidence in-row and in backlog-archive.md #315. Original negative headings are retained as historical issue titles. -->
+<!-- Status-corrected 2026-06-20: all concrete rows below now have fixed-candidate evidence in-row and in ../backlog-archive.md #315. Original negative headings are retained as historical issue titles. -->
 
 # Enemy Fidelity Audit
 

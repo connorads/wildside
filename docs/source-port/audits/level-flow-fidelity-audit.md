@@ -103,7 +103,7 @@ Native now clamps continues-present GameOver to the short pre-continue fade (`lo
 
 ## Already tracked
 
-- **Death respawn never clears `Extra_hitpoint_slots`** (`lose_life`): `docs/source-port/level-loading-fidelity-audit.md:202-203` (cross-ref `combat-fidelity-audit.md:123`). The entry is stale and under-rated: it logs the identical `lose_life` non-clear but rates it "Hygiene until the field is populated" on the now-false "field unused, inert, permanently 0" premise; its own conditional fired with the 2026-05-31 ExtraHitPoint DP fix (`backlog-archive.md:8793-8794`). No active `backlog.md` row exists, so the live high-severity gap is effectively untracked under a dismissed inert precursor. Re-rate to high. The escalated entry appears as the first backlog candidate below.
+- **Death respawn never clears `Extra_hitpoint_slots`** (`lose_life`): `docs/source-port/audits/level-loading-fidelity-audit.md:202-203` (cross-ref `combat-fidelity-audit.md:123`). The entry is stale and under-rated: it logs the identical `lose_life` non-clear but rates it "Hygiene until the field is populated" on the now-false "field unused, inert, permanently 0" premise; its own conditional fired with the 2026-05-31 ExtraHitPoint DP fix (`../backlog-archive.md:8793-8794`). No active `../backlog.md` row exists, so the live high-severity gap is effectively untracked under a dismissed inert precursor. Re-rate to high. The escalated entry appears as the first backlog candidate below.
 
 ## Backlog candidates
 
@@ -130,7 +130,7 @@ Scout exclusions (out of scope by design, owned elsewhere):
 
 - **HUD/audio timer consequences**: the `sfx_Voice_no_time` time-up cue (kid.asm:15501), the low-time HUD warning blink (`sub_BD0A`, kid.asm:15518-15524), the `$FFFFFB4B` HUD-latch on flagpole/level-complete (backlog #175), and death/voice SFX are audio/visual/shell concerns outside the gameplay-timer and death-flow scope.
 - **Warp-mechanic / level-loading concerns** already owned by `blocks-fidelity-audit.md` and `level-loading-fidelity-audit.md`: the 90-frame Telepad countdown gate, same-level full-reload vs inline reposition (no-fade, invented `on_ground=true`), the dual teleporter consumers in `blocks.rs`+`combat.rs`, cross-level `dest_map_id` handling, and `loc_BCD6`'s `$FC36`/`$FC29` shell-domain side-effects (subsumed by the already-reported full-Teleport-transition gap).
-- **Combat / scoring / shell domains**: murder-wall crush damage geometry (`sub_5E02`, combat scope, backlog #283), the EOL score tally and 100K-trip seed, two-player game-over screen rendering, `return_to_title` new-game state, and the EndingSequence presentation staging (`dark-model-wiring-triage.md:146`).
+- **Combat / scoring / shell domains**: murder-wall crush damage geometry (`sub_5E02`, combat scope, backlog #283), the EOL score tally and 100K-trip seed, two-player game-over screen rendering, `return_to_title` new-game state, and the EndingSequence presentation staging (`../dark-model-wiring-triage.md:146`).
 - **`Init_SpriteAttr_HUD` / level-header parsing**: header/flag decode and murder-wall arm parsing are level-loading scope and were only cross-checked for the timer-normalisation and flag-decode facts cited above.
 
 Units with ambiguity needing oracle probes:

@@ -162,5 +162,5 @@ enemy/physics ports become agent-closable instead of playtest-only.
 ## Appendix: method and caveats
 
 - Workflow: `backlog-validate-plan`, pipeline (12 clusters, validate, adversarial-verify-suspicious, plan). 54 agents, ~4M tokens, 23 min. Read-only (no cargo); test/label existence checked by grep; the green-gate run separately covers the dynamic layer.
-- Caveat: snapshot validated `ca222a3b`..`80c1793f`; HEAD has since advanced. Re-check a row's current marker before acting. The concurrent loop owns `backlog.md`, so this report is standalone rather than inline edits.
-- What this does not do: human playtest validation (`[?]` to `[x]` remains a human gate per `loop.md`). 70/93 rows are `human_validatable_only`.
+- Caveat: snapshot validated `ca222a3b`..`80c1793f`; HEAD has since advanced. Re-check a row's current marker before acting. The concurrent loop owns `../backlog.md`, so this report is standalone rather than inline edits.
+- What this does not do: human playtest validation (`[?]` to `[x]` remains a human gate per `../loop.md`). 70/93 rows are `human_validatable_only`.

@@ -7,7 +7,7 @@
 > evidence moved to `backlog-archive.md` (grep `#NNN`), the rest to
 > `tas-era-ledger.md`. Read "frontier-state.yaml audience" as "the backlog".
 
-A codebase-wide follow-up to the [enemy fidelity audit](enemy-fidelity-audit.md). That audit found a systemic failure mode in `enemies.rs`: ASM-faithful pure helpers that are modelled and unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live step/combat path. This census asks how far the pattern extends across the whole crate, and where wiring is highest-leverage.
+A codebase-wide follow-up to the [enemy fidelity audit](audits/enemy-fidelity-audit.md). That audit found a systemic failure mode in `enemies.rs`: ASM-faithful pure helpers that are modelled and unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live step/combat path. This census asks how far the pattern extends across the whole crate, and where wiring is highest-leverage.
 
 ## Headline findings
 
@@ -103,7 +103,7 @@ Clusters:
 - **Miscellaneous: prize 10000 descriptor, juggernaut support overlap (sub_9832).** (2 helpers, *unwired*, leverage **low**). ASM: `sub_9832`. Fns: `prize_10000`, `juggernaut_support_overlap_sub_9832`. Small; juggernaut_support_overlap_sub_9832 overlaps the generic collision cluster conceptually.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md (combat.rs is the canonical instance of the systemic finding: ASM-faithful, unit-tested boss/enemy descriptors carry cfg_attr(not(test), allow(dead_code)) and are never wired into the live step path; runtime uses generic fallbacks)
+- docs/source-port/audits/enemy-fidelity-audit.md (combat.rs is the canonical instance of the systemic finding: ASM-faithful, unit-tested boss/enemy descriptors carry cfg_attr(not(test), allow(dead_code)) and are never wired into the live step path; runtime uses generic fallbacks)
 - Block bugs #139/#140/#143 (collision_shooter cluster: first_solid_overlap_resolution_sub_1FA2 / support_overlap_detected_sub_1F52 model the generic solid-overlap engine that block collision depends on)
 - TAS frontier / docs/source-port/frontier-state.yaml (boss_head_movement_step_sub_39846 movement-script stepper and boomerang/shishka state machines gate any boss-fight TAS slice; currently unwired so bosses run on generic fallbacks)
 - docs/source-port/backlog.md #176-202 (enemy fidelity backlog seeded from the same audit)
@@ -129,7 +129,7 @@ Clusters:
 - **Scroll / camera + scratch-queue debris init** (12 helpers, *untested-model*, leverage **low**). ASM: `sub_28FC`, `sub_292E`. Fns: `initialise_scratch_queue_sub_28FC`, `scratch_debris_pieces_sub_292E`, `ScratchQueueSub28FC`. Scratch/debris queue init and minor scroll helpers; presentation-adjacent, unwired.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md -- the enemy-loading/spawn-manager cluster (manage_enemy_loading_*, enemy_layout_*, decode_spawn_positions) is the same systemic unwired-pure-helper root cause this audit documents
+- docs/source-port/audits/enemy-fidelity-audit.md -- the enemy-loading/spawn-manager cluster (manage_enemy_loading_*, enemy_layout_*, decode_spawn_positions) is the same systemic unwired-pure-helper root cause this audit documents
 - Open block bugs #139 / #140 / #143 -- the block-layout decode + kid_hitbox_solid_scan_loc_1FEE cluster models faithful solid-block collision that the live blocks.rs does not use
 - docs/source-port/frontier-state.yaml + TAS frontier -- evanescent shooter touch-trigger (EAF8/EB0C/EB2A/EB3E/EB48) is the only level.rs cluster genuinely wired into live blocks.rs (stale attr); the shooter-OBJECT model (EE38/EF40) and object-slot lifecycle remain unwired
 - docs/source-port/backlog.md -- block placement / hidden+prize block reveal (block_place_*, HiddenBlockRevealWorker loc_E096) candidates for wiring
@@ -154,7 +154,7 @@ Clusters:
 - **DP Extra-HP/Life + Invulnerability-Haze (loc_3FB90-3FDDC): init, per-slot main, haze frame, haze slot-sprite + size/attr tables** (14 helpers, *untested-model*, leverage **medium**). ASM: `loc_3FB90`, `loc_3FBE4`, `loc_3FC78`, `loc_3FD28`, `byte_3FDDC`. Fns: `diamond_power_init_extra_hp_life`, `diamond_power_main_extra_hp_life_slot`, `diamond_power_init_invuln_haze`. Invulnerability/SamuraiHaze collapse to invulnerable_frames.max(1) in live step (no AoE, no haze sprites). Includes shared diamond_sprite_attr_for_word_4020e_index (flagged nt=6 but all callers are other unwired DP slot/sprite fns = dead-calling-dead) and DIAMOND_SPRITE_ATTR_TABLE/size tables.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md. same systemic pattern: ASM-faithful pure helpers modelled + unit-tested but cfg_not_test-gated and never wired; here the Diamond Power weapon subsystem (Circle of Doom, Wall of Death, Snake, Five-Way, Extra-HP, Invuln-Haze) is the helmet-side analogue of the enemy generic-fallback finding
+- docs/source-port/audits/enemy-fidelity-audit.md. same systemic pattern: ASM-faithful pure helpers modelled + unit-tested but cfg_not_test-gated and never wired; here the Diamond Power weapon subsystem (Circle of Doom, Wall of Death, Snake, Five-Way, Extra-HP, Invuln-Haze) is the helmet-side analogue of the enemy generic-fallback finding
 - docs/source-port/frontier-state.yaml. DP weapon slot models are candidates for promotion from cfg_not_test to live step dispatch; rejected-hypothesis ledger should note the generic invulnerable_frames.max(1) stub in step_diamond_power (helmets.rs:5722)
 - TAS frontier. Red Stealth floor-impact (sub_B000) and rain tracking are now genuinely live; DP weapon AoE/sprite divergence will surface once Diamond Power is exercised in a TAS scenario
 - docs/source-port/backlog.md. wiring the DP object-pool lifecycle (sub_3F586/3F5BC/3F5E8) and per-slot mains is a discrete backlog candidate; Eyeclops beam render chain (E4B2) is a visual-only lower-priority item
@@ -177,7 +177,7 @@ Clusters:
 - **Top-level land-on-platform check (apply_platform_collision) and finish-sprite-list (loc_256E). composition-level entry that would orchestrate the collision and sprite clusters above.** (3 helpers, *untested-model*, leverage **high**). ASM: `loc_256E`, `loc_2720`. Fns: `apply_platform_collision`, `finish_platform_sprite_list_loc_256E`, `platform_collision_return_loc_2720`. apply_platform_collision is the natural wiring seam: doc 'Check if the player should land on top of any active platform.' Referenced from movement_tests.rs (6155/6175/6245) but JSON marks calls_test:0 (artefact). Wiring this entry point is what would pull the whole platform subsystem into the live step.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md. same systemic root cause (ASM-faithful pure helpers gated dead, never wired into the live step path; runtime uses generic fallbacks)
+- docs/source-port/audits/enemy-fidelity-audit.md. same systemic root cause (ASM-faithful pure helpers gated dead, never wired into the live step path; runtime uses generic fallbacks)
 - Open block-collision bugs #139/#140/#143. the platform carry/landing/overlap clusters (loc_2686..loc_26FE, loc_25EE..loc_266A) model exactly the push/eject geometry implicated in block/platform collision divergences
 - TAS frontier (docs/source-port/frontier-state.yaml). moving-platform carry physics (positive/negative carry, horizontal push) and Soft/Trap platform state machines affect Kid position/velocity, the authoritative fields the TAS sweep checks
 - crates/wildside-core/src/tests/block_tests.rs (~lines 12066-13131). the unit-test home for nearly all of these helpers; block_tests.rs (39 refs) + movement_tests.rs are the only external consumers, all in test context
@@ -202,7 +202,7 @@ Clusters:
 - **Special-effect 'unknown' plane-fill / art upload (ASM loc_14DF6 art, loc_14E42/14E44/14E46 plane-fill outer/inner/pair-write) + murder-wall palette (loc_140EE)** (6 helpers, *untested-model*, leverage **low**). ASM: `loc_14DF6`, `loc_14E42`, `loc_14E44`, `loc_14E46`, `loc_140EE`. Fns: `upload_special_effect_unknown_art_loc_14DF6`, `special_effect_unknown_outer_pass_loc_14E42`, `special_effect_unknown_pair_write_loc_14E46`. UNWIRED. Plane-fill loops + murder-wall palette copy. NOTE: the murder-wall WARNING sprite path (compile_murder_wall_warning_sprites_sub_5E02) IS re-exported from lib.rs:51-54 and likely live; only the palette-copy here (loc_140EE) is dark.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md. same root cause: ASM-faithful pure helpers modelled+unit-tested but cfg_not_test-gated and never wired; runtime uses generic fallbacks (here: inline geyser phase machine + static fireball script table)
+- docs/source-port/audits/enemy-fidelity-audit.md. same root cause: ASM-faithful pure helpers modelled+unit-tested but cfg_not_test-gated and never wired; runtime uses generic fallbacks (here: inline geyser phase machine + static fireball script table)
 - open block/wall bugs #139/#140/#143. murder-wall warning sprite path (sub_5E02) re-exported and likely live; murder-wall palette copy loc_140EE here is the unwired remainder; relevant if murder-wall rendering/palette is implicated
 - docs/source-port/tas-roadmap.md / TAS frontier. lava geyser eruption timing (loc_14772 delay, peak-hold/collapse script) and fireball trajectory drive position divergence; wiring the geyser/fireball script state machines would tighten frame-level parity on lava levels
 - docs/source-port/frontier-state.yaml + backlog.md. falling-weather worker sub_61CA and level special-effects dispatcher sub_6048/sub_6034 are whole unwired subsystems; candidate frontier items
@@ -250,7 +250,7 @@ Clusters:
 - **Misc boot: angle->sine/cosine LUT, I/O port (A10001) controller flags, region byte** (3 helpers, *partially-wired*, leverage **high**). ASM: `sub_40236`, `sub_6E24`, `loc_7508`. Fns: `sin_cos_sub_40236`, `read_io_port_a10001_flags_sub_6E24`. sin_cos_sub_40236 is GENUINELY WIRED into helmets.rs circle-of-doom diamond power; its plain dead-code attr is stale and should be removed. read_io_port flags unwired.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md (same systemic pattern: ASM-faithful pure helpers cfg_attr(not(test),allow(dead_code)) and unit-tested but never wired into the live step/render path -- boot.rs replicates it for boot/title/HUD/menu subsystems)
+- docs/source-port/audits/enemy-fidelity-audit.md (same systemic pattern: ASM-faithful pure helpers cfg_attr(not(test),allow(dead_code)) and unit-tested but never wired into the live step/render path -- boot.rs replicates it for boot/title/HUD/menu subsystems)
 - lib.rs update_vdp_state + vdp.rs build_intro_sequence_6_vdp_with_character_frame (the live consumption seam already pulling 9 title/intro-6 helpers -- the model for wiring the rest)
 - docs/source-port/frontier-state.yaml + intro-6/title-screen frontier (recent commits 'Split intro 6 VDP from title screen', 'Restore intro 6 transformation texture' touch exactly this cluster)
 - TAS frontier / sin_cos_sub_40236 -> helmets.rs circle-of-doom (stale dead-code attr on a genuinely-live physics helper; flag for attribute removal)
@@ -274,7 +274,7 @@ Clusters:
 - **Helmet-cleanup effect spawn (sub_10D3E / loc_10cec): helmet-prize cleanup animation, content-to-effect mapping** (3 helpers, *wired*, leverage **low**). ASM: `sub_10D3E`, `loc_10cec`. Fns: `helmet_cleanup_effect_loc_10cec`, `helmet_cleanup_animation_sub_10D3E`. helmet_cleanup_effect_loc_10cec reached from clear_existing_helmet_prizes_for_sub_10cec inside live floating-item processing. Stale attr.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md (same systemic pattern: ASM-faithful pure helpers carry cfg_attr(not(test),allow(dead_code)) and are bypassed by generic fallbacks -- here the shooter-slot and prize-collection families mirror that exactly)
+- docs/source-port/audits/enemy-fidelity-audit.md (same systemic pattern: ASM-faithful pure helpers carry cfg_attr(not(test),allow(dead_code)) and are bypassed by generic fallbacks -- here the shooter-slot and prize-collection families mirror that exactly)
 - open block bugs #139/#140/#143 (block interaction behaviour -- shifting/metal/lift/shooter blocks; the unwired shooter-slot and metal-push clusters are candidate root causes)
 - docs/source-port/backlog.md (block subsystem items; metal_block_push and shooter_slot families need probe scenarios before wiring per the probe-before-coding rule)
 - docs/source-port/frontier-state.yaml (candidate_promotions: wiring sub_F730 shooter slot driver and FF92 prize-collection step are concrete frontier moves)
@@ -296,7 +296,7 @@ Clusters:
 - **Kid grounded-surface / crawl terrain helpers: grounded surface-type classify (sub_8600 / loc_8688 tie-break), crawl wall-escape (sub_81B4), crawl slope-snap (sub_83E6), negative-slope dispatch (loc_8E98), telepad countdown (loc_B522), juggernaut walk visual accumulator (loc_9484).** (7 helpers, *partially-wired*, leverage **high**). ASM: `sub_8600`, `sub_83E6`, `sub_81B4`, `loc_8E98`, `loc_9484`. Fns: `grounded_surface_type_sub_8600`, `crawl_slope_snap_sub_83E6`, `crawl_wall_escape_sub_81B4`. These are core Kid physics and several ARE wired (stale attr): grounded_surface_type_sub_8600 called from live apply_floor_collision/try_snap_wall_sticky_ledge + boot.rs refresh_demo_grounded_run_surface_type; crawl_slope_snap_sub_83E6 from live step_with_order_inner; juggernaut_walk_visual_accumulator_loc_9484 via live update_horizontal_velocity_only. crawl_wall_escape_sub_81B4 and the dispatch enums (loc_8E98/B522) still look unwired. Directly relevant to the TAS frontier.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md (same cfg_not_test-unwired systemic pattern across subsystems)
+- docs/source-port/audits/enemy-fidelity-audit.md (same cfg_not_test-unwired systemic pattern across subsystems)
 - Open block bugs #139/#140/#143. the hidden-block reveal cluster (sub_DFB0/loc_E0C2/E2D2 family) is the unwired model for that mechanic
 - TAS frontier (docs/source-port/frontier-state.yaml, tas-roadmap). grounded_surface_type_sub_8600 / crawl_slope_snap_sub_83E6 / juggernaut walk accumulator are the Kid-physics helpers that gate frame-accurate movement
 - docs/source-port/backlog.md. GFX-object linked-list subsystem (sub_E02/loc_10C6/loc_17C6) is a large unwired cluster worth a dedicated backlog item
@@ -322,7 +322,7 @@ Clusters:
 - **Projectiles/fireball + shared infrastructure: spawn helpers, velocity word writers, deactivation status, contact bounds, RNG activation, child attachment** (80 helpers, *wired*, leverage **low**). ASM: `loc_3C4C0`, `sub_36FF4`, `loc_3492C`. Fns: `activate_enemies_with_rng`, `deactivation_status_update_loc_3C4C0`, `child_attachment_snapshot`. Shared infra: activate_enemies_with_rng (live spawn), child_attachment_snapshot (called from combat.rs:7698, genuinely live, stale attr), step_archer/step_boss_fire/step_cloud_attack all dispatched. deactivation_status_update_loc_3C4C0 and write_velocity_high_word are reached only via dead-gated lion cull helpers (dead-calling-dead).
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md. this file is the primary subject of the enemy-fidelity audit; the present census REVISES its systemic-unwired thesis for enemies.rs specifically (see headline).
+- docs/source-port/audits/enemy-fidelity-audit.md. this file is the primary subject of the enemy-fidelity audit; the present census REVISES its systemic-unwired thesis for enemies.rs specifically (see headline).
 - docs/source-port/backlog.md #176-202. enemy fidelity backlog items (latest commit 99927c70).
 - TAS frontier (docs/source-port/frontier-state.yaml). dragon_walking contact bounds (combat.rs dragon_walking_contact_bounds, enemy_contact_min_overlap_fp 0x0D=0) tie directly to the live frame-3399 stomp frontier; dragon family stepping is on the critical path.
 - Block bugs #139/#140/#143. Driller (step_driller, Driller.asm loc_3BE78) drills Smash/Ice blocks and emits drilled_blocks into the block grid; relevant if those block bugs touch enemy-driven block destruction.
@@ -346,7 +346,7 @@ Clusters:
 - **Juggernaut wall scan sub_96E8 (wall-ahead detection for the juggernaut/heavy walker)** (1 helpers, *untested-model*, leverage **high**). ASM: `sub_96E8`. Fns: `juggernaut_wall_scan_sub_96E8`. 0 non-test callers anywhere; 10 unit-test callsites in movement_tests.rs + combat_tests.rs. The live juggernaut/heavy-walker enemy does NOT call this ASM-faithful wall scan; it is unit-tested against expected ASM behaviour but never wired into the runtime step path. Classic enemy-fidelity-audit pattern: modelled + tested, runtime uses a generic fallback.
 
 Cross-links:
-- docs/source-port/enemy-fidelity-audit.md (juggernaut_wall_scan_sub_96E8 is the same modelled-but-unwired enemy pattern; grounded_walker_scan_* wrappers ARE the wired counter-example)
+- docs/source-port/audits/enemy-fidelity-audit.md (juggernaut_wall_scan_sub_96E8 is the same modelled-but-unwired enemy pattern; grounded_walker_scan_* wrappers ARE the wired counter-example)
 - Open block bugs #139/#140/#143 (hidden_block reveal sub_E37A/E3C6/E446 pipeline + prize_block_by_layout_addr_loc_10342 + murder-wall sub_140F6 row insertion)
 - TAS frontier / docs/source-port/frontier-state.yaml (relative_collision_* and horizontal_collision grounded-walker scan feed movement.rs ceiling/wall collision and projectiles.rs. primary position/velocity divergence surface)
 - docs/source-port/backlog.md (candidate: strip stale cfg_not_test attrs on the ~27 genuinely-wired terrain helpers to denoise the dead-code census)

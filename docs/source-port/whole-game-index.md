@@ -36,7 +36,7 @@ After the 2026-05-18 audit these are not active blockers for the current 1P comp
 
 ## Explicitly open areas
 
-As of 2026-05-18 the phase had no open blocker in `completion-audit.md` or the canonical backlog (since reopened; see the backlog NOW block). Post-phase candidates remain:
+As of 2026-05-18 the phase had no open blocker in `audits/completion-audit.md` or the canonical backlog (since reopened; see the backlog NOW block). Post-phase candidates remain:
 
 - Further 1P playable breadth beyond the current smoke scenarios plus 69-level gameplay sweep
 - Full-frame visual parity sweep and other broader verification hardening
@@ -57,4 +57,4 @@ Use this file to answer:
 - How strong is the current evidence?
 - Is this still an open risk area?
 
-Do not use this file alone to conclude the game is finished. The active finish-line definition is in `roadmap.md`, the live queue is in `backlog.md`, and the current phase completion decision is in `completion-audit.md`.
+Do not use this file alone to conclude the game is finished. The active finish-line definition is in `roadmap.md`, the live queue is in `backlog.md`, and the current phase completion decision is in `audits/completion-audit.md`.

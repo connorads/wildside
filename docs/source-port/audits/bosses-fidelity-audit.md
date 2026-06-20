@@ -20,7 +20,7 @@ Per-unit audit of the Kid Chameleon source-port boss subsystem. Generated from t
 | multihead-boss-spawn-head-hp-config | full | 1 |
 | live-boss-step-generic-substitute | full | 4 |
 
-Totals: 11 units audited, 5 full, 3 partial, 3 stub. 26 confirmed gaps after refutation. By refuter-corrected severity: 11 high, 6 medium, 9 low. Of the high/medium claims that went through a refute pass, 2 were refuted and dropped: the `sub_370D2`/`sub_3729E` death-burst/eye-pop cluster (re-cast as already-tracked low) and the HeadyMetal piece-scatter claim (refuted because the live renderer does implement the tiered scatter under #062). Several claims survived refutation on the merits but were marked **already tracked** under `dark-model-wiring-triage.md` / `dead-helper-census.md` and excluded from the backlog candidates. Two high claims were corrected down to low (`loc_39EBE` boss-death flag reveal) and medium (HeadyMetal breakup/defeat) where the divergence is currently masked.
+Totals: 11 units audited, 5 full, 3 partial, 3 stub. 26 confirmed gaps after refutation. By refuter-corrected severity: 11 high, 6 medium, 9 low. Of the high/medium claims that went through a refute pass, 2 were refuted and dropped: the `sub_370D2`/`sub_3729E` death-burst/eye-pop cluster (re-cast as already-tracked low) and the HeadyMetal piece-scatter claim (refuted because the live renderer does implement the tiered scatter under #062). Several claims survived refutation on the merits but were marked **already tracked** under `../dark-model-wiring-triage.md` / `../dead-helper-census.md` and excluded from the backlog candidates. Two high claims were corrected down to low (`loc_39EBE` boss-death flag reveal) and medium (HeadyMetal breakup/defeat) where the divergence is currently masked.
 
 ## Confirmed gaps
 
@@ -115,7 +115,7 @@ The death-burst homing step, the boss timeout face-Kid gate, the eye-pop face-Ki
 
 - **Fixed/partial 2026-06-12: Boss-head collision/HP handler `sub_3A292` wired live.** Collision filters, HP decrement, damage flash, and `sfx_Big_Hopping_Skull_groan` are covered; exact `palette_line` visual remains approximate.
 - **Fixed 2026-06-12: HeadyMetal upward tracking velocity, `$28` hover offset, and `$FFFFFB4F` freeze branch.** Live `step_tracker` delegates HeadyMetal base motion to `heady_metal_tracking_velocity_loc_37582`; the thrown-head worker state that should drive the freeze count remains open.
-- **Orbiting boss eye-piece system unwired.** `dark-model-wiring-triage.md` item #2 `combat-bosses`; backlog `#203`/`#205`; `dead-helper-census.md:32/85-87`.
+- **Orbiting boss eye-piece system unwired.** `../dark-model-wiring-triage.md` item #2 `combat-bosses`; backlog `#203`/`#205`; `../dead-helper-census.md:32/85-87`.
 - **Fixed 2026-06-12: Boss head projectile spawn `sub_397E4` wired live.** Shishka/Bagel arrows and BoomerangBosses boomerangs now use the ROM facing offset and `$48` velocity seed.
 - **Fixed 2026-06-12: Boss heads use fixed movement scripts.** Live multi-head movement now uses the `sub_39846` delay/script-index interpreter rather than generic tracker chase.
 - **Fixed/partial 2026-06-17: Boss head projectile velocities/shapes use ROM primary helpers.** `sub_397E4`, `loc_3A0D2`, `loc_3A1EA`/`loc_3A24C`, HeadyMetal normal-fire `sub_370D2` entry fall/chase timing, `loc_371B6` collision finish, `loc_3724A` final `sub_37002` helper spawn, and HeadyMetal breakup `sub_37332` are covered; orbit satellites and skewer fan remain separate open rows.

@@ -38,7 +38,7 @@ Tasks:
 
 - keep this roadmap as the top-level programme document
 - treat `backlog.md` as the canonical queue for active source-port work
-- use `completion-audit.md` before claiming the source-port objective is done
+- use `audits/completion-audit.md` before claiming the source-port objective is done
 - the backlog NOW block is the compact session truth; `tas-era-ledger.md` holds the retired TAS-frontier ledger
 - archive or rewrite any doc that still says "full playable game", "all done", or similar
 
@@ -48,7 +48,7 @@ Exit criteria:
 - completion audit maps finish criteria to current command/backlog evidence
 - no active doc claims the project is effectively complete
 
-2026-05-18 status: achieved for the current 1P phase. `completion-audit.md`,
+2026-05-18 status: achieved for the current 1P phase. `audits/completion-audit.md`,
 `backlog.md`, and `project-status` agreed at the time that there are no open
 phase blockers. This is a phase completion statement, not a claim that every
 post-1P fidelity or tooling idea is exhausted.
