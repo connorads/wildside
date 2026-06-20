@@ -10455,7 +10455,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn ninja_detects_player_in_cone_and_jumps() {
+    fn ninja_detects_player_in_cone_and_enters_jump_threat_loc_3d706_3d84e() {
         let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
         enemy.ninja_state = NinjaState::Stealth;
         // Player 0x30 px above (within 0x20-0x50 range) and 0x08 px right (within ±0x10)
@@ -10469,9 +10469,11 @@ mod chunk_04 {
             PlayerForm::TheKid,
             None,
         );
-        assert_eq!(enemy.ninja_state, NinjaState::JumpAttack);
+        assert_eq!(enemy.ninja_state, NinjaState::JumpThreat);
+        assert_eq!(enemy.shared_walker_state, 1);
         assert_eq!(enemy.facing, Direction::Right);
-        assert!(enemy.y_velocity < 0, "should jump upward");
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
     }
 
     #[test]
@@ -10523,7 +10525,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn ninja_red_stealth_still_triggers_overhead_jump_loc_3d706() {
+    fn ninja_red_stealth_still_enters_overhead_jump_threat_loc_3d706() {
         let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
         enemy.ninja_state = NinjaState::Stealth;
         let player_x = Some(100 << 16);
@@ -10538,9 +10540,39 @@ mod chunk_04 {
         );
         assert_eq!(
             enemy.ninja_state,
-            NinjaState::JumpAttack,
-            "ASM Ninja.asm loc_3D706 checks the overhead attack window before the later Red Stealth guard-pose branch"
+            NinjaState::JumpThreat,
+            "ASM Ninja.asm loc_3D706 checks the overhead jump-threat window before the later Red Stealth guard-pose branch"
         );
+    }
+
+    #[test]
+    fn ninja_overhead_right_inside_edge_enters_positive_jump_threat_loc_3d706_3d84e() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0x0001_0000;
+        let player_x = Some((100 + 0x0F) << 16);
+        let player_y = Some((200 - 0x30) << 16);
+
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::JumpThreat,
+            "ASM Ninja.asm loc_3D706 branches to loc_3D84E at the half-open +$0F jump-threat edge"
+        );
+        assert_eq!(enemy.shared_walker_state, 1);
+        assert_eq!(enemy.walk_speed_override, 0);
+        assert_eq!(enemy.facing, Direction::Right);
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
     }
 
     #[test]
@@ -10611,6 +10643,37 @@ mod chunk_04 {
         assert_eq!(active[0].facing, Direction::Right);
         assert_eq!(active[0].x_velocity, 0);
         assert_eq!(active[0].y_velocity, 0);
+    }
+
+    #[test]
+    fn ninja_positive_jump_threat_releases_when_kid_leaves_box_loc_3d7fa_3d7ca() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::JumpThreat;
+        enemy.shared_walker_state = 1;
+        enemy.facing = Direction::Right;
+        enemy.walk_speed_override = 0;
+        let player_x = Some((100 + 0x11) << 16);
+        let player_y = Some((200 - 0x30) << 16);
+
+        step_ninja(
+            &mut enemy,
+            None,
+            player_x,
+            player_y,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            enemy.ninja_state,
+            NinjaState::Stealth,
+            "ASM Ninja.asm loc_3D7FA should reset positive `$4C(a5)` via loc_3D7CA once Kid leaves the inclusive +/-$10 X band"
+        );
+        assert_eq!(enemy.shared_walker_state, 0);
+        assert_eq!(
+            enemy.walk_speed_override,
+            pacer_walk_speed(EnemyFamily::Ninja, enemy.hit_points)
+        );
     }
 
     #[test]

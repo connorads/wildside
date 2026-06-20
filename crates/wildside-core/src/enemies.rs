@@ -6386,7 +6386,10 @@ pub(crate) enum NinjaState {
     Stealth,
     /// ASM Ninja.asm loc_3D826: Red Stealth / projectile guard pose.
     Guard,
+    /// ASM Ninja.asm loc_3D84E: positive `$4C(a5)` jump-threat pose.
+    JumpThreat,
     /// Airborne jump-attack toward the player.
+    #[cfg_attr(not(test), allow(dead_code))]
     JumpAttack,
     /// ASM Ninja.asm loc_3DABC: HP-depleted Kid-above contact falls until floor before death.
     KidAboveKnockdown,
@@ -17866,8 +17869,8 @@ fn driller_drilled_cells_loc_3be78(
     }
 }
 
-/// Ninja detection cone: player must be 0x20–0x50 pixels above and in the
-/// half-open X range [-0x10, +0x10) (Ninja.asm loc_3D706).
+/// Ninja jump-threat cone: player must be 0x20–0x50 pixels above and in the
+/// half-open X range [-0x10, +0x10) (Ninja.asm loc_3D706 -> loc_3D84E).
 pub(crate) const NINJA_DETECT_Y_MIN: i32 = 0x20;
 pub(crate) const NINJA_DETECT_Y_MAX: i32 = 0x50;
 pub(crate) const NINJA_DETECT_X_RANGE: i32 = 0x10;
@@ -18134,8 +18137,11 @@ pub(crate) fn ninja_jump_threat_pose_loc_3d84e(
 }
 
 /// Ninja jump-attack velocities (Ninja.asm loc_3D9A4).
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
 #[cfg_attr(not(test), allow(dead_code))]
@@ -18144,6 +18150,7 @@ pub(crate) const NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6: i32 = 0x0001_8000;
 pub(crate) const NINJA_KNOCKDOWN_GRAVITY_LOC_3D8E6: i32 = 0x0000_1800;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaJumpAttackStartStateLoc3D9A4 {
     pub(crate) next_collision_type: u16,
     pub(crate) x_velocity: i32,
@@ -18162,6 +18169,7 @@ pub(crate) struct NinjaJumpAttackAirborneStateLoc3D9DA {
     pub(crate) sprite_link: Option<&'static str>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_attack_start_loc_3d9a4(
     x_direction_right: bool,
 ) -> NinjaJumpAttackStartStateLoc3D9A4 {
@@ -19036,31 +19044,29 @@ pub(crate) fn step_ninja(
             };
             let dx = (px as i64 - enemy.x_pos as i64) >> 16;
             let dy = (enemy.y_pos as i64 - py as i64) >> 16;
+            let kid_minus_ninja_x = dx.clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16;
+            let kid_minus_ninja_y = ((py as i64 - enemy.y_pos as i64) >> 16)
+                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
+                as i16;
 
-            // ASM Ninja.asm loc_3D706 checks the overhead attack window before
-            // loc_3D734's later Red Stealth guard-pose branch, so Red Stealth
-            // is still a valid trigger here.
+            // ASM Ninja.asm loc_3D706 checks the overhead threat window before
+            // loc_3D734's later Red Stealth guard-pose branch, then enters the
+            // positive `$4C(a5)` loc_3D84E pose rather than launching directly.
             if ninja_detects_player_while_stealthed(dx, dy) {
-                // Face the player
-                enemy.facing = if dx >= 0 {
+                let threat = ninja_jump_threat_pose_loc_3d84e(kid_minus_ninja_x);
+                enemy.ninja_state = NinjaState::JumpThreat;
+                enemy.shared_walker_state = i16::from(threat.threat_state_4c);
+                enemy.walk_speed_override = threat.walk_speed_override;
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                enemy.facing = if threat.x_direction_right {
                     Direction::Right
                 } else {
                     Direction::Left
                 };
-                // Launch jump attack
-                let jump_start =
-                    ninja_jump_attack_start_loc_3d9a4(matches!(enemy.facing, Direction::Right));
-                enemy.ninja_state = NinjaState::JumpAttack;
-                enemy.x_velocity = jump_start.x_velocity;
-                enemy.y_velocity = jump_start.y_velocity;
-                enemy.on_ground = false;
                 return;
             }
 
-            let kid_minus_ninja_y = ((py as i64 - enemy.y_pos as i64) >> 16)
-                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
-                as i16;
-            let kid_minus_ninja_x = dx.clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16;
             if matches!(
                 ninja_kid_threat_route_loc_3d734(
                     kid_minus_ninja_x,
@@ -19145,6 +19151,46 @@ pub(crate) fn step_ninja(
                     enemy.walk_speed_override = reset.walk_speed_override;
                 }
                 NinjaPostThreatRouteLoc3D79C::PositiveStateCheck => {}
+            }
+        }
+        NinjaState::JumpThreat => {
+            let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
+                let reset = ninja_reset_stealth_pacing_loc_3d7ca(
+                    pacer_walk_speed(enemy.family, enemy.hit_points),
+                    matches!(enemy.facing, Direction::Right),
+                );
+                enemy.ninja_state = NinjaState::Stealth;
+                enemy.shared_walker_state = i16::from(reset.threat_state_4c);
+                enemy.walk_speed_override = reset.walk_speed_override;
+                return;
+            };
+
+            let kid_minus_ninja_x = ((px as i64 - enemy.x_pos as i64) >> 16)
+                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
+                as i16;
+            let kid_minus_ninja_y = ((py as i64 - enemy.y_pos as i64) >> 16)
+                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
+                as i16;
+            match ninja_positive_state_route_loc_3d7fa(
+                kid_minus_ninja_x,
+                kid_minus_ninja_y,
+                matches!(enemy.facing, Direction::Right),
+            ) {
+                NinjaPositiveStateRouteLoc3D7FA::ResumePacing { .. } => {
+                    // ASM Ninja.asm loc_3D7FA -> loc_3D7EE keeps `$4C(a5)`
+                    // positive and `$50(a5)` zero while Kid remains above.
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = 0;
+                }
+                NinjaPositiveStateRouteLoc3D7FA::ResetStealthPacing { .. } => {
+                    let reset = ninja_reset_stealth_pacing_loc_3d7ca(
+                        pacer_walk_speed(enemy.family, enemy.hit_points),
+                        matches!(enemy.facing, Direction::Right),
+                    );
+                    enemy.ninja_state = NinjaState::Stealth;
+                    enemy.shared_walker_state = i16::from(reset.threat_state_4c);
+                    enemy.walk_speed_override = reset.walk_speed_override;
+                }
             }
         }
         NinjaState::KidAboveKnockdown => {
