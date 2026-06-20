@@ -15005,6 +15005,41 @@ mod chunk_03 {
     }
 
     #[test]
+    fn ninja_pending_berzerker_side_collision_enters_launch_loc_3d698_3db0a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 3);
+        ninja.layout_index = 12;
+        ninja.x_velocity = 0x0001_0000;
+        ninja.y_velocity = 0;
+        ninja.on_ground = true;
+        runtime.active_enemies = vec![ninja];
+        let collision_target = runtime.active_enemies[0].clone();
+
+        runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDRIGHT);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Ninja.asm loc_3D698 should not delete Ninja on charging-Berzerker side contact"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 3);
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0);
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity,
+            NINJA_BERZERKER_SIDE_LAUNCH_Y_SPEED_LOC_3DB0A
+        );
+        assert!(!runtime.active_enemies[0].on_ground);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C,
+            "ASM Ninja.asm loc_3D698 -> loc_3DB0A seeds the airborne launch loop instead of the generic HP path"
+        );
+    }
+
+    #[test]
     fn tank_death_waits_for_stru_3b29a_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tank = test_enemy(EnemyFamily::Tank, 0x0080_0000, 0x0040_0000, 1);

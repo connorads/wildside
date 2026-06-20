@@ -8378,6 +8378,32 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::Ninja) {
+                if matches!(
+                    ninja_collision_dispatch_loc_3d606(
+                        collision.collision_type as i16,
+                        matches!(enemy.facing, Direction::Right),
+                        false,
+                    )
+                    .route,
+                    NinjaCollisionLoc3D606::To3D698
+                ) && let NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(launch) =
+                    ninja_berzerker_side_contact_loc_3db0a(berzerker_charging)
+                {
+                    // ASM Ninja.asm loc_3D698 -> loc_3DB0A: charging
+                    // Berzerker side contact bypasses HP damage, freezes
+                    // animation, disables terrain collision, and enters the
+                    // upward launch loop at loc_3DB3C.
+                    enemy.x_velocity = launch.x_velocity;
+                    enemy.y_velocity = launch.y_velocity;
+                    enemy.on_ground = false;
+                    enemy.wait_timer = NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
+                    enemy.damage_flash_frames = 0;
+                    changed_enemy_state = true;
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::Robot) {
                 let parent_collision = match collision.target {
                     PendingEnemyCollisionTarget::Parent => collision.collision_type as i16,

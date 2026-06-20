@@ -101,7 +101,7 @@ NinjaState has only Stealth/JumpAttack; no Block/Guard, no $44, no sfx_Ninja_blo
 2026-06-19 partial: live `step_ninja` now enters and releases `NinjaState::Guard` for the Red Stealth `loc_3D734` -> `loc_3D826` side-threat branch. Still open: `$44` block counter, `sfx_Ninja_blocking`, hit/contact dispatch through `loc_3D65A`/`loc_3D670`, Maniaxe projectile guard, and the positive `$4C` jump-threat pose.
 
 **Ninja — Berzerker side-contact knockback launch not wired** (`loc_3D698 / loc_3DB0A / loc_3D8A8 / loc_3D8BC`)
-`step_ninja` never reads Berzerker_charging; helpers dead. `enemies.rs:16606`, `enemies.rs:16054/15842/16167`.
+Fixed candidate 2026-06-20: live pending-collision handling now routes Ninja side contact through `loc_3D606` -> `loc_3D698`; charging Berzerker contact applies the existing `loc_3DB0A` launch state and enters the `loc_3DB3C` airborne loop. Regression: `ninja_pending_berzerker_side_collision_enters_launch_loc_3d698_3db0a`. Still open: the airborne `loc_3D8A8`/`loc_3D8BC` side-contact knockdown branch needs raw jump-attack collision dispatch.
 
 **Ninja — HP-depleted knockdown fall (above-stomp) absent** (`loc_3D8BC / loc_3D8D6 / loc_3DA98`)
 No kid-above contact handling and no knockdown state. `enemies.rs:6257-6263`, `enemies.rs:16680-16693`; knockdown helpers test-only.
