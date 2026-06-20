@@ -1,5 +1,10 @@
 # ymfm
 
+> **Vendored snapshot.** The `src/` files here are byte-identical to
+> aaronsgiles/ymfm @ `17decfae857b92ab55fbb30ade2287ace095a381` (the latest
+> upstream commit touching `src/`, 2025-01-28). Synced 2026-03-08 (repo commit
+> `040db6955`). Everything below is the upstream README, kept verbatim.
+
 <div style='text-align:center;margin:auto'>
 <img src='https://aarongiles.com/img/icon-ymfm.png' width='128px'>
 </div>
