@@ -10843,3 +10843,7 @@ Human validation: on a forest level, hit a prize block over tree decoration; the
 ### #339
 
 Fixed 2026-06-19: `refresh_active_roster` emits `StopSequence(sfx_Tank_driving)` ($12 cmdstopseq stop) when the pooled drive refcount drops to 0 as the last Rock Tank exits (scroll-off loc_3C436 + death Tank.asm loc_3B480, both → loc_3C46E→loc_3C4A8). Regression `loc_3c46e_last_rock_tank_exit_emits_stopsequence_tank_driving_stop` (+3). slice/sweep/TAS green. Awaiting human audio validation (#264 headless caveat: can't verify perceived halt). See archive #339
+
+### #335
+
+DIAGNOSTIC 2026-06-20 (human): skipping into Hills of the Warrior 1 (0x08) instant-kills Kid on entry, but ONLY via the in-game skip, not direct load. `play-native --warp-level 8` is clean; pressing N (debug next-level) to reach 0x08 reproduces the death. The N (and the A+C cheat) skips route through the ROM level-skip hold/resume path (`loc_74E0`, native_player/mod.rs:8703/14154), which `--warp-level` bypasses, so the murder wall is mis-positioned / pre-aged during the resume hold rather than by level loading. Fix lead: `loc_74E0` resume-hold murder-wall positioning (weather.rs:3155, `MurderWall_X_pos` / fraction) against Kid's entry x; related to #266 skip-tail age. Repro recording: `play-native --record issue335-hills8-death`, press N to reach 0x08, F10; then `tas-diff` frames 0..8 --frontier-kind gameplay.
