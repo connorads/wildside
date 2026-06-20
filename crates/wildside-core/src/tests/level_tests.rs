@@ -57,6 +57,15 @@ fn manifest_with_playable_spawn() -> AssetManifest {
     manifest
 }
 
+fn manifest_with_playable_spawn_no_enemies() -> AssetManifest {
+    let mut manifest = manifest_with_playable_spawn();
+    if let Some(enemy_layout) = manifest.levels[0].enemy_layout_metadata.as_mut() {
+        enemy_layout.objects.clear();
+        enemy_layout.object_count = 0;
+    }
+    manifest
+}
+
 fn manifest_with_levels_and_playable_spawn(count: u8) -> AssetManifest {
     let mut manifest = manifest_with_levels(count);
     let header = manifest.levels[0]
@@ -8697,7 +8706,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
 
     #[test]
     fn pauses_and_resumes_native_slice() {
-        let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
+        let mut runtime = NativeRuntime::new(manifest_with_playable_spawn_no_enemies());
         start_level(&mut runtime);
         // Walk right for 400 frames: ~200 entry animation + ~200 physics, enough
         // to move the camera.
@@ -9235,7 +9244,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
 
     #[test]
     fn moves_camera_when_holding_right_in_game() {
-        let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
+        let mut runtime = NativeRuntime::new(manifest_with_playable_spawn_no_enemies());
         start_level(&mut runtime);
         for _ in 0..400 {
             runtime.step_frame(FrameInput {
@@ -10427,7 +10436,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
 
     #[test]
     fn timing_regression_pause_resume_script_applies_pause_and_resume_on_edge_frames() {
-        let mut runtime = NativeRuntime::new(manifest_with_playable_spawn());
+        let mut runtime = NativeRuntime::new(manifest_with_playable_spawn_no_enemies());
         start_level(&mut runtime);
         for _ in 0..400 {
             runtime.step_frame(FrameInput {

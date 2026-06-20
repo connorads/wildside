@@ -20,6 +20,8 @@ pub(crate) const MINI_SKULL_GRAVITY_FP: i32 = 0x0000_1200;
 pub(crate) const MINI_SKULL_INITIAL_Y_SPEED_FP: i32 = 0x0002_8000;
 pub(crate) const MINI_SKULL_LEVEL_INITIAL_Y_SPEED_BONUS_FP: i32 = 0x0000_1000;
 pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Skull.asm:99,141 — dbf #$14 = 21 iterations
+pub(crate) const MINI_SKULL_FACING_MATCHED_PAUSE_FRAMES_LOC_3F09E: u16 = 11;
+const MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E: u16 = 0x8000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[allow(dead_code)]
@@ -17047,6 +17049,41 @@ pub(crate) fn step_hopper(
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     if enemy.on_ground {
+        if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
+            if enemy.grounded_frames > 0 {
+                enemy.grounded_frames -= 1;
+                enemy.x_velocity = 0;
+                return;
+            }
+
+            if enemy.wait_timer & MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E != 0 {
+                let pause_frames =
+                    enemy.wait_timer & !MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E;
+                if pause_frames > 0 {
+                    enemy.wait_timer =
+                        MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E | (pause_frames - 1);
+                    enemy.x_velocity = 0;
+                    return;
+                }
+                enemy.wait_timer = 0;
+            } else if let Some(facing) = player_relative_direction(enemy.x_pos, player_x_pos) {
+                // ASM Mini_Hopping_Skull.asm loc_3F074/loc_3F090: after the
+                // stopped wait expires, a facing mismatch flips x_direction
+                // and restarts loc_3F000 before the matched-facing pause can
+                // seed loc_3F09E's `$A` counter.
+                if facing != enemy.facing {
+                    enemy.facing = facing;
+                    enemy.grounded_frames = MINI_SKULL_GROUND_DELAY_FRAMES;
+                    enemy.x_velocity = 0;
+                    return;
+                }
+                enemy.wait_timer = MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E
+                    | MINI_SKULL_FACING_MATCHED_PAUSE_FRAMES_LOC_3F09E;
+                enemy.x_velocity = 0;
+                return;
+            }
+        }
+
         let mut facing =
             player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
         let reverse_at_platform_edge = !matches!(enemy.family, EnemyFamily::MiniHoppingSkull);

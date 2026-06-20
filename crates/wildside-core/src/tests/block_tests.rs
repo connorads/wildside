@@ -646,7 +646,7 @@ mod chunk_04 {
     }
 
     #[test]
-    fn hopper_targets_player_direction_before_launch() {
+    fn mini_hopping_skull_restarts_wait_after_facing_flip_loc_3f090() {
         let grid = grid_with_floor_at_row(17);
         let floor_y_fp = 272u32 << 16;
         let mut enemy = ActiveEnemy {
@@ -744,11 +744,84 @@ mod chunk_04 {
         assert_eq!(
             enemy.facing,
             Direction::Right,
-            "hopper should retarget toward the player before launching"
+            "ASM Mini_Hopping_Skull.asm loc_3F090 should flip toward Kid only after loc_3F000's wait expires"
         );
+        assert_eq!(
+            enemy.x_velocity, 0,
+            "ASM loc_3F090 branches back to loc_3F000 instead of launching on the flip frame"
+        );
+        assert_eq!(
+            enemy.grounded_frames, MINI_SKULL_GROUND_DELAY_FRAMES,
+            "ASM loc_3F090 restarts the `$14` stopped-wait counter after changing x_direction"
+        );
+
+        for _ in 0..MINI_SKULL_GROUND_DELAY_FRAMES {
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                Some(128u32 << 16),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+                &mut Vec::new(),
+            );
+        }
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            Some(128u32 << 16),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        assert_eq!(
+            enemy.x_velocity, 0,
+            "ASM Mini_Hopping_Skull.asm loc_3F09E seeds an 11-frame matched-facing pause before loc_3F112 can relaunch"
+        );
+        assert_ne!(
+            enemy.wait_timer, 0,
+            "native wait_timer carries the live loc_3F09E matched-facing pause"
+        );
+
+        for _ in 0..MINI_SKULL_FACING_MATCHED_PAUSE_FRAMES_LOC_3F09E {
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                Some(128u32 << 16),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+                &mut Vec::new(),
+            );
+            assert_eq!(
+                enemy.x_velocity, 0,
+                "ASM loc_3F0A8 hibernates through the matched-facing pause"
+            );
+        }
+
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            Some(128u32 << 16),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
         assert!(
             enemy.x_velocity > 0,
-            "hopper should launch toward the player after the grounded delay"
+            "ASM Mini_Hopping_Skull.asm loc_3F112/loc_3F146 should launch right after the matched-facing pause expires"
         );
     }
 
@@ -853,6 +926,36 @@ mod chunk_04 {
             Direction::Left,
             "ASM Mini_Hopping_Skull.asm loc_3F090 repicks from Kid X before launch instead of using generic platform-edge lookahead"
         );
+        assert_eq!(
+            enemy.x_velocity, 0,
+            "ASM Mini_Hopping_Skull.asm loc_3F09E pauses when x_direction already faces Kid"
+        );
+
+        for _ in 0..MINI_SKULL_FACING_MATCHED_PAUSE_FRAMES_LOC_3F09E {
+            step_active_enemies(
+                std::slice::from_mut(&mut enemy),
+                Some(&grid),
+                Some(32u32 << 16),
+                None,
+                None,
+                None,
+                PlayerForm::TheKid,
+                None,
+                &mut Vec::new(),
+            );
+        }
+        step_active_enemies(
+            std::slice::from_mut(&mut enemy),
+            Some(&grid),
+            Some(32u32 << 16),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
         assert!(
             enemy.x_velocity < 0,
             "Mini Hopping Skull should launch toward the Kid even when the platform ends in that direction"

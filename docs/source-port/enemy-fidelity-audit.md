@@ -25,7 +25,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Goat (0x10) | partial | 3 |
 | Hand (0x17) | partial | 5 |
 | Lion (0x12) | partial | 3 |
-| Mini_Hopping_Skull (0x1C) | partial | 3 |
+| Mini_Hopping_Skull (0x1C) | partial | 2 |
 | Ninja (0x11) | partial | 6 |
 | Orca (0x08) | partial | 3 |
 | Robot (0x03) | partial | 3 |
@@ -38,7 +38,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 80 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 79 confirmed gaps.
 
 ## Confirmed gaps
 
@@ -87,7 +87,7 @@ Destroy-on-collision and the contact-effect are absent; Walking uses probe edge 
 Non-fatal hits should play the hit anim + stagger via $44 recoil counter. `step_lion` has no collision branch; LionState lacks a hurt variant. `enemies.rs:17699`, `enemies.rs:6290-6296`; `lion_collision_response_loc_3e318` (`enemies.rs:1597`) test-only.
 
 **Mini_Hopping_Skull — runtime uses generic step_hopper; hop state machine not wired** (`loc_3EA88 / loc_3EAB2 … loc_3F146`)
-ROM windup/airborne/launch co-routine collapsed into a single 21-frame counter + ballistic launch. `enemies.rs:9182`, `enemies.rs:14920-15018`; state helpers `enemies.rs:13734-14918` test-only.
+Fixed candidate slice 2026-06-20: post-floor stopped wait now follows `loc_3F000`/`loc_3F090`/`loc_3F09E`/`loc_3F112`; a facing mismatch flips and restarts the 21-frame wait, and matched facing waits 11 frames before relaunch. Remaining runtime hop-state debt: airborne collision-word dispatch and the other slope/windup branches are still not a full coroutine. Regressions: `mini_hopping_skull_restarts_wait_after_facing_flip_loc_3f090`, `mini_hopping_skull_does_not_edge_reverse_before_launch_loc_3f090`.
 
 **Mini_Hopping_Skull — air-damage knock-up loop not driven** (`loc_3F1B8 / loc_3F1E6 / loc_3F200 / loc_3F22A / loc_3F238`)
 Non-fatal hurt should knock the skull up (y_vel=$28800 + $4000/frame). `step_hopper` has no hurt branch; combat only queues scream + generic knockback. `enemies.rs:14626-14708`, `enemies.rs:14920-15018`, `combat.rs:10097-10103`.
@@ -209,7 +209,7 @@ Charging arm advances x only; no y_vel/gravity/$180000 cap or floor-landing snap
 Flat wait_timer + single >112px overshoot instead of ±$60/±$70 engagement windows and $42 count-up. `enemies.rs:17699-17822/6290-6296`; helpers `enemies.rs:205/1758` test-only.
 
 **Mini_Hopping_Skull — post-landing facing-flip re-orientation pause not reproduced** (`loc_3F000 / loc_3F074 / loc_3F090 / loc_3F09E`)
-ROM flips x_direction and restarts the grounded wait until facing matches Kid; native sets facing once + 21-frame countdown. `enemies.rs:14932-14956/9182`; helpers `enemies.rs:14464/14547/14848` test-only.
+Fixed candidate 2026-06-20: live `step_hopper` now preserves the stopped wait until `loc_3F074`, flips toward Kid through `loc_3F090` only after expiry, restarts `loc_3F000` on mismatch, and uses an 11-frame `loc_3F09E` matched-facing pause before `loc_3F112` relaunch. Regressions: `mini_hopping_skull_restarts_wait_after_facing_flip_loc_3f090`, `mini_hopping_skull_does_not_edge_reverse_before_launch_loc_3f090`.
 
 **Ninja — jump-attack airborne loop omits ceiling/kid-above branches** (`loc_3DA0C / loc_3DAB0 / loc_3DA98`)
 Native handles only wall/floor contact during jump attack; ceiling reflection and Kid-above contact remain helper-only. `enemies.rs:17664-17710`; dispatcher `enemies.rs:16846/16960/17132` unused.
