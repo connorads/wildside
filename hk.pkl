@@ -37,6 +37,10 @@ hooks {
                 glob = List("**/Cargo.toml", "Cargo.lock", "deny.toml")
                 check = "scripts/quiet-on-success.sh cargo deny check"
             }
+            ["cargo-machete"] {
+                glob = List("**/Cargo.toml", "Cargo.lock")
+                check = "scripts/quiet-on-success.sh cargo machete"
+            }
             ["backlog-lean"] {
                 glob = List("docs/source-port/backlog.md")
                 check = "python3 scripts/check_backlog_lean.py"
