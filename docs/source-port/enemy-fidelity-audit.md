@@ -141,7 +141,7 @@ Fixed candidate: queued lunge contact now dispatches through `loc_3D35A`. Hurt/K
 Fixed candidate: the row's "ceiling-hit" wording was stale (`colid_ceiling` routes to `loc_3D47A` without decrementing HP), but the real `loc_3D472` lunge hurt/Kid-above HP gate is now live. Terminal lunge damage starts `OrcaState::FatalFall` via `loc_3D48A`, falls through `loc_3D496`, and only starts waited `stru_3D11E` death on floor/slope contact at `loc_3D4BC`. Regression: `orca_pending_lunge_terminal_hurt_falls_until_floor_loc_3d48a_3d4bc`.
 
 **Tank — body-vs-mouth/turret vulnerability gating not enforced** (`loc_3B464 / loc_3B6C0`)
-Only the child mouth/turret collision word should be damageable; native damages the whole body via generic `is_vulnerable`. Child snapshot is render-only and skipped by the stomp loop. `combat.rs:7813`, `enemies.rs:8529`; gating `enemies.rs:24087/24226` dead.
+Fixed candidate: both RockTank variants now expose the linked mouth/turret child as the stomp candidate instead of the parent body. Plain Tank already queued child hits through `loc_3B464`; Tank_Shooting now mirrors `loc_3B6C0`, so Kid-above contact writes `$2C` to the linked turret child and the parent consumes it on the later object pass. Regressions: existing `tank_child_stomp_hit_latches_contact_damage_through_loc_3b49a_hibernate`, new `tank_shooting_stomp_candidate_is_turret_child_loc_3b6c0`.
 
 **Tank — negative parent-collision instant-death route not wired** (`loc_3B41C→loc_3B480 / loc_3B6C0→loc_3B6E6`)
 Negative collision should bypass HP and run the child-hide/Kid-collision-restore death. Runtime death is HP-only. `enemies.rs:24086`, `enemies.rs:8519-8526`, `combat.rs:7813`.

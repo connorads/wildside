@@ -9876,10 +9876,11 @@ impl NativeRuntime {
                 continue;
             }
 
-            if matches!(enemy.family, EnemyFamily::Tank) {
-                // ASM Tank.asm loc_3B464 reads the attached mouth/turret
-                // collision word `$38(a2)` and applies the result to the
-                // parent. The parent body is not the plain Tank stomp target.
+            if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+                // ASM Tank.asm loc_3B464 / Tank_Shooting.asm loc_3B6C0 read
+                // the attached mouth/turret collision word `$38(a2)` and
+                // apply the result to the parent. The parent body is not a
+                // RockTank stomp target.
                 if let Some(child) = enemy.child_attachment_snapshot() {
                     candidates.push(StompContactCandidate {
                         target: StompContactTarget::ActiveEnemy(active_index),

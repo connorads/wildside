@@ -15747,6 +15747,62 @@ mod chunk_03 {
     }
 
     #[test]
+    fn tank_shooting_stomp_candidate_is_turret_child_loc_3b6c0() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut tank = test_enemy(EnemyFamily::TankShooting, 0x0080_0000, 0x0100_0000, 2);
+        tank.layout_index = 10;
+        tank.facing = Direction::Left;
+        runtime.active_enemies = vec![tank];
+        runtime.rebuild_active_enemy_roster();
+
+        let turret = runtime.active_enemies[0]
+            .child_attachment_snapshot()
+            .expect("ASM Tank_Shooting.asm loc_3B5FA allocates the linked turret child");
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = turret.x_pos;
+        slice.player.y_pos = turret.y_pos - (9 << 16);
+        slice.player.x_velocity = 0;
+        slice.player.y_velocity = 0x0003_0000;
+        slice.player.on_ground = false;
+
+        let stomp_candidate = runtime
+            .first_stomp_contact_candidate(&slice, slice.player.y_velocity, slice.player.y_pos)
+            .expect("Kid should reach the Tank_Shooting turret child stomp candidate");
+
+        assert_eq!(
+            stomp_candidate.y_pos, turret.y_pos,
+            "ASM Tank_Shooting.asm loc_3B6C0 consumes `$38(a2)` from the linked turret child, not the parent body"
+        );
+        assert_ne!(
+            stomp_candidate.y_pos, tank.y_pos,
+            "the Tank_Shooting parent body must not be the stomp candidate for loc_3B6C0 damage routing"
+        );
+
+        let frame_start_x = slice.player.x_pos;
+        let frame_start_y = slice.player.y_pos;
+        assert!(
+            runtime.process_stomps(
+                &mut slice,
+                0x0003_0000,
+                frame_start_y,
+                frame_start_x,
+                frame_start_y,
+            ),
+            "ASM GfxObjects_CollisionKid loc_1CF2 should write `$2C` to the linked turret collision word"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "Tank_Shooting.asm loc_3B6C0 consumes the turret `$38` on the parent object's later pass"
+        );
+        assert_eq!(runtime.pending_enemy_collisions.len(), 1);
+        assert_eq!(
+            runtime.pending_enemy_collisions[0].target,
+            PendingEnemyCollisionTarget::ChildAttachment
+        );
+    }
+
+    #[test]
     fn tank_shooting_death_waits_for_stru_3b518_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tank = test_enemy(EnemyFamily::TankShooting, 0x0080_0000, 0x0040_0000, 1);
