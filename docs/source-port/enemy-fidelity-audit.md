@@ -155,10 +155,10 @@ Fixed candidate: first hit now routes through `loc_351EE`/`loc_354DA`, spawning 
 ### Medium severity
 
 **Archer — fire cadence uses arrow re-aim interval instead of pose-table delays** (`loc_341BE / loc_34248`)
-ROM poses ~118-138 frames between shots (walking the $64/6/$C/$14 delay words); native uses arrow_accuracy (30/20/10) as the whole cadence and reuses it as reaim_interval — fires ~4-5x too fast. `enemies.rs:23707-23714/23766-23767`; pose helpers `enemies.rs:6004/6053` dead.
+Fixed candidate: live Archer firing reloads `ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_LOC_341BE` from the shooting-table delays (`$64+1`, `$06+1`, `$0C+1` = `$79`) while fired arrows still use `arrow_accuracy` only for `loc_342D6` re-aim cadence. Regressions: `archer_shooting_cycle_delay_loc_341be_uses_pose_table_not_arrow_accuracy`, `archer_live_step_waits_pose_table_delay_between_arrows_loc_341be`.
 
 **Archer — shot-count gate counts the shared projectile pool, not arrows** (`loc_34248`)
-ROM caps at 2 arrows via Number_of_Arrows; native gates on `projectiles.len() >= MAX_PROJECTILES (4)` over the shared pool. `enemies.rs:23722/23753`, `constants.rs:576-578`.
+Fixed candidate: live Archer now represents `Number_of_Arrows` as the count of live `EnemyProjectileKind::ArcherArrow` projectiles and blocks only when that count is already 2; the shared pool cap remains a secondary allocation guard. Regression: `archer_loc_34248_caps_only_live_archer_arrows`.
 
 **Big_Hopping_Skull — per-hit SFX cadence + kid-upward-bounce contact bug not driven** (`loc_365D8 / loc_365F2 / loc_36616 / loc_3664E`)
 ROM writes $2A(a2)=-3 to the Kid on every hurt/kidabove contact and plays groan/voice/dies SFX. Damage flows through generic process_stomps; the groan SFX at `combat.rs:6715` belongs to a boss routine. Helpers `enemies.rs:2947/2981/3004/3067` dead.
