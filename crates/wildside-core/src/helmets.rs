@@ -207,6 +207,17 @@ struct EyeclopsBeamTableEntryLocE51A {
     x_offset: i16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct EyeclopsBeamWorldStripSubE49A {
+    start_x: i32,
+    end_x: i32,
+    top_y: i32,
+    bottom_y: i32,
+    map_probe_screen_x: i16,
+    top_probe_screen_y: i16,
+    bottom_probe_screen_y: i16,
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
     EyeclopsBeamTableEntryLocE51A {
@@ -246,6 +257,68 @@ fn i16_bits(value: i16) -> u16 {
 
 fn u16_bits_as_i16(value: u16) -> i16 {
     i16::from_ne_bytes(value.to_ne_bytes())
+}
+
+#[allow(non_snake_case)]
+fn eyeclops_beam_world_strip_sub_E49A(
+    beam_counter: u16,
+    kid_x_word: u16,
+    kid_y_word: u16,
+    camera_x_word: u16,
+    camera_y_word: u16,
+    latched_x_direction: u8,
+) -> Option<EyeclopsBeamWorldStripSubE49A> {
+    let setup = eyeclops_beam_render_setup_loc_E4B2(beam_counter, latched_x_direction);
+    if setup.beam_counter & 0x8000 != 0 {
+        return None;
+    }
+    let origin = eyeclops_beam_screen_origin_loc_E4C4(
+        kid_x_word,
+        kid_y_word,
+        camera_x_word,
+        camera_y_word,
+        setup.x_offset_px,
+        setup.y_offset_px,
+    );
+
+    let uses_short_table = setup.beam_counter < 4;
+    let (map_probe_screen_x, top_probe_screen_y, bottom_probe_screen_y) = if uses_short_table {
+        let span = 0x0010_u16.wrapping_add(setup.beam_counter.wrapping_shl(3));
+        let tip_x = if latched_x_direction == 0 {
+            origin.screen_x_word.wrapping_add(span)
+        } else {
+            origin.screen_x_word.wrapping_sub(span)
+        };
+        let top_y = origin.screen_y_word.wrapping_sub(0x0008);
+        let bottom_y = origin.screen_y_word.wrapping_add(0x0010);
+        (
+            u16_bits_as_i16(tip_x),
+            u16_bits_as_i16(top_y),
+            u16_bits_as_i16(bottom_y),
+        )
+    } else {
+        eyeclops_beam_collision_probe_loc_E70A(
+            setup.beam_counter,
+            origin.screen_x_word,
+            origin.screen_y_word,
+            latched_x_direction,
+        )?
+    };
+
+    let origin_world_x =
+        i32::from(u16_bits_as_i16(origin.screen_x_word)) - 0x80 + i32::from(camera_x_word);
+    let tip_world_x = i32::from(map_probe_screen_x) - 0x80 + i32::from(camera_x_word);
+    let top_y = i32::from(top_probe_screen_y) - 0x80 + i32::from(camera_y_word);
+    let bottom_y = i32::from(bottom_probe_screen_y) - 0x80 + i32::from(camera_y_word);
+    Some(EyeclopsBeamWorldStripSubE49A {
+        start_x: origin_world_x.min(tip_world_x),
+        end_x: origin_world_x.max(tip_world_x),
+        top_y: top_y.min(bottom_y),
+        bottom_y: top_y.max(bottom_y),
+        map_probe_screen_x,
+        top_probe_screen_y,
+        bottom_probe_screen_y,
+    })
 }
 
 #[allow(non_snake_case)]
@@ -5150,13 +5223,6 @@ impl NativeRuntime {
                 self.helmet.maniaxe_axe_active = false;
                 self.helmet.red_stealth_sword_timer = 0;
                 self.helmet.red_stealth_airborne_slash_counter = 0;
-                self.helmet.eyeclops_beam_active = self.projectiles.iter().any(|projectile| {
-                    projectile.friendly && projectile.lifetime > 0 && projectile.gravity == 0
-                });
-                if !self.helmet.eyeclops_beam_active {
-                    self.helmet.eyeclops_beam_counter = 0;
-                    self.helmet.eyeclops_beam_hard = false;
-                }
             }
             _ => {
                 // ASM loc_794C: default standing sprite path.
@@ -6419,39 +6485,9 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_active = false;
             self.helmet.eyeclops_beam_counter = 0;
             self.helmet.eyeclops_beam_hard = false;
+            self.helmet.eyeclops_beam_x_direction = 0;
             return;
         }
-
-        let beam_still_live = self
-            .projectiles
-            .iter()
-            .any(|p| p.friendly && p.lifetime > 0 && p.gravity == 0);
-        if self.helmet.eyeclops_beam_active && !beam_still_live {
-            self.helmet.eyeclops_beam_active = false;
-            self.helmet.eyeclops_beam_counter = 0;
-            self.helmet.eyeclops_beam_hard = false;
-        }
-
-        let fire_beam = |runtime: &mut NativeRuntime, x_velocity: i32| {
-            runtime.projectiles.push(EnemyProjectile {
-                // ASM sub_E49A latches the current x_direction in `$FFFFFABE`
-                // and grows the beam from Kid's live coordinates on each wake.
-                // Native still models the gameplay effect as one horizontal
-                // friendly projectile, but it now mirrors the same beam-state
-                // counter in `eyeclops_beam_counter`.
-                x_pos: slice.player.x_pos,
-                y_pos: (slice.player.y_pos as i64 - (8 << 16)) as u32,
-                x_velocity,
-                lifetime: EYECLOPS_BEAM_LIFETIME,
-                friendly: true,
-                ..Default::default()
-            });
-        };
-        let beam_velocity = if slice.player.facing == Direction::Right {
-            EYECLOPS_BEAM_SPEED
-        } else {
-            -EYECLOPS_BEAM_SPEED
-        };
         // ASM loc_7606 / loc_8C26: `move.b (Ctrl_Held),d0; andi.b #$C0,d0;
         // cmpi.b #$C0,d0` gates the hard beam on held A+Start.
         let hard_beam_requested = input.a && input.start;
@@ -6465,7 +6501,12 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_active = true;
             self.helmet.eyeclops_beam_counter = 0x8001;
             self.helmet.eyeclops_beam_hard = true;
-            fire_beam(self, beam_velocity);
+            self.helmet.eyeclops_beam_x_direction = if slice.player.facing == Direction::Right {
+                0
+            } else {
+                0xFF
+            };
+            self.process_eyeclops_beam_enemy_hits_sub_E49A(slice);
             self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
             return;
         }
@@ -6487,7 +6528,12 @@ impl NativeRuntime {
             self.helmet.eyeclops_beam_active = true;
             self.helmet.eyeclops_beam_counter = 1;
             self.helmet.eyeclops_beam_hard = false;
-            fire_beam(self, beam_velocity);
+            self.helmet.eyeclops_beam_x_direction = if slice.player.facing == Direction::Right {
+                0
+            } else {
+                0xFF
+            };
+            self.process_eyeclops_beam_enemy_hits_sub_E49A(slice);
             self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
         } else if self.helmet.eyeclops_beam_active {
             if self.helmet.eyeclops_beam_hard {
@@ -6496,11 +6542,7 @@ impl NativeRuntime {
                 // diamonds only when the masked counter reaches zero.
                 let setup = eyeclops_beam_render_setup_loc_E4B2(
                     self.helmet.eyeclops_beam_counter,
-                    if slice.player.facing == Direction::Right {
-                        0
-                    } else {
-                        0xFF
-                    },
+                    self.helmet.eyeclops_beam_x_direction,
                 );
                 if setup.beam_counter & 0x8000 != 0
                     && let Some(allocation) = crate::level::eyeclops_hard_beam_gate_loc_E7AC(
@@ -6512,9 +6554,78 @@ impl NativeRuntime {
                     self.progression.diamond_count = allocation.diamonds_after;
                 }
             }
+            if !self.helmet.eyeclops_beam_hard
+                && eyeclops_beam_world_strip_sub_E49A(
+                    self.helmet.eyeclops_beam_counter,
+                    (slice.player.x_pos >> 16) as u16,
+                    (slice.player.y_pos >> 16) as u16,
+                    (slice.camera.x_pos >> 16) as u16,
+                    (slice.camera.y_pos >> 16) as u16,
+                    self.helmet.eyeclops_beam_x_direction,
+                )
+                .is_none()
+            {
+                self.helmet.eyeclops_beam_active = false;
+                self.helmet.eyeclops_beam_counter = 0;
+                self.helmet.eyeclops_beam_hard = false;
+                self.helmet.eyeclops_beam_x_direction = 0;
+                return;
+            }
+            self.process_eyeclops_beam_enemy_hits_sub_E49A(slice);
             self.helmet.eyeclops_beam_counter = self.helmet.eyeclops_beam_counter.wrapping_add(1);
             self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
         }
+    }
+
+    #[allow(non_snake_case)]
+    fn process_eyeclops_beam_enemy_hits_sub_E49A(&mut self, slice: &OpeningSliceState) {
+        let Some(strip) = eyeclops_beam_world_strip_sub_E49A(
+            self.helmet.eyeclops_beam_counter,
+            (slice.player.x_pos >> 16) as u16,
+            (slice.player.y_pos >> 16) as u16,
+            (slice.camera.x_pos >> 16) as u16,
+            (slice.camera.y_pos >> 16) as u16,
+            self.helmet.eyeclops_beam_x_direction,
+        ) else {
+            return;
+        };
+
+        let mut kill_indices = Vec::new();
+        let mut hit_sparks = Vec::new();
+        let mut pending_damage_effects = Vec::new();
+        for i in 0..self.active_enemies.len() {
+            let targets = helmet_enemy_projectile_damage_target_snapshots(&self.active_enemies[i]);
+            if targets.iter().any(|target| {
+                let ex = (target.x_pos >> 16) as i32;
+                let ey = (target.y_pos >> 16) as i32;
+                ex + ENEMY_CONTACT_HALF_WIDTH as i32 >= strip.start_x
+                    && ex - ENEMY_CONTACT_HALF_WIDTH as i32 <= strip.end_x
+                    && ey + ENEMY_CONTACT_HALF_HEIGHT as i32 >= strip.top_y
+                    && ey - ENEMY_CONTACT_HALF_HEIGHT as i32 <= strip.bottom_y
+            }) {
+                let spark_x_pos = self.active_enemies[i].x_pos;
+                let spark_y_pos = self.active_enemies[i].y_pos;
+                let enemy = &mut self.active_enemies[i];
+                if enemy.take_colid_hurt_or_queue_death_with_effects(
+                    &mut pending_damage_effects,
+                    Some(slice.player.x_pos),
+                ) {
+                    kill_indices.push(i);
+                }
+                hit_sparks.push((spark_x_pos, spark_y_pos));
+            }
+        }
+
+        for &idx in kill_indices.iter().rev() {
+            self.remove_dead_enemy(idx);
+        }
+        if !kill_indices.is_empty() {
+            self.rebuild_active_enemy_roster();
+        }
+        for (x_pos, y_pos) in hit_sparks {
+            self.spawn_kid_projectile_hit_spark_loc_1_f08(x_pos, y_pos);
+        }
+        self.projectiles.extend(pending_damage_effects);
     }
 
     #[allow(non_snake_case)]
@@ -6526,14 +6637,9 @@ impl NativeRuntime {
             return;
         };
 
-        let latched_x_direction = if slice.player.facing == Direction::Right {
-            0
-        } else {
-            0xFF
-        };
         let setup = eyeclops_beam_render_setup_loc_E4B2(
             self.helmet.eyeclops_beam_counter,
-            latched_x_direction,
+            self.helmet.eyeclops_beam_x_direction,
         );
         if setup.beam_counter & 0x8000 != 0 {
             return;
@@ -6552,7 +6658,7 @@ impl NativeRuntime {
                 setup.beam_counter,
                 origin.screen_x_word,
                 origin.screen_y_word,
-                latched_x_direction,
+                self.helmet.eyeclops_beam_x_direction,
             )
         else {
             return;
@@ -6592,7 +6698,7 @@ impl NativeRuntime {
         );
         self.hidden_block_fg_update_workers.extend(updates);
 
-        let adjacent_column = if latched_x_direction == 0 {
+        let adjacent_column = if self.helmet.eyeclops_beam_x_direction == 0 {
             tile_column.checked_sub(1)
         } else {
             crate::level::level_sprite_strip_right_adjacent_column_loc_E786(

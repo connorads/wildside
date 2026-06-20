@@ -741,13 +741,6 @@ pub(crate) const MANIAXE_THROW_LATCH_FRAMES_LOC_794C: u8 = 17;
 pub(crate) const MANIAXE_AXE_ENEMY_HIT_HALF_WIDTH: i32 = 7;
 pub(crate) const MANIAXE_AXE_ENEMY_HIT_HALF_HEIGHT: i32 = 7;
 
-// === Eyeclops ===
-
-/// Eyeclops beam: C press fires a horizontal beam projectile.
-/// Normal beam (C button) has no diamond cost; hard beam (A+Start held) costs 2.
-pub(crate) const EYECLOPS_BEAM_SPEED: i32 = 0x8_0000; // 8 px/frame
-pub(crate) const EYECLOPS_BEAM_LIFETIME: u16 = 60;
-
 // === Juggernaut ===
 
 /// Juggernaut skull shot: C fires a skull projectile with gravity.

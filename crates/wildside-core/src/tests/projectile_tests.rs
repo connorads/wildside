@@ -5626,34 +5626,13 @@ mod chunk_06 {
             !rt.helmet.eyeclops_beam_hard,
             "the normal C-press path should keep the hard-beam bit clear"
         );
-        assert_eq!(rt.projectiles.len(), 1);
-        let beam = &rt.projectiles[0];
-        assert!(beam.friendly, "beam should be player-friendly");
         assert_eq!(
-            beam.x_pos, slice.player.x_pos,
-            "ASM sub_E49A grows the Eyeclops beam from Kid's live X coordinate"
-        );
-        assert_eq!(beam.x_velocity, EYECLOPS_BEAM_SPEED, "beam moves right");
-        assert_eq!(beam.lifetime, EYECLOPS_BEAM_LIFETIME);
-        assert_eq!(beam.y_velocity, 0, "beam has no vertical velocity");
-        assert_eq!(beam.gravity, 0, "beam has no gravity");
-        assert_eq!(
-            beam.homing_accel, 0,
-            "ASM sub_E49A is a straight horizontal beam, not a homing projectile"
-        );
-        assert_eq!(
-            beam.speed_cap, 0,
-            "ASM sub_E49A does not apply homing speed caps to the beam"
+            rt.helmet.eyeclops_beam_x_direction, 0,
+            "ASM loc_7742 latches Kid's clear x_direction byte in `$FFFFFABE` for a right-facing beam"
         );
         assert!(
-            !beam.wall_bounce,
-            "ASM sub_E49A beam ends by lifetime/state, not wall-bounce logic"
-        );
-        // Y offset: 8px above player
-        assert_eq!(
-            beam.y_pos,
-            (slice.player.y_pos as i64 - (8 << 16)) as u32,
-            "beam spawns 8px above player"
+            rt.projectiles.is_empty(),
+            "ASM sub_E49A renders/collides from `$FFFFFAB8`, not a travelling EnemyProjectile"
         );
     }
 
@@ -5671,10 +5650,46 @@ mod chunk_06 {
         rt.step_eyeclops_beam(&slice, input);
 
         assert!(rt.helmet.eyeclops_beam_active);
-        assert_eq!(rt.projectiles.len(), 1);
         assert_eq!(
-            rt.projectiles[0].x_velocity, -EYECLOPS_BEAM_SPEED,
-            "beam moves left when facing left"
+            rt.helmet.eyeclops_beam_x_direction, 0xFF,
+            "ASM loc_7742 latches Kid's flipped x_direction byte in `$FFFFFABE` for a left-facing beam"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "left-facing beam must not be represented as a travelling projectile"
+        );
+    }
+
+    #[test]
+    fn eyeclops_beam_strip_hits_multiple_enemies_without_projectile_carrier_loc_e70a() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Eyeclops;
+        let mut slice = combat_slice();
+        slice.player.facing = Direction::Right;
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Dragon, 150 << 16, 245 << 16, 2));
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Dragon, 160 << 16, 245 << 16, 2));
+
+        rt.step_eyeclops_beam(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM sub_E49A/loc_E70A scans the rendered beam strip, not one projectile centre"
+        );
+        assert_eq!(
+            rt.active_enemies[1].hit_points, 1,
+            "ASM sub_E49A beam collision must continue across the strip instead of consuming a projectile on first hit"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "Eyeclops beam damage should not allocate or consume an EnemyProjectile carrier"
         );
     }
 
@@ -5683,20 +5698,7 @@ mod chunk_06 {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
         rt.helmet.eyeclops_beam_active = true;
-        // Add an existing beam projectile so active flag stays set
-        rt.projectiles.push(EnemyProjectile {
-            x_pos: 100 << 16,
-            y_pos: 100 << 16,
-            x_velocity: EYECLOPS_BEAM_SPEED,
-            y_velocity: 0,
-            lifetime: 30,
-            friendly: true,
-            gravity: 0,
-            homing_accel: 0,
-            speed_cap: 0,
-            wall_bounce: false,
-            ..Default::default()
-        });
+        rt.helmet.eyeclops_beam_counter = 1;
         let slice = combat_slice();
         let input = FrameInput {
             c: true,
@@ -5706,40 +5708,29 @@ mod chunk_06 {
         rt.step_eyeclops_beam(&slice, input);
 
         assert_eq!(
-            rt.projectiles.len(),
-            1,
-            "should not fire while beam is active"
+            rt.helmet.eyeclops_beam_counter, 2,
+            "ASM loc_7742 blocks refire while `$FFFFFAB8` is active; the live beam advances instead"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "blocked refire should not spawn a projectile"
         );
     }
 
     #[test]
-    fn eyeclops_beam_clears_when_projectile_expires() {
+    fn eyeclops_beam_clears_when_render_strip_reaches_boundary_loc_e7a4() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
         rt.helmet.eyeclops_beam_active = true;
-        rt.helmet.eyeclops_beam_counter = 0x8001;
-        rt.helmet.eyeclops_beam_hard = true;
-        // Projectile with 0 lifetime = expired
-        rt.projectiles.push(EnemyProjectile {
-            x_pos: 100 << 16,
-            y_pos: 100 << 16,
-            x_velocity: EYECLOPS_BEAM_SPEED,
-            y_velocity: 0,
-            lifetime: 0,
-            friendly: true,
-            gravity: 0,
-            homing_accel: 0,
-            speed_cap: 0,
-            wall_bounce: false,
-            ..Default::default()
-        });
+        rt.helmet.eyeclops_beam_counter = 0x0040;
+        rt.helmet.eyeclops_beam_x_direction = 0;
         let slice = combat_slice();
 
         rt.step_eyeclops_beam(&slice, FrameInput::default());
 
         assert!(
             !rt.helmet.eyeclops_beam_active,
-            "beam flag should clear when all projectiles expire"
+            "ASM sub_E49A loc_E650/loc_E7A4 clears `$FFFFFAB8` when the growing beam reaches the screen boundary"
         );
         assert_eq!(rt.helmet.eyeclops_beam_counter, 0);
         assert!(
@@ -5753,10 +5744,10 @@ mod chunk_06 {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
         rt.helmet.eyeclops_beam_active = true;
-        // No projectiles with lifetime > 0 → beam should deactivate
+        rt.helmet.eyeclops_beam_counter = 0x0040;
         let slice = combat_slice();
 
-        // First call: clears the active flag
+        // First call: clears at the ROM screen-boundary branch.
         rt.step_eyeclops_beam(&slice, FrameInput::default());
         assert!(!rt.helmet.eyeclops_beam_active);
 
@@ -5768,7 +5759,8 @@ mod chunk_06 {
         rt.step_eyeclops_beam(&slice, input);
 
         assert!(rt.helmet.eyeclops_beam_active);
-        assert_eq!(rt.projectiles.len(), 1);
+        assert_eq!(rt.helmet.eyeclops_beam_counter, 1);
+        assert!(rt.projectiles.is_empty());
     }
 
     #[test]
@@ -5897,7 +5889,7 @@ mod chunk_06 {
             rt.progression.diamond_count, 2,
             "ASM loc_7606 only arms `$FFFFFAB8 = $8001`; loc_E7AC spends on the rendered hard-beam zero-width step"
         );
-        assert_eq!(rt.projectiles.len(), 1);
+        assert!(rt.projectiles.is_empty());
 
         rt.step_eyeclops_beam(&slice, FrameInput::default());
 
@@ -8521,10 +8513,13 @@ mod chunk_06 {
             !rt.helmet.eyeclops_beam_hard,
             "ASM loc_7742: normal C-press path sets $FFFFFAB8=1, not $8001 (hard)"
         );
-        assert_eq!(rt.projectiles.len(), 1);
+        assert_eq!(
+            rt.helmet.eyeclops_beam_x_direction, 0,
+            "ASM loc_7742: move.b x_direction(a3),($FFFFFABE) — right-facing beam latches clear direction"
+        );
         assert!(
-            rt.projectiles[0].x_velocity > 0,
-            "ASM loc_7742: move.b x_direction(a3),($FFFFFABE) — beam direction must match facing"
+            rt.projectiles.is_empty(),
+            "ASM loc_7742/sub_E49A must not allocate a travelling projectile"
         );
     }
 
@@ -8536,19 +8531,6 @@ mod chunk_06 {
         rt.progression.current_form = PlayerForm::Eyeclops;
         rt.helmet.eyeclops_beam_active = true;
         rt.helmet.eyeclops_beam_counter = 1;
-        rt.projectiles.push(EnemyProjectile {
-            x_pos: 100 << 16,
-            y_pos: 100 << 16,
-            x_velocity: EYECLOPS_BEAM_SPEED,
-            y_velocity: 0,
-            lifetime: 30,
-            friendly: true,
-            gravity: 0,
-            homing_accel: 0,
-            speed_cap: 0,
-            wall_bounce: false,
-            ..Default::default()
-        });
         let slice = combat_slice();
         let input = FrameInput {
             c: true,
@@ -8558,9 +8540,12 @@ mod chunk_06 {
         rt.step_eyeclops_beam(&slice, input);
 
         assert_eq!(
-            rt.projectiles.len(),
-            1,
-            "ASM loc_7742: bne.s loc_7772 — active beam must block refire"
+            rt.helmet.eyeclops_beam_counter, 2,
+            "ASM loc_7742: bne.s loc_7772 — active beam must block refire and continue the existing beam"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "active beam refire should not create a projectile carrier"
         );
     }
 
@@ -8580,9 +8565,10 @@ mod chunk_06 {
         rt.step_eyeclops_beam(&slice, input);
 
         assert_eq!(
-            rt.projectiles[0].x_velocity, -EYECLOPS_BEAM_SPEED,
-            "ASM loc_7742: move.b x_direction(a3),($FFFFFABE) — left-facing beam must go left"
+            rt.helmet.eyeclops_beam_x_direction, 0xFF,
+            "ASM loc_7742: move.b x_direction(a3),($FFFFFABE) — left-facing beam latches flipped direction"
         );
+        assert!(rt.projectiles.is_empty());
     }
 
     /// ASM loc_779C (kid.asm:7842): `tst.b (Ctrl_Right_Held) / beq.s loc_77E6 /

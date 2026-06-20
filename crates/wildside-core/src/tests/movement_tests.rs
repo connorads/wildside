@@ -2905,18 +2905,11 @@ mod chunk_11 {
         );
     }
 
-    /// ASM sub_78E8 (kid.asm:7973) Eyeclops arm — `clear_special_movement_state_sub_DB22`
-    /// does NOT touch the beam latch ($FFFFFAB8); the arm rebuilds
-    /// `eyeclops_beam_active` each grounded frame from the live friendly
-    /// projectile set, then clears the beam counter / hard-beam latch
-    /// when no beam is in flight. The arm parallels the cleanup at
-    /// `step_eyeclops_beam` (loc_7606 / loc_8C26 / loc_8D58).
+    /// ASM sub_78E8 (kid.asm:7973) Eyeclops arm — `loc_7920` is a visual
+    /// standing-sprite path. It does not rebuild `$FFFFFAB8` from generic
+    /// projectile slots; `sub_E49A` owns the beam counter/latch.
     #[test]
-    fn eyeclops_sub_78e8_sets_beam_active_when_friendly_beam_alive() {
-        // ASM sub_78E8 Eyeclops arm: `eyeclops_beam_active ← any(live friendly
-        // beam projectile)`. Mutation guard against deletion of the entire
-        // match arm: a deleted arm leaves `beam_active=false` (its prior
-        // value), failing this assertion.
+    fn eyeclops_sub_78e8_does_not_rebuild_beam_from_friendly_projectile() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
         rt.helmet.eyeclops_beam_active = false;
@@ -2930,57 +2923,47 @@ mod chunk_11 {
         rt.refresh_grounded_helmet_state_sub_78E8();
 
         assert!(
-            rt.helmet.eyeclops_beam_active,
-            "ASM sub_78E8 Eyeclops arm: live friendly beam projectile reasserts $FFFFFAB8",
+            !rt.helmet.eyeclops_beam_active,
+            "ASM sub_78E8 loc_7920 is visual-only; live projectile slots must not recreate `$FFFFFAB8`",
         );
     }
 
     #[test]
-    fn eyeclops_sub_78e8_clears_beam_state_when_no_projectile_alive() {
-        // ASM sub_78E8 Eyeclops arm: when the beam has already faded, the
-        // arm clears `beam_counter` and the hard-beam latch alongside
-        // `beam_active`. Mutation guard for `if !beam_active`: deleting
-        // the `!` would clear the live beam state on an active beam frame
-        // (covered by the next test) and skip cleanup here.
+    fn eyeclops_sub_78e8_preserves_existing_beam_state_without_projectile() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
         rt.helmet.eyeclops_beam_active = true;
         rt.helmet.eyeclops_beam_counter = 0x1234;
         rt.helmet.eyeclops_beam_hard = true;
-        // No live friendly projectile — the predicate must collapse to false.
 
         rt.refresh_grounded_helmet_state_sub_78E8();
 
         assert!(
-            !rt.helmet.eyeclops_beam_active,
-            "ASM sub_78E8 Eyeclops arm: empty projectile list collapses beam_active to false",
+            rt.helmet.eyeclops_beam_active,
+            "ASM sub_78E8 loc_7920 must not clear `$FFFFFAB8`; sub_E49A boundary logic owns beam expiry",
         );
         assert_eq!(
-            rt.helmet.eyeclops_beam_counter, 0,
-            "ASM sub_78E8 Eyeclops arm: cleanup branch zeroes the $FFFFFAB8 counter when no beam is in flight",
+            rt.helmet.eyeclops_beam_counter, 0x1234,
+            "ASM sub_78E8 loc_7920 should preserve the current beam counter",
         );
         assert!(
-            !rt.helmet.eyeclops_beam_hard,
-            "ASM sub_78E8 Eyeclops arm: cleanup branch clears the hard-beam ($8001) latch when no beam is in flight",
+            rt.helmet.eyeclops_beam_hard,
+            "ASM sub_78E8 loc_7920 should preserve the hard-beam latch",
         );
     }
 
     #[test]
-    fn eyeclops_sub_78e8_preserves_counter_and_hard_when_beam_still_alive() {
-        // ASM sub_78E8 Eyeclops arm: cleanup is gated by `if !beam_active`.
-        // While the beam still has a live friendly projectile, the counter
-        // and hard-beam latch ($8001 from sub_E49A) must survive the call.
-        // Mutation guard: deleting the `!` would clear `counter` / `hard`
-        // here even though the beam is still alive.
+    fn eyeclops_sub_78e8_ignores_unrelated_projectile_shapes() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
-        rt.helmet.eyeclops_beam_active = false; // arm rebuilds from projectiles
+        rt.helmet.eyeclops_beam_active = true;
         rt.helmet.eyeclops_beam_counter = 0x8001;
         rt.helmet.eyeclops_beam_hard = true;
+        rt.helmet.eyeclops_beam_x_direction = 0xFF;
         rt.projectiles.push(EnemyProjectile {
-            lifetime: 5,
-            friendly: true,
-            gravity: 0,
+            lifetime: 20,
+            friendly: false,
+            gravity: 0x4000,
             ..Default::default()
         });
 
@@ -2988,89 +2971,15 @@ mod chunk_11 {
 
         assert!(
             rt.helmet.eyeclops_beam_active,
-            "ASM sub_78E8 Eyeclops arm: live beam projectile keeps $FFFFFAB8 set",
+            "ASM sub_78E8 loc_7920 must not derive beam state from projectile predicates",
         );
         assert_eq!(
             rt.helmet.eyeclops_beam_counter, 0x8001,
-            "ASM sub_78E8 Eyeclops arm: hard-beam $8001 counter must survive while the beam is in flight",
+            "ASM sub_78E8 loc_7920 must preserve the hard-beam counter",
         );
         assert!(
             rt.helmet.eyeclops_beam_hard,
-            "ASM sub_78E8 Eyeclops arm: hard-beam latch must survive while the beam is in flight",
-        );
-    }
-
-    #[test]
-    fn eyeclops_sub_78e8_predicate_rejects_unfriendly_projectile() {
-        // ASM sub_78E8 Eyeclops arm: predicate's `friendly` leg.
-        // Mutation guard: `friendly && lifetime>0 → friendly || lifetime>0`
-        // would treat a hostile projectile (e.g. an enemy bullet sharing
-        // the projectile pool) as a live beam.
-        let mut rt = NativeRuntime::new(manifest());
-        rt.progression.current_form = PlayerForm::Eyeclops;
-        rt.helmet.eyeclops_beam_active = true;
-        rt.projectiles.push(EnemyProjectile {
-            lifetime: 20,
-            friendly: false,
-            gravity: 0,
-            ..Default::default()
-        });
-
-        rt.refresh_grounded_helmet_state_sub_78E8();
-
-        assert!(
-            !rt.helmet.eyeclops_beam_active,
-            "ASM sub_78E8 Eyeclops arm: hostile projectile must not keep $FFFFFAB8 latched",
-        );
-    }
-
-    #[test]
-    fn eyeclops_sub_78e8_predicate_rejects_zero_lifetime_projectile() {
-        // ASM sub_78E8 Eyeclops arm: predicate's `lifetime > 0` leg.
-        // Mutation guard: `>` → `>=` (or `==`) treats a 0-lifetime expired
-        // beam as still alive; `&& gravity==0` → `|| gravity==0` would
-        // similarly rescue it via the gravity leg.
-        let mut rt = NativeRuntime::new(manifest());
-        rt.progression.current_form = PlayerForm::Eyeclops;
-        rt.helmet.eyeclops_beam_active = true;
-        rt.projectiles.push(EnemyProjectile {
-            lifetime: 0,
-            friendly: true,
-            gravity: 0,
-            ..Default::default()
-        });
-
-        rt.refresh_grounded_helmet_state_sub_78E8();
-
-        assert!(
-            !rt.helmet.eyeclops_beam_active,
-            "ASM sub_78E8 Eyeclops arm: lifetime>0 is strict — an expired beam clears $FFFFFAB8",
-        );
-    }
-
-    #[test]
-    fn eyeclops_sub_78e8_predicate_rejects_gravity_bearing_projectile() {
-        // ASM sub_78E8 Eyeclops arm: predicate's `gravity == 0` leg.
-        // The Eyeclops light beam travels in a flat line (sub_E49A); a
-        // Juggernaut skull or other arcing friendly projectile must not
-        // satisfy the predicate.
-        // Mutation guards: `lifetime>0 && gravity==0` → `lifetime>0 ||
-        // gravity==0` would accept the skull; `==` → `!=` flips the test.
-        let mut rt = NativeRuntime::new(manifest());
-        rt.progression.current_form = PlayerForm::Eyeclops;
-        rt.helmet.eyeclops_beam_active = true;
-        rt.projectiles.push(EnemyProjectile {
-            lifetime: 20,
-            friendly: true,
-            gravity: 0x4000, // skull-style gravity
-            ..Default::default()
-        });
-
-        rt.refresh_grounded_helmet_state_sub_78E8();
-
-        assert!(
-            !rt.helmet.eyeclops_beam_active,
-            "ASM sub_78E8 Eyeclops arm: gravity-bearing friendly projectile is not the flat light beam",
+            "ASM sub_78E8 loc_7920 must preserve the hard-beam latch",
         );
     }
 

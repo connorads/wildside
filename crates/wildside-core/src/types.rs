@@ -845,6 +845,8 @@ pub(crate) struct HelmetState {
     pub(crate) eyeclops_beam_active: bool,
     pub(crate) eyeclops_beam_counter: u16,
     pub(crate) eyeclops_beam_hard: bool,
+    /// ASM `$FFFFFABE`: Kid's `x_direction` latched when Eyeclops fires.
+    pub(crate) eyeclops_beam_x_direction: u8,
     pub(crate) maniaxe_axe_active: bool,
     /// Native mirror of Maniaxe's Kid throw-animation `$18(a3)` done gate in
     /// `sub_78E8 loc_794C`. While non-zero, C remains blocked; once it reaches
