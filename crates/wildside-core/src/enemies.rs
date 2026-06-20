@@ -2889,6 +2889,7 @@ pub(crate) struct MiniHoppingSkullChargingBerzerkerLoopFrame {
     pub(crate) next_loop: &'static str,
 }
 
+pub(crate) const MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200: u16 = 0xF200;
 pub(crate) const MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288: u16 = 0xF288;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -9212,6 +9213,25 @@ impl ActiveEnemy {
         false
     }
 
+    pub(crate) fn start_mini_hopping_skull_air_damage_loc_3f1e6(&mut self) {
+        let setup = mini_hopping_skull_air_damage_setup_loc_3f1e6(
+            u16::from(self.hit_points),
+            self.x_velocity,
+        );
+        // ASM Mini_Hopping_Skull.asm loc_3F1E6 preserves live d2=x_vel while
+        // the damage landing loop clears the object velocity. Native keeps d2
+        // in target_x_velocity until loc_3F22A can restore it on slope contact.
+        self.hit_points = setup.remaining_hits as u8;
+        self.target_x_velocity = setup.preserved_x_velocity;
+        self.x_velocity = setup.x_velocity;
+        self.y_velocity = setup.y_velocity;
+        self.wait_timer = MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200;
+        self.grounded_frames = 0;
+        self.on_ground = false;
+        self.damage_flash_frames = 0;
+        self.death_animation_active = false;
+    }
+
     /// Whether this enemy can be damaged (stomped, hit by projectile, etc.)
     pub(crate) fn is_vulnerable(&self) -> bool {
         if self.hit_points == 0 {
@@ -10344,6 +10364,10 @@ pub(crate) fn step_active_enemies_with_rng(
             }
             EnemyArchetype::Hopper => {
                 if matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
+                    && enemy.wait_timer == MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200
+                {
+                    step_mini_hopping_skull_air_damage_loop(enemy, block_grid);
+                } else if matches!(enemy.family, EnemyFamily::MiniHoppingSkull)
                     && enemy.wait_timer
                         == MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288
                 {
@@ -17033,6 +17057,98 @@ pub(crate) fn mini_hopping_skull_left_hop_relaunch_tail_loc_3ed60() -> MiniHoppi
         is_moved: true,
         has_level_collision: true,
         next_loop: "loc_3EA88",
+    }
+}
+
+fn step_mini_hopping_skull_air_damage_loop(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+) {
+    let Some(grid) = block_grid else {
+        return;
+    };
+
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    let cx = (enemy.x_pos >> 16) as i32;
+    let cy = (enemy.y_pos >> 16) as i32;
+    let floor = terrain::probe_floor(grid, cx, cy);
+    let mut collision_type = 0;
+    if floor.on_ground && enemy.y_velocity >= 0 {
+        let floor_y_fp = (floor.floor_y_px as u32) << 16;
+        if enemy.y_pos >= floor_y_fp {
+            if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                enemy.x_pos = mini_hopping_skull_snap_slopeup_x(
+                    grid,
+                    (enemy.x_pos >> 16) as i32,
+                    (enemy.y_pos >> 16) as i32,
+                );
+                collision_type = MINI_SKULL_COLID_SLOPEUP;
+            } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+                enemy.x_pos = mini_hopping_skull_snap_slopedown_x(
+                    grid,
+                    (enemy.x_pos >> 16) as i32,
+                    (enemy.y_pos >> 16) as i32,
+                );
+                collision_type = MINI_SKULL_COLID_SLOPEDOWN;
+            } else {
+                collision_type = MINI_SKULL_COLID_FLOOR;
+            }
+            enemy.y_pos = floor_y_fp;
+        }
+    }
+
+    let frame = mini_hopping_skull_air_damage_loop_loc_3f200(enemy.y_velocity, collision_type);
+    enemy.y_velocity = frame.y_velocity;
+
+    match frame.route {
+        MiniHoppingSkullAirDamageLoopRoute::ContinueWait => {
+            enemy.x_velocity = 0;
+            enemy.on_ground = false;
+            enemy.wait_timer = MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200;
+        }
+        MiniHoppingSkullAirDamageLoopRoute::FloorLanding => {
+            match mini_hopping_skull_death_or_stopped_wait_loc_3f158(u16::from(enemy.hit_points)) {
+                MiniHoppingSkullLoc3F158Route::RestartStoppedWait => {
+                    let setup = mini_hopping_skull_stopped_wait_setup_loc_3f000();
+                    enemy.x_velocity = setup.x_velocity;
+                    enemy.y_velocity = setup.y_velocity;
+                    enemy.grounded_frames = setup.wait_frames;
+                    enemy.wait_timer = 0;
+                    enemy.on_ground = true;
+                }
+                MiniHoppingSkullLoc3F158Route::DestroySkull(_) => {
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = 0;
+                    enemy.wait_timer = MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES;
+                    enemy.on_ground = true;
+                    enemy.death_animation_active = true;
+                }
+            }
+        }
+        MiniHoppingSkullAirDamageLoopRoute::SlopeLanding => {
+            match mini_hopping_skull_air_damage_slope_landing_loc_3f22a(
+                u16::from(enemy.hit_points),
+                enemy.target_x_velocity,
+            ) {
+                MiniHoppingSkullAirDamageSlopeLanding::ResumeTerrainContact {
+                    x_velocity, ..
+                } => {
+                    enemy.x_velocity = x_velocity;
+                    enemy.y_velocity = 0;
+                    enemy.wait_timer = 0;
+                    enemy.on_ground = true;
+                }
+                MiniHoppingSkullAirDamageSlopeLanding::DestroySkull(_) => {
+                    enemy.x_velocity = 0;
+                    enemy.y_velocity = 0;
+                    enemy.wait_timer = MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES;
+                    enemy.on_ground = true;
+                    enemy.death_animation_active = true;
+                }
+            }
+        }
     }
 }
 

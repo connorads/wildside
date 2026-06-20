@@ -9604,6 +9604,13 @@ impl NativeRuntime {
                     // collision word and consumed by the parent object on its
                     // next pass. Do not mutate parent HP on Kid's frame.
                     pending_child_attachment_collisions.push(active_idx);
+                } else if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
+                    // ASM Mini_Hopping_Skull.asm loc_3F1B8 -> loc_3F1E6:
+                    // Kid-above airborne contact decrements HP, preserves
+                    // x_vel in d2, clears live x_vel, seeds y_vel=$28800, and
+                    // enters the loc_3F200 landing loop instead of generic
+                    // flash damage or immediate deletion.
+                    enemy.start_mini_hopping_skull_air_damage_loc_3f1e6();
                 } else if enemy.take_damage_or_queue_death() {
                     kill_indices.push(active_idx);
                 } else {

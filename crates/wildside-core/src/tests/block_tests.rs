@@ -1990,12 +1990,12 @@ mod chunk_04 {
         assert_eq!(
             runtime.active_enemies.len(),
             enemies_before,
-            "ASM Mini_Hopping_Skull.asm loc_3F158 keeps the stomped skull alive until its death animation finishes"
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 keeps the stomped skull alive through the air-damage loop"
         );
         assert_eq!(runtime.active_enemies[0].hit_points, 0);
         assert_eq!(
             runtime.active_enemies[0].wait_timer,
-            MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
+            MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200
         );
     }
 
@@ -2478,12 +2478,12 @@ mod chunk_04 {
         assert_eq!(
             runtime.active_enemies.len(),
             enemies_before,
-            "ASM Mini_Hopping_Skull.asm loc_3F158 keeps the invulnerability stomp kill visible until the death animation finishes"
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 keeps the invulnerability stomp kill visible through the air-damage loop"
         );
         assert_eq!(runtime.active_enemies[0].hit_points, 0);
         assert_eq!(
             runtime.active_enemies[0].wait_timer,
-            MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
+            MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200
         );
     }
 
@@ -2802,10 +2802,59 @@ mod chunk_04 {
             runtime.active_enemies[0].hit_points, 1,
             "HP should be decremented to 1"
         );
-        assert!(
-            runtime.active_enemies[0].damage_flash_frames > 0,
-            "damaged enemy should have flash frames"
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200,
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 enters the air-damage loop instead of generic flash damage"
         );
+        assert_eq!(runtime.active_enemies[0].damage_flash_frames, 0);
+    }
+
+    #[test]
+    fn mini_hopping_skull_stomp_enters_air_damage_loop() {
+        let mut runtime = NativeRuntime::new(manifest_with_tough_skull());
+        runtime.set_block_grid(grid_with_floor_at_row(14));
+        start_level(&mut runtime);
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0x0120_0000;
+            slice.player.y_pos = 0x00E0_0000;
+            slice.camera.x_pos = 0;
+            slice.camera.y_pos = 0;
+        }
+        runtime.step_frame(FrameInput::default());
+        runtime.active_enemies[0].x_velocity = 0x0001_4000;
+
+        setup_stomp_against_first_active_enemy(&mut runtime);
+        let mut slice = runtime.opening_slice.unwrap();
+        runtime.active_enemy_roster = runtime
+            .active_enemies
+            .iter()
+            .map(ActiveEnemy::snapshot)
+            .collect();
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+        assert!(runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        ));
+
+        let skull = &runtime.active_enemies[0];
+        assert_eq!(skull.hit_points, 1);
+        assert_eq!(
+            skull.wait_timer, MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200,
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 enters the loc_3F200 landing loop"
+        );
+        assert_eq!(skull.target_x_velocity, 0x0001_4000);
+        assert_eq!(skull.x_velocity, 0);
+        assert_eq!(skull.y_velocity, 0x0002_8800);
+        assert!(!skull.on_ground);
+        assert_eq!(skull.damage_flash_frames, 0);
     }
 
     #[test]
@@ -2862,12 +2911,38 @@ mod chunk_04 {
         assert_eq!(
             runtime.active_enemies.len(),
             enemies_before,
-            "ASM Mini_Hopping_Skull.asm loc_3F158 keeps the second-stomp kill visible until the death animation finishes"
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 keeps the second-stomp kill visible through the air-damage loop"
         );
         assert_eq!(runtime.active_enemies[0].hit_points, 0);
         assert_eq!(
             runtime.active_enemies[0].wait_timer,
-            MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES
+            MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200
+        );
+
+        if let Some(ref mut slice) = runtime.opening_slice {
+            slice.player.x_pos = 0;
+            slice.player.y_pos = 0;
+            slice.player.y_velocity = 0;
+            slice.player.on_ground = true;
+        }
+        runtime.kid_touched_enemy_last_frame_loc_fa74 = false;
+        runtime.kid_touched_enemy_this_frame_loc_fa75 = false;
+
+        let mut entered_death_animation = false;
+        for _ in 0..16 {
+            runtime.step_frame(FrameInput::default());
+            if runtime
+                .active_enemies
+                .first()
+                .is_some_and(|enemy| enemy.death_animation_active)
+            {
+                entered_death_animation = true;
+                break;
+            }
+        }
+        assert!(
+            entered_death_animation,
+            "ASM Mini_Hopping_Skull.asm loc_3F200 -> loc_3F158 should start the visible death animation after floor contact"
         );
     }
 
