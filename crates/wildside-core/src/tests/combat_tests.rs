@@ -16646,6 +16646,117 @@ mod chunk_03 {
     }
 
     #[test]
+    fn lion_pending_hurt_collision_hibernates_and_resumes_ground_charge_loc_3e318() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0x0080_0000, 0x0040_0000, 4);
+        lion.layout_index = 21;
+        lion.lion_state = LionState::Roaring;
+        lion.facing = Direction::Right;
+        lion.on_ground = true;
+        lion.x_velocity = 0x0002_8000;
+        runtime.active_enemies = vec![lion];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: lion.segment_index,
+                layout_index: lion.layout_index,
+                collision_type: LION_COLID_HURT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let lion = runtime.active_enemies[0];
+        assert_eq!(
+            lion.hit_points, 3,
+            "ASM Lion.asm loc_3E32C subtracts one HP for nonterminal colid_hurt"
+        );
+        assert_eq!(
+            lion.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
+            "native damage flash represents the loc_3E32C `stru_3DF42` hibernate"
+        );
+        assert_eq!(
+            lion.lion_state,
+            LionState::Charging,
+            "ASM Lion.asm loc_3E356 -> loc_3E3AC resumes the right-facing grounded charge path"
+        );
+        assert_eq!(lion.facing, Direction::Right);
+        assert!(lion.on_ground);
+        assert!(!lion.death_animation_active);
+    }
+
+    #[test]
+    fn lion_pending_kidabove_collision_preserves_airborne_resume_loc_3e356() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0x0080_0000, 0x0040_0000, 4);
+        lion.layout_index = 22;
+        lion.lion_state = LionState::ResumingCharge;
+        lion.facing = Direction::Left;
+        lion.on_ground = false;
+        lion.x_velocity = -0x0001_8000;
+        lion.y_velocity = 0x0000_4000;
+        runtime.active_enemies = vec![lion];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: lion.segment_index,
+                layout_index: lion.layout_index,
+                collision_type: LION_COLID_KIDABOVE,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let lion = runtime.active_enemies[0];
+        assert_eq!(lion.hit_points, 3);
+        assert_eq!(
+            lion.lion_state,
+            LionState::ResumingCharge,
+            "ASM Lion.asm loc_3E356 -> loc_3E7CA keeps `$5C(a5)` airborne left-charge reentry active"
+        );
+        assert_eq!(lion.facing, Direction::Left);
+        assert!(!lion.on_ground);
+        assert_eq!(
+            lion.x_velocity, -0x0001_8000,
+            "loc_3E32C hibernates for the hit animation but does not clear the airborne charge velocity"
+        );
+        assert_eq!(lion.y_velocity, 0x0000_4000);
+        assert_eq!(lion.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+    }
+
+    #[test]
+    fn lion_pending_terminal_collision_enters_loc_3e378_death_animation() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0x0080_0000, 0x0040_0000, 1);
+        lion.layout_index = 23;
+        let killed_identity = (lion.segment_index, lion.layout_index);
+        runtime.active_enemies = vec![lion];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: lion.segment_index,
+                layout_index: lion.layout_index,
+                collision_type: LION_COLID_KIDABOVE,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Lion.asm loc_3E378 hibernates through `stru_3DF48` before loc_3E956 deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert!(runtime.active_enemies[0].death_animation_active);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            LION_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn big_hopping_skull_death_waits_for_stru_367fa_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x0080_0000, 0x0040_0000, 1);

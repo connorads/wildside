@@ -7858,6 +7858,42 @@ impl LevelCompletionBonusTallyLocD468 {
     }
 }
 
+fn apply_lion_collision_resume_loc_3e318(
+    enemy: &mut ActiveEnemy,
+    resume: LionCollisionResumeLoc3E318,
+) {
+    match resume {
+        LionCollisionResumeLoc3E318::Loc3E560 => {
+            // ASM Lion.asm loc_3E36C -> loc_3E560: clear `$5C(a5)` and
+            // clear x_direction resume the ordinary left-facing charge.
+            enemy.lion_state = LionState::Charging;
+            enemy.facing = Direction::Left;
+            enemy.on_ground = true;
+        }
+        LionCollisionResumeLoc3E318::Loc3E3AC => {
+            // ASM Lion.asm loc_3E36C -> loc_3E3AC: clear `$5C(a5)` and set
+            // x_direction resume the ordinary right-facing charge callback.
+            enemy.lion_state = LionState::Charging;
+            enemy.facing = Direction::Right;
+            enemy.on_ground = true;
+        }
+        LionCollisionResumeLoc3E318::Loc3E7CA => {
+            // ASM Lion.asm loc_3E356 -> loc_3E7CA: set `$5C(a5)` resumes the
+            // left-facing airborne charge/collision reentry loop.
+            enemy.lion_state = LionState::ResumingCharge;
+            enemy.facing = Direction::Left;
+            enemy.on_ground = false;
+        }
+        LionCollisionResumeLoc3E318::Loc3E6AE => {
+            // ASM Lion.asm loc_3E356 -> loc_3E6AE: set `$5C(a5)` resumes the
+            // right-facing airborne charge/collision reentry loop.
+            enemy.lion_state = LionState::ResumingCharge;
+            enemy.facing = Direction::Right;
+            enemy.on_ground = false;
+        }
+    }
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn level_complete_scoreboard_reveal_frames_loc_C21E(&self) -> usize {
@@ -8379,6 +8415,48 @@ impl NativeRuntime {
                         }
                     }
                     HandState::Grabbing => {}
+                }
+                continue;
+            }
+            if matches!(self.active_enemies[active_idx].family, EnemyFamily::Lion) {
+                let enemy = &mut self.active_enemies[active_idx];
+                match lion_collision_response_loc_3e318(
+                    collision.collision_type as i16,
+                    u16::from(enemy.hit_points),
+                    !enemy.on_ground || matches!(enemy.lion_state, LionState::ResumingCharge),
+                    matches!(enemy.facing, Direction::Right),
+                ) {
+                    LionCollisionLoc3E318::Kill => {
+                        // ASM Lion.asm loc_3E318 -> loc_3E378: signed-negative
+                        // and terminal hurt/Kid-above collisions initialise
+                        // `stru_3DF48` before the shared loc_3E956 delete tail.
+                        kill_indices.push(active_idx);
+                    }
+                    LionCollisionLoc3E318::Hurt { remaining_hp, .. } => {
+                        // ASM Lion.asm loc_3E32C: nonterminal hurt/Kid-above
+                        // collisions hibernate through `stru_3DF42`, restore
+                        // the saved Lion animation, then resume by `$5C(a5)`
+                        // and x_direction at loc_3E356.
+                        enemy.hit_points = remaining_hp as u8;
+                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        match lion_collision_response_loc_3e318(
+                            0,
+                            remaining_hp,
+                            !enemy.on_ground
+                                || matches!(enemy.lion_state, LionState::ResumingCharge),
+                            matches!(enemy.facing, Direction::Right),
+                        ) {
+                            LionCollisionLoc3E318::Continue { next } => {
+                                apply_lion_collision_resume_loc_3e318(enemy, next);
+                            }
+                            LionCollisionLoc3E318::Kill | LionCollisionLoc3E318::Hurt { .. } => {}
+                        }
+                        changed_enemy_state = true;
+                    }
+                    LionCollisionLoc3E318::Continue { next } => {
+                        apply_lion_collision_resume_loc_3e318(enemy, next);
+                        changed_enemy_state = true;
+                    }
                 }
                 continue;
             }

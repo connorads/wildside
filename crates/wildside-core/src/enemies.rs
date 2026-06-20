@@ -10405,6 +10405,12 @@ pub(crate) fn step_active_enemies_with_rng(
                 } else if matches!(enemy.family, EnemyFamily::Hand) {
                     step_hand(enemy, block_grid, player_x_pos, player_y_pos, player_facing);
                 } else if matches!(enemy.family, EnemyFamily::Lion) {
+                    if enemy.damage_flash_frames > 0 {
+                        // ASM Lion.asm loc_3E32C hibernates through
+                        // `stru_3DF42`, then restores `$62(a5)` and resumes
+                        // through loc_3E356 without advancing the charge loop.
+                        continue;
+                    }
                     step_lion(enemy, block_grid, player_x_pos, &mut projectiles);
                 } else if matches!(enemy.family, EnemyFamily::Robot) {
                     step_robot_with_rng(
@@ -19513,13 +19519,12 @@ pub(crate) fn step_ninja(
             let cx = (enemy.x_pos >> 16) as i32;
             let cy = (enemy.y_pos >> 16) as i32;
             let floor = terrain::probe_floor(grid, cx, cy);
-            let collision_type = if floor.on_ground
-                && enemy.y_pos >= ((floor.floor_y_px as u32) << 16)
-            {
-                NINJA_COLID_FLOOR
-            } else {
-                0
-            };
+            let collision_type =
+                if floor.on_ground && enemy.y_pos >= ((floor.floor_y_px as u32) << 16) {
+                    NINJA_COLID_FLOOR
+                } else {
+                    0
+                };
             let fall = ninja_kid_above_landing_loop_loc_3dabc(
                 collision_type,
                 enemy.x_velocity,

@@ -24,7 +24,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Fire_Demon (0x00) | partial | 1 |
 | Goat (0x10) | partial | 3 |
 | Hand (0x17) | partial | 2 |
-| Lion (0x12) | partial | 3 |
+| Lion (0x12) | partial | 2 |
 | Mini_Hopping_Skull (0x1C) | partial | 2 |
 | Ninja (0x11) | partial | 6 |
 | Orca (0x08) | partial | 3 |
@@ -38,7 +38,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 76 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 75 confirmed gaps.
 
 ## Confirmed gaps
 
@@ -84,7 +84,7 @@ Fixed candidate 2026-06-20: queued parent collision words now route through `loc
 Fixed candidate 2026-06-20: queued parent collision words now route through `loc_3299C`/`off_329B6` while Hand is `Walking`. Native reverses through `loc_329E2`, writes Kid-below contact through `loc_329EC`, and enters `loc_32AA2` for signed-negative/hurt-class collisions. Regressions: `hand_pending_ground_reverse_collision_runs_loc_329e2`, `hand_pending_ground_destroy_collision_enters_loc_32aa2`, `hand_pending_ground_kid_contact_writes_kid_below_collision_loc_329ec`.
 
 **Lion — hurt-recoil response absent** (`loc_3E318 / loc_3E32C`)
-Non-fatal hits should play the hit anim + stagger via $44 recoil counter. `step_lion` has no collision branch; LionState lacks a hurt variant. `enemies.rs:17699`, `enemies.rs:6290-6296`; `lion_collision_response_loc_3e318` (`enemies.rs:1597`) test-only.
+Fixed candidate 2026-06-20: queued parent collision words now route through `loc_3E318`; nonterminal hurt/Kid-above collisions decrement HP, hibernate through native damage flash as `stru_3DF42`, restore the saved charge branch through `loc_3E356`, and signed-negative/terminal hits enter `loc_3E378`/`stru_3DF48`. Regressions: `lion_pending_hurt_collision_hibernates_and_resumes_ground_charge_loc_3e318`, `lion_pending_kidabove_collision_preserves_airborne_resume_loc_3e356`, `lion_pending_terminal_collision_enters_loc_3e378_death_animation`.
 
 **Mini_Hopping_Skull — runtime uses generic step_hopper; hop state machine not wired** (`loc_3EA88 / loc_3EAB2 … loc_3F146`)
 Fixed candidate slices 2026-06-20: post-floor stopped wait now follows `loc_3F000`/`loc_3F090`/`loc_3F09E`/`loc_3F112`; a facing mismatch flips and restarts the 21-frame wait, and matched facing waits 11 frames before relaunch. Slope terrain contact now routes through `loc_3EAD8`/`loc_3ED6C`, including the `loc_3F22A` air-damage slope resume. Queued parent collision words now route through the grounded wait/pause handlers and airborne `loc_3F1B8`: side/below contacts allocate `sub_3F3F0`, grounded hurt clears motion through the hit animation path, airborne hurt enters `loc_3F1E6`, and charging-Berzerker side contact enters `loc_3F262`. Remaining runtime hop-state debt: the distinct slope/windup coroutine states are still compressed into native wait fields. Regressions: `mini_hopping_skull_restarts_wait_after_facing_flip_loc_3f090`, `mini_hopping_skull_does_not_edge_reverse_before_launch_loc_3f090`, `mini_hopping_skull_slopeup_nonpositive_x_enters_left_wait_loc_3ead8_3ec32`, `mini_hopping_skull_slopedown_negative_x_enters_left_wait_loc_3ed6c`, `mini_hopping_skull_air_damage_slope_landing_resumes_terrain_contact_loc_3f22a_3ead8`, `mini_hopping_skull_pending_ground_side_collision_queues_scream_worker_loc_3f03c`, `mini_hopping_skull_pending_ground_hurt_collision_uses_ground_hit_path_loc_3f05c`, `mini_hopping_skull_pending_air_hurt_collision_enters_loc_3f1e6_landing_loop`, `mini_hopping_skull_pending_air_side_collision_enters_berzerker_launch_loc_3f262`.
