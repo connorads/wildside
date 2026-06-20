@@ -88,6 +88,7 @@ pub(crate) enum QueuedSoundEffect {
     UfoShoots,
     ArcherShoots,
     FireballBouncing,
+    NinjaBlocking,
     VoiceNoTime,
     KidPullup,
     BigHoppingSkullGroan,
@@ -223,6 +224,10 @@ impl QueuedSoundEffect {
             // constants.asm: sfx_Fireball_bouncing = $5D; Fireball.asm
             // loc_32C60 plays this before dispatching non-zero collision.
             Self::FireballBouncing => 0x5D,
+            // constants.asm: sfx_Ninja_blocking = $52; Ninja.asm loc_3D65A
+            // plays this when `$4C(a5)` is non-zero and the animation-finished
+            // byte is clear before resuming through loc_3D638.
+            Self::NinjaBlocking => 0x52,
             // ASM Decrease_Time_Left no-time path (kid.asm:15500): plays
             // `sfx_Voice_no_time = $51` before collision_type=4 death dispatch.
             Self::VoiceNoTime => 0x51,
@@ -8379,27 +8384,68 @@ impl NativeRuntime {
             }
 
             if matches!(enemy.family, EnemyFamily::Ninja) {
-                if matches!(
-                    ninja_collision_dispatch_loc_3d606(
-                        collision.collision_type as i16,
-                        matches!(enemy.facing, Direction::Right),
-                        false,
-                    )
-                    .route,
-                    NinjaCollisionLoc3D606::To3D698
-                ) && let NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(launch) =
-                    ninja_berzerker_side_contact_loc_3db0a(berzerker_charging)
+                let x_direction_right = matches!(enemy.facing, Direction::Right);
+                match ninja_collision_dispatch_loc_3d606(
+                    collision.collision_type as i16,
+                    false,
+                    x_direction_right,
+                )
+                .route
                 {
-                    // ASM Ninja.asm loc_3D698 -> loc_3DB0A: charging
-                    // Berzerker side contact bypasses HP damage, freezes
-                    // animation, disables terrain collision, and enters the
-                    // upward launch loop at loc_3DB3C.
-                    enemy.x_velocity = launch.x_velocity;
-                    enemy.y_velocity = launch.y_velocity;
-                    enemy.on_ground = false;
-                    enemy.wait_timer = NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
-                    enemy.damage_flash_frames = 0;
-                    changed_enemy_state = true;
+                    NinjaCollisionLoc3D606::To3D65A => {
+                        if enemy.shared_walker_state != 0
+                            || matches!(enemy.ninja_state, NinjaState::Guard)
+                        {
+                            // ASM Ninja.asm loc_3D65A: non-zero `$4C(a5)`
+                            // blocks hurt/Kid-above contact, plays `$52`, and
+                            // resumes through loc_3D638 without decrementing
+                            // `$44(a3)`.
+                            queued_sound_effects.push(QueuedSoundEffect::NinjaBlocking);
+                            changed_enemy_state = true;
+                        } else {
+                            let block = ninja_collision_block_animation_loc_3d670(
+                                u16::from(enemy.hit_points),
+                                false,
+                                x_direction_right,
+                                "stru_3D4EA",
+                            );
+                            match block.route {
+                                NinjaCollisionLoc3D670Route::To3DB4E => {
+                                    kill_indices.push(active_idx);
+                                }
+                                NinjaCollisionLoc3D670Route::To3D638 { .. } => {
+                                    // ASM Ninja.asm loc_3D670 hibernates
+                                    // through `stru_3D504`, then restores the
+                                    // saved walk animation before resuming.
+                                    enemy.hit_points = block.remaining_block_timer as u8;
+                                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                    enemy.x_velocity = 0;
+                                    enemy.y_velocity = 0;
+                                    changed_enemy_state = true;
+                                }
+                            }
+                        }
+                    }
+                    NinjaCollisionLoc3D606::To3D698 => {
+                        if let NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(launch) =
+                            ninja_berzerker_side_contact_loc_3db0a(berzerker_charging)
+                        {
+                            // ASM Ninja.asm loc_3D698 -> loc_3DB0A: charging
+                            // Berzerker side contact bypasses HP damage,
+                            // freezes animation, disables terrain collision,
+                            // and enters the upward launch loop at loc_3DB3C.
+                            enemy.x_velocity = launch.x_velocity;
+                            enemy.y_velocity = launch.y_velocity;
+                            enemy.on_ground = false;
+                            enemy.wait_timer = NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
+                            enemy.damage_flash_frames = 0;
+                            changed_enemy_state = true;
+                        }
+                    }
+                    NinjaCollisionLoc3D606::To3DB4E => {
+                        kill_indices.push(active_idx);
+                    }
+                    NinjaCollisionLoc3D606::To3D6DA | NinjaCollisionLoc3D606::To3D638 { .. } => {}
                 }
                 continue;
             }

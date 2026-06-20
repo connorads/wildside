@@ -15040,6 +15040,63 @@ mod chunk_03 {
     }
 
     #[test]
+    fn ninja_pending_hurt_collision_decrements_block_counter_loc_3d606_3d670() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 3);
+        ninja.layout_index = 13;
+        ninja.x_velocity = 0x0001_0000;
+        ninja.y_velocity = -0x0001_0000;
+        runtime.active_enemies = vec![ninja];
+        let collision_target = runtime.active_enemies[0].clone();
+
+        runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_HURT);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Ninja.asm loc_3D670 should keep a non-terminal hurt Ninja alive"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Ninja.asm loc_3D670 decrements `$44(a3)` for ordinary hurt contact"
+        );
+        assert!(
+            runtime.active_enemies[0].damage_flash_frames > 0,
+            "native damage flash represents the loc_3D670 blocking animation hibernate"
+        );
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0);
+        assert_eq!(runtime.active_enemies[0].y_velocity, 0);
+    }
+
+    #[test]
+    fn ninja_guard_hurt_collision_queues_blocking_sfx_loc_3d65a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 3);
+        ninja.layout_index = 14;
+        ninja.ninja_state = NinjaState::Guard;
+        ninja.shared_walker_state = -1;
+        runtime.active_enemies = vec![ninja];
+        let collision_target = runtime.active_enemies[0].clone();
+
+        runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_HURT);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 3,
+            "ASM Ninja.asm loc_3D65A should not decrement `$44(a3)` while `$4C(a5)` is non-zero"
+        );
+        assert_eq!(
+            runtime.played_sound_commands,
+            vec![QueuedSoundCommand::StartSequence(
+                QueuedSoundEffect::NinjaBlocking
+            )],
+            "ASM Ninja.asm loc_3D65A plays sfx_Ninja_blocking ($52) before resuming through loc_3D638"
+        );
+        assert_eq!(QueuedSoundEffect::NinjaBlocking.sound_id(), 0x52);
+    }
+
+    #[test]
     fn tank_death_waits_for_stru_3b29a_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tank = test_enemy(EnemyFamily::Tank, 0x0080_0000, 0x0040_0000, 1);
