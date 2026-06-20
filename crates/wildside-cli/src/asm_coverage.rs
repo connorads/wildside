@@ -1,10 +1,9 @@
+use crate::backlog::read_live_lanes;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
-
-const BACKLOG_PATH: &str = "docs/source-port/backlog.md";
 
 /// Label types extracted from the disassembly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -545,8 +544,7 @@ fn coverage_state_for_citations(
 }
 
 fn load_open_backlog_signal_counts(repo_root: &Path) -> BTreeMap<String, usize> {
-    let path = repo_root.join(BACKLOG_PATH);
-    let Ok(contents) = fs::read_to_string(&path) else {
+    let Ok(contents) = read_live_lanes(repo_root) else {
         return BTreeMap::new();
     };
     let mut counts = BTreeMap::new();

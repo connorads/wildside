@@ -1,11 +1,10 @@
-use anyhow::{Context, Result, bail};
+use crate::backlog::read_live_lanes;
+use anyhow::{Result, bail};
 use clap::ValueEnum;
 use serde::Serialize;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-
-const BACKLOG_PATH: &str = "docs/source-port/backlog.md";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub(crate) enum ProjectStatusFormat {
@@ -208,9 +207,7 @@ fn load_top_open_items(
     limit: usize,
     focus: BacklogFocus,
 ) -> Result<Vec<BacklogItem>> {
-    let path = repo_root.join(BACKLOG_PATH);
-    let contents = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read backlog {}", path.display()))?;
+    let contents = read_live_lanes(repo_root)?;
     let mut items = Vec::new();
     for line in contents.lines() {
         if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
@@ -259,9 +256,7 @@ fn load_top_open_items(
 }
 
 fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<BacklogItem>> {
-    let path = repo_root.join(BACKLOG_PATH);
-    let contents = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read backlog {}", path.display()))?;
+    let contents = read_live_lanes(repo_root)?;
     let mut items = Vec::new();
     for line in contents.lines() {
         if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
@@ -308,9 +303,7 @@ fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<B
 }
 
 fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidationBlocker>> {
-    let path = repo_root.join(BACKLOG_PATH);
-    let contents = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read backlog {}", path.display()))?;
+    let contents = read_live_lanes(repo_root)?;
     let mut items = Vec::new();
     for line in contents.lines() {
         if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
@@ -517,6 +510,46 @@ mod tests {
         assert_eq!(items[0].status, "[?]");
         assert_eq!(items[1].id, "146");
         assert_eq!(items[1].status, "[b]");
+    }
+
+    #[test]
+    fn selection_spans_queue_and_awaiting_human_lanes() {
+        // The loop selects from the open queue (backlog.md) while the human-validation
+        // lane ([?]/[b]) lives in backlog-awaiting-human.md. project-status must read both
+        // so sharding by lane does not silently hide blockers from completion-audit.
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 200 | [ ] | P1 | player | open queue row | fix |
+",
+        )
+        .expect("backlog");
+        fs::write(
+            temp_dir
+                .path()
+                .join("docs/source-port/backlog-awaiting-human.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 201 | [?] | P0 | render | sharded blocker | review |
+| 202 | [b] | P1 | level | sharded repro blocker | review |
+",
+        )
+        .expect("awaiting-human");
+
+        let blockers = load_human_validation_blockers(temp_dir.path()).expect("blockers");
+        assert_eq!(blockers.len(), 2);
+        assert_eq!(blockers[0].id, "201"); // P0 sorts ahead of P1
+        assert_eq!(blockers[1].id, "202");
+
+        let open =
+            load_top_open_items(temp_dir.path(), 5, BacklogFocus::Playability).expect("open");
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0].id, "200");
     }
 
     #[test]

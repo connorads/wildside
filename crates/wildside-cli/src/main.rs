@@ -4,6 +4,7 @@
     clippy::doc_lazy_continuation
 )]
 mod asm_coverage;
+mod backlog;
 mod bootstrap;
 mod cache;
 mod capture;
