@@ -8332,6 +8332,55 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::Crab) {
+                let Some(slice) = self.opening_slice else {
+                    continue;
+                };
+                let crab_x = (enemy.x_pos >> 16) as u16;
+                let kid_x = (slice.player.x_pos >> 16) as u16;
+                let crab_x_minus_kid_x = crab_x.wrapping_sub(kid_x) as i16;
+                match crab_collision_dispatch_loc_3b048(
+                    collision.collision_type as i16,
+                    enemy.crab_frozen,
+                    crab_x_minus_kid_x,
+                    enemy.facing,
+                ) {
+                    CrabCollisionRouteLoc3B048::Death => {
+                        // ASM Crab.asm loc_3B048 sends signed-negative
+                        // collision words to loc_3B094 before the front-only
+                        // colid_hurt HP gate.
+                        kill_indices.push(active_idx);
+                    }
+                    CrabCollisionRouteLoc3B048::Damage => {
+                        if enemy.take_colid_hurt_or_queue_death(Some(slice.player.x_pos)) {
+                            kill_indices.push(active_idx);
+                        } else {
+                            changed_enemy_state = true;
+                        }
+                    }
+                    CrabCollisionRouteLoc3B048::BerzerkerSideGate => {
+                        if let CrabBerzerkerSideGateLoc3B180::Knockback(knockback) =
+                            crab_berzerker_side_gate_loc_3b180(
+                                berzerker_charging,
+                                slice.player.x_velocity,
+                            )
+                        {
+                            // ASM Crab.asm loc_3B180 doubles Kid's incoming
+                            // x velocity into Crab and enters loc_3B1A6.
+                            enemy.x_velocity = knockback.x_velocity;
+                            enemy.y_velocity = knockback.y_velocity;
+                            enemy.on_ground = false;
+                            enemy.crab_frozen = false;
+                            enemy.crab_berzerker_knockback = true;
+                            enemy.damage_flash_frames = 0;
+                            changed_enemy_state = true;
+                        }
+                    }
+                    CrabCollisionRouteLoc3B048::ContinueSharedWalker => {}
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::Scorpion) {
                 match scorpion_collision_dispatch_loc_3dcb0(collision.collision_type as i16) {
                     ScorpionCollisionRouteLoc3DCB0::Death => {

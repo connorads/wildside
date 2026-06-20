@@ -69,10 +69,10 @@ Demon should leave up to 7 trail children while pacing. Only runtime trail push 
 Fixed candidate 2026-05-29: charging Berzerker side contact with no positive `$42(a3)` now launches Goat into the `loc_3CBA8` airborne loop instead of generic HP damage. Regressions: `berzerker_charge_launches_goat_instead_of_damaging_loc_3cb76`, `goat_berzerker_airborne_loop_matches_loc_3cba8`.
 
 **Crab — directional vulnerability gate (front-immune) not enforced** (`loc_3B048 / loc_3B086 / loc_3B08C`)
-Crab should take damage only from the side it does not face. Live damage gates on `is_vulnerable` (returns true for Crab) then unconditional `take_damage_or_queue_death`. `combat.rs:7789-7813`, `enemies.rs:8519-8540`; facing gate `enemies.rs:574-610` test-only.
+Fixed candidate 2026-06-20: direct friendly-projectile hits already used the `loc_3B048` front-side gate; queued parent collision words now do too, so `colid_hurt` damages only when Kid is on the side the Crab faces and otherwise resumes the shared walker. Regressions: `maniaxe_axe_respects_crab_front_vulnerability_gate_loc_3b048`, `crab_pending_hurt_only_damages_from_facing_side_loc_3b048_3b08c`, `crab_pending_hurt_from_back_or_frozen_resumes_without_damage_loc_3b048`.
 
 **Crab — frozen crab not immune to hurt collisions** (`loc_3B048` freeze-sprite check)
-A frozen crab should be invulnerable. `is_vulnerable` never reads `crab_frozen`; immunity lives only in the unused dispatch. `enemies.rs:8529-8540`, `enemies.rs:573-592`.
+Fixed candidate 2026-06-20: direct Maniaxe/projectile hits and queued parent collision words now both route through `crab_collision_dispatch_loc_3b048`, where the `LnkTo_unk_C7C4E` frozen sprite branch resumes without HP damage. Regressions: `maniaxe_axe_respects_crab_frozen_immunity_loc_3b048`, `crab_pending_hurt_from_back_or_frozen_resumes_without_damage_loc_3b048`.
 
 **Hand — grab never immobilizes/affects the Kid** (`loc_32906`)
 `KidGrabbedByHand` is read by jump code but assigned nowhere; the Grabbing branch only snaps the Hand to the Kid. Grab is cosmetic. `enemies.rs:17611-17643`, `physics.rs:719`, `movement.rs` jump call sites.

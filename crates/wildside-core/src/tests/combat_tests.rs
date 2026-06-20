@@ -15053,6 +15053,70 @@ mod chunk_03 {
     }
 
     #[test]
+    fn crab_pending_hurt_only_damages_from_facing_side_loc_3b048_3b08c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0070_0000;
+        runtime.opening_slice = Some(slice);
+
+        let mut crab = test_enemy(EnemyFamily::Crab, 0x0080_0000, 0x0040_0000, 4);
+        crab.layout_index = 31;
+        crab.facing = Direction::Left;
+        runtime.active_enemies = vec![crab];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: crab.segment_index,
+                layout_index: crab.layout_index,
+                collision_type: CRAB_COLID_HURT as u16,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let crab = runtime.active_enemies[0];
+        assert_eq!(
+            crab.hit_points, 3,
+            "ASM Crab.asm loc_3B048 -> loc_3B08C damages only when Kid is on the side x_direction faces"
+        );
+        assert_eq!(crab.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+    }
+
+    #[test]
+    fn crab_pending_hurt_from_back_or_frozen_resumes_without_damage_loc_3b048() {
+        for (player_x_pos, crab_frozen) in [(0x0090_0000, false), (0x0070_0000, true)] {
+            let mut runtime = NativeRuntime::new(manifest());
+            let mut slice = combat_slice();
+            slice.player.x_pos = player_x_pos;
+            runtime.opening_slice = Some(slice);
+
+            let mut crab = test_enemy(EnemyFamily::Crab, 0x0080_0000, 0x0040_0000, 4);
+            crab.layout_index = 32 + usize::from(crab_frozen);
+            crab.facing = Direction::Left;
+            crab.crab_frozen = crab_frozen;
+            runtime.active_enemies = vec![crab];
+            runtime
+                .pending_enemy_collisions
+                .push(PendingEnemyCollision {
+                    segment_index: crab.segment_index,
+                    layout_index: crab.layout_index,
+                    collision_type: CRAB_COLID_HURT as u16,
+                    target: PendingEnemyCollisionTarget::Parent,
+                });
+
+            runtime.apply_pending_enemy_collisions();
+
+            let crab = runtime.active_enemies[0];
+            assert_eq!(
+                crab.hit_points, 4,
+                "ASM Crab.asm loc_3B048 should ignore colid_hurt when hit from behind or while the frozen sprite is active"
+            );
+            assert_eq!(crab.damage_flash_frames, 0);
+            assert!(!crab.death_animation_active);
+        }
+    }
+
+    #[test]
     fn ninja_death_waits_for_stru_3d50a_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 1);
