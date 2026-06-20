@@ -45,10 +45,10 @@ Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 75 confirmed 
 ### High severity
 
 **Diamond — live HP damage and hurt/death collision words not plumbed** (`loc_3ADFA / loc_3AE28 / loc_3AEE6 / loc_3AEF8`)
-ASM decrements HP on `colid_hurt`, hibernates through hurt/death animations, then either restores `stru_3ACA8` or deletes. Native now spawns Diamond as an HP-bearing Pacer, keeps prize-diamond collection separate, routes low-HP Diamonds through the shared walker, routes high-HP Diamonds through `loc_3AD7C`/`loc_3ADA4`, and waits for the ROM death animation on final damage. The live Diamond step still cannot receive the Kid/enemy `colid_hurt` word that selects the Diamond-specific hurt routes.
+Fixed candidate 2026-06-20: queued live Diamond collision words now route through the Diamond-specific ASM damage tables. High-HP Diamonds consume `colid_hurt` through `loc_3ADA4` -> `loc_3ADFA`, decrement HP, and hibernate through native damage flash as `stru_3ACBE`; low-HP Diamonds consume `loc_3AEC4` hurt/death words, including the `loc_3AEE6` waited death animation. Regressions: `diamond_high_hp_pending_hurt_collision_enters_loc_3adfa`, `diamond_low_hp_pending_terminal_hurt_collision_enters_loc_3aee6`.
 
 **Diamond — Berzerker side-launch not plumbed** (`loc_3AE84 / loc_3AF24`)
-ASM routes Kid side contacts through Berzerker charge gates that disable level collision, keep Kid collision, freeze animation, and launch the Diamond upward at `-$48000`. Native has unit-tested high/low-HP gate helpers, but the live Diamond terrain loop does not yet receive `colid_kidright`/`colid_kidleft`, so side-launch cannot fire.
+Fixed candidate 2026-06-20: queued Kid-side collision words now reach the high-HP `loc_3AE84` and low-HP `loc_3AF24` Berzerker gates. Charging side contact bypasses HP damage, seeds `y_vel=-$48000`, and enters the live `loc_3AEB2`/`loc_3AF50` airborne gravity loops. Regressions: `diamond_high_hp_pending_side_collision_enters_loc_3ae84_launch`, `diamond_low_hp_pending_side_collision_enters_loc_3af24_launch`.
 
 **Armadillo — damage recoil/invulnerability window not applied** (`loc_3C848`)
 Survivors should set `$42=$FF88` (~120-frame recoil) gating re-hits. Native `take_damage_or_queue_death` has no recoil gate and `is_vulnerable` no Armadillo case, so multi-HP Armadillos can be re-hit every frame. `combat.rs:7810-7872`, `enemies.rs:8519-8540`; faithful `armadillo_damage_response_loc_3c848` (`enemies.rs:3648`) is test-only.

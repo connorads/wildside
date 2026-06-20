@@ -383,15 +383,15 @@ const CRAB_COLID_LEFTWALL: u16 = 0x0008;
 const CRAB_COLID_SLOPEUP: u16 = 0x0014;
 #[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_SLOPEDOWN: u16 = 0x0018;
-const DIAMOND_COLID_RIGHTWALL: u16 = 0x0004;
-const DIAMOND_COLID_LEFTWALL: u16 = 0x0008;
-const DIAMOND_COLID_FLOOR: u16 = 0x000C;
-const DIAMOND_COLID_CEILING: u16 = 0x0010;
-const DIAMOND_COLID_SLOPEUP: u16 = 0x0014;
-const DIAMOND_COLID_SLOPEDOWN: u16 = 0x0018;
-const DIAMOND_COLID_HURT: u16 = 0x001C;
-const DIAMOND_COLID_KIDRIGHT: u16 = 0x0020;
-const DIAMOND_COLID_KIDLEFT: u16 = 0x0024;
+pub(crate) const DIAMOND_COLID_RIGHTWALL: u16 = 0x0004;
+pub(crate) const DIAMOND_COLID_LEFTWALL: u16 = 0x0008;
+pub(crate) const DIAMOND_COLID_FLOOR: u16 = 0x000C;
+pub(crate) const DIAMOND_COLID_CEILING: u16 = 0x0010;
+pub(crate) const DIAMOND_COLID_SLOPEUP: u16 = 0x0014;
+pub(crate) const DIAMOND_COLID_SLOPEDOWN: u16 = 0x0018;
+pub(crate) const DIAMOND_COLID_HURT: u16 = 0x001C;
+pub(crate) const DIAMOND_COLID_KIDRIGHT: u16 = 0x0020;
+pub(crate) const DIAMOND_COLID_KIDLEFT: u16 = 0x0024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -4602,6 +4602,8 @@ pub(crate) fn diamond_high_hp_fall_y_velocity_loc_3ae78() -> i32 {
     0x0001_C000
 }
 
+pub(crate) const DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2: u16 = 0xAEB2;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DiamondHighHpBerzerkerSideGateRouteLoc3AE84 {
@@ -4905,6 +4907,8 @@ pub(crate) fn diamond_low_hp_berzerker_side_gate_loc_3af24(
         y_velocity: -0x0004_8000,
     })
 }
+
+pub(crate) const DIAMOND_LOW_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AF50: u16 = 0xAF50;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -10583,6 +10587,27 @@ pub(crate) fn step_active_enemies_with_rng(
                         if enemy.scorpion_sting_frames == 0 {
                             enemy.walk_speed_override = 0;
                         }
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Diamond)
+                        && enemy.wait_timer == DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2
+                    {
+                        step_diamond_high_hp_berzerker_launch(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Diamond)
+                        && enemy.wait_timer == DIAMOND_LOW_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AF50
+                    {
+                        step_diamond_low_hp_berzerker_launch(enemy);
+                        continue;
+                    }
+                    if matches!(enemy.family, EnemyFamily::Diamond) && enemy.damage_flash_frames > 0
+                    {
+                        // ASM Diamond.asm loc_3ADFA/loc_3AEF8 hibernates on
+                        // `stru_3ACBE` after nonfatal hurt collisions before
+                        // restoring the live Diamond animation.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
                         continue;
                     }
                     if matches!(enemy.family, EnemyFamily::Diamond) && enemy.hit_points > 3 {
@@ -17907,6 +17932,22 @@ pub(crate) fn step_diamond_high_hp(
         DiamondHighHpCollisionRouteLoc3ADA4::Damage
         | DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate => {}
     }
+}
+
+pub(crate) fn step_diamond_high_hp_berzerker_launch(enemy: &mut ActiveEnemy) {
+    // ASM Diamond.asm loc_3AEB2: move the launched Diamond with its current
+    // y velocity, hibernate/run `sub_3C3CE`, then add `$4000` gravity.
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    let tick = diamond_high_hp_berzerker_launch_tick_loc_3aeb2(enemy.y_velocity);
+    enemy.y_velocity = tick.next_y_velocity;
+}
+
+pub(crate) fn step_diamond_low_hp_berzerker_launch(enemy: &mut ActiveEnemy) {
+    // ASM Diamond.asm loc_3AF50 mirrors loc_3AEB2 for the low-HP shared-walker
+    // Diamond path after charging-Berzerker side contact.
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    let tick = diamond_low_hp_berzerker_launch_tick_loc_3af50(enemy.y_velocity);
+    enemy.y_velocity = tick.next_y_velocity;
 }
 
 fn diamond_high_hp_collision_type(

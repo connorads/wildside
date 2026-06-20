@@ -15756,6 +15756,141 @@ mod chunk_03 {
     }
 
     #[test]
+    fn diamond_high_hp_pending_hurt_collision_enters_loc_3adfa() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut diamond = test_enemy(EnemyFamily::Diamond, 0x0080_0000, 0x0040_0000, 5);
+        diamond.layout_index = 116;
+        diamond.x_velocity = 0x0001_8000;
+        diamond.y_velocity = 0x0000_8000;
+        runtime.active_enemies = vec![diamond];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: diamond.segment_index,
+                layout_index: diamond.layout_index,
+                collision_type: DIAMOND_COLID_HURT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let diamond = runtime.active_enemies[0];
+        assert_eq!(
+            diamond.hit_points, 4,
+            "ASM Diamond.asm loc_3ADA4 -> loc_3ADFA decrements high-HP Diamond `$44(a3)` for live `colid_hurt`"
+        );
+        assert_eq!(diamond.x_velocity, 0);
+        assert_eq!(diamond.y_velocity, 0);
+        assert_eq!(
+            diamond.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
+            "native damage flash represents loc_3ADFA hibernating on `stru_3ACBE` before restoring `stru_3ACA8`"
+        );
+        assert!(!diamond.death_animation_active);
+    }
+
+    #[test]
+    fn diamond_low_hp_pending_terminal_hurt_collision_enters_loc_3aee6() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut diamond = test_enemy(EnemyFamily::Diamond, 0x0080_0000, 0x0040_0000, 1);
+        diamond.layout_index = 117;
+        let killed_identity = (diamond.segment_index, diamond.layout_index);
+        runtime.active_enemies = vec![diamond];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: diamond.segment_index,
+                layout_index: diamond.layout_index,
+                collision_type: DIAMOND_COLID_HURT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Diamond.asm loc_3AEC4 -> loc_3AEE6 waits for `stru_3ACC4` before the shared delete tail"
+        );
+        let diamond = runtime.active_enemies[0];
+        assert_eq!(diamond.hit_points, 0);
+        assert_eq!(diamond.wait_timer, DIAMOND_DEATH_ANIMATION_FRAMES);
+        assert!(diamond.death_animation_active);
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn diamond_high_hp_pending_side_collision_enters_loc_3ae84_launch() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        let mut diamond = test_enemy(EnemyFamily::Diamond, 0x0080_0000, 0x0040_0000, 5);
+        diamond.layout_index = 118;
+        diamond.x_velocity = 0x0001_8000;
+        diamond.y_velocity = 0;
+        diamond.on_ground = true;
+        runtime.active_enemies = vec![diamond];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: diamond.segment_index,
+                layout_index: diamond.layout_index,
+                collision_type: DIAMOND_COLID_KIDLEFT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let diamond = runtime.active_enemies[0];
+        assert_eq!(
+            diamond.hit_points, 5,
+            "ASM Diamond.asm loc_3AE84 bypasses HP damage for charging-Berzerker side contact"
+        );
+        assert_eq!(diamond.x_velocity, 0);
+        assert_eq!(diamond.y_velocity, -0x0004_8000);
+        assert!(!diamond.on_ground);
+        assert_eq!(
+            diamond.wait_timer, DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2,
+            "pending high-HP side contact should enter the loc_3AEB2 airborne loop"
+        );
+    }
+
+    #[test]
+    fn diamond_low_hp_pending_side_collision_enters_loc_3af24_launch() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        let mut diamond = test_enemy(EnemyFamily::Diamond, 0x0080_0000, 0x0040_0000, 2);
+        diamond.layout_index = 119;
+        diamond.x_velocity = 0x0001_0000;
+        diamond.y_velocity = 0;
+        diamond.on_ground = true;
+        runtime.active_enemies = vec![diamond];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: diamond.segment_index,
+                layout_index: diamond.layout_index,
+                collision_type: DIAMOND_COLID_KIDRIGHT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let diamond = runtime.active_enemies[0];
+        assert_eq!(
+            diamond.hit_points, 2,
+            "ASM Diamond.asm loc_3AF24 bypasses HP damage for charging-Berzerker side contact"
+        );
+        assert_eq!(diamond.x_velocity, 0);
+        assert_eq!(diamond.y_velocity, -0x0004_8000);
+        assert!(!diamond.on_ground);
+        assert_eq!(
+            diamond.wait_timer, DIAMOND_LOW_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AF50,
+            "pending low-HP side contact should enter the loc_3AF50 airborne loop"
+        );
+    }
+
+    #[test]
     fn dragon_walking_death_waits_for_stru_3ccec_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x0080_0000, 0x0040_0000, 1);

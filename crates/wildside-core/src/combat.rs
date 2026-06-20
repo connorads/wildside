@@ -8605,6 +8605,102 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::Diamond) {
+                if enemy.hit_points > 3 {
+                    match diamond_high_hp_collision_dispatch_loc_3ada4(
+                        collision.collision_type,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                    )
+                    .route
+                    {
+                        DiamondHighHpCollisionRouteLoc3ADA4::Damage => {
+                            let damage =
+                                diamond_high_hp_damage_loc_3adfa(u16::from(enemy.hit_points));
+                            enemy.hit_points =
+                                damage.remaining_hitpoints.min(u16::from(u8::MAX)) as u8;
+                            match damage.route {
+                                DiamondHighHpDamageRouteLoc3ADFA::HurtAnimation => {
+                                    // ASM Diamond.asm loc_3ADFA: nonterminal
+                                    // `colid_hurt` stops the high-HP Diamond,
+                                    // hibernates on `stru_3ACBE`, then restores
+                                    // the physics-ball animation.
+                                    enemy.x_velocity = 0;
+                                    enemy.y_velocity = 0;
+                                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                    changed_enemy_state = true;
+                                }
+                                DiamondHighHpDamageRouteLoc3ADFA::DeathAnimation => {
+                                    kill_indices.push(active_idx);
+                                }
+                            }
+                        }
+                        DiamondHighHpCollisionRouteLoc3ADA4::BerzerkerSideGate => {
+                            if let DiamondHighHpBerzerkerSideGateRouteLoc3AE84::Launch(launch) =
+                                diamond_high_hp_berzerker_side_gate_loc_3ae84(berzerker_charging)
+                            {
+                                // ASM Diamond.asm loc_3AE84: charging
+                                // Berzerker side contact bypasses HP damage
+                                // and enters the loc_3AEB2 airborne loop.
+                                enemy.x_velocity = launch.x_velocity;
+                                enemy.y_velocity = launch.y_velocity;
+                                enemy.on_ground = false;
+                                enemy.wait_timer =
+                                    DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2;
+                                enemy.damage_flash_frames = 0;
+                                changed_enemy_state = true;
+                            }
+                        }
+                        DiamondHighHpCollisionRouteLoc3ADA4::Loop
+                        | DiamondHighHpCollisionRouteLoc3ADA4::Fall { .. }
+                        | DiamondHighHpCollisionRouteLoc3ADA4::Bounce { .. }
+                        | DiamondHighHpCollisionRouteLoc3ADA4::Slope { .. } => {}
+                    }
+                } else {
+                    match diamond_low_hp_collision_dispatch_loc_3aec4(
+                        collision.collision_type as i16,
+                        u16::from(enemy.hit_points),
+                    ) {
+                        DiamondLowHpCollisionRouteLoc3AEC4::DeathAnimation => {
+                            kill_indices.push(active_idx);
+                        }
+                        DiamondLowHpCollisionRouteLoc3AEC4::HurtAnimation { remaining_hp } => {
+                            // ASM Diamond.asm loc_3AEC4 -> loc_3AEF8:
+                            // low-HP `colid_hurt` decrements HP, hibernates on
+                            // `stru_3ACBE`, clears collision, then resumes the
+                            // shared walker tail at loc_3AF14.
+                            enemy.hit_points = remaining_hp.min(u16::from(u8::MAX)) as u8;
+                            enemy.x_velocity = 0;
+                            enemy.y_velocity = 0;
+                            enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                            changed_enemy_state = true;
+                        }
+                        DiamondLowHpCollisionRouteLoc3AEC4::BerzerkerSideGate => {
+                            let x_direction_flipped = matches!(enemy.facing, Direction::Right);
+                            if let DiamondLowHpBerzerkerSideGateRouteLoc3AF24::Launch(launch) =
+                                diamond_low_hp_berzerker_side_gate_loc_3af24(
+                                    berzerker_charging,
+                                    x_direction_flipped,
+                                )
+                            {
+                                // ASM Diamond.asm loc_3AF24: charging
+                                // Berzerker side contact bypasses HP damage
+                                // and enters the loc_3AF50 airborne loop.
+                                enemy.x_velocity = launch.x_velocity;
+                                enemy.y_velocity = launch.y_velocity;
+                                enemy.on_ground = false;
+                                enemy.wait_timer =
+                                    DIAMOND_LOW_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AF50;
+                                enemy.damage_flash_frames = 0;
+                                changed_enemy_state = true;
+                            }
+                        }
+                        DiamondLowHpCollisionRouteLoc3AEC4::ResumeSharedWalker { .. } => {}
+                    }
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
                 let route =
                     if enemy.wait_timer == MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200 {
