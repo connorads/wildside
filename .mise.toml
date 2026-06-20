@@ -53,7 +53,7 @@ run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-level"
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- verify-gameplay --all"
 
 [tasks.verify-slice-fast]
-depends = ["verify-tas-frontier"]
+depends = ["verify-tas-frontier", "backlog-lint"]
 run = """
 scripts/strict-rust.sh sh -ec '
 cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas --skip snapshot \
@@ -88,6 +88,10 @@ description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares,
 [tasks.project-status]
 run = "cargo run -q -p wildside-cli -- project-status"
 description = "Summarise repo health: 1P-playable first, 1P-accurate second, backlog risks and human blockers"
+
+[tasks.backlog-lint]
+run = "cargo run -q -p wildside-cli -- backlog-lint"
+description = "Enforce backlog hygiene: NOW size, lean open-queue Verify cells, lane/status consistency (runs in verify-slice-fast)"
 
 [tasks.completion-audit]
 run = "cargo run -q -p wildside-cli -- project-status --fail-on-human-blockers"

@@ -893,6 +893,8 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         fail_on_human_blockers: bool,
     },
+    /// Enforce backlog hygiene: NOW size, lean open-queue Verify cells, lane consistency.
+    BacklogLint,
     /// Deep diagnosis of a single failing level.
     DiagnoseLevel {
         #[arg(long)]
@@ -2140,6 +2142,10 @@ fn main() -> Result<()> {
         } => {
             let repo_root = current_dir()?;
             run_project_status(&repo_root, format, fail_on_human_blockers)?;
+        }
+        Commands::BacklogLint => {
+            let repo_root = current_dir()?;
+            backlog::run_backlog_lint(&repo_root)?;
         }
         Commands::DiagnoseLevel { rom, dir, level } => {
             let repo_root = current_dir()?;
