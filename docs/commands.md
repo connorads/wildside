@@ -3,7 +3,7 @@
 The full `wildside` / `mise run` surface for Wildside. The [README](../README.md)
 covers the everyday subset; this is the catalogue.
 
-Verification tasks intentionally fail on Rust warnings. Use `mise run verify-*`,
+Verification tasks fail on Rust warnings on purpose. Use `mise run verify-*`,
 `mise run test`, `mise run verify-slice-fast`, `mise run verify-slice-full`,
 `mise run verify-1p-playable`, `mise run release-gate`, and the sweep tasks when
 you want a clean warning-free gate; use `mise run play` or `mise run play-native`
@@ -53,7 +53,7 @@ cargo run --release -p wildside-cli -- play-native --scale 3
 cargo run --release -p wildside-cli -- play-native --debug-overlay
 ```
 
-The player shell searches for a ROM in this order — `./roms/kid.bin`, then
+The player shell searches for a ROM in this order: `./roms/kid.bin`, then
 `./kid.bin`, then `./kc.md`. If none is found, `play` shows an in-app error
 screen listing the paths it checked.
 
@@ -88,7 +88,7 @@ Player shell features:
 - Main menu: `Start Game`, `Options`, `Quit`
 - Pause menu: `Resume`, `Restart Run`, `Return To Title`, `Options`, `Quit To Desktop`
 - Options persist under `~/.config/kid-chameleon/config.toml` or `$XDG_CONFIG_HOME/kid-chameleon/config.toml`
-- Persistent settings: display scale (`auto`, `1x`–`4x`), fullscreen, master/music/sfx volume, mute, keyboard bindings
+- Persistent settings: display scale (`auto`, `1x`-`4x`), fullscreen, master/music/sfx volume, mute, keyboard bindings
 - If SDL audio init fails, the shell continues silently and shows a warning toast instead of exiting
 
 `Restart Run` restarts the game from boot. It does not yet restore the current
@@ -166,7 +166,7 @@ cargo run -p wildside-cli -- verify-recording --slug level1-tree-break
 cargo run -p wildside-cli -- verify-recording --bundle /tmp/level1-tree-break
 ```
 
-Freeze repro on the default boot path — reproduce the stall, then press `F10` to
+Freeze repro on the default boot path. Reproduce the stall, then press `F10` to
 save the bundle and exit:
 
 ```bash
@@ -286,8 +286,8 @@ For the source-port research map and local reference layout, start with
 
 Loop sessions follow [`docs/source-port/loop.md`](source-port/loop.md): the
 human-ordered backlog table is the queue and the NOW block at its top is the
-session handoff (the old autonomous-loop orchestrator and RL prompt machinery
-were removed — see tag `pre-autonomy-demolition`). Loop sessions are stateless
+session handoff. The old autonomous-loop orchestrator and RL prompt machinery
+were removed (see tag `pre-autonomy-demolition`). Loop sessions are stateless
 between runs. Historical goal contracts from the retired orchestrator remain at
 `docs/source-port/level-1-goal.json`,
 `docs/source-port/level-1-gameplay-lifecycle-goal.json`, and

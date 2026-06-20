@@ -1,30 +1,22 @@
 # Research Map
 
-This map records what the source port still needs to learn, where to source that knowledge, and what the Rust target should look like.
+What the source port still needs to learn, where to source that knowledge, and what the Rust target should look like.
 
 ## Development philosophy
 
-**Progressive fidelity**: get it playable, then get it accurate. Every system starts approximate and is refined with oracle comparison. Native-playability evidence is the primary programme-health signal; the oracle (`jgenesis`) is the primary parity oracle and safety net.
+Progressive fidelity: get it playable, then get it accurate. Every system starts approximate and is refined with oracle comparison. Native-playability evidence is the primary programme-health signal. The oracle (`jgenesis`) is the parity oracle and safety net.
 
 ## Current frontier
 
-The live TAS frontier is currently closed:
+The live TAS frontier is closed:
 
 - `kc_any_percent_2024` is authoritative-clean through frame `4916`
 - `any-percent-published` is authoritative-clean through frame `37759`
 - `tas-era-ledger.md` holds the retired TAS-frontier ledger; `mise run verify-tas-full` re-checks the published route
 
-That is not the same thing as whole-game completion. As of the 2026-05-18
-completion audit, the current 1P source-port phase has no open phase blockers:
-`project-status` reports `1p-playable` and `1p-accurate` green, the published TAS
-frontier is replay-matched through frame 37759, the canonical backlog has no open
-phase rows, and the human-validation checklist is empty. Future work should now
-come from fresh reports, post-phase fidelity debt, or broader verification lanes
-rather than reopening stale TAS/frontier prose. Loop sessions follow `docs/source-port/loop.md`: the human-ordered backlog table is the queue, the NOW block is the handoff, and the proactive-verification fallback (mutation testing, enemy audit, ASM coverage) covers the no-actionable-item case. `wildside-cli project-status` remains the top-level status surface, with 1P-playable and visual risks ahead of TAS completion prose.
+That is not whole-game completion. As of the 2026-05-18 completion audit, the 1P source-port phase has no open phase blockers: `project-status` reports `1p-playable` and `1p-accurate` green, the published TAS frontier is replay-matched through frame 37759, the canonical backlog has no open phase rows, and the human-validation checklist is empty. Future work should come from fresh reports, post-phase fidelity debt, or broader verification lanes, not from reopening stale TAS/frontier prose. Loop sessions follow `docs/source-port/loop.md`: the human-ordered backlog table is the queue, the NOW block is the handoff, and the proactive-verification fallback (mutation testing, enemy audit, ASM coverage) covers the no-actionable-item case. `wildside-cli project-status` remains the top-level status surface, with 1P-playable and visual risks ahead of TAS completion prose.
 
-Historical post-TAS verification split as of 2026-04-22 (commands referencing the
-retired orchestrator are kept as a dated record; the orchestrator was removed in
-the 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
+Historical post-TAS verification split as of 2026-04-22. Commands referencing the retired orchestrator are kept as a dated record; the orchestrator was removed in the 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`:
 
 - `cargo run -p wildside-cli -- autonomous-loop --goal sweep-parity` completed the delegated lane again (`cycle=127` locally). The old `stalled_fingerprint` / `refresh_evidence` package remains superseded by fresh gate/sweep evidence; the regenerated source-port package is now cycle `600` with fingerprint `gate-1776819385:sweep-1776819420`.
 - `cargo run --release -p wildside-cli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels again with zero failed/error levels. The latest direct sweep report is `.cache/sweep-runs/1776819377/report.json` (`advisory=178`, `oracle_limitation=662`), and the release-gate-embedded sweep then refreshed `.cache/sweep-runs/1776819420/report.json` with the same zero-blocking classification. The CLI still reports mixed advisory/oracle-limitation levels as `NON-BLOCKING`, and the persisted state-sweep artefact remains the canonical source for field histograms, level IDs, checkpoint counts, and any `release_gate_focus` entries when a gate is red.
@@ -33,11 +25,11 @@ the 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
 - `mise run release-gate` also refreshes `.cache/autonomy/source-port-frontier/next-task.json` and `.cache/autonomy/source-port-frontier/next-agent.md` after it writes `latest.json`, so run the delegated sweep-parity commands serially in order (`autonomous-loop`, then `sweep`, then `release-gate`). Do not fan those three commands out in parallel: they all touch the same Cargo target directory, and the handoff is only complete once the release-gate write lands after the refreshed sweep artefact.
 - The handoff refresh should treat `.cache/sweep-runs/<timestamp>/report.json` as a first-class persisted state-sweep artefact, not just `sweep-history.jsonl`. If history append lags but the fresh sweep report already contains the newest state-sweep summary, the next-agent note must cite that newer report timestamp/path rather than reusing an older history entry.
 - The sweep-parity progress fingerprint includes the latest release-gate timestamp and the latest persisted state-sweep timestamp. If the lane repeats after a green refresh, check whether those two artefact timestamps actually advanced before treating it as new evidence; stale timestamps intentionally still count as the same stalled lane.
-- Automation still keys red-gate correlation by concrete release-gate focus metadata first (`target`, `step_name`, `checkpoint`, `field`, and exact native/oracle pair when present), then falls back to field-only matching for older sweep-history entries that predate the richer schema. That prevents a later `game_mode` failure in one gate target from accidentally borrowing the wrong summary from another target just because both surfaced the same field name.
+- Automation still keys red-gate correlation by concrete release-gate focus metadata first (`target`, `step_name`, `checkpoint`, `field`, and exact native/oracle pair when present), then falls back to field-only matching for older sweep-history entries that predate the richer schema. That prevents a later `game_mode` failure in one gate target from borrowing the wrong summary from another target just because both surfaced the same field name.
 
 ## Canonical status language
 
-Use the evidence ladder below when describing progress:
+Use this evidence ladder when describing progress:
 
 - `stubbed`
 - `boots`
@@ -46,156 +38,149 @@ Use the evidence ladder below when describing progress:
 - `mechanic-swept`
 - `human-play-stable`
 
-Current TAS milestones prove `replay-matched` on their covered routes. They do not, by
-themselves, prove `human-play-stable`.
+Current TAS milestones prove `replay-matched` on their covered routes. They do not by themselves prove `human-play-stable`.
 
 ## Done
 
 ### Boot and title
-- Done: typed boot/title state machine (`BootState` enum)
-- Done: mode flow, title timing, oracle-backed title readiness and intro-skip handling
-- Done: TAS-backed early boot slice parity across 3 imported recordings (first 250 frames, 0 authoritative diffs)
+- Typed boot/title state machine (`BootState` enum)
+- Mode flow, title timing, oracle-backed title readiness and intro-skip handling
+- TAS-backed early boot slice parity across 3 imported recordings (first 250 frames, 0 authoritative diffs)
 - Source: `kid.asm`, oracle checkpoints
 
 ### Level load
-- Done: header parsing, asset pointers, `LevelBundle` loading from extracted assets
-- Done: typed asset manifest with level headers, enemy layouts, platform layouts
+- Header parsing, asset pointers, `LevelBundle` loading from extracted assets
+- Typed asset manifest with level headers, enemy layouts, platform layouts
 - Source: `doc/formats.txt`, `level/header/00.bin`, generated asset manifest
 
 ### Player physics and camera
-- Done: real input-driven physics from disassembly speed tables, jump formula, gravity, camera follow
-- Done: `physics.rs` module with pure functions for horizontal velocity, jump, gravity, camera
-- Done: speed tables for 3 terrain types x 3 form variants
+- Real input-driven physics from disassembly speed tables, jump formula, gravity, camera follow
+- `physics.rs` module with pure functions for horizontal velocity, jump, gravity, camera
+- Speed tables for 3 terrain types x 3 form variants
 - Source: `kid.asm` speed tables (`unk_9C0A`), `sub_A432` (jump), `kid.asm:14060` (gravity), `sub_71E4` (camera)
 
 ### Gameplay lifecycle
-- Done: pause/resume, death windup/hiding/respawn settle
-- Done: damage invulnerability (300 frames)
+- Pause/resume, death windup/hiding/respawn settle
+- Damage invulnerability (300 frames)
 - Source: oracle gameplay checkpoints
 
 ### Level 1 visuals
-- Done: manifest-backed Level 1 visual loading and asset-backed native scene output
-- Done: ROM-backed HUD, player, background, terrain, visible platforms, and visible Level 1 families on the default render path
+- Manifest-backed Level 1 visual loading and asset-backed native scene output
+- ROM-backed HUD, player, background, terrain, visible platforms, and visible Level 1 families on the default render path
 - Source: generated bundle contract, `wildside-render`, `wildside_cli::native_player`
 
 ### Object activation and tracing
-- Done: enemy roster built from camera window, platform preload + activation window
-- Done: native trace surface now records stable enemy layout identity and motion/state fields
+- Enemy roster built from camera window, platform preload + activation window
+- Native trace surface records stable enemy layout identity and motion/state fields
 - Source: `doc/ram_layout.txt`, enemy layouts
 
 ## Traversal closure
 
 ### Default runtime terrain authority
-- Done: `NativeRuntime::new` now reloads generated `Level_Layout` terrain on construction
-- Done: the default runtime path no longer depends on a separate explicit generated-terrain mode for Level 1 gameplay
+- `NativeRuntime::new` reloads generated `Level_Layout` terrain on construction
+- The default runtime path no longer depends on a separate explicit generated-terrain mode for Level 1 gameplay
 - Source: `wildside-core`, generated Level 1 bundle, `doc/formats.txt`
 
 ### Traversal parity
-- Done: `compare-native-gameplay --scenario progress-two-transitions` passes on the default path
-- Done: pause/resume and death/respawn stay green on the same default path
-- Done: the long traversal script now takes the first opening Dragon hit on the oracle frame (`749`) under walk-only input as well as the existing run-held regression
-- Done: `diagnose-native-gameplay-drift --scenario progress-two-transitions --from-frame 719` now reports no live drift after the skip choreography and Level 2 transition-arc fixes
+- `compare-native-gameplay --scenario progress-two-transitions` passes on the default path
+- Pause/resume and death/respawn stay green on the same default path
+- The long traversal script takes the first opening Dragon hit on the oracle frame (`749`) under walk-only input as well as the existing run-held regression
+- `diagnose-native-gameplay-drift --scenario progress-two-transitions --from-frame 719` reports no live drift after the skip choreography and Level 2 transition-arc fixes
 - Source: `.cache/native-gameplay-oracle-runs/progress_two_transitions/`, gameplay comparison harness
 
 ### Enemy fidelity after traversal
 - `Diamond` remains stationary and collectible
 - `MiniHoppingSkull` uses a hopper loop in the native runtime
-- Done: Pacer archetype for 6 Tier 1 families (Goat, Armadillo, Tank, Crab, Scorpion, Driller)
-- Done: family-specific HP initialisation from ASM init routines
-- Done: Cloud (horizontal flight + wall reversal), Sphere (gravity bounce), BigHoppingSkull (parameterised hopper)
-- Done: Fireball (gravity bounce with level-dependent gravity), EmoRock/Archer (Inert stubs)
-- Done: All 28 enemy families wired — Tier 3-4 mapped to closest archetypes (Pacer/Flyer/Hopper/Bouncer/Inert)
+- Pacer archetype for 6 Tier 1 families (Goat, Armadillo, Tank, Crab, Scorpion, Driller)
+- Family-specific HP initialisation from ASM init routines
+- Cloud (horizontal flight + wall reversal), Sphere (gravity bounce), BigHoppingSkull (parameterised hopper)
+- Fireball (gravity bounce with level-dependent gravity), EmoRock/Archer (Inert stubs)
+- All 28 enemy families wired. Tier 3-4 mapped to closest archetypes (Pacer/Flyer/Hopper/Bouncer/Inert)
 - Source: `code/enemy/*.asm`, oracle per-object traces
 
 ## Remaining work
 
-### Visual fidelity — sprite extraction
-- **#033** [x] Transform animation visual sprites — original `Kid_Transform` art and timing are now wired for all forms. Juggernaut now composes the split head/base sprites into native player frames.
-- Fire Demon death trail visual sprites — live play now renders the `Fire_Demon.asm` `stru_3A622` ROM frames for the death-trail signature (#025). The core still carries this with native projectile snapshots rather than the original child-object lifecycle.
-- Floating item ROM sprites — diamond, helmets, Ankh, Clock, Continue, and the early `10000`/`10 diamonds` worker bursts now use ROM sprite assets. Remaining visual debt is late worker lifecycle parity for those effect-like rewards after the first burst window.
+### Visual fidelity, sprite extraction
+- **#033** [x] Transform animation visual sprites. Original `Kid_Transform` art and timing are wired for all forms. Juggernaut composes the split head/base sprites into native player frames.
+- Fire Demon death trail visual sprites. Live play renders the `Fire_Demon.asm` `stru_3A622` ROM frames for the death-trail signature (#025). The core still carries this with native projectile snapshots rather than the original child-object lifecycle.
+- Floating item ROM sprites. Diamond, helmets, Ankh, Clock, Continue, and the early `10000`/`10 diamonds` worker bursts use ROM sprite assets. Remaining visual debt is late worker lifecycle parity for those effect-like rewards after the first burst window.
 
-### Visual fidelity — rendering accuracy (not yet investigated)
-- **Palette cycling per theme**: some themes animate palette entries (water shimmer done). Lava, neon, and other themes may have CRAM cycling in the VBlank handler. Trace `kid.asm` VBlank for CRAM writes per theme ID. Extract cycle tables (which entries, rotation speed, colour sequence).
-- **Sprite priority/layering**: VDP sprite priority bit determines front/behind-BG rendering. Some sprites intentionally render behind background (hiding behind pillars). Search ASM for priority bit usage, compare frame captures on levels with sprite-background overlap.
-- **HUD positioning accuracy**: compare HUD element pixel positions against oracle — lives icon, HP bar segments, timer digits, score digits, diamond count, diamond icon. Capture frame, overlay oracle, diff.
-- **Background scroll accuracy per theme**: 11 themes each have background scroll configurations (parallax rates, layer ordering). Verify `background_scroll_x_px()` rates are correct per theme by comparing background-only layer at several camera positions against oracle.
-- **Block destruction particle effects**: verify particle spawn positions, velocities, colours, and lifetime match ASM. Break blocks in multiple themes, capture debris frames, compare to oracle.
-- **Enemy death animations**: verify enemy death visual effects (explosion, fade, particle) match ASM per family. Stomp enemies, capture death frame, compare to oracle.
-- **Invulnerability flicker accuracy**: verify flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to oracle frame sequence.
+### Visual fidelity, rendering accuracy (not yet investigated)
+- Palette cycling per theme: some themes animate palette entries (water shimmer done). Lava, neon, and other themes may have CRAM cycling in the VBlank handler. Trace `kid.asm` VBlank for CRAM writes per theme ID. Extract cycle tables (which entries, rotation speed, colour sequence).
+- Sprite priority/layering: the VDP sprite priority bit determines front/behind-BG rendering. Some sprites intentionally render behind background (hiding behind pillars). Search ASM for priority bit usage, compare frame captures on levels with sprite-background overlap.
+- HUD positioning accuracy: compare HUD element pixel positions against oracle (lives icon, HP bar segments, timer digits, score digits, diamond count, diamond icon). Capture frame, overlay oracle, diff.
+- Background scroll accuracy per theme: 11 themes each have background scroll configurations (parallax rates, layer ordering). Verify `background_scroll_x_px()` rates are correct per theme by comparing the background-only layer at several camera positions against oracle.
+- Block destruction particle effects: verify particle spawn positions, velocities, colours, and lifetime match ASM. Break blocks in multiple themes, capture debris frames, compare to oracle.
+- Enemy death animations: verify enemy death visual effects (explosion, fade, particle) match ASM per family. Stomp enemies, capture death frame, compare to oracle.
+- Invulnerability flicker accuracy: verify the flicker pattern (which frames visible/invisible) matches ASM. Verify Diamond Power overlay colour. Take damage, capture flicker frames, compare to the oracle frame sequence.
 
 ### Gameplay fidelity (current 1P phase complete; reopen only with fresh evidence)
-- **#037** [x] Floor-snap settling diffs — done. The final `0x24` / `0x51` 1px `camera_y` tail now uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
-- **#062** [x] HeadyMetal death wobble visual — covered by effects-only render regressions that use visible body/eye tiles and assert the full sprite footprints plus two-frame wobble phase flip at each ASM timer boundary.
-- **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames respectively). Only reopen a TAS frontier when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
-- **Native playability** [x] recurring player-facing failures now live in
-  `backlog.md` with canonical evidence, and the 2026-05-18 audit closed the
-  remaining human-validation and scripted Level 2 death/loading decisions. Reopen
-  this area only with a fresh recording, backlog row, or failing gate.
+- **#037** [x] Floor-snap settling diffs. Done. The final `0x24` / `0x51` 1px `camera_y` tail uses the oracle-backed hidden init camera carry, while `0x29` and `0x52` stay locked down by their focused regression tests.
+- **#062** [x] HeadyMetal death wobble visual. Covered by effects-only render regressions that use visible body/eye tiles and assert the full sprite footprints plus the two-frame wobble phase flip at each ASM timer boundary.
+- **TAS recordings** [x] `kc_any_percent_2024` and `any-percent-published` are both authoritative-clean through their recorded endpoints (`4916` and `37759` frames). Reopen a TAS frontier only when a fresh `verify-tas --bisect` run proves a new authoritative mismatch.
+- **Native playability** [x] recurring player-facing failures live in `backlog.md` with canonical evidence, and the 2026-05-18 audit closed the remaining human-validation and scripted Level 2 death/loading decisions. Reopen this area only with a fresh recording, backlog row, or failing gate.
 
 ### Game flow verification
-- **#132** [x] 2-player alternating mode — strong native scenarios now cover game-over-before-swap, continue respawn for the same player, preservation of the other slot, and continue timeout returning to title.
-- **#133** [x] Password/options scope — ASM audit found no stock-ROM password entry path; native options now mirror the ROM four-row options menu.
+- **#132** [x] 2-player alternating mode. Strong native scenarios cover game-over-before-swap, continue respawn for the same player, preservation of the other slot, and continue timeout returning to title.
+- **#133** [x] Password/options scope. ASM audit found no stock-ROM password entry path; native options now mirror the ROM four-row options menu.
 
 ### Enemy behaviour gaps (tracked in `asm-coverage.yaml`)
-These items are now tracked systematically via `wildside-cli asm-coverage --uncovered --subsystem enemy`.
+Tracked systematically via `wildside-cli asm-coverage --uncovered --subsystem enemy`.
 High impact: ~~Archer arrow lifetime + re-aiming~~ (FIXED), ~~Tornado Cyclone-flying interaction~~ (FIXED), ~~Crab proximity freeze~~ (FIXED), ~~Dragon Flying wall-reversal~~ (FIXED).
 Medium impact: ~~Sphere/Fireball slope deflection~~ (FIXED).
 Low impact: Dragon Flying collision-recovery during Descent and death status-table route fixed.
 
 ### Oracle sweep hardening
-- **Advisory field promotion**: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` still masked in sweep. Unmask one at a time, run sweep, fix divergences. `number_objects` may require architectural changes if native object activation/deactivation timing differs from oracle.
-- **Framewise checksumming**: `wildside-cli sweep --checksum` now records the first per-level authoritative CRC mismatch in `.cache/sweep-runs/<timestamp>/report.json`, using the same native/oracle CRC contract as TAS verification. Remaining hardening: promote this from optional report evidence into release-gate policy once the acceptable oracle-limitation windows are classified.
-- **Divergence classification output**: sweep history now persists per-run `divergence_summary` totals, a cross-level `field_summary` histogram with per-field category counts, BCD `level_ids`, unique checkpoint labels, per-checkpoint diff counts, and `release_gate_focus`, plus per-level category/field summaries in `.cache/metrics/sweep-history.jsonl`; the sweep report mirrors the same `field_summary` and `release_gate_focus`, while the flatter `.cache/metrics/sweep-telemetry.jsonl` stream remains available for append-only metrics ingestion. `wildside-cli sweep` prints a focused field summary inline that correlates a failing release-gate field against the latest sweep classes (this correlation logic outlived the retired orchestrator). That summary includes the failing release-gate scenario/checkpoint, whether the matching histogram includes that scenario's own BCD level and checkpoint label, which checkpoints actually carried the field, whether the exact gate value pair ever appeared in sweep at all, and whether that exact pair matched the precise checkpoint label versus only some other checkpoint. That lets operators distinguish "same field name" from "same concrete divergence at the same checkpoint".
-- **Full-frame pixel comparison sweep**: `wildside-cli sweep --tier full` now uses the visual key-frame idle scenario (frames 0, 30, 60, 120, 300, plus idle tail) instead of the compact state-sweep checkpoints. The native full-frame bootstrap compensates for the ROM level-skip path's live title-card tail, so Level 0x01's first RockTank parent and turret child positions now line up with oracle frame 0 (`0x00A40000/0x00A48000`, facing right). The first live smoke, `cargo run -q -p wildside-cli -- sweep --levels 1 --tier full --max-failures 1`, now passes under the current MAE threshold after dropping the generated all-zero `PlatformScript_Nothing` sentinel from the active native roster and aligning the settled opening `number_objects` value at 4. `tas-diff --scenario <idle_level_full_frames_01.json> --frame-start 0 --frame-end 3 --frontier-kind enemy` is now clean after normalising oracle-only roster metadata, native-only debug hints, RockTank child `None`/`0` HP, and the existing +/-1px/frame enemy velocity capture tolerance. A later frame-300 RockTank roster drift was authoritative, not visual-only: native ran the rightward grounded walker scan after storing the predicted X position, while ASM `loc_3C04E -> loc_3C0A6/loc_3C0B4` runs `sub_36972` before `move.l d2,x_pos(a3)`, so a tile-boundary edge turn consumes the frame without advancing. `tas-diff --frame-start 292 --frame-end 302 --frontier-kind enemy` is now clean after moving that scan ahead of native movement. A renderer follow-up stopped drawing duplicate RockTank body/turret sprites when both parent and child snapshots are already present, reducing the committed Level 0x01 full-frame sweep to worst 6,695 mismatched pixels / MAE 3.9. A later renderer fix made `BackgroundScroll_ApplyForestWaterRipple` scanline-based instead of shifting whole 8px tiles, matching ASM `loc_30598`/`loc_3060A`; the same Level 0x01 full-frame sweep improved from worst 6,710 mismatched pixels / MAE 4.0 to 6,324 mismatched pixels / MAE 2.8. Disabling the forest foreground palette permutation as a hypothesis check was rejected because it worsened the sweep to roughly 41.7k mismatched pixels / MAE 44.1. The remaining full-frame Level 0x01 work is visual: roughly 6.0k-6.3k pixel mismatches still sit below the current MAE threshold, concentrated in foreground/background art-colour detail and ordinary HUD pixels, but block pixel parity needs a stricter release gate.
+- Advisory field promotion: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` are still masked in sweep. Unmask one at a time, run sweep, fix divergences. `number_objects` may require architectural changes if native object activation/deactivation timing differs from oracle.
+- Framewise checksumming: `wildside-cli sweep --checksum` records the first per-level authoritative CRC mismatch in `.cache/sweep-runs/<timestamp>/report.json`, using the same native/oracle CRC contract as TAS verification. Remaining hardening: promote this from optional report evidence into release-gate policy once the acceptable oracle-limitation windows are classified.
+- Divergence classification output: sweep history persists per-run `divergence_summary` totals, a cross-level `field_summary` histogram with per-field category counts, BCD `level_ids`, unique checkpoint labels, per-checkpoint diff counts, and `release_gate_focus`, plus per-level category/field summaries in `.cache/metrics/sweep-history.jsonl`; the sweep report mirrors the same `field_summary` and `release_gate_focus`, while the flatter `.cache/metrics/sweep-telemetry.jsonl` stream remains available for append-only metrics ingestion. `wildside-cli sweep` prints a focused field summary inline that correlates a failing release-gate field against the latest sweep classes (this correlation logic outlived the retired orchestrator). That summary includes the failing release-gate scenario/checkpoint, whether the matching histogram includes that scenario's own BCD level and checkpoint label, which checkpoints actually carried the field, whether the exact gate value pair ever appeared in sweep at all, and whether that exact pair matched the precise checkpoint label versus only some other checkpoint. That lets operators distinguish "same field name" from "same concrete divergence at the same checkpoint".
+- Full-frame pixel comparison sweep: `wildside-cli sweep --tier full` uses the visual key-frame idle scenario (frames 0, 30, 60, 120, 300, plus idle tail) instead of the compact state-sweep checkpoints. The native full-frame bootstrap compensates for the ROM level-skip path's live title-card tail, so Level 0x01's first RockTank parent and turret child positions line up with oracle frame 0 (`0x00A40000/0x00A48000`, facing right). The first live smoke, `cargo run -q -p wildside-cli -- sweep --levels 1 --tier full --max-failures 1`, passes under the current MAE threshold after dropping the generated all-zero `PlatformScript_Nothing` sentinel from the active native roster and aligning the settled opening `number_objects` value at 4. `tas-diff --scenario <idle_level_full_frames_01.json> --frame-start 0 --frame-end 3 --frontier-kind enemy` is clean after normalising oracle-only roster metadata, native-only debug hints, RockTank child `None`/`0` HP, and the existing +/-1px/frame enemy velocity capture tolerance. A later frame-300 RockTank roster drift was authoritative, not visual-only: native ran the rightward grounded walker scan after storing the predicted X position, while ASM `loc_3C04E -> loc_3C0A6/loc_3C0B4` runs `sub_36972` before `move.l d2,x_pos(a3)`, so a tile-boundary edge turn consumes the frame without advancing. `tas-diff --frame-start 292 --frame-end 302 --frontier-kind enemy` is clean after moving that scan ahead of native movement. A renderer follow-up stopped drawing duplicate RockTank body/turret sprites when both parent and child snapshots are already present, reducing the committed Level 0x01 full-frame sweep to worst 6,695 mismatched pixels / MAE 3.9. A later renderer fix made `BackgroundScroll_ApplyForestWaterRipple` scanline-based instead of shifting whole 8px tiles, matching ASM `loc_30598`/`loc_3060A`; the same Level 0x01 full-frame sweep improved from worst 6,710 mismatched pixels / MAE 4.0 to 6,324 mismatched pixels / MAE 2.8. Disabling the forest foreground palette permutation as a hypothesis check was rejected because it worsened the sweep to roughly 41.7k mismatched pixels / MAE 44.1. The remaining full-frame Level 0x01 work is visual: roughly 6.0k-6.3k pixel mismatches still sit below the current MAE threshold, concentrated in foreground/background art-colour detail and ordinary HUD pixels, but block pixel parity needs a stricter release gate.
 
 ### Testing infrastructure
-- **Semantic case bundles**: `wildside-cli case derive|branch|verify|reduce|summarise` now provide the phase-1 discovery lane. Use them to turn replay slices or native recordings into reduced semantic failure bundles before another broad gameplay patch.
-- **Case queue** (the autonomous queue runner was retired with the orchestrator; reduced case bundles in `.cache/cases` remain first-class evidence). As of 2026-05-18, the queue was blocked rather than patch-ready: `issue-143-knights-isle-probe` and `issue-146-level2-walk-right-probe` both reduce to settled-recording oracle-bootstrap limitations, not authoritative native gameplay failures.
-- **Native replay recording**: `play-native --record <slug>` and `verify-recording --slug <slug>` already exist for input + trace capture. Bundles now include ROM/build provenance, explicit replay commands, legacy `trace.json` schema backfill, copied-bundle verification via `--bundle <path>`, bundled `final-frame.png` + `audio.wav`, optional `notes.txt` via `--record-notes <path>`, and an automatic `transcript.txt` sidecar distilled from the native trace so copied bundles stay reviewable before replay.
-- **Mutation testing baseline**: `cargo mutants` exists but no recorded baseline. Run `cargo mutants -p wildside-core -- --lib`, target >=80% kill rate on `physics.rs` and `terrain.rs`. Record in `.cache/metrics/mutation-score.txt`.
-- **Fuzz testing for parsers**: set up `cargo fuzz` targets for level block grid parser (untrusted binary format), enemy spawn logic (layout data with unexpected IDs), audio bank loading (complex binary format). Run each for a few hours, fix crashes.
-- **Stateful property testing**: implement `proptest-state-machine` test for `PlayerLifecycle`. Model lifecycle as states with input-driven transitions. Generate random input sequences, assert invariants hold.
-- **1P playable gate**: `release-gate --target 1p-playable` is the native-playability headline. It covers the focused native smoke scenarios for Level 1/2 progression, death/respawn, slopes, bounce surfaces, common block interactions, and the all-level native gameplay self-consistency sweep over the 69 currently runnable levels. The current `1p-accurate` gate remains supporting oracle evidence, not the sole "game works" signal.
+- Semantic case bundles: `wildside-cli case derive|branch|verify|reduce|summarise` provide the phase-1 discovery lane. Use them to turn replay slices or native recordings into reduced semantic failure bundles before another broad gameplay patch.
+- Case queue (the autonomous queue runner was retired with the orchestrator; reduced case bundles in `.cache/cases` remain first-class evidence). As of 2026-05-18, the queue was blocked rather than patch-ready: `issue-143-knights-isle-probe` and `issue-146-level2-walk-right-probe` both reduce to settled-recording oracle-bootstrap limitations, not authoritative native gameplay failures.
+- Native replay recording: `play-native --record <slug>` and `verify-recording --slug <slug>` already exist for input + trace capture. Bundles include ROM/build provenance, explicit replay commands, legacy `trace.json` schema backfill, copied-bundle verification via `--bundle <path>`, bundled `final-frame.png` + `audio.wav`, optional `notes.txt` via `--record-notes <path>`, and an automatic `transcript.txt` sidecar distilled from the native trace so copied bundles stay reviewable before replay.
+- Mutation testing baseline: `cargo mutants` exists but no recorded baseline. Run `cargo mutants -p wildside-core -- --lib`, target >=80% kill rate on `physics.rs` and `terrain.rs`. Record in `.cache/metrics/mutation-score.txt`.
+- Fuzz testing for parsers: set up `cargo fuzz` targets for the level block grid parser (untrusted binary format), enemy spawn logic (layout data with unexpected IDs), and audio bank loading (complex binary format). Run each for a few hours, fix crashes.
+- Stateful property testing: implement a `proptest-state-machine` test for `PlayerLifecycle`. Model the lifecycle as states with input-driven transitions. Generate random input sequences, assert invariants hold.
+- 1P playable gate: `release-gate --target 1p-playable` is the native-playability headline. It covers the focused native smoke scenarios for Level 1/2 progression, death/respawn, slopes, bounce surfaces, common block interactions, and the all-level native gameplay self-consistency sweep over the 69 currently runnable levels. The current `1p-accurate` gate remains supporting oracle evidence, not the sole "game works" signal.
 
 ### Known deviations
-- The old five parked `DEVIATION:` items were burned down by backlog #131:
-  each was removed, reclassified, or explicitly deferred with evidence. Treat
-  any new `DEVIATION:` marker as fresh fidelity debt that needs a backlog row or
-  an explicit out-of-scope decision.
+The old five parked `DEVIATION:` items were burned down by backlog #131: each was removed, reclassified, or explicitly deferred with evidence. Treat any new `DEVIATION:` marker as fresh fidelity debt that needs a backlog row or an explicit out-of-scope decision.
 
 ## Recently completed
 
-- Scorpion tracking callback with $38000 speed escalation (HP≥5, within 170px) — Phase 4C
-- Dragon Walking dual breath interval ($12C initial, $1F4 reset) — Phase 4C
-- MiniHoppingSkull HP-scaled hop velocity (+$4000 X, -$10000 Y at HP>1) — Phase 4C
+- Scorpion tracking callback with $38000 speed escalation (HP≥5, within 170px), Phase 4C
+- Dragon Walking dual breath interval ($12C initial, $1F4 reset), Phase 4C
+- MiniHoppingSkull HP-scaled hop velocity (+$4000 X, -$10000 Y at HP>1), Phase 4C
 - Workspace clippy clean for Rust 1.94 (all warnings resolved or allowed)
-- Boss multi-head system (#060) — 3 heads per boss with ASM position offsets + per-head HP
-- BigHoppingSkull continuous bouncer rework (#056) — ASM $FA0 gravity, wall/floor/ceiling/slope deflection
-- Orca X-accel, slope re-lunge, wall-pin (#061) — all 3 from ASM
-- Lift block ASM coroutine timing (#067) — 2px/frame×8 up, erase, 1px/frame×16 down
-- Shooter mechanism (#065) — resolved: visible shooter cells now register independently, fire on entry, and recycle after the ROM's 22-frame slot lifetime
-- SoftPlatform bounce (#066) — fixed; native now moves the platform object per ASM `SoftPlatform_Init`/`SoftPlatform_BounceLoop`
-- Shifting block (#068) — fixed: native preserves the immediate collision grid swap and now emits the ASM `loc_11364`/`sub_113C0` visual rise worker through the block-bounce trace path.
+- Boss multi-head system (#060): 3 heads per boss with ASM position offsets + per-head HP
+- BigHoppingSkull continuous bouncer rework (#056): ASM $FA0 gravity, wall/floor/ceiling/slope deflection
+- Orca X-accel, slope re-lunge, wall-pin (#061): all 3 from ASM
+- Lift block ASM coroutine timing (#067): 2px/frame×8 up, erase, 1px/frame×16 down
+- Shooter mechanism (#065): resolved. Visible shooter cells register independently, fire on entry, and recycle after the ROM's 22-frame slot lifetime
+- SoftPlatform bounce (#066): fixed. Native moves the platform object per ASM `SoftPlatform_Init`/`SoftPlatform_BounceLoop`
+- Shifting block (#068): fixed. Native preserves the immediate collision grid swap and emits the ASM `loc_11364`/`sub_113C0` visual rise worker through the block-bounce trace path
 
 ## Previously deferred (now done)
 
-- Platform collision — done (static + moving, riding logic, movement scripts)
-- Player forms — done (speed tables, form-specific abilities, per-form Diamond Power)
-- Audio and GEMS — done (GemsAudioEngine: Z80+YM2612+PSG from ROM)
-- Tier 3-4 enemies + bosses — done (all 28 families, 26 with real sprite art)
-- Y look-ahead camera offset — done (`$FFFFFB58`, +1/frame down+grounded, -8/frame decay, applied at >=30px)
-- Block interactions — done at engine level (prize blocks, evanescent, ghost, smash, terrain types)
-- Multi-level progression — done (105 levels loadable, full progression, ending sequence, continue, score system)
-- Menus — done (boot/title, pause/resume, game over, continue, score board)
-- Diamond Power two-tier cost — done (20 form/tier combos mapped to 8 unique power types)
-- Demo playback — done (#026, extracted from kid.asm:33373-33436, 2 demos alternate on title idle)
-- Per-helmet transform timing + transform sprites — done (#033, correct frame counts and original art tables)
-- Perf baseline tracking — done (#031, criterion benchmarks: ~92ns/frame idle, ~3µs level load)
-- Per-enemy constant verification — done for all 28 families against ASM (Phase 4)
-- Block constant verification — done for all 13 block types against ASM (Phase 3)
-- Ghost block collision fix — type 6 (Solid) not 7 (Spikes) (#063)
-- Drill block direction fix — horizontal ±4px/frame not downward (#064)
-- Murder wall constants — ASM-verified (acceleration, max speeds, offset)
+- Platform collision: static + moving, riding logic, movement scripts
+- Player forms: speed tables, form-specific abilities, per-form Diamond Power
+- Audio and GEMS: GemsAudioEngine: Z80+YM2612+PSG from ROM
+- Tier 3-4 enemies + bosses: all 28 families, 26 with real sprite art
+- Y look-ahead camera offset: `$FFFFFB58`, +1/frame down+grounded, -8/frame decay, applied at >=30px
+- Block interactions: done at engine level (prize blocks, evanescent, ghost, smash, terrain types)
+- Multi-level progression: 105 levels loadable, full progression, ending sequence, continue, score system
+- Menus: boot/title, pause/resume, game over, continue, score board
+- Diamond Power two-tier cost: 20 form/tier combos mapped to 8 unique power types
+- Demo playback (#026): extracted from kid.asm:33373-33436, 2 demos alternate on title idle
+- Per-helmet transform timing + transform sprites (#033): correct frame counts and original art tables
+- Perf baseline tracking (#031): criterion benchmarks, ~92ns/frame idle, ~3µs level load
+- Per-enemy constant verification: done for all 28 families against ASM (Phase 4)
+- Block constant verification: done for all 13 block types against ASM (Phase 3)
+- Ghost block collision fix: type 6 (Solid) not 7 (Spikes) (#063)
+- Drill block direction fix: horizontal ±4px/frame not downward (#064)
+- Murder wall constants: ASM-verified (acceleration, max speeds, offset)
 
 ## Validation methodology
 
@@ -203,5 +188,5 @@ See `docs/source-port/methodology.md` for the full validation methodology: inves
 
 ## Known oracle limitations
 
-- 9 oracle warp-broken levels (game_mode=0x4E73): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63 — jgenesis emulator bug, native works fine (6 in BCD sweep)
-- 4 levels with idle_tail advisory diffs (0x00, 0x45, 0x48, 0x61) — oracle warp timing and enemy interaction accumulation
+- 9 oracle warp-broken levels (game_mode=0x4E73): 0x09, 0x32, 0x33, 0x50, 0x57, 0x5A, 0x5D, 0x5E, 0x63. jgenesis emulator bug, native works fine (6 in BCD sweep)
+- 4 levels with idle_tail advisory diffs (0x00, 0x45, 0x48, 0x61): oracle warp timing and enemy interaction accumulation

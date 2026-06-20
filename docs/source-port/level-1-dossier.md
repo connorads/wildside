@@ -1,10 +1,10 @@
-# Level 1 Dossier — ARCHIVED
+# Level 1 Dossier (ARCHIVED)
 
 > All work in this dossier is complete. All 10 milestones done, 105 levels loadable, 63/69 oracle sweep at 0px tolerance. See `research-map.md` for remaining work.
 
 ## Scope
 
-This dossier covers the first vertical slice: boot to title, title to level load, early in-level settle, first scroll, first visible enemies, and first visible platforms.
+The first vertical slice: boot to title, title to level load, early in-level settle, first scroll, first visible enemies, and first visible platforms.
 
 ## Local files to open first
 
@@ -61,18 +61,19 @@ cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-l
 
 ## Level-1 closure notes
 
-- Player movement is now physics-driven via `wildside-core::physics`: real horizontal acceleration/decel from the disassembly speed tables (`unk_9C0A`), jump initiation from `sub_A432`, variable gravity from `kid.asm:14060`, and camera follow from `sub_71E4`.
-- The old scripted frame-count interpolation (`run_camera_x_for_hold_frames`, `OpeningScrollState`) has been removed -- the player moves from input, the camera follows.
+- Player movement is physics-driven via `wildside-core::physics`: horizontal acceleration/decel from the disassembly speed tables (`unk_9C0A`), jump initiation from `sub_A432`, variable gravity from `kid.asm:14060`, and camera follow from `sub_71E4`.
+- The old scripted frame-count interpolation (`run_camera_x_for_hold_frames`, `OpeningScrollState`) has been removed. The player moves from input, the camera follows.
 - Speed tables cover all 3 terrain types (normal/ice/rubber) and 3 form variants (Kid/Micromax/Juggernaut). Level 1 uses `NORMAL_KID`.
 - Jump height per form is transcribed from `unk_A49E`; RedStealth has a higher factor ($4A vs $42).
 - The visible Level 1 enemy-family mapping is `Diamond` plus slot-decoded `MiniHoppingSkull`.
 - Platform paths use preload plus activation-window logic over `level/platform/00.asm` placements.
-- `play-native` now renders the decoded foreground layout as the base Level 1 scene, then layers live block overrides, sprites, and HUD on top so the opening area is readable without relying on oracle artefacts.
+- `play-native` renders the decoded foreground layout as the base Level 1 scene, then layers live block overrides, sprites, and HUD on top so the opening area is readable without relying on oracle artefacts.
 - This opening-slice dossier is complete; the next tracked frontier lives in `docs/source-port/level-1-full-traversal.md`.
 
 ## Next for Level 1: full traversal
 
 The default native runtime still has a flat-floor fallback when no `BlockGrid` is loaded. Removing that fallback on the main path is the first blocker for the traversal milestone because it unlocks:
+
 - Player walking on actual Level 1 terrain (slopes, gaps, platforms)
 - Enemy terrain interaction (pacers reversing on walls, hoppers bouncing on ground)
 - Flag reachability (flag is at y=768, below the flat floor at y=224)
@@ -81,7 +82,7 @@ Block format: 2 bytes per cell at `$FFA652`, documented in `doc/ram_layout.txt`.
 
 ### Remaining physics work
 
-- Left movement, bidirectional turning (currently works but untested against oracle)
-- Terrain type switching (ice, rubber) -- done at engine level, fidelity verification pending
-- Form-specific speed table selection (Micromax, Juggernaut) -- done
-- Y look-ahead camera offset (`$FFFFFB58`) -- done (+1/frame down+grounded, -8/frame decay, applied at >=30px)
+- Left movement, bidirectional turning (works but untested against oracle)
+- Terrain type switching (ice, rubber). Done at engine level, fidelity verification pending
+- Form-specific speed table selection (Micromax, Juggernaut). Done
+- Y look-ahead camera offset (`$FFFFFB58`). Done (+1/frame down+grounded, -8/frame decay, applied at >=30px)

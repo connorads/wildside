@@ -1,7 +1,6 @@
 # Source-Port Methodology
 
-Detailed reference for reverse-engineering discipline, testing strategy, and fidelity principles.
-`CLAUDE.md` has the operational summary; this document explains the *why* and *how* in depth.
+Reference for reverse-engineering discipline, testing strategy, and fidelity principles. `CLAUDE.md` has the operational summary; this document explains the why and how in depth.
 
 ## Philosophy
 
@@ -20,25 +19,26 @@ Use these status labels consistently when describing verification depth:
 
 ### Accuracy is the goal; compatibility is the outcome
 
-bsnes (byuu): "Accuracy is not 'does it play Zelda?' — playing games is a side effect of accuracy." Fix the engine, never the game. Accurate reimplementation naturally enables compatibility; the reverse is not true.
+bsnes (byuu): "Accuracy is not 'does it play Zelda?' playing games is a side effect of accuracy." Fix the engine, never the game. Accurate reimplementation enables compatibility; the reverse is not true.
 
 ### Bugs are features
 
 Original game bugs must be faithfully reproduced:
-- **Julius** (Caesar III): 100% bidirectional savegame compatibility — any logic deviation breaks saves. Augustus (fork) proved this by breaking compatibility when it added gameplay changes.
+
+- **Julius** (Caesar III): 100% bidirectional savegame compatibility, so any logic deviation breaks saves. Augustus (fork) proved this by breaking compatibility when it added gameplay changes.
 - **OpenMW** (Morrowind): intentional bug preservation for mod compatibility. Attack angle uses flawed dot product math in the original; OpenMW reproduces the flaw.
 - **Chocolate Doom**: demo sync requires frame-perfect reproduction of original behaviour including bugs. The Lost Soul bouncing bug fix in Ultimate Doom broke all earlier Doom II demos.
-- **devilutionX** (Diablo): "Don't fix bugs found during RE — reproduce them exactly to validate correctness."
+- **devilutionX** (Diablo): "Don't fix bugs found during RE, reproduce them exactly to validate correctness."
 
-Mark preserved bugs with `// ORIGINAL_QUIRK: <description>` so they're visible and intentional.
+Mark preserved bugs with `// ORIGINAL_QUIRK: <description>` so they are visible and intentional.
 
 ### Progressive fidelity
 
-Get it working first, get it accurate second — but track the gap. Approximate implementations are acceptable stepping stones when marked `// TODO(fidelity): <description>` and tracked in the backlog. Never ship a guess as if it were verified.
+Get it working first, get it accurate second, and track the gap. Approximate implementations are acceptable stepping stones when marked `// TODO(fidelity): <description>` and tracked in the backlog. Never ship a guess as if it were verified.
 
 ### Code as documentation
 
-Implementation should be readable as a specification of original behaviour. bsnes: speed hacks and convenience features "destroy code's ability to serve as verifiable hardware documentation." Avoid clever abstractions that obscure what the original hardware/software actually did.
+Implementation should be readable as a specification of original behaviour. bsnes: speed hacks and convenience features "destroy code's ability to serve as verifiable hardware documentation." Avoid clever abstractions that obscure what the original hardware/software did.
 
 ### Conservative design
 
@@ -60,48 +60,38 @@ bsnes: "Better to not allow valid behaviour than to allow invalid behaviour." Co
 
 ### Structured investigation workflow
 
-This mirrors byuu's investigation loop (identify → capture → hypothesise → probe → verify → fix → sweep):
+This mirrors byuu's investigation loop (identify, capture, hypothesise, probe, verify, fix, sweep):
 
 1. **Observe**: capture frames or run scenario showing the problem
 2. **Classify**: which root cause category? (Use taxonomy table)
-3. **Probe oracle**: run exact same scenario against jgenesis, capture state checkpoints at same frames
-4. **Read disassembly**: follow source precedence — `kid.asm` → `variables.asm` → `doc/formats.txt`
+3. **Probe oracle**: run the same scenario against jgenesis, capture state checkpoints at the same frames
+4. **Read disassembly**: follow source precedence, `kid.asm` then `variables.asm` then `doc/formats.txt`
 5. **Cross-reference**: native logic vs ASM vs oracle data. All three must agree:
-   - ASM + oracle agree, native differs → **native bug**
-   - ASM + native agree, oracle differs → **oracle limitation** (rare but possible; 8 warp-broken levels are examples)
-   - All three disagree → **deeper investigation needed** (hardware docs, web research)
-6. **Write probe scenario**: targeted `DynamicScenario` exercising exactly this behaviour (like bsnes test ROMs — test ROMs must exercise specific undocumented behaviours with observable outcomes)
-7. **Fix**: implement smallest correct change
-8. **Verify**: probe scenario passes + full sweep passes + visual before/after comparison
+   - ASM + oracle agree, native differs: **native bug**
+   - ASM + native agree, oracle differs: **oracle limitation** (rare but possible; 8 warp-broken levels are examples)
+   - All three disagree: **deeper investigation needed** (hardware docs, web research)
+6. **Write probe scenario**: targeted `DynamicScenario` exercising exactly this behaviour (like bsnes test ROMs, which exercise specific undocumented behaviours with observable outcomes)
+7. **Fix**: implement the smallest correct change
+8. **Verify**: probe scenario passes, full sweep passes, visual before/after comparison
 
 ### Iteration workflow: agent-proposed vs human-closed
 
-The autonomy loop's gameplay-bug investigation lane must never close a backlog
-item on its own. It owns the `[~]` → `[?]` transition only.
+The autonomy loop's gameplay-bug investigation lane must never close a backlog item on its own. It owns the `[~]` to `[?]` transition only.
 
 Status transitions:
 
-- `[ ]` — open. Selector picks from here by priority.
-- `[~]` — agent investigating. Set on entry to the lane. Evidence accumulates
-  under the backlog row.
-- `[?]` — agent proposes a fix complete. Evidence block lists repro scenario
-  path, cited ASM labels, oracle-parity result, and the commit hash of the
-  proposed fix. Human must validate before promoting to `[x]`.
-- `[x]` — closed by a human.
-- `[b]` — blocked: needs human repro or external artefact.
-- `stalled:agent-blocked` — auto-applied when the per-issue attempt counter
-  exceeds the cap. Selector skips until a human re-inspects.
+- `[ ]` open. Selector picks from here by priority.
+- `[~]` agent investigating. Set on entry to the lane. Evidence accumulates under the backlog row.
+- `[?]` agent proposes a fix complete. Evidence block lists repro scenario path, cited ASM labels, oracle-parity result, and the commit hash of the proposed fix. Human must validate before promoting to `[x]`.
+- `[x]` closed by a human.
+- `[b]` blocked: needs human repro or external artefact.
+- `stalled:agent-blocked` auto-applied when the per-issue attempt counter exceeds the cap. Selector skips until a human re-inspects.
 
-The agent lane guardrails:
+Agent lane guardrails:
 
-- Never writes `[x]`. A reviewer converts `[?]` → `[x]` once the fix is
-  validated.
-- Every investigation commit must either touch `crates/wildside-core/src/**` (fix +
-  regression test) or `docs/source-port/backlog.md` (new evidence block or
-  status transition). Pure cache-local churn does not count as progress.
-- On stall, write the dead end (rejected hypotheses included) under the
-  issue's `#NNN` in `backlog-archive.md` and leave status at `[~]`. No code
-  commit means write the dead end and stop — never commit churn.
+- Never writes `[x]`. A reviewer converts `[?]` to `[x]` once the fix is validated.
+- Every investigation commit must either touch `crates/wildside-core/src/**` (fix + regression test) or `docs/source-port/backlog.md` (new evidence block or status transition). Pure cache-local churn does not count as progress.
+- On stall, write the dead end (rejected hypotheses included) under the issue's `#NNN` in `backlog-archive.md` and leave status at `[~]`. No code commit means write the dead end and stop, never commit churn.
 
 ### Trace comparison techniques
 
@@ -111,9 +101,9 @@ When investigating divergences between native and oracle:
 |-----------|------------|-----|
 | Field-level state diff | Any divergence | Instead of flat "MISMATCH", report per-field delta with tolerance. E.g. "player.x: +4px (within tolerance), player.vx: +2 (ERROR)" |
 | Framewise CRC | Narrowing divergence origin | CRC32 entire game state each frame; first mismatch = exact divergence frame |
-| Subframe checksumming | Divergence isolated to one frame | Checksum after each update phase (player → enemies → collision) to narrow to subsystem |
+| Subframe checksumming | Divergence isolated to one frame | Checksum after each update phase (player, enemies, collision) to narrow to subsystem |
 | Frame-level bisection | Large frame range to search | Binary search: checkpoint at midpoint, recurse on divergent half. O(log N) vs O(N) |
-| DTW trace alignment | Oracle and native differ in frame count | Dynamic Time Warping aligns traces despite timing drift (Sakoe-Chiba band ±2 frames) |
+| DTW trace alignment | Oracle and native differ in frame count | Dynamic Time Warping aligns traces despite timing drift (Sakoe-Chiba band +-2 frames) |
 
 Sources: bsnes cycle-addressable trace logs, AoE deterministic lockstep desync detection, DTW (Sakoe & Chiba 1978).
 
@@ -132,7 +122,7 @@ When reimplementing a game formula (physics, damage, spawn rates), use the OpenM
 
 ## Testing Taxonomy
 
-### Architecture layers → test types
+### Architecture layers to test types
 
 | Layer | What to test | How | Volume | Examples |
 |-------|-------------|-----|--------|----------|
@@ -150,9 +140,7 @@ Once the active TAS frontier is closed, keep the verification lanes separate:
 - `sweep --tier state` answers "do the 69 BCD levels still avoid blocking authoritative diffs under the idle oracle harness?"
 - `release-gate --target 1p-accurate` answers "do boot/title, gameplay compare, frame-oracle, audio-oracle, and state-sweep all stay green together?"
 
-On 2026-04-22 those lanes were green but still intentionally separate
-(dated record — bullets below reference the orchestrator retired in the
-2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
+On 2026-04-22 those lanes were green but still intentionally separate (dated record; bullets below reference the orchestrator retired in the 2026-06-10 autonomy demolition, tag `pre-autonomy-demolition`):
 
 - The delegated sweep-parity lane completed (`cycle=127` locally, via the since-retired orchestrator). The previous repeated-fingerprint recovery step `refresh_evidence` remains complete; the regenerated source-port package is cycle `600` with fingerprint `gate-1776819385:sweep-1776819420`.
 - `cargo run --release -p wildside-cli -- sweep --levels 0-104 --tier state` passed all 69 BCD levels with only advisory/oracle-limitation classifications. The direct sweep report is `.cache/sweep-runs/1776819377/report.json` (`failed=0`, `errors=0`, `advisory=178`, `oracle_limitation=662`), and the release-gate-embedded sweep refreshed `.cache/sweep-runs/1776819420/report.json` with the same zero-blocking shape. Each `field_summary` entry still carries its own `divergence_summary`, concrete BCD `level_ids`, unique checkpoint labels, and checkpoint counts when diffs are present.
@@ -160,7 +148,7 @@ On 2026-04-22 those lanes were green but still intentionally separate
 - The older `pause_resume_level1` / `level_settle@719` `game_mode` failure is historical context only. A red future gate should still carry `release-gate-failure` plus the matching persisted `release_gate_focus.summary`; a green gate should instead carry `release-gate-status` and `state-sweep-status` so the durable handoff quotes the latest passing evidence.
 - Treat the newest persisted state-tier sweep report in `.cache/sweep-runs/<timestamp>/report.json` as equivalent evidence to the mirrored `sweep-history.jsonl` entry when refreshing that handoff. If the report exists but the history append has not landed yet, the autonomy layer should still consume the fresher report so the state-sweep status does not freeze on an older timestamp.
 - Sweep-parity stall detection keys the lane by both persisted evidence timestamps: the latest `1p-accurate` release-gate timestamp and the latest state-sweep timestamp. A successful refresh should move at least one of those values; otherwise the next source-port package correctly treats the handoff as the same stale sweep lane and can re-enter `refresh_evidence` recovery.
-- A missing state-sweep or release-gate artefact populates `task.missing_artefact` on every cycle (not only on `definitively_stalled`), and the runner auto-recovers by running the deterministic regen command — bounded to one attempt per fingerprint via `.cache/autonomy/source-port-frontier/auto_recovery_attempts.json`. After auto-recovery succeeds the runner re-invokes the prompt script so the next iteration sees the refreshed artefact instead of tripping `is_clean_repeat`. Operator unblock hints are state-aware: only commands whose preconditions hold (uncovered ASM coverage, unpromoted backlog items, broaden-PV-config) are rendered, and the missing-artefact regen command becomes the top hint.
+- A missing state-sweep or release-gate artefact populates `task.missing_artefact` on every cycle (not only on `definitively_stalled`), and the runner auto-recovers by running the deterministic regen command, bounded to one attempt per fingerprint via `.cache/autonomy/source-port-frontier/auto_recovery_attempts.json`. After auto-recovery succeeds the runner re-invokes the prompt script so the next iteration sees the refreshed artefact instead of tripping `is_clean_repeat`. Operator unblock hints are state-aware: only commands whose preconditions hold (uncovered ASM coverage, unpromoted backlog items, broaden-PV-config) are rendered, and the missing-artefact regen command becomes the top hint.
 - When multiple release-gate failures share the same field name, correlate the latest state-sweep evidence by the full release-gate focus key first: `target`, `step_name`, `checkpoint`, `field`, and the exact native/oracle value pair when available. Only fall back to field-only correlation for older sweep-history entries that do not yet persist the richer metadata. Otherwise automation can attach a true statement about the wrong failing step, which is worse than surfacing no correlation at all.
 - Use the sweep `level_ids` and checkpoint labels as the next lookup before changing code when a future red gate appears. If the failing release-gate field already maps to known BCD coverage and checkpoint family, harden the verification story first; only reopen gameplay work when the field or category escapes that known sweep envelope.
 
@@ -168,16 +156,16 @@ Treat sweep-parity evidence as a release-gate verification lane, not as evidence
 
 ### TAS (Tool-Assisted Speedrun) fidelity testing
 
-TAS recordings are deterministic per-frame button sequences from real full-game playthroughs. They exercise code paths that synthetic scenarios don't: level transitions, helmet pickups, boss fights, warps, and full boot-to-completion.
+TAS recordings are deterministic per-frame button sequences from real full-game playthroughs. They exercise code paths that synthetic scenarios do not: level transitions, helmet pickups, boss fights, warps, and full boot-to-completion.
 
-**Workflow:**
+Workflow:
 
 1. Obtain a BK2 file (BizHawk TAS format) from [TASVideos.org](https://tasvideos.org/UserFiles/Game/180)
 2. Import: `mise run import-tas path/to/recording.bk2`
 3. Quick test (first 1000 frames): `cargo run -p wildside-cli -- verify-tas --scenario tests/data/tas/<slug>/scenario.json --frame-end 1000`
 4. Full run: `mise run verify-tas tests/data/tas/<slug>/scenario.json`
 
-**How it works:**
+How it works:
 
 - BK2 is a ZIP containing `Header.txt` (system metadata) and `Input Log.txt` (per-frame button state)
 - `import-tas` parses the BK2 and converts to `DynamicScenario` JSON with `warp_to_level: None` (power-on boot)
@@ -186,20 +174,19 @@ TAS recordings are deterministic per-frame button sequences from real full-game 
 - Level transitions are auto-detected from the native trace and injected as additional checkpoints
 - The oracle scenario JSON includes transition checkpoints, giving diagnostic data at level boundaries
 - `--frame-start`/`--frame-end` slicing enables iterative debugging of specific sections
-- `verify-tas` now reports boot diagnostics for the first authoritative mismatch (phase, elapsed, title readiness, menu slot when available)
+- `verify-tas` reports boot diagnostics for the first authoritative mismatch (phase, elapsed, title readiness, menu slot when available)
 - Trimmed 250-frame boot-slice fixtures live in `crates/wildside-cli/tests/fixtures/tas/` so early boot regressions stay reproducible without cache-local BK2 imports
 
-**Available recordings (Kid Chameleon):**
+Available recordings (Kid Chameleon):
 
 | Recording | Format | Frames | Use case |
 |-----------|--------|--------|----------|
-| Any% by CaseyTAS (10:30) — TASVideos #6944 | BK2 | ~37k | Warps, transitions, bosses |
-| KC Any% TAS 2024 — TASVideos user files | BK2 | ~4,900 | Quick smoke test (warp code) |
+| Any% by CaseyTAS (10:30), TASVideos #6944 | BK2 | ~37k | Warps, transitions, bosses |
+| KC Any% TAS 2024, TASVideos user files | BK2 | ~4,900 | Quick smoke test (warp code) |
 
 ### Semantic case bundles
 
-Long deterministic replays stay as the regression lane. Discovery work should prefer
-small reduced case bundles derived from replay windows or native recordings.
+Long deterministic replays stay as the regression lane. Discovery work should prefer small reduced case bundles derived from replay windows or native recordings.
 
 Phase-1 bundle workflow:
 
@@ -219,7 +206,7 @@ Each case bundle should answer:
 Loop sessions consume these bundles through `docs/source-port/loop.md`:
 
 - the human-ordered backlog table is the queue; the NOW block is the handoff
-- grep `backlog-archive.md` for `#NNN` before forming a hypothesis — dead ends are recorded there
+- grep `backlog-archive.md` for `#NNN` before forming a hypothesis, since dead ends are recorded there
 - recording-backed cases outrank generic replay slices when both exist for an issue
 - if tracked git changes already exist when a session starts, treat them as the highest-priority recovery task; verify/commit or intentionally discard that coherent unit before taking a new item
 - when no backlog item is actionable, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
@@ -230,9 +217,9 @@ Loop sessions consume these bundles through `docs/source-port/loop.md`:
 |-----------|-----------|-----------|
 | New engine behaviour | Probe scenario + oracle comparison | Like bsnes test ROMs: exercise specific behaviour, compare to ground truth |
 | Fixed bug | Timing/gameplay regression test (`verify-slice-fast` gate) | Like Chocolate Doom statcheck: every fix becomes a permanent regression test |
-| Pure function, large input space | Property-based test (proptest) | Speed tables, slope formulas, gravity curves — verify properties hold across range |
+| Pure function, large input space | Property-based test (proptest) | Speed tables, slope formulas, gravity curves: verify properties hold across range |
 | Stateful system, complex transitions | Stateful property test (proptest-state-machine) | Model lifecycle as states, generate random input sequences, auto-shrink failures |
-| Complex state hard to assert field-by-field | Snapshot test (insta) | NativeTraceFrame at checkpoint — detect unexpected state changes between commits |
+| Complex state hard to assert field-by-field | Snapshot test (insta) | NativeTraceFrame at checkpoint: detect unexpected state changes between commits |
 | Visual correctness | Frame capture + pixel comparison | Like MAME acid tests: any pixel mismatch against oracle = regression |
 | Determinism | Replay same scenario twice, diff output | Like Chocolate Doom: deterministic engine is prerequisite for all other testing |
 | Engine-wide invariant | Metamorphic test (see below) | Catches classes of bugs without per-case expected outputs |
@@ -282,7 +269,7 @@ Feature-flagged: enabled in debug/test builds, disabled in release. Violations p
 
 ### Planned improvements
 
-Testing infrastructure improvements are tracked in `backlog.md`: #028 (insta snapshots — done), #029 (proptest — done), #030 (local-first regression gate — done; CI deferred), #031 (perf baselines — open).
+Testing infrastructure improvements are tracked in `backlog.md`: #028 (insta snapshots, done), #029 (proptest, done), #030 (local-first regression gate, done; CI deferred), #031 (perf baselines, open).
 
 ---
 
@@ -318,7 +305,7 @@ Mutation testing injects small faults (operator swaps, constant changes, deleted
 1. Install: `cargo install cargo-mutants`
 2. Run on pure core: `cargo mutants -p wildside-core -- --lib`
 3. Review survivors: each surviving mutant is a candidate for a new test
-4. Target: ≥80% kill rate on `physics.rs` and `terrain.rs` (pure functions)
+4. Target: >=80% kill rate on `physics.rs` and `terrain.rs` (pure functions)
 
 ### Cadence
 
@@ -330,7 +317,7 @@ Mutation testing injects small faults (operator swaps, constant changes, deleted
 ### Scope constraints
 
 - Only run on pure-core crates (`wildside-core`). Adapter crates (`wildside-cli`, `wildside-render`) have too much I/O coupling for mutation testing to be productive.
-- Exclude `// ORIGINAL_QUIRK` lines from mutation — these are intentional "bugs".
+- Exclude `// ORIGINAL_QUIRK` lines from mutation, since these are intentional "bugs".
 
 Sources: Trail of Bits ("Use mutation testing to find the bugs your tests don't catch", 2025), `cargo-mutants` (sourcefrog).
 
@@ -344,7 +331,7 @@ Beyond binary pass/fail, classify each sweep divergence to track fidelity trends
 
 | Category | Definition | Example | Action |
 |----------|-----------|---------|--------|
-| Authoritative | Position, velocity, lifecycle, collision state differ | Player x off by 12px at frame 400 | Must fix — real bug |
+| Authoritative | Position, velocity, lifecycle, collision state differ | Player x off by 12px at frame 400 | Must fix, real bug |
 | Advisory | Score, lives, diamonds, object count, murder wall x | Score 1200 vs 1400 | Masked in sweep; tracked separately |
 | Accumulation | Small per-frame error compounds over time | 1px/frame camera drift | Fix root cause (rounding, FP truncation) |
 | RNG | Divergence from non-deterministic or seed-dependent path | Enemy spawn timer differs | Verify seed handling; may need RNG synchronisation |
@@ -370,18 +357,18 @@ Sweep output should log per-level divergence counts by category:
 }
 ```
 
-Each sweep run appends to `.cache/metrics/sweep-history.jsonl` for trend analysis. As of the 2026-04-03 sweep-parity hardening pass, both the per-run report and the history entry also persist a compact `field_summary` histogram plus `release_gate_focus`; each entry includes per-field category totals in `divergence_summary`, concrete BCD `level_ids`, checkpoint labels, and per-checkpoint diff counts, so operators can tell whether a recurring field belongs to advisory/oracle-limitation debt or to a blocking class without rereading every per-level record. `release_gate_focus` records the current failed release-gate step, checkpoint, failed field, the failing native/oracle value pair, whether the field matched the latest sweep histogram, and the matched histogram metadata when available, including whether the exact pair matched the precise checkpoint label or only some other checkpoint. The CLI also distinguishes mixed advisory+oracle-limitation levels as `NON-BLOCKING` instead of collapsing them into a pure oracle-limitation label, the autonomy sweep-parity lane reuses that histogram to annotate release-gate failures automatically, and `wildside sweep` now prints the same release-gate-focused field summary inline with the failing scenario/checkpoint context so the output stays honest about the difference between shared field coverage and the exact concrete miss.
+Each sweep run appends to `.cache/metrics/sweep-history.jsonl` for trend analysis. As of the 2026-04-03 sweep-parity hardening pass, both the per-run report and the history entry also persist a compact `field_summary` histogram plus `release_gate_focus`; each entry includes per-field category totals in `divergence_summary`, concrete BCD `level_ids`, checkpoint labels, and per-checkpoint diff counts, so operators can tell whether a recurring field belongs to advisory/oracle-limitation debt or to a blocking class without rereading every per-level record. `release_gate_focus` records the current failed release-gate step, checkpoint, failed field, the failing native/oracle value pair, whether the field matched the latest sweep histogram, and the matched histogram metadata when available, including whether the exact pair matched the precise checkpoint label or only some other checkpoint. The CLI also distinguishes mixed advisory+oracle-limitation levels as `NON-BLOCKING` instead of collapsing them into a pure oracle-limitation label, the autonomy sweep-parity lane reuses that histogram to annotate release-gate failures automatically, and `wildside sweep` prints the same release-gate-focused field summary inline with the failing scenario/checkpoint context so the output stays honest about the difference between shared field coverage and the exact concrete miss.
 
 ---
 
-## Framewise Checksumming & Desync Detection
+## Framewise Checksumming and Desync Detection
 
 Borrowed from deterministic lockstep networking (Age of Empires, StarCraft): CRC32 entire game state each frame, compare checksum stream native vs oracle. First mismatch = exact frame where divergence occurs.
 
 ### Technique
 
 1. After each frame step, compute CRC32 of serialised game state (player + enemies + camera + blocks)
-2. Oracle emits matching checksums at same frames
+2. Oracle emits matching checksums at the same frames
 3. Compare streams: first mismatch narrows divergence to a single frame
 4. **Subframe checksumming**: if frame-level is too coarse, checksum after each major update phase:
    - After player physics
@@ -395,10 +382,10 @@ From RTS netcode experience, common causes of state divergence:
 
 | Cause | Risk in this project | Mitigation |
 |-------|---------------------|------------|
-| Float precision | None — FP16.16 fixed-point is bitwise deterministic | Already handled |
-| Iteration order | Medium — enemy list processing order | Use stable index-based iteration; never hash-order |
-| RNG seed | Low — deterministic seeding per scenario | Verify seed identical in native and oracle |
-| Platform differences | Low — Rust integer semantics are well-defined | Monitor with CI across platforms |
+| Float precision | None: FP16.16 fixed-point is bitwise deterministic | Already handled |
+| Iteration order | Medium: enemy list processing order | Use stable index-based iteration; never hash-order |
+| RNG seed | Low: deterministic seeding per scenario | Verify seed identical in native and oracle |
+| Platform differences | Low: Rust integer semantics are well-defined | Monitor with CI across platforms |
 
 ---
 
@@ -412,8 +399,8 @@ Binary search within a level to find the exact frame where divergence begins. O(
 2. Confirm frames before some F_good match oracle
 3. Checkpoint at midpoint M = (F_good + F_bad) / 2
 4. Compare state at M against oracle
-5. If M matches → divergence is in [M, F_bad]; recurse
-6. If M diverges → divergence is in [F_good, M]; recurse
+5. If M matches, divergence is in [M, F_bad]; recurse
+6. If M diverges, divergence is in [F_good, M]; recurse
 7. Continue until single frame identified
 
 ### Output
@@ -422,11 +409,11 @@ Binary search within a level to find the exact frame where divergence begins. O(
 
 ### Combining with git bisect
 
-For regression hunting: `git bisect run` narrows the commit, frame bisection narrows the frame within that commit. Together they pinpoint both *when* and *where* the bug was introduced.
+For regression hunting: `git bisect run` narrows the commit, frame bisection narrows the frame within that commit. Together they pinpoint both when and where the bug was introduced.
 
 ---
 
-## Fidelity Metrics & Tracking
+## Fidelity Metrics and Tracking
 
 Track continuous fidelity indicators to detect regressions, measure progress, and maintain confidence.
 
@@ -434,10 +421,10 @@ Track continuous fidelity indicators to detect regressions, measure progress, an
 
 | Metric | Source | Target | Location |
 |--------|--------|--------|----------|
-| Sweep pass rate | `sweep --tier state` | 63/69 → 69/69 | `.cache/metrics/sweep-history.jsonl` |
+| Sweep pass rate | `sweep --tier state` | 63/69 to 69/69 | `.cache/metrics/sweep-history.jsonl` |
 | Test count | `cargo test -- --list 2>&1 \| wc -l` | Monotonically increasing | `.cache/metrics/test-count.txt` |
-| Mutation kill rate | `cargo mutants -p wildside-core` | ≥80% on physics.rs, terrain.rs | `.cache/metrics/mutation-score.txt` |
-| Scenario count | `DynamicScenario` definitions | ≥10 per edge-case level | `.cache/metrics/scenario-count.txt` |
+| Mutation kill rate | `cargo mutants -p wildside-core` | >=80% on physics.rs, terrain.rs | `.cache/metrics/mutation-score.txt` |
+| Scenario count | `DynamicScenario` definitions | >=10 per edge-case level | `.cache/metrics/scenario-count.txt` |
 | Divergence by category | Sweep JSON output | Authoritative = 0 | `.cache/metrics/sweep-divergences.json` |
 
 ### Per-level fidelity tiers
@@ -464,7 +451,7 @@ Inspired by ProtonDB and Dolphin compatibility databases:
 | Complex | Dragon, Ninja, Orca, Hand, Robot, etc. | (count) | Partial |
 | Inert | (stubs) | N/A | N/A |
 
-Update as scenarios are added. Target: ≥2 scenarios per family (idle + one interaction).
+Update as scenarios are added. Target: >=2 scenarios per family (idle + one interaction).
 
 ### Collection
 
@@ -474,7 +461,7 @@ Run `mise run collect-metrics` after each sweep to update `.cache/metrics/`. CI 
 
 ## Regression Discipline
 
-Every fix MUST become a permanent regression test. Chocolate Doom's entire Compet-N demo archive functions as a regression suite — thousands of real player demos that would desync if any gameplay logic changed. Our equivalent: probe scenarios + sweep + unit tests.
+Every fix MUST become a permanent regression test. Chocolate Doom's entire Compet-N demo archive functions as a regression suite: thousands of real player demos that would desync if any gameplay logic changed. Our equivalent: probe scenarios + sweep + unit tests.
 
 ### Test type by fix category
 
@@ -504,26 +491,26 @@ Every fix MUST become a permanent regression test. Chocolate Doom's entire Compe
 | Unknown behaviour | Oracle (jgenesis) | Disassembly (`kid.asm`) | Investigate both; oracle is runtime truth, ASM is specification |
 | Oracle crash/error | Disassembly | RAM layout docs | Oracle is fallible; trust ASM if oracle fails (8 warp-broken levels) |
 | Complex formula | ASM + `variables.asm` | Oracle checkpoint comparison | Derive formula from ASM, validate against oracle output |
-| Hardware effect | Kid ASM first | Sega Retro Mega Drive docs | Kid ASM shows what the game actually does; hardware docs show what's possible |
+| Hardware effect | Kid ASM first | Sega Retro Mega Drive docs | Kid ASM shows what the game does; hardware docs show what is possible |
 | Undocumented register | M68k instruction docs | Test with oracle | Reference docs are specification; oracle is empirical validation |
 
 ### Resolving disagreements
 
 When sources conflict:
-1. **Oracle vs ASM**: oracle is runtime truth (what actually happens), ASM is specification (what should happen). If oracle shows behaviour X but ASM seems to say Y, re-read the ASM more carefully — subtle addressing modes, condition flags, or interrupt timing may explain the difference.
+
+1. **Oracle vs ASM**: oracle is runtime truth (what actually happens), ASM is specification (what should happen). If oracle shows behaviour X but ASM seems to say Y, re-read the ASM more carefully; subtle addressing modes, condition flags, or interrupt timing may explain the difference.
 2. **Native vs both**: native is wrong. Fix native.
-3. **All three disagree**: escalate to deeper investigation — Mega Drive hardware docs, M68k reference manual, or web research. Document the ambiguity.
+3. **All three disagree**: escalate to deeper investigation, Mega Drive hardware docs, M68k reference manual, or web research. Document the ambiguity.
 
 ### Document cross-reference map
 
 | Document | Cites methodology.md | Role |
 |----------|---------------------|------|
-| `CLAUDE.md` | Yes (line 192) | Operational summary; points here for depth |
+| `CLAUDE.md` | Yes | Operational summary; points here for depth |
 | `reference-index.md` | Yes (Methodology section) | Quick source lookup |
 | `research-map.md` | Yes (Validation section) | Frontier tracking |
 | `backlog.md` | Yes (header) | Bug tracker; follows Investigation Playbook |
-| `roadmap.md` | Yes (line 5) | Milestone tracker |
-| `acceleration-strategy.md` | Yes (Track 6 section) | Development strategy |
+| `acceleration-strategy.md` | Yes (Validation methodology) | Development strategy |
 
 Rule: any doc that describes validation, investigation, or testing should cite this document as the canonical reference rather than restating the methodology.
 
@@ -538,7 +525,7 @@ Lessons learned from bsnes, Chocolate Doom, Julius, OpenMW, devilutionX, and pro
 | **Game-specific fixes** | Fix one level, break another; structural issues go undiagnosed | Engine-level fixes only; full sweep after every change (bsnes) |
 | **Guessing behaviour** | Subtle incorrectness compounds over time | Probe oracle first; never infer from "what seems right" (bsnes: 80hrs for one Speedy Gonzales bus conflict rather than guessing) |
 | **Fixing original bugs** | Breaks compatibility with original data/replays | Preserve bugs with `ORIGINAL_QUIRK` marker (Julius, OpenMW, devilutionX) |
-| **Skipping regression tests** | "Quick fix" introduces new bugs discovered later | Every fix → permanent test; no exceptions (Chocolate Doom statcheck) |
+| **Skipping regression tests** | "Quick fix" introduces new bugs discovered later | Every fix becomes a permanent test; no exceptions (Chocolate Doom statcheck) |
 | **Optimising before understanding** | Speed hacks obscure correct behaviour | Get it right first, optimise later with benchmarks (bsnes) |
 | **Non-deterministic engine** | Replay testing becomes impossible | Fixed RNG, deterministic frame stepping, no system-time dependencies (Chocolate Doom: M_Random seed bug broke cross-session determinism) |
 | **Advisory field confusion** | Chasing divergences that are expected | Clear advisory vs authoritative distinction; mask advisory in sweep |
@@ -548,15 +535,13 @@ Lessons learned from bsnes, Chocolate Doom, Julius, OpenMW, devilutionX, and pro
 | **Untested test suite** | Tests pass but miss real bugs (false confidence) | Mutation testing quarterly; surviving mutants = test gaps (Trail of Bits) |
 | **Unclassified divergences** | Chasing advisory divergences, ignoring accumulation drift | Classify every divergence by category; trend by category over time |
 | **Coarse divergence detection** | "Something's wrong in level 23" but no precision | Framewise checksums + frame-level bisection to pinpoint exact frame and field |
-| **Dead-coded helper drift** | Helper implements ASM routine and has tests, but no production caller exists; the broken behaviour the helper would fix ships anyway | Grep for `#[cfg_attr(not(test), allow(dead_code))]` whenever a user reports a behaviour gap. Examples found 2026-05-19: `kid_airborne_visual_sub_B270` (Red Stealth airborne slash, #153) and `drips_ceiling_gate_loc_333_f6` (Drips slime ceiling attach, #155) both shipped untested in production. Pattern: helper is faithful to ASM and unit-tested, but no `step_*` or runtime call invokes it. Fix order: state field → runtime call → renderer plumbing → integration test |
+| **Dead-coded helper drift** | Helper implements ASM routine and has tests, but no production caller exists; the broken behaviour the helper would fix ships anyway | Grep for `#[cfg_attr(not(test), allow(dead_code))]` whenever a user reports a behaviour gap. Examples found 2026-05-19: `kid_airborne_visual_sub_B270` (Red Stealth airborne slash, #153) and `drips_ceiling_gate_loc_333_f6` (Drips slime ceiling attach, #155) both shipped untested in production. Pattern: helper is faithful to ASM and unit-tested, but no `step_*` or runtime call invokes it. Fix order: state field, runtime call, renderer plumbing, integration test |
 
 ---
 
 ## References
 
-For a comparison of this project's approach to peer projects (SM64 decomp,
-devilutionX, OpenMW, etc.) and an explanation of why we verify by runtime oracle
-rather than binary matching, see `docs/source-port/project-taxonomy.md`.
+For a comparison of this project's approach to peer projects (SM64 decomp, devilutionX, OpenMW, etc.) and an explanation of why we verify by runtime oracle rather than binary matching, see `docs/source-port/project-taxonomy.md`.
 
 Projects and papers studied for methodology:
 
@@ -576,5 +561,5 @@ Projects and papers studied for methodology:
 | cargo-mutants | Rust testing | Mutation testing for Rust crates | github.com/sourcefrog/cargo-mutants |
 | proptest-state-machine | Rust testing | Stateful property testing with auto-shrinking | crates.io/crates/proptest-state-machine |
 | rr | Debugging | Deterministic record-replay with reverse execution | rr-project.org |
-| ProtonDB | Game compat | Per-game fidelity tier ratings (Platinum→Borked) | protondb.com |
+| ProtonDB | Game compat | Per-game fidelity tier ratings (Platinum to Borked) | protondb.com |
 | Blargg test ROMs | NES emulation | Isolated component tests with deterministic checksums | nesdev.org |

@@ -3,7 +3,7 @@
 Anti-loop protocol for debugging frame-level divergences between native and oracle.
 
 Bootstrap first: read the NOW block at the top of `docs/source-port/backlog.md`
-and grep `backlog-archive.md` for the issue's `#NNN` — rejected hypotheses and
+and grep `backlog-archive.md` for the issue's `#NNN`. Rejected hypotheses and
 prior probe windows are recorded there, so you do not restart from stale prose.
 
 ## Step 1: Find the divergence frame
@@ -27,10 +27,10 @@ cargo run --release -p wildside-cli -- oracle-probe \
   --watches 0xFF24FE:u32,0xFF2502:i32,0xFFA056:u16
 ```
 
-Outputs CSV to stdout — pipe to file or view directly. Watch addresses come from
+Outputs CSV to stdout; pipe to file or view directly. Watch addresses come from
 `variables.asm` or `doc/ram_layout.txt`.
 
-## Step 3: Dump and diff WRAM if you need to discover which addresses matter
+## Step 3: Dump and diff WRAM to discover which addresses matter
 
 ```bash
 # Dump full 64KB WRAM at consecutive frames
@@ -47,7 +47,7 @@ cargo run --release -p wildside-cli -- ram-diff \
 
 ## Step 4: Read ASM only for the specific routine
 
-Only after steps 1-3 have identified the diverging address and frame, read the
+Once steps 1-3 have identified the diverging address and frame, read the
 ASM routine that touches it. Use source precedence from CLAUDE.md:
 
 1. `variables.asm` to identify the field
@@ -60,17 +60,17 @@ ASM routine that touches it. Use source precedence from CLAUDE.md:
 cargo run --release -p wildside-cli -- sweep-compare --levels 0-68 --tier state
 ```
 
-Shows which levels improve/regress if physics sub-step order is swapped.
+Shows which levels improve or regress if physics sub-step order is swapped.
 
 ## Anti-patterns
 
-- **Skipping loop bootstrap** — run `mise run project-status` and follow `docs/source-port/loop.md` before reading broad backlog/roadmap prose
-- **Manual frame counter tweaking** — use `--bisect` instead of guessing
-- **Hypothesis without data** — always probe before reading ASM
-- **Unregistered debug payloads** — every new `debug_fields` / `gameplay_debug_fields` key must be added to `docs/source-port/debug-field-registry.yaml`
-- **Letting useful debug fields stay ad hoc** — if a field drives more than one session, mark it as a `candidate`, add it to `candidate_promotions`, and run `mise run audit-debug-fields`
-- **>30 min without running a probe** — stop and build measurement tooling
-- **Fear of breaking sweep** — use `sweep-compare` to preview impact
-- **Circular ASM reading** — if you've read the same routine 3 times without
+- **Skipping loop bootstrap**: run `mise run project-status` and follow `docs/source-port/loop.md` before reading broad backlog/roadmap prose
+- **Manual frame counter tweaking**: use `--bisect` instead of guessing
+- **Hypothesis without data**: always probe before reading ASM
+- **Unregistered debug payloads**: every new `debug_fields` / `gameplay_debug_fields` key must be added to `docs/source-port/debug-field-registry.yaml`
+- **Letting useful debug fields stay ad hoc**: if a field drives more than one session, mark it as a `candidate`, add it to `candidate_promotions`, and run `mise run audit-debug-fields`
+- **>30 min without running a probe**: stop and build measurement tooling
+- **Fear of breaking sweep**: use `sweep-compare` to preview impact
+- **Circular ASM reading**: if you have read the same routine 3 times without
   new data, you need a new probe, not another re-read
-- **Probe-only churn** — after 2 consecutive probe/docs-only commits on the same frontier, add instrumentation or narrow the scenario before another gameplay patch
+- **Probe-only churn**: after 2 consecutive probe/docs-only commits on the same frontier, add instrumentation or narrow the scenario before another gameplay patch

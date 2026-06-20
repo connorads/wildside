@@ -2,32 +2,31 @@
 
 ## Current truth
 
-The TAS frontier is in a good place:
+The TAS frontier is settled:
 
 - `kc_any_percent_2024` is authoritative-clean through frame `4916`
 - `any-percent-published` is authoritative-clean through frame `37759`
 - the TAS frontier closed `status: complete` (history in `tas-era-ledger.md`)
 
-That does **not** mean the game is nearly finished.
-
-The current `1p-accurate` release gate is useful, but it is narrower than "the game
-works". Native play no longer has open agent-actionable P0/P1 playability rows in
-the canonical backlog, and the 2026-05-18 completion audit found no remaining
-human-validation or repro blockers for this phase. Future work should still treat
-new native-play reports, visual-fidelity polish, and broader verification as
-first-class work rather than proof that the port is permanently done.
+A closed TAS frontier is not a finished game. The current `1p-accurate` release
+gate is narrower than "the game works". Native play has no open agent-actionable
+P0/P1 playability rows in the canonical backlog, and the 2026-05-18 completion
+audit found no remaining human-validation or repro blockers for this phase. New
+native-play reports, visual-fidelity polish, and broader verification remain
+first-class work, not proof that the port is permanently done.
 
 ## Finish line for this phase
 
-Primary target: **single-player boot-to-credits that works in native play and converges on oracle-backed accuracy**.
+Primary target: single-player boot-to-credits that works in native play and
+converges on oracle-backed accuracy.
 
-Out of scope for this phase's finish line:
+Out of scope for this phase's finish line, but still visible backlog epics:
 
 - 2-player alternation as a release blocker
 - password flow as a release blocker
 - built-in narrated playtest capture or microphone support
 
-Those remain visible backlog epics, but 1P stability and fidelity come first.
+1P stability and fidelity come first.
 
 ## Workstreams
 
@@ -50,9 +49,9 @@ Exit criteria:
 - no active doc claims the project is effectively complete
 
 2026-05-18 status: achieved for the current 1P phase. `completion-audit.md`,
-`backlog.md`, and `project-status` agreed at the time that
-there are no open phase blockers. This is a phase completion statement, not a
-claim that every post-1P fidelity or tooling idea is exhausted.
+`backlog.md`, and `project-status` agreed at the time that there are no open
+phase blockers. This is a phase completion statement, not a claim that every
+post-1P fidelity or tooling idea is exhausted.
 
 ### 2. 1P playability closure
 
@@ -159,21 +158,22 @@ Exit criteria:
 
 ### 6. Post-1P epics
 
-These stay visible, but they do not block the 1P finish line:
+These stay visible but do not block the 1P finish line:
 
 - 2-player alternating-mode verification
 - richer narrated-playtest tooling
 
-Resolved and no longer open: password-system investigation. Backlog #133 records the ASM audit:
-the stock ROM exposes no password entry path, and native options now mirror the ROM menu.
+Resolved and no longer open: password-system investigation. Backlog #133 records
+the ASM audit: the stock ROM exposes no password entry path, and native options
+now mirror the ROM menu.
 
 ## Gates
 
-Use four explicit gate buckets:
+Four explicit gate buckets:
 
 - `fast-slice`: focused regression tests used before most commits
 - `1p-playable`: native smoke coverage for real player-facing failures
 - `1p-accurate`: oracle-backed release gate and sweep evidence
 - `visual-parity`: frame/pixel-backed checks for rendering fidelity
 
-Every new backlog item should name its minimum required gate before it is considered done.
+Every new backlog item names its minimum required gate before it is considered done.

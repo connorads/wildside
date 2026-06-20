@@ -8,19 +8,20 @@
 
 ---
 
-Wildside is an informal experiment in how far you can get by running coding
-agents in a loop against a hard target with an objective measure of correctness.
-The target is *Kid Chameleon*, a Mega Drive platformer the author grew up on,
-rebuilt natively in Rust from a user-supplied ROM. Every behaviour is traced
-from the public disassembly and checked frame by frame against a real emulator
-(`jgenesis`) used as a ground-truth oracle, so an agent cannot mark its own
-homework. (The name is the in-fiction VR arcade game from *Kid Chameleon*'s own
-story.)
+Wildside asks a simple question: how far can you get by running coding agents in a
+loop against a hard target that has an objective measure of correctness? The
+target is *Kid Chameleon*, a Mega Drive platformer the author grew up on, rebuilt
+natively in Rust from a user-supplied ROM. Every behaviour gets traced from the
+public disassembly and checked frame by frame against a real emulator
+(`jgenesis`) used as a ground-truth oracle. That last part matters: it means an
+agent cannot mark its own homework. (The name comes from the in-fiction VR arcade
+game in *Kid Chameleon*'s own story.)
 
-The aim is a playable game. Bit-perfect parity is the standard the port is held
-to, though it will not get all the way there, and that is fine. Fidelity is the
-working method: read the 68k disassembly, diff against the oracle, reproduce the
-original bugs on purpose, then trade accuracy toward something fun to play.
+The goal is a playable game. Bit-perfect parity is the bar the port is held to,
+even though it will not get all the way there, and that is fine. Fidelity is the
+method, not the destination: read the 68k disassembly, diff against the oracle,
+reproduce the original bugs on purpose, then trade accuracy back toward something
+that is fun to play.
 
 For the longer story, why it exists and how the agent loop actually worked, see
 [`docs/why.md`](docs/why.md).
@@ -41,12 +42,12 @@ For the longer story, why it exists and how the agent loop actually worked, see
 | Web (WASM) | 🚧 Planned |
 
 Desktop builds run on SDL2. The `apt-get` and build-from-source steps in the
-[command reference](docs/commands.md) are only needed for development and the
-oracle, so you can skip them if you just want to play.
+[command reference](docs/commands.md) only matter for development and the oracle,
+so skip them if you just want to play.
 
 ## Quick start
 
-You supply the ROM at `./roms/kid.bin`, `./kid.bin`, or `./kc.md`. Then:
+Drop the ROM at `./roms/kid.bin`, `./kid.bin`, or `./kc.md`. Then:
 
 ```bash
 mise trust .mise.toml         # trust the task runner
@@ -57,7 +58,7 @@ mise run project-status       # repo health: 1p-playable / 1p-accurate signals
 mise run verify-slice-fast    # fast regression gate (run before committing)
 ```
 
-That's the everyday surface. The full catalogue lives in the
+That is the everyday surface. The full catalogue lives in the
 [command reference](docs/commands.md).
 
 ## Status
@@ -67,9 +68,9 @@ Current frontier: **1P whole-game fidelity hardening** on the native runtime.
 - Headline signal: `wildside release-gate --target 1p-playable`
 - Parity signal: `wildside release-gate --target 1p-accurate`
 
-A green TAS or release artefact means `replay-matched` on those routes. That is
-not the same as whole-game completion. `wildside project-status` keeps the two
-signals separate so a green gate does not get read as "nearly done".
+A green TAS or release artefact means `replay-matched` on those routes. It does
+not mean the whole game is finished. `wildside project-status` keeps the two
+signals apart so nobody reads a green gate as "nearly done".
 
 ## Where to go next
 

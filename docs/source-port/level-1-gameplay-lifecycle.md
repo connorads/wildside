@@ -1,10 +1,10 @@
-# Level 1 Gameplay Lifecycle Dossier — ARCHIVED
+# Level 1 Gameplay Lifecycle Dossier (ARCHIVED)
 
 > All lifecycle states implemented: pause/resume, damage, death/respawn, game over, continue. See `research-map.md` for remaining work.
 
 ## Scope
 
-This dossier covers the next Level 1 slice after the opening walk: pause/resume, the first gameplay damage transition, death, and respawn.
+Covers the Level 1 slice after the opening walk: pause/resume, the first gameplay damage transition, death, and respawn.
 
 ## Local files to open first
 
@@ -46,8 +46,8 @@ cargo run -p wildside-cli -- compare-native-gameplay --scenario death-respawn-le
 
 ## Level-1 lifecycle closure notes
 
-- The gameplay lifecycle slice now uses `compare-native-gameplay` for pause/resume and death/respawn checkpoints.
-- The native runtime now models visible death windup, hidden death frames, and respawn settle as explicit lifecycle phases.
-- The smoke verifier now runs past `respawn_tail@1919` and checks the final scripted state for the later visible gameplay return, instead of treating the hidden mode-`8` bootstrap as if gameplay had already resumed.
-- There are no remaining open Level 1 gameplay lifecycle research tasks in this dossier for the pause/death/respawn slice.
+- The gameplay lifecycle slice uses `compare-native-gameplay` for pause/resume and death/respawn checkpoints.
+- The native runtime models visible death windup, hidden death frames, and respawn settle as explicit lifecycle phases.
+- The smoke verifier runs past `respawn_tail@1919` and checks the final scripted state for the later visible gameplay return, instead of treating the hidden mode-`8` bootstrap as resumed gameplay.
+- No Level 1 gameplay lifecycle research tasks remain open in this dossier for the pause/death/respawn slice.
 - The next tracked frontier after this slice is `docs/source-port/level-1-full-traversal.md`.

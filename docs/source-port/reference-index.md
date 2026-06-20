@@ -2,30 +2,21 @@
 
 ## Local truth
 
-- `.cache/upstream/kid-chameleon-disasm`
-  - pinned upstream disassembly and bundled docs
-- `.cache/generated/<rom-sha1>/asset-manifest.json`
-  - typed extracted asset index used by the native runtime
-- `.cache/native-oracle-runs/<scenario>/`
-  - native checkpoint captures and oracle state for debugging parity
-- `.cache/oracles/`
-  - `jgenesis` helper and other oracle repos
+- `.cache/upstream/kid-chameleon-disasm`: pinned upstream disassembly and bundled docs
+- `.cache/generated/<rom-sha1>/asset-manifest.json`: typed extracted asset index used by the native runtime
+- `.cache/native-oracle-runs/<scenario>/`: native checkpoint captures and oracle state for parity debugging
+- `.cache/oracles/`: `jgenesis` helper and other oracle repos
 
 ## 68k semantics
 
-- `.agents/skills/m68k-kid-asm/SKILL.md`
-  - M68000 instruction reference, addressing modes, condition codes, Kid Chameleon ROM conventions, Mega Drive hardware, pitfall ledger
-- `.cache/references/m68k-instructions-documentation`
-  - per-instruction markdown docs (if bootstrapped)
-- official manual fallback
-  - https://www.nxp.com/docs/en/reference-manual/M68000PRM.pdf
+- `.agents/skills/m68k-kid-asm/SKILL.md`: M68000 instruction reference, addressing modes, condition codes, Kid Chameleon ROM conventions, Mega Drive hardware, pitfall ledger
+- `.cache/references/m68k-instructions-documentation`: per-instruction markdown docs (if bootstrapped)
+- Official manual fallback: https://www.nxp.com/docs/en/reference-manual/M68000PRM.pdf
 
 ## AS assembler
 
-- `.agents/skills/as-assembler/SKILL.md`
-  - entry point for AS syntax, directives, macros, and file tools
-- `.agents/skills/as-assembler/references/`
-  - command-line, pseudo-instruction, expression, and tool docs
+- `.agents/skills/as-assembler/SKILL.md`: entry point for AS syntax, directives, macros, and file tools
+- `.agents/skills/as-assembler/references/`: command-line, pseudo-instruction, expression, and tool docs
 
 ## Kid bundled docs
 
@@ -39,12 +30,9 @@
 
 ## GEMS and audio
 
-- `.cache/references/gems`
-  - GEMS tooling and driver research
-- `.cache/references/gemsplay`
-  - GEMS playback and inspection
-- `.cache/upstream/kid-chameleon-disasm/doc/sound.txt`
-  - Kid-specific sound notes
+- `.cache/references/gems`: GEMS tooling and driver research
+- `.cache/references/gemsplay`: GEMS playback and inspection
+- `.cache/upstream/kid-chameleon-disasm/doc/sound.txt`: Kid-specific sound notes
 
 ## Mega Drive hardware
 
@@ -55,17 +43,11 @@
 
 ## Methodology
 
-- `docs/source-port/backlog.md` + `backlog-archive.md`
-  - human-ordered queue with NOW block; per-issue evidence, dead ends, and rejected hypotheses grep-by-`#NNN` in the archive
-- `docs/source-port/loop.md`
-  - the static session prompt: take the top item, archive-grep before hypothesis, ASM before code
-- `docs/source-port/methodology.md`
-  - investigation playbook, testing taxonomy, regression discipline, cross-referencing protocol
-  - metamorphic relations, mutation testing, divergence classification, fidelity metrics
+- `docs/source-port/backlog.md` + `backlog-archive.md`: human-ordered queue with NOW block; per-issue evidence, dead ends, and rejected hypotheses grep-by-`#NNN` in the archive
+- `docs/source-port/loop.md`: the static session prompt (take the top item, archive-grep before hypothesis, ASM before code)
+- `docs/source-port/methodology.md`: investigation playbook, testing taxonomy, regression discipline, cross-referencing protocol, metamorphic relations, mutation testing, divergence classification, fidelity metrics
 
 ## Source-port exemplars and taxonomy
 
-- `docs/source-port/project-taxonomy.md`
-  - What kind of project this is (and is not), peer-project comparison, and why
-    we use runtime oracle verification rather than SM64-style matching decompilation.
+- `docs/source-port/project-taxonomy.md`: what kind of project this is (and is not), peer-project comparison, and why we use runtime oracle verification rather than SM64-style matching decompilation
 - https://github.com/n64decomp/sm64
