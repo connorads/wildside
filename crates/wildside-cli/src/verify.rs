@@ -20,6 +20,22 @@ pub(crate) struct OracleComparison {
     pub(crate) oracle: OracleManifest,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct AudioEventOracleWindowReport {
+    frame_index: usize,
+    command: String,
+    window_start_frame: usize,
+    window_end_frame: usize,
+    native_rms: f32,
+    native_peak: f32,
+    native_peak_freq_hz: Option<u32>,
+    oracle_rms: f32,
+    oracle_peak: f32,
+    oracle_peak_freq_hz: Option<u32>,
+    peak_ratio_oracle_over_native: Option<f32>,
+    peak_freq_delta_hz: Option<i32>,
+}
+
 pub(crate) fn verify_native_bootstrap(manifest: &AssetManifest) -> Result<()> {
     let scenario = Scenario::BootTitleStartLevel1;
     let script = scenario.script();
@@ -611,7 +627,9 @@ pub(crate) fn verify_native_audio_output_file(
         capture_native_audio_oracle_pair(repo_root, rom_path, manifest, scenario, scenario_file)?;
     compare_states_against_oracle(&comparison)?;
     compare_dynamic_audio_form_state(&comparison)?;
-    compare_audio_against_oracle(&comparison)
+    compare_audio_against_oracle(&comparison)?;
+    write_audio_event_oracle_window_report(&comparison)?;
+    Ok(())
 }
 
 pub(crate) fn verify_frames(
@@ -872,6 +890,198 @@ fn trim_oracle_audio_to_native_window(
 fn oracle_scenario_window_samples(oracle_samples: &[f32], native_sample_count: usize) -> &[f32] {
     let trim_start = oracle_samples.len().saturating_sub(native_sample_count);
     &oracle_samples[trim_start..]
+}
+
+fn write_audio_event_oracle_window_report(comparison: &OracleComparison) -> Result<()> {
+    let events_path = comparison.run_dir.join("native/audio-events.txt");
+    if !events_path.is_file() {
+        return Ok(());
+    }
+
+    let events = fs::read_to_string(&events_path)
+        .with_context(|| format!("failed to read {}", events_path.display()))?;
+    let reports = audio_event_oracle_window_reports(
+        &comparison.native.samples,
+        AUDIO_SAMPLE_RATE,
+        &read_wav_f32(&comparison.oracle.audio_path)?,
+        comparison.oracle.sample_rate,
+        &events,
+    );
+    if reports.is_empty() {
+        return Ok(());
+    }
+
+    let out_path = comparison.run_dir.join("audio-event-oracle-windows.json");
+    fs::write(&out_path, serde_json::to_vec_pretty(&reports)?)
+        .with_context(|| format!("failed to write {}", out_path.display()))?;
+    println!("audio event oracle windows: {}", out_path.display());
+    Ok(())
+}
+
+fn audio_event_oracle_window_reports(
+    native_samples: &[f32],
+    native_sample_rate: u32,
+    oracle_samples: &[f32],
+    oracle_sample_rate: u32,
+    events: &str,
+) -> Vec<AudioEventOracleWindowReport> {
+    events
+        .lines()
+        .filter_map(parse_audio_event_line)
+        .map(|(frame_index, command)| {
+            audio_event_oracle_window_report(
+                native_samples,
+                native_sample_rate,
+                oracle_samples,
+                oracle_sample_rate,
+                frame_index,
+                command,
+            )
+        })
+        .collect()
+}
+
+fn parse_audio_event_line(line: &str) -> Option<(usize, String)> {
+    let frame_index = line
+        .split_whitespace()
+        .find_map(|part| part.strip_prefix("frame="))?
+        .parse()
+        .ok()?;
+    let command = line
+        .split_whitespace()
+        .find_map(|part| part.strip_prefix("command="))?
+        .to_owned();
+    Some((frame_index, command))
+}
+
+fn audio_event_oracle_window_report(
+    native_samples: &[f32],
+    native_sample_rate: u32,
+    oracle_samples: &[f32],
+    oracle_sample_rate: u32,
+    frame_index: usize,
+    command: String,
+) -> AudioEventOracleWindowReport {
+    const WINDOW_FRAMES: usize = 8;
+
+    let window_start_frame = frame_index;
+    let window_end_frame = frame_index.saturating_add(WINDOW_FRAMES);
+    let native_window = audio_frame_window(
+        native_samples,
+        native_sample_rate,
+        window_start_frame,
+        window_end_frame,
+    );
+    let oracle_window = audio_frame_window(
+        oracle_samples,
+        oracle_sample_rate,
+        window_start_frame,
+        window_end_frame,
+    );
+    let native_metrics = audio_window_metrics(native_window, native_sample_rate);
+    let oracle_metrics = audio_window_metrics(oracle_window, oracle_sample_rate);
+
+    AudioEventOracleWindowReport {
+        frame_index,
+        command,
+        window_start_frame,
+        window_end_frame,
+        native_rms: native_metrics.rms,
+        native_peak: native_metrics.peak,
+        native_peak_freq_hz: native_metrics.peak_freq_hz,
+        oracle_rms: oracle_metrics.rms,
+        oracle_peak: oracle_metrics.peak,
+        oracle_peak_freq_hz: oracle_metrics.peak_freq_hz,
+        peak_ratio_oracle_over_native: (native_metrics.peak > 0.0)
+            .then_some(oracle_metrics.peak / native_metrics.peak),
+        peak_freq_delta_hz: native_metrics
+            .peak_freq_hz
+            .zip(oracle_metrics.peak_freq_hz)
+            .map(|(native, oracle)| oracle as i32 - native as i32),
+    }
+}
+
+fn audio_frame_window(
+    samples: &[f32],
+    sample_rate: u32,
+    start_frame: usize,
+    end_frame: usize,
+) -> &[f32] {
+    let samples_per_frame = samples_per_video_frame(sample_rate);
+    let sample_start = start_frame
+        .saturating_mul(samples_per_frame)
+        .saturating_mul(2)
+        .min(samples.len());
+    let sample_end = end_frame
+        .saturating_mul(samples_per_frame)
+        .saturating_mul(2)
+        .min(samples.len());
+    &samples[sample_start..sample_end]
+}
+
+fn samples_per_video_frame(sample_rate: u32) -> usize {
+    ((u64::from(sample_rate) + 30) / 60).max(1) as usize
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct AudioWindowMetrics {
+    rms: f32,
+    peak: f32,
+    peak_freq_hz: Option<u32>,
+}
+
+fn audio_window_metrics(samples: &[f32], sample_rate: u32) -> AudioWindowMetrics {
+    AudioWindowMetrics {
+        rms: audio_rms(samples),
+        peak: audio_peak(samples),
+        peak_freq_hz: estimate_zero_crossing_frequency(samples, sample_rate),
+    }
+}
+
+fn audio_rms(samples: &[f32]) -> f32 {
+    if samples.is_empty() {
+        return 0.0;
+    }
+    let sum_squares: f64 = samples
+        .iter()
+        .map(|sample| {
+            let sample = f64::from(*sample);
+            sample * sample
+        })
+        .sum();
+    (sum_squares / samples.len() as f64).sqrt() as f32
+}
+
+fn audio_peak(samples: &[f32]) -> f32 {
+    samples
+        .iter()
+        .fold(0.0_f32, |peak, sample| peak.max(sample.abs()))
+}
+
+fn estimate_zero_crossing_frequency(samples: &[f32], sample_rate: u32) -> Option<u32> {
+    if samples.len() < 4 {
+        return None;
+    }
+    let mut previous = 0.0_f32;
+    let mut crossings = 0usize;
+    let mut mono_samples = 0usize;
+    for stereo in samples.chunks_exact(2) {
+        let mono = (stereo[0] + stereo[1]) * 0.5;
+        if mono.abs() < 0.001 {
+            mono_samples += 1;
+            continue;
+        }
+        if previous != 0.0 && mono.signum() != previous.signum() {
+            crossings += 1;
+        }
+        previous = mono;
+        mono_samples += 1;
+    }
+    if crossings < 2 || mono_samples == 0 {
+        return None;
+    }
+    let seconds = mono_samples as f64 / f64::from(sample_rate);
+    Some(((crossings as f64 / 2.0) / seconds).round() as u32)
 }
 
 pub(crate) fn compare_audio_against_oracle(comparison: &OracleComparison) -> Result<()> {
@@ -1393,7 +1603,9 @@ pub(crate) fn contains_u16_subsequence(haystack: &[u16], needle: &[u16]) -> bool
 
 #[cfg(test)]
 mod tests {
-    use super::oracle_scenario_window_samples;
+    use super::{
+        AUDIO_FRAME_SAMPLES, audio_event_oracle_window_reports, oracle_scenario_window_samples,
+    };
 
     #[test]
     fn oracle_scenario_window_samples_keep_tail_matching_native_length() {
@@ -1410,5 +1622,40 @@ mod tests {
         let oracle = [0.0, 0.1];
 
         assert_eq!(oracle_scenario_window_samples(&oracle, 4), &[0.0, 0.1]);
+    }
+
+    #[test]
+    fn audio_event_oracle_window_reports_compare_matching_frame_windows() {
+        let mut native = vec![0.0; AUDIO_FRAME_SAMPLES * 2 * 40];
+        let mut oracle = vec![0.0; AUDIO_FRAME_SAMPLES * 2 * 40];
+        let event_sample_start = 31 * AUDIO_FRAME_SAMPLES * 2;
+        for sample in &mut native[event_sample_start..event_sample_start + AUDIO_FRAME_SAMPLES * 2]
+        {
+            *sample = 0.25;
+        }
+        for sample in &mut oracle[event_sample_start..event_sample_start + AUDIO_FRAME_SAMPLES * 2]
+        {
+            *sample = 0.5;
+        }
+
+        let reports = audio_event_oracle_window_reports(
+            &native,
+            44_100,
+            &oracle,
+            44_100,
+            "frame=31 mode=InGame level=00 command=PlaySound(13)\n",
+        );
+
+        assert_eq!(reports.len(), 1);
+        let report = &reports[0];
+        assert_eq!(report.frame_index, 31);
+        assert_eq!(report.command, "PlaySound(13)");
+        assert_eq!(report.window_start_frame, 31);
+        assert_eq!(report.window_end_frame, 39);
+        assert!(report.native_rms > 0.08);
+        assert!(report.oracle_rms > report.native_rms);
+        assert_eq!(report.native_peak, 0.25);
+        assert_eq!(report.oracle_peak, 0.5);
+        assert_eq!(report.peak_ratio_oracle_over_native, Some(2.0));
     }
 }

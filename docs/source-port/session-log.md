@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-20 handoff (#272 fixed candidate)
+
+- **#272 DAC voice pitch moved `[~]` -> `[?]`.** Dynamic native-audio verification now writes `audio-event-oracle-windows.json` beside each real jgenesis WAV capture, so the old native-as-oracle audio audit is no longer the only pitch evidence. The reports first exposed the low/slow native DAC path, then verified the fix: standalone GEMS now advances the YM2612 timer/status shadow at the YM input clock instead of raw Z80 cycles, and clears the hidden init-frame audio event epoch before visible playback. Evidence: `issue272-red-stealth-air-attack-direct` reports `$13` at 641 Hz native vs 638 Hz jgenesis; the level route covers `$60`, `$13`, `$46`, `$66` in the same pitch range. Focused GEMS/verifier tests pass; human audio-device validation is still required.
+- **NEXT**: continue with `mise run project-status`; #272 is no longer in the open queue. Current audio work is now the looping-SFX leak family (#342/#339), then block render (#324), entry presentation (#336/#348/#254/#210), and combat/render lifecycle (#343/#345/#346/#350).
+
+---
+
 ## 2026-06-20 handoff (#264 fixed candidate)
 
 - **#264 live audio slowdown moved `[~]` -> `[?]`.** Live `play-native` now keeps generated GEMS/fallback frames in a small software backlog whenever SDL's two-frame device queue is full, then drains those frames in order before/after later video frames. This removes the old path where GEMS advanced and an already-mixed block/diamond/BGM frame was discarded at the cap. Hard BGM resets still clear SDL plus the backlog. Diagnostics now expose backlog pressure (`backlog_frames`, `backlog_full_frames`, `max_backlog_frames`) and `skipped_full_frames` stays 0 for compatibility. Verification: focused audio regressions, `cargo fmt`, `mise run backlog-lint`, `mise run verify-slice-fast`, and `mise run verify-tas-full` exits 0 with CRC matching all 37759 frames; current baseline state-report divergences still start at `transition_15_to_00_post`.

@@ -57,6 +57,7 @@ const VSRAM_LEN: usize = 0x50;
 const TRACE_LIMIT: usize = 256;
 const PSG_CLOCK_HZ: f64 = 3_579_545.0;
 const Z80_CLOCK_HZ: f64 = 3_579_545.0;
+const YM2612_INPUT_CLOCK_HZ: f64 = 7_670_454.0;
 const Z80_VBLANK_IRQ_CYCLES: u32 = 228;
 const PSG_GAIN: f32 = 0.446_683_6;
 const AUDIO_DC_BLOCK_CUTOFF_HZ: f64 = 5.0;
@@ -2111,6 +2112,13 @@ fn ym_sample_cycle_end(ym_samples_emitted: u64, z80_cycles_per_ym: f64) -> u64 {
     (((ym_samples_emitted + 1) as f64) * z80_cycles_per_ym).floor() as u64
 }
 
+fn ym2612_input_clocks_for_z80_cycles(z80_cycles: u32, remainder: &mut f64) -> u32 {
+    let exact = *remainder + (f64::from(z80_cycles) * YM2612_INPUT_CLOCK_HZ / Z80_CLOCK_HZ);
+    let clocks = exact.floor();
+    *remainder = exact - clocks;
+    clocks as u32
+}
+
 fn plane_dimensions(size_register: u8) -> (usize, usize) {
     let width_cells = match size_register & 0x03 {
         0x01 => 64,
@@ -2856,6 +2864,7 @@ pub struct GemsAudioEngine {
     z80: Z80<GemsBus>,
     mixer: AudioMixer,
     vblank_irq_cycles_remaining: u32,
+    ym2612_shadow_clock_remainder: f64,
     initialised: bool,
     driver: Vec<u8>,
 }
@@ -2895,6 +2904,7 @@ impl GemsAudioEngine {
             z80,
             mixer: AudioMixer::default(),
             vblank_irq_cycles_remaining: 0,
+            ym2612_shadow_clock_remainder: 0.0,
             initialised: false,
             driver: driver.to_vec(),
         }
@@ -2920,6 +2930,7 @@ impl GemsAudioEngine {
             z80,
             mixer: AudioMixer::default(),
             vblank_irq_cycles_remaining: 0,
+            ym2612_shadow_clock_remainder: 0.0,
             initialised: false,
             driver: driver.to_vec(),
         })
@@ -2954,7 +2965,16 @@ impl GemsAudioEngine {
         for _ in 0..4 {
             self.step_z80_frame();
         }
+        self.reset_audio_event_epoch();
         self.initialised = true;
+    }
+
+    fn reset_audio_event_epoch(&mut self) {
+        self.z80.io.audio_events.clear();
+        self.z80.io.z80_cycles = 0;
+        self.ym2612_shadow_clock_remainder = 0.0;
+        self.mixer.output_samples_emitted = 0;
+        self.mixer.ym_samples_emitted = 0;
     }
 
     /// Match ASM `StopMusic` (kid.asm:49727): reload/reset the GEMS driver,
@@ -2968,6 +2988,7 @@ impl GemsAudioEngine {
         self.mixer = AudioMixer::default();
         self.mixer.set_levels(levels);
         self.vblank_irq_cycles_remaining = 0;
+        self.ym2612_shadow_clock_remainder = 0.0;
         self.initialised = false;
         self.init();
     }
@@ -3069,11 +3090,9 @@ impl GemsAudioEngine {
             }
             let elapsed = self.z80.step();
             let budget = elapsed.min(remaining);
-            self.z80
-                .io
-                .ym2612_shadow
-                .borrow_mut()
-                .advance_clocks(budget);
+            self.z80.io.ym2612_shadow.borrow_mut().advance_clocks(
+                ym2612_input_clocks_for_z80_cycles(budget, &mut self.ym2612_shadow_clock_remainder),
+            );
             self.z80.io.z80_cycles = self.z80.io.z80_cycles.wrapping_add(u64::from(budget));
             self.vblank_irq_cycles_remaining =
                 self.vblank_irq_cycles_remaining.saturating_sub(budget);
@@ -3112,6 +3131,7 @@ mod tests {
         YM2612_STATUS_DECAY_CLOCKS, Ym2612Shadow, Z80_RAM_BASE, Z80Bus, Z80Shared, cram_rgb,
         max_psg_clocks_per_output_sample, max_ym_samples_per_output_sample, noise_reload,
         probe_rom, render_vdp_into, scale_channel, ym_sample_cycle_end,
+        ym2612_input_clocks_for_z80_cycles,
     };
     use r68k_emu::ram::{AddressBus, SUPERVISOR_DATA};
     use std::cell::RefCell;
@@ -4754,6 +4774,19 @@ mod tests {
     }
 
     #[test]
+    fn standalone_gems_converts_z80_cycles_to_ym2612_input_clocks() {
+        let mut remainder = 0.0;
+
+        let clocks = ym2612_input_clocks_for_z80_cycles(3_579_545, &mut remainder);
+
+        assert_eq!(clocks, 7_670_454);
+        assert!(
+            remainder < 0.000_001,
+            "full-second conversion should not leave meaningful fractional drift"
+        );
+    }
+
+    #[test]
     fn audio_mixer_generate_scales_existing_stereo_ym_sample() {
         let mut mixer = AudioMixer {
             last_ym_sample: [0.4, -0.25],
@@ -5605,6 +5638,34 @@ mod tests {
             ],
             "ASM sub_E14AC writes the low byte first, then shifts right before queueing the middle and high bytes",
         );
+    }
+
+    #[test]
+    fn gems_engine_init_resets_hidden_boot_audio_event_epoch() {
+        let driver = vec![0u8; 64];
+        let patches = vec![0u8; 16];
+        let envelopes = vec![0u8; 16];
+        let sequences = vec![0u8; 16];
+        let samples = vec![0u8; 16];
+
+        let mut engine =
+            super::GemsAudioEngine::new(&driver, &patches, &envelopes, &sequences, &samples);
+        engine.z80.io.audio_events.push_back(AudioEvent::PsgWrite {
+            z80_cycles: 42,
+            value: 0x90,
+        });
+        engine.init();
+
+        assert_eq!(
+            engine.z80.io.z80_cycles, 0,
+            "hidden init frames are not rendered, so later audio event timestamps must start at the first generated frame"
+        );
+        assert!(
+            engine.z80.io.audio_events.is_empty(),
+            "hidden init writes must not be mixed into the first audible frame"
+        );
+        assert_eq!(engine.mixer.output_samples_emitted, 0);
+        assert_eq!(engine.mixer.ym_samples_emitted, 0);
     }
 
     #[test]
