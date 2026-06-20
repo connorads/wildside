@@ -71,10 +71,32 @@ completely separate:
 | Path | Crate | What it runs | Verification |
 |------|-------|-------------|--------------|
 | `play` | `wildside-md` | Original ROM byte-for-byte in a Mega Drive emulator | Is the emulator accurate? (jgenesis cross-check) |
-| `play-native` | `wildside-core` | Hand-translated Rust reimplementation | Does native state match oracle state frame-by-frame? |
+| `play-native` | `wildside-core` | Hand-translated Rust reimplementation (audio via embedded emulator — see below) | Does native state match oracle state frame-by-frame? |
 
 They share **assets** (`wildside-data`) and **input replay format** (`DynamicScenario`),
 but not gameplay logic.
+
+## The audio exception
+
+Gameplay and graphics in `play-native` are genuine native reimplementation —
+Rust translated from the disassembly, verified against the oracle. **Audio is the
+one deliberate exception.** Rather than reimplement the GEMS sound engine, the
+native runtime runs the *original* `GEMS_Sounddriver.bin` on an embedded Z80 +
+`ymfm` YM2612 core: `wildside-md::GemsAudioEngine` drives the real driver binary
+on an emulated Z80, with the FM chip emulated by `ymfm`. Only two parts are
+native — the PSG, and the 68k-side "which sound to play" trigger logic that feeds
+the driver. So an emulator genuinely *does* ship inside the product, but for sound
+alone; everything observable in gameplay/graphics state is native Rust.
+
+This is high-level emulation (HLE) scoped to one subsystem, chosen because the
+GEMS driver is a self-contained binary with a narrow command interface — the
+boundary the rest of the codebase lacks (see "Why not share a core engine"
+above). See `docs/source-port/dark-model-wiring-triage.md` §9 (the live audio
+path is the `wildside-md` real-driver chain, not the redundant `wildside-core`
+`SoundDriver*` model) and `docs/source-port/audio-triggers-fidelity-audit.md`.
+Note this is distinct from `play` (`mise run play`), which is fully
+emulator-backed; `play-native` (`mise run play-native`) is native except for this
+audio seam.
 
 ---
 
