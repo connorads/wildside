@@ -11,7 +11,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 |---|---|---|
 | Archer (0x07) | partial | 2 |
 | Armadillo (0x04) | partial | 3 |
-| Big_Hopping_Skull (0x1D) | partial | 3 |
+| Big_Hopping_Skull (0x1D) | partial | 2 |
 | Cloud (0x0E) | partial | 1 |
 | Crab (0x09) | partial | 2 |
 | Diamond (0x01) | partial | 2 |
@@ -60,7 +60,7 @@ Fixed candidate 2026-06-20: charging-Berzerker side contact with no positive rec
 Fixed candidate 2026-06-20: `$5C(a5)` spawned children now enter the live `loc_3C93C` fall state on terminal damage, wait in `loc_3C954` until floor contact, then start `stru_3C69A` death animation. Regressions: `armadillo_spawned_child_terminal_damage_falls_before_death_loc_3c87e`, `armadillo_spawned_child_floor_contact_starts_death_tail_loc_3c954`.
 
 **Big_Hopping_Skull — patrol x-bounds and relaunch reset never run** (`loc_36770 / loc_36782 / loc_36798 / loc_366D0`)
-Skull should be pinned to a fixed corridor ($3E/$40) with constant launch height. Live `step_big_hopping_skull` (`enemies.rs:12663-12732`) applies gravity + deflection only; no bound read, no $FFFE relaunch. Corridor helpers `enemies.rs:3342/3209` test-only.
+Fixed candidate 2026-06-20: live activation now packs the segment corridor from `loc_364A0` into `dragon_anchor_y`, `step_active_enemies` unpacks those `$3E/$40` words for Big Hopping Skull, and `loc_366D0` relaunch runs `loc_36770` before returning to the live loop. Regressions: `big_hopping_skull_live_floor_contact_timer_relaunches_like_loc_366d0`, `big_hopping_skull_live_relaunch_applies_patrol_bounds_like_loc_36770`, `big_hopping_skull_activation_carries_patrol_bounds_to_live_relaunch_loc_364a0_36770`.
 
 **Fire_Demon — walking fire-trail emission never happens** (`loc_3A542 / loc_3A564 / loc_3A63C`)
 Demon should leave up to 7 trail children while pacing. Only runtime trail push is a single death trail (`combat.rs:7676-7678`); walking-trail gate `enemies.rs:5067` is dead. `step_fire_demon_trails` (`projectiles.rs:1293-1307`) only ages trails.

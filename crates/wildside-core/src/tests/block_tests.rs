@@ -6460,6 +6460,94 @@ mod chunk_04 {
     }
 
     #[test]
+    fn big_hopping_skull_activation_carries_patrol_bounds_to_live_relaunch_loc_364a0_36770() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![],
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 1,
+            objects: vec![EnemyLayoutObject {
+                object_type: 0x1D,
+                flags: 0,
+                hit_points_plus_one: 1,
+                x: 0x00C0,
+                y: 0x00E0,
+            }],
+            segments: vec![wildside_data::EnemyLayoutSegment {
+                lower_bound: 0x0040,
+                upper_bound: 0x0100,
+                enemy_type_slots: vec![],
+                object_batch_flags: 0,
+                object_count: 1,
+                objects: vec![EnemyLayoutObject {
+                    object_type: 0x1D,
+                    flags: 0,
+                    hit_points_plus_one: 1,
+                    x: 0x00C0,
+                    y: 0x00E0,
+                }],
+            }],
+        };
+        let mut active = Vec::new();
+        activate_enemies(
+            &mut active,
+            &layout,
+            ActivationWindow {
+                x_min: 0,
+                x_max: 0x0200,
+                y_min: 0,
+                y_max: 0x0200,
+            },
+            0,
+            0,
+            physics::LevelBounds {
+                width_pixels: 4096,
+                height_pixels: 512,
+            },
+            0,
+            0x00E0_0000,
+            &HashSet::new(),
+        );
+        let skull = active.first_mut().expect("Big Hopping Skull should spawn");
+        assert_eq!(skull.family, EnemyFamily::BigHoppingSkull);
+        assert_eq!(
+            skull.dragon_anchor_y, 0x0080_00C0,
+            "ASM Big_Hopping_Skull.asm loc_364A0 should preserve `$3E/$40` as lower+$40 and upper-$40 for live relaunch",
+        );
+        skull.x_velocity = 0;
+        skull.y_velocity = 0x0000_0001;
+        skull.target_x_velocity = 0x0001_2222;
+        skull.wait_timer = 1;
+        skull.facing = Direction::Right;
+
+        step_active_enemies(
+            &mut active,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        assert_eq!(
+            active[0].x_velocity,
+            i32::from_ne_bytes(0xFFFF_2222_u32.to_ne_bytes()),
+            "ASM Big_Hopping_Skull.asm loc_364A0 stores `$3E=lower+$40`/`$40=upper-$40`; live loc_366D0 must pass those words into loc_36798 at the right bound",
+        );
+        assert_eq!(
+            active[0].y_velocity,
+            i32::from_ne_bytes(0xFFFE_0001_u32.to_ne_bytes()),
+            "ASM Big_Hopping_Skull.asm loc_366D0/loc_36798 should preserve the low y_vel word while writing high word `$FFFE`",
+        );
+        assert_eq!(active[0].facing, Direction::Left);
+    }
+
+    #[test]
     fn big_hopping_skull_nonfatal_damage_enters_stru_367cc_hibernate() {
         let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x0080_0000, 0x00E0_0000, 3);
 
