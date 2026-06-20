@@ -149,12 +149,6 @@ Fixed candidate: queued parent negative collision words now bypass HP decrement 
 **Tar_Monster — 5-projectile burst fires on every non-fatal hit instead of on death** (`loc_323E6 / loc_323C0`)
 Fixed candidate: queued Tar Monster collision now follows `loc_3237A`/`loc_32386`/`loc_323C0`. Nonterminal hurt decrements HP and runs the hurt response without allocating `loc_32468`; terminal hurt/signed-negative/charging side routes enter `loc_323E6`, play the death-side `loc_32468` shoot cue, and spawn the `loc_324F8` five-child burst at the copied source position minus `$10` y before the waited death animation. Regressions: `tar_monster_nonfatal_hurt_does_not_spawn_burst_loc_323c0_323d6`, `tar_monster_terminal_hurt_spawns_death_burst_loc_323e6_324f8`.
 
-**UFO — live motion uses fabricated 60-frame accel sign-flip instead of once-per-second random picker** (`Enemy0F_UFO_1SecLoop / loc_35326 / unk_35344 / loc_35444`)
-No random byte / x_pos XOR / 16-entry table / acceleration ramp; just periodic sign-flip + probe_wall. `enemies.rs:10165-10204`, `enemies.rs:9322-9324`.
-
-**UFO — below-and-near-Kid chase steering not invoked** (`loc_34E2A / loc_34E86 / loc_34E96`)
-`step_ufo(enemy, block_grid)` has no player position; tracking command is test-only. UFO never steers toward the player. `enemies.rs:9323`, `enemies.rs:10165-10204`, `enemies.rs:10083`.
-
 **UFO — two-phase hurt ($47) absent: first hit should spray debris and survive** (`Enemy0F_UFO_Hurt / loc_35150 / loc_351EE / loc_354DA`)
 `remove_dead_enemy` treats UFO as single death; no $47 latch. First-hit debris helpers test-only. `combat.rs:7630-7645`, `enemies.rs:10978/10913`.
 
