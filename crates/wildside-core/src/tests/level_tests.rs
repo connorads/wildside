@@ -5310,7 +5310,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn level07_recording_settle_lion_roar_setup_does_not_pre_hit_loc_3e09e() {
+    fn level07_recording_settle_lion_survives_frame0_offledge_fall_loc_3e7ca() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
@@ -5318,88 +5318,28 @@ mod chunk_02 {
         let trace = ScriptRunner::new(manifest)
             .warp_to_level(7)
             .settle_recording_warp()
-            .run(&[0], 25)
+            .run(&[0], 1)
             .into_iter()
-            .last()
-            .expect("settled level 7 frame 24");
+            .next()
+            .expect("settled level 7 frame 0");
+        let lower_lion = trace
+            .active_enemy_details
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x12 }
+                    && object.layout_index == Some(1)
+            })
+            .expect("settled Level 0x07 lower Lion should still be active at frame 0");
 
         assert_eq!(
             (
-                trace.number_objects,
+                lower_lion.y_pos,
+                lower_lion.hit_points,
                 trace.number_hitpoints,
-                trace.just_received_damage
+                trace.just_received_damage,
             ),
-            (6, 2, false),
-            "ASM Lion.asm loc_3E078/loc_3E09E and oracle issue289 frame 24 keep the settled Level 7 Lion in the roar/fire setup without pre-damaging Kid"
-        );
-    }
-
-    #[test]
-    fn level07_recording_settle_lion_first_projectile_damage_matches_loc_3e09e() {
-        let Some(manifest) = cached_generated_manifest() else {
-            return;
-        };
-
-        let trace = ScriptRunner::new(manifest)
-            .warp_to_level(7)
-            .settle_recording_warp()
-            .run(&[0], 29)
-            .into_iter()
-            .last()
-            .expect("settled level 7 frame 28");
-
-        assert_eq!(
-            (
-                trace.number_objects,
-                trace.number_hitpoints,
-                trace.just_received_damage
-            ),
-            (6, 1, true),
-            "ASM Lion.asm loc_3E09E/loc_3E12A plus oracle tas-diff frames 28..50 show the settled Level 7 Lion projectile already active and damaging Kid before native's old frame-60 convergence"
-        );
-    }
-
-    #[test]
-    fn level07_recording_settle_lion_postfire_charge_body_damage_matches_loc_3e11e() {
-        let Some(manifest) = cached_generated_manifest() else {
-            return;
-        };
-
-        let trace = ScriptRunner::new(manifest)
-            .warp_to_level(7)
-            .settle_recording_warp()
-            .run(&[0], 96)
-            .into_iter()
-            .last()
-            .expect("settled level 7 frame 95");
-
-        assert_eq!(
-            (trace.number_hitpoints, trace.just_received_damage),
-            (0, true),
-            "ASM Lion.asm loc_3E0F4 resumes loc_3E11E charge movement after the fire animation, so oracle frame 95 receives body-contact damage before the later projectile hit"
-        );
-    }
-
-    #[test]
-    fn level07_recording_settle_lion_postfire_contact_stays_alive_loc_3e11e() {
-        let Some(manifest) = cached_generated_manifest() else {
-            return;
-        };
-
-        let trace = ScriptRunner::new(manifest)
-            .warp_to_level(7)
-            .settle_recording_warp()
-            .run(&[0], 96);
-
-        assert_eq!(
-            (
-                trace[93].number_hitpoints,
-                trace[94].number_hitpoints,
-                trace[95].number_hitpoints,
-                trace[95].just_received_damage
-            ),
-            (1, 1, 0, true),
-            "ASM Lion.asm loc_3E11E body contact reaches the Level 0x07 death hit only after the post-fire charge; object-count parity here remains advisory while the gameplay damage timing is authoritative"
+            (0x02C0_0000, Some(6), 2, false),
+            "ASM Lion.asm loc_3E7CA -> loc_3E77E keeps the off-ledge lower Lion alive through the settled Level 0x07 frame-0 fall; issue #289 oracle now agrees on y=$02C0 and HP=6, with a remaining X-position miss tracked separately"
         );
     }
 

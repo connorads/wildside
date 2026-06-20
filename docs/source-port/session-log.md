@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-20 handoff (#289 partial Lion survival)
+
+- **#289 stays `[~]`, with one Level 0x07 Lion subcase fixed.** Native no longer routes the lower Lion's settled frame-0 off-ledge charge fall through `Lion.asm loc_3E94E` when the body terrain scan only overlaps the floor row at the feet. The replacement cache-backed regression now asserts the oracle-backed survival state (`y=$02C0_0000`, HP 6, Kid HP 2, no damage) instead of the stale projectile/body-contact timing claims. Fresh `verify-tas` still reports first divergence at frame 0, but now only on the remaining X-position/grounding/export details (`native x=$02118000`, `oracle x=$02058000`); broader #289 hell spawn/layout work remains open. Verification: focused Level 0x07 Lion regression, Level 0x06 Flying Dragon guard, Lion terrain/floor-edge tests, `verify-slice-fast`, and `verify-tas-full` (exit 0; CRC all 37759 frames match, current baseline state-report divergences still begin at `transition_15_to_00_post`).
+- **NEXT**: continue with `mise run project-status`; if it returns #289 again, derive the Level 0x07 settle X-position miss from `Lion.asm` plus oracle before touching header/start/layout code. #345 Lion mid-level vanish is not covered by this fix and still needs the scroll-off/scroll-back cull probe.
+
+---
+
 ## 2026-06-20 handoff (#272 fixed candidate)
 
 - **#272 DAC voice pitch moved `[~]` -> `[?]`.** Dynamic native-audio verification now writes `audio-event-oracle-windows.json` beside each real jgenesis WAV capture, so the old native-as-oracle audio audit is no longer the only pitch evidence. The reports first exposed the low/slow native DAC path, then verified the fix: standalone GEMS now advances the YM2612 timer/status shadow at the YM input clock instead of raw Z80 cycles, and clears the hidden init-frame audio event epoch before visible playback. Evidence: `issue272-red-stealth-air-attack-direct` reports `$13` at 641 Hz native vs 638 Hz jgenesis; the level route covers `$60`, `$13`, `$46`, `$66` in the same pitch range. Focused GEMS/verifier tests pass; human audio-device validation is still required.

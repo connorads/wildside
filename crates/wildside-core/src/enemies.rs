@@ -21060,7 +21060,7 @@ fn step_lion_charge_movement_loc_3e11e(
                 LION_CHARGE_PROBE_HALF_WIDTH,
             );
             let floor_edge_overlap =
-                floor.on_ground && (floor.floor_y_px..=floor.floor_y_px + 1).contains(&foot_y_px);
+                floor.on_ground && (floor.floor_y_px..=floor.floor_y_px + 3).contains(&foot_y_px);
             if scan.hitbox_blocked && !floor_edge_overlap {
                 // ASM Lion.asm loc_3E6AE/loc_3E7CA: after sub_36B3C/sub_36BD6,
                 // non-zero d5 branches to loc_3E94E and stores collision_type=$FFFF.
@@ -38900,7 +38900,7 @@ mod tests {
         let mut lion = ActiveEnemy {
             family: EnemyFamily::Lion,
             x_pos: 24 << 16,
-            y_pos: 33 << 16,
+            y_pos: 35 << 16,
             x_velocity: -0x0001_8000,
             y_velocity: 0,
             facing: Direction::Left,
@@ -44586,10 +44586,10 @@ impl NativeRuntime {
                 // ASM Mode_Level's hidden respawn settle keeps executing the
                 // object scheduler after the horizontal camera axis has reached
                 // its settled target. Level 0x07's Lion first exposed this via
-                // loc_3E12A projectile timing; Level 0x06's Flying Dragon now
-                // proves the same tail must age every active family through
-                // Dragon_Flying.asm loc_34710 -> loc_348A0 -> loc_34BAC before
-                // the recording helper's 60 visible live frames begin.
+                // Lion.asm loc_3E7CA's off-ledge charge fall; Level 0x06's
+                // Flying Dragon proves the same tail must age active families
+                // through Dragon_Flying.asm loc_34710 -> loc_348A0 -> loc_34BAC
+                // before the recording helper's 60 visible live frames begin.
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),

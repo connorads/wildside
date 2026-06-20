@@ -26,32 +26,23 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered across the live lanes;
-  file order is not priority). Current thrust from the 2026-06-20 triage (full detail in
-  [`session-log.md`](./session-log.md)): audio first, then block render (#324), then
-  entry-presentation (#336/#348/#254/#210), then combat lifecycle (#343/#345/#346/#350).
-- **Audio is THREE separate root causes, do not merge them**: #264 BGM stutter / "every
-  other sound slows" is a fixed candidate awaiting real-device validation (software
-  backlog in front of the 2-frame SDL cap; triggers are ASM-correct); #272 DAC voices
-  low/deep is now a fixed candidate awaiting human audio validation after real jgenesis
-  event-window reports exposed and then verified the GEMS DAC timing fix; #339/#342
-  looping-SFX leaks remain open (wire the dead-code stop helpers on death / level-skip /
-  pickup-expiry).
-- **In progress**: #316 helmets-fidelity umbrella; continue from the next open concrete
-  row in `audits/helmets-fidelity-audit.md`.
-- **Fixed candidate this session**: #272 dynamic native-audio verification now writes
-  native-vs-jgenesis event-window reports, and standalone GEMS playback now advances the
-  YM2612 status/timer shadow at the YM input clock plus resets the hidden init audio
-  epoch. `issue272-red-stealth-air-attack-direct` now reports `$13` at 641 Hz native vs
-  638 Hz jgenesis; the level route keeps `$60`, `$13`, `$46`, and `$66` in the same pitch
-  range. Focused GEMS/verifier tests and the two jgenesis scenarios pass; real audio-device
-  validation is still required.
-- **Blocked on you (human repro/validation)**: #334 (Caves-of-Ice live leak). The large
-  `[?]` set in `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the
-  recurring "needs a real audio device" block IS that playtest.
-- **Process note**: the 2026-06-20 triage found issues being missed or denied by parking
-  `[?]` on unmet gates, leaving start-without-stop helpers unwired, and keyword-deflection
-  onto closed rows. Durable fixes need native-player RENDER assertions and a real jgenesis
-  WAV compare, not more model-level tests.
+  file order is not priority). Current focus is still #289 because it remains `[~]`.
+- **#289 partial fixed subcase**: Level 0x07's lower Lion no longer dies during the
+  settled frame-0 off-ledge charge fall. The native/oracle first divergence now agrees on
+  Lion `y=$02C0_0000` and HP 6, but still misses X (`native=$02118000`,
+  `oracle=$02058000`) and #289's broader hell-theme wrong-start/layout report remains
+  open.
+- **Next #289 action**: derive the remaining Level 0x07 settle X-position miss from
+  `Lion.asm`/oracle before changing spawn/header/layout code. Do not treat #345 Lion
+  mid-level vanish as closed by this; that row still needs the scroll-off/scroll-back
+  cull probe.
+- **Gates this session**: focused Level 0x07 Lion regression, Dragon level-06 guard,
+  Lion terrain-body/floor-edge tests, `verify-slice-fast`, and `verify-tas-full` passed
+  (full TAS keeps the current baseline state-report divergences while CRC matches all
+  37759 frames).
+- **Blocked on you (human repro/validation)**: the large `[?]` set in
+  `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
+  "needs a real audio device" block IS that playtest.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -82,7 +73,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Partial 2026-06-13: Level 0x06 / Under Skull Mountain 3 remains clean, and Level 0x07 / Isle of the Lion Lord no longer pre-ages the Lion through the 24-frame hidden Flying Dragon tail. (full history: archive #289) |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Partial 2026-06-20: Level 0x07 lower Lion survives settled frame 0 at oracle Y/HP after the Lion.asm loc_3E7CA floor-edge fix; remaining X miss and broader hell-route layout report stay open. (full history: archive #289) |
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | Bisect the recent regression; capture cold-boot frames 130..260 vs an oracle Blue Lake Woods 1 cold-boot recording. Suspect EARLY_START_LEVEL_ONE_BOOTSTRAP_* / LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y (trace.rs:6089/6163). See archive #336. |
