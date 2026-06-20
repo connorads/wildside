@@ -123,7 +123,7 @@ cargo run -p wildside-cli -- inspect-enemy --enemy 01
 cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1
 cargo run -p wildside-cli -- asm-coverage                    # coverage summary
 cargo run -p wildside-cli -- asm-coverage --uncovered        # uncovered sub_ labels
-cargo run -p wildside-cli -- asm-coverage --update           # regenerate asm-coverage.yaml
+cargo run -p wildside-cli -- asm-coverage --update           # regenerate .cache/asm-coverage.yaml (untracked)
 ```
 
 ## Level 1 reading order
@@ -216,7 +216,7 @@ diff composites, and per-layer diagnostics.
 - `cargo run -p wildside-cli -- diagnose-level XX` (deep single-level analysis)
 - `cargo run -p wildside-cli -- asm-coverage` (ASM label coverage summary)
 - `cargo run -p wildside-cli -- asm-coverage --uncovered` (gap list)
-- `cargo run -p wildside-cli -- asm-coverage --update` (regenerate asm-coverage.yaml)
+- `cargo run -p wildside-cli -- asm-coverage --update` (regenerate .cache/asm-coverage.yaml, untracked)
 
 ### Verification loop
 1. CAPTURE BEFORE: `capture-frames` to `.cache/debug/before/`

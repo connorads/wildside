@@ -124,7 +124,7 @@ Current TAS milestones prove `replay-matched` on their covered routes. They do n
 - **#132** [x] 2-player alternating mode. Strong native scenarios cover game-over-before-swap, continue respawn for the same player, preservation of the other slot, and continue timeout returning to title.
 - **#133** [x] Password/options scope. ASM audit found no stock-ROM password entry path; native options now mirror the ROM four-row options menu.
 
-### Enemy behaviour gaps (tracked in `asm-coverage.yaml`)
+### Enemy behaviour gaps (via `wildside asm-coverage`)
 Tracked systematically via `wildside-cli asm-coverage --uncovered --subsystem enemy`.
 High impact: ~~Archer arrow lifetime + re-aiming~~ (FIXED), ~~Tornado Cyclone-flying interaction~~ (FIXED), ~~Crab proximity freeze~~ (FIXED), ~~Dragon Flying wall-reversal~~ (FIXED).
 Medium impact: ~~Sphere/Fireball slope deflection~~ (FIXED).

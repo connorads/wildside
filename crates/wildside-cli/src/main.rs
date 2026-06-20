@@ -1173,7 +1173,7 @@ enum Commands {
     },
     /// Cross-reference ASM labels against native code citations.
     AsmCoverage {
-        /// Regenerate docs/source-port/asm-coverage.yaml (preserves hand annotations).
+        /// Regenerate .cache/asm-coverage.yaml (untracked; preserves hand annotations).
         #[arg(long, default_value_t = false)]
         update: bool,
         /// Filter to subsystems matching this substring (e.g. "enemy").
