@@ -245,7 +245,7 @@ Fixed candidate: live Tornado terrain collision now routes through the `loc_3594
 Fixed candidate: the same `loc_35948` table now dispatches BounceUpSlope and BounceDownSlope to the shared UFO slope-bounce vectors instead of plain axis flips. Regressions: `tornado_slopeup_collision_uses_ufo_slope_bounce_loc_35948`, `tornado_slopedown_collision_uses_ufo_slope_bounce_loc_35948`.
 
 **UFO — collision-type bounce table dispatch not used** (`Enemy0F_UFO_ExecCollisionBehavior / loc_35056`)
-Live step does ad-hoc wall-only reversal; missing floor/ceiling bounce, slope reseed, and loc_350F2 rollback (3 of 4 bounce categories). `enemies.rs:10186-10202`, helpers `enemies.rs:10575/10576/10835/10853` dead.
+Fixed candidate: live UFO terrain contact now routes through `loc_35056`, including wall, floor/ceiling, BounceUpSlope, and BounceDownSlope behaviours; slope cases run the `loc_350F2` rollback before reseeding the diagonal bounce vectors. Regressions: `ufo_floor_collision_uses_loc_35056_floorceil_bounce`, `ufo_ceiling_collision_uses_loc_35056_floorceil_bounce`, `ufo_slopeup_collision_uses_loc_35056_slope_bounce`, `ufo_slopedown_collision_uses_loc_35056_slope_bounce`, `ufo_collision_dispatch_matches_loc_35056`.
 
 **UFO — random beam trigger uses a non-ROM position hash** (`Enemy0F_UFO_ChkLoadBeam`)
 Native uses `(x_pos+wait_timer)*2654435761>>24 < 4` (4/256) instead of `Get_RandomNumber_byte <= 4` (5/256), and never consumes the ROM RNG stream. `enemies.rs:10348-10356`.
