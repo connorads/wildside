@@ -81,14 +81,15 @@ fn parse_rows(contents: &str) -> Vec<LintRow> {
 /// to the next section heading or EOF so an empty open queue (no table) is still valid.
 fn now_block_len(backlog: &str) -> Option<usize> {
     let lines: Vec<&str> = backlog.lines().collect();
-    let start = lines.iter().position(|l| l.trim_start().starts_with("## NOW"))?;
+    let start = lines
+        .iter()
+        .position(|l| l.trim_start().starts_with("## NOW"))?;
     let end = lines
         .iter()
         .enumerate()
         .skip(start + 1)
         .find(|(_, l)| l.starts_with("| # | Status") || l.starts_with("## "))
-        .map(|(i, _)| i)
-        .unwrap_or(lines.len());
+        .map_or(lines.len(), |(i, _)| i);
     Some(end.saturating_sub(start))
 }
 
@@ -100,7 +101,7 @@ fn collect_malformed_rows(contents: &str, lane: &str, problems: &mut Vec<String>
         if !line.starts_with('|') {
             continue;
         }
-        let first_cell = line.split('|').nth(1).map(str::trim).unwrap_or("");
+        let first_cell = line.split('|').nth(1).map_or("", str::trim);
         if first_cell.is_empty() || !first_cell.chars().all(|c| c.is_ascii_digit()) {
             continue;
         }
@@ -265,8 +266,10 @@ mod tests {
     #[test]
     fn lint_flags_changelog_accretion_in_backlog() {
         let dir = TempDir::new().expect("temp");
-        let bloated =
-            CLEAN_BACKLOG.replace("- Focus: working #200", "- **Last session** (2026-06-20): ...");
+        let bloated = CLEAN_BACKLOG.replace(
+            "- Focus: working #200",
+            "- **Last session** (2026-06-20): ...",
+        );
         write(&dir, BACKLOG_PATH, &bloated);
         // run_backlog_lint prints each problem to stderr and bails with a count; assert the
         // changelog rule actually fired by re-checking the content the rule keys on.

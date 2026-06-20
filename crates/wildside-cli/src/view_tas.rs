@@ -16,10 +16,6 @@ use crate::sweep::{
 use crate::verify::{FrameDiff, compare_rgb_frames, load_png_rgb};
 use anyhow::{Context, Result, anyhow, bail};
 use image::{ColorType, ImageFormat};
-use wildside_core::terrain::BlockGrid;
-use wildside_core::{FrameInput, NativeTraceFrame};
-use wildside_data::AssetManifest;
-use wildside_render::NativeLevelVisuals;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
@@ -29,6 +25,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
+use wildside_core::terrain::BlockGrid;
+use wildside_core::{FrameInput, NativeTraceFrame};
+use wildside_data::AssetManifest;
+use wildside_render::NativeLevelVisuals;
 
 const VIEW_TAS_MAX_DEFAULT_FRAMES: usize = 2_000;
 const VIEW_TAS_FOOTER_HEIGHT: u32 = 56;
@@ -770,7 +770,7 @@ impl ViewTasApp {
             .get(frame_index)
             .and_then(Option::as_ref)
         {
-            render_native_vdp_rgb(vdp, &mut rgb)
+            render_native_vdp_rgb(vdp, &mut rgb);
         } else {
             let level_id = frame.current_level.0;
             if !self.asset_cache.contains_key(&level_id) {

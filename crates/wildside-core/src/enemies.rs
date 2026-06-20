@@ -17528,20 +17528,18 @@ pub(crate) fn step_hopper(
                     );
                     return;
                 }
-            } else {
-                if floor.cell.collision == terrain::CollisionKind::SlopeUp {
-                    enemy.x_pos = mini_hopping_skull_snap_slopeup_x(
-                        grid,
-                        (enemy.x_pos >> 16) as i32,
-                        (enemy.y_pos >> 16) as i32,
-                    );
-                } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
-                    enemy.x_pos = mini_hopping_skull_snap_slopedown_x(
-                        grid,
-                        (enemy.x_pos >> 16) as i32,
-                        (enemy.y_pos >> 16) as i32,
-                    );
-                }
+            } else if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                enemy.x_pos = mini_hopping_skull_snap_slopeup_x(
+                    grid,
+                    (enemy.x_pos >> 16) as i32,
+                    (enemy.y_pos >> 16) as i32,
+                );
+            } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+                enemy.x_pos = mini_hopping_skull_snap_slopedown_x(
+                    grid,
+                    (enemy.x_pos >> 16) as i32,
+                    (enemy.y_pos >> 16) as i32,
+                );
             }
             enemy.y_pos = floor_y_fp;
             enemy.x_velocity = 0;

@@ -8388,11 +8388,10 @@ impl NativeRuntime {
                                 changed_enemy_state = true;
                             }
                             Some(HandJumpCollisionBehaviorLoc329F8::TryGrabKid) => {
-                                let character_movement_is_crawling = self
-                                    .opening_slice
-                                    .as_ref()
-                                    .map(|slice| self.current_character_movement(slice.player) == 1)
-                                    .unwrap_or(false);
+                                let character_movement_is_crawling =
+                                    self.opening_slice.as_ref().is_some_and(|slice| {
+                                        self.current_character_movement(slice.player) == 1
+                                    });
                                 let kid_grabbed_by_hand = self
                                     .active_enemies
                                     .iter()

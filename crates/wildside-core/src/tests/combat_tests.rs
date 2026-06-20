@@ -15867,7 +15867,7 @@ mod chunk_03 {
         ninja.y_velocity = 0;
         ninja.on_ground = true;
         runtime.active_enemies = vec![ninja];
-        let collision_target = runtime.active_enemies[0].clone();
+        let collision_target = runtime.active_enemies[0];
 
         runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDRIGHT);
         runtime.apply_pending_enemy_collisions();
@@ -15898,7 +15898,7 @@ mod chunk_03 {
         ninja.x_velocity = 0x0001_0000;
         ninja.y_velocity = -0x0001_0000;
         runtime.active_enemies = vec![ninja];
-        let collision_target = runtime.active_enemies[0].clone();
+        let collision_target = runtime.active_enemies[0];
 
         runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_HURT);
         runtime.apply_pending_enemy_collisions();
@@ -15928,7 +15928,7 @@ mod chunk_03 {
         ninja.ninja_state = NinjaState::Guard;
         ninja.shared_walker_state = -1;
         runtime.active_enemies = vec![ninja];
-        let collision_target = runtime.active_enemies[0].clone();
+        let collision_target = runtime.active_enemies[0];
 
         runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_HURT);
         runtime.apply_pending_enemy_collisions();
@@ -15957,7 +15957,7 @@ mod chunk_03 {
         ninja.y_velocity = -0x0001_0000;
         ninja.on_ground = false;
         runtime.active_enemies = vec![ninja];
-        let collision_target = runtime.active_enemies[0].clone();
+        let collision_target = runtime.active_enemies[0];
 
         runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDABOVE);
         runtime.apply_pending_enemy_collisions();
@@ -15988,7 +15988,7 @@ mod chunk_03 {
         ninja.y_velocity = -0x0001_0000;
         ninja.on_ground = false;
         runtime.active_enemies = vec![ninja];
-        let collision_target = runtime.active_enemies[0].clone();
+        let collision_target = runtime.active_enemies[0];
 
         runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDABOVE);
         runtime.apply_pending_enemy_collisions();
@@ -16020,7 +16020,7 @@ mod chunk_03 {
         ninja.y_velocity = -0x0001_0000;
         ninja.on_ground = false;
         runtime.active_enemies = vec![ninja];
-        let collision_target = runtime.active_enemies[0].clone();
+        let collision_target = runtime.active_enemies[0];
 
         runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDLEFT);
         runtime.apply_pending_enemy_collisions();
@@ -16053,7 +16053,7 @@ mod chunk_03 {
         ninja.y_velocity = -0x0001_0000;
         ninja.on_ground = false;
         runtime.active_enemies = vec![ninja];
-        let collision_target = runtime.active_enemies[0].clone();
+        let collision_target = runtime.active_enemies[0];
 
         runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDRIGHT);
         runtime.apply_pending_enemy_collisions();
@@ -24141,15 +24141,9 @@ mod chunk_05 {
         ];
 
         for (table_label, expected_len, first_x, top_y, bottom_y) in cases {
-            let sprites = helmets::eyeclops_beam_sprites_loc_E51A(
-                table_label,
-                0x0080,
-                0x0080,
-                0,
-                0,
-                0,
-            )
-            .unwrap_or_else(|| panic!("ASM off_E560 table {table_label} should decode"));
+            let sprites =
+                helmets::eyeclops_beam_sprites_loc_E51A(table_label, 0x0080, 0x0080, 0, 0, 0)
+                    .unwrap_or_else(|| panic!("ASM off_E560 table {table_label} should decode"));
 
             assert_eq!(
                 sprites.sprites.len(),

@@ -4370,8 +4370,7 @@ fn run_audio_audit(
     for id in ids {
         let name = names
             .get(&id)
-            .map(|labels| labels.join("|"))
-            .unwrap_or_else(|| format!("sfx_{id:02X}"));
+            .map_or_else(|| format!("sfx_{id:02X}"), |labels| labels.join("|"));
         rows.push(audit_one_sound_id(
             id,
             name,
@@ -4393,16 +4392,13 @@ fn run_audio_audit(
         for row in &rows {
             let oracle_dur = row
                 .oracle_dur_frames
-                .map(|dur| dur.to_string())
-                .unwrap_or_else(|| "-".to_string());
+                .map_or_else(|| "-".to_string(), |dur| dur.to_string());
             let delta = row
                 .duration_delta_frames
-                .map(|delta| delta.to_string())
-                .unwrap_or_else(|| "-".to_string());
+                .map_or_else(|| "-".to_string(), |delta| delta.to_string());
             let oracle_rms = row
                 .oracle_rms
-                .map(|rms| format!("{rms:.5}"))
-                .unwrap_or_else(|| "-".to_string());
+                .map_or_else(|| "-".to_string(), |rms| format!("{rms:.5}"));
             println!(
                 "{:02X}   {:5}  {:3}  {:>3} {:>4}  {:.5}  {:>7}  {:5} {:>3}/{:<3} {}  {}",
                 row.id,
@@ -4510,8 +4506,7 @@ fn audit_one_sound_id(
         duration_delta_frames,
         oracle_status: oracle
             .as_ref()
-            .map(|_| "ok".to_string())
-            .unwrap_or_else(|error| error.to_string()),
+            .map_or_else(std::string::ToString::to_string, |_| "ok".to_string()),
     }
 }
 
@@ -4576,8 +4571,7 @@ fn audio_audit_metrics(
     let native_dur_frames = audible_frames
         .iter()
         .rposition(|audible| *audible)
-        .map(|idx| idx + 1)
-        .unwrap_or(0);
+        .map_or(0, |idx| idx + 1);
     let tail = (frames / 10).clamp(6, 30).min(frames);
     let looping = tail != 0
         && audible_frames[frames - tail..]
@@ -4758,10 +4752,11 @@ mod tests {
         capture_native_gameplay_run, capture_native_gameplay_scenario, classify_audio_writes,
         compare_native_gameplay_with, compare_native_states_against_oracle,
         dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
-        ensure_level_layouts_with, ensure_play_native_level_layouts_with, find_gameplay_live_drifts,
-        format_sound_id_list, gameplay_checkpoint_window, generated_batch_probe_candidates,
-        native_trace_to_oracle_state, oracle_probe_watch_row_in_range, parse_batch_probe_candidate,
-        parse_batch_probe_window, parse_batch_target_block_event, parse_batch_target_projectile_cell,
+        ensure_level_layouts_with, ensure_play_native_level_layouts_with,
+        find_gameplay_live_drifts, format_sound_id_list, gameplay_checkpoint_window,
+        generated_batch_probe_candidates, native_trace_to_oracle_state,
+        oracle_probe_watch_row_in_range, parse_batch_probe_candidate, parse_batch_probe_window,
+        parse_batch_target_block_event, parse_batch_target_projectile_cell,
         parse_batch_target_projectile_direction, parse_button_mask, parse_input_spec,
         parse_sfx_constants, prepare_generated_assets_with, record_scenario_command,
         record_scenario_file_command, recording_scenario_manifest,

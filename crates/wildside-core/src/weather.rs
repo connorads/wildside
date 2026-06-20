@@ -1004,7 +1004,7 @@ pub(crate) fn apply_weather_worker_output_to_state_sub_61ca(
     weather.storm_free_falling_slots = output.free_falling_slots;
     weather.storm_falling_slots_sub_61ca = output.falling_slots;
     weather.storm_impact_slots_sub_61ca = output.impact_slots;
-    weather.storm_sprites_sub_61ca = output.sprites.clone();
+    weather.storm_sprites_sub_61ca.clone_from(&output.sprites);
     if let Some(kid_collision_timer) = output.kid_collision_timer {
         weather.storm_kid_collision_timer_sub_61ca = kid_collision_timer;
     }

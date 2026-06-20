@@ -5,15 +5,6 @@ use crate::recording::{
 use crate::scenarios::{DynamicScenario, DynamicStartPosition, GameplayCheckpoint};
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
-use wildside_core::{
-    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
-    DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, FrameInput, GameMode, LevelId,
-    NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand,
-    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
-};
-use wildside_data::{AssetManifest, LevelHeader, resource_level_id, resource_level_record};
-use wildside_md::GemsAudioEngine;
-use wildside_render::{MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals};
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
@@ -28,6 +19,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
+use wildside_core::{
+    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
+    DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, FrameInput, GameMode, LevelId,
+    NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand,
+    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
+};
+use wildside_data::{AssetManifest, LevelHeader, resource_level_id, resource_level_record};
+use wildside_md::GemsAudioEngine;
+use wildside_render::{
+    MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals,
+};
 
 const FRAME_WIDTH: u32 = 320;
 const FRAME_HEIGHT: u32 = 224;
@@ -3085,6 +3087,11 @@ fn try_load_generated_level_layout(
 mod tests {
     use super::*;
     use crate::scenarios::prize_block_scenario;
+    use std::fs;
+    use std::path::Path;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tempfile::TempDir;
     use wildside_core::BlockBounceTrace;
     use wildside_core::{
         EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, LevelId, NativeObjectKind,
@@ -3102,11 +3109,6 @@ mod tests {
         NativeLevelVisuals, Palette, PaletteSet, PlatformVisuals, PlayerFormVisuals,
         PlayerTransformStep, PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
-    use std::fs;
-    use std::path::Path;
-    use std::sync::Arc;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    use tempfile::TempDir;
 
     fn sample_trace(mode: GameMode) -> NativeTraceFrame {
         NativeTraceFrame {
@@ -4889,7 +4891,8 @@ mod tests {
         let visuals = sample_level_visuals();
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -4923,7 +4926,8 @@ mod tests {
         });
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
@@ -4964,7 +4968,8 @@ mod tests {
         });
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
         trace.level_complete_score_rows_elapsed_frames =
             super::scene::EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE;
 
@@ -5008,7 +5013,8 @@ mod tests {
         });
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -5038,12 +5044,17 @@ mod tests {
             rows: vec![vec![TileRef::from_attr_word(0x0001)]],
         });
         let mut grid = BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
-        grid.set_cell_at(1, 0, wildside_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
+        grid.set_cell_at(
+            1,
+            0,
+            wildside_core::terrain::Cell::from_be_bytes(0xE1, 0x00),
+        );
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
-            + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
-            + 1;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+                + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+                + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -5074,12 +5085,17 @@ mod tests {
             ],
         });
         let mut grid = BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
-        grid.set_cell_at(0, 0, wildside_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
+        grid.set_cell_at(
+            0,
+            0,
+            wildside_core::terrain::Cell::from_be_bytes(0xE1, 0x00),
+        );
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
-            + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
-            + 1;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+                + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+                + 1;
         trace.camera_x_pos = 3 << 16;
         trace.camera_y_pos = 1 << 16;
 
@@ -5115,12 +5131,17 @@ mod tests {
             rows: vec![vec![TileRef::from_attr_word(0x0001); 2]],
         });
         let mut grid = BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
-        grid.set_cell_at(0, 0, wildside_core::terrain::Cell::from_be_bytes(0xE1, 0x00));
+        grid.set_cell_at(
+            0,
+            0,
+            wildside_core::terrain::Cell::from_be_bytes(0xE1, 0x00),
+        );
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
-            + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
-            + 1;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+                + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+                + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -5197,9 +5218,10 @@ mod tests {
         grid.set_cell_at(0, 1, Cell::from_be_bytes(0xE1, 0x00));
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
-            + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
-            + 1;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+                + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+                + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 1 << 16;
 
@@ -5240,9 +5262,10 @@ mod tests {
         grid.set_cell_at(0, 0, Cell::from_be_bytes(0xE1, 0x00));
         let mut trace = sample_trace(GameMode::InGame);
         trace.level_complete = true;
-        trace.level_complete_elapsed_frames = wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
-            + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
-            + 1;
+        trace.level_complete_elapsed_frames =
+            wildside_core::EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE
+                + wildside_core::EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE
+                + 1;
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
 
@@ -7506,13 +7529,19 @@ mod tests {
         let mut tar_hidden = base(0x05);
         tar_hidden.contact_phase = Some(NativeContactPhase::TarMonsterHidden);
         assert_eq!(
-            sprites::select_enemy_frame(&trace, tar, &tar_hidden).tile_sheet.tiles[0].pixels[0],
+            sprites::select_enemy_frame(&trace, tar, &tar_hidden)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
             59,
             "ASM Tar_Monster.asm stru_3274C: hidden tar holds the underground body frame, not the submerge death tail"
         );
         let tar_visible = base(0x05); // contact_phase None => Visible/Attacking
         assert_eq!(
-            sprites::select_enemy_frame(&trace, tar, &tar_visible).tile_sheet.tiles[0].pixels[0],
+            sprites::select_enemy_frame(&trace, tar, &tar_visible)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
             60,
             "ASM Tar_Monster.asm stru_3272E: visible tar holds the emerged body frame C77D6"
         );
@@ -7528,7 +7557,7 @@ mod tests {
             .tiles[0]
             .pixels[0];
         assert!(
-            matches!(sphere_sig, 151 | 152 | 153),
+            matches!(sphere_sig, 151..=153),
             "ASM Sphere.asm stru_36174: live sphere spins frames 0-2 only, not the stru_36182 disappear tail (got sig {sphere_sig})"
         );
 
@@ -7538,13 +7567,17 @@ mod tests {
         // frame (60/20)%8 = 3 (sig 244, a shatter frame), so this fails without
         // the helper.
         trace.frame_index = 60;
-        let emo = visuals.enemies.families.get(&0x1B).expect("emo rock visuals");
+        let emo = visuals
+            .enemies
+            .families
+            .get(&0x1B)
+            .expect("emo rock visuals");
         let emo_sig = sprites::select_enemy_frame(&trace, emo, &base(0x1B))
             .tile_sheet
             .tiles[0]
             .pixels[0];
         assert!(
-            matches!(emo_sig, 241 | 242 | 243),
+            matches!(emo_sig, 241..=243),
             "ASM Emo_Rock.asm loc_3621A/loc_362A4: live emo rock shows a body frame, not the stru_36468 shatter tail (got sig {emo_sig})"
         );
     }
@@ -9502,19 +9535,20 @@ mod tests {
                 flip_x: false,
             };
         }
-        visuals.background = BackgroundVisuals::Layered(wildside_render::LayeredBackgroundVisuals {
-            effect_start_row_selector: None,
-            rows: vec![wildside_render::LayeredBackgroundRow {
-                selector: 0,
-                tiles: vec![TileRef {
-                    tile_index: 0,
-                    palette_line: 1,
-                    priority: false,
-                    flip_x: false,
-                    flip_y: false,
+        visuals.background =
+            BackgroundVisuals::Layered(wildside_render::LayeredBackgroundVisuals {
+                effect_start_row_selector: None,
+                rows: vec![wildside_render::LayeredBackgroundRow {
+                    selector: 0,
+                    tiles: vec![TileRef {
+                        tile_index: 0,
+                        palette_line: 1,
+                        priority: false,
+                        flip_x: false,
+                        flip_y: false,
+                    }],
                 }],
-            }],
-        });
+            });
 
         let line_one = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 0, 0)
             .expect("line-one forest pixel should use swapped background CRAM");
@@ -9542,19 +9576,20 @@ mod tests {
         visuals.background_tiles = TileSheet {
             tiles: vec![make_tile(&[(0, 0, 13), (1, 0, 12)])],
         };
-        visuals.background = BackgroundVisuals::Layered(wildside_render::LayeredBackgroundVisuals {
-            effect_start_row_selector: None,
-            rows: vec![wildside_render::LayeredBackgroundRow {
-                selector: 0,
-                tiles: vec![TileRef {
-                    tile_index: 0,
-                    palette_line: 0,
-                    priority: false,
-                    flip_x: false,
-                    flip_y: false,
+        visuals.background =
+            BackgroundVisuals::Layered(wildside_render::LayeredBackgroundVisuals {
+                effect_start_row_selector: None,
+                rows: vec![wildside_render::LayeredBackgroundRow {
+                    selector: 0,
+                    tiles: vec![TileRef {
+                        tile_index: 0,
+                        palette_line: 0,
+                        priority: false,
+                        flip_x: false,
+                        flip_y: false,
+                    }],
                 }],
-            }],
-        });
+            });
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
@@ -18123,7 +18158,10 @@ mod tests {
         let (_, hp5_tail, _) =
             indexed_tile_at_with_sheet_len(&hp5_scene, 0xB0 - 128, 0xA4 - 128, 4)
                 .expect("filled trailing 5th pip at 5 HP");
-        assert_eq!(hp5_tail.tile_index, 0, "5 HP: trailing pip is filled ($822D)");
+        assert_eq!(
+            hp5_tail.tile_index, 0,
+            "5 HP: trailing pip is filled ($822D)"
+        );
         let (_, hp4_tail, _) =
             indexed_tile_at_with_sheet_len(&hp4_scene, 0xB0 - 128, 0xA4 - 128, 4)
                 .expect("grey trailing 5th pip at 4 HP");
@@ -19494,7 +19532,8 @@ mod tests {
         let prev = sample_trace(GameMode::InGame);
         let mut curr = sample_trace(GameMode::InGame);
         curr.played_music_speed_updates = vec![0x7E];
-        curr.played_sound_commands = vec![NativeSoundCommand::start_sequence(gems_sfx::VOICE_BUMMER)];
+        curr.played_sound_commands =
+            vec![NativeSoundCommand::start_sequence(gems_sfx::VOICE_BUMMER)];
         curr.played_sound_effect_ids = vec![gems_sfx::VOICE_BUMMER];
 
         assert_eq!(
@@ -19629,10 +19668,10 @@ mod tests {
         let events = native_audio_events_for_trace(&fixture.manifest, &[draining, drained]);
 
         assert!(
-            events
-                .iter()
-                .any(|event| event
-                    .contains(&format!("command=StopSequence({})", gems_sfx::SCORE_COUNTER))),
+            events.iter().any(|event| event.contains(&format!(
+                "command=StopSequence({})",
+                gems_sfx::SCORE_COUNTER
+            ))),
             "recording audio events should preserve ASM loc_D7F4's j_PlaySound2 command byte `$12`, not just the reused score-counter id"
         );
         Ok(())
