@@ -54,8 +54,12 @@ run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- verify-game
 
 [tasks.verify-slice-fast]
 depends = ["verify-tas-frontier", "backlog-lint"]
+# No scripts/strict-rust.sh here: RUSTFLAGS=-D warnings forks a separate build
+# cache, and the pre-commit `cargo clippy --workspace --all-targets -- -D warnings`
+# step already denies every rustc warning over the same scope (lints are clippy's
+# job). Dropping it lets the clippy and test debug caches converge. (#24)
 run = """
-scripts/strict-rust.sh sh -ec '
+sh -ec '
 cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas --skip snapshot \
   && cargo test -q -p wildside-cli gameplay_regression_
 '
