@@ -77,6 +77,7 @@ signals apart so nobody reads a green gate as "nearly done".
 | You want to… | Read |
 | --- | --- |
 | See every command, controls, oracle workflow | [`docs/commands.md`](docs/commands.md) |
+| Understand the crate layout and boundaries | [`docs/architecture.md`](docs/architecture.md) |
 | Understand the source-port research method | [`CLAUDE.md`](CLAUDE.md) · [`docs/source-port/reference-index.md`](docs/source-port/reference-index.md) |
 | Take a loop session / pick the next task | [`docs/source-port/loop.md`](docs/source-port/loop.md) · [`docs/source-port/backlog.md`](docs/source-port/backlog.md) |
 | Trace Level 1 in detail | [`docs/source-port/level-1-dossier.md`](docs/source-port/level-1-dossier.md) |
