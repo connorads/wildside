@@ -36,9 +36,9 @@ crossterm = "0.28"
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 
-# --- Permanent allows (emulator domain) ---
+# --- Permanent allows (source-port / hardware-modelling domain) ---
 
-# Casts — emulator code does intentional width/sign/wrap casts everywhere
+# Casts — faithful 68k translations do intentional width/sign/wrap casts everywhere
 cast-lossless             = "allow"
 cast-possible-truncation  = "allow"
 cast-precision-loss       = "allow"
@@ -64,7 +64,7 @@ match-same-arms           = "allow"   # intentional in dispatch tables
 items-after-statements    = "allow"   # common in test code
 bool-to-int-with-if       = "allow"   # idiomatic for bit manipulation
 too-many-lines            = "allow"   # faithful ASM translations
-float-cmp                 = "allow"   # emulator fixed-point comparisons
+float-cmp                 = "allow"   # fixed-point comparisons
 
 # _root: TempDir drop guards are intentionally underscore-prefixed but used
 used-underscore-binding            = "allow"
