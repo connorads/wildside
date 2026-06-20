@@ -90,7 +90,7 @@ Status transitions:
 Agent lane guardrails:
 
 - Never writes `[x]`. A reviewer converts `[?]` to `[x]` once the fix is validated.
-- Every investigation commit must either touch `crates/wildside-core/src/**` (fix + regression test) or `docs/source-port/backlog.md` (new evidence block or status transition). Pure cache-local churn does not count as progress.
+- Every investigation commit must either touch `crates/wildside-core/src/**` (fix + regression test) or the backlog lanes: a status transition / lane move in `docs/source-port/backlog.md` and the evidence block under `#NNN` in `docs/source-port/backlog-archive.md`. Pure cache-local churn does not count as progress.
 - On stall, write the dead end (rejected hypotheses included) under the issue's `#NNN` in `backlog-archive.md` and leave status at `[~]`. No code commit means write the dead end and stop, never commit churn.
 
 ### Trace comparison techniques
