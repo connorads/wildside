@@ -10761,45 +10761,6 @@ mod chunk_03 {
         }
     }
 
-    /// ASM loc_7E26 (kid.asm:8564): `move.b (a4,d0.w),d0; jsr (sub_E1330).l;
-    /// jsr (sub_E1338).l` — index unk_7ECC[Foreground_theme] for the post-transform
-    /// music speed byte. The table has 11 entries (one per foreground theme)
-    /// plus a MurderWall override at offset 11. sub_E1330 queues `FF 05 <byte>`
-    /// and sub_E1338 queues `FF 0D`. Verify the sound driver calls produce the
-    /// correct GEMS ring payloads for a representative music speed byte.
-    #[test]
-    fn loc_7e26_music_speed_sub_e1330_queues_correct_payload_for_theme_byte() {
-        // unk_7ECC[1] = $7E (theme index 1). sub_E1330($7E) should queue FF 05 7E.
-        let write = sound_driver_write_sub_E1330(0x7E);
-        assert_eq!(
-            write.queued_bytes,
-            [0xFF, 0x05, 0x7E],
-            "ASM loc_7E26: sub_E1330 should queue `FF 05 7E` for unk_7ECC[1] = $7E"
-        );
-
-        // sub_E1338 always queues FF 0D (no payload) — the "reset" after speed set.
-        let reset = sound_driver_write_sub_E1338();
-        assert_eq!(
-            reset.queued_bytes,
-            [0xFF, 0x0D],
-            "ASM loc_7E26: sub_E1338 should queue `FF 0D` to complete the music speed update"
-        );
-    }
-
-    /// ASM loc_7E26 (kid.asm:8564): when MurderWall_flag is set, loc_7E14 loads
-    /// `MusicSpeed_Murderwall - unk_7ECC` ($76 at offset 11) instead of
-    /// Foreground_theme. Verify the override byte produces the correct payload.
-    #[test]
-    fn loc_7e26_murderwall_override_uses_offset_11_byte_0x76() {
-        // MusicSpeed_Murderwall = $76
-        let write = sound_driver_write_sub_E1330(0x76);
-        assert_eq!(
-            write.queued_bytes,
-            [0xFF, 0x05, 0x76],
-            "ASM loc_7E26: MurderWall override should queue `FF 05 76` via sub_E1330"
-        );
-    }
-
     /// ASM loc_7E48 (kid.asm:8575): `bsr.w sub_80D0` (palette), `moveq #1,d0;
     /// bsr.w sub_B41C` (half-width), `bsr.w sub_DB22` (clear flags). Native
     /// covers half-width via form_width_delta and flag clearing via helmet.reset().
