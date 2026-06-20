@@ -17720,6 +17720,97 @@ mod chunk_03 {
     }
 
     #[test]
+    fn tar_monster_nonfatal_hurt_does_not_spawn_burst_loc_323c0_323d6() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut tar = test_enemy(EnemyFamily::TarMonster, 0x0080_0000, 0x0040_0000, 2);
+        tar.layout_index = 25;
+        tar.tar_monster_state = TarMonsterState::Visible;
+        runtime.active_enemies = vec![tar];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: tar.segment_index,
+                layout_index: tar.layout_index,
+                collision_type: 0x001C,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Tar_Monster.asm loc_323C0 decrements d3 and only branches to loc_323E6 when the result is zero"
+        );
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM Tar_Monster.asm loc_323D6 nonterminal hurt animation should not allocate loc_32468 burst children"
+        );
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "nonterminal loc_323D6 should not play the loc_32468 shoot sound"
+        );
+    }
+
+    #[test]
+    fn tar_monster_terminal_hurt_spawns_death_burst_loc_323e6_324f8() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut tar = test_enemy(EnemyFamily::TarMonster, 0x0080_0000, 0x0040_0000, 1);
+        tar.layout_index = 26;
+        tar.tar_monster_state = TarMonsterState::Visible;
+        let killed_identity = (tar.segment_index, tar.layout_index);
+        runtime.active_enemies = vec![tar];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: tar.segment_index,
+                layout_index: tar.layout_index,
+                collision_type: 0x002C,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Tar_Monster.asm loc_323E6 hibernates through stru_32700 before loc_3243A deletes the enemy"
+        );
+        assert!(runtime.active_enemies[0].death_animation_active);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            TAR_MONSTER_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM Tar_Monster.asm loc_3243A should mark killed only after the death animation finishes"
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::TarMonsterShoots],
+            "ASM Tar_Monster.asm loc_32468 plays sfx_Tar_Monster_shoots for the death-side burst worker"
+        );
+        assert_eq!(
+            runtime.projectiles.len(),
+            5,
+            "ASM Tar_Monster.asm loc_323E6 seeds loc_32468 with `$44(a0)`, which routes through loc_325AC to loc_324F8's five-child burst"
+        );
+        assert!(
+            runtime
+                .projectiles
+                .iter()
+                .all(|projectile| projectile.kind == EnemyProjectileKind::TarMonsterBurstChild)
+        );
+        assert!(
+            runtime
+                .projectiles
+                .iter()
+                .all(|projectile| projectile.x_pos == tar.x_pos
+                    && projectile.y_pos == tar.y_pos.wrapping_sub(0x0010_0000)),
+            "ASM Tar_Monster.asm loc_325AC subtracts `$10` from the copied source y before loc_324F8 allocates burst children"
+        );
+    }
+
+    #[test]
     fn cloud_death_waits_for_stru_35eba_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut cloud = test_enemy(EnemyFamily::Cloud, 0x0080_0000, 0x0040_0000, 1);

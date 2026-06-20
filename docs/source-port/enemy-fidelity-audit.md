@@ -147,7 +147,7 @@ Fixed candidate: both RockTank variants now expose the linked mouth/turret child
 Fixed candidate: queued parent negative collision words now bypass HP decrement for both RockTank variants and enter the waited child-hide death scripts. Plain Tank is covered by `tank_negative_parent_collision_enters_loc_3b480_death_before_hp_damage`; Tank_Shooting is covered by `tank_shooting_negative_parent_collision_enters_loc_3b6e6_before_hp_damage`.
 
 **Tar_Monster — 5-projectile burst fires on every non-fatal hit instead of on death** (`loc_323E6 / loc_323C0`)
-`spawn_tar_monster_retaliation` is called only in the non-fatal branch; death path spawns no burst — inverse of ROM. `combat.rs:7865-7869`, `combat.rs:7813-7814`, `combat.rs:7647-7662`.
+Fixed candidate: queued Tar Monster collision now follows `loc_3237A`/`loc_32386`/`loc_323C0`. Nonterminal hurt decrements HP and runs the hurt response without allocating `loc_32468`; terminal hurt/signed-negative/charging side routes enter `loc_323E6`, play the death-side `loc_32468` shoot cue, and spawn the `loc_324F8` five-child burst at the copied source position minus `$10` y before the waited death animation. Regressions: `tar_monster_nonfatal_hurt_does_not_spawn_burst_loc_323c0_323d6`, `tar_monster_terminal_hurt_spawns_death_burst_loc_323e6_324f8`.
 
 **Tornado — Cyclone-flying-above kill branch not reproduced** (`loc_35986`)
 Missing the `y_pos` compare → death/respawn; live branch always bounces. Cyclone flight can never destroy a Tornado. `combat.rs:10072-10083`, `enemies.rs:10733-10734`.

@@ -9236,6 +9236,59 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::TarMonster) {
+                match tar_monster_collision_gate_loc_3237a(collision.collision_type as i16) {
+                    TarMonsterCollisionGateLoc3237A::Kill => {
+                        // ASM Tar_Monster.asm loc_3237A: signed-negative
+                        // collision words branch directly to loc_323E6.
+                        kill_indices.push(active_idx);
+                    }
+                    TarMonsterCollisionGateLoc3237A::Return => {}
+                    TarMonsterCollisionGateLoc3237A::NonZero {
+                        captured_collision_type,
+                    } => {
+                        let dispatch = tar_monster_collision_dispatch_loc_32386(
+                            captured_collision_type,
+                            berzerker_charging,
+                        );
+                        match dispatch.route {
+                            TarMonsterCollisionRouteLoc32386::Hurt => {
+                                let hurt = tar_monster_hurt_collision_loc_323C0(
+                                    u16::from(enemy.hit_points),
+                                    true,
+                                );
+                                match hurt.route {
+                                    TarMonsterHurtRouteLoc323C0::Death => {
+                                        // ASM Tar_Monster.asm loc_323C0:
+                                        // terminal hurt falls through to
+                                        // loc_323E6; the death transition
+                                        // allocates the burst worker.
+                                        kill_indices.push(active_idx);
+                                    }
+                                    TarMonsterHurtRouteLoc323C0::HurtAnimation => {
+                                        // ASM Tar_Monster.asm loc_323D6:
+                                        // nonterminal hurt runs `stru_326EE`
+                                        // and resumes the control script
+                                        // without allocating loc_32468.
+                                        enemy.hit_points = hurt.remaining_hitpoints as u8;
+                                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                        changed_enemy_state = true;
+                                    }
+                                }
+                            }
+                            TarMonsterCollisionRouteLoc32386::BerzerkerKill => {
+                                // ASM Tar_Monster.asm loc_323AA: charging
+                                // side contact skips the collision subroutine
+                                // return and enters loc_323E6.
+                                kill_indices.push(active_idx);
+                            }
+                            TarMonsterCollisionRouteLoc32386::ReturnOnly => {}
+                        }
+                    }
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::SpinningTwins)
                 && matches!(enemy.spinning_twins_phase, SpinningTwinsPhase::Walking)
             {
@@ -9656,6 +9709,19 @@ impl NativeRuntime {
                 // hibernate, play `sfx_Prize_block` before waiting for
                 // `stru_36468` to finish and applying the status tail.
                 self.queue_start_sequence(QueuedSoundEffect::PrizeBlock);
+            }
+            if matches!(family, EnemyFamily::TarMonster) {
+                // ASM Tar_Monster.asm loc_323E6 allocates loc_32468 with
+                // `$44(a0)` set. loc_32468 plays `sfx_Tar_Monster_shoots`,
+                // loc_3247E copies the linked source position, loc_325AC
+                // subtracts `$10` from y, then loc_324F8 allocates the
+                // five-child burst before the death animation hibernate.
+                self.queue_start_sequence(QueuedSoundEffect::TarMonsterShoots);
+                spawn_tar_monster_retaliation(
+                    &mut self.projectiles,
+                    x_pos,
+                    y_pos.wrapping_sub(0x0010_0000),
+                );
             }
             let enemy = &mut self.active_enemies[idx];
             enemy.hit_points = 0;
