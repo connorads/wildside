@@ -15159,6 +15159,72 @@ mod chunk_03 {
     }
 
     #[test]
+    fn ninja_airborne_berzerker_side_contact_enters_knockdown_loc_3d878_3d8bc() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 2);
+        ninja.layout_index = 17;
+        ninja.wall_pinned = true;
+        ninja.x_velocity = 0x0001_0000;
+        ninja.y_velocity = -0x0001_0000;
+        ninja.on_ground = false;
+        runtime.active_enemies = vec![ninja];
+        let collision_target = runtime.active_enemies[0].clone();
+
+        runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDLEFT);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].ninja_state,
+            NinjaState::Stealth,
+            "ASM Ninja.asm loc_3D878 -> loc_3D8BC should resume the airborne path while `$44(a3)` remains non-zero"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Ninja.asm loc_3D8BC decrements `$44(a3)` for airborne Berzerker side contact"
+        );
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0);
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity,
+            NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6
+        );
+        assert!(!runtime.active_enemies[0].death_animation_active);
+    }
+
+    #[test]
+    fn ninja_airborne_berzerker_side_contact_final_hit_enters_landing_loop_loc_3d8bc_3d8d6()
+    {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        let mut ninja = test_enemy(EnemyFamily::Ninja, 0x0080_0000, 0x0040_0000, 1);
+        ninja.layout_index = 18;
+        ninja.wall_pinned = true;
+        ninja.x_velocity = 0x0001_0000;
+        ninja.y_velocity = -0x0001_0000;
+        ninja.on_ground = false;
+        runtime.active_enemies = vec![ninja];
+        let collision_target = runtime.active_enemies[0].clone();
+
+        runtime.queue_pending_enemy_collision(&collision_target, NINJA_COLID_KIDRIGHT);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].ninja_state,
+            NinjaState::KidAboveKnockdown,
+            "ASM Ninja.asm loc_3D8BC should fall through to loc_3D8D6 when `$44(a3)` reaches zero"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity,
+            NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6
+        );
+        assert!(
+            !runtime.active_enemies[0].death_animation_active,
+            "ASM Ninja.asm loc_3D8E6 waits for floor contact before loc_3DB4E starts the death animation"
+        );
+    }
+
+    #[test]
     fn tank_death_waits_for_stru_3b29a_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tank = test_enemy(EnemyFamily::Tank, 0x0080_0000, 0x0040_0000, 1);

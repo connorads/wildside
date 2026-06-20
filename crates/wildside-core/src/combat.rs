@@ -8385,6 +8385,45 @@ impl NativeRuntime {
 
             if matches!(enemy.family, EnemyFamily::Ninja) {
                 let x_direction_right = matches!(enemy.facing, Direction::Right);
+                if enemy.wall_pinned {
+                    match ninja_airborne_collision_dispatch_loc_3d878(
+                        collision.collision_type as i16,
+                        x_direction_right,
+                        self.progression.current_form,
+                        true,
+                    )
+                    .route
+                    {
+                        NinjaAirborneCollisionRouteLoc3D878::To3D8BC => {
+                            let remaining_hp = u16::from(enemy.hit_points).wrapping_sub(1);
+                            if remaining_hp == 0 {
+                                let knockdown = ninja_knockdown_start_loc_3d8d6();
+                                // ASM Ninja.asm loc_3D8BC -> loc_3D8D6:
+                                // terminal airborne Berzerker/Kid-above
+                                // contact seeds the floor-wait knockdown loop.
+                                enemy.hit_points = 0;
+                                enemy.ninja_state = NinjaState::KidAboveKnockdown;
+                                enemy.y_velocity = knockdown.y_velocity;
+                                enemy.on_ground = false;
+                            } else {
+                                // ASM Ninja.asm loc_3D8BC: nonterminal
+                                // airborne contact decrements `$44(a3)`,
+                                // bounces up at `$18000`, clears X velocity,
+                                // then resumes through loc_3D89C.
+                                enemy.hit_points = remaining_hp.min(u16::from(u8::MAX)) as u8;
+                                enemy.x_velocity = 0;
+                                enemy.y_velocity = NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6;
+                                enemy.on_ground = false;
+                            }
+                            changed_enemy_state = true;
+                        }
+                        NinjaAirborneCollisionRouteLoc3D878::To3DB4E => {
+                            kill_indices.push(active_idx);
+                        }
+                        NinjaAirborneCollisionRouteLoc3D878::Resume { .. } => {}
+                    }
+                    continue;
+                }
                 if matches!(enemy.ninja_state, NinjaState::JumpAttack) {
                     match ninja_jump_attack_collision_dispatch_loc_3da0c(collision.collision_type)
                         .route
