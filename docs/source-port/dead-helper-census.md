@@ -350,6 +350,7 @@ Cross-links:
 - Open block bugs #139/#140/#143 (hidden_block reveal sub_E37A/E3C6/E446 pipeline + prize_block_by_layout_addr_loc_10342 + murder-wall sub_140F6 row insertion)
 - TAS frontier / docs/source-port/frontier-state.yaml (relative_collision_* and horizontal_collision grounded-walker scan feed movement.rs ceiling/wall collision and projectiles.rs — primary position/velocity divergence surface)
 - docs/source-port/backlog.md (candidate: strip stale cfg_not_test attrs on the ~27 genuinely-wired terrain helpers to denoise the dead-code census)
+- docs/source-port/dark-model-wiring-triage.md §9 (resolves the GEMS/Z80 sound-driver open question: redundant alt-impl; live audio is the wildside-md real-driver path)
 
 ## Reading
 
@@ -360,4 +361,4 @@ Two follow-on workstreams fall out of this:
 1. **Wiring** (behaviour): connect the unwired models above into the live step/combat/render path, highest-leverage first, each verified against an oracle scenario that actually exercises the subsystem. **Prerequisite:** the idle oracle sweep does not exercise bosses, Diamond Power weapons, platforms, or weather scripts — wiring these needs new enemy/object-active oracle scenarios first, or it ships unverified.
 2. **Hygiene** (no behaviour change): remove stale `cfg_attr(not(test), allow(dead_code))` attributes from the ~genuinely-wired helpers (notably most of `enemies.rs` and `terrain.rs`). This shrinks the census, restores the compiler's dead-code warning as a real signal, and stops genuinely-dead code from hiding behind a blanket allow. Low-risk, mechanically verifiable (it must still compile in release with the attribute gone).
 
-The biggest single open question this census raises: **`lib.rs`'s entire GEMS/Z80 sound driver is modelled, tested, and unwired, yet in-game audio works** (backlog #003). Either the live audio path is elsewhere and the GEMS model is an abandoned alternative (delete candidate), or audio is approximate and the GEMS model is the fidelity target (wire candidate). Triage before touching it.
+The biggest single open question this census raised — **`lib.rs`'s entire GEMS/Z80 sound driver is modelled, tested, and unwired, yet in-game audio works** (backlog #003) — is now **resolved**. See `docs/source-port/dark-model-wiring-triage.md` §9: the `wildside-core` `SoundDriver*` family is a **redundant alternative impl** (a descriptive transcription of just the 68k-side ring-buffer queueing protocol — it emits no samples), and the live audio path is elsewhere: `wildside-md::GemsAudioEngine` runs the real `GEMS_Sounddriver.bin` on an emulated Z80 + YM2612/PSG synth. Disposition: delete-or-keep-as-unit-tested-ASM-spec candidate, **not** a wiring target.
