@@ -17144,10 +17144,12 @@ fn step_mini_hopping_skull_air_damage_loop(
                 MiniHoppingSkullAirDamageSlopeLanding::ResumeTerrainContact {
                     x_velocity, ..
                 } => {
-                    enemy.x_velocity = x_velocity;
-                    enemy.y_velocity = 0;
-                    enemy.wait_timer = 0;
-                    enemy.on_ground = true;
+                    apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
+                        enemy,
+                        collision_type,
+                        x_velocity,
+                        enemy.y_pos,
+                    );
                 }
                 MiniHoppingSkullAirDamageSlopeLanding::DestroySkull(_) => {
                     enemy.x_velocity = 0;
@@ -17158,6 +17160,50 @@ fn step_mini_hopping_skull_air_damage_loop(
                 }
             }
         }
+    }
+}
+
+fn apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
+    enemy: &mut ActiveEnemy,
+    collision_type: u16,
+    x_velocity: i32,
+    floor_y_fp: u32,
+) {
+    // ASM Mini_Hopping_Skull.asm loc_3EAD8: slope terrain contact clears motion
+    // and routes by collision ID plus the restored/live x_vel high word.
+    if collision_type == MINI_SKULL_COLID_SLOPEUP {
+        if x_velocity > 0 {
+            let setup = mini_hopping_skull_ground_wait_setup_loc_3eb00();
+            enemy.facing = mini_hopping_skull_facing_from_x_direction(setup.x_direction);
+            enemy.x_velocity = setup.x_velocity;
+            enemy.y_velocity = setup.y_velocity;
+            enemy.on_ground = true;
+            enemy.grounded_frames = setup.wait_frames;
+            enemy.wait_timer = 0;
+            enemy.y_pos = floor_y_fp;
+            return;
+        }
+
+        let setup = mini_hopping_skull_left_hop_wait_setup_loc_3ed80();
+        enemy.facing = mini_hopping_skull_facing_from_x_direction(setup.x_direction);
+        enemy.x_velocity = setup.x_velocity;
+        enemy.y_velocity = setup.y_velocity;
+        enemy.on_ground = true;
+        enemy.grounded_frames = setup.wait_frames;
+        enemy.wait_timer = 0;
+        enemy.y_pos = floor_y_fp;
+        return;
+    }
+
+    if collision_type == MINI_SKULL_COLID_SLOPEDOWN {
+        let contact = mini_hopping_skull_slopedown_contact_loc_3ed6c(x_velocity);
+        enemy.facing = mini_hopping_skull_facing_from_x_direction(contact.x_direction);
+        enemy.x_velocity = contact.x_velocity;
+        enemy.y_velocity = contact.y_velocity;
+        enemy.on_ground = true;
+        enemy.grounded_frames = contact.wait_frames;
+        enemy.wait_timer = 0;
+        enemy.y_pos = floor_y_fp;
     }
 }
 
@@ -17281,25 +17327,12 @@ pub(crate) fn step_hopper(
                         (enemy.x_pos >> 16) as i32,
                         (enemy.y_pos >> 16) as i32,
                     );
-                    if x_velocity > 0 {
-                        let setup = mini_hopping_skull_ground_wait_setup_loc_3eb00();
-                        enemy.facing =
-                            mini_hopping_skull_facing_from_x_direction(setup.x_direction);
-                        enemy.x_velocity = setup.x_velocity;
-                        enemy.y_velocity = setup.y_velocity;
-                        enemy.on_ground = true;
-                        enemy.grounded_frames = setup.wait_frames;
-                        enemy.y_pos = floor_y_fp;
-                        return;
-                    }
-
-                    let setup = mini_hopping_skull_left_hop_wait_setup_loc_3ed80();
-                    enemy.facing = mini_hopping_skull_facing_from_x_direction(setup.x_direction);
-                    enemy.x_velocity = setup.x_velocity;
-                    enemy.y_velocity = setup.y_velocity;
-                    enemy.on_ground = true;
-                    enemy.grounded_frames = setup.wait_frames;
-                    enemy.y_pos = floor_y_fp;
+                    apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
+                        enemy,
+                        MINI_SKULL_COLID_SLOPEUP,
+                        x_velocity,
+                        floor_y_fp,
+                    );
                     return;
                 }
 
@@ -17310,14 +17343,12 @@ pub(crate) fn step_hopper(
                         (enemy.x_pos >> 16) as i32,
                         (enemy.y_pos >> 16) as i32,
                     );
-                    let contact = mini_hopping_skull_slopedown_contact_loc_3ed6c(x_velocity);
-                    enemy.facing =
-                        mini_hopping_skull_facing_from_x_direction(contact.x_direction);
-                    enemy.x_velocity = contact.x_velocity;
-                    enemy.y_velocity = contact.y_velocity;
-                    enemy.on_ground = true;
-                    enemy.grounded_frames = contact.wait_frames;
-                    enemy.y_pos = floor_y_fp;
+                    apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
+                        enemy,
+                        MINI_SKULL_COLID_SLOPEDOWN,
+                        x_velocity,
+                        floor_y_fp,
+                    );
                     return;
                 }
             } else {
@@ -40819,6 +40850,37 @@ mod tests {
             ),
             "ASM Mini_Hopping_Skull.asm loc_3F22A treats a negative signed high word as the non-positive death animation"
         );
+    }
+
+    #[test]
+    fn mini_hopping_skull_air_damage_slope_landing_resumes_terrain_contact_loc_3f22a_3ead8() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut enemy = ActiveEnemy {
+            on_ground: false,
+            facing: Direction::Right,
+            x_pos: 41 << 16,
+            y_pos: 37 << 16,
+            x_velocity: 0,
+            target_x_velocity: -0x0001_8000,
+            y_velocity: 0x0002_8800,
+            wait_timer: MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200,
+            hit_points: 1,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_mini_hopping_skull_air_damage_loop(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Mini_Hopping_Skull.asm loc_3F22A restores saved x_vel, then loc_3EAD8 routes slope-up non-positive X to loc_3EC32"
+        );
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(enemy.grounded_frames, MINI_SKULL_GROUND_DELAY_FRAMES);
+        assert_eq!(enemy.wait_timer, 0);
+        assert!(enemy.on_ground);
     }
 
     #[test]
