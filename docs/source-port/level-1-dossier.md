@@ -21,14 +21,14 @@ This dossier covers the first vertical slice: boot to title, title to level load
 ## Useful commands
 
 ```bash
-cargo run -p kidcli -- inspect-level --level 00
-cargo run --release -p kidcli -- play-native
-cargo run -p kidcli -- verify-native-bootstrap
-cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1
-cargo run -p kidcli -- inspect-enemy --enemy 01
+cargo run -p wildside-cli -- inspect-level --level 00
+cargo run --release -p wildside-cli -- play-native
+cargo run -p wildside-cli -- verify-native-bootstrap
+cargo run -p wildside-cli -- verify-native-gameplay --scenario pause-resume-level1
+cargo run -p wildside-cli -- inspect-enemy --enemy 01
 # optional spot-checks once the native path looks right
-cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1
-cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
+cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1
+cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s
 ```
 
 ## Known level-1 facts
@@ -61,7 +61,7 @@ cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-
 
 ## Level-1 closure notes
 
-- Player movement is now physics-driven via `kid-core::physics`: real horizontal acceleration/decel from the disassembly speed tables (`unk_9C0A`), jump initiation from `sub_A432`, variable gravity from `kid.asm:14060`, and camera follow from `sub_71E4`.
+- Player movement is now physics-driven via `wildside-core::physics`: real horizontal acceleration/decel from the disassembly speed tables (`unk_9C0A`), jump initiation from `sub_A432`, variable gravity from `kid.asm:14060`, and camera follow from `sub_71E4`.
 - The old scripted frame-count interpolation (`run_camera_x_for_hold_frames`, `OpeningScrollState`) has been removed -- the player moves from input, the camera follows.
 - Speed tables cover all 3 terrain types (normal/ice/rubber) and 3 form variants (Kid/Micromax/Juggernaut). Level 1 uses `NORMAL_KID`.
 - Jump height per form is transcribed from `unk_A49E`; RedStealth has a higher factor ($4A vs $42).

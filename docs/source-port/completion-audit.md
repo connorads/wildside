@@ -28,7 +28,7 @@ are true:
 
 ```bash
 mise run completion-audit          # project-status --fail-on-human-blockers
-cargo run -q -p kidcli -- project-status
+cargo run -q -p wildside-cli -- project-status
 rg -n '^\| [0-9]+ \| \[( |~|\?|b)\]' docs/source-port/backlog.md
 ```
 

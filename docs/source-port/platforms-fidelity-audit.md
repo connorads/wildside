@@ -132,7 +132,7 @@ Partially fixed 2026-06-15: the offset helpers are live in `runtime_active_platf
 ### Low severity
 
 **Layout indexing — platform index sign-extension (`ext.l`) not modelled; unsigned add only (no effect on base ROM)** (`Get_PlatformLayoutAddress/sub_2366`, `MapPtfmLayout_Index`)
-The ROM sign-extends the 16-bit index (`ext.l d7`) before adding `PlatformLayout_BaseAddress` (`kid.asm:4201-4202`). Native pre-resolves at asset-build time with an unsigned read (`split.py:346`, `kid-data/src/lib.rs:1119-1123`). Verified against `kid.bin`: every `MapPtfmLayout_Index` entry across all 126 levels is ≤ `0x4000`, so no high bit is set and unsigned == sign-extended for the shipping ROM. Latent only for ROM hacks.
+The ROM sign-extends the 16-bit index (`ext.l d7`) before adding `PlatformLayout_BaseAddress` (`kid.asm:4201-4202`). Native pre-resolves at asset-build time with an unsigned read (`split.py:346`, `wildside-data/src/lib.rs:1119-1123`). Verified against `kid.bin`: every `MapPtfmLayout_Index` entry across all 126 levels is ≤ `0x4000`, so no high bit is set and unsigned == sign-extended for the shipping ROM. Latent only for ROM hacks.
 
 **Layout indexing — `map_order` out-of-range fallback differs from ROM unconditional table read** (`Get_PlatformLayoutAddress/sub_2366`)
 Fixed 2026-06-13 for live platform metadata: `NativeRuntime::platform_layout` now follows `Get_PlatformLayoutAddress/sub_2366` and refuses to fall back to raw logical-level platform metadata after the `MapOrder_Index` tail. The broader `resource_level_id()` fallback remains for non-platform fixture/resource paths that deliberately support empty map-order manifests. Regression: `platform_layout_loc_2366_does_not_fallback_to_raw_level_after_map_order_tail`.

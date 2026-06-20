@@ -12,7 +12,7 @@
         ".cache/release-gate/1p-accurate/latest.json"
       ],
       "implementation_targets": [
-        "crates/kidcli/src/release_gate.rs",
+        "crates/wildside-cli/src/release_gate.rs",
         "README.md"
       ],
       "commands": [
@@ -33,11 +33,11 @@
         ".cache/metrics/sweep-history.jsonl"
       ],
       "implementation_targets": [
-        "crates/kidcli/src/sweep.rs",
+        "crates/wildside-cli/src/sweep.rs",
         "docs/source-port/methodology.md"
       ],
       "commands": [
-        "cargo run --release -p kidcli -- sweep --levels 0-104 --tier state"
+        "cargo run --release -p wildside-cli -- sweep --levels 0-104 --tier state"
       ],
       "done_criteria": [
         "The latest state-tier sweep history entry has failed=0 and errors=0."

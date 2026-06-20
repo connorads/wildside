@@ -5,7 +5,7 @@ Each finding includes ASM line references and native code locations.
 
 ## Methodology
 
-For each family: read full `code/enemy/<Family>.asm`, compare every constant, state transition, and behaviour against the native `crates/kid-core/src/enemies.rs` implementation. Findings categorised as:
+For each family: read full `code/enemy/<Family>.asm`, compare every constant, state transition, and behaviour against the native `crates/wildside-core/src/enemies.rs` implementation. Findings categorised as:
 - **Correct**: ASM and native match
 - **Mismatch**: Values or logic differ
 - **Missing**: Behaviour exists in ASM but not in native

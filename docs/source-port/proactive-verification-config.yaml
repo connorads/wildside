@@ -47,17 +47,17 @@ strategies:
     # and give later cycles real test-gap work to triage. platforms.rs,
     # projectiles.rs, weather.rs, and vdp.rs extend it again on 2026-05-04
     # to cover gameplay modules that have never been mutation-tested.
-    # kid-render targets extend it on 2026-05-20 after the source-port
-    # frontier and kid-core proactive lanes both reported all-exhausted; these
+    # wildside-render targets extend it on 2026-05-20 after the source-port
+    # frontier and wildside-core proactive lanes both reported all-exhausted; these
     # cover visual-fidelity code paths where remaining source-port debt is
     # expected to surface. trace.rs extends the source-port fidelity rotation
     # after the next package still reported all-exhausted while trace helpers
     # had concrete cargo-mutants candidates. hud.rs extends the renderer visual
     # lane after HUD icons/pips received several source-port fidelity fixes but
-    # were not part of the mutation rotation. kid-data level_layout.rs adds a
+    # were not part of the mutation rotation. wildside-data level_layout.rs adds a
     # pure asset/layout extraction lane for ASM-backed source-port tooling.
-    # kid-rom lib.rs covers deterministic ROM header validation used before
-    # oracle/source-port asset extraction. kid-md lib.rs adds the Mega Drive
+    # wildside-rom lib.rs covers deterministic ROM header validation used before
+    # oracle/source-port asset extraction. wildside-md lib.rs adds the Mega Drive
     # boundary lane covering audio, VDP, controller, and GEMS integration.
     enabled: true
     output_dir: .cache/mutants
@@ -81,49 +81,49 @@ strategies:
       - bundle.rs
       - lib.rs
       - background.rs
-      - kid-render:level.rs
+      - wildside-render:level.rs
       - player.rs
       - palette.rs
       - tiles.rs
       - hud.rs
-      - kid-data:level_layout.rs
-      - kid-rom:lib.rs
-      - kid-md:lib.rs
+      - wildside-data:level_layout.rs
+      - wildside-rom:lib.rs
+      - wildside-md:lib.rs
     max_candidates_per_cycle: 200
     targets:
-      - { module: enemies.rs, package: kid-core, tier: 1 }
-      - { module: combat.rs, package: kid-core, tier: 1 }
-      - { module: blocks.rs, package: kid-core, tier: 1 }
-      - { module: physics.rs, package: kid-core, tier: 2 }
-      - { module: terrain.rs, package: kid-core, tier: 2 }
-      - { module: helmets.rs, package: kid-core, tier: 1 }
-      - { module: level.rs, package: kid-core, tier: 2 }
-      - { module: movement.rs, package: kid-core, tier: 1 }
-      - { module: platforms.rs, package: kid-core, tier: 1 }
-      - { module: projectiles.rs, package: kid-core, tier: 1 }
-      - { module: weather.rs, package: kid-core, tier: 2 }
-      - { module: vdp.rs, package: kid-core, tier: 3 }
-      - { module: gfx_animation.rs, package: kid-core, tier: 3 }
-      - { module: demo.rs, package: kid-core, tier: 2 }
-      - { module: scenario.rs, package: kid-core, tier: 2 }
-      - { module: trace.rs, package: kid-core, tier: 1 }
-      - { module: bundle.rs, package: kid-render, tier: 1 }
-      - { module: lib.rs, package: kid-render, tier: 1 }
-      - { module: background.rs, package: kid-render, tier: 2 }
-      - { module: level.rs, package: kid-render, tier: 2 }
-      - { module: player.rs, package: kid-render, tier: 2 }
-      - { module: palette.rs, package: kid-render, tier: 2 }
-      - { module: tiles.rs, package: kid-render, tier: 2 }
-      - { module: hud.rs, package: kid-render, tier: 2 }
-      - { module: level_layout.rs, package: kid-data, tier: 2 }
-      - { module: lib.rs, package: kid-rom, tier: 2 }
-      - { module: lib.rs, package: kid-md, tier: 2 }
+      - { module: enemies.rs, package: wildside-core, tier: 1 }
+      - { module: combat.rs, package: wildside-core, tier: 1 }
+      - { module: blocks.rs, package: wildside-core, tier: 1 }
+      - { module: physics.rs, package: wildside-core, tier: 2 }
+      - { module: terrain.rs, package: wildside-core, tier: 2 }
+      - { module: helmets.rs, package: wildside-core, tier: 1 }
+      - { module: level.rs, package: wildside-core, tier: 2 }
+      - { module: movement.rs, package: wildside-core, tier: 1 }
+      - { module: platforms.rs, package: wildside-core, tier: 1 }
+      - { module: projectiles.rs, package: wildside-core, tier: 1 }
+      - { module: weather.rs, package: wildside-core, tier: 2 }
+      - { module: vdp.rs, package: wildside-core, tier: 3 }
+      - { module: gfx_animation.rs, package: wildside-core, tier: 3 }
+      - { module: demo.rs, package: wildside-core, tier: 2 }
+      - { module: scenario.rs, package: wildside-core, tier: 2 }
+      - { module: trace.rs, package: wildside-core, tier: 1 }
+      - { module: bundle.rs, package: wildside-render, tier: 1 }
+      - { module: lib.rs, package: wildside-render, tier: 1 }
+      - { module: background.rs, package: wildside-render, tier: 2 }
+      - { module: level.rs, package: wildside-render, tier: 2 }
+      - { module: player.rs, package: wildside-render, tier: 2 }
+      - { module: palette.rs, package: wildside-render, tier: 2 }
+      - { module: tiles.rs, package: wildside-render, tier: 2 }
+      - { module: hud.rs, package: wildside-render, tier: 2 }
+      - { module: level_layout.rs, package: wildside-data, tier: 2 }
+      - { module: lib.rs, package: wildside-rom, tier: 2 }
+      - { module: lib.rs, package: wildside-md, tier: 2 }
 
   - name: advisory-promotion
     # Surface stable advisory-category diffs from `.cache/sweep-runs/`.
     # The strategy never mutates `ADVISORY_FIELDS` itself — it emits a task
     # asking the next agent to either promote the field to authoritative
-    # (delete it from `ADVISORY_FIELDS` in `crates/kidcli/src/sweep/mod.rs`)
+    # (delete it from `ADVISORY_FIELDS` in `crates/wildside-cli/src/sweep/mod.rs`)
     # or record a rejected_hypothesis entry in `frontier-state.yaml`
     # explaining why it must remain advisory.
     #

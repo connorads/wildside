@@ -33,7 +33,7 @@ This dossier covers the current post-opening frontier:
 - Level 1 opening damage now lands on the oracle frame under the run-right gameplay script, and Mini Hopping Skulls now wait longer on the floor and retarget hops toward the kid before launch
 - The long `progress-two-transitions` gameplay script now also drops the first Level 1 HP on the oracle frame under walk-only input (`frame 749`), so the opening Dragon hit no longer drifts between checkpoints
 - The default `NativeRuntime::new` path now reloads generated `Level_Layout` terrain on construction, so real terrain is the default runtime authority for Level 1
-- Dumped-terrain wall probing no longer treats the landing floor cell as a side wall; the lower-body wall probe now stays above the feet and has a regression test in `kid-core`
+- Dumped-terrain wall probing no longer treats the landing floor cell as a side wall; the lower-body wall probe now stays above the feet and has a regression test in `wildside-core`
 - Gameplay movement now latches held left/right/run from the previous frame, removing the frame-720 eagerness against the oracle while keeping jump-edge handling on the current frame
 - Diamonds no longer enter `process_stomps`; falling through a Diamond now collects it without applying stomp bounce, and the stomp regressions now run against the static skull fixture instead of the old Diamond placeholder
 - Level-skip choreography now matches the oracle through both `progress-two-transitions` skips: the first hold sequence freezes/hides/preloads on the native frames, the second skip resumes through the oracle-timed Level 1 hold/blank/entry window, and the Level 2 transition uses its own traced animation arc
@@ -50,17 +50,17 @@ This dossier covers the current post-opening frontier:
 ## Useful commands
 
 ```bash
-cargo run --release -p kidcli -- play-native
-cargo run -p kidcli -- verify-native-bootstrap
-cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1
-cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1
+cargo run --release -p wildside-cli -- play-native
+cargo run -p wildside-cli -- verify-native-bootstrap
+cargo run -p wildside-cli -- verify-native-gameplay --scenario pause-resume-level1
+cargo run -p wildside-cli -- verify-native-gameplay --scenario death-respawn-level1
 mise run verify-slice-fast
-cargo test -p kid-core
-cargo test -p kidcli
+cargo test -p wildside-core
+cargo test -p wildside-cli
 # optional differential checks
-cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions
-cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
-cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
+cargo run -p wildside-cli -- compare-native-gameplay --scenario progress-two-transitions
+cargo run -p wildside-cli -- compare-native-gameplay --scenario pause-resume-level1
+cargo run -p wildside-cli -- compare-native-gameplay --scenario death-respawn-level1
 ```
 
 ## Continuation protocol

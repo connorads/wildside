@@ -18,7 +18,7 @@
         "docs/source-port/research-map.md"
       ],
       "commands": [
-        "cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal"
+        "cargo run -p wildside-cli -- autonomous-loop --goal level1-full-traversal"
       ],
       "done_criteria": [
         "Tracked docs point at Level 1 full traversal as the current frontier.",
@@ -34,14 +34,14 @@
       ],
       "sources": [
         "docs/source-port/level-1-full-traversal.md",
-        "crates/kid-core/src/lib.rs"
+        "crates/wildside-core/src/lib.rs"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs"
+        "crates/wildside-core/src/lib.rs"
       ],
       "commands": [
-        "cargo test -p kid-core",
-        "cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions"
+        "cargo test -p wildside-core",
+        "cargo run -p wildside-cli -- compare-native-gameplay --scenario progress-two-transitions"
       ],
       "done_criteria": [
         "The default runtime no longer uses the flat-floor fallback for Level 1 traversal.",
@@ -60,11 +60,11 @@
         ".cache/native-gameplay-oracle-runs/progress_two_transitions"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs",
-        "crates/kidcli/src/main.rs"
+        "crates/wildside-core/src/lib.rs",
+        "crates/wildside-cli/src/main.rs"
       ],
       "commands": [
-        "cargo run -p kidcli -- compare-native-gameplay --scenario progress-two-transitions"
+        "cargo run -p wildside-cli -- compare-native-gameplay --scenario progress-two-transitions"
       ],
       "done_criteria": [
         "The progress-two-transitions gameplay comparison passes.",
@@ -86,11 +86,11 @@
         "README.md"
       ],
       "implementation_targets": [
-        "crates/kidcli/src/autonomy.rs",
+        "crates/wildside-cli/src/autonomy.rs",
         "README.md"
       ],
       "commands": [
-        "cargo run -p kidcli -- autonomous-loop --goal level1-full-traversal"
+        "cargo run -p wildside-cli -- autonomous-loop --goal level1-full-traversal"
       ],
       "done_criteria": [
         "The autonomy loop reports the traversal goal as complete.",

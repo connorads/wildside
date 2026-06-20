@@ -13,11 +13,11 @@
         ".cache/upstream/kid-chameleon-disasm/kid.asm"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs"
+        "crates/wildside-core/src/lib.rs"
       ],
       "commands": [
-        "cargo run -p kidcli -- verify-native-bootstrap",
-        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+        "cargo run -p wildside-cli -- verify-native-bootstrap",
+        "cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1"
       ],
       "done_criteria": [
         "`verify-native-bootstrap` passes.",
@@ -37,11 +37,11 @@
         ".cache/upstream/kid-chameleon-disasm/level/header/00.bin"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs"
+        "crates/wildside-core/src/lib.rs"
       ],
       "commands": [
-        "cargo run -p kidcli -- inspect-level --level 00",
-        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+        "cargo run -p wildside-cli -- inspect-level --level 00",
+        "cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1"
       ],
       "done_criteria": [
         "Level 1 header metadata, spawn, and flag positions are loaded from generated assets.",
@@ -61,10 +61,10 @@
         ".cache/upstream/kid-chameleon-disasm/variables.asm"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs"
+        "crates/wildside-core/src/lib.rs"
       ],
       "commands": [
-        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1"
+        "cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1"
       ],
       "done_criteria": [
         "The `level_settle` checkpoint matches the oracle for `boot-title-start-level1`."
@@ -84,14 +84,14 @@
         ".cache/upstream/kid-chameleon-disasm/kid.asm"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs"
+        "crates/wildside-core/src/lib.rs"
       ],
       "commands": [
-        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s",
-        "cargo test -p kid-core"
+        "cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s",
+        "cargo test -p wildside-core"
       ],
       "done_criteria": [
-        "`crates/kid-core/src/lib.rs` no longer contains the scripted Level 1 movement/camera stand-ins.",
+        "`crates/wildside-core/src/lib.rs` no longer contains the scripted Level 1 movement/camera stand-ins.",
         "The runtime still matches the boot/title/settle checkpoints after the replacement."
       ]
     },
@@ -108,10 +108,10 @@
         ".cache/upstream/kid-chameleon-disasm/kid.asm"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs"
+        "crates/wildside-core/src/lib.rs"
       ],
       "commands": [
-        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
+        "cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
       ],
       "done_criteria": [
         "`move_mid` and `move_end` match the oracle for `boot-title-start-level1-move-right5s`.",
@@ -131,11 +131,11 @@
         ".cache/upstream/kid-chameleon-disasm/kid.asm"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs",
+        "crates/wildside-core/src/lib.rs",
         "docs/source-port/level-1-dossier.md"
       ],
       "commands": [
-        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
+        "cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
       ],
       "done_criteria": [
         "The dossier no longer lists the opening collision/terrain task as open.",
@@ -155,12 +155,12 @@
         ".cache/upstream/kid-chameleon-disasm/doc/ram_layout.txt"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs",
+        "crates/wildside-core/src/lib.rs",
         "docs/source-port/level-1-dossier.md"
       ],
       "commands": [
-        "cargo run -p kidcli -- inspect-level --level 00",
-        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
+        "cargo run -p wildside-cli -- inspect-level --level 00",
+        "cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
       ],
       "done_criteria": [
         "The dossier no longer lists the Level 1 platform-manager task as open.",
@@ -180,12 +180,12 @@
         ".cache/upstream/kid-chameleon-disasm/code/enemy"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs",
+        "crates/wildside-core/src/lib.rs",
         "docs/source-port/level-1-dossier.md"
       ],
       "commands": [
-        "cargo run -p kidcli -- inspect-enemy --enemy 01",
-        "cargo run -p kidcli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
+        "cargo run -p wildside-cli -- inspect-enemy --enemy 01",
+        "cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1-move-right5s"
       ],
       "done_criteria": [
         "The dossier no longer lists the first visible enemy-family mapping task as open.",

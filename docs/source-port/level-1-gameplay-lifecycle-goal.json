@@ -14,12 +14,12 @@
         ".cache/native-gameplay-oracle-runs/pause_resume_level1"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs",
-        "crates/kidcli/src/main.rs"
+        "crates/wildside-core/src/lib.rs",
+        "crates/wildside-cli/src/main.rs"
       ],
       "commands": [
-        "cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1",
-        "cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1"
+        "cargo run -p wildside-cli -- verify-native-gameplay --scenario pause-resume-level1",
+        "cargo run -p wildside-cli -- compare-native-gameplay --scenario pause-resume-level1"
       ],
       "done_criteria": [
         "The pause/resume gameplay checkpoints match the oracle capture.",
@@ -39,11 +39,11 @@
         ".cache/upstream/kid-chameleon-disasm/kid.asm"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs",
+        "crates/wildside-core/src/lib.rs",
         "docs/source-port/level-1-gameplay-lifecycle.md"
       ],
       "commands": [
-        "cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1"
+        "cargo run -p wildside-cli -- compare-native-gameplay --scenario death-respawn-level1"
       ],
       "done_criteria": [
         "The gameplay lifecycle dossier no longer lists the Level 1 damage-trigger task as open.",
@@ -64,12 +64,12 @@
         ".cache/native-gameplay-oracle-runs/death_respawn_level1"
       ],
       "implementation_targets": [
-        "crates/kid-core/src/lib.rs",
-        "crates/kidcli/src/main.rs"
+        "crates/wildside-core/src/lib.rs",
+        "crates/wildside-cli/src/main.rs"
       ],
       "commands": [
-        "cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1",
-        "cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1"
+        "cargo run -p wildside-cli -- verify-native-gameplay --scenario death-respawn-level1",
+        "cargo run -p wildside-cli -- compare-native-gameplay --scenario death-respawn-level1"
       ],
       "done_criteria": [
         "The death/respawn gameplay checkpoints match the oracle capture.",
@@ -90,11 +90,11 @@
         "docs/source-port/level-1-gameplay-lifecycle.md"
       ],
       "implementation_targets": [
-        "crates/kidcli/src/autonomy.rs",
+        "crates/wildside-cli/src/autonomy.rs",
         "README.md"
       ],
       "commands": [
-        "cargo run -p kidcli -- autonomous-loop --goal level1-gameplay-lifecycle"
+        "cargo run -p wildside-cli -- autonomous-loop --goal level1-gameplay-lifecycle"
       ],
       "done_criteria": [
         "The autonomy loop reports the gameplay lifecycle goal as complete.",

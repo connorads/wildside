@@ -9,7 +9,7 @@ prior probe windows are recorded there, so you do not restart from stale prose.
 ## Step 1: Find the divergence frame
 
 ```bash
-cargo run --release -p kidcli -- verify-tas \
+cargo run --release -p wildside-cli -- verify-tas \
   --scenario tests/data/tas/kc_any_percent_2024/scenario.json \
   --frame-end 1000 --bisect --frontier-kind enemy
 ```
@@ -21,7 +21,7 @@ reserve `gameplay` for frontiers where gameplay/global state is already known to
 ## Step 2: Probe relevant RAM addresses
 
 ```bash
-cargo run --release -p kidcli -- oracle-probe \
+cargo run --release -p wildside-cli -- oracle-probe \
   --scenario tests/data/tas/kc_any_percent_2024/scenario.json \
   --frame-start 950 --frame-end 960 \
   --watches 0xFF24FE:u32,0xFF2502:i32,0xFFA056:u16
@@ -34,13 +34,13 @@ Outputs CSV to stdout — pipe to file or view directly. Watch addresses come fr
 
 ```bash
 # Dump full 64KB WRAM at consecutive frames
-cargo run --release -p kidcli -- oracle-probe \
+cargo run --release -p wildside-cli -- oracle-probe \
   --scenario tests/data/tas/kc_any_percent_2024/scenario.json \
   --frame-start 954 --frame-end 956 \
   --wram-dump-frames 954,955,956
 
 # Diff two frames to see what changed
-cargo run --release -p kidcli -- ram-diff \
+cargo run --release -p wildside-cli -- ram-diff \
   .cache/oracle-probe/oracle/wram_frame_954.bin \
   .cache/oracle-probe/oracle/wram_frame_955.bin --annotate
 ```
@@ -57,7 +57,7 @@ ASM routine that touches it. Use source precedence from CLAUDE.md:
 ## Step 5: Compare physics orders if the divergence is position/velocity
 
 ```bash
-cargo run --release -p kidcli -- sweep-compare --levels 0-68 --tier state
+cargo run --release -p wildside-cli -- sweep-compare --levels 0-68 --tier state
 ```
 
 Shows which levels improve/regress if physics sub-step order is swapped.

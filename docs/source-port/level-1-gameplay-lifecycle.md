@@ -17,10 +17,10 @@ This dossier covers the next Level 1 slice after the opening walk: pause/resume,
 ## Useful commands
 
 ```bash
-cargo run -p kidcli -- verify-native-gameplay --scenario pause-resume-level1
-cargo run -p kidcli -- verify-native-gameplay --scenario death-respawn-level1
-cargo run -p kidcli -- compare-native-gameplay --scenario pause-resume-level1
-cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
+cargo run -p wildside-cli -- verify-native-gameplay --scenario pause-resume-level1
+cargo run -p wildside-cli -- verify-native-gameplay --scenario death-respawn-level1
+cargo run -p wildside-cli -- compare-native-gameplay --scenario pause-resume-level1
+cargo run -p wildside-cli -- compare-native-gameplay --scenario death-respawn-level1
 ```
 
 ## Lifecycle checkpoints in use
@@ -38,11 +38,11 @@ cargo run -p kidcli -- compare-native-gameplay --scenario death-respawn-level1
 
 ## Rust-side targets
 
-- explicit gameplay lifecycle state in `kid-core`
+- explicit gameplay lifecycle state in `wildside-core`
 - pause handling that freezes gameplay without mutating state
 - Level 1 damage and death transition path
 - respawn entry plus settle timing
-- gameplay checkpoint comparison command in `kidcli`
+- gameplay checkpoint comparison command in `wildside-cli`
 
 ## Level-1 lifecycle closure notes
 

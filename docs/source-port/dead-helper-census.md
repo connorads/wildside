@@ -1,4 +1,4 @@
-<!-- Generated 2026-05-29 by the `dead-helper-census` workflow (deterministic extractor + 11 per-file synthesis agents, one per source file >=30 dead-gated items). This is a reviewable research artefact, not a gate. It maps every `#[cfg_attr(not(test), allow(dead_code))]` / `#[allow(dead_code)]` helper in `kid-core` to a wiring status, citing ASM labels and fn names. Raw data: `.cache/audit/dead-helper-census.json` (regenerate via `scripts/dead_helper_census.py`). Re-run the workflow to refresh. -->
+<!-- Generated 2026-05-29 by the `dead-helper-census` workflow (deterministic extractor + 11 per-file synthesis agents, one per source file >=30 dead-gated items). This is a reviewable research artefact, not a gate. It maps every `#[cfg_attr(not(test), allow(dead_code))]` / `#[allow(dead_code)]` helper in `wildside-core` to a wiring status, citing ASM labels and fn names. Raw data: `.cache/audit/dead-helper-census.json` (regenerate via `scripts/dead_helper_census.py`). Re-run the workflow to refresh. -->
 
 # Dead-Helper Census
 
@@ -15,13 +15,13 @@ A codebase-wide follow-up to the [enemy fidelity audit](enemy-fidelity-audit.md)
 
 2. **The true unwired epicentre is `combat.rs` (entire boss subsystem), `level.rs` (loading + block decode), `helmets.rs` (Diamond Power weapons), `platforms.rs` (all platform physics), `weather.rs` (geyser/storm script machines), and `lib.rs` (GEMS audio).** In these files the live runtime uses generic fallbacks or inline approximations while a complete, unit-tested ASM model sits dark.
 
-3. **Almost nothing is genuinely untested.** After correcting for the test layout (tests live in `crates/kid-core/src/tests/*.rs`, separate files — the first extractor pass missed them and over-reported "uncalled" helpers), the count of helpers called by *nothing at all* collapses to a handful per file. The helpers are verified models; they are simply not connected.
+3. **Almost nothing is genuinely untested.** After correcting for the test layout (tests live in `crates/wildside-core/src/tests/*.rs`, separate files — the first extractor pass missed them and over-reported "uncalled" helpers), the count of helpers called by *nothing at all* collapses to a handful per file. The helpers are verified models; they are simply not connected.
 
 4. **Two distinct unwired shapes:** *dead-calling-dead* chains (a helper is called, but only by other dead-gated helpers, so the whole subtree is dark) and *stale attributes* (the helper IS reached from live code — the attribute is just obsolete and should be removed). Stale-attribute removal is a near-zero-risk hygiene win that shrinks the census and stops masking genuinely-dead code.
 
 ## Methodology
 
-- **Extractor** (`scripts/dead_helper_census.py`): scans `kid-core/src/*.rs` for items carrying `allow(dead_code)`, captures name/kind/line, ASM labels (from doc comments + embedded in fn names), and a crate-wide call-site split (test vs non-test, treating `src/tests/*.rs` and inline `#[cfg(test)]` mods as test context). Output: `.cache/audit/dead-helper-census.json`.
+- **Extractor** (`scripts/dead_helper_census.py`): scans `wildside-core/src/*.rs` for items carrying `allow(dead_code)`, captures name/kind/line, ASM labels (from doc comments + embedded in fn names), and a crate-wide call-site split (test vs non-test, treating `src/tests/*.rs` and inline `#[cfg(test)]` mods as test context). Output: `.cache/audit/dead-helper-census.json`.
 - **11 synthesis agents** (one per file >=30 dead-gated items): cluster the helpers by mechanic/ASM region, then spot-read source to resolve each helper's true wiring status — distinguishing *genuinely-wired-stale-attribute* from *dead-calling-dead* from *detection-artefact* from *genuinely-untested-model*. The agents grepped the test tree directly, which is how the extractor's test-layout blind spot was caught.
 - **Caveat:** the extractor's call-site counts are first-order (regex `name(`); they cannot by themselves separate a genuinely-live caller from a dead-gated one. The wiring-status splits below are the agents' resolutions. Treat counts as estimates, the clusters and ASM labels as the durable signal.
 
@@ -107,7 +107,7 @@ Cross-links:
 - Block bugs #139/#140/#143 (collision_shooter cluster: first_solid_overlap_resolution_sub_1FA2 / support_overlap_detected_sub_1F52 model the generic solid-overlap engine that block collision depends on)
 - TAS frontier / docs/source-port/frontier-state.yaml (boss_head_movement_step_sub_39846 movement-script stepper and boomerang/shishka state machines gate any boss-fight TAS slice; currently unwired so bosses run on generic fallbacks)
 - docs/source-port/backlog.md #176-202 (enemy fidelity backlog seeded from the same audit)
-- Detection caveat for any consumer of this audit: combat.rs tests live in crates/kid-core/src/tests/*.rs under a single #[cfg(test)] mod tests (lib.rs:3181-3183), so the brace-balanced in-file test detector reports calls_test=0 for nearly all helpers despite full unit coverage
+- Detection caveat for any consumer of this audit: combat.rs tests live in crates/wildside-core/src/tests/*.rs under a single #[cfg(test)] mod tests (lib.rs:3181-3183), so the brace-balanced in-file test detector reports calls_test=0 for nearly all helpers despite full unit coverage
 
 ### `level.rs`
 
@@ -180,8 +180,8 @@ Cross-links:
 - docs/source-port/enemy-fidelity-audit.md — same systemic root cause (ASM-faithful pure helpers gated dead, never wired into the live step path; runtime uses generic fallbacks)
 - Open block-collision bugs #139/#140/#143 — the platform carry/landing/overlap clusters (loc_2686..loc_26FE, loc_25EE..loc_266A) model exactly the push/eject geometry implicated in block/platform collision divergences
 - TAS frontier (docs/source-port/frontier-state.yaml) — moving-platform carry physics (positive/negative carry, horizontal push) and Soft/Trap platform state machines affect Kid position/velocity, the authoritative fields the TAS sweep checks
-- crates/kid-core/src/tests/block_tests.rs (~lines 12066-13131) — the unit-test home for nearly all of these helpers; block_tests.rs (39 refs) + movement_tests.rs are the only external consumers, all in test context
-- crates/kid-core/src/platforms.rs:1320 soft_platform_launch_velocity_loc_40E2 — non-dead-gated sibling indicating where SoftPlatform wiring already partially exists
+- crates/wildside-core/src/tests/block_tests.rs (~lines 12066-13131) — the unit-test home for nearly all of these helpers; block_tests.rs (39 refs) + movement_tests.rs are the only external consumers, all in test context
+- crates/wildside-core/src/platforms.rs:1320 soft_platform_launch_velocity_loc_40E2 — non-dead-gated sibling indicating where SoftPlatform wiring already partially exists
 
 ### `weather.rs`
 
@@ -326,8 +326,8 @@ Cross-links:
 - docs/source-port/backlog.md #176-202 — enemy fidelity backlog items (latest commit 99927c70).
 - TAS frontier (docs/source-port/frontier-state.yaml) — dragon_walking contact bounds (combat.rs dragon_walking_contact_bounds, enemy_contact_min_overlap_fp 0x0D=0) tie directly to the live frame-3399 stomp frontier; dragon family stepping is on the critical path.
 - Block bugs #139/#140/#143 — Driller (step_driller, Driller.asm loc_3BE78) drills Smash/Ice blocks and emits drilled_blocks into the block grid; relevant if those block bugs touch enemy-driven block destruction.
-- crates/kid-core/src/combat.rs — live contact/dispatch partner: enemy_contact_bounds, dragon_walking_contact_bounds, step_pending_dragon_death_children, child_attachment_snapshot consumer.
-- crates/kid-core/src/lib.rs:1538 step_frame -> 1681 refresh_active_roster -> enemies.rs:38759 step_active_enemies_with_rng — the live runtime enemy-step entry chain.
+- crates/wildside-core/src/combat.rs — live contact/dispatch partner: enemy_contact_bounds, dragon_walking_contact_bounds, step_pending_dragon_death_children, child_attachment_snapshot consumer.
+- crates/wildside-core/src/lib.rs:1538 step_frame -> 1681 refresh_active_roster -> enemies.rs:38759 step_active_enemies_with_rng — the live runtime enemy-step entry chain.
 
 ### `terrain.rs`
 

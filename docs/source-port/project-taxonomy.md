@@ -32,7 +32,7 @@ the proof. We cannot do that for several reasons:
 | **No original toolchain for Rust** | SM64 uses the original Nintendo `IDO` compiler. We have no equivalent 68k compiler that targets the Mega Drive's specific memory map, VDP, and Z80 co-processor setup. |
 | **Hardware is the API** | Original subroutines like `sub_E143A` spin on Z80 bus-request bits, wait for VDP DMA, and write to hardware registers at `$A11100`. These are not portable operations you can express in Rust and then compile to 68k. You would need to emit the exact same instructions, at which point you are writing assembly. |
 | **No debug symbols** | devilutionX had debug symbols giving them function names and type boundaries. We have only a community disassembly with recovered labels. |
-| **Rust assumes a modern OS** | `kid-core` uses `Vec`, `HashSet`, `serde`, `fs::read`, and a heap allocator. The Mega Drive has 64KB of work RAM and no OS. A matching decompilation would need to use static pools and raw pointers, not Rust's standard library. |
+| **Rust assumes a modern OS** | `wildside-core` uses `Vec`, `HashSet`, `serde`, `fs::read`, and a heap allocator. The Mega Drive has 64KB of work RAM and no OS. A matching decompilation would need to use static pools and raw pointers, not Rust's standard library. |
 
 The existing `.cache/upstream/kid-chameleon-disasm/` **is** already an editable
 assembly source that can be modified and reassembled with `AS`. That is the
@@ -70,10 +70,10 @@ completely separate:
 
 | Path | Crate | What it runs | Verification |
 |------|-------|-------------|--------------|
-| `play` | `kid-md` | Original ROM byte-for-byte in a Mega Drive emulator | Is the emulator accurate? (jgenesis cross-check) |
-| `play-native` | `kid-core` | Hand-translated Rust reimplementation | Does native state match oracle state frame-by-frame? |
+| `play` | `wildside-md` | Original ROM byte-for-byte in a Mega Drive emulator | Is the emulator accurate? (jgenesis cross-check) |
+| `play-native` | `wildside-core` | Hand-translated Rust reimplementation | Does native state match oracle state frame-by-frame? |
 
-They share **assets** (`kid-data`) and **input replay format** (`DynamicScenario`),
+They share **assets** (`wildside-data`) and **input replay format** (`DynamicScenario`),
 but not gameplay logic.
 
 ---
