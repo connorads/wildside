@@ -7045,7 +7045,7 @@ impl NativeRuntime {
     /// ASM loc_8A74 (kid.asm:9879): `subq.w #1,d0; bne loc_8A84` —
     ///   decrement turnaround counter. At zero: `not.b x_direction(a3);
     ///   not.b $17(a3); moveq #$C,d0` — flip direction, flip render, reset
-    ///   counter. Native: `maniaxe_turnaround` decrement + velocity reversal.
+    ///   counter. The ROM does not rewrite `x_vel(a3)`.
     ///
     /// ASM loc_8ACC (kid.asm:9913): axe hits solid block (`andi.w #$7000,d7;
     ///   cmpi.w #$6000,d7; beq loc_8ACC`) — clear x_vel, play sfx, animate
@@ -7100,21 +7100,21 @@ impl NativeRuntime {
             });
         }
 
-        // Turnaround: reverse axe projectile direction after travel frames
+        // Turnaround: flip the ROM direction/render bytes after travel frames.
         if self.helmet.maniaxe_axe_active && !spawned_axe_this_frame {
             if self.helmet.maniaxe_turnaround > 0 {
                 self.helmet.maniaxe_turnaround -= 1;
             }
             if self.helmet.maniaxe_turnaround == 0 {
                 // ASM loc_8A74 (kid.asm:9879): the turnaround mutates the
-                // Maniaxe axe object being stepped in a3, not the newest
-                // projectile in the global list.
-                if let Some(p) = self
+                // Maniaxe axe object's x_direction/$17 bytes and reloads d0.
+                // It leaves x_vel unchanged; the exact render-facing byte is
+                // not yet represented in the native projectile carrier.
+                if self
                     .projectiles
-                    .iter_mut()
-                    .find(|p| p.kind == EnemyProjectileKind::ManiaxeAxe)
+                    .iter()
+                    .any(|p| p.kind == EnemyProjectileKind::ManiaxeAxe)
                 {
-                    p.x_velocity = -p.x_velocity;
                     self.helmet.maniaxe_turnaround = MANIAXE_TRAVEL_FRAMES;
                 }
             }

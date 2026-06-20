@@ -4359,8 +4359,9 @@ mod chunk_06 {
     /// ASM loc_8A74 (kid.asm:9879): `subq.w #1,d0; bne.w loc_8A84` — decrement
     /// turnaround counter each frame. When zero: `not.b x_direction(a3);
     /// not.b $17(a3); moveq #$C,d0` — flip direction, flip render, reset to 12.
-    /// Native reverses x_velocity and resets maniaxe_turnaround.
-    fn loc_8a74_turnaround_reverses_direction_after_12_frames() {
+    /// Native keeps x_velocity unchanged because the ROM flips direction bytes,
+    /// not the velocity word.
+    fn loc_8a74_turnaround_preserves_x_velocity_after_12_frames() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
@@ -4385,9 +4386,8 @@ mod chunk_06 {
 
         assert_eq!(
             rt.projectiles[0].x_velocity,
-            -(5 << 16),
-            "ASM loc_8A74: at counter=0, `not.b x_direction` flips direction — \
-             native reverses x_velocity"
+            5 << 16,
+            "ASM loc_8A74 flips x_direction/$17 but leaves x_vel unchanged"
         );
         assert_eq!(
             rt.helmet.maniaxe_turnaround, MANIAXE_TRAVEL_FRAMES,
@@ -4398,8 +4398,8 @@ mod chunk_06 {
     #[test]
     /// ASM loc_8A74 (kid.asm:9879): turnaround flips `x_direction(a3)` and
     /// `$17(a3)` on the active Maniaxe axe object. A later projectile in the
-    /// native vector must not receive that reversal.
-    fn loc_8a74_turnaround_reverses_live_axe_not_last_projectile() {
+    /// native vector must not affect the turnaround counter reset.
+    fn loc_8a74_turnaround_finds_live_axe_not_last_projectile() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
         rt.helmet.maniaxe_axe_active = true;
@@ -4430,8 +4430,8 @@ mod chunk_06 {
 
         assert_eq!(
             rt.projectiles[0].x_velocity,
-            -(5 << 16),
-            "ASM loc_8A74: the live Maniaxe axe object is the one whose direction flips"
+            5 << 16,
+            "ASM loc_8A74: the live Maniaxe axe object's x_vel stays unchanged when direction bytes flip"
         );
         assert_eq!(
             rt.projectiles[1].x_velocity,
