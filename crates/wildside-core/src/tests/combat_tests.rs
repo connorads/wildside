@@ -5507,6 +5507,66 @@ mod chunk_03 {
         );
     }
 
+    /// ASM DiamondPower_Main_CircleOfDoom (`loc_3F81A`), Wall (`loc_40026`),
+    /// and Snake (`loc_3F9A2`) do not write `KidIsInvulnerable` and do not
+    /// refresh the damage-flash countdown. Only `DiamondPower_Init_Invulnerability`
+    /// writes `$FFFFFA2B`.
+    #[test]
+    fn destructive_diamond_powers_do_not_refresh_kid_invulnerability_loc_3f81a_40026_3f9a2() {
+        for power in [
+            helmets::DiamondPowerType::CircleOfDoom,
+            helmets::DiamondPowerType::WallOfDeath,
+            helmets::DiamondPowerType::MiniSnake,
+            helmets::DiamondPowerType::DeathSnake,
+            helmets::DiamondPowerType::SwiftMiniSnake,
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            start_level(&mut runtime);
+            runtime.progression.diamond_power_type = power;
+            runtime.progression.diamond_power_frames = match power {
+                helmets::DiamondPowerType::CircleOfDoom => 0,
+                _ => 2,
+            };
+            runtime.progression.invulnerable_frames = 0;
+            runtime.kid_is_invulnerable = false;
+            match power {
+                helmets::DiamondPowerType::CircleOfDoom => {
+                    runtime.diamond_power_circle_slots =
+                        helmets::diamond_power_init_circle_of_doom_sub_3F7D0();
+                }
+                helmets::DiamondPowerType::WallOfDeath => {
+                    runtime.diamond_power_wall_slots =
+                        helmets::diamond_power_init_wall_of_death().slots;
+                }
+                helmets::DiamondPowerType::MiniSnake
+                | helmets::DiamondPowerType::DeathSnake
+                | helmets::DiamondPowerType::SwiftMiniSnake => {
+                    runtime.diamond_power_snake_slots = helmets::diamond_power_init_snake(
+                        6,
+                        0x300,
+                        &helmets::SNAKE_INIT_DATA_MINI,
+                        0x1E0,
+                        0x60,
+                        0x70,
+                    )
+                    .slots;
+                }
+                _ => unreachable!(),
+            }
+
+            runtime.step_diamond_power(FrameInput::default());
+
+            assert_eq!(
+                runtime.progression.invulnerable_frames, 0,
+                "ASM {power:?} main path should not refresh native damage invulnerability"
+            );
+            assert!(
+                !runtime.trace_frame().kid_is_invulnerable,
+                "ASM {power:?} main path should leave `$FFFFFA2B` clear"
+            );
+        }
+    }
+
     #[test]
     fn wall_of_death_activation_exposes_live_dp_sprites_loc_3ffea_loc_4009c() {
         let mut runtime = NativeRuntime::new(manifest());

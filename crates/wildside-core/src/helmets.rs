@@ -7263,20 +7263,18 @@ impl NativeRuntime {
                 DiamondPowerType::CircleOfDoom => {
                     // ASM DiamondPower_Main_CircleOfDoom loc_3F81A walks the
                     // DP-object linked list, compiles `word_4020E` sprites at
-                    // loc_3F880, then converges through loc_3F8AA.
+                    // loc_3F880, then converges through loc_3F8AA. It does
+                    // not write KidIsInvulnerable; only
+                    // DiamondPower_Init_Invulnerability loc_3FC78 does.
                     self.step_diamond_power_circle_of_doom_slots_loc_3f81a();
-                    self.progression.invulnerable_frames =
-                        self.progression.invulnerable_frames.max(1);
                 }
                 DiamondPowerType::WallOfDeath => {
                     // ASM DiamondPower_Main_WallOfDeath loc_40026 moves the
                     // ten DP-object slots and compiles `word_4020E` sprites at
                     // loc_4009C. Enemy damage belongs to the generic
-                    // DP-object collision word path; native does not model
-                    // those collision words for Wall yet.
+                    // DP-object collision word path; the routine does not
+                    // refresh Kid's damage invulnerability.
                     self.step_diamond_power_wall_of_death_slots_loc_40026();
-                    self.progression.invulnerable_frames =
-                        self.progression.invulnerable_frames.max(1);
                 }
                 DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze => {
                     // ASM DiamondPower_Main_InvulnAndHaze loc_3FD28 keeps
@@ -7360,9 +7358,8 @@ impl NativeRuntime {
                     // ASM DiamondPower_Main_Snake loc_3F978 shifts the six
                     // DP-object slots, steers the head from loc_3F9A2 through
                     // loc_3FAD4, then compiles `word_4020E` sprites at
-                    // loc_3FB3E.
-                    self.progression.invulnerable_frames =
-                        self.progression.invulnerable_frames.max(1);
+                    // loc_3FB3E. It does not set KidIsInvulnerable or the
+                    // native damage-flash countdown.
                     if self.diamond_power_snake_slots.is_empty() {
                         self.initialise_diamond_power_snake_slots_loc_3f91c(
                             self.progression.diamond_power_type,
