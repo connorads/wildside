@@ -7458,6 +7458,15 @@ impl NativeRuntime {
                         // real gameplay/object slice underneath. Keep that
                         // progressed slice and just discard the title workers
                         // once gameplay input makes the live state visible.
+                        if self.debug_level_entry_suppresses_title_card_live_handoff {
+                            // ASM loc_74E0 re-enters loc_6E2/Load_TitleCard
+                            // from live gameplay. Native debug entry suppresses
+                            // the title-card carry frames, so collapse the
+                            // hidden Load_InGame shell back to a fresh settled
+                            // target spawn before exposing Mode_Level.
+                            self.reset_current_level_runtime_state_for_respawn();
+                            self.player_lifecycle = PlayerLifecycle::Alive;
+                        }
                         self.starting_level_title_workers.clear();
                         if !self.debug_level_entry_suppresses_title_card_live_handoff {
                             // ASM loc_1AE2E -> loc_6E2 -> Load_InGame:

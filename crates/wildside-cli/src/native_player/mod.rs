@@ -12977,14 +12977,27 @@ mod tests {
                 kid_y_px < target_height_px,
                 "{route_name} live spawn y {kid_y:#010x} should be inside target level height {target_height_px}"
             );
-            if target_header.murder_wall_flags == 0 {
-                for frame in 0..180 {
+            if target_header.murder_wall_flags == 0 || target_level == 0x08 {
+                let post_live_frames = if target_level == 0x08 { 60 } else { 180 };
+                for frame in 0..post_live_frames {
                     trace = runtime.step_frame(FrameInput::default());
                     assert_eq!(
-                        trace.number_lives, starting_lives,
-                        "{route_name} should not die {frame} frames after live handoff"
+                        trace.number_lives,
+                        starting_lives,
+                        "{route_name} should not die {frame} frames after live handoff; mode={:?} boot={:?} x={:?} y={:?} vy={:?} on_ground={:?} death_windup={} murder_wall_x={:?} debug={:?}",
+                        trace.game_mode,
+                        trace.boot_phase,
+                        trace.kid_x_pos,
+                        trace.kid_y_pos,
+                        trace.kid_y_velocity,
+                        trace.kid_on_ground,
+                        trace.death_windup_elapsed,
+                        trace.murder_wall_x,
+                        trace.gameplay_debug_fields,
                     );
-                    if let Some(kid_y) = trace.kid_y_pos {
+                    if target_header.murder_wall_flags == 0
+                        && let Some(kid_y) = trace.kid_y_pos
+                    {
                         assert!(
                             (kid_y >> 16) < target_height_px,
                             "{route_name} should keep Kid inside the target level height {target_height_px} after live handoff; frame {frame} y={kid_y:#010x}"

@@ -7,6 +7,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-20 handoff (#335 fixed candidate)
+
+- **#335 Hills 0x08 instant death moved `[~]` -> `[?]`.** The headless generated-assets debug entry path reproduced the human N/A+C skip failure: first visible InGame frame was already `DeathWindup` with a pre-aged Hills murder wall, then life dropped shortly after. Native debug title-card entry suppresses the loc_1AE2E carry frames, so the handoff now collapses the hidden Load_InGame shell back to a fresh settled target spawn and clears the hidden death windup before exposing Mode_Level. Verification: cache-backed core regression `debug_level_entry_hills_resets_murder_wall_before_live_handoff_loc_74e0`, ignored native-player generated-assets skip regression, `cargo fmt`, `mise run verify-slice-fast` green, and `mise run verify-tas-full` exits 0 with the current baseline state-report divergences unchanged (CRC all 37759 frames match).
+- **NEXT**: continue with `mise run project-status`; #335 is no longer in the open queue and awaits human playtest validation. Current thrust remains audio (#264/#342/#272), block render (#324), entry presentation (#336/#348/#254/#210), then combat/render lifecycle (#343/#345/#346/#350). #334 remains blocked on a Caves-of-Ice live leak repro.
+
 ## 2026-06-20 handoff (#352 fixed candidate)
 
 - **#352 hidden-block reveal/fold animation moved `[~]` -> `[?]`.** Live hidden-block headbutt reveals now queue `sfx_Reveal_Hidden_block` (`$12`) and spawn a `BlockBounceKind::HiddenReveal` worker with the ASM loc_E2E2/loc_E2F0 8-frame y-bob, so revealed cells have the fold/bob instead of instant pop-in. Trace exposes `BlockBounceTraceKind::HiddenReveal` for the renderer path. Verification: focused hidden-block/trace/block-bounce tests, `cargo fmt`, and `mise run verify-slice-fast` pass. `mise run verify-tas-full` keeps published TAS CRC parity across all 37759 frames; the state report still shows the known #290 object-count wording caveat. Human validation: hit hidden blocks on USM 0x04-0x06 or Highwater 0x02 and confirm the reveal animation is visible.

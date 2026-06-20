@@ -38,12 +38,13 @@ and stop — never commit churn.
   pickup-expiry).
 - **In progress**: #316 helmets-fidelity umbrella; continue from the next open concrete
   row in `audits/helmets-fidelity-audit.md`.
-- **Fixed candidate this session**: #352 hidden-block reveal now queues the ASM `$12`
-  reveal SFX and an 8-frame loc_E2E2/loc_E2F0 y-bob worker on live headbutt reveals.
-  `verify-slice-fast` is green; published TAS CRC still matches all 37759 frames, with
-  the known #290 state-report object-count wording caveat unchanged.
-- **Blocked on you (human repro/validation)**: #335 (capture a live A+C skip into 0x08;
-  steps in its `backlog-awaiting-human.md` row), #334 (Caves-of-Ice live leak). The large
+- **Fixed candidate this session**: #335 loc_74E0/debug skip into Hills 0x08 no longer
+  exposes the hidden title-card murder-wall death state. The debug-title-card handoff now
+  collapses the hidden Load_InGame shell back to a fresh settled target spawn before
+  Mode_Level is visible; cache-backed core and native-player regressions pass.
+  `verify-slice-fast` is green; `verify-tas-full` exits 0 with the current baseline
+  state-report divergences still starting at `transition_15_to_00_post`.
+- **Blocked on you (human repro/validation)**: #334 (Caves-of-Ice live leak). The large
   `[?]` set in `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the
   recurring "needs a real audio device" block IS that playtest.
 - **Process note**: the 2026-06-20 triage found issues being missed or denied by parking
@@ -97,4 +98,3 @@ For newly opened items, capture these facts in the investigation notes:
 | 349 | [ ] | P1 | render | 2026-06-20 playtest: post-death level card renders the scene/trees but NOT the level-NAME text (A then loads fine). ASM lose_life→Game_Mode 8→Load_TitleCard allocates the same Title_Letter glyph workers as a normal entry, so the name MUST appear. Core model + tests pass (level_tests.rs:3579/3615 assert workers EXIST in the trace) but never assert the RENDERED native-player scene draws the name — the defect is in that render/integration gap. Distinct from #326 (WRONG name on ≥0x10 entry cards) and #257/#248 (black-screen recovery) | Add a native-player render assertion (not just core worker-presence); capture a post-death card frame; fix glyph ASCII fallback / title_elapsed offset / title_card None on the respawn path. See archive #349 |
 | 350 | [ ] | P1 | render | 2026-06-20 playtest: Hills of the Warrior (theme 3, level 8) renders purple below the tree canopy. `background_palette_for_scene` (scene.rs:2334) builds the line-1 background remap only for theme 7 (Mountain, :2339) and 9 (Forest, :2361) — there is NO theme==3 (Hills) branch, so Hills line-1 ($2780) tiles index a wrong palette line. Data/core already know Hills is two-line (loc_1295E, Palette_Permutation_BGHill, bundle hill_bg.bin). Distinct from the dark-green CRAM-backdrop seam (#280/#289 = the sky) | Add a background_theme_id==3 branch mirroring theme 7/9 (assemble line-1 from Palette_Permutation_BGHill/_alt per loc_1295E); capture Hills L8 below-canopy native vs oracle. See archive #350 |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods (levels $11/$12, theme 9 Forest, weather 0) falling "snow" is actually Drip enemies (0x16) rendering the wrong colour variant (orange not green). ROM ships 3 Drip palettes (Drips_1 green / Drips_2 orange / Drips_3 purple; kid.asm:48317-48319); native ENEMY_FAMILIES hardcodes one palette per family. No storm system runs here (Init_SpecialEffects returns on weather 0) — "should be snow" is a human misread but "orange particles" is a real colour-variant bug. Seed #317/#230 are the wrong (storm) system | Per-level slot/palette-line variant selection in bundle.rs load_enemy_visuals; level $12 capture at x~2264 vs oracle. See archive #351 |
-| 335 | [ ] | P0 | gameflow/death | 2026-06-19 playtest: skipping into Hills of the Warrior 1 (0x08) INSTANT-KILLS Kid on entry. Warp is CLEAN; only the loc_74E0 skip hold/resume reproduces it (murder wall pre-aged during the resume hold, not level loading). Headless-reproducible via the skip path. | Headless: diff loc_74E0 skip-entry vs the clean --warp-level 8 entry into 0x08 for murder-wall x / Kid death. Fix lead: weather.rs:3155 MurderWall_X_pos. See archive #335 |

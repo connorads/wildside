@@ -4256,6 +4256,59 @@ mod chunk_02 {
     }
 
     #[test]
+    fn debug_level_entry_hills_resets_murder_wall_before_live_handoff_loc_74e0() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.enter_level_playtest(LevelId(0x07));
+        let starting_lives = runtime.progression.number_lives;
+        runtime.enter_level_debug_title_card(LevelId(0x08));
+
+        for _ in 0..360 {
+            let trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "ASM loc_74E0 -> loc_6E2 should keep the Hills title-card shell visible before Start releases loc_1AE2E"
+            );
+        }
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        let mut live = None;
+        for _ in 0..18 {
+            let trace = runtime.step_frame(FrameInput::default());
+            if trace.game_mode == GameMode::InGame {
+                live = Some(trace);
+                break;
+            }
+        }
+        let first_live = live.expect("Hills debug level entry should reach live gameplay");
+        assert_eq!(first_live.current_level, LevelId(0x08));
+        assert_eq!(first_live.number_lives, starting_lives);
+        assert_eq!(
+            first_live.death_windup_elapsed, 0,
+            "ASM loc_1AE2E live handoff should expose a fresh Hills Load_InGame spawn, not the pre-aged murder-wall death state"
+        );
+
+        for frame in 0..60 {
+            let trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.number_lives, starting_lives,
+                "Hills debug level entry should not instant-kill Kid after live handoff; frame={frame} wall={:?} kid_x={:?}",
+                trace.murder_wall_x, trace.kid_x_pos,
+            );
+            assert_eq!(
+                trace.death_windup_elapsed, 0,
+                "Hills debug level entry should not enter death windup immediately after live handoff; frame={frame}",
+            );
+        }
+    }
+
+    #[test]
     fn title_screen_level_entry_before_ready_uses_load_ingame_bootstrap() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
