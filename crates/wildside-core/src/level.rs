@@ -18242,6 +18242,7 @@ impl NativeRuntime {
         self.progression.form_width_delta = 0;
         self.progression.diamond_power_frames = 0;
         self.progression.diamond_power_type = helmets::DiamondPowerType::None;
+        self.progression.diamond_power_id = 0;
         self.five_way_shot_ready = false;
         self.progression.invulnerable_frames = 0;
         self.just_received_damage = false;

@@ -908,6 +908,9 @@ pub(crate) struct PlayerProgression {
     pub(crate) diamond_power_frames: u16,
     /// Which Diamond Power type is currently active (determines behaviour).
     pub(crate) diamond_power_type: super::helmets::DiamondPowerType,
+    /// ROM `Diamond_power_ID` word. `DiamondPower_Main_Execute loc_3F71E`
+    /// indexes `DiamondPower_Main_Index` with this value every frame.
+    pub(crate) diamond_power_id: u16,
 }
 
 impl Default for PlayerProgression {
@@ -925,6 +928,7 @@ impl Default for PlayerProgression {
             score: 0,
             diamond_power_frames: 0,
             diamond_power_type: super::helmets::DiamondPowerType::None,
+            diamond_power_id: 0,
             form_width_delta: 0,
         }
     }

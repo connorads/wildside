@@ -2504,7 +2504,7 @@ impl NativeRuntime {
             .as_ref()
             .map_or(0, |s| s.player.x_velocity);
         let camera = self.opening_slice.as_ref().map(|s| s.camera);
-        let tracking_rain_scan_enabled = self.progression.diamond_power_type
+        let tracking_rain_scan_enabled = self.diamond_power_dispatch_type_loc_3f71e()
             == crate::helmets::DiamondPowerType::TrackingRain
             && (self.frame_index & 7) == 1;
         let rain_target_candidates: Vec<RainTargetCandidate> = self

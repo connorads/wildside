@@ -4018,6 +4018,47 @@ mod chunk_03 {
     }
 
     #[test]
+    fn diamond_power_check_stores_rom_id_before_init_loc_3f6b0() {
+        let mut the_kid = NativeRuntime::new(manifest());
+        start_level(&mut the_kid);
+        the_kid.progression.current_form = PlayerForm::TheKid;
+        the_kid.progression.diamond_count = 50;
+        the_kid.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            the_kid.progression.diamond_power_id, 10,
+            "ASM DiamondPower_Check adds $A to TheKid's helmet ID for tier-2 Death Snake"
+        );
+        assert_eq!(
+            the_kid.progression.diamond_power_type,
+            DiamondPowerType::DeathSnake
+        );
+
+        let mut skycutter = NativeRuntime::new(manifest());
+        start_level(&mut skycutter);
+        skycutter.progression.current_form = PlayerForm::Skycutter;
+        skycutter.progression.diamond_count = 50;
+        skycutter.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            skycutter.progression.diamond_power_id, 11,
+            "ASM DiamondPower_Check preserves Skycutter's distinct tier-2 Diamond_power_ID even though the worker aliases Death Snake"
+        );
+        assert_eq!(
+            skycutter.progression.diamond_power_type,
+            DiamondPowerType::DeathSnake
+        );
+    }
+
+    #[test]
     fn loc_3fdfe_slashing_rain_uses_rom_spawn_gate_and_six_object_cap() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
@@ -4920,6 +4961,40 @@ mod chunk_03 {
         assert_eq!(
             slot.tracking_word_3e, 1,
             "ASM loc_3FF6A: addq.w #1,$3E(a0) marks the rain slot as tracking"
+        );
+    }
+
+    /// ASM DiamondPower_Main_Execute loc_3F71E indexes
+    /// DiamondPower_Main_Index with `Diamond_power_ID` each frame. ID 12 is
+    /// Tracking Rain even if a stale collapsed native enum says Slashing Rain.
+    #[test]
+    fn diamond_power_main_execute_dispatches_rain_from_id_loc_3f71e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::SlashingRain;
+        runtime.progression.diamond_power_id = 12;
+        runtime.frame_index = 1;
+        let mut slice = combat_slice();
+        slice.camera.x_pos = 0;
+        slice.camera.y_pos = 0;
+        runtime.opening_slice = Some(slice);
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Dragon, 0x0098_0000, 0x0088_0000, 1)];
+        runtime.diamond_power_rain_slots.push(DiamondPowerRainSlot {
+            x_pos: 0x0080_0000,
+            y_pos: 0x0080_0000,
+            y_velocity: 0x2_0000,
+            size_word_24: 4,
+            ..Default::default()
+        });
+
+        runtime.step_projectiles();
+
+        let slot = runtime
+            .diamond_power_rain_slots
+            .first()
+            .expect("ID-dispatched tracking rain slot should remain visible");
+        assert_eq!(
+            slot.tracking_word_3e, 1,
+            "ASM loc_3F71E/off_3F748 dispatches ID 12 to DiamondPower_Main_SlashingRain's tracking variant"
         );
     }
 

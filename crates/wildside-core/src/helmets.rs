@@ -1287,6 +1287,41 @@ pub(crate) fn diamond_power_for_form(form: PlayerForm, tier2: bool) -> DiamondPo
     }
 }
 
+/// ASM DiamondPower_Check (kid.asm:44362): generic Start+A activations store
+/// `Current_Helmet` or `Current_Helmet + $A` in `Diamond_power_ID` before
+/// indexing `DiamondPower_Init_Index`. Juggernaut bypasses that check, but
+/// DiamondPower_Init_FiveWayShot writes ID 5 itself.
+pub(crate) fn diamond_power_id_for_form_loc_3f6b0(form: PlayerForm, tier2: bool) -> Option<u16> {
+    if form == PlayerForm::Eyeclops {
+        return None;
+    }
+    if form == PlayerForm::Juggernaut {
+        return Some(5);
+    }
+
+    Some(form.helmet_id() + if tier2 { 10 } else { 0 })
+}
+
+/// ASM DiamondPower_Main_Index (kid.asm:44416): per-frame dispatch table keyed
+/// by `Diamond_power_ID`, not by a collapsed native effect enum.
+pub(crate) fn diamond_power_type_from_id_loc_3f71e(diamond_power_id: u16) -> DiamondPowerType {
+    match diamond_power_id {
+        0 | 6 | 8 => DiamondPowerType::CircleOfDoom,
+        1 | 7 => DiamondPowerType::Invulnerability,
+        2 => DiamondPowerType::SlashingRain,
+        3 => DiamondPowerType::SamuraiHaze,
+        5 | 15 => DiamondPowerType::FiveWayShot,
+        9 => DiamondPowerType::MiniSnake,
+        10 | 11 | 13 => DiamondPowerType::DeathSnake,
+        12 => DiamondPowerType::TrackingRain,
+        16 => DiamondPowerType::ExtraHitPoint,
+        17 => DiamondPowerType::WallOfDeath,
+        18 => DiamondPowerType::ExtraLife,
+        19 => DiamondPowerType::SwiftMiniSnake,
+        _ => DiamondPowerType::None,
+    }
+}
+
 /// Duration in frames for each Diamond Power type.
 pub(crate) fn diamond_power_duration(power: DiamondPowerType) -> u16 {
     match power {
@@ -1324,6 +1359,21 @@ pub(crate) fn juggernaut_five_way_shot_ready_sub_7428(
 }
 
 impl NativeRuntime {
+    pub(crate) fn diamond_power_dispatch_type_loc_3f71e(&self) -> DiamondPowerType {
+        let by_id = diamond_power_type_from_id_loc_3f71e(self.progression.diamond_power_id);
+        if self.progression.diamond_power_type == DiamondPowerType::None {
+            DiamondPowerType::None
+        } else if self.progression.diamond_power_id == 0
+            && self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
+        {
+            // Some focused tests construct an active power by seeding the
+            // native enum directly. Live activations always set Diamond_power_ID.
+            self.progression.diamond_power_type
+        } else {
+            by_id
+        }
+    }
+
     pub(crate) fn step_juggernaut_five_way_shot_ready_sub_7428(&mut self, input: FrameInput) {
         if juggernaut_five_way_shot_ready_sub_7428(
             self.progression.current_form,
@@ -5207,6 +5257,7 @@ impl NativeRuntime {
                     // DP-object slots after the first converged reward.
                     self.progression.diamond_power_frames = 0;
                     self.progression.diamond_power_type = DiamondPowerType::None;
+                    self.progression.diamond_power_id = 0;
                     self.diamond_power_sprites.clear();
                     self.diamond_power_extra_hp_life_slots.clear();
                     self.five_way_shot_ready = false;
@@ -5250,6 +5301,7 @@ impl NativeRuntime {
                 self.diamond_power_invuln_haze_slots.clear();
                 self.progression.diamond_power_frames = 0;
                 self.progression.diamond_power_type = DiamondPowerType::None;
+                self.progression.diamond_power_id = 0;
                 self.five_way_shot_ready = false;
                 self.kid_is_invulnerable = false;
             }
@@ -7465,35 +7517,36 @@ impl NativeRuntime {
     /// Each form has a unique effect per tier (ASM: DiamondPower_Init_Index).
     pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
         self.diamond_power_sprites.clear();
+        let active_power = self.diamond_power_dispatch_type_loc_3f71e();
         // Count down active Diamond Power.
         let slot_owned_fade_power_active = matches!(
-            self.progression.diamond_power_type,
+            active_power,
             DiamondPowerType::WallOfDeath
         ) && !self.diamond_power_wall_slots.is_empty()
             || matches!(
-                self.progression.diamond_power_type,
+                active_power,
                 DiamondPowerType::FiveWayShot
             ) && !self.diamond_power_five_way_slots.is_empty()
             || matches!(
-                self.progression.diamond_power_type,
+                active_power,
                 DiamondPowerType::MiniSnake
                     | DiamondPowerType::SwiftMiniSnake
                     | DiamondPowerType::DeathSnake
             ) && !self.diamond_power_snake_slots.is_empty();
         let diamond_power_active = self.progression.diamond_power_frames > 0
             || !self.diamond_power_invuln_haze_slots.is_empty()
-            || (self.progression.diamond_power_type == DiamondPowerType::CircleOfDoom
+            || (active_power == DiamondPowerType::CircleOfDoom
                 && !self.diamond_power_circle_slots.is_empty())
             || slot_owned_fade_power_active;
         if diamond_power_active {
-            if self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
+            if active_power != DiamondPowerType::CircleOfDoom
                 && (self.progression.diamond_power_frames > 0 || slot_owned_fade_power_active)
             {
                 self.progression.diamond_power_frames =
                     self.progression.diamond_power_frames.wrapping_sub(1);
             }
 
-            match self.progression.diamond_power_type {
+            match active_power {
                 DiamondPowerType::CircleOfDoom => {
                     // ASM DiamondPower_Main_CircleOfDoom loc_3F81A walks the
                     // DP-object linked list, compiles `word_4020E` sprites at
@@ -7596,7 +7649,7 @@ impl NativeRuntime {
                     // native damage-flash countdown.
                     if self.diamond_power_snake_slots.is_empty() {
                         self.initialise_diamond_power_snake_slots_loc_3f91c(
-                            self.progression.diamond_power_type,
+                            active_power,
                         );
                     }
                     self.step_diamond_power_snake_slots_loc_3f978();
@@ -7610,19 +7663,18 @@ impl NativeRuntime {
                 DiamondPowerType::None => {}
             }
 
-            let slot_owned_fade_power_finished = (self.progression.diamond_power_type
-                == DiamondPowerType::WallOfDeath
+            let slot_owned_fade_power_finished = (active_power == DiamondPowerType::WallOfDeath
                 && self.diamond_power_wall_slots.is_empty())
-                || (self.progression.diamond_power_type == DiamondPowerType::FiveWayShot
+                || (active_power == DiamondPowerType::FiveWayShot
                     && self.diamond_power_five_way_slots.is_empty())
                 || (matches!(
-                    self.progression.diamond_power_type,
+                    active_power,
                     DiamondPowerType::MiniSnake
                         | DiamondPowerType::SwiftMiniSnake
                         | DiamondPowerType::DeathSnake
                 ) && self.diamond_power_snake_slots.is_empty());
             let slot_owned_fade_power = matches!(
-                self.progression.diamond_power_type,
+                active_power,
                 DiamondPowerType::WallOfDeath
                     | DiamondPowerType::FiveWayShot
                     | DiamondPowerType::MiniSnake
@@ -7630,13 +7682,13 @@ impl NativeRuntime {
                     | DiamondPowerType::DeathSnake
             );
             if (self.progression.diamond_power_frames == 0
-                && self.progression.diamond_power_type != DiamondPowerType::CircleOfDoom
+                && active_power != DiamondPowerType::CircleOfDoom
                 && !slot_owned_fade_power)
                 || (slot_owned_fade_power_finished
                     && (self.progression.diamond_power_frames as i16).is_negative())
             {
                 if matches!(
-                    self.progression.diamond_power_type,
+                    active_power,
                     DiamondPowerType::Invulnerability | DiamondPowerType::SamuraiHaze
                 ) {
                     // The ROM keeps these slots alive for the negative timer
@@ -7644,6 +7696,7 @@ impl NativeRuntime {
                     // clears them when the signed timer drops below -$1B.
                 } else {
                     self.progression.diamond_power_type = DiamondPowerType::None;
+                    self.progression.diamond_power_id = 0;
                     self.diamond_power_rain_slots.clear();
                     self.diamond_power_circle_slots.clear();
                     self.diamond_power_wall_slots.clear();
@@ -7703,7 +7756,10 @@ impl NativeRuntime {
         };
 
         let power = diamond_power_for_form(self.progression.current_form, tier2);
+        let power_id = diamond_power_id_for_form_loc_3f6b0(self.progression.current_form, tier2)
+            .expect("Eyeclops diamond power activation is blocked before ID selection");
         self.progression.diamond_power_type = power;
+        self.progression.diamond_power_id = power_id;
         self.diamond_power_rain_slots.clear();
         self.diamond_power_circle_slots.clear();
         self.diamond_power_wall_slots.clear();
