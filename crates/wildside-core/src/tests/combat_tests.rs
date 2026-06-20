@@ -17069,6 +17069,73 @@ mod chunk_03 {
     }
 
     #[test]
+    fn spinning_twins_pending_hurt_collision_enters_loc_3bbc4_3bc34() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut twins = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 120 << 16, 2);
+        twins.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        twins.x_velocity = 0x0001_8000;
+        runtime.active_enemies = vec![twins];
+
+        let collision_target = runtime.active_enemies[0];
+        runtime.queue_pending_enemy_collision(&collision_target, SPINNING_TWINS_COLID_HURT);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 1,
+            "ASM Spinning_Twins.asm loc_3BBC4 routes colid_hurt to loc_3BC34, which decrements `$44(a3)`"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer, SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34,
+            "queued settled contact must hibernate through ASM Spinning_Twins.asm loc_3BC34 `stru_3B836`"
+        );
+        assert!(
+            !runtime.active_enemies[0].death_animation_active,
+            "nonfatal pending loc_3BC34 damage must not enter loc_3BC56"
+        );
+    }
+
+    #[test]
+    fn spinning_twins_pending_terminal_hurt_waits_for_death_tail_loc_3bbc4_3bc56() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut twins = test_enemy(EnemyFamily::SpinningTwins, 0x0080_0000, 0x0040_0000, 1);
+        twins.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        twins.layout_index = 5;
+        let killed_identity = (twins.segment_index, twins.layout_index);
+        runtime.enemy_status_words[5] = 0x2168;
+        runtime.active_enemies = vec![twins];
+
+        let collision_target = runtime.active_enemies[0];
+        runtime.queue_pending_enemy_collision(&collision_target, SPINNING_TWINS_COLID_HURT);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Spinning_Twins.asm loc_3BC56 hibernates through `stru_3B83C` before deleting"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            SPINNING_TWINS_DEATH_ANIMATION_FRAMES
+        );
+        assert_eq!(
+            runtime.enemy_status_words[5], 0x2168,
+            "ASM Spinning_Twins.asm loc_3BC78 is deferred until the death animation finishes"
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+
+        runtime.active_enemies[0].wait_timer = 0;
+        runtime.remove_dead_enemy(0);
+
+        assert!(runtime.active_enemies.is_empty());
+        assert_eq!(
+            runtime.enemy_status_words[5], 0,
+            "ASM Spinning_Twins.asm loc_3BC98 clears positive `$42(a5)` after loc_3BC56 finishes"
+        );
+        assert!(runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
     fn spinning_twins_finished_death_clears_positive_status_slot_loc_3bc78() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut twins = test_enemy(EnemyFamily::SpinningTwins, 0x0080_0000, 0x0040_0000, 1);

@@ -9138,6 +9138,51 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::SpinningTwins)
+                && matches!(enemy.spinning_twins_phase, SpinningTwinsPhase::Walking)
+            {
+                match spinning_twins_settled_collision_dispatch_loc_3bbc4(collision.collision_type)
+                {
+                    SpinningTwinsSettledCollisionRouteLoc3BBC4::Death => {
+                        // ASM Spinning_Twins.asm loc_3BBC4 sends signed-negative
+                        // settled contact words directly to loc_3BC56 before
+                        // the `$44(a3)` HP decrement route.
+                        kill_indices.push(active_idx);
+                    }
+                    SpinningTwinsSettledCollisionRouteLoc3BBC4::Damage => {
+                        if enemy.take_damage_or_queue_death() {
+                            kill_indices.push(active_idx);
+                        } else {
+                            changed_enemy_state = true;
+                        }
+                    }
+                    SpinningTwinsSettledCollisionRouteLoc3BBC4::BerzerkerSideGate => {
+                        let x_direction = match enemy.facing {
+                            Direction::Left => 0,
+                            Direction::Right => 0xFF,
+                        };
+                        if let SpinningTwinsBerzerkerSideGateLoc3BBF6::Launch(launch) =
+                            spinning_twins_berzerker_side_gate_loc_3bbf6(
+                                berzerker_charging,
+                                x_direction,
+                            )
+                        {
+                            // ASM Spinning_Twins.asm loc_3BBF6: charging
+                            // Berzerker side contact bypasses HP damage and
+                            // enters the loc_3BC22 launch loop.
+                            enemy.x_velocity = launch.x_velocity;
+                            enemy.y_velocity = launch.y_velocity;
+                            enemy.on_ground = false;
+                            enemy.wait_timer = SPINNING_TWINS_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3BC22;
+                            enemy.damage_flash_frames = 0;
+                            changed_enemy_state = true;
+                        }
+                    }
+                    SpinningTwinsSettledCollisionRouteLoc3BBC4::ResumeWalk => {}
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::Goat) {
                 match goat_collision_dispatch_loc_3cb14(collision.collision_type as i16) {
                     GoatCollisionRouteLoc3CB14::Death => {
