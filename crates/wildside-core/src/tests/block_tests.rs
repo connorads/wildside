@@ -11963,6 +11963,37 @@ mod chunk_04 {
     }
 
     #[test]
+    fn lion_charge_state_zero_enters_right_alert_before_x_commit_loc_3e450_3e4ce() {
+        let grid = grid_with_platform(17, 0, 200);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Lion, 60 << 16, floor_y, 6);
+        enemy.lion_state = LionState::Charging;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Left;
+        enemy.wait_timer = LION_CHARGE_TIMER_INIT;
+        enemy.shared_walker_state = 0;
+        let start_x = enemy.x_pos;
+
+        step_lion(&mut enemy, Some(&grid), Some((60 + 0x20) << 16), &mut None);
+
+        assert_eq!(
+            enemy.x_pos, start_x,
+            "ASM Lion.asm loc_3E450 should choose loc_3E4CE before loc_3E4C6 commits the candidate X position"
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Lion.asm loc_3E4CE should set x_direction when Kid is to the right inside the +/-$60 calm band"
+        );
+        assert_eq!(
+            enemy.shared_walker_state, SHARED_WALKER_STATE_FACE_RIGHT,
+            "ASM Lion.asm loc_3E4CE should store `$42(a3)=1` for the right-facing alert state"
+        );
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+    }
+
+    #[test]
     fn lion_hp8_charges_faster() {
         assert!(lion_charge_speed(8) > lion_charge_speed(7));
     }

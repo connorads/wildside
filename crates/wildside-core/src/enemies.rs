@@ -1813,7 +1813,12 @@ pub(crate) fn lion_charge_window_gate_loc_3e434(shared_walker_state: i16) -> Lio
     // - `$42 > 0` routes to the tighter ±$70 check in `loc_3E476`.
     // - `$42 == 0` routes to the looser ±$60 check in `loc_3E450`.
     // - `$42 < 0` increments toward zero and continues movement.
-    if shared_walker_state > 0 || shared_walker_state == 0x000A {
+    if shared_walker_state == 0x000A {
+        LionLoc3E434Result {
+            next_shared_state: shared_walker_state,
+            branch: LionLoc3E434Branch::KeepAndContinue,
+        }
+    } else if shared_walker_state > 0 {
         LionLoc3E434Result {
             next_shared_state: shared_walker_state,
             branch: LionLoc3E434Branch::Check70Band,
@@ -20641,6 +20646,7 @@ pub(crate) const LION_POST_FIRE_RESUME_DELAY: u16 = 17;
 /// Lion charge overshoot distance for termination: $70 (112px).
 /// ASM does not use a fixed duration — charge ends when Lion overshoots
 /// the player by >112px (loc_3E450/3E604).
+#[cfg(test)]
 pub(crate) const LION_CHARGE_OVERSHOOT: i32 = 0x70;
 
 /// Lion projectile speed (Lion.asm line 165: $60000).
@@ -20923,9 +20929,10 @@ fn step_lion_charge_movement_loc_3e11e(
     let walk_delta = horizontal_velocity(enemy.facing, speed);
     let moving_right = walk_delta >= 0;
 
+    let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+
     if let Some(grid) = block_grid {
         let current_x_px = (enemy.x_pos >> 16) as i32;
-        let next_x = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
         let next_x_px = (next_x >> 16) as i32;
         let current_y_px = (enemy.y_pos >> 16) as i32;
         let wall =
@@ -20967,25 +20974,65 @@ fn step_lion_charge_movement_loc_3e11e(
         enemy.y_pos = (floor.floor_y_px as u32) << 16;
     }
 
-    enemy.x_pos = (enemy.x_pos as i64 + i64::from(walk_delta)) as u32;
+    if let Some(px) = player_x_pos {
+        let lion_x_word = fixed_integer_word(enemy.x_pos) as u16;
+        let kid_x_word = fixed_integer_word(px) as u16;
+        let window = lion_charge_window_gate_loc_3e434(enemy.shared_walker_state);
+        enemy.shared_walker_state = window.next_shared_state;
+        match window.branch {
+            LionLoc3E434Branch::KeepAndContinue => {}
+            LionLoc3E434Branch::Check60Band => {
+                match lion_left_charge_calm_distance_gate_loc_3e604(lion_x_word, kid_x_word) {
+                    LionLoc3E604Branch::ContinueMovement => {}
+                    LionLoc3E604Branch::EnterLoc3E4CE => {
+                        // ASM Lion.asm loc_3E450 -> loc_3E4CE: Kid inside the
+                        // calm +$60 band sets right-facing alert state before
+                        // loc_3E4C6 can commit the candidate X position.
+                        enemy.facing = Direction::Right;
+                        enemy.shared_walker_state = SHARED_WALKER_STATE_FACE_RIGHT;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.shared_walker_debug_branch = Some("lion_charge_calm_alert_right");
+                        return;
+                    }
+                    LionLoc3E604Branch::EnterLoc3E50A => {
+                        // ASM Lion.asm loc_3E450 -> loc_3E50A mirrors the
+                        // calm-band alert state for Kid at or left of Lion.
+                        enemy.facing = Direction::Left;
+                        enemy.shared_walker_state = SHARED_WALKER_STATE_FACE_LEFT;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.shared_walker_debug_branch = Some("lion_charge_calm_alert_left");
+                        return;
+                    }
+                }
+            }
+            LionLoc3E434Branch::Check70Band => {
+                match lion_left_charge_alert_release_gate_loc_3e62a(lion_x_word, kid_x_word) {
+                    LionLoc3E62ABranch::ContinueMovement => {}
+                    LionLoc3E62ABranch::EnterLoc3E642 => {
+                        // ASM Lion.asm loc_3E476/loc_3E62A -> loc_3E48E/
+                        // loc_3E642: leaving the alert band drops back to
+                        // walking, latches `$4E(a5)`, and stores `$42=$FF88`
+                        // for non-patrol alert states.
+                        enemy.lion_state = LionState::Walking;
+                        enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+                        enemy.scorpion_tracking_lock = true;
+                        enemy.shared_walker_state = -0x78;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.shared_walker_debug_branch = Some("lion_charge_alert_release");
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    enemy.x_pos = next_x;
     enemy.x_velocity = 0;
     enemy.y_velocity = 0;
     enemy.shared_walker_debug_branch = Some("lion_charge_grounded");
-
-    if enemy.shared_walker_state != SHARED_WALKER_STATE_PATROL
-        && let Some(px) = player_x_pos
-    {
-        let dx = match enemy.facing {
-            Direction::Right => (enemy.x_pos as i64 - px as i64) >> 16,
-            Direction::Left => (px as i64 - enemy.x_pos as i64) >> 16,
-        };
-        if dx > i64::from(LION_CHARGE_OVERSHOOT) {
-            enemy.lion_state = LionState::Walking;
-            enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
-            // ASM Lion.asm loc_3E48E/loc_3E642: overshoot exits set `$4E(a5)`.
-            enemy.scorpion_tracking_lock = true;
-        }
-    }
 }
 
 fn lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
@@ -37883,9 +37930,9 @@ mod tests {
             lion_charge_window_gate_loc_3e434(0x000A),
             LionLoc3E434Result {
                 next_shared_state: 0x000A,
-                branch: LionLoc3E434Branch::Check70Band,
+                branch: LionLoc3E434Branch::KeepAndContinue,
             },
-            "ASM Lion.asm loc_3E434 should keep state `$0A` and continue to `loc_3E476`"
+            "ASM Lion.asm loc_3E434 should branch `$42==$0A` directly to loc_3E4C6/loc_3E67A without running the ±$70 release gate"
         );
         assert_eq!(
             lion_charge_window_gate_loc_3e434(0),
