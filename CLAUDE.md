@@ -5,11 +5,11 @@ This repo keeps source-port research material in cache-local checkouts and repo 
 ## Loop sessions
 
 If your prompt mentions a loop session (or you're asked to "take the next item"),
-follow `docs/source-port/loop.md` — it is the whole loop. Orientation is ~10KB:
+follow `docs/source-port/loop.md`; it is the whole loop. Orientation is ~10KB:
 the NOW block at the top of `docs/source-port/backlog.md` is the session handoff,
 and the table below it is the queue (order = human playtest priority). Per-issue
 history is grep-by-`#NNN` in `docs/source-port/backlog-archive.md`. Do NOT add
-more debug fields unless ASM + oracle leave genuine ambiguity — the answer is in
+more debug fields unless ASM + oracle leave genuine ambiguity; the answer is in
 the disassembly.
 
 ## Source precedence
@@ -51,8 +51,8 @@ Use sources in this order:
 
 ## Fidelity principles
 
-- **Bugs are features**: original game bugs must be faithfully reproduced — collision edge cases, sprite glitches, off-by-ones. Mark with `// ORIGINAL_QUIRK: <description>`. (Julius, OpenMW, Chocolate Doom, devilutionX all preserve original bugs for compatibility)
-- **Oracle is truth**: if native differs from oracle, native is wrong until proven otherwise. Exceptions: advisory fields only. ("Accuracy is not 'does it play Zelda?' — playing games is a side effect of accuracy" — byuu)
+- **Bugs are features**: original game bugs must be faithfully reproduced: collision edge cases, sprite glitches, off-by-ones. Mark with `// ORIGINAL_QUIRK: <description>`. (Julius, OpenMW, Chocolate Doom, devilutionX all preserve original bugs for compatibility)
+- **Oracle is truth**: if native differs from oracle, native is wrong until proven otherwise. Exceptions: advisory fields only. ("Accuracy is not 'does it play Zelda?'; playing games is a side effect of accuracy", byuu)
 - **Never guess**: when behaviour is ambiguous, trace the disassembly or compare oracle frames. Write a probe scenario before writing any fix. (bsnes: 80 hours to reverse-engineer one Speedy Gonzales bus conflict rather than guessing)
 - **Engine-level only**: no level-specific overrides or game-specific hacks. If a fix works for level 1 but breaks level 23, the architecture needs rethinking. (bsnes: "whack-a-mole emulation" anti-pattern)
 - **Progressive fidelity**: approximate implementations acceptable as stepping stones when marked `// TODO(fidelity): <description>` and tracked. Never ship a guess as if it were verified.
@@ -106,7 +106,7 @@ The 68k disassembly at `.cache/upstream/kid-chameleon-disasm/` is the **ultimate
 - Unknown Mega Drive hardware effect
   - use Kid asm first, then Sega Retro hardware docs
 - Frame-level divergence debugging (TAS or sweep)
-  - follow `docs/source-port/debug-playbook.md` — probe before reading ASM
+  - follow `docs/source-port/debug-playbook.md`; probe before reading ASM
 
 ## First commands
 
@@ -134,7 +134,7 @@ cargo run -p wildside-cli -- asm-coverage --update           # regenerate asm-co
 
 ## Iteration workflow
 
-Canonical bug/feature backlog: `docs/source-port/backlog.md` — this is now the
+Canonical bug/feature backlog: `docs/source-port/backlog.md`; this is now the
 **table index only** (one row per issue: status, priority, system, summary, verify).
 Per-issue evidence/history (follow-ups, rejected hypotheses, investigation notes,
 dated playtest logs) lives in `docs/source-port/backlog-archive.md`; grep it by
@@ -144,18 +144,18 @@ Session handoff: the NOW block at the top of `backlog.md` (rewrite it each sessi
 
 ### Principles (bsnes methodology)
 - Fix behaviours at engine level, never level-specific overrides
-- Every fix must pass full sweep — if it fixes level 1 but breaks level 23, the fix is wrong
+- Every fix must pass full sweep; if it fixes level 1 but breaks level 23, the fix is wrong
 - Every bug fixed should become a permanent regression test (scenario or snapshot)
 - Advisory fields (score, lives, diamonds, number_objects, murder_wall_x) are expected divergences, not bugs
-- Probe before coding — write a scenario that exercises the behaviour, run against oracle, understand ground truth before touching native code
-- Cross-reference sources — check disassembly AND oracle; if they agree, proceed. If they disagree, investigate further
-- Preserve original quirks explicitly — mark with `// ORIGINAL_QUIRK:`. If behaviour looks wrong but oracle confirms it, the original game has that behaviour
-- Advisory vs authoritative — advisory divergences are expected and masked in sweep. Authoritative divergences (position, velocity, state, lifecycle) are always bugs
-- Reject dead ends once — record them in `backlog-archive.md` under the issue's `#NNN` so the next session does not retry them from memory or roadmap prose
+- Probe before coding: write a scenario that exercises the behaviour, run against oracle, understand ground truth before touching native code
+- Cross-reference sources: check disassembly AND oracle; if they agree, proceed. If they disagree, investigate further
+- Preserve original quirks explicitly: mark with `// ORIGINAL_QUIRK:`. If behaviour looks wrong but oracle confirms it, the original game has that behaviour
+- Advisory vs authoritative: advisory divergences are expected and masked in sweep. Authoritative divergences (position, velocity, state, lifecycle) are always bugs
+- Reject dead ends once: record them in `backlog-archive.md` under the issue's `#NNN` so the next session does not retry them from memory or roadmap prose
 
 ### Session protocol
 1. Follow `docs/source-port/loop.md`: read the NOW block in `backlog.md`, then
-   take the top open (`[ ]`/`[~]`) row in the table — order in table = human
+   take the top open (`[ ]`/`[~]`) row in the table: order in table = human
    playtest priority. Skip `[?]`/`[b]` rows (they wait on a human).
    a. If a backlog item has "root cause identified" in its evidence, jump straight to implementation
    b. If all open items are blocked, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
@@ -167,10 +167,10 @@ Session handoff: the NOW block at the top of `backlog.md` (rewrite it each sessi
    d. Read disassembly: find the relevant ASM routine (use source precedence)
    e. Cross-reference: compare native logic to both ASM and oracle data
    f. Write a probe scenario if one doesn't exist for this behaviour
-4. After 2 consecutive probe/docs-only commits on the same issue, the next session must add instrumentation or narrow the scenario before another gameplay patch. **No code commit ⇒ write the dead end under the issue's `#NNN` in `backlog-archive.md` and stop — never commit churn.**
+4. After 2 consecutive probe/docs-only commits on the same issue, the next session must add instrumentation or narrow the scenario before another gameplay patch. **No code commit ⇒ write the dead end under the issue's `#NNN` in `backlog-archive.md` and stop; never commit churn.**
 5. Fix: implement in focused commit(s)
 6. Verify visually: capture frames, Read PNGs, compare before/after
-7. Verify mechanically: `mise run verify-slice-fast` must pass (+ `mise run verify-tas-full` after gameplay-affecting commits — do not run the two concurrently, they share `.cache/tas-verify`). **Gate must be green on main at all times** — never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
+7. Verify mechanically: `mise run verify-slice-fast` must pass (+ `mise run verify-tas-full` after gameplay-affecting commits; do not run the two concurrently, they share `.cache/tas-verify`). **Gate must be green on main at all times**; never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
 8. Close out (same commit as the fix): flip the issue's status in the
     `backlog.md` table, append any closing evidence to `backlog-archive.md`
     under its `#NNN` (keep `backlog.md` table-only), and update the NOW block
@@ -220,7 +220,7 @@ diff composites, and per-layer diagnostics.
 - Position tolerance: 6px. Advisory fields masked.
 
 ### Pixel-perfect frame comparison (visual correctness)
-- 320x224 fixed-palette pixel art — exact pixel matching is appropriate (no perceptual metrics needed)
+- 320x224 fixed-palette pixel art; exact pixel matching is appropriate (no perceptual metrics needed)
 - Use `image` crate for byte-by-byte RGBA comparison
 - `dify` CLI for ad-hoc investigation: `cargo install dify; dify native.png oracle.png -o diff.png`
 
@@ -240,11 +240,11 @@ diff composites, and per-layer diagnostics.
 |-----------|-----------|-----------|
 | New engine behaviour | Probe scenario + oracle comparison | Like bsnes test ROMs: exercise specific behaviour, compare to ground truth |
 | Fixed bug | Timing/gameplay regression test (`verify-slice-fast` gate) | Every fix becomes a permanent regression test |
-| Pure function, large input space | Property-based test (proptest) | Speed tables, slope formulas, gravity — verify properties hold across range |
-| Complex state | Snapshot test (insta) | NativeTraceFrame at checkpoint — detect unexpected state changes between commits |
+| Pure function, large input space | Property-based test (proptest) | Speed tables, slope formulas, gravity; verify properties hold across range |
+| Complex state | Snapshot test (insta) | NativeTraceFrame at checkpoint; detect unexpected state changes between commits |
 | Visual correctness | Frame capture + pixel comparison | Any pixel mismatch against oracle = regression |
 | Determinism | Replay same scenario twice, diff output | Deterministic engine is prerequisite for all other testing |
-| Engine-wide invariant | Metamorphic test | Determinism, bounds, symmetry — no per-case oracle needed |
+| Engine-wide invariant | Metamorphic test | Determinism, bounds, symmetry; no per-case oracle needed |
 | Stateful system | Stateful property test (proptest-state-machine) | Model lifecycle as states, auto-shrink failing transition sequences |
 | Test suite confidence | Mutation testing (`cargo-mutants`) | Surviving mutants = test gaps; target ≥80% kill rate |
 | Operator/sign correctness | Targeted unit tests with exact values | Proptests catch bounds violations but miss `+`→`-` or `<`→`>` mutations |
@@ -256,18 +256,18 @@ Run per-file with demo/TAS/snapshot tests skipped (they have pre-existing failur
 cargo mutants -p wildside-core -f <file>.rs -j 4 -- --lib -- --skip demo_ --skip published_tas --skip snapshot
 ```
 
-**Never use `--in-place`** — it silently corrupts source files with `/* ~ changed by cargo-mutants ~ */` markers. Always use `--output /tmp/mutants-<name>`.
+**Never use `--in-place`**; it silently corrupts source files with `/* ~ changed by cargo-mutants ~ */` markers. Always use `--output /tmp/mutants-<name>`.
 
 **Lessons learned:**
-- Proptest properties (bounded, converges) are too loose to catch sign/direction mutations — pair them with exact-value unit tests
+- Proptest properties (bounded, converges) are too loose to catch sign/direction mutations; pair them with exact-value unit tests
 - Left-facing code paths are systematically undertested; the ASM is NOT perfectly mirrored (different brake constants), so symmetry doesn't mean redundancy
 - Binary parser byte-offset mutations need test data with multiple entries per section and distinct field values
 
 ## Code conventions for fidelity
 
-- `// ORIGINAL_QUIRK: <desc>` — faithfully reproduced original bug (verified against oracle/disassembly)
-- `// DEVIATION: <desc>` — known intentional difference from original (e.g. modern input handling)
-- `// TODO(fidelity): <desc>` — approximate implementation needing refinement
-- `// UNVERIFIED: <desc>` — behaviour not yet compared to oracle/disassembly
+- `// ORIGINAL_QUIRK: <desc>`: faithfully reproduced original bug (verified against oracle/disassembly)
+- `// DEVIATION: <desc>`: known intentional difference from original (e.g. modern input handling)
+- `// TODO(fidelity): <desc>`: approximate implementation needing refinement
+- `// UNVERIFIED: <desc>`: behaviour not yet compared to oracle/disassembly
 
 See `docs/source-port/methodology.md` for full investigation playbook, testing taxonomy (metamorphic, mutation, fuzzing, Design by Contract), divergence classification, framewise checksumming, fidelity metrics, and cross-referencing protocol.
