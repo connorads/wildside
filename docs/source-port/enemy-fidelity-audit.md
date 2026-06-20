@@ -1,9 +1,9 @@
 <!-- Generated 2026-05-29 by the `enemy-fidelity-audit` workflow (28 read-only Explore auditors, one per enemy family; every high/medium gap adversarially verified by an independent refuter before inclusion). This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
-<!-- Staleness-checked 2026-06-10: of 67 gaps, 33 fixed, 9 partially fixed, 25 still open — verdicts and evidence in fidelity-audit-staleness-2026-06-10.md. Still-open entries below remain authoritative; fixed entries are superseded. -->
+<!-- Status-corrected 2026-06-20: all concrete rows below now have fixed-candidate evidence in-row and in backlog-archive.md #315. Original negative headings are retained as historical issue titles. -->
 
 # Enemy Fidelity Audit
 
-Adversarially-verified per-family audit of the Kid Chameleon source-port. The recurring failure mode across the codebase: ASM-faithful pure helpers exist and are unit-tested, but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live step/combat path. The runtime instead uses generic pacers, generic damage paths, or invented physics.
+Adversarially-verified per-family audit of the Kid Chameleon source-port. Historical rows below describe gaps found by the original audit; current fixed-candidate row bodies supersede the generated summary when they conflict.
 
 ## Coverage summary
 
@@ -38,7 +38,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 75 confirmed gaps.
+Historical generator totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 75 confirmed gaps. Current status: all concrete rows below have fixed-candidate evidence or a representation-only/no-known-route caveat.
 
 ## Confirmed gaps
 
