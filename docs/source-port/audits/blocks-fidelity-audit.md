@@ -2,6 +2,8 @@
 
 # Block Lifecycle and Interaction Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 Per-unit audit of the Kid Chameleon source-port block subsystem, with high and medium gaps adversarially verified. The recurring failure pattern matches the rest of the codebase: ASM-faithful pure helpers exist and are unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live step path, so the runtime falls back on an invented substitute. The original audit found three forms: entire dispatch arms silently dropped, the correct helper present but fed a hardcoded or wrong selector value, and gating logic computed against the wrong counter. Several high/medium findings have since been wired into the live path and are marked as resolved candidates below; remaining open rows should be re-checked against the current code before implementation.
 
 2026-06-19 status: #309 is blocked/exhausted. The only remaining entries below are the two type-8 Shooter deviations (`loc_F106` raw-skin acceptance and `off_BB80[8]` no-op routing). Current generated two-hex-digit Level_Layout grids still contain no type-8 cells (type-9=562, type-C=864), and changing native `BlockType::Shooter` handling directly previously broke the established #250 shooter convention. Do not patch those branches without a synthetic/oracle type-8 scanner or ceiling-headbutt probe.

@@ -2,6 +2,8 @@
 
 # Game Shell & HUD Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 2026-06-19 status: backlog #313 is blocked/exhausted. The remaining audit row
 is the visual pause-render VDP save/restore cluster: `loc_695C` saves five
 plane-A rows into `Decompression_Buffer` and `loc_6B68` restores them on

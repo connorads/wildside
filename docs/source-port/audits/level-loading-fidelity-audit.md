@@ -3,6 +3,8 @@
 
 # Level-Loading Fidelity Audit
 
+> First committed 2026-05-30; last substantive update 2026-06-20.
+
 Adversarially-verified audit of the Kid Chameleon source-port's **level-loading** subsystem (`level.rs` and its load-time collaborators `terrain.rs`, `lib.rs`, `weather.rs`, `platforms.rs`, `vdp.rs`), comparing each load-time unit to the `kid.asm` `Load_InGame` / `Load_Level` routines.
 
 The recurring failure mode is the one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`../dead-helper-census.md`, #203) found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never called from the live load path.** Most of `Load_Level`'s tail (block-mapping copy, theme palette, theme art, camera/music) is modelled helper-for-helper and verified against the ROM, yet the live loader (`reload_block_grid_for_level`, `level.rs:17537`, and `begin_level_entry`, `level.rs:17370`) loads only the collision block grid plus block list and sets up murder wall and weather. The whole palette/art/background/scroll/music tail is a modelled-but-dead island.

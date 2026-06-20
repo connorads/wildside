@@ -2,6 +2,8 @@
 
 # Camera & Scroll Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-13.
+
 Per-unit audit of the Kid Chameleon source-port camera and scroll subsystem. The core X/Y follow mathematics are faithful and reachable on the live path: `sub_71E4` target clamp, +/-1 edge nudges, `(target-camera+4)>>3` smooth step clamped to +/-8, the post-velocity defensive re-clamp, and the page-snap level seed. The old `.min(30)` cap that made the down-look pan inert has been removed, so remaining look-offset mismatches are small and no longer hidden by that cap.
 
 ## Coverage summary

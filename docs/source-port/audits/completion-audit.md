@@ -1,5 +1,7 @@
 # Source-Port Completion Audit
 
+> First committed 2026-05-18; last substantive update 2026-06-20.
+
 Last audited: 2026-06-10 (criteria reworked in the autonomy demolition; phase
 remains reopened per the 2026-05-25 conclusion below).
 

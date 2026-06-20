@@ -3,6 +3,8 @@
 
 # Helmet / Form / Diamond-Power Fidelity Audit
 
+> First committed 2026-05-31; last substantive update 2026-06-20.
+
 Adversarially-verified audit of the Kid Chameleon source-port's **helmet, form, and Diamond-Power** subsystem (`helmets.rs`, with `combat.rs` transform/HP, `projectiles.rs` weapons, `constants.rs`), comparing the live path to the `kid.asm` `Kid_Transform`, `DiamondPower_*`, and per-form weapon routines. Form *movement physics* is covered by `movement-fidelity-audit.md`; this audit covers transforms, abilities, and weapons.
 
 The recurring failure mode is the same one the other audits found crate-wide: **ASM-faithful pure helpers exist and are unit-tested, but carry `#[cfg_attr(not(test), allow(dead_code))]` (or `#[cfg(test)]`) and are never called from the live path.** The Diamond-Power subsystem is the worst-hit area in the whole codebase by this measure — almost every per-power ROM routine is modelled and tested, yet the runtime ignores all of it in favour of flat timers, enum matches, and screen-wide approximations.

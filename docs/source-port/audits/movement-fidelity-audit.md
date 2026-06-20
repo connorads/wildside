@@ -3,6 +3,8 @@
 
 # Player Movement Fidelity Audit
 
+> First committed 2026-05-30; last substantive update 2026-06-13.
+
 Adversarially-verified audit of the Kid Chameleon source-port's player movement, comparing each native move-state to the `kid.asm` player object-update routines.
 
 The recurring failure mode is the one the enemy-fidelity audit (`enemy-fidelity-audit.md`, #176) and the dead-helper census (`../dead-helper-census.md`, #203) also found crate-wide: ASM-faithful pure helpers exist and are unit-tested, but are never called from the live step path, so the runtime falls back to a generic profile, a hardcoded `false`, or omits the behaviour. The original audit found 18 of 26 confirmed gaps in this modelled-but-unwired shape. The airborne Skycutter `sub_9A20`, `with_left_right_conflict_resolved`, `crawl_wall_escape_sub_81B4`, `sub_7A10.blocked`, and `initiate_jump_with_hand_grab` ground/climb instances are now fixed and test-locked.

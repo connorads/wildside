@@ -2,6 +2,8 @@
 
 # Audio Trigger Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 Per-unit audit of the Kid Chameleon source-port audio-trigger subsystem.
 
 The numeric SFX/BGM id mapping is faithful: every live `sound_id()` literal and string-label constant matches `constants.asm`, including duplicates and the NO-SOUND `$4E` label. The dominant failure pattern is therefore not wrong ids but unwired triggers. ASM-faithful pure helpers exist, carry `#[cfg_attr(not(test), allow(dead_code))]`, expose `sound_effect_label`/`played_sound_effect` `&'static str` fields, and are referenced only from `#[test]` code, while the live frame step pushes nothing into `played_sound_effects`. There is no general `label -> id` conversion (`trace.rs:6404` builds `played_sound_effect_ids` solely by mapping the `played_sound_effects` queue through `sound_id()`), so a decorative label is silence.

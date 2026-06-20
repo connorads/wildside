@@ -3,6 +3,8 @@
 
 # Weather / Environment Fidelity Audit
 
+> First committed 2026-05-31; last substantive update 2026-06-19.
+
 Adversarially-verified audit of the Kid Chameleon source-port's weather / environment-effects subsystem (`weather.rs`, with `level.rs` palette-rotate objects, `lib.rs` per-frame step, `boot.rs`), comparing the live path to the `kid.asm` `Init_SpecialEffects` / `sub_6034` / `sub_61CA` / `Obj_Lava_Geyser` / `Murderwall` routines. It goes deeper than the level-loading audit's "only weather 1 is handled" finding, into the per-frame correctness of what is wired and the storm script-machine fidelity.
 
 The recurring failure mode is the one the other audits found crate-wide: ASM-faithful pure helpers exist and are unit-tested, but carry `#[cfg_attr(not(test), allow(dead_code))]` (or `#[allow(dead_code)]`) and are never called from the live path. Weather has been improving, but several renderer-facing traces still follow this pattern, where faithful model code exists while the live runtime or renderer uses a parallel approximation.

@@ -3,6 +3,8 @@
 
 # Platform Fidelity Audit
 
+> First committed 2026-05-31; last substantive update 2026-06-20.
+
 Adversarially verified audit of the Kid Chameleon source-port's platform subsystem (`platforms.rs`, with `enemies.rs` platform load/activation, `blocks.rs` lift blocks, `types.rs` field decode), comparing the live path to the `kid.asm` platform routines.
 
 The recurring failure mode is the one the enemy/movement/level-loading audits found crate-wide: ASM-faithful pure helpers exist and are unit-tested, but carry `#[cfg_attr(not(test), allow(dead_code))]` (or are `#[cfg(test)]`-gated) and are never called from the live path. Platforms show this acutely. Almost the entire `Platforms_CheckCollision` escape/carry algorithm, the slot allocator, the sprite-tiling compiler, and the Trap-platform coroutines are modelled helper-for-helper yet dead, while the runtime uses a separate approximation.

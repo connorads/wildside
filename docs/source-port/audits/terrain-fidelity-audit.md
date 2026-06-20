@@ -2,6 +2,8 @@
 
 # Terrain Collision & Physics Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 2026-06-19 status: the backlog candidate table below is exhausted. All listed rows are fixed candidates in current `crates/wildside-core` code. The remaining notes are deliberately not action rows without new oracle evidence:
 
 - `loc_331D2` signed-negative rows read as out-of-bounds empty, pinned by `relative_collision_mask_loc_331d2_wraps_x_but_signed_negative_y_is_empty`.

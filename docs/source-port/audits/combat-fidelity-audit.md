@@ -2,6 +2,8 @@
 
 # Combat & Collision-Routing Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 Adversarially-verified audit of the Kid Chameleon source-port combat and collision-routing domain.
 
 The failure pattern mirrors the enemy audit. The ROM uses one unified `GfxObjects_CollisionKid` mechanism: it derives per-sprite-frame hitboxes from `CollisionSize_Index`, writes a directional `colid` word into both the Kid and the enemy collision slots, and dispatches every outcome (stomp, side-plough, hurt, crush) through one `off_B640` jump table. The native port instead substitutes invented fixed-extent boxes, collapses the directional `colid` to a Stomp/Damage/None trichotomy, delivers side/below words to almost no enemy, and routes the authoritative murder-wall crush and the Berzerker reflect through bespoke per-case paths keyed off the wrong data. Faithful verbatim helpers for the ROM mechanism (`sub_21F8`, the `sub_1D76`/`sub_1D84` sweep, the `loc_1D00` invuln gate, the `sub_226A` shooter-block path) exist and are unit-tested but carry `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live frame step.

@@ -2,6 +2,8 @@
 
 # Scoring & Prize-Economy Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 Per-unit audit of the Kid Chameleon source-port scoring and prize-economy subsystem, adversarially verified. The recurring failure pattern: ASM-faithful pure helpers exist and are unit-tested but carry `#[allow(dead_code)]` / `#[cfg_attr(not(test), allow(dead_code))]` and are never wired into the live frame step, so the runtime does nothing or falls back on an invented substitute. The largest live-mechanic absence was the Hundred-K-Trip timer/teleport path; it is now fixed-candidate for the live `loc_7452` countdown, the intermediate `loc_D980` cleanup/fade interval, and the terminal no-card `loc_DA4A`/Teleport load. The previous 9-life award cap is also now fixed-candidate: award paths can count past 9 and the live HUD path applies the ROM's `loc_BF2A` 99-life clamp.
 
 ## Coverage summary

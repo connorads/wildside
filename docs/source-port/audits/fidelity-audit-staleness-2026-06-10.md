@@ -2,6 +2,8 @@
 
 # Fidelity-Audit Staleness Report (2026-06-10)
 
+> First committed 2026-06-11; last substantive update 2026-06-16.
+
 Re-check of all 258 confirmed gaps recorded by the six late-May fidelity audits against the code as of 2026-06-10. A gap counts as **fixed** only when the faithful behaviour is wired into the live frame-step path; test-only wiring does not count. Still-open entries remain authoritative in their original audit doc. This report carries the verdict and evidence for everything that changed.
 
 ## Totals

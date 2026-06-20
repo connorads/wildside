@@ -1,5 +1,7 @@
 # Backlog validation and planning report, 2026-06-14
 
+> First committed 2026-06-15; last substantive update 2026-06-16.
+
 Method: 12-cluster multi-agent workflow (54 agents) over all 93 live backlog
 issues (`[ ]` open, `[~]` in-progress, `[?]` proposed-fix). Each cluster
 validated every member against current code/ASM/tests. Every suspicious `[?]`

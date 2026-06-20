@@ -2,6 +2,8 @@
 
 # Projectile System Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 Adversarially-verified audit of the player-form projectile and melee weapon paths in the Kid Chameleon source-port. At audit time, the dominant failure pattern was the same one the enemy audit found, sharpened here onto player weapons: an ASM-faithful collision predicate exists in `terrain.rs` (`probe_relative_collision_sub_B55C`, the exact `& $7000 == $6000` gate) and is wired into live movement, yet projectile terrain probes substituted the generic `solid_terrain_at` (`collision != Empty`). Several of those rows have since been resolved below. Remaining motifs originally included invented per-projectile timers, gates with no ASM basis, invented hitboxes/behaviours, and dropped helper workers; the live Red Stealth below-foot airborne stomp and EyeClops hidden-block foreground update worker have since been fixed.
 
 ## Coverage summary

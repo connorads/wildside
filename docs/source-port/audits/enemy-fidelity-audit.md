@@ -3,6 +3,8 @@
 
 # Enemy Fidelity Audit
 
+> First committed 2026-05-29; last substantive update 2026-06-20.
+
 Adversarially-verified per-family audit of the Kid Chameleon source-port. Historical rows describe gaps found by the original audit. Where a current fixed-candidate row body conflicts with the generated summary, the row body wins.
 
 ## Coverage summary

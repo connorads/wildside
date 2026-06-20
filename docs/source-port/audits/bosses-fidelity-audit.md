@@ -2,6 +2,8 @@
 
 # Boss Encounters Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 Per-unit audit of the Kid Chameleon source-port boss subsystem. Generated from the 2026-06-10 boss audit, with targeted updates for fixes landed on 2026-06-11 and 2026-06-12. The original dominant failure pattern was a faithful-but-dark shadow implementation: boss mechanics were ported into `combat.rs` as ASM-faithful, unit-tested helpers carrying `#[cfg_attr(not(test), allow(dead_code))]`, while live play used generic tracker/fire substitutes. Several of those live paths are now wired: boss-level flag suppression, Shishkaboss HP, `sub_39846` multi-head movement, `sub_3A292` collision/HP/groan/flash handling, `sub_397E4` head projectile spawn, `loc_3A0D2`/`loc_3A1EA` projectile lifecycle, HeadyMetal `loc_37582` tracking, HeadyMetal normal-fire `sub_370D2`, HeadyMetal breakup `sub_37332`, and `loc_3761E` fire cadence. Remaining material gaps are concentrated in boss-eye object-slot lifecycle, Shishkaboss body-anchor coordination, and the HeadyMetal composite/breakup lifecycle.
 
 ## Coverage summary

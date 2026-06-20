@@ -2,6 +2,8 @@
 
 # Level-Flow and Timer Fidelity Audit
 
+> First committed 2026-06-11; last substantive update 2026-06-20.
+
 2026-06-19 status: the backlog candidate table below has no open `[ ]` rows. The remaining
 `[?]` entries are fixed candidates awaiting human validation, not new coding
 targets. Current `crates/wildside-core` code contains the named regressions for
