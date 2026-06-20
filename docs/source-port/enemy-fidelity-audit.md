@@ -23,7 +23,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Fireball (0x19) | partial | 1 |
 | Fire_Demon (0x00) | partial | 1 |
 | Goat (0x10) | partial | 3 |
-| Hand (0x17) | partial | 2 |
+| Hand (0x17) | full | 0 |
 | Lion (0x12) | partial | 2 |
 | Mini_Hopping_Skull (0x1C) | partial | 2 |
 | Ninja (0x11) | partial | 6 |
@@ -197,10 +197,10 @@ Fixed candidate 2026-06-20: charging Berzerker side contact during positive `$42
 Fixed candidate 2026-06-20: queued parent collision words now route through `goat_collision_dispatch_loc_3cb14`; signed-negative collisions enter the `loc_3CB64` death animation before any HP decrement, `colid_hurt`/`colid_kidabove` use the `loc_3CB38` recoil hibernate, and side contacts share the `loc_3CB76` Berzerker gate used by live player contact. Regressions: `goat_negative_parent_collision_enters_loc_3cb64_death_before_hp_damage`, `goat_pending_hurt_collision_enters_loc_3cb38_recoil_hibernate`.
 
 **Hand — grab entry gate conditions not checked** (`loc_32A86`)
-Grab fires on distance/height only; no crawl/Juggernaut/already-grabbed check. `enemies.rs:17600-17603`, gate `enemies.rs:16899` dead.
+Fixed candidate 2026-06-20: the combat Hand grab path now routes through `hand_kid_contact_gate_loc_32a86`, rejecting crawl, Juggernaut, and already-grabbed states before starting `HandState::Grabbing`. Existing coverage: `hand_kid_contact_gate_loc_32a86_requires_grabbable_kid_state`.
 
 **Hand — post-grab release re-jump skips the loc_3639E free-space check** (`loc_32970`)
-Unconditional re-jump; no clearance probe / destroy-if-blocked. `enemies.rs:17625-17643`; `emo_rock_clearance_probe_loc_3639e` only wired for Emo_Rock (`enemies.rs:23495`).
+Fixed candidate 2026-06-20: `step_hand` now runs the shared `loc_3639E` clearance probe on grab release using Hand's `d6=9` height and `d7=$E` half-width, branches to `loc_32AA2` death animation when blocked, and only restarts `loc_328AA` jump setup when clear. Regressions: `hand_release_probe_uses_loc_32970_dimensions`, `hand_release_rejump_requires_free_space_loc_32970`, `hand_release_restarts_jump_when_space_is_free_loc_32970`.
 
 **Lion — charge is purely horizontal; ledge-launch leap with gravity not reproduced** (`loc_3E682 / loc_3E6AE / loc_3E6F6 / loc_3E732`)
 Charging arm advances x only; no y_vel/gravity/$180000 cap or floor-landing snap. `enemies.rs:17771-17823`; charge-physics helpers `enemies.rs:1909/1960/2040/2071` test-only.

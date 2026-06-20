@@ -11612,8 +11612,8 @@ mod chunk_04 {
                 hand_state: HandState::Jumping,
                 on_ground: false,
                 jump_speed_seed: 2,
-                collision_probe_half_width_px: 9,
-                collision_probe_height_px: 0x0E,
+                collision_probe_half_width_px: 0x0E,
+                collision_probe_height_px: 9,
             },
             "ASM Hand.asm loc_32970 clears KidGrabbedByHand, probes 9x14, restores movement/collision, and branches to loc_328AA with d5=2"
         );

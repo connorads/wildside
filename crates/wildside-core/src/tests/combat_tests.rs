@@ -17024,6 +17024,74 @@ mod chunk_03 {
     }
 
     #[test]
+    fn hand_release_probe_uses_loc_32970_dimensions() {
+        let release = hand_release_loc_32970();
+
+        assert_eq!(
+            release.collision_probe_height_px, 9,
+            "ASM Hand.asm loc_32970 stores `#9` in d6 before calling shared loc_3639E"
+        );
+        assert_eq!(
+            release.collision_probe_half_width_px, 0x0E,
+            "ASM Hand.asm loc_32970 stores `#$E` in d7 before calling shared loc_3639E"
+        );
+    }
+
+    #[test]
+    fn hand_release_rejump_requires_free_space_loc_32970() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8);
+        grid.set_cell_at(4, 4, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut hand = test_enemy(EnemyFamily::Hand, 0x0040_0000, 0x0050_0000, 1);
+        hand.layout_index = 26;
+        hand.hand_state = HandState::Grabbing;
+        hand.wait_timer = 0;
+
+        step_hand(
+            &mut hand,
+            Some(&grid),
+            Some(0x003E_0000),
+            Some(0x0054_0000),
+            Some(Direction::Right),
+        );
+
+        assert_eq!(
+            hand.hit_points, 0,
+            "ASM Hand.asm loc_32970 branches to loc_32AA2 when shared loc_3639E finds `$4000` in the release window"
+        );
+        assert!(hand.death_animation_active);
+        assert_eq!(hand.wait_timer, HAND_DEATH_ANIMATION_FRAMES);
+        assert_eq!(hand.x_velocity, 0);
+        assert_eq!(hand.y_velocity, 0);
+    }
+
+    #[test]
+    fn hand_release_restarts_jump_when_space_is_free_loc_32970() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8);
+        let mut hand = test_enemy(EnemyFamily::Hand, 0x0040_0000, 0x0050_0000, 1);
+        hand.layout_index = 27;
+        hand.hand_state = HandState::Grabbing;
+        hand.wait_timer = 0;
+
+        step_hand(
+            &mut hand,
+            Some(&grid),
+            Some(0x003E_0000),
+            Some(0x0054_0000),
+            Some(Direction::Right),
+        );
+
+        assert_eq!(
+            hand.hand_state,
+            HandState::Jumping,
+            "ASM Hand.asm loc_32970 falls through from loc_3639E, restores movement, seeds d5=2, then branches to loc_328AA"
+        );
+        assert!(!hand.death_animation_active);
+        assert_eq!(hand.hit_points, 1);
+        assert!(!hand.on_ground);
+        assert_ne!(hand.y_velocity, 0);
+    }
+
+    #[test]
     fn hand_pending_ground_kid_contact_writes_kid_below_collision_loc_329ec() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 2);

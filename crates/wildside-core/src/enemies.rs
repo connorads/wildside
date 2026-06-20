@@ -20228,8 +20228,8 @@ pub(crate) fn hand_release_loc_32970() -> HandReleaseLoc32970 {
         hand_state: HandState::Jumping,
         on_ground: false,
         jump_speed_seed: 2,
-        collision_probe_half_width_px: 9,
-        collision_probe_height_px: 0x0E,
+        collision_probe_half_width_px: 0x0E,
+        collision_probe_height_px: 9,
     }
 }
 
@@ -20572,6 +20572,23 @@ pub(crate) fn step_hand(
                 enemy.wait_timer = hand_grab_timer_step_loc_3292e(enemy.wait_timer, player_facing);
             } else {
                 let release = hand_release_loc_32970();
+                if let Some(grid) = block_grid {
+                    // ASM Hand.asm loc_32970: `d6 = 9`, `d7 = $E`, then
+                    // shared loc_3639E blocks the release jump by branching to loc_32AA2.
+                    let clear = emo_rock_clearance_probe_loc_3639e(
+                        grid,
+                        i32::from(fixed_position_integer_word(enemy.x_pos)),
+                        i32::from(fixed_position_integer_word(enemy.y_pos)),
+                        release.collision_probe_height_px as u16,
+                        release.collision_probe_half_width_px as u16,
+                    );
+                    if !clear {
+                        enemy.hit_points = 0;
+                        enemy.death_animation_active = true;
+                        enemy.wait_timer = HAND_DEATH_ANIMATION_FRAMES;
+                        return;
+                    }
+                }
                 enemy.hand_state = release.hand_state;
                 enemy.on_ground = release.on_ground;
                 if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
