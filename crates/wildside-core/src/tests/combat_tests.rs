@@ -16847,6 +16847,177 @@ mod chunk_03 {
     }
 
     #[test]
+    fn hand_pending_ground_reverse_collision_runs_loc_329e2() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 2);
+        hand.layout_index = 24;
+        hand.hand_state = HandState::Walking;
+        hand.facing = Direction::Left;
+        hand.x_velocity = -0x0000_4800;
+        runtime.active_enemies = vec![hand];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: hand.segment_index,
+                layout_index: hand.layout_index,
+                collision_type: 0x0004,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let hand = runtime.active_enemies[0];
+        assert_eq!(hand.hand_state, HandState::Walking);
+        assert_eq!(
+            hand.x_velocity, 0x0000_4800,
+            "ASM Hand.asm loc_3299C/off_329B6 routes `$04` ground contact to loc_329E2, which negates x_vel"
+        );
+        assert_eq!(
+            hand.facing,
+            Direction::Right,
+            "ASM Hand.asm loc_329E2 inverts raw x_direction after reversing velocity"
+        );
+    }
+
+    #[test]
+    fn hand_pending_ground_destroy_collision_enters_loc_32aa2() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 1);
+        hand.layout_index = 25;
+        hand.hand_state = HandState::Walking;
+        let killed_identity = (hand.segment_index, hand.layout_index);
+        runtime.active_enemies = vec![hand];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: hand.segment_index,
+                layout_index: hand.layout_index,
+                collision_type: 0xFFFF,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Hand.asm loc_3299C sends signed-negative collision to loc_32AA2, which waits for stru_32B78 before delete"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert!(runtime.active_enemies[0].death_animation_active);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            HAND_DEATH_ANIMATION_FRAMES
+        );
+        assert!(!runtime.killed_enemies.contains(&killed_identity));
+    }
+
+    #[test]
+    fn hand_pending_ground_kid_contact_writes_kid_below_collision_loc_329ec() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 2);
+        hand.layout_index = 26;
+        hand.hand_state = HandState::Walking;
+        runtime.active_enemies = vec![hand];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: hand.segment_index,
+                layout_index: hand.layout_index,
+                collision_type: 0x0028,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.last_kid_collision_type, 0x0028,
+            "ASM Hand.asm loc_329EC writes colid_kidbelow to Kid collision_type for grounded Hand contact"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 2);
+        assert_eq!(runtime.active_enemies[0].hand_state, HandState::Walking);
+    }
+
+    #[test]
+    fn hand_pending_airborne_collision_clears_velocity_words_loc_329f8() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 2);
+        hand.layout_index = 27;
+        hand.hand_state = HandState::Jumping;
+        hand.x_velocity = 0x0002_0000;
+        hand.y_velocity = -0x0003_4000;
+        runtime.active_enemies = vec![hand];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: hand.segment_index,
+                layout_index: hand.layout_index,
+                collision_type: 0x0004,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let hand = runtime.active_enemies[0];
+        assert_eq!(
+            hand.x_velocity, 0,
+            "ASM Hand.asm loc_329F8/off_32A12 routes `$04` airborne contact to loc_32A44"
+        );
+        assert_eq!(
+            hand.y_velocity, -0x0003_4000,
+            "ASM Hand.asm loc_32A44 clears only x_vel"
+        );
+
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: hand.segment_index,
+                layout_index: hand.layout_index,
+                collision_type: 0x0010,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0);
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity, 0,
+            "ASM Hand.asm loc_32A3E clears only y_vel for airborne `$10` contact"
+        );
+    }
+
+    #[test]
+    fn hand_pending_airborne_bounce_rolls_back_and_sets_loc_32a5a_velocity() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut hand = test_enemy(EnemyFamily::Hand, 0x1000_0000, 0x2000_0000, 2);
+        hand.layout_index = 28;
+        hand.hand_state = HandState::Jumping;
+        hand.x_velocity = 0x0000_8000;
+        hand.y_velocity = -0x0000_4000;
+        runtime.active_enemies = vec![hand];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: hand.segment_index,
+                layout_index: hand.layout_index,
+                collision_type: 0x0014,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let hand = runtime.active_enemies[0];
+        assert_eq!(
+            hand.x_pos, 0x0FFF_8000,
+            "ASM Hand.asm loc_32A5A calls loc_350F2 to roll back by the current x_vel before bouncing"
+        );
+        assert_eq!(hand.y_pos, 0x2000_4000);
+        assert_eq!(hand.x_velocity, -0x0001_8000);
+        assert_eq!(hand.y_velocity, -0x0001_8000);
+        assert_eq!(hand.hand_state, HandState::Jumping);
+    }
+
+    #[test]
     fn tar_monster_death_waits_for_stru_32700_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tar = test_enemy(EnemyFamily::TarMonster, 0x0080_0000, 0x0040_0000, 1);

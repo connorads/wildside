@@ -8237,6 +8237,152 @@ impl NativeRuntime {
                 }
                 continue;
             }
+            if matches!(self.active_enemies[active_idx].family, EnemyFamily::Hand) {
+                match self.active_enemies[active_idx].hand_state {
+                    HandState::Walking => {
+                        let route = hand_ground_collision_dispatch_loc_3299c(
+                            collision.collision_type as i16,
+                        );
+                        match route.behavior {
+                            Some(HandGroundCollisionBehaviorLoc3299C::Destroy) => {
+                                // ASM Hand.asm loc_3299C/off_329B6: signed-negative
+                                // and hurt-class ground collision words branch to
+                                // loc_32AA2, the Hand death-animation path.
+                                kill_indices.push(active_idx);
+                            }
+                            Some(HandGroundCollisionBehaviorLoc3299C::Reverse) => {
+                                let enemy = &mut self.active_enemies[active_idx];
+                                let reverse = hand_ground_collision_reverse_loc_329e2(
+                                    enemy.x_velocity,
+                                    matches!(enemy.facing, Direction::Right),
+                                );
+                                enemy.x_velocity = reverse.x_velocity;
+                                enemy.facing = if reverse.x_direction_flag {
+                                    Direction::Right
+                                } else {
+                                    Direction::Left
+                                };
+                                changed_enemy_state = true;
+                            }
+                            Some(HandGroundCollisionBehaviorLoc3299C::KidBelowContact) => {
+                                let contact = hand_kid_below_contact_loc_329ec();
+                                self.last_kid_collision_type = contact.kid_collision_type;
+                                changed_enemy_state = true;
+                            }
+                            None => {}
+                        }
+                    }
+                    HandState::Jumping => {
+                        let route =
+                            hand_jump_collision_dispatch_loc_329f8(collision.collision_type as i16);
+                        match route.behavior {
+                            Some(HandJumpCollisionBehaviorLoc329F8::Destroy) => {
+                                // ASM Hand.asm loc_329F8/off_32A12: airborne
+                                // signed-negative collision words share loc_32AA2.
+                                kill_indices.push(active_idx);
+                            }
+                            Some(HandJumpCollisionBehaviorLoc329F8::ClearXVelocity) => {
+                                let enemy = &mut self.active_enemies[active_idx];
+                                let velocity = hand_jump_collision_clear_x_velocity_loc_32a44(
+                                    enemy.x_velocity,
+                                    enemy.y_velocity,
+                                );
+                                enemy.x_velocity = velocity.x_velocity;
+                                enemy.y_velocity = velocity.y_velocity;
+                                changed_enemy_state = true;
+                            }
+                            Some(HandJumpCollisionBehaviorLoc329F8::ClearYVelocity) => {
+                                let enemy = &mut self.active_enemies[active_idx];
+                                let velocity = hand_jump_collision_clear_y_velocity_loc_32a3e(
+                                    enemy.x_velocity,
+                                    enemy.y_velocity,
+                                );
+                                enemy.x_velocity = velocity.x_velocity;
+                                enemy.y_velocity = velocity.y_velocity;
+                                changed_enemy_state = true;
+                            }
+                            Some(HandJumpCollisionBehaviorLoc329F8::ResetToPatrol) => {
+                                let enemy = &mut self.active_enemies[active_idx];
+                                let reset = hand_jump_collision_reset_loc_32a4a(
+                                    enemy.hit_points,
+                                    matches!(enemy.facing, Direction::Right),
+                                );
+                                enemy.x_velocity = reset.initial_motion.x_velocity;
+                                enemy.y_velocity = reset.y_velocity;
+                                enemy.hand_state = HandState::Walking;
+                                enemy.on_ground = true;
+                                changed_enemy_state = true;
+                            }
+                            Some(HandJumpCollisionBehaviorLoc329F8::BounceUpLeft) => {
+                                let enemy = &mut self.active_enemies[active_idx];
+                                let bounce = hand_jump_collision_bounce_up_left_loc_32a5a(
+                                    enemy.x_pos as i32,
+                                    enemy.y_pos as i32,
+                                    enemy.x_velocity,
+                                    enemy.y_velocity,
+                                );
+                                enemy.x_pos = bounce.x_pos as u32;
+                                enemy.y_pos = bounce.y_pos as u32;
+                                enemy.x_velocity = bounce.x_velocity;
+                                enemy.y_velocity = bounce.y_velocity;
+                                enemy.on_ground = false;
+                                changed_enemy_state = true;
+                            }
+                            Some(HandJumpCollisionBehaviorLoc329F8::BounceUpRight) => {
+                                let enemy = &mut self.active_enemies[active_idx];
+                                let bounce = hand_jump_collision_bounce_up_right_loc_32a70(
+                                    enemy.x_pos as i32,
+                                    enemy.y_pos as i32,
+                                    enemy.x_velocity,
+                                    enemy.y_velocity,
+                                );
+                                enemy.x_pos = bounce.x_pos as u32;
+                                enemy.y_pos = bounce.y_pos as u32;
+                                enemy.x_velocity = bounce.x_velocity;
+                                enemy.y_velocity = bounce.y_velocity;
+                                enemy.on_ground = false;
+                                changed_enemy_state = true;
+                            }
+                            Some(HandJumpCollisionBehaviorLoc329F8::TryGrabKid) => {
+                                let character_movement_is_crawling = self
+                                    .opening_slice
+                                    .as_ref()
+                                    .map(|slice| self.current_character_movement(slice.player) == 1)
+                                    .unwrap_or(false);
+                                let kid_grabbed_by_hand = self
+                                    .active_enemies
+                                    .iter()
+                                    .any(|enemy| matches!(enemy.hand_state, HandState::Grabbing));
+                                if matches!(
+                                    hand_kid_contact_gate_loc_32a86(
+                                        character_movement_is_crawling,
+                                        matches!(
+                                            self.progression.current_form,
+                                            PlayerForm::Juggernaut
+                                        ),
+                                        kid_grabbed_by_hand,
+                                    ),
+                                    HandKidContactRouteLoc32A86::StartGrab
+                                ) {
+                                    // ASM Hand.asm loc_329F8 -> loc_32A86 ->
+                                    // loc_32906: grabbable airborne Kid-contact
+                                    // slots enter the 10-frame grab coroutine.
+                                    let enemy = &mut self.active_enemies[active_idx];
+                                    enemy.hand_state = HandState::Grabbing;
+                                    enemy.wait_timer = HAND_GRAB_DURATION;
+                                    enemy.x_velocity = 0;
+                                    enemy.y_velocity = 0;
+                                    changed_enemy_state = true;
+                                }
+                            }
+                            Some(HandJumpCollisionBehaviorLoc329F8::ReturnOnly) | None => {}
+                        }
+                    }
+                    HandState::Grabbing => {}
+                }
+                continue;
+            }
+
             let enemy = &mut self.active_enemies[active_idx];
             if is_multi_head_boss(enemy.family) {
                 let result = boss_collision_palette_sub_3A292(

@@ -23,7 +23,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Fireball (0x19) | partial | 1 |
 | Fire_Demon (0x00) | partial | 1 |
 | Goat (0x10) | partial | 3 |
-| Hand (0x17) | partial | 5 |
+| Hand (0x17) | partial | 2 |
 | Lion (0x12) | partial | 3 |
 | Mini_Hopping_Skull (0x1C) | partial | 2 |
 | Ninja (0x11) | partial | 6 |
@@ -38,7 +38,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Tornado (0x18) | partial | 3 |
 | UFO (0x0F) | partial | 5 |
 
-Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 79 confirmed gaps.
+Totals: 28 families audited, 3 full (no gaps), 25 partial, 0 stub. 76 confirmed gaps.
 
 ## Confirmed gaps
 
@@ -75,13 +75,13 @@ Fixed candidate 2026-06-20: direct friendly-projectile hits already used the `lo
 Fixed candidate 2026-06-20: direct Maniaxe/projectile hits and queued parent collision words now both route through `crab_collision_dispatch_loc_3b048`, where the `LnkTo_unk_C7C4E` frozen sprite branch resumes without HP damage. Regressions: `maniaxe_axe_respects_crab_frozen_immunity_loc_3b048`, `crab_pending_hurt_from_back_or_frozen_resumes_without_damage_loc_3b048`.
 
 **Hand — grab never immobilizes/affects the Kid** (`loc_32906`)
-`KidGrabbedByHand` is read by jump code but assigned nowhere; the Grabbing branch only snaps the Hand to the Kid. Grab is cosmetic. `enemies.rs:17611-17643`, `physics.rs:719`, `movement.rs` jump call sites.
+Fixed candidate 2026-06-04: live Hand `HandState::Grabbing` now surfaces `KidGrabbedByHand` onto the player slice, weakening jump, suppressing crawl entry, and suppressing pull-up/climb escape consumers. Regressions: `refresh_active_roster_surfaces_hand_grab_onto_slice_loc_32906`, `loc_A466_kid_grabbed_by_hand_weakens_live_grounded_jump`, `loc_8c70_crawl_entry_suppressed_while_grabbed_by_hand`, `kid_flip_pullup_suppressed_while_grabbed_by_hand_loc_13411`.
 
 **Hand — airborne collision dispatch table not wired** (`loc_329F8 / off_32A12`)
-Directional bounce-off-terrain and negative-collision destroy-in-air are absent; Jumping arm does native probing only. `enemies.rs:17552-17609`; dispatcher `enemies.rs:16853` + bounce helpers test-only.
+Fixed candidate 2026-06-20: queued parent collision words now route through `loc_329F8`/`off_32A12` while Hand is `Jumping`. Native clears X/Y velocity, resets to patrol, bounces through `loc_32A5A`/`loc_32A70`, enters `loc_32AA2` on signed-negative collision, and starts the `loc_32906` grab coroutine when the `loc_32A86` gate allows. Regressions: `hand_pending_airborne_collision_clears_velocity_words_loc_329f8`, `hand_pending_airborne_bounce_rolls_back_and_sets_loc_32a5a_velocity`.
 
 **Hand — ground collision dispatch table not wired** (`loc_3299C / off_329B6`)
-Destroy-on-collision and the contact-effect are absent; Walking uses probe edge detection. ActiveEnemy has no `collision_type` field. `enemies.rs:17467-17509`, `enemies.rs:16798`, `enemies.rs:6350`.
+Fixed candidate 2026-06-20: queued parent collision words now route through `loc_3299C`/`off_329B6` while Hand is `Walking`. Native reverses through `loc_329E2`, writes Kid-below contact through `loc_329EC`, and enters `loc_32AA2` for signed-negative/hurt-class collisions. Regressions: `hand_pending_ground_reverse_collision_runs_loc_329e2`, `hand_pending_ground_destroy_collision_enters_loc_32aa2`, `hand_pending_ground_kid_contact_writes_kid_below_collision_loc_329ec`.
 
 **Lion — hurt-recoil response absent** (`loc_3E318 / loc_3E32C`)
 Non-fatal hits should play the hit anim + stagger via $44 recoil counter. `step_lion` has no collision branch; LionState lacks a hurt variant. `enemies.rs:17699`, `enemies.rs:6290-6296`; `lion_collision_response_loc_3e318` (`enemies.rs:1597`) test-only.
