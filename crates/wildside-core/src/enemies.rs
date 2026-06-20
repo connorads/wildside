@@ -6417,6 +6417,8 @@ pub(crate) enum OrcaState {
     Windup,
     /// Airborne ballistic lunge toward the player.
     Lunging,
+    /// ASM Orca.asm loc_3D48A/loc_3D496: HP-depleted lunge falls until floor/slope before death.
+    FatalFall,
 }
 
 /// Robot phase state machine (Robot.asm).
@@ -22250,6 +22252,40 @@ pub(crate) fn step_orca(
                         enemy.wait_timer = ORCA_LUNGE_COOLDOWN;
                     }
                 }
+            }
+        }
+        OrcaState::FatalFall => {
+            // ASM Orca.asm loc_3D496: fatal lunge damage clears the current
+            // collision word, hibernates one frame, moves downward, then
+            // repeats until floor/slope contact starts `stru_3D11E`.
+            enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+            let collision_type = block_grid.map_or(0, |grid| {
+                let cx = (enemy.x_pos >> 16) as i32;
+                let cy = (enemy.y_pos >> 16) as i32;
+                let floor = terrain::probe_floor(grid, cx, cy);
+                if !floor.on_ground {
+                    0
+                } else if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+                    ORCA_COLID_SLOPEUP
+                } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+                    ORCA_COLID_SLOPEDOWN
+                } else {
+                    ORCA_COLID_FLOOR
+                }
+            });
+            let frame =
+                orca_fatal_fall_frame_loc_3d496(collision_type, enemy.x_velocity, enemy.y_velocity);
+            enemy.x_velocity = frame.x_velocity;
+            enemy.y_velocity = frame.y_velocity;
+            if matches!(
+                frame.route,
+                OrcaFatalFallRouteLoc3D496::DeathAnimation { .. }
+            ) {
+                enemy.death_animation_active = true;
+                enemy.wait_timer = ORCA_DEATH_ANIMATION_FRAMES;
+                enemy.on_ground = true;
             }
         }
     }

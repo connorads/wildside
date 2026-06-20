@@ -14908,6 +14908,115 @@ mod chunk_03 {
     }
 
     #[test]
+    fn orca_pending_lunge_hurt_bounces_down_loc_3d35a_3d472() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut orca = test_enemy(EnemyFamily::Orca, 0x0080_0000, 0x0040_0000, 4);
+        orca.orca_state = OrcaState::Lunging;
+        orca.x_velocity = ORCA_LUNGE_X_SPEED;
+        orca.y_velocity = ORCA_LUNGE_Y_SPEED;
+        orca.on_ground = false;
+        runtime.active_enemies = vec![orca];
+
+        let collision_target = runtime.active_enemies[0];
+        runtime.queue_pending_enemy_collision(&collision_target, ORCA_COLID_HURT as u16);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 3,
+            "ASM Orca.asm loc_3D35A routes lunge colid_hurt to loc_3D472, decrementing `$44(a3)`"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].orca_state,
+            OrcaState::Lunging,
+            "nonterminal ASM Orca.asm loc_3D472 should remain in the lunge loop"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].y_velocity, 0x0001_8000,
+            "ASM Orca.asm loc_3D47A bounces the lunge downward after nonterminal damage"
+        );
+        assert!(!runtime.active_enemies[0].death_animation_active);
+    }
+
+    #[test]
+    fn orca_pending_lunge_terminal_hurt_falls_until_floor_loc_3d48a_3d4bc() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut orca = test_enemy(EnemyFamily::Orca, 0x0080_0000, (4 * 16) << 16, 1);
+        orca.orca_state = OrcaState::Lunging;
+        orca.x_velocity = ORCA_LUNGE_X_SPEED;
+        orca.y_velocity = ORCA_LUNGE_Y_SPEED;
+        orca.on_ground = false;
+        runtime.active_enemies = vec![orca];
+
+        let collision_target = runtime.active_enemies[0];
+        runtime.queue_pending_enemy_collision(&collision_target, ORCA_COLID_KIDABOVE as u16);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].orca_state,
+            OrcaState::FatalFall,
+            "ASM Orca.asm loc_3D48A should fall after terminal lunge damage instead of deleting immediately"
+        );
+        assert_eq!(runtime.active_enemies[0].y_velocity, 0x0001_8000);
+        assert!(
+            !runtime.active_enemies[0].death_animation_active,
+            "ASM Orca.asm loc_3D496 waits for floor/slope contact before loc_3D4BC starts `stru_3D11E`"
+        );
+
+        let grid = grid_with_floor_at_row(4);
+        step_active_enemies(
+            &mut runtime.active_enemies,
+            Some(&grid),
+            Some(0),
+            Some(0),
+            Some(Direction::Right),
+            Some(0),
+            PlayerForm::TheKid,
+            None,
+            &mut Vec::new(),
+        );
+
+        assert!(
+            runtime.active_enemies[0].death_animation_active,
+            "ASM Orca.asm loc_3D4BC should start the waited death animation only after fatal-fall floor contact"
+        );
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            ORCA_DEATH_ANIMATION_FRAMES
+        );
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0);
+        assert_eq!(runtime.active_enemies[0].y_velocity, 0);
+    }
+
+    #[test]
+    fn orca_pending_lunge_side_contact_enters_berzerker_launch_loc_3d4de_3d27e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        let mut orca = test_enemy(EnemyFamily::Orca, 0x0080_0000, 0x0040_0000, 4);
+        orca.orca_state = OrcaState::Lunging;
+        orca.x_velocity = ORCA_LUNGE_X_SPEED;
+        orca.y_velocity = ORCA_LUNGE_Y_SPEED;
+        orca.on_ground = false;
+        runtime.active_enemies = vec![orca];
+
+        let collision_target = runtime.active_enemies[0];
+        runtime.queue_pending_enemy_collision(&collision_target, ORCA_COLID_KIDRIGHT as u16);
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 4,
+            "ASM Orca.asm loc_3D4DE should route charging side contact through loc_3D27E instead of HP damage"
+        );
+        assert_eq!(runtime.active_enemies[0].x_velocity, 0);
+        assert_eq!(runtime.active_enemies[0].y_velocity, -0x0004_8000);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA
+        );
+    }
+
+    #[test]
     fn goat_death_waits_for_stru_3c9ea_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut goat = test_enemy(EnemyFamily::Goat, 0x0080_0000, 0x0040_0000, 1);

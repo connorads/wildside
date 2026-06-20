@@ -9059,6 +9059,104 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::Orca) {
+                let mut launch_orca = |enemy: &mut ActiveEnemy| {
+                    if let OrcaBerzerkerSideGateLoc3D27E::Knockback(knockback) =
+                        orca_berzerker_side_gate_loc_3d27e(berzerker_charging)
+                    {
+                        // ASM Orca.asm loc_3D27E: charging Berzerker side
+                        // contact disables level collision/animation and
+                        // launches the Orca into the loc_3D2AA loop.
+                        enemy.x_velocity = knockback.x_velocity;
+                        enemy.y_velocity = knockback.y_velocity;
+                        enemy.on_ground = false;
+                        enemy.wait_timer = ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA;
+                        enemy.damage_flash_frames = 0;
+                        changed_enemy_state = true;
+                    }
+                };
+
+                if matches!(enemy.orca_state, OrcaState::Lunging) {
+                    match orca_lunge_collision_dispatch_loc_3d35a(collision.collision_type as i16) {
+                        OrcaLungeCollisionRouteLoc3D35A::Damage => {
+                            let remaining_hp = u16::from(enemy.hit_points).wrapping_sub(1);
+                            if remaining_hp == 0 {
+                                let fatal_fall = orca_fatal_fall_start_loc_3d48a();
+                                // ASM Orca.asm loc_3D472 -> loc_3D48A:
+                                // terminal lunge contact starts a downward
+                                // fall and delays `stru_3D11E` until floor or
+                                // slope contact in loc_3D496/loc_3D4BC.
+                                enemy.hit_points = 0;
+                                enemy.y_velocity = fatal_fall.y_velocity;
+                                enemy.orca_state = OrcaState::FatalFall;
+                                enemy.on_ground = false;
+                            } else {
+                                // ASM Orca.asm loc_3D472 -> loc_3D47A:
+                                // nonterminal hurt/Kid-above lunge contact
+                                // decrements `$44(a3)` and bounces downward.
+                                enemy.hit_points = remaining_hp as u8;
+                                enemy.y_velocity = 0x0001_8000;
+                            }
+                            changed_enemy_state = true;
+                        }
+                        OrcaLungeCollisionRouteLoc3D35A::BerzerkerSideGate => {
+                            // ASM Orca.asm loc_3D4DE falls back to loc_3D3B4
+                            // unless Berzerker_charging routes through the
+                            // normal side-contact gate at loc_3D21E/loc_3D27E.
+                            launch_orca(enemy);
+                        }
+                        OrcaLungeCollisionRouteLoc3D35A::GravityAndAcceleration
+                        | OrcaLungeCollisionRouteLoc3D35A::FloorLanding
+                        | OrcaLungeCollisionRouteLoc3D35A::WallBounce
+                        | OrcaLungeCollisionRouteLoc3D35A::CeilingBounce
+                        | OrcaLungeCollisionRouteLoc3D35A::SlopeRelaunch => {}
+                    }
+                    continue;
+                }
+
+                match orca_collision_dispatch_loc_3d21e(collision.collision_type as i16) {
+                    OrcaCollisionRouteLoc3D21E::Kill => {
+                        kill_indices.push(active_idx);
+                    }
+                    OrcaCollisionRouteLoc3D21E::Damage => {
+                        let saved_walk_speed = if enemy.walk_speed_override != 0 {
+                            enemy.walk_speed_override
+                        } else {
+                            pacer_walk_speed(enemy.family, enemy.hit_points)
+                        };
+                        match orca_damage_response_loc_3d23e(
+                            u16::from(enemy.hit_points),
+                            saved_walk_speed,
+                        ) {
+                            OrcaDamageResponseLoc3D23E::Kill => {
+                                kill_indices.push(active_idx);
+                            }
+                            OrcaDamageResponseLoc3D23E::Hurt {
+                                remaining_hp,
+                                recoil_state_word,
+                                restored_walk_speed,
+                                ..
+                            } => {
+                                // ASM Orca.asm loc_3D23E hibernates through
+                                // `stru_3D118`, restores `$50(a5)` from
+                                // `$5E(a5)`, and resumes patrol with `$42`
+                                // seeded to `$FF88`.
+                                enemy.hit_points = remaining_hp as u8;
+                                enemy.shared_walker_state = recoil_state_word;
+                                enemy.walk_speed_override = restored_walk_speed;
+                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                changed_enemy_state = true;
+                            }
+                        }
+                    }
+                    OrcaCollisionRouteLoc3D21E::BerzerkerSideGate => {
+                        launch_orca(enemy);
+                    }
+                    OrcaCollisionRouteLoc3D21E::Continue { .. } => {}
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::EmoRock) && enemy.on_ground {
                 let route = emo_rock_settled_wait_loc_362b6(
                     false,
