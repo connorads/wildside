@@ -17,9 +17,6 @@ run = "cargo clippy --workspace --all-targets -- -D warnings"
 [tasks.test]
 run = "scripts/strict-rust.sh cargo test --workspace"
 
-[tasks.verify-rom]
-run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-rom"
-
 [tasks.play]
 run = "cargo run --release -p wildside-cli -- play"
 
@@ -39,15 +36,6 @@ description = "Prepare native-play assets plus early gameplay level-layout dumps
 
 [tasks.probe-cpu]
 run = "cargo run -p wildside-cli -- probe-cpu"
-
-[tasks.verify-boot]
-run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-boot"
-
-[tasks.verify-startup]
-run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-startup"
-
-[tasks.verify-level]
-run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-level"
 
 [tasks.verify-gameplay]
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- verify-gameplay --all"
@@ -70,21 +58,6 @@ description = "Canonical green-gate: wildside-core unit sweep + wildside-cli gam
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- release-gate --target 1p-playable"
 description = "Native 1P-playable smoke gate: boot flow, level progress, death/respawn, slopes, and common bounce/block interactions"
 
-[tasks.verify-slice-full]
-# NOTE: compare-native-gameplay scenarios below are oracle-aware and structurally
-# similar to verify-tas-frontier (now in canonical verify-slice-fast). They live
-# here pending audit of their flakiness profile — see follow-up issue for canonical
-# inclusion decision.
-run = """
-scripts/strict-rust.sh sh -ec '
-cargo test -q -p wildside-core \
-  && cargo test -q -p wildside-cli \
-  && cargo run -q -p wildside-cli -- compare-native-gameplay --scenario pause-resume-level1 \
-  && cargo run -q -p wildside-cli -- compare-native-gameplay --scenario progress-two-transitions \
-  && KID_NATIVE_GENERATED_LEVEL_LAYOUT=1 cargo run -q -p wildside-cli -- compare-native-gameplay --scenario death-respawn-level1
-'
-"""
-
 [tasks.release-gate]
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- release-gate --target 1p-accurate"
 description = "Canonical 1P-accurate release gate: bootstrap, gameplay compares, frame/audio oracle, full state sweep"
@@ -106,12 +79,6 @@ run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-audio-driver"
 
 [tasks.verify-audio-output]
 run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-audio-output --scenario boot-title-start-level1"
-
-[tasks.verify-frames]
-run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-frames --scenario boot-title-start-level1-move-right5s"
-
-[tasks.verify-oracle]
-run = "scripts/strict-rust.sh cargo run -p wildside-cli -- verify-oracle --scenario boot-title-start-level1"
 
 [tasks.render-frame]
 run = "cargo run --release -p wildside-cli -- render-frame --steps 2000000 --out .cache/title-frame.png"

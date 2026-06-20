@@ -77,7 +77,7 @@ cargo run -p wildside-cli -- compare-native-gameplay --scenario death-respawn-le
 Fast gate policy:
 
 - `mise run verify-slice-fast` is the pre-commit gate for gameplay/runtime work.
-- `mise run verify-slice-full` is the slice acceptance gate before calling a traversal/runtime step green.
+- For the oracle differential on these scenarios, run `wildside compare-native-gameplay --scenario <name>` directly (pause-resume-level1, progress-two-transitions, death-respawn-level1) before calling a traversal/runtime step green.
 - If any traversal compare reopens, use the gameplay compare artefacts first before changing the default runtime path again.
 
 ## Next expected implementation order
