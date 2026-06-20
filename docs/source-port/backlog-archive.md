@@ -10523,3 +10523,285 @@ Source: a single ~28-symptom human playthrough ("latest pushed changes"), cross-
 - **#340 (audio, `[-]`)** — STILL not-a-bug. `sfx_Voice_diamond` ($62) is an orphan ROM asset (constants.asm:45, zero trigger sites); the ROM plays only $2D on diamond, which native already queues (combat.rs:9635). Defensible; revisit only if the #272 jgenesis audit shows the diamond voice the human hears differs from $2D.
 - **#239 (enemy, `[-]`)** — STILL not-a-bug. Walking/charging enemies have no ledge turnaround (oracle-verified ORIGINAL_QUIRK). Flagged only so #345 (lion-vanish) rules out a faithful pit-fall before treating despawn as a bug; the `[-]` itself stands.
 - **#259 (enemy/render, `[?]`)** — UNCHANGED status, note added: the floor-sink "tank halfway in the floor" is ROM-faithful (Tank.asm body Y is layout-driven and oracle-matched; `priority(a3)=#0` so high-priority foreground grass legitimately draws in front). But it has sat at `[?]` across 4 human reconfirms — resolve the stalemate: capture ONE oracle-authoritative natural Level-02 RockTank route (all prior clean rechecks used L01/Highwater; the L2 claim has only non-authoritative captures) and diff body/turret Y + occlusion depth. If only grass occludes → close `[-]` with a shown oracle side-by-side; if L2 occlusion is heavier than oracle → that's the real residual. Do not leave at `[?]` for a 5th cycle.
+
+## Resolved rows (migrated from backlog table 2026-06-20)
+
+Index of `[x]` (done) and `[-]` (won't fix / not a bug) rows moved out of the live
+backlog. Full investigation evidence, where it exists, is in this file keyed by `#NNN`.
+
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 294 | [x] | P1 | combat | Murder-wall contact now follows ASM `sub_5E02 loc_5E34 -> off_B640 -> Crushed_to_Death`: contact enters DeathWindup directly, bypasses HP decrement, and ignores damage invulnerability | Verified by `murder_wall_contact_crushes_helmeted_kid_loc_5e34_b640`, `murder_wall_crush_bypasses_damage_invulnerability_loc_5e34_b640`, Level 0x08 respawn regression, and `cargo test -q -p wildside-core murder_wall -- --nocapture` |
+| 295 | [x] | P1 | terrain | Spike routing now follows ASM `loc_91A6`/`loc_92B6`: floor, ceiling, and side-wall spike contacts latch spike damage and route through normal `Check_for_recent_damge -> loc_B700` HP/helmet/invulnerability handling instead of plain ceiling or instant death | Verified by floor spike damage, ceiling spike damage, side-wall spike classification, and `loc_91A6` regression groups: `cargo test -q -p wildside-core spike_contact -- --nocapture`, `cargo test -q -p wildside-core ceiling_spike -- --nocapture`, `cargo test -q -p wildside-core loc_91a6 -- --nocapture`, `cargo test -q -p wildside-core loc_92b6_side_wall_spike_sets_on_spikes_and_clamps_x -- --nocapture` |
+| 296 | [x] | P1 | projectile | Maniaxe axes now follow ASM `loc_8ABC`: live lifetime-zero axe projectiles still deliver `colid_hurt` to enemies and are deleted on enemy contact | Verified by `live_maniaxe_axe_lifetime_zero_damages_and_deletes_loc_8abc` and the Maniaxe axe regression group: `cargo test -q -p wildside-core maniaxe_axe -- --nocapture` |
+| 297 | [x] | P1 | block | Ice-block smash paths now route through ASM `IceBlock_SmashAndLoadBullets`: `off_BB80[2]` ceiling headbutts delete the ice cell and spawn ice bullets, and Red Stealth `off_B058[2]` floor impacts load the red bullet pair before rebound | Verified by `cargo test -q -p wildside-core ceiling_ice -- --nocapture` and `cargo test -q -p wildside-core red_stealth_ice -- --nocapture` |
+| 303 | [x] | P2 | menu | Fixed: CONTINUE? spends a continue only on Start and keeps the ROM `loc_D3AA` second Start window / 239-frame timeout tail | Verified by `loc_d350_`, `loc_d3aa_`, `use_continue_clears_extra_hitpoint_slots_loc_d3c4`, and `continue_countdown` focused tests |
+| 304 | [x] | P2 | player/input | Fixed: live input now applies `Permute_ABCButtons` before the held/pressed latch and Fast Action now inverts `Ctrl_A_Held` in gameplay input, preserving the demo-mode skip | Verified with `cargo test -q -p wildside-core input_ -- --nocapture` and `mise run verify-slice-fast` |
+| 305 | [x] | P2 | verify | Add interactive-lane oracle scenarios for demo-skipped paths (options remap, Fast Action, pause menu): ROM disables these in demo mode so existing TAS/demo traces structurally cannot cover them; fresh DynamicScenarios navigating title-options-gameplay drive identical input paths in native and oracle | Fast Action lane is checked in at `tests/data/dynamic-scenarios/issue-305-fast-action-gameplay-probe.json`: title Down/Down at 500/530, Start Options at 600, options Down/Down/Right at 820/850/880 sets `Options_Suboption_Speed=$FF`, Down+Start at 1200/1230 returns to title, Start at 1300 enters level card, and title-card Start at 2600 enters gameplay. Verified with `verify-tas --frame-start 2600 --frame-end 2805 --checkpoint-interval 1 --frontier-kind gameplay --bisect` (all 2805 frames CRC-match) and advisory `tas-diff` 2600..2805 (205 match / 0 diverge); promoted to `tests/tas_frontier.json` 2026-06-15. Options-remap lane is checked in at `tests/data/dynamic-scenarios/issue-305-options-remap-a-jump-probe.json`: after entering Options it moves to Controls at 820, presses Right at 850/880 to select scheme 2 (`Permute_ABCButtons` A<->B), exits through Speed/Exit at 910/940/970, starts gameplay through the proven title-card timings, and presses raw A at 2640..2646. Verified with `verify-tas --frame-start 2600 --frame-end 2695 --checkpoint-interval 1 --frontier-kind gameplay --bisect` (all 2695 frames CRC-match) and advisory `tas-diff` 2638..2655 (17 match / 0 diverge); do not extend this lane past 2695 without addressing the known camera-Y drift that starts at 2696; promoted to `tests/tas_frontier.json` 2026-06-15. Pause Restart Round life-spend slice is checked in at `tests/data/dynamic-scenarios/issue-305-pause-restart-round-life-spend-probe.json`: after proven title-card timings, Start pauses at 2801/2802, Down selects `Pause_Option=1` at 2805, and Start on Restart Round spends one life by 2813. Verified with `verify-tas --frame-start 2800 --frame-end 2814 --checkpoint-interval 1 --frontier-kind gameplay --bisect` (all 2814 frames CRC-match); promoted to `tests/tas_frontier.json` 2026-06-15 after the TAS verifier classified the residual CRC-clean `game_paused`/`character_movement` latch skew as oracle export limitation when all gameplay-critical state matches. Fresh oracle WRAM watch overturned the earlier blocker: oracle does consume the paused-loop Start and drops lives 3->2; the remaining pause lane work is the later reload-shell timing mismatch, where `tas-diff` 2836..2848 shows native already unpaused/running gameplay while oracle is still in `Game_Paused_Loop`/`loc_6E2` restore, first CRC drift at 2841. Last-life Give Up lane is checked in at `tests/data/dynamic-scenarios/issue-305-pause-give-up-last-life-probe.json`: `initial_lives=1`, Start pauses, Down selects Give Up, and Start follows the ROM two-frame `loc_6B62` -> `loc_6C0A` sequence. Verified 2026-06-15 with `verify-tas --frame-start 0 --frame-end 40 --checkpoint-interval 1 --frontier-kind gameplay --bisect` (all 40 frames CRC-match); promoted to `tests/tas_frontier.json` 2026-06-15 after the TAS verifier classified the residual CRC-clean `character_movement` latch skew as oracle export limitation when all gameplay-critical state matches. |
+| 311 | [x] | P2 | projectile | Umbrella: audits/projectiles-fidelity-audit.md — fixed after Lion, Maniaxe, skull, burst-gravity, Lion owner-token, Red Stealth airborne hitbox, and EyeClops hidden-block `$12C` foreground update worker fixes | Per-gap rows in doc |
+| 291 | [x] | P1 | player | NOT A BUG: BLW2 no-jump left-pit wall gate was asserting the tail frame after the route walked off support; contact/hold frames stay out of loc_ABA4 ledge snap and do not inject upward velocity | cargo test -p wildside-cli gameplay_regression_issue249_blw2_left_pit_wall_no_jump_does_not_auto_launch_juggernaut -- --nocapture |
+| 001 | [x] | P0 | player | Player gets stuck after first damage | Take hit, confirm movement resumes |
+| 002 | [x] | P0 | enemy | Enemies don't die when stomped | Stomp enemy on level 0x00, confirm death |
+| 004 | [x] | P1 | render | Colour palette wrong (floor/tree colours reversed) | Capture frame, compare to oracle |
+| 005 | [-] | P1 | render | No parallax background | NOT A BUG — parallax working correctly |
+| 006 | [x] | P1 | enemy | Dragon moonwalking (sprite direction vs movement) | Watch dragon, confirm facing matches walk dir |
+| 007 | [x] | P1 | camera | Screen shakes/moves weirdly when hit | Take damage, confirm camera stays stable |
+| 008 | [x] | P1 | render | Unwanted dark overlay effect when hit | Take damage, confirm no full-screen tint |
+| 009 | [x] | P2 | menu | No menu — spawns directly into game | Launch, confirm title screen appears |
+| 010 | [x] | P2 | enemy | No enemy attack patterns (fire breath, arrows) | Reach archer/dragon, confirm projectiles |
+| 011 | [x] | P2 | block | Non-P bricks look half-broken (wrong sprite state) | Resolved by palette fix (#004) |
+| 012 | [x] | P2 | block | No particle effects when blocks break | Hit block, confirm debris particles |
+| 013 | [x] | P2 | block | P blocks don't convert to regular blocks after hit | archived |
+| 014 | [x] | P2 | block | Diamonds/items don't visually emerge from blocks | Hit prize block, confirm item sprite appears |
+| 015 | [x] | P2 | player | Can't wall-grab (A+A to grab block edges) | Jump at wall edge, confirm grab |
+| 016 | [x] | P2 | level | No level intro screen showing level name | Enter level, confirm name card |
+| 017 | [x] | P2 | form | Masks/helmets not visible when they appear | Hit helmet block, confirm sprite |
+| 018 | [x] | P2 | form | No form-change animation when equipping helmet | Placeholder flash; real animation pending |
+| 019 | [x] | P2 | form | Player doesn't transform at all | Collect helmet, confirm form changes |
+| 020 | [x] | P3 | render | No water/shimmer background effect | Load water level, confirm shimmer |
+| 021 | [x] | P3 | menu | Sound Test does nothing (cursor==1 unhandled) | Enter options, select Sound Test |
+| 022 | [x] | P3 | render | Duplicate Game Over overlay rendering | Game over screen renders once |
+| 023 | [x] | P2 | render | Floating item sprites use placeholder rectangles | Replace with recognisable pixel-art icons |
+| 024 | [x] | P1 | enemy | UFO beam child object system not implemented | UFO fires beam segments downward |
+| 025 | [x] | P2 | enemy | Fire Demon death trail not implemented | Kill Fire Demon, confirm fire trail |
+| 026 | [x] | P3 | menu | Demo playback — ROM has Demo_InputData1/2 at kid.asm:33373 | Title screen auto-plays demo |
+| 027 | [x] | P2 | level | Multi-screen block list cross-level references | Graceful fallback (ba36f63) |
+| 028 | [x] | P3 | testing | Adopt `insta` snapshot testing for NativeTraceFrame | Snapshots detect state drift between commits |
+| 029 | [x] | P3 | testing | Adopt `proptest` for physics pure functions | Speed tables, slopes, gravity hold across input range |
+| 030 | [x] | P3 | infra | Add a local-first verification entrypoint… | archived |
+| 031 | [x] | P3 | infra | Add performance baseline tracking | criterion benchmarks: ~92ns/frame idle, ~3µs level load |
+| 032 | [x] | P2 | fidelity | Per-form Diamond Power effects (20 unique abilities) | Each form has correct visual and damage pattern |
+| 033 | [x] | P2 | fidelity | Form-change animation from ASM Kid_Transform tables | archived |
+| 034 | [x] | P3 | fidelity | Intro sequence 5 segments (ASM has 5, native had 3) | Boot captures match oracle |
+| 035 | [-] | P2 | fidelity | Resolve 6 oracle-warp-broken levels (0x4E73) | archived |
+| 036 | [x] | P2 | enemy | Tank walk speed step wrong ($10000 should be $8000) | Tank speed matches ASM at all HP tiers |
+| 037 | [x] | P3 | fidelity | Floor-snap settling diffs: 0x24/0x51 (1px cam_y) | archived |
+| 038 | [-] | P3 | fidelity | Camera Y settling 1px diffs on 0x02, 0x24, 0x51 | MERGED with #037 — same root cause |
+| 039 | [-] | P3 | fidelity | 4th speed table entry is dead data in ROM | NOT A BUG — unreachable slot |
+| 040 | [x] | P2 | enemy | Lion constants wrong (detect range, cooldown, projectile) | Lion matches ASM line-by-line |
+| 041 | [x] | P2 | enemy | Hand jump velocity fixed, should be randomised per-tier | Hand matches ASM jump tables |
+| 042 | [x] | P2 | enemy | Tornado acceleration $300 should be $C00,… | Tornado matches ASM init table |
+| 043 | [x] | P2 | enemy | Dragon Flying is structural placeholder (3 variant scripts) | Dragon Flying matches ASM flight scripts |
+| 044 | [x] | P3 | enemy | Lion projectile wall-bounce and per-enemy homing accel | Projectile bounces off terrain |
+| 045 | [x] | P3 | enemy | Hand player-grab mechanic missing entirely | Hand grabs and drags player |
+| 046 | [x] | P3 | enemy | Tar Monster timing/visibility/glob shot wrong | Tar Monster matches ASM bytecode |
+| 047 | [x] | P3 | enemy | Drips random timing and surface-crawl spawning | Drips matches ASM drop timing |
+| 048 | [x] | P3 | enemy | Spinning Twins orbit-to-walk should be collision-triggered | Transition on player contact |
+| 049 | [-] | P3 | fidelity | Level 0x29 has 5px X position diff… | MERGED with #037 — same root cause |
+| 050 | [-] | P3 | fidelity | 4 levels show idle_tail position diffs from… | archived |
+| 051 | [x] | P2 | enemy | Dragon HP base 2 should be 1 (ASM Dragon.asm:65 addq.w #1) | Dragon HP matches ASM |
+| 052 | [x] | P2 | enemy | EmoRock velocity cap logic wrong ($60000… | EmoRock drop matches ASM |
+| 053 | [x] | P2 | enemy | Robot charge permanent until wall, not timed exit to walking | Robot charge matches ASM |
+| 054 | [x] | P3 | enemy | MiniHoppingSkull ground delay 21 not 32 (dbf #$14) | Skull delay matches ASM |
+| 055 | [x] | P3 | enemy | BagelBrothers projectile speed 3 not 4, lifetime 50 not 45 | Projectile matches ASM |
+| 056 | [x] | P3 | enemy | BigHoppingSkull is continuous bouncer, not discrete hopper | archived |
+| 057 | [x] | P3 | enemy | Goat player-tracking callback missing (turns… | Goat tracks player |
+| 058 | [x] | P3 | enemy | Cloud 60-frame post-bounce idle period missing | Cloud idles after bounce |
+| 059 | [x] | P3 | enemy | Fireball ceiling bounce uses Sphere formula,… | Fireball bounce matches ASM |
+| 060 | [x] | P2 | enemy | Boss multi-head system… | 3 heads per boss with ASM offsets + per-head HP |
+| 061 | [x] | P3 | enemy | Orca missing ceiling bounce, slope handling,… | archived |
+| 062 | [x] | P3 | enemy | HeadyMetal death wobble visual (rendering-only) | archived |
+| 063 | [x] | P2 | block | Ghost block restored with collision 7 (Spikes) not 6 (Solid) | Ghost blocks walkable |
+| 064 | [x] | P2 | block | Drill block projectile fired downward,… | Drill projectile horizontal |
+| 066 | [x] | P3 | block | SoftPlatform bounce moves platform object | archived |
+| 067 | [x] | P3 | block | Lift block uses accel physics; ASM uses coroutine animation | Lift matches ASM: 2px/frame×8 up, erase, 1px/frame×16 down |
+| 068 | [x] | P3 | block | Shifting block grid swap is instant… | archived |
+| 069 | [x] | P2 | fidelity | TAS boot slice desync: native consumed early… | archived |
+| 070 | [x] | P1 | fidelity | TAS frame 956: post-ledge-snap movement state suppression | archived |
+| 071 | [-] | P3 | infra | AsmFaithful Phase 2: floor collision… | DONE — resolved in #080 |
+| 072 | [-] | P3 | infra | BlastEm second oracle for cross-validation | archived |
+| 073 | [-] | P3 | infra | Instruction-level M68K trace from jgenesis | archived |
+| 074 | [x] | P1 | fidelity | TAS frame 986: sub-pixel X drift from false wall probe | Tile-boundary guard (sub_8F26), frontier now 987 |
+| 075 | [x] | P1 | fidelity | TAS frame 987: wall-cling h_accel… | archived |
+| 076 | [x] | P1 | fidelity | TAS frame 988: spurious Cyclone form change… | archived |
+| 077 | [x] | P1 | fidelity | TAS frame 1056: prize item physics +… | archived |
+| 078 | [x] | P1 | fidelity | TAS frame 1129: demo input freeze during… | archived |
+| 079 | [x] | P1 | fidelity | TAS frame 1144: per-form collision… | archived |
+| 080 | [x] | P1 | fidelity | AsmFaithful Phase 2: sub_902A before sub_8F26 position split | archived |
+| 081 | [x] | P2 | fidelity | Walking floor-ahead check (sub_B43A) | archived |
+| 082 | [x] | P2 | fidelity | TAS frame 1147: demo byte boundary parity… | archived |
+| 083 | [x] | P2 | fidelity | TAS frame 1170: sub_902A floor landing sub-pixel clearing | archived |
+| 084 | [x] | P2 | fidelity | TAS frame 1209: Cyclone flight… | archived |
+| 085 | [x] | P2 | fidelity | TAS frame 1301: Cyclone accumulator wrapping arithmetic | archived |
+| 086 | [x] | P2 | fidelity | TAS frame 1365: ceiling block preservation… | archived |
+| 087 | [x] | P2 | fidelity | TAS frame 1396: post-prize-hit ceiling latch in demo 0x1B | archived |
+| 088 | [x] | P2 | fidelity | TAS frame 1405: floating prize collection… | archived |
+| 089 | [x] | P2 | fidelity | TAS frame 1406: post-latch diamond… | archived |
+| 090 | [x] | P2 | fidelity | TAS frame 1755: AsmFaithful solid-floor… | archived |
+| 091 | [x] | P2 | fidelity | TAS frame 1772: demo 0x1B returns to title one frame early | archived |
+| 092 | [x] | P2 | fidelity | TAS frame 1774: first title frames keep the… | archived |
+| 093 | [x] | P2 | fidelity | TAS frame 1802: title return blanks Kid… | archived |
+| 094 | [x] | P2 | fidelity | TAS frame 1832: title pose appears while… | archived |
+| 095 | [x] | P2 | fidelity | TAS frame 2529: demo 0x15 startup reused the… | archived |
+| 096 | [x] | P2 | fidelity | TAS frame 2625: demo 0x15 handoff lands one… | archived |
+| 097 | [x] | P2 | fidelity | TAS frame 2698: demo 0x15 standingstill… | archived |
+| 098 | [x] | P2 | fidelity | TAS frame 2723: demo 0x15 should release the… | archived |
+| 099 | [x] | P2 | fidelity | TAS frame 2773: grounded left-wall snap… | archived |
+| 100 | [x] | P2 | fidelity | TAS frame 2831: buffered wall-sticky pull-up… | archived |
+| 101 | [x] | P2 | fidelity | TAS frame 2938: descending right-wall cling… | archived |
+| 102 | [x] | P2 | fidelity | TAS frame 3252: IronKnight transform freeze… | archived |
+| 103 | [x] | P2 | fidelity | TAS frame 3400 prep: native enemy loading… | archived |
+| 104 | [x] | P2 | fidelity | TAS frame 3400: second Knights Isle stomp… | archived |
+| 105 | [x] | P2 | fidelity | TAS frame 3414: demo 0x15 pause snapshot… | archived |
+| 106 | [x] | P2 | fidelity | TAS frame 287: `any-percent-published`… | archived |
+| 107 | [x] | P2 | fidelity | TAS frame 1830: `any-percent-published`… | archived |
+| 108 | [x] | P2 | fidelity | TAS frame 4905: `any-percent-published`… | archived |
+| 109 | [x] | P2 | fidelity | TAS frame 4966: `any-percent-published` demo… | archived |
+| 110 | [x] | P2 | fidelity | TAS frame 4966: `any-percent-published`… | archived |
+| 111 | [x] | P2 | fidelity | TAS frame 5116: `any-percent-published`… | archived |
+| 112 | [x] | P2 | fidelity | TAS frame 5143: `any-percent-published`… | archived |
+| 113 | [x] | P2 | fidelity | TAS frame 5303: `any-percent-published`… | archived |
+| 114 | [x] | P2 | fidelity | TAS frame 5584: `any-percent-published`… | archived |
+| 115 | [x] | P2 | fidelity | TAS frame 5994: `any-percent-published`… | archived |
+| 116 | [x] | P2 | fidelity | TAS frame 6033: `any-percent-published`… | archived |
+| 117 | [x] | P2 | fidelity | TAS frame 6358: `any-percent-published`… | archived |
+| 118 | [x] | P2 | fidelity | TAS frame 6906: `any-percent-published`… | archived |
+| 119 | [x] | P2 | fidelity | TAS frame 6945: `any-percent-published`… | archived |
+| 120 | [x] | P2 | fidelity | TAS frame 6966: `any-percent-published`… | archived |
+| 121 | [x] | P2 | fidelity | TAS frame 24921: level `0x15` gameplay… | archived |
+| 122 | [x] | P0 | level | Level 2 entry can spawn Kid in midair, then… | archived |
+| 123 | [x] | P0 | player | Death/respawn still leaves camera drift,… | archived |
+| 124 | [x] | P1 | enemy | Enemy kill timing still allows Kid to get… | archived |
+| 125 | [x] | P1 | block | Breakable blocks can render with the wrong… | archived |
+| 127 | [x] | P1 | block | Black bouncy blocks do not produce the… | archived |
+| 128 | [x] | P1 | form | Form-specific block breaking can now destroy… | archived |
+| 129 | [x] | P1 | infra | Add a `1p-playable` gate that covers native… | archived |
+| 130 | [x] | P1 | infra | Turn `play-native --record` /… | archived |
+| 131 | [x] | P2 | fidelity | Burn down the five parked DEVIATION items… | archived |
+| 132 | [x] | P3 | gameflow | Verify 2-player alternating mode against… | archived |
+| 133 | [x] | P3 | gameflow | Investigate password flow and decide whether… | archived |
+| 134 | [x] | P1 | infra | Package reduced semantic cases as the… | archived |
+| 135 | [x] | P1 | render | Level 1 background graphics do not match the original game | archived |
+| 136 | [x] | P1 | block | Diamonds and helmets emerging from bricks… | archived |
+| 137 | [x] | P1 | player | Kid walks backwards while climbing slopes | archived |
+| 138 | [x] | P1 | player | Enemy contact appears to apply double damage… | archived |
+| 139 | [x] | P1 | render | Bouncy blocks still render like spikes | archived |
+| 140 | [x] | P1 | render | Prize blocks use wrong graphics and animations | archived |
+| 142 | [x] | P1 | enemy | Level 1 dragon breath travels too far | archived |
+| 143 | [x] | P1 | block | Heavy Man's first helmet causes repeated… | archived |
+| 145 | [x] | P1 | render | FIXED 2026-06-06: the full-tank turret (base… | archived |
+| 146 | [x] | P1 | level | Dying in Level 2 can leave the game stuck on… | archived |
+| 148 | [x] | P2 | player | Kid death animation does not match the original | archived |
+| 149 | [x] | P2 | block | Hit blocks do not shake before breaking | archived |
+| 150 | [x] | P2 | render | Kid blinks invisible after taking damage… | archived |
+| 151 | [x] | P2 | render | Red Stealth (samurai) helmet graphics look… | archived |
+| 152 | [x] | P1 | player | Red Stealth (samurai) cannot walk up… | archived |
+| 153 | [x] | P2 | player | Red Stealth sword attack while jumping… | archived |
+| 154 | [x] | P1 | render | Bouncy blocks invisible at the bottom of the… | archived |
+| 156 | [x] | P3 | render | Block destruction still uses a small… | archived |
+| 158 | [x] | P1 | player | Berzerker/rhino head charge does not hit… | archived |
+| 159 | [x] | P2 | debug | `n`/`p` debug level changes show a fake… | archived |
+| 162 | [x] | P1 | render | Level-card graphics are wrong even when the… | archived |
+| 163 | [x] | P1 | render | HUD diamond and special-prize icons render… | archived |
+| 164 | [x] | P1 | render | Falling helmet prize sprites still look like approximations | archived |
+| 165 | [x] | P1 | player | Wall-grab pull-up lacks the ROM rollover/flip animation | archived |
+| 166 | [x] | P1 | render | Enemy sprites have transparent holes / wrong masks | archived |
+| 168 | [x] | P1 | player | Berzerker/rhino side charge does not break side blocks | archived |
+| 170 | [x] | P2 | gameflow | Death/continue restart still shows fake level loader | archived |
+| 171 | [x] | P1 | render | HUD hitpoint/life pips miss their grey second tile | archived |
+| 172 | [x] | P1 | render | HUD diamond icon should animate | archived |
+| 173 | [x] | P1 | block | Broken bricks should emit shard debris | archived |
+| 174 | [x] | P1 | block | Prize blocks should show spawn explosion above the block | archived |
+| 175 | [x] | P1 | gameflow | Winning the level sequence is incomplete | archived |
+| 177 | [x] | P1 | enemy | Diamond modelled as a Collectible pickup, not a hostile HP enemy (stub) | Fixed 2026-06-14: live Diamond layout objects now stay in the enemy path instead of prize collection. Rendering follows `Enemy01_Diamond_Init` / `stru_3ACA8`; overlap damages Kid through Character_CheckCollision; charging Berzerker side contact follows `loc_3AF24` and launches Diamond upward without HP damage; generic `colid_hurt` from Maniaxe/projectile routes now decrements Diamond HP and enters the Diamond death tail at `loc_3AEE6`. Covered by `diamond_enemy_animates_while_stationary_stru_3aca8`, `diamond_enemy_is_not_collected_on_touch_loc_3ad16`, `berzerker_charge_launches_diamond_instead_of_damaging_loc_3af24`, `maniaxe_axe_colid_hurt_damages_diamond_loc_3aec4`, and `maniaxe_axe_colid_hurt_starts_diamond_death_tail_loc_3aee6`. |
+| 178 | [x] | P1 | enemy | Armadillo: damage recoil window, Berzerker curl-launch, child fall-then-die, walk-speed cap not wired | Fixed 2026-06-14: charging Berzerker side contact with no positive `$42` launches through `loc_3C898/loc_3C8CC`; `colid_hurt` honours `loc_3C848` recoil immunity, seeds `$42=$FF88`, and restores capped walk speed; `$5C(a5)` spawned children now route through `loc_3C93C/loc_3C954` fall-settle before `loc_3C886` death animation. Covered by `berzerker_charge_launches_armadillo_instead_of_damaging_loc_3c898`, `maniaxe_axe_colid_hurt_respects_armadillo_recoil_window_loc_3c848`, `maniaxe_axe_colid_hurt_seeds_armadillo_recoil_loc_3c848`, `armadillo_spawned_child_terminal_damage_falls_before_death_loc_3c87e`, `armadillo_spawned_child_floor_contact_starts_death_tail_loc_3c954`, and `armadillo_hp_and_walk_speed_follow_loc_3c756_and_loc_3c766`. |
+| 179 | [x] | P1 | enemy | Big_Hopping_Skull: patrol corridor, relaunch, floor-stop, per-hit SFX, respawn marker not wired | Fixed 2026-06-14: live flat-floor contact follows `loc_36580` by saving d0=x_vel, clearing motion through `stru_367AE`/`stru_367B4`, then relaunching via `loc_366D0`; relaunch now applies segment patrol bounds from `loc_364A0`/`loc_36770`; nonfatal damage hibernates through `stru_367CC` and queues `sfx_Big_Hopping_Skull_groan`/`sfx_Voice_die` at `loc_365F2`/`loc_36616`; terminal `colid_hurt` queues `sfx_Big_Hopping_Skull_dies=$26` at `loc_3664E`; finished death animation writes the positive `$2168` respawn marker at `loc_366A4`. Covered by `big_hopping_skull_live_floor_contact_stops_like_loc_36580`, `big_hopping_skull_live_floor_contact_timer_relaunches_like_loc_366d0`, `big_hopping_skull_live_relaunch_applies_patrol_bounds_like_loc_36770`, `big_hopping_skull_nonfatal_damage_enters_stru_367cc_hibernate`, `big_hopping_skull_hit_animation_queues_stru_367cc_sounds_like_loc_365f2`, `maniaxe_axe_colid_hurt_queues_big_hopping_skull_death_sfx_loc_3664e`, and `big_hopping_skull_death_waits_for_stru_367fa_animation_before_delete`. |
+| 180 | [x] | P1 | enemy | Crab: directional front-immune vulnerability… | archived |
+| 181 | [x] | P1 | enemy | Driller: probe offset wrong, drills every… | archived |
+| 182 | [x] | P1 | enemy | Emo_Rock: invented ground-walk, no disappear/respawn re-attack, Berzerker launch + death routing missing | Fixed 2026-06-14: death now queues Prize_block and applies the `$2168` status tail after `stru_36468`; landed `stru_363FE` no longer enters generic ground-walk, queues `sfx_Emo_Rock_disappears=$25`, hibernates through 16-frame `stru_36456`, then restarts `loc_361F4` hover timing; grounded pending collisions route through `loc_362B6` so hurt/above enter `loc_36346`, charging Berzerker side contacts launch through `loc_362EE`, and ordinary side contacts keep waiting. Covered by `emo_rock_lands_and_enters_settled_wait`, `emo_rock_settled_wait_does_not_walk_like_pacer_loc_362b6`, `emo_rock_settled_wait_disappears_and_restarts_hover_loc_36320`, `emo_rock_death_waits_for_stru_36468_animation_before_delete`, `emo_rock_settled_side_contact_waits_when_berzerker_is_not_charging_loc_362b6`, `emo_rock_settled_side_contact_launches_for_charging_berzerker_loc_362ee`, and `emo_rock_settled_hurt_collision_enters_break_death_loc_362b6_36346`. |
+| 183 | [x] | P1 | enemy | Fire_Demon: walking fire-trail emission, Berzerker launch, hurt recovery anim not driven | Fixed 2026-06-14: pending collision routing follows ASM `loc_3A586`: nonfatal `colid_hurt` decrements HP and hibernates through `loc_3A5BE`, terminal hurt enters `loc_3A5A6`, ordinary side contact resumes `loc_3A5D4`, and charging Berzerker side contact enters `loc_3A5E4`/`loc_3A610` without HP damage. Walking `loc_3A542` now allocates typed `loc_3A63C` trails from the saved walk cadence, uses raw level 2's three-frame `stru_3A334`, respects the seven-trail cap at `loc_3A564`, and applies the immediate support bailout before the child is observable. Covered by `fire_demon_*` focused tests including pending collision, walking cadence, trail allocation, cap, and unsupported-floor cases. |
+| 190 | [x] | P1 | enemy | Robot: charge entered every shot, no aim… | archived |
+| 191 | [x] | P1 | enemy | Scorpion: sting deals no damage;… | archived |
+| 192 | [x] | P1 | enemy | Spinning_Twins: orbit never splits into two… | archived |
+| 193 | [x] | P1 | enemy | Tank: body-vs-mouth vulnerability,… | archived |
+| 194 | [x] | P1 | enemy | Tar_Monster: 5-projectile burst fires on the… | archived |
+| 195 | [x] | P1 | enemy | Tornado: Cyclone-above kill branch, ceiling… | archived |
+| 196 | [x] | P1 | enemy | UFO: bounce table, chase steering, motion… | archived |
+| 197 | [x] | P2 | enemy | Archer: fire cadence ~4-5x too fast; shot… | archived |
+| 198 | [x] | P2 | enemy | Cloud: lightning projectile has a fixed… | archived |
+| 199 | [x] | P2 | enemy | Dragon (walking): breath flame deleted on… | archived |
+| 200 | [x] | P2 | enemy | Dragon_Flying: descent fireball lacks… | archived |
+| 201 | [x] | P2 | enemy | Fireball: fire-trail child objects never… | archived |
+| 202 | [x] | P2 | enemy | Tank_Shooting: bullets pass through walls;… | archived |
+| 204 | [x] | P1 | player | REOPENED 2026-06-03 (Samurai/Red Stealth… | archived |
+| 209 | [x] | P3 | architecture | Hygiene: strip stale `cfg_attr(not(test),… | archived |
+| 212 | [x] | P1 | player/combat | 2026-05-30 playtest: Helmet/IronKnight seems… | archived |
+| 218 | [x] | P1 | player | FIXED 2026-06-13: Ground speed tables inverted: ice plays grippy, rubber plays slippery (ROM cross-wire undone) | Commit "Cross-wire ice rubber ground speed tables": `PlayerForm::ground_speed_table` now preserves ASM `sub_8600` + `loc_9AE0`/`loc_9AF2` cross-wire centrally, and the old movement-local rubber hand-off was removed. Regression coverage: `speed_table_`, `level00_frame_731_flat_rubber_span_uses_refreshed_code_two_table_loc_8e16`, `ground_speed_table_selects_by_form_and_terrain`, and `mise run verify-slice-fast`. |
+| 219 | [x] | P2 | player | `KidGrabbedByHand` RAM flag never surfaced… | archived |
+| 220 | [x] | P2 | player | Crawl stand-up & entry gating incomplete… | archived |
+| 221 | [x] | P2 | player | Airborne Skycutter uses generic jump-air… | archived |
+| 222 | [x] | P2 | player | Up-/Down-held does not drive uphill/downhill… | archived |
+| 223 | [x] | P2 | player | Iron Knight climb edge behaviours (wall-end… | archived |
+| 224 | [x] | P2 | architecture | Compound `$14/$18` slope-corner collision… | archived |
+| 225 | [x] | P2 | player | Remove/gate invented movement state changes… | archived |
+| 226 | [x] | P3 | player | Minor input/audio parity: L+R resolver… | archived |
+| 231 | [x] | P1 | platform | Platform placement x/y may omit the ROM `asl… | archived |
+| 232 | [x] | P2 | block | Lift platform spawns with y-velocity 0… | archived |
+| 233 | [x] | P2 | player | Maniaxe axe turnaround reverses… | archived |
+| 234 | [x] | P2 | player | ExtraHitPoint Diamond Power bypasses the… | archived |
+| 235 | [x] | P2 | level | Non-oracle level-load fallback feeds the raw… | archived |
+| 236 | [x] | P2 | player | Maniaxe axe flight uses invented finite… | archived |
+| 237 | [x] | P2 | player | Maniaxe axe terrain delete is broader than… | archived |
+| 239 | [-] | P1 | enemy | 2026-06-03 playtest: Level 0 walking dragon… | archived |
+| 240 | [-] | P1 | enemy | 2026-06-03 playtest: Level 0 dragon breathes… | archived |
+| 244 | [-] | P2 | enemy | 2026-06-03 playtest: duplicated whole tanks… | archived |
+| 245 | [x] | P1 | gameflow | 2026-06-03 playtest: dying can leave the… | archived |
+| 247 | [x] | P2 | level | Theme collision table trimmed: high skin… | archived |
+| 250 | [x] | P1 | block | 2026-06-04 playtest: growing/evanescent… | archived |
+| 251 | [x] | P1 | level | 2026-06-04 playtest: skull-theme levels… | archived |
+| 253 | [-] | P3 | gameflow | Highwater Pass 2 flag-transition score/object-count gap is collapsed EOL worker modelling, not a current gameplay bug | Archive #253: Kid/game mode/level-complete match at onset; extra oracle objects are EOL/flag workers and only bonus timing differs. Reopen only if final EOL bonus total is wrong or a non-flag mid-level route reproduces it. |
+| 255 | [x] | P1 | menu/input | 2026-06-07 playtest: level select accepts… | archived |
+| 261 | [x] | P1 | block/projectile | 2026-06-07 playtest: fourth-level growing blocks still shoot spikes | archived |
+| 267 | [x] | P1 | gameflow/eol | 2026-06-07 playtest: EOL flag only activates when jumped on, should activate on floor contact | 2026-06-10 verified fixed: Highwater floor-contact probe is authoritative-clean through the flag contact window once synthetic probe-camera drift is ignored; later frame-111 object-count drift is separate score/transition verifier debt. |
+| 278 | [x] | P1 | block/collision | 2026-06-09 playtest: breakable floor blocks (level 3, below the Heavy Man… | Fixed 2026-06-11: floor prize-block impacts now route through ASM `loc_1002E`/`sub_1007A`, keeping the struck cell `$6Fxx` solid during the wobble instead of erasing Kid's support. |
+| 282 | [x] | P3 | infra/debug | Level-skip (Next) should show the level intro/name card so the level name is visible for debugging | archived |
+| 285 | [x] | P2 | render/enemy | 2026-06-10 playtest: DripsSurfaceCrawler renders as a tiny blob instead of the proper floor-slime crawl animation | Fixed 2026-06-10: native now distinguishes ASM `Drips.asm loc_338F8`'s spawned `Tar_Monster.asm loc_325B6` helper from the original crawler's `loc_3392C` finish shell. The helper still renders the Tar `$0C1` fragment, while the crawler finish renders Drips `stru_33F06` (`$0C5/$0C9/$0D2`) and the existing startup/moving crawler render paths remain `stru_33FA6`/`stru_33F14`. Verified with focused core lifecycle tests, renderer regression, `cargo fmt --check`, and `cargo check -q -p wildside-cli`. |
+| 328 | [-] | P3 | helmet/physics | NOT A BUG (ORIGINAL_QUIRK): Cyclone helmet "flies straight up / no tornado spin / too powerful" matches the ROM — flight (sub_B168 loc_B214) mutates only y_vel, the tornado spin is sprite animation only (sub_B270 loc_B2A0, no x_vel), and there is no altitude/fuel/duration cap, only a 3px/frame rise clamp (loc_B25E). Native (helmets.rs:5354-5459, constants.rs:774-786) matches the ROM literals. | One cheap human check: confirm Kid does NOT keep rising on a single HELD C (ROM is rising-edge `bclr`; native uses input.c && !prev.c). If held-C keeps rising that IS a divergence -> reopen; otherwise stays [-]. Mark native with // ORIGINAL_QUIRK. See #328 archive. |
+| 340 | [-] | P3 | audio | NOT-A-BUG 2026-06-19: `sfx_Voice_diamond` ($62) is an ORPHAN ROM asset — defined at constants.asm:45 but with ZERO trigger sites anywhere in the disassembly. The ROM plays only `sfx_Diamond_prize` ($2D) on diamond collect (kid.asm:21103/22184), which native already queues (`DiamondPrize`→0x2D, combat.rs:9635). Native is faithful; there is nothing to wire | n/a — closed NOT-A-BUG. See archive #340 |
+
+
+## Migrated NOW-block evidence notes (2026-06-20)
+
+Per-issue investigation notes that had collected below the backlog table.
+
+Issue 289 rejected 2026-06-14: changing Flying Dragon dive descriptor origin or chunk order is unsupported by ASM `Make_SpriteFromGfxObject` (`loc_129E`/`sub_13C0`). Frame-60 `C762E` correctly draws at `(x - xcenter, y - height + ycenter) = (56,87)` and emits a 32px chunk plus 8px tail from tile `$1D9`; pursue the remaining flame/background/render-priority residual instead.
+Issue 289 fixed subcase 2026-06-15: live `play-native` level-change asset fallback now re-enters ASM `loc_6E2`/`Load_TitleCard` for the resolved playable target instead of raw `enter_level_playtest`, so missing generated assets for the requested level cannot expose the replacement level's spawn/fall before the loader shell. Covered by `live_level_change_resolved_target_reenters_rom_title_card` and `mise run verify-slice-fast`.
+
+Issue 289 fixed subcase 2026-06-15: title-card predicates and starting-level workers now resolve title metadata through `MapOrder_Index`/resource records before falling back to the logical level record, matching ASM `Load_TitleCard`/`loc_6E2`. This prevents aliased levels such as Under Skull Mountain 3 (`0x06 -> resource 0x02`) from taking the no-title-card start path and exposing an incorrect live spawn shell. Covered by `aliased_level_entry_uses_resource_title_card_loc_6e2`, `generated_title_card_check_uses_map_order_resource_record`, `cargo test -q -p wildside-core title_card -- --nocapture`, `cargo test -q -p wildside-cli debug_hotkey_level_skip_ -- --nocapture`, and `cargo test -q -p wildside-cli live_level_change_ -- --nocapture`.
+
+Issue 289 fixed subcase 2026-06-15: direct `play-native` level-change asset swaps now rebuild the hidden opening slice against the freshly loaded target block grid while the ASM `loc_74E0`/`loc_1AE2E` title-card shell owns the transition. This closes the gap where the visible grid refreshed but the first live spawn could still preserve a stale no-floor/old-level settle pose and appear to fall from the top or into a void after debug skipping. Covered by `live_level_change_direct_target_refreshes_runtime_block_grid_and_title_card`, `cargo test -q -p wildside-cli live_level_change_ -- --nocapture`, and `cargo test -q -p wildside-cli debug_hotkey_level_skip_ -- --nocapture`.
+
+Issue 289 note 2026-06-14: fixed the Flying Dragon descent-fire second cleanup sprite. ASM `Dragon_Flying.asm loc_34C4A` renders `LnkTo_unk_C75DE` for the first three-frame cleanup loop, then switches to `LnkTo_unk_C75E6` for the second; native previously reused `unk_C75DE` for both states. Regression coverage now includes `CleanupSecondLoc34C4A -> unk_C75E6`. Refreshed Level 0x06 idle sample frames 60/179 are unchanged by this subcase (947 AE / 272.105 MAE at frame 60; 157 AE / 54.2707 MAE at frame 179), so the remaining sampled residual is still elsewhere in the flame/background/render-priority path.
+
+Issue 289 rejected 2026-06-14: the remaining frame-60 Dragon residual is not bad Dragon art, palette, or the `C762E` descriptor. Oracle WRAM/GfxObject probes show the parent at `addroffset_sprite=$05AC`, `vram_tile=$0409`, `palette_line=2`, and the child fire at `$0580`; decoded native `Enemy0C_Dragon.bin` tile `$1D9` matches oracle VRAM tile `$5E2` byte-for-byte (`01 32 20 00 ... 70 00 82 42`), and oracle CRAM line 2 matches `Dragon_1` after Mega Drive colour-bit masking. Oracle VDP pixel samples see the frame-60 Dragon sprite at `(57,87)`/`(74,87)`, but the captured oracle PNG still shows background there until frame 61, while native already draws the sprite in frame 60. A capture-side experiment rendering the previous synthetic VDP snapshot for full-frame `capture-scenario-frames` left frame 60 unchanged at 947 AE, so do not retry the simple one-frame VDP latch patch without first tracing the capture/oracle frame numbering boundary.
+
+Issue 289 note 2026-06-14: refreshed `verify-recording --slug issue-289-level06-idle-current` with native pixel provenance. The Level 0x06 route remains state-clean and strict pixels still fail only as expected (`frame_00060` 947 changed pixels / MAE 1.0587751, `frame_00179` 157 changed pixels / MAE 0.21117002). Frame-60 Dragon-body sample pixels such as `(56,88)` and `(58,87)` are low-priority `enemies` layer writes over black/red background, not a high-priority mask error; fire sample pixels such as `(81,130)` and `(94,128)` are low-priority `effects` layer writes shifted against black. Do not retry broad sprite-priority, `C762E` descriptor-origin, Dragon art/palette, or fire H-flip patches; next useful pass should trace the oracle/native frame-boundary or VDP capture timing around `Dragon_Flying.asm loc_348CE` / `loc_34BAC`.
+
+Issue 289 partial 2026-06-15: frame-boundary cross-compare showed native frame 60 matched oracle frame 61 at 75 changed pixels, while same-index compare was 947 changed pixels. ASM `Mode_Level` starts at `kid.asm:901` by transferring the already-built Sprite_Table before `Execute_Objects` and `GfxObjects_MoveAndAnimate`, then rebuilds the next table near the end of the frame with `Make_SpritesFromGfxObjects`; native-player now latches prior-frame non-player GfxObject sprite sources while preserving current Kid state. `verify-recording --slug issue-289-level06-idle-current` remains state-clean and now reduces frame 60 to 75 changed pixels / MAE 0.051353235; frame 179 remains 157 changed pixels / MAE 0.21117002. The Dragon/body/fire residual is cleared; remaining strict pixels are right-edge/HUD/edge-effect sized, not the Dragon descent path.
+
+Issue 289 rejected 2026-06-15: normal gameplay must not apply an extra one-slot `unk_461C` HUD diamond DMA lag beyond the existing previous-trace latch. Although `Mode_Level` calls `Make_SpriteAttr_HUD/sub_BDC0` before `sub_44DC loc_45EE`, changing `render_trace_with_vdp_latched_state` to map the previous HUD diamond offset through `previous_hud_diamond_frame_offset_loc_45ee` worsened `verify-recording --slug issue-289-level06-idle-current` frame 60 from 75 changed pixels / MAE 0.051353235 to 114 changed pixels / MAE 0.07773437 and broke the Circle of Doom HUD-diamond VRAM art expectation. Keep the existing normal previous-trace HUD diamond latch; remaining pixels are still right-edge terrain/HUD-sized, with frame 179 adding a small digit/row cluster.
+Issue 289 verifier note 2026-06-16: `verify-recording --slug issue-289-level06-idle-current` now normalises additive core level-BGM and `loc_1223C` lava/water diagnostics for legacy recordings. The route no longer fails at frame 0 trace-schema drift; current report is `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`, with frame 60 still 75 changed pixels / MAE 0.051353235. Treat the remaining work as visual pixels only, not gameplay state drift.
+
+Issue 289 verifier note 2026-06-17: refreshed `verify-recording --slug issue-289-level06-idle-current` after issue-306 platform-loader diagnostics exposed another legacy trace-schema drift at frame 0. Native now also normalises the registered exploratory `native_platform_loader_loc_2744` debug field for old recordings; the same route reports `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`, with frame 60 still 75 changed pixels / MAE 0.051353235. The remaining #289 work is still visual-only, not spawn/layout or gameplay state.
+
+Issue 289 rejected 2026-06-17: do not latch normal-gameplay `level_timer_seconds` from the previous trace alongside the existing `Make_SpriteAttr_HUD` HP/diamond latches. Although frame 60 is a 179->178 second boundary, adding that latch worsened `verify-recording --slug issue-289-level06-idle-current`: frame 60 changed from 75 pixels / MAE 0.051353235 to 93 pixels / MAE 0.115387835 and introduced a new HUD digit cluster around x=37..43,y=17..20. Frame 179 stayed at 122 pixels / MAE 0.0866583. The residual timer-looking pixels at x=288..297 are not fixed by a broad previous-timer latch.
+
+Issue 289 note 2026-06-17: refreshed native pixel provenance for the remaining visual-only diff. Current `verify-recording --slug issue-289-level06-idle-current` stays `trace_match=true` and `oracle_state_match=true`; strict pixels fail only at frame 60 (75 pixels / MAE 0.051353235, bounds x=275..297,y=34..161) and frame 179 (122 pixels / MAE 0.0866583, bounds x=275..299,y=13..161). The lower cluster is terrain command 1374, an `IndexedTile` at screen `(272,148)` using tile index 100 from the level-06/resource-02 foreground around cell `(17,10)`. The upper cluster is not the timer: provenance shows HUD diamond sprite command 1782/1783 at `(288,34)` using diamond tile index 8, while the surrounding lives/diamond counter patch is otherwise identical. Do not retry timer/counter latches; next useful pass should inspect the hell foreground cell/Scroll-A VDP source for `(17,10)` and the `sub_44DC loc_45EE` diamond art page selected for the HUD icon on this level-entry route.
+
+Issue 289 partial 2026-06-17: native foreground rendering now skips immutable extracted terrain under live `$Exxx` block cells, matching ASM `sub_302F6` / `sub_3034A` where Scroll-A consumes one `Level_Layout` word per cell rather than compositing a block sprite over resource foreground. Covered by `foreground_layout_terrain_skips_live_block_cells_loc_302f6`. Refreshed `verify-recording --slug issue-289-level06-idle-current` remains state-clean and removes the lower terrain strip: frame 60 improves from 75 pixels / MAE 0.051353235 to 45 pixels / MAE 0.0304548, and frame 179 improves from 122 pixels / MAE 0.0866583 to 92 pixels / MAE 0.06575986. The remaining strict-pixel residual is the HUD diamond icon only, bounds x=288..299,y=13..45; continue with `sub_44DC loc_45EE` diamond page selection, not terrain.
+
+Issue 289 rejected 2026-06-17: do not globally advance the normal-gameplay HUD diamond page one `unk_461C` slot after the existing previous-trace latch. Although frame 60's oracle HUD crop matches a later native raw-render phase, changing `render_trace_with_vdp_latched_state` to map the previous `$FFFFFA5D` offset forward immediately breaks `build_scene_draws_circle_of_doom_sprites_from_hud_diamond_rom_tiles`, which proves shared HUD-diamond VRAM users still require the current traced page semantics. Additional crop diagnostics split frame 179's residual into 84 pixels in the diamond-icon rectangle plus 8 top-HUD/timer pixels at x=289..293,y=13..17; the diamond crop uses the same colour counts as frame 60 but not any simple native `unk_461C` page or h/v flip. Next useful pass should inspect the background/VDP source visible through transparent HUD pixels and the verifier checkpoint render path, not a broad HUD-page latch.
+
+Issue 289 rejected 2026-06-17: do not render the normal-gameplay HUD ankh directly from current trace `$FFFFFA5E` / `AniArt_LifeIcon` page selection. Instrumenting `hud_life_frame_offset` showed native frame 60 has `$FFFFFA5E=4` and frame 179 has `$FFFFFA5E=0`; mapping those through ASM `sub_44DC loc_4546..loc_4586` makes native frame 60's ankh crop match oracle frame 179 and leaves native frame 179 matching oracle frame 60. `verify-recording --slug issue-289-level06-idle-current` regressed frame 60 from 45 pixels / MAE 0.0304548 to 53 pixels / MAE 0.0523019, while frame 179 stayed 92 pixels / MAE 0.06575986. Keep `$FFFFFA5E` as trace provenance, but pursue the settled-recording HUD phase / verifier checkpoint VDP source instead of a simple live-life-page render.
+
+Issue 289 rejected 2026-06-17: do not draw the normal-gameplay HUD diamond with native-player's inferred `RotatePalette_Lava_Water loc_1223C` foreground palette. The issue-289 route's trace exposes `lava_water_palette_words_loc_1223c=[0,0,0,0]` at frames 60 and 179, so the renderer fell back to route-inferred palette rotation; wiring that inferred palette into `Make_SpriteAttr_HUD`'s `$86F2` diamond sprite worsened `verify-recording --slug issue-289-level06-idle-current` frame 60 from 45 pixels / MAE 0.0304548 to 84 pixels / MAE 0.046633184, while frame 179 stayed 92 pixels / MAE 0.063090585. The remaining HUD residual is not fixed by sharing the foreground terrain palette fallback; next pass should inspect the verifier checkpoint VDP/background source visible through the HUD diamond's transparent pixels.
+
+Issue 289 fixed subcase 2026-06-17: normal trace-scene HUD rendering now presents the subsequent `sub_44DC loc_45EE` diamond DMA page, reconstructs the `Rotate_Palette_Lava_Water loc_1223C` foreground palette phase for the HUD diamond when no lava/water override words are active, and uses the oracle-observed Life_icon ROM page for sampled `$FFFFFA5E=0`. This closes the remaining visual-only residual for `.cache/recordings/issue-289-level06-idle-current`: `verify-recording --slug issue-289-level06-idle-current` reports `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=true`, with frames 60 and 179 both at 0 changed pixels / MAE 0.0. Covered by `game_hud_diamond_icon_prefers_traced_sub_44dc_offset`, `game_hud_life_icon_prefers_traced_sub_44dc_offset`, and `level_complete_first_handoff_uses_latched_life_icon_page_loc_4546`. Keep #289 open for broader hell-theme wrong-start/graphics validation outside this Level 0x06 recording.
+
+Issue 289 recheck 2026-06-19: the old `audits/backlog-validation-2026-06-14.md` loc_11BD2/blank-top-row implementation plan is already covered and green with generated cache assets (`preserved_player_start_entry_floor_snaps_loc_11bd2`, `generated_hell_level_layout_applies_blank_top_rows_sub_140f6`). Fresh `verify-recording --slug issue-289-level06-idle-current` still reports `oracle_state_match=true` and frame 60/179 `oracle_frame_match=true` with 0 changed pixels; the command exits non-zero only because native replay trace metadata changed at frame 0 (`contact_phase`/platform-loader debug), so this bundle needs trace refresh before it can be used as a byte-for-byte native replay gate.
+
+Issue 289 fixed subcase 2026-06-19: the Level 0x06 walk-right recording no longer cancels Kid's frame-512 jump against stale solid ghost block cell `(24,18)`. Native `boot_to_level` now reloads the generated block grid/list at the final direct handoff so ASM `loc_124A6` ghost groups survive scenario bootstrapping, `sub_F730` runs before Kid's `sub_902A` ceiling probes, and the Under Skull Mountain 3 recording settle includes the missing `$20` live ticks exposed by the lower ghost group's phase. Covered by `issue289_level06_lower_ghost_group_vanishes_before_kid_jump_collision_loc_f730_902a`; focused ghost-group tests and `mise run verify-slice-fast` pass. A short `tas-diff` for frames 508..516 confirms frame 512 `kid_y_pos`/`kid_y_vel` now match oracle; remaining drift there is enemy/object-roster work, not the ghost-block climb blocker.
+
+Issue 289/#280 fixed subcase 2026-06-19: Plane-B row wrapping now applies to nonzero moving `BackgroundScroll_ComputeShiftLayers loc_3050A` rows across themes, not just Hills `$08`. This targets the Highwater/Bloody Swamp dark-green backdrop seam class without retuning the CRAM backdrop; `$00` rows stay finite and `$10` static rows stay finite. Covered by focused `layered_background` tests plus `mise run verify-slice-fast`; live-route visual validation remains open.
+
+Issue 274 recheck 2026-06-19: current HEAD still rejects the cold-idle attract Diamond-prize hypothesis. `verify-tas --scenario .cache/debug/issue-210/cold_boot_idle_demo_loop_long.json --frame-start 3448 --frame-end 3495 --checkpoint-interval 1 --frontier-kind gameplay --bisect` passes all 3495 frames by CRC through the first demo prize/transform window, so do not patch prize content from this deterministic route. Remaining work still needs an exact live SDL route/frame if the visible pushed build shows a Diamond where this oracle-matching path shows Cyclone.
