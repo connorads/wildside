@@ -1,8 +1,8 @@
-<!-- Generated 2026-06-10 by the fidelity-audit-wave2 workflow (1 read-only Explore scout enumerated the units; one read-only Explore auditor per unit compared the live native path to the disassembly; every high/medium gap adversarially verified by an independent refuter - defaulting to refuted - before inclusion; low gaps included without a refute pass). This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native file:line searched. Re-run the workflow to refresh. -->
+<!-- Generated 2026-06-10 by the fidelity-audit-wave2 workflow. A read-only Explore scout enumerated the units; one read-only Explore auditor per unit compared the live native path to the disassembly. Every high/medium gap was adversarially verified by an independent refuter (defaulting to refuted) before inclusion; low gaps were included without a refute pass. This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native file:line searched. Re-run the workflow to refresh. -->
 
 # Camera & Scroll Fidelity Audit
 
-Adversarially-verified per-unit audit of the Kid Chameleon source-port camera and scroll subsystem. The core X/Y follow mathematics (`sub_71E4` target clamp, ±1 edge nudges, `(target-camera+4)>>3` smooth step clamped to ±8, the post-velocity defensive re-clamp, and the page-snap level seed) are faithful and reachable on the live path. The old `.min(30)` cap that made the down-look pan inert has been removed, so remaining look-offset mismatches are small but no longer hidden by that cap.
+Per-unit audit of the Kid Chameleon source-port camera and scroll subsystem. The core X/Y follow mathematics are faithful and reachable on the live path: `sub_71E4` target clamp, +/-1 edge nudges, `(target-camera+4)>>3` smooth step clamped to +/-8, the post-velocity defensive re-clamp, and the page-snap level seed. The old `.min(30)` cap that made the down-look pan inert has been removed, so remaining look-offset mismatches are small and no longer hidden by that cap.
 
 ## Coverage summary
 
@@ -19,7 +19,7 @@ Adversarially-verified per-unit audit of the Kid Chameleon source-port camera an
 | death-respawn-camera-convergence | full | 0 |
 | bg-parallax-and-demo-camera | full | 0 |
 
-Totals: 10 units audited, 8 full, 2 partial, 0 stub. 0 confirmed gaps. 2 high/medium claims were refuted and dropped (the high `.min(30)` look-down cap, refuted as a duplicate of an already-tracked, already-medium `terrain-fidelity-audit.md` gap with over-stated severity; the cross-level teleporter dest-discard, refuted as an already-tracked recombination with no reachability evidence).
+Totals: 10 units audited, 8 full, 2 partial, 0 stub. 0 confirmed gaps. 2 high/medium claims were refuted and dropped: the high `.min(30)` look-down cap (refuted as a duplicate of an already-tracked, already-medium `terrain-fidelity-audit.md` gap with over-stated severity), and the cross-level teleporter dest-discard (refuted as an already-tracked recombination with no reachability evidence).
 
 ## Confirmed gaps
 
@@ -53,12 +53,12 @@ Fixed 2026-06-13: `finish_respawn_camera_convergence` now requires the respawn l
 
 ## Already tracked
 
-- **Resolved `.min(30)` cap on `$FFFFFB58` disabled the entire look-down camera pan** (`loc_728C` / `loc_7772` / `loc_8C70` / `loc_8218`) — `terrain-fidelity-audit.md` lines 82-83, backlog row at line 99. Native now grows the accumulator past `$1E`; regression: `loc_8c12_refresh_opening_slice_increments_look_offset_past_threshold`.
-- **Resolved `loc_72A8`/`loc_728C` `subi.w #1,($FFFFFB58)` overshoot brake** (`loc_72A8` / `loc_728C`) — `terrain-fidelity-audit.md` lines 76-77, backlog row at line 106; the camera-audit duplicate above is now marked fixed.
-- **Same-level teleporter does not re-run the camera snap and smooth-follows instead of hard-snapping** (`loc_6E2` / `loc_11F48` / `loc_BCEA`) — `blocks-fidelity-audit.md` lines 69-70 and 110-111, cross-referenced to `level-loading-fidelity-audit.md` lines 205-206.
-- **FC29 header-PlayerStart skip helper unwired generically** (`loc_11BD2`) — `level-loading-fidelity-audit.md` line 117.
-- **Dead `initialise_camera_bootstrap_loc_11F48` helper** (`loc_11F48`) — `level-loading-fidelity-audit.md` line 191 (hygiene-only; inline math identical).
-- **Warp SFX / `$EE` flash omission** — `level-loading-fidelity-audit.md` lines 205-206.
+- **Resolved `.min(30)` cap on `$FFFFFB58` disabled the entire look-down camera pan** (`loc_728C` / `loc_7772` / `loc_8C70` / `loc_8218`): `terrain-fidelity-audit.md` lines 82-83, backlog row at line 99. Native now grows the accumulator past `$1E`; regression: `loc_8c12_refresh_opening_slice_increments_look_offset_past_threshold`.
+- **Resolved `loc_72A8`/`loc_728C` `subi.w #1,($FFFFFB58)` overshoot brake** (`loc_72A8` / `loc_728C`): `terrain-fidelity-audit.md` lines 76-77, backlog row at line 106; the camera-audit duplicate above is now marked fixed.
+- **Same-level teleporter does not re-run the camera snap and smooth-follows instead of hard-snapping** (`loc_6E2` / `loc_11F48` / `loc_BCEA`): `blocks-fidelity-audit.md` lines 69-70 and 110-111, cross-referenced to `level-loading-fidelity-audit.md` lines 205-206.
+- **FC29 header-PlayerStart skip helper unwired generically** (`loc_11BD2`): `level-loading-fidelity-audit.md` line 117.
+- **Dead `initialise_camera_bootstrap_loc_11F48` helper** (`loc_11F48`): `level-loading-fidelity-audit.md` line 191 (hygiene-only; inline math identical).
+- **Warp SFX / `$EE` flash omission**: `level-loading-fidelity-audit.md` lines 205-206.
 
 ## Backlog candidates
 
@@ -75,13 +75,13 @@ Fixed 2026-06-13: `finish_respawn_camera_convergence` now requires the respawn l
 
 Scout exclusions (out of scope by design, owned elsewhere):
 
-- **Camera_BG_X/Y parallax `>>2`** (`loc_72E2`) — render/weather-domain; the `camera_bg_scroll_loc_72e2` helper is `#[cfg(test)]`-only and faithfully reproduces the unsigned `lsr.l #2`, but the two `$FFFFF824`/`$FFFFF828` longs are written only at `loc_72E2` and read nowhere in the ROM (dead RAM). Live per-layer background scroll is the separate, properly-modelled `BackgroundScroll_ComputeShiftData`/`sub_30194` family in `level.rs`, which derives scroll from `background_scroll_longword`, not `Camera_BG_*`. Not a helper-unwired gap — the unwired helper corresponds to ROM-dead state.
-- **Demo / title hidden-camera-Y wrap preload rows** (`demo_1_hidden_camera_y`, `title_screen_hidden_camera_ramp_loc_1B51A`) — feed only render-only intro/title VDP scroll and advisory object-roster/scoreboard counts, not the live gameplay camera follow; the frame-60 `$FF00_0000` wrapped-negative `ORIGINAL_QUIRK` is consistent with the `sub_1C246`/`loc_1B51A` down-ramp and not plainly contradicted by the ASM.
-- **MurderWall crush damage model and invulnerability gating** — owned by `combat-fidelity-audit.md` (lines 39/42/105/106); MurderWall initial-X fractional divergence and palette-buffer dead helper owned by `weather-fidelity-audit.md` (lines 144/147).
+- **Camera_BG_X/Y parallax `>>2`** (`loc_72E2`): render/weather-domain. The `camera_bg_scroll_loc_72e2` helper is `#[cfg(test)]`-only and faithfully reproduces the unsigned `lsr.l #2`, but the two `$FFFFF824`/`$FFFFF828` longs are written only at `loc_72E2` and read nowhere in the ROM (dead RAM). Live per-layer background scroll is the separate, properly-modelled `BackgroundScroll_ComputeShiftData`/`sub_30194` family in `level.rs`, which derives scroll from `background_scroll_longword`, not `Camera_BG_*`. Not a helper-unwired gap: the unwired helper corresponds to ROM-dead state.
+- **Demo / title hidden-camera-Y wrap preload rows** (`demo_1_hidden_camera_y`, `title_screen_hidden_camera_ramp_loc_1B51A`): feed only render-only intro/title VDP scroll and advisory object-roster/scoreboard counts, not the live gameplay camera follow. The frame-60 `$FF00_0000` wrapped-negative `ORIGINAL_QUIRK` is consistent with the `sub_1C246`/`loc_1B51A` down-ramp and not plainly contradicted by the ASM.
+- **MurderWall crush damage model and invulnerability gating**: owned by `combat-fidelity-audit.md` (lines 39/42/105/106). MurderWall initial-X fractional divergence and palette-buffer dead helper owned by `weather-fidelity-audit.md` (lines 144/147).
 
 Units with ambiguity or theoretical-only notes (not flagged as gaps):
 
-- **Final post-velocity `.max(0).min(max_pos)` re-clamp on both axes** (physics.rs:925-927) — proven a no-op over the reachable state space (target pre-clamped to `[0,max_pos]`; edge nudges only move toward an in-bounds bound; smooth step clamped to ±8 toward an in-bounds target), and acknowledged in-code as a defensive guard. Not an invented saturation.
-- **X-axis target upper-clamp signedness** (`loc_720E` unsigned `bcs.s` vs native signed `.min()`) — diverges only if `max_pos < 0` (level width below `$140` / one screen), which is never reachable since width is always ≥1 screen. Theoretical-only.
-- **Look-offset add-before-vs-after the floor-at-0 clamp** (native adds offset before flooring `kid_y−$A0` to 0; ASM floors first then adds) — diverges only if Kid is simultaneously near the level ceiling and holding Down (`offset >= $1E`), which is not normally co-reachable; the ASM is effectively unambiguous and was not flagged. Would warrant an oracle probe only if that co-reachable state is demonstrated.
-- **Respawn settle "hidden frames" abstraction** — the ROM `Load_InGame` page-snaps the camera once with no hidden `sub_71E4` settle loop; the native settle construct is a port-specific approximation of where the camera would land after N real gameplay frames. The trajectory divergence underlying the +2px carry (#038) is the root cause and would benefit from an oracle probe of the real frame-by-frame fall for levels `0x24`/`0x51`.
+- **Final post-velocity `.max(0).min(max_pos)` re-clamp on both axes** (physics.rs:925-927): proven a no-op over the reachable state space (target pre-clamped to `[0,max_pos]`; edge nudges only move toward an in-bounds bound; smooth step clamped to +/-8 toward an in-bounds target), and acknowledged in-code as a defensive guard. Not an invented saturation.
+- **X-axis target upper-clamp signedness** (`loc_720E` unsigned `bcs.s` vs native signed `.min()`): diverges only if `max_pos < 0` (level width below `$140` / one screen), which is never reachable since width is always >=1 screen. Theoretical-only.
+- **Look-offset add-before-vs-after the floor-at-0 clamp** (native adds offset before flooring `kid_y-$A0` to 0; ASM floors first then adds): diverges only if Kid is simultaneously near the level ceiling and holding Down (`offset >= $1E`), which is not normally co-reachable. The ASM is effectively unambiguous and was not flagged. Would warrant an oracle probe only if that co-reachable state is demonstrated.
+- **Respawn settle "hidden frames" abstraction**: the ROM `Load_InGame` page-snaps the camera once with no hidden `sub_71E4` settle loop; the native settle construct is a port-specific approximation of where the camera would land after N real gameplay frames. The trajectory divergence underlying the +2px carry (#038) is the root cause and would benefit from an oracle probe of the real frame-by-frame fall for levels `0x24`/`0x51`.
