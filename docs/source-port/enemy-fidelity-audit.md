@@ -236,7 +236,7 @@ Fixed candidate: plain Tank nonfatal mouth/turret hits and Tank_Shooting turret 
 Fixed candidate: Tar burst children now enter the typed `TarMonsterBurstChild` projectile path, carry the ROM collision budget, and dispatch positive collision words through `loc_32682`/`off_32656` to halve/reflect X or Y, cross-write velocity pairs, or delete on the `$2C` table entry. Regressions: `tar_monster_burst_child_reflects_once_and_spends_budget_loc_32682`, `tar_monster_burst_child_deletes_when_collision_budget_spent_loc_32698`, `tar_monster_projectile_collision_loc_32682_returns_or_dispatches_positive_collisions`, `tar_monster_projectile_reflect_x_loc_326aa_halves_and_negates_x_velocity`, `tar_monster_projectile_reflect_y_loc_326b8_halves_and_negates_y_velocity`.
 
 **Tar_Monster — straight attack glob does not burst on impact** (`loc_324D0 / loc_324E6 / loc_324F8`)
-Glob should spawn 5 children on terrain contact; native pushes it with no terrain_kill, so it expires silently. `enemies.rs:20003-20015`, `projectiles.rs:1786-1811/1432-1436`, `combat.rs:7868`.
+Fixed candidate: straight globs are typed as `TarMonsterStraightGlob`, use terrain collision to enter the `loc_324E6` exit path, delete the original glob, and spawn the five `loc_324F8`/`loc_32534` burst children with the ROM velocity table. Regression: `tar_monster_straight_glob_bursts_on_terrain_contact_loc_324f8`.
 
 **Tornado — terrain collision uses simplified reversal; ceiling bounce missing** (`loc_35948`)
 Live step probes wall + floor (y_vel>0) only; no ceiling probe (loc_35146 path) so an upward-moving Tornado never reverses. `enemies.rs:11898-11902`, dispatch `enemies.rs:10645-10646` dead.
