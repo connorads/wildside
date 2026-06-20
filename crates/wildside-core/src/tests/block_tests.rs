@@ -10461,6 +10461,40 @@ mod chunk_04 {
     }
 
     #[test]
+    fn ninja_far_kid_turns_right_during_pacing_loc_3d92a_3d978() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.facing = Direction::Left;
+        let player_x = Some((100 + 0x81) << 16);
+        let player_y = Some(200 << 16);
+
+        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::TheKid);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Ninja.asm loc_3D92A -> loc_3D978 turns toward Kid when he is more than $80 px to the right"
+        );
+    }
+
+    #[test]
+    fn ninja_far_kid_turns_left_during_pacing_loc_3d92a_3d98a() {
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 200 << 16, 200 << 16, 2);
+        enemy.ninja_state = NinjaState::Stealth;
+        enemy.facing = Direction::Right;
+        let player_x = Some((200 - 0x81) << 16);
+        let player_y = Some(200 << 16);
+
+        step_ninja(&mut enemy, None, player_x, player_y, PlayerForm::TheKid);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Ninja.asm loc_3D92A -> loc_3D98A turns toward Kid when he is more than $80 px to the left"
+        );
+    }
+
+    #[test]
     fn ninja_red_stealth_still_triggers_overhead_jump_loc_3d706() {
         let mut enemy = test_enemy(EnemyFamily::Ninja, 100 << 16, 200 << 16, 2);
         enemy.ninja_state = NinjaState::Stealth;

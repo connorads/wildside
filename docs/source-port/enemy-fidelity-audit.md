@@ -207,7 +207,7 @@ Native handles only wall/floor contact during jump attack; ceiling reflection an
 2026-06-19 partial: live jump attack now probes ceiling contact and applies `loc_3DAB0` y-velocity negation. Still open: Kid-above `loc_3DA98`, side-contact `loc_3DB0A`, and the broader `loc_3DA0C` collision-word dispatch.
 
 **Ninja — far-Kid facing turn during pacing not applied** (`loc_3D92A / loc_3D978 / loc_3D98A`)
-ROM turns to face Kid when >$80 away; native sets facing only inside the attack trigger. `enemies.rs:16614-16641`, `enemies.rs:16306` test-only.
+Fixed candidate 2026-06-20: live `step_ninja` now applies the `loc_3D92A` far-Kid facing decision before pacing, turning right through `loc_3D978` and left through `loc_3D98A` when Kid is outside the inclusive +/-$80 px band. Regressions: `ninja_far_kid_turns_right_during_pacing_loc_3d92a_3d978`, `ninja_far_kid_turns_left_during_pacing_loc_3d92a_3d98a`.
 
 **Orca — wall-pinned lunge X-drift handled, but side-collision Berzerker re-lunge absent** (`loc_3D4DE`)
 Live path probes terrain only; never reads Kid side contact or Berzerker_charging during the lunge. (Wall-pin X-drift suppression is correctly implemented.) `enemies.rs:18657-18780/18694-18701/18739-18743`; gate `enemies.rs:1301/1096` test-only.

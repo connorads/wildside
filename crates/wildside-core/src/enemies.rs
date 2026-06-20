@@ -19057,6 +19057,18 @@ pub(crate) fn step_ninja(
                 return;
             }
 
+            // ASM Ninja.asm loc_3D92A / loc_3D978 / loc_3D98A: while pacing,
+            // turn toward Kid when he is outside the inclusive +/-$80 px band.
+            let far_kid_facing = ninja_far_kid_facing_loc_3d92a(
+                kid_minus_ninja_x,
+                matches!(enemy.facing, Direction::Right),
+            );
+            enemy.facing = if far_kid_facing.x_direction_right {
+                Direction::Right
+            } else {
+                Direction::Left
+            };
+
             // Pace like normal
             step_pacer(enemy, block_grid);
         }
