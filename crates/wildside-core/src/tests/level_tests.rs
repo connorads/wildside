@@ -22232,6 +22232,59 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn diamond_power_run_juggernaut_requires_five_way_ready_latch_loc_3f71e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+
+        runtime.progression.current_form = PlayerForm::Juggernaut;
+        runtime.progression.diamond_count = 10;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::None,
+            "ASM DiamondPower_Run Juggernaut branch checks FiveWayShotReady; Start+A alone cannot call DiamondPower_Init_FiveWayShot"
+        );
+        assert_eq!(
+            runtime.progression.diamond_count, 10,
+            "ASM DiamondPower_Init_FiveWayShot must not spend 5 diamonds unless sub_7428 armed FiveWayShotReady"
+        );
+        assert!(runtime.diamond_power_five_way_slots.is_empty());
+    }
+
+    #[test]
+    fn diamond_power_run_juggernaut_consumes_ready_latch_without_held_input_loc_3f71e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+
+        runtime.progression.current_form = PlayerForm::Juggernaut;
+        runtime.progression.diamond_count = 10;
+        runtime.five_way_shot_ready = true;
+
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.progression.diamond_power_type,
+            helmets::DiamondPowerType::FiveWayShot,
+            "ASM DiamondPower_Run branches from persistent FiveWayShotReady to DiamondPower_Init_FiveWayShot"
+        );
+        assert_eq!(
+            runtime.progression.diamond_count, 5,
+            "ASM DiamondPower_Init_FiveWayShot spends 5 diamonds from the ready-latch path"
+        );
+        assert_eq!(
+            runtime.diamond_power_five_way_slots.len(),
+            5,
+            "ASM loc_400DE/loc_400F4 seeds the five Five-Way DP-object slots"
+        );
+    }
+
+    #[test]
     fn juggernaut_five_way_shot_ready_sub_7428_requires_start_a_and_five_diamonds() {
         assert!(
             helmets::juggernaut_five_way_shot_ready_sub_7428(

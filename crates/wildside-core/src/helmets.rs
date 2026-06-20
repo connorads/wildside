@@ -1085,6 +1085,18 @@ pub(crate) fn juggernaut_five_way_shot_ready_sub_7428(
     current_form == PlayerForm::Juggernaut && input.start && input.a && diamond_count >= 5
 }
 
+impl NativeRuntime {
+    pub(crate) fn step_juggernaut_five_way_shot_ready_sub_7428(&mut self, input: FrameInput) {
+        if juggernaut_five_way_shot_ready_sub_7428(
+            self.progression.current_form,
+            input,
+            self.progression.diamond_count,
+        ) {
+            self.five_way_shot_ready = true;
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerObjectListsSub3F5E8 {
@@ -4923,6 +4935,7 @@ impl NativeRuntime {
                     self.progression.diamond_power_type = DiamondPowerType::None;
                     self.diamond_power_sprites.clear();
                     self.diamond_power_extra_hp_life_slots.clear();
+                    self.five_way_shot_ready = false;
                     return;
                 }
             }
@@ -4963,6 +4976,7 @@ impl NativeRuntime {
                 self.diamond_power_invuln_haze_slots.clear();
                 self.progression.diamond_power_frames = 0;
                 self.progression.diamond_power_type = DiamondPowerType::None;
+                self.five_way_shot_ready = false;
                 self.kid_is_invulnerable = false;
             }
             InvulnHazeFrameAction::Active { fade } => {
@@ -7263,6 +7277,7 @@ impl NativeRuntime {
                     self.diamond_power_extra_hp_life_slots.clear();
                     self.diamond_power_invuln_haze_slots.clear();
                     self.diamond_power_invuln_haze_timer = 0;
+                    self.five_way_shot_ready = false;
                     self.kid_is_invulnerable = false;
                     self.diamond_power_sprites.clear();
                 }
@@ -7272,21 +7287,25 @@ impl NativeRuntime {
 
         // Activation: Start+A held, not Eyeclops, 20+ diamonds
         // ASM: DiamondPower_Check (kid.asm:44357)
-        if !(input.start && input.a) {
-            return;
-        }
-        if self.progression.current_form == PlayerForm::Eyeclops {
-            return;
+        let juggernaut_ready =
+            self.progression.current_form == PlayerForm::Juggernaut && self.five_way_shot_ready;
+        if self.progression.current_form == PlayerForm::Juggernaut {
+            if !juggernaut_ready {
+                return;
+            }
+        } else {
+            if !(input.start && input.a) {
+                return;
+            }
+            if self.progression.current_form == PlayerForm::Eyeclops {
+                return;
+            }
         }
 
-        // ASM sub_7428 (kid.asm:7569) arms Juggernaut's 5-way shot once
-        // Start+A is held with 5+ diamonds; the shared DiamondPower_Run path
-        // then spends that reduced cost instead of the normal 20.
-        let cost = if juggernaut_five_way_shot_ready_sub_7428(
-            self.progression.current_form,
-            input,
-            self.progression.diamond_count,
-        ) {
+        // ASM DiamondPower_Run Juggernaut branch (kid.asm:44333): the
+        // persistent FiveWayShotReady byte diverts straight to
+        // DiamondPower_Init_FiveWayShot, whose init spends 5 diamonds.
+        let cost = if juggernaut_ready {
             5
         } else {
             20

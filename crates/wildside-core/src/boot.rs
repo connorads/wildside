@@ -5956,6 +5956,7 @@ impl NativeRuntime {
         self.progression.invulnerable_frames = 0;
         self.just_received_damage = false;
         self.progression.diamond_power_frames = 0;
+        self.five_way_shot_ready = false;
         self.progression.diamond_count = 0;
         self.paused = false;
         self.pause_menu_option = 0;

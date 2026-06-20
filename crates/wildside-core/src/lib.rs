@@ -257,6 +257,9 @@ pub struct NativeRuntime {
     diamond_power_extra_hp_life_slots: Vec<helmets::ExtraHPLifeSlot>,
     diamond_power_invuln_haze_slots: Vec<helmets::InvulnHazeSlot>,
     diamond_power_invuln_haze_timer: i16,
+    /// ROM `FiveWayShotReady` byte, armed by `sub_7428` from Juggernaut
+    /// player-state handlers and consumed later by `DiamondPower_Run`.
+    five_way_shot_ready: bool,
     /// ROM `KidIsInvulnerable` byte (`$FFFFFA2B`), set only by
     /// `DiamondPower_Init_Invulnerability loc_3FC78` and cleared by the shared
     /// Diamond Power reset tails. Damage flash uses `progression.invulnerable_frames`.
@@ -1651,6 +1654,7 @@ impl NativeRuntime {
             diamond_power_extra_hp_life_slots: Vec::new(),
             diamond_power_invuln_haze_slots: Vec::new(),
             diamond_power_invuln_haze_timer: 0,
+            five_way_shot_ready: false,
             kid_is_invulnerable: false,
             diamond_power_snake_head_angle: 0,
             diamond_power_snake_turn_rate: 0,
@@ -2716,6 +2720,10 @@ impl NativeRuntime {
                     // before object coroutines, Diamond Power, and Kid motion.
                     let _ = self.rom_random.next_long();
                 }
+                // ASM loc_7606 / loc_8C26 call sub_7428 after DiamondPower_Run
+                // but before the next frame consumes FiveWayShotReady. Use raw
+                // Ctrl_Held here; `gameplay_input` delays A for movement.
+                self.step_juggernaut_five_way_shot_ready_sub_7428(input);
                 // ASM loc_1AE2E only gates the later `Game_Mode=$000C`
                 // transition; the hidden mode-$0008 level-entry shell still
                 // runs the gameplay/object slice before that visible Start.

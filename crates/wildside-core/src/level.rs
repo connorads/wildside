@@ -18109,6 +18109,7 @@ impl NativeRuntime {
         self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_invuln_haze_slots.clear();
         self.diamond_power_invuln_haze_timer = 0;
+        self.five_way_shot_ready = false;
         self.kid_is_invulnerable = false;
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
@@ -18143,6 +18144,7 @@ impl NativeRuntime {
         self.progression.form_width_delta = 0;
         self.progression.diamond_power_frames = 0;
         self.progression.diamond_power_type = helmets::DiamondPowerType::None;
+        self.five_way_shot_ready = false;
         self.progression.invulnerable_frames = 0;
         self.just_received_damage = false;
         self.helmet.reset();
@@ -18267,6 +18269,7 @@ impl NativeRuntime {
         self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_invuln_haze_slots.clear();
         self.diamond_power_invuln_haze_timer = 0;
+        self.five_way_shot_ready = false;
         self.kid_is_invulnerable = false;
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
@@ -18481,6 +18484,7 @@ impl NativeRuntime {
         self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_invuln_haze_slots.clear();
         self.diamond_power_invuln_haze_timer = 0;
+        self.five_way_shot_ready = false;
         self.kid_is_invulnerable = false;
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
