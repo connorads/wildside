@@ -8038,7 +8038,7 @@ impl NativeRuntime {
         slice.player.y_velocity = if self.helmet.skycutter_on_board {
             0
         } else {
-            STOMP_BOUNCE_VELOCITY
+            pending.y_velocity
         };
         let rewound_x = i64::from(slice.player.x_pos) - i64::from(current_x_velocity);
         slice.player.x_pos = rewound_x.clamp(0, i64::from(u32::MAX)) as u32;
@@ -8097,6 +8097,14 @@ impl NativeRuntime {
         enemy.grounded_frames = DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES;
         enemy.x_velocity = 0;
         enemy.y_velocity = 0;
+    }
+
+    fn apply_big_hopping_skull_kid_bounce_loc_365d8(slice: &mut OpeningSliceState) {
+        // ASM Big_Hopping_Skull.asm loc_365D8:
+        // `move.w #$FFFD,$2A(a2)` writes only Kid's y-velocity high word.
+        slice.player.y_velocity =
+            big_hopping_skull_damage_entry_loc_365d8(2, slice.player.y_velocity).kid_y_velocity;
+        slice.player.on_ground = false;
     }
 
     pub(crate) fn apply_pending_enemy_collisions(&mut self) {
@@ -8552,6 +8560,21 @@ impl NativeRuntime {
                         changed_enemy_state = true;
                     }
                     TankUpdateRouteLoc3B41C::Walk => {}
+                }
+                continue;
+            }
+
+            if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
+                if matches!(collision.collision_type, 0x001C | 0x002C) {
+                    if let Some(mut slice) = self.opening_slice {
+                        Self::apply_big_hopping_skull_kid_bounce_loc_365d8(&mut slice);
+                        self.opening_slice = Some(slice);
+                    }
+                    if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
+                        kill_indices.push(active_idx);
+                    } else {
+                        changed_enemy_state = true;
+                    }
                 }
                 continue;
             }
@@ -10312,6 +10335,7 @@ impl NativeRuntime {
         let mut kill_indices = Vec::new();
         let mut pending_child_attachment_collisions = Vec::new();
         let mut pending_dragon_collisions = Vec::new();
+        let mut pending_stomp_y_velocity = STOMP_BOUNCE_VELOCITY;
         for &active_idx in &stomped_indices {
             if active_idx < self.active_enemies.len() {
                 let enemy = &mut self.active_enemies[active_idx];
@@ -10330,6 +10354,19 @@ impl NativeRuntime {
                     // enters the loc_3F200 landing loop instead of generic
                     // flash damage or immediate deletion.
                     enemy.start_mini_hopping_skull_air_damage_loc_3f1e6();
+                } else if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
+                    // ASM Big_Hopping_Skull.asm loc_365D8 writes Kid
+                    // y_vel.high=$FFFD before either the hit animation or
+                    // loc_3664E death path. Preserve the low word from the
+                    // contact frame when the pending bounce runs.
+                    pending_stomp_y_velocity = big_hopping_skull_damage_entry_loc_365d8(
+                        u16::from(enemy.hit_points),
+                        slice.player.y_velocity,
+                    )
+                    .kid_y_velocity;
+                    if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
+                        kill_indices.push(active_idx);
+                    }
                 } else if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                     kill_indices.push(active_idx);
                 } else {
@@ -10417,6 +10454,7 @@ impl NativeRuntime {
         self.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: frame_start_x_pos,
             anchor_y_pos: frame_start_y_pos,
+            y_velocity: pending_stomp_y_velocity,
             causes_contact_damage: stomp_bounce_causes_contact_damage,
         });
         true
@@ -13719,6 +13757,7 @@ impl NativeRuntime {
                     self.pending_stomp_bounce = Some(PendingStompBounce {
                         anchor_x_pos: frame_start_x_pos,
                         anchor_y_pos: frame_start_y_pos,
+                        y_velocity: STOMP_BOUNCE_VELOCITY,
                         causes_contact_damage: false,
                     });
                     self.opening_slice = Some(*slice);

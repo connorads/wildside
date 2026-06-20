@@ -161,10 +161,10 @@ Fixed candidate: live Archer firing reloads `ARCHER_SHOOTING_CYCLE_DELAY_FRAMES_
 Fixed candidate: live Archer now represents `Number_of_Arrows` as the count of live `EnemyProjectileKind::ArcherArrow` projectiles and blocks only when that count is already 2; the shared pool cap remains a secondary allocation guard. Regression: `archer_loc_34248_caps_only_live_archer_arrows`.
 
 **Big_Hopping_Skull — per-hit SFX cadence + kid-upward-bounce contact bug not driven** (`loc_365D8 / loc_365F2 / loc_36616 / loc_3664E`)
-ROM writes $2A(a2)=-3 to the Kid on every hurt/kidabove contact and plays groan/voice/dies SFX. Damage flows through generic process_stomps; the groan SFX at `combat.rs:6715` belongs to a boss routine. Helpers `enemies.rs:2947/2981/3004/3067` dead.
+Fixed candidate: accepted Big Hopping Skull hurt/Kid-above contacts now apply the `loc_365D8` Kid y-velocity high-word write (`$FFFD`) before the existing nonfatal `stru_367CC` hibernate and delayed `loc_365F2`/`loc_36616` groan/voice cues; terminal damage still enters `loc_3664E`. Regressions: `big_hopping_skull_stomp_uses_loc_365d8_kid_bounce_velocity`, `big_hopping_skull_pending_kidabove_applies_loc_365d8_kid_bounce`, `big_hopping_skull_nonfatal_damage_enters_stru_367cc_hibernate`, `big_hopping_skull_hit_animation_queues_stru_367cc_sounds_like_loc_365f2`, `maniaxe_axe_colid_hurt_queues_big_hopping_skull_death_sfx_loc_3664e`.
 
 **Big_Hopping_Skull — death respawn marker (EnemyStatus_Table[d0]=$2168) not written** (`loc_3664E / loc_36664 / loc_366A4 / loc_366B2`)
-Skull death uses generic killed_enemies set; only Dragon writes enemy_status_words on death. `combat.rs:7673-7674`, `combat.rs:7751-7754`, `enemies.rs:3150`.
+Fixed candidate: Big Hopping Skull death now waits through `stru_367FA`, then positive `$42(a5)` writes `$2168` to `EnemyStatus_Table` before `loc_366B2` deletion and the killed-enemy bit. Regression: `big_hopping_skull_death_waits_for_stru_367fa_animation_before_delete`.
 
 **Cloud — lightning projectile has fixed 31-frame lifetime instead of collision-bound persistence** (`loc_35DF0 / loc_35E8A`)
 ROM deletes only on collision_type≠0 or flag $19; native caps at 31 frames via the generic step. `enemies.rs:9869`, `projectiles.rs:1432-1439`; model fn `enemies.rs:9699` dead.

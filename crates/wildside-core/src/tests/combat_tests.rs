@@ -1436,6 +1436,78 @@ fn big_hopping_skull_contact_uses_live_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
+fn big_hopping_skull_stomp_uses_loc_365d8_kid_bounce_velocity() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    runtime.progression.current_form = PlayerForm::TheKid;
+    runtime.active_enemies = vec![test_enemy(
+        EnemyFamily::BigHoppingSkull,
+        0x0080_0000,
+        0x0100_0000,
+        3,
+    )];
+
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0080_0000;
+    slice.player.y_pos = 0x00EA_0000;
+    slice.player.x_velocity = 0;
+    slice.player.y_velocity = 0x0003_1234;
+    slice.player.on_ground = false;
+
+    let frame_start_x = slice.player.x_pos;
+    let frame_start_y = slice.player.y_pos;
+    assert!(
+        runtime.process_stomps(
+            &mut slice,
+            0x0003_1234,
+            frame_start_y,
+            frame_start_x,
+            frame_start_y,
+        ),
+        "ASM Big_Hopping_Skull.asm loc_365AC should route colid_kidabove to loc_365D8"
+    );
+    runtime.apply_pending_stomp_bounce(&mut slice);
+
+    assert_eq!(
+        slice.player.y_velocity,
+        i32::from_ne_bytes(0xFFFD_1234_u32.to_ne_bytes()),
+        "ASM Big_Hopping_Skull.asm loc_365D8 writes Kid y_vel.high=$FFFD and preserves the low word, instead of using the generic loc_B6DA stomp bounce"
+    );
+    assert_eq!(runtime.active_enemies[0].hit_points, 2);
+    assert_eq!(
+        runtime.active_enemies[0].grounded_frames,
+        BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8
+    );
+}
+
+#[test]
+fn big_hopping_skull_pending_kidabove_applies_loc_365d8_kid_bounce() {
+    let mut runtime = NativeRuntime::new(manifest());
+    start_level(&mut runtime);
+    let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 0x0080_0000, 0x0100_0000, 3);
+    skull.layout_index = 9;
+    let collision_target = skull;
+    runtime.active_enemies = vec![skull];
+    let mut slice = combat_slice();
+    slice.player.y_velocity = 0x0002_ABCD;
+    runtime.opening_slice = Some(slice);
+
+    runtime.queue_pending_enemy_collision(&collision_target, 0x002C);
+    runtime.apply_pending_enemy_collisions();
+
+    assert_eq!(
+        runtime.opening_slice.unwrap().player.y_velocity,
+        i32::from_ne_bytes(0xFFFD_ABCD_u32.to_ne_bytes()),
+        "ASM Big_Hopping_Skull.asm loc_365D8 applies the same Kid y-velocity word write from queued colid_kidabove"
+    );
+    assert_eq!(runtime.active_enemies[0].hit_points, 2);
+    assert_eq!(
+        runtime.active_enemies[0].grounded_frames,
+        BIG_HOPPING_SKULL_HIT_ANIMATION_FRAMES_LOC_365D8
+    );
+}
+
+#[test]
 fn big_hopping_skull_floor_wait_contact_uses_zero_collision_size_row_loc_1bce() {
     let mut skull = test_enemy(EnemyFamily::BigHoppingSkull, 101 << 16, 100 << 16, 3);
     skull.wait_timer = BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580;
@@ -19467,6 +19539,7 @@ mod chunk_03 {
         runtime.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: 0x0020_0000,
             anchor_y_pos: 0x0030_0000,
+            y_velocity: STOMP_BOUNCE_VELOCITY,
             causes_contact_damage: false,
         });
 

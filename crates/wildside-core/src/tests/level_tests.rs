@@ -19249,6 +19249,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         runtime.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: 0x0150_0000, // anchor integer 0x0150
             anchor_y_pos: 0x0180_0000, // anchor integer 0x0180
+            y_velocity: STOMP_BOUNCE_VELOCITY,
             causes_contact_damage: false,
         });
 
@@ -19305,6 +19306,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         runtime.pending_stomp_bounce = Some(PendingStompBounce {
             anchor_x_pos: 0x0150_0000,
             anchor_y_pos: 0x0180_0000,
+            y_velocity: STOMP_BOUNCE_VELOCITY,
             causes_contact_damage: false,
         });
 
