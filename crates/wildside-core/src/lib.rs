@@ -3243,6 +3243,7 @@ impl NativeRuntime {
                 .filter(|entry| entry.phase != DeferredPrizeBlockPhase::Deleted)
                 .map(|entry| (entry.col, entry.row, entry.phase))
                 .collect();
+            let hidden_block_cells_before_physics = self.hidden_block_reveal_cells_for_diff();
             // Helmet abilities that override normal gravity
             let custom_gravity = self.helmet.skycutter_on_board
                 || self.helmet.cyclone_flying
@@ -3857,6 +3858,9 @@ impl NativeRuntime {
             // Native has no persistent movement ID, so preserve the post
             // stand-up-check crawl-path decision for the later platform pass.
             platform_support_crawling = movement_input.down && slice.player.on_ground;
+            self.queue_hidden_block_reveal_bounces_from_diff(
+                hidden_block_cells_before_physics.as_deref(),
+            );
         }
         self.finish_deferred_ceiling_clears();
         // Wide spawn-support settling is a bootstrap/respawn helper, not

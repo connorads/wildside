@@ -7,6 +7,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-20 handoff (#352 fixed candidate)
+
+- **#352 hidden-block reveal/fold animation moved `[~]` -> `[?]`.** Live hidden-block headbutt reveals now queue `sfx_Reveal_Hidden_block` (`$12`) and spawn a `BlockBounceKind::HiddenReveal` worker with the ASM loc_E2E2/loc_E2F0 8-frame y-bob, so revealed cells have the fold/bob instead of instant pop-in. Trace exposes `BlockBounceTraceKind::HiddenReveal` for the renderer path. Verification: focused hidden-block/trace/block-bounce tests, `cargo fmt`, and `mise run verify-slice-fast` pass. `mise run verify-tas-full` keeps published TAS CRC parity across all 37759 frames; the state report still shows the known #290 object-count wording caveat. Human validation: hit hidden blocks on USM 0x04-0x06 or Highwater 0x02 and confirm the reveal animation is visible.
+- **NEXT**: continue with `mise run project-status`; #352 is no longer in the open queue. The current thrust remains audio (#264/#342/#272), block render (#324), entry presentation (#336/#348/#254/#210), then combat/render lifecycle (#343/#345/#346/#350).
+
 ## 2026-06-20 handoff (compressed from NOW)
 
 - **2026-06-20 playtest triage — 28-symptom human playthrough cross-referenced vs backlog + ASM (29-agent workflow). Docs-only; the user's "issues keep getting missed or denied" complaint is CORRECT and falls into 4 anti-patterns.** (1) **DENIED-by-parking**: P1 audio rows sat at `[?]` across 5+ playtests, each pass tweaking `AUDIO_QUEUE_TARGET_FRAMES` and re-blocking on "needs a real audio device" — the recurring human repro IS that device, so `[?]` is not defensible. (2) **MISSED start-without-stop wiring**: loop-stop helpers (`loc_107E0` clock $0E, `loc_3C46E` tank-drive $1F) ported as unit-tested but `#[cfg(not(test))]` dead code never called at runtime. (3) **PARKED-with-gate-unmet**: #324's own verify gate ("human forest retest") was treated as satisfied; the fresh High Water Pass repro proves it still breaks. (4) **MISSED-by-keyword-deflection**: triagers grep "dragon"/"tank", land on closed projectile rows, declare it solved. Also: several "green" tests assert MODEL state or use a native-as-oracle audit, so they pass while the human-visible RENDER/PITCH defect goes undetected — durable fixes need native-player render assertions + a real jgenesis WAV comparison, not more model-level tests.
@@ -1351,4 +1356,3 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   `verify-tas --scenario tests/data/tas/any-percent-published/scenario.json
   --frame-start 0 --checkpoint-interval 1 --bisect --frontier-kind gameplay`
   passes all 37759 frames by CRC.
-

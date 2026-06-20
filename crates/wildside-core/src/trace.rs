@@ -7688,6 +7688,7 @@ impl NativeRuntime {
                     remaining: b.remaining,
                     y_offset_px: b.y_offset_px,
                     kind: match b.kind {
+                        BlockBounceKind::HiddenReveal => BlockBounceTraceKind::HiddenReveal,
                         BlockBounceKind::Lift => BlockBounceTraceKind::Lift,
                         BlockBounceKind::Metal => BlockBounceTraceKind::Metal,
                         BlockBounceKind::Prize => BlockBounceTraceKind::Prize,

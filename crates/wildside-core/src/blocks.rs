@@ -3,6 +3,9 @@ use crate::combat::{
     CollisionRectSub1F52, heady_metal_cleanup_sub_378C8, support_overlap_detected_sub_1F52,
 };
 
+pub(crate) const HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0: [i16; 8] =
+    [-2, -2, -2, -2, 2, 2, 2, 2];
+
 #[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeBlockHeadbuttWorkerLoc1002E {
@@ -3775,6 +3778,66 @@ impl NativeRuntime {
         // invented same-frame reposition here.
     }
 
+    pub(crate) fn hidden_block_reveal_cells_for_diff(&self) -> Option<Vec<(u16, u16)>> {
+        self.block_grid.as_ref().map(|grid| {
+            let mut cells = Vec::new();
+            for row in 0..grid.height_cells {
+                for col in 0..grid.width_cells {
+                    if grid.cell_at(col, row).collision == terrain::CollisionKind::HiddenBlock {
+                        cells.push((col, row));
+                    }
+                }
+            }
+            cells
+        })
+    }
+
+    pub(crate) fn queue_hidden_block_reveal_bounces_from_diff(
+        &mut self,
+        hidden_cells_before_physics: Option<&[(u16, u16)]>,
+    ) {
+        let Some(hidden_cells_before_physics) = hidden_cells_before_physics else {
+            return;
+        };
+        let Some(grid) = self.block_grid.as_ref() else {
+            return;
+        };
+
+        let mut revealed_cells = Vec::new();
+        for &(col, row) in hidden_cells_before_physics {
+            let cell = grid.cell_at(col, row);
+            if cell.collision != terrain::CollisionKind::HiddenBlock && cell.has_block {
+                revealed_cells.push((col, row));
+            }
+        }
+
+        for (cell_x, cell_y) in revealed_cells {
+            if self.block_bounces.iter().any(|bounce| {
+                bounce.cell_x == cell_x
+                    && bounce.cell_y == cell_y
+                    && bounce.kind == BlockBounceKind::HiddenReveal
+                    && bounce.remaining > 0
+            }) {
+                continue;
+            }
+            // ASM sub_DFB0 -> loc_E29A/loc_E304 (kid.asm:17413, 17735,
+            // 17775): a hidden-block reveal allocates an 8-frame object that
+            // bobs up four frames then down four frames while the cell has
+            // already been rewritten from `$20xx` to the revealed block word.
+            self.queue_start_sequence(QueuedSoundEffect::HiddenBlockReveal);
+            self.block_bounces.push(BlockBounceAnim {
+                cell_x,
+                cell_y,
+                remaining: HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0.len() as u8,
+                initial_duration: HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0.len() as u8,
+                kind: BlockBounceKind::HiddenReveal,
+                prize_content: None,
+                metal_direction: 0,
+                y_offset_px: 0,
+            });
+        }
+    }
+
     #[allow(non_snake_case)]
     fn spawn_lift_platform_from_block_sub_FB3E(&mut self, col: u16, row: u16) {
         let x_px = col << 4;
@@ -4333,6 +4396,7 @@ impl NativeRuntime {
         for b in &mut self.block_bounces {
             let elapsed = b.initial_duration.saturating_sub(b.remaining);
             let delta_table: &[i16] = match b.kind {
+                BlockBounceKind::HiddenReveal => &HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0,
                 BlockBounceKind::Prize => &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A,
                 BlockBounceKind::Lift => Self::lift_block_bob_deltas_sub_FB3E(),
                 BlockBounceKind::Metal => {

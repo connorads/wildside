@@ -50,6 +50,7 @@ pub(crate) enum QueuedSoundEffect {
     VoiceDie,
     RubberBlock,
     MetalBlock,
+    HiddenBlockReveal,
     BerzerkerMovingBlock,
     PrizeBlock,
     EmoRockDisappears,
@@ -126,6 +127,11 @@ impl QueuedSoundEffect {
             // generic `sfx_Block_hit` headbutt heuristic, i.e. the brick-break
             // crunch).
             Self::MetalBlock => 0x12,
+            // ASM sub_DFB0 loc_E03A (kid.asm:17381) plays
+            // `sfx_Reveal_Hidden_block = $12` before allocating loc_E29A /
+            // loc_E304 reveal workers. The sound id intentionally aliases
+            // sfx_Metal_block in constants.asm.
+            Self::HiddenBlockReveal => 0x12,
             // ASM sub_1129C (kid.asm:23220): Berzerker moving metal-block
             // worker plays `sfx_Berzerker_moving_block = $10` once before
             // the first hibernate.

@@ -21966,6 +21966,24 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
         assert!(cell.has_block);
         assert_eq!(cell.block_type, terrain::BlockType::Metal);
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::HiddenBlockReveal],
+            "ASM sub_DFB0 loc_E03A (kid.asm:17381) plays sfx_Reveal_Hidden_block before the loc_E29A reveal worker starts",
+        );
+        assert_eq!(
+            runtime.block_bounces.len(),
+            1,
+            "ASM sub_DFB0 loc_E096/loc_E29A should spawn the live hidden-block reveal y-bob worker",
+        );
+        assert_eq!(runtime.block_bounces[0].kind, BlockBounceKind::HiddenReveal);
+        assert_eq!(runtime.block_bounces[0].remaining, 8);
+        assert_eq!(runtime.block_bounces[0].y_offset_px, 0);
+        assert_eq!(
+            runtime.trace_frame().block_bounce_details[0].kind,
+            BlockBounceTraceKind::HiddenReveal,
+            "renderer telemetry must preserve the hidden reveal worker kind instead of treating it as a prize wobble",
+        );
     }
 
     #[test]

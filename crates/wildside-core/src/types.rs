@@ -1894,6 +1894,7 @@ pub enum NativeContactPhase {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlockBounceTraceKind {
+    HiddenReveal,
     Lift,
     Metal,
     Prize,
@@ -1940,6 +1941,7 @@ pub(crate) struct BlockBounceAnim {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BlockBounceKind {
+    HiddenReveal,
     Lift,
     Metal,
     Prize,
