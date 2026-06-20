@@ -24056,6 +24056,73 @@ mod chunk_05 {
         }
     }
 
+    #[test]
+    fn eyeclops_beam_short_tables_all_dispatch_from_off_e560_loc_e512_e51a() {
+        let cases = [
+            ("unk_E570", 4, 0x0080, 0x0078, 0x0090),
+            ("unk_E596", 5, 0x0080, 0x0074, 0x0094),
+            ("unk_E5C4", 6, 0x0080, 0x0070, 0x0098),
+            ("unk_E5FA", 10, 0x0088, 0x006C, 0x009C),
+        ];
+
+        for (table_label, expected_len, first_x, top_y, bottom_y) in cases {
+            let sprites = helmets::eyeclops_beam_sprites_loc_E51A(
+                table_label,
+                0x0080,
+                0x0080,
+                0,
+                0,
+                0,
+            )
+            .unwrap_or_else(|| panic!("ASM off_E560 table {table_label} should decode"));
+
+            assert_eq!(
+                sprites.sprites.len(),
+                expected_len,
+                "ASM loc_E51A should emit every sprite before the `$8000` sentinel for {table_label}"
+            );
+            assert_eq!(
+                sprites.sprites[0].x, first_x,
+                "ASM loc_E54E adds each table X offset to the biased beam origin for {table_label}"
+            );
+            assert_eq!(
+                sprites.collision_top_y_word, top_y,
+                "ASM loc_E554 first post-sentinel word is the collision top offset for {table_label}"
+            );
+            assert_eq!(
+                sprites.collision_bottom_y_word, bottom_y,
+                "ASM loc_E554 second post-sentinel word is the collision bottom offset for {table_label}"
+            );
+        }
+    }
+
+    #[test]
+    fn eyeclops_normal_beam_survives_all_short_table_frames_loc_e512_e70a() {
+        let slice = combat_slice();
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Eyeclops;
+
+        runtime.step_eyeclops_beam(
+            &slice,
+            FrameInput {
+                c: true,
+                ..FrameInput::default()
+            },
+        );
+        assert!(runtime.helmet.eyeclops_beam_active);
+        assert_eq!(runtime.helmet.eyeclops_beam_counter, 1);
+
+        for expected_counter in 2..=5 {
+            runtime.step_eyeclops_beam(&slice, FrameInput::default());
+            assert!(
+                runtime.helmet.eyeclops_beam_active,
+                "ASM loc_E512 must dispatch short table for counter {} instead of clearing `$FFFFFAB8`",
+                expected_counter - 1
+            );
+            assert_eq!(runtime.helmet.eyeclops_beam_counter, expected_counter);
+        }
+    }
+
     /// ASM loc_7650 (kid.asm:7741–7746): look offset decays by 8 per frame
     /// when down is not held, clamped to 0.
     #[test]

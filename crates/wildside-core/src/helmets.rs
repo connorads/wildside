@@ -157,8 +157,27 @@ pub(crate) fn eyeclops_beam_sprites_loc_E51A(
     // `off_E560` table until `$8000`, add the biased beam origin, update the
     // VDP link byte from `Number_Sprites`, OR in d4's flip bit, and for
     // mirrored beams subtract both table X and the sprite width bucket.
-    let entries = match table_label {
-        "unk_E570" => &EYECLOPS_BEAM_TABLE_UNK_E570[..],
+    let (entries, collision_top_offset, collision_bottom_offset) = match table_label {
+        "unk_E570" => (
+            &EYECLOPS_BEAM_TABLE_UNK_E570[..],
+            EYECLOPS_BEAM_UNK_E570_TOP_Y,
+            EYECLOPS_BEAM_UNK_E570_BOTTOM_Y,
+        ),
+        "unk_E596" => (
+            &EYECLOPS_BEAM_TABLE_UNK_E596[..],
+            EYECLOPS_BEAM_UNK_E596_TOP_Y,
+            EYECLOPS_BEAM_UNK_E596_BOTTOM_Y,
+        ),
+        "unk_E5C4" => (
+            &EYECLOPS_BEAM_TABLE_UNK_E5C4[..],
+            EYECLOPS_BEAM_UNK_E5C4_TOP_Y,
+            EYECLOPS_BEAM_UNK_E5C4_BOTTOM_Y,
+        ),
+        "unk_E5FA" => (
+            &EYECLOPS_BEAM_TABLE_UNK_E5FA[..],
+            EYECLOPS_BEAM_UNK_E5FA_TOP_Y,
+            EYECLOPS_BEAM_UNK_E5FA_BOTTOM_Y,
+        ),
         _ => return None,
     };
 
@@ -192,9 +211,8 @@ pub(crate) fn eyeclops_beam_sprites_loc_E51A(
         number_sprites,
         // ASM loc_E554 (kid.asm:18084): after the `$8000` sentinel, the next
         // two words are added to d1 and carried as d5/d6 into the bounds path.
-        collision_top_y_word: screen_y_word.wrapping_add(i16_bits(EYECLOPS_BEAM_UNK_E570_TOP_Y)),
-        collision_bottom_y_word: screen_y_word
-            .wrapping_add(i16_bits(EYECLOPS_BEAM_UNK_E570_BOTTOM_Y)),
+        collision_top_y_word: screen_y_word.wrapping_add(i16_bits(collision_top_offset)),
+        collision_bottom_y_word: screen_y_word.wrapping_add(i16_bits(collision_bottom_offset)),
     })
 }
 
@@ -249,6 +267,153 @@ const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
 const EYECLOPS_BEAM_UNK_E570_TOP_Y: i16 = -0x08;
 #[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E570_BOTTOM_Y: i16 = 0x10;
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_TABLE_UNK_E596: [EyeclopsBeamTableEntryLocE51A; 5] = [
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -0x10,
+        size_word: 0x0900,
+        tile_word: 0xE676,
+        x_offset: 0,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE67E,
+        x_offset: 0,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE682,
+        x_offset: 8,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE686,
+        x_offset: 0x10,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 8,
+        size_word: 0x0900,
+        tile_word: 0xF676,
+        x_offset: 0,
+    },
+];
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_UNK_E596_TOP_Y: i16 = -0x0C;
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_UNK_E596_BOTTOM_Y: i16 = 0x14;
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_TABLE_UNK_E5C4: [EyeclopsBeamTableEntryLocE51A; 6] = [
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -0x10,
+        size_word: 0x0D00,
+        tile_word: 0xE676,
+        x_offset: 0,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE67E,
+        x_offset: 0,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE682,
+        x_offset: 8,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE686,
+        x_offset: 0x10,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0,
+        size_word: 0x0000,
+        tile_word: 0xE68A,
+        x_offset: 0x18,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 8,
+        size_word: 0x0D00,
+        tile_word: 0xF676,
+        x_offset: 0,
+    },
+];
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_UNK_E5C4_TOP_Y: i16 = -0x10;
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_UNK_E5C4_BOTTOM_Y: i16 = 0x18;
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_TABLE_UNK_E5FA: [EyeclopsBeamTableEntryLocE51A; 10] = [
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -0x14,
+        size_word: 0x0D00,
+        tile_word: 0xE676,
+        x_offset: 8,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -4,
+        size_word: 0x0000,
+        tile_word: 0xE67E,
+        x_offset: 8,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -4,
+        size_word: 0x0000,
+        tile_word: 0xE682,
+        x_offset: 0x10,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -4,
+        size_word: 0x0000,
+        tile_word: 0xE686,
+        x_offset: 0x18,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: -4,
+        size_word: 0x0000,
+        tile_word: 0xE68A,
+        x_offset: 0x20,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 4,
+        size_word: 0x0000,
+        tile_word: 0xE67E,
+        x_offset: 8,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 4,
+        size_word: 0x0000,
+        tile_word: 0xE682,
+        x_offset: 0x10,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 4,
+        size_word: 0x0000,
+        tile_word: 0xE686,
+        x_offset: 0x18,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 4,
+        size_word: 0x0000,
+        tile_word: 0xE68A,
+        x_offset: 0x20,
+    },
+    EyeclopsBeamTableEntryLocE51A {
+        y_offset: 0x0C,
+        size_word: 0x0D00,
+        tile_word: 0xF676,
+        x_offset: 8,
+    },
+];
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_UNK_E5FA_TOP_Y: i16 = -0x14;
+#[cfg_attr(not(test), allow(dead_code))]
+const EYECLOPS_BEAM_UNK_E5FA_BOTTOM_Y: i16 = 0x1C;
 
 #[cfg_attr(not(test), allow(dead_code))]
 fn i16_bits(value: i16) -> u16 {
