@@ -6296,11 +6296,17 @@ mod chunk_11 {
         assert!(rt.helmet.eyeclops_beam_hard);
         let diamonds_after_first = rt.progression.diamond_count;
 
-        // Second call with beam already active — should not re-arm or spend diamonds.
+        // Second call with beam already active — should not re-arm. The
+        // render/update path may still spend at sub_E49A loc_E7AC.
         rt.step_eyeclops_beam(&slice, input);
+        assert_ne!(
+            rt.helmet.eyeclops_beam_counter, 0x8001,
+            "ASM loc_8C26: tst.w ($FFFFFAB8); bne.s loc_8C70 — active beam must not re-arm back to `$8001`"
+        );
         assert_eq!(
-            rt.progression.diamond_count, diamonds_after_first,
-            "ASM loc_8C26: tst.w ($FFFFFAB8); bne.s loc_8C70 — no diamond spend on re-arm"
+            rt.progression.diamond_count,
+            diamonds_after_first - 2,
+            "ASM sub_E49A loc_E7AC may still spend diamonds on the active hard-beam render step"
         );
     }
 

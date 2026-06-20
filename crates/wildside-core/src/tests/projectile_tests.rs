@@ -5874,7 +5874,7 @@ mod chunk_06 {
     }
 
     #[test]
-    fn eyeclops_hard_beam_sub_e49a_consumes_two_diamonds() {
+    fn eyeclops_hard_beam_loc_e7ac_spends_after_arm_counter_decrements() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Eyeclops;
         rt.progression.diamond_count = 2;
@@ -5894,10 +5894,21 @@ mod chunk_06 {
         );
         assert!(rt.helmet.eyeclops_beam_hard);
         assert_eq!(
-            rt.progression.diamond_count, 0,
-            "ASM sub_E49A spends two diamonds when the hard beam starts"
+            rt.progression.diamond_count, 2,
+            "ASM loc_7606 only arms `$FFFFFAB8 = $8001`; loc_E7AC spends on the rendered hard-beam zero-width step"
         );
         assert_eq!(rt.projectiles.len(), 1);
+
+        rt.step_eyeclops_beam(&slice, FrameInput::default());
+
+        assert_eq!(
+            rt.helmet.eyeclops_beam_counter, 0x8002,
+            "ASM sub_E49A loc_E4B2 decrements `$8001` into d7=$8000, loc_E7AC spends, then loc_E972 increments `$FFFFFAB8`"
+        );
+        assert_eq!(
+            rt.progression.diamond_count, 0,
+            "ASM loc_E7AC subtracts two diamonds when the hard beam allocates at masked counter zero"
+        );
     }
 
     /// ASM loc_E70A/loc_E756/sub_E446 (kid.asm:18405/18440/17963): the live

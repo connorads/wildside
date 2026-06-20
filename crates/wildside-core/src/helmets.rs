@@ -6459,9 +6459,9 @@ impl NativeRuntime {
             && !self.helmet.eyeclops_beam_active
             && self.progression.diamond_count >= 2
         {
-            // ASM sub_E49A seeds `$FFFFFAB8` with `$8001` for the hard beam and
-            // immediately spends two diamonds before the beam object renders.
-            self.progression.diamond_count -= 2;
+            // ASM loc_7606 / loc_8C26 only arm `$FFFFFAB8 = $8001`; the
+            // two-diamond spend happens later in sub_E49A loc_E7AC when the
+            // render counter reaches the hard-beam zero-width step.
             self.helmet.eyeclops_beam_active = true;
             self.helmet.eyeclops_beam_counter = 0x8001;
             self.helmet.eyeclops_beam_hard = true;
@@ -6490,6 +6490,28 @@ impl NativeRuntime {
             fire_beam(self, beam_velocity);
             self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
         } else if self.helmet.eyeclops_beam_active {
+            if self.helmet.eyeclops_beam_hard {
+                // ASM sub_E49A loc_E4B2/loc_E7AC: decrement the live beam
+                // counter into d7, mask the hard-beam bit, and spend two
+                // diamonds only when the masked counter reaches zero.
+                let setup = eyeclops_beam_render_setup_loc_E4B2(
+                    self.helmet.eyeclops_beam_counter,
+                    if slice.player.facing == Direction::Right {
+                        0
+                    } else {
+                        0xFF
+                    },
+                );
+                if setup.beam_counter & 0x8000 != 0
+                    && let Some(allocation) = crate::level::eyeclops_hard_beam_gate_loc_E7AC(
+                        setup.beam_counter,
+                        self.progression.diamond_count,
+                    )
+                    .allocation
+                {
+                    self.progression.diamond_count = allocation.diamonds_after;
+                }
+            }
             self.helmet.eyeclops_beam_counter = self.helmet.eyeclops_beam_counter.wrapping_add(1);
             self.reveal_eyeclops_beam_hidden_blocks_loc_E70A(slice);
         }
