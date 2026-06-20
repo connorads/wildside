@@ -41,9 +41,9 @@ For the longer story, why it exists and how the agent loop actually worked, see
 | Windows | Untested |
 | Web (WASM) | 🚧 Planned |
 
-Desktop builds run on SDL2. The `apt-get` and build-from-source steps in the
-[command reference](docs/commands.md) only matter for development and the oracle,
-so skip them if you just want to play.
+Desktop builds run on SDL2. Development and oracle setup (system SDL2 deps, asset
+extraction, disassembly, emulator) is wired through `mise run bootstrap-*` and
+`mise run oracle-setup`; skip it if you just want to play.
 
 ## Quick start
 
@@ -58,8 +58,9 @@ mise run project-status       # repo health: 1p-playable / 1p-accurate signals
 mise run verify-slice-fast    # fast regression gate (run before committing)
 ```
 
-That is the everyday surface. The full catalogue lives in the
-[command reference](docs/commands.md).
+That is the everyday surface. For anything else, `wildside --help` and `mise tasks`
+list the rest — see the [command reference](docs/commands.md) for the pointer and
+the canonical gates.
 
 ## Status
 
@@ -76,7 +77,7 @@ signals apart so nobody reads a green gate as "nearly done".
 
 | You want to… | Read |
 | --- | --- |
-| See every command, controls, oracle workflow | [`docs/commands.md`](docs/commands.md) |
+| Look up any command (`--help` pointer) and the canonical gates | [`docs/commands.md`](docs/commands.md) |
 | Understand the crate layout and boundaries | [`docs/architecture.md`](docs/architecture.md) |
 | Understand the source-port research method | [`CLAUDE.md`](CLAUDE.md) · [`docs/source-port/reference-index.md`](docs/source-port/reference-index.md) |
 | Take a loop session / pick the next task | [`docs/source-port/loop.md`](docs/source-port/loop.md) · [`docs/source-port/backlog.md`](docs/source-port/backlog.md) |
