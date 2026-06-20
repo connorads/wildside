@@ -239,10 +239,10 @@ Fixed candidate: Tar burst children now enter the typed `TarMonsterBurstChild` p
 Fixed candidate: straight globs are typed as `TarMonsterStraightGlob`, use terrain collision to enter the `loc_324E6` exit path, delete the original glob, and spawn the five `loc_324F8`/`loc_32534` burst children with the ROM velocity table. Regression: `tar_monster_straight_glob_bursts_on_terrain_contact_loc_324f8`.
 
 **Tornado — terrain collision uses simplified reversal; ceiling bounce missing** (`loc_35948`)
-Live step probes wall + floor (y_vel>0) only; no ceiling probe (loc_35146 path) so an upward-moving Tornado never reverses. `enemies.rs:11898-11902`, dispatch `enemies.rs:10645-10646` dead.
+Fixed candidate: live Tornado terrain collision now routes through the `loc_35948` dispatch table, including wall bounce and floor/ceiling `loc_35146` vertical reflection. Regressions: `tornado_ceiling_collision_bounces_y_velocity_loc_35948`, `tornado_collision_dispatch_loc_35948_uses_tornado_table`.
 
 **Tornado — slope bounce (BounceUpSlope/BounceDownSlope) absent** (`loc_35948`)
-No slope detection or diagonal ±$10000 velocity assignment; only plain axis flips. `enemies.rs:11880-11903`, enum/mapping `enemies.rs:10646-10669` dead.
+Fixed candidate: the same `loc_35948` table now dispatches BounceUpSlope and BounceDownSlope to the shared UFO slope-bounce vectors instead of plain axis flips. Regressions: `tornado_slopeup_collision_uses_ufo_slope_bounce_loc_35948`, `tornado_slopedown_collision_uses_ufo_slope_bounce_loc_35948`.
 
 **UFO — collision-type bounce table dispatch not used** (`Enemy0F_UFO_ExecCollisionBehavior / loc_35056`)
 Live step does ad-hoc wall-only reversal; missing floor/ceiling bounce, slope reseed, and loc_350F2 rollback (3 of 4 bounce categories). `enemies.rs:10186-10202`, helpers `enemies.rs:10575/10576/10835/10853` dead.
