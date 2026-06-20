@@ -15020,6 +15020,145 @@ mod chunk_03 {
     }
 
     #[test]
+    fn mini_hopping_skull_pending_ground_side_collision_queues_scream_worker_loc_3f03c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 2);
+        skull.layout_index = 31;
+        skull.on_ground = true;
+        skull.grounded_frames = 10;
+        runtime.active_enemies = vec![skull];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: skull.segment_index,
+                layout_index: skull.layout_index,
+                collision_type: MINI_SKULL_COLID_GROUND_KIDLEFT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Mini_Hopping_Skull.asm loc_3F00A -> loc_3F03C queues contact sound without consuming HP"
+        );
+        assert_eq!(
+            runtime.pending_sound_effects.len(),
+            1,
+            "ASM Mini_Hopping_Skull.asm loc_3F03C allocates the delayed sub_3F3F0 scream worker"
+        );
+
+        for _ in 0..15 {
+            runtime.step_pending_sound_effects();
+        }
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::MiniHoppingSkullScream],
+            "ASM Mini_Hopping_Skull.asm sub_3F3F0 should play after the queued hibernate"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_pending_ground_hurt_collision_uses_ground_hit_path_loc_3f05c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 2);
+        skull.layout_index = 32;
+        skull.on_ground = true;
+        skull.grounded_frames = 10;
+        skull.x_velocity = 0x0001_8000;
+        skull.y_velocity = 0x0000_4000;
+        runtime.active_enemies = vec![skull];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: skull.segment_index,
+                layout_index: skull.layout_index,
+                collision_type: MINI_SKULL_COLID_GROUND_HURT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let skull = runtime.active_enemies[0];
+        assert_eq!(
+            skull.hit_points, 1,
+            "ASM Mini_Hopping_Skull.asm loc_3F05C decrements `$44(a3)` for grounded hurt contact"
+        );
+        assert_eq!(skull.x_velocity, 0);
+        assert_eq!(skull.y_velocity, 0);
+        assert_eq!(skull.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert_ne!(
+            skull.wait_timer, MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200,
+            "grounded hurt contact must not enter the airborne loc_3F1E6 landing loop"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_pending_air_hurt_collision_enters_loc_3f1e6_landing_loop() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 2);
+        skull.layout_index = 33;
+        skull.on_ground = false;
+        skull.x_velocity = 0x0001_8000;
+        runtime.active_enemies = vec![skull];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: skull.segment_index,
+                layout_index: skull.layout_index,
+                collision_type: MINI_SKULL_COLID_HURT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let skull = runtime.active_enemies[0];
+        assert_eq!(
+            skull.hit_points, 1,
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 decrements `$44(a3)` before the landing loop"
+        );
+        assert_eq!(skull.target_x_velocity, 0x0001_8000);
+        assert_eq!(skull.x_velocity, 0);
+        assert_eq!(skull.y_velocity, 0x0002_8800);
+        assert_eq!(
+            skull.wait_timer, MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200,
+            "ASM Mini_Hopping_Skull.asm loc_3F1E6 should enter the loc_3F200 landing loop"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_pending_air_side_collision_enters_berzerker_launch_loc_3f262() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 2);
+        skull.layout_index = 34;
+        skull.on_ground = false;
+        skull.x_velocity = 0x0001_8000;
+        runtime.active_enemies = vec![skull];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: skull.segment_index,
+                layout_index: skull.layout_index,
+                collision_type: MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let skull = runtime.active_enemies[0];
+        assert_eq!(skull.hit_points, 2);
+        assert_eq!(skull.x_velocity, 0);
+        assert_eq!(skull.y_velocity, -0x0004_8000);
+        assert!(!skull.on_ground);
+        assert_eq!(
+            skull.wait_timer, MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288,
+            "ASM Mini_Hopping_Skull.asm loc_3F262 should enter the loc_3F288 launch loop"
+        );
+    }
+
+    #[test]
     fn crab_death_waits_for_stru_3af82_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut crab = test_enemy(EnemyFamily::Crab, 0x0080_0000, 0x0040_0000, 1);

@@ -8381,6 +8381,82 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
+                let route =
+                    if enemy.wait_timer == MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200 {
+                        MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
+                    } else if enemy.on_ground {
+                        // ASM Mini_Hopping_Skull.asm loc_3EB0E/loc_3EC48/
+                        // loc_3F00A/loc_3F0A8: every grounded wait/pause loop
+                        // consumes Kid collision words before its DBF tail.
+                        mini_hopping_skull_stopped_wait_collision_loc_3f00a(
+                            collision.collision_type,
+                            berzerker_charging,
+                        )
+                    } else {
+                        // ASM Mini_Hopping_Skull.asm loc_3EAB2 -> loc_3F1B8:
+                        // airborne Kid collision words split into damage,
+                        // side-contact Berzerker gate, or scream-worker contact.
+                        match collision.collision_type {
+                            MINI_SKULL_COLID_HURT | MINI_SKULL_COLID_GROUND_HURT => {
+                                MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
+                            }
+                            MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+                                mini_hopping_skull_air_side_contact_loc_3f244(berzerker_charging)
+                            }
+                            collision_type if collision_type >= MINI_SKULL_COLID_HURT => {
+                                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+                            }
+                            _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+                        }
+                    };
+
+                match route {
+                    MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait => {}
+                    MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull => {
+                        if enemy.on_ground {
+                            let remaining_hp = u16::from(enemy.hit_points).wrapping_sub(1);
+                            if remaining_hp == 0 {
+                                kill_indices.push(active_idx);
+                            } else {
+                                // ASM Mini_Hopping_Skull.asm loc_3F05C/
+                                // loc_3F0FA: nonfatal grounded contact clears
+                                // motion and hibernates through `stru_3E9C2`.
+                                enemy.hit_points = remaining_hp.min(u16::from(u8::MAX)) as u8;
+                                enemy.x_velocity = 0;
+                                enemy.y_velocity = 0;
+                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                changed_enemy_state = true;
+                            }
+                        } else {
+                            // ASM Mini_Hopping_Skull.asm loc_3F1E6: airborne
+                            // hurt/above contact enters the landing damage
+                            // loop rather than the grounded hit animation.
+                            enemy.start_mini_hopping_skull_air_damage_loc_3f1e6();
+                            changed_enemy_state = true;
+                        }
+                    }
+                    MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker => {
+                        // ASM Mini_Hopping_Skull.asm loc_3F03C/loc_3F244:
+                        // side/below contact allocates delayed `sub_3F3F0`.
+                        self.queue_mini_hopping_skull_scream(false);
+                    }
+                    MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull => {
+                        // ASM Mini_Hopping_Skull.asm loc_3F262: charging
+                        // Berzerker side contact bypasses HP damage and
+                        // launches the skull into the loc_3F288 loop.
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = -0x0004_8000;
+                        enemy.on_ground = false;
+                        enemy.wait_timer =
+                            MINI_HOPPING_SKULL_CHARGING_BERZERKER_WAIT_TIMER_LOC_3F288;
+                        enemy.damage_flash_frames = 0;
+                        changed_enemy_state = true;
+                    }
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::Scorpion) {
                 match scorpion_collision_dispatch_loc_3dcb0(collision.collision_type as i16) {
                     ScorpionCollisionRouteLoc3DCB0::Death => {

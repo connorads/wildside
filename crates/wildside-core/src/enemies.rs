@@ -2561,29 +2561,29 @@ pub(crate) enum MiniHoppingSkullAirSprite {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_RIGHTWALL: u16 = 0x0004;
+pub(crate) const MINI_SKULL_COLID_RIGHTWALL: u16 = 0x0004;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_LEFTWALL: u16 = 0x0008;
+pub(crate) const MINI_SKULL_COLID_LEFTWALL: u16 = 0x0008;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_FLOOR: u16 = 0x000C;
+pub(crate) const MINI_SKULL_COLID_FLOOR: u16 = 0x000C;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_CEILING: u16 = 0x0010;
+pub(crate) const MINI_SKULL_COLID_CEILING: u16 = 0x0010;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_SLOPEUP: u16 = 0x0014;
+pub(crate) const MINI_SKULL_COLID_SLOPEUP: u16 = 0x0014;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_SLOPEDOWN: u16 = 0x0018;
+pub(crate) const MINI_SKULL_COLID_SLOPEDOWN: u16 = 0x0018;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_HURT: u16 = 0x001C;
+pub(crate) const MINI_SKULL_COLID_HURT: u16 = 0x001C;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_GROUND_KIDABOVE: u16 = 0x001C;
+pub(crate) const MINI_SKULL_COLID_GROUND_KIDABOVE: u16 = 0x001C;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_GROUND_KIDLEFT: u16 = 0x0020;
+pub(crate) const MINI_SKULL_COLID_GROUND_KIDLEFT: u16 = 0x0020;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_GROUND_KIDRIGHT: u16 = 0x0024;
+pub(crate) const MINI_SKULL_COLID_GROUND_KIDRIGHT: u16 = 0x0024;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_GROUND_KIDBELOW: u16 = 0x0028;
+pub(crate) const MINI_SKULL_COLID_GROUND_KIDBELOW: u16 = 0x0028;
 #[cfg_attr(not(test), allow(dead_code))]
-const MINI_SKULL_COLID_GROUND_HURT: u16 = 0x002C;
+pub(crate) const MINI_SKULL_COLID_GROUND_HURT: u16 = 0x002C;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
