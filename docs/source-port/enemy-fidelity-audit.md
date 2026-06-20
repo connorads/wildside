@@ -248,7 +248,7 @@ Fixed candidate: the same `loc_35948` table now dispatches BounceUpSlope and Bou
 Fixed candidate: live UFO terrain contact now routes through `loc_35056`, including wall, floor/ceiling, BounceUpSlope, and BounceDownSlope behaviours; slope cases run the `loc_350F2` rollback before reseeding the diagonal bounce vectors. Regressions: `ufo_floor_collision_uses_loc_35056_floorceil_bounce`, `ufo_ceiling_collision_uses_loc_35056_floorceil_bounce`, `ufo_slopeup_collision_uses_loc_35056_slope_bounce`, `ufo_slopedown_collision_uses_loc_35056_slope_bounce`, `ufo_collision_dispatch_matches_loc_35056`.
 
 **UFO — random beam trigger uses a non-ROM position hash** (`Enemy0F_UFO_ChkLoadBeam`)
-Native uses `(x_pos+wait_timer)*2654435761>>24 < 4` (4/256) instead of `Get_RandomNumber_byte <= 4` (5/256), and never consumes the ROM RNG stream. `enemies.rs:10348-10356`.
+Fixed candidate: random beam starts now consume the ROM RNG stream and use the `Get_RandomNumber_byte <= 4` gate from `Enemy0F_UFO_ChkLoadBeam`, rather than the old position hash. Regressions: `ufo_random_beam_uses_rom_rng_byte_loc_34f8e`, `ufo_random_beam_gate_matches_loc_34f8e_rng_threshold`.
 
 ## Reading
 
