@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-20 handoff (#289 stale X rejected)
+
+- **#289 stays `[~]`, but the Level 0x07 X lead is rejected.** Generated fresh local recording `issue289-level07-idle-current` and ran `verify-recording --slug issue289-level07-idle-current`: report has `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`. The earlier `native=$02118000` / `oracle=$02058000` Lion X note came from a stale/missing route and is not current state-oracle evidence. Temporary attempts to pin that X in `level07_recording_settle_lion_survives_frame0_offledge_fall_loc_3e7ca` and to alter Lion settle/movement were reverted.
+- **NEXT**: continue with `mise run project-status`; if it returns #289 again, inspect `.cache/recordings/issue289-level07-idle-current/verify/` pixel diffs or capture the original live hell-route symptom before touching header/start/layout code. #345 Lion vanish remains separate.
+
+---
+
 ## 2026-06-20 handoff (#289 partial Lion survival)
 
 - **#289 stays `[~]`, with one Level 0x07 Lion subcase fixed.** Native no longer routes the lower Lion's settled frame-0 off-ledge charge fall through `Lion.asm loc_3E94E` when the body terrain scan only overlaps the floor row at the feet. The replacement cache-backed regression now asserts the oracle-backed survival state (`y=$02C0_0000`, HP 6, Kid HP 2, no damage) instead of the stale projectile/body-contact timing claims. Fresh `verify-tas` still reports first divergence at frame 0, but now only on the remaining X-position/grounding/export details (`native x=$02118000`, `oracle x=$02058000`); broader #289 hell spawn/layout work remains open. Verification: focused Level 0x07 Lion regression, Level 0x06 Flying Dragon guard, Lion terrain/floor-edge tests, `verify-slice-fast`, and `verify-tas-full` (exit 0; CRC all 37759 frames match, current baseline state-report divergences still begin at `transition_15_to_00_post`).
