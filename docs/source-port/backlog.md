@@ -27,18 +27,23 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live lanes;
   file order is not priority). Current focus is still #289 because it remains `[~]`.
-- **#289 current evidence**: Level 0x07's lower Lion no longer dies during the
-  settled frame-0 off-ledge charge fall, and the earlier X-position lead is now
-  rejected as stale. Fresh local recording `issue289-level07-idle-current` reports
-  `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; remaining
-  work is visual/pixel parity and the broader human hell-theme wrong-start/layout report.
-- **Next #289 action**: inspect the fresh Level 0x07 pixel diffs in
-  `.cache/recordings/issue289-level07-idle-current/verify/` or capture the original live
-  hell route before touching header/start/layout code. Do not treat #345 Lion mid-level
-  vanish as closed by this; that row still needs the scroll-off/scroll-back cull probe.
-- **Gates this session**: no code change. Focused stale-X assertion attempts were
-  reverted; fresh `verify-recording --slug issue289-level07-idle-current` is state-clean
-  and pixel-red.
+- **#289 current evidence**: Level 0x07 Lion projectile Kid collision now uses the
+  ROM sprite collision row (`Lion.asm loc_3E12A` -> `stru_3DF34` ->
+  `CollisionSize_Index[667..669]`/`unk_31944`) and no longer deletes the shot on
+  side/below damage (`loc_3E192` only deletes `colid_kidabove`/`colid_hurt`). Fresh
+  local recording `issue289-level07-idle-current` reports `trace_match=true`,
+  `oracle_state_match=true`, `oracle_frame_match=false`; native keeps the projectile
+  alive, but its trajectory is still wrong (native drifts down-left; oracle is above/right).
+- **Next #289 action**: trace `Lion.asm loc_3E192`/`loc_3E260` terrain-bounce path for the
+  Level 0x07 projectile after damage. At frame 60 native has the projectile near
+  `(325,754)`, while oracle raw object slot `0xffff0f70` is at `(427,649)`; this is now
+  the concrete pixel-red lead before touching broader header/start/layout code. Do not
+  treat #345 Lion mid-level vanish as closed by this; that row still needs the
+  scroll-off/scroll-back cull probe.
+- **Gates this session**: focused `cargo test -p wildside-core projectile --lib`, fresh
+  `verify-recording --slug issue289-level07-idle-current` (state-clean/pixel-red),
+  `mise run verify-slice-fast` passed. `mise run verify-tas-full` exited 0 but still
+  reports existing authoritative object-count divergences starting around frame 7850.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.
@@ -72,7 +77,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-20: fresh Level 0x07 settled idle recording is oracle state-clean; remaining evidence is pixel-red plus broader human hell-route layout report. (full history: archive #289) |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-20: Level 0x07 Lion projectile collision/lifecycle now follows `unk_31944` and stays alive after side/below damage; recording remains state-clean/pixel-red on projectile trajectory. (full history: archive #289) |
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | Bisect the recent regression; capture cold-boot frames 130..260 vs an oracle Blue Lake Woods 1 cold-boot recording. Suspect EARLY_START_LEVEL_ONE_BOOTSTRAP_* / LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y (trace.rs:6089/6163). See archive #336. |

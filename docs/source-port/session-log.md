@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-20 handoff (#289 Lion projectile collision/lifecycle narrowed)
+
+- **#289 stays `[~]`, with Level 0x07 Lion projectile collision/lifecycle partially fixed.** Native now uses the projectile's ROM sprite collision row (`Lion.asm loc_3E12A` -> `stru_3DF34` -> `CollisionSize_Index[667..669]`/`unk_31944`) instead of the generic hostile-projectile centre window, so frame 28's old `dx=11 dy=-17` candidate is correctly `overlap=0`. Side/below damage no longer deletes the shot; `Lion.asm loc_3E192` only deletes on `colid_kidabove`/`colid_hurt`. Fresh `issue289-level07-idle-current` still reports `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; damage latches at frame 29 and native keeps the projectile alive.
+- **NEXT**: continue #289 by tracing the Lion projectile terrain-bounce/trajectory path after damage. The remaining concrete mismatch is visual/trajectory: at frame 60 native projectile is around `(325,754)`, while oracle raw object slot `0xffff0f70` is `(427,649)`; frame diffs remain `7285/7515` changed pixels. Do not close #345 from this; that is still the separate Lion scroll-off/scroll-back vanish probe. Verification this session: `cargo test -p wildside-core projectile --lib`; regenerated + verified `issue289-level07-idle-current` (state-clean/pixel-red); `mise run verify-slice-fast`. `mise run verify-tas-full` exited 0 and CRC-matched all frames, but still reports existing authoritative object-count divergences from around frame 7850.
+
+---
+
 ## 2026-06-20 handoff (#289 stale X rejected)
 
 - **#289 stays `[~]`, but the Level 0x07 X lead is rejected.** Generated fresh local recording `issue289-level07-idle-current` and ran `verify-recording --slug issue289-level07-idle-current`: report has `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`. The earlier `native=$02118000` / `oracle=$02058000` Lion X note came from a stale/missing route and is not current state-oracle evidence. Temporary attempts to pin that X in `level07_recording_settle_lion_survives_frame0_offledge_fall_loc_3e7ca` and to alter Lion settle/movement were reverted.

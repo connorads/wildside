@@ -3452,6 +3452,10 @@ impl NativeRuntime {
         let px = (slice.player.x_pos >> 16) as i32;
         let py = (slice.player.y_pos >> 16) as i32;
         let half = PROJECTILE_HITBOX_HALF;
+        let player_bounds = projectile_player_bounds_px_loc_1c18(
+            slice.player,
+            self.progression.current_form.half_width(),
+        );
         self.projectiles.iter().any(|p| {
             if matches!(
                 p.kind,
@@ -3472,9 +3476,9 @@ impl NativeRuntime {
             }
             if p.kind == EnemyProjectileKind::ShooterBlock {
                 return shooter_block_can_damage_player_loc_edfa((p.y_pos >> 16) as i32 - py)
-                    && projectile_overlaps_player_loc_1c18(p, px, py, half);
+                    && projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds);
             }
-            projectile_overlaps_player_loc_1c18(p, px, py, half)
+            projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds)
         }) || self.fire_demon_trails.iter().any(|trail| {
             let prx = (trail.x_pos >> 16) as i32;
             let pry = (trail.y_pos >> 16) as i32;
@@ -3490,6 +3494,10 @@ impl NativeRuntime {
         let px = (slice.player.x_pos >> 16) as i32;
         let py = (slice.player.y_pos >> 16) as i32;
         let half = PROJECTILE_HITBOX_HALF;
+        let player_bounds = projectile_player_bounds_px_loc_1c18(
+            slice.player,
+            self.progression.current_form.half_width(),
+        );
         let mut contact = ProjectilePlayerContactLocB640::None;
         let mut released_owners = Vec::new();
         let stomp_registration_blocked = self.stomp_registration_blocked_loc_1ce4(slice.player);
@@ -3531,27 +3539,25 @@ impl NativeRuntime {
             }
             let prx = (p.x_pos >> 16) as i32;
             let pry = (p.y_pos >> 16) as i32;
-            let overlaps = projectile_overlaps_player_loc_1c18(p, px, py, half);
+            let overlaps = projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds);
             if overlaps {
-                if contact == ProjectilePlayerContactLocB640::None {
-                    contact = if p.kind == EnemyProjectileKind::ShooterBlock {
-                        // ASM Process_ShooterObjects loc_EDFA..loc_EF62 is a
-                        // shooter-object worker, not a normal enemy object
-                        // entering Character_CheckCollision/off_B640. Oracle
-                        // issue-277 frames 88-90 show an upward shard ignored
-                        // while below Kid, then damaging once it reaches the
-                        // body; it never routes to Jump_On_Enemy.
-                        if shooter_block_can_damage_player_loc_edfa(pry - py) {
-                            ProjectilePlayerContactLocB640::Damage
-                        } else {
-                            ProjectilePlayerContactLocB640::None
-                        }
+                let projectile_contact = if p.kind == EnemyProjectileKind::ShooterBlock {
+                    // ASM Process_ShooterObjects loc_EDFA..loc_EF62 is a
+                    // shooter-object worker, not a normal enemy object
+                    // entering Character_CheckCollision/off_B640. Oracle
+                    // issue-277 frames 88-90 show an upward shard ignored
+                    // while below Kid, then damaging once it reaches the
+                    // body; it never routes to Jump_On_Enemy.
+                    if shooter_block_can_damage_player_loc_edfa(pry - py) {
+                        ProjectilePlayerContactLocB640::Damage
                     } else {
-                        projectile_player_contact_kind_loc_b640(
-                            pry - py,
-                            stomp_registration_blocked,
-                        )
-                    };
+                        ProjectilePlayerContactLocB640::None
+                    }
+                } else {
+                    projectile_player_contact_kind_loc_b640(pry - py, stomp_registration_blocked)
+                };
+                if contact == ProjectilePlayerContactLocB640::None {
+                    contact = projectile_contact;
                 }
                 if self.last_projectile_damage_probe.is_none() {
                     let dx = prx - px;
@@ -3576,7 +3582,7 @@ impl NativeRuntime {
                         owner,
                     ));
                 }
-                if contact == ProjectilePlayerContactLocB640::None {
+                if projectile_contact == ProjectilePlayerContactLocB640::None {
                     true
                 } else if p.kind == EnemyProjectileKind::ShooterBlock {
                     // ASM Process_ShooterObjects loc_EF62 writes the sprite and
@@ -3584,15 +3590,16 @@ impl NativeRuntime {
                     // not delete the shooter slot.
                     true
                 } else if p.kind == EnemyProjectileKind::LionProjectile {
-                    // ASM Lion.asm loc_3E192 -> sub_3E2CE keeps the child
-                    // object count-visible for the current collision frame;
-                    // native removes and releases parent `$5B` during the
-                    // following projectile step when this zero lifetime is
-                    // observed.
-                    self.lion_projectile_object_only_tail_count = self
-                        .lion_projectile_object_only_tail_count
-                        .saturating_add(1);
-                    p.lifetime = 0;
+                    if projectile_contact == ProjectilePlayerContactLocB640::StompBounce {
+                        // ASM Lion.asm loc_3E192 deletes only `colid_kidabove`
+                        // and `colid_hurt`. Side/below contacts route Kid
+                        // through off_B640 damage but leave the child object
+                        // alive to continue homing.
+                        self.lion_projectile_object_only_tail_count = self
+                            .lion_projectile_object_only_tail_count
+                            .saturating_add(1);
+                        p.lifetime = 0;
+                    }
                     true
                 } else if p.kind == EnemyProjectileKind::FireDemonDeathTrail
                     || p.kind == EnemyProjectileKind::FireballTrail
@@ -3635,14 +3642,61 @@ impl NativeRuntime {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ProjectilePlayerBoundsPx {
+    left: i32,
+    right: i32,
+    top: i32,
+    bottom: i32,
+}
+
+fn projectile_player_bounds_px_loc_1c18(
+    player: PlayerState,
+    player_half_width_px: i32,
+) -> ProjectilePlayerBoundsPx {
+    let x = (player.x_pos >> 16) as i32;
+    let y = (player.y_pos >> 16) as i32;
+    ProjectilePlayerBoundsPx {
+        left: x - player_half_width_px,
+        right: x + player_half_width_px,
+        top: y - PLAYER_HEIGHT,
+        bottom: y,
+    }
+}
+
+fn inclusive_bounds_overlap_loc_1bce(
+    left: i32,
+    right: i32,
+    top: i32,
+    bottom: i32,
+    player: ProjectilePlayerBoundsPx,
+) -> bool {
+    left <= player.right && right >= player.left && top <= player.bottom && bottom >= player.top
+}
+
 fn projectile_overlaps_player_loc_1c18(
     projectile: &EnemyProjectile,
     player_x_px: i32,
     player_y_px: i32,
     half: i32,
+    player_bounds: ProjectilePlayerBoundsPx,
 ) -> bool {
     let prx = (projectile.x_pos >> 16) as i32;
     let pry = (projectile.y_pos >> 16) as i32;
+    if projectile.kind == EnemyProjectileKind::LionProjectile {
+        // ASM Lion.asm loc_3E12A uses `stru_3DF34`, whose frames
+        // LnkTo_unk_C7E20/C7E28/C7E30 map via CollisionSize_Index[667..669]
+        // to `unk_31944`: left -5, width 9, top -5, height 9. The ROM's
+        // GfxObjects_CollisionKid loc_1BCE rejects only with strict bgt/blt
+        // misses, so touching edges still overlap.
+        return inclusive_bounds_overlap_loc_1bce(
+            prx - 5,
+            prx + 4,
+            pry - 5,
+            pry + 4,
+            player_bounds,
+        );
+    }
     let x_overlaps = if projectile.kind == EnemyProjectileKind::DripsSurfaceCrawler {
         // ASM Drips.asm loc_33650/loc_33550 reads the collision word
         // already produced by GfxObjects_CollisionKid, whose inclusive

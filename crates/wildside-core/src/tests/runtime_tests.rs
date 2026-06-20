@@ -15190,6 +15190,58 @@ mod chunk_09 {
     }
 
     #[test]
+    fn lion_projectile_collision_uses_sprite_row_unk_31944_and_misses_issue_289_gap() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut projectile = make_projectile(459, 687);
+        projectile.kind = EnemyProjectileKind::LionProjectile;
+        rt.projectiles.push(projectile);
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 448 << 16;
+        slice.player.y_pos = 703 << 16;
+        rt.opening_slice = Some(slice);
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM Lion.asm loc_3E12A -> stru_3DF34 maps C7E20/C7E28/C7E30 to CollisionSize_Index row unk_31944 (-5,9,-5,9); at issue-289 frame 28 the projectile box starts one pixel right of Kid_hitbox_right"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Lion.asm loc_3E192 only deletes the child after GfxObjects_CollisionKid writes a collision type"
+        );
+        assert_eq!(
+            rt.projectiles[0].lifetime, 100,
+            "the non-contact Lion projectile should remain live for the next loc_3E192 frame"
+        );
+    }
+
+    #[test]
+    fn lion_projectile_collision_uses_inclusive_gfxobject_edges_loc_1bce() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut projectile = make_projectile(458, 687);
+        projectile.kind = EnemyProjectileKind::LionProjectile;
+        rt.projectiles.push(projectile);
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 448 << 16;
+        slice.player.y_pos = 703 << 16;
+        rt.opening_slice = Some(slice);
+
+        assert!(
+            rt.projectile_hits_player(&slice),
+            "ASM GfxObjects_CollisionKid loc_1BCE rejects with strict bgt/blt misses, so Lion projectile left edge == Kid_hitbox_right is still contact"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "ASM Lion.asm loc_3E192 only deletes on `colid_kidabove`/`colid_hurt`; side/below damage contacts leave the shot alive"
+        );
+        assert_eq!(
+            rt.projectiles[0].lifetime, 100,
+            "this side/below Lion contact should not mark the child for the loc_3E192 delete tail"
+        );
+    }
+
+    #[test]
     fn projectile_misses_player_outside_y_range() {
         // Projectile 22px below player — exactly at boundary (< 22 fails).
         // half=6, half+16=22. |pry - py| = 22, NOT < 22 → miss.

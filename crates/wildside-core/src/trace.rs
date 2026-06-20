@@ -8466,6 +8466,11 @@ impl NativeRuntime {
         let px = (player.x_pos >> 16) as i32;
         let py = (player.y_pos >> 16) as i32;
         let half = PROJECTILE_HITBOX_HALF;
+        let player_half_width = self.progression.current_form.half_width();
+        let player_left = px - player_half_width;
+        let player_right = px + player_half_width;
+        let player_top = py - PLAYER_HEIGHT;
+        let player_bottom = py;
         let mut closest: Option<(i32, String)> = None;
         if let Some(summary) = &self.last_projectile_damage_probe {
             return Some(summary.clone());
@@ -8484,7 +8489,17 @@ impl NativeRuntime {
             let pry = (projectile.y_pos >> 16) as i32;
             let dx = prx - px;
             let dy = pry - py;
-            let overlaps = dx.abs() < half + 8 && dy.abs() < half + 16;
+            let overlaps = if projectile.kind == EnemyProjectileKind::LionProjectile {
+                // ASM Lion.asm loc_3E12A -> stru_3DF34 maps through
+                // CollisionSize_Index[667..669] to `unk_31944` (-5,9,-5,9);
+                // GfxObjects_CollisionKid loc_1BCE uses inclusive edge checks.
+                prx - 5 <= player_right
+                    && prx + 4 >= player_left
+                    && pry - 5 <= player_bottom
+                    && pry + 4 >= player_top
+            } else {
+                dx.abs() < half + 8 && dy.abs() < half + 16
+            };
             let distance = dx.abs() + dy.abs();
             let owner = projectile.owner.map_or_else(
                 || String::from("none"),
