@@ -205,7 +205,7 @@ Each case bundle should answer:
 
 Loop sessions consume these bundles through `docs/source-port/loop.md`:
 
-- the human-ordered backlog table is the queue; the NOW block is the handoff
+- `backlog.md` is the open queue and the NOW block is the handoff; `mise run project-status` picks the next item in priority order (`[?]`/`[b]` rows live in `backlog-awaiting-human.md`)
 - grep `backlog-archive.md` for `#NNN` before forming a hypothesis, since dead ends are recorded there
 - recording-backed cases outrank generic replay slices when both exist for an issue
 - if tracked git changes already exist when a session starts, treat them as the highest-priority recovery task; verify/commit or intentionally discard that coherent unit before taking a new item

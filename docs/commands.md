@@ -284,9 +284,11 @@ For the source-port research map and local reference layout, start with
 [`docs/source-port/reference-index.md`](source-port/reference-index.md), and
 [`docs/source-port/level-1-full-traversal.md`](source-port/level-1-full-traversal.md).
 
-Loop sessions follow [`docs/source-port/loop.md`](source-port/loop.md): the
-human-ordered backlog table is the queue and the NOW block at its top is the
-session handoff. The old autonomous-loop orchestrator and RL prompt machinery
+Loop sessions follow [`docs/source-port/loop.md`](source-port/loop.md): the open queue
+is `backlog.md` (`[?]`/`[b]` rows live in `backlog-awaiting-human.md`, resolved rows and
+evidence in `backlog-archive.md`), the NOW block at its top is the session handoff, and
+`mise run project-status` picks the next item in priority order (file order is not
+priority). The old autonomous-loop orchestrator and RL prompt machinery
 were removed (see tag `pre-autonomy-demolition`). Loop sessions are stateless
 between runs. Historical goal contracts from the retired orchestrator remain at
 `docs/source-port/level-1-goal.json`,

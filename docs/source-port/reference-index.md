@@ -43,8 +43,8 @@
 
 ## Methodology
 
-- `docs/source-port/backlog.md` + `backlog-archive.md`: human-ordered queue with NOW block; per-issue evidence, dead ends, and rejected hypotheses grep-by-`#NNN` in the archive
-- `docs/source-port/loop.md`: the static session prompt (take the top item, archive-grep before hypothesis, ASM before code)
+- `docs/source-port/backlog.md`: NOW handoff + open queue (`[ ]`/`[~]`); `backlog-awaiting-human.md`: `[?]`/`[b]` rows; `backlog-archive.md`: resolved rows + per-issue evidence/dead-ends grep-by-`#NNN`; `session-log.md`: past handoffs. Select with `mise run project-status` (priority-ordered)
+- `docs/source-port/loop.md`: the static session prompt (project-status to select, archive-grep before hypothesis, ASM before code)
 - `docs/source-port/methodology.md`: investigation playbook, testing taxonomy, regression discipline, cross-referencing protocol, metamorphic relations, mutation testing, divergence classification, fidelity metrics
 
 ## Source-port exemplars and taxonomy

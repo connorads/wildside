@@ -46,8 +46,8 @@ and stop — never commit churn.
   11. **BLOCKED on human repro — do NOT auto-queue:** **#335 [b] P0** 0x08 instant-death-on-skip, **#336 [b] P1** first-level float. Need a `play-native` recording first.
 
 
-This block replaces the old next-agent.md handoff: rewrite it at the end of every
-loop session.
+NOW is the current-state handoff: rewrite it at the end of every loop session, never
+append. Old handoffs go to [`session-log.md`](./session-log.md).
 
 For newly opened items, capture these facts in the investigation notes:
 
@@ -56,12 +56,13 @@ For newly opened items, capture these facts in the investigation notes:
 - oracle repro status: authoritative / advisory / unknown / oracle limitation
 - minimum gate: `fast-slice`, `1p-playable`, `1p-accurate`, or `visual-parity`
 
-> **Evidence lives in [`backlog-archive.md`](./backlog-archive.md).**
-> This file is the table index only. Per-issue investigation notes, follow-ups,
-> rejected hypotheses, and dated playtest history are cold storage — grep the
-> archive by `#NNN` (e.g. `grep -n '#238' backlog-archive.md`) for an issue's
-> full history. When closing an issue, flip its status here and append closing
-> evidence to the archive.
+> **This file is the open queue only** (`[ ]`/`[~]` rows); keep Verify cells short.
+> `[?]`/`[b]` rows live in [`backlog-awaiting-human.md`](./backlog-awaiting-human.md);
+> resolved rows and all per-issue evidence live in
+> [`backlog-archive.md`](./backlog-archive.md) — grep it by `#NNN` (e.g.
+> `grep -n '#238' backlog-archive.md`) for an issue's full history. Select work with
+> `mise run project-status` (priority-ordered), not by file order. When a row leaves the
+> open lane, move it to its lane and append closing evidence to the archive under `#NNN`.
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|

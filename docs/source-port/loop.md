@@ -1,29 +1,51 @@
 # Source-port loop
 
-The whole loop. The backlog table in `backlog.md` is the queue (order in table =
-human playtest priority); the NOW block at its top is the session handoff.
+The whole loop. The backlog is sharded by reader:
 
-1. Read the NOW block, then take the **top open item** (`[ ]`/`[~]`) in the table.
-   Skip `[?]`/`[b]` rows; they wait on a human.
-2. Check history before forming a hypothesis: `grep -n '#NNN'
+- `backlog.md`: the NOW handoff and the **open queue** (`[ ]`/`[~]` rows). Your file.
+- `backlog-awaiting-human.md`: `[?]`/`[b]` rows. **Skip these**; only a human closes them.
+- `backlog-archive.md`: resolved rows and per-issue evidence, keyed by `#NNN`.
+- `session-log.md`: append-only history of past session handoffs.
+
+1. **Orient and select.** Read the NOW block in `backlog.md`, then run
+   `mise run project-status` (or `cargo run -p wildside-cli -- project-status`). It reads
+   every live lane and prints, priority-ordered (P0 before P1 before P2):
+   - **ready to implement now**: open rows with a root cause identified; take the top one;
+   - **top open playability / visual risks**: otherwise take the top of these;
+   - **human validation/repro blockers**: the awaiting-human lane; never pick these.
+
+   Do not eyeball the table for "the top row": order in the file is not priority,
+   `project-status` is. If `ready` and the risk lists are empty, use the
+   proactive-verification fallback below.
+2. **Check history before forming a hypothesis:** `grep -n '#NNN'
    docs/source-port/backlog-archive.md` and `git log --oneline --grep '#NNN'`.
    Dead ends and rejected hypotheses live there; do not retry them.
-3. Read the owning ASM routine in `.cache/upstream/kid-chameleon-disasm/` before
+3. Mark the row `[~]` in `backlog.md`.
+4. Read the owning ASM routine in `.cache/upstream/kid-chameleon-disasm/` before
    touching native code; cite the label in code and tests.
-4. Write the narrowest failing regression that proves the bug, then fix it.
-5. Verify: `mise run verify-slice-fast` (always) + `mise run verify-tas-full` if the
+5. Write the narrowest failing regression that proves the bug, then fix it.
+6. Verify: `mise run verify-slice-fast` (always) + `mise run verify-tas-full` if the
    change is gameplay-affecting. The gate must be green at every commit.
-6. Commit with the *why*, dead ends included. Flip the row's status, append closing
-   evidence to `backlog-archive.md` under `#NNN`, update the NOW block, take the
-   next item.
+7. Commit with the *why*, dead ends included. **Close out in the same commit:** set the
+   row's status, and if it leaves the open lane, MOVE the whole row to its lane:
+   `[?]`/`[b]` → `backlog-awaiting-human.md`, `[x]`/`[-]` → the resolved index in
+   `backlog-archive.md`. Append closing evidence to the archive under `#NNN`. Keep the
+   open-queue Verify cells short (evidence belongs in the archive).
+8. Update the handoff: prepend a one-paragraph session note to `session-log.md`
+   (newest first) and rewrite NOW in `backlog.md` to the current state. NOW is a
+   handoff, not a changelog; never let it accrete.
 
 **No code commit ⇒ write the dead end under the issue's `#NNN` in
 `backlog-archive.md` and stop; never commit churn.**
 
+`mise run backlog-lint` enforces the shape (NOW size, lean open-queue Verify cells,
+each `#NNN` in exactly one lane, rows in the lane their status implies); it runs inside
+`verify-slice-fast`, so drift fails the gate.
+
 ## Fallback: proactive verification
 
-Backlog empty (or every open row `[?]`/`[b]`)? Discover bugs before the next
-playtest does:
+`project-status` shows no `ready` and no open risks (every open row is gone or the
+queue is empty)? Discover bugs before the next playtest does:
 
 - **Mutation-test one file**: `mise run mutants-file FILE=<module.rs>`; every
   surviving mutant is a test blind spot. Pair loose proptests with exact-value

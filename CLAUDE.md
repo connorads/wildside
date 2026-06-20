@@ -5,12 +5,14 @@ This repo keeps source-port research material in cache-local checkouts and repo 
 ## Loop sessions
 
 If your prompt mentions a loop session (or you're asked to "take the next item"),
-follow `docs/source-port/loop.md`; it is the whole loop. Orientation is ~10KB:
-the NOW block at the top of `docs/source-port/backlog.md` is the session handoff,
-and the table below it is the queue (order = human playtest priority). Per-issue
-history is grep-by-`#NNN` in `docs/source-port/backlog-archive.md`. Do NOT add
-more debug fields unless ASM + oracle leave genuine ambiguity; the answer is in
-the disassembly.
+follow `docs/source-port/loop.md`; it is the whole loop. The backlog is sharded by
+reader: `docs/source-port/backlog.md` holds the NOW handoff and the open queue
+(`[ ]`/`[~]` rows); `backlog-awaiting-human.md` holds the `[?]`/`[b]` rows you skip;
+`backlog-archive.md` holds resolved rows and per-issue history (grep by `#NNN`);
+`session-log.md` is the past-handoff log. Select the next item with
+`mise run project-status` (it is priority-ordered across the live lanes; file order
+is not). Do NOT add more debug fields unless ASM + oracle leave genuine ambiguity;
+the answer is in the disassembly.
 
 ## Source precedence
 
@@ -134,13 +136,21 @@ cargo run -p wildside-cli -- asm-coverage --update           # regenerate asm-co
 
 ## Iteration workflow
 
-Canonical bug/feature backlog: `docs/source-port/backlog.md`; this is now the
-**table index only** (one row per issue: status, priority, system, summary, verify).
-Per-issue evidence/history (follow-ups, rejected hypotheses, investigation notes,
-dated playtest logs) lives in `docs/source-port/backlog-archive.md`; grep it by
-`#NNN` (e.g. `grep -n '#238' docs/source-port/backlog-archive.md`) for an issue's
-full history rather than loading the whole tracker.
-Session handoff: the NOW block at the top of `backlog.md` (rewrite it each session).
+Canonical bug/feature backlog, sharded by reader (one row per issue: status,
+priority, system, summary, verify):
+- `docs/source-port/backlog.md`: NOW handoff + the **open queue** (`[ ]`/`[~]`). Keep
+  Verify cells short here; the open queue is the hot path.
+- `docs/source-port/backlog-awaiting-human.md`: `[?]`/`[b]` rows. The agent skips them;
+  only a human promotes `[?]`→`[x]` or unblocks `[b]`.
+- `docs/source-port/backlog-archive.md`: resolved (`[x]`/`[-]`) rows and per-issue
+  evidence/history (follow-ups, rejected hypotheses, dated logs); grep it by `#NNN`
+  (e.g. `grep -n '#238' docs/source-port/backlog-archive.md`) rather than loading the tracker.
+- `docs/source-port/session-log.md`: append-only log of past session handoffs.
+
+Select the next item with `mise run project-status`, which reads the live lanes and
+prints a priority-ordered ready/open/blocker view. Session handoff: the NOW block at the
+top of `backlog.md` (rewrite it each session; never let it accrete: old handoffs go to
+`session-log.md`).
 
 ### Principles (bsnes methodology)
 - Fix behaviours at engine level, never level-specific overrides
@@ -154,11 +164,12 @@ Session handoff: the NOW block at the top of `backlog.md` (rewrite it each sessi
 - Reject dead ends once: record them in `backlog-archive.md` under the issue's `#NNN` so the next session does not retry them from memory or roadmap prose
 
 ### Session protocol
-1. Follow `docs/source-port/loop.md`: read the NOW block in `backlog.md`, then
-   take the top open (`[ ]`/`[~]`) row in the table: order in table = human
-   playtest priority. Skip `[?]`/`[b]` rows (they wait on a human).
-   a. If a backlog item has "root cause identified" in its evidence, jump straight to implementation
-   b. If all open items are blocked, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
+1. Follow `docs/source-port/loop.md`: read the NOW block in `backlog.md`, then run
+   `mise run project-status` and take the top item it lists. It is priority-ordered
+   across the live lanes; do not eyeball the table for "the top row". Never pick a human
+   validation/repro blocker (the `[?]`/`[b]` awaiting-human lane).
+   a. project-status lists "ready to implement now" (open rows whose evidence says "root cause identified") first; take those before generic open playability/visual risks.
+   b. If project-status shows no ready item and no open risks, use the proactive-verification fallback in `loop.md` (mutation-test one file, audit one enemy family vs ASM, extend ASM coverage)
 2. Mark `[~]` when starting work
 3. Investigate (structured):
    a. Reproduce: capture frames or run scenario showing the bug
@@ -171,9 +182,12 @@ Session handoff: the NOW block at the top of `backlog.md` (rewrite it each sessi
 5. Fix: implement in focused commit(s)
 6. Verify visually: capture frames, Read PNGs, compare before/after
 7. Verify mechanically: `mise run verify-slice-fast` must pass (+ `mise run verify-tas-full` after gameplay-affecting commits; do not run the two concurrently, they share `.cache/tas-verify`). **Gate must be green on main at all times**; never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
-8. Close out (same commit as the fix): flip the issue's status in the
-    `backlog.md` table, append any closing evidence to `backlog-archive.md`
-    under its `#NNN` (keep `backlog.md` table-only), and update the NOW block
+8. Close out (same commit as the fix): set the row's status and, if it leaves the open
+    lane, MOVE the whole row to its lane: `[?]`/`[b]` → `backlog-awaiting-human.md`,
+    `[x]`/`[-]` → the resolved index in `backlog-archive.md`. Append closing evidence to
+    `backlog-archive.md` under its `#NNN` (keep the open-queue Verify cell short). Rewrite
+    the NOW handoff and prepend a session note to `session-log.md` (newest first);
+    `mise run backlog-lint` checks the result.
 9. After 3-5 fixes: run `cargo mutants -p wildside-core -- --lib` to check for test gaps
 10. After 3-5 fixes: playtest with `mise run play-native`, triage new bugs
 
