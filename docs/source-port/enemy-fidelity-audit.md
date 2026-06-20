@@ -21,7 +21,7 @@ Adversarially-verified per-family audit of the Kid Chameleon source-port. The re
 | Drips (0x16) | full | 0 |
 | Emo_Rock (0x1B) | partial | 4 |
 | Fireball (0x19) | partial | 1 |
-| Fire_Demon (0x00) | partial | 1 |
+| Fire_Demon (0x00) | full | 0 |
 | Goat (0x10) | partial | 3 |
 | Hand (0x17) | full | 0 |
 | Lion (0x12) | partial | 1 |
@@ -63,7 +63,7 @@ Fixed candidate 2026-06-20: `$5C(a5)` spawned children now enter the live `loc_3
 Fixed candidate 2026-06-20: live activation now packs the segment corridor from `loc_364A0` into `dragon_anchor_y`, `step_active_enemies` unpacks those `$3E/$40` words for Big Hopping Skull, and `loc_366D0` relaunch runs `loc_36770` before returning to the live loop. Regressions: `big_hopping_skull_live_floor_contact_timer_relaunches_like_loc_366d0`, `big_hopping_skull_live_relaunch_applies_patrol_bounds_like_loc_36770`, `big_hopping_skull_activation_carries_patrol_bounds_to_live_relaunch_loc_364a0_36770`.
 
 **Fire_Demon — walking fire-trail emission never happens** (`loc_3A542 / loc_3A564 / loc_3A63C`)
-Demon should leave up to 7 trail children while pacing. Only runtime trail push is a single death trail (`combat.rs:7676-7678`); walking-trail gate `enemies.rs:5067` is dead. `step_fire_demon_trails` (`projectiles.rs:1293-1307`) only ages trails.
+Fixed candidate 2026-06-20: live `refresh_active_roster` now calls `spawn_fire_demon_walking_trails_loc_3a542` after the active enemy step, emits typed `FireDemonTrailChild` workers through `loc_3A63C`, respects the seven-child cap, rejects unsupported floor probes, and keeps the raw level-2 saved-walk cadence. Regressions: `fire_demon_refresh_active_roster_spawns_walking_trail_loc_3a542_3a63c`, `fire_demon_walking_trail_spawns_typed_child_loc_3a542_3a63c`, `fire_demon_walking_trail_respects_seven_child_cap_loc_3a564`, `fire_demon_walking_trail_skips_unsupported_floor_loc_3a63c`, `fire_demon_walking_trail_uses_raw_level_two_saved_walk_cadence_loc_3a542`.
 
 **Goat — Berzerker-charge side contact does not launch airborne** (`loc_3CB76 / loc_3CBA8`)
 Fixed candidate 2026-05-29: charging Berzerker side contact with no positive `$42(a3)` now launches Goat into the `loc_3CBA8` airborne loop instead of generic HP damage. Regressions: `berzerker_charge_launches_goat_instead_of_damaging_loc_3cb76`, `goat_berzerker_airborne_loop_matches_loc_3cba8`.

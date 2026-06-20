@@ -13334,6 +13334,29 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fire_demon_refresh_active_roster_spawns_walking_trail_loc_3a542_3a63c() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.boot_state = BootState::InGame;
+        rt.block_grid = Some(supported_fire_demon_trail_grid_loc_3a63c());
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 0x0100_0000;
+        slice.player.y_pos = 0x0100_0000;
+        rt.opening_slice = Some(slice);
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0020_0000, 0x0020_0000, 3);
+        demon.on_ground = true;
+        rt.active_enemies.push(demon);
+
+        rt.refresh_active_roster();
+
+        assert_eq!(
+            rt.fire_demon_trails.len(),
+            1,
+            "ASM Fire_Demon.asm loc_3A542 is part of the live object refresh path, not only a direct helper call"
+        );
+        assert_eq!(rt.fire_demon_trails[0].remaining_frames, 0x96);
+    }
+
+    #[test]
     fn fire_demon_walking_trail_respects_seven_child_cap_loc_3a564() {
         let mut rt = NativeRuntime::new(manifest());
         rt.block_grid = Some(supported_fire_demon_trail_grid_loc_3a63c());
