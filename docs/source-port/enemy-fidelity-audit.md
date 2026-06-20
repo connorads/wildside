@@ -51,13 +51,13 @@ Fixed candidate 2026-06-20: queued live Diamond collision words now route throug
 Fixed candidate 2026-06-20: queued Kid-side collision words now reach the high-HP `loc_3AE84` and low-HP `loc_3AF24` Berzerker gates. Charging side contact bypasses HP damage, seeds `y_vel=-$48000`, and enters the live `loc_3AEB2`/`loc_3AF50` airborne gravity loops. Regressions: `diamond_high_hp_pending_side_collision_enters_loc_3ae84_launch`, `diamond_low_hp_pending_side_collision_enters_loc_3af24_launch`.
 
 **Armadillo — damage recoil/invulnerability window not applied** (`loc_3C848`)
-Survivors should set `$42=$FF88` (~120-frame recoil) gating re-hits. Native `take_damage_or_queue_death` has no recoil gate and `is_vulnerable` no Armadillo case, so multi-HP Armadillos can be re-hit every frame. `combat.rs:7810-7872`, `enemies.rs:8519-8540`; faithful `armadillo_damage_response_loc_3c848` (`enemies.rs:3648`) is test-only.
+Fixed candidate 2026-06-20: friendly-projectile `colid_hurt` and Kid-above stomp damage now both route through `armadillo_damage_response_loc_3c848`. Positive `$42(a3)` preserves HP, nonfatal damage seeds `$42=$FF88` and restores saved walk speed, and terminal damage enters the Armadillo death tail. Regressions: `maniaxe_axe_colid_hurt_respects_armadillo_recoil_window_loc_3c848`, `maniaxe_axe_colid_hurt_seeds_armadillo_recoil_loc_3c848`, `armadillo_stomp_respects_recoil_window_loc_3c848`, `armadillo_stomp_seeds_recoil_window_loc_3c848`.
 
 **Armadillo — Berzerker curl-and-launch reaction not simulated** (`loc_3C898 / loc_3C8CC`)
-Charging-Berzerker side contact should curl the Armadillo and launch it airborne. `step_pacer` (`enemies.rs:15146`) has no collision/berzerker branch; unlike Crab (`enemies.rs:9211-9213`) there is no Armadillo runtime hook. Helpers `enemies.rs:3755/3790/3832` test-only.
+Fixed candidate 2026-06-20: charging-Berzerker side contact with no positive recoil word now enters the live `loc_3C8CC` launch loop instead of HP damage. Regression: `berzerker_charge_launches_armadillo_instead_of_damaging_loc_3c898`.
 
 **Armadillo — spawned-child fall-then-die death sequence not simulated** (`loc_3C93C / loc_3C954`)
-Spawned children ($5C set) should fall to floor before death animation. Generic `remove_dead_enemy` zeroes velocity and plays death in place for all Armadillos. `combat.rs:7647-7661`, `enemies.rs:6609`; fall helpers `enemies.rs:3692` test-only.
+Fixed candidate 2026-06-20: `$5C(a5)` spawned children now enter the live `loc_3C93C` fall state on terminal damage, wait in `loc_3C954` until floor contact, then start `stru_3C69A` death animation. Regressions: `armadillo_spawned_child_terminal_damage_falls_before_death_loc_3c87e`, `armadillo_spawned_child_floor_contact_starts_death_tail_loc_3c954`.
 
 **Big_Hopping_Skull — patrol x-bounds and relaunch reset never run** (`loc_36770 / loc_36782 / loc_36798 / loc_366D0`)
 Skull should be pinned to a fixed corridor ($3E/$40) with constant launch height. Live `step_big_hopping_skull` (`enemies.rs:12663-12732`) applies gravity + deflection only; no bound read, no $FFFE relaunch. Corridor helpers `enemies.rs:3342/3209` test-only.

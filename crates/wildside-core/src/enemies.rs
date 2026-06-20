@@ -9115,6 +9115,42 @@ impl ActiveEnemy {
             }
             return false;
         }
+        if matches!(self.family, EnemyFamily::Armadillo) {
+            let saved_walk_speed = if self.walk_speed_override != 0 {
+                self.walk_speed_override
+            } else {
+                pacer_walk_speed(self.family, self.hit_points)
+            };
+            match armadillo_damage_response_loc_3c848(
+                u16::from(self.hit_points),
+                self.shared_walker_state,
+                saved_walk_speed,
+            ) {
+                ArmadilloDamageResponseLoc3C848::RecoilActiveResume { current_hp } => {
+                    // ASM Armadillo.asm loc_3C848: `colid_kidabove` shares
+                    // the hurt path, and positive `$42(a3)` resumes without
+                    // decrementing HP.
+                    self.hit_points = current_hp as u8;
+                    return false;
+                }
+                ArmadilloDamageResponseLoc3C848::Death => return true,
+                ArmadilloDamageResponseLoc3C848::Hurt {
+                    remaining_hp,
+                    recoil_state_word,
+                    restored_walk_speed,
+                    ..
+                } => {
+                    // ASM Armadillo.asm loc_3C848: nonfatal Kid-above contact
+                    // seeds `$42(a3)=$FF88`, restores `$50(a5)` from `$5E(a5)`,
+                    // and hibernates on `stru_3C6D0` before patrol resumes.
+                    self.hit_points = remaining_hp as u8;
+                    self.shared_walker_state = recoil_state_word;
+                    self.walk_speed_override = restored_walk_speed;
+                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    return false;
+                }
+            }
+        }
         if matches!(self.family, EnemyFamily::SpinningTwins)
             && matches!(self.spinning_twins_phase, SpinningTwinsPhase::Walking)
         {

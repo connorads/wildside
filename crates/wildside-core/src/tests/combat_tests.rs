@@ -16143,6 +16143,86 @@ mod chunk_03 {
     }
 
     #[test]
+    fn armadillo_stomp_respects_recoil_window_loc_3c848() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut armadillo = test_enemy(EnemyFamily::Armadillo, 100 << 16, 120 << 16, 3);
+        armadillo.shared_walker_state = 1;
+        runtime.active_enemies = vec![armadillo];
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 113 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(
+            stomped,
+            "ASM loc_1CF2 still latches Kid-above contact while Armadillo `$42(a3)` is positive"
+        );
+        let armadillo = runtime.active_enemies[0];
+        assert_eq!(
+            armadillo.hit_points, 3,
+            "ASM Armadillo.asm loc_3C848 skips HP decrement while `$42(a3)` is positive"
+        );
+        assert_eq!(armadillo.shared_walker_state, 1);
+        assert_eq!(armadillo.damage_flash_frames, 0);
+        assert!(!armadillo.death_animation_active);
+    }
+
+    #[test]
+    fn armadillo_stomp_seeds_recoil_window_loc_3c848() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.active_enemies = vec![test_enemy(EnemyFamily::Armadillo, 100 << 16, 120 << 16, 3)];
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 113 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        assert!(stomped);
+        let armadillo = runtime.active_enemies[0];
+        assert_eq!(
+            armadillo.hit_points, 2,
+            "ASM Armadillo.asm loc_3C848 decrements `$44(a3)` for Kid-above contact when recoil is inactive"
+        );
+        assert_eq!(
+            armadillo.shared_walker_state, -0x0078,
+            "ASM Armadillo.asm loc_3C848 seeds `$42(a3)` with `$FF88` after nonfatal Kid-above contact"
+        );
+        assert_eq!(
+            armadillo.walk_speed_override,
+            pacer_walk_speed(EnemyFamily::Armadillo, 3)
+        );
+        assert_eq!(armadillo.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert!(!armadillo.death_animation_active);
+    }
+
+    #[test]
     fn stomp_kill_keeps_walking_dragon_visible_for_loc_3cefc_death_animation() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
