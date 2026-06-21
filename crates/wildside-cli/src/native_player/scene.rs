@@ -2560,6 +2560,85 @@ impl ChunkedPlaneBRowsLoc307D8 {
         Some(history.cells)
     }
 
+    fn row_debug_for_trace_loc_30744(
+        &self,
+        trace: &NativeTraceFrame,
+        level_visuals: &NativeLevelVisuals,
+        camera_x_px: i32,
+        row: usize,
+    ) -> Option<String> {
+        if row >= self.source.height {
+            return None;
+        }
+        let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
+        let current_time_frames = background_time_frames_for_trace_loc_3050a(trace);
+        let preload_time_frames = current_time_frames.saturating_sub(trace.frame_index);
+        let first_time_frames = if trace.level_skip_cheat_enabled != 0 {
+            preload_time_frames.saturating_sub(RECORDING_SETTLED_WARP_LIVE_FRAMES_LOC_74E0)
+        } else {
+            preload_time_frames
+        };
+        let upload_scroll_x_px =
+            chunked_background_upload_scroll_x_px_loc_2ffe8(trace, camera_x_px, layer_speed);
+        let upload_destination = upload_scroll_x_px
+            .div_euclid(8)
+            .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
+            as usize;
+        let source_column_bias = if level_visuals.level.background_scroll.is_some() {
+            1
+        } else {
+            0
+        };
+        let upload_source = (upload_scroll_x_px.div_euclid(8) + source_column_bias)
+            .rem_euclid(i32::try_from(self.source.width).ok()?)
+            as usize;
+        let changed_column_source = self.source_buffer_for_trace_loc_12824(trace);
+        let changed_source_kind =
+            if trace.level_skip_cheat_enabled != 0 && self.alias_source_loc_12824.is_some() {
+                "alias"
+            } else {
+                "direct"
+            };
+        let mut changed_writes = Vec::new();
+        if preload_time_frames != current_time_frames {
+            let mut previous_scroll =
+                background_scroll_data_word_loc_30452(first_time_frames, camera_x_px, layer_speed);
+            for time_frames in first_time_frames.saturating_add(1)..=current_time_frames {
+                let current_scroll =
+                    background_scroll_data_word_loc_30452(time_frames, camera_x_px, layer_speed);
+                if let Some(write) = changed_column_write_debug_loc_30744(
+                    changed_column_source,
+                    previous_scroll,
+                    current_scroll,
+                    row,
+                    time_frames,
+                ) {
+                    changed_writes.push(write);
+                }
+                previous_scroll = current_scroll;
+            }
+        }
+        let changed_writes = if changed_writes.is_empty() {
+            "none".to_owned()
+        } else {
+            changed_writes.join("|")
+        };
+        let words = self.row_for_trace(trace, level_visuals, camera_x_px, row)?;
+        let words = words
+            .into_iter()
+            .map(|cell| {
+                cell.map_or_else(
+                    || "....".to_string(),
+                    |cell| format!("{:04X}", chunked_plane_b_cell_vdp_word_loc_307d8(cell)),
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        Some(format!(
+            "B{row:02} sel={layer_speed:02X} t={current_time_frames} preload={preload_time_frames} first={first_time_frames} upload_px={upload_scroll_x_px} upload=d{upload_destination:02}<-s{upload_source:02} changed_src={changed_source_kind} writes={changed_writes} words={words}"
+        ))
+    }
+
     fn source_buffer_for_trace_loc_12824(
         &self,
         trace: &NativeTraceFrame,
@@ -2608,6 +2687,37 @@ impl ChunkedPlaneBRowsLoc307D8 {
     }
 }
 
+fn changed_column_write_debug_loc_30744(
+    source_buffer: &ChunkedBackgroundSourceLoc12848,
+    previous_scroll_word: u16,
+    current_scroll_word: u16,
+    row: usize,
+    time_frames: usize,
+) -> Option<String> {
+    let previous_tile_column = previous_scroll_word >> 3;
+    let current_tile_column = current_scroll_word >> 3;
+    if previous_tile_column == current_tile_column {
+        return None;
+    }
+
+    let source_column_seed = if previous_tile_column > current_tile_column {
+        i32::from(current_tile_column)
+    } else {
+        i32::from(current_tile_column) + 0x28
+    };
+    let source =
+        source_column_seed.rem_euclid(i32::try_from(source_buffer.width).unwrap_or(1)) as usize;
+    let destination = source_column_seed
+        .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
+        as usize;
+    let word = source_buffer.cells[row * source_buffer.width + source]
+        .map(chunked_plane_b_cell_vdp_word_loc_307d8)
+        .map_or_else(|| "....".to_owned(), |word| format!("{word:04X}"));
+    Some(format!(
+        "t{time_frames}:c{previous_tile_column:04X}->{current_tile_column:04X}:d{destination:02}<-s{source:02}:{word}"
+    ))
+}
+
 #[cfg(test)]
 pub(super) fn chunked_plane_b_row_words_for_trace_loc_30744(
     trace: &NativeTraceFrame,
@@ -2629,24 +2739,17 @@ pub(super) fn chunked_plane_b_row_words_for_trace_loc_30744(
         })
 }
 
-pub(crate) fn chunked_plane_b_row_vdp_words_for_trace_loc_30744(
+pub(crate) fn chunked_plane_b_row_debug_for_trace_loc_30744(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     camera_x_px: i32,
     row: usize,
-) -> Option<Vec<Option<u16>>> {
+) -> Option<String> {
     let wildside_render::BackgroundVisuals::Chunked(background) = &level_visuals.background else {
         return None;
     };
     let plane_b = ChunkedPlaneBRowsLoc307D8::from_background(level_visuals, background)?;
-    plane_b
-        .row_for_trace(trace, level_visuals, camera_x_px, row)
-        .map(|cells| {
-            cells
-                .into_iter()
-                .map(|cell| cell.map(chunked_plane_b_cell_vdp_word_loc_307d8))
-                .collect()
-        })
+    plane_b.row_debug_for_trace_loc_30744(trace, level_visuals, camera_x_px, row)
 }
 
 fn chunked_plane_b_cell_vdp_word_loc_307d8(cell: ChunkedPlaneBCellLoc307D8) -> u16 {

@@ -5,7 +5,7 @@ use crate::native_player::{
     BackgroundPixelSample, BackgroundScrollPixelDiagnostic, FinalScenePixelDiagnostic, LayerFilter,
     NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativeEolScoreSpriteDiagnostic, NativePlayOptions,
     background_scroll_pixel_diagnostic_loc_3050a, build_scene, build_scene_filtered,
-    chunked_plane_b_row_vdp_words_for_trace_loc_30744, eol_score_sprite_diagnostics,
+    chunked_plane_b_row_debug_for_trace_loc_30744, eol_score_sprite_diagnostics,
     load_session_assets, render_scene, render_scene_overlay, render_trace_with_vdp_latched_state,
     render_vdp_trace_overlay, sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
 };
@@ -1641,22 +1641,7 @@ fn native_background_plane_b_rows_debug_loc_30744(
     let rows = ROWS
         .into_iter()
         .filter_map(|row| {
-            chunked_plane_b_row_vdp_words_for_trace_loc_30744(
-                trace,
-                level_visuals,
-                camera_x_px,
-                row,
-            )
-            .map(|words| {
-                let words = words
-                    .into_iter()
-                    .map(|word| {
-                        word.map_or_else(|| "....".to_string(), |word| format!("{word:04X}"))
-                    })
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!("B{row:02}={words}")
-            })
+            chunked_plane_b_row_debug_for_trace_loc_30744(trace, level_visuals, camera_x_px, row)
         })
         .collect::<Vec<_>>();
     (!rows.is_empty()).then(|| rows.join(";"))

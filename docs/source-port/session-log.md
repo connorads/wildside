@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 Plane-B provenance diagnostic)
+
+- **#289 stays `[~]`; recording reports now include native Plane-B row provenance, not just row words.** Each sampled row records the bgscroll selector, `Time_Frames`, synthetic upload destination/source, changed-column source (`direct`/`alias`), each elapsed `loc_30452`/`sub_30744` write, and final VDP words. The expected-red baseline remains frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`.
+- The retained diagnostic proves the current native model starts B18/B19 from synthetic `upload=d00<-s01`, then correctly writes the alias-source right-edge tails. A temporary `loc_2FFE8` vertical preload replay using display-scroll placement fixed B18/B19 raw rows exactly, but B08/B17/B22/B23/B27 stayed wrong and pixels worsened to frame 60 `6069` / `6.235133`, frame 71 `6220` / `6.4576964`; reverted. **NEXT**: model persisted Plane-B nametable/source history, not another stateless all-row preload.
+- Verification: `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, `cargo test -q -p wildside-cli chunked_`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, backlog lint, TAS frontier, wildside-core lib sweep, and wildside-cli gameplay regressions.
+
+---
+
 ## 2026-06-21 handoff (#289 rejected persisted preload shortcut)
 
 - **#289 stays `[~]`; no code retained.** A trial `loc_2FFE8`-shaped persisted preload sweep selected the last source row for each Plane-B row, used `sub_307D8`'s extra `Horiz_Scroll_Data >> 3` shift, and replayed current `sub_30744` column writes only for settled `LevelSkip_Cheat` traces.

@@ -27,60 +27,50 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live lanes;
   file order is not priority). Current focus is still #289 because it remains `[~]`.
-- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red. Native now
-  has the `Load_BackgroundChunk loc_12848` source-buffer primitive,
-  `ChunkedPlaneBRowHistoryLoc30744`, `$00`/`$08` timed-row uploads from the
-  `loc_2FFE8` preload `Time_Frames` phase, `loc_3050A` H-scroll at draw/sample
-  time, old `$0780` cells outside fresh spans, and `loc_30452`/hidden-settle
-  one-column replay against the `loc_12824` alias source.
+- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red. Native has
+  the `loc_12848` source primitive, `ChunkedPlaneBRowHistoryLoc30744`, timed
+  `$00`/`$08` row uploads, H-scroll at draw/sample time, old `$0780` outside
+  fresh spans, and `loc_30452`/hidden-settle one-column replay against the
+  `loc_12824` alias source.
   Fresh `issue289-level07-idle-current` is still unchanged at
   `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
   frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. A broader
   alias-fed full `sub_307D8` row uploads were rejected because they worsened frame
   60 to `6359` / `5.9081984` and frame 71 to `6437` / `6.035942`. Native reports
-  now dump B17/B18/B19 row words beside the expanded oracle dump: B18/B19
+  now dump B17/B18/B19 row words and provenance beside the expanded oracle dump:
+  selector byte, `Time_Frames`, synthetic upload `d<-s`, changed-column source,
+  each elapsed `loc_30452`/`sub_30744` write, and final VDP words. B18/B19
   right-edge tails match oracle (`2781..2787`/`2789..278F`; frame 71 adds
   `2788`/`2790`), but native has extra fresh cells at B18/B19 columns 0-4 where
   oracle keeps `$0780`, and native B17 wrongly has cloud words at columns 17-24
   while oracle only has the columns 5-6 tail. Residual = stale/persisted Plane-B
-  row state, not display-scroll interpretation. A direct persisted-`loc_2FFE8`
-  preload sweep was rejected this session: it used the wrong row/source slot model
-  and worsened #289 to frame 60 `6762` / MAE `6.6236467`, frame 71 `6987` / `6.8926945`; reverted.
+  row state, not display-scroll interpretation. Rejected `loc_2FFE8` preload
+  replays: direct row/source slot model worsened to `6762`/`6987`; display-scroll
+  placement fixed B18/B19 raw rows but still left B08/B17/B22/B23/B27 wrong and
+  worsened to frame 60 `6069` / `6.235133`, frame 71 `6220` / `6.4576964`.
 - **Next #289 action**: model or trace the full persisted Plane-B nametable state
   across target-level `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
   instead of changing display scroll. First trace or type the ROM
   `BackgroundScroll_Index`/MapOrder mapping that turns a Plane-B row into the
   `Horiz_Scroll_Data` slot and `$FFFF87B2` source row for `sub_30744`/`sub_307D8`;
-  do not map native row number directly to bgscroll speed again. Synthetic coverage proves the hidden `$08`
-  row replay writes alias-source columns `49..55` into B18 by `Time_Frames=174`,
-  and the new native-vs-oracle row dump proves that part is now present in the
-  real recording, but other columns/rows refresh too eagerly or from the wrong
-  source history. Re-testing raw `loc_30452` display scroll moved right-edge
-  samples but exposed wrong native B17 cloud content, worsening frame 60 to
-  `5336` / `5.8150578` (frame 71 `5209` / `5.735277`). The latest
-  `background_source_rows_loc_12848` settle trace proves
-  `Load_InGame`/`Load_BackgroundMappings loc_12824` writes the B18 source row
-  during target-level load: `$8C9E[00..45]` is all zero through `title_wait` step
-  40, `8FA0` fills at step 41, then `8C9E` fills at step 42 with columns
-  `49..56 = 01..08` (plus trailing non-zero bytes) while `Game_Mode=$000C`,
-  `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`. Native now
-  has `ChunkedBackgroundSourceLoc12848` and a runtime `loc_12824` alias
-  constructor showing `BackgroundLayout_0E` x-offset `$13` moves chunk bytes into
-  columns `49..56`; the kept runtime path applies that alias only to replayed
+  do not map native row number directly to bgscroll speed again. Synthetic and
+  report evidence prove hidden `$08` replay writes alias columns `49..55` into
+  B18 by `Time_Frames=174`; other rows still refresh too eagerly or from wrong
+  source history. The latest `background_source_rows_loc_12848` settle trace
+  proves `Load_InGame`/`Load_BackgroundMappings loc_12824` writes B18 source
+  row `$8C9E` at `title_wait` step 42 with columns `49..56 = 01..08`; native
+  has the typed source and alias constructor, but only applies alias to replayed
   `sub_30744` changed-column writes. Do not retry header/start layout, simple
   scroll offsets, placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count,
   render `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
   substitution, current-time all-row overlay, alias-only rendering, or alias-fed
   full row uploads.
-- **Gates this session**: native Plane-B row diagnostics. Verified
+- **Gates this session**: native Plane-B provenance diagnostics. Verified
   `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, focused
   `cargo test -q -p wildside-cli chunked_`, fresh expected-red
-  `issue289-level07-idle-current`, and direct `verify-slice-fast` body (TAS
-  frontier, backlog lint, wildside-core lib sweep, and wildside-cli gameplay
-  regressions).
-  The `mise` wrappers remain blocked
-  in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
-  use direct cargo/CLI commands for code verification.
+  `issue289-level07-idle-current`, backlog lint, TAS frontier, wildside-core
+  lib sweep, and wildside-cli gameplay regressions. `mise` wrappers remain
+  blocked by `fnox@1` linux-arm64.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.
