@@ -145,8 +145,10 @@ run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- verify-tas 
 description = "Verify a TAS scenario against the oracle (native vs emulator)"
 
 [tasks.view-tas]
-# Intentionally runs without scripts/strict-rust.sh: same TAS-replay determinism
-# caveat as verify-tas-frontier — the no-RUSTFLAGS binary stays deterministic.
+# Intentionally runs without scripts/strict-rust.sh, for the same reason as
+# verify-tas-frontier (clippy is the warning authority; RUSTFLAGS would fork a
+# redundant release cache). The historical frame-951 determinism caveat was
+# disproven 2026-06-21 (#25): byte-identical A/B builds.
 # Two-stage fzf: pick scenario, then (only for runs over the viewer's 2000-frame
 # default guard) pick a frame window. The `sh -c '...' --` wrapper makes mise's
 # trailing CLI arg available as $1 (same pattern as the dump-level-layout task).
@@ -187,13 +189,15 @@ cargo run --release -p wildside-cli -- view-tas $ARGS
 description = "Open the SDL TAS viewer (fzf-pick scenario + frame window)"
 
 [tasks.verify-tas-frontier]
-# Intentionally runs without scripts/strict-rust.sh: RUSTFLAGS=-D warnings is a
-# compile-time flag, but cargo treats it as a build-cache key. With it set, cargo
-# produces a different binary that diverges on any-percent-published frame 951
-# (kid_y_vel +0x4001 instead of +0x4000 during wall-cling right). Test suite
-# passes against both binaries; only the high-sensitivity TAS replay surfaces it.
-# Root cause (compiler-sensitive UB or hidden cfg) tracked separately; until
-# diagnosed, TAS replay must use the no-RUSTFLAGS binary to stay deterministic.
+# Intentionally runs without scripts/strict-rust.sh. Clippy is the warning
+# authority (see verify-slice-fast / #24), so -D warnings adds no coverage here,
+# and setting RUSTFLAGS would fork a redundant second release build cache.
+# History: a "frame-951 divergence" (kid_y_vel +0x4001 vs +0x4000 under -D
+# warnings during wall-cling right) was once suspected here as latent UB.
+# Disproven 2026-06-21 (#25): a clean A/B build produced byte-identical binaries
+# and a CRC-clean replay through frame 951 — it was a stale incremental-cache
+# artefact, not a codegen bug. -D warnings is a lint level; it does not change
+# codegen.
 run = """
 sh -ec '
 FRONTIER=tests/tas_frontier.json
@@ -227,8 +231,9 @@ echo "TAS frontier: all recordings pass"
 description = "Local-first TAS frontier gate; verify no regression before current frontier frame"
 
 [tasks.verify-tas-full]
-# Same no-strict-rust caveat as verify-tas-frontier: TAS replay must use the
-# no-RUSTFLAGS binary to stay deterministic.
+# Omits scripts/strict-rust.sh for the same reason as verify-tas-frontier:
+# clippy is the warning authority; RUSTFLAGS would fork a redundant release
+# cache; the frame-951 caveat was disproven (#25).
 run = "cargo run --release -q -p wildside-cli -- verify-tas --scenario tests/data/tas/any-percent-published/scenario.json --frame-start 0 --frame-end 37759 --checkpoint-interval 25 --frontier-kind gameplay"
 description = "Full any-percent TAS verification — run after gameplay-affecting commits"
 
