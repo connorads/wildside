@@ -481,6 +481,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
             foreground_layout_bytes: foreground_layout.clone(),
             block_layout_bytes: block_layout,
             background_layout_bytes: background_layout,
+            background_layout_alias: level_bundle.background_layout_alias.clone(),
             block_mapping: BlockVisualMapping::new_with_level_terrain_tail(
                 terrain_quads,
                 block_quads,

@@ -149,6 +149,7 @@ pub struct LevelAssetBundle {
     pub level_id: u8,
     pub display_name: Option<String>,
     pub title_card: Option<LevelTitleCard>,
+    pub background_layout_alias: Option<BackgroundLayoutAlias>,
     pub platform_script: Option<LoadedAsset>,
     pub parsed_platform_layout: Option<PlatformLayout>,
     pub bgscroll: Option<LoadedAsset>,
@@ -1160,6 +1161,10 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         level_id,
         display_name: level.display_name.clone(),
         title_card: level.title_card.clone(),
+        background_layout_alias: resource_level
+            .background_layout_alias
+            .clone()
+            .or(level.background_layout_alias.clone()),
         platform_script,
         parsed_platform_layout,
         bgscroll,
@@ -8789,7 +8794,13 @@ BackgroundLayout_0E:  dc.w    $8000
                     enemy_layout_metadata: None,
                     bgscroll_metadata: None,
                     platform_metadata: None,
-                    background_layout_alias: None,
+                    background_layout_alias: Some(BackgroundLayoutAlias {
+                        alias_label: String::from("BackgroundLayout_4B"),
+                        source_label: String::from("BackgroundLayout_49"),
+                        source_background_path: Some(String::from("background/49.bin")),
+                        x_offset_tiles: 0x13,
+                        y_offset_tiles: 0,
+                    }),
                 },
             ],
             constants: Vec::new(),
@@ -8817,6 +8828,17 @@ BackgroundLayout_0E:  dc.w    $8000
         );
         assert_eq!(bundle.block.expect("block").bytes, vec![0x4C]);
         assert_eq!(bundle.background.expect("background").bytes, vec![0x4D]);
+        assert_eq!(
+            bundle.background_layout_alias,
+            Some(BackgroundLayoutAlias {
+                alias_label: String::from("BackgroundLayout_4B"),
+                source_label: String::from("BackgroundLayout_49"),
+                source_background_path: Some(String::from("background/49.bin")),
+                x_offset_tiles: 0x13,
+                y_offset_tiles: 0,
+            }),
+            "ASM Load_BackgroundMappings loc_12824 consumes the MapOrder-resolved background layout pointer before applying shared-layout offsets"
+        );
     }
 
     #[test]

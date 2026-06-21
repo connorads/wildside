@@ -7392,6 +7392,7 @@ mod tests {
                 foreground_layout_bytes,
                 block_layout_bytes: Vec::new(),
                 background_layout_bytes: Vec::new(),
+                background_layout_alias: None,
                 block_mapping: BlockVisualMapping::new(foreground, blocks)
                     .expect("sample block mapping"),
             },
@@ -7948,6 +7949,7 @@ mod tests {
                         enemy_layout_metadata: None,
                         bgscroll_metadata: None,
                         platform_metadata: None,
+                        background_layout_alias: None,
                     }],
                     constants: Vec::new(),
                     ram_variables: Vec::new(),
@@ -12424,6 +12426,7 @@ mod tests {
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
         fixture.manifest.levels.push(LevelRecord {
             level_id: 0x27,
@@ -12448,6 +12451,7 @@ mod tests {
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
         fixture.manifest.decoded_levels.push(DecodedLevelAssets {
             contract_version: 3,
@@ -12509,6 +12513,7 @@ mod tests {
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
         fixture.manifest.levels.push(LevelRecord {
             level_id: 0x27,
@@ -12533,6 +12538,7 @@ mod tests {
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
         fixture.manifest.decoded_levels.push(DecodedLevelAssets {
             contract_version: 3,
@@ -12568,6 +12574,7 @@ mod tests {
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
         fixture.manifest.levels.push(LevelRecord {
             level_id: 0x27,
@@ -12592,6 +12599,7 @@ mod tests {
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
 
         let header = resolved_level_header(&fixture.manifest, 0x1B).expect("resolved header");

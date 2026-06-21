@@ -1,6 +1,6 @@
 use crate::tiles::{TileQuad, TileRef};
 use anyhow::{Result, bail};
-use wildside_data::BgscrollProfile;
+use wildside_data::{BackgroundLayoutAlias, BgscrollProfile};
 
 const BLOCK_MAPPING_QUAD_COUNT: usize = 81;
 const FULL_BLOCK_MAPPING_QUAD_COUNT: usize = 256;
@@ -25,6 +25,7 @@ pub struct LevelVisuals {
     pub foreground_layout_bytes: Vec<u8>,
     pub block_layout_bytes: Vec<u8>,
     pub background_layout_bytes: Vec<u8>,
+    pub background_layout_alias: Option<BackgroundLayoutAlias>,
     pub block_mapping: BlockVisualMapping,
 }
 

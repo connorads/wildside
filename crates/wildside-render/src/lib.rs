@@ -37,9 +37,9 @@ mod tests {
     use std::path::{Path, PathBuf};
     use tempfile::TempDir;
     use wildside_data::{
-        AssetFile, AssetManifest, DECODED_LEVEL_ASSET_VERSION, DecodedAssetFile,
-        DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord, LevelResources,
-        load_manifest, resource_level_record,
+        AssetFile, AssetManifest, BackgroundLayoutAlias, DECODED_LEVEL_ASSET_VERSION,
+        DecodedAssetFile, DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord,
+        LevelResources, load_manifest, resource_level_record,
     };
 
     const LEVEL_ID: u8 = 0x00;
@@ -851,6 +851,13 @@ mod tests {
             .as_mut()
             .expect("resource header")
             .background_theme = FOREST_THEME_ID;
+        fixture.manifest.levels[2].background_layout_alias = Some(BackgroundLayoutAlias {
+            alias_label: String::from("BackgroundLayout_4B"),
+            source_label: String::from("BackgroundLayout_49"),
+            source_background_path: Some(String::from("background/49.bin")),
+            x_offset_tiles: 0x13,
+            y_offset_tiles: 0,
+        });
 
         let visuals =
             load_level_visuals(&fixture.manifest, 0x01).expect("aliased visuals should load");
@@ -868,6 +875,17 @@ mod tests {
         assert_eq!(
             visuals.level.block_layout_bytes,
             vec![0x4B, 0x4C, 0x4D, 0x4E]
+        );
+        assert_eq!(
+            visuals.level.background_layout_alias,
+            Some(BackgroundLayoutAlias {
+                alias_label: String::from("BackgroundLayout_4B"),
+                source_label: String::from("BackgroundLayout_49"),
+                source_background_path: Some(String::from("background/49.bin")),
+                x_offset_tiles: 0x13,
+                y_offset_tiles: 0,
+            }),
+            "ASM Load_BackgroundMappings loc_12824 applies shared-layout offsets from the MapOrder-resolved background layout"
         );
         let BackgroundVisuals::Layered(background) = &visuals.background else {
             panic!("mapped forest resource should use layered background visuals");
@@ -1711,6 +1729,7 @@ mod tests {
                     enemy_layout_metadata: None,
                     bgscroll_metadata: None,
                     platform_metadata: None,
+                    background_layout_alias: None,
                 }],
                 constants: Vec::new(),
                 ram_variables: Vec::new(),

@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 alias metadata reaches render)
+
+- **#289 stays `[~]`; `BackgroundLayoutAlias` now reaches render `LevelVisuals`.** The data bundle and visual loader preserve the MapOrder-resolved shared-background alias from ASM `Load_BackgroundMappings loc_12824`, so the future `$87B2` source-buffer model can consume it without re-parsing or hardcoding.
+- This is still boundary/model work only: no native-player renderer output changed. Fresh `issue289-level07-idle-current` remains expected-red at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`; the alias-only renderer patch remains rejected. **NEXT**: use the metadata in the live `$87B2` construction plus persisted Plane-B row-history model, not in a stateless alias-only overlay.
+
+---
+
 ## 2026-06-21 handoff (#289 typed background alias metadata)
 
 - **#289 stays `[~]`; native manifest normalisation now preserves ASM `Load_BackgroundMappings loc_12824` shared-background alias metadata.** `LevelRecord.background_layout_alias` records `BackgroundLayout_0E -> BackgroundLayout_0C`, source path `background/0C.bin`, x offset `$13`, and y offset `0` from the copied `level/mapheader_definitions.asm`/`level/background_includes.asm` files.
