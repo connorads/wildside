@@ -27,15 +27,16 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 just landed a narrow `sub_30744` row-source fix (`[~]` remains open)**:
-  live Plane-B one-column writes now use the source row in the 29-row
-  `Camera_Y>>5` window whose low five bits match the VDP row; B08 now matches
-  the oracle row words (`27C5..27C3` at columns 45..55/56). Fresh expected-red
-  `issue289-level07-idle-current` remains pixel-red at frame 60 `3915` / MAE
-  `4.2537017`, frame 71 `4113` / `4.5239353`. **NEXT #289:** inspect the
-  remaining non-B08 visual residual (top-row/backdrop and any far-edge row-state
-  still visible in samples); do not change render code without ASM/oracle row
-  evidence. **archive #289**.
+- **#289 just landed the `Load_InGame loc_11F48` grid-preload row-history fix
+  (`[~]` remains open)**: settled level-skip Plane-B reconstruction now replays
+  the player-start camera-grid `loc_2FFE8` pass before the settled-camera pass,
+  preserving old nametable edge cells outside later `sub_307D8` spans. Fresh
+  expected-red `issue289-level07-idle-current` remains pixel-red at frame 60
+  `3915` / MAE `4.2537017`, frame 71 `4113` / `4.5239353`, but native row dumps
+  now match oracle for B08/B27/B29/B30 at both checkpoints. **NEXT #289:** inspect
+  the remaining sampled pixel residual against adjacent Plane-B rows/palette or
+  display selection; do not retune B08/B27/B29/B30 row history without new
+  oracle evidence. **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -48,9 +49,9 @@ and stop — never commit churn.
   raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`, stateless
   `$FFFF87B2`, raw `loc_30452` display-scroll substitution, current-time all-row
   overlay, packed timed-row full-upload placement, alias-only rendering, alias-fed
-  full row uploads, direct row-number-to-bgscroll preload mapping, and source-row
-  8 live writes for B08 (ASM `sub_30744` uses source row 40 in the current camera
-  window).
+  full row uploads, direct row-number-to-bgscroll preload mapping, source-row 8
+  live writes for B08, and reworking B08/B27/B29/B30 row cells without fresh
+  oracle row evidence.
 - **#336 stays `[ ]`, regression bisected (no code change — oracle-gated)**: the
   cold-boot "Kid floats then drops" is the `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y`
   camera pan (216→115px) introduced by c65df2500 (2026-06-12, recent — corrects the

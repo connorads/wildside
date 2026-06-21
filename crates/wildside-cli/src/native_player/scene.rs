@@ -2758,14 +2758,14 @@ impl ChunkedPlaneBRowsLoc307D8 {
         // later load-stage camera adjustment. In the #289 oracle preload rows,
         // Time_Frames-driven `$00/$08` slots retain that grid phase, while
         // camera-parallax slots match the settled trace Camera_X.
-        let preload_grid_camera_x_px = trace
+        let load_grid_camera_x_px = trace
             .player_start_x
             .map(|start_x| i32::from(start_x / 0x0140) * 0x0140)
             .unwrap_or(camera_x_px);
+        let load_grid_camera_y_px = trace
+            .player_start_y
+            .map(|start_y| i32::from(start_y / 0x00E0) * 0x00E0);
         let preload_camera_y_px = i32::try_from(trace.camera_y_pos >> 16).unwrap_or(0);
-        let Ok(camera_y_px) = i16::try_from(preload_camera_y_px) else {
-            return false;
-        };
         let level_height_pixels =
             i32::from(level_visuals.level.foreground_layout.height_cells).saturating_mul(16);
         let Ok(level_height_pixels) = i16::try_from(level_height_pixels) else {
@@ -2796,6 +2796,63 @@ impl ChunkedPlaneBRowsLoc307D8 {
             bgscroll_profile[index] = speed;
         }
 
+        let palette_line = source_buffer.palette_line_loc_307d8();
+        if let Some(load_grid_camera_y_px) = load_grid_camera_y_px
+            && load_grid_camera_y_px != preload_camera_y_px
+        {
+            // ASM Load_InGame loc_11F48 rounds PlayerStart_X/Y to screen-grid
+            // camera values before the first loc_2FFE8 Plane-B preload. Later
+            // level-skip settle camera motion leaves cells outside subsequent
+            // sub_307D8 spans intact in the Plane-B nametable.
+            if !self.apply_preload_rows_for_camera_loc_2ffe8(
+                history,
+                load_grid_camera_y_px,
+                load_grid_camera_x_px,
+                load_grid_camera_x_px,
+                level_height_pixels,
+                background_width,
+                &row_offsets,
+                &bgscroll_profile,
+                source_buffer,
+                palette_line,
+                row,
+            ) {
+                return false;
+            }
+        }
+
+        self.apply_preload_rows_for_camera_loc_2ffe8(
+            history,
+            preload_camera_y_px,
+            load_grid_camera_x_px,
+            camera_x_px,
+            level_height_pixels,
+            background_width,
+            &row_offsets,
+            &bgscroll_profile,
+            source_buffer,
+            palette_line,
+            row,
+        )
+    }
+
+    fn apply_preload_rows_for_camera_loc_2ffe8(
+        &self,
+        history: &mut ChunkedPlaneBRowHistoryLoc30744,
+        camera_y_px: i32,
+        timed_camera_x_px: i32,
+        parallax_camera_x_px: i32,
+        level_height_pixels: i16,
+        background_width: u16,
+        row_offsets: &[u16],
+        bgscroll_profile: &[u8],
+        source_buffer: &ChunkedBackgroundSourceLoc12848,
+        palette_line: u8,
+        row: usize,
+    ) -> bool {
+        let Ok(camera_y_px) = i16::try_from(camera_y_px) else {
+            return false;
+        };
         let max_scroll_slot = bgscroll_profile
             .iter()
             .copied()
@@ -2807,8 +2864,8 @@ impl ChunkedPlaneBRowsLoc307D8 {
         for slot in 0..=max_scroll_slot {
             let layer_speed = u8::try_from(slot.saturating_mul(8)).unwrap_or(0x88);
             let preload_camera_x_px = match layer_speed {
-                0x00 | 0x08 => preload_grid_camera_x_px,
-                _ => camera_x_px,
+                0x00 | 0x08 => timed_camera_x_px,
+                _ => parallax_camera_x_px,
             };
             let scroll_word =
                 background_scroll_data_word_loc_30452(0, preload_camera_x_px, layer_speed);
@@ -2831,7 +2888,6 @@ impl ChunkedPlaneBRowsLoc307D8 {
         ) else {
             return false;
         };
-        let palette_line = source_buffer.palette_line_loc_307d8();
         for upload in uploads {
             history.apply_preload_segment_loc_307d8(
                 row,

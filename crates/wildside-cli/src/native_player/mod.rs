@@ -9889,6 +9889,11 @@ mod tests {
                     y_tiles: 29,
                 },
                 BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 0x13 + 40,
+                    y_tiles: 29,
+                },
+                BackgroundPlacement {
                     chunk_id: 2,
                     x_tiles: 0x13 + 62,
                     y_tiles: 23,
@@ -9992,6 +9997,11 @@ mod tests {
                 Some((0x39, 1)),
             ],
             "ASM loc_2FFE8/sub_307D8 seeds B29 from the settled Camera_X column, not the pre-adjusted player-start grid column"
+        );
+        assert_eq!(
+            ocean_row[45],
+            Some((0x39, 1)),
+            "ASM Load_InGame loc_11F48 first preloads Plane B at the player-start camera grid; the later settled B29 upload leaves the old far-edge cell from that grid pass intact"
         );
 
         let flipped_row = super::scene::chunked_plane_b_row_vdp_words_for_trace_loc_30744(

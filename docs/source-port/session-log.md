@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 Load_InGame grid-preload Plane-B state)
+
+- **#289 stays `[~]`; settled Plane-B row reconstruction now preserves the earlier `Load_InGame loc_11F48` camera-grid preload state.** Settle-trace evidence showed B08 cols 4..6 plus B27/B29 far-edge cells first appeared during `title_wait` step 57 with `Camera_X=0x0140`, `Camera_Y=0x02A0`, before the later target-live settled camera (`0x0124`, `0x0223`). ASM `Load_InGame loc_11F48` rounds `PlayerStart_X/Y` to `$140`/`$E0` screen-grid camera values before calling `loc_2FFE8`, and later `sub_307D8` passes leave cells outside their spans intact.
+- Native now applies a first `loc_2FFE8` preload pass using the player-start grid camera, then the existing settled-camera pass. The focused regression keeps B29 column 45 as the old far-edge ocean cell from the grid pass. Fresh expected-red `issue289-level07-idle-current` is still pixel-red with unchanged metrics (`3915` / MAE `4.2537017`, `4113` / `4.5239353`), but native row dumps now have zero diffs against oracle for B08/B27/B29/B30 at both checkpoints. Remaining #289 work is no longer those row cells; inspect sampled residuals against adjacent rows/palette/display selection before another renderer change.
+- Verification: focused `cargo test -q -p wildside-cli chunked_settled_row_history_seeds_loc_2ffe8_persisted_plane_b_row --no-default-features -- --nocapture`, `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, `cargo run -q -p wildside-cli -- backlog-lint`, `git diff --check`, and `mise run verify-slice-fast` (TAS frontier plus 6257 core tests and 9 CLI gameplay tests green).
+
+---
+
 ## 2026-06-21 handoff (#289 Plane-B wrapped row source)
 
 - **#289 stays `[~]`; native `sub_30744` live column writes now use the source row from the camera-visible row window, not the visible VDP row number.** Re-reading ASM `sub_30744` showed it starts at `Camera_Y_pos>>5` and walks 29 source rows while the VDP row wraps with `& $1F`; at Level 0x07 camera chunk 17, Plane-B row 8 is therefore fed by source row 40. Native previously wrote B08 columns 45..55 from source row 8 and overwrote the persisted preload strip with `$2780` zeros.
