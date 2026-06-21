@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 loc_2FFE8 sweep diagnostic)
+
+- **#289 stays `[~]`; no gameplay code kept.** A temporary renderer-module diagnostic simulated the `loc_2FFE8` lower sweep with `sub_307D8` 41-cell uploads and visible-frame `sub_30744` one-cell updates against the real Level 0x07 source buffer. It matches the broad B29 ocean-row structure but starts one source column behind the oracle unless the renderer's existing +1 source bias is applied.
+- The same exact sweep still cannot explain oracle row `B18`'s cloud tail: predicted `B18` is old `$0780` plus `$2780` fill, while oracle keeps `2781..2787` at columns 49..55. Refreshed `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. **NEXT**: instrument or type the actual Plane-B nametable rows immediately after `loc_2FFE8` preload, before visible-frame `sub_30744`; do not retry a renderer-local approximate sweep without that oracle preload state.
+
+---
+
 ## 2026-06-21 handoff (#289 stale Plane-B row-history dead end)
 
 - **#289 stays `[~]`; no gameplay code kept.** A local diagnostic reconstructed the Level 0x07 chunked `$FFFF87B2` source buffer and rejected the simple right-edge overflow theory for row `B18`: ASM `Load_BackgroundChunk loc_12848` clips chunk 0 at x=68 against `Background_width=70`, so current source row 18 contains only `68:01 69:02`, not the `01..07` tail seen in oracle Plane-B row `B18`.

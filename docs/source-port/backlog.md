@@ -57,14 +57,20 @@ and stop — never commit churn.
   row-18 chunk at `Background_width=70`, leaving only source columns 68..69 as
   `1,2`; the oracle's `2781..2787` tail must therefore be stale Plane-B row
   history from the `loc_2FFE8` preload/vertical nametable sweep, not current
-  `$FFFF87B2` row contents. The next pass needs the exact row-specific Plane-B state/scroll
-  split rather than another broad `$08` scroll substitution.
+  `$FFFF87B2` row contents. A follow-up exact `loc_2FFE8` lower-sweep diagnostic
+  still could not produce `B18`'s `2781..2787` tail: it predicts B18 as old
+  `$0780` then `$2780` fill only, while B29 follows the oracle ocean pattern but
+  is one source column behind unless the renderer's existing +1 source bias is
+  applied. The next pass needs typed/instrumented preload VRAM row state at the
+  end of `loc_2FFE8`, not another broad `$08` scroll substitution.
 - **Gates this session**: no gameplay code kept. Temporary diagnostic
-  `cargo test -q -p wildside-cli debug_issue289_chunked_background_rows -- --ignored --nocapture`
-  was removed after it confirmed the row-source facts above; direct `backlog-lint`
-  is green. The `mise` wrappers remain blocked in
-  this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so use
-  direct cargo/CLI commands for code verification.
+  `cargo test -q -p wildside-cli debug_issue289_loc_2ffe8_plane_b_rows -- --ignored --nocapture`
+  was removed after printing the exact-sweep rows; refreshed
+  `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60
+  `5080` / `5.6536646`, frame 71 `5212` / `5.8645835`; direct `backlog-lint`
+  is green. The `mise` wrappers remain blocked
+  in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
+  use direct cargo/CLI commands for code verification.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.
