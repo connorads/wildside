@@ -27,12 +27,14 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 just landed a narrow row-word fidelity fix (`[~]` remains open)**:
-  `unk_309B8` high-bit chunk bytes now map to VDP H-flip words (`$2F80..$2FFF`),
-  so B23/B27 flipped row cells match the oracle. Fresh expected-red
+- **#289 just landed a narrow `sub_30744` row-source fix (`[~]` remains open)**:
+  live Plane-B one-column writes now use the source row in the 29-row
+  `Camera_Y>>5` window whose low five bits match the VDP row; B08 now matches
+  the oracle row words (`27C5..27C3` at columns 45..55/56). Fresh expected-red
   `issue289-level07-idle-current` remains pixel-red at frame 60 `3915` / MAE
-  `4.2537017`, frame 71 `4113` / `4.5239353`. **NEXT #289:** inspect remaining
-  B08/far-edge row-state gaps; do not change render code without ASM/oracle row
+  `4.2537017`, frame 71 `4113` / `4.5239353`. **NEXT #289:** inspect the
+  remaining non-B08 visual residual (top-row/backdrop and any far-edge row-state
+  still visible in samples); do not change render code without ASM/oracle row
   evidence. **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
@@ -46,7 +48,9 @@ and stop — never commit churn.
   raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`, stateless
   `$FFFF87B2`, raw `loc_30452` display-scroll substitution, current-time all-row
   overlay, packed timed-row full-upload placement, alias-only rendering, alias-fed
-  full row uploads, and direct row-number-to-bgscroll preload mapping.
+  full row uploads, direct row-number-to-bgscroll preload mapping, and source-row
+  8 live writes for B08 (ASM `sub_30744` uses source row 40 in the current camera
+  window).
 - **#336 stays `[ ]`, regression bisected (no code change — oracle-gated)**: the
   cold-boot "Kid floats then drops" is the `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y`
   camera pan (216→115px) introduced by c65df2500 (2026-06-12, recent — corrects the
@@ -56,10 +60,10 @@ and stop — never commit churn.
   title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
-- **Gates this session**: focused `wildside-data` `sub_30744` tests, `wildside-cli`
-  `chunked_` tests, `cargo check -q -p wildside-data`, `cargo check -q -p
-  wildside-cli`, `cargo fmt --check --all`, and expected-red #289 recording. `backlog-lint`
-  and `git diff --check` run before commit.
+- **Gates this session**: focused `wildside-cli`
+  `chunked_settled_row_history_seeds_loc_2ffe8_persisted_plane_b_row`, `cargo check -q -p
+  wildside-cli`, `cargo fmt --check --all`, expected-red #289 recording,
+  `mise run verify-slice-fast`, `backlog-lint`, and `git diff --check`.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.

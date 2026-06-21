@@ -2618,12 +2618,18 @@ impl ChunkedPlaneBRowsLoc307D8 {
         }
 
         let changed_column_source = self.source_buffer_for_trace_loc_12824(trace);
+        let changed_column_row = source_row_for_plane_b_changed_column_loc_30744(
+            trace,
+            row,
+            changed_column_source.height,
+        )
+        .unwrap_or(row);
         self.apply_elapsed_column_writes_loc_30744(
             &mut history,
             trace,
             camera_x_px,
             layer_speed,
-            row,
+            changed_column_row,
             changed_column_source,
         );
 
@@ -2672,6 +2678,12 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let upload_data_source =
             (usize::from(upload_data_word >> 3) + source_column_bias as usize) % self.source.width;
         let changed_column_source = self.source_buffer_for_trace_loc_12824(trace);
+        let changed_column_row = source_row_for_plane_b_changed_column_loc_30744(
+            trace,
+            row,
+            changed_column_source.height,
+        )
+        .unwrap_or(row);
         let changed_source_kind =
             if trace.level_skip_cheat_enabled != 0 && self.alias_source_loc_12824.is_some() {
                 "alias"
@@ -2689,7 +2701,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
                     changed_column_source,
                     previous_scroll,
                     current_scroll,
-                    row,
+                    changed_column_row,
                     time_frames,
                 ) {
                     changed_writes.push(write);
@@ -2865,6 +2877,24 @@ impl ChunkedPlaneBRowsLoc307D8 {
             previous_scroll = current_scroll;
         }
     }
+}
+
+fn source_row_for_plane_b_changed_column_loc_30744(
+    trace: &NativeTraceFrame,
+    plane_row: usize,
+    source_height: usize,
+) -> Option<usize> {
+    let camera_y_px = i32::try_from(trace.camera_y_pos >> 16).ok()?;
+    let camera_row = camera_y_px >> 5;
+    if camera_row < 0 {
+        return None;
+    }
+    let camera_row = usize::try_from(camera_row).ok()?;
+    // ASM sub_30744 (kid.asm:34563): live column writes walk 29 rows from
+    // `Camera_Y_pos>>5`, while the VDP row address wraps with `& $1F`.
+    (0..=0x1C)
+        .map(|offset| camera_row + offset)
+        .find(|source_row| source_row < &source_height && (source_row & 0x1F) == (plane_row & 0x1F))
 }
 
 fn changed_column_write_debug_loc_30744(

@@ -9845,7 +9845,7 @@ mod tests {
     #[test]
     fn chunked_settled_row_history_seeds_loc_2ffe8_persisted_plane_b_row() {
         let mut trace = sample_trace(GameMode::InGame);
-        trace.frame_index = 60;
+        trace.frame_index = 174;
         trace.time_frames_loc_3038a = 174;
         trace.level_skip_cheat_enabled = 1;
         trace.camera_x_pos = 292 << 16;
@@ -9860,9 +9860,11 @@ mod tests {
             ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 4, 4)
                 .expect("issue #289-shaped foreground layout");
         let mut layer_speeds = vec![0xFF; 64];
+        layer_speeds[8] = 0x08;
         layer_speeds[18] = 0x08;
         layer_speeds[23] = 0x00;
         layer_speeds[29] = 0x20;
+        layer_speeds[40] = 0x08;
         visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
             layer_speeds,
             has_terminator: true,
@@ -9890,6 +9892,16 @@ mod tests {
                     chunk_id: 2,
                     x_tiles: 0x13 + 62,
                     y_tiles: 23,
+                },
+                BackgroundPlacement {
+                    chunk_id: 3,
+                    x_tiles: 0x13 + 45,
+                    y_tiles: 40,
+                },
+                BackgroundPlacement {
+                    chunk_id: 3,
+                    x_tiles: 0x13 + 51,
+                    y_tiles: 40,
                 },
             ],
             chunks: vec![
@@ -9922,6 +9934,17 @@ mod tests {
                         .map(|tile_index| BackgroundTile {
                             tile_index,
                             flip_x: true,
+                        })
+                        .collect(),
+                },
+                BackgroundChunk {
+                    width_tiles: 6,
+                    height_tiles: 1,
+                    tiles: [0x45, 0x46, 0x41, 0x42, 0x43, 0x44]
+                        .into_iter()
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: false,
                         })
                         .collect(),
                 },
@@ -9979,6 +10002,28 @@ mod tests {
             &flipped_row[62..64],
             &[Some(0x2F92), Some(0x2F91)],
             "ASM unk_309B8 maps high-bit chunk bytes from loc_12848 into the VDP H-flip bit for B23"
+        );
+
+        let wrapped_row = super::scene::chunked_plane_b_row_vdp_words_for_trace_loc_30744(
+            &trace, &visuals, 292, 8,
+        )
+        .expect("settled chunked Plane-B wrapped row history");
+        assert_eq!(
+            &wrapped_row[45..56],
+            &[
+                Some(0x27C5),
+                Some(0x27C6),
+                Some(0x27C1),
+                Some(0x27C2),
+                Some(0x27C3),
+                Some(0x27C4),
+                Some(0x27C5),
+                Some(0x27C6),
+                Some(0x27C1),
+                Some(0x27C2),
+                Some(0x27C3),
+            ],
+            "ASM sub_30744 starts live column writes at Camera_Y_pos>>5; with camera chunk 17, Plane-B row 8 is fed by source row 40, not source row 8"
         );
     }
 

@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 Plane-B wrapped row source)
+
+- **#289 stays `[~]`; native `sub_30744` live column writes now use the source row from the camera-visible row window, not the visible VDP row number.** Re-reading ASM `sub_30744` showed it starts at `Camera_Y_pos>>5` and walks 29 source rows while the VDP row wraps with `& $1F`; at Level 0x07 camera chunk 17, Plane-B row 8 is therefore fed by source row 40. Native previously wrote B08 columns 45..55 from source row 8 and overwrote the persisted preload strip with `$2780` zeros.
+- Focused regression extended `chunked_settled_row_history_seeds_loc_2ffe8_persisted_plane_b_row` with B08/source-row-40 coverage. Fresh expected-red `issue289-level07-idle-current` keeps the same pixel metrics (`3915` / MAE `4.2537017`, `4113` / `4.5239353`), but native B08 now matches the oracle row words at columns 45..55/56. Remaining #289 work is no longer this B08 source-row issue; continue from the remaining top-row/backdrop/far-edge visual residual with row evidence.
+- Verification: `cargo test -q -p wildside-cli chunked_settled_row_history_seeds_loc_2ffe8_persisted_plane_b_row -- --nocapture`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, `cargo run -q -p wildside-cli -- backlog-lint`, `git diff --check`, and `mise run verify-slice-fast`.
+
+---
+
 ## 2026-06-21 handoff (#289 Plane-B H-flip table)
 
 - **#289 stays `[~]`; chunked Plane-B row words now mirror ASM `unk_309B8` for high-bit chunk bytes.** Re-reading `sub_30744`/`sub_307D8` showed both routines load words from `unk_309B8`; the table is `$2780..$27FF,$2F80..$2FFF`, so chunk byte bit 7 is the VDP H-flip bit. Native previously treated bit 7 as tile-index bit 7 and emitted `$2792/$2791` where the oracle row dump has `$2F92/$2F91`.
