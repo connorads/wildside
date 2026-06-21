@@ -52,7 +52,9 @@ and stop — never commit churn.
   negative-y preload calls when the biased streamed row is non-negative, and
   pure `background_preload_row_uploads_loc_2FFE8` models the second preload
   sweep including the raw `$FFFFFAA8 = Camera_Y_pos-$3A0` seed before per-pass
-  row-chunk latching.
+  row-chunk latching. Native row provenance also prints packed `sub_307D8`
+  upload data; real #289 `$08` rows show `upload=d00<-s01` but
+  `upload_data=d04<-s05w0024`, matching oracle's old `$0780` left edge.
 - **Next #289 action**: model or trace the full persisted Plane-B nametable state
   across target-level `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
   instead of changing display scroll. First trace or type the ROM
@@ -74,10 +76,10 @@ and stop — never commit churn.
   `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, focused
   `cargo test -q -p wildside-cli chunked_`, fresh expected-red
   `issue289-level07-idle-current`, backlog lint, TAS frontier, wildside-core
-  lib sweep, wildside-cli gameplay regressions, and focused `wildside-data`
+  lib sweep, wildside-cli gameplay regressions, focused `wildside-data`
   negative-y `sub_307D8` coverage, full `loc_2FFE8` preload-sweep coverage,
-  and full wildside-data lib tests. `mise` wrappers remain blocked by `fnox@1`
-  linux-arm64.
+  full wildside-data lib tests, and focused `wildside-cli` upload-data
+  provenance coverage. `mise` wrappers remain blocked by `fnox@1` linux-arm64.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.

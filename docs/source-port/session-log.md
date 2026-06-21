@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 sub_307D8 upload-word diagnostic)
+
+- **#289 stays `[~]`; native Plane-B row provenance now prints the packed `sub_307D8` upload placement.** The report keeps the current display-derived `upload=dXX<-sYY` field, and adds `upload_data=dXX<-sYYwWWWW` from ASM `BackgroundScroll_ComputeShiftData loc_30452` / `sub_307D8`.
+- Fresh expected-red #289 report remains unchanged at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`, but now exposes the next lead: real `$08` rows show `upload=d00<-s01` while packed upload data says `upload_data=d04<-s05w0024`, matching the oracle left-edge boundary where columns 0-4 remain old `$0780`. **NEXT**: test a scoped row-history change that uses packed `sub_307D8` upload placement for timed `$00/$08` rows, without reintroducing the rejected broad display-scroll placement trial.
+- Verification: `cargo fmt --check --all`, focused `cargo test -q -p wildside-cli chunked_settled_row_history_replays_loc_30452_columns_into_alias_source_loc_30744`, `cargo check -q -p wildside-cli`, and expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`.
+
+---
+
 ## 2026-06-21 handoff (#289 loc_2FFE8 preload model)
 
 - **#289 stays `[~]`; data now has a pure `background_preload_row_uploads_loc_2FFE8` model for the ROM preload sweep.** ASM `loc_2FFE8` sweeps `Camera_Y_pos` below zero before restoring the real camera and calling into gameplay; the model replays the second preload loop through shared `background_row_uploads_sub_307D8`, including the raw `$FFFFFAA8 = Camera_Y_pos-$3A0` seed before per-pass row-chunk latching.

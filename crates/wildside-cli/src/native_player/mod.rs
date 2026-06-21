@@ -9773,6 +9773,14 @@ mod tests {
             vec![1, 2, 3, 4, 5, 6, 7],
             "ASM loc_74E0's hidden settled recording window starts 60 live frames before scenario frame 0; loc_30452/sub_304B4 then feeds sub_30744 with `$08` source/VDP columns 49..55 by Time_Frames 174, consuming the loc_12824 alias-adjusted `$87B2` source row"
         );
+
+        let debug =
+            super::scene::chunked_plane_b_row_debug_for_trace_loc_30744(&trace, &visuals, 292, 18)
+                .expect("settled chunked Plane-B row debug");
+        assert!(
+            debug.contains("upload_data=d11<-s12w005D"),
+            "ASM sub_307D8 reads the packed loc_30452 Horiz_Scroll_Data word for row-upload placement; #289 diagnostics must keep it visible beside the display-derived upload: {debug}",
+        );
     }
 
     #[test]

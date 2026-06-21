@@ -2592,6 +2592,15 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let upload_source = (upload_scroll_x_px.div_euclid(8) + source_column_bias)
             .rem_euclid(i32::try_from(self.source.width).ok()?)
             as usize;
+        // ASM sub_307D8 (kid.asm:34646): the row stream does not consume
+        // BackgroundScroll_ComputeShiftLayers loc_3050A display pixels. It
+        // reads the packed Horiz_Scroll_Data word written by loc_30452 and
+        // shifts it by three before building the VDP/source row window.
+        let upload_data_word =
+            background_scroll_data_word_loc_30452(preload_time_frames, camera_x_px, layer_speed);
+        let upload_data_column = usize::from((upload_data_word >> 3) & 0x003F);
+        let upload_data_source =
+            (usize::from(upload_data_word >> 3) + source_column_bias as usize) % self.source.width;
         let changed_column_source = self.source_buffer_for_trace_loc_12824(trace);
         let changed_source_kind =
             if trace.level_skip_cheat_enabled != 0 && self.alias_source_loc_12824.is_some() {
@@ -2635,7 +2644,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
             .collect::<Vec<_>>()
             .join(",");
         Some(format!(
-            "B{row:02} sel={layer_speed:02X} t={current_time_frames} preload={preload_time_frames} first={first_time_frames} upload_px={upload_scroll_x_px} upload=d{upload_destination:02}<-s{upload_source:02} changed_src={changed_source_kind} writes={changed_writes} words={words}"
+            "B{row:02} sel={layer_speed:02X} t={current_time_frames} preload={preload_time_frames} first={first_time_frames} upload_px={upload_scroll_x_px} upload=d{upload_destination:02}<-s{upload_source:02} upload_data=d{upload_data_column:02}<-s{upload_data_source:02}w{upload_data_word:04X} changed_src={changed_source_kind} writes={changed_writes} words={words}"
         ))
     }
 
