@@ -5309,6 +5309,13 @@ fn build_game_scene_filtered(
             .filter(|object| matches!(object.kind, wildside_core::NativeObjectKind::Enemy { .. }))
         {
             if let NativeObjectKind::Enemy { object_type } = object.kind {
+                if object.debug_fields.contains_key("glyph") {
+                    // #349: ASM Load_TitleCard Title_Letter workers ride
+                    // active_objects as Enemy{object_type:0} during the
+                    // (death-)respawn title card; they render through the
+                    // title-card glyph overlay below, not as an enemy family.
+                    continue;
+                }
                 if object_type == DRIPS_OBJECT_TYPE {
                     // ASM Drips.asm Enemy16_Drip_Init/loc_33488 keeps the
                     // parent/controller gfx object hidden via `$13`; native
@@ -6385,6 +6392,14 @@ fn build_game_scene_filtered(
             }
         }
     }
+
+    // #349: ASM lose_life (kid.asm:14763) -> Game_Mode 8 -> Load_TitleCard
+    // allocates the same Title_Letter glyph workers as a normal entry. The
+    // death-respawn card is traced as InGame during the respawn_live_handoff
+    // hand-off (trace.rs:9177), so the gameplay scene must draw the level-name
+    // glyph workers too — otherwise the post-death card shows the scene but
+    // drops the name. No-op outside the title-card window (no glyph workers).
+    commands.extend(build_title_card_worker_overlay_scene(trace, Some(level_visuals)).commands);
 
     push_teleport_warp_tint_loc_bcf6(&mut commands, trace);
 

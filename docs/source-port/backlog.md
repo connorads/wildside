@@ -27,20 +27,22 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#339 just landed (`[ ]`→`[?]`, REOPEN resolved, awaiting human audio listen)**:
-  the Rock Tank drive drone ($1F) no longer persists after a Kid death or stacks across
-  level-skips. Mirrored ROM `Load_InGame`→`j_StopMusic` (loc_23629, the only death/skip
-  off-switch) with `stop_level_looping_drones_on_load_ingame_loc_23629`, called at the
-  respawn reset and the level-skip teardown — stops the live tank-drive AND clock-prize
-  drones (also covers #342's death/level-load scope boundary). CRC-neutral; tests
-  `loc_23629_*`; `verify-slice-fast` (6251+9) and `verify-tas-full` green (CRC all 37759
-  match, 212 authoritative = #290 baseline). Full evidence: **archive #339**.
-- **#350 also landed this session (`[?]`)**: Hills (theme 3) below-canopy foliage was
-  blue/purple. Hills uses the LAYERED background path (not the chunked
-  `background_palette_for_scene` the original note blamed); its lower foliage plane (ASM
-  `loc_1295E` base `$07C0` = CRAM line 0) indexed the background sky palette. Extended the
-  Mountain two-line branch to theme 3. Oracle-verified: warp idle frame-39 below-canopy
-  diffs 1334→0. **archive #350**.
+- **#349 just landed (`[~]`→`[?]`, awaiting human post-death playtest)**: the post-death
+  level card now draws the level NAME. Reproduced via a new render assertion: the
+  Title_Letter workers (`Enemy{object_type:0}` + `glyph` field) render only in
+  `build_transition_scene`, but the respawn card is traced as InGame (trace.rs:9177), so
+  `build_game_scene_filtered` mis-rendered them as enemy family 0 and never drew the title
+  overlay. Now the gameplay scene skips glyph workers in the enemy loop and appends
+  `build_title_card_worker_overlay_scene` (no-op otherwise). Render-only/CRC-neutral; test
+  `death_respawn_title_card_renders_level_name_glyphs_loc_b8de`; `verify-slice-fast`
+  (6251+9) green. **archive #349**.
+- **Also landed this session (both `[?]`)**: **#339** (audio) — Rock Tank drive drone no
+  longer persists after death / stacks on skip; mirrored ROM `Load_InGame`→`j_StopMusic`
+  (loc_23629) at the respawn reset + skip teardown (CRC-neutral, `verify-tas-full` green,
+  212 authoritative = #290). **#350** (render) — Hills (theme 3) below-canopy foliage was
+  blue; Hills uses the LAYERED path and its lower foliage plane (`loc_1295E` `$07C0`)
+  indexed the sky palette; extended the Mountain two-line branch to theme 3 (oracle diffs
+  1334→0). See **archive #339 / #350**.
 - **#289 stays `[~]` but is research-blocked**: 5+ consecutive instrumentation/docs
   commits, marginal MAE gains (Level 0x07 frame 60 `5080`→`4031`) and still
   `oracle_frame_match=false`. The remaining work is modelling incremental persisted
@@ -58,11 +60,11 @@ and stop — never commit churn.
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
 - **Gates this session**: `cargo fmt` clean, both crates `cargo check` warning-free,
-  new `loc_23629_*` (#339) and `hills_*_loc_1295e` (#350) regressions green,
-  `mise run verify-slice-fast` green (6251 core + 9 CLI + verify-tas-frontier +
-  backlog-lint), `mise run verify-tas-full` CRC all 37759 frames match with 212
-  authoritative = #290 baseline. Both fixes are CRC-neutral (#339 audio commands; #350
-  CLI render layer).
+  new regressions green (`death_respawn_title_card_*` #349, `loc_23629_*` #339,
+  `hills_*_loc_1295e` #350), `mise run verify-slice-fast` green (6251 core + 9 CLI +
+  verify-tas-frontier + backlog-lint), `mise run verify-tas-full` CRC all 37759 frames
+  match with 212 authoritative = #290 baseline. All three fixes CRC-neutral (#349/#350
+  CLI render layer; #339 audio commands).
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -106,5 +108,4 @@ For newly opened items, capture these facts in the investigation notes:
 | 346 | [ ] | P1 | gameplay | 2026-06-20 playtest: launched spike bullet (ShooterObject) force-deleted after ~120 frames (~480px) so it never reaches a distant wall to trigger the EvanescentBlock_Trigger return-spike chain. Native models it as a generic EnemyProjectile lifetime:120 (types.rs:3210); the generic step (projectiles.rs:2742/2711) deletes it and the exemption list (2700-2741) omits ShooterBlock. ASM Process_ShooterObjects (loc_EDFA) has NO timer — dies only on a collidable cell (loc_F00A) or level edge, keeps simulating off-screen | Exempt EnemyProjectileKind::ShooterBlock from the lifetime decrement; regression: a bullet launched >120f from a wall still reaches it and re-fires. See archive #346 |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up ("springy") block snaps to its new cell instead of showing the loc_113F4 8-frame/16px rise. Core is correct (SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4, reserved $6F cell, BlockBounceAnim kind=Shifting) but the renderer drops it: push_block_grid_overrides (scene.rs:3885) skips the cell (reserved $6F → has_block=false, not Prize); the bounce-sprite draw loop (scene.rs:3934) handles Prize only. Test `non_prize_cleared_block_bounce_keeps_foreground_terrain_visible` currently ENFORCES the no-anim behaviour. Distinct from #281 (trigger/SFX) | Draw the kind=Shifting bounce sprite (E0EBE art) over the 8 rise frames; flip the enforcing test. See archive #347 |
 | 348 | [ ] | P1 | input | 2026-06-20 playtest: level/title card ignores Start for ~343 frames (122 for the Level-1 lineage) and needs a press-then-release; original exits the same frame Start fires. ASM loc_1AE2E exits on the FIRST Start edge from frame 2, no minimum-display gate. Native gates Start behind handoff_ready (>342; movement.rs:101) + a press-release latch (boot.rs:7388); the movement.rs:96-101 comment admits the 342 is an oracle-boot-trace replay artefact. Untracked (seed #016/#162/#327 all orthogonal + correctly closed) | Exit on the first Start edge for live/interactive play; gate the recorded delay behind a replay flag so boot traces (#305/#161/#248) stay green; DynamicScenario Start at card frame ~5 reaches Game_Mode $C within 1-2 frames. See archive #348 |
-| 349 | [ ] | P1 | render | 2026-06-20 playtest: post-death level card renders the scene/trees but NOT the level-NAME text (A then loads fine). ASM lose_life→Game_Mode 8→Load_TitleCard allocates the same Title_Letter glyph workers as a normal entry, so the name MUST appear. Core model + tests pass (level_tests.rs:3579/3615 assert workers EXIST in the trace) but never assert the RENDERED native-player scene draws the name — the defect is in that render/integration gap. Distinct from #326 (WRONG name on ≥0x10 entry cards) and #257/#248 (black-screen recovery) | Add a native-player render assertion (not just core worker-presence); capture a post-death card frame; fix glyph ASCII fallback / title_elapsed offset / title_card None on the respawn path. See archive #349 |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods (levels $11/$12, theme 9 Forest, weather 0) falling "snow" is actually Drip enemies (0x16) rendering the wrong colour variant (orange not green). ROM ships 3 Drip palettes (Drips_1 green / Drips_2 orange / Drips_3 purple; kid.asm:48317-48319); native ENEMY_FAMILIES hardcodes one palette per family. No storm system runs here (Init_SpecialEffects returns on weather 0) — "should be snow" is a human misread but "orange particles" is a real colour-variant bug. Seed #317/#230 are the wrong (storm) system | Per-level slot/palette-line variant selection in bundle.rs load_enemy_visuals; level $12 capture at x~2264 vs oracle. See archive #351 |

@@ -3746,6 +3746,65 @@ mod tests {
         );
     }
 
+    fn glyph_worker_trace(mode: GameMode) -> NativeTraceFrame {
+        // #349: the core surfaces each post-death Title_Letter worker through
+        // `active_objects` as `Enemy{object_type:0}` with a `glyph` debug field
+        // (see `death_respawn_exposes_load_title_card_vdp_shell_loc_b8de`).
+        let mut trace = sample_trace(mode);
+        trace.active_objects.clear();
+        let mut debug_fields = std::collections::BTreeMap::new();
+        debug_fields.insert("glyph".to_owned(), "0x61".to_owned()); // 'a' -> 'A'
+        debug_fields.insert("gfx_slot_index".to_owned(), "0".to_owned());
+        trace.active_objects = vec![NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0 },
+            x_pos: 0x0080_0000,
+            y_pos: 0x0070_0000,
+            layout_index: None,
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields,
+        }];
+        trace
+    }
+
+    #[test]
+    fn death_respawn_title_card_renders_level_name_glyphs_loc_b8de() {
+        // #349: ASM lose_life (kid.asm:14763) -> Game_Mode 8 -> Load_TitleCard
+        // allocates the same Title_Letter glyph workers as a normal entry, so the
+        // post-death card MUST draw the level name. The death-respawn window is
+        // traced as InGame during the `respawn_live_handoff` hand-off
+        // (trace.rs:9177) and as LevelTransition during the `Respawning` settle —
+        // both must render the live glyph workers, not just the transition path.
+        let transition = build_scene(
+            &glyph_worker_trace(GameMode::LevelTransition),
+            false,
+            None,
+            None,
+        );
+        assert!(
+            contains_text(&transition, "A"),
+            "the LevelTransition post-death card must draw the level-name glyph workers"
+        );
+
+        let ingame = build_ingame_scene(&glyph_worker_trace(GameMode::InGame), false, None);
+        assert!(
+            contains_text(&ingame, "A"),
+            "the InGame respawn hand-off frame must ALSO draw the level-name glyph workers (the post-death card shows the scene but dropped the name)"
+        );
+    }
+
     #[test]
     fn boss_eye_object_slots_render_in_sub_ff6_sprite_order() {
         let mut trace = sample_trace(GameMode::InGame);
