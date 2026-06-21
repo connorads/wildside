@@ -61,6 +61,8 @@ const BLOCK_DEBRIS_VEL_D6_1_SUB_292E: [(i16, i16); 5] =
     [(-5, -3), (-4, -3), (-3, -3), (-2, -3), (-1, -3)];
 const BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E: [(i16, i16); 5] =
     [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)];
+const PLANE_B_ROW_CELLS_LOC_11B7A: usize = 0x40;
+const CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744: usize = 0x2A;
 const LAVA_GEYSER_TOP_TEMPLATE_UNK_14624: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 2] = [
     wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
         x_offset_px: 0x0001,
@@ -1757,6 +1759,8 @@ pub(super) fn push_background_tiles(
 
     match &level_visuals.background {
         wildside_render::BackgroundVisuals::Chunked(background) => {
+            let chunked_palette_line =
+                chunked_background_palette_line_loc_128ba(level_visuals.level.background_theme_id);
             for placement in &background.placements {
                 let Some(chunk) = background.chunks.get(usize::from(placement.chunk_id)) else {
                     continue;
@@ -1789,9 +1793,7 @@ pub(super) fn push_background_tiles(
                             tile_sheet: tile_sheet.clone(),
                             tile: TileRef {
                                 tile_index: background_tile.tile_index,
-                                palette_line: chunked_background_palette_line_loc_128ba(
-                                    level_visuals.level.background_theme_id,
-                                ),
+                                palette_line: chunked_palette_line,
                                 priority: false,
                                 flip_x: background_tile.flip_x,
                                 flip_y: false,
@@ -1799,6 +1801,48 @@ pub(super) fn push_background_tiles(
                             palette: palette.clone(),
                         });
                     }
+                }
+            }
+
+            let Some(plane_b) =
+                ChunkedPlaneBRowsLoc307D8::from_background(level_visuals, background)
+            else {
+                return;
+            };
+            let background_scroll_y_px = camera_y_px >> 2;
+            let first_row = (background_scroll_y_px.div_euclid(8)).max(0) as usize;
+            let last_row =
+                ((background_scroll_y_px + FRAME_HEIGHT as i32 + 7).div_euclid(8)).max(0) as usize;
+            for row in first_row..=last_row {
+                if !chunked_background_row_window_applies_loc_30744(level_visuals, row) {
+                    continue;
+                }
+                let Some(cells) = plane_b.row_for_trace(trace, level_visuals, camera_x_px, row)
+                else {
+                    continue;
+                };
+                let screen_y = i32::try_from(row)
+                    .unwrap_or(i32::MAX)
+                    .saturating_mul(8)
+                    .saturating_sub(background_scroll_y_px);
+                if screen_y <= -8 || screen_y >= FRAME_HEIGHT as i32 {
+                    continue;
+                }
+                for (column, cell) in cells.iter().enumerate() {
+                    let Some(cell) = cell else {
+                        continue;
+                    };
+                    let screen_x = i32::try_from(column).unwrap_or(i32::MAX).saturating_mul(8);
+                    if screen_x <= -8 || screen_x >= FRAME_WIDTH as i32 {
+                        continue;
+                    }
+                    commands.push(DrawCommand::IndexedTile {
+                        x: screen_x,
+                        y: screen_y,
+                        tile_sheet: tile_sheet.clone(),
+                        tile: cell.tile_ref,
+                        palette: palette.clone(),
+                    });
                 }
             }
         }
@@ -1966,6 +2010,8 @@ pub(crate) fn sample_background_pixel_loc_c070(
 
     match &level_visuals.background {
         wildside_render::BackgroundVisuals::Chunked(background) => {
+            let chunked_palette_line =
+                chunked_background_palette_line_loc_128ba(level_visuals.level.background_theme_id);
             for placement in &background.placements {
                 let Some(chunk) = background.chunks.get(usize::from(placement.chunk_id)) else {
                     continue;
@@ -1987,9 +2033,7 @@ pub(crate) fn sample_background_pixel_loc_c070(
                         );
                         let tile_ref = TileRef {
                             tile_index: background_tile.tile_index,
-                            palette_line: chunked_background_palette_line_loc_128ba(
-                                level_visuals.level.background_theme_id,
-                            ),
+                            palette_line: chunked_palette_line,
                             priority: false,
                             flip_x: background_tile.flip_x,
                             flip_y: false,
@@ -2009,6 +2053,44 @@ pub(crate) fn sample_background_pixel_loc_c070(
                             Some(usize::from(placement.y_tiles + row)),
                             None,
                             Some(usize::from(placement.x_tiles + column)),
+                        ) {
+                            sample = Some(hit);
+                        }
+                    }
+                }
+            }
+
+            if let Some(plane_b) =
+                ChunkedPlaneBRowsLoc307D8::from_background(level_visuals, background)
+            {
+                let background_scroll_y_px = camera_y_px >> 2;
+                let row = (sample_y + background_scroll_y_px).div_euclid(8);
+                if row >= 0
+                    && chunked_background_row_window_applies_loc_30744(level_visuals, row as usize)
+                    && let Some(cells) =
+                        plane_b.row_for_trace(trace, level_visuals, camera_x_px, row as usize)
+                {
+                    let column = sample_x.div_euclid(8);
+                    if (0..PLANE_B_ROW_CELLS_LOC_11B7A as i32).contains(&column)
+                        && let Some(cell) = cells[column as usize]
+                    {
+                        let screen_x = column * 8;
+                        let screen_y = row * 8 - background_scroll_y_px;
+                        if let Some(hit) = sample_background_tile_pixel(
+                            &tile_sheet,
+                            &palette,
+                            cell.tile_ref,
+                            screen_x,
+                            screen_y,
+                            sample_x,
+                            sample_y,
+                            None,
+                            None,
+                            screen_x,
+                            screen_y,
+                            Some(cell.background_row_index),
+                            None,
+                            Some(cell.background_column),
                         ) {
                             sample = Some(hit);
                         }
@@ -2076,6 +2158,140 @@ fn chunked_background_palette_line_loc_128ba(background_theme_id: u8) -> u8 {
     // chunked backgrounds rendered by sub_307D8 use `$2780`-based words and
     // therefore read background CRAM line 1.
     if background_theme_id == 9 { 0 } else { 1 }
+}
+
+fn chunked_background_row_window_applies_loc_30744(
+    level_visuals: &NativeLevelVisuals,
+    y_tiles: usize,
+) -> bool {
+    let layer_speed = background_layer_speed_loc_3050a(level_visuals, y_tiles);
+    // TODO(fidelity): sub_30744/sub_307D8 update every bgscroll row through
+    // Plane B, but #289 shows upper rows preserve stale pre-camera VRAM state
+    // that native does not yet track. The row-window overlay is currently
+    // verified only for camera-parallax rows where `(speed-$10)/8` consumes
+    // Camera_X_pos, such as the level 7 ocean rows.
+    matches!(layer_speed, 0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ChunkedPlaneBCellLoc307D8 {
+    tile_ref: TileRef,
+    background_row_index: usize,
+    background_column: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ChunkedPlaneBRowsLoc307D8 {
+    width: usize,
+    height: usize,
+    cells: Vec<Option<ChunkedPlaneBCellLoc307D8>>,
+}
+
+impl ChunkedPlaneBRowsLoc307D8 {
+    fn from_background(
+        level_visuals: &NativeLevelVisuals,
+        background: &wildside_render::ChunkedBackgroundVisuals,
+    ) -> Option<Self> {
+        let (width, height) = chunked_background_dimensions_loc_12848(level_visuals)?;
+        let mut cells = vec![None; width.checked_mul(height)?];
+        let palette_line =
+            chunked_background_palette_line_loc_128ba(level_visuals.level.background_theme_id);
+
+        for placement in &background.placements {
+            let Some(chunk) = background.chunks.get(usize::from(placement.chunk_id)) else {
+                continue;
+            };
+            for row in 0..chunk.height_tiles {
+                let target_row = usize::from(placement.y_tiles.saturating_add(row));
+                if target_row >= height {
+                    continue;
+                }
+                for column in 0..chunk.width_tiles {
+                    let target_column = usize::from(placement.x_tiles.saturating_add(column));
+                    if target_column >= width {
+                        continue;
+                    }
+                    let chunk_index =
+                        usize::from(row) * usize::from(chunk.width_tiles) + usize::from(column);
+                    let Some(background_tile) = chunk.tiles.get(chunk_index) else {
+                        continue;
+                    };
+                    // ASM Load_BackgroundChunk loc_12848 copies chunk bytes into
+                    // `$FFFF87B2` after clipping against `Background_width` and
+                    // `Background_height`. Bit 7 of the byte becomes the VDP
+                    // horizontal-flip bit when sub_30744/sub_307D8 add `$2780`.
+                    cells[target_row * width + target_column] = Some(ChunkedPlaneBCellLoc307D8 {
+                        tile_ref: TileRef {
+                            tile_index: background_tile.tile_index & 0x007F,
+                            palette_line,
+                            priority: false,
+                            flip_x: background_tile.flip_x,
+                            flip_y: false,
+                        },
+                        background_row_index: target_row,
+                        background_column: target_column,
+                    });
+                }
+            }
+        }
+
+        Some(Self {
+            width,
+            height,
+            cells,
+        })
+    }
+
+    fn row_for_trace(
+        &self,
+        trace: &NativeTraceFrame,
+        level_visuals: &NativeLevelVisuals,
+        camera_x_px: i32,
+        row: usize,
+    ) -> Option<[Option<ChunkedPlaneBCellLoc307D8>; PLANE_B_ROW_CELLS_LOC_11B7A]> {
+        if row >= self.height {
+            return None;
+        }
+        let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
+        let scroll_x_px = background_scroll_x_px(trace, camera_x_px, layer_speed);
+        let destination_column = scroll_x_px
+            .div_euclid(8)
+            .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
+            as usize;
+        let source_column_bias = if level_visuals.level.background_scroll.is_some() {
+            1
+        } else {
+            0
+        };
+        let source_column = (scroll_x_px.div_euclid(8) + source_column_bias)
+            .rem_euclid(i32::try_from(self.width).ok()?) as usize;
+        let mut row_cells = [None; PLANE_B_ROW_CELLS_LOC_11B7A];
+
+        // ASM sub_307D8 sets `d4 = #$28` and DBF streams the newly exposed
+        // Plane-B row. The previous sub_30744 pass writes the single
+        // horizontally exposed column first, so the displayed frame contains
+        // 42 fresh cells in the issue #289 oracle row dump.
+        for offset in 0..CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744 {
+            let source = (source_column + offset) % self.width;
+            let destination = (destination_column + offset) % PLANE_B_ROW_CELLS_LOC_11B7A;
+            row_cells[destination] = self.cells[row * self.width + source];
+        }
+
+        Some(row_cells)
+    }
+}
+
+fn chunked_background_dimensions_loc_12848(
+    level_visuals: &NativeLevelVisuals,
+) -> Option<(usize, usize)> {
+    let width_cells = usize::from(level_visuals.level.foreground_layout.width_cells);
+    let height_cells = usize::from(level_visuals.level.foreground_layout.height_cells);
+    let width = (width_cells / 2).checked_add(0x1E)?;
+    let height = (height_cells / 2).checked_add(0x15)?;
+    if width == 0 || height == 0 {
+        return None;
+    }
+    Some((width, height))
 }
 
 fn sample_layered_background_tile_pixel(

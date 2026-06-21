@@ -38,8 +38,9 @@ and stop — never commit churn.
   `issue289-level07-idle-current` still reports `trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`. Native-player now also
   renders Kid's white damage flash for the sampled frames from `kid.asm loc_BC56` /
-  `sub_80BC`, improving frame 60 from 7703 changed pixels / MAE 8.285068 to 7277 /
-  7.258966 and frame 71 from 7928 / 8.547601 to 7502 / 7.521498.
+  `sub_80BC`, and now overlays a partial chunked Plane-B row window for verified
+  camera-parallax rows from `sub_30744`/`sub_307D8`. Current frame diff is frame 60
+  `7103` changed / MAE `6.9787807` and frame 71 `7227` / `7.1648297`.
 - **Next #289 action**: inspect the remaining pixel-red Level 0x07 recording and
   broader hell-theme wrong-start/layout report. The concrete Lion projectile arc lead
   is now mostly exhausted: native reaches frame 60 `(427,648)` vs oracle `(427,649)`
@@ -58,17 +59,20 @@ and stop — never commit churn.
   direct placement sampling: at frame 60, row `B29` begins blank through column 3
   then `2799,2795,2796...`, while native samples y=100 from logical chunk column
   12 as tile `2795`; row `B18` keeps cloud words at columns 49..56 while native
-  still misses the far-right top-band cloud. Continue by reconstructing/rendering
-  the live 41-word `sub_307D8` Plane-B row window from `$FFFF87B2` and
-  `Horiz_Scroll_Data`, not another scroll offset, placement wrap, or header/start
-  layout change. Do not treat #345 Lion mid-level vanish as closed by this; that
-  row still needs the scroll-off/scroll-back cull probe.
-- **Gates this session**: `cargo fmt`, `mise run audit-debug-fields`, focused
-  `cargo test -p wildside-cli time_frames_for_settled_warp --no-default-features`,
-  fresh `verify-recording --slug issue289-level07-idle-current` (state-clean/pixel-red
-  with oracle scroll and Plane-B row debug attached), direct `verify-slice-fast` body
-  (`wildside-core` lib tests, `wildside-cli gameplay_regression_`, and TAS frontier),
-  and direct `cargo run -q -p wildside-cli -- backlog-lint`. The `mise` wrappers are
+  still misses the far-right top-band cloud. Current partial overlay intentionally
+  skips upper rows because applying the row window everywhere worsened the route to
+  frame 60 `8473` / MAE `7.6971307` and frame 71 `8580` / `7.8483305`. Continue by
+  modelling the live VDP row history/stale cells for upper rows, not another scroll
+  offset, placement wrap, or header/start layout change. Do not treat #345 Lion
+  mid-level vanish as closed by this; that row still needs the scroll-off/scroll-back
+  cull probe.
+- **Gates this session**: `cargo fmt`, focused
+  `cargo test -p wildside-cli background_pixel_sampler --no-default-features`,
+  ignored cache-backed `under_skull_mountain3_cave_background_chunk_renders_loc_12830`,
+  fresh `verify-recording --slug issue289-level07-idle-current` (still state-clean /
+  pixel-red, improved overall), `python3 scripts/audit_debug_fields.py`, direct
+  `verify-slice-fast` body (`wildside-core` lib tests, `wildside-cli gameplay_regression_`,
+  and TAS frontier), and direct `cargo run -q -p wildside-cli -- backlog-lint`. The `mise` wrappers are
   blocked in this environment by `mise` failing to install `fnox@1` for `linux-arm64`.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
@@ -103,7 +107,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: settled-warp `$00/$08` auto-scroll now uses ROM `Time_Frames`; recording still pixel-red. Inspect live `Horiz_Scroll_Data`/VDP row state next. (full history: archive #289) |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: partial chunked Plane-B row-window overlay improves Level 0x07 recording, but upper-row stale VDP history remains pixel-red. (full history: archive #289) |
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | Bisect the recent regression; capture cold-boot frames 130..260 vs an oracle Blue Lake Woods 1 cold-boot recording. Suspect EARLY_START_LEVEL_ONE_BOOTSTRAP_* / LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y (trace.rs:6089/6163). See archive #336. |

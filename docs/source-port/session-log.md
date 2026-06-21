@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 partial Plane-B row-window render)
+
+- **#289 stays `[~]`; native-player now uses a partial chunked Plane-B row-window overlay for verified camera-parallax rows.** The renderer reconstructs `$FFFF87B2` via `Load_BackgroundChunk loc_12848`, then overlays rows using the `sub_30744`/`sub_307D8` window (`d4=#$28` DBF stream plus the preceding one-column updater). Applying the model to every chunked row was rejected because it worsened `issue289-level07-idle-current` to frame 60 `8473` / MAE `7.6971307` and frame 71 `8580` / `7.8483305`; the kept camera-parallax gate improves the current route to frame 60 `7103` / `6.9787807` and frame 71 `7227` / `7.1648297`, still state-clean/pixel-red.
+- **NEXT**: model live/stale Plane-B row history for upper rows. The top-cloud row still needs persisted VDP contents rather than direct placement or a stateless row window. Do not retry H-scroll phase, raw `$00/$08` formulas, simple placement wrapping, or header/start-layout edits. Verification passed via focused sampler/render tests, fresh `verify-recording`, direct `verify-slice-fast` body, TAS frontier, and backlog lint; `mise` wrappers remain blocked by missing `fnox@1` linux-arm64 assets.
+
+---
+
 ## 2026-06-21 handoff (#289 Plane-B row probe)
 
 - **#289 stays `[~]`; instrumentation now exports selected oracle Plane-B nametable rows after `sub_30744`/`sub_307D8`.** Fresh `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60 `7070` / MAE `6.987421` and frame 71 `7341` / `7.302334`, but the row dump proves the residual is live hardware row state: frame-60 `B29` starts with four blank cells then `2799,2795,2796...`, while native samples y=100 from direct logical chunk column 12 as tile `2795`; `B18` also has cloud words at columns 49..56 while native misses the far-right top band.
