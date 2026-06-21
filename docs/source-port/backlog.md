@@ -48,30 +48,18 @@ and stop — never commit churn.
   current-time all-row overlay changes. Current x=285,y=10 samples native VDP
   column 41 as empty while oracle row `B18` keeps clouds at columns 49..56; see
   #289 archive for rejected source-row, `loc_2FFE8`, and raw-scroll hypotheses.
-  New oracle settle-trace instrumentation now dumps the same selected
-  Plane-B rows before scenario frame 0: target-level live step 0 has B18 as
-  `$0780` + `$2780` fill only, while step 59/frame 0 already has `2781..2783`
-  at columns 49..51. Therefore the oracle `2781..2787` frame-60 tail is not a
-  single `loc_2FFE8` preload row; it is accumulated hidden-settle plus visible
-  `sub_30744` one-column history. Follow-up settle trace now also dumps
-  `BackgroundScroll_ComputeShiftData` slots, the `$FFFF4D5C` row-pointer table,
-  and the live `$FFFF87B2` source bytes consumed by `sub_30744`: target-live
-  step 0 already has B18 source `$8C9E[$31..$33]=01,02,03`, while the generated/static
-  Level 0x07 background leaves those cells zero. This confirms the remaining
-  cloud tail is stale source-buffer state from the uncleared `$87B2` buffer before
-  target-level load, not a row-pointer remap or current layout parse bug. A
-  pre-target phase trace now narrows the owner to `Load_InGame`: `$8C9E[$31..]`
-  is still zero through `title_wait` step 41, then becomes `01..08` at step 42
-  while `Game_Mode=$000C`, `Current_LevelID=$0007`, and `Background_width=$46`.
-  The shared `background_chunk_row_loop_loc_12884` helper now models ASM
-  `loc_1285C`/`loc_12884` with a distinct chunk-height row count; this fixes a
-  test/model-only square-chunk blind spot but does not change the current
-  native-player residual.
+  Recent settle traces narrow the source to `Load_InGame`/live `$87B2` writer
+  order: `$8C9E[$31..]` is zero through `title_wait` step 41, then becomes
+  `01..08` at step 42 while already in `Game_Mode=$000C`. The standalone
+  `BackgroundLayout_0E` `$8000` alias patch was rejected; it worsened #289 when
+  applied without a live row-history model. See #289 archive for exact metrics.
   Next pass should capture the exact writer/order inside target-level `Load_InGame`
   or model the ROM's live `$87B2` buffer construction before replaying Plane-B
   writes.
 - **Gates this session**: kept the narrow `loc_12884` model/test correction; no
-  native-player/runtime rendering fix. Verified `cargo fmt --all`, focused
+  native-player/runtime rendering fix. Rejected the shared-alias trial after
+  focused coverage plus expected-red #289 recording metrics worsened. Verified
+  `cargo fmt --all`, focused
   `cargo test -q -p wildside-core loc_12884_and_loc_1288a_copy_chunk_tiles_within_bounds`,
   `cargo check -q -p wildside-core`, `cargo run -q -p wildside-cli -- backlog-lint`,
   `git diff --check`, and expected-red `issue289-level07-idle-current` (`trace_match=true`,

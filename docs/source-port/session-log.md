@@ -77,6 +77,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 shared-background alias rejected)
+
+- **#289 stays `[~]`; no code kept from the shared-background alias trial.** Re-reading `background_includes.asm` found `BackgroundLayout_0E` uses ASM `loc_12824` indirection with x offset `$13` into `BackgroundLayout_0C`. A trial manifest/render patch applied that offset to native chunked Plane-B source composition; focused synthetic coverage passed, but `issue289-level07-idle-current` worsened from frame 60 `5080` / MAE `5.6536646` and frame 71 `5212` / `5.8645835` to `6359` / `5.9081984` and `6437` / `6.035942`. Applying it to direct placement too was still worse than baseline (`6236` / `5.760384`, `6322` / `5.8884997`). The code was reverted and the dead end recorded under #289.
+- **NEXT**: continue from exact `Load_InGame` writer/order or a typed live `$87B2`/Plane-B row-history model. The `$8000` alias may be part of that writer path, but it is not a standalone renderer fix. Do not retry `BackgroundLayout_0E` alias-only, header/start layout, simple scroll offsets, raw `$00/$08`, stateless `$FFFF87B2`, or current-time all-row overlay. Verification this pass: focused alias trial test, expected-red recording metrics for both variants, code reverted, backlog/archive/session docs updated.
+
+---
+
 ## 2026-06-21 handoff (#289 Plane-B H-scroll mapping)
 
 - **#289 stays `[~]`; the partial chunked Plane-B row-window overlay now renders through hardware H-scroll.** Native keeps `sub_30744`/`sub_307D8` cells in VDP-column order and maps them to screen pixels with `BackgroundScroll_ComputeShiftLayers loc_3050A`. Focused regression `chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a` covers the frame-60-shaped 36px row-scroll case.
