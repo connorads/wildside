@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 Lion projectile DBF loop narrowed)
+
+- **#289 stays `[~]`, with the Level 0x07 Lion projectile post-wall arc fixed down to a near-pixel residual.** Native now stores the `Lion.asm loc_3E2A8`/`loc_3E2C0` DBF bounce-loop budget, suppresses homing while the loop is active, decrements only empty checks, and preserves the budget across terrain-hit frames. Fresh `issue289-level07-idle-current` remains `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`, but the projectile lead is mostly exhausted: frame 60 native `(427,648)` vs oracle `(427,649)`, frame 71 native `(488,638)` vs oracle `(488,639)`.
+- **NEXT**: continue #289 from the remaining pixel-red Level 0x07 recording or broader hell-theme wrong-start/layout repro, not from projectile homing. The current report shows broad background/terrain-colour diffs (`frame60 changed=7703`, `frame71 changed=7928`); inspect `verify/native/*_diff.png`, VDP/background samples, or capture the human route before changing header/start layout. Verification this session: `cargo test -p wildside-core lion_projectile --lib`, `cargo test -p wildside-core loc_3e260 --lib`, `cargo test -p wildside-core projectile --lib`, regenerated + verified `issue289-level07-idle-current` (state-clean/pixel-red), `mise run verify-slice-fast`, and `mise run verify-tas-full` (CRC matched all frames; existing state-report divergences remain baseline). #345 Lion vanish remains separate.
+
+---
+
 ## 2026-06-20 handoff (#289 Lion projectile trajectory narrowed)
 
 - **#289 stays `[~]`, with Level 0x07 Lion projectile launch and terrain-bounce behaviour narrowed.** Native now offsets the left-facing projectile from the native carrier so oracle launch frames 19-26 match, moves Lion shots before homing like `Lion.asm loc_3E192`, and uses the full `unk_31944` collision box for `loc_3E260` floor/left-wall terrain snaps. The fresh `issue289-level07-idle-current` recording is still `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`.

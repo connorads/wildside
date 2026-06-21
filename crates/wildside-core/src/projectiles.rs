@@ -2656,6 +2656,8 @@ impl NativeRuntime {
             let is_maniaxe_axe = p.kind == EnemyProjectileKind::ManiaxeAxe;
             let is_drips_drop = p.kind == EnemyProjectileKind::DripsDrop;
             let is_lion_projectile = p.kind == EnemyProjectileKind::LionProjectile;
+            let lion_in_bounce_loop_loc_3e2a8 =
+                is_lion_projectile && p.lion_projectile_bounce_empty_checks_loc_3e2c0 > 0;
             let is_boss_head_arrow = p.kind == EnemyProjectileKind::BossHeadArrow;
             let is_boss_head_boomerang = p.kind == EnemyProjectileKind::BossHeadBoomerang;
             let is_boss_eye_attack = p.kind == EnemyProjectileKind::BossEyeAttack;
@@ -2805,7 +2807,7 @@ impl NativeRuntime {
             // lion projectile homing adjustments and then loops back for the next
             // frame unless collision/terrain branches are taken.
             // Homing: accelerate toward player (per-projectile accel from ASM).
-            if p.homing_accel != 0 {
+            if p.homing_accel != 0 && !lion_in_bounce_loop_loc_3e2a8 {
                 if let (Some(px), Some(py)) = (player_x, player_y) {
                     let dx_from_kid = p.x_pos as i64 - px as i64;
                     match dx_from_kid.cmp(&0) {
@@ -3314,38 +3316,68 @@ impl NativeRuntime {
             if p.wall_bounce
                 && let Some(g) = grid
             {
-                let mut remaining_bounces = 0x0Fi16;
-                // ASM Lion.asm loc_3E2C0: `dbf d0,loc_3E2A8` with d0 seeded to
-                // `moveq #$F,d0`. The ROM's bound is the `dbf` decrement-and-
-                // branch instruction itself — it fires at the loop tail and
-                // caps execution at exactly 16 iterations. Express that bound
-                // structurally with `for _ in 0..16` so the cap is faithful to
-                // the ROM (the same place the ROM has it) and the loop cannot
-                // be turned into an infinite spin by mutating the helper that
-                // models `dbf` (`lion_projectile_bounce_iterations_continue_loc_3e2c0`).
-                for _ in 0..16 {
-                    // ASM loc_3E2A8 then loc_3E2C0: loop up to 16 bounce attempts using `dbf d0`.
-                    let (h_blocked, v_blocked, terrain_collision_id) =
-                        if p.kind == EnemyProjectileKind::LionProjectile {
-                            let (collision_x_velocity, collision_y_velocity) =
-                                lion_pre_homing_velocity_loc_3e192
-                                    .unwrap_or((p.x_velocity, p.y_velocity));
-                            let mut collision_projectile = *p;
-                            collision_projectile.x_velocity = collision_x_velocity;
-                            collision_projectile.y_velocity = collision_y_velocity;
-                            let Some(contact) =
-                                lion_projectile_terrain_contact_loc_3e260(g, &collision_projectile)
-                            else {
-                                break;
-                            };
-                            p.x_pos = (contact.snapped_x_px as u32) << 16;
-                            p.y_pos = (contact.snapped_y_px as u32) << 16;
-                            (
-                                matches!(contact.collision_type, 0x0004 | 0x0008 | 0x0014 | 0x0018),
-                                matches!(contact.collision_type, 0x000C | 0x0010 | 0x0014 | 0x0018),
+                if p.kind == EnemyProjectileKind::LionProjectile {
+                    let (collision_x_velocity, collision_y_velocity) =
+                        lion_pre_homing_velocity_loc_3e192.unwrap_or((p.x_velocity, p.y_velocity));
+                    let mut collision_projectile = *p;
+                    collision_projectile.x_velocity = collision_x_velocity;
+                    collision_projectile.y_velocity = collision_y_velocity;
+                    if let Some(contact) =
+                        lion_projectile_terrain_contact_loc_3e260(g, &collision_projectile)
+                    {
+                        p.x_pos = (contact.snapped_x_px as u32) << 16;
+                        p.y_pos = (contact.snapped_y_px as u32) << 16;
+                        let h_blocked =
+                            matches!(contact.collision_type, 0x0004 | 0x0008 | 0x0014 | 0x0018);
+                        let v_blocked =
+                            matches!(contact.collision_type, 0x000C | 0x0010 | 0x0014 | 0x0018);
+                        let (x_velocity, y_velocity) =
+                            lion_projectile_bounce_velocity_dispatch_loc_3e266(
+                                h_blocked,
+                                v_blocked,
+                                collision_x_velocity,
+                                collision_y_velocity,
                                 contact.collision_type,
-                            )
-                        } else {
+                            );
+                        p.x_velocity = x_velocity;
+                        p.y_velocity = y_velocity;
+                        if !lion_in_bounce_loop_loc_3e2a8 {
+                            // ASM Lion.asm loc_3E260 seeds d0 with #$F before
+                            // entering loc_3E2A8. The collision frame itself
+                            // jumps to loc_3E2A8 and hibernates; only later
+                            // empty loc_3E2C0 checks decrement the DBF budget.
+                            p.lion_projectile_bounce_empty_checks_loc_3e2c0 = 16;
+                        }
+
+                        if let (Some(owner), Some(camera)) = (p.owner, camera) {
+                            let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
+                            let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
+                            let in_camera_box = (-0x40..=0x180).contains(&screen_x)
+                                && (-0x40..=0x120).contains(&screen_y);
+                            if !in_camera_box {
+                                released_owners.push(owner);
+                                return false;
+                            }
+                        }
+                    } else if lion_in_bounce_loop_loc_3e2a8 {
+                        // ASM Lion.asm loc_3E2C0 decrements `d0` only on
+                        // empty hibernated checks. Terrain hits branch back
+                        // through loc_3E266 and preserve the DBF budget.
+                        p.lion_projectile_bounce_empty_checks_loc_3e2c0 -= 1;
+                    }
+                } else {
+                    let mut remaining_bounces = 0x0Fi16;
+                    // ASM Lion.asm loc_3E2C0: `dbf d0,loc_3E2A8` with d0 seeded to
+                    // `moveq #$F,d0`. The ROM's bound is the `dbf` decrement-and-
+                    // branch instruction itself — it fires at the loop tail and
+                    // caps execution at exactly 16 iterations. Express that bound
+                    // structurally with `for _ in 0..16` so the cap is faithful to
+                    // the ROM (the same place the ROM has it) and the loop cannot
+                    // be turned into an infinite spin by mutating the helper that
+                    // models `dbf` (`lion_projectile_bounce_iterations_continue_loc_3e2c0`).
+                    for _ in 0..16 {
+                        // ASM loc_3E2A8 then loc_3E2C0: loop up to 16 bounce attempts using `dbf d0`.
+                        let (h_blocked, v_blocked, terrain_collision_id) = {
                             let px_i = (p.x_pos >> 16) as i32;
                             let py_i = (p.y_pos >> 16) as i32;
                             let col = terrain::pixel_to_cell(px_i).max(0) as u16;
@@ -3391,48 +3423,38 @@ impl NativeRuntime {
                             )
                         };
 
-                    let (x_velocity, y_velocity) =
-                        lion_projectile_bounce_velocity_dispatch_loc_3e266(
-                            h_blocked,
-                            v_blocked,
-                            lion_pre_homing_velocity_loc_3e192
-                                .map(|velocity| velocity.0)
-                                .unwrap_or(p.x_velocity),
-                            lion_pre_homing_velocity_loc_3e192
-                                .map(|velocity| velocity.1)
-                                .unwrap_or(p.y_velocity),
-                            terrain_collision_id,
-                        );
+                        let (x_velocity, y_velocity) =
+                            lion_projectile_bounce_velocity_dispatch_loc_3e266(
+                                h_blocked,
+                                v_blocked,
+                                p.x_velocity,
+                                p.y_velocity,
+                                terrain_collision_id,
+                            );
 
-                    p.x_velocity = x_velocity;
-                    p.y_velocity = y_velocity;
+                        p.x_velocity = x_velocity;
+                        p.y_velocity = y_velocity;
 
-                    if p.kind != EnemyProjectileKind::LionProjectile {
                         // Re-apply movement with bounced velocity.
                         p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
                         p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
-                    }
 
-                    if let (Some(owner), Some(camera)) = (p.owner, camera) {
-                        let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
-                        let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
-                        let in_camera_box = (-0x40..=0x180).contains(&screen_x)
-                            && (-0x40..=0x120).contains(&screen_y);
-                        if !in_camera_box {
-                            released_owners.push(owner);
-                            return false;
+                        if let (Some(owner), Some(camera)) = (p.owner, camera) {
+                            let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
+                            let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
+                            let in_camera_box = (-0x40..=0x180).contains(&screen_x)
+                                && (-0x40..=0x120).contains(&screen_y);
+                            if !in_camera_box {
+                                released_owners.push(owner);
+                                return false;
+                            }
                         }
-                    }
 
-                    if !lion_projectile_bounce_iterations_continue_loc_3e2c0(&mut remaining_bounces)
-                    {
-                        break;
-                    }
-                    if p.kind == EnemyProjectileKind::LionProjectile {
-                        // ASM Lion.asm loc_3E2A8 hibernates one frame before
-                        // the next collision check; native represents that as
-                        // one bounce/snap per `step_projectiles` frame.
-                        break;
+                        if !lion_projectile_bounce_iterations_continue_loc_3e2c0(
+                            &mut remaining_bounces,
+                        ) {
+                            break;
+                        }
                     }
                 }
             }

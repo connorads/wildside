@@ -7721,6 +7721,108 @@ mod chunk_06 {
     }
 
     #[test]
+    fn lion_projectile_loc_3e2a8_suppresses_homing_after_floor_bounce() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 1;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 300u32 << 16;
+        slice.camera.y_pos = 600u32 << 16;
+        slice.player.x_pos = 448u32 << 16;
+        slice.player.y_pos = 703u32 << 16;
+        rt.opening_slice = Some(slice);
+        rt.set_block_grid(lion_bounce_grid(40, 60, &[(25, 44)]));
+
+        let mut projectile = make_projectile(403, 699);
+        projectile.kind = EnemyProjectileKind::LionProjectile;
+        projectile.x_velocity = -0x4E000;
+        projectile.y_velocity = 0x24000;
+        projectile.homing_accel = 0x2000;
+        projectile.speed_cap = LION_PROJECTILE_SPEED;
+        projectile.wall_bounce = true;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: rt.active_enemies[0].segment_index,
+            layout_index: rt.active_enemies[0].layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+        assert_eq!(rt.projectiles[0].y_pos >> 16, 699);
+        assert_eq!(rt.projectiles[0].y_velocity, -0x24000);
+        assert_eq!(
+            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 16,
+            "ASM Lion.asm loc_3E260 seeds d0=#$F; the collision frame jumps to loc_3E2A8 and must not consume the DBF budget"
+        );
+
+        rt.step_projectiles();
+        assert_eq!(
+            rt.projectiles[0].y_velocity, -0x24000,
+            "ASM Lion.asm loc_3E2A8 loops before loc_3E192 homing; an empty post-bounce frame must not add the `$2000` y homing step"
+        );
+        assert_eq!(
+            rt.projectiles[0].y_pos >> 16,
+            696,
+            "with homing suspended, the hibernated frame continues the ballistic floor-bounce arc"
+        );
+        assert_eq!(
+            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 15,
+            "ASM Lion.asm loc_3E2C0 DBF decrements only after an empty loc_3E2A8 collision check"
+        );
+    }
+
+    #[test]
+    fn lion_projectile_loc_3e2a8_wall_hit_preserves_dbf_budget() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut lion = test_enemy(EnemyFamily::Lion, 0, 0, 6);
+        lion.ufo_beam_interval = 0x5A;
+        lion.ufo_beam_segments = 1;
+        rt.active_enemies.push(lion);
+
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.camera.x_pos = 300u32 << 16;
+        slice.camera.y_pos = 600u32 << 16;
+        slice.player.x_pos = 448u32 << 16;
+        slice.player.y_pos = 703u32 << 16;
+        rt.opening_slice = Some(slice);
+        rt.set_block_grid(lion_bounce_grid(40, 60, &[(21, 42)]));
+
+        let mut projectile = make_projectile(359, 681);
+        projectile.kind = EnemyProjectileKind::LionProjectile;
+        projectile.x_velocity = -0x4E000;
+        projectile.y_velocity = -0x24000;
+        projectile.homing_accel = 0x2000;
+        projectile.speed_cap = LION_PROJECTILE_SPEED;
+        projectile.wall_bounce = true;
+        projectile.lion_projectile_bounce_empty_checks_loc_3e2c0 = 8;
+        projectile.owner = Some(EnemyProjectileOwner {
+            segment_index: rt.active_enemies[0].segment_index,
+            layout_index: rt.active_enemies[0].layout_index,
+            token: 0x5A,
+        });
+        rt.projectiles.push(projectile);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].x_pos >> 16,
+            357,
+            "ASM GfxObjects_Collision loc_19D2/loc_1A00 snaps the issue #289 left-wall contact before Lion.asm loc_3E266 reflects x velocity"
+        );
+        assert_eq!(
+            rt.projectiles[0].x_velocity, 0x4E000,
+            "ASM Lion.asm loc_3E2A4 reflects x velocity for colid_leftwall"
+        );
+        assert_eq!(
+            rt.projectiles[0].lion_projectile_bounce_empty_checks_loc_3e2c0, 8,
+            "ASM Lion.asm loc_3E2A8 branches through loc_3E266 on terrain contact; loc_3E2C0 DBF does not decrement on collision frames"
+        );
+    }
+
+    #[test]
     fn drips_drop_loc_3345c_ignores_lion_projectile_camera_box() {
         let mut rt = NativeRuntime::new(manifest());
 

@@ -3124,6 +3124,10 @@ pub(crate) struct EnemyProjectile {
     pub(crate) speed_cap: i32,
     /// Bounces off terrain walls/floors/ceilings (Lion.asm loc_3E260).
     pub(crate) wall_bounce: bool,
+    /// Lion.asm loc_3E260 seeds `d0=#$F`, then `loc_3E2C0` decrements via
+    /// `dbf` only on empty hibernated checks. Native stores the number of
+    /// remaining empty `loc_3E2A8` checks while homing is suspended.
+    pub(crate) lion_projectile_bounce_empty_checks_loc_3e2c0: u8,
     /// Re-aim interval in frames (Archer arrows). 0 = no re-aiming.
     /// ASM loc_342D6: arrow re-aims every `arrow_accuracy` frames toward player.
     pub(crate) reaim_interval: u16,
