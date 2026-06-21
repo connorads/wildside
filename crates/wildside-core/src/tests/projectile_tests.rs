@@ -4922,16 +4922,26 @@ mod chunk_06 {
         );
     }
 
+    /// EnemyFamily::Dragon (0x0C, flying) non-zero CollisionSize box `unk_31DD6`
+    /// = (-14, 14, -28, 0) via `dragon_flying_contact_bounds` (combat.rs). The
+    /// friendly-projectile AABB (`friendly_projectile_overlaps_enemy_loc_1d84`)
+    /// reaches `projectile_half + box_extent` on the near edge of each axis.
+    const DRAGON_FLYING_CONTACT_HALF_WIDTH: i32 = 14;
+    const DRAGON_FLYING_CONTACT_TOP_EXTENT: i32 = 28;
+
     /// ASM ManiaxeAxe_Init reinitialises `stru_8B86`; its active frames use
     /// `LnkTo_unk_A5924`/`A59AA`, whose `CollisionSize_Index` entry
     /// `unk_318B2` is left=-7, width=14, top=-14, height=14.  Native centres
     /// that ROM box for enemy damage, so Maniaxe's axe reaches one pixel beyond
-    /// the generic projectile contact extent.
+    /// the generic projectile contact extent. The enemy box comes from the
+    /// per-family CollisionSize row (ASM sub_1D84): EnemyFamily::Dragon (0x0C
+    /// flying) `unk_31DD6` has a 14px horizontal half-extent, so the axe's 7px
+    /// half-width lands at 21px where a generic 6px projectile would miss.
     #[test]
     fn maniaxe_axe_uses_rom_collision_width_against_enemies_loc_8abc() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;
-        let maniaxe_only_dx = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+        let maniaxe_only_dx = MANIAXE_AXE_ENEMY_HIT_HALF_WIDTH + DRAGON_FLYING_CONTACT_HALF_WIDTH;
         rt.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -4990,13 +5000,14 @@ mod chunk_06 {
         );
     }
 
-    /// ASM loc_8ABC consumes the projectile worker's collision result. Native's
-    /// rectangle approximation keeps horizontal overlap inclusive at
-    /// PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH.
+    /// ASM sub_1D84 (kid.asm:3587-3611) tests an inclusive AABB between the
+    /// projectile box and the enemy's per-family CollisionSize box. Native keeps
+    /// horizontal overlap inclusive at `projectile_half + enemy_left_extent`
+    /// (here the flying-dragon 14px half-width).
     #[test]
     fn friendly_projectile_hits_at_horizontal_extent_loc_8abc() {
         let mut rt = NativeRuntime::new(manifest());
-        let limit = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32;
+        let limit = PROJECTILE_HITBOX_HALF + DRAGON_FLYING_CONTACT_HALF_WIDTH;
         rt.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -5019,12 +5030,12 @@ mod chunk_06 {
         );
     }
 
-    /// ASM loc_8ABC only fires after projectile collision_type is non-zero;
-    /// native must reject enemies just outside horizontal overlap.
+    /// ASM sub_1D84 only writes colid_hurt on overlap; native must reject
+    /// enemies one pixel beyond the inclusive AABB near edge.
     #[test]
     fn friendly_projectile_misses_just_beyond_horizontal_extent_loc_8abc() {
         let mut rt = NativeRuntime::new(manifest());
-        let miss_dx = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+        let miss_dx = PROJECTILE_HITBOX_HALF + DRAGON_FLYING_CONTACT_HALF_WIDTH + 1;
         rt.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -5047,13 +5058,14 @@ mod chunk_06 {
         );
     }
 
-    /// ASM loc_8ABC consumes the projectile worker's collision result. Native's
-    /// rectangle approximation keeps vertical overlap inclusive at
-    /// PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT.
+    /// ASM sub_1D84 (kid.asm:3595-3611) tests an inclusive AABB; native keeps
+    /// vertical overlap inclusive at `projectile_half + enemy_top_extent`. The
+    /// flying-dragon box sits 28px above its anchor (`unk_31DD6` top -28), so an
+    /// enemy below the projectile is reached far further than the old ±8 box.
     #[test]
     fn friendly_projectile_hits_at_vertical_extent_loc_8abc() {
         let mut rt = NativeRuntime::new(manifest());
-        let limit = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32;
+        let limit = PROJECTILE_HITBOX_HALF + DRAGON_FLYING_CONTACT_TOP_EXTENT;
         rt.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -5076,12 +5088,12 @@ mod chunk_06 {
         );
     }
 
-    /// ASM loc_8ABC only fires after projectile collision_type is non-zero;
-    /// native must reject enemies just outside vertical overlap.
+    /// ASM sub_1D84 only writes colid_hurt on overlap; native must reject
+    /// enemies one pixel beyond the inclusive AABB near edge.
     #[test]
     fn friendly_projectile_misses_just_beyond_vertical_extent_loc_8abc() {
         let mut rt = NativeRuntime::new(manifest());
-        let miss_dy = PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32 + 1;
+        let miss_dy = PROJECTILE_HITBOX_HALF + DRAGON_FLYING_CONTACT_TOP_EXTENT + 1;
         rt.projectiles.push(EnemyProjectile {
             x_pos: 100 << 16,
             y_pos: 100 << 16,
@@ -5101,6 +5113,46 @@ mod chunk_06 {
         assert_eq!(
             rt.active_enemies[0].hit_points, 2,
             "ASM loc_8ABC: enemy one pixel beyond projectile vertical extent should miss"
+        );
+    }
+
+    /// Regression for #343: a friendly axe must hit the walking dragon's wide,
+    /// tall body. ASM sub_1D84 (kid.asm:3587-3611) builds the enemy box from its
+    /// per-family `CollisionSize_Index[$22(a2)>>1]` row and writes
+    /// `colid_hurt`=$1C on overlap (kid.asm:3650). EnemyFamily::DragonWalking
+    /// (0x0D) uses `unk_31630` = (-16, 16, -32, 0): a 32×32 box reaching from
+    /// 32px above the feet anchor. The old fixed ±4×±8 enemy box left the body
+    /// outside reach, so axes passed through. The axe centre here (14px to the
+    /// side, 20px above the anchor) sits inside the real box but well outside the
+    /// old fixed box on both axes.
+    #[test]
+    fn friendly_projectile_hits_walking_dragon_body_collision_size_unk_31630_loc_1d84() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 214 << 16,
+            y_pos: 180 << 16,
+            lifetime: 20,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        rt.active_enemies.push(test_enemy(
+            EnemyFamily::DragonWalking,
+            200 << 16,
+            200 << 16,
+            2,
+        ));
+
+        rt.process_friendly_projectile_hits();
+
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 1,
+            "ASM sub_1D84/unk_31630: an axe overlapping the walking dragon's CollisionSize body must deal colid_hurt"
+        );
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM kid.asm:3656: a connecting axe is consumed (Delete_CurrentObject)"
         );
     }
 
@@ -7170,16 +7222,23 @@ mod chunk_06 {
     #[test]
     fn tank_shooting_nonfatal_projectile_hit_hibernates_loc_3b700() {
         let mut rt = NativeRuntime::new(manifest());
+        let mut tank = test_enemy(EnemyFamily::TankShooting, 100 << 16, 96 << 16, 3);
+        tank.x_velocity = 0x0001_0000;
+        tank.on_ground = true;
+        // ASM Tank_Shooting.asm loc_3B700 routes projectile damage through the
+        // linked turret child; sub_1D84 reads the turret's per-family
+        // CollisionSize box at the turret's own offset position, so the axe must
+        // overlap the turret rather than the parent feet anchor.
+        let turret = tank
+            .child_attachment_snapshot()
+            .expect("TankShooting turret attachment");
         rt.projectiles.push(EnemyProjectile {
-            x_pos: 100 << 16,
-            y_pos: 96 << 16,
+            x_pos: turret.x_pos,
+            y_pos: turret.y_pos,
             lifetime: 20,
             friendly: true,
             ..Default::default()
         });
-        let mut tank = test_enemy(EnemyFamily::TankShooting, 100 << 16, 96 << 16, 3);
-        tank.x_velocity = 0x0001_0000;
-        tank.on_ground = true;
         rt.active_enemies.push(tank);
 
         rt.process_friendly_projectile_hits();

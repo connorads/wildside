@@ -27,22 +27,25 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#349 just landed (`[~]`→`[?]`, awaiting human post-death playtest)**: the post-death
-  level card now draws the level NAME. Reproduced via a new render assertion: the
-  Title_Letter workers (`Enemy{object_type:0}` + `glyph` field) render only in
-  `build_transition_scene`, but the respawn card is traced as InGame (trace.rs:9177), so
-  `build_game_scene_filtered` mis-rendered them as enemy family 0 and never drew the title
-  overlay. Now the gameplay scene skips glyph workers in the enemy loop and appends
-  `build_title_card_worker_overlay_scene` (no-op otherwise). Render-only/CRC-neutral; test
-  `death_respawn_title_card_renders_level_name_glyphs_loc_b8de`; `verify-slice-fast`
-  (6251+9) green. **archive #349**.
-- **Also landed this session (both `[?]`)**: **#339** (audio) — Rock Tank drive drone no
-  longer persists after death / stacks on skip; mirrored ROM `Load_InGame`→`j_StopMusic`
-  (loc_23629) at the respawn reset + skip teardown (CRC-neutral, `verify-tas-full` green,
-  212 authoritative = #290). **#350** (render) — Hills (theme 3) below-canopy foliage was
-  blue; Hills uses the LAYERED path and its lower foliage plane (`loc_1295E` `$07C0`)
-  indexed the sky palette; extended the Mountain two-line branch to theme 3 (oracle diffs
-  1334→0). See **archive #339 / #350**.
+- **#343 just landed (`[~]`→`[?]`, awaiting human combat playtest)**: friendly
+  projectiles now hit large enemies. The LIVE hit test `process_friendly_projectile_hits`
+  (helmets.rs) sourced its enemy box from an invented fixed `±4×±8` for ALL families, so
+  the walking dragon's (0x0D) 32×32 body sat outside it → axes passed through. New helper
+  `friendly_projectile_overlaps_enemy_loc_1d84` builds the enemy box from the per-family
+  `enemy_contact_bounds` dispatcher (the #308-verified `CollisionSize_Index` boxes the
+  Kid-contact path already uses) and tests an inclusive AABB, mirroring ROM `sub_1D84`
+  (kid.asm:3587-3611; `colid_hurt`=$1C write kid.asm:3650, a SEPARATE routine from the
+  Kid-body `GfxObjects_CollisionKid`). Projectile box kept as the centred approximation
+  (ROM per-frame projectile CollisionSize = deferred #308 P3). Regression
+  `friendly_projectile_hits_walking_dragon_body_collision_size_unk_31630_loc_1d84`; 5
+  fixed-box-pinning tests re-derived (incl. the Tank-turret test now targeting the turret
+  child's real offset). CRC-neutral: `verify-tas-full` all 37759 frames match, 212
+  authoritative = #290 baseline. The ROM/native/CRC ground truth was established by a
+  fan-out workflow (high confidence, independently re-verified). **archive #343**.
+- **#308 follow-up surfaced (still `[b]`, do not auto-take)**: #343 fixed only the
+  projectile path; RedStealth sword (helmets.rs:6369) + berzerker charge (6532) still use
+  the fixed `±4×±8` enemy box and per ROM `sub_1D84` should also source
+  `enemy_contact_bounds` — same vein, separate CRC risk. Captured under archive #343.
 - **#289 stays `[~]` but is research-blocked**: 5+ consecutive instrumentation/docs
   commits, marginal MAE gains (Level 0x07 frame 60 `5080`→`4031`) and still
   `oracle_frame_match=false`. The remaining work is modelling incremental persisted
@@ -60,11 +63,11 @@ and stop — never commit churn.
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
 - **Gates this session**: `cargo fmt` clean, both crates `cargo check` warning-free,
-  new regressions green (`death_respawn_title_card_*` #349, `loc_23629_*` #339,
-  `hills_*_loc_1295e` #350), `mise run verify-slice-fast` green (6251 core + 9 CLI +
-  verify-tas-frontier + backlog-lint), `mise run verify-tas-full` CRC all 37759 frames
-  match with 212 authoritative = #290 baseline. All three fixes CRC-neutral (#349/#350
-  CLI render layer; #339 audio commands).
+  new regression green (`friendly_projectile_hits_walking_dragon_body_*` #343),
+  `mise run verify-slice-fast` green (6256 core + 9 CLI + verify-tas-frontier +
+  backlog-lint), `mise run verify-tas-full` CRC all 37759 frames match with 212
+  authoritative = #290 baseline. The #343 fix is CRC-neutral (enemy-box widening; no TAS
+  axe connects with a large enemy on a frame the old fixed box missed).
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -102,7 +105,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | 2026-06-21: bisected to c65df2500 (2026-06-12) — `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` (camera 216→115px, level-0 only). NEXT: oracle capture PAST the title card into live gameplay, diff per-frame camera/kid-Y; don't edit the ramp without it (may be oracle-derived). See archive #336. |
-| 343 | [ ] | P1 | combat | 2026-06-20 playtest: axe/friendly projectiles pass through the walking dragon (0x0D) and other large enemies. Unit damage (take_dragon_walking_damage enemies.rs:8970, route loc_3CEBE) is ASM-faithful + wired, but the LIVE hit test `process_friendly_projectile_hits` (helmets.rs:6371) uses an invented fixed `ENEMY_CONTACT_HALF_WIDTH=4`/`HALF_HEIGHT=8` box (constants.rs:379/384) for ALL families instead of the real `CollisionSize_Index`, so the large dragon body sits outside the box. Concrete instance of the #308 umbrella; the 2026-06-19 "axe can't hit flying dragon" denial only covered the brief pre-flight loc_346C4 window | Source the contact box from CollisionSize_Index per family/frame (engine-level per #308); live walking-dragon axe-hit regression (none exists today). See archive #343 |
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive. Likely ASM-FAITHFUL (Dragon.asm loc_3CDFC HP=enemy_level+1; loc_3CEBE plays hurt/hibernate then resumes patrol on a 2HP+ dragon), reproduced correctly in native — so the defect is VISUAL/UX: confirm native plays stru_3CCE6 hurt anim (not a death-looking frame) during the 24-frame hibernate. Seed #200/#043/#199 are closed Flying-Dragon PROJECTILE rows (keyword-deflection trap) | Get the human to distinguish survive-flash vs true death+resurrect; verify hurt anim during hibernate; compare-native-oracle dragon-stomp. See archive #344 |
 | 345 | [ ] | P1 | enemy | 2026-06-20 playtest: Lion vanishes mid-level on Isle/Land of the Lion Lord (0x07) — premature off-window cull vs ROM sub_3E8BA. Leading hypothesis: `large_pacer_should_remain_active` (enemies.rs:15921) keys on active_enemy_count (roster len) not ROM Number_Objects (all live objects), shifting the $A/$14 cull band (#289 proved native object accounting diverges here). Not covered by #186 (behaviour fidelity, parked [?]) or #289 (spawn umbrella, symptom buried) | Oracle scroll-off/scroll-back probe on 0x07; rule out the #239 faithful ledge-fall first; check respawn marker loc_3E97C. Engine-level fix only. See archive #345 |
 | 346 | [ ] | P1 | gameplay | 2026-06-20 playtest: launched spike bullet (ShooterObject) force-deleted after ~120 frames (~480px) so it never reaches a distant wall to trigger the EvanescentBlock_Trigger return-spike chain. Native models it as a generic EnemyProjectile lifetime:120 (types.rs:3210); the generic step (projectiles.rs:2742/2711) deletes it and the exemption list (2700-2741) omits ShooterBlock. ASM Process_ShooterObjects (loc_EDFA) has NO timer — dies only on a collidable cell (loc_F00A) or level edge, keeps simulating off-screen | Exempt EnemyProjectileKind::ShooterBlock from the lifetime decrement; regression: a bullet launched >120f from a wall still reaches it and re-fires. See archive #346 |

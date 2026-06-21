@@ -4763,6 +4763,55 @@ fn friendly_projectile_enemy_hit_extents(projectile: &EnemyProjectile) -> (i32, 
     }
 }
 
+/// True when a friendly projectile's contact box overlaps an enemy damage
+/// target, sourcing the enemy box from its per-family `CollisionSize_Index`
+/// row rather than an invented fixed extent.
+///
+/// ASM sub_1D84 (kid.asm:3537-3673, reached via `bsr.w sub_1D76` at kid.asm:947)
+/// is the friendly-attack-vs-enemy pass. It builds each enemy box from
+/// `CollisionSize_Index[$22(a2)>>1]` added to the enemy position $1A(a2)/$1E(a2)
+/// (kid.asm:3587-3632) and, on an inclusive AABB overlap, writes
+/// `colid_hurt`=$1C to the enemy `$38` (kid.asm:3650). The enemy box is per
+/// family/frame/facing, so a large body (walking dragon `unk_31630`
+/// = -16,16,-32,0) reaches far beyond the old fixed ±4×±8 box. Native sources
+/// the same box from `enemy_contact_bounds` — the #308-verified dispatcher the
+/// Kid-contact path already uses (combat.rs loc_1B76 mirror).
+///
+/// The projectile box keeps the centred half-extent approximation: the ROM's
+/// per-frame projectile `CollisionSize` box (e.g. axe `unk_318B2`) is the
+/// deferred #308 "P3 projectile-CollisionSize" work and is out of scope — #343
+/// is purely the over-small ENEMY side.
+fn friendly_projectile_overlaps_enemy_loc_1d84(
+    projectile_x_px: i32,
+    projectile_y_px: i32,
+    projectile_half_width: i32,
+    projectile_half_height: i32,
+    target: &NativeObjectSnapshot,
+) -> bool {
+    let bounds = crate::combat::enemy_contact_bounds(target);
+    // Empty CollisionSize rows (archer body, dragon-flying zero frames) encode a
+    // negative-width sentinel (left>right); they never register contact, mirroring
+    // the combat.rs Kid-contact guard.
+    if bounds.left_px > bounds.right_px || bounds.top_px > bounds.bottom_px {
+        return false;
+    }
+    let enemy_x = (target.x_pos >> 16) as i32;
+    let enemy_y = (target.y_pos >> 16) as i32;
+    let enemy_left = enemy_x + bounds.left_px as i32;
+    let enemy_right = enemy_x + bounds.right_px as i32;
+    let enemy_top = enemy_y + bounds.top_px as i32;
+    let enemy_bottom = enemy_y + bounds.bottom_px as i32;
+    let projectile_left = projectile_x_px - projectile_half_width;
+    let projectile_right = projectile_x_px + projectile_half_width;
+    let projectile_top = projectile_y_px - projectile_half_height;
+    let projectile_bottom = projectile_y_px + projectile_half_height;
+    // ASM kid.asm:3600-3611 inclusive bgt/blt overlap (equality counts as touch).
+    !(enemy_left > projectile_right
+        || enemy_right < projectile_left
+        || enemy_top > projectile_bottom
+        || enemy_bottom < projectile_top)
+}
+
 fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObjectSnapshot> {
     if enemy.hit_points == 0 {
         return None;
@@ -6374,12 +6423,13 @@ impl NativeRuntime {
                 let targets =
                     helmet_enemy_projectile_damage_target_snapshots(&self.active_enemies[ei]);
                 if targets.iter().any(|target| {
-                    let ex = (target.x_pos >> 16) as i32;
-                    let ey = (target.y_pos >> 16) as i32;
-                    let dx = (prx - ex).abs();
-                    let dy = (pry - ey).abs();
-                    dx <= hit_half_width + ENEMY_CONTACT_HALF_WIDTH as i32
-                        && dy <= hit_half_height + ENEMY_CONTACT_HALF_HEIGHT as i32
+                    friendly_projectile_overlaps_enemy_loc_1d84(
+                        prx,
+                        pry,
+                        hit_half_width,
+                        hit_half_height,
+                        target,
+                    )
                 }) {
                     let spark_x_pos = proj.x_pos;
                     let spark_y_pos = proj.y_pos;
@@ -6405,12 +6455,13 @@ impl NativeRuntime {
                 let targets =
                     helmet_enemy_projectile_damage_target_snapshots(&self.active_enemies[ei]);
                 if targets.iter().any(|target| {
-                    let ex = (target.x_pos >> 16) as i32;
-                    let ey = (target.y_pos >> 16) as i32;
-                    let dx = (prx - ex).abs();
-                    let dy = (pry - ey).abs();
-                    dx <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_WIDTH as i32
-                        && dy <= PROJECTILE_HITBOX_HALF + ENEMY_CONTACT_HALF_HEIGHT as i32
+                    friendly_projectile_overlaps_enemy_loc_1d84(
+                        prx,
+                        pry,
+                        PROJECTILE_HITBOX_HALF,
+                        PROJECTILE_HITBOX_HALF,
+                        target,
+                    )
                 }) {
                     let spark_x_pos = slot.x_pos;
                     let spark_y_pos = slot.y_pos;
