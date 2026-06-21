@@ -27,36 +27,32 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live lanes;
   file order is not priority). Current focus is still #289 because it remains `[~]`.
-- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red, but native
-  now treats chunked `sub_30744`/`sub_307D8` row-window cells as Plane-B VDP cells,
-  applies ASM `BackgroundScroll_ComputeShiftLayers loc_3050A` H-scroll at
-  draw/sample time, arranges `$00`/`$08` timed-row uploads from the
-  `loc_2FFE8` preload `Time_Frames` phase, and has a typed
-  `Load_BackgroundChunk loc_12848` source-buffer primitive plus a
-  `ChunkedPlaneBRowHistoryLoc30744` native-player row-state primitive. Cells
-  outside the fresh streamed span preserve the old Plane-B `$0780` tile from
-  `loc_11F48`; elapsed `sub_30744` tile-column crossings now use the packed
-  `BackgroundScroll_ComputeShiftData loc_30452` words instead of display
-  `loc_3050A` pixels, and settled-warp traces can replay the hidden 60 target-live
-  frames against the `loc_12824` alias source for the one-column writes only.
+- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red. Native now
+  has the `Load_BackgroundChunk loc_12848` source-buffer primitive,
+  `ChunkedPlaneBRowHistoryLoc30744`, `$00`/`$08` timed-row uploads from the
+  `loc_2FFE8` preload `Time_Frames` phase, `loc_3050A` H-scroll at draw/sample
+  time, old `$0780` cells outside fresh spans, and `loc_30452`/hidden-settle
+  one-column replay against the `loc_12824` alias source.
   Fresh `issue289-level07-idle-current` is still unchanged at
   `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
   frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. A broader
-  trial that also fed full `sub_307D8` row uploads from the alias source was
-  rejected because it worsened the report to frame 60 `6359` / `5.9081984` and
-  frame 71 `6437` / `6.035942`. The oracle Plane-B row dump now includes B17,
-  B19, B22, and B23; B17 is mostly `$2780` except columns 5-6, while B18/B19
-  carry the right-edge cloud tail at columns 49-55.
-- **Next #289 action**: inspect the live native row words/provenance for the
-  remaining sampled pixels after the `loc_30452` replay. Synthetic coverage proves
-  the hidden `$08` row replay writes alias-source columns `49..55` into B18 by
-  `Time_Frames=174`, but the real #289 recording remains pixel-identical to the
-  prior baseline. Re-testing the raw `loc_30452` display-scroll basis on the
-  current code moved right-edge samples but exposed wrong native B17 cloud content
-  at the left edge, worsening frame 60 to `5336` / `5.8150578`
-  (frame 71 `5209` / `5.735277`). Next pass should compare native row history for
-  B17/B18/B19 against the expanded oracle dump before changing display scroll
-  again. The latest
+  alias-fed full `sub_307D8` row uploads were rejected because they worsened frame
+  60 to `6359` / `5.9081984` and frame 71 to `6437` / `6.035942`. Native reports
+  now dump B17/B18/B19 row words beside the expanded oracle dump: B18/B19
+  right-edge tails match oracle (`2781..2787`/`2789..278F`; frame 71 adds
+  `2788`/`2790`), but native has extra fresh cells at B18/B19 columns 0-4 where
+  oracle keeps `$0780`, and native B17 wrongly has cloud words at columns 17-24
+  while oracle only has the columns 5-6 tail. Residual = stale/persisted Plane-B
+  row state, not display-scroll interpretation.
+- **Next #289 action**: model or trace the full persisted Plane-B nametable state
+  across target-level `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
+  instead of changing display scroll. Synthetic coverage proves the hidden `$08`
+  row replay writes alias-source columns `49..55` into B18 by `Time_Frames=174`,
+  and the new native-vs-oracle row dump proves that part is now present in the
+  real recording, but other columns/rows refresh too eagerly or from the wrong
+  source history. Re-testing raw `loc_30452` display scroll moved right-edge
+  samples but exposed wrong native B17 cloud content, worsening frame 60 to
+  `5336` / `5.8150578` (frame 71 `5209` / `5.735277`). The latest
   `background_source_rows_loc_12848` settle trace proves
   `Load_InGame`/`Load_BackgroundMappings loc_12824` writes the B18 source row
   during target-level load: `$8C9E[00..45]` is all zero through `title_wait` step
@@ -71,13 +67,12 @@ and stop — never commit churn.
   render `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
   substitution, current-time all-row overlay, alias-only rendering, or alias-fed
   full row uploads.
-- **Gates this session**: expanded the oracle Plane-B row diagnostic for #289.
-  Verified `oracle_manifest_deserialises_hidden_settle_trace_rows` and fresh
-  expected-red `issue289-level07-idle-current` (`trace_match=true`,
-  `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
-  `5.6536646`, frame 71 `5212` / `5.8645835`). Direct `verify-slice-fast` body
-  passed: TAS frontier, backlog lint, wildside-core lib sweep, and wildside-cli
-  gameplay regressions.
+- **Gates this session**: native Plane-B row diagnostics. Verified
+  `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, focused
+  `cargo test -q -p wildside-cli chunked_`, fresh expected-red
+  `issue289-level07-idle-current`, and direct `verify-slice-fast` body (TAS
+  frontier, backlog lint, wildside-core lib sweep, and wildside-cli gameplay
+  regressions).
   The `mise` wrappers remain blocked
   in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
   use direct cargo/CLI commands for code verification.

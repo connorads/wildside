@@ -264,8 +264,8 @@ pub(crate) use render::{render_frame_on_blank_canvas, render_scene, render_scene
 pub(crate) use scene::{
     BackgroundPixelSample, BackgroundScrollPixelDiagnostic, LayerFilter,
     background_scroll_pixel_diagnostic_loc_3050a, build_scene, build_scene_filtered,
-    eol_score_sprite_diagnostics, render_trace_with_vdp_latched_state,
-    sample_background_pixel_loc_c070,
+    chunked_plane_b_row_vdp_words_for_trace_loc_30744, eol_score_sprite_diagnostics,
+    render_trace_with_vdp_latched_state, sample_background_pixel_loc_c070,
 };
 pub(crate) use sprites::render_dynamic_gameplay_frame_evidence;
 pub(crate) use sprites::render_gameplay_frame_evidence;

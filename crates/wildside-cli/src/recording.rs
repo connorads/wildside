@@ -5,9 +5,9 @@ use crate::native_player::{
     BackgroundPixelSample, BackgroundScrollPixelDiagnostic, FinalScenePixelDiagnostic, LayerFilter,
     NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativeEolScoreSpriteDiagnostic, NativePlayOptions,
     background_scroll_pixel_diagnostic_loc_3050a, build_scene, build_scene_filtered,
-    eol_score_sprite_diagnostics, load_session_assets, render_scene, render_scene_overlay,
-    render_trace_with_vdp_latched_state, render_vdp_trace_overlay,
-    sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
+    chunked_plane_b_row_vdp_words_for_trace_loc_30744, eol_score_sprite_diagnostics,
+    load_session_assets, render_scene, render_scene_overlay, render_trace_with_vdp_latched_state,
+    render_vdp_trace_overlay, sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
 };
 use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_capture_dynamic};
 use crate::scenarios::{DynamicCheckpoint, DynamicScenario};
@@ -186,6 +186,8 @@ pub(crate) struct CheckpointFrameDiff {
     pub(crate) edge_sample_pixels: Vec<PixelCoord>,
     #[serde(default)]
     pub(crate) native_background_samples: Vec<NativeBackgroundPixelDiagnostic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) native_background_plane_b_rows_loc_30744: Option<String>,
     #[serde(default)]
     pub(crate) native_layer_samples: Vec<NativeLayerPixelDiagnostic>,
     #[serde(default)]
@@ -1459,6 +1461,8 @@ fn attach_native_pixel_samples(
         (usize, String),
         Vec<NativeBackgroundPixelDiagnostic>,
     > = BTreeMap::new();
+    let mut background_plane_b_rows_by_checkpoint: BTreeMap<(usize, String), String> =
+        BTreeMap::new();
     let mut layer_samples_by_checkpoint: BTreeMap<
         (usize, String),
         Vec<NativeLayerPixelDiagnostic>,
@@ -1555,6 +1559,11 @@ fn attach_native_pixel_samples(
                         }
                     })
                     .collect::<Vec<_>>();
+                if let Some(rows) =
+                    native_background_plane_b_rows_debug_loc_30744(&render_trace, &level_visuals)
+                {
+                    background_plane_b_rows_by_checkpoint.insert(key.clone(), rows);
+                }
                 let layer_samples = sample_native_layers_for_pixels(
                     &render_trace,
                     &level_visuals,
@@ -1605,6 +1614,8 @@ fn attach_native_pixel_samples(
         diff.native_background_samples = background_samples_by_checkpoint
             .remove(&key)
             .unwrap_or_default();
+        diff.native_background_plane_b_rows_loc_30744 =
+            background_plane_b_rows_by_checkpoint.remove(&key);
         diff.native_layer_samples = layer_samples_by_checkpoint.remove(&key).unwrap_or_default();
         diff.native_final_scene_samples = final_scene_samples_by_checkpoint
             .remove(&key)
@@ -1614,6 +1625,41 @@ fn attach_native_pixel_samples(
     }
 
     Ok(())
+}
+
+fn native_background_plane_b_rows_debug_loc_30744(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> Option<String> {
+    const ROWS: [usize; 9] = [8, 17, 18, 19, 22, 23, 27, 29, 30];
+
+    // ASM sub_30744/sub_307D8 (kid.asm:34563/34625) incrementally write
+    // chunked background tile words into the hardware Plane-B nametable.
+    // Keep this shaped like the oracle dump so #289 can compare row content
+    // separately from loc_3050A H-scroll interpretation.
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let rows = ROWS
+        .into_iter()
+        .filter_map(|row| {
+            chunked_plane_b_row_vdp_words_for_trace_loc_30744(
+                trace,
+                level_visuals,
+                camera_x_px,
+                row,
+            )
+            .map(|words| {
+                let words = words
+                    .into_iter()
+                    .map(|word| {
+                        word.map_or_else(|| "....".to_string(), |word| format!("{word:04X}"))
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("B{row:02}={words}")
+            })
+        })
+        .collect::<Vec<_>>();
+    (!rows.is_empty()).then(|| rows.join(";"))
 }
 
 impl NativeVdpPixelDiagnostic {
@@ -1848,6 +1894,7 @@ fn compare_recording_frames(
             top_colour_diffs: pixel_diff_summary.top_colour_diffs,
             edge_sample_pixels: pixel_diff_summary.edge_sample_pixels,
             native_background_samples: Vec::new(),
+            native_background_plane_b_rows_loc_30744: None,
             native_layer_samples: Vec::new(),
             native_final_scene_samples: Vec::new(),
             native_vdp_samples: Vec::new(),

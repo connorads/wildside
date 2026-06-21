@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 native Plane-B row diagnostic)
+
+- **#289 stays `[~]`; recording reports now include native Plane-B row words from `ChunkedPlaneBRowHistoryLoc30744`.** Fresh `issue289-level07-idle-current` remains expected-red and unchanged at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`, but native rows can now be compared directly to `oracle_background_plane_b_rows_loc_307d8`.
+- The row comparison rejects another display-scroll patch: native B18/B19 right-edge cloud tails match oracle (`2781..2787`/`2789..278F`, with frame 71 adding `2788`/`2790`), but native also refreshes B18/B19 columns 0-4 to `$2780` where oracle keeps `$0780`, and native B17 incorrectly contains cloud words at columns 17-24 while oracle only has the columns 5-6 tail. **NEXT**: model or trace persisted Plane-B nametable state across target-level `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`; do not retry raw `loc_30452` display scroll, alias-only rendering, or alias-fed full row uploads.
+- Verification: `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, `cargo test -q -p wildside-cli chunked_`, fresh expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, direct `verify-slice-fast` body (TAS frontier, backlog lint, wildside-core lib sweep, wildside-cli gameplay regressions). `mise` wrappers remain blocked by `fnox@1` on linux-arm64 here, so direct cargo/CLI commands were used.
+
+---
+
 ## 2026-06-21 handoff (#289 expanded Plane-B row diagnostic)
 
 - **#289 stays `[~]`; oracle Plane-B row diagnostics now include B17, B19, B22, and B23.** Fresh `issue289-level07-idle-current` remains expected-red at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`, but the row dump now shows B17 is mostly `$2780` except columns 5-6 while B18/B19 hold the right-edge cloud tails at columns 49-55.
