@@ -27,16 +27,20 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#350 just landed (`[~]`→`[?]`, awaiting human Hills playtest)**: Hills (theme 3)
-  below-canopy foliage rendered blue/purple. Root cause was NOT the chunked
-  `background_palette_for_scene` the original note blamed — Hills uses the LAYERED path,
-  whose lower foliage plane (ASM `loc_1295E` base `$07C0` = CRAM line 0) indexed the
-  background sky palette. Extended the Mountain two-line branch to theme 3 (line 0 =
-  foreground, line 1 = background colours), engine-level. Oracle-verified: warp idle
-  frame-39 below-canopy native↔oracle diffs 1334→0 (only the separate #280/#289 sky seam
-  remains). New test `hills_background_palette_reads_foreground_foliage_plane_loc_1295e`;
-  CRC-neutral (CLI render layer); `verify-slice-fast` (6251+9) green. Full evidence:
-  **archive #350**.
+- **#339 just landed (`[ ]`→`[?]`, REOPEN resolved, awaiting human audio listen)**:
+  the Rock Tank drive drone ($1F) no longer persists after a Kid death or stacks across
+  level-skips. Mirrored ROM `Load_InGame`→`j_StopMusic` (loc_23629, the only death/skip
+  off-switch) with `stop_level_looping_drones_on_load_ingame_loc_23629`, called at the
+  respawn reset and the level-skip teardown — stops the live tank-drive AND clock-prize
+  drones (also covers #342's death/level-load scope boundary). CRC-neutral; tests
+  `loc_23629_*`; `verify-slice-fast` (6251+9) and `verify-tas-full` green (CRC all 37759
+  match, 212 authoritative = #290 baseline). Full evidence: **archive #339**.
+- **#350 also landed this session (`[?]`)**: Hills (theme 3) below-canopy foliage was
+  blue/purple. Hills uses the LAYERED background path (not the chunked
+  `background_palette_for_scene` the original note blamed); its lower foliage plane (ASM
+  `loc_1295E` base `$07C0` = CRAM line 0) indexed the background sky palette. Extended the
+  Mountain two-line branch to theme 3. Oracle-verified: warp idle frame-39 below-canopy
+  diffs 1334→0. **archive #350**.
 - **#289 stays `[~]` but is research-blocked**: 5+ consecutive instrumentation/docs
   commits, marginal MAE gains (Level 0x07 frame 60 `5080`→`4031`) and still
   `oracle_frame_match=false`. The remaining work is modelling incremental persisted
@@ -54,10 +58,11 @@ and stop — never commit churn.
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
 - **Gates this session**: `cargo fmt` clean, both crates `cargo check` warning-free,
-  new Hills palette test + Mountain/Forest regressions green, `mise run verify-slice-fast`
-  green (6251 core + 9 CLI + verify-tas-frontier + backlog-lint). #350 is render-only
-  (CLI presentation layer, no wildside-core change) so it is CRC-neutral and
-  `verify-tas-full` was not required.
+  new `loc_23629_*` (#339) and `hills_*_loc_1295e` (#350) regressions green,
+  `mise run verify-slice-fast` green (6251 core + 9 CLI + verify-tas-frontier +
+  backlog-lint), `mise run verify-tas-full` CRC all 37759 frames match with 212
+  authoritative = #290 baseline. Both fixes are CRC-neutral (#339 audio commands; #350
+  CLI render layer).
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -95,7 +100,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | 2026-06-21: bisected to c65df2500 (2026-06-12) — `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` (camera 216→115px, level-0 only). NEXT: oracle capture PAST the title card into live gameplay, diff per-frame camera/kid-Y; don't edit the ramp without it (may be oracle-derived). See archive #336. |
-| 339 | [ ] | P1 | audio | 2026-06-19 playtest: RockTank drive SFX ($1F, a LOOPING sequence) plays forever / "bugs out and keeps playing" — fired once on first-visible init (enemies.rs:10193) but never stopped when the shared refcount hits 0 on death/offscreen (ASM loc_3C46E decrement+stop unported). Mirror `should_play_stop_sound: next_refcount==0` (blocks.rs:642). Also the #264 "tank-drive repeats at EOL" symptom | Fixed 2026-06-19: `refresh_active_roster` emits `StopSequence(sfx_Tank_driving)` ($12 cmdstopseq stop) when the pooled drive refcount drops to 0 as the last Rock Tank exits (scroll-off loc_3C436 + death Tank.asm loc_3B480, both → loc_3C46E→ (full history: archive #339) |
 | 343 | [ ] | P1 | combat | 2026-06-20 playtest: axe/friendly projectiles pass through the walking dragon (0x0D) and other large enemies. Unit damage (take_dragon_walking_damage enemies.rs:8970, route loc_3CEBE) is ASM-faithful + wired, but the LIVE hit test `process_friendly_projectile_hits` (helmets.rs:6371) uses an invented fixed `ENEMY_CONTACT_HALF_WIDTH=4`/`HALF_HEIGHT=8` box (constants.rs:379/384) for ALL families instead of the real `CollisionSize_Index`, so the large dragon body sits outside the box. Concrete instance of the #308 umbrella; the 2026-06-19 "axe can't hit flying dragon" denial only covered the brief pre-flight loc_346C4 window | Source the contact box from CollisionSize_Index per family/frame (engine-level per #308); live walking-dragon axe-hit regression (none exists today). See archive #343 |
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive. Likely ASM-FAITHFUL (Dragon.asm loc_3CDFC HP=enemy_level+1; loc_3CEBE plays hurt/hibernate then resumes patrol on a 2HP+ dragon), reproduced correctly in native — so the defect is VISUAL/UX: confirm native plays stru_3CCE6 hurt anim (not a death-looking frame) during the 24-frame hibernate. Seed #200/#043/#199 are closed Flying-Dragon PROJECTILE rows (keyword-deflection trap) | Get the human to distinguish survive-flash vs true death+resurrect; verify hurt anim during hibernate; compare-native-oracle dragon-stomp. See archive #344 |
 | 345 | [ ] | P1 | enemy | 2026-06-20 playtest: Lion vanishes mid-level on Isle/Land of the Lion Lord (0x07) — premature off-window cull vs ROM sub_3E8BA. Leading hypothesis: `large_pacer_should_remain_active` (enemies.rs:15921) keys on active_enemy_count (roster len) not ROM Number_Objects (all live objects), shifting the $A/$14 cull band (#289 proved native object accounting diverges here). Not covered by #186 (behaviour fidelity, parked [?]) or #289 (spawn umbrella, symptom buried) | Oracle scroll-off/scroll-back probe on 0x07; rule out the #239 faithful ledge-fall first; check respawn marker loc_3E97C. Engine-level fix only. See archive #345 |

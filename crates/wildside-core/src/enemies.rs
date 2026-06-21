@@ -44734,6 +44734,26 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM `Load_InGame` loc_23629 (kid.asm:23629) calls `j_StopMusic` on every
+    /// level (re)entry — a global GEMS driver reset that silences any looping
+    /// drone still playing (Rock Tank drive `$1F`, clock-prize `$0E`). Native
+    /// models those drones as discrete Start/StopSequence pairs whose stop is an
+    /// edge on the live roster (`stop_rock_tank_drive_sound_on_last_exit_loc_3c46e`,
+    /// `step_visual_effects`). That edge never fires across a death-respawn or
+    /// level-skip, because those paths bulk-clear `active_enemies`/`floating_items`
+    /// without the per-exit decrement — so the drone looped forever after a Kid
+    /// death and re-accumulated on every skip (#339 REOPEN). Mirror j_StopMusic by
+    /// stopping the drones that are still live at the same teardown, before the
+    /// bulk clears drop them.
+    pub(crate) fn stop_level_looping_drones_on_load_ingame_loc_23629(&mut self) {
+        if self.driving_rock_tank_count() > 0 {
+            self.queue_stop_sequence(QueuedSoundEffect::TankDriving);
+        }
+        if self.active_clock_prize_count() > 0 {
+            self.queue_stop_sequence(QueuedSoundEffect::ClockPrize);
+        }
+    }
+
     pub(crate) fn refresh_active_roster(&mut self) {
         if self.paused {
             return;
@@ -44747,6 +44767,11 @@ impl NativeRuntime {
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
         if self.level_skip_resume_hold {
+            // ASM Load_InGame loc_23629 j_StopMusic resets the GEMS driver as the
+            // skip target loads; mirror it before clearing the prior level's live
+            // Rock Tank / clock-prize drones so the drone does not re-accumulate
+            // across each skip. #339.
+            self.stop_level_looping_drones_on_load_ingame_loc_23629();
             self.active_enemies.clear();
             self.pending_dragon_death_children.clear();
             self.pending_dragon_death_animations.clear();

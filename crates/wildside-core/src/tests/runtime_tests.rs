@@ -7901,6 +7901,68 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_23629_load_ingame_stops_live_rock_tank_drive_drone() {
+        // ASM Load_InGame loc_23629 (kid.asm:23629) j_StopMusic resets the GEMS
+        // driver on every level (re)entry, silencing the still-driving Rock Tank
+        // drone. #339 REOPEN: the per-exit edge stop is bypassed by the
+        // death-respawn / level-skip bulk clears, so this mirror stops the drone
+        // for any tank still live at the teardown.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut tank = make_pacer(EnemyFamily::Tank, 3, 0x100, 0x80);
+        tank.shared_walker_patrol_short_next = true;
+        rt.active_enemies.push(tank);
+
+        rt.stop_level_looping_drones_on_load_ingame_loc_23629();
+
+        assert_eq!(
+            rt.played_sound_commands,
+            vec![QueuedSoundCommand::StopSequence(
+                QueuedSoundEffect::TankDriving
+            )],
+            "loc_23629 j_StopMusic must stop the live Rock Tank drive drone via StopSequence ($12 cmdstopseq)"
+        );
+    }
+
+    #[test]
+    fn loc_23629_load_ingame_drone_stop_silent_when_no_drone_active() {
+        // With no looping drone live, the j_StopMusic mirror must stay silent so
+        // a level (re)entry never queues a spurious stop.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.active_enemies
+            .push(make_pacer(EnemyFamily::Tank, 3, 0x100, 0x80));
+
+        rt.stop_level_looping_drones_on_load_ingame_loc_23629();
+
+        assert!(
+            rt.played_sound_commands.is_empty(),
+            "an un-latched tank (no drive SFX started) and no active clock must leave loc_23629 silent"
+        );
+    }
+
+    #[test]
+    fn loc_23629_level_skip_stops_live_rock_tank_drive_drone() {
+        // ASM Load_InGame loc_23629 j_StopMusic runs as the skip target loads;
+        // the skip teardown branch of refresh_active_roster must stop the prior
+        // level's live drone so it does not re-accumulate across skips. #339.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut tank = make_pacer(EnemyFamily::Tank, 3, 0x100, 0x80);
+        tank.shared_walker_patrol_short_next = true;
+        rt.active_enemies.push(tank);
+        rt.level_skip_resume_hold = true;
+        rt.played_sound_commands.clear();
+
+        rt.refresh_active_roster();
+
+        assert!(
+            rt.played_sound_commands
+                .contains(&QueuedSoundCommand::StopSequence(
+                    QueuedSoundEffect::TankDriving
+                )),
+            "the level-skip teardown must mirror loc_23629 j_StopMusic and stop the live Rock Tank drone"
+        );
+    }
+
+    #[test]
     fn iron_knight_metal_block_bounce_uses_loc_1117a_down_then_up_arc() {
         let mut rt = NativeRuntime::new(manifest());
         let mut slice = OpeningSliceState::new(default_bounds());

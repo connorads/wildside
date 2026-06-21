@@ -18180,6 +18180,11 @@ impl NativeRuntime {
     }
 
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {
+        // ASM Load_InGame loc_23629 j_StopMusic resets the GEMS driver on the
+        // respawn re-entry; mirror it before the bulk clears below drop the live
+        // Rock Tank / clock-prize drones (the per-exit stop edge never fires
+        // here). #339.
+        self.stop_level_looping_drones_on_load_ingame_loc_23629();
         self.respawn_start_held_frames = 0;
         self.respawn_live_handoff_frames = 0;
         let level_id = self.current_level;
