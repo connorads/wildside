@@ -1738,6 +1738,21 @@ pub(crate) fn lion_projectile_launch_tail_loc_3e180(
     }
 }
 
+fn lion_projectile_x_offset_from_native_carrier_loc_3e12a(parent_facing: Direction) -> i16 {
+    let tail = lion_projectile_launch_tail_loc_3e180(parent_facing);
+    match parent_facing {
+        Direction::Left => {
+            // ASM Lion.asm loc_3E12A copies `x_pos` from the parent GfxObject,
+            // not the enemy object carrier. Issue #289 Level 0x07 oracle frame
+            // 19 has parent gfx `@517,704` and shot `@501,680` after the first
+            // `$FFFA0000` movement step; native's carrier is 12 px right of
+            // that gfx origin for the left-facing Lion.
+            tail.x_offset_pixels - 12
+        }
+        Direction::Right => tail.x_offset_pixels,
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionHibernateLoc3E3A2 {
@@ -20866,7 +20881,10 @@ fn fire_lion_projectile_loc_3e09e(
     enemy.facing = facing;
     if let Some(projs) = projectiles {
         let tail = lion_projectile_launch_tail_loc_3e180(enemy.facing);
-        let proj_x = (enemy.x_pos as i64 + ((i64::from(tail.x_offset_pixels)) << 16)) as u32;
+        let proj_x = (enemy.x_pos as i64
+            + ((i64::from(lion_projectile_x_offset_from_native_carrier_loc_3e12a(
+                enemy.facing,
+            ))) << 16)) as u32;
         let proj_y = (enemy.y_pos as i64 - ((i64::from(LION_PROJECTILE_Y_OFFSET)) << 16)) as u32;
         projs.push(EnemyProjectile {
             x_pos: proj_x,
@@ -38094,6 +38112,15 @@ mod tests {
                 animation_script: "stru_3DF34",
             },
             "ASM Lion.asm loc_3E180 should keep the positive d7/d6 pair when parent x_direction is set"
+        );
+    }
+
+    #[test]
+    fn lion_projectile_left_launch_offsets_from_native_carrier_loc_3e12a() {
+        assert_eq!(
+            lion_projectile_x_offset_from_native_carrier_loc_3e12a(Direction::Left),
+            -22,
+            "ASM Lion.asm loc_3E12A copies parent GfxObject x, not native's carrier x; issue #289 oracle frame 19 needs native carrier x - 22 before the first movement step reaches @501"
         );
     }
 

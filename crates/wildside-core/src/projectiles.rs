@@ -2791,6 +2791,16 @@ impl NativeRuntime {
                     p.reaim_countdown -= 1;
                 }
             }
+            let mut lion_pre_homing_velocity_loc_3e192 = None;
+            if is_lion_projectile {
+                // ASM Lion.asm loc_3E192 resumes from `Hibernate_Object_1Frame`
+                // after the engine has already moved the gfx object and written
+                // any collision type. Homing velocity changes happen after that
+                // collision gate, so native must not move the roar shot with the
+                // just-adjusted velocity in the same frame.
+                lion_pre_homing_velocity_loc_3e192 = Some((p.x_velocity, p.y_velocity));
+                move_projectile_by_current_velocity(p);
+            }
             // ASM loc_3E192: after lifecycle checks, this label drives per-frame
             // lion projectile homing adjustments and then loops back for the next
             // frame unless collision/terrain branches are taken.
@@ -3021,8 +3031,10 @@ impl NativeRuntime {
                 }
             }
 
-            p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
-            p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+            if !is_lion_projectile {
+                p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
+                p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+            }
             if is_boss_eye_attack {
                 let step = crate::combat::boss_eye_attack_step_sub_37332(
                     p.y_velocity,
@@ -3313,61 +3325,93 @@ impl NativeRuntime {
                 // models `dbf` (`lion_projectile_bounce_iterations_continue_loc_3e2c0`).
                 for _ in 0..16 {
                     // ASM loc_3E2A8 then loc_3E2C0: loop up to 16 bounce attempts using `dbf d0`.
-                    let px_i = (p.x_pos >> 16) as i32;
-                    let py_i = (p.y_pos >> 16) as i32;
-                    let col = terrain::pixel_to_cell(px_i).max(0) as u16;
-                    let row = terrain::pixel_to_cell(py_i).max(0) as u16;
-                    let cell = g.cell_at(col, row);
-                    if !cell.has_block || cell.collision == terrain::CollisionKind::Empty {
-                        break;
-                    }
+                    let (h_blocked, v_blocked, terrain_collision_id) =
+                        if p.kind == EnemyProjectileKind::LionProjectile {
+                            let (collision_x_velocity, collision_y_velocity) =
+                                lion_pre_homing_velocity_loc_3e192
+                                    .unwrap_or((p.x_velocity, p.y_velocity));
+                            let mut collision_projectile = *p;
+                            collision_projectile.x_velocity = collision_x_velocity;
+                            collision_projectile.y_velocity = collision_y_velocity;
+                            let Some(contact) =
+                                lion_projectile_terrain_contact_loc_3e260(g, &collision_projectile)
+                            else {
+                                break;
+                            };
+                            p.x_pos = (contact.snapped_x_px as u32) << 16;
+                            p.y_pos = (contact.snapped_y_px as u32) << 16;
+                            (
+                                matches!(contact.collision_type, 0x0004 | 0x0008 | 0x0014 | 0x0018),
+                                matches!(contact.collision_type, 0x000C | 0x0010 | 0x0014 | 0x0018),
+                                contact.collision_type,
+                            )
+                        } else {
+                            let px_i = (p.x_pos >> 16) as i32;
+                            let py_i = (p.y_pos >> 16) as i32;
+                            let col = terrain::pixel_to_cell(px_i).max(0) as u16;
+                            let row = terrain::pixel_to_cell(py_i).max(0) as u16;
+                            let cell = g.cell_at(col, row);
+                            if !cell.has_block || cell.collision == terrain::CollisionKind::Empty {
+                                break;
+                            }
 
-                    // Undo the move.
-                    p.x_pos = (p.x_pos as i64 - i64::from(p.x_velocity)) as u32;
-                    p.y_pos = (p.y_pos as i64 - i64::from(p.y_velocity)) as u32;
+                            // Undo the move.
+                            p.x_pos = (p.x_pos as i64 - i64::from(p.x_velocity)) as u32;
+                            p.y_pos = (p.y_pos as i64 - i64::from(p.y_velocity)) as u32;
 
-                    // Determine bounce axis: probe horizontally and vertically.
-                    let prev_px = (p.x_pos >> 16) as i32;
-                    let prev_py = (p.y_pos >> 16) as i32;
-                    let next_cx = prev_px + (p.x_velocity >> 16);
-                    let next_cy = prev_py + (p.y_velocity >> 16);
+                            // Determine bounce axis: probe horizontally and vertically.
+                            let prev_px = (p.x_pos >> 16) as i32;
+                            let prev_py = (p.y_pos >> 16) as i32;
+                            let next_cx = prev_px + (p.x_velocity >> 16);
+                            let next_cy = prev_py + (p.y_velocity >> 16);
 
-                    let col_h = terrain::pixel_to_cell(next_cx).max(0) as u16;
-                    let row_h = terrain::pixel_to_cell(prev_py).max(0) as u16;
-                    let cell_h = g.cell_at(col_h, row_h);
+                            let col_h = terrain::pixel_to_cell(next_cx).max(0) as u16;
+                            let row_h = terrain::pixel_to_cell(prev_py).max(0) as u16;
+                            let cell_h = g.cell_at(col_h, row_h);
 
-                    let col_v = terrain::pixel_to_cell(prev_px).max(0) as u16;
-                    let row_v = terrain::pixel_to_cell(next_cy).max(0) as u16;
-                    let cell_v = g.cell_at(col_v, row_v);
+                            let col_v = terrain::pixel_to_cell(prev_px).max(0) as u16;
+                            let row_v = terrain::pixel_to_cell(next_cy).max(0) as u16;
+                            let cell_v = g.cell_at(col_v, row_v);
 
-                    let h_blocked =
-                        cell_h.has_block && cell_h.collision != terrain::CollisionKind::Empty;
-                    let v_blocked =
-                        cell_v.has_block && cell_v.collision != terrain::CollisionKind::Empty;
+                            let h_blocked = cell_h.has_block
+                                && cell_h.collision != terrain::CollisionKind::Empty;
+                            let v_blocked = cell_v.has_block
+                                && cell_v.collision != terrain::CollisionKind::Empty;
 
-                    let terrain_collision_id = lion_projectile_terrain_collision_id_loc_3e260(
-                        h_blocked,
-                        v_blocked,
-                        p.x_velocity,
-                        p.y_velocity,
-                        cell,
-                    );
+                            (
+                                h_blocked,
+                                v_blocked,
+                                lion_projectile_terrain_collision_id_loc_3e260(
+                                    h_blocked,
+                                    v_blocked,
+                                    p.x_velocity,
+                                    p.y_velocity,
+                                    cell,
+                                ),
+                            )
+                        };
 
                     let (x_velocity, y_velocity) =
                         lion_projectile_bounce_velocity_dispatch_loc_3e266(
                             h_blocked,
                             v_blocked,
-                            p.x_velocity,
-                            p.y_velocity,
+                            lion_pre_homing_velocity_loc_3e192
+                                .map(|velocity| velocity.0)
+                                .unwrap_or(p.x_velocity),
+                            lion_pre_homing_velocity_loc_3e192
+                                .map(|velocity| velocity.1)
+                                .unwrap_or(p.y_velocity),
                             terrain_collision_id,
                         );
 
                     p.x_velocity = x_velocity;
                     p.y_velocity = y_velocity;
 
-                    // Re-apply movement with bounced velocity.
-                    p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
-                    p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+                    if p.kind != EnemyProjectileKind::LionProjectile {
+                        // Re-apply movement with bounced velocity.
+                        p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
+                        p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+                    }
 
                     if let (Some(owner), Some(camera)) = (p.owner, camera) {
                         let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
@@ -3382,6 +3426,12 @@ impl NativeRuntime {
 
                     if !lion_projectile_bounce_iterations_continue_loc_3e2c0(&mut remaining_bounces)
                     {
+                        break;
+                    }
+                    if p.kind == EnemyProjectileKind::LionProjectile {
+                        // ASM Lion.asm loc_3E2A8 hibernates one frame before
+                        // the next collision check; native represents that as
+                        // one bounce/snap per `step_projectiles` frame.
                         break;
                     }
                 }
@@ -3822,6 +3872,158 @@ fn terrain_collision_id_from_cell_loc_3e2a8(cell: terrain::Cell) -> u16 {
     }
 }
 
+const LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A: i32 = -5;
+const LION_PROJECTILE_COLLISION_WIDTH_LOC_3E12A: i32 = 9;
+const LION_PROJECTILE_COLLISION_TOP_LOC_3E12A: i32 = -5;
+const LION_PROJECTILE_COLLISION_HEIGHT_LOC_3E12A: i32 = 9;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct LionProjectileTerrainContactLoc3E260 {
+    collision_type: u16,
+    snapped_x_px: i32,
+    snapped_y_px: i32,
+}
+
+fn lion_projectile_terrain_cell_blocks_loc_1792(cell: terrain::Cell) -> bool {
+    // ASM GfxObjects_Collision loc_1796 masks `$4000`, then loc_17C6 ignores
+    // spikes. Block flags are not part of this test; ordinary terrain can set
+    // collision bits without bit 15.
+    matches!(
+        cell.collision,
+        terrain::CollisionKind::Solid
+            | terrain::CollisionKind::SlopeUp
+            | terrain::CollisionKind::SlopeDown
+    )
+}
+
+fn lion_projectile_solid_cell_blocks_loc_3e260(cell: terrain::Cell) -> bool {
+    cell.collision == terrain::CollisionKind::Solid
+}
+
+fn lion_projectile_first_solid_cell_in_column_loc_1792(
+    grid: &terrain::BlockGrid,
+    col: u16,
+    row_start: u16,
+    row_end: u16,
+) -> Option<(u16, terrain::Cell)> {
+    for row in row_start..=row_end {
+        let cell = grid.cell_at(col, row);
+        if lion_projectile_solid_cell_blocks_loc_3e260(cell) {
+            return Some((row, cell));
+        }
+    }
+    None
+}
+
+fn lion_projectile_first_blocking_cell_in_span_loc_1792(
+    grid: &terrain::BlockGrid,
+    col_start: u16,
+    col_end: u16,
+    row_start: u16,
+    row_end: u16,
+) -> Option<(u16, u16, terrain::Cell)> {
+    for row in row_start..=row_end {
+        for col in col_start..=col_end {
+            let cell = grid.cell_at(col, row);
+            if lion_projectile_terrain_cell_blocks_loc_1792(cell) {
+                return Some((col, row, cell));
+            }
+        }
+    }
+    None
+}
+
+fn lion_projectile_terrain_contact_loc_3e260(
+    grid: &terrain::BlockGrid,
+    projectile: &EnemyProjectile,
+) -> Option<LionProjectileTerrainContactLoc3E260> {
+    // ASM Lion.asm loc_3E12A installs `stru_3DF34`; its frames
+    // LnkTo_unk_C7E20/C7E28/C7E30 select CollisionSize_Index[667..669] ->
+    // `unk_31944` (`dc.w -$5,$9,-$5,$9`). GfxObjects_Collision loc_171C
+    // scans every overlapped 16x16 cell from this box, not the projectile
+    // origin pixel, and snaps straight contacts before Lion.asm loc_3E260
+    // reflects velocity.
+    let x_px = (projectile.x_pos >> 16) as i32;
+    let y_px = (projectile.y_pos >> 16) as i32;
+    let left_px = x_px + LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A;
+    let right_px = left_px + LION_PROJECTILE_COLLISION_WIDTH_LOC_3E12A;
+    let top_px = y_px + LION_PROJECTILE_COLLISION_TOP_LOC_3E12A;
+    let bottom_px = top_px + LION_PROJECTILE_COLLISION_HEIGHT_LOC_3E12A;
+    let left_col = terrain::pixel_to_cell(left_px).max(0) as u16;
+    let right_col = terrain::pixel_to_cell(right_px).max(0) as u16;
+    let top_row = terrain::pixel_to_cell(top_px).max(0) as u16;
+    let bottom_row = terrain::pixel_to_cell(bottom_px).max(0) as u16;
+    let (_, row, cell) = lion_projectile_first_blocking_cell_in_span_loc_1792(
+        grid, left_col, right_col, top_row, bottom_row,
+    )?;
+
+    if projectile.x_velocity < 0
+        && lion_projectile_first_solid_cell_in_column_loc_1792(grid, left_col, top_row, bottom_row)
+            .is_some()
+    {
+        let tile_left_px = i32::from(left_col) * 16;
+        let snapped_x_px = tile_left_px - LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A + 16;
+        return Some(LionProjectileTerrainContactLoc3E260 {
+            collision_type: 0x0008,
+            snapped_x_px,
+            snapped_y_px: y_px,
+        });
+    }
+
+    if projectile.x_velocity > 0
+        && lion_projectile_first_solid_cell_in_column_loc_1792(grid, right_col, top_row, bottom_row)
+            .is_some()
+    {
+        let tile_left_px = i32::from(right_col) * 16;
+        let snapped_x_px = tile_left_px
+            - LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A
+            - LION_PROJECTILE_COLLISION_WIDTH_LOC_3E12A
+            - 1;
+        return Some(LionProjectileTerrainContactLoc3E260 {
+            collision_type: 0x0004,
+            snapped_x_px,
+            snapped_y_px: y_px,
+        });
+    }
+
+    if projectile.y_velocity >= 0 && lion_projectile_solid_cell_blocks_loc_3e260(cell) {
+        let tile_top_px = i32::from(row) * 16;
+        let snapped_y_px = tile_top_px
+            - LION_PROJECTILE_COLLISION_TOP_LOC_3E12A
+            - LION_PROJECTILE_COLLISION_HEIGHT_LOC_3E12A
+            - 1;
+        return Some(LionProjectileTerrainContactLoc3E260 {
+            collision_type: 0x000C,
+            snapped_x_px: x_px,
+            snapped_y_px,
+        });
+    }
+
+    if projectile.y_velocity < 0 && lion_projectile_solid_cell_blocks_loc_3e260(cell) {
+        let tile_bottom_px = (i32::from(row) + 1) * 16;
+        let snapped_y_px = tile_bottom_px - LION_PROJECTILE_COLLISION_TOP_LOC_3E12A;
+        return Some(LionProjectileTerrainContactLoc3E260 {
+            collision_type: 0x0010,
+            snapped_x_px: x_px,
+            snapped_y_px,
+        });
+    }
+
+    match cell.collision {
+        terrain::CollisionKind::SlopeUp => Some(LionProjectileTerrainContactLoc3E260 {
+            collision_type: 0x0014,
+            snapped_x_px: x_px,
+            snapped_y_px: y_px,
+        }),
+        terrain::CollisionKind::SlopeDown => Some(LionProjectileTerrainContactLoc3E260 {
+            collision_type: 0x0018,
+            snapped_x_px: x_px,
+            snapped_y_px: y_px,
+        }),
+        _ => None,
+    }
+}
+
 pub(crate) fn lion_projectile_bounce_velocity_dispatch_loc_3e266(
     h_blocked: bool,
     v_blocked: bool,
@@ -3877,6 +4079,21 @@ pub(crate) fn lion_projectile_terrain_collision_id_loc_3e260(
 
 #[cfg(test)]
 mod loc_3e266_tests {
+    use super::{EnemyProjectile, EnemyProjectileKind, terrain};
+
+    fn grid_with_cells(
+        width: u16,
+        height: u16,
+        cells: &[(u16, u16, terrain::CollisionKind)],
+    ) -> terrain::BlockGrid {
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        for &(col, row, collision) in cells {
+            let offset = (usize::from(row) * usize::from(width) + usize::from(col)) * 2;
+            data[offset] = (collision as u8) << 4;
+        }
+        terrain::BlockGrid::from_level_layout(&data, width, height)
+    }
+
     #[test]
     fn loc_3e2a4_reflection_negates_x_velocity() {
         assert_eq!(
@@ -4154,6 +4371,79 @@ mod loc_3e266_tests {
             ),
             0x0014,
             "ASM Lion.asm loc_3E2A8: unblocked probes must fall through to the cell-based slope id"
+        );
+    }
+
+    #[test]
+    fn loc_3e260_lion_projectile_box_floor_snap_uses_unk_31944() {
+        let grid = grid_with_cells(40, 60, &[(24, 44, terrain::CollisionKind::Solid)]);
+        let projectile = EnemyProjectile {
+            kind: EnemyProjectileKind::LionProjectile,
+            x_pos: 398u32 << 16,
+            y_pos: 703u32 << 16,
+            y_velocity: 0x0004_0000,
+            ..Default::default()
+        };
+
+        let contact = super::lion_projectile_terrain_contact_loc_3e260(&grid, &projectile)
+            .expect("lion projectile box should hit row-44 floor");
+
+        assert_eq!(
+            contact.collision_type, 0x000C,
+            "ASM GfxObjects_Collision loc_1A44 writes colid_floor before Lion.asm loc_3E260"
+        );
+        assert_eq!(
+            contact.snapped_y_px, 699,
+            "ASM loc_1A44 snaps y to tile_top - top_offset - height - 1: 704 - (-5) - 9 - 1"
+        );
+    }
+
+    #[test]
+    fn loc_3e260_lion_projectile_box_hits_when_origin_cell_is_empty() {
+        let grid = grid_with_cells(40, 60, &[(24, 44, terrain::CollisionKind::Solid)]);
+        let projectile = EnemyProjectile {
+            kind: EnemyProjectileKind::LionProjectile,
+            x_pos: 398u32 << 16,
+            y_pos: 703u32 << 16,
+            y_velocity: 0x0004_0000,
+            ..Default::default()
+        };
+        let origin_col = terrain::pixel_to_cell((projectile.x_pos >> 16) as i32).max(0) as u16;
+        let origin_row = terrain::pixel_to_cell((projectile.y_pos >> 16) as i32).max(0) as u16;
+
+        assert_eq!(
+            grid.cell_at(origin_col, origin_row).collision,
+            terrain::CollisionKind::Empty,
+            "issue #289 shape: projectile origin/centre is above empty terrain"
+        );
+        assert!(
+            super::lion_projectile_terrain_contact_loc_3e260(&grid, &projectile).is_some(),
+            "ASM GfxObjects_Collision loc_1792 scans `unk_31944`'s full box, so bottom-row overlap still reaches Lion.asm loc_3E260"
+        );
+    }
+
+    #[test]
+    fn loc_3e260_lion_projectile_leftwall_snap_uses_unk_31944_left_edge() {
+        let grid = grid_with_cells(40, 60, &[(21, 42, terrain::CollisionKind::Solid)]);
+        let projectile = EnemyProjectile {
+            kind: EnemyProjectileKind::LionProjectile,
+            x_pos: 355u32 << 16,
+            y_pos: 682u32 << 16,
+            x_velocity: -0x0004_0000,
+            y_velocity: -0x0001_0000,
+            ..Default::default()
+        };
+
+        let contact = super::lion_projectile_terrain_contact_loc_3e260(&grid, &projectile)
+            .expect("lion projectile box should hit left wall");
+
+        assert_eq!(
+            contact.collision_type, 0x0008,
+            "ASM GfxObjects_Collision loc_19D2 writes colid_leftwall before Lion.asm loc_3E260"
+        );
+        assert_eq!(
+            contact.snapped_x_px, 357,
+            "ASM loc_1A00 snaps x to tile_left - left_offset + 16: 336 - (-5) + 16"
         );
     }
 

@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-20 handoff (#289 Lion projectile trajectory narrowed)
+
+- **#289 stays `[~]`, with Level 0x07 Lion projectile launch and terrain-bounce behaviour narrowed.** Native now offsets the left-facing projectile from the native carrier so oracle launch frames 19-26 match, moves Lion shots before homing like `Lion.asm loc_3E192`, and uses the full `unk_31944` collision box for `loc_3E260` floor/left-wall terrain snaps. The fresh `issue289-level07-idle-current` recording is still `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`.
+- **NEXT**: continue #289 on the residual post-wall arc. The wall snap now reaches `x=357`, but vertical motion remains low: frame 60 native `(415,677)` vs oracle `(427,649)`, frame 71 native `(477,689)` vs oracle `(488,639)`. Re-check `loc_3E260`/`loc_3E2A8` velocity/timing before broader header/start/layout work. Verification this session: `cargo test -p wildside-core loc_3e260 --lib`, `cargo test -p wildside-core lion_projectile --lib`, `cargo test -p wildside-core projectile --lib`, regenerated + verified `issue289-level07-idle-current` (state-clean/pixel-red), `mise run verify-slice-fast`, and `mise run verify-tas-full` (CRC matched all frames; existing state-report divergences remain baseline). #345 Lion vanish remains separate.
+
+---
+
 ## 2026-06-20 handoff (#289 Lion projectile collision/lifecycle narrowed)
 
 - **#289 stays `[~]`, with Level 0x07 Lion projectile collision/lifecycle partially fixed.** Native now uses the projectile's ROM sprite collision row (`Lion.asm loc_3E12A` -> `stru_3DF34` -> `CollisionSize_Index[667..669]`/`unk_31944`) instead of the generic hostile-projectile centre window, so frame 28's old `dx=11 dy=-17` candidate is correctly `overlap=0`. Side/below damage no longer deletes the shot; `Lion.asm loc_3E192` only deletes on `colid_kidabove`/`colid_hurt`. Fresh `issue289-level07-idle-current` still reports `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; damage latches at frame 29 and native keeps the projectile alive.
