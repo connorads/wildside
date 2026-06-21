@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 native scroll diagnostic)
+
+- **#289 stays `[~]`; native verification reports now expose chunked bgscroll row diagnostics beside sampled pixels.** This is report-only instrumentation for ASM `BackgroundScroll_ComputeShiftLayers loc_3050A` plus `sub_30744`/`sub_307D8`; it does not mutate trace or renderer output. Fresh `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60 `7103` / MAE `6.9787807` and frame 71 `7227` / `7.1648297`.
+- **NEXT**: split settled-warp render `Time_Frames` from recording-local trace frame indices before another row-history patch. The new report shows native sampled render rows using `time_frames_loc_3038a=1693/1704`, while oracle reports ROM `Time_Frames=174/185` for the same recording frames. Do not retry header/start layout, H-scroll phase, raw `$00/$08`, direct/stateless placement wrapping, or all-row Plane-B overlay. Verification so far: `cargo fmt --check`, `cargo check -p wildside-cli`, `python3 scripts/audit_debug_fields.py`, focused `cargo test -p wildside-cli recording::`, and fresh red #289 recording report.
+
+---
+
 ## 2026-06-21 handoff (#289 row primitive correction)
 
 - **#289 stays `[~]`; the shared `sub_307D8` row-upload helper now matches ASM `loc_308A6`'s inclusive `d4=#$28`/`dbf` copy count.** It now streams 41 cells, so the full-row fixture wraps one extra source cell and the source/VDP wrap fixture keeps the ninth byte in the final segment. This is a primitive correction for the pending live Plane-B row-history model; native-player's partial renderer already used its own row-window count, so `issue289-level07-idle-current` remains frame 60 `7103` / MAE `6.9787807` and frame 71 `7227` / `7.1648297`.

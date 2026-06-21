@@ -40,36 +40,26 @@ and stop — never commit churn.
   renders Kid's white damage flash for the sampled frames from `kid.asm loc_BC56` /
   `sub_80BC`, and now overlays a partial chunked Plane-B row window for verified
   camera-parallax rows from `sub_30744`/`sub_307D8`. Current frame diff is frame 60
-  `7103` changed / MAE `6.9787807` and frame 71 `7227` / `7.1648297`.
+  `7103` changed / MAE `6.9787807` and frame 71 `7227` / `7.1648297`. The
+  verification report now includes native sampled chunked bgscroll row diagnostics for
+  ASM `BackgroundScroll_ComputeShiftLayers loc_3050A` and `sub_30744`/`sub_307D8`.
 - **Next #289 action**: inspect the remaining pixel-red Level 0x07 recording and
-  broader hell-theme wrong-start/layout report. The concrete Lion projectile arc lead
-  is now mostly exhausted: native reaches frame 60 `(427,648)` vs oracle `(427,649)`
-  and frame 71 `(488,638)` vs oracle `(488,639)`, while strict frame diffs remain broad
-  background/ocean/cloud colour/scroll mismatches. Do not retry simple chunked Plane-B
-  row wrapping: a local experiment worsened the recording to frame 60 7752 / MAE
-  7.8057895 and frame 71 7993 / 8.071968 by introducing top-row cloud errors. Also
-  do not retry the stateless `$FFFF87B2` chunk-buffer plus 64-cell Plane-B wrap
-  approximation; it worsened frame 60 to 7723 / MAE 7.803023 and frame 71 to 7929 /
-  8.047498, again adding top-row cloud errors. Current candidate now applies the
-  ROM `Time_Frames` basis to settled-warp `$00/$08` auto-scroll rows, improving
-  frame 60 to 7070 / MAE 6.987421 and frame 71 to 7341 / 7.302334, but the
-  recording remains state-clean/pixel-red. Oracle scroll probe shows y=100
-  H-scroll already matches native (`hbuf[100]=FEDCFFDC`, Scroll B -36), and the
-  new oracle Plane-B dump shows actual hardware row contents differ from native's
-  direct placement sampling: at frame 60, row `B29` begins blank through column 3
-  then `2799,2795,2796...`, while native samples y=100 from logical chunk column
-  12 as tile `2795`; row `B18` keeps cloud words at columns 49..56 while native
-  still misses the far-right top-band cloud. Current partial overlay intentionally
-  skips upper rows because applying the row window everywhere worsened the route to
-  frame 60 `8473` / MAE `7.6971307` and frame 71 `8580` / `7.8483305`. Continue by
-  modelling the live VDP row history/stale cells for upper rows. The shared
+  broader hell-theme wrong-start/layout report. The Lion projectile arc lead is
+  exhausted, y=100 H-scroll already matches oracle, and previous simple row-wrap /
+  stateless `$FFFF87B2` / all-row overlay experiments all worsened the route. New
+  native sample diagnostics show the render/sample pass uses
+  `time_frames_loc_3038a=1693` at recording frame 60 and `1704` at frame 71, while
+  oracle reports ROM `Time_Frames=174` and `185`; saved replay traces are rebased to
+  frame 60/71, so split settled-warp render Time_Frames from recording-local frame
+  indices before another row-history patch. The shared
   `background_row_uploads_sub_307D8` helper now matches ASM `loc_308A6`'s inclusive
   `d4=#$28`/`dbf` 41-cell copy; the visual route is unchanged because native-player's
   renderer already had its own partial row-window count. Do not try another scroll
   offset, placement wrap, or header/start layout change. Do not treat #345 Lion
   mid-level vanish as closed by this; that row still needs the scroll-off/scroll-back
   cull probe.
-- **Gates this session**: `cargo fmt`, focused
+- **Gates this session**: `cargo fmt`, `cargo fmt --check`, `cargo check -p wildside-cli`,
+  focused `cargo test -p wildside-cli recording::`,
   `cargo test -p wildside-data background_row_uploads_sub_307d8 --lib`,
   `cargo test -p wildside-cli background_pixel_sampler --no-default-features`,
   ignored cache-backed `under_skull_mountain3_cave_background_chunk_renders_loc_12830`,

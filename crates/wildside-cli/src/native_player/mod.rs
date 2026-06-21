@@ -262,7 +262,8 @@ use sprites::*;
 pub(crate) use render::sample_scene_pixel_provenance;
 pub(crate) use render::{render_frame_on_blank_canvas, render_scene, render_scene_overlay};
 pub(crate) use scene::{
-    BackgroundPixelSample, LayerFilter, build_scene, build_scene_filtered,
+    BackgroundPixelSample, BackgroundScrollPixelDiagnostic, LayerFilter,
+    background_scroll_pixel_diagnostic_loc_3050a, build_scene, build_scene_filtered,
     eol_score_sprite_diagnostics, render_trace_with_vdp_latched_state,
     sample_background_pixel_loc_c070,
 };

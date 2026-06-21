@@ -1996,6 +1996,86 @@ pub(crate) struct BackgroundPixelSample {
     pub(crate) rgb: [u8; 3],
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct BackgroundScrollPixelDiagnostic {
+    pub(crate) camera_x_px: i32,
+    pub(crate) camera_y_px: i32,
+    pub(crate) time_frames_loc_3038a: usize,
+    pub(crate) background_scroll_y_px: i32,
+    pub(crate) sample_row: usize,
+    pub(crate) plane_b_row: usize,
+    pub(crate) sample_column: i32,
+    pub(crate) layer_speed_loc_3050a: u8,
+    pub(crate) scroll_x_px_loc_3050a: i32,
+    pub(crate) destination_column_loc_30744: usize,
+    pub(crate) source_column_bias_loc_30744: usize,
+    pub(crate) source_column_start_loc_30744: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) fresh_window_offset_loc_30744: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) sample_source_column_loc_30744: Option<usize>,
+}
+
+pub(crate) fn background_scroll_pixel_diagnostic_loc_3050a(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    sample_x: i32,
+    sample_y: i32,
+) -> Option<BackgroundScrollPixelDiagnostic> {
+    let wildside_render::BackgroundVisuals::Chunked(_) = &level_visuals.background else {
+        return None;
+    };
+    level_visuals.level.background_scroll.as_ref()?;
+
+    let (background_width, _) = chunked_background_dimensions_loc_12848(level_visuals)?;
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    let background_scroll_y_px = camera_y_px >> 2;
+    let sample_row = (sample_y + background_scroll_y_px).div_euclid(8);
+    if sample_row < 0 {
+        return None;
+    }
+    let sample_row = usize::try_from(sample_row).ok()?;
+    let layer_speed = background_layer_speed_loc_3050a(level_visuals, sample_row);
+    let scroll_x_px = background_scroll_x_px(trace, camera_x_px, layer_speed);
+    // ASM BackgroundScroll_ComputeShiftLayers loc_3050A supplies the scroll
+    // column, while sub_30744/sub_307D8 refresh the exposed Plane-B window.
+    let destination_column = scroll_x_px
+        .div_euclid(8)
+        .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).ok()?)
+        as usize;
+    let source_column_bias = 1_i32;
+    let source_column_start = (scroll_x_px.div_euclid(8) + source_column_bias)
+        .rem_euclid(i32::try_from(background_width).ok()?) as usize;
+    let sample_column = sample_x.div_euclid(8);
+    let fresh_window_offset = (0..i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).ok()?)
+        .contains(&sample_column)
+        .then(|| {
+            (sample_column as usize + PLANE_B_ROW_CELLS_LOC_11B7A - destination_column)
+                % PLANE_B_ROW_CELLS_LOC_11B7A
+        })
+        .filter(|offset| *offset < CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744);
+    let sample_source_column =
+        fresh_window_offset.map(|offset| (source_column_start + offset) % background_width);
+
+    Some(BackgroundScrollPixelDiagnostic {
+        camera_x_px,
+        camera_y_px,
+        time_frames_loc_3038a: background_time_frames_for_trace_loc_3050a(trace),
+        background_scroll_y_px,
+        sample_row,
+        plane_b_row: sample_row & 0x1F,
+        sample_column,
+        layer_speed_loc_3050a: layer_speed,
+        scroll_x_px_loc_3050a: scroll_x_px,
+        destination_column_loc_30744: destination_column,
+        source_column_bias_loc_30744: source_column_bias as usize,
+        source_column_start_loc_30744: source_column_start,
+        fresh_window_offset_loc_30744: fresh_window_offset,
+        sample_source_column_loc_30744: sample_source_column,
+    })
+}
+
 pub(crate) fn sample_background_pixel_loc_c070(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,

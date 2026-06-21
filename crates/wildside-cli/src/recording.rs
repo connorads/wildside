@@ -2,10 +2,11 @@ use super::*;
 use crate::capture::{AUDIO_FRAME_SAMPLES, read_wav_f32, write_wav_with_channels};
 use crate::diff::{annotate_diff, generate_diff_composite};
 use crate::native_player::{
-    BackgroundPixelSample, FinalScenePixelDiagnostic, LayerFilter, NATIVE_FRAME_HEIGHT,
-    NATIVE_FRAME_WIDTH, NativeEolScoreSpriteDiagnostic, NativePlayOptions, build_scene,
-    build_scene_filtered, eol_score_sprite_diagnostics, load_session_assets, render_scene,
-    render_scene_overlay, render_trace_with_vdp_latched_state, render_vdp_trace_overlay,
+    BackgroundPixelSample, BackgroundScrollPixelDiagnostic, FinalScenePixelDiagnostic, LayerFilter,
+    NATIVE_FRAME_HEIGHT, NATIVE_FRAME_WIDTH, NativeEolScoreSpriteDiagnostic, NativePlayOptions,
+    background_scroll_pixel_diagnostic_loc_3050a, build_scene, build_scene_filtered,
+    eol_score_sprite_diagnostics, load_session_assets, render_scene, render_scene_overlay,
+    render_trace_with_vdp_latched_state, render_vdp_trace_overlay,
     sample_background_pixel_loc_c070, sample_scene_pixel_provenance,
 };
 use crate::oracle::{OracleFrame, OracleManifest, OracleState, run_jgenesis_capture_dynamic};
@@ -233,6 +234,8 @@ pub(crate) struct PixelCoord {
 pub(crate) struct NativeBackgroundPixelDiagnostic {
     pub(crate) x: usize,
     pub(crate) y: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) scroll: Option<BackgroundScrollPixelDiagnostic>,
     pub(crate) sample: Option<NativeBackgroundPixelSample>,
 }
 
@@ -1525,9 +1528,16 @@ fn attach_native_pixel_samples(
                 let background_samples = pixels
                     .iter()
                     .map(|(x, y)| {
-                        let sample = i32::try_from(*x)
-                            .ok()
-                            .zip(i32::try_from(*y).ok())
+                        let pixel = i32::try_from(*x).ok().zip(i32::try_from(*y).ok());
+                        let scroll = pixel.and_then(|(sample_x, sample_y)| {
+                            background_scroll_pixel_diagnostic_loc_3050a(
+                                &render_trace,
+                                &level_visuals,
+                                sample_x,
+                                sample_y,
+                            )
+                        });
+                        let sample = pixel
                             .and_then(|(sample_x, sample_y)| {
                                 sample_background_pixel_loc_c070(
                                     &render_trace,
@@ -1540,6 +1550,7 @@ fn attach_native_pixel_samples(
                         NativeBackgroundPixelDiagnostic {
                             x: *x,
                             y: *y,
+                            scroll,
                             sample,
                         }
                     })
