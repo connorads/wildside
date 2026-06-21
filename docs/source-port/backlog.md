@@ -61,16 +61,19 @@ and stop — never commit churn.
   at columns 49..51. Therefore the oracle `2781..2787` frame-60 tail is not a
   single `loc_2FFE8` preload row; it is accumulated hidden-settle plus visible
   `sub_30744` one-column history. Follow-up settle trace now also dumps
-  `BackgroundScroll_ComputeShiftData` slots plus the `$FFFF4D5C` row-pointer
-  table: target-live steps 18/34/50 write slot `$08` source columns
-  `$31/$32/$33` to B18 VDP columns 49/50/51, while `$4D5C[$11]=$8C58` and
-  `$4D5C[$12]=$8C9E` match the normal `$FFFF87B2 + width*row` sequence. Next
-  pass should dump/model the live `$FFFF87B2` bytes consumed by `sub_30744`, then
+  `BackgroundScroll_ComputeShiftData` slots, the `$FFFF4D5C` row-pointer table,
+  and the live `$FFFF87B2` source bytes consumed by `sub_30744`: target-live step
+  0 already has B18 source `$8C9E[$31..$33]=01,02,03`, while the generated/static
+  Level 0x07 background leaves those cells zero. This confirms the remaining
+  cloud tail is stale source-buffer state from the uncleared `$87B2` buffer before
+  target-level load, not a row-pointer remap or current layout parse bug. Next
+  pass should capture/model the pre-target `$87B2` source-buffer owner, then
   persist/replay pre-recording Plane-B writes.
 - **Gates this session**: no gameplay code kept; oracle/helper instrumentation
   only. Verified `cargo fmt --all`, focused
   `cargo test -q -p wildside-cli oracle_manifest_deserialises_hidden_settle_trace_rows`,
-  `cargo check -q -p wildside-cli`, refreshed oracle settle CSV, and expected-red
+  `cargo check -q -p wildside-cli`, refreshed oracle settle CSV with source-window
+  bytes, and expected-red
   `issue289-level07-idle-current` (`trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
   `5.6536646`, frame 71 `5212` / `5.8645835`). Direct `backlog-lint` is green.

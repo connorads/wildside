@@ -159,6 +159,7 @@ struct OracleSettleTraceRow {
     number_objects: u16,
     background_scroll_loc_3050a: String,
     background_row_offsets_loc_30744: String,
+    background_source_window_loc_30744: String,
     background_plane_b_rows_loc_307d8: String,
 }
 
@@ -1744,6 +1745,49 @@ fn background_row_offsets_debug_loc_30744(work_ram: &[u8]) -> String {
     format!("cam_chunk={camera_chunk:04X};width={background_width:04X};rows={rows}")
 }
 
+fn background_source_window_debug_loc_30744(work_ram: &[u8]) -> String {
+    // ASM sub_30744 (kid.asm:34563) reads source bytes from the live
+    // `$FFFF87B2` buffer via `(a0, Horiz_Scroll_Data.col)`, where `a0` starts
+    // at `$FFFF4D5C[Camera_Y_pos>>5]` and advances by `Background_width`.
+    // Dump the source columns that cover the #289 B18 cloud-tail writes and
+    // nearby ocean-row investigation without serialising the whole buffer.
+    const VDP_ROWS: [usize; 2] = [18, 29];
+    const FIRST_COLUMN: usize = 0x28;
+    const LAST_COLUMN: usize = 0x38;
+
+    let camera_y = read_wram_u32(work_ram, CAMERA_Y_POS_ADDR) >> 16;
+    let camera_chunk = (camera_y >> 5) as usize;
+    let background_width = usize::from(read_wram_u16(work_ram, BACKGROUND_WIDTH_ADDR));
+    let row_base = usize::from(read_wram_u16(
+        work_ram,
+        BACKGROUND_ROW_OFFSETS_ADDR + camera_chunk * 2,
+    ));
+
+    VDP_ROWS
+        .into_iter()
+        .filter_map(|vdp_row| {
+            let row_delta = (vdp_row + 0x20 - (camera_chunk & 0x1F)) & 0x1F;
+            if row_delta > 0x1C {
+                return None;
+            }
+            let source_offset = row_base + row_delta * background_width;
+            let bytes = (FIRST_COLUMN..=LAST_COLUMN)
+                .map(|column| {
+                    format!(
+                        "{:02X}",
+                        read_wram_u8(work_ram, 0xFF_0000 + source_offset + column)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            Some(format!(
+                "B{vdp_row:02}@{source_offset:04X}[{FIRST_COLUMN:02X}..{LAST_COLUMN:02X}]={bytes}"
+            ))
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
 fn background_plane_b_rows_debug_loc_307d8(emulator: &mut GenesisEmulator) -> String {
     const PLANE_B_BASE_LOC_307D8: usize = 0xE000;
     const PLANE_WIDTH_CELLS: usize = 64;
@@ -3001,6 +3045,7 @@ fn capture_settle_trace_row(
         number_objects: read_emulator_wram_u16(emulator, NUMBER_OBJECTS_ADDR),
         background_scroll_loc_3050a: background_scroll_debug_loc_3050a(&work_ram),
         background_row_offsets_loc_30744: background_row_offsets_debug_loc_30744(&work_ram),
+        background_source_window_loc_30744: background_source_window_debug_loc_30744(&work_ram),
         background_plane_b_rows_loc_307d8: background_plane_b_rows_debug_loc_307d8(emulator),
     });
 }

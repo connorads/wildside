@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 source-buffer settle trace)
+
+- **#289 stays `[~]`; oracle settle trace now exposes the live `$FFFF87B2` source bytes read by ASM `sub_30744`.** Target-live step 0 already has `B18@8C9E[$31..$33]=01,02,03`, and steps 18/34/50 then stream those bytes through slot `$08` into B18 VDP columns 49/50/51 as `2781/2782/2783`.
+- This confirms the cloud tail comes from stale source-buffer state before target-level load: the generated/static Level 0x07 background leaves row 18 columns `$31..$33` zero, and B29 still matches current generated source data. **NEXT**: capture/model the pre-target `$87B2` source-buffer owner, then persist/replay pre-recording Plane-B writes; do not retry row-pointer remaps, layout parsing, or `$08` scroll substitution.
+
+---
+
 ## 2026-06-21 handoff (#289 row-pointer settle trace)
 
 - **#289 stays `[~]`; oracle settle trace now also exposes `BackgroundScroll_ComputeShiftData` slots and the `$FFFF4D5C` row-pointer window consumed by ASM `sub_30744`.** The #289 probe CSV shows target-live steps 18/34/50 writing slot `$08` source columns `$31/$32/$33` to B18 VDP columns 49/50/51 as tiles `2781/2782/2783`.
