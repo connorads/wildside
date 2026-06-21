@@ -27,35 +27,32 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live lanes;
   file order is not priority). Current focus is still #289 because it remains `[~]`.
-- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red, but the
-  settled-warp render clock is now ROM-shaped. Native traces carry
-  `time_frames_loc_3038a`, incremented at ASM `loc_3038A` and cleared on the
-  level-skip resume route after the visible/hide/preload tail that reaches
-  `Init_Timer_and_Bonus_Flags`, not at native resume setup. Fresh
-  `issue289-level07-idle-current` reports `trace_match=true`,
-  `oracle_state_match=true`, `oracle_frame_match=false`; native sampled bgscroll
-  now matches oracle `Time_Frames` exactly (`174` at frame 60, `185` at frame 71)
-  instead of the old global render-frame values (`1693`/`1704`). Pixel residual
-  improves to frame 60 `6795` changed / MAE `6.6150064` and frame 71 `6873` /
-  `6.75519`. Row-29/y=100 H-scroll still matches oracle, so the remaining broad
-  ocean/cloud mismatch is live Plane-B row/name-table contents.
-- **Next #289 action**: inspect the remaining pixel-red Level 0x07 recording and
-  broader hell-theme wrong-start/layout report from live Plane-B row history.
-  The Lion projectile arc, Kid flash, y=100 H-scroll, row-window count, and render
-  `Time_Frames` leads are exhausted. Do not retry header/start layout, simple
-  scroll offsets, placement wrap, raw `$00/$08`, stateless `$FFFF87B2`, or all-row
-  overlay changes. The next useful patch should model/persist native Plane-B row
-  uploads from `sub_30744`/`sub_307D8` so the top-cloud and ocean rows consume the
-  same row contents oracle reports.
-- **Gates this session**: `cargo fmt`, `cargo fmt --check`, `cargo check -p wildside-cli`,
-  focused `cargo test -p wildside-core level_skip_resume_clears_time_frames_after_visible_tail`,
-  focused `cargo test -p wildside-cli time_frames_loc_3038a`, focused
-  `cargo test -p wildside-cli recording::`, fresh red
-  `verify-recording --slug issue289-level07-idle-current`, `python3 scripts/audit_debug_fields.py`
-  (clean; both #289 candidate snapshots have explicit stale-candidate exemptions),
-  direct fast-slice body (`wildside-core` lib tests and `wildside-cli gameplay_regression_`),
-  and direct `cargo run -q -p wildside-cli -- backlog-lint`. The `mise` wrappers are
-  blocked in this environment by `mise` failing to install `fnox@1` for `linux-arm64`.
+- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red, but native
+  now treats the `sub_30744`/`sub_307D8` row-window overlay as VDP Plane-B cells
+  and applies ASM `BackgroundScroll_ComputeShiftLayers loc_3050A` H-scroll at
+  draw/sample time. Fresh `issue289-level07-idle-current` still reports
+  `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`, but
+  the residual improves from frame 60 `6795` changed / MAE `6.6150064` and frame 71
+  `6873` / `6.75519` to frame 60 `5137` / `5.711784` and frame 71 `5260` /
+  `5.920638`. Diagnostics now report the VDP sample column, e.g. frame-60 y=100
+  samples row 29 through scroll 36px (`destination=4`, source start 5) rather than
+  direct screen columns.
+- **Next #289 action**: continue from persisted/stale Plane-B row history for the
+  remaining upper-row clouds and ocean rows. The current top diffs have native
+  background samples of `None` at screen x≈285..319 while oracle row dumps contain
+  cloud words in the scrolled VDP row; the existing row-window overlay is still gated
+  to verified camera-parallax rows because upper `$08` rows need pre-camera VRAM
+  state native does not yet persist. Do not retry header/start layout, simple scroll
+  offsets, placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render
+  `Time_Frames`, stateless `$FFFF87B2`, or all-row overlay changes.
+- **Gates this session**: `cargo fmt`, `cargo check -p wildside-cli`, focused
+  `cargo test -p wildside-cli native_player::tests::chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a`,
+  fresh red `verify-recording --slug issue289-level07-idle-current`, direct TAS
+  frontier body, direct fast-slice body (`wildside-core` lib tests and
+  `wildside-cli gameplay_regression_`), `python3 scripts/audit_debug_fields.py`,
+  `cargo run -q -p wildside-cli -- backlog-lint`, and `cargo fmt --check`. The
+  `mise` wrappers remain blocked in this environment by `mise` failing to install
+  `fnox@1` for `linux-arm64`, so use direct cargo/CLI commands.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.

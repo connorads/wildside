@@ -9501,6 +9501,69 @@ mod tests {
     }
 
     #[test]
+    fn chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 292 << 16;
+        trace.camera_y_pos = 224 << 16;
+
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 8;
+        let mut layer_speeds = vec![0x10; 8];
+        layer_speeds[7] = 0x20;
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds,
+            has_terminator: true,
+        });
+        visuals.palettes.background = Palette {
+            colours: (0..32)
+                .map(|slot| colour(slot * 3, slot * 3 + 1, slot * 3 + 2))
+                .collect(),
+        };
+        visuals.background_tiles = blank_tile_sheet(40);
+        visuals.background_tiles.tiles[8].pixels = [2; 64];
+        visuals.background_tiles.tiles[13].pixels = [3; 64];
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0,
+                y_tiles: 0,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 40,
+                height_tiles: 8,
+                tiles: (0..8)
+                    .flat_map(|_| {
+                        (0..40).map(|column| BackgroundTile {
+                            tile_index: column as u16,
+                            flip_x: false,
+                        })
+                    })
+                    .collect(),
+            }],
+        });
+
+        let diagnostic =
+            super::scene::background_scroll_pixel_diagnostic_loc_3050a(&trace, &visuals, 61, 0)
+                .expect("chunked Plane B diagnostic");
+        assert_eq!(diagnostic.scroll_x_px_loc_3050a, 36);
+        assert_eq!(diagnostic.destination_column_loc_30744, 4);
+        assert_eq!(diagnostic.sample_column, 12);
+        assert_eq!(diagnostic.source_column_start_loc_30744, 5);
+        assert_eq!(diagnostic.fresh_window_offset_loc_30744, Some(8));
+        assert_eq!(diagnostic.sample_source_column_loc_30744, Some(13));
+
+        let sample = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 61, 0)
+            .expect("hscrolled Plane B sample");
+        assert_eq!(
+            sample.tile_index, 13,
+            "ASM loc_3050A applies H-scroll after sub_30744/sub_307D8 write Plane-B cells, so screen x=61 samples VDP column 12 and source column 13, not screen column 7"
+        );
+        assert_eq!(sample.background_row_index, Some(7));
+        assert_eq!(sample.background_column, Some(13));
+        assert_eq!(sample.source_x, 1);
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn under_skull_mountain3_cave_background_chunk_renders_loc_12830() {
         let Some(manifest) = cached_generated_manifest() else {

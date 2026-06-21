@@ -1828,21 +1828,24 @@ pub(super) fn push_background_tiles(
                 if screen_y <= -8 || screen_y >= FRAME_HEIGHT as i32 {
                     continue;
                 }
+                let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
+                let scroll_x_px = background_scroll_x_px(trace, camera_x_px, layer_speed);
                 for (column, cell) in cells.iter().enumerate() {
                     let Some(cell) = cell else {
                         continue;
                     };
-                    let screen_x = i32::try_from(column).unwrap_or(i32::MAX).saturating_mul(8);
-                    if screen_x <= -8 || screen_x >= FRAME_WIDTH as i32 {
-                        continue;
+                    for screen_x in chunked_plane_b_cell_screen_xs_loc_3050a(column, scroll_x_px) {
+                        if screen_x <= -8 || screen_x >= FRAME_WIDTH as i32 {
+                            continue;
+                        }
+                        commands.push(DrawCommand::IndexedTile {
+                            x: screen_x,
+                            y: screen_y,
+                            tile_sheet: tile_sheet.clone(),
+                            tile: cell.tile_ref,
+                            palette: palette.clone(),
+                        });
                     }
-                    commands.push(DrawCommand::IndexedTile {
-                        x: screen_x,
-                        y: screen_y,
-                        tile_sheet: tile_sheet.clone(),
-                        tile: cell.tile_ref,
-                        palette: palette.clone(),
-                    });
                 }
             }
         }
@@ -2047,14 +2050,12 @@ pub(crate) fn background_scroll_pixel_diagnostic_loc_3050a(
     let source_column_bias = 1_i32;
     let source_column_start = (scroll_x_px.div_euclid(8) + source_column_bias)
         .rem_euclid(i32::try_from(background_width).ok()?) as usize;
-    let sample_column = sample_x.div_euclid(8);
-    let fresh_window_offset = (0..i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).ok()?)
-        .contains(&sample_column)
-        .then(|| {
-            (sample_column as usize + PLANE_B_ROW_CELLS_LOC_11B7A - destination_column)
-                % PLANE_B_ROW_CELLS_LOC_11B7A
-        })
-        .filter(|offset| *offset < CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744);
+    let (sample_column, _) = chunked_plane_b_cell_at_sample_x_loc_3050a(sample_x, scroll_x_px)?;
+    let fresh_window_offset = Some(
+        (sample_column + PLANE_B_ROW_CELLS_LOC_11B7A - destination_column)
+            % PLANE_B_ROW_CELLS_LOC_11B7A,
+    )
+    .filter(|offset| *offset < CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744);
     let sample_source_column =
         fresh_window_offset.map(|offset| (source_column_start + offset) % background_width);
 
@@ -2065,7 +2066,7 @@ pub(crate) fn background_scroll_pixel_diagnostic_loc_3050a(
         background_scroll_y_px,
         sample_row,
         plane_b_row: sample_row & 0x1F,
-        sample_column,
+        sample_column: i32::try_from(sample_column).ok()?,
         layer_speed_loc_3050a: layer_speed,
         scroll_x_px_loc_3050a: scroll_x_px,
         destination_column_loc_30744: destination_column,
@@ -2150,11 +2151,12 @@ pub(crate) fn sample_background_pixel_loc_c070(
                     && let Some(cells) =
                         plane_b.row_for_trace(trace, level_visuals, camera_x_px, row as usize)
                 {
-                    let column = sample_x.div_euclid(8);
-                    if (0..PLANE_B_ROW_CELLS_LOC_11B7A as i32).contains(&column)
-                        && let Some(cell) = cells[column as usize]
+                    let layer_speed = background_layer_speed_loc_3050a(level_visuals, row as usize);
+                    let scroll_x_px = background_scroll_x_px(trace, camera_x_px, layer_speed);
+                    if let Some((column, screen_x)) =
+                        chunked_plane_b_cell_at_sample_x_loc_3050a(sample_x, scroll_x_px)
+                        && let Some(cell) = cells[column]
                     {
-                        let screen_x = column * 8;
                         let screen_y = row * 8 - background_scroll_y_px;
                         if let Some(hit) = sample_background_tile_pixel(
                             &tile_sheet,
@@ -2238,6 +2240,42 @@ fn chunked_background_palette_line_loc_128ba(background_theme_id: u8) -> u8 {
     // chunked backgrounds rendered by sub_307D8 use `$2780`-based words and
     // therefore read background CRAM line 1.
     if background_theme_id == 9 { 0 } else { 1 }
+}
+
+fn chunked_plane_b_row_width_px_loc_11b7a() -> i32 {
+    i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A)
+        .unwrap_or(0x40)
+        .saturating_mul(8)
+}
+
+// ASM BackgroundScroll_ComputeShiftLayers loc_3050A writes row H-scroll
+// separately from sub_30744/sub_307D8's Plane-B nametable cells. Native keeps
+// those cells in VDP-column order, then applies the hardware scroll here.
+fn chunked_plane_b_cell_screen_xs_loc_3050a(column: usize, scroll_x_px: i32) -> [i32; 3] {
+    let row_width_px = chunked_plane_b_row_width_px_loc_11b7a();
+    let column_x = i32::try_from(column).unwrap_or(i32::MAX).saturating_mul(8);
+    let screen_x = column_x.saturating_sub(scroll_x_px.rem_euclid(row_width_px));
+    [screen_x - row_width_px, screen_x, screen_x + row_width_px]
+}
+
+fn chunked_plane_b_cell_at_sample_x_loc_3050a(
+    sample_x: i32,
+    scroll_x_px: i32,
+) -> Option<(usize, i32)> {
+    let row_width_px = chunked_plane_b_row_width_px_loc_11b7a();
+    let scroll_x_mod = scroll_x_px.rem_euclid(row_width_px);
+    let plane_x = sample_x
+        .saturating_add(scroll_x_mod)
+        .rem_euclid(row_width_px);
+    let column = usize::try_from(plane_x.div_euclid(8)).ok()?;
+    let mut screen_x = plane_x.saturating_sub(plane_x.rem_euclid(8)) - scroll_x_mod;
+    while sample_x < screen_x {
+        screen_x -= row_width_px;
+    }
+    while sample_x >= screen_x + 8 {
+        screen_x += row_width_px;
+    }
+    Some((column, screen_x))
 }
 
 fn chunked_background_row_window_applies_loc_30744(

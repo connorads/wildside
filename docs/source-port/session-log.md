@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 Plane-B H-scroll mapping)
+
+- **#289 stays `[~]`; the partial chunked Plane-B row-window overlay now renders through hardware H-scroll.** Native keeps `sub_30744`/`sub_307D8` cells in VDP-column order and maps them to screen pixels with `BackgroundScroll_ComputeShiftLayers loc_3050A`. Focused regression `chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a` covers the frame-60-shaped 36px row-scroll case.
+- Fresh `issue289-level07-idle-current` remains state-clean/pixel-red, but residual improves to frame 60 `5137` / MAE `5.711784` and frame 71 `5260` / `5.920638`. **NEXT**: continue from persisted/stale Plane-B row history for upper `$08` rows; the top cloud diffs now show native `sample=None` at x≈285..319 while oracle row dumps contain cloud words in the scrolled VDP row. Do not retry header/start layout, simple scroll offsets, placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`, stateless `$FFFF87B2`, or all-row overlay changes. `mise` wrappers remain blocked by missing `fnox@1` linux-arm64 assets; use direct cargo/CLI commands.
+
+---
+
 ## 2026-06-21 handoff (#289 render Time_Frames aligned)
 
 - **#289 stays `[~]`; native settled-warp rendering now uses the ROM `Time_Frames` phase.** `NativeTraceFrame` carries `time_frames_loc_3038a`, incremented at ASM `loc_3038A`; the level-skip resume path clears it after the visible/hide/preload tail that reaches `Init_Timer_and_Bonus_Flags`, matching the oracle helper instead of native's earlier resume setup. Fresh `issue289-level07-idle-current` remains state-clean/pixel-red, but native bgscroll diagnostics now match oracle time exactly (`174` at frame 60, `185` at frame 71) and improve the residual to frame 60 `6795` / MAE `6.6150064`, frame 71 `6873` / `6.75519`.
