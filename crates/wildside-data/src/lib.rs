@@ -3839,11 +3839,6 @@ pub fn background_row_uploads_sub_307D8(
         background_width != 0,
         "sub_307D8 needs a non-zero Background_width"
     );
-    ensure!(
-        camera_y_pos >= 0,
-        "sub_307D8 expects a non-negative Camera_Y_pos"
-    );
-
     let current_camera_row_chunk = camera_y_pos >> 5;
     if current_camera_row_chunk == previous_camera_row_chunk {
         return Ok(Vec::new());
@@ -9428,6 +9423,53 @@ PlatformScript_3F7E:   ; relative offset: 097C
                 }
             ],
             "ASM sub_307D8 should pick row chunk 31 for the 3->31 downward reveal and upload the inclusive d4=$28 41-cell strip, wrapping the extra source cell",
+        );
+    }
+
+    #[test]
+    fn background_row_uploads_sub_307d8_accepts_loc_2ffe8_negative_preload_camera_y() {
+        let background_width = 70;
+        let mut background_chunk_buffer = vec![0u8; 50 * background_width];
+        for (index, byte) in background_chunk_buffer
+            [18 * background_width + 6..18 * background_width + 47]
+            .iter_mut()
+            .enumerate()
+        {
+            *byte = u8::try_from(index + 1).expect("row payload should fit into u8");
+        }
+        let mut bgscroll_profile = vec![0x10; 50];
+        bgscroll_profile[18] = 0x08;
+
+        let uploads = background_row_uploads_sub_307D8(
+            -317,
+            -11,
+            background_width as u16,
+            &(0..50)
+                .map(|row| u16::try_from(row * background_width).unwrap_or(0))
+                .collect::<Vec<_>>(),
+            &bgscroll_profile,
+            &[
+                BackgroundScrollStateSub30744 {
+                    background_buffer_column: Some(0),
+                    vram_word_offset: 0,
+                },
+                BackgroundScrollStateSub30744 {
+                    background_buffer_column: Some(6),
+                    vram_word_offset: 10,
+                },
+            ],
+            &background_chunk_buffer,
+        )
+        .expect("ASM loc_2FFE8 can call sub_307D8 while Camera_Y_pos is negative");
+
+        assert_eq!(
+            uploads,
+            vec![BackgroundRowUploadSegmentSub307D8 {
+                vram_word_address: 0x690A,
+                tile_words: (0x2781..=0x27A9).collect(),
+                background_chunk_ids: (1u8..=41).collect(),
+            }],
+            "ASM loc_2FFE8 seeds Camera_Y_pos below zero, but sub_307D8 still streams current+#$1C when that biased row is non-negative",
         );
     }
 

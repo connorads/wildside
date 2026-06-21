@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 negative-y sub_307D8 model)
+
+- **#289 stays `[~]`; shared `background_row_uploads_sub_307D8` now accepts the `loc_2FFE8` negative-y preload case.** ASM `loc_2FFE8` sweeps `Camera_Y_pos` below zero before calling `sub_307D8`; the helper now permits negative camera rows when the biased streamed row is non-negative.
+- Regression `background_row_uploads_sub_307d8_accepts_loc_2ffe8_negative_preload_camera_y` covers the B18-shaped case (`Camera_Y_pos=-317`, previous chunk `-11`, streamed row 18, selector `$08`, source column 6, VDP word `$690A`) and maps the 41-cell strip to `$2781..$27A9`. This is model/test groundwork only; native rendering is unchanged until persisted Plane-B nametable state consumes it. **NEXT**: build the persisted Plane-B/source-history model on the typed helper instead of another renderer-local stateless preload.
+- Verification: `cargo fmt --check --all`, backlog lint, focused `cargo test -q -p wildside-data background_row_uploads_sub_307d8_accepts_loc_2ffe8_negative_preload_camera_y`, `cargo check -q -p wildside-data`, and `cargo test -q -p wildside-data --lib`.
+
+---
+
 ## 2026-06-21 handoff (#289 Plane-B provenance diagnostic)
 
 - **#289 stays `[~]`; recording reports now include native Plane-B row provenance, not just row words.** Each sampled row records the bgscroll selector, `Time_Frames`, synthetic upload destination/source, changed-column source (`direct`/`alias`), each elapsed `loc_30452`/`sub_30744` write, and final VDP words. The expected-red baseline remains frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`.
