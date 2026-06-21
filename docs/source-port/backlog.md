@@ -28,33 +28,17 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered across the live lanes;
   file order is not priority). Current focus is still #289 because it remains `[~]`.
 - **#289 current evidence**: Level 0x07 remains state-clean/pixel-red. Native has
-  the `loc_12848` source primitive, `ChunkedPlaneBRowHistoryLoc30744`, timed
-  `$00`/`$08` row uploads, H-scroll at draw/sample time, old `$0780` outside
-  fresh spans, and `loc_30452`/hidden-settle one-column replay against the
-  `loc_12824` alias source.
-  Fresh `issue289-level07-idle-current` is still unchanged at
+  typed `loc_12848` source, `ChunkedPlaneBRowHistoryLoc30744`, timed `$00`/`$08`
+  row uploads, draw-time H-scroll, old `$0780` outside fresh spans, and
+  `loc_30452`/hidden-settle one-column replay against the `loc_12824` alias source.
+  Fresh `issue289-level07-idle-current` is unchanged at
   `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
-  frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. A broader
-  alias-fed full `sub_307D8` row uploads were rejected because they worsened frame
-  60 to `6359` / `5.9081984` and frame 71 to `6437` / `6.035942`. Native reports
-  now dump B17/B18/B19 row words and provenance beside the expanded oracle dump:
-  selector byte, `Time_Frames`, synthetic upload `d<-s`, changed-column source,
-  each elapsed `loc_30452`/`sub_30744` write, and final VDP words. B18/B19
-  right-edge tails match oracle (`2781..2787`/`2789..278F`; frame 71 adds
-  `2788`/`2790`), but native has extra fresh cells at B18/B19 columns 0-4 where
-  oracle keeps `$0780`, and native B17 wrongly has cloud words at columns 17-24
-  while oracle only has the columns 5-6 tail. Residual = stale/persisted Plane-B
-  row state, not display-scroll interpretation. Rejected `loc_2FFE8` preload
-  replays: direct row/source slot model worsened to `6762`/`6987`; display-scroll
-  placement fixed B18/B19 raw rows but still left B08/B17/B22/B23/B27 wrong and
-  worsened to frame 60 `6069` / `6.235133`, frame 71 `6220` / `6.4576964`.
-  The typed `background_row_uploads_sub_307D8` helper now accepts `loc_2FFE8`
-  negative-y preload calls when the biased streamed row is non-negative, and
-  pure `background_preload_row_uploads_loc_2FFE8` models the second preload
-  sweep including the raw `$FFFFFAA8 = Camera_Y_pos-$3A0` seed before per-pass
-  row-chunk latching. Native row provenance also prints packed `sub_307D8`
-  upload data; real #289 `$08` rows show `upload=d00<-s01` but
-  `upload_data=d04<-s05w0024`, matching oracle's old `$0780` left edge.
+  frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. Native
+  row provenance shows B18/B19 right-edge tails match oracle, but B18/B19
+  columns 0-4 refresh too eagerly and B17 has wrong cloud words at 17-24.
+  Rejected `loc_2FFE8` preload/display/packed-upload substitutions are in
+  archive #289; latest packed trial moved `$08` rows to `upload=d04<-s05` but
+  left pixels unchanged and refreshed column 45 too early.
 - **Next #289 action**: model or trace the full persisted Plane-B nametable state
   across target-level `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
   instead of changing display scroll. First trace or type the ROM
@@ -70,16 +54,15 @@ and stop — never commit churn.
   `sub_30744` changed-column writes. Do not retry header/start layout, simple
   scroll offsets, placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count,
   render `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
-  substitution, current-time all-row overlay, alias-only rendering, or alias-fed
-  full row uploads.
-- **Gates this session**: native Plane-B provenance diagnostics. Verified
-  `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, focused
-  `cargo test -q -p wildside-cli chunked_`, fresh expected-red
-  `issue289-level07-idle-current`, backlog lint, TAS frontier, wildside-core
-  lib sweep, wildside-cli gameplay regressions, focused `wildside-data`
-  negative-y `sub_307D8` coverage, full `loc_2FFE8` preload-sweep coverage,
-  full wildside-data lib tests, and focused `wildside-cli` upload-data
-  provenance coverage. `mise` wrappers remain blocked by `fnox@1` linux-arm64.
+  substitution, current-time all-row overlay, packed timed-row full-upload
+  placement, alias-only rendering, or alias-fed full row uploads.
+- **Gates this session**: native Plane-B provenance diagnostics and rejected
+  packed-upload trial. Verified format/check, focused chunked/provenance tests,
+  expected-red `issue289-level07-idle-current`, backlog lint, TAS frontier, core
+  lib sweep, CLI gameplay regressions, and `wildside-data` preload coverage.
+  Latest reverted trial also reran format, expected-red recording, and the
+  focused timed-row test that caught the regression. `mise` wrappers remain
+  blocked by `fnox@1` linux-arm64.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.

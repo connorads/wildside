@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 rejected packed upload placement)
+
+- **#289 stays `[~]`; no code retained from the packed upload-placement trial.** A scoped change used ASM `BackgroundScroll_ComputeShiftData loc_30452` / `sub_307D8`'s packed word for timed `$00`/`$08` full-row upload placement instead of the display-derived `loc_3050A` placement.
+- The trial moved real `$08` rows from `upload=d00<-s01` to `upload=d04<-s05`, but it did not improve `issue289-level07-idle-current` (`5080` / MAE `5.6536646`, `5212` / `5.8645835`) and broke `chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8` by refreshing VDP column 45 too early (`Some((0,1))` instead of the expected old `$0780`). Reverted. **NEXT**: trace/model persisted Plane-B nametable/source history across `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`; do not retry blanket packed timed-row full-upload placement.
+- Verification: `cargo fmt --check --all`, focused failing `cargo test -q -p wildside-cli chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8` for the rejected trial, and unchanged expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`.
+
+---
+
 ## 2026-06-21 handoff (#289 sub_307D8 upload-word diagnostic)
 
 - **#289 stays `[~]`; native Plane-B row provenance now prints the packed `sub_307D8` upload placement.** The report keeps the current display-derived `upload=dXX<-sYY` field, and adds `upload_data=dXX<-sYYwWWWW` from ASM `BackgroundScroll_ComputeShiftData loc_30452` / `sub_307D8`.
