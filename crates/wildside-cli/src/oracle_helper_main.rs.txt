@@ -455,6 +455,11 @@ const ADDR_FIRST_PLATFORM_SLOT_ADDR: usize = 0xFF_FA8E;
 const NUMBER_PLATFORMS_ADDR: usize = 0xFF_FA92;
 const RNG_OFFSET_ADDR: usize = 0xFF_FC12;
 const LEVEL_SPECIAL_EFFECTS_ADDR: usize = 0xFF_FB40;
+const HORIZ_SCROLL_DATA_ADDR: usize = 0xFF_7392;
+const HORIZ_SCROLL_BUFFER_ADDR: usize = 0xFF_7432;
+const BACKGROUND_WIDTH_ADDR: usize = 0xFF_F8A6;
+const BACKGROUND_NO_SCROLL_FLAG_ADDR: usize = 0xFF_FB4A;
+const TIME_FRAMES_ADDR: usize = 0xFF_FC24;
 const ENEMY_LAYOUT_HEADER_PTR_ADDR: usize = 0xFF_F8F2;
 const ENEMY_LAYOUT_OBJECT_PTR_ADDR: usize = 0xFF_F8F6;
 const ADDR_FIRST_SHOOTER_OBJECT_SLOT_ADDR: usize = 0xFF_F8CA;
@@ -1280,6 +1285,10 @@ fn capture_state(
         if !object_debug.is_empty() {
             gameplay_debug_fields.insert("oracle_object_slots_loc_e1e".into(), object_debug);
         }
+        gameplay_debug_fields.insert(
+            "oracle_background_scroll_loc_3050a".into(),
+            background_scroll_debug_loc_3050a(&work_ram),
+        );
         let drips_object_debug = drips_object_slots_debug_loc_33488(&work_ram);
         if !drips_object_debug.is_empty() {
             gameplay_debug_fields
@@ -1664,6 +1673,44 @@ fn drips_object_slots_debug_loc_33488(work_ram: &[u8]) -> String {
         guard += 1;
     }
     slots.join(";")
+}
+
+fn background_scroll_debug_loc_3050a(work_ram: &[u8]) -> String {
+    // ASM BackgroundScroll_ComputeShiftData/ComputeShiftLayers
+    // (kid.asm:34070/34172) mutates Horiz_Scroll_Data, then copies the
+    // selected per-scanline Plane-B scroll words into Horiz_Scroll_Buffer.
+    let camera_x = read_wram_u32(work_ram, CAMERA_X_POS_ADDR) >> 16;
+    let camera_y = read_wram_u32(work_ram, CAMERA_Y_POS_ADDR) >> 16;
+    let time_frames = read_wram_u16(work_ram, TIME_FRAMES_ADDR);
+    let background_width = read_wram_u16(work_ram, BACKGROUND_WIDTH_ADDR);
+    let no_scroll = read_wram_u8(work_ram, BACKGROUND_NO_SCROLL_FLAG_ADDR);
+
+    let slots = [0x00_usize, 0x08, 0x10, 0x18, 0x20, 0x28]
+        .into_iter()
+        .map(|slot_offset| {
+            let base = HORIZ_SCROLL_DATA_ADDR + slot_offset;
+            format!(
+                "{slot_offset:02X}:col={:04X},vdp={:04X},cur={:04X},prev={:04X}",
+                read_wram_u16(work_ram, base),
+                read_wram_u16(work_ram, base + 2),
+                read_wram_u16(work_ram, base + 4),
+                read_wram_u16(work_ram, base + 6)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(";");
+    let scanlines = [0_usize, 8, 10, 80, 96, 100, 104, 184, 190]
+        .into_iter()
+        .map(|scanline| {
+            let longword = read_wram_u32(work_ram, HORIZ_SCROLL_BUFFER_ADDR + scanline * 4);
+            format!("{scanline}:{longword:08X}")
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!(
+        "cam={camera_x},{camera_y};time={time_frames};width={background_width};no_scroll={no_scroll};slots={slots};hbuf={scanlines}"
+    )
 }
 
 fn layout_index_from_ptr(

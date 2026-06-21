@@ -295,6 +295,15 @@
       "promotion_trigger": "Promote if EOL frame parity or checked-in regression assertions start depending on typed pre-frame VDP provenance."
     },
     {
+      "key": "oracle_background_scroll_loc_3050a",
+      "scope": "frame",
+      "status": "candidate",
+      "owner": "issue-289-level07-background",
+      "first_added_commit": "c61bd34cd",
+      "intended_meaning": "Oracle WRAM snapshot of BackgroundScroll_ComputeShiftData/ComputeShiftLayers state: representative Horiz_Scroll_Data slots and Horiz_Scroll_Buffer scanline words for investigating Level 0x07 Plane-B row phase.",
+      "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed per-row scroll/Plane-B state."
+    },
+    {
       "key": "pending_prize_diamond_awards",
       "scope": "frame",
       "status": "exploratory",

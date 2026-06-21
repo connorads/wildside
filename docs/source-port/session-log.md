@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 oracle scroll probe)
+
+- **#289 stays `[~]`; instrumentation now exports oracle `BackgroundScroll_ComputeShiftData`/`ComputeShiftLayers` RAM for the Level 0x07 recording.** Fresh `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60 `7070` / MAE `6.987421` and frame 71 `7341` / `7.302334`, but `oracle_background_scroll_loc_3050a` shows `hbuf[100]=FEDCFFDC` on both frames, matching native's -36 row-29 scroll. The dominant y=100 ocean mismatch is therefore actual Plane-B row/name-table contents, not H-scroll phase.
+- **NEXT**: export/reconstruct Plane-B row contents after `sub_30744`/`sub_307D8`. Do not retry simple scroll offsets: forcing the raw oracle `$00/$08` formula (`Time_Frames + Camera_X>>3` / `Time_Frames/2 + Camera_X>>3`) worsened #289 to frame 60 `7347` / `7.378413` and frame 71 `7568` / `7.640611`, then was reverted.
+
+---
+
 ## 2026-06-21 handoff (#289 settled auto-scroll timing narrowed)
 
 - **#289 stays `[~]`; the Level 0x07 recording is still state-clean/pixel-red, but the `$00/$08` auto-scroll rows now use the ROM `Time_Frames` basis for settled warps.** ASM `BackgroundScroll_ComputeShiftData loc_30452` derives those rows from `Time_Frames`; this matches the existing `loc_305E6` ripple offset rule. Fresh `issue289-level07-idle-current` improves frame 60 from `7277` changed / MAE `7.258966` to `7070` / `6.987421`, and frame 71 from `7502` / `7.521498` to `7341` / `7.302334`.

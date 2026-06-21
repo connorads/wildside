@@ -52,14 +52,19 @@ and stop — never commit churn.
   8.047498, again adding top-row cloud errors. Current candidate now applies the
   ROM `Time_Frames` basis to settled-warp `$00/$08` auto-scroll rows, improving
   frame 60 to 7070 / MAE 6.987421 and frame 71 to 7341 / 7.302334, but the
-  recording remains state-clean/pixel-red. Continue from live `Horiz_Scroll_Data`
-  phase/VDP row state or a fresh human-route repro before touching header/start layout
-  code. Do not treat #345 Lion mid-level vanish as closed by this; that row still
-  needs the scroll-off/scroll-back cull probe.
-- **Gates this session**: `cargo fmt`, focused `cargo test -p wildside-cli background
-  --no-default-features`, `cargo test -p wildside-cli time_frames_for_settled_warp
-  --no-default-features`, fresh `verify-recording --slug issue289-level07-idle-current`
-  (state-clean/pixel-red but improved), and `mise run verify-slice-fast` passed.
+  recording remains state-clean/pixel-red. New oracle scroll probe shows y=100
+  H-scroll already matches native (`hbuf[100]=FEDCFFDC`, Scroll B -36) while the
+  `$08` top row has oracle slot values `cur=007B/0080`; forcing that raw top-row
+  formula worsened frames to 7347 / 7.378413 and 7568 / 7.640611. Continue from
+  actual Plane-B row/name-table contents after `sub_30744`/`sub_307D8`, not another
+  scroll offset, placement wrap, or header/start-layout change. Do not treat #345
+  Lion mid-level vanish as closed by this; that row still needs the scroll-off/
+  scroll-back cull probe.
+- **Gates this session**: `cargo fmt`, `mise run audit-debug-fields`, focused
+  `cargo test -p wildside-cli time_frames_for_settled_warp --no-default-features`,
+  fresh `verify-recording --slug issue289-level07-idle-current` (state-clean/pixel-red
+  with oracle scroll debug attached), and the rejected raw-H-scroll experiment
+  reverted after it worsened the recording.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.
