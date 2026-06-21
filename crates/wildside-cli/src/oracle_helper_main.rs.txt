@@ -1843,12 +1843,13 @@ fn background_source_rows_debug_loc_12848(work_ram: &[u8]) -> String {
 fn background_plane_b_rows_debug_loc_307d8(emulator: &mut GenesisEmulator) -> String {
     const PLANE_B_BASE_LOC_307D8: usize = 0xE000;
     const PLANE_WIDTH_CELLS: usize = 64;
-    const ROWS: [usize; 6] = [8, 18, 27, 29, 30, 31];
+    const ROWS: [usize; 9] = [8, 17, 18, 19, 22, 23, 27, 29, 30];
 
     // ASM sub_30744/sub_307D8 (kid.asm:34563/34625) incrementally write
     // chunked background tile words into the hardware Plane-B nametable.
-    // Dump the rows touched by the current #289 cloud/ocean sample bands so
-    // render investigation can compare row contents separately from H-scroll.
+    // Dump the rows touched by the current #289 cloud, mid-band, and ocean
+    // sample bands so render investigation can compare row contents separately
+    // from H-scroll.
     let vram = emulator.debug().memory_view(GenesisMemoryArea::Vram);
     ROWS
         .into_iter()

@@ -44,13 +44,18 @@ and stop — never commit churn.
   frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. A broader
   trial that also fed full `sub_307D8` row uploads from the alias source was
   rejected because it worsened the report to frame 60 `6359` / `5.9081984` and
-  frame 71 `6437` / `6.035942`.
+  frame 71 `6437` / `6.035942`. The oracle Plane-B row dump now includes B17,
+  B19, B22, and B23; B17 is mostly `$2780` except columns 5-6, while B18/B19
+  carry the right-edge cloud tail at columns 49-55.
 - **Next #289 action**: inspect the live native row words/provenance for the
   remaining sampled pixels after the `loc_30452` replay. Synthetic coverage proves
   the hidden `$08` row replay writes alias-source columns `49..55` into B18 by
   `Time_Frames=174`, but the real #289 recording remains pixel-identical to the
-  prior baseline; determine whether the residual is now elsewhere in Plane-B row
-  state, display sampling, palette, or row selection before changing rendering
+  prior baseline. Re-testing the raw `loc_30452` display-scroll basis on the
+  current code moved right-edge samples but exposed wrong native B17 cloud content
+  at the left edge, worsening frame 60 to `5336` / `5.8150578`
+  (frame 71 `5209` / `5.735277`). Next pass should compare native row history for
+  B17/B18/B19 against the expanded oracle dump before changing display scroll
   again. The latest
   `background_source_rows_loc_12848` settle trace proves
   `Load_InGame`/`Load_BackgroundMappings loc_12824` writes the B18 source row
@@ -66,14 +71,13 @@ and stop — never commit churn.
   render `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
   substitution, current-time all-row overlay, alias-only rendering, or alias-fed
   full row uploads.
-- **Gates this session**: corrected native-player elapsed chunked Plane-B replay to
-  use `loc_30452` scroll words and added a synthetic settled-warp row-history
-  regression. Verified focused native-player chunked Plane-B tests,
-  `cargo check -p wildside-cli`, and expected-red `issue289-level07-idle-current`
-  (`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
-  frame 60 `5080` / `5.6536646`, frame 71 `5212` / `5.8645835`). Direct
-  `verify-slice-fast` body passed: TAS frontier, backlog lint, wildside-core lib
-  sweep, and wildside-cli gameplay regressions.
+- **Gates this session**: expanded the oracle Plane-B row diagnostic for #289.
+  Verified `oracle_manifest_deserialises_hidden_settle_trace_rows` and fresh
+  expected-red `issue289-level07-idle-current` (`trace_match=true`,
+  `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
+  `5.6536646`, frame 71 `5212` / `5.8645835`). Direct `verify-slice-fast` body
+  passed: TAS frontier, backlog lint, wildside-core lib sweep, and wildside-cli
+  gameplay regressions.
   The `mise` wrappers remain blocked
   in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
   use direct cargo/CLI commands for code verification.

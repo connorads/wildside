@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 expanded Plane-B row diagnostic)
+
+- **#289 stays `[~]`; oracle Plane-B row diagnostics now include B17, B19, B22, and B23.** Fresh `issue289-level07-idle-current` remains expected-red at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`, but the row dump now shows B17 is mostly `$2780` except columns 5-6 while B18/B19 hold the right-edge cloud tails at columns 49-55.
+- Re-tried the raw `loc_30452` display-scroll basis on current code and rejected it again: it moved right-edge samples onto B18/B19 but exposed wrong native B17 cloud content at the left edge, worsening frame 60 to `5336` / MAE `5.8150578`. **NEXT**: compare native row-history words for B17/B18/B19 against the expanded oracle dump before another display-scroll patch.
+
+---
+
 ## 2026-06-21 handoff (#289 loc_30452 Plane-B replay)
 
 - **#289 stays `[~]`; native-player elapsed chunked Plane-B row replay now uses `BackgroundScroll_ComputeShiftData loc_30452` words.** The replay no longer derives `sub_30744` changed columns from display `loc_3050A` pixels, and settled level-skip traces can include the 60 hidden target-live frames before scenario frame 0 against the `loc_12824` alias source for one-column writes only.
