@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 elapsed sub_30744 columns)
+
+- **#289 stays `[~]`; native-player now replays elapsed visible `sub_30744` tile-column writes after the `loc_2FFE8` preload span.** This models the one-cell `loc_307B2` update that runs each frame before conditional `sub_307D8`, so synthetic `$08` rows advance VDP column 45 from the old `$0780` fill to `$2780` once `Time_Frames=114..174` crosses the next tile. Focused regression: `chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8`.
+- Fresh `issue289-level07-idle-current` remains state-clean/pixel-red and metric-neutral at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. Rejected narrower raw `$08` display-scroll experiment: using `loc_30452` slot `$08` for display only broke `auto_scroll_rows_prefer_typed_time_frames_loc_3038a`, broke the timed-row regression, and worsened the recording to frame 60 `5327` / `5.94182`, frame 71 `5466` / `6.162584`. **NEXT**: derive the exact row-specific Plane-B state/scroll split for row `B18`; current x=285,y=10 samples native VDP column 41 as empty while oracle clouds sit at columns 49..56.
+
+---
+
 ## 2026-06-21 handoff (#289 old Plane-B cells + raw-scroll rejection)
 
 - **#289 stays `[~]`; cells outside the fresh chunked `sub_307D8` row span now preserve the old Plane-B `$0780` tile.** This matches `loc_11F48` filling Plane B with `$0780` and the oracle row dumps where untouched cells remain `$0780` while streamed cells use `unk_309B8` `$2780+id`. Focused regression: `chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8`.

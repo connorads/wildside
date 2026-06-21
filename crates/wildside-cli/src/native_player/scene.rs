@@ -2426,7 +2426,73 @@ impl ChunkedPlaneBRowsLoc307D8 {
             row_cells[destination] = self.cells[row * self.width + source];
         }
 
+        self.apply_elapsed_column_writes_loc_30744(
+            &mut row_cells,
+            trace,
+            camera_x_px,
+            layer_speed,
+            row,
+        );
+
         Some(row_cells)
+    }
+
+    fn apply_elapsed_column_writes_loc_30744(
+        &self,
+        row_cells: &mut [Option<ChunkedPlaneBCellLoc307D8>; PLANE_B_ROW_CELLS_LOC_11B7A],
+        trace: &NativeTraceFrame,
+        camera_x_px: i32,
+        layer_speed: u8,
+        row: usize,
+    ) {
+        let current_time_frames = background_time_frames_for_trace_loc_3050a(trace);
+        let preload_time_frames = current_time_frames.saturating_sub(trace.frame_index);
+        if preload_time_frames == current_time_frames {
+            return;
+        }
+
+        let mut previous_scroll = background_scroll_x_px_unwrapped_for_time_loc_3050a(
+            preload_time_frames,
+            camera_x_px,
+            layer_speed,
+        );
+        for time_frames in preload_time_frames.saturating_add(1)..=current_time_frames {
+            let current_scroll = background_scroll_x_px_unwrapped_for_time_loc_3050a(
+                time_frames,
+                camera_x_px,
+                layer_speed,
+            );
+            self.apply_changed_column_loc_30744(row_cells, previous_scroll, current_scroll, row);
+            previous_scroll = current_scroll;
+        }
+    }
+
+    fn apply_changed_column_loc_30744(
+        &self,
+        row_cells: &mut [Option<ChunkedPlaneBCellLoc307D8>; PLANE_B_ROW_CELLS_LOC_11B7A],
+        previous_scroll_x_px: i32,
+        current_scroll_x_px: i32,
+        row: usize,
+    ) {
+        let previous_tile_column = previous_scroll_x_px.div_euclid(8);
+        let current_tile_column = current_scroll_x_px.div_euclid(8);
+        if previous_tile_column == current_tile_column {
+            return;
+        }
+
+        // ASM loc_30452/sub_304B4 stores one changed source column into
+        // `Horiz_Scroll_Data`, then sub_30744/loc_307B2 streams that single
+        // mapping word into Plane B before the conditional sub_307D8 row span.
+        let source_column_seed = if previous_tile_column > current_tile_column {
+            current_tile_column
+        } else {
+            current_tile_column + 0x28
+        };
+        let source = source_column_seed.rem_euclid(i32::try_from(self.width).unwrap_or(1)) as usize;
+        let destination = source_column_seed
+            .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
+            as usize;
+        row_cells[destination] = self.cells[row * self.width + source];
     }
 }
 
@@ -2443,10 +2509,10 @@ fn chunked_background_upload_scroll_x_px_loc_2ffe8(
         // so their uploaded VDP cell arrangement can be older than the
         // current loc_3050A display H-scroll.
         0x00 if preload_time_frames != time_frames => {
-            (preload_time_frames as i32 / 2).rem_euclid(512)
+            background_scroll_x_px_for_time_loc_3050a(preload_time_frames, camera_x_px, layer_speed)
         }
         0x08 if preload_time_frames != time_frames => {
-            (preload_time_frames as i32 / 4).rem_euclid(512)
+            background_scroll_x_px_for_time_loc_3050a(preload_time_frames, camera_x_px, layer_speed)
         }
         _ => background_scroll_x_px(trace, camera_x_px, layer_speed),
     }
@@ -3926,9 +3992,30 @@ pub(super) fn background_scroll_x_px(
     camera_x_px: i32,
     layer_speed: u8,
 ) -> i32 {
+    background_scroll_x_px_for_time_loc_3050a(
+        background_time_frames_for_trace_loc_3050a(trace),
+        camera_x_px,
+        layer_speed,
+    )
+}
+
+fn background_scroll_x_px_for_time_loc_3050a(
+    time_frames: usize,
+    camera_x_px: i32,
+    layer_speed: u8,
+) -> i32 {
+    background_scroll_x_px_unwrapped_for_time_loc_3050a(time_frames, camera_x_px, layer_speed)
+        .rem_euclid(512)
+}
+
+fn background_scroll_x_px_unwrapped_for_time_loc_3050a(
+    time_frames: usize,
+    camera_x_px: i32,
+    layer_speed: u8,
+) -> i32 {
     match layer_speed {
-        0x00 => (background_time_frames_for_trace_loc_3050a(trace) as i32 / 2).rem_euclid(512),
-        0x08 => (background_time_frames_for_trace_loc_3050a(trace) as i32 / 4).rem_euclid(512),
+        0x00 => time_frames as i32 / 2,
+        0x08 => time_frames as i32 / 4,
         0x10 => 0,
         0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8) => {
             let step = i32::from((layer_speed - 0x10) / 8);

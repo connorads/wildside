@@ -33,7 +33,8 @@ and stop — never commit churn.
   draw/sample time, and arranges `$00`/`$08` timed-row uploads from the
   `loc_2FFE8` preload `Time_Frames` phase. Cells outside the fresh streamed span
   now preserve the old Plane-B `$0780` tile from `loc_11F48`, instead of acting
-  transparent. Fresh
+  transparent; elapsed visible `sub_30744` tile-column crossings after preload are
+  also replayed into the native row state. Fresh
   `issue289-level07-idle-current` still reports `trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`, but the residual improves
   from frame 60 `5137` changed / MAE `5.711784` and frame 71 `5260` / `5.920638`
@@ -47,7 +48,12 @@ and stop — never commit churn.
   current-time all-row overlay changes. The latest rejected raw-scroll check used
   oracle slot `$08 cur=0x007B` / `vdp=0x006E` as direct render scroll and worsened
   frame 60 to `5676` / `6.381301`, frame 71 to `5794` / `6.573024`, while still
-  leaving x≈285 right-cloud samples empty; the missing data is stale VDP row cells.
+  leaving x≈285 right-cloud samples empty. A narrower display-only `$08`
+  experiment also worsened to frame 60 `5327` / `5.94182`, frame 71 `5466` /
+  `6.162584`, and broke the typed Time_Frames regressions. Current x=285,y=10
+  samples native VDP column 41 as empty while oracle row `B18` keeps clouds at
+  columns 49..56, so the next pass needs the exact row-specific Plane-B state/scroll
+  split rather than another broad `$08` scroll substitution.
 - **Gates this session**: `cargo fmt --all`, `cargo fmt --check`,
   `cargo check -q -p wildside-cli`, focused `cargo test -q -p wildside-cli`
   filters for `chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a`,
