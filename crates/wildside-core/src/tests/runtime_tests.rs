@@ -12686,6 +12686,133 @@ mod chunk_09 {
         );
     }
 
+    // --- Clock-prize loop start/stop (#342) ---
+
+    fn clock_floating_item() -> FloatingItem {
+        FloatingItem {
+            x_pos: (3 * 16 + 8) << 16,
+            y_pos: i64::from(100 << 16),
+            y_velocity: 0,
+            remaining: 500,
+            spawn_delay: 0,
+            level_col: 3,
+            level_row: 6,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Clock,
+            collected: false,
+            collision_latched: false,
+        }
+    }
+
+    #[test]
+    fn loc_10792_first_clock_prize_spawn_emits_startsequence_clock_prize() {
+        // ASM PrizeClock_Init loc_10792 (kid.asm:21996-22005): the first active
+        // clock plays the looping sfx_Clock_prize; the start fires on the
+        // `0 -> first-clock` spawn edge. #342: native used to start it on
+        // collection (apply_prize_content) with no matching stop.
+        let mut rt = NativeRuntime::new(manifest());
+        let before = rt.active_clock_prize_count();
+        assert_eq!(before, 0, "no clock is falling yet");
+        rt.floating_items.push(clock_floating_item());
+        rt.start_clock_prize_sound_on_first_spawn_loc_10792(before);
+        assert_eq!(
+            rt.played_sound_commands,
+            vec![QueuedSoundCommand::StartSequence(
+                QueuedSoundEffect::ClockPrize
+            )],
+            "ASM loc_10792: the first falling clock starts sfx_Clock_prize via StartSequence ($10 cmdstartseq)",
+        );
+    }
+
+    #[test]
+    fn loc_10792_clock_prize_start_holds_while_another_clock_is_active() {
+        // ASM loc_10792 `tst.b ($FFFFFB55)`: later clocks only `addq.b #1` the
+        // refcount and skip the j_PlaySound start because it was already nonzero.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.floating_items.push(clock_floating_item());
+        let before = rt.active_clock_prize_count();
+        assert_eq!(before, 1, "one clock is already falling");
+        rt.floating_items.push(clock_floating_item());
+        rt.start_clock_prize_sound_on_first_spawn_loc_10792(before);
+        assert!(
+            rt.played_sound_commands.is_empty(),
+            "ASM loc_10792: a second concurrent clock does not restart sfx_Clock_prize",
+        );
+    }
+
+    #[test]
+    fn loc_107e0_last_clock_prize_exit_emits_stopsequence_clock_prize() {
+        // ASM loc_107E0 (kid.asm:22028-22033): once the last falling clock
+        // object is deleted (here it reached Level_height_pixels), the
+        // decremented $FFFFFB55 hits zero and sfx_Clock_prize is stopped via
+        // j_PlaySound2 ($12 cmdstopseq). #342: this stop was unported, so the
+        // looping clock sequence ran forever. Exercises the live wiring in
+        // step_visual_effects, not just the helper.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.floating_items.push(FloatingItem {
+            x_pos: (3 * 16 + 8) << 16,
+            y_pos: i64::from(896 << 16),
+            y_velocity: 0,
+            remaining: 500,
+            spawn_delay: 0,
+            level_col: 3,
+            level_row: 56,
+            first_row_grace: false,
+            content: terrain::PrizeContent::Clock,
+            collected: false,
+            collision_latched: false,
+        });
+        assert_eq!(rt.active_clock_prize_count(), 1, "one clock is falling");
+
+        rt.step_visual_effects();
+
+        assert!(
+            rt.floating_items.is_empty(),
+            "ASM loc_10430/loc_107B0: the clock object is deleted once y_pos reaches Level_height_pixels",
+        );
+        assert_eq!(
+            rt.played_sound_commands,
+            vec![QueuedSoundCommand::StopSequence(
+                QueuedSoundEffect::ClockPrize
+            )],
+            "ASM loc_107E0: deleting the last falling clock must stop sfx_Clock_prize via StopSequence ($12 cmdstopseq)",
+        );
+    }
+
+    #[test]
+    fn loc_107e0_clock_prize_stop_holds_while_another_clock_remains() {
+        // ASM loc_107E0 `subq.b #1,$FFFFFB55; bne.s loc_107EE`: a surviving
+        // clock keeps the refcount nonzero, so the j_PlaySound2 stop is skipped.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.floating_items.push(clock_floating_item());
+        rt.floating_items.push(clock_floating_item());
+        let before = rt.active_clock_prize_count();
+        assert_eq!(before, 2, "two clocks are falling");
+        rt.floating_items.pop();
+        rt.stop_clock_prize_sound_on_last_exit_loc_107e0(before);
+        assert!(
+            rt.played_sound_commands.is_empty(),
+            "ASM loc_107E0: refcount 2->1 stays nonzero, so no StopSequence fires",
+        );
+        assert_eq!(
+            rt.active_clock_prize_count(),
+            1,
+            "the surviving clock keeps the refcount at one",
+        );
+    }
+
+    #[test]
+    fn loc_107e0_clock_prize_stop_silent_when_no_clock_was_active() {
+        // No falling clock last tick => nothing to decrement, so loc_107E0
+        // never reaches the j_PlaySound2 stop.
+        let mut rt = NativeRuntime::new(manifest());
+        rt.stop_clock_prize_sound_on_last_exit_loc_107e0(0);
+        assert!(
+            rt.played_sound_commands.is_empty(),
+            "loc_107E0 only stops the loop when a previously-active clock reaches refcount zero",
+        );
+    }
+
     #[test]
     fn floating_item_step_returns_past_the_unreachable_loc_10434_padding_loop() {
         let mut rt = NativeRuntime::new(manifest());

@@ -25,39 +25,31 @@ and stop — never commit churn.
 
 ## NOW
 
-- **Select work with `mise run project-status`** (priority-ordered across the live lanes;
-  file order is not priority). Current focus is still #289 because it remains `[~]`.
-- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red, but native
-  now seeds settled level-skip chunked Plane-B rows by replaying the persisted
-  `loc_2FFE8`/`sub_307D8` preload segments through `ChunkedPlaneBRowHistoryLoc30744`,
-  then applies visible `sub_30744` writes from `Time_Frames=0..current`. This uses
-  `Load_InGame loc_11F48`'s player-start X screen grid and the settled trace camera
-  Y; a focused regression pins B18 columns 0-4 as old `$0780`, columns 5-48 as
-  `$2780`, and columns 49-55 as the accumulated cloud tail. Fresh
-  `issue289-level07-idle-current` remains `trace_match=true`,
-  `oracle_state_match=true`, `oracle_frame_match=false`, but improves from frame
-  60 `5080` / MAE `5.6536646` to `4031` / `4.3676014`, and from frame 71 `5212` /
-  `5.8645835` to `4181` / `4.603767`. B18 now matches the oracle row shape; the
-  remaining pixels point at other persisted Plane-B rows/state, not the old B18
-  stateless upload start.
-- **Next #289 action**: compare the remaining native/oracle row histories for B08,
-  B17, B22, B23, B27/B29 and adjacent sampled rows after the persisted preload
-  replay. Continue from `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
-  row state; do not retry header/start layout, simple scroll offsets, placement
-  wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`,
-  stateless `$FFFF87B2`, raw `loc_30452` display-scroll substitution, current-time
-  all-row overlay, packed timed-row full-upload placement, alias-only rendering,
-  alias-fed full row uploads, or the direct row-number-to-bgscroll preload model.
-- **Gates this session**: `cargo fmt --check --all`, focused `chunked_` native-player
-  tests, `cargo check -q -p wildside-cli`, expected-red
-  `issue289-level07-idle-current` with improved frame metrics, `backlog-lint`,
-  CLI gameplay regressions, and TAS frontier. `cargo test -q -p wildside-core --lib`
-  still has unrelated pre-existing chunk_08 snapshot/demo bootstrap failures and
-  was not treated as a blocker for this renderer-only slice. `mise` wrappers remain
-  blocked by `fnox@1` linux-arm64.
+- **Select work with `mise run project-status`** (priority-ordered across the live
+  lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
+- **#342 just landed (`[~]`→`[?]`, awaiting human audio listen)**: the looping clock-prize
+  SFX now starts at the falling-clock spawn (ASM `loc_10792`) and stops on the
+  last-clock-exit edge (`loc_107E0`), driven by the derived live-clock `floating_items`
+  count (mirrors #339's RockTank drone). Removed the wrong `apply_prize_content`
+  collection-start and the redundant native_player timer-jump heuristic. CRC-neutral;
+  `verify-slice-fast` (6251+9) and `verify-tas-full` green (CRC all 37759 frames, 212
+  authoritative = #290 baseline). Human: confirm the clock tick STOPS shortly after
+  collecting a clock instead of looping forever (real audio device, same caveat as #339).
+- **#289 stays `[~]` but is research-blocked**: 5+ consecutive instrumentation/docs
+  commits, marginal MAE gains (Level 0x07 frame 60 `5080`→`4031`) and still
+  `oracle_frame_match=false`. The remaining work is modelling incremental persisted
+  Plane-B row state — a substantial renderer task, not a quick patch. Prefer
+  project-status "ready" items; the next concrete lead and the full do-not-retry list
+  are in **archive #289** (compare native/oracle B08/B17/B22/B23/B27/B29 row histories
+  after the persisted preload replay).
+- **Gates this session**: `cargo fmt` clean, both crates `cargo check` warning-free,
+  focused clock-prize tests (10 core + 2 CLI), `mise run verify-slice-fast` green
+  (6251 core + 9 CLI + verify-tas-frontier + backlog-lint), `mise run verify-tas-full`
+  CRC all 37759 frames match with 212 authoritative = #290 baseline. (`mise` wrappers
+  work here; the prior session's `fnox@1` block did not recur.)
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
-  `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
-  "needs a real audio device" block IS that playtest.
+  `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
+  the recurring "needs a real audio device" block IS that listen.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -93,7 +85,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | Bisect the recent regression; capture cold-boot frames 130..260 vs an oracle Blue Lake Woods 1 cold-boot recording. Suspect EARLY_START_LEVEL_ONE_BOOTSTRAP_* / LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y (trace.rs:6089/6163). See archive #336. |
 | 339 | [ ] | P1 | audio | 2026-06-19 playtest: RockTank drive SFX ($1F, a LOOPING sequence) plays forever / "bugs out and keeps playing" — fired once on first-visible init (enemies.rs:10193) but never stopped when the shared refcount hits 0 on death/offscreen (ASM loc_3C46E decrement+stop unported). Mirror `should_play_stop_sound: next_refcount==0` (blocks.rs:642). Also the #264 "tank-drive repeats at EOL" symptom | Fixed 2026-06-19: `refresh_active_roster` emits `StopSequence(sfx_Tank_driving)` ($12 cmdstopseq stop) when the pooled drive refcount drops to 0 as the last Rock Tank exits (scroll-off loc_3C436 + death Tank.asm loc_3B480, both → loc_3C46E→ (full history: archive #339) |
-| 342 | [ ] | P1 | audio | 2026-06-20 playtest: clock-prize SFX leaks/keeps playing. Native emits `start_sequence(sfx_Clock_prize $0E)` (combat.rs:10666, native_player/mod.rs:2756) but NEVER the loc_107E0 `$12` cmdstopseq stop, so the looping clock sequence runs forever. ASM loc_10792/loc_107E0 (kid.asm:21996/22028) gate start/stop on the `$FFFFFB55` refcount. The stop helper `prize_clock_sound_cleanup_loc_107E0` (blocks.rs:630) exists + is unit-tested but is dead code never wired into the live clock teardown — same trap as #339 | Wire stop on the FB55 refcount >0→0 edge; regression `loc_107e0_last_clock_prize_exit_emits_stopsequence_clock_prize`; sound advisory/CRC-neutral so verify-tas stays green. See archive #342 |
 | 343 | [ ] | P1 | combat | 2026-06-20 playtest: axe/friendly projectiles pass through the walking dragon (0x0D) and other large enemies. Unit damage (take_dragon_walking_damage enemies.rs:8970, route loc_3CEBE) is ASM-faithful + wired, but the LIVE hit test `process_friendly_projectile_hits` (helmets.rs:6371) uses an invented fixed `ENEMY_CONTACT_HALF_WIDTH=4`/`HALF_HEIGHT=8` box (constants.rs:379/384) for ALL families instead of the real `CollisionSize_Index`, so the large dragon body sits outside the box. Concrete instance of the #308 umbrella; the 2026-06-19 "axe can't hit flying dragon" denial only covered the brief pre-flight loc_346C4 window | Source the contact box from CollisionSize_Index per family/frame (engine-level per #308); live walking-dragon axe-hit regression (none exists today). See archive #343 |
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive. Likely ASM-FAITHFUL (Dragon.asm loc_3CDFC HP=enemy_level+1; loc_3CEBE plays hurt/hibernate then resumes patrol on a 2HP+ dragon), reproduced correctly in native — so the defect is VISUAL/UX: confirm native plays stru_3CCE6 hurt anim (not a death-looking frame) during the 24-frame hibernate. Seed #200/#043/#199 are closed Flying-Dragon PROJECTILE rows (keyword-deflection trap) | Get the human to distinguish survive-flash vs true death+resurrect; verify hurt anim during hibernate; compare-native-oracle dragon-stomp. See archive #344 |
 | 345 | [ ] | P1 | enemy | 2026-06-20 playtest: Lion vanishes mid-level on Isle/Land of the Lion Lord (0x07) — premature off-window cull vs ROM sub_3E8BA. Leading hypothesis: `large_pacer_should_remain_active` (enemies.rs:15921) keys on active_enemy_count (roster len) not ROM Number_Objects (all live objects), shifting the $A/$14 cull band (#289 proved native object accounting diverges here). Not covered by #186 (behaviour fidelity, parked [?]) or #289 (spawn umbrella, symptom buried) | Oracle scroll-off/scroll-back probe on 0x07; rule out the #239 faithful ledge-fall first; check respawn marker loc_3E97C. Engine-level fix only. See archive #345 |

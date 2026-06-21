@@ -647,6 +647,47 @@ impl NativeRuntime {
         }
     }
 
+    /// ASM PrizeClock_Init `$FFFFFB55` (kid.asm:21996-22033): the shared
+    /// clock-prize sound refcount. Native keeps no separate counter — the live
+    /// falling-clock `floating_items` ARE the refcount, so spawn and delete stay
+    /// the single source of truth and the bulk level/death `floating_items`
+    /// resets cannot leave a stale count (mirrors `driving_rock_tank_count` for
+    /// #339).
+    pub(crate) fn active_clock_prize_count(&self) -> u8 {
+        self.floating_items
+            .iter()
+            .filter(|item| item.content == terrain::PrizeContent::Clock)
+            .count()
+            .min(usize::from(u8::MAX)) as u8
+    }
+
+    /// ASM PrizeClock_Init loc_10792 (kid.asm:21996-22005): only the first active
+    /// clock prize plays the looping `sfx_Clock_prize` ($0E); later clocks merely
+    /// bump `$FFFFFB55`. Call right after the falling-clock spawn extend with the
+    /// pre-spawn count — the start fires on the `0 -> first-clock` edge.
+    pub(crate) fn start_clock_prize_sound_on_first_spawn_loc_10792(&mut self, active_before: u8) {
+        if Self::prize_clock_sound_refcount_loc_10792(active_before).should_play_sound
+            && self.active_clock_prize_count() > active_before
+        {
+            self.queue_start_sequence(QueuedSoundEffect::ClockPrize);
+        }
+    }
+
+    /// ASM loc_107E0 (kid.asm:22028-22033): once the last falling clock object is
+    /// deleted — collected (collision), fell past `Level_height_pixels`, or its
+    /// countdown expired — the decremented `$FFFFFB55` reaches zero and
+    /// `sfx_Clock_prize` is stopped via `j_PlaySound2` ($12 cmdstopseq). Native
+    /// edge-detects the `>0 -> 0` transition on the derived live-clock count, just
+    /// as loc_3C46E does for the RockTank drone (#339); the per-object
+    /// `prize_clock_sound_cleanup_loc_107E0` stays the documented ASM spec because
+    /// its single `wrapping_sub(1)` cannot express native's batch `retain`.
+    /// #342: this stop was unported, so the looping clock sequence ran forever.
+    pub(crate) fn stop_clock_prize_sound_on_last_exit_loc_107e0(&mut self, active_before: u8) {
+        if active_before > 0 && self.active_clock_prize_count() == 0 {
+            self.queue_stop_sequence(QueuedSoundEffect::ClockPrize);
+        }
+    }
+
     #[allow(non_snake_case)]
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_continue_countdown_loc_1080A(
@@ -3132,7 +3173,13 @@ impl NativeRuntime {
             }
         }
         self.block_state.deferred_ceiling_clears = retained_entries;
+        // #342: ASM PrizeClock_Init loc_10792 starts the looping sfx_Clock_prize
+        // when the first falling clock object spawns (not when it is collected).
+        // Snapshot the live clock count, extend, then fire the start on the
+        // `0 -> first-clock` edge.
+        let active_clock_prizes_before = self.active_clock_prize_count();
         self.floating_items.extend(spawned_items);
+        self.start_clock_prize_sound_on_first_spawn_loc_10792(active_clock_prizes_before);
     }
 
     pub(crate) fn step_shooter_blocks(&mut self, slice: &OpeningSliceState) {
@@ -4359,6 +4406,11 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_visual_effects(&mut self) {
+        // #342: snapshot the live falling-clock count before any `floating_items`
+        // removal this tick so loc_107E0's stop can fire when the last clock
+        // object leaves (collected at 4596/the fall-gate retain, fell past
+        // Level_height_pixels, or its countdown expired).
+        let active_clock_prizes_before = self.active_clock_prize_count();
         self.step_rubber_block_animations_sub_10de4();
         self.step_metal_block_push_workers_sub_1129C();
         let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
@@ -4697,6 +4749,10 @@ impl NativeRuntime {
                 false
             }
         });
+        // #342: every clock-deleting `floating_items` removal above routes
+        // through loc_107E0; stop the looping sfx_Clock_prize once the last
+        // falling clock object is gone.
+        self.stop_clock_prize_sound_on_last_exit_loc_107e0(active_clock_prizes_before);
 
         for e in &mut self.enemy_death_effects {
             if let Some(split) = &mut e.heady_metal_split {

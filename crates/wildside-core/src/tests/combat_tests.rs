@@ -9277,10 +9277,11 @@ mod chunk_03 {
             (secs_before + LEVEL_TIMER_CLOCK_COLLECT_SECONDS).min(LEVEL_TIMER_MAX_SECONDS),
             "ASM loc_FF92 adds one second before loc_FFDE adds the three-minute clock bonus"
         );
-        assert_eq!(
-            runtime.played_sound_effects,
-            vec![QueuedSoundEffect::ClockPrize],
-            "ASM PrizeClock_Init (kid.asm:21999) queues sfx_Clock_prize=$0E on clock prize contact"
+        assert!(
+            !runtime
+                .played_sound_effects
+                .contains(&QueuedSoundEffect::ClockPrize),
+            "ASM PrizeClock_Init loc_10792 (kid.asm:21996) starts sfx_Clock_prize=$0E when the falling clock SPAWNS, not on collection; apply_prize_content must not queue it (#342)"
         );
     }
 

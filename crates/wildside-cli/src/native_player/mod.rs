@@ -2826,12 +2826,12 @@ fn gems_event_sound_commands(
         sound_commands.push(NativeSoundCommand::start_sequence(gems_bgm::ENDING));
     }
 
-    // Clock pickup (timer jumped up)
-    if !queued_sound_ids.contains(&gems_sfx::CLOCK_PRIZE)
-        && curr.level_timer_seconds > prev.level_timer_seconds + 5
-    {
-        sound_commands.push(NativeSoundCommand::start_sequence(gems_sfx::CLOCK_PRIZE));
-    }
+    // #342: the clock-prize loop is no longer inferred from a timer jump here.
+    // ASM PrizeClock_Init loc_10792 starts sfx_Clock_prize when the falling
+    // clock object spawns and loc_107E0 stops it when that object is deleted;
+    // the core now queues both Start/StopSequence commands, which arrive via
+    // `queued_gems_sound_commands_since`. A timer-jump start fired at collection
+    // would re-trigger the loop after the core's stop, re-leaking it.
 
     sound_commands
 }
@@ -19705,7 +19705,7 @@ mod tests {
         assert_eq!(
             sfx.active_tones.len(),
             2,
-            "ASM PrizeClock_Init (kid.asm:21999) queues sfx_Clock_prize once; fallback must not add the old timer-jump duplicate"
+            "#342: the core queues sfx_Clock_prize (loc_10792) on the falling-clock spawn; with the timer-jump heuristic removed there must be no second fallback trigger"
         );
     }
 
@@ -20228,7 +20228,7 @@ mod tests {
         assert_eq!(
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::CLOCK_PRIZE],
-            "ASM PrizeClock_Init (kid.asm:21999) queues sfx_Clock_prize=$0E from the core trace; the old timer-jump fallback must not duplicate it"
+            "#342: the clock-prize loop is driven by the core trace (loc_10792 spawn start / loc_107E0 stop); the removed timer-jump heuristic must not re-add a start at collection"
         );
     }
 

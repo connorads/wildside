@@ -10668,7 +10668,13 @@ impl NativeRuntime {
                 }
             }
             terrain::PrizeContent::Clock => {
-                self.queue_start_sequence(QueuedSoundEffect::ClockPrize);
+                // #342: the looping sfx_Clock_prize is NOT started here. ASM
+                // PrizeClock_Init loc_10792 (kid.asm:21996) plays it when the
+                // falling clock object spawns and loc_107E0 stops it when that
+                // object is deleted; native drives both from the `floating_items`
+                // clock lifecycle (start_clock_prize_sound_on_first_spawn_loc_10792 /
+                // stop_clock_prize_sound_on_last_exit_loc_107e0). Starting it here
+                // (at collection) left a looping sequence with no matching stop.
                 self.level_timer.add_clock_bonus();
                 // ASM loc_10002 (kid.asm:21298) increments `Clocks_collected`
                 // after the timer bonus/sub-second reset path completes.
