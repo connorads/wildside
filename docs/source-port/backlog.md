@@ -52,19 +52,24 @@ and stop — never commit churn.
   8.047498, again adding top-row cloud errors. Current candidate now applies the
   ROM `Time_Frames` basis to settled-warp `$00/$08` auto-scroll rows, improving
   frame 60 to 7070 / MAE 6.987421 and frame 71 to 7341 / 7.302334, but the
-  recording remains state-clean/pixel-red. New oracle scroll probe shows y=100
-  H-scroll already matches native (`hbuf[100]=FEDCFFDC`, Scroll B -36) while the
-  `$08` top row has oracle slot values `cur=007B/0080`; forcing that raw top-row
-  formula worsened frames to 7347 / 7.378413 and 7568 / 7.640611. Continue from
-  actual Plane-B row/name-table contents after `sub_30744`/`sub_307D8`, not another
-  scroll offset, placement wrap, or header/start-layout change. Do not treat #345
-  Lion mid-level vanish as closed by this; that row still needs the scroll-off/
-  scroll-back cull probe.
+  recording remains state-clean/pixel-red. Oracle scroll probe shows y=100
+  H-scroll already matches native (`hbuf[100]=FEDCFFDC`, Scroll B -36), and the
+  new oracle Plane-B dump shows actual hardware row contents differ from native's
+  direct placement sampling: at frame 60, row `B29` begins blank through column 3
+  then `2799,2795,2796...`, while native samples y=100 from logical chunk column
+  12 as tile `2795`; row `B18` keeps cloud words at columns 49..56 while native
+  still misses the far-right top-band cloud. Continue by reconstructing/rendering
+  the live 41-word `sub_307D8` Plane-B row window from `$FFFF87B2` and
+  `Horiz_Scroll_Data`, not another scroll offset, placement wrap, or header/start
+  layout change. Do not treat #345 Lion mid-level vanish as closed by this; that
+  row still needs the scroll-off/scroll-back cull probe.
 - **Gates this session**: `cargo fmt`, `mise run audit-debug-fields`, focused
   `cargo test -p wildside-cli time_frames_for_settled_warp --no-default-features`,
   fresh `verify-recording --slug issue289-level07-idle-current` (state-clean/pixel-red
-  with oracle scroll debug attached), and the rejected raw-H-scroll experiment
-  reverted after it worsened the recording.
+  with oracle scroll and Plane-B row debug attached), direct `verify-slice-fast` body
+  (`wildside-core` lib tests, `wildside-cli gameplay_regression_`, and TAS frontier),
+  and direct `cargo run -q -p wildside-cli -- backlog-lint`. The `mise` wrappers are
+  blocked in this environment by `mise` failing to install `fnox@1` for `linux-arm64`.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.

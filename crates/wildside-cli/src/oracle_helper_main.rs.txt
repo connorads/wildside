@@ -1250,11 +1250,13 @@ fn capture_state(
             );
         }
     }
-    let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     let kid_collision_type =
         read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_TYPE_OFFSET);
     let kid_collision_source =
         read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_SOURCE_OFFSET);
+    let background_plane_b_rows_debug = matches!(game_mode, 0x0008 | 0x000C | 0x0010)
+        .then(|| background_plane_b_rows_debug_loc_307d8(emulator));
+    let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     if matches!(game_mode, 0x0008 | 0x000C | 0x0010) {
         gameplay_debug_fields.insert(
             "kid_collision_type".into(),
@@ -1288,6 +1290,11 @@ fn capture_state(
         gameplay_debug_fields.insert(
             "oracle_background_scroll_loc_3050a".into(),
             background_scroll_debug_loc_3050a(&work_ram),
+        );
+        gameplay_debug_fields.insert(
+            "oracle_background_plane_b_rows_loc_307d8".into(),
+            background_plane_b_rows_debug
+                .expect("in-game background Plane-B row debug should be captured"),
         );
         let drips_object_debug = drips_object_slots_debug_loc_33488(&work_ram);
         if !drips_object_debug.is_empty() {
@@ -1711,6 +1718,32 @@ fn background_scroll_debug_loc_3050a(work_ram: &[u8]) -> String {
     format!(
         "cam={camera_x},{camera_y};time={time_frames};width={background_width};no_scroll={no_scroll};slots={slots};hbuf={scanlines}"
     )
+}
+
+fn background_plane_b_rows_debug_loc_307d8(emulator: &mut GenesisEmulator) -> String {
+    const PLANE_B_BASE_LOC_307D8: usize = 0xE000;
+    const PLANE_WIDTH_CELLS: usize = 64;
+    const ROWS: [usize; 6] = [8, 18, 27, 29, 30, 31];
+
+    // ASM sub_30744/sub_307D8 (kid.asm:34563/34625) incrementally write
+    // chunked background tile words into the hardware Plane-B nametable.
+    // Dump the rows touched by the current #289 cloud/ocean sample bands so
+    // render investigation can compare row contents separately from H-scroll.
+    let vram = emulator.debug().memory_view(GenesisMemoryArea::Vram);
+    ROWS
+        .into_iter()
+        .map(|row| {
+            let words = (0..PLANE_WIDTH_CELLS)
+                .map(|col| {
+                    let cell_offset = PLANE_B_BASE_LOC_307D8 + (row * PLANE_WIDTH_CELLS + col) * 2;
+                    format!("{:04X}", read_rom_u16(&*vram, cell_offset))
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("B{row:02}={words}")
+        })
+        .collect::<Vec<_>>()
+        .join(";")
 }
 
 fn layout_index_from_ptr(

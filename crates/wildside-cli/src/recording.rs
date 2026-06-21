@@ -1409,6 +1409,7 @@ fn attach_oracle_gameplay_debug_fields(
                     || field.as_str() == "kid_collision_source"
                     || field.as_str() == "kid_collision_type"
                     || field.as_str() == "oracle_background_scroll_loc_3050a"
+                    || field.as_str() == "oracle_background_plane_b_rows_loc_307d8"
             })
             .map(|(field, value)| (field.clone(), value.clone()))
             .collect();

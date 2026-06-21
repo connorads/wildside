@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 Plane-B row probe)
+
+- **#289 stays `[~]`; instrumentation now exports selected oracle Plane-B nametable rows after `sub_30744`/`sub_307D8`.** Fresh `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60 `7070` / MAE `6.987421` and frame 71 `7341` / `7.302334`, but the row dump proves the residual is live hardware row state: frame-60 `B29` starts with four blank cells then `2799,2795,2796...`, while native samples y=100 from direct logical chunk column 12 as tile `2795`; `B18` also has cloud words at columns 49..56 while native misses the far-right top band.
+- **NEXT**: render/reconstruct chunked backgrounds through the ROM's 41-word `sub_307D8` row window from `$FFFF87B2` plus `Horiz_Scroll_Data`. Do not retry scroll offsets or stateless placement wrapping; the scroll probe already shows y=100 H-scroll matches (`FEDCFFDC`), and prior stateless wrap/raw-scroll experiments worsened the recording. Verification passed via the direct `verify-slice-fast` body because the `mise` wrapper is blocked here by missing `fnox@1` linux-arm64 assets.
+
+---
+
 ## 2026-06-21 handoff (#289 oracle scroll probe)
 
 - **#289 stays `[~]`; instrumentation now exports oracle `BackgroundScroll_ComputeShiftData`/`ComputeShiftLayers` RAM for the Level 0x07 recording.** Fresh `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60 `7070` / MAE `6.987421` and frame 71 `7341` / `7.302334`, but `oracle_background_scroll_loc_3050a` shows `hbuf[100]=FEDCFFDC` on both frames, matching native's -36 row-29 scroll. The dominant y=100 ocean mismatch is therefore actual Plane-B row/name-table contents, not H-scroll phase.

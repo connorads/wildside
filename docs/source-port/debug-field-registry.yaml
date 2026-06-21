@@ -304,6 +304,15 @@
       "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed per-row scroll/Plane-B state."
     },
     {
+      "key": "oracle_background_plane_b_rows_loc_307d8",
+      "scope": "frame",
+      "status": "candidate",
+      "owner": "issue-289-level07-background",
+      "first_added_commit": "pending",
+      "intended_meaning": "Oracle VDP Plane-B nametable words for selected rows covering the Level 0x07 #289 cloud/ocean sample bands after sub_30744/sub_307D8 background uploads.",
+      "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed Plane-B row contents."
+    },
+    {
       "key": "pending_prize_diamond_awards",
       "scope": "frame",
       "status": "exploratory",
