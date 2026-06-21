@@ -7,11 +7,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
-## 2026-06-21 handoff (#289 negative-y sub_307D8 model)
+## 2026-06-21 handoff (#289 loc_2FFE8 preload model)
 
-- **#289 stays `[~]`; shared `background_row_uploads_sub_307D8` now accepts the `loc_2FFE8` negative-y preload case.** ASM `loc_2FFE8` sweeps `Camera_Y_pos` below zero before calling `sub_307D8`; the helper now permits negative camera rows when the biased streamed row is non-negative.
-- Regression `background_row_uploads_sub_307d8_accepts_loc_2ffe8_negative_preload_camera_y` covers the B18-shaped case (`Camera_Y_pos=-317`, previous chunk `-11`, streamed row 18, selector `$08`, source column 6, VDP word `$690A`) and maps the 41-cell strip to `$2781..$27A9`. This is model/test groundwork only; native rendering is unchanged until persisted Plane-B nametable state consumes it. **NEXT**: build the persisted Plane-B/source-history model on the typed helper instead of another renderer-local stateless preload.
-- Verification: `cargo fmt --check --all`, backlog lint, focused `cargo test -q -p wildside-data background_row_uploads_sub_307d8_accepts_loc_2ffe8_negative_preload_camera_y`, `cargo check -q -p wildside-data`, and `cargo test -q -p wildside-data --lib`.
+- **#289 stays `[~]`; data now has a pure `background_preload_row_uploads_loc_2FFE8` model for the ROM preload sweep.** ASM `loc_2FFE8` sweeps `Camera_Y_pos` below zero before restoring the real camera and calling into gameplay; the model replays the second preload loop through shared `background_row_uploads_sub_307D8`, including the raw `$FFFFFAA8 = Camera_Y_pos-$3A0` seed before per-pass row-chunk latching.
+- Regressions cover both the direct B18-shaped negative-y `sub_307D8` case (`Camera_Y_pos=-317`, previous chunk `-11`, streamed row 18, selector `$08`, source column 6, VDP word `$690A`) and the full `loc_2FFE8` sweep from `Camera_Y_pos=547`. The expected 41-cell strip maps to `$2781..$27A9`. This is model/test groundwork only; native rendering is unchanged until persisted Plane-B nametable state consumes it. **NEXT**: build the persisted Plane-B/source-history model on this typed helper instead of another renderer-local stateless preload.
+- Verification: `cargo fmt --check --all`, backlog lint, focused `cargo test -q -p wildside-data background_row_uploads_sub_307d8_accepts_loc_2ffe8_negative_preload_camera_y`, focused `cargo test -q -p wildside-data background_preload_row_uploads_loc_2ffe8_sweeps_negative_rows_before_restore`, `cargo check -q -p wildside-data`, and `cargo test -q -p wildside-data --lib`.
 
 ---
 

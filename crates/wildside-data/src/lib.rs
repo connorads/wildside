@@ -3946,6 +3946,51 @@ pub fn background_row_uploads_sub_307D8(
 }
 
 #[allow(non_snake_case)]
+pub fn background_preload_row_uploads_loc_2FFE8(
+    camera_y_pos: i16,
+    level_height_pixels: i16,
+    background_width: u16,
+    background_row_offsets: &[u16],
+    bgscroll_profile: &[u8],
+    horiz_scroll_entries: &[BackgroundScrollStateSub30744],
+    background_chunk_buffer: &[u8],
+) -> Result<Vec<BackgroundRowUploadSegmentSub307D8>> {
+    // ASM loc_2FFE8 (kid.asm:33592): before restoring the real camera Y, the
+    // level-load preload sweeps a synthetic Camera_Y_pos upward in 32px steps
+    // and calls sub_307D8 for each row. `$FFFFFAA8` is first seeded with the
+    // raw `Camera_Y_pos-$3A0` word; sub_307D8 then overwrites it with the
+    // shifted row chunk after the first compare.
+    let mut pass_count = 0x001C_i16;
+    if camera_y_pos.wrapping_add(0x00E0) >= level_height_pixels {
+        pass_count = pass_count.wrapping_sub(1);
+    }
+
+    let mut preload_camera_y = camera_y_pos.wrapping_sub(0x0380);
+    let mut previous_camera_row_latch = camera_y_pos.wrapping_sub(0x03A0);
+    if preload_camera_y != i16::from_be_bytes([0xFC, 0x80]) {
+        preload_camera_y = preload_camera_y.wrapping_sub(0x0040);
+        pass_count = pass_count.wrapping_add(2);
+    }
+
+    let mut uploads = Vec::new();
+    for _ in 0..=pass_count {
+        uploads.extend(background_row_uploads_sub_307D8(
+            preload_camera_y,
+            previous_camera_row_latch,
+            background_width,
+            background_row_offsets,
+            bgscroll_profile,
+            horiz_scroll_entries,
+            background_chunk_buffer,
+        )?);
+        previous_camera_row_latch = preload_camera_y >> 5;
+        preload_camera_y = preload_camera_y.wrapping_add(0x0020);
+    }
+
+    Ok(uploads)
+}
+
+#[allow(non_snake_case)]
 pub fn level_plane_scroll_update_plan_sub_30194(
     inputs: LevelPlaneScrollUpdateInputsSub30194<'_>,
 ) -> Result<LevelPlaneScrollUpdatePlanSub30194> {
@@ -9437,7 +9482,7 @@ PlatformScript_3F7E:   ; relative offset: 097C
         {
             *byte = u8::try_from(index + 1).expect("row payload should fit into u8");
         }
-        let mut bgscroll_profile = vec![0x10; 50];
+        let mut bgscroll_profile = vec![0xFF; 50];
         bgscroll_profile[18] = 0x08;
 
         let uploads = background_row_uploads_sub_307D8(
@@ -9470,6 +9515,51 @@ PlatformScript_3F7E:   ; relative offset: 097C
                 background_chunk_ids: (1u8..=41).collect(),
             }],
             "ASM loc_2FFE8 seeds Camera_Y_pos below zero, but sub_307D8 still streams current+#$1C when that biased row is non-negative",
+        );
+    }
+
+    #[test]
+    fn background_preload_row_uploads_loc_2ffe8_sweeps_negative_rows_before_restore() {
+        let background_width = 70;
+        let mut background_chunk_buffer = vec![0u8; 50 * background_width];
+        for (index, byte) in background_chunk_buffer
+            [18 * background_width + 6..18 * background_width + 47]
+            .iter_mut()
+            .enumerate()
+        {
+            *byte = u8::try_from(index + 1).expect("row payload should fit into u8");
+        }
+        let mut bgscroll_profile = vec![0xFF; 50];
+        bgscroll_profile[18] = 0x08;
+
+        let uploads = background_preload_row_uploads_loc_2FFE8(
+            547,
+            896,
+            background_width as u16,
+            &(0..50)
+                .map(|row| u16::try_from(row * background_width).unwrap_or(0))
+                .collect::<Vec<_>>(),
+            &bgscroll_profile,
+            &[
+                BackgroundScrollStateSub30744 {
+                    background_buffer_column: Some(0),
+                    vram_word_offset: 0,
+                },
+                BackgroundScrollStateSub30744 {
+                    background_buffer_column: Some(6),
+                    vram_word_offset: 10,
+                },
+            ],
+            &background_chunk_buffer,
+        )
+        .expect("ASM loc_2FFE8 preload sweep should accept a valid background model");
+
+        assert!(
+            uploads.iter().any(|upload| {
+                upload.vram_word_address == 0x690A
+                    && upload.background_chunk_ids == (1u8..=41).collect::<Vec<_>>()
+            }),
+            "ASM loc_2FFE8 should reach the negative Camera_Y_pos=-317 pass and stream row 18 through sub_307D8 before restoring the real camera",
         );
     }
 
