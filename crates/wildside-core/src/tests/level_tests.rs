@@ -28581,6 +28581,7 @@ mod chunk_10 {
         let chunk = &[0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09];
         let in_bounds = crate::level::background_chunk_row_loop_loc_12884(
             3,  // chunk width
+            3,  // chunk height
             10, // start_x
             5,  // start_y
             80, // background_width
@@ -28594,6 +28595,7 @@ mod chunk_10 {
 
         let short_source = crate::level::background_chunk_row_loop_loc_12884(
             3,  // chunk width
+            3,  // chunk height
             10, // start_x
             5,  // start_y
             80, // background_width
@@ -28608,6 +28610,7 @@ mod chunk_10 {
         // 2x2 chunk partially outside left/top of background
         let partial_left_top = crate::level::background_chunk_row_loop_loc_12884(
             2,  // chunk width
+            2,  // chunk height
             -1, // start_x (one column left of buffer)
             -1, // start_y (one row above buffer)
             80, // background_width
@@ -28622,6 +28625,7 @@ mod chunk_10 {
         // 2x2 chunk partially outside right/bottom of background
         let partial_right_bottom = crate::level::background_chunk_row_loop_loc_12884(
             2,  // chunk width
+            2,  // chunk height
             79, // start_x (one column before right edge)
             27, // start_y (one row before bottom)
             80, // background_width
@@ -28636,6 +28640,7 @@ mod chunk_10 {
         // 2x2 chunk completely outside background (top-left)
         let outside_top_left = crate::level::background_chunk_row_loop_loc_12884(
             2,   // chunk width
+            2,   // chunk height
             -10, // start_x (far left of buffer)
             -10, // start_y (far above buffer)
             80,  // background_width
@@ -28650,6 +28655,7 @@ mod chunk_10 {
         // 2x2 chunk completely outside background (bottom-right)
         let outside_bottom_right = crate::level::background_chunk_row_loop_loc_12884(
             2,  // chunk width
+            2,  // chunk height
             80, // start_x (at right edge)
             28, // start_y (at bottom edge)
             80, // background_width
@@ -28659,6 +28665,20 @@ mod chunk_10 {
         assert_eq!(
             outside_bottom_right.tiles_copied, 0,
             "ASM loc_1288A: x == background_width is out of bounds (bge condition)"
+        );
+
+        let rectangular = crate::level::background_chunk_row_loop_loc_12884(
+            2, // chunk width
+            3, // chunk height
+            0, // start_x
+            0, // start_y
+            80,
+            28,
+            &[0x01, 0x02, 0x03, 0x04, 0x05, 0x06],
+        );
+        assert_eq!(
+            rectangular.tiles_copied, 6,
+            "ASM loc_1285C loads chunk height into d3, so loc_12884 must copy three rows for a 2x3 chunk"
         );
     }
 

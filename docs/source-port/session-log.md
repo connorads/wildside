@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 loc_12884 model correction)
+
+- **#289 stays `[~]`; fixed a narrow ASM model blind spot found while reading `Load_BackgroundChunk`.** `background_chunk_row_loop_loc_12884` now uses the separate chunk-height row counter (`d3` from ASM `loc_1285C`) instead of copying `chunk_width` rows by accident; a 2x3 regression covers the old square-chunk-only gap.
+- This is model/test-only and does not affect the current native-player render residual. Fresh `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. **NEXT**: continue the previous `Load_InGame` / live `$87B2` construction investigation before replaying Plane-B writes; do not treat the helper correction as the runtime fix.
+
+---
+
 ## 2026-06-21 handoff (#289 pre-target source-buffer phase)
 
 - **#289 stays `[~]`; oracle settle trace now samples the fixed `$87B2` target source window across the warp/title-card path.** The stale B18 source bytes are absent through `title_wait` step 41, then appear at step 42 as `8C9E[28..38]=00..00,01,02,03,04,05,06,07,08` while `Game_Mode=$000C`, `Current_LevelID=$0007`, and `Background_width=$46`.

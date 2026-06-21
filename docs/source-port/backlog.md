@@ -63,17 +63,20 @@ and stop — never commit churn.
   pre-target phase trace now narrows the owner to `Load_InGame`: `$8C9E[$31..]`
   is still zero through `title_wait` step 41, then becomes `01..08` at step 42
   while `Game_Mode=$000C`, `Current_LevelID=$0007`, and `Background_width=$46`.
+  The shared `background_chunk_row_loop_loc_12884` helper now models ASM
+  `loc_1285C`/`loc_12884` with a distinct chunk-height row count; this fixes a
+  test/model-only square-chunk blind spot but does not change the current
+  native-player residual.
   Next pass should capture the exact writer/order inside target-level `Load_InGame`
   or model the ROM's live `$87B2` buffer construction before replaying Plane-B
   writes.
-- **Gates this session**: no gameplay code kept; oracle/helper instrumentation
-  only. Verified `cargo fmt --all`, focused
-  `cargo test -q -p wildside-cli oracle_manifest_deserialises_hidden_settle_trace_rows`,
-  `cargo check -q -p wildside-cli`, refreshed oracle settle CSV with source-window
-  and pre-target phase bytes, and expected-red
-  `issue289-level07-idle-current` (`trace_match=true`,
+- **Gates this session**: kept the narrow `loc_12884` model/test correction; no
+  native-player/runtime rendering fix. Verified `cargo fmt --all`, focused
+  `cargo test -q -p wildside-core loc_12884_and_loc_1288a_copy_chunk_tiles_within_bounds`,
+  `cargo check -q -p wildside-core`, `cargo run -q -p wildside-cli -- backlog-lint`,
+  `git diff --check`, and expected-red `issue289-level07-idle-current` (`trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
-  `5.6536646`, frame 71 `5212` / `5.8645835`). Direct `backlog-lint` is green.
+  `5.6536646`, frame 71 `5212` / `5.8645835`).
   The `mise` wrappers remain blocked
   in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
   use direct cargo/CLI commands for code verification.

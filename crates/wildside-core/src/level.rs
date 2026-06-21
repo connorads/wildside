@@ -7294,6 +7294,7 @@ pub(crate) struct BackgroundChunkCopyLoc12884 {
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_chunk_row_loop_loc_12884(
     chunk_width: u16,
+    chunk_height: u16,
     start_x: i16,
     start_y: i16,
     background_width: u16,
@@ -7306,10 +7307,11 @@ pub(crate) fn background_chunk_row_loop_loc_12884(
     //   move.l  a2,a4           ; a4 = current row start in bg buffer
     //   move.w  d7,d5           ; d5 = x position (starting column)
     // Falls through to loc_1288A for inner column loop.
+    // `d3` remains the outer row counter loaded from the chunk header at loc_1285C.
     // Each row: copy `chunk_width` tiles with bounds checking, advance to next row.
     let mut tiles_copied = 0usize;
     let mut tile_index = 0usize;
-    for y_offset in 0..chunk_width {
+    for y_offset in 0..chunk_height {
         let y = start_y + y_offset as i16;
         for x_offset in 0..chunk_width {
             if tile_index >= chunk_tiles.len() {
