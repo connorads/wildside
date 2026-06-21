@@ -316,6 +316,30 @@ pub fn bk2_to_scenario(import: &Bk2Import, checkpoint_interval: usize) -> Dynami
 /// Optionally slices the scenario to `[frame_start, frame_end)` for iterative
 /// debugging. When `checkpoint_interval` is provided, regenerates checkpoints
 /// within the slice rather than using the scenario's original checkpoints.
+/// Issue #7: verify-tas is meant to be the authoritative fidelity gate, which
+/// cold-boots — reaching the level by replayed input from power-on, exactly
+/// like the published TAS (`warp_to_level: None`). A warped scenario is a
+/// synthetic spawn whose initial conditions (RNG, enemy/Murderwall ticks,
+/// camera) differ from the ROM's cold-boot arrival, so a "pass" proves
+/// self-consistency, not cold-boot fidelity. The idle sweep warps legitimately
+/// because it is a self-consistency check (issue #26).
+///
+/// Returns an advisory message (for the caller to surface) when the scenario
+/// warps; `None` for cold-boot. It stays advisory rather than rejecting because
+/// committed frontier regression probes legitimately auto-boot (e.g.
+/// `issue305_pause_give_up_last_life_probe`, `warp_to_level: 0`), so a hard
+/// reject would turn the green frontier gate red. Whether the authoritative
+/// gate should hard-reject warps is issue #7 itself (needs-decision).
+fn cold_boot_advisory(scenario: &DynamicScenario) -> Option<String> {
+    scenario.warp_to_level.map(|level| {
+        format!(
+            "verify-tas: scenario warps (warp_to_level={level:#x}), so this is a \
+             self-consistency run, NOT an authoritative cold-boot verification — a pass \
+             does not prove cold-boot fidelity (issue #7)"
+        )
+    })
+}
+
 pub fn verify_tas(
     repo_root: &std::path::Path,
     rom_path: &std::path::Path,
@@ -330,6 +354,10 @@ pub fn verify_tas(
         .with_context(|| format!("failed to read {}", scenario_path.display()))?;
     let mut scenario: DynamicScenario =
         serde_json::from_str(&scenario_json).context("invalid scenario JSON")?;
+
+    if let Some(advisory) = cold_boot_advisory(&scenario) {
+        eprintln!("warning: {advisory}");
+    }
 
     // Slice the scenario if requested
     let start = frame_start.unwrap_or(0);
@@ -1333,6 +1361,39 @@ mod tests {
                 "frame_999"
             ]
         );
+    }
+
+    #[test]
+    fn cold_boot_scenario_has_no_verify_tas_advisory() {
+        // The published-TAS shape (warp_to_level: None) is authoritative. #7.
+        let import = Bk2Import {
+            slug: "cold_boot".into(),
+            total_frames: 100,
+            script: vec![0; 100],
+        };
+        let scenario = bk2_to_scenario(&import, 300);
+        assert!(scenario.warp_to_level.is_none());
+        assert!(cold_boot_advisory(&scenario).is_none());
+    }
+
+    #[test]
+    fn warped_scenario_emits_verify_tas_advisory() {
+        // A synthetic warp is flagged non-authoritative (advisory, not an error
+        // — committed warped probes run through this gate). #7.
+        let import = Bk2Import {
+            slug: "warped".into(),
+            total_frames: 100,
+            script: vec![0; 100],
+        };
+        let mut scenario = bk2_to_scenario(&import, 300);
+        scenario.warp_to_level = Some(0x03);
+        let advisory = cold_boot_advisory(&scenario)
+            .expect("warped scenario must emit a non-authoritative advisory");
+        assert!(
+            advisory.contains("warp_to_level"),
+            "message was: {advisory}"
+        );
+        assert!(advisory.contains("issue #7"), "message was: {advisory}");
     }
 
     #[test]
