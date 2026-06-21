@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 damage flash narrowed)
+
+- **#289 stays `[~]`; the Level 0x07 state-clean/pixel-red recording now has Kid's damage flash matched.** Native-player keys the white phase from `Just_received_damage` plus the trace-sampled `64 - invulnerable_frames` phase, matching `kid.asm loc_BC56` / `sub_80BC` at frames 60 and 71. Fresh `issue289-level07-idle-current` remains `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`, but improves from frame 60 `7703` changed / MAE `8.285068` to `7277` / `7.258966`, and frame 71 `7928` / `8.547601` to `7502` / `7.521498`.
+- **NEXT**: continue #289 from the remaining background/ocean/cloud colour/scroll residual, not player flash or projectile trajectory. A local experiment applying layered-style horizontal wrapping to chunked Plane-B rows worsened the recording to frame 60 `7752` / MAE `7.8057895` and frame 71 `7993` / `8.071968`, with new top-row cloud errors; inspect actual chunked scroll phase, VDP samples, `Horiz_Scroll_Data`, or row byte mapping before another render patch. Verification this session: `cargo fmt`, `cargo test -p wildside-cli loc_bc`, fresh `verify-recording --slug issue289-level07-idle-current` (state-clean/pixel-red, improved), and `mise run verify-slice-fast`. #345 Lion vanish remains separate.
+
+---
+
 ## 2026-06-21 handoff (#289 Lion projectile DBF loop narrowed)
 
 - **#289 stays `[~]`, with the Level 0x07 Lion projectile post-wall arc fixed down to a near-pixel residual.** Native now stores the `Lion.asm loc_3E2A8`/`loc_3E2C0` DBF bounce-loop budget, suppresses homing while the loop is active, decrements only empty checks, and preserves the budget across terrain-hit frames. Fresh `issue289-level07-idle-current` remains `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`, but the projectile lead is mostly exhausted: frame 60 native `(427,648)` vs oracle `(427,649)`, frame 71 native `(488,638)` vs oracle `(488,639)`.

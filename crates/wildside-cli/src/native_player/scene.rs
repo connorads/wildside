@@ -549,6 +549,19 @@ impl LayerFilter {
     }
 }
 
+fn player_damage_flash_white_phase_loc_bc56(trace: &NativeTraceFrame) -> bool {
+    if !trace.just_received_damage || trace.invulnerable_frames == 0 {
+        return false;
+    }
+    // ASM loc_BC56 starts each damage-flash cycle by calling sub_80BC, then
+    // loc_BC5C holds the white palette for two hibernated frames before
+    // loc_BC6E restores the normal palette for four frames. Native traces
+    // sample the countdown after the live damage shell has entered that
+    // visible body, so the rendered phase is keyed from 64 remaining frames
+    // rather than the full 66-frame latch duration.
+    (64usize.saturating_sub(trace.invulnerable_frames) % 6) < 2
+}
+
 pub(crate) fn eol_score_sprite_diagnostics(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
@@ -4407,13 +4420,7 @@ fn build_game_scene_filtered(
             // engine's `advance_death_windup_motion` (combat.rs:8801).
             // The renderer must NOT add its own offset on top — that was
             // user-reported playtest bug #148 (incorrect dying animation).
-            // PLAYER_DAMAGE_INVULNERABLE_FRAMES = 66; elapsed counts up from
-            // 0 to 65 across the cycle. Every six-frame slot is 2 frames of
-            // white + 4 frames of normal, matching ASM `loc_BC56` (d2=1 → 2
-            // hibernate frames white) and `loc_BC6E` (d2=3 → 4 hibernate
-            // frames normal).
-            let damage_flash_white_phase = trace.invulnerable_frames > 0
-                && (66usize.saturating_sub(trace.invulnerable_frames) % 6) < 2;
+            let damage_flash_white_phase = player_damage_flash_white_phase_loc_bc56(trace);
             let priority_override =
                 if trace.level_complete && trace.level_complete_elapsed_frames == 0 {
                     // ASM CharacterCollision_TouchFlagpole loc_C070 keeps the

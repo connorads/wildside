@@ -15258,6 +15258,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.frame_index = frame_index;
         trace.invulnerable_frames = invulnerable_frames;
+        trace.just_received_damage = invulnerable_frames > 0;
         trace.kid_x_velocity = Some(0);
         trace.kid_y_velocity = Some(0);
         trace.kid_facing = Some(Direction::Right);
@@ -17704,7 +17705,7 @@ mod tests {
             "damage flash should use the player sprite palette, not an overlay rectangle"
         );
 
-        let normal_phase = trace_with_player(4, 64);
+        let normal_phase = trace_with_player(4, 62);
         let normal_scene = build_ingame_scene(&normal_phase, false, None);
         assert!(scene_has_player_sprite(&normal_scene));
         let normal_palette = player_sprite_palette(&normal_scene).expect("player sprite palette");
@@ -17717,6 +17718,23 @@ mod tests {
         assert!(scene_has_player_sprite(&build_ingame_scene(
             &no_damage, false, None
         )));
+    }
+
+    #[test]
+    fn loc_bc56_damage_flash_mid_cycle_matches_issue289_oracle_samples() {
+        let white = MdColour::from_word(0x0FFF);
+        for remaining in [33, 22] {
+            let scene = build_ingame_scene(&trace_with_player(60, remaining), false, None);
+            let player_palette = player_sprite_palette(&scene).expect("player sprite palette");
+            assert!(
+                player_palette
+                    .colours
+                    .iter()
+                    .take(12)
+                    .all(|colour| *colour == white),
+                "ASM loc_BC56/sub_80BC should render the #289 damage-flash samples white when native trace has {remaining} invulnerability frames remaining"
+            );
+        }
     }
 
     #[test]
