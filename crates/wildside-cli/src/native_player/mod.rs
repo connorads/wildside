@@ -9703,21 +9703,76 @@ mod tests {
         assert_eq!(included.tile_index, 0);
         assert_eq!(included.palette_line, 1);
 
-        let replayed = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 317, 0)
-            .expect("visible sub_30744 writes should refresh VDP column 45");
+        let row =
+            super::scene::chunked_plane_b_row_words_for_trace_loc_30744(&trace, &visuals, 0, 0)
+                .expect("chunked Plane-B row history");
         assert_eq!(
-            replayed.palette_line, 1,
-            "ASM loc_2FFE8 preloads `$08` chunked rows at entry Time_Frames=114 for this trace, then loc_3039C calls sub_30744 every visible frame; by Time_Frames=174 the changed-column writes have refreshed VDP column 45 from `$2780` cells"
+            row[45],
+            Some((0, 0)),
+            "ASM BackgroundScroll_ComputeShiftData loc_30452, not loc_3050A display scroll, feeds sub_30744; for `$08` row Time_Frames 114..174 with camera x=0, VDP column 45 is outside both the loc_2FFE8 preload span and the loc_30452 tile-crossing writes"
         );
-        assert_eq!(replayed.rgb, [27, 57, 107]);
+        assert_eq!(
+            row[48],
+            Some((0, 1)),
+            "ASM loc_30452/sub_304B4 crosses `$08` tile column 8 at Time_Frames 128 and writes the far-edge column 48 through sub_30744/loc_307B2"
+        );
+    }
 
-        let stale = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 325, 0)
-            .expect("old Plane-B cell should remain outside the replayed changed columns");
+    #[test]
+    fn chunked_settled_row_history_replays_loc_30452_columns_into_alias_source_loc_30744() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 60;
+        trace.time_frames_loc_3038a = 174;
+        trace.level_skip_cheat_enabled = 1;
+        trace.camera_x_pos = 292 << 16;
+        trace.camera_y_pos = 0;
+
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 8;
+        visuals.level.foreground_layout_bytes = vec![0; 80 * 14];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 4, 1)
+                .expect("wide foreground layout");
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x08; 32],
+            has_terminator: true,
+        });
+        visuals.level.background_layout_alias = Some(BackgroundLayoutAlias {
+            alias_label: "BackgroundLayout_0E".to_string(),
+            source_label: "BackgroundLayout_0C".to_string(),
+            source_background_path: Some("background/0C.bin".to_string()),
+            x_offset_tiles: 0x13,
+            y_offset_tiles: 0,
+        });
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0x13 + 49,
+                y_tiles: 18,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 8,
+                height_tiles: 1,
+                tiles: (1..=8)
+                    .map(|tile_index| BackgroundTile {
+                        tile_index,
+                        flip_x: false,
+                    })
+                    .collect(),
+            }],
+        });
+
+        let row =
+            super::scene::chunked_plane_b_row_words_for_trace_loc_30744(&trace, &visuals, 292, 18)
+                .expect("settled chunked Plane-B row history");
+        let cloud_tail: Vec<u16> = (49..=55)
+            .map(|column| row[column].expect("column should be populated").0)
+            .collect();
         assert_eq!(
-            stale.palette_line, 0,
-            "sub_30744 only writes tile-column crossings after preload; VDP column 46 is still outside the `$08` preload span and the elapsed changed-column writes"
+            cloud_tail,
+            vec![1, 2, 3, 4, 5, 6, 7],
+            "ASM loc_74E0's hidden settled recording window starts 60 live frames before scenario frame 0; loc_30452/sub_304B4 then feeds sub_30744 with `$08` source/VDP columns 49..55 by Time_Frames 174, consuming the loc_12824 alias-adjusted `$87B2` source row"
         );
-        assert_eq!(stale.rgb, [12, 42, 92]);
     }
 
     #[test]

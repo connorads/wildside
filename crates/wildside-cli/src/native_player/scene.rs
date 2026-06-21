@@ -63,6 +63,7 @@ const BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E: [(i16, i16); 5] =
     [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)];
 const PLANE_B_ROW_CELLS_LOC_11B7A: usize = 0x40;
 const CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744: usize = 0x2A;
+const RECORDING_SETTLED_WARP_LIVE_FRAMES_LOC_74E0: usize = 60;
 const LAVA_GEYSER_TOP_TEMPLATE_UNK_14624: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 2] = [
     wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
         x_offset_px: 0x0001,
@@ -2309,7 +2310,6 @@ impl ChunkedBackgroundSourceLoc12848 {
         Self::from_background_with_offsets_loc_12824_12830(level_visuals, background, 0, 0)
     }
 
-    #[cfg(test)]
     pub(super) fn from_background_alias_loc_12824(
         level_visuals: &NativeLevelVisuals,
         background: &wildside_render::ChunkedBackgroundVisuals,
@@ -2466,12 +2466,12 @@ impl ChunkedPlaneBRowHistoryLoc30744 {
     fn apply_changed_column_loc_30744(
         &mut self,
         source_buffer: &ChunkedBackgroundSourceLoc12848,
-        previous_scroll_x_px: i32,
-        current_scroll_x_px: i32,
+        previous_scroll_word: u16,
+        current_scroll_word: u16,
         row: usize,
     ) {
-        let previous_tile_column = previous_scroll_x_px.div_euclid(8);
-        let current_tile_column = current_scroll_x_px.div_euclid(8);
+        let previous_tile_column = previous_scroll_word >> 3;
+        let current_tile_column = current_scroll_word >> 3;
         if previous_tile_column == current_tile_column {
             return;
         }
@@ -2480,9 +2480,9 @@ impl ChunkedPlaneBRowHistoryLoc30744 {
         // `Horiz_Scroll_Data`, then sub_30744/loc_307B2 streams that single
         // mapping word into Plane B before the conditional sub_307D8 row span.
         let source_column_seed = if previous_tile_column > current_tile_column {
-            current_tile_column
+            i32::from(current_tile_column)
         } else {
-            current_tile_column + 0x28
+            i32::from(current_tile_column) + 0x28
         };
         let source =
             source_column_seed.rem_euclid(i32::try_from(source_buffer.width).unwrap_or(1)) as usize;
@@ -2496,6 +2496,7 @@ impl ChunkedPlaneBRowHistoryLoc30744 {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ChunkedPlaneBRowsLoc307D8 {
     source: ChunkedBackgroundSourceLoc12848,
+    alias_source_loc_12824: Option<ChunkedBackgroundSourceLoc12848>,
 }
 
 impl ChunkedPlaneBRowsLoc307D8 {
@@ -2507,7 +2508,15 @@ impl ChunkedPlaneBRowsLoc307D8 {
             level_visuals,
             background,
         )?;
-        Some(Self { source })
+        let alias_source_loc_12824 =
+            ChunkedBackgroundSourceLoc12848::from_background_alias_loc_12824(
+                level_visuals,
+                background,
+            );
+        Some(Self {
+            source,
+            alias_source_loc_12824,
+        })
     }
 
     fn row_for_trace(
@@ -2538,15 +2547,29 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let mut history = ChunkedPlaneBRowHistoryLoc30744::from_old_plane_b_row_loc_307d8(row);
         history.apply_row_upload_loc_307d8(&self.source, row, destination_column, source_column);
 
+        let changed_column_source = self.source_buffer_for_trace_loc_12824(trace);
         self.apply_elapsed_column_writes_loc_30744(
             &mut history,
             trace,
             camera_x_px,
             layer_speed,
             row,
+            changed_column_source,
         );
 
         Some(history.cells)
+    }
+
+    fn source_buffer_for_trace_loc_12824(
+        &self,
+        trace: &NativeTraceFrame,
+    ) -> &ChunkedBackgroundSourceLoc12848 {
+        if trace.level_skip_cheat_enabled != 0 {
+            if let Some(source) = self.alias_source_loc_12824.as_ref() {
+                return source;
+            }
+        }
+        &self.source
     }
 
     fn apply_elapsed_column_writes_loc_30744(
@@ -2556,6 +2579,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         camera_x_px: i32,
         layer_speed: u8,
         row: usize,
+        source_buffer: &ChunkedBackgroundSourceLoc12848,
     ) {
         let current_time_frames = background_time_frames_for_trace_loc_3050a(trace);
         let preload_time_frames = current_time_frames.saturating_sub(trace.frame_index);
@@ -2563,19 +2587,18 @@ impl ChunkedPlaneBRowsLoc307D8 {
             return;
         }
 
-        let mut previous_scroll = background_scroll_x_px_unwrapped_for_time_loc_3050a(
-            preload_time_frames,
-            camera_x_px,
-            layer_speed,
-        );
-        for time_frames in preload_time_frames.saturating_add(1)..=current_time_frames {
-            let current_scroll = background_scroll_x_px_unwrapped_for_time_loc_3050a(
-                time_frames,
-                camera_x_px,
-                layer_speed,
-            );
+        let first_time_frames = if trace.level_skip_cheat_enabled != 0 {
+            preload_time_frames.saturating_sub(RECORDING_SETTLED_WARP_LIVE_FRAMES_LOC_74E0)
+        } else {
+            preload_time_frames
+        };
+        let mut previous_scroll =
+            background_scroll_data_word_loc_30452(first_time_frames, camera_x_px, layer_speed);
+        for time_frames in first_time_frames.saturating_add(1)..=current_time_frames {
+            let current_scroll =
+                background_scroll_data_word_loc_30452(time_frames, camera_x_px, layer_speed);
             history.apply_changed_column_loc_30744(
-                &self.source,
+                source_buffer,
                 previous_scroll,
                 current_scroll,
                 row,
@@ -2583,6 +2606,46 @@ impl ChunkedPlaneBRowsLoc307D8 {
             previous_scroll = current_scroll;
         }
     }
+}
+
+#[cfg(test)]
+pub(super) fn chunked_plane_b_row_words_for_trace_loc_30744(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    camera_x_px: i32,
+    row: usize,
+) -> Option<Vec<Option<(u16, u8)>>> {
+    let wildside_render::BackgroundVisuals::Chunked(background) = &level_visuals.background else {
+        return None;
+    };
+    let plane_b = ChunkedPlaneBRowsLoc307D8::from_background(level_visuals, background)?;
+    plane_b
+        .row_for_trace(trace, level_visuals, camera_x_px, row)
+        .map(|cells| {
+            cells
+                .into_iter()
+                .map(|cell| cell.map(|cell| (cell.tile_ref.tile_index, cell.tile_ref.palette_line)))
+                .collect()
+        })
+}
+
+pub(super) fn background_scroll_data_word_loc_30452(
+    time_frames: usize,
+    camera_x_px: i32,
+    layer_speed: u8,
+) -> u16 {
+    let camera_column = (camera_x_px >> 3) as i16;
+    let scroll_word = match layer_speed {
+        0x00 => (time_frames as i32).wrapping_add(i32::from(camera_column)),
+        0x08 => ((time_frames as i32) >> 1).wrapping_add(i32::from(camera_column)),
+        0x10 => 0,
+        0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8) => {
+            let step = i32::from((layer_speed - 0x10) / 8);
+            camera_x_px.saturating_mul(step) / 16
+        }
+        _ => camera_x_px,
+    };
+    scroll_word as u16
 }
 
 fn chunked_background_upload_scroll_x_px_loc_2ffe8(

@@ -34,38 +34,46 @@ and stop — never commit churn.
   `loc_2FFE8` preload `Time_Frames` phase, and has a typed
   `Load_BackgroundChunk loc_12848` source-buffer primitive plus a
   `ChunkedPlaneBRowHistoryLoc30744` native-player row-state primitive. Cells
-  outside the fresh streamed span now preserve the old Plane-B `$0780` tile from
-  `loc_11F48`, instead of acting transparent; elapsed visible `sub_30744`
-  tile-column crossings after preload are also replayed into the native row
-  state. Fresh
-  `issue289-level07-idle-current` still reports `trace_match=true`,
-  `oracle_state_match=true`, `oracle_frame_match=false`, but the residual improves
-  from frame 60 `5137` changed / MAE `5.711784` and frame 71 `5260` / `5.920638`
-  to frame 60 `5080` / `5.6536646` and frame 71 `5212` / `5.8645835`.
-- **Next #289 action**: feed the typed live `$87B2` source buffer through the
-  persisted Plane-B row-history primitive across target-level `Load_InGame` /
-  `loc_2FFE8` vertical row uploads before replaying visible `sub_30744`; do not
-  apply the alias source to rendering statelessly. The latest
+  outside the fresh streamed span preserve the old Plane-B `$0780` tile from
+  `loc_11F48`; elapsed `sub_30744` tile-column crossings now use the packed
+  `BackgroundScroll_ComputeShiftData loc_30452` words instead of display
+  `loc_3050A` pixels, and settled-warp traces can replay the hidden 60 target-live
+  frames against the `loc_12824` alias source for the one-column writes only.
+  Fresh `issue289-level07-idle-current` is still unchanged at
+  `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
+  frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. A broader
+  trial that also fed full `sub_307D8` row uploads from the alias source was
+  rejected because it worsened the report to frame 60 `6359` / `5.9081984` and
+  frame 71 `6437` / `6.035942`.
+- **Next #289 action**: inspect the live native row words/provenance for the
+  remaining sampled pixels after the `loc_30452` replay. Synthetic coverage proves
+  the hidden `$08` row replay writes alias-source columns `49..55` into B18 by
+  `Time_Frames=174`, but the real #289 recording remains pixel-identical to the
+  prior baseline; determine whether the residual is now elsewhere in Plane-B row
+  state, display sampling, palette, or row selection before changing rendering
+  again. The latest
   `background_source_rows_loc_12848` settle trace proves
   `Load_InGame`/`Load_BackgroundMappings loc_12824` writes the B18 source row
   during target-level load: `$8C9E[00..45]` is all zero through `title_wait` step
   40, `8FA0` fills at step 41, then `8C9E` fills at step 42 with columns
   `49..56 = 01..08` (plus trailing non-zero bytes) while `Game_Mode=$000C`,
   `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`. Native now
-  has `ChunkedBackgroundSourceLoc12848` and a test-only `loc_12824` alias
+  has `ChunkedBackgroundSourceLoc12848` and a runtime `loc_12824` alias
   constructor showing `BackgroundLayout_0E` x-offset `$13` moves chunk bytes into
-  columns `49..56`; the runtime row-history primitive still consumes the direct
-  `loc_12830` source so rendering is unchanged. Do not retry header/start layout, simple scroll offsets,
-  placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render
-  `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
-  substitution, current-time all-row overlay, or alias-only changes.
-- **Gates this session**: refactored native-player chunked Plane-B reconstruction
-  around `ChunkedPlaneBRowHistoryLoc30744` with no intended render change. Verified
-  `cargo check -p wildside-cli`, focused native-player chunked Plane-B tests, and
-  expected-red `issue289-level07-idle-current` (`trace_match=true`,
-  `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
-  `5.6536646`, frame 71 `5212` / `5.8645835`). Full slice/TAS gates still need
-  running before landing further behaviour changes.
+  columns `49..56`; the kept runtime path applies that alias only to replayed
+  `sub_30744` changed-column writes. Do not retry header/start layout, simple
+  scroll offsets, placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count,
+  render `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
+  substitution, current-time all-row overlay, alias-only rendering, or alias-fed
+  full row uploads.
+- **Gates this session**: corrected native-player elapsed chunked Plane-B replay to
+  use `loc_30452` scroll words and added a synthetic settled-warp row-history
+  regression. Verified focused native-player chunked Plane-B tests,
+  `cargo check -p wildside-cli`, and expected-red `issue289-level07-idle-current`
+  (`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
+  frame 60 `5080` / `5.6536646`, frame 71 `5212` / `5.8645835`). Direct
+  `verify-slice-fast` body passed: TAS frontier, backlog lint, wildside-core lib
+  sweep, and wildside-cli gameplay regressions.
   The `mise` wrappers remain blocked
   in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
   use direct cargo/CLI commands for code verification.

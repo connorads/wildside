@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 loc_30452 Plane-B replay)
+
+- **#289 stays `[~]`; native-player elapsed chunked Plane-B row replay now uses `BackgroundScroll_ComputeShiftData loc_30452` words.** The replay no longer derives `sub_30744` changed columns from display `loc_3050A` pixels, and settled level-skip traces can include the 60 hidden target-live frames before scenario frame 0 against the `loc_12824` alias source for one-column writes only.
+- A synthetic Level 0x07-shaped regression proves the hidden `$08` row replay writes alias-source columns `49..55` into B18 by `Time_Frames=174`. The real `issue289-level07-idle-current` recording remains pixel-neutral at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`; alias-fed full row uploads were rejected because they worsened to `6359`/`6437` changed pixels. Direct fast-slice verification passed. **NEXT**: inspect live native row words/provenance for the remaining sampled pixels before another render change.
+
+---
+
 ## 2026-06-21 handoff (#289 Plane-B row-history primitive)
 
 - **#289 stays `[~]`; native-player chunked Plane-B reconstruction now runs through `ChunkedPlaneBRowHistoryLoc30744`.** This keeps the current direct `loc_12830` source path and produces no intended render change, but separates old `$0780` row state, the `sub_307D8` row window, and visible `sub_30744` one-column writes behind an explicit row-history object.
