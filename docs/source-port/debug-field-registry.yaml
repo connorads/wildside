@@ -308,7 +308,7 @@
       "scope": "frame",
       "status": "candidate",
       "owner": "issue-289-level07-background",
-      "first_added_commit": "pending",
+      "first_added_commit": "f520ba215",
       "intended_meaning": "Oracle VDP Plane-B nametable words for selected rows covering the Level 0x07 #289 cloud/ocean sample bands after sub_30744/sub_307D8 background uploads.",
       "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed Plane-B row contents."
     },
