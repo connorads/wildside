@@ -168,6 +168,33 @@ pub(crate) struct LevelSweepResult {
     pub(crate) divergence_summary: DivergenceSummary,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) checksum_mismatch: Option<FrameChecksumMismatch>,
+    /// Total oracle checkpoints compared for this level.
+    #[serde(default)]
+    pub(crate) total_checkpoints: usize,
+    /// Checkpoints where the oracle never reached a comparable gameplay state
+    /// (paused, on the title card, or on the wrong warp level), so every field
+    /// diff there is masked to `OracleLimitation`. When this equals
+    /// `total_checkpoints` the level is UNVERIFIED — it reads as `passed` only
+    /// because nothing real was compared. Issue #26.
+    #[serde(default)]
+    pub(crate) masked_checkpoints: usize,
+}
+
+impl LevelSweepResult {
+    /// True when the oracle was never in a comparable gameplay state at any
+    /// checkpoint, so no field diff on this level is authoritative. Such a
+    /// level passes only because every diff was masked — it proves "native
+    /// did not crash", not fidelity. Issue #26.
+    pub(crate) fn all_checkpoints_masked(&self) -> bool {
+        self.total_checkpoints > 0 && self.masked_checkpoints == self.total_checkpoints
+    }
+}
+
+/// A level reads as `passed` yet verifies nothing when every checkpoint was
+/// masked (oracle never reached gameplay). Issue #26: count these separately
+/// so a green sweep is not mistaken for proven fidelity.
+fn level_is_unverified(r: &LevelSweepResult) -> bool {
+    r.passed && r.all_checkpoints_masked()
 }
 
 /// First per-frame authoritative CRC mismatch for a native/oracle level run.
@@ -198,6 +225,10 @@ pub(crate) struct SweepReport {
     pub(crate) kid_core_hash: Option<String>,
     pub(crate) levels: Vec<LevelSweepResult>,
     pub(crate) passed: usize,
+    /// Subset of `passed` where the oracle never reached gameplay at any
+    /// checkpoint, so the "pass" verified nothing. Issue #26.
+    #[serde(default)]
+    pub(crate) unverified: usize,
     pub(crate) failed: usize,
     pub(crate) errors: usize,
     #[serde(default, skip_serializing_if = "DivergenceSummary::is_empty")]
@@ -243,6 +274,8 @@ struct SweepHistoryEntry {
     tier: SweepTier,
     levels_requested: usize,
     passed: usize,
+    #[serde(default)]
+    unverified: usize,
     failed: usize,
     errors: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -288,6 +321,10 @@ struct SweepHistoryLevelEntry {
     accumulation: usize,
     rng: usize,
     oracle_limitation: usize,
+    /// Oracle checkpoints compared and how many were masked. When masked ==
+    /// total the "pass" is UNVERIFIED. Issue #26.
+    total_checkpoints: usize,
+    masked_checkpoints: usize,
     fields: Vec<String>,
 }
 
@@ -302,6 +339,10 @@ struct LevelSweepTelemetry {
     accumulation: usize,
     rng: usize,
     oracle_limitation: usize,
+    /// Oracle checkpoints compared and how many were masked, so coverage
+    /// (verified vs UNVERIFIED) can be tracked over time. Issue #26.
+    total_checkpoints: usize,
+    masked_checkpoints: usize,
     fields: Vec<String>,
     passed: bool,
 }
@@ -459,6 +500,8 @@ fn finalise_level_result(
                 error: Some(format!("{e:#}")),
                 divergence_summary: divergence_summary_with(DivergenceCategory::Authoritative),
                 checksum_mismatch: None,
+                total_checkpoints: 0,
+                masked_checkpoints: 0,
             };
             (r, true)
         }
@@ -630,6 +673,12 @@ pub(crate) fn run_sweep_with_options(
     };
 
     let passed = results.iter().filter(|r| r.passed).count();
+    // Of the "passed" levels, how many proved nothing because the oracle never
+    // reached a comparable gameplay state at any checkpoint. Issue #26: such a
+    // level is UNVERIFIED, not faithful — surface it so a green sweep is not
+    // read as the accuracy number.
+    let unverified = results.iter().filter(|r| level_is_unverified(r)).count();
+    let verified = passed.saturating_sub(unverified);
     let failed = results
         .iter()
         .filter(|r| !r.passed && r.error.is_none() && !is_oracle_limitation_only(r))
@@ -652,6 +701,7 @@ pub(crate) fn run_sweep_with_options(
         kid_core_hash: source_hash,
         levels: results,
         passed,
+        unverified,
         failed,
         errors,
         divergence_summary,
@@ -688,6 +738,8 @@ pub(crate) fn run_sweep_with_options(
                 accumulation: result.divergence_summary.accumulation,
                 rng: result.divergence_summary.rng,
                 oracle_limitation: result.divergence_summary.oracle_limitation,
+                total_checkpoints: result.total_checkpoints,
+                masked_checkpoints: result.masked_checkpoints,
                 fields,
                 passed: result.passed,
             };
@@ -708,6 +760,7 @@ pub(crate) fn run_sweep_with_options(
             tier,
             levels_requested: levels.len(),
             passed: report.passed,
+            unverified: report.unverified,
             failed: report.failed,
             errors: report.errors,
             kid_core_hash: report.kid_core_hash.clone(),
@@ -732,6 +785,8 @@ pub(crate) fn run_sweep_with_options(
                         accumulation: result.divergence_summary.accumulation,
                         rng: result.divergence_summary.rng,
                         oracle_limitation: result.divergence_summary.oracle_limitation,
+                        total_checkpoints: result.total_checkpoints,
+                        masked_checkpoints: result.masked_checkpoints,
                         fields,
                     }
                 })
@@ -742,6 +797,13 @@ pub(crate) fn run_sweep_with_options(
     let divergence_summary = format_divergence_summary(&report.divergence_summary);
     println!(
         "\nsweep complete: {passed} passed, {failed} failed, {errors} errors{divergence_summary}"
+    );
+    // Issue #26: "passed" includes levels where the oracle never reached
+    // gameplay, so every diff was masked and nothing real was compared. Report
+    // genuine coverage separately — a fully-masked level is UNVERIFIED.
+    println!(
+        "verified: {verified}/{passed} passed levels have >=1 real (non-masked) checkpoint; \
+         {unverified} UNVERIFIED (every checkpoint masked — oracle never reached gameplay)"
     );
     if !report.field_summary.is_empty() {
         let summary = report
@@ -856,6 +918,9 @@ fn sweep_single_level(
             )),
             divergence_summary: divergence_summary_with(DivergenceCategory::OracleLimitation),
             checksum_mismatch: None,
+            // A broken warp means no checkpoint reached a comparable state.
+            total_checkpoints: oracle.states.len(),
+            masked_checkpoints: oracle.states.len(),
         });
     }
 
@@ -894,6 +959,15 @@ fn sweep_single_level(
         })
         .map(|s| s.label.as_str())
         .collect();
+    // Track how much of this level was actually verifiable: a checkpoint whose
+    // oracle is unreliable contributes no authoritative comparison. A level
+    // where every checkpoint is masked is UNVERIFIED, not faithful. Issue #26.
+    let total_checkpoints = oracle.states.len();
+    let masked_checkpoints = oracle
+        .states
+        .iter()
+        .filter(|s| oracle_unreliable_checkpoints.contains(s.label.as_str()))
+        .count();
     reclassify_state_diffs(
         &mut state_diffs,
         &death_gap_checkpoints,
@@ -957,6 +1031,8 @@ fn sweep_single_level(
         error: None,
         divergence_summary,
         checksum_mismatch,
+        total_checkpoints,
+        masked_checkpoints,
     })
 }
 
@@ -2315,6 +2391,8 @@ fn warm_oracle_cache(
         kid_core_hash: None,
         levels: Vec::new(),
         passed: cached + ran,
+        // Warm-cache-only does no comparison, so there is nothing to verify.
+        unverified: 0,
         failed: 0,
         errors: errored,
         divergence_summary: DivergenceSummary::default(),
@@ -4968,9 +5046,67 @@ mod tests {
                 oracle_limitation: 4,
             },
             checksum_mismatch: None,
+            total_checkpoints: 0,
+            masked_checkpoints: 0,
         };
 
         assert!(is_oracle_limitation_only(&result));
+    }
+
+    /// Build a passed/failed level result with an explicit masked-checkpoint
+    /// count, for exercising the UNVERIFIED predicate (issue #26).
+    fn result_with_masking(passed: bool, total: usize, masked: usize) -> LevelSweepResult {
+        LevelSweepResult {
+            level_id: 0x00,
+            slug: "idle_level_00".into(),
+            tier: SweepTier::State,
+            passed,
+            state_diffs: Vec::new(),
+            mae: None,
+            pixel_mismatches: None,
+            diff_images: Vec::new(),
+            error: None,
+            divergence_summary: DivergenceSummary::default(),
+            checksum_mismatch: None,
+            total_checkpoints: total,
+            masked_checkpoints: masked,
+        }
+    }
+
+    #[test]
+    fn fully_masked_passing_level_is_unverified() {
+        // Every checkpoint masked: the oracle never reached gameplay, so the
+        // "pass" verified nothing. Issue #26.
+        let result = result_with_masking(true, 2, 2);
+        assert!(result.all_checkpoints_masked());
+        assert!(level_is_unverified(&result));
+    }
+
+    #[test]
+    fn level_with_one_real_checkpoint_is_verified() {
+        // At least one checkpoint compared against a live oracle: the pass is
+        // real, not UNVERIFIED.
+        let result = result_with_masking(true, 2, 1);
+        assert!(!result.all_checkpoints_masked());
+        assert!(!level_is_unverified(&result));
+    }
+
+    #[test]
+    fn level_with_no_oracle_checkpoints_is_not_unverified() {
+        // Error / non-oracle levels have zero checkpoints; UNVERIFIED only
+        // describes a level that passed yet compared nothing.
+        let result = result_with_masking(true, 0, 0);
+        assert!(!result.all_checkpoints_masked());
+        assert!(!level_is_unverified(&result));
+    }
+
+    #[test]
+    fn fully_masked_but_failing_level_is_not_counted_unverified() {
+        // UNVERIFIED is a subset of the passed levels; a failing level is
+        // already surfaced as a failure, not a masked pass.
+        let result = result_with_masking(false, 2, 2);
+        assert!(result.all_checkpoints_masked());
+        assert!(!level_is_unverified(&result));
     }
 
     #[test]
@@ -5036,6 +5172,8 @@ mod tests {
                 oracle_limitation: 4,
             },
             checksum_mismatch: None,
+            total_checkpoints: 0,
+            masked_checkpoints: 0,
         };
 
         assert_eq!(level_result_status(&result), "NON-BLOCKING");
@@ -5065,6 +5203,7 @@ mod tests {
             tier: SweepTier::State,
             levels_requested: 2,
             passed: 2,
+            unverified: 0,
             failed: 0,
             errors: 0,
             kid_core_hash: Some("deadbeef".into()),
@@ -5138,6 +5277,8 @@ mod tests {
                 accumulation: 0,
                 rng: 0,
                 oracle_limitation: 2,
+                total_checkpoints: 2,
+                masked_checkpoints: 2,
                 fields: vec!["game_mode".into(), "number_objects".into()],
             }],
         };
@@ -5210,6 +5351,7 @@ mod tests {
             kid_core_hash: Some("deadbeef".into()),
             levels: Vec::new(),
             passed: 69,
+            unverified: 0,
             failed: 0,
             errors: 0,
             divergence_summary: DivergenceSummary {
@@ -5372,6 +5514,8 @@ mod tests {
                 error: None,
                 divergence_summary: DivergenceSummary::default(),
                 checksum_mismatch: None,
+                total_checkpoints: 0,
+                masked_checkpoints: 0,
             },
             LevelSweepResult {
                 level_id: 0x01,
@@ -5400,6 +5544,8 @@ mod tests {
                 error: None,
                 divergence_summary: DivergenceSummary::default(),
                 checksum_mismatch: None,
+                total_checkpoints: 0,
+                masked_checkpoints: 0,
             },
         ];
 
@@ -5779,6 +5925,8 @@ mod tests {
                 oracle_limitation: 2,
             },
             checksum_mismatch: None,
+            total_checkpoints: 0,
+            masked_checkpoints: 0,
         }];
 
         assert_eq!(
@@ -5896,6 +6044,8 @@ mod tests {
                 oracle_limitation: 1,
             },
             checksum_mismatch: None,
+            total_checkpoints: 0,
+            masked_checkpoints: 0,
         }];
 
         assert_eq!(
@@ -6036,6 +6186,8 @@ mod tests {
                 oracle_limitation: 1,
             },
             checksum_mismatch: None,
+            total_checkpoints: 0,
+            masked_checkpoints: 0,
         })
         .collect::<Vec<_>>();
 
@@ -6133,6 +6285,8 @@ mod tests {
                 oracle_limitation: 4,
             },
             checksum_mismatch: None,
+            total_checkpoints: 0,
+            masked_checkpoints: 0,
         };
 
         assert!(!is_oracle_limitation_only(&result));

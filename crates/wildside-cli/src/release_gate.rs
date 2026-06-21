@@ -645,6 +645,7 @@ mod tests {
             kid_core_hash: None,
             levels: Vec::new(),
             passed: 69,
+            unverified: 0,
             failed,
             errors,
             divergence_summary: sweep::DivergenceSummary::default(),

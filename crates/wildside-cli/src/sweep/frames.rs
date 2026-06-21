@@ -713,6 +713,10 @@ pub(crate) fn golden_diff(
                 divergence_summary_with(DivergenceCategory::Authoritative)
             },
             checksum_mismatch: None,
+            // Golden diff is native-vs-prior-native, not an oracle compare, so
+            // no checkpoint is oracle-masked and nothing is UNVERIFIED here.
+            total_checkpoints: 0,
+            masked_checkpoints: 0,
         });
     }
 
@@ -729,6 +733,9 @@ pub(crate) fn golden_diff(
         kid_core_hash: kid_core_source_hash(repo_root).ok(),
         levels: results,
         passed,
+        // Golden diff is native-vs-prior-native, not an oracle compare, so no
+        // level is oracle-masked / UNVERIFIED.
+        unverified: 0,
         failed,
         errors: 0,
         divergence_summary,

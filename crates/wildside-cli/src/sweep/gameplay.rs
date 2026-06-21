@@ -38,6 +38,9 @@ pub(crate) fn run_gameplay_sweep(manifest: &AssetManifest, levels: &[u8]) -> Swe
         kid_core_hash: None,
         levels: results,
         passed,
+        // Gameplay tier is native self-consistency, not an oracle compare, so
+        // no level is oracle-masked / UNVERIFIED.
+        unverified: 0,
         failed,
         errors,
         divergence_summary,
@@ -102,6 +105,10 @@ fn sweep_gameplay_single_level(manifest: &AssetManifest, level_id: u8) -> LevelS
             divergence_summary_with(DivergenceCategory::Authoritative)
         },
         checksum_mismatch: None,
+        // Gameplay tier is native self-consistency, not an oracle compare, so
+        // there is no oracle masking and nothing is UNVERIFIED here.
+        total_checkpoints: 0,
+        masked_checkpoints: 0,
     }
 }
 
