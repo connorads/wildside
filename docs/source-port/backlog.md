@@ -27,42 +27,31 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#343 just landed (`[~]`→`[?]`, awaiting human combat playtest)**: friendly
-  projectiles now hit large enemies. The LIVE hit test `process_friendly_projectile_hits`
-  (helmets.rs) sourced its enemy box from an invented fixed `±4×±8` for ALL families, so
-  the walking dragon's (0x0D) 32×32 body sat outside it → axes passed through. New helper
-  `friendly_projectile_overlaps_enemy_loc_1d84` builds the enemy box from the per-family
-  `enemy_contact_bounds` dispatcher (the #308-verified `CollisionSize_Index` boxes the
-  Kid-contact path already uses) and tests an inclusive AABB, mirroring ROM `sub_1D84`
-  (kid.asm:3587-3611; `colid_hurt`=$1C write kid.asm:3650, a SEPARATE routine from the
-  Kid-body `GfxObjects_CollisionKid`). Projectile box kept as the centred approximation
-  (ROM per-frame projectile CollisionSize = deferred #308 P3). Regression
-  `friendly_projectile_hits_walking_dragon_body_collision_size_unk_31630_loc_1d84`; 5
-  fixed-box-pinning tests re-derived (incl. the Tank-turret test now targeting the turret
-  child's real offset). CRC-neutral: `verify-tas-full` all 37759 frames match, 212
-  authoritative = #290 baseline. The ROM/native/CRC ground truth was established by a
-  fan-out workflow (high confidence, independently re-verified). **archive #343**.
-- **#346 also landed this session (`[ ]`→`[?]`, awaiting human spike-chain playtest)**:
-  launched spike bullets (ShooterObject) were force-deleted at the invented `lifetime:120`
-  (~480px) before reaching a distant wall. ROM `Process_ShooterObjects`/`loc_EDFA`
-  (kid.asm:19298/19311, re-read end to end) has NO frame timer — the bullet dies only on a
-  collidable cell or the level edge, both already handled by
-  `step_tracked_shooter_object_loc_EDFA`. Exempted `ShooterBlock` from the generic
-  lifetime decrement+delete (matching the `is_lion_projectile`/`is_juggernaut_skull`
-  ASM-no-timer exemptions). Regression
-  `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`;
-  CRC-neutral (`verify-tas-full` byte-identical, 212 authoritative = #290). **archive #346**.
+- **#289 just landed a narrow renderer improvement (`[~]` remains open)**:
+  settled level-skip `loc_2FFE8` preload rows now split Camera_X phase by bgscroll
+  slot. `$00/$08` Time_Frames-driven rows retain the `Load_InGame loc_11F48`
+  player-start grid phase that B18/B19 need, while camera-parallax rows use the
+  settled trace Camera_X that the Level 0x07 B29 ocean row needs. Fresh expected-red
+  `issue289-level07-idle-current` improves from frame 60 `4031` / MAE `4.3676014`
+  and frame 71 `4181` / `4.603767` to frame 60 `3915` / `4.2537017` and frame 71
+  `4113` / `4.5239353`; it remains `oracle_frame_match=false`. B18/B19 still match
+  their oracle row-history shape, and B29 now matches the visible ocean strip through
+  the main row body. **NEXT #289:** inspect the remaining far-edge single-cell row
+  writes and flip-bit preservation on B23/B27/B29/B30 using `BackgroundScroll_ComputeShiftData`
+  `sub_304B4` + `sub_30744` evidence before another render change. **archive #289**.
+- **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
+  enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
+  verification are in archive #343/#346.
 - **#308 follow-up surfaced (still `[b]`, do not auto-take)**: #343 fixed only the
   projectile path; RedStealth sword (helmets.rs:6369) + berzerker charge (6532) still use
   the fixed `±4×±8` enemy box and per ROM `sub_1D84` should also source
   `enemy_contact_bounds` — same vein, separate CRC risk. Captured under archive #343.
-- **#289 stays `[~]` but is research-blocked**: 5+ consecutive instrumentation/docs
-  commits, marginal MAE gains (Level 0x07 frame 60 `5080`→`4031`) and still
-  `oracle_frame_match=false`. The remaining work is modelling incremental persisted
-  Plane-B row state — a substantial renderer task, not a quick patch. Prefer
-  project-status "ready" items; the next concrete lead and the full do-not-retry list
-  are in **archive #289** (compare native/oracle B08/B17/B22/B23/B27/B29 row histories
-  after the persisted preload replay).
+- **#289 still should not be ground by guesswork**: the full do-not-retry list is in
+  archive #289. Avoid header/start layout, simple scroll offsets, placement wrap,
+  raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`, stateless
+  `$FFFF87B2`, raw `loc_30452` display-scroll substitution, current-time all-row
+  overlay, packed timed-row full-upload placement, alias-only rendering, alias-fed
+  full row uploads, and direct row-number-to-bgscroll preload mapping.
 - **#336 stays `[ ]`, regression bisected (no code change — oracle-gated)**: the
   cold-boot "Kid floats then drops" is the `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y`
   camera pan (216→115px) introduced by c65df2500 (2026-06-12, recent — corrects the
@@ -72,13 +61,12 @@ and stop — never commit churn.
   title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
-- **Gates this session**: `cargo fmt` clean, both crates `cargo check` warning-free,
-  new regressions green (`friendly_projectile_hits_walking_dragon_body_*` #343,
-  `shooter_object_survives_past_invented_lifetime_*` #346), `mise run verify-slice-fast`
-  green (6257 core + 9 CLI + verify-tas-frontier + backlog-lint), `mise run
-  verify-tas-full` CRC all 37759 frames match with 212 authoritative = #290 baseline. Both
-  fixes CRC-neutral (#343 enemy-box widening; #346 removes a native-only projectile cap
-  the published route never hit).
+- **Gates this session**: `cargo fmt --check --all`, `cargo test -q -p wildside-cli
+  chunked_ --no-default-features`, `cargo check -q -p wildside-cli`, and expected-red
+  `cargo run -q -p wildside-cli -- verify-recording --slug
+  issue289-level07-idle-current` with improved pixel metrics. `backlog-lint` and
+  `git diff --check` run before commit. `mise` wrappers remain blocked here by
+  `fnox@1` linux-arm64, so direct cargo/CLI commands were used.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -112,7 +100,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: partial chunked Plane-B row-window overlay improves Level 0x07 recording, but upper-row stale VDP history remains pixel-red. (full history: archive #289) |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: parallax preload Camera_X split improves Level 0x07 recording to frame 60 `3915` / MAE `4.2537017`, frame 71 `4113` / `4.5239353`, but far-edge row cells/flip bits remain pixel-red. (full history: archive #289) |
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | 2026-06-21: bisected to c65df2500 (2026-06-12) — `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` (camera 216→115px, level-0 only). NEXT: oracle capture PAST the title card into live gameplay, diff per-frame camera/kid-Y; don't edit the ramp without it (may be oracle-derived). See archive #336. |

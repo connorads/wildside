@@ -2742,11 +2742,11 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let Some(background_scroll) = level_visuals.level.background_scroll.as_ref() else {
             return false;
         };
-        // ASM Load_InGame loc_11F48 seeds Camera_X from PlayerStart rounded
-        // down to the 320px screen grid before calling j_loc_2FFE8. The level
-        // setup path can adjust Camera_Y before the background preload, and the
-        // #289 oracle row trace matches the settled trace camera Y.
-        let preload_camera_x_px = trace
+        // ASM Load_InGame loc_11F48 seeds Camera_X from PlayerStart before
+        // later load-stage camera adjustment. In the #289 oracle preload rows,
+        // Time_Frames-driven `$00/$08` slots retain that grid phase, while
+        // camera-parallax slots match the settled trace Camera_X.
+        let preload_grid_camera_x_px = trace
             .player_start_x
             .map(|start_x| i32::from(start_x / 0x0140) * 0x0140)
             .unwrap_or(camera_x_px);
@@ -2794,6 +2794,10 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let mut horiz_scroll_entries = Vec::with_capacity(max_scroll_slot + 1);
         for slot in 0..=max_scroll_slot {
             let layer_speed = u8::try_from(slot.saturating_mul(8)).unwrap_or(0x88);
+            let preload_camera_x_px = match layer_speed {
+                0x00 | 0x08 => preload_grid_camera_x_px,
+                _ => camera_x_px,
+            };
             let scroll_word =
                 background_scroll_data_word_loc_30452(0, preload_camera_x_px, layer_speed);
             let source_column = usize::from(scroll_word >> 3) % source_buffer.width;

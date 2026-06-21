@@ -9861,6 +9861,7 @@ mod tests {
                 .expect("issue #289-shaped foreground layout");
         let mut layer_speeds = vec![0xFF; 64];
         layer_speeds[18] = 0x08;
+        layer_speeds[29] = 0x20;
         visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
             layer_speeds,
             has_terminator: true,
@@ -9873,21 +9874,41 @@ mod tests {
             y_offset_tiles: 0,
         });
         visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
-            placements: vec![BackgroundPlacement {
-                chunk_id: 0,
-                x_tiles: 0x13 + 49,
-                y_tiles: 18,
-            }],
-            chunks: vec![BackgroundChunk {
-                width_tiles: 8,
-                height_tiles: 1,
-                tiles: (1..=8)
-                    .map(|tile_index| BackgroundTile {
-                        tile_index,
-                        flip_x: false,
-                    })
-                    .collect(),
-            }],
+            placements: vec![
+                BackgroundPlacement {
+                    chunk_id: 0,
+                    x_tiles: 0x13 + 49,
+                    y_tiles: 18,
+                },
+                BackgroundPlacement {
+                    chunk_id: 1,
+                    x_tiles: 0x13 + 4,
+                    y_tiles: 29,
+                },
+            ],
+            chunks: vec![
+                BackgroundChunk {
+                    width_tiles: 8,
+                    height_tiles: 1,
+                    tiles: (1..=8)
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: false,
+                        })
+                        .collect(),
+                },
+                BackgroundChunk {
+                    width_tiles: 6,
+                    height_tiles: 1,
+                    tiles: [0x19, 0x15, 0x16, 0x17, 0x18, 0x39]
+                        .into_iter()
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: false,
+                        })
+                        .collect(),
+                },
+            ],
         });
 
         let row =
@@ -9910,6 +9931,27 @@ mod tests {
             cloud_tail,
             vec![1, 2, 3, 4, 5, 6, 7],
             "ASM sub_30744 then accumulates the loc_12824 alias-source cloud tail after the persisted loc_2FFE8 row seed"
+        );
+
+        let ocean_row =
+            super::scene::chunked_plane_b_row_words_for_trace_loc_30744(&trace, &visuals, 292, 29)
+                .expect("settled chunked Plane-B ocean row history");
+        assert_eq!(
+            &ocean_row[0..4],
+            &[Some((0, 0)); 4],
+            "ASM loc_2FFE8 leaves B29 columns 0..3 on the old Plane-B `$0780` fill"
+        );
+        assert_eq!(
+            &ocean_row[4..10],
+            &[
+                Some((0x19, 1)),
+                Some((0x15, 1)),
+                Some((0x16, 1)),
+                Some((0x17, 1)),
+                Some((0x18, 1)),
+                Some((0x39, 1)),
+            ],
+            "ASM loc_2FFE8/sub_307D8 seeds B29 from the settled Camera_X column, not the pre-adjusted player-start grid column"
         );
     }
 
