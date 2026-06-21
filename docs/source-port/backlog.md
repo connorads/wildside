@@ -30,35 +30,43 @@ and stop — never commit churn.
 - **#289 current evidence**: Level 0x07 remains state-clean/pixel-red, but native
   now treats chunked `sub_30744`/`sub_307D8` row-window cells as Plane-B VDP cells,
   applies ASM `BackgroundScroll_ComputeShiftLayers loc_3050A` H-scroll at
-  draw/sample time, and arranges `$00`/`$08` timed-row uploads from the
-  `loc_2FFE8` preload `Time_Frames` phase. Cells outside the fresh streamed span
-  now preserve the old Plane-B `$0780` tile from `loc_11F48`, instead of acting
-  transparent; elapsed visible `sub_30744` tile-column crossings after preload are
-  also replayed into the native row state. Fresh
+  draw/sample time, arranges `$00`/`$08` timed-row uploads from the
+  `loc_2FFE8` preload `Time_Frames` phase, and has a typed
+  `Load_BackgroundChunk loc_12848` source-buffer primitive. Cells outside the
+  fresh streamed span now preserve the old Plane-B `$0780` tile from
+  `loc_11F48`, instead of acting transparent; elapsed visible `sub_30744`
+  tile-column crossings after preload are also replayed into the native row
+  state. Fresh
   `issue289-level07-idle-current` still reports `trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`, but the residual improves
   from frame 60 `5137` changed / MAE `5.711784` and frame 71 `5260` / `5.920638`
   to frame 60 `5080` / `5.6536646` and frame 71 `5212` / `5.8645835`.
-- **Next #289 action**: continue from a typed live `$87B2` source-buffer plus
-  persisted Plane-B row-history model for the remaining upper-row clouds and
-  ocean rows. The latest `background_source_rows_loc_12848` settle trace proves
+- **Next #289 action**: wire the typed live `$87B2` source-buffer into a
+  persisted Plane-B row-history model for the remaining upper-row clouds and ocean
+  rows; do not apply the alias source to rendering statelessly. The latest
+  `background_source_rows_loc_12848` settle trace proves
   `Load_InGame`/`Load_BackgroundMappings loc_12824` writes the B18 source row
   during target-level load: `$8C9E[00..45]` is all zero through `title_wait` step
   40, `8FA0` fills at step 41, then `8C9E` fills at step 42 with columns
   `49..56 = 01..08` (plus trailing non-zero bytes) while `Game_Mode=$000C`,
-  `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`. This matches
-  the `BackgroundLayout_0E` `$8000`/x-offset `$13` path as an ingredient. Native
-  manifest normalisation and visual loading now preserve that shared-layout alias
-  metadata through `LevelVisuals`, but the standalone alias-render patch remains
-  rejected because it worsened #289 without the live row-history model. Do not retry header/start layout, simple scroll offsets,
+  `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`. Native now
+  has `ChunkedBackgroundSourceLoc12848` and a test-only `loc_12824` alias
+  constructor showing `BackgroundLayout_0E` x-offset `$13` moves chunk bytes into
+  columns `49..56`; the runtime still calls the direct `loc_12830` constructor
+  so rendering is unchanged. Do not retry header/start layout, simple scroll offsets,
   placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render
   `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
   substitution, current-time all-row overlay, or alias-only changes.
-- **Gates this session**: propagated typed `BackgroundLayoutAlias` from the data
-  manifest through `LevelAssetBundle` into render `LevelVisuals`; no
-  native-player/runtime rendering fix. Verified `cargo fmt --all`,
-  `cargo test -p wildside-data --lib` (143 tests), `cargo test -p
-  wildside-render` (74 passed, 1 ignored), `cargo check -p wildside-cli`, and
+- **Gates this session**: extracted `ChunkedBackgroundSourceLoc12848` from the
+  native-player chunked Plane-B source construction and covered ASM
+  `Load_BackgroundMappings loc_12824` alias offsets without changing runtime
+  rendering. Also filled stale core/bench `LevelRecord` fixtures with
+  `background_layout_alias: None` after the core sweep exposed them. Verified
+  `cargo fmt --all`, focused native-player chunked Plane-B tests,
+  `cargo check -p wildside-cli`, `cargo check -p wildside-core --benches`,
+  direct `verify-slice-fast` body (`verify-tas-frontier`, `backlog-lint`,
+  `cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas
+  --skip snapshot`, `cargo test -q -p wildside-cli gameplay_regression_`), and
   expected-red `issue289-level07-idle-current` (`trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
   `5.6536646`, frame 71 `5212` / `5.8645835`).

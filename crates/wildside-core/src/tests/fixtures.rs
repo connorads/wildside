@@ -139,6 +139,7 @@ pub(super) fn manifest() -> AssetManifest {
                     },
                 ],
             }),
+            background_layout_alias: None,
         }],
         constants: Vec::new(),
         ram_variables: Vec::new(),

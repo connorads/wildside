@@ -3174,8 +3174,8 @@ mod tests {
         terrain::{BlockType, Cell, CollisionKind},
     };
     use wildside_data::{
-        AssetManifest, DecodedAssetFile, DecodedLevelAssets, GENERATED_BUNDLE_VERSION, LevelHeader,
-        LevelRecord, LevelResources, load_manifest,
+        AssetManifest, BackgroundLayoutAlias, DecodedAssetFile, DecodedLevelAssets,
+        GENERATED_BUNDLE_VERSION, LevelHeader, LevelRecord, LevelResources, load_manifest,
     };
     use wildside_render::{
         AnimatedSpriteVisual, BackgroundChunk, BackgroundPlacement, BackgroundTile,
@@ -9599,6 +9599,77 @@ mod tests {
         assert_eq!(sample.palette_line, 1);
         assert_eq!(sample.rgb, [27, 57, 107]);
         assert_eq!(sample.background_row_index, Some(0));
+    }
+
+    #[test]
+    fn chunked_source_buffer_applies_shared_layout_offsets_loc_12824_12848() {
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 8;
+        visuals.level.foreground_layout_bytes = vec![0; 80 * 14];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 4, 1)
+                .expect("wide foreground layout");
+        visuals.level.background_layout_alias = Some(BackgroundLayoutAlias {
+            alias_label: "BackgroundLayout_0E".to_string(),
+            source_label: "BackgroundLayout_0C".to_string(),
+            source_background_path: Some("background/0C.bin".to_string()),
+            x_offset_tiles: 0x13,
+            y_offset_tiles: 0,
+        });
+
+        let background = ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0x13 + 49,
+                y_tiles: 18,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 8,
+                height_tiles: 1,
+                tiles: (1..=8)
+                    .map(|tile_index| BackgroundTile {
+                        tile_index,
+                        flip_x: false,
+                    })
+                    .collect(),
+            }],
+        };
+
+        let direct =
+            super::scene::ChunkedBackgroundSourceLoc12848::from_background_direct_loc_12830(
+                &visuals,
+                &background,
+            )
+            .expect("direct chunked source buffer");
+        let source =
+            super::scene::ChunkedBackgroundSourceLoc12848::from_background_alias_loc_12824(
+                &visuals,
+                &background,
+            )
+            .expect("alias-applied chunked source buffer");
+
+        let row_tiles: Vec<u16> = (49..=56)
+            .map(|column| {
+                source
+                    .tile_index_at(18, column)
+                    .expect("source-buffer column should be in bounds")
+            })
+            .collect();
+        assert_eq!(
+            row_tiles,
+            vec![1, 2, 3, 4, 5, 6, 7, 8],
+            "ASM Load_BackgroundMappings loc_12824 subtracts the shared BackgroundLayout_0E x offset `$13` before Load_BackgroundChunk loc_12848 writes `$FFFF87B2`; this matches the issue #289 oracle row where columns 49..56 contain chunk bytes 01..08"
+        );
+        assert_eq!(
+            source.tile_index_at(18, 68),
+            Some(0),
+            "the alias offset belongs to the loc_12848 source-buffer model, not the current sub_307D8 render sampling path"
+        );
+        assert_eq!(
+            (direct.tile_index_at(18, 68), direct.tile_index_at(18, 69)),
+            (Some(1), Some(2)),
+            "the direct loc_12830 source keeps the placement's unadjusted columns, so the current renderer remains behaviourally unchanged until the persisted Plane-B history is modelled"
+        );
     }
 
     #[test]

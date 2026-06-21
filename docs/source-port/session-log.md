@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 typed loc_12848 source buffer)
+
+- **#289 stays `[~]`; native-player now has a typed `ChunkedBackgroundSourceLoc12848` primitive for ASM `Load_BackgroundChunk loc_12848`.** The renderer still constructs rows through the direct `loc_12830` path, so this is model/test groundwork rather than a pixel change.
+- A focused regression proves `Load_BackgroundMappings loc_12824` alias offsets work at the source-buffer boundary: `BackgroundLayout_0E` x offset `$13` moves an 8-byte chunk into B18 columns `49..56`, while the direct path keeps the unadjusted clipped columns. The slice gate also caught stale core/bench `LevelRecord` fixtures, now filled with `background_layout_alias: None`. Fresh `issue289-level07-idle-current` remains expected-red at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. **NEXT**: consume this source buffer from a persisted Plane-B row-history model, not an alias-only renderer patch.
+
+---
+
 ## 2026-06-21 handoff (#289 alias metadata reaches render)
 
 - **#289 stays `[~]`; `BackgroundLayoutAlias` now reaches render `LevelVisuals`.** The data bundle and visual loader preserve the MapOrder-resolved shared-background alias from ASM `Load_BackgroundMappings loc_12824`, so the future `$87B2` source-buffer model can consume it without re-parsing or hardcoding.

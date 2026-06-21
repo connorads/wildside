@@ -2295,16 +2295,39 @@ struct ChunkedPlaneBCellLoc307D8 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct ChunkedPlaneBRowsLoc307D8 {
+pub(super) struct ChunkedBackgroundSourceLoc12848 {
     width: usize,
     height: usize,
     cells: Vec<Option<ChunkedPlaneBCellLoc307D8>>,
 }
 
-impl ChunkedPlaneBRowsLoc307D8 {
-    fn from_background(
+impl ChunkedBackgroundSourceLoc12848 {
+    pub(super) fn from_background_direct_loc_12830(
         level_visuals: &NativeLevelVisuals,
         background: &wildside_render::ChunkedBackgroundVisuals,
+    ) -> Option<Self> {
+        Self::from_background_with_offsets_loc_12824_12830(level_visuals, background, 0, 0)
+    }
+
+    #[cfg(test)]
+    pub(super) fn from_background_alias_loc_12824(
+        level_visuals: &NativeLevelVisuals,
+        background: &wildside_render::ChunkedBackgroundVisuals,
+    ) -> Option<Self> {
+        let alias = level_visuals.level.background_layout_alias.as_ref()?;
+        Self::from_background_with_offsets_loc_12824_12830(
+            level_visuals,
+            background,
+            i32::from(alias.x_offset_tiles),
+            i32::from(alias.y_offset_tiles),
+        )
+    }
+
+    fn from_background_with_offsets_loc_12824_12830(
+        level_visuals: &NativeLevelVisuals,
+        background: &wildside_render::ChunkedBackgroundVisuals,
+        x_offset_tiles: i32,
+        y_offset_tiles: i32,
     ) -> Option<Self> {
         let (width, height) = chunked_background_dimensions_loc_12848(level_visuals)?;
         let palette_line =
@@ -2335,13 +2358,24 @@ impl ChunkedPlaneBRowsLoc307D8 {
             let Some(chunk) = background.chunks.get(usize::from(placement.chunk_id)) else {
                 continue;
             };
+            // ASM Load_BackgroundMappings loc_12824 subtracts the shared
+            // layout offsets from the source placement before loc_12848
+            // clips each copied byte against `Background_width/height`.
+            let placement_x = i32::from(placement.x_tiles).saturating_sub(x_offset_tiles);
+            let placement_y = i32::from(placement.y_tiles).saturating_sub(y_offset_tiles);
             for row in 0..chunk.height_tiles {
-                let target_row = usize::from(placement.y_tiles.saturating_add(row));
+                let target_row = placement_y.saturating_add(i32::from(row));
+                let Ok(target_row) = usize::try_from(target_row) else {
+                    continue;
+                };
                 if target_row >= height {
                     continue;
                 }
                 for column in 0..chunk.width_tiles {
-                    let target_column = usize::from(placement.x_tiles.saturating_add(column));
+                    let target_column = placement_x.saturating_add(i32::from(column));
+                    let Ok(target_column) = usize::try_from(target_column) else {
+                        continue;
+                    };
                     if target_column >= width {
                         continue;
                     }
@@ -2376,6 +2410,32 @@ impl ChunkedPlaneBRowsLoc307D8 {
         })
     }
 
+    #[cfg(test)]
+    pub(super) fn tile_index_at(&self, row: usize, column: usize) -> Option<u16> {
+        if row >= self.height || column >= self.width {
+            return None;
+        }
+        self.cells[row * self.width + column].map(|cell| cell.tile_ref.tile_index)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ChunkedPlaneBRowsLoc307D8 {
+    source: ChunkedBackgroundSourceLoc12848,
+}
+
+impl ChunkedPlaneBRowsLoc307D8 {
+    fn from_background(
+        level_visuals: &NativeLevelVisuals,
+        background: &wildside_render::ChunkedBackgroundVisuals,
+    ) -> Option<Self> {
+        let source = ChunkedBackgroundSourceLoc12848::from_background_direct_loc_12830(
+            level_visuals,
+            background,
+        )?;
+        Some(Self { source })
+    }
+
     fn row_for_trace(
         &self,
         trace: &NativeTraceFrame,
@@ -2383,7 +2443,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         camera_x_px: i32,
         row: usize,
     ) -> Option<[Option<ChunkedPlaneBCellLoc307D8>; PLANE_B_ROW_CELLS_LOC_11B7A]> {
-        if row >= self.height {
+        if row >= self.source.height {
             return None;
         }
         let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
@@ -2399,7 +2459,8 @@ impl ChunkedPlaneBRowsLoc307D8 {
             0
         };
         let source_column = (scroll_x_px.div_euclid(8) + source_column_bias)
-            .rem_euclid(i32::try_from(self.width).ok()?) as usize;
+            .rem_euclid(i32::try_from(self.source.width).ok()?)
+            as usize;
         let mut row_cells = std::array::from_fn(|column| {
             // ASM sub_307D8 only DMA-writes the newly exposed `$2780` span;
             // cells outside that span keep the old Plane-B `$0780` tile.
@@ -2421,9 +2482,9 @@ impl ChunkedPlaneBRowsLoc307D8 {
         // horizontally exposed column first, so the displayed frame contains
         // 42 fresh cells in the issue #289 oracle row dump.
         for offset in 0..CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744 {
-            let source = (source_column + offset) % self.width;
+            let source = (source_column + offset) % self.source.width;
             let destination = (destination_column + offset) % PLANE_B_ROW_CELLS_LOC_11B7A;
-            row_cells[destination] = self.cells[row * self.width + source];
+            row_cells[destination] = self.source.cells[row * self.source.width + source];
         }
 
         self.apply_elapsed_column_writes_loc_30744(
@@ -2488,11 +2549,12 @@ impl ChunkedPlaneBRowsLoc307D8 {
         } else {
             current_tile_column + 0x28
         };
-        let source = source_column_seed.rem_euclid(i32::try_from(self.width).unwrap_or(1)) as usize;
+        let source =
+            source_column_seed.rem_euclid(i32::try_from(self.source.width).unwrap_or(1)) as usize;
         let destination = source_column_seed
             .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
             as usize;
-        row_cells[destination] = self.cells[row * self.width + source];
+        row_cells[destination] = self.source.cells[row * self.source.width + source];
     }
 }
 

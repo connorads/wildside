@@ -675,6 +675,7 @@ mod tests {
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
         manifest
     }
@@ -708,6 +709,7 @@ mod tests {
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
         manifest
     }

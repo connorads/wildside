@@ -66,6 +66,7 @@ fn test_manifest() -> AssetManifest {
             platform_metadata: Some(PlatformLayout {
                 placements: Vec::new(),
             }),
+            background_layout_alias: None,
         }],
         constants: Vec::new(),
         ram_variables: Vec::new(),
