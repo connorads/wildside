@@ -160,6 +160,7 @@ struct OracleSettleTraceRow {
     background_scroll_loc_3050a: String,
     background_row_offsets_loc_30744: String,
     background_source_window_loc_30744: String,
+    background_source_absolute_loc_30744: String,
     background_plane_b_rows_loc_307d8: String,
 }
 
@@ -1788,6 +1789,31 @@ fn background_source_window_debug_loc_30744(work_ram: &[u8]) -> String {
         .join(";")
 }
 
+fn background_source_absolute_debug_loc_30744(work_ram: &[u8]) -> String {
+    // ASM sub_30744 (kid.asm:34563) ultimately consumes live bytes under
+    // `$FFFF87B2`. These fixed windows are the #289 target-level B18/B29
+    // source spans; pre-target settle phases use them to identify when stale
+    // source data first appears.
+    const WINDOWS: [(usize, usize, usize); 2] = [(0x8C9E, 0x28, 0x38), (0x8FA0, 0x28, 0x38)];
+
+    WINDOWS
+        .into_iter()
+        .map(|(source_offset, first_column, last_column)| {
+            let bytes = (first_column..=last_column)
+                .map(|column| {
+                    format!(
+                        "{:02X}",
+                        read_wram_u8(work_ram, 0xFF_0000 + source_offset + column)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("{source_offset:04X}[{first_column:02X}..{last_column:02X}]={bytes}")
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
 fn background_plane_b_rows_debug_loc_307d8(emulator: &mut GenesisEmulator) -> String {
     const PLANE_B_BASE_LOC_307D8: usize = 0xE000;
     const PLANE_WIDTH_CELLS: usize = 64;
@@ -2581,6 +2607,7 @@ fn boot_and_warp_oracle(
         };
         tick_one_frame(emulator, renderer, audio, &inputs, save_writer)?;
     }
+    capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "post_boot", 0);
 
     if target_level == 0 {
         if settle_oracle_warp {
@@ -2620,6 +2647,7 @@ fn boot_and_warp_oracle(
         for _ in 0..60 {
             tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
         }
+        capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "pre_skip_live", 0);
 
         // Press Start+A+C for one frame to trigger level skip.
         // Then release and let the game process the level transition.
@@ -2636,6 +2664,7 @@ fn boot_and_warp_oracle(
         if settle_oracle_warp || force_target_level_for_probe {
             clear_input_latches(emulator);
         }
+        capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "post_skip_input", 0);
 
         // Verify the level skip triggered by checking game_mode.
         // If it changed to 8 (level reload), the skip worked.
@@ -2715,9 +2744,11 @@ fn boot_and_warp_oracle(
         // finalise its init (VRAM load, sprites, input dispatch) before Start
         // is accepted. Polling game_mode here would break the cheat path,
         // which sets game_mode=0x0008 synchronously and needs these frames.
-        for _ in 0..120 {
+        for step in 0..120 {
+            capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "title_wait", step);
             tick_one_frame(emulator, renderer, audio, &no_input, save_writer)?;
         }
+        capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "post_title_wait", 0);
 
         // Press Start to dismiss title card → Load_InGame.
         let start_input = GenesisInputs {
@@ -2731,6 +2762,7 @@ fn boot_and_warp_oracle(
         if settle_oracle_warp || force_target_level_for_probe {
             clear_input_latches(emulator);
         }
+        capture_settle_trace_row(settle_trace.as_deref_mut(), emulator, "post_title_start", 0);
         if force_target_level_for_probe && !settle_oracle_warp {
             drain_direct_probe_title_start_latch(
                 emulator,
@@ -3046,6 +3078,7 @@ fn capture_settle_trace_row(
         background_scroll_loc_3050a: background_scroll_debug_loc_3050a(&work_ram),
         background_row_offsets_loc_30744: background_row_offsets_debug_loc_30744(&work_ram),
         background_source_window_loc_30744: background_source_window_debug_loc_30744(&work_ram),
+        background_source_absolute_loc_30744: background_source_absolute_debug_loc_30744(&work_ram),
         background_plane_b_rows_loc_307d8: background_plane_b_rows_debug_loc_307d8(emulator),
     });
 }

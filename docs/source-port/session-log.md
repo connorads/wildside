@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 pre-target source-buffer phase)
+
+- **#289 stays `[~]`; oracle settle trace now samples the fixed `$87B2` target source window across the warp/title-card path.** The stale B18 source bytes are absent through `title_wait` step 41, then appear at step 42 as `8C9E[28..38]=00..00,01,02,03,04,05,06,07,08` while `Game_Mode=$000C`, `Current_LevelID=$0007`, and `Background_width=$46`.
+- This narrows the owner to target-level `Load_InGame`, not previous-level residue or target-live hidden frames. B29 fills one frame earlier at title_wait step 41. **NEXT**: capture the exact writer/order inside `Load_InGame` or model the ROM's live `$87B2` buffer construction before replaying Plane-B writes; do not retune row pointers, layout parsing, or `$08` scroll.
+
+---
+
 ## 2026-06-21 handoff (#289 source-buffer settle trace)
 
 - **#289 stays `[~]`; oracle settle trace now exposes the live `$FFFF87B2` source bytes read by ASM `sub_30744`.** Target-live step 0 already has `B18@8C9E[$31..$33]=01,02,03`, and steps 18/34/50 then stream those bytes through slot `$08` into B18 VDP columns 49/50/51 as `2781/2782/2783`.

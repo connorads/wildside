@@ -46,34 +46,31 @@ and stop — never commit churn.
   wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`,
   stateless `$FFFF87B2`, raw `loc_30452` display-scroll substitution, or
   current-time all-row overlay changes. Current x=285,y=10 samples native VDP
-  column 41 as empty while oracle row `B18` keeps clouds at columns 49..56. A
-  local source-row diagnostic rejected the simple
-  horizontal-overflow theory: ASM `Load_BackgroundChunk loc_12848` clips the
-  row-18 chunk at `Background_width=70`, leaving only source columns 68..69 as
-  `1,2`; the oracle's `2781..2787` tail must therefore be stale Plane-B row
-  history from the `loc_2FFE8` preload/vertical nametable sweep, not current
-  `$FFFF87B2` row contents. A follow-up exact `loc_2FFE8` lower-sweep diagnostic
-  still could not produce `B18`'s `2781..2787` tail: it predicts B18 as old
-  `$0780` then `$2780` fill only; see #289 archive for the B29 source-column
-  side note. New oracle settle-trace instrumentation now dumps the same selected
+  column 41 as empty while oracle row `B18` keeps clouds at columns 49..56; see
+  #289 archive for rejected source-row, `loc_2FFE8`, and raw-scroll hypotheses.
+  New oracle settle-trace instrumentation now dumps the same selected
   Plane-B rows before scenario frame 0: target-level live step 0 has B18 as
   `$0780` + `$2780` fill only, while step 59/frame 0 already has `2781..2783`
   at columns 49..51. Therefore the oracle `2781..2787` frame-60 tail is not a
   single `loc_2FFE8` preload row; it is accumulated hidden-settle plus visible
   `sub_30744` one-column history. Follow-up settle trace now also dumps
   `BackgroundScroll_ComputeShiftData` slots, the `$FFFF4D5C` row-pointer table,
-  and the live `$FFFF87B2` source bytes consumed by `sub_30744`: target-live step
-  0 already has B18 source `$8C9E[$31..$33]=01,02,03`, while the generated/static
+  and the live `$FFFF87B2` source bytes consumed by `sub_30744`: target-live
+  step 0 already has B18 source `$8C9E[$31..$33]=01,02,03`, while the generated/static
   Level 0x07 background leaves those cells zero. This confirms the remaining
   cloud tail is stale source-buffer state from the uncleared `$87B2` buffer before
-  target-level load, not a row-pointer remap or current layout parse bug. Next
-  pass should capture/model the pre-target `$87B2` source-buffer owner, then
-  persist/replay pre-recording Plane-B writes.
+  target-level load, not a row-pointer remap or current layout parse bug. A
+  pre-target phase trace now narrows the owner to `Load_InGame`: `$8C9E[$31..]`
+  is still zero through `title_wait` step 41, then becomes `01..08` at step 42
+  while `Game_Mode=$000C`, `Current_LevelID=$0007`, and `Background_width=$46`.
+  Next pass should capture the exact writer/order inside target-level `Load_InGame`
+  or model the ROM's live `$87B2` buffer construction before replaying Plane-B
+  writes.
 - **Gates this session**: no gameplay code kept; oracle/helper instrumentation
   only. Verified `cargo fmt --all`, focused
   `cargo test -q -p wildside-cli oracle_manifest_deserialises_hidden_settle_trace_rows`,
   `cargo check -q -p wildside-cli`, refreshed oracle settle CSV with source-window
-  bytes, and expected-red
+  and pre-target phase bytes, and expected-red
   `issue289-level07-idle-current` (`trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
   `5.6536646`, frame 71 `5212` / `5.8645835`). Direct `backlog-lint` is green.
