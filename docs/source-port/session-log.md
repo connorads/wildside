@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 row primitive correction)
+
+- **#289 stays `[~]`; the shared `sub_307D8` row-upload helper now matches ASM `loc_308A6`'s inclusive `d4=#$28`/`dbf` copy count.** It now streams 41 cells, so the full-row fixture wraps one extra source cell and the source/VDP wrap fixture keeps the ninth byte in the final segment. This is a primitive correction for the pending live Plane-B row-history model; native-player's partial renderer already used its own row-window count, so `issue289-level07-idle-current` remains frame 60 `7103` / MAE `6.9787807` and frame 71 `7227` / `7.1648297`.
+- **NEXT**: continue from live/stale Plane-B row history for upper rows. Do not retry H-scroll phase, raw `$00/$08` formulas, stateless placement wrapping, all-row row-window overlay, or header/start-layout edits. Verification this session includes focused `wildside-data` row-upload tests, native-player background tests, fresh `verify-recording`, debug-field audit with the explicit #289 scroll-snapshot stale-candidate exemption, direct fast-slice body, TAS frontier, and backlog lint; `mise` wrappers remain blocked by missing `fnox@1` linux-arm64 assets.
+
+---
+
 ## 2026-06-21 handoff (#289 partial Plane-B row-window render)
 
 - **#289 stays `[~]`; native-player now uses a partial chunked Plane-B row-window overlay for verified camera-parallax rows.** The renderer reconstructs `$FFFF87B2` via `Load_BackgroundChunk loc_12848`, then overlays rows using the `sub_30744`/`sub_307D8` window (`d4=#$28` DBF stream plus the preceding one-column updater). Applying the model to every chunked row was rejected because it worsened `issue289-level07-idle-current` to frame 60 `8473` / MAE `7.6971307` and frame 71 `8580` / `7.8483305`; the kept camera-parallax gate improves the current route to frame 60 `7103` / `6.9787807` and frame 71 `7227` / `7.1648297`, still state-clean/pixel-red.

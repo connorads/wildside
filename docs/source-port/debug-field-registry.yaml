@@ -301,7 +301,8 @@
       "owner": "issue-289-level07-background",
       "first_added_commit": "c61bd34cd",
       "intended_meaning": "Oracle WRAM snapshot of BackgroundScroll_ComputeShiftData/ComputeShiftLayers state: representative Horiz_Scroll_Data slots and Horiz_Scroll_Buffer scanline words for investigating Level 0x07 Plane-B row phase.",
-      "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed per-row scroll/Plane-B state."
+      "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed per-row scroll/Plane-B state.",
+      "stale_candidate_exemption": "Investigation-only oracle snapshot for #289; do not promote until the live Plane-B row model consumes typed per-row scroll state."
     },
     {
       "key": "oracle_background_plane_b_rows_loc_307d8",

@@ -3615,11 +3615,12 @@ pub fn background_row_uploads_sub_307D8(
     background_chunk_buffer: &[u8],
 ) -> Result<Vec<BackgroundRowUploadSegmentSub307D8>> {
     // ASM sub_307D8 (kid.asm:34625): when `Camera_Y_pos>>5` changes, upload the
-    // newly exposed 40-cell background row. Upward scroll streams the current
-    // row chunk; downward scroll streams `current+#$1C`. The routine then walks
-    // 40 chunk ids from the selected background row, splitting the upload any
-    // time either the background row source wraps by `Background_width` or the
-    // plane row address wraps back to its `$6000 | row<<7` base.
+    // newly exposed background row. Upward scroll streams the current row
+    // chunk; downward scroll streams `current+#$1C`. ASM loc_308A6 seeds
+    // `d4=#$28`, so the inclusive `dbf d4` loop walks 41 chunk ids from the
+    // selected background row, splitting the upload any time either the
+    // background row source wraps by `Background_width` or the plane row address
+    // wraps back to its `$6000 | row<<7` base.
     ensure!(
         background_width != 0,
         "sub_307D8 needs a non-zero Background_width"
@@ -3682,7 +3683,7 @@ pub fn background_row_uploads_sub_307D8(
     let mut vram_remaining_until_wrap = 0x40_usize
         .checked_sub(usize::from(entry.vram_word_offset >> 1))
         .context("sub_307D8 VDP word offset exceeded the 64-cell plane row")?;
-    let mut remaining_cells = 0x28_usize;
+    let mut remaining_cells = 0x29_usize;
     let mut segments = Vec::new();
 
     while remaining_cells != 0 {
@@ -9060,12 +9061,19 @@ PlatformScript_3F7E:   ; relative offset: 097C
 
         assert_eq!(
             uploads,
-            vec![BackgroundRowUploadSegmentSub307D8 {
-                vram_word_address: 0x6F80,
-                tile_words: (0x2780..=0x27A7).collect(),
-                background_chunk_ids: (0u8..=39).collect(),
-            }],
-            "ASM sub_307D8 should pick row chunk 31 for the 3->31 downward reveal and upload the full 40-cell strip without wrapping",
+            vec![
+                BackgroundRowUploadSegmentSub307D8 {
+                    vram_word_address: 0x6F80,
+                    tile_words: (0x2780..=0x27A7).collect(),
+                    background_chunk_ids: (0u8..=39).collect(),
+                },
+                BackgroundRowUploadSegmentSub307D8 {
+                    vram_word_address: 0x6FD0,
+                    tile_words: vec![0x2780],
+                    background_chunk_ids: vec![0],
+                }
+            ],
+            "ASM sub_307D8 should pick row chunk 31 for the 3->31 downward reveal and upload the inclusive d4=$28 41-cell strip, wrapping the extra source cell",
         );
     }
 
@@ -9129,9 +9137,9 @@ PlatformScript_3F7E:   ; relative offset: 097C
                 BackgroundRowUploadSegmentSub307D8 {
                     vram_word_address: 0x6038,
                     tile_words: vec![
-                        0x2781, 0x2782, 0x2783, 0x2784, 0x2785, 0x2786, 0x2787, 0x2788
+                        0x2781, 0x2782, 0x2783, 0x2784, 0x2785, 0x2786, 0x2787, 0x2788, 0x2789
                     ],
-                    background_chunk_ids: vec![1, 2, 3, 4, 5, 6, 7, 8],
+                    background_chunk_ids: vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
                 },
             ],
             "ASM sub_307D8 should keep reissuing row segments whenever the 10-cell source wraps, even after the plane row has already wrapped back to $6000",

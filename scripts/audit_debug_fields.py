@@ -117,6 +117,12 @@ def main() -> int:
             )
             continue
         if distance >= fail_after:
+            exemption_note = str(field.get("stale_candidate_exemption", "")).strip()
+            if exemption_note:
+                warnings.append(
+                    f"candidate key {key}: {distance} commits old, exemption noted: {exemption_note}"
+                )
+                continue
             problems.append(
                 f"candidate key {key}: {distance} commits old, promote or add an exemption note"
             )

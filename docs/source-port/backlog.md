@@ -62,15 +62,21 @@ and stop — never commit churn.
   still misses the far-right top-band cloud. Current partial overlay intentionally
   skips upper rows because applying the row window everywhere worsened the route to
   frame 60 `8473` / MAE `7.6971307` and frame 71 `8580` / `7.8483305`. Continue by
-  modelling the live VDP row history/stale cells for upper rows, not another scroll
+  modelling the live VDP row history/stale cells for upper rows. The shared
+  `background_row_uploads_sub_307D8` helper now matches ASM `loc_308A6`'s inclusive
+  `d4=#$28`/`dbf` 41-cell copy; the visual route is unchanged because native-player's
+  renderer already had its own partial row-window count. Do not try another scroll
   offset, placement wrap, or header/start layout change. Do not treat #345 Lion
   mid-level vanish as closed by this; that row still needs the scroll-off/scroll-back
   cull probe.
 - **Gates this session**: `cargo fmt`, focused
+  `cargo test -p wildside-data background_row_uploads_sub_307d8 --lib`,
   `cargo test -p wildside-cli background_pixel_sampler --no-default-features`,
   ignored cache-backed `under_skull_mountain3_cave_background_chunk_renders_loc_12830`,
   fresh `verify-recording --slug issue289-level07-idle-current` (still state-clean /
-  pixel-red, improved overall), `python3 scripts/audit_debug_fields.py`, direct
+  pixel-red at frame 60 `7103` / MAE `6.9787807` and frame 71 `7227` / `7.1648297`),
+  `python3 scripts/audit_debug_fields.py` (clean; warns on the #289 Plane-B rows
+  candidate and honours the explicit #289 scroll-snapshot stale-candidate exemption), direct
   `verify-slice-fast` body (`wildside-core` lib tests, `wildside-cli gameplay_regression_`,
   and TAS frontier), and direct `cargo run -q -p wildside-cli -- backlog-lint`. The `mise` wrappers are
   blocked in this environment by `mise` failing to install `fnox@1` for `linux-arm64`.
