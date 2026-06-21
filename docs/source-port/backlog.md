@@ -52,18 +52,19 @@ and stop — never commit churn.
   experiment also worsened to frame 60 `5327` / `5.94182`, frame 71 `5466` /
   `6.162584`, and broke the typed Time_Frames regressions. Current x=285,y=10
   samples native VDP column 41 as empty while oracle row `B18` keeps clouds at
-  columns 49..56, so the next pass needs the exact row-specific Plane-B state/scroll
+  columns 49..56. A local source-row diagnostic rejected the simple
+  horizontal-overflow theory: ASM `Load_BackgroundChunk loc_12848` clips the
+  row-18 chunk at `Background_width=70`, leaving only source columns 68..69 as
+  `1,2`; the oracle's `2781..2787` tail must therefore be stale Plane-B row
+  history from the `loc_2FFE8` preload/vertical nametable sweep, not current
+  `$FFFF87B2` row contents. The next pass needs the exact row-specific Plane-B state/scroll
   split rather than another broad `$08` scroll substitution.
-- **Gates this session**: `cargo fmt --all`, `cargo fmt --check`,
-  `cargo check -q -p wildside-cli`, focused `cargo test -q -p wildside-cli`
-  filters for `chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a`,
-  `chunked_plane_b_overlay_renders_cleared_chunk_zero_loc_12848_307d8`, and
-  `chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8`, fresh red
-  `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`,
-  visual diff inspection, and direct `verify-slice-fast` body: TAS frontier,
-  `backlog-lint`, `wildside-core` lib tests, and `wildside-cli gameplay_regression_`.
-  The `mise` wrappers remain blocked in this environment by `mise` failing to
-  install `fnox@1` for `linux-arm64`, so use direct cargo/CLI commands.
+- **Gates this session**: no gameplay code kept. Temporary diagnostic
+  `cargo test -q -p wildside-cli debug_issue289_chunked_background_rows -- --ignored --nocapture`
+  was removed after it confirmed the row-source facts above; direct `backlog-lint`
+  is green. The `mise` wrappers remain blocked in
+  this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so use
+  direct cargo/CLI commands for code verification.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.

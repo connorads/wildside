@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 stale Plane-B row-history dead end)
+
+- **#289 stays `[~]`; no gameplay code kept.** A local diagnostic reconstructed the Level 0x07 chunked `$FFFF87B2` source buffer and rejected the simple right-edge overflow theory for row `B18`: ASM `Load_BackgroundChunk loc_12848` clips chunk 0 at x=68 against `Background_width=70`, so current source row 18 contains only `68:01 69:02`, not the `01..07` tail seen in oracle Plane-B row `B18`.
+- The remaining oracle `B18` cloud tail (`2781..2787`, frame 71 adding `2788`) is therefore stale nametable history from the `loc_2FFE8` preload/vertical sweep, later partly overwritten by the current fresh `sub_307D8` span. **NEXT**: model exact `loc_2FFE8` persisted Plane-B row state before visible-frame `sub_30744`; do not retry source-buffer horizontal wrap, raw `$08` display/upload scroll, current-time all-row overlay, or row-count changes.
+
+---
+
 ## 2026-06-21 handoff (#289 elapsed sub_30744 columns)
 
 - **#289 stays `[~]`; native-player now replays elapsed visible `sub_30744` tile-column writes after the `loc_2FFE8` preload span.** This models the one-cell `loc_307B2` update that runs each frame before conditional `sub_307D8`, so synthetic `$08` rows advance VDP column 45 from the old `$0780` fill to `$2780` once `Time_Frames=114..174` crosses the next tile. Focused regression: `chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8`.
