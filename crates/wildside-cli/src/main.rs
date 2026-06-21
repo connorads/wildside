@@ -5258,6 +5258,7 @@ AddrTbl_LevelNames:
             frame_index: 810,
             game_mode: GameMode::InGame,
             game_mode_value: 0x000C,
+            time_frames_loc_3038a: 0,
             start_press_count: 6,
             boot_phase: None,
             boot_phase_elapsed: None,

@@ -3190,6 +3190,7 @@ mod tests {
             frame_index: 720,
             game_mode: mode,
             game_mode_value: mode.as_disassembly_value(),
+            time_frames_loc_3038a: 0,
             start_press_count: 6,
             boot_phase: None,
             boot_phase_elapsed: None,
@@ -10925,6 +10926,25 @@ mod tests {
             super::scene::background_scroll_x_px(&trace, 0, 0x08),
             15,
             "non-settled gameplay keeps the trace-local frame clock"
+        );
+    }
+
+    #[test]
+    fn auto_scroll_rows_prefer_typed_time_frames_loc_3038a() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 60;
+        trace.level_skip_cheat_enabled = 1;
+        trace.time_frames_loc_3038a = 174;
+
+        assert_eq!(
+            super::scene::background_scroll_x_px(&trace, 0, 0x08),
+            43,
+            "ASM loc_3038A owns Time_Frames; #289 settled-warp render diagnostics must not derive loc_3050A auto-scroll timing from the hidden runtime frame_index"
+        );
+        assert_eq!(
+            super::scene::forest_water_ripple_time_frames_for_trace_loc_305e6(&trace),
+            174,
+            "ASM loc_305E6 uses the same typed Time_Frames latch as BackgroundScroll_ComputeShiftData"
         );
     }
 

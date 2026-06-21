@@ -27,48 +27,34 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live lanes;
   file order is not priority). Current focus is still #289 because it remains `[~]`.
-- **#289 current evidence**: Level 0x07 Lion projectile launch, Kid collision,
-  terrain snaps, and post-bounce timing now follow the ROM rows more closely. Native
-  uses the projectile collision row (`Lion.asm loc_3E12A` -> `stru_3DF34` ->
-  `CollisionSize_Index[667..669]`/`unk_31944`), keeps side/below damage alive
-  (`loc_3E192` only deletes `colid_kidabove`/`colid_hurt`), moves before homing like
-  the hibernating gfx object, runs `loc_3E260` bounces from the full `unk_31944`
-  terrain box, and now preserves the `loc_3E2A8`/`loc_3E2C0` DBF bounce-loop state
-  across frames so homing stays suspended after terrain hits. Fresh
-  `issue289-level07-idle-current` still reports `trace_match=true`,
-  `oracle_state_match=true`, `oracle_frame_match=false`. Native-player now also
-  renders Kid's white damage flash for the sampled frames from `kid.asm loc_BC56` /
-  `sub_80BC`, and now overlays a partial chunked Plane-B row window for verified
-  camera-parallax rows from `sub_30744`/`sub_307D8`. Current frame diff is frame 60
-  `7103` changed / MAE `6.9787807` and frame 71 `7227` / `7.1648297`. The
-  verification report now includes native sampled chunked bgscroll row diagnostics for
-  ASM `BackgroundScroll_ComputeShiftLayers loc_3050A` and `sub_30744`/`sub_307D8`.
+- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red, but the
+  settled-warp render clock is now ROM-shaped. Native traces carry
+  `time_frames_loc_3038a`, incremented at ASM `loc_3038A` and cleared on the
+  level-skip resume route after the visible/hide/preload tail that reaches
+  `Init_Timer_and_Bonus_Flags`, not at native resume setup. Fresh
+  `issue289-level07-idle-current` reports `trace_match=true`,
+  `oracle_state_match=true`, `oracle_frame_match=false`; native sampled bgscroll
+  now matches oracle `Time_Frames` exactly (`174` at frame 60, `185` at frame 71)
+  instead of the old global render-frame values (`1693`/`1704`). Pixel residual
+  improves to frame 60 `6795` changed / MAE `6.6150064` and frame 71 `6873` /
+  `6.75519`. Row-29/y=100 H-scroll still matches oracle, so the remaining broad
+  ocean/cloud mismatch is live Plane-B row/name-table contents.
 - **Next #289 action**: inspect the remaining pixel-red Level 0x07 recording and
-  broader hell-theme wrong-start/layout report. The Lion projectile arc lead is
-  exhausted, y=100 H-scroll already matches oracle, and previous simple row-wrap /
-  stateless `$FFFF87B2` / all-row overlay experiments all worsened the route. New
-  native sample diagnostics show the render/sample pass uses
-  `time_frames_loc_3038a=1693` at recording frame 60 and `1704` at frame 71, while
-  oracle reports ROM `Time_Frames=174` and `185`; saved replay traces are rebased to
-  frame 60/71, so split settled-warp render Time_Frames from recording-local frame
-  indices before another row-history patch. The shared
-  `background_row_uploads_sub_307D8` helper now matches ASM `loc_308A6`'s inclusive
-  `d4=#$28`/`dbf` 41-cell copy; the visual route is unchanged because native-player's
-  renderer already had its own partial row-window count. Do not try another scroll
-  offset, placement wrap, or header/start layout change. Do not treat #345 Lion
-  mid-level vanish as closed by this; that row still needs the scroll-off/scroll-back
-  cull probe.
+  broader hell-theme wrong-start/layout report from live Plane-B row history.
+  The Lion projectile arc, Kid flash, y=100 H-scroll, row-window count, and render
+  `Time_Frames` leads are exhausted. Do not retry header/start layout, simple
+  scroll offsets, placement wrap, raw `$00/$08`, stateless `$FFFF87B2`, or all-row
+  overlay changes. The next useful patch should model/persist native Plane-B row
+  uploads from `sub_30744`/`sub_307D8` so the top-cloud and ocean rows consume the
+  same row contents oracle reports.
 - **Gates this session**: `cargo fmt`, `cargo fmt --check`, `cargo check -p wildside-cli`,
-  focused `cargo test -p wildside-cli recording::`,
-  `cargo test -p wildside-data background_row_uploads_sub_307d8 --lib`,
-  `cargo test -p wildside-cli background_pixel_sampler --no-default-features`,
-  ignored cache-backed `under_skull_mountain3_cave_background_chunk_renders_loc_12830`,
-  fresh `verify-recording --slug issue289-level07-idle-current` (still state-clean /
-  pixel-red at frame 60 `7103` / MAE `6.9787807` and frame 71 `7227` / `7.1648297`),
-  `python3 scripts/audit_debug_fields.py` (clean; warns on the #289 Plane-B rows
-  candidate and honours the explicit #289 scroll-snapshot stale-candidate exemption), direct
-  `verify-slice-fast` body (`wildside-core` lib tests, `wildside-cli gameplay_regression_`,
-  and TAS frontier), and direct `cargo run -q -p wildside-cli -- backlog-lint`. The `mise` wrappers are
+  focused `cargo test -p wildside-core level_skip_resume_clears_time_frames_after_visible_tail`,
+  focused `cargo test -p wildside-cli time_frames_loc_3038a`, focused
+  `cargo test -p wildside-cli recording::`, fresh red
+  `verify-recording --slug issue289-level07-idle-current`, `python3 scripts/audit_debug_fields.py`
+  (clean; both #289 candidate snapshots have explicit stale-candidate exemptions),
+  direct fast-slice body (`wildside-core` lib tests and `wildside-cli gameplay_regression_`),
+  and direct `cargo run -q -p wildside-cli -- backlog-lint`. The `mise` wrappers are
   blocked in this environment by `mise` failing to install `fnox@1` for `linux-arm64`.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring

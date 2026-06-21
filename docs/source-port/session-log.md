@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 render Time_Frames aligned)
+
+- **#289 stays `[~]`; native settled-warp rendering now uses the ROM `Time_Frames` phase.** `NativeTraceFrame` carries `time_frames_loc_3038a`, incremented at ASM `loc_3038A`; the level-skip resume path clears it after the visible/hide/preload tail that reaches `Init_Timer_and_Bonus_Flags`, matching the oracle helper instead of native's earlier resume setup. Fresh `issue289-level07-idle-current` remains state-clean/pixel-red, but native bgscroll diagnostics now match oracle time exactly (`174` at frame 60, `185` at frame 71) and improve the residual to frame 60 `6795` / MAE `6.6150064`, frame 71 `6873` / `6.75519`.
+- **NEXT**: continue from live Plane-B row/name-table contents after `sub_30744`/`sub_307D8`; row-29/y=100 H-scroll and render `Time_Frames` are no longer leads. Do not retry header/start layout, simple scroll offsets, placement wrap, raw `$00/$08`, stateless `$FFFF87B2`, or all-row overlay changes. Verification: format/check, focused core + CLI `time_frames_loc_3038a` tests, recording tests, fresh red #289 recording report, debug-field audit with #289 exemptions, direct fast-slice body, and backlog lint; `mise` wrappers remain blocked by missing `fnox@1` linux-arm64 assets.
+
+---
+
 ## 2026-06-21 handoff (#289 native scroll diagnostic)
 
 - **#289 stays `[~]`; native verification reports now expose chunked bgscroll row diagnostics beside sampled pixels.** This is report-only instrumentation for ASM `BackgroundScroll_ComputeShiftLayers loc_3050A` plus `sub_30744`/`sub_307D8`; it does not mutate trace or renderer output. Fresh `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60 `7103` / MAE `6.9787807` and frame 71 `7227` / `7.1648297`.

@@ -3674,10 +3674,15 @@ const SETTLED_WARP_FOREST_RIPPLE_TIME_FRAMES_OFFSET_LOC_305E6: usize = 52;
 
 fn background_time_frames_for_trace_loc_3050a(trace: &NativeTraceFrame) -> usize {
     // ASM BackgroundScroll_ComputeShiftData / loc_305E6 use the global
-    // `Time_Frames` counter, not the recording-local frame index. Settled warp
+    // `Time_Frames` counter, not the recording-local frame index.
+    if trace.time_frames_loc_3038a != 0 {
+        return usize::from(trace.time_frames_loc_3038a);
+    }
+    // Legacy traces predate the typed Time_Frames latch. Settled warp
     // recordings replay through the ROM level-skip path and keep
     // `LevelSkip_Cheat` armed; their visible frame-based Scroll B effects are
-    // 52 VBlanks ahead of the rebased native recording clock.
+    // 52 VBlanks ahead of the rebased native recording clock in the #175
+    // forest ripple route.
     if trace.level_skip_cheat_enabled != 0 {
         trace
             .frame_index

@@ -999,6 +999,7 @@ mod tests {
             frame_index: 0,
             game_mode: GameMode::TitleScreen,
             game_mode_value: GameMode::TitleScreen.as_disassembly_value(),
+            time_frames_loc_3038a: 0,
             start_press_count: 0,
             boot_phase: None,
             boot_phase_elapsed: None,

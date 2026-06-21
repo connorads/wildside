@@ -1304,6 +1304,10 @@ impl NativeSoundCommand {
 #[serde(default)]
 pub struct NativeTraceFrame {
     pub frame_index: usize,
+    /// ROM `Time_Frames`, incremented by ASM `loc_3038A` before
+    /// `BackgroundScroll_ComputeShiftData` / `BackgroundScroll_ComputeShiftLayers`.
+    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    pub time_frames_loc_3038a: u16,
     pub game_mode: GameMode,
     pub game_mode_value: u16,
     pub start_press_count: usize,
@@ -1675,6 +1679,7 @@ impl Default for NativeTraceFrame {
     fn default() -> Self {
         Self {
             frame_index: 0,
+            time_frames_loc_3038a: 0,
             game_mode: GameMode::SegaScreen,
             game_mode_value: GameMode::SegaScreen.as_disassembly_value(),
             start_press_count: 0,

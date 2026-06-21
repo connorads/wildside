@@ -2129,6 +2129,14 @@ fn trace_frames_match(
         normalised_expected.level_timer_sub_frames = actual.level_timer_sub_frames;
     }
 
+    if expected.time_frames_loc_3038a == 0 && actual.time_frames_loc_3038a != 0 {
+        // `time_frames_loc_3038a` exposes the ROM Time_Frames counter consumed
+        // by BackgroundScroll_ComputeShiftData/ComputeShiftLayers. Legacy
+        // visual recordings predate this render latch; pixel checkpoints still
+        // guard the visible scroll state.
+        normalised_expected.time_frames_loc_3038a = actual.time_frames_loc_3038a;
+    }
+
     if expected.active_enemy_details.is_empty() {
         // `active_enemy_details` is additive trace telemetry for semantic case
         // comparison. Legacy recordings predate it, so absence must not make a
@@ -2681,6 +2689,7 @@ mod tests {
             frame_index,
             game_mode: GameMode::InGame,
             game_mode_value: GameMode::InGame.as_disassembly_value(),
+            time_frames_loc_3038a: 0,
             start_press_count: 0,
             boot_phase: None,
             boot_phase_elapsed: None,
@@ -3062,6 +3071,26 @@ mod tests {
         assert_eq!(
             drift, None,
             "legacy visual recordings predate the Time_SubSeconds trace latch; strict frame checks still guard the visible ASM loc_BEE8 timer rollover"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_time_frames_loc_3038a() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.time_frames_loc_3038a = 174;
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "legacy visual recordings predate the Time_Frames trace latch; pixel checkpoints still guard ASM loc_3038A background-scroll timing"
         );
     }
 

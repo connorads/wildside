@@ -6008,6 +6008,7 @@ impl NativeRuntime {
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.level_timer = LevelTimer::new();
+        self.time_frames_loc_3038a = 0;
         self.level_damage_taken = false;
         self.level_prize_collected = false;
         self.level_speed_bonus_awarded = false;
@@ -7647,6 +7648,21 @@ impl NativeRuntime {
         self.pause_menu_option = 0;
         self.pause_toggle_pending = false;
         self.initialise_level_entry_fade_sub_73d0();
+    }
+
+    pub(crate) fn maybe_clear_time_frames_for_level_skip_resume_loc_6551(&mut self) {
+        if self.level_skip_resume_elapsed_frames()
+            == Some(
+                LEVEL_SKIP_RESUME_VISIBLE_FRAMES
+                    + LEVEL_SKIP_RESUME_HIDE_PLAYER_FRAMES
+                    + LEVEL_SKIP_RESUME_PRELOAD_FRAMES,
+            )
+        {
+            // ASM loc_74E0 reaches Load_InGame through the visible level-skip
+            // resume tail. Init_Timer_and_Bonus_Flags clears Time_Frames after
+            // the visible/fade/preload shell, not at the native resume setup.
+            self.time_frames_loc_3038a = 0;
+        }
     }
 
     pub(crate) fn maybe_finish_level_skip_resume(&mut self) {

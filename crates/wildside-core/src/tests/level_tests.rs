@@ -12096,6 +12096,35 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
     }
 
+    #[test]
+    fn level_skip_resume_clears_time_frames_after_visible_tail() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(3));
+        runtime.set_block_grid(grid_with_floor_at_row(48));
+        start_level(&mut runtime);
+        runtime.time_frames_loc_3038a = 0x1234;
+        runtime.pending_level_skip_resume = true;
+
+        runtime.maybe_begin_pending_level_skip_resume();
+
+        assert_eq!(
+            runtime.time_frames_loc_3038a, 0x1234,
+            "ASM loc_74E0 reaches Init_Timer_and_Bonus_Flags after the level-skip resume visible tail, so Time_Frames must not clear at native resume setup"
+        );
+
+        let clear_elapsed = LEVEL_SKIP_RESUME_VISIBLE_FRAMES
+            + LEVEL_SKIP_RESUME_HIDE_PLAYER_FRAMES
+            + LEVEL_SKIP_RESUME_PRELOAD_FRAMES;
+        for _ in 0..=clear_elapsed {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(
+            runtime.trace_frame().time_frames_loc_3038a,
+            1,
+            "ASM loc_6551 clears Time_Frames before the frame's loc_3038A tail increments it"
+        );
+    }
+
     /// ASM loc_D5D2 (kid.asm:16732): `tst.b (NoPrize_Bonus_Flag).w; bne.w
     /// loc_D60E`; flag zero falls through and allocates a 5000-point
     /// "No Prize" bonus before continuing to the path-bonus branch.

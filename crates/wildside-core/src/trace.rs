@@ -7239,6 +7239,7 @@ impl NativeRuntime {
         });
         NativeTraceFrame {
             frame_index: self.frame_index,
+            time_frames_loc_3038a: self.time_frames_loc_3038a,
             game_mode,
             game_mode_value: game_mode.as_disassembly_value(),
             start_press_count: self.start_press_count,

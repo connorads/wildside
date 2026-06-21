@@ -149,6 +149,7 @@ fn heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
 pub struct NativeRuntime {
     assets: AssetManifest,
     frame_index: usize,
+    time_frames_loc_3038a: u16,
     boot_state: BootState,
     trace_input: FrameInput,
     prior_input: FrameInput,
@@ -1008,6 +1009,7 @@ impl NativeRuntime {
         let mut runtime = Self {
             assets,
             frame_index: 0,
+            time_frames_loc_3038a: 0,
             boot_state: BootState::SegaScreen { elapsed: 0 },
             trace_input: FrameInput::default(),
             prior_input: FrameInput::default(),
@@ -1981,6 +1983,7 @@ impl NativeRuntime {
         self.trace_input = input;
         self.maybe_begin_pending_level_skip();
         self.maybe_begin_pending_level_skip_resume();
+        self.maybe_clear_time_frames_for_level_skip_resume_loc_6551();
         self.maybe_finish_level_skip_resume();
         let freeze_demo_auto_timeout_snapshot = self.demo_auto_timeout_freeze_gameplay_frame;
         // ASM loc_C4E (kid.asm:1404): ReadJoypad edge detection —
@@ -2263,6 +2266,11 @@ impl NativeRuntime {
                 boot::hud_lives_clamp_loc_BF2A(self.progression.number_lives);
         }
 
+        if self.game_mode().as_disassembly_value() != 0 {
+            // ASM loc_3038A: non-zero `Game_Mode` increments `Time_Frames`
+            // before BackgroundScroll_ComputeShiftData/ComputeShiftLayers.
+            self.time_frames_loc_3038a = self.time_frames_loc_3038a.wrapping_add(1);
+        }
         let trace = self.trace_frame();
         if self.demo_post_transform_trace_velocity_hold_frames > 0 {
             self.demo_post_transform_trace_velocity_hold_frames -= 1;
