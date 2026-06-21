@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 Plane-B H-flip table)
+
+- **#289 stays `[~]`; chunked Plane-B row words now mirror ASM `unk_309B8` for high-bit chunk bytes.** Re-reading `sub_30744`/`sub_307D8` showed both routines load words from `unk_309B8`; the table is `$2780..$27FF,$2F80..$2FFF`, so chunk byte bit 7 is the VDP H-flip bit. Native previously treated bit 7 as tile-index bit 7 and emitted `$2792/$2791` where the oracle row dump has `$2F92/$2F91`.
+- New red-first tests cover both levels: `background_tile_uploads_sub_30744_maps_chunk_high_bit_to_hflip_loc_309b8` for the shared data helper and the #289 `chunked_settled_row_history_seeds_loc_2ffe8_persisted_plane_b_row` B23 tail. Fresh expected-red `issue289-level07-idle-current` keeps the same pixel metrics (`3915` / MAE `4.2537017`, `4113` / `4.5239353`), but native B23/B27 row words now match oracle flip bits. Remaining visible work is B08/far-edge row-state, not this H-flip table.
+- Verification: `cargo test -q -p wildside-data background_tile_uploads_sub_30744 --lib`, `cargo test -q -p wildside-cli chunked_ --no-default-features`, `cargo check -q -p wildside-data`, `cargo check -q -p wildside-cli`, `cargo fmt --check --all`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, backlog lint, and `git diff --check`.
+
+---
+
 ## 2026-06-21 handoff (#289 parallax preload camera phase)
 
 - **#289 stays `[~]`; native-player now splits settled `loc_2FFE8` preload Camera_X by bgscroll slot.** `Load_InGame loc_11F48`'s player-start screen-grid Camera_X remains correct for Time_Frames-driven `$00/$08` rows (B18/B19 still keep old `$0780` columns 0-4, `$2780` columns 5-48, and the right-edge cloud tails), but camera-parallax rows match the oracle when they use the settled trace Camera_X. The focused regression now pins both the B18 cloud row and B29 ocean row.

@@ -2919,6 +2919,27 @@ pub(super) fn chunked_plane_b_row_words_for_trace_loc_30744(
         })
 }
 
+#[cfg(test)]
+pub(super) fn chunked_plane_b_row_vdp_words_for_trace_loc_30744(
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+    camera_x_px: i32,
+    row: usize,
+) -> Option<Vec<Option<u16>>> {
+    let wildside_render::BackgroundVisuals::Chunked(background) = &level_visuals.background else {
+        return None;
+    };
+    let plane_b = ChunkedPlaneBRowsLoc307D8::from_background(level_visuals, background)?;
+    plane_b
+        .row_for_trace(trace, level_visuals, camera_x_px, row)
+        .map(|cells| {
+            cells
+                .into_iter()
+                .map(|cell| cell.map(chunked_plane_b_cell_vdp_word_loc_307d8))
+                .collect()
+        })
+}
+
 pub(crate) fn chunked_plane_b_row_debug_for_trace_loc_30744(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
@@ -2934,12 +2955,12 @@ pub(crate) fn chunked_plane_b_row_debug_for_trace_loc_30744(
 
 fn chunked_plane_b_cell_vdp_word_loc_307d8(cell: ChunkedPlaneBCellLoc307D8) -> u16 {
     // ASM sub_307D8 adds `$2780` to the `$FFFF87B2` chunk byte before
-    // streaming the word into Plane B. A high chunk bit carries through the
-    // `$0780 + byte` tile field into the VDP H-flip bit.
+    // streaming the word into Plane B via `unk_309B8`: `$2780..$27FF`,
+    // then `$2F80..$2FFF` for high-bit chunk bytes. Bit 7 therefore becomes
+    // the VDP H-flip bit, not tile-index bit 7.
     let palette_bits = u16::from(cell.tile_ref.palette_line) << 13;
-    let chunk_byte =
-        (cell.tile_ref.tile_index & 0x007F) | if cell.tile_ref.flip_x { 0x0080 } else { 0 };
-    palette_bits | 0x0780 | chunk_byte
+    let hflip_bit = if cell.tile_ref.flip_x { 0x0800 } else { 0 };
+    palette_bits | hflip_bit | 0x0780 | (cell.tile_ref.tile_index & 0x007F)
 }
 
 pub(super) fn background_scroll_data_word_loc_30452(

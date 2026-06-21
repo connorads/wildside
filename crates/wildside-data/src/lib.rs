@@ -3743,8 +3743,15 @@ pub fn background_scroll_update_sub_304B4(
 #[allow(non_snake_case)]
 fn background_tile_word_sub_30744(background_chunk_id: u8) -> u16 {
     // ASM sub_30744 reads `unk_309B8(background_chunk_id*2)`, which is the
-    // contiguous word table `$2780..$27FF`.
-    0x2780_u16.wrapping_add(u16::from(background_chunk_id))
+    // word table `$2780..$27FF,$2F80..$2FFF`. Bit 7 of the chunk byte is the
+    // VDP H-flip bit, not tile-index bit 7.
+    0x2780_u16
+        | u16::from(background_chunk_id & 0x7F)
+        | if background_chunk_id & 0x80 != 0 {
+            0x0800
+        } else {
+            0
+        }
 }
 
 #[allow(non_snake_case)]
@@ -9387,6 +9394,30 @@ PlatformScript_3F7E:   ; relative offset: 097C
                 background_chunk_id: 5,
             }],
             "ASM sub_30744 should stop at `$FF` and map the selected chunk id through `unk_309B8`",
+        );
+    }
+
+    #[test]
+    fn background_tile_uploads_sub_30744_maps_chunk_high_bit_to_hflip_loc_309b8() {
+        let mut background_chunk_buffer = vec![0u8; 16];
+        background_chunk_buffer[3] = 0x92;
+
+        let uploads = background_tile_uploads_sub_30744(
+            0,
+            10,
+            &[0],
+            &[0, 0xFF],
+            &[BackgroundScrollStateSub30744 {
+                background_buffer_column: Some(3),
+                vram_word_offset: 0x0020,
+            }],
+            &background_chunk_buffer,
+        )
+        .expect("ASM sub_30744 should accept a valid flipped chunk id");
+
+        assert_eq!(
+            uploads[0].tile_word, 0x2F92,
+            "ASM unk_309B8 maps chunk byte `$92` to VDP word `$2F92`; bit 7 is the H-flip bit, not tile-index bit 7"
         );
     }
 

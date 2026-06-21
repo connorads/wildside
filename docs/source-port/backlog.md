@@ -27,18 +27,13 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 just landed a narrow renderer improvement (`[~]` remains open)**:
-  settled level-skip `loc_2FFE8` preload rows now split Camera_X phase by bgscroll
-  slot. `$00/$08` Time_Frames-driven rows retain the `Load_InGame loc_11F48`
-  player-start grid phase that B18/B19 need, while camera-parallax rows use the
-  settled trace Camera_X that the Level 0x07 B29 ocean row needs. Fresh expected-red
-  `issue289-level07-idle-current` improves from frame 60 `4031` / MAE `4.3676014`
-  and frame 71 `4181` / `4.603767` to frame 60 `3915` / `4.2537017` and frame 71
-  `4113` / `4.5239353`; it remains `oracle_frame_match=false`. B18/B19 still match
-  their oracle row-history shape, and B29 now matches the visible ocean strip through
-  the main row body. **NEXT #289:** inspect the remaining far-edge single-cell row
-  writes and flip-bit preservation on B23/B27/B29/B30 using `BackgroundScroll_ComputeShiftData`
-  `sub_304B4` + `sub_30744` evidence before another render change. **archive #289**.
+- **#289 just landed a narrow row-word fidelity fix (`[~]` remains open)**:
+  `unk_309B8` high-bit chunk bytes now map to VDP H-flip words (`$2F80..$2FFF`),
+  so B23/B27 flipped row cells match the oracle. Fresh expected-red
+  `issue289-level07-idle-current` remains pixel-red at frame 60 `3915` / MAE
+  `4.2537017`, frame 71 `4113` / `4.5239353`. **NEXT #289:** inspect remaining
+  B08/far-edge row-state gaps; do not change render code without ASM/oracle row
+  evidence. **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -61,12 +56,10 @@ and stop — never commit churn.
   title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
-- **Gates this session**: `cargo fmt --check --all`, `cargo test -q -p wildside-cli
-  chunked_ --no-default-features`, `cargo check -q -p wildside-cli`, and expected-red
-  `cargo run -q -p wildside-cli -- verify-recording --slug
-  issue289-level07-idle-current` with improved pixel metrics. `backlog-lint` and
-  `git diff --check` run before commit. `mise` wrappers remain blocked here by
-  `fnox@1` linux-arm64, so direct cargo/CLI commands were used.
+- **Gates this session**: focused `wildside-data` `sub_30744` tests, `wildside-cli`
+  `chunked_` tests, `cargo check -q -p wildside-data`, `cargo check -q -p
+  wildside-cli`, `cargo fmt --check --all`, and expected-red #289 recording. `backlog-lint`
+  and `git diff --check` run before commit.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -100,7 +93,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: parallax preload Camera_X split improves Level 0x07 recording to frame 60 `3915` / MAE `4.2537017`, frame 71 `4113` / `4.5239353`, but far-edge row cells/flip bits remain pixel-red. (full history: archive #289) |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: `unk_309B8` H-flip mapping now matches B23/B27 row words; Level 0x07 remains pixel-red at frame 60 `3915` / MAE `4.2537017`, frame 71 `4113` / `4.5239353`. (full history: archive #289) |
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | 2026-06-21: bisected to c65df2500 (2026-06-12) — `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` (camera 216→115px, level-0 only). NEXT: oracle capture PAST the title card into live gameplay, diff per-frame camera/kid-Y; don't edit the ramp without it (may be oracle-derived). See archive #336. |

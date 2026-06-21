@@ -9861,6 +9861,7 @@ mod tests {
                 .expect("issue #289-shaped foreground layout");
         let mut layer_speeds = vec![0xFF; 64];
         layer_speeds[18] = 0x08;
+        layer_speeds[23] = 0x00;
         layer_speeds[29] = 0x20;
         visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
             layer_speeds,
@@ -9885,6 +9886,11 @@ mod tests {
                     x_tiles: 0x13 + 4,
                     y_tiles: 29,
                 },
+                BackgroundPlacement {
+                    chunk_id: 2,
+                    x_tiles: 0x13 + 62,
+                    y_tiles: 23,
+                },
             ],
             chunks: vec![
                 BackgroundChunk {
@@ -9905,6 +9911,17 @@ mod tests {
                         .map(|tile_index| BackgroundTile {
                             tile_index,
                             flip_x: false,
+                        })
+                        .collect(),
+                },
+                BackgroundChunk {
+                    width_tiles: 2,
+                    height_tiles: 1,
+                    tiles: [0x12, 0x11]
+                        .into_iter()
+                        .map(|tile_index| BackgroundTile {
+                            tile_index,
+                            flip_x: true,
                         })
                         .collect(),
                 },
@@ -9952,6 +9969,16 @@ mod tests {
                 Some((0x39, 1)),
             ],
             "ASM loc_2FFE8/sub_307D8 seeds B29 from the settled Camera_X column, not the pre-adjusted player-start grid column"
+        );
+
+        let flipped_row = super::scene::chunked_plane_b_row_vdp_words_for_trace_loc_30744(
+            &trace, &visuals, 292, 23,
+        )
+        .expect("settled chunked Plane-B flipped row history");
+        assert_eq!(
+            &flipped_row[62..64],
+            &[Some(0x2F92), Some(0x2F91)],
+            "ASM unk_309B8 maps high-bit chunk bytes from loc_12848 into the VDP H-flip bit for B23"
         );
     }
 
