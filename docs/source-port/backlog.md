@@ -47,22 +47,20 @@ and stop — never commit churn.
   40, `8FA0` fills at step 41, then `8C9E` fills at step 42 with columns
   `49..56 = 01..08` (plus trailing non-zero bytes) while `Game_Mode=$000C`,
   `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`. This matches
-  the `BackgroundLayout_0E` `$8000`/x-offset `$13` path as an ingredient, but the
-  standalone alias patch was rejected because it worsened #289 without the live
-  row-history model. Do not retry header/start layout, simple scroll offsets,
+  the `BackgroundLayout_0E` `$8000`/x-offset `$13` path as an ingredient. Native
+  manifest normalisation now preserves that shared-layout alias metadata at the
+  asset boundary, but the standalone alias-render patch remains rejected because
+  it worsened #289 without the live row-history model. Do not retry header/start layout, simple scroll offsets,
   placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render
   `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
   substitution, current-time all-row overlay, or alias-only changes.
-- **Gates this session**: added oracle settle-trace field
-  `background_source_rows_loc_12848` and regenerated
-  `.cache/oracle-probe/issue289-settle-plane-b.csv`; no native-player/runtime
-  rendering fix. Verified `cargo fmt --all`,
-  `cargo test -q -p wildside-cli oracle_manifest_deserialises_hidden_settle_trace_rows`,
-  `cargo check -q -p wildside-cli`, oracle-probe settle trace, and expected-red
-  `issue289-level07-idle-current` (`trace_match=true`,
-  `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
-  `5.6536646`, frame 71 `5212` / `5.8645835`), `cargo run -q -p wildside-cli
-  -- backlog-lint`, and `git diff --check`.
+- **Gates this session**: added typed `BackgroundLayoutAlias` metadata recovery
+  from copied ASM `mapheader_definitions.asm` + `background_includes.asm`; no
+  native-player/runtime rendering fix. Verified `cargo fmt --all`,
+  `cargo test -p wildside-data --lib` (143 tests), `cargo run -q -p
+  wildside-cli -- project-status`, and expected-red `issue289-level07-idle-current`
+  (`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
+  frame 60 `5080` / `5.6536646`, frame 71 `5212` / `5.8645835`).
   The `mise` wrappers remain blocked
   in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
   use direct cargo/CLI commands for code verification.

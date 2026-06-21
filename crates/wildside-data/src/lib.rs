@@ -2,7 +2,7 @@ use anyhow::{Context, Result, anyhow, bail, ensure};
 use image::{GrayImage, Luma};
 use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
@@ -98,6 +98,8 @@ pub struct LevelRecord {
     pub bgscroll_metadata: Option<BgscrollProfile>,
     #[serde(default)]
     pub platform_metadata: Option<PlatformLayout>,
+    #[serde(default)]
+    pub background_layout_alias: Option<BackgroundLayoutAlias>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -123,6 +125,23 @@ pub struct LevelResources {
     pub foreground: Option<String>,
     pub block: Option<String>,
     pub background: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BackgroundLayoutAlias {
+    pub alias_label: String,
+    pub source_label: String,
+    pub source_background_path: Option<String>,
+    pub x_offset_tiles: u16,
+    pub y_offset_tiles: u16,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct BackgroundLayoutDefinition {
+    direct_background_path: Option<String>,
+    alias_marker_seen: bool,
+    alias_offset_long: Option<u32>,
+    alias_target_label: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1542,6 +1561,7 @@ fn merge_level_catalogues(
                 enemy_layout_metadata: None,
                 bgscroll_metadata: None,
                 platform_metadata: None,
+                background_layout_alias: None,
             },
         );
     }
@@ -1557,15 +1577,22 @@ fn merge_level_catalogues(
             enemy_layout_metadata: None,
             bgscroll_metadata: None,
             platform_metadata: None,
+            background_layout_alias: None,
         });
     }
     by_level.into_values().collect()
 }
 
 fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
+    let background_layout_aliases = load_background_layout_aliases(&manifest.output_root)?;
     for level in &mut manifest.levels {
         if level.resources == LevelResources::default() {
             level.resources = level_resources_from_paths(&level.resource_paths);
+        }
+        if level.background_layout_alias.is_none()
+            && let Some(alias) = background_layout_aliases.get(&level.level_id)
+        {
+            level.background_layout_alias = Some(alias.clone());
         }
         if level.header_metadata.is_none()
             && let Some(relative_path) = level.resources.header.as_deref()
@@ -1615,6 +1642,188 @@ fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn load_background_layout_aliases(
+    output_root: &Path,
+) -> Result<BTreeMap<u8, BackgroundLayoutAlias>> {
+    let mapheader_path = output_root.join("level/mapheader_definitions.asm");
+    let background_path = output_root.join("level/background_includes.asm");
+    if !mapheader_path.is_file() || !background_path.is_file() {
+        return Ok(BTreeMap::new());
+    }
+    let mapheader_contents = fs::read_to_string(&mapheader_path)
+        .with_context(|| format!("failed to read {}", mapheader_path.display()))?;
+    let background_contents = fs::read_to_string(&background_path)
+        .with_context(|| format!("failed to read {}", background_path.display()))?;
+    parse_background_layout_aliases(&mapheader_contents, &background_contents)
+}
+
+fn parse_background_layout_aliases(
+    mapheader_contents: &str,
+    background_contents: &str,
+) -> Result<BTreeMap<u8, BackgroundLayoutAlias>> {
+    let header_backgrounds = parse_maphdr_background_labels(mapheader_contents)?;
+    let definitions = parse_background_layout_definitions(background_contents)?;
+    let mut aliases = BTreeMap::new();
+
+    for (level_id, alias_label) in header_backgrounds {
+        let Some(definition) = definitions.get(&alias_label) else {
+            continue;
+        };
+        let (Some(offset_long), Some(source_label)) = (
+            definition.alias_offset_long,
+            definition.alias_target_label.as_deref(),
+        ) else {
+            continue;
+        };
+        let source_background_path =
+            resolve_background_layout_direct_path(&definitions, source_label);
+        aliases.insert(
+            level_id,
+            BackgroundLayoutAlias {
+                alias_label,
+                source_label: source_label.to_owned(),
+                source_background_path,
+                x_offset_tiles: (offset_long >> 16) as u16,
+                y_offset_tiles: offset_long as u16,
+            },
+        );
+    }
+
+    Ok(aliases)
+}
+
+fn parse_maphdr_background_labels(contents: &str) -> Result<BTreeMap<u8, String>> {
+    let mut labels = BTreeMap::new();
+    for (index, line) in contents.lines().enumerate() {
+        let (_, statement) = split_asm_label_statement(line);
+        let trimmed = statement.trim();
+        let Some(args) = trimmed.strip_prefix("maphdr") else {
+            continue;
+        };
+        let parts = args.split(',').map(str::trim).collect::<Vec<_>>();
+        if parts.len() < 4 {
+            bail!("maphdr on line {} had fewer than 4 arguments", index + 1);
+        }
+        let level_id = parse_maphdr_header_level_id(parts[0])
+            .with_context(|| format!("failed to parse maphdr header on line {}", index + 1))?;
+        labels.insert(level_id, parts[3].to_owned());
+    }
+    Ok(labels)
+}
+
+fn parse_maphdr_header_level_id(value: &str) -> Result<u8> {
+    let path = parse_asm_quoted_string(value)
+        .ok_or_else(|| anyhow!("maphdr header argument was not quoted: {value}"))?;
+    let file_name = path
+        .strip_prefix("level/header/")
+        .and_then(|path| path.strip_suffix(".bin"))
+        .ok_or_else(|| anyhow!("maphdr header path was not level/header/XX.bin: {path}"))?;
+    parse_hex_byte(file_name)
+}
+
+fn parse_background_layout_definitions(
+    contents: &str,
+) -> Result<BTreeMap<String, BackgroundLayoutDefinition>> {
+    let mut definitions = BTreeMap::new();
+    let mut current_label = None::<String>;
+    let mut current_definition = BackgroundLayoutDefinition::default();
+
+    for (index, line) in contents.lines().enumerate() {
+        let (label, statement) = split_asm_label_statement(line);
+        if let Some(label) = label {
+            if let Some(previous_label) = current_label.replace(label.to_owned()) {
+                definitions.insert(previous_label, std::mem::take(&mut current_definition));
+            }
+        }
+        parse_background_layout_statement(&mut current_definition, statement, index + 1)?;
+    }
+
+    if let Some(label) = current_label {
+        definitions.insert(label, current_definition);
+    }
+
+    Ok(definitions)
+}
+
+fn parse_background_layout_statement(
+    definition: &mut BackgroundLayoutDefinition,
+    statement: &str,
+    line_number: usize,
+) -> Result<()> {
+    let trimmed = statement.trim();
+    if trimmed.is_empty() {
+        return Ok(());
+    }
+    if let Some(rest) = trimmed.strip_prefix("binclude") {
+        let path = parse_asm_quoted_string(rest)
+            .ok_or_else(|| anyhow!("missing binclude path on line {line_number}"))?;
+        definition.direct_background_path =
+            Some(path.strip_prefix("level/").unwrap_or(path).to_owned());
+        return Ok(());
+    }
+    if let Some(data) = trimmed.strip_prefix("dc.w") {
+        let marker = data
+            .split(',')
+            .map(str::trim)
+            .find(|value| !value.is_empty())
+            .and_then(parse_asm_integer)
+            .ok_or_else(|| anyhow!("missing dc.w value on line {line_number}"))?;
+        if marker == 0x8000 {
+            definition.alias_marker_seen = true;
+            definition.alias_offset_long = None;
+            definition.alias_target_label = None;
+        }
+        return Ok(());
+    }
+    if let Some(data) = trimmed.strip_prefix("dc.l") {
+        let value = data
+            .split(',')
+            .map(str::trim)
+            .find(|value| !value.is_empty())
+            .ok_or_else(|| anyhow!("missing dc.l value on line {line_number}"))?;
+        if definition.alias_marker_seen
+            && definition.alias_offset_long.is_none()
+            && let Some(parsed) = parse_asm_integer(value)
+        {
+            definition.alias_offset_long = Some(u32::try_from(parsed).map_err(|_| {
+                anyhow!("background alias offset on line {line_number} out of range: {parsed}")
+            })?);
+            return Ok(());
+        }
+        if definition.alias_marker_seen
+            && definition.alias_offset_long.is_some()
+            && definition.alias_target_label.is_none()
+        {
+            definition.alias_target_label = Some(value.to_owned());
+        }
+    }
+    Ok(())
+}
+
+fn resolve_background_layout_direct_path(
+    definitions: &BTreeMap<String, BackgroundLayoutDefinition>,
+    label: &str,
+) -> Option<String> {
+    let mut visited = BTreeSet::new();
+    resolve_background_layout_direct_path_inner(definitions, label, &mut visited)
+}
+
+fn resolve_background_layout_direct_path_inner(
+    definitions: &BTreeMap<String, BackgroundLayoutDefinition>,
+    label: &str,
+    visited: &mut BTreeSet<String>,
+) -> Option<String> {
+    if !visited.insert(label.to_owned()) {
+        return None;
+    }
+    let definition = definitions.get(label)?;
+    if let Some(path) = definition.direct_background_path.as_ref() {
+        return Some(path.clone());
+    }
+    let target_label = definition.alias_target_label.as_deref()?;
+    resolve_background_layout_direct_path_inner(definitions, target_label, visited)
 }
 
 fn level_resources_from_paths(paths: &[String]) -> LevelResources {
@@ -5234,6 +5443,24 @@ fn parse_asm_label(line: &str) -> Option<&str> {
     statement.trim().strip_suffix(':')
 }
 
+fn split_asm_label_statement(line: &str) -> (Option<&str>, &str) {
+    let (statement, _) = split_comment(line);
+    let trimmed = statement.trim();
+    if let Some((label, rest)) = trimmed.split_once(':')
+        && !label.trim().is_empty()
+    {
+        return (Some(label.trim()), rest.trim());
+    }
+    (None, trimmed)
+}
+
+fn parse_asm_quoted_string(value: &str) -> Option<&str> {
+    let start = value.find('"')?;
+    let rest = &value[start + 1..];
+    let end = rest.find('"')?;
+    Some(&rest[..end])
+}
+
 fn parse_asm_byte_string(token: &str, line_number: usize) -> Result<Vec<u8>> {
     if !token.ends_with('"') {
         bail!("unterminated string on line {line_number}");
@@ -5765,6 +5992,109 @@ AddrTbl_LevelNames:   ;1A842
         assert_eq!(resources.foreground.as_deref(), Some("foreground/00.bin"));
         assert_eq!(resources.block.as_deref(), Some("block/00.bin"));
         assert_eq!(resources.background.as_deref(), Some("background/00.bin"));
+    }
+
+    #[test]
+    fn parses_shared_background_layout_alias_offsets_loc_12824() {
+        let aliases = parse_background_layout_aliases(
+            r#"MapHeader_0E:	maphdr	"level/header/0E.bin", ForegroundLayout_0E, BlockLayout_0E.bin, BackgroundLayout_0E, EnemyLayout_0E
+MapHeader_0C:	maphdr	"level/header/0C.bin", ForegroundLayout_0C, BlockLayout_0C.bin, BackgroundLayout_0C, EnemyLayout_0C
+"#,
+            r#"BackgroundLayout_0C:  binclude    "level/background/0C.bin"
+    align 2
+BackgroundLayout_0E:  dc.w    $8000
+    dc.l    $130000
+    dc.l    BackgroundLayout_0C
+"#,
+        )
+        .expect("background aliases");
+
+        assert_eq!(
+            aliases.get(&0x0E),
+            Some(&BackgroundLayoutAlias {
+                alias_label: String::from("BackgroundLayout_0E"),
+                source_label: String::from("BackgroundLayout_0C"),
+                source_background_path: Some(String::from("background/0C.bin")),
+                x_offset_tiles: 0x13,
+                y_offset_tiles: 0,
+            })
+        );
+        assert!(
+            !aliases.contains_key(&0x0C),
+            "direct background layouts have no shared-layout alias"
+        );
+    }
+
+    #[test]
+    fn normalise_manifest_recovers_shared_background_alias_metadata_loc_12824() {
+        let temp = TempDir::new().expect("temp dir");
+        let root = temp.path();
+        fs::create_dir_all(root.join("level")).expect("level dir");
+        fs::write(
+            root.join("level/mapheader_definitions.asm"),
+            r#"MapHeader_0E:	maphdr	"level/header/0E.bin", ForegroundLayout_0E, BlockLayout_0E.bin, BackgroundLayout_0E, EnemyLayout_0E
+"#,
+        )
+        .expect("mapheader definitions");
+        fs::write(
+            root.join("level/background_includes.asm"),
+            r#"BackgroundLayout_0C:  binclude    "level/background/0C.bin"
+    align 2
+BackgroundLayout_0E:  dc.w    $8000
+    dc.l    $130000
+    dc.l    BackgroundLayout_0C
+"#,
+        )
+        .expect("background includes");
+
+        let mut manifest = AssetManifest {
+            generated_bundle_version: GENERATED_BUNDLE_VERSION,
+            rom_sha1: String::new(),
+            upstream_commit: String::new(),
+            source_root: root.to_path_buf(),
+            output_root: root.to_path_buf(),
+            map_order: Vec::new(),
+            levels: vec![LevelRecord {
+                level_id: 0x0E,
+                title_text_id: None,
+                display_name: None,
+                title_card: None,
+                resource_paths: vec![String::from("background/0C.bin")],
+                resources: LevelResources::default(),
+                header_metadata: None,
+                enemy_layout_metadata: None,
+                bgscroll_metadata: None,
+                platform_metadata: None,
+                background_layout_alias: None,
+            }],
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
+        };
+
+        normalise_manifest(&mut manifest).expect("normalise manifest");
+
+        let level = &manifest.levels[0];
+        assert_eq!(
+            level.resources.background.as_deref(),
+            Some("background/0C.bin")
+        );
+        assert_eq!(
+            level.background_layout_alias.as_ref(),
+            Some(&BackgroundLayoutAlias {
+                alias_label: String::from("BackgroundLayout_0E"),
+                source_label: String::from("BackgroundLayout_0C"),
+                source_background_path: Some(String::from("background/0C.bin")),
+                x_offset_tiles: 0x13,
+                y_offset_tiles: 0,
+            })
+        );
     }
 
     #[test]
@@ -8440,6 +8770,7 @@ AddrTbl_LevelNames:   ;1A842
                     enemy_layout_metadata: None,
                     bgscroll_metadata: None,
                     platform_metadata: None,
+                    background_layout_alias: None,
                 },
                 LevelRecord {
                     level_id: 0x4B,
@@ -8458,6 +8789,7 @@ AddrTbl_LevelNames:   ;1A842
                     enemy_layout_metadata: None,
                     bgscroll_metadata: None,
                     platform_metadata: None,
+                    background_layout_alias: None,
                 },
             ],
             constants: Vec::new(),

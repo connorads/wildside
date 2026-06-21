@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 typed background alias metadata)
+
+- **#289 stays `[~]`; native manifest normalisation now preserves ASM `Load_BackgroundMappings loc_12824` shared-background alias metadata.** `LevelRecord.background_layout_alias` records `BackgroundLayout_0E -> BackgroundLayout_0C`, source path `background/0C.bin`, x offset `$13`, and y offset `0` from the copied `level/mapheader_definitions.asm`/`level/background_includes.asm` files.
+- This is asset-boundary model work only, not a renderer fix. Fresh `issue289-level07-idle-current` remains expected-red at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`; the standalone alias-only renderer patch remains rejected. **NEXT**: build the live `$87B2` construction plus persisted Plane-B row-history model before applying alias/source bytes to native rendering.
+
+---
+
 ## 2026-06-21 handoff (#289 full `$87B2` source-row trace)
 
 - **#289 stays `[~]`; oracle settle trace now dumps full target `$FFFF87B2` source rows for `Load_BackgroundChunk loc_12848`.** `background_source_rows_loc_12848` shows `$8C9E[00..45]` all zero through `title_wait` step 40, `$8FA0` filling at step 41, then `$8C9E` filling at step 42 with columns `49..56 = 01..08` while `Game_Mode=$000C`, `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`.
