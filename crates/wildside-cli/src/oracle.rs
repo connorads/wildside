@@ -132,6 +132,10 @@ pub struct OracleSettleTraceRow {
     pub kid_y_vel: i32,
     pub number_objects: u16,
     #[serde(default)]
+    pub background_scroll_loc_3050a: String,
+    #[serde(default)]
+    pub background_row_offsets_loc_30744: String,
+    #[serde(default)]
     pub background_plane_b_rows_loc_307d8: String,
 }
 
@@ -706,6 +710,8 @@ mod tests {
                         "kid_x_vel": 0,
                         "kid_y_vel": 0,
                         "number_objects": 4,
+                        "background_scroll_loc_3050a": "slots=08:col=0031,vdp=0062,cur=0072,prev=0071",
+                        "background_row_offsets_loc_30744": "cam_chunk=0011;width=0046;rows=0F:03CA,10:0410,11:0456",
                         "background_plane_b_rows_loc_307d8": "B18=0780"
                     }
                 ]
@@ -723,6 +729,14 @@ mod tests {
         assert_eq!(row.kid_x_pos, 0x0020_0000);
         assert_eq!(row.kid_y_pos, 0x00BF_0000);
         assert_eq!(row.number_objects, 4);
+        assert_eq!(
+            row.background_scroll_loc_3050a,
+            "slots=08:col=0031,vdp=0062,cur=0072,prev=0071"
+        );
+        assert_eq!(
+            row.background_row_offsets_loc_30744,
+            "cam_chunk=0011;width=0046;rows=0F:03CA,10:0410,11:0456"
+        );
         assert_eq!(row.background_plane_b_rows_loc_307d8, "B18=0780");
     }
 

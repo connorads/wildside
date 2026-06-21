@@ -157,6 +157,8 @@ struct OracleSettleTraceRow {
     kid_x_vel: i32,
     kid_y_vel: i32,
     number_objects: u16,
+    background_scroll_loc_3050a: String,
+    background_row_offsets_loc_30744: String,
     background_plane_b_rows_loc_307d8: String,
 }
 
@@ -458,6 +460,7 @@ const RNG_OFFSET_ADDR: usize = 0xFF_FC12;
 const LEVEL_SPECIAL_EFFECTS_ADDR: usize = 0xFF_FB40;
 const HORIZ_SCROLL_DATA_ADDR: usize = 0xFF_7392;
 const HORIZ_SCROLL_BUFFER_ADDR: usize = 0xFF_7432;
+const BACKGROUND_ROW_OFFSETS_ADDR: usize = 0xFF_4D5C;
 const BACKGROUND_WIDTH_ADDR: usize = 0xFF_F8A6;
 const BACKGROUND_NO_SCROLL_FLAG_ADDR: usize = 0xFF_FB4A;
 const TIME_FRAMES_ADDR: usize = 0xFF_FC24;
@@ -1721,6 +1724,26 @@ fn background_scroll_debug_loc_3050a(work_ram: &[u8]) -> String {
     )
 }
 
+fn background_row_offsets_debug_loc_30744(work_ram: &[u8]) -> String {
+    // ASM sub_30744 (kid.asm:34563) indexes `$FFFF4D5C` by
+    // `Camera_Y_pos >> 5`, then uses the selected word as the backing
+    // row offset before reading `(a0, Horiz_Scroll_Data.col)`.
+    let camera_y = read_wram_u32(work_ram, CAMERA_Y_POS_ADDR) >> 16;
+    let camera_chunk = (camera_y >> 5) as usize;
+    let background_width = read_wram_u16(work_ram, BACKGROUND_WIDTH_ADDR);
+    let first = camera_chunk.saturating_sub(4);
+    let last = camera_chunk + 8;
+    let rows = (first..=last)
+        .map(|row| {
+            let offset = read_wram_u16(work_ram, BACKGROUND_ROW_OFFSETS_ADDR + row * 2);
+            format!("{row:02X}:{offset:04X}")
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!("cam_chunk={camera_chunk:04X};width={background_width:04X};rows={rows}")
+}
+
 fn background_plane_b_rows_debug_loc_307d8(emulator: &mut GenesisEmulator) -> String {
     const PLANE_B_BASE_LOC_307D8: usize = 0xE000;
     const PLANE_WIDTH_CELLS: usize = 64;
@@ -2960,6 +2983,7 @@ fn capture_settle_trace_row(
     let Some(trace) = trace else {
         return;
     };
+    let work_ram = capture_memory(emulator, GenesisMemoryArea::WorkingRam, 0x1_0000);
     trace.push(OracleSettleTraceRow {
         phase,
         step,
@@ -2975,6 +2999,8 @@ fn capture_settle_trace_row(
         kid_x_vel: read_emulator_wram_i32(emulator, KID_X_VEL_ADDR),
         kid_y_vel: read_emulator_wram_i32(emulator, KID_Y_VEL_ADDR),
         number_objects: read_emulator_wram_u16(emulator, NUMBER_OBJECTS_ADDR),
+        background_scroll_loc_3050a: background_scroll_debug_loc_3050a(&work_ram),
+        background_row_offsets_loc_30744: background_row_offsets_debug_loc_30744(&work_ram),
         background_plane_b_rows_loc_307d8: background_plane_b_rows_debug_loc_307d8(emulator),
     });
 }

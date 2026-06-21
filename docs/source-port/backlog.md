@@ -45,37 +45,36 @@ and stop — never commit churn.
   level entry. Do not retry header/start layout, simple scroll offsets, placement
   wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`,
   stateless `$FFFF87B2`, raw `loc_30452` display-scroll substitution, or
-  current-time all-row overlay changes. The latest rejected raw-scroll check used
-  oracle slot `$08 cur=0x007B` / `vdp=0x006E` as direct render scroll and worsened
-  frame 60 to `5676` / `6.381301`, frame 71 to `5794` / `6.573024`, while still
-  leaving x≈285 right-cloud samples empty. A narrower display-only `$08`
-  experiment also worsened to frame 60 `5327` / `5.94182`, frame 71 `5466` /
-  `6.162584`, and broke the typed Time_Frames regressions. Current x=285,y=10
-  samples native VDP column 41 as empty while oracle row `B18` keeps clouds at
-  columns 49..56. A local source-row diagnostic rejected the simple
+  current-time all-row overlay changes. Current x=285,y=10 samples native VDP
+  column 41 as empty while oracle row `B18` keeps clouds at columns 49..56. A
+  local source-row diagnostic rejected the simple
   horizontal-overflow theory: ASM `Load_BackgroundChunk loc_12848` clips the
   row-18 chunk at `Background_width=70`, leaving only source columns 68..69 as
   `1,2`; the oracle's `2781..2787` tail must therefore be stale Plane-B row
   history from the `loc_2FFE8` preload/vertical nametable sweep, not current
   `$FFFF87B2` row contents. A follow-up exact `loc_2FFE8` lower-sweep diagnostic
   still could not produce `B18`'s `2781..2787` tail: it predicts B18 as old
-  `$0780` then `$2780` fill only, while B29 follows the oracle ocean pattern but
-  is one source column behind unless the renderer's existing +1 source bias is
-  applied. New oracle settle-trace instrumentation now dumps the same selected
+  `$0780` then `$2780` fill only; see #289 archive for the B29 source-column
+  side note. New oracle settle-trace instrumentation now dumps the same selected
   Plane-B rows before scenario frame 0: target-level live step 0 has B18 as
   `$0780` + `$2780` fill only, while step 59/frame 0 already has `2781..2783`
   at columns 49..51. Therefore the oracle `2781..2787` frame-60 tail is not a
   single `loc_2FFE8` preload row; it is accumulated hidden-settle plus visible
-  `sub_30744` one-column history. Next pass should model/persist those
-  pre-recording `sub_30744` writes from the helper evidence in
-  `.cache/oracle-probe/issue289-settle-plane-b.csv`, not retry a broad `$08`
-  scroll substitution.
-- **Gates this session**: no gameplay code kept. Temporary diagnostic
-  `cargo test -q -p wildside-cli debug_issue289_loc_2ffe8_plane_b_rows -- --ignored --nocapture`
-  was removed after printing the exact-sweep rows; refreshed
-  `issue289-level07-idle-current` remains state-clean/pixel-red at frame 60
-  `5080` / `5.6536646`, frame 71 `5212` / `5.8645835`; direct `backlog-lint`
-  is green. The `mise` wrappers remain blocked
+  `sub_30744` one-column history. Follow-up settle trace now also dumps
+  `BackgroundScroll_ComputeShiftData` slots plus the `$FFFF4D5C` row-pointer
+  table: target-live steps 18/34/50 write slot `$08` source columns
+  `$31/$32/$33` to B18 VDP columns 49/50/51, while `$4D5C[$11]=$8C58` and
+  `$4D5C[$12]=$8C9E` match the normal `$FFFF87B2 + width*row` sequence. Next
+  pass should dump/model the live `$FFFF87B2` bytes consumed by `sub_30744`, then
+  persist/replay pre-recording Plane-B writes.
+- **Gates this session**: no gameplay code kept; oracle/helper instrumentation
+  only. Verified `cargo fmt --all`, focused
+  `cargo test -q -p wildside-cli oracle_manifest_deserialises_hidden_settle_trace_rows`,
+  `cargo check -q -p wildside-cli`, refreshed oracle settle CSV, and expected-red
+  `issue289-level07-idle-current` (`trace_match=true`,
+  `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
+  `5.6536646`, frame 71 `5212` / `5.8645835`). Direct `backlog-lint` is green.
+  The `mise` wrappers remain blocked
   in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
   use direct cargo/CLI commands for code verification.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in

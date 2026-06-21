@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 row-pointer settle trace)
+
+- **#289 stays `[~]`; oracle settle trace now also exposes `BackgroundScroll_ComputeShiftData` slots and the `$FFFF4D5C` row-pointer window consumed by ASM `sub_30744`.** The #289 probe CSV shows target-live steps 18/34/50 writing slot `$08` source columns `$31/$32/$33` to B18 VDP columns 49/50/51 as tiles `2781/2782/2783`.
+- New evidence rejects the row-pointer-remap theory: at those writes `Camera_Y>>5=$11`, `Background_width=$46`, `$4D5C[$11]=$8C58`, and `$4D5C[$12]=$8C9E`, matching the normal `$FFFF87B2 + width*row` sequence. **NEXT**: dump/model the live `$FFFF87B2` source bytes that feed `sub_30744`, then persist/replay pre-recording Plane-B writes; do not chase another `$08` scroll substitution or special row-pointer mapping.
+
+---
+
 ## 2026-06-21 handoff (#289 settle-trace Plane-B history)
 
 - **#289 stays `[~]`; oracle helper instrumentation now exposes selected Plane-B rows during the hidden settled-warp target-live loop.** `oracle-probe --capture-settle-trace` retains `background_plane_b_rows_loc_307d8` for each hidden settle row and prints it in the settle CSV.
