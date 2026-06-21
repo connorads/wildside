@@ -3376,13 +3376,12 @@ const FOREST_RIPPLE: [i8; 64] = [
 ];
 const SETTLED_WARP_FOREST_RIPPLE_TIME_FRAMES_OFFSET_LOC_305E6: usize = 52;
 
-pub(super) fn forest_water_ripple_time_frames_for_trace_loc_305e6(
-    trace: &NativeTraceFrame,
-) -> usize {
-    // ASM loc_305E6 uses the global `Time_Frames` counter, not the
-    // recording-local frame index. Settled warp recordings replay through the
-    // ROM level-skip path and keep `LevelSkip_Cheat` armed; their visible
-    // forest ripple is 52 VBlanks ahead of the rebased native recording clock.
+fn background_time_frames_for_trace_loc_3050a(trace: &NativeTraceFrame) -> usize {
+    // ASM BackgroundScroll_ComputeShiftData / loc_305E6 use the global
+    // `Time_Frames` counter, not the recording-local frame index. Settled warp
+    // recordings replay through the ROM level-skip path and keep
+    // `LevelSkip_Cheat` armed; their visible frame-based Scroll B effects are
+    // 52 VBlanks ahead of the rebased native recording clock.
     if trace.level_skip_cheat_enabled != 0 {
         trace
             .frame_index
@@ -3390,6 +3389,12 @@ pub(super) fn forest_water_ripple_time_frames_for_trace_loc_305e6(
     } else {
         trace.frame_index
     }
+}
+
+pub(super) fn forest_water_ripple_time_frames_for_trace_loc_305e6(
+    trace: &NativeTraceFrame,
+) -> usize {
+    background_time_frames_for_trace_loc_3050a(trace)
 }
 
 pub(super) fn forest_water_ripple_offset_for_screen_y_sub_30598(
@@ -3530,8 +3535,8 @@ pub(super) fn background_scroll_x_px(
     layer_speed: u8,
 ) -> i32 {
     match layer_speed {
-        0x00 => (trace.frame_index as i32 / 2).rem_euclid(512),
-        0x08 => (trace.frame_index as i32 / 4).rem_euclid(512),
+        0x00 => (background_time_frames_for_trace_loc_3050a(trace) as i32 / 2).rem_euclid(512),
+        0x08 => (background_time_frames_for_trace_loc_3050a(trace) as i32 / 4).rem_euclid(512),
         0x10 => 0,
         0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8) => {
             let step = i32::from((layer_speed - 0x10) / 8);

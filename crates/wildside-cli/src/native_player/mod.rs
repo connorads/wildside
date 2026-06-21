@@ -9441,6 +9441,7 @@ mod tests {
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
         let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 9;
         visuals.background_tiles = TileSheet {
             tiles: vec![
                 make_tile(&[(3, 4, 1)]),
@@ -10898,6 +10899,31 @@ mod tests {
             super::scene::forest_water_ripple_offset_for_screen_y_sub_30598(96, 125, 0x1B, 369),
             Some(6),
             "issue-175 oracle hB=$160 at y=125 requires the loc_30598 ripple byte from the ROM Time_Frames phase"
+        );
+    }
+
+    #[test]
+    fn auto_scroll_rows_use_rom_time_frames_for_settled_warp_loc_3050a() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 60;
+        trace.level_skip_cheat_enabled = 1;
+
+        assert_eq!(
+            super::scene::background_scroll_x_px(&trace, 0, 0x08),
+            28,
+            "ASM BackgroundScroll_ComputeShiftData loc_30452 feeds `$08` auto-scroll rows from global Time_Frames; settled warp recordings keep the ROM level-skip visual phase"
+        );
+        assert_eq!(
+            super::scene::background_scroll_x_px(&trace, 0, 0x00),
+            56,
+            "ASM BackgroundScroll_ComputeShiftData loc_30452 uses the same global Time_Frames basis for `$00` rows"
+        );
+
+        trace.level_skip_cheat_enabled = 0;
+        assert_eq!(
+            super::scene::background_scroll_x_px(&trace, 0, 0x08),
+            15,
+            "non-settled gameplay keeps the trace-local frame clock"
         );
     }
 

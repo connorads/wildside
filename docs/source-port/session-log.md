@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 settled auto-scroll timing narrowed)
+
+- **#289 stays `[~]`; the Level 0x07 recording is still state-clean/pixel-red, but the `$00/$08` auto-scroll rows now use the ROM `Time_Frames` basis for settled warps.** ASM `BackgroundScroll_ComputeShiftData loc_30452` derives those rows from `Time_Frames`; this matches the existing `loc_305E6` ripple offset rule. Fresh `issue289-level07-idle-current` improves frame 60 from `7277` changed / MAE `7.258966` to `7070` / `6.987421`, and frame 71 from `7502` / `7.521498` to `7341` / `7.302334`.
+- **NEXT**: do not chase whole-frame X offsets; ImageMagick band checks for y=96..112 and y=8..24 are already best at zero roll. The remaining y=100 ocean row is unchanged, so continue from live `Horiz_Scroll_Data` / actual Plane-B row state after `sub_30744`/`sub_307D8`, not another stateless placement or scroll-offset approximation.
+
+---
+
 ## 2026-06-21 handoff (#289 chunked buffer dead end)
 
 - **#289 stays `[~]`; no code change kept.** Tested a source-backed but stateless approximation for chunked backgrounds: reconstruct `$FFFF87B2` via `Load_BackgroundChunk loc_12848`, clip to `Background_width/height` from `loc_11B40`, and fold columns through the 64-cell Plane-B row used by `sub_307D8`. It worsened `issue289-level07-idle-current` from frame 60 `7277` changed / MAE `7.258966` to `7723` / `7.803023`, and frame 71 `7502` / `7.521498` to `7929` / `8.047498`, with new top-row cloud errors. The code was reverted and the verifier was rerun to restore the baseline report.
