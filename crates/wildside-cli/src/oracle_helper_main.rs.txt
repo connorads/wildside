@@ -157,6 +157,7 @@ struct OracleSettleTraceRow {
     kid_x_vel: i32,
     kid_y_vel: i32,
     number_objects: u16,
+    background_plane_b_rows_loc_307d8: String,
 }
 
 fn parse_memory_watches(spec: &str) -> Result<Vec<MemoryWatch>> {
@@ -2974,6 +2975,7 @@ fn capture_settle_trace_row(
         kid_x_vel: read_emulator_wram_i32(emulator, KID_X_VEL_ADDR),
         kid_y_vel: read_emulator_wram_i32(emulator, KID_Y_VEL_ADDR),
         number_objects: read_emulator_wram_u16(emulator, NUMBER_OBJECTS_ADDR),
+        background_plane_b_rows_loc_307d8: background_plane_b_rows_debug_loc_307d8(emulator),
     });
 }
 

@@ -131,6 +131,8 @@ pub struct OracleSettleTraceRow {
     pub kid_x_vel: i32,
     pub kid_y_vel: i32,
     pub number_objects: u16,
+    #[serde(default)]
+    pub background_plane_b_rows_loc_307d8: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize, Deserialize)]
@@ -703,7 +705,8 @@ mod tests {
                         "kid_y_pos": 12517376,
                         "kid_x_vel": 0,
                         "kid_y_vel": 0,
-                        "number_objects": 4
+                        "number_objects": 4,
+                        "background_plane_b_rows_loc_307d8": "B18=0780"
                     }
                 ]
             }"#,
@@ -720,6 +723,7 @@ mod tests {
         assert_eq!(row.kid_x_pos, 0x0020_0000);
         assert_eq!(row.kid_y_pos, 0x00BF_0000);
         assert_eq!(row.number_objects, 4);
+        assert_eq!(row.background_plane_b_rows_loc_307d8, "B18=0780");
     }
 
     #[test]

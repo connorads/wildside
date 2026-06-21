@@ -2520,11 +2520,11 @@ fn main() -> Result<()> {
 
             if !oracle_manifest.settle_trace.is_empty() {
                 println!(
-                    "settle_phase,settle_step,game_mode,current_level_id,rng_offset,rng_last_byte,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects"
+                    "settle_phase,settle_step,game_mode,current_level_id,rng_offset,rng_last_byte,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects,background_plane_b_rows_loc_307d8"
                 );
                 for row in &oracle_manifest.settle_trace {
                     println!(
-                        "{},{},0x{:04X},0x{:04X},0x{:04X},0x{:02X},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{}",
+                        "{},{},0x{:04X},0x{:04X},0x{:04X},0x{:02X},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{},{}",
                         row.phase,
                         row.step,
                         row.game_mode,
@@ -2539,6 +2539,7 @@ fn main() -> Result<()> {
                         row.kid_x_vel as u32,
                         row.kid_y_vel as u32,
                         row.number_objects,
+                        csv_field(&row.background_plane_b_rows_loc_307d8),
                     );
                 }
             }
@@ -2878,6 +2879,14 @@ fn parse_when_predicates(specs: &[String]) -> Result<Vec<WhenPredicate>> {
         });
     }
     Ok(predicates)
+}
+
+fn csv_field(value: &str) -> String {
+    if value.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_owned()
+    }
 }
 
 fn oracle_probe_watch_row_in_range(

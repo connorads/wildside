@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 settle-trace Plane-B history)
+
+- **#289 stays `[~]`; oracle helper instrumentation now exposes selected Plane-B rows during the hidden settled-warp target-live loop.** `oracle-probe --capture-settle-trace` retains `background_plane_b_rows_loc_307d8` for each hidden settle row and prints it in the settle CSV.
+- New #289 evidence rejects the pure `loc_2FFE8` preload-row hypothesis: target-live step 0 has B18 as `$0780` + `$2780` fill only, while step 59/frame 0 already has `2781..2783` at columns 49..51. The frame-60 oracle tail `2781..2787` is hidden-settle plus visible `sub_30744` one-column history. **NEXT**: persist/replay pre-recording `sub_30744` row-column writes into native Plane-B row state; do not retry broad `$08` scroll substitutions or another renderer-local lower-sweep guess.
+
+---
+
 ## 2026-06-21 handoff (#289 loc_2FFE8 sweep diagnostic)
 
 - **#289 stays `[~]`; no gameplay code kept.** A temporary renderer-module diagnostic simulated the `loc_2FFE8` lower sweep with `sub_307D8` 41-cell uploads and visible-frame `sub_30744` one-cell updates against the real Level 0x07 source buffer. It matches the broad B29 ocean-row structure but starts one source column behind the oracle unless the renderer's existing +1 source bias is applied.

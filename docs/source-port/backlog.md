@@ -61,8 +61,15 @@ and stop — never commit churn.
   still could not produce `B18`'s `2781..2787` tail: it predicts B18 as old
   `$0780` then `$2780` fill only, while B29 follows the oracle ocean pattern but
   is one source column behind unless the renderer's existing +1 source bias is
-  applied. The next pass needs typed/instrumented preload VRAM row state at the
-  end of `loc_2FFE8`, not another broad `$08` scroll substitution.
+  applied. New oracle settle-trace instrumentation now dumps the same selected
+  Plane-B rows before scenario frame 0: target-level live step 0 has B18 as
+  `$0780` + `$2780` fill only, while step 59/frame 0 already has `2781..2783`
+  at columns 49..51. Therefore the oracle `2781..2787` frame-60 tail is not a
+  single `loc_2FFE8` preload row; it is accumulated hidden-settle plus visible
+  `sub_30744` one-column history. Next pass should model/persist those
+  pre-recording `sub_30744` writes from the helper evidence in
+  `.cache/oracle-probe/issue289-settle-plane-b.csv`, not retry a broad `$08`
+  scroll substitution.
 - **Gates this session**: no gameplay code kept. Temporary diagnostic
   `cargo test -q -p wildside-cli debug_issue289_loc_2ffe8_plane_b_rows -- --ignored --nocapture`
   was removed after printing the exact-sweep rows; refreshed
