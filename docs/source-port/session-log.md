@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 oracle Plane-B span diagnostic)
+
+- **#289 stays `[~]`; oracle hidden-settle rows now include compact Plane-B span summaries.** `background_plane_b_spans_loc_307d8` sits beside the full `background_plane_b_rows_loc_307d8` dump and compresses selected rows into non-baseline VDP spans, treating `$0780`/`$0094` as old/blank.
+- Regenerated `oracle-probe --capture-settle-trace` for `issue289-level07-idle-current` now shows the row-history shape without custom CSV parsing: B18 appears as `05..2D:2780` when first streamed, later `05..30:2780|31:2781|32:2782|33:2783` by the late target-live samples. This reinforces the current lead: native’s stateless B18/B19 upload starts at column 0, while oracle’s persisted row starts at column 5 and then accumulates `sub_30744` tail writes. **NEXT**: consume/replay persisted row writes through the typed `loc_2FFE8`/`sub_307D8` helpers; do not retry packed timed full-row placement.
+- Verification: `cargo fmt --check --all`, `cargo test -q -p wildside-cli oracle_manifest_deserialises_hidden_settle_trace_rows`, and regenerated `cargo run -q -p wildside-cli -- oracle-probe --scenario .cache/recordings/issue289-level07-idle-current/scenario.json --frame-start 0 --frame-end 0 --capture-settle-trace`. `mise` wrappers remain blocked by `fnox@1` linux-arm64.
+
+---
+
 ## 2026-06-21 handoff (#289 rejected packed upload placement)
 
 - **#289 stays `[~]`; no code retained from the packed upload-placement trial.** A scoped change used ASM `BackgroundScroll_ComputeShiftData loc_30452` / `sub_307D8`'s packed word for timed `$00`/`$08` full-row upload placement instead of the display-derived `loc_3050A` placement.

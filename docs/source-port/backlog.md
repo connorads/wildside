@@ -38,16 +38,19 @@ and stop — never commit churn.
   columns 0-4 refresh too eagerly and B17 has wrong cloud words at 17-24.
   Rejected `loc_2FFE8` preload/display/packed-upload substitutions are in
   archive #289; latest packed trial moved `$08` rows to `upload=d04<-s05` but
-  left pixels unchanged and refreshed column 45 too early.
+  left pixels unchanged and refreshed column 45 too early. Oracle settle-trace
+  instrumentation now prints `background_plane_b_spans_loc_307d8`; regenerated
+  #289 probe shows the compact row-history shape directly, e.g. B18 evolves
+  from `05..2D:2780` to `05..30:2780|31:2781|32:2782|33:2783`.
 - **Next #289 action**: model or trace the full persisted Plane-B nametable state
   across target-level `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
-  instead of changing display scroll. First trace or type the ROM
-  `BackgroundScroll_Index`/MapOrder mapping that turns a Plane-B row into the
-  `Horiz_Scroll_Data` slot and `$FFFF87B2` source row for `sub_30744`/`sub_307D8`;
-  do not map native row number directly to bgscroll speed again. Synthetic and
-  report evidence prove hidden `$08` replay writes alias columns `49..55` into
-  B18 by `Time_Frames=174`; other rows still refresh too eagerly or from wrong
-  source history. The latest `background_source_rows_loc_12848` settle trace
+  instead of changing display scroll. Use the compact oracle span trace and the
+  typed `background_preload_row_uploads_loc_2FFE8`/`background_row_uploads_sub_307D8`
+  helpers to replay actual persisted row writes; do not map native row number
+  directly to bgscroll speed again. Synthetic and report evidence prove hidden
+  `$08` replay writes alias columns `49..55` into B18 by `Time_Frames=174`;
+  other rows still refresh too eagerly or from wrong source history. The latest
+  `background_source_rows_loc_12848` settle trace
   proves `Load_InGame`/`Load_BackgroundMappings loc_12824` writes B18 source
   row `$8C9E` at `title_wait` step 42 with columns `49..56 = 01..08`; native
   has the typed source and alias constructor, but only applies alias to replayed

@@ -163,6 +163,7 @@ struct OracleSettleTraceRow {
     background_source_absolute_loc_30744: String,
     background_source_rows_loc_12848: String,
     background_plane_b_rows_loc_307d8: String,
+    background_plane_b_spans_loc_307d8: String,
 }
 
 fn parse_memory_watches(spec: &str) -> Result<Vec<MemoryWatch>> {
@@ -1867,6 +1868,64 @@ fn background_plane_b_rows_debug_loc_307d8(emulator: &mut GenesisEmulator) -> St
         .join(";")
 }
 
+fn background_plane_b_spans_debug_loc_307d8(emulator: &mut GenesisEmulator) -> String {
+    const PLANE_B_BASE_LOC_307D8: usize = 0xE000;
+    const PLANE_WIDTH_CELLS: usize = 64;
+    const ROWS: [usize; 9] = [8, 17, 18, 19, 22, 23, 27, 29, 30];
+
+    // ASM sub_307D8 streams a compact row span, then sub_30744 appends
+    // single exposed columns. Summarise non-baseline spans so #289 settle
+    // traces show the row-history shape without parsing the full 64 words.
+    let vram = emulator.debug().memory_view(GenesisMemoryArea::Vram);
+    ROWS
+        .into_iter()
+        .map(|row| {
+            let mut spans = Vec::new();
+            let mut span_start: Option<usize> = None;
+            let mut span_word = 0u16;
+            for col in 0..PLANE_WIDTH_CELLS {
+                let cell_offset = PLANE_B_BASE_LOC_307D8 + (row * PLANE_WIDTH_CELLS + col) * 2;
+                let word = read_rom_u16(&*vram, cell_offset);
+                let is_baseline = matches!(word, 0x0780 | 0x0094);
+                match (span_start, is_baseline, word == span_word) {
+                    (None, false, _) => {
+                        span_start = Some(col);
+                        span_word = word;
+                    }
+                    (Some(start), true, _) => {
+                        spans.push(format_span_loc_307d8(start, col - 1, span_word));
+                        span_start = None;
+                    }
+                    (Some(start), false, false) => {
+                        spans.push(format_span_loc_307d8(start, col - 1, span_word));
+                        span_start = Some(col);
+                        span_word = word;
+                    }
+                    _ => {}
+                }
+            }
+            if let Some(start) = span_start {
+                spans.push(format_span_loc_307d8(start, PLANE_WIDTH_CELLS - 1, span_word));
+            }
+            let spans = if spans.is_empty() {
+                "none".to_owned()
+            } else {
+                spans.join("|")
+            };
+            format!("B{row:02}={spans}")
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn format_span_loc_307d8(start: usize, end: usize, word: u16) -> String {
+    if start == end {
+        format!("{start:02X}:{word:04X}")
+    } else {
+        format!("{start:02X}..{end:02X}:{word:04X}")
+    }
+}
+
 fn layout_index_from_ptr(
     layout_object_ptr: usize,
     layout_object_count: u8,
@@ -3108,6 +3167,7 @@ fn capture_settle_trace_row(
         background_source_absolute_loc_30744: background_source_absolute_debug_loc_30744(&work_ram),
         background_source_rows_loc_12848: background_source_rows_debug_loc_12848(&work_ram),
         background_plane_b_rows_loc_307d8: background_plane_b_rows_debug_loc_307d8(emulator),
+        background_plane_b_spans_loc_307d8: background_plane_b_spans_debug_loc_307d8(emulator),
     });
 }
 
