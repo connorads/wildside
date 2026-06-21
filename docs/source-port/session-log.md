@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 preload-time Plane-B rows)
+
+- **#289 stays `[~]`; chunked timed Plane-B rows now use the `loc_2FFE8` preload phase for their uploaded row window.** The renderer still displays rows with current `BackgroundScroll_ComputeShiftLayers loc_3050A` H-scroll, but `$00`/`$08` row-cell arrangement uses `Time_Frames - frame_index`, matching the level-entry preload window seen in the settled recording. Sparse `$FFFF87B2` cells are also modelled as chunk id `0` (`$2780`) rather than missing cells. Regressions: `chunked_plane_b_overlay_renders_cleared_chunk_zero_loc_12848_307d8` and `chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8`.
+- Fresh `issue289-level07-idle-current` remains state-clean/pixel-red, but residual improves from frame 60 `5137` / MAE `5.711784` and frame 71 `5260` / `5.920638` to frame 60 `5080` / `5.6536646` and frame 71 `5212` / `5.8645835`. **NEXT**: continue from incremental/persisted Plane-B row history after preload; the remaining clouds/ocean residual needs `sub_30744` one-column updates across the live frames, not another current-time all-row overlay. `mise` wrappers remain blocked by missing `fnox@1` linux-arm64 assets; use direct cargo/CLI commands.
+
+---
+
 ## 2026-06-21 handoff (#289 Plane-B H-scroll mapping)
 
 - **#289 stays `[~]`; the partial chunked Plane-B row-window overlay now renders through hardware H-scroll.** Native keeps `sub_30744`/`sub_307D8` cells in VDP-column order and maps them to screen pixels with `BackgroundScroll_ComputeShiftLayers loc_3050A`. Focused regression `chunked_plane_b_overlay_samples_hscrolled_vdp_column_loc_3050a` covers the frame-60-shaped 36px row-scroll case.

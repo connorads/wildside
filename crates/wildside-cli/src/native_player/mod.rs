@@ -9564,6 +9564,77 @@ mod tests {
     }
 
     #[test]
+    fn chunked_plane_b_overlay_renders_cleared_chunk_zero_loc_12848_307d8() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 32 << 16;
+        trace.camera_y_pos = 0;
+
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 8;
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x20; 16],
+            has_terminator: true,
+        });
+        visuals.palettes.background = Palette {
+            colours: (0..32)
+                .map(|slot| colour(10 + slot, 40 + slot, 90 + slot))
+                .collect(),
+        };
+        visuals.background_tiles = blank_tile_sheet(1);
+        visuals.background_tiles.tiles[0].pixels = [3; 64];
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: Vec::new(),
+            chunks: Vec::new(),
+        });
+
+        let sample = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 12, 0)
+            .expect("cleared Plane-B row should render chunk zero");
+
+        assert_eq!(
+            sample.tile_index, 0,
+            "ASM Load_BackgroundChunk loc_12848 leaves sparse `$FFFF87B2` bytes as chunk id 0, and sub_307D8 maps them through `unk_309B8` as `$2780` rather than transparent pixels"
+        );
+        assert_eq!(sample.palette_line, 1);
+        assert_eq!(sample.rgb, [27, 57, 107]);
+        assert_eq!(sample.background_row_index, Some(0));
+    }
+
+    #[test]
+    fn chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 60;
+        trace.time_frames_loc_3038a = 174;
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 8;
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds: vec![0x08; 16],
+            has_terminator: true,
+        });
+        visuals.palettes.background = Palette {
+            colours: (0..32)
+                .map(|slot| colour(10 + slot, 40 + slot, 90 + slot))
+                .collect(),
+        };
+        visuals.background_tiles = blank_tile_sheet(1);
+        visuals.background_tiles.tiles[0].pixels = [3; 64];
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: Vec::new(),
+            chunks: Vec::new(),
+        });
+
+        let included = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 309, 0)
+            .expect("preload-time Plane-B window should include VDP column 44");
+        assert_eq!(included.tile_index, 0);
+        assert!(
+            super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 317, 0).is_none(),
+            "ASM loc_2FFE8 preloads `$08` chunked rows at entry Time_Frames=114 for this trace; current loc_3050A H-scroll still displays the row at Time_Frames=174, so VDP column 45 remains outside the preloaded sub_307D8 window"
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn under_skull_mountain3_cave_background_chunk_renders_loc_12830() {
         let Some(manifest) = cached_generated_manifest() else {

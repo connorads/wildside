@@ -2283,12 +2283,8 @@ fn chunked_background_row_window_applies_loc_30744(
     y_tiles: usize,
 ) -> bool {
     let layer_speed = background_layer_speed_loc_3050a(level_visuals, y_tiles);
-    // TODO(fidelity): sub_30744/sub_307D8 update every bgscroll row through
-    // Plane B, but #289 shows upper rows preserve stale pre-camera VRAM state
-    // that native does not yet track. The row-window overlay is currently
-    // verified only for camera-parallax rows where `(speed-$10)/8` consumes
-    // Camera_X_pos, such as the level 7 ocean rows.
-    matches!(layer_speed, 0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8))
+    matches!(layer_speed, 0x00 | 0x08)
+        || matches!(layer_speed, 0x18..=0x88 if (layer_speed - 0x10).is_multiple_of(8))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2311,9 +2307,29 @@ impl ChunkedPlaneBRowsLoc307D8 {
         background: &wildside_render::ChunkedBackgroundVisuals,
     ) -> Option<Self> {
         let (width, height) = chunked_background_dimensions_loc_12848(level_visuals)?;
-        let mut cells = vec![None; width.checked_mul(height)?];
         let palette_line =
             chunked_background_palette_line_loc_128ba(level_visuals.level.background_theme_id);
+        let mut cells = Vec::with_capacity(width.checked_mul(height)?);
+        for row in 0..height {
+            for column in 0..width {
+                // ASM Load_BackgroundChunk loc_12848 writes chunk bytes into
+                // `$FFFF87B2`, whose cleared cells remain chunk id `0`.
+                // sub_30744/sub_307D8 then map that byte through `unk_309B8`,
+                // so sparse Plane-B rows still render `$2780`, not
+                // transparency.
+                cells.push(Some(ChunkedPlaneBCellLoc307D8 {
+                    tile_ref: TileRef {
+                        tile_index: 0,
+                        palette_line,
+                        priority: false,
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                    background_row_index: row,
+                    background_column: column,
+                }));
+            }
+        }
 
         for placement in &background.placements {
             let Some(chunk) = background.chunks.get(usize::from(placement.chunk_id)) else {
@@ -2371,7 +2387,8 @@ impl ChunkedPlaneBRowsLoc307D8 {
             return None;
         }
         let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
-        let scroll_x_px = background_scroll_x_px(trace, camera_x_px, layer_speed);
+        let scroll_x_px =
+            chunked_background_upload_scroll_x_px_loc_2ffe8(trace, camera_x_px, layer_speed);
         let destination_column = scroll_x_px
             .div_euclid(8)
             .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
@@ -2396,6 +2413,28 @@ impl ChunkedPlaneBRowsLoc307D8 {
         }
 
         Some(row_cells)
+    }
+}
+
+fn chunked_background_upload_scroll_x_px_loc_2ffe8(
+    trace: &NativeTraceFrame,
+    camera_x_px: i32,
+    layer_speed: u8,
+) -> i32 {
+    let time_frames = background_time_frames_for_trace_loc_3050a(trace);
+    let preload_time_frames = time_frames.saturating_sub(trace.frame_index);
+    match layer_speed {
+        // ASM loc_2FFE8 preloads chunked Plane-B rows before the visible
+        // gameplay recording window. `$00`/`$08` rows are Time_Frames-driven,
+        // so their uploaded VDP cell arrangement can be older than the
+        // current loc_3050A display H-scroll.
+        0x00 if preload_time_frames != time_frames => {
+            (preload_time_frames as i32 / 2).rem_euclid(512)
+        }
+        0x08 if preload_time_frames != time_frames => {
+            (preload_time_frames as i32 / 4).rem_euclid(512)
+        }
+        _ => background_scroll_x_px(trace, camera_x_px, layer_speed),
     }
 }
 
