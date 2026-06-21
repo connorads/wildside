@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 chunked buffer dead end)
+
+- **#289 stays `[~]`; no code change kept.** Tested a source-backed but stateless approximation for chunked backgrounds: reconstruct `$FFFF87B2` via `Load_BackgroundChunk loc_12848`, clip to `Background_width/height` from `loc_11B40`, and fold columns through the 64-cell Plane-B row used by `sub_307D8`. It worsened `issue289-level07-idle-current` from frame 60 `7277` changed / MAE `7.258966` to `7723` / `7.803023`, and frame 71 `7502` / `7.521498` to `7929` / `8.047498`, with new top-row cloud errors. The code was reverted and the verifier was rerun to restore the baseline report.
+- **NEXT**: continue #289 from live `Horiz_Scroll_Data` phase/VDP row state, not from stateless chunk wrapping. The remaining ocean rows still look like a one-tile/phase mismatch around y=100, while the cloud row needs the actual VDP row contents after the ROM's incremental `sub_30744`/`sub_307D8` uploads. Verification this session: focused background compile test, fresh `verify-recording --slug issue289-level07-idle-current` after revert (state-clean/pixel-red baseline restored), `mise run backlog-lint`, and `git diff --check`.
+
+---
+
 ## 2026-06-21 handoff (#289 damage flash narrowed)
 
 - **#289 stays `[~]`; the Level 0x07 state-clean/pixel-red recording now has Kid's damage flash matched.** Native-player keys the white phase from `Just_received_damage` plus the trace-sampled `64 - invulnerable_frames` phase, matching `kid.asm loc_BC56` / `sub_80BC` at frames 60 and 71. Fresh `issue289-level07-idle-current` remains `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`, but improves from frame 60 `7703` changed / MAE `8.285068` to `7277` / `7.258966`, and frame 71 `7928` / `8.547601` to `7502` / `7.521498`.

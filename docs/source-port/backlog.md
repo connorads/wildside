@@ -46,16 +46,18 @@ and stop — never commit churn.
   and frame 71 `(488,638)` vs oracle `(488,639)`, while strict frame diffs remain broad
   background/ocean/cloud colour/scroll mismatches. Do not retry simple chunked Plane-B
   row wrapping: a local experiment worsened the recording to frame 60 7752 / MAE
-  7.8057895 and frame 71 7993 / 8.071968 by introducing top-row cloud errors. Continue
-  from `verify/native/*_diff.png`, VDP/background samples, `Horiz_Scroll_Data`, or a
-  fresh human-route repro before touching header/start layout code. Do not treat #345
-  Lion mid-level vanish as closed by this; that row still needs the scroll-off/scroll-back
-  cull probe.
-- **Gates this session**: `cargo fmt`, `cargo test -p wildside-cli loc_bc`, fresh
-  `verify-recording --slug issue289-level07-idle-current` (state-clean/pixel-red,
-  improved), `mise run verify-slice-fast`, `mise run backlog-lint`, and
-  `git diff --check` passed. `mise run verify-tas-full` was not rerun because this
-  was a native-player rendering-only change.
+  7.8057895 and frame 71 7993 / 8.071968 by introducing top-row cloud errors. Also
+  do not retry the stateless `$FFFF87B2` chunk-buffer plus 64-cell Plane-B wrap
+  approximation; it worsened frame 60 to 7723 / MAE 7.803023 and frame 71 to 7929 /
+  8.047498, again adding top-row cloud errors. Continue from live `Horiz_Scroll_Data`
+  phase/VDP row state or a fresh human-route repro before touching header/start layout
+  code. Do not treat #345 Lion mid-level vanish as closed by this; that row still
+  needs the scroll-off/scroll-back cull probe.
+- **Gates this session**: focused background compile check, fresh
+  `verify-recording --slug issue289-level07-idle-current` after reverting the rejected
+  candidate (state-clean/pixel-red baseline restored), `mise run backlog-lint`, and
+  `git diff --check` passed. No code change was kept; `mise run verify-tas-full` was
+  not rerun.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring
   "needs a real audio device" block IS that playtest.
@@ -89,7 +91,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: Level 0x07 Lion projectile launch/collision/terrain bounce now follows `unk_31944`, `loc_3E260`, and the `loc_3E2A8` DBF loop; native-player damage flash now matches the #289 oracle samples, but recording remains state-clean/pixel-red from background/ocean/cloud colour/scroll residuals. (full history: archive #289) |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: Level 0x07 projectile/damage flash subcases improved; recording remains state-clean/pixel-red. Rejected chunked wrapping/buffer approximations; inspect live `Horiz_Scroll_Data`/VDP row state next. (full history: archive #289) |
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | Bisect the recent regression; capture cold-boot frames 130..260 vs an oracle Blue Lake Woods 1 cold-boot recording. Suspect EARLY_START_LEVEL_ONE_BOOTSTRAP_* / LEVEL_ONE_LOAD_INGAME_PLAYER_RAMP_Y (trace.rs:6089/6163). See archive #336. |
