@@ -2667,6 +2667,15 @@ impl NativeRuntime {
             let is_boss_skewer = p.kind == EnemyProjectileKind::BossSkewer;
             let is_ufo_first_hurt_debris = p.kind == EnemyProjectileKind::UfoFirstHurtDebris;
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
+            // ASM Process_ShooterObjects/loc_EDFA (kid.asm:19298/19311) has no
+            // frame timer: a launched spike object simulates off-screen until it
+            // reaches a collidable cell or the level edge
+            // (ShooterObject_InteractLevelLayout). Native's `lifetime:120` is an
+            // invented cap that force-deleted long-range bullets before they
+            // could reach a distant wall and re-fire the return-spike chain;
+            // `step_tracked_shooter_object_loc_EDFA` already bounds the object at
+            // the level edge, so exempt it from the generic lifetime path.
+            let is_shooter_block = p.kind == EnemyProjectileKind::ShooterBlock;
             let uses_loc_3263c_post_move_gravity = matches!(
                 p.kind,
                 EnemyProjectileKind::TarMonsterBurstChild
@@ -2710,6 +2719,7 @@ impl NativeRuntime {
                 && !is_boss_eye_satellite
                 && !is_boss_eye_pop_effect
                 && !is_boss_skewer
+                && !is_shooter_block
                 && p.lifetime == 0
             {
                 if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerFinish {
@@ -2740,6 +2750,9 @@ impl NativeRuntime {
                 // ASM sub_87B0/loc_8810 has no DBF lifetime; zero remains
                 // native's generic delete marker for this projectile slot.
                 && !is_juggernaut_skull
+                // ASM Process_ShooterObjects/loc_EDFA has no DBF lifetime; the
+                // bullet dies only on a collidable cell or the level edge.
+                && !is_shooter_block
             {
                 p.lifetime -= 1;
             }

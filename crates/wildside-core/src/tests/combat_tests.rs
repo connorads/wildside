@@ -21994,6 +21994,60 @@ mod chunk_05 {
         );
     }
 
+    /// Regression for #346: ASM `Process_ShooterObjects`/`loc_EDFA`
+    /// (kid.asm:19298/19311) has NO frame timer — a launched spike bullet
+    /// simulates off-screen until it reaches a collidable cell or the level edge
+    /// (`ShooterObject_InteractLevelLayout`). Native's invented `lifetime:120`
+    /// cap force-deleted long-range bullets (~480px) before they could reach a
+    /// distant wall and re-fire the return-spike chain. The bullet here is
+    /// launched ~600px (>150 frames) from its target wall.
+    #[test]
+    fn shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        // Smash block far to the right at col 40 (640px); bullet launched from
+        // col 2 (40px) moving right at 4px/frame.
+        runtime.set_block_grid(grid_with_cells(50, 8, &[(40, 3, 0xE0, 0x01)]));
+        runtime.projectiles.clear();
+        runtime
+            .projectiles
+            .push(EnemyProjectile::shooter_block_loc_EC76(2, 3, 4 << 16, 0));
+
+        // Past the old lifetime:120 cap, with no wall in range, the bullet must
+        // still be live and advancing toward the distant block.
+        for _ in 0..130 {
+            runtime.step_projectiles();
+        }
+        let bullet_x = runtime
+            .projectiles
+            .iter()
+            .find(|p| p.kind == EnemyProjectileKind::ShooterBlock)
+            .map(|p| (p.x_pos >> 16) as i32)
+            .expect("ASM loc_EDFA has no timer: the bullet must survive past frame 120");
+        assert!(
+            bullet_x > 40 + 100 * 4,
+            "the surviving bullet should have travelled well past the old ~480px cap, was at {bullet_x}px"
+        );
+
+        // It then reaches the distant wall and smashes it (the return-spike
+        // chain can fire), rather than persisting forever or dying early.
+        for _ in 0..200 {
+            if runtime.projectiles.is_empty() {
+                break;
+            }
+            runtime.step_projectiles();
+        }
+        assert!(
+            runtime.projectiles.is_empty(),
+            "the long-range bullet must reach the wall (ShooterObject_InteractLevelLayout), not persist"
+        );
+        assert_eq!(
+            runtime.block_grid().expect("block grid").cell_at(40, 3),
+            terrain::Cell::from_be_bytes(0, 0),
+            "ASM loc_F00A: the distant smash block is erased once the surviving bullet arrives"
+        );
+    }
+
     #[test]
     fn shooter_object_loc_f02a_ice_block_loads_bullets_loc_11052() {
         let mut runtime = NativeRuntime::new(manifest());

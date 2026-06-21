@@ -42,6 +42,16 @@ and stop — never commit churn.
   child's real offset). CRC-neutral: `verify-tas-full` all 37759 frames match, 212
   authoritative = #290 baseline. The ROM/native/CRC ground truth was established by a
   fan-out workflow (high confidence, independently re-verified). **archive #343**.
+- **#346 also landed this session (`[ ]`→`[?]`, awaiting human spike-chain playtest)**:
+  launched spike bullets (ShooterObject) were force-deleted at the invented `lifetime:120`
+  (~480px) before reaching a distant wall. ROM `Process_ShooterObjects`/`loc_EDFA`
+  (kid.asm:19298/19311, re-read end to end) has NO frame timer — the bullet dies only on a
+  collidable cell or the level edge, both already handled by
+  `step_tracked_shooter_object_loc_EDFA`. Exempted `ShooterBlock` from the generic
+  lifetime decrement+delete (matching the `is_lion_projectile`/`is_juggernaut_skull`
+  ASM-no-timer exemptions). Regression
+  `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`;
+  CRC-neutral (`verify-tas-full` byte-identical, 212 authoritative = #290). **archive #346**.
 - **#308 follow-up surfaced (still `[b]`, do not auto-take)**: #343 fixed only the
   projectile path; RedStealth sword (helmets.rs:6369) + berzerker charge (6532) still use
   the fixed `±4×±8` enemy box and per ROM `sub_1D84` should also source
@@ -63,11 +73,12 @@ and stop — never commit churn.
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
 - **Gates this session**: `cargo fmt` clean, both crates `cargo check` warning-free,
-  new regression green (`friendly_projectile_hits_walking_dragon_body_*` #343),
-  `mise run verify-slice-fast` green (6256 core + 9 CLI + verify-tas-frontier +
-  backlog-lint), `mise run verify-tas-full` CRC all 37759 frames match with 212
-  authoritative = #290 baseline. The #343 fix is CRC-neutral (enemy-box widening; no TAS
-  axe connects with a large enemy on a frame the old fixed box missed).
+  new regressions green (`friendly_projectile_hits_walking_dragon_body_*` #343,
+  `shooter_object_survives_past_invented_lifetime_*` #346), `mise run verify-slice-fast`
+  green (6257 core + 9 CLI + verify-tas-frontier + backlog-lint), `mise run
+  verify-tas-full` CRC all 37759 frames match with 212 authoritative = #290 baseline. Both
+  fixes CRC-neutral (#343 enemy-box widening; #346 removes a native-only projectile cap
+  the published route never hit).
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -107,7 +118,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | 2026-06-21: bisected to c65df2500 (2026-06-12) — `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` (camera 216→115px, level-0 only). NEXT: oracle capture PAST the title card into live gameplay, diff per-frame camera/kid-Y; don't edit the ramp without it (may be oracle-derived). See archive #336. |
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive. Likely ASM-FAITHFUL (Dragon.asm loc_3CDFC HP=enemy_level+1; loc_3CEBE plays hurt/hibernate then resumes patrol on a 2HP+ dragon), reproduced correctly in native — so the defect is VISUAL/UX: confirm native plays stru_3CCE6 hurt anim (not a death-looking frame) during the 24-frame hibernate. Seed #200/#043/#199 are closed Flying-Dragon PROJECTILE rows (keyword-deflection trap) | Get the human to distinguish survive-flash vs true death+resurrect; verify hurt anim during hibernate; compare-native-oracle dragon-stomp. See archive #344 |
 | 345 | [ ] | P1 | enemy | 2026-06-20 playtest: Lion vanishes mid-level on Isle/Land of the Lion Lord (0x07) — premature off-window cull vs ROM sub_3E8BA. Leading hypothesis: `large_pacer_should_remain_active` (enemies.rs:15921) keys on active_enemy_count (roster len) not ROM Number_Objects (all live objects), shifting the $A/$14 cull band (#289 proved native object accounting diverges here). Not covered by #186 (behaviour fidelity, parked [?]) or #289 (spawn umbrella, symptom buried) | Oracle scroll-off/scroll-back probe on 0x07; rule out the #239 faithful ledge-fall first; check respawn marker loc_3E97C. Engine-level fix only. See archive #345 |
-| 346 | [ ] | P1 | gameplay | 2026-06-20 playtest: launched spike bullet (ShooterObject) force-deleted after ~120 frames (~480px) so it never reaches a distant wall to trigger the EvanescentBlock_Trigger return-spike chain. Native models it as a generic EnemyProjectile lifetime:120 (types.rs:3210); the generic step (projectiles.rs:2742/2711) deletes it and the exemption list (2700-2741) omits ShooterBlock. ASM Process_ShooterObjects (loc_EDFA) has NO timer — dies only on a collidable cell (loc_F00A) or level edge, keeps simulating off-screen | Exempt EnemyProjectileKind::ShooterBlock from the lifetime decrement; regression: a bullet launched >120f from a wall still reaches it and re-fires. See archive #346 |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up ("springy") block snaps to its new cell instead of showing the loc_113F4 8-frame/16px rise. Core is correct (SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4, reserved $6F cell, BlockBounceAnim kind=Shifting) but the renderer drops it: push_block_grid_overrides (scene.rs:3885) skips the cell (reserved $6F → has_block=false, not Prize); the bounce-sprite draw loop (scene.rs:3934) handles Prize only. Test `non_prize_cleared_block_bounce_keeps_foreground_terrain_visible` currently ENFORCES the no-anim behaviour. Distinct from #281 (trigger/SFX) | Draw the kind=Shifting bounce sprite (E0EBE art) over the 8 rise frames; flip the enforcing test. See archive #347 |
 | 348 | [ ] | P1 | input | 2026-06-20 playtest: level/title card ignores Start for ~343 frames (122 for the Level-1 lineage) and needs a press-then-release; original exits the same frame Start fires. ASM loc_1AE2E exits on the FIRST Start edge from frame 2, no minimum-display gate. Native gates Start behind handoff_ready (>342; movement.rs:101) + a press-release latch (boot.rs:7388); the movement.rs:96-101 comment admits the 342 is an oracle-boot-trace replay artefact. Untracked (seed #016/#162/#327 all orthogonal + correctly closed) | Exit on the first Start edge for live/interactive play; gate the recorded delay behind a replay flag so boot traces (#305/#161/#248) stay green; DynamicScenario Start at card frame ~5 reaches Game_Mode $C within 1-2 frames. See archive #348 |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods (levels $11/$12, theme 9 Forest, weather 0) falling "snow" is actually Drip enemies (0x16) rendering the wrong colour variant (orange not green). ROM ships 3 Drip palettes (Drips_1 green / Drips_2 orange / Drips_3 purple; kid.asm:48317-48319); native ENEMY_FAMILIES hardcodes one palette per family. No storm system runs here (Init_SpecialEffects returns on weather 0) — "should be snow" is a human misread but "orange particles" is a real colour-variant bug. Seed #317/#230 are the wrong (storm) system | Per-level slot/palette-line variant selection in bundle.rs load_enemy_visuals; level $12 capture at x~2264 vs oracle. See archive #351 |
