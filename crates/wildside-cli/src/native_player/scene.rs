@@ -2400,7 +2400,21 @@ impl ChunkedPlaneBRowsLoc307D8 {
         };
         let source_column = (scroll_x_px.div_euclid(8) + source_column_bias)
             .rem_euclid(i32::try_from(self.width).ok()?) as usize;
-        let mut row_cells = [None; PLANE_B_ROW_CELLS_LOC_11B7A];
+        let mut row_cells = std::array::from_fn(|column| {
+            // ASM sub_307D8 only DMA-writes the newly exposed `$2780` span;
+            // cells outside that span keep the old Plane-B `$0780` tile.
+            Some(ChunkedPlaneBCellLoc307D8 {
+                tile_ref: TileRef {
+                    tile_index: 0,
+                    palette_line: 0,
+                    priority: false,
+                    flip_x: false,
+                    flip_y: false,
+                },
+                background_row_index: row,
+                background_column: column,
+            })
+        });
 
         // ASM sub_307D8 sets `d4 = #$28` and DBF streams the newly exposed
         // Plane-B row. The previous sub_30744 pass writes the single

@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 old Plane-B cells + raw-scroll rejection)
+
+- **#289 stays `[~]`; cells outside the fresh chunked `sub_307D8` row span now preserve the old Plane-B `$0780` tile.** This matches `loc_11F48` filling Plane B with `$0780` and the oracle row dumps where untouched cells remain `$0780` while streamed cells use `unk_309B8` `$2780+id`. Focused regression: `chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8`.
+- Fresh `issue289-level07-idle-current` remains state-clean/pixel-red at the prior residual: frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. Rejected raw `loc_30452` display-scroll substitution: using slot `$08 cur=0x007B` directly worsened to frame 60 `5676` / `6.381301`, frame 71 `5794` / `6.573024`, and still missed the right cloud span because native VDP row col 51 came from stale source col 52/tile 0. **NEXT**: model accumulated `sub_30744` one-column writes after preload; do not retry raw `$00/$08`, raw `loc_30452` display scroll, current-time all-row overlay, or stateless chunk wrapping.
+
+---
+
 ## 2026-06-21 handoff (#289 preload-time Plane-B rows)
 
 - **#289 stays `[~]`; chunked timed Plane-B rows now use the `loc_2FFE8` preload phase for their uploaded row window.** The renderer still displays rows with current `BackgroundScroll_ComputeShiftLayers loc_3050A` H-scroll, but `$00`/`$08` row-cell arrangement uses `Time_Frames - frame_index`, matching the level-entry preload window seen in the settled recording. Sparse `$FFFF87B2` cells are also modelled as chunk id `0` (`$2780`) rather than missing cells. Regressions: `chunked_plane_b_overlay_renders_cleared_chunk_zero_loc_12848_307d8` and `chunked_timed_plane_b_window_uses_preload_time_loc_2ffe8_307d8`.

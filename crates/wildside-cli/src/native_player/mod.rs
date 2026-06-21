@@ -9628,10 +9628,15 @@ mod tests {
         let included = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 309, 0)
             .expect("preload-time Plane-B window should include VDP column 44");
         assert_eq!(included.tile_index, 0);
-        assert!(
-            super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 317, 0).is_none(),
-            "ASM loc_2FFE8 preloads `$08` chunked rows at entry Time_Frames=114 for this trace; current loc_3050A H-scroll still displays the row at Time_Frames=174, so VDP column 45 remains outside the preloaded sub_307D8 window"
+        assert_eq!(included.palette_line, 1);
+
+        let stale = super::scene::sample_background_pixel_loc_c070(&trace, &visuals, 317, 0)
+            .expect("old Plane-B cell should remain outside the preload-time window");
+        assert_eq!(
+            stale.palette_line, 0,
+            "ASM loc_2FFE8 preloads `$08` chunked rows at entry Time_Frames=114 for this trace; current loc_3050A H-scroll still displays the row at Time_Frames=174, so VDP column 45 remains outside the fresh sub_307D8 `$2780` span and keeps the old `$0780` Plane-B tile"
         );
+        assert_eq!(stale.rgb, [12, 42, 92]);
     }
 
     #[test]
