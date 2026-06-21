@@ -27,44 +27,33 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live lanes;
   file order is not priority). Current focus is still #289 because it remains `[~]`.
-- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red. Native has
-  typed `loc_12848` source, `ChunkedPlaneBRowHistoryLoc30744`, timed `$00`/`$08`
-  row uploads, draw-time H-scroll, old `$0780` outside fresh spans, and
-  `loc_30452`/hidden-settle one-column replay against the `loc_12824` alias source.
-  Fresh `issue289-level07-idle-current` is unchanged at
-  `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`,
-  frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. Native
-  row provenance shows B18/B19 right-edge tails match oracle, but B18/B19
-  columns 0-4 refresh too eagerly and B17 has wrong cloud words at 17-24.
-  Rejected `loc_2FFE8` preload/display/packed-upload substitutions are in
-  archive #289; latest packed trial moved `$08` rows to `upload=d04<-s05` but
-  left pixels unchanged and refreshed column 45 too early. Oracle settle-trace
-  instrumentation now prints `background_plane_b_spans_loc_307d8`; regenerated
-  #289 probe shows the compact row-history shape directly, e.g. B18 evolves
-  from `05..2D:2780` to `05..30:2780|31:2781|32:2782|33:2783`.
-- **Next #289 action**: model or trace the full persisted Plane-B nametable state
-  across target-level `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
-  instead of changing display scroll. Use the compact oracle span trace and the
-  typed `background_preload_row_uploads_loc_2FFE8`/`background_row_uploads_sub_307D8`
-  helpers to replay actual persisted row writes; do not map native row number
-  directly to bgscroll speed again. Synthetic and report evidence prove hidden
-  `$08` replay writes alias columns `49..55` into B18 by `Time_Frames=174`;
-  other rows still refresh too eagerly or from wrong source history. The latest
-  `background_source_rows_loc_12848` settle trace
-  proves `Load_InGame`/`Load_BackgroundMappings loc_12824` writes B18 source
-  row `$8C9E` at `title_wait` step 42 with columns `49..56 = 01..08`; native
-  has the typed source and alias constructor, but only applies alias to replayed
-  `sub_30744` changed-column writes. Do not retry header/start layout, simple
-  scroll offsets, placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count,
-  render `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
-  substitution, current-time all-row overlay, packed timed-row full-upload
-  placement, alias-only rendering, or alias-fed full row uploads.
-- **Gates this session**: native Plane-B provenance diagnostics and rejected
-  packed-upload trial. Verified format/check, focused chunked/provenance tests,
-  expected-red `issue289-level07-idle-current`, backlog lint, TAS frontier, core
-  lib sweep, CLI gameplay regressions, and `wildside-data` preload coverage.
-  Latest reverted trial also reran format, expected-red recording, and the
-  focused timed-row test that caught the regression. `mise` wrappers remain
+- **#289 current evidence**: Level 0x07 remains state-clean/pixel-red, but native
+  now seeds settled level-skip chunked Plane-B rows by replaying the persisted
+  `loc_2FFE8`/`sub_307D8` preload segments through `ChunkedPlaneBRowHistoryLoc30744`,
+  then applies visible `sub_30744` writes from `Time_Frames=0..current`. This uses
+  `Load_InGame loc_11F48`'s player-start X screen grid and the settled trace camera
+  Y; a focused regression pins B18 columns 0-4 as old `$0780`, columns 5-48 as
+  `$2780`, and columns 49-55 as the accumulated cloud tail. Fresh
+  `issue289-level07-idle-current` remains `trace_match=true`,
+  `oracle_state_match=true`, `oracle_frame_match=false`, but improves from frame
+  60 `5080` / MAE `5.6536646` to `4031` / `4.3676014`, and from frame 71 `5212` /
+  `5.8645835` to `4181` / `4.603767`. B18 now matches the oracle row shape; the
+  remaining pixels point at other persisted Plane-B rows/state, not the old B18
+  stateless upload start.
+- **Next #289 action**: compare the remaining native/oracle row histories for B08,
+  B17, B22, B23, B27/B29 and adjacent sampled rows after the persisted preload
+  replay. Continue from `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
+  row state; do not retry header/start layout, simple scroll offsets, placement
+  wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`,
+  stateless `$FFFF87B2`, raw `loc_30452` display-scroll substitution, current-time
+  all-row overlay, packed timed-row full-upload placement, alias-only rendering,
+  alias-fed full row uploads, or the direct row-number-to-bgscroll preload model.
+- **Gates this session**: `cargo fmt --check --all`, focused `chunked_` native-player
+  tests, `cargo check -q -p wildside-cli`, expected-red
+  `issue289-level07-idle-current` with improved frame metrics, `backlog-lint`,
+  CLI gameplay regressions, and TAS frontier. `cargo test -q -p wildside-core --lib`
+  still has unrelated pre-existing chunk_08 snapshot/demo bootstrap failures and
+  was not treated as a blocker for this renderer-only slice. `mise` wrappers remain
   blocked by `fnox@1` linux-arm64.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows the recurring

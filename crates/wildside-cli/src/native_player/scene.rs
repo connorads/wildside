@@ -63,7 +63,6 @@ const BLOCK_DEBRIS_VEL_D6_DEFAULT_SUB_292E: [(i16, i16); 5] =
     [(5, -3), (4, -3), (3, -3), (2, -3), (1, -3)];
 const PLANE_B_ROW_CELLS_LOC_11B7A: usize = 0x40;
 const CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744: usize = 0x2A;
-const RECORDING_SETTLED_WARP_LIVE_FRAMES_LOC_74E0: usize = 60;
 const LAVA_GEYSER_TOP_TEMPLATE_UNK_14624: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 2] = [
     wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
         x_offset_px: 0x0001,
@@ -2417,6 +2416,27 @@ impl ChunkedBackgroundSourceLoc12848 {
         }
         self.cells[row * self.width + column].map(|cell| cell.tile_ref.tile_index)
     }
+
+    fn palette_line_loc_307d8(&self) -> u8 {
+        self.cells
+            .iter()
+            .flatten()
+            .next()
+            .map(|cell| cell.tile_ref.palette_line)
+            .unwrap_or(1)
+    }
+
+    fn chunk_buffer_bytes_loc_12848(&self) -> Vec<u8> {
+        self.cells
+            .iter()
+            .map(|cell| {
+                cell.map_or(0, |cell| {
+                    u8::try_from(cell.tile_ref.tile_index & 0x007F).unwrap_or(0)
+                        | if cell.tile_ref.flip_x { 0x80 } else { 0 }
+                })
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2460,6 +2480,34 @@ impl ChunkedPlaneBRowHistoryLoc30744 {
             let source = (source_column + offset) % source_buffer.width;
             let destination = (destination_column + offset) % PLANE_B_ROW_CELLS_LOC_11B7A;
             self.cells[destination] = source_buffer.cells[row * source_buffer.width + source];
+        }
+    }
+
+    fn apply_preload_segment_loc_307d8(
+        &mut self,
+        row: usize,
+        vram_word_address: u16,
+        background_chunk_ids: &[u8],
+        palette_line: u8,
+    ) {
+        let plane_row = usize::from((vram_word_address & 0x0F80) >> 7);
+        if plane_row != (row & 0x1F) {
+            return;
+        }
+        let start_column = usize::from((vram_word_address & 0x007E) >> 1);
+        for (offset, chunk_id) in background_chunk_ids.iter().copied().enumerate() {
+            let destination = (start_column + offset) % PLANE_B_ROW_CELLS_LOC_11B7A;
+            self.cells[destination] = Some(ChunkedPlaneBCellLoc307D8 {
+                tile_ref: TileRef {
+                    tile_index: u16::from(chunk_id & 0x7F),
+                    palette_line,
+                    priority: false,
+                    flip_x: chunk_id & 0x80 != 0,
+                    flip_y: false,
+                },
+                background_row_index: row,
+                background_column: destination,
+            });
         }
     }
 
@@ -2545,7 +2593,29 @@ impl ChunkedPlaneBRowsLoc307D8 {
             .rem_euclid(i32::try_from(self.source.width).ok()?)
             as usize;
         let mut history = ChunkedPlaneBRowHistoryLoc30744::from_old_plane_b_row_loc_307d8(row);
-        history.apply_row_upload_loc_307d8(&self.source, row, destination_column, source_column);
+        if trace.level_skip_cheat_enabled != 0 {
+            if !self.apply_preload_rows_loc_2ffe8(
+                &mut history,
+                trace,
+                level_visuals,
+                camera_x_px,
+                row,
+            ) {
+                history.apply_row_upload_loc_307d8(
+                    &self.source,
+                    row,
+                    destination_column,
+                    source_column,
+                );
+            }
+        } else {
+            history.apply_row_upload_loc_307d8(
+                &self.source,
+                row,
+                destination_column,
+                source_column,
+            );
+        }
 
         let changed_column_source = self.source_buffer_for_trace_loc_12824(trace);
         self.apply_elapsed_column_writes_loc_30744(
@@ -2574,7 +2644,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let current_time_frames = background_time_frames_for_trace_loc_3050a(trace);
         let preload_time_frames = current_time_frames.saturating_sub(trace.frame_index);
         let first_time_frames = if trace.level_skip_cheat_enabled != 0 {
-            preload_time_frames.saturating_sub(RECORDING_SETTLED_WARP_LIVE_FRAMES_LOC_74E0)
+            0
         } else {
             preload_time_frames
         };
@@ -2660,6 +2730,103 @@ impl ChunkedPlaneBRowsLoc307D8 {
         &self.source
     }
 
+    fn apply_preload_rows_loc_2ffe8(
+        &self,
+        history: &mut ChunkedPlaneBRowHistoryLoc30744,
+        trace: &NativeTraceFrame,
+        level_visuals: &NativeLevelVisuals,
+        camera_x_px: i32,
+        row: usize,
+    ) -> bool {
+        let source_buffer = self.source_buffer_for_trace_loc_12824(trace);
+        let Some(background_scroll) = level_visuals.level.background_scroll.as_ref() else {
+            return false;
+        };
+        // ASM Load_InGame loc_11F48 seeds Camera_X from PlayerStart rounded
+        // down to the 320px screen grid before calling j_loc_2FFE8. The level
+        // setup path can adjust Camera_Y before the background preload, and the
+        // #289 oracle row trace matches the settled trace camera Y.
+        let preload_camera_x_px = trace
+            .player_start_x
+            .map(|start_x| i32::from(start_x / 0x0140) * 0x0140)
+            .unwrap_or(camera_x_px);
+        let preload_camera_y_px = i32::try_from(trace.camera_y_pos >> 16).unwrap_or(0);
+        let Ok(camera_y_px) = i16::try_from(preload_camera_y_px) else {
+            return false;
+        };
+        let level_height_pixels =
+            i32::from(level_visuals.level.foreground_layout.height_cells).saturating_mul(16);
+        let Ok(level_height_pixels) = i16::try_from(level_height_pixels) else {
+            return false;
+        };
+        let Ok(background_width) = u16::try_from(source_buffer.width) else {
+            return false;
+        };
+
+        let mut row_offsets = Vec::with_capacity(source_buffer.height);
+        for source_row in 0..source_buffer.height {
+            let Some(row_offset) = source_row.checked_mul(source_buffer.width) else {
+                return false;
+            };
+            let Ok(row_offset) = u16::try_from(row_offset) else {
+                return false;
+            };
+            row_offsets.push(row_offset);
+        }
+
+        let mut bgscroll_profile = vec![
+            0xFF;
+            source_buffer
+                .height
+                .max(background_scroll.layer_speeds.len())
+        ];
+        for (index, speed) in background_scroll.layer_speeds.iter().copied().enumerate() {
+            bgscroll_profile[index] = speed;
+        }
+
+        let max_scroll_slot = bgscroll_profile
+            .iter()
+            .copied()
+            .filter(|speed| *speed != 0xFF)
+            .map(|speed| usize::from(speed / 8))
+            .max()
+            .unwrap_or(0);
+        let mut horiz_scroll_entries = Vec::with_capacity(max_scroll_slot + 1);
+        for slot in 0..=max_scroll_slot {
+            let layer_speed = u8::try_from(slot.saturating_mul(8)).unwrap_or(0x88);
+            let scroll_word =
+                background_scroll_data_word_loc_30452(0, preload_camera_x_px, layer_speed);
+            let source_column = usize::from(scroll_word >> 3) % source_buffer.width;
+            let vram_word_offset = ((scroll_word >> 3) & 0x003F) << 1;
+            horiz_scroll_entries.push(wildside_data::BackgroundScrollStateSub30744 {
+                background_buffer_column: Some(u16::try_from(source_column).unwrap_or(0)),
+                vram_word_offset,
+            });
+        }
+
+        let Ok(uploads) = wildside_data::background_preload_row_uploads_loc_2FFE8(
+            camera_y_px,
+            level_height_pixels,
+            background_width,
+            &row_offsets,
+            &bgscroll_profile,
+            &horiz_scroll_entries,
+            &source_buffer.chunk_buffer_bytes_loc_12848(),
+        ) else {
+            return false;
+        };
+        let palette_line = source_buffer.palette_line_loc_307d8();
+        for upload in uploads {
+            history.apply_preload_segment_loc_307d8(
+                row,
+                upload.vram_word_address,
+                &upload.background_chunk_ids,
+                palette_line,
+            );
+        }
+        true
+    }
+
     fn apply_elapsed_column_writes_loc_30744(
         &self,
         history: &mut ChunkedPlaneBRowHistoryLoc30744,
@@ -2676,7 +2843,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         }
 
         let first_time_frames = if trace.level_skip_cheat_enabled != 0 {
-            preload_time_frames.saturating_sub(RECORDING_SETTLED_WARP_LIVE_FRAMES_LOC_74E0)
+            0
         } else {
             preload_time_frames
         };

@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 persisted Plane-B preload replay)
+
+- **#289 stays `[~]`; native-player now seeds settled level-skip chunked Plane-B rows by replaying persisted `loc_2FFE8`/`sub_307D8` preload segments.** The model feeds the typed alias-aware source bytes through `ChunkedPlaneBRowHistoryLoc30744`, uses `Load_InGame loc_11F48`'s player-start X screen grid plus settled trace camera Y, then applies visible `sub_30744` writes from the start of `Time_Frames`.
+- B18 now matches the oracle row-history shape: old `$0780` columns 0-4, `$2780` columns 5-48, and cloud tail `2781..2787` at columns 49-55 by frame 60. Fresh expected-red `issue289-level07-idle-current` improves from frame 60 `5080` / MAE `5.6536646` and frame 71 `5212` / `5.8645835` to frame 60 `4031` / `4.3676014` and frame 71 `4181` / `4.603767`, but remains pixel-red. **NEXT**: inspect the remaining persisted Plane-B row/state mismatches on B08/B17/B22/B23/B27/B29 rather than retrying B18 preload placement, display-scroll, or alias-only variants.
+- Verification: `cargo fmt --check --all`, `cargo test -q -p wildside-cli chunked_ --no-default-features`, `cargo check -q -p wildside-cli`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, CLI gameplay regressions, TAS frontier, and backlog lint. `cargo test -q -p wildside-core --lib` still fails on unrelated pre-existing chunk_08 snapshot/demo bootstrap expectations. `mise` wrappers remain blocked by `fnox@1` linux-arm64.
+
+---
+
 ## 2026-06-21 handoff (#289 oracle Plane-B span diagnostic)
 
 - **#289 stays `[~]`; oracle hidden-settle rows now include compact Plane-B span summaries.** `background_plane_b_spans_loc_307d8` sits beside the full `background_plane_b_rows_loc_307d8` dump and compresses selected rows into non-baseline VDP spans, treating `$0780`/`$0094` as old/blank.

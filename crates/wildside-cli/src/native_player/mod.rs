@@ -9784,6 +9784,77 @@ mod tests {
     }
 
     #[test]
+    fn chunked_settled_row_history_seeds_loc_2ffe8_persisted_plane_b_row() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 60;
+        trace.time_frames_loc_3038a = 174;
+        trace.level_skip_cheat_enabled = 1;
+        trace.camera_x_pos = 292 << 16;
+        trace.camera_y_pos = 547 << 16;
+        trace.player_start_x = Some(448);
+        trace.player_start_y = Some(703);
+
+        let mut visuals = sample_level_visuals();
+        visuals.level.background_theme_id = 8;
+        visuals.level.foreground_layout_bytes = vec![0; 80 * 56];
+        visuals.level.foreground_layout =
+            ForegroundLayout::parse(&visuals.level.foreground_layout_bytes, 4, 4)
+                .expect("issue #289-shaped foreground layout");
+        let mut layer_speeds = vec![0xFF; 64];
+        layer_speeds[18] = 0x08;
+        visuals.level.background_scroll = Some(wildside_data::BgscrollProfile {
+            layer_speeds,
+            has_terminator: true,
+        });
+        visuals.level.background_layout_alias = Some(BackgroundLayoutAlias {
+            alias_label: "BackgroundLayout_0E".to_string(),
+            source_label: "BackgroundLayout_0C".to_string(),
+            source_background_path: Some("background/0C.bin".to_string()),
+            x_offset_tiles: 0x13,
+            y_offset_tiles: 0,
+        });
+        visuals.background = BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+            placements: vec![BackgroundPlacement {
+                chunk_id: 0,
+                x_tiles: 0x13 + 49,
+                y_tiles: 18,
+            }],
+            chunks: vec![BackgroundChunk {
+                width_tiles: 8,
+                height_tiles: 1,
+                tiles: (1..=8)
+                    .map(|tile_index| BackgroundTile {
+                        tile_index,
+                        flip_x: false,
+                    })
+                    .collect(),
+            }],
+        });
+
+        let row =
+            super::scene::chunked_plane_b_row_words_for_trace_loc_30744(&trace, &visuals, 292, 18)
+                .expect("settled chunked Plane-B row history");
+        assert!(
+            row[0..5].iter().all(|cell| *cell == Some((0, 0))),
+            "ASM loc_2FFE8/sub_307D8 leaves B18 columns 0..4 as the old Plane-B `$0780` fill"
+        );
+        let zero_span: Vec<_> = row[5..49].to_vec();
+        assert_eq!(
+            zero_span,
+            vec![Some((0, 1)); 44],
+            "ASM loc_2FFE8/sub_307D8 seeds B18 columns 5..48 with `$2780` chunk-zero cells"
+        );
+        let cloud_tail: Vec<u16> = (49..=55)
+            .map(|column| row[column].expect("cloud tail should be populated").0)
+            .collect();
+        assert_eq!(
+            cloud_tail,
+            vec![1, 2, 3, 4, 5, 6, 7],
+            "ASM sub_30744 then accumulates the loc_12824 alias-source cloud tail after the persisted loc_2FFE8 row seed"
+        );
+    }
+
+    #[test]
     #[ignore = "requires generated .cache assets; run mise run extract-assets first"]
     fn under_skull_mountain3_cave_background_chunk_renders_loc_12830() {
         let Some(manifest) = cached_generated_manifest() else {
