@@ -43,10 +43,15 @@ and stop — never commit churn.
   `2788`/`2790`), but native has extra fresh cells at B18/B19 columns 0-4 where
   oracle keeps `$0780`, and native B17 wrongly has cloud words at columns 17-24
   while oracle only has the columns 5-6 tail. Residual = stale/persisted Plane-B
-  row state, not display-scroll interpretation.
+  row state, not display-scroll interpretation. A direct persisted-`loc_2FFE8`
+  preload sweep was rejected this session: it used the wrong row/source slot model
+  and worsened #289 to frame 60 `6762` / MAE `6.6236467`, frame 71 `6987` / `6.8926945`; reverted.
 - **Next #289 action**: model or trace the full persisted Plane-B nametable state
   across target-level `Load_InGame`, `loc_2FFE8`, `sub_30744`, and `sub_307D8`
-  instead of changing display scroll. Synthetic coverage proves the hidden `$08`
+  instead of changing display scroll. First trace or type the ROM
+  `BackgroundScroll_Index`/MapOrder mapping that turns a Plane-B row into the
+  `Horiz_Scroll_Data` slot and `$FFFF87B2` source row for `sub_30744`/`sub_307D8`;
+  do not map native row number directly to bgscroll speed again. Synthetic coverage proves the hidden `$08`
   row replay writes alias-source columns `49..55` into B18 by `Time_Frames=174`,
   and the new native-vs-oracle row dump proves that part is now present in the
   real recording, but other columns/rows refresh too eagerly or from the wrong

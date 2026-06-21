@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 rejected persisted preload shortcut)
+
+- **#289 stays `[~]`; no code retained.** A trial `loc_2FFE8`-shaped persisted preload sweep selected the last source row for each Plane-B row, used `sub_307D8`'s extra `Horiz_Scroll_Data >> 3` shift, and replayed current `sub_30744` column writes only for settled `LevelSkip_Cheat` traces.
+- The trial worsened `issue289-level07-idle-current` from the current baseline frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835` to frame 60 `6762` / `6.6236467`, frame 71 `6987` / `6.8926945`. It shifted B17/B27/B29/B30 through the wrong row/source slot, so the code was reverted. **NEXT**: trace or type the ROM `BackgroundScroll_Index`/MapOrder mapping used by `sub_30744`/`sub_307D8` before replaying persisted Plane-B nametable state; do not map Plane-B row number directly to bgscroll speed again.
+- Verification for the rejected trial: `cargo fmt`, `cargo check -q -p wildside-cli`, `cargo test -q -p wildside-cli chunked_`, and expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`.
+
+---
+
 ## 2026-06-21 handoff (#289 native Plane-B row diagnostic)
 
 - **#289 stays `[~]`; recording reports now include native Plane-B row words from `ChunkedPlaneBRowHistoryLoc30744`.** Fresh `issue289-level07-idle-current` remains expected-red and unchanged at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`, but native rows can now be compared directly to `oracle_background_plane_b_rows_loc_307d8`.
