@@ -27,14 +27,16 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#342 just landed (`[~]`→`[?]`, awaiting human audio listen)**: the looping clock-prize
-  SFX now starts at the falling-clock spawn (ASM `loc_10792`) and stops on the
-  last-clock-exit edge (`loc_107E0`), driven by the derived live-clock `floating_items`
-  count (mirrors #339's RockTank drone). Removed the wrong `apply_prize_content`
-  collection-start and the redundant native_player timer-jump heuristic. CRC-neutral;
-  `verify-slice-fast` (6251+9) and `verify-tas-full` green (CRC all 37759 frames, 212
-  authoritative = #290 baseline). Human: confirm the clock tick STOPS shortly after
-  collecting a clock instead of looping forever (real audio device, same caveat as #339).
+- **#350 just landed (`[~]`→`[?]`, awaiting human Hills playtest)**: Hills (theme 3)
+  below-canopy foliage rendered blue/purple. Root cause was NOT the chunked
+  `background_palette_for_scene` the original note blamed — Hills uses the LAYERED path,
+  whose lower foliage plane (ASM `loc_1295E` base `$07C0` = CRAM line 0) indexed the
+  background sky palette. Extended the Mountain two-line branch to theme 3 (line 0 =
+  foreground, line 1 = background colours), engine-level. Oracle-verified: warp idle
+  frame-39 below-canopy native↔oracle diffs 1334→0 (only the separate #280/#289 sky seam
+  remains). New test `hills_background_palette_reads_foreground_foliage_plane_loc_1295e`;
+  CRC-neutral (CLI render layer); `verify-slice-fast` (6251+9) green. Full evidence:
+  **archive #350**.
 - **#289 stays `[~]` but is research-blocked**: 5+ consecutive instrumentation/docs
   commits, marginal MAE gains (Level 0x07 frame 60 `5080`→`4031`) and still
   `oracle_frame_match=false`. The remaining work is modelling incremental persisted
@@ -52,10 +54,10 @@ and stop — never commit churn.
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
 - **Gates this session**: `cargo fmt` clean, both crates `cargo check` warning-free,
-  focused clock-prize tests (10 core + 2 CLI), `mise run verify-slice-fast` green
-  (6251 core + 9 CLI + verify-tas-frontier + backlog-lint), `mise run verify-tas-full`
-  CRC all 37759 frames match with 212 authoritative = #290 baseline. (`mise` wrappers
-  work here; the prior session's `fnox@1` block did not recur.)
+  new Hills palette test + Mountain/Forest regressions green, `mise run verify-slice-fast`
+  green (6251 core + 9 CLI + verify-tas-frontier + backlog-lint). #350 is render-only
+  (CLI presentation layer, no wildside-core change) so it is CRC-neutral and
+  `verify-tas-full` was not required.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -101,5 +103,4 @@ For newly opened items, capture these facts in the investigation notes:
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up ("springy") block snaps to its new cell instead of showing the loc_113F4 8-frame/16px rise. Core is correct (SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4, reserved $6F cell, BlockBounceAnim kind=Shifting) but the renderer drops it: push_block_grid_overrides (scene.rs:3885) skips the cell (reserved $6F → has_block=false, not Prize); the bounce-sprite draw loop (scene.rs:3934) handles Prize only. Test `non_prize_cleared_block_bounce_keeps_foreground_terrain_visible` currently ENFORCES the no-anim behaviour. Distinct from #281 (trigger/SFX) | Draw the kind=Shifting bounce sprite (E0EBE art) over the 8 rise frames; flip the enforcing test. See archive #347 |
 | 348 | [ ] | P1 | input | 2026-06-20 playtest: level/title card ignores Start for ~343 frames (122 for the Level-1 lineage) and needs a press-then-release; original exits the same frame Start fires. ASM loc_1AE2E exits on the FIRST Start edge from frame 2, no minimum-display gate. Native gates Start behind handoff_ready (>342; movement.rs:101) + a press-release latch (boot.rs:7388); the movement.rs:96-101 comment admits the 342 is an oracle-boot-trace replay artefact. Untracked (seed #016/#162/#327 all orthogonal + correctly closed) | Exit on the first Start edge for live/interactive play; gate the recorded delay behind a replay flag so boot traces (#305/#161/#248) stay green; DynamicScenario Start at card frame ~5 reaches Game_Mode $C within 1-2 frames. See archive #348 |
 | 349 | [ ] | P1 | render | 2026-06-20 playtest: post-death level card renders the scene/trees but NOT the level-NAME text (A then loads fine). ASM lose_life→Game_Mode 8→Load_TitleCard allocates the same Title_Letter glyph workers as a normal entry, so the name MUST appear. Core model + tests pass (level_tests.rs:3579/3615 assert workers EXIST in the trace) but never assert the RENDERED native-player scene draws the name — the defect is in that render/integration gap. Distinct from #326 (WRONG name on ≥0x10 entry cards) and #257/#248 (black-screen recovery) | Add a native-player render assertion (not just core worker-presence); capture a post-death card frame; fix glyph ASCII fallback / title_elapsed offset / title_card None on the respawn path. See archive #349 |
-| 350 | [ ] | P1 | render | 2026-06-20 playtest: Hills of the Warrior (theme 3, level 8) renders purple below the tree canopy. `background_palette_for_scene` (scene.rs:2334) builds the line-1 background remap only for theme 7 (Mountain, :2339) and 9 (Forest, :2361) — there is NO theme==3 (Hills) branch, so Hills line-1 ($2780) tiles index a wrong palette line. Data/core already know Hills is two-line (loc_1295E, Palette_Permutation_BGHill, bundle hill_bg.bin). Distinct from the dark-green CRAM-backdrop seam (#280/#289 = the sky) | Add a background_theme_id==3 branch mirroring theme 7/9 (assemble line-1 from Palette_Permutation_BGHill/_alt per loc_1295E); capture Hills L8 below-canopy native vs oracle. See archive #350 |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods (levels $11/$12, theme 9 Forest, weather 0) falling "snow" is actually Drip enemies (0x16) rendering the wrong colour variant (orange not green). ROM ships 3 Drip palettes (Drips_1 green / Drips_2 orange / Drips_3 purple; kid.asm:48317-48319); native ENEMY_FAMILIES hardcodes one palette per family. No storm system runs here (Init_SpecialEffects returns on weather 0) — "should be snow" is a human misread but "orange particles" is a real colour-variant bug. Seed #317/#230 are the wrong (storm) system | Per-level slot/palette-line variant selection in bundle.rs load_enemy_visuals; level $12 capture at x~2264 vs oracle. See archive #351 |

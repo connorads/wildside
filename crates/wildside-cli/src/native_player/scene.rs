@@ -3263,7 +3263,7 @@ fn background_palette_for_scene(
     level_visuals: &NativeLevelVisuals,
 ) -> Palette {
     let mut palette = level_visuals.palettes.background.clone();
-    if level_visuals.level.background_theme_id == 7
+    if matches!(level_visuals.level.background_theme_id, 7 | 3)
         && level_visuals.palettes.foreground.colours.len() >= PALETTE_LINE_COLOUR_COUNT - 1
         && palette.colours.len() >= 8
     {
@@ -3273,6 +3273,13 @@ fn background_palette_for_scene(
         // foreground CRAM line 0. loc_11E16 copies background colours 1..7
         // into line-1 slots 9..15 for the main planes without replacing the
         // foreground line used by the follow-up art.
+        //
+        // #350: Hills (theme 3) shares this two-line layout. loc_1295E decodes
+        // Hill planes 0/1 with base `$2780` (CRAM line 1) and the lower
+        // foliage plane 2 with base `$07C0` (CRAM line 0), so the foliage plane
+        // reads the foreground line exactly like Mountain's `$07E5` follow-up.
+        // Without this branch the line-0 foliage indexed the background sky
+        // colours and rendered blue/purple below the tree canopy.
         let original = palette.colours.clone();
         let mut combined = foreground_palette_for_scene(trace, level_visuals).colours;
         combined.truncate(PALETTE_LINE_COLOUR_COUNT - 1);
