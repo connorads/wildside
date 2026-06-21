@@ -140,6 +140,8 @@ pub struct OracleSettleTraceRow {
     #[serde(default)]
     pub background_source_absolute_loc_30744: String,
     #[serde(default)]
+    pub background_source_rows_loc_12848: String,
+    #[serde(default)]
     pub background_plane_b_rows_loc_307d8: String,
 }
 
@@ -718,6 +720,7 @@ mod tests {
                         "background_row_offsets_loc_30744": "cam_chunk=0011;width=0046;rows=0F:03CA,10:0410,11:0456",
                         "background_source_window_loc_30744": "B18@8C9E[28..38]=00,01,02",
                         "background_source_absolute_loc_30744": "8C9E[28..38]=00,01,02",
+                        "background_source_rows_loc_12848": "8C9E[00..45]=00,01,02",
                         "background_plane_b_rows_loc_307d8": "B18=0780"
                     }
                 ]
@@ -750,6 +753,10 @@ mod tests {
         assert_eq!(
             row.background_source_absolute_loc_30744,
             "8C9E[28..38]=00,01,02"
+        );
+        assert_eq!(
+            row.background_source_rows_loc_12848,
+            "8C9E[00..45]=00,01,02"
         );
         assert_eq!(row.background_plane_b_rows_loc_307d8, "B18=0780");
     }

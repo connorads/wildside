@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 full `$87B2` source-row trace)
+
+- **#289 stays `[~]`; oracle settle trace now dumps full target `$FFFF87B2` source rows for `Load_BackgroundChunk loc_12848`.** `background_source_rows_loc_12848` shows `$8C9E[00..45]` all zero through `title_wait` step 40, `$8FA0` filling at step 41, then `$8C9E` filling at step 42 with columns `49..56 = 01..08` while `Game_Mode=$000C`, `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`.
+- This confirms the B18 cloud-tail source is written during target-level `Load_InGame`/`Load_BackgroundMappings loc_12824`, matching the `BackgroundLayout_0E` `$8000` x-offset `$13` path as an ingredient. The standalone alias-only renderer patch remains rejected because it worsened #289 without a persisted Plane-B row-history model. **NEXT**: type/model live `$87B2` construction plus persisted Plane-B row state before applying those source bytes to native rendering.
+
+---
+
 ## 2026-06-21 handoff (#289 loc_12884 model correction)
 
 - **#289 stays `[~]`; fixed a narrow ASM model blind spot found while reading `Load_BackgroundChunk`.** `background_chunk_row_loop_loc_12884` now uses the separate chunk-height row counter (`d3` from ASM `loc_1285C`) instead of copying `chunk_width` rows by accident; a 2x3 regression covers the old square-chunk-only gap.

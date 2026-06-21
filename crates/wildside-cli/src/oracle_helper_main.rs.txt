@@ -161,6 +161,7 @@ struct OracleSettleTraceRow {
     background_row_offsets_loc_30744: String,
     background_source_window_loc_30744: String,
     background_source_absolute_loc_30744: String,
+    background_source_rows_loc_12848: String,
     background_plane_b_rows_loc_307d8: String,
 }
 
@@ -1814,6 +1815,31 @@ fn background_source_absolute_debug_loc_30744(work_ram: &[u8]) -> String {
         .join(";")
 }
 
+fn background_source_rows_debug_loc_12848(work_ram: &[u8]) -> String {
+    // ASM Load_BackgroundChunk loc_12848/loc_12884 writes chunk bytes into
+    // the live `$FFFF87B2` background buffer before sub_30744 streams them
+    // into Plane-B. Dump full #289 source rows so load-time aliases/stale
+    // bytes can be separated from later row-window upload history.
+    const WINDOWS: [(usize, usize, usize); 2] = [(0x8C9E, 0x00, 0x45), (0x8FA0, 0x00, 0x45)];
+
+    WINDOWS
+        .into_iter()
+        .map(|(source_offset, first_column, last_column)| {
+            let bytes = (first_column..=last_column)
+                .map(|column| {
+                    format!(
+                        "{:02X}",
+                        read_wram_u8(work_ram, 0xFF_0000 + source_offset + column)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("{source_offset:04X}[{first_column:02X}..{last_column:02X}]={bytes}")
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
 fn background_plane_b_rows_debug_loc_307d8(emulator: &mut GenesisEmulator) -> String {
     const PLANE_B_BASE_LOC_307D8: usize = 0xE000;
     const PLANE_WIDTH_CELLS: usize = 64;
@@ -3079,6 +3105,7 @@ fn capture_settle_trace_row(
         background_row_offsets_loc_30744: background_row_offsets_debug_loc_30744(&work_ram),
         background_source_window_loc_30744: background_source_window_debug_loc_30744(&work_ram),
         background_source_absolute_loc_30744: background_source_absolute_debug_loc_30744(&work_ram),
+        background_source_rows_loc_12848: background_source_rows_debug_loc_12848(&work_ram),
         background_plane_b_rows_loc_307d8: background_plane_b_rows_debug_loc_307d8(emulator),
     });
 }

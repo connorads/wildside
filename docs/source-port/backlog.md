@@ -39,32 +39,30 @@ and stop — never commit churn.
   `oracle_state_match=true`, `oracle_frame_match=false`, but the residual improves
   from frame 60 `5137` changed / MAE `5.711784` and frame 71 `5260` / `5.920638`
   to frame 60 `5080` / `5.6536646` and frame 71 `5212` / `5.8645835`.
-- **Next #289 action**: continue from persisted/incremental Plane-B row history for
-  the remaining upper-row clouds and ocean rows. The preload-time window improves
-  the `$08` rows but still does not model all `sub_30744` one-column updates after
-  level entry. Do not retry header/start layout, simple scroll offsets, placement
-  wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`,
-  stateless `$FFFF87B2`, raw `loc_30452` display-scroll substitution, or
-  current-time all-row overlay changes. Current x=285,y=10 samples native VDP
-  column 41 as empty while oracle row `B18` keeps clouds at columns 49..56; see
-  #289 archive for rejected source-row, `loc_2FFE8`, and raw-scroll hypotheses.
-  Recent settle traces narrow the source to `Load_InGame`/live `$87B2` writer
-  order: `$8C9E[$31..]` is zero through `title_wait` step 41, then becomes
-  `01..08` at step 42 while already in `Game_Mode=$000C`. The standalone
-  `BackgroundLayout_0E` `$8000` alias patch was rejected; it worsened #289 when
-  applied without a live row-history model. See #289 archive for exact metrics.
-  Next pass should capture the exact writer/order inside target-level `Load_InGame`
-  or model the ROM's live `$87B2` buffer construction before replaying Plane-B
-  writes.
-- **Gates this session**: kept the narrow `loc_12884` model/test correction; no
-  native-player/runtime rendering fix. Rejected the shared-alias trial after
-  focused coverage plus expected-red #289 recording metrics worsened. Verified
-  `cargo fmt --all`, focused
-  `cargo test -q -p wildside-core loc_12884_and_loc_1288a_copy_chunk_tiles_within_bounds`,
-  `cargo check -q -p wildside-core`, `cargo run -q -p wildside-cli -- backlog-lint`,
-  `git diff --check`, and expected-red `issue289-level07-idle-current` (`trace_match=true`,
+- **Next #289 action**: continue from a typed live `$87B2` source-buffer plus
+  persisted Plane-B row-history model for the remaining upper-row clouds and
+  ocean rows. The latest `background_source_rows_loc_12848` settle trace proves
+  `Load_InGame`/`Load_BackgroundMappings loc_12824` writes the B18 source row
+  during target-level load: `$8C9E[00..45]` is all zero through `title_wait` step
+  40, `8FA0` fills at step 41, then `8C9E` fills at step 42 with columns
+  `49..56 = 01..08` (plus trailing non-zero bytes) while `Game_Mode=$000C`,
+  `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`. This matches
+  the `BackgroundLayout_0E` `$8000`/x-offset `$13` path as an ingredient, but the
+  standalone alias patch was rejected because it worsened #289 without the live
+  row-history model. Do not retry header/start layout, simple scroll offsets,
+  placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render
+  `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
+  substitution, current-time all-row overlay, or alias-only changes.
+- **Gates this session**: added oracle settle-trace field
+  `background_source_rows_loc_12848` and regenerated
+  `.cache/oracle-probe/issue289-settle-plane-b.csv`; no native-player/runtime
+  rendering fix. Verified `cargo fmt --all`,
+  `cargo test -q -p wildside-cli oracle_manifest_deserialises_hidden_settle_trace_rows`,
+  `cargo check -q -p wildside-cli`, oracle-probe settle trace, and expected-red
+  `issue289-level07-idle-current` (`trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
-  `5.6536646`, frame 71 `5212` / `5.8645835`).
+  `5.6536646`, frame 71 `5212` / `5.8645835`), `cargo run -q -p wildside-cli
+  -- backlog-lint`, and `git diff --check`.
   The `mise` wrappers remain blocked
   in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
   use direct cargo/CLI commands for code verification.

@@ -2520,11 +2520,11 @@ fn main() -> Result<()> {
 
             if !oracle_manifest.settle_trace.is_empty() {
                 println!(
-                    "settle_phase,settle_step,game_mode,current_level_id,rng_offset,rng_last_byte,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects,background_scroll_loc_3050a,background_row_offsets_loc_30744,background_source_window_loc_30744,background_source_absolute_loc_30744,background_plane_b_rows_loc_307d8"
+                    "settle_phase,settle_step,game_mode,current_level_id,rng_offset,rng_last_byte,paused,camera_x_pos,camera_y_pos,kid_x_pos,kid_y_pos,kid_x_vel,kid_y_vel,number_objects,background_scroll_loc_3050a,background_row_offsets_loc_30744,background_source_window_loc_30744,background_source_absolute_loc_30744,background_source_rows_loc_12848,background_plane_b_rows_loc_307d8"
                 );
                 for row in &oracle_manifest.settle_trace {
                     println!(
-                        "{},{},0x{:04X},0x{:04X},0x{:04X},0x{:02X},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{},{},{},{},{},{}",
+                        "{},{},0x{:04X},0x{:04X},0x{:04X},0x{:02X},{},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},0x{:08X},{},{},{},{},{},{},{}",
                         row.phase,
                         row.step,
                         row.game_mode,
@@ -2543,6 +2543,7 @@ fn main() -> Result<()> {
                         csv_field(&row.background_row_offsets_loc_30744),
                         csv_field(&row.background_source_window_loc_30744),
                         csv_field(&row.background_source_absolute_loc_30744),
+                        csv_field(&row.background_source_rows_loc_12848),
                         csv_field(&row.background_plane_b_rows_loc_307d8),
                     );
                 }
