@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 Plane-B row-history primitive)
+
+- **#289 stays `[~]`; native-player chunked Plane-B reconstruction now runs through `ChunkedPlaneBRowHistoryLoc30744`.** This keeps the current direct `loc_12830` source path and produces no intended render change, but separates old `$0780` row state, the `sub_307D8` row window, and visible `sub_30744` one-column writes behind an explicit row-history object.
+- Rechecked the rejected horizontal hidden-window replay against ASM `sub_304B4`/`sub_30744`: Level 0x07 B18 is still a `$08` row and the extra 60 hidden recording frames only cross VDP columns 42..45, so it cannot create oracle columns 49..56. Fresh `issue289-level07-idle-current` remains expected-red at frame 60 `5080` / MAE `5.6536646`, frame 71 `5212` / `5.8645835`. **NEXT**: replay target-level `Load_InGame` / `loc_2FFE8` vertical row uploads through the new row-history primitive, then feed the typed `$87B2`/`loc_12824` source buffer; do not retry stateless alias or horizontal timing patches.
+
+---
+
 ## 2026-06-21 handoff (#289 typed loc_12848 source buffer)
 
 - **#289 stays `[~]`; native-player now has a typed `ChunkedBackgroundSourceLoc12848` primitive for ASM `Load_BackgroundChunk loc_12848`.** The renderer still constructs rows through the direct `loc_12830` path, so this is model/test groundwork rather than a pixel change.

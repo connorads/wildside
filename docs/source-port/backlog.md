@@ -32,8 +32,9 @@ and stop — never commit churn.
   applies ASM `BackgroundScroll_ComputeShiftLayers loc_3050A` H-scroll at
   draw/sample time, arranges `$00`/`$08` timed-row uploads from the
   `loc_2FFE8` preload `Time_Frames` phase, and has a typed
-  `Load_BackgroundChunk loc_12848` source-buffer primitive. Cells outside the
-  fresh streamed span now preserve the old Plane-B `$0780` tile from
+  `Load_BackgroundChunk loc_12848` source-buffer primitive plus a
+  `ChunkedPlaneBRowHistoryLoc30744` native-player row-state primitive. Cells
+  outside the fresh streamed span now preserve the old Plane-B `$0780` tile from
   `loc_11F48`, instead of acting transparent; elapsed visible `sub_30744`
   tile-column crossings after preload are also replayed into the native row
   state. Fresh
@@ -41,9 +42,10 @@ and stop — never commit churn.
   `oracle_state_match=true`, `oracle_frame_match=false`, but the residual improves
   from frame 60 `5137` changed / MAE `5.711784` and frame 71 `5260` / `5.920638`
   to frame 60 `5080` / `5.6536646` and frame 71 `5212` / `5.8645835`.
-- **Next #289 action**: wire the typed live `$87B2` source-buffer into a
-  persisted Plane-B row-history model for the remaining upper-row clouds and ocean
-  rows; do not apply the alias source to rendering statelessly. The latest
+- **Next #289 action**: feed the typed live `$87B2` source buffer through the
+  persisted Plane-B row-history primitive across target-level `Load_InGame` /
+  `loc_2FFE8` vertical row uploads before replaying visible `sub_30744`; do not
+  apply the alias source to rendering statelessly. The latest
   `background_source_rows_loc_12848` settle trace proves
   `Load_InGame`/`Load_BackgroundMappings loc_12824` writes the B18 source row
   during target-level load: `$8C9E[00..45]` is all zero through `title_wait` step
@@ -52,24 +54,18 @@ and stop — never commit churn.
   `Current_LevelID=$0007`, `Camera_Y=0`, and `Background_width=$46`. Native now
   has `ChunkedBackgroundSourceLoc12848` and a test-only `loc_12824` alias
   constructor showing `BackgroundLayout_0E` x-offset `$13` moves chunk bytes into
-  columns `49..56`; the runtime still calls the direct `loc_12830` constructor
-  so rendering is unchanged. Do not retry header/start layout, simple scroll offsets,
+  columns `49..56`; the runtime row-history primitive still consumes the direct
+  `loc_12830` source so rendering is unchanged. Do not retry header/start layout, simple scroll offsets,
   placement wrap, raw `$00/$08`, y=100 H-scroll, row-window count, render
   `Time_Frames`, stateless `$FFFF87B2`, raw `loc_30452` display-scroll
   substitution, current-time all-row overlay, or alias-only changes.
-- **Gates this session**: extracted `ChunkedBackgroundSourceLoc12848` from the
-  native-player chunked Plane-B source construction and covered ASM
-  `Load_BackgroundMappings loc_12824` alias offsets without changing runtime
-  rendering. Also filled stale core/bench `LevelRecord` fixtures with
-  `background_layout_alias: None` after the core sweep exposed them. Verified
-  `cargo fmt --all`, focused native-player chunked Plane-B tests,
-  `cargo check -p wildside-cli`, `cargo check -p wildside-core --benches`,
-  direct `verify-slice-fast` body (`verify-tas-frontier`, `backlog-lint`,
-  `cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas
-  --skip snapshot`, `cargo test -q -p wildside-cli gameplay_regression_`), and
+- **Gates this session**: refactored native-player chunked Plane-B reconstruction
+  around `ChunkedPlaneBRowHistoryLoc30744` with no intended render change. Verified
+  `cargo check -p wildside-cli`, focused native-player chunked Plane-B tests, and
   expected-red `issue289-level07-idle-current` (`trace_match=true`,
   `oracle_state_match=true`, `oracle_frame_match=false`, frame 60 `5080` /
-  `5.6536646`, frame 71 `5212` / `5.8645835`).
+  `5.6536646`, frame 71 `5212` / `5.8645835`). Full slice/TAS gates still need
+  running before landing further behaviour changes.
   The `mise` wrappers remain blocked
   in this environment by `mise` failing to install `fnox@1` for `linux-arm64`, so
   use direct cargo/CLI commands for code verification.

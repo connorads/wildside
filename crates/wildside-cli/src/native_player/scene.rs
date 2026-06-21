@@ -2420,6 +2420,80 @@ impl ChunkedBackgroundSourceLoc12848 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct ChunkedPlaneBRowHistoryLoc30744 {
+    cells: [Option<ChunkedPlaneBCellLoc307D8>; PLANE_B_ROW_CELLS_LOC_11B7A],
+}
+
+impl ChunkedPlaneBRowHistoryLoc30744 {
+    fn from_old_plane_b_row_loc_307d8(row: usize) -> Self {
+        Self {
+            cells: std::array::from_fn(|column| {
+                // ASM sub_307D8 only DMA-writes the newly exposed `$2780` span;
+                // cells outside that span keep the old Plane-B `$0780` tile.
+                Some(ChunkedPlaneBCellLoc307D8 {
+                    tile_ref: TileRef {
+                        tile_index: 0,
+                        palette_line: 0,
+                        priority: false,
+                        flip_x: false,
+                        flip_y: false,
+                    },
+                    background_row_index: row,
+                    background_column: column,
+                })
+            }),
+        }
+    }
+
+    fn apply_row_upload_loc_307d8(
+        &mut self,
+        source_buffer: &ChunkedBackgroundSourceLoc12848,
+        row: usize,
+        destination_column: usize,
+        source_column: usize,
+    ) {
+        // ASM sub_307D8 sets `d4 = #$28` and DBF streams the newly exposed
+        // Plane-B row. The previous sub_30744 pass writes the single
+        // horizontally exposed column first, so the displayed frame contains
+        // 42 fresh cells in the issue #289 oracle row dump.
+        for offset in 0..CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744 {
+            let source = (source_column + offset) % source_buffer.width;
+            let destination = (destination_column + offset) % PLANE_B_ROW_CELLS_LOC_11B7A;
+            self.cells[destination] = source_buffer.cells[row * source_buffer.width + source];
+        }
+    }
+
+    fn apply_changed_column_loc_30744(
+        &mut self,
+        source_buffer: &ChunkedBackgroundSourceLoc12848,
+        previous_scroll_x_px: i32,
+        current_scroll_x_px: i32,
+        row: usize,
+    ) {
+        let previous_tile_column = previous_scroll_x_px.div_euclid(8);
+        let current_tile_column = current_scroll_x_px.div_euclid(8);
+        if previous_tile_column == current_tile_column {
+            return;
+        }
+
+        // ASM loc_30452/sub_304B4 stores one changed source column into
+        // `Horiz_Scroll_Data`, then sub_30744/loc_307B2 streams that single
+        // mapping word into Plane B before the conditional sub_307D8 row span.
+        let source_column_seed = if previous_tile_column > current_tile_column {
+            current_tile_column
+        } else {
+            current_tile_column + 0x28
+        };
+        let source =
+            source_column_seed.rem_euclid(i32::try_from(source_buffer.width).unwrap_or(1)) as usize;
+        let destination = source_column_seed
+            .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
+            as usize;
+        self.cells[destination] = source_buffer.cells[row * source_buffer.width + source];
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct ChunkedPlaneBRowsLoc307D8 {
     source: ChunkedBackgroundSourceLoc12848,
 }
@@ -2461,46 +2535,23 @@ impl ChunkedPlaneBRowsLoc307D8 {
         let source_column = (scroll_x_px.div_euclid(8) + source_column_bias)
             .rem_euclid(i32::try_from(self.source.width).ok()?)
             as usize;
-        let mut row_cells = std::array::from_fn(|column| {
-            // ASM sub_307D8 only DMA-writes the newly exposed `$2780` span;
-            // cells outside that span keep the old Plane-B `$0780` tile.
-            Some(ChunkedPlaneBCellLoc307D8 {
-                tile_ref: TileRef {
-                    tile_index: 0,
-                    palette_line: 0,
-                    priority: false,
-                    flip_x: false,
-                    flip_y: false,
-                },
-                background_row_index: row,
-                background_column: column,
-            })
-        });
-
-        // ASM sub_307D8 sets `d4 = #$28` and DBF streams the newly exposed
-        // Plane-B row. The previous sub_30744 pass writes the single
-        // horizontally exposed column first, so the displayed frame contains
-        // 42 fresh cells in the issue #289 oracle row dump.
-        for offset in 0..CHUNKED_BACKGROUND_VISIBLE_ROW_CELLS_LOC_307D8_30744 {
-            let source = (source_column + offset) % self.source.width;
-            let destination = (destination_column + offset) % PLANE_B_ROW_CELLS_LOC_11B7A;
-            row_cells[destination] = self.source.cells[row * self.source.width + source];
-        }
+        let mut history = ChunkedPlaneBRowHistoryLoc30744::from_old_plane_b_row_loc_307d8(row);
+        history.apply_row_upload_loc_307d8(&self.source, row, destination_column, source_column);
 
         self.apply_elapsed_column_writes_loc_30744(
-            &mut row_cells,
+            &mut history,
             trace,
             camera_x_px,
             layer_speed,
             row,
         );
 
-        Some(row_cells)
+        Some(history.cells)
     }
 
     fn apply_elapsed_column_writes_loc_30744(
         &self,
-        row_cells: &mut [Option<ChunkedPlaneBCellLoc307D8>; PLANE_B_ROW_CELLS_LOC_11B7A],
+        history: &mut ChunkedPlaneBRowHistoryLoc30744,
         trace: &NativeTraceFrame,
         camera_x_px: i32,
         layer_speed: u8,
@@ -2523,38 +2574,14 @@ impl ChunkedPlaneBRowsLoc307D8 {
                 camera_x_px,
                 layer_speed,
             );
-            self.apply_changed_column_loc_30744(row_cells, previous_scroll, current_scroll, row);
+            history.apply_changed_column_loc_30744(
+                &self.source,
+                previous_scroll,
+                current_scroll,
+                row,
+            );
             previous_scroll = current_scroll;
         }
-    }
-
-    fn apply_changed_column_loc_30744(
-        &self,
-        row_cells: &mut [Option<ChunkedPlaneBCellLoc307D8>; PLANE_B_ROW_CELLS_LOC_11B7A],
-        previous_scroll_x_px: i32,
-        current_scroll_x_px: i32,
-        row: usize,
-    ) {
-        let previous_tile_column = previous_scroll_x_px.div_euclid(8);
-        let current_tile_column = current_scroll_x_px.div_euclid(8);
-        if previous_tile_column == current_tile_column {
-            return;
-        }
-
-        // ASM loc_30452/sub_304B4 stores one changed source column into
-        // `Horiz_Scroll_Data`, then sub_30744/loc_307B2 streams that single
-        // mapping word into Plane B before the conditional sub_307D8 row span.
-        let source_column_seed = if previous_tile_column > current_tile_column {
-            current_tile_column
-        } else {
-            current_tile_column + 0x28
-        };
-        let source =
-            source_column_seed.rem_euclid(i32::try_from(self.source.width).unwrap_or(1)) as usize;
-        let destination = source_column_seed
-            .rem_euclid(i32::try_from(PLANE_B_ROW_CELLS_LOC_11B7A).unwrap_or(0x40))
-            as usize;
-        row_cells[destination] = self.source.cells[row * self.source.width + source];
     }
 }
 
