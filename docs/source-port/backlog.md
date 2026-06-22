@@ -41,7 +41,10 @@ and stop — never commit churn.
   colour swaps (e.g. frame 60 y=100 tile 57, and right/top cloud pixels), not the
   old top-left row-17 display selection. Continue from sampled residuals plus
   oracle/native row dumps; do not retune B08/B17/B18/B19/B22/B23/B27/B29/B30 row
-  words without fresh oracle row evidence. **archive #289**.
+  words without fresh oracle row evidence. 2026-06-22 rejected a simple
+  `loc_12110` middle-shore current-`d2` phase render substitution: frame 71
+  improved (`2542` / `2.5376906`) but frame 60 regressed (`2981` /
+  `2.7480702`). **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -56,8 +59,9 @@ and stop — never commit churn.
   row-history/underlay fix, current-time all-row overlay, packed timed-row
   full-upload placement, alias-only rendering, alias-fed full row uploads,
   direct row-number-to-bgscroll preload mapping, source-row 8 live writes for
-  B08, and reworking B08/B17/B18/B19/B22/B23/B27/B29/B30 row cells without fresh
-  oracle row evidence.
+  B08, simple `loc_12110` middle-shore current-phase rendering, and reworking
+  B08/B17/B18/B19/B22/B23/B27/B29/B30 row cells without fresh oracle row
+  evidence.
 - **#336 stays `[ ]`, regression bisected (no code change — oracle-gated)**: the
   cold-boot "Kid floats then drops" is the `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y`
   camera pan (216→115px) introduced by c65df2500 (2026-06-12, recent — corrects the
