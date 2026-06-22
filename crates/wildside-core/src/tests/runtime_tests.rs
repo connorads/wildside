@@ -7217,6 +7217,49 @@ mod chunk_09 {
     }
 
     #[test]
+    fn issue289_level07_settled_recording_primes_island_shore_vram_loc_1202a() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(0x07));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x07));
+
+        let mut frame_60 = None;
+        let mut frame_71 = None;
+        for frame_index in 0usize..=71 {
+            let trace = runtime.step_frame(FrameInput::default());
+            match frame_index {
+                60 => frame_60 = Some(trace),
+                71 => frame_71 = Some(trace),
+                _ => {}
+            }
+        }
+
+        let frame_60 = frame_60.expect("frame 60 should be captured");
+        assert_eq!(
+            frame_60.time_frames_loc_3038a, 174,
+            "ASM loc_3038A Time_Frames already matches the recording oracle; loc_1202A shore priming must not advance the global timer"
+        );
+        assert_eq!(
+            frame_60.island_shore_vram_frames_loc_1202a,
+            Some((3, 2, 0)),
+            "ASM loc_12098/loc_12110/loc_12188: oracle VDP samples for #289 frame 60 show the Island shore object has run its hidden level-skip DMA tail before recording frame 0"
+        );
+
+        let frame_71 = frame_71.expect("frame 71 should be captured");
+        assert_eq!(
+            frame_71.time_frames_loc_3038a, 185,
+            "ASM loc_3038A remains on the oracle global timer at the second #289 checkpoint"
+        );
+        assert_eq!(
+            frame_71.island_shore_vram_frames_loc_1202a,
+            Some((0, 3, 0)),
+            "ASM loc_1202A: #289 frame 71 crosses the next primary/mid shore phases while the lower band remains on the oracle VDP frame"
+        );
+    }
+
+    #[test]
     fn ghost_block_step_sub_f730_zero_state_starts_vanish_lead_in_and_restores_terrain_skin() {
         // ASM sub_F730/loc_F8A6: state 0 is the solid `$E304` hold. On timer
         // expiry it advances to `$8001` and restores the original

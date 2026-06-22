@@ -7,6 +7,7 @@ use super::*;
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
+const ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A: usize = 0x10;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 const LEVEL_ONE_RECORDING_SETTLE_RNG_OFFSET: u16 = 0xFFCB;
 // Oracle `issue260_p11` settle tracing reaches Level 1 target_live step 59 at
@@ -202,6 +203,13 @@ impl NativeRuntime {
             for _ in 0..LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS {
                 self.step_ghost_blocks();
             }
+        }
+        // ASM loc_1202A runs the Island shore DMA object through the ROM
+        // level-skip shell before recording frame 0. `Time_Frames` is already
+        // at the oracle phase here, so only the object-local VRAM worker gets
+        // the hidden tail; non-Island levels no-op because the object is absent.
+        for _ in 0..ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A {
+            self.step_island_shore_cycle_loc_1202a();
         }
         if level_id == LevelId(1) {
             self.rom_random = RomRandomState::from_raw_parts(

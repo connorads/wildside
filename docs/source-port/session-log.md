@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#289 Island shore recording-settle tail)
+
+- **#289 stays `[~]`; settled recording warps now prime the Island shore `loc_1202A` DMA object by 16 object-local ticks.** The oracle VDP probe showed the shore tile rows were ahead of native's stored VRAM phase even though `Time_Frames` already matched oracle, so the fix advances only `step_island_shore_cycle_loc_1202a` after the recording settle window. Non-Island levels no-op because the object is absent.
+- Fresh expected-red `issue289-level07-idle-current` remains state-clean/pixel-red but improves from frame 60 `2479` / MAE `2.4002976` and frame 71 `2546` / `2.473256` to frame 60 `1471` / `1.626809` and frame 71 `1424` / `1.5797665`. Bracketed trials found 15/16/17 ticks equivalent at the sampled checkpoints; 18 regresses frame 71 to `1720` / `1.738565`.
+- Next #289 pass should inspect the remaining lower shore/water row content and left-edge samples after the `loc_1202A` age fix, not global `Time_Frames`, static cloud H-scroll, Plane-B row words in the do-not-retry set, or simple `loc_12110` current-phase rendering.
+- Verification: `cargo fmt --all --check`, `cargo check -q -p wildside-cli`, focused cache-backed `cargo test -p wildside-core issue289_level07_settled_recording_primes_island_shore_vram_loc_1202a -- --nocapture`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, `cargo run -q -p wildside-cli -- backlog-lint`, `git diff --check`, and `mise run verify-slice-fast`.
+
 ## 2026-06-22 handoff (#289 previous VDP H-scroll latch)
 
 - **#289 stays `[~]`; native auto-scroll display rows now use the previous VDP H-scroll table phase.** Oracle VDP pixel samples showed frame 60 static y=10 rendered hB=`FF86` while current WRAM hbuf debug had already advanced to `FF85`; frame 71 `$00` rows showed the same one-frame display latch. Native applies Time_Frames-1 only to `$00`/`$08` display sampling, while camera-derived shore rows and `sub_30744`/`sub_307D8` row-history stay on their existing phases.

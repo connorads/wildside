@@ -27,21 +27,22 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 stays `[~]`; auto-scroll display now uses the previous VDP H-scroll
-  table phase for `$00`/`$08` rows.** Oracle VDP pixel samples showed frame 60
-  static row y=10 rendered hB=`FF86` while current WRAM hbuf debug had already
-  advanced to `FF85`; frame 71 y=42 similarly rendered `$00` rows from
-  Time_Frames-1 (`FF24`). Native now latches that previous display phase only
-  for auto-scroll rows, leaving camera-derived shore rows and row-upload history
-  unchanged. Fresh expected-red `issue289-level07-idle-current` is still
-  state-clean/pixel-red but improves from frame 60 `2856` / MAE `2.682994` and
-  frame 71 `2823` / `2.684696` to frame 60 `2479` / `2.4002976` and frame 71
-  `2546` / `2.473256`. Visual diff confirms the static cloud/parallax residual
-  is gone; remaining top diffs are the shore/water band. **NEXT #289:**
-  investigate Island shore VRAM art/upload timing around `loc_1202A` and
-  `$F6C0`, not B08/B17/B18/B19/B22/B23/B27/B29/B30 row words, static cloud
-  display H-scroll, or the already-rejected simple `loc_12110` current-`d2`
-  phase render substitution. **archive #289**.
+- **#289 stays `[~]`; settled recording warps now prime the Island shore
+  `loc_1202A` VRAM object through its hidden level-skip tail without advancing
+  global `Time_Frames`.** Oracle VDP samples showed the residual y=100/y=113
+  shore pixels were native's object-local shore VRAM phase lagging the already
+  correct render clock. Native now advances only the Island shore DMA worker
+  by 16 object ticks after the recording settle window; non-Island levels no-op
+  because the object is absent. Fresh expected-red `issue289-level07-idle-current`
+  is still state-clean/pixel-red but improves from frame 60 `2479` / MAE
+  `2.4002976` and frame 71 `2546` / `2.473256` to frame 60 `1471` /
+  `1.626809` and frame 71 `1424` / `1.5797665`. 15/16/17 object ticks produce
+  the same checkpoint plateau; 18 regresses frame 71 (`1720` / `1.738565`), so
+  keep 16 as the oracle-probed transition offset. **NEXT #289:** inspect the
+  remaining lower shore/water row content and left-edge rows after the
+  `loc_1202A` age fix, not the broad row-word do-not-retry set, static cloud
+  H-scroll, global `Time_Frames`, or simple `loc_12110` current-phase rendering.
+  **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -69,10 +70,10 @@ and stop — never commit churn.
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
 - **Gates this session**: `cargo fmt --all --check`, `cargo check -q -p
-  wildside-cli`, focused `wildside-cli`
-  `chunked_plane_b_display_uses_horiz_scroll_data_loc_3050a`, expected-red
-  #289 recording, visual diff inspection, `backlog-lint`, `git diff --check`,
-  and `mise run verify-slice-fast` all passed.
+  wildside-cli`, focused cache-backed `wildside-core`
+  `issue289_level07_settled_recording_primes_island_shore_vram_loc_1202a`,
+  expected-red #289 recording, `backlog-lint`, `git diff --check`, and
+  `mise run verify-slice-fast` all passed.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
