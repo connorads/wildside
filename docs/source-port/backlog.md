@@ -27,22 +27,24 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 stays `[~]`; new report diagnostic exposes sampled tile rows**:
-  `native_background_samples[].sample.source_row_pixels` now records the eight
-  palette indices from the source tile row used by `loc_C070`-style background
-  sampling. Fresh expected-red `issue289-level07-idle-current` is unchanged
-  (`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`;
-  frame 60 `2856` / `2.682994`, frame 71 `2823` / `2.684696`) but the report now
-  proves the remaining residual is row-word-clean art/pixel content. Example:
-  frame 60 `(86,100)` tile `$39` samples row `[10,10,10,10,11,11,10,10]` at
-  `source_x=2,source_y=4`, while the oracle wants the colour represented by
-  index `11`; frame 60 `(284,10)` tile `$02` samples
-  `[11,11,11,11,11,11,11,13]` at `source_x=7,source_y=2`, while the oracle wants
-  index `11`. **NEXT #289:** investigate VRAM art/source timing for Island
-  background tiles and shore band `$F6C0`, not B08/B17/B18/B19/B22/B23/B27/B29/B30
-  row words. 2026-06-22 rejected a simple `loc_12110` middle-shore current-`d2`
-  phase render substitution: frame 71 improved (`2542` / `2.5376906`) but frame
-  60 regressed (`2981` / `2.7480702`). **archive #289**.
+- **#289 stays `[~]`; native + oracle report diagnostics now expose sampled tile rows**:
+  `native_background_samples[].sample.source_row_pixels` records the native source
+  tile row, and `oracle_background_vdp_pixel_samples_loc_c070` now records oracle
+  Plane A/B pixel provenance with decoded tile rows and raw row bytes. Fresh
+  expected-red `issue289-level07-idle-current` is unchanged (`trace_match=true`,
+  `oracle_state_match=true`, `oracle_frame_match=false`; frame 60 `2856` /
+  `2.682994`, frame 71 `2823` / `2.684696`) but now proves the residual is
+  row-word-clean VRAM art/source timing. Examples: frame 60 `(86,100)` native
+  tile `$39` row `[10,10,10,10,11,11,10,10]`, while oracle Plane B tile `$7B9`
+  row is `A,A,B,A,A,A,A,A`; frame 71 `(91,102)` native row
+  `[10,10,10,10,10,10,10,11]`, while oracle row is all `A`; frame 60 `(284,10)`
+  native static tile `$02` row `[11,11,11,11,11,11,11,13]`, while oracle Plane B
+  tile `$782` row is `B,B,B,B,B,B,B,D` and samples index `B`. **NEXT #289:**
+  investigate Island VRAM art/source timing for static background tiles and shore
+  band `$F6C0`, not B08/B17/B18/B19/B22/B23/B27/B29/B30 row words. 2026-06-22
+  rejected a simple `loc_12110` middle-shore current-`d2` phase render
+  substitution: frame 71 improved (`2542` / `2.5376906`) but frame 60 regressed
+  (`2981` / `2.7480702`). **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -69,10 +71,11 @@ and stop — never commit churn.
   title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
-- **Gates this session**: `cargo fmt --all --check`, focused `wildside-cli`
+- **Gates this session**: `cargo fmt --all --check`, `cargo check -q -p
+  wildside-cli`, `mise run audit-debug-fields`, focused `wildside-cli`
   `background_pixel_sampler_reports_last_drawn_tile_provenance_loc_c070`,
-  `cargo check -q -p wildside-cli`, expected-red #289 recording, `backlog-lint`,
-  `git diff --check`, and `mise run verify-slice-fast` all passed.
+  expected-red #289 recording, `backlog-lint`, `git diff --check`, and
+  `mise run verify-slice-fast` all passed.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -106,7 +109,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | Follow-up 2026-06-21: `unk_309B8` H-flip mapping now matches B23/B27 row words; Level 0x07 remains pixel-red at frame 60 `3915` / MAE `4.2537017`, frame 71 `4113` / `4.5239353`. (full history: archive #289) |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | 2026-06-22: native + oracle sampled tile-row diagnostics show the remaining Level 0x07 residual is VRAM art/source timing, not selected Plane-B rows; current expected-red frame 60 `2856` / MAE `2.682994`, frame 71 `2823` / `2.684696`. (full history: archive #289) |
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | 2026-06-21: bisected to c65df2500 (2026-06-12) — `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` (camera 216→115px, level-0 only). NEXT: oracle capture PAST the title card into live gameplay, diff per-frame camera/kid-Y; don't edit the ramp without it (may be oracle-derived). See archive #336. |

@@ -16,6 +16,24 @@
       "promotion_trigger": "Promote if parity matching, loader attribution, or roster identity starts depending on it."
     },
     {
+      "key": "gfx_slot_index",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "level-entry-title-card",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native level-entry Title_Letter gfx slot index used to order and render title-card glyph workers allocated by ASM loc_1AC70.",
+      "promotion_trigger": "Promote if title-card worker identity or glyph-slot ordering becomes part of typed trace parity or checked-in oracle assertions."
+    },
+    {
+      "key": "glyph",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "level-entry-title-card",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native level-entry Title_Letter glyph byte stored at `$44(a5)` by ASM loc_1AC70 and consumed by the renderer to select the corresponding title-card glyph art.",
+      "promotion_trigger": "Promote if title-card glyph identity becomes part of typed trace parity or checked-in oracle assertions."
+    },
+    {
       "key": "boss_eye_parent_phase_word_22_loc_3893e",
       "scope": "object",
       "status": "exploratory",
@@ -313,6 +331,16 @@
       "intended_meaning": "Oracle VDP Plane-B nametable words for selected rows covering the Level 0x07 #289 cloud/ocean sample bands after sub_30744/sub_307D8 background uploads.",
       "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed Plane-B row contents.",
       "stale_candidate_exemption": "Investigation-only oracle snapshot for #289; keep candidate until the native Plane-B row upload model consumes typed row contents."
+    },
+    {
+      "key": "oracle_background_vdp_pixel_samples_loc_c070",
+      "scope": "frame",
+      "status": "candidate",
+      "owner": "issue-289-level07-background",
+      "first_added_commit": "pending",
+      "intended_meaning": "Oracle VDP loc_C070 Plane A/B pixel provenance for selected Level 0x07 #289 cloud and shore/ocean strict-diff coordinates, including nametable word, scrolled world coordinate, decoded tile pixel, full 8-pixel tile row, raw row bytes, palette line/index, priority, and RGB.",
+      "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed per-pixel VDP provenance or tile-art row state.",
+      "stale_candidate_exemption": "Investigation-only oracle snapshot for #289; keep candidate until the native renderer consumes typed VDP tile-art row provenance."
     },
     {
       "key": "pending_prize_diamond_awards",

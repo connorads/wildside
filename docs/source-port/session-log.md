@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#289 oracle VDP tile-row diagnostics)
+
+- **#289 stays `[~]`; no renderer fix landed this pass.** The native sampled-row diagnostic from the prior pass was paired with oracle VDP pixel provenance: `oracle_background_vdp_pixel_samples_loc_c070` now records Plane A/B nametable words, scrolled source coordinates, decoded 8-pixel tile rows, raw row bytes, palette/index, and RGB for the current #289 strict-diff coordinates.
+- Fresh expected-red `issue289-level07-idle-current` is unchanged: `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; frame 60 `2856` / MAE `2.682994`, frame 71 `2823` / `2.684696`. The new report proves selected Plane-B row words are no longer the target: frame 60 `(86,100)` native tile `$39` row `[10,10,10,10,11,11,10,10]`, while oracle Plane B tile `$7B9` row is `A,A,B,A,A,A,A,A`; frame 71 `(91,102)` native row `[10,10,10,10,10,10,10,11]`, while oracle row is all `A`; frame 60 `(284,10)` native static tile `$02` row `[11,11,11,11,11,11,11,13]`, while oracle Plane B tile `$782` row is `B,B,B,B,B,B,B,D` and samples index `B`.
+- Next #289 pass should investigate Island VRAM art/source timing for static background tiles and shore `$F6C0`, not row-history placement, display scroll, or the already-rejected simple `loc_12110` current-phase substitution.
+- Verification: `cargo fmt --all --check`, `cargo check -q -p wildside-cli`, `mise run audit-debug-fields`, focused `cargo test -q -p wildside-cli background_pixel_sampler_reports_last_drawn_tile_provenance_loc_c070 --no-default-features -- --nocapture`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, `cargo run -q -p wildside-cli -- backlog-lint`, `git diff --check`, and `mise run verify-slice-fast`.
+
 ## 2026-06-22 handoff (#289 sampled tile-row diagnostics)
 
 - **#289 stays `[~]`; no renderer fix landed this pass.** The previous simple `loc_12110` current-phase trial remains rejected, so this session added narrow report instrumentation instead: `native_background_samples[].sample.source_row_pixels` now records the eight palette indices from the sampled tile row selected by native background provenance.

@@ -1264,6 +1264,8 @@ fn capture_state(
         read_wram_u16(&work_ram, GFX_OBJECT_RAM_ADDR + OBJECT_COLLISION_SOURCE_OFFSET);
     let background_plane_b_rows_debug = matches!(game_mode, 0x0008 | 0x000C | 0x0010)
         .then(|| background_plane_b_rows_debug_loc_307d8(emulator));
+    let background_vdp_pixel_samples_debug = matches!(game_mode, 0x0008 | 0x000C | 0x0010)
+        .then(|| background_vdp_pixel_samples_debug_loc_c070(emulator, rendered_frame));
     let rom = emulator.debug().memory_view(GenesisMemoryArea::CartridgeRom);
     if matches!(game_mode, 0x0008 | 0x000C | 0x0010) {
         gameplay_debug_fields.insert(
@@ -1303,6 +1305,11 @@ fn capture_state(
             "oracle_background_plane_b_rows_loc_307d8".into(),
             background_plane_b_rows_debug
                 .expect("in-game background Plane-B row debug should be captured"),
+        );
+        gameplay_debug_fields.insert(
+            "oracle_background_vdp_pixel_samples_loc_c070".into(),
+            background_vdp_pixel_samples_debug
+                .expect("in-game background VDP pixel samples should be captured"),
         );
         let drips_object_debug = drips_object_slots_debug_loc_33488(&work_ram);
         if !drips_object_debug.is_empty() {
@@ -1913,6 +1920,95 @@ fn background_plane_b_spans_debug_loc_307d8(emulator: &mut GenesisEmulator) -> S
                 spans.join("|")
             };
             format!("B{row:02}={spans}")
+        })
+        .collect::<Vec<_>>()
+        .join(";")
+}
+
+fn background_vdp_pixel_samples_debug_loc_c070(
+    emulator: &mut GenesisEmulator,
+    rendered_frame: Option<(u32, u32, &[u8])>,
+) -> String {
+    const PLANE_A_BOOT_BASE: usize = 0x0000;
+    const PLANE_A_GAME_BASE: usize = 0xC000;
+    const PLANE_B_BASE: usize = 0xE000;
+    const H_SCROLL_TABLE_BASE: usize = 0x1400;
+    const PLANE_WIDTH_CELLS: usize = 64;
+    const PLANE_HEIGHT_CELLS: usize = 32;
+    const SAMPLES: [(usize, usize); 16] = [
+        (284, 10),
+        (292, 10),
+        (282, 13),
+        (307, 45),
+        (86, 100),
+        (88, 100),
+        (91, 102),
+        (139, 102),
+        (298, 42),
+        (304, 42),
+        (296, 45),
+        (291, 52),
+        (305, 53),
+        (85, 100),
+        (90, 103),
+        (67, 113),
+    ];
+
+    let vram = capture_memory(emulator, GenesisMemoryArea::Vram, 0x1_0000);
+    let cram = capture_memory(emulator, GenesisMemoryArea::Cram, 0x80);
+    let vsram = capture_memory(emulator, GenesisMemoryArea::Vsram, 0x50);
+    let vs_a = i32::from(read_wram_u16(&vsram, 0) as i16);
+    let vs_b = i32::from(read_wram_u16(&vsram, 2) as i16);
+
+    // ASM loc_C070 composites the current VDP planes. These samples cover the
+    // #289 Level 0x07 cloud and shore/ocean strict-diff pixels where Plane-B
+    // nametable words already match but decoded tile rows still disagree.
+    SAMPLES
+        .iter()
+        .map(|&(x, y)| {
+            let h_a = i32::from(read_wram_u16(&vram, H_SCROLL_TABLE_BASE + y * 4) as i16);
+            let h_b = i32::from(read_wram_u16(&vram, H_SCROLL_TABLE_BASE + y * 4 + 2) as i16);
+            let rendered_pixel = rendered_frame
+                .and_then(|(width, height, rgb)| rendered_frame_rgb(width, height, rgb, x, y));
+            format!(
+                "{x}/{y}:FB={},vsA={vs_a:04X},vsB={vs_b:04X},hA={h_a:04X},hB={h_b:04X},A0000={};AC000={};B={}",
+                rendered_pixel
+                    .map(|rgb| format!("{:03}/{:03}/{:03}", rgb[0], rgb[1], rgb[2]))
+                    .unwrap_or_else(|| "none".to_string()),
+                vdp_plane_pixel_sample_with_tile_row(
+                    &vram,
+                    &cram,
+                    PLANE_A_BOOT_BASE,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_a,
+                    vs_a,
+                    x,
+                    y,
+                ),
+                vdp_plane_pixel_sample_with_tile_row(
+                    &vram,
+                    &cram,
+                    PLANE_A_GAME_BASE,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_a,
+                    vs_a,
+                    x,
+                    y,
+                ),
+                vdp_plane_pixel_sample_with_tile_row(
+                    &vram,
+                    &cram,
+                    PLANE_B_BASE,
+                    PLANE_WIDTH_CELLS,
+                    PLANE_HEIGHT_CELLS,
+                    h_b,
+                    vs_b,
+                    x,
+                    y,
+                ),
+            )
         })
         .collect::<Vec<_>>()
         .join(";")
@@ -2561,6 +2657,69 @@ fn eol_vdp_plane_pixel_sample(
     };
     format!(
         "entry={entry:04X},world={world_x}/{world_y},tile={tile_index:03X},px={tile_x}/{tile_y},pal={palette_line},idx={colour_index:X},pri={priority},{rgb}"
+    )
+}
+
+fn vdp_plane_pixel_sample_with_tile_row(
+    vram: &[u8],
+    cram: &[u8],
+    plane_base: usize,
+    plane_width_cells: usize,
+    plane_height_cells: usize,
+    hscroll: i32,
+    vscroll: i32,
+    screen_x: usize,
+    screen_y: usize,
+) -> String {
+    let plane_width_pixels = (plane_width_cells * 8) as i32;
+    let plane_height_pixels = (plane_height_cells * 8) as i32;
+    let world_x = (screen_x as i32 - hscroll).rem_euclid(plane_width_pixels) as usize;
+    let world_y = (screen_y as i32 + vscroll).rem_euclid(plane_height_pixels) as usize;
+    let cell_x = world_x / 8;
+    let cell_y = world_y / 8;
+    let entry = read_wram_u16(vram, plane_base + (cell_y * plane_width_cells + cell_x) * 2);
+    let tile_x = if entry & 0x0800 != 0 {
+        7 - (world_x & 7)
+    } else {
+        world_x & 7
+    };
+    let tile_y = if entry & 0x1000 != 0 {
+        7 - (world_y & 7)
+    } else {
+        world_y & 7
+    };
+    let tile_index = usize::from(entry & 0x07FF);
+    let row_base = tile_index * 32 + tile_y * 4;
+    let row_bytes = (0..4)
+        .map(|byte_index| read_wram_u8(vram, row_base + byte_index))
+        .collect::<Vec<_>>();
+    let row_pixels = row_bytes
+        .iter()
+        .flat_map(|byte| [byte >> 4, byte & 0x0F])
+        .map(|pixel| format!("{pixel:X}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let row_bytes = row_bytes
+        .iter()
+        .map(|byte| format!("{byte:02X}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let tile_byte = read_wram_u8(vram, row_base + tile_x / 2);
+    let colour_index = if tile_x & 1 == 0 {
+        tile_byte >> 4
+    } else {
+        tile_byte & 0x0F
+    };
+    let palette_line = usize::from((entry >> 13) & 0x03);
+    let priority = if entry & 0x8000 != 0 { 1 } else { 0 };
+    let rgb = if colour_index == 0 {
+        "transparent".to_string()
+    } else {
+        let rgb = md_cram_rgb(cram, palette_line * 16 + usize::from(colour_index));
+        format!("rgb={:03}/{:03}/{:03}", rgb[0], rgb[1], rgb[2])
+    };
+    format!(
+        "entry={entry:04X},world={world_x}/{world_y},tile={tile_index:03X},px={tile_x}/{tile_y},pal={palette_line},idx={colour_index:X},pri={priority},row={row_pixels},bytes={row_bytes},{rgb}"
     )
 }
 
