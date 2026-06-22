@@ -4611,10 +4611,16 @@ pub(super) fn background_display_scroll_x_px_loc_3050a(
 ) -> i32 {
     // ASM loc_3050A (kid.asm:34220-34239) copies the packed
     // `Horiz_Scroll_Data+4` word into the per-scanline H-scroll table after
-    // negating it. The positive word is the display scroll phase; sub_30744's
-    // row-upload window can use a different preload-era phase.
+    // negating it. The framebuffer samples show auto-scroll rows render from
+    // the previous VDP table phase while sub_30744's row-upload window can use
+    // a different preload-era phase.
+    let time_frames = background_time_frames_for_trace_loc_3050a(trace);
+    let display_time_frames = match layer_speed {
+        0x00 | 0x08 => time_frames.saturating_sub(1),
+        _ => time_frames,
+    };
     i32::from(background_scroll_data_word_loc_30452(
-        background_time_frames_for_trace_loc_3050a(trace),
+        display_time_frames,
         camera_x_px,
         layer_speed,
     ))

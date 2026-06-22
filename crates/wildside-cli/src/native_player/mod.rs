@@ -11557,8 +11557,8 @@ mod tests {
 
         assert_eq!(
             super::scene::background_display_scroll_x_px_loc_3050a(&trace, camera_x_px, 0x08),
-            123,
-            "ASM loc_3050A copies `Horiz_Scroll_Data+4` into the H-scroll table; issue #289 frame 60 oracle hbuf `FF85` is display scroll 123px, not the 43px row-upload phase"
+            122,
+            "ASM loc_3050A copies `Horiz_Scroll_Data+4` into the H-scroll table; issue #289 frame 60 oracle VDP sample y=10 reports rendered hB=`FF86`, so auto-scroll display is latched one frame behind the current WRAM hbuf `FF85`"
         );
         assert_eq!(
             super::scene::background_scroll_x_px(&trace, camera_x_px, 0x08),
@@ -11567,8 +11567,15 @@ mod tests {
         );
         assert_eq!(
             super::scene::background_display_scroll_x_px_loc_3050a(&trace, camera_x_px, 0x00),
-            210,
-            "ASM BackgroundScroll_ComputeShiftData loc_30452 adds Camera_X>>3 to Time_Frames for `$00` rows before loc_3050A negates it into hbuf `FF2E`"
+            209,
+            "ASM BackgroundScroll_ComputeShiftData loc_30452 adds Camera_X>>3 to Time_Frames for `$00` rows before loc_3050A negates the previous VDP table phase into rendered hbuf `FF2F`"
+        );
+
+        trace.time_frames_loc_3038a = 185;
+        assert_eq!(
+            super::scene::background_display_scroll_x_px_loc_3050a(&trace, camera_x_px, 0x00),
+            220,
+            "issue #289 frame 71 oracle VDP sample y=42 reports rendered hB=`FF24`; `$00` rows therefore use Time_Frames-1 for display while the current WRAM hbuf has already advanced"
         );
     }
 

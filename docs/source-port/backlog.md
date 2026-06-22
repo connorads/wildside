@@ -27,24 +27,21 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 stays `[~]`; native + oracle report diagnostics now expose sampled tile rows**:
-  `native_background_samples[].sample.source_row_pixels` records the native source
-  tile row, and `oracle_background_vdp_pixel_samples_loc_c070` now records oracle
-  Plane A/B pixel provenance with decoded tile rows and raw row bytes. Fresh
-  expected-red `issue289-level07-idle-current` is unchanged (`trace_match=true`,
-  `oracle_state_match=true`, `oracle_frame_match=false`; frame 60 `2856` /
-  `2.682994`, frame 71 `2823` / `2.684696`) but now proves the residual is
-  row-word-clean VRAM art/source timing. Examples: frame 60 `(86,100)` native
-  tile `$39` row `[10,10,10,10,11,11,10,10]`, while oracle Plane B tile `$7B9`
-  row is `A,A,B,A,A,A,A,A`; frame 71 `(91,102)` native row
-  `[10,10,10,10,10,10,10,11]`, while oracle row is all `A`; frame 60 `(284,10)`
-  native static tile `$02` row `[11,11,11,11,11,11,11,13]`, while oracle Plane B
-  tile `$782` row is `B,B,B,B,B,B,B,D` and samples index `B`. **NEXT #289:**
-  investigate Island VRAM art/source timing for static background tiles and shore
-  band `$F6C0`, not B08/B17/B18/B19/B22/B23/B27/B29/B30 row words. 2026-06-22
-  rejected a simple `loc_12110` middle-shore current-`d2` phase render
-  substitution: frame 71 improved (`2542` / `2.5376906`) but frame 60 regressed
-  (`2981` / `2.7480702`). **archive #289**.
+- **#289 stays `[~]`; auto-scroll display now uses the previous VDP H-scroll
+  table phase for `$00`/`$08` rows.** Oracle VDP pixel samples showed frame 60
+  static row y=10 rendered hB=`FF86` while current WRAM hbuf debug had already
+  advanced to `FF85`; frame 71 y=42 similarly rendered `$00` rows from
+  Time_Frames-1 (`FF24`). Native now latches that previous display phase only
+  for auto-scroll rows, leaving camera-derived shore rows and row-upload history
+  unchanged. Fresh expected-red `issue289-level07-idle-current` is still
+  state-clean/pixel-red but improves from frame 60 `2856` / MAE `2.682994` and
+  frame 71 `2823` / `2.684696` to frame 60 `2479` / `2.4002976` and frame 71
+  `2546` / `2.473256`. Visual diff confirms the static cloud/parallax residual
+  is gone; remaining top diffs are the shore/water band. **NEXT #289:**
+  investigate Island shore VRAM art/upload timing around `loc_1202A` and
+  `$F6C0`, not B08/B17/B18/B19/B22/B23/B27/B29/B30 row words, static cloud
+  display H-scroll, or the already-rejected simple `loc_12110` current-`d2`
+  phase render substitution. **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -59,9 +56,9 @@ and stop — never commit churn.
   row-history/underlay fix, current-time all-row overlay, packed timed-row
   full-upload placement, alias-only rendering, alias-fed full row uploads,
   direct row-number-to-bgscroll preload mapping, source-row 8 live writes for
-  B08, simple `loc_12110` middle-shore current-phase rendering, and reworking
-  B08/B17/B18/B19/B22/B23/B27/B29/B30 row cells without fresh oracle row
-  evidence.
+  B08, static cloud H-scroll after the previous-VDP-table latch, simple
+  `loc_12110` middle-shore current-phase rendering, and reworking
+  B08/B17/B18/B19/B22/B23/B27/B29/B30 row cells without fresh oracle row evidence.
 - **#336 stays `[ ]`, regression bisected (no code change — oracle-gated)**: the
   cold-boot "Kid floats then drops" is the `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y`
   camera pan (216→115px) introduced by c65df2500 (2026-06-12, recent — corrects the
@@ -72,10 +69,10 @@ and stop — never commit churn.
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
 - **Gates this session**: `cargo fmt --all --check`, `cargo check -q -p
-  wildside-cli`, `mise run audit-debug-fields`, focused `wildside-cli`
-  `background_pixel_sampler_reports_last_drawn_tile_provenance_loc_c070`,
-  expected-red #289 recording, `backlog-lint`, `git diff --check`, and
-  `mise run verify-slice-fast` all passed.
+  wildside-cli`, focused `wildside-cli`
+  `chunked_plane_b_display_uses_horiz_scroll_data_loc_3050a`, expected-red
+  #289 recording, visual diff inspection, `backlog-lint`, `git diff --check`,
+  and `mise run verify-slice-fast` all passed.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.

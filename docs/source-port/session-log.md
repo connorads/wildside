@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#289 previous VDP H-scroll latch)
+
+- **#289 stays `[~]`; native auto-scroll display rows now use the previous VDP H-scroll table phase.** Oracle VDP pixel samples showed frame 60 static y=10 rendered hB=`FF86` while current WRAM hbuf debug had already advanced to `FF85`; frame 71 `$00` rows showed the same one-frame display latch. Native applies Time_Frames-1 only to `$00`/`$08` display sampling, while camera-derived shore rows and `sub_30744`/`sub_307D8` row-history stay on their existing phases.
+- Fresh expected-red `issue289-level07-idle-current` remains state-clean/pixel-red but improves from frame 60 `2856` / MAE `2.682994` and frame 71 `2823` / `2.684696` to frame 60 `2479` / `2.4002976` and frame 71 `2546` / `2.473256`. Visual diff confirms the static cloud/parallax residual is gone; remaining top diffs are the Island shore/water band.
+- Next #289 pass should trace shore VRAM art/upload timing around ASM `loc_1202A` and middle band `$F6C0`, not static cloud display H-scroll, selected Plane-B row words, or the already-rejected simple `loc_12110` current-phase substitution.
+- Verification: focused `cargo test -q -p wildside-cli chunked_plane_b_display_uses_horiz_scroll_data_loc_3050a --no-default-features -- --nocapture`, `cargo fmt --all --check`, `cargo check -q -p wildside-cli`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, visual inspection of frame-60 diff, `cargo run -q -p wildside-cli -- backlog-lint`, `git diff --check`, and `mise run verify-slice-fast`.
+
 ## 2026-06-22 handoff (#289 oracle VDP tile-row diagnostics)
 
 - **#289 stays `[~]`; no renderer fix landed this pass.** The native sampled-row diagnostic from the prior pass was paired with oracle VDP pixel provenance: `oracle_background_vdp_pixel_samples_loc_c070` now records Plane A/B nametable words, scrolled source coordinates, decoded 8-pixel tile rows, raw row bytes, palette/index, and RGB for the current #289 strict-diff coordinates.
