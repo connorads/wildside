@@ -114,6 +114,7 @@ The 68k disassembly at `.cache/upstream/kid-chameleon-disasm/` is the **ultimate
 ## First commands
 
 ```bash
+mise run setup                  # wire the pre-commit hook (clippy/fmt/deny/tests) — once per clone/worktree
 mise run bootstrap-upstream
 mise run bootstrap-references
 mise run oracle-setup
@@ -182,7 +183,7 @@ top of `backlog.md` (rewrite it each session; never let it accrete: old handoffs
 4. After 2 consecutive probe/docs-only commits on the same issue, the next session must add instrumentation or narrow the scenario before another gameplay patch. **No code commit ⇒ write the dead end under the issue's `#NNN` in `backlog-archive.md` and stop; never commit churn.**
 5. Fix: implement in focused commit(s)
 6. Verify visually: capture frames, Read PNGs, compare before/after
-7. Verify mechanically: `mise run verify-slice-fast` must pass (+ `mise run verify-tas-full` after gameplay-affecting commits; do not run the two concurrently, they share `.cache/tas-verify`). **Gate must be green on main at all times**; never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
+7. Verify mechanically: `mise run verify-slice-fast` must pass (+ `mise run verify-tas-full` after gameplay-affecting commits; do not run the two concurrently, they share `.cache/tas-verify`). The gate runs `cargo clippy --workspace --all-targets -- -D warnings` (the `lint` dep): **a clippy warning is a red gate, same status as a failing test**, and clippy must be green on `main` (the wired pre-commit hook + the gate enforce it). **Gate must be green on main at all times**; never commit tests with unverified values. If values aren't confirmed, mark `#[ignore]` with a comment explaining what needs re-derivation. A red gate blocks all loop commits.
 8. Close out (same commit as the fix): set the row's status and, if it leaves the open
     lane, MOVE the whole row to its lane: `[?]`/`[b]` → `backlog-awaiting-human.md`,
     `[x]`/`[-]` → the resolved index in `backlog-archive.md`. Append closing evidence to
