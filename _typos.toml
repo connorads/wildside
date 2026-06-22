@@ -21,6 +21,14 @@ PN = "PN"
 damge = "damge"
 entrys = "entrys"
 Ded = "Ded"
+# ROM symbol sfx_Socre_counter — original misspelling; docs reference it verbatim
+Socre = "Socre"
+
+# Tokeniser false positives
+# "mis-" prefix (mis-detects, mis-keyed): hyphen split flags bare "mis"
+mis = "mis"
+# "MATCHes" splits at the uppercase-run/lowercase boundary into MATC + Hes
+MATC = "MATC"
 
 # Crate names
 ratatui = "ratatui"
