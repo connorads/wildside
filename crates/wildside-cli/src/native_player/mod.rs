@@ -1758,22 +1758,19 @@ fn queue_live_audio_backlog(
         let Some(samples) = backlog.pop_front() else {
             break;
         };
-        match audio_queue.queue_audio(&samples) {
-            Ok(()) => {
-                diagnostics.record_queued_frame(samples.len(), queued_bytes);
-                if *audio_queue_priming
-                    && should_resume_audio_queue_after_queue(queued_bytes, samples.len())
-                {
-                    audio_queue.resume();
-                    *audio_queue_priming = false;
-                    diagnostics.record_queue_resume();
-                }
+        if let Ok(()) = audio_queue.queue_audio(&samples) {
+            diagnostics.record_queued_frame(samples.len(), queued_bytes);
+            if *audio_queue_priming
+                && should_resume_audio_queue_after_queue(queued_bytes, samples.len())
+            {
+                audio_queue.resume();
+                *audio_queue_priming = false;
+                diagnostics.record_queue_resume();
             }
-            Err(_) => {
-                backlog.push_front(samples);
-                diagnostics.record_queue_error(queued_bytes);
-                break;
-            }
+        } else {
+            backlog.push_front(samples);
+            diagnostics.record_queue_error(queued_bytes);
+            break;
         }
     }
     diagnostics.record_backlog_depth(backlog.pending_frames());

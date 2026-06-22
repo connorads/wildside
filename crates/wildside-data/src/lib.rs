@@ -1737,10 +1737,10 @@ fn parse_background_layout_definitions(
 
     for (index, line) in contents.lines().enumerate() {
         let (label, statement) = split_asm_label_statement(line);
-        if let Some(label) = label {
-            if let Some(previous_label) = current_label.replace(label.to_owned()) {
-                definitions.insert(previous_label, std::mem::take(&mut current_definition));
-            }
+        if let Some(label) = label
+            && let Some(previous_label) = current_label.replace(label.to_owned())
+        {
+            definitions.insert(previous_label, std::mem::take(&mut current_definition));
         }
         parse_background_layout_statement(&mut current_definition, statement, index + 1)?;
     }

@@ -2439,8 +2439,7 @@ impl ChunkedBackgroundSourceLoc12848 {
             .iter()
             .flatten()
             .next()
-            .map(|cell| cell.tile_ref.palette_line)
-            .unwrap_or(1)
+            .map_or(1, |cell| cell.tile_ref.palette_line)
     }
 
     fn chunk_buffer_bytes_loc_12848(&self) -> Vec<u8> {
@@ -2751,10 +2750,10 @@ impl ChunkedPlaneBRowsLoc307D8 {
         &self,
         trace: &NativeTraceFrame,
     ) -> &ChunkedBackgroundSourceLoc12848 {
-        if trace.level_skip_cheat_enabled != 0 {
-            if let Some(source) = self.alias_source_loc_12824.as_ref() {
-                return source;
-            }
+        if trace.level_skip_cheat_enabled != 0
+            && let Some(source) = self.alias_source_loc_12824.as_ref()
+        {
+            return source;
         }
         &self.source
     }
@@ -2777,8 +2776,7 @@ impl ChunkedPlaneBRowsLoc307D8 {
         // camera-parallax slots match the settled trace Camera_X.
         let load_grid_camera_x_px = trace
             .player_start_x
-            .map(|start_x| i32::from(start_x / 0x0140) * 0x0140)
-            .unwrap_or(camera_x_px);
+            .map_or(camera_x_px, |start_x| i32::from(start_x / 0x0140) * 0x0140);
         let load_grid_camera_y_px = trace
             .player_start_y
             .map(|start_y| i32::from(start_y / 0x00E0) * 0x00E0);
@@ -2853,6 +2851,10 @@ impl ChunkedPlaneBRowsLoc307D8 {
         )
     }
 
+    #[allow(
+        clippy::unused_self,
+        reason = "semantically a method on the plane-B row renderer"
+    )]
     fn apply_preload_rows_for_camera_loc_2ffe8(
         &self,
         history: &mut ChunkedPlaneBRowHistoryLoc30744,
@@ -2898,8 +2900,8 @@ impl ChunkedPlaneBRowsLoc307D8 {
             camera_y_px,
             level_height_pixels,
             background_width,
-            &row_offsets,
-            &bgscroll_profile,
+            row_offsets,
+            bgscroll_profile,
             &horiz_scroll_entries,
             &source_buffer.chunk_buffer_bytes_loc_12848(),
         ) else {
@@ -2916,6 +2918,10 @@ impl ChunkedPlaneBRowsLoc307D8 {
         true
     }
 
+    #[allow(
+        clippy::unused_self,
+        reason = "semantically a method on the plane-B row renderer"
+    )]
     fn apply_elapsed_column_writes_loc_30744(
         &self,
         history: &mut ChunkedPlaneBRowHistoryLoc30744,
