@@ -29,13 +29,13 @@ and stop — never commit churn.
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
   lanes; full per-issue evidence is in the archive block "## 2026-06-22 playtest triage". NET:
-  - **9 fix-candidates FAILED human validation → REOPENED `[?]`→`[ ]`:** #271 stomp-on-RockTank
-    hurts (P0), #257 continue-screen wall-from-both-sides (P0), #335 Hills instant-death (P0,
-    now on NATURAL 0x07→0x08 entry, not just the debug skip the loc_74E0 fix covered), #252 tank
+  - **8 fix-candidates FAILED human validation and still need work:** #271 stomp-on-RockTank
+    hurts (P0, now route-needed), #257 continue-screen wall-from-both-sides (P0), #252 tank
     sprite doubled + green bullets (P1), #259 RockTank floor-sink (P1, 5th reconfirm — close
     `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #352 hidden jump-up block
     no anim (P1, RENDERER-only gap: scene.rs:5057 skips the HiddenReveal cell), #272 Cyclone
     transform voice (P1), #339 USM "washing" drone (P1), #265 EOL tally tick missing + rumble (P2).
+    #335 Hills instant-death has a new fixed candidate and waits in `backlog-awaiting-human.md`.
   - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
   - **3 NEW rows:** #353 invisible metal-block spikes (P1 — kills you with no visible hazard),
@@ -66,10 +66,12 @@ and stop — never commit churn.
   contact before a clean first-frame stomp, not a native-only missed `$2C`. Highwater
   natural walk never activates a tank. Do NOT retune `loc_1CE4`/Tank HP without an exact
   live route or frame capture that shows a native-only clean jump-stomp failure.
-- **Gates this triage session (docs-only):** `mise run backlog-lint` and `git diff --check`
-  pass; no code changed this session.
-- **Open P0s #257 continue-screen and #335 Hills instant-death are the highest-priority
-  actionable items.** #271 now waits in `backlog-awaiting-human.md` for an exact route.
+- **#335 moved to `[?]` fixed candidate.** Natural 0x07→0x08 title-card handoff now refreshes
+  murder-wall runtime at `loc_1AE2E -> loc_6E2 -> Load_InGame` while preserving the carried
+  helmet. Cache-backed Red Stealth regression, `verify-slice-fast`, and `verify-tas-full`
+  are green; human needs to re-test natural Hills entry.
+- **Open P0 #257 continue-screen is the highest-priority actionable item.** #271 now waits in
+  `backlog-awaiting-human.md` for an exact route.
   The rest of the `[?]` set in `backlog-awaiting-human.md` still
   waits on a playtest; for audio rows (#342/#264 and the reopened #272/#339) the recurring
   "needs a real audio device" block IS that listen. The promoted #343/#346 await your final close.
@@ -113,7 +115,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 348 | [ ] | P1 | input | 2026-06-20 playtest: level/title card ignores early Start; ASM `loc_1AE2E` exits on first Start edge from frame 2, native gates it. | Exit on first live Start edge; gate replay delay for boot traces. DynamicScenario card-frame ~5 should reach Game_Mode $C in 1-2 frames. See archive #348. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
 | 257 | [ ] | P0 | gameflow/death | 2026-06-22 playtest (fix failed validation): continue (CONTINUES) screen renders wrong — a wall-like graphic slides in from BOTH left and right instead of legible CONTINUES text + count. | Capture a live death→continue card frame; CONTINUES label + count must render as legible text/digits sliding to centre, not blocky wall art from either edge. Slide direction (loc_D31E/loc_D350) is faithful — don't remove it. See archive #257. |
-| 335 | [ ] | P0 | gameflow/death | 2026-06-22 RECONFIRM (fix failed): Hills 0x08 still instant-kills Kid on ENTRY — now on the NATURAL 0x07→0x08 progression carrying a form, not just the debug skip the fix covered. Lost form = crush-death. | Enter Hills 0x08 naturally from Isle 0x07 with a form: Kid must NOT instantly die. Headless-repro the transition; diff MurderWall_X_pos vs Kid (suspect stale fraction, weather.rs:3155). See archive #335. |
 | 252 | [ ] | P1 | render/enemy | 2026-06-22 playtest reconfirm (P2→P1): BLW2 0x01 / Highwater 0x02 RockTank (0x0A/0x0B) renders doubled/humanoid + low in floor; the shooting tank's bullets (TankBullet child) render as GREEN blobs. Render-only (enemy state oracle-faithful). | Walk BLW2/Highwater past a shooting RockTank: one solid grey tank (not doubled/humanoid, not half in floor) + bullets show ROM stru_3B526 art, not green rects (scene.rs:5923-5957; forest-borrow palette). Capture native vs oracle. See archive #252. |
 | 259 | [ ] | P1 | enemy/render | 2026-06-22 reconfirm (5th human): specific RockTanks render half-sunk in floor — BLW2 0x01 (teleporter + flag tanks) and the first Highwater 0x02 tank; not all tanks. | ONE natural oracle BLW2 0x01 route at the named tanks + first Highwater tank; diff body/turret Y + occlusion vs oracle. Only-grass occludes → close [-]; else real residual. NOT direct-warp. See archive #259. |
 | 352 | [ ] | P1 | render/block | 2026-06-22 reconfirm (fix failed): hidden jump-up blocks (USM 0x04-0x06 / Highwater 0x02) still pop in/out with no fold anim — core landed but the renderer skips the revealed cell. | Headbutt a hidden block (USM 0x04-0x06 / Highwater 0x02); the 8-frame y-bob (loc_E2E2/E2F0) must animate. Wire HiddenReveal into scene.rs:5057 block-bounce draw loop (mirror #347). See archive #352. |

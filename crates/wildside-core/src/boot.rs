@@ -7467,9 +7467,25 @@ impl NativeRuntime {
                             // target spawn before exposing Mode_Level.
                             self.reset_current_level_runtime_state_for_respawn();
                             self.player_lifecycle = PlayerLifecycle::Alive;
+                        } else if self
+                            .level_header(self.current_level)
+                            .is_some_and(|header| header.murder_wall_flags != 0)
+                        {
+                            // ASM loc_1AE2E writes Game_Mode=$000C and jumps
+                            // through loc_6E2 into Load_InGame. For
+                            // murder-wall levels that refresh reaches
+                            // loc_11FC8 -> Murderwall before visible gameplay,
+                            // so the pre-Start title shell must not carry an
+                            // aged wall or hidden crush-death into Mode_Level.
+                            self.refresh_title_card_handoff_runtime_loc_1ae2e();
+                            self.player_lifecycle = PlayerLifecycle::Alive;
                         }
                         self.starting_level_title_workers.clear();
-                        if !self.debug_level_entry_suppresses_title_card_live_handoff {
+                        if !self.debug_level_entry_suppresses_title_card_live_handoff
+                            && self
+                                .level_header(self.current_level)
+                                .is_none_or(|header| header.murder_wall_flags == 0)
+                        {
                             // ASM loc_1AE2E -> loc_6E2 -> Load_InGame:
                             // oracle #305 shows `Game_Mode=$000C`
                             // immediately, while Kid/camera/object WRAM still

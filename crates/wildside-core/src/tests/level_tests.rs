@@ -4309,6 +4309,106 @@ mod chunk_02 {
     }
 
     #[test]
+    fn natural_level_complete_hills_handoff_refreshes_murder_wall_loc_1ae2e_11fc8() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+
+        runtime.enter_level_playtest(LevelId(0x07));
+        runtime.set_playtest_form(PlayerForm::RedStealth);
+        let starting_lives = runtime.progression.number_lives;
+        let starting_hitpoints = runtime.progression.number_hitpoints;
+        let (flag_x, flag_y) = {
+            let header = runtime
+                .level_header(LevelId(0x07))
+                .expect("generated Isle level should have a header");
+            (header.flag_x, header.flag_y)
+        };
+        runtime.set_player_probe_position(flag_x, flag_y);
+
+        runtime.step_frame(FrameInput::default());
+        assert!(
+            matches!(
+                runtime.player_lifecycle,
+                PlayerLifecycle::LevelComplete { .. }
+            ),
+            "expected Isle flag touch to enter LevelComplete, got {:?}",
+            runtime.player_lifecycle,
+        );
+
+        while matches!(
+            runtime.player_lifecycle,
+            PlayerLifecycle::LevelComplete { .. }
+        ) {
+            runtime.step_frame(FrameInput::default());
+        }
+
+        assert_eq!(runtime.current_level, LevelId(0x08));
+        assert_eq!(
+            runtime.trace_frame().game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_D7F4 should route natural EOL through Load_TitleCard before loc_1AE2E releases Mode_Level"
+        );
+
+        for frame in 0..360 {
+            let trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "Hills title card should remain in mode $0008 before Start; frame={frame}",
+            );
+        }
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+
+        let mut live = None;
+        for _ in 0..18 {
+            let trace = runtime.step_frame(FrameInput::default());
+            if trace.game_mode == GameMode::InGame {
+                live = Some(trace);
+                break;
+            }
+        }
+        let first_live = live.expect("natural Hills EOL handoff should reach live gameplay");
+        assert_eq!(first_live.current_level, LevelId(0x08));
+        assert_eq!(
+            first_live.number_lives, starting_lives,
+            "ASM loc_1AE2E -> loc_6E2 -> Load_InGame must not expose a pre-aged murder-wall death on natural 0x07 -> 0x08 entry",
+        );
+        assert_eq!(first_live.number_hitpoints, starting_hitpoints);
+        assert_eq!(
+            first_live.current_helmet_id,
+            PlayerForm::RedStealth.helmet_id(),
+            "natural level advance should preserve Current_Helmet_ID while refreshing the Hills Load_InGame murder wall"
+        );
+        assert_eq!(
+            first_live.death_windup_elapsed, 0,
+            "Hills live handoff must expose a fresh loc_11FC8 -> Murderwall spawn, not hidden title-card crush state",
+        );
+
+        for frame in 0..60 {
+            let trace = runtime.step_frame(FrameInput::default());
+            assert_eq!(
+                trace.number_lives, starting_lives,
+                "natural Hills handoff should not instant-kill Kid after live handoff; frame={frame} wall={:?} kid_x={:?}",
+                trace.murder_wall_x, trace.kid_x_pos,
+            );
+            assert_eq!(
+                trace.current_helmet_id,
+                PlayerForm::RedStealth.helmet_id(),
+                "natural Hills handoff should not strip the carried form; frame={frame}",
+            );
+            assert_eq!(
+                trace.death_windup_elapsed, 0,
+                "natural Hills handoff should not enter death windup immediately after live handoff; frame={frame}",
+            );
+        }
+    }
+
+    #[test]
     fn title_screen_level_entry_before_ready_uses_load_ingame_bootstrap() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;

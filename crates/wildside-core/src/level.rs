@@ -18271,6 +18271,15 @@ impl NativeRuntime {
         self.prime_respawn_settle_enemy_loading_loc_368a8(level_id);
     }
 
+    pub(crate) fn refresh_title_card_handoff_runtime_loc_1ae2e(&mut self) {
+        let current_form = self.progression.current_form;
+        self.reset_current_level_runtime_state_for_respawn();
+        // ASM loc_1AE2E writes `Game_Mode=$000C` and jumps through loc_6E2
+        // into Load_InGame; unlike lose_life/Use_Continue, it does not clear
+        // `Current_Helmet_ID` while refreshing the level runtime.
+        self.progression.current_form = current_form;
+    }
+
     pub(crate) fn death_respawn_trace_profile_for_route(&self) -> Option<DeathRespawnTraceProfile> {
         let camera_x = self.opening_slice.map(|slice| slice.camera.x_pos);
         if self.current_level == LevelId(1) && camera_x == Some(0x026f_0000) {

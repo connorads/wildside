@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#335 natural Hills entry fixed candidate)
+
+- **#335 moved `[~]`→`[?]`.** Natural Isle 0x07→Hills 0x08 level-complete title-card handoff now refreshes the murder-wall runtime at `loc_1AE2E -> loc_6E2 -> Load_InGame` for murder-wall levels, instead of carrying an aged hidden title-card wall/death state into live gameplay.
+- The refresh preserves the carried `Current_Helmet_ID`, so Red Stealth stays Red Stealth; it does not reuse the death-respawn helmet strip. The old debug `loc_74E0` regression remains green.
+- New regression `natural_level_complete_hills_handoff_refreshes_murder_wall_loc_1ae2e_11fc8` covers a generated-assets Red Stealth 0x07 flag completion, waits on the Hills title card, presses Start, and asserts no life loss/death windup/form strip through the first 60 live frames.
+- Verification: focused cache-backed #335 tests, `level_complete_title_card_start_edge_enters_next_level`, `mise run verify-slice-fast`, and `mise run verify-tas-full` (CRC all 37,759 frames match; state report remains baseline, first authoritative `transition_15_to_00_post`).
+- **Next actionable open P0:** #257 continue-screen render, per the open queue.
+
 ## 2026-06-22 handoff (#271 Red Stealth RockTank route audit)
 
 - **#271 moved `[~]`→`[b]`; no gameplay patch.** Fresh Red Stealth BLW2 natural and clean run+jump overlays all match oracle; observed HP-loss cases are grounded/side contact before/without a clean first-frame `$2C` stomp. Highwater natural Red Stealth walk never activates a 0x0B RockTank.
