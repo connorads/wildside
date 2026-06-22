@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#289 Lion projectile sprite)
+
+- **#289 stays `[~]`; Lion projectiles now render the ROM `stru_3DF34` sprite path instead of the generic red hostile-projectile dot.** ASM `Lion.asm loc_3E12A` sets the projectile child to palette line 2, VRAM tile `$2FB`, and animation `stru_3DF34`; `ingame/anim/enemy/Lion.asm` maps that script to C7E20/C7E28/C7E30 for six ticks each.
+- Native-player now appends those three projectile mappings to the Lion (`$12`) visual family and renders `ActiveProjectileKind::LionProjectile` through the Lion sprite path with palette line 2. Regression `lion_projectile_uses_stru_3df34_sprite_frames` pins C7E28/tile base `$004` and palette line 2.
+- Fresh expected-red `issue289-level07-idle-current` remains state-clean/pixel-red but improves from frame 60 `1297` / MAE `1.4228051` and frame 71 `277` / `0.2984375` to frame 60 `1289` / `1.4096261` and frame 71 `269` / `0.28263578`. Visual diff confirms the projectile is no longer a red dot; the remaining dominant frame-60 residual is the Lion body/sprite nuance plus tiny top/background pixels.
+- Next #289 pass should inspect the remaining Lion body sprite/origin/palette nuance and small top/background residual, not Lion projectile rendering, gameplay state, B08/B17/B18/B19/B22/B23/B27/B29/B30 row words, global `Time_Frames`, static cloud H-scroll, Island shore age, or simple `loc_12110` current-phase rendering.
+- Verification: `cargo fmt --all --check`, `cargo check -q -p wildside-cli`, focused `cargo test -q -p wildside-cli native_player::tests::lion_projectile_uses_stru_3df34_sprite_frames`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, visual inspection of frame 60/71 diffs, `git diff --check`, and `mise run verify-slice-fast`.
+
 ## 2026-06-22 handoff (#289 live Lion walk script)
 
 - **#289 stays `[~]`; live Lion rendering now uses the ROM walk scripts instead of cycling into appended death frames.** ASM `Lion.asm loc_3DFD8/loc_3E0F4` restores `stru_3DEDA` for HP-6 Lions and `stru_3DEF4` for HP-8 Lions before the charge path, while the extracted sheet stores death frames after the six live C7E88..C7EB0 mappings. Native-player now keeps live object type `$12` inside those scripts.

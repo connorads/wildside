@@ -19,6 +19,7 @@ const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const FLYING_DRAGON_OBJECT_TYPE: u8 = 0x0C;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
+const LION_OBJECT_TYPE: u8 = 0x12;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
 const TAR_MONSTER_OBJECT_TYPE: u8 = 0x05;
@@ -785,6 +786,38 @@ fn push_shooter_block_projectile_sprite_loc_ef62(
             offset_y: 0,
             tile: resolved.tile,
         }],
+    });
+    true
+}
+
+fn push_lion_projectile_sprite_loc_3e12a(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    projectile: &ActiveProjectileSnapshot,
+    sx: i32,
+    sy: i32,
+) -> bool {
+    let Some(lion_visuals) = level_visuals.enemies.families.get(&LION_OBJECT_TYPE) else {
+        return false;
+    };
+    // ASM Lion.asm loc_3E12A initialises projectile children with
+    // `stru_3DF34`: C7E20, C7E28, C7E30 for six frames each.
+    let frame_index = 9 + usize::from(projectile.animation_elapsed_frames / 6) % 3;
+    let Some(frame) = lion_visuals.frames.get(frame_index) else {
+        return false;
+    };
+    let facing = if projectile.x_velocity < 0 {
+        Direction::Left
+    } else {
+        Direction::Right
+    };
+    let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, facing);
+    commands.push(DrawCommand::Sprite {
+        x: draw_x,
+        y: draw_y,
+        tile_sheet: Arc::new(frame.tile_sheet.clone()),
+        palette: Arc::new(lion_visuals.palette.clone()),
+        tiles: build_sprite_tiles(frame, facing, 2),
     });
     true
 }
@@ -5731,7 +5764,7 @@ fn build_game_scene_filtered(
             let sx = (projectile.x_pos >> 16) as i32 - (trace.camera_x_pos >> 16) as i32;
             let sy = (projectile.y_pos >> 16) as i32 - (trace.camera_y_pos >> 16) as i32;
             match projectile.kind {
-                ActiveProjectileKind::Generic | ActiveProjectileKind::LionProjectile => {
+                ActiveProjectileKind::Generic => {
                     commands.push(DrawCommand::Rect {
                         x: sx - 2,
                         y: sy - 2,
@@ -5743,6 +5776,23 @@ fn build_game_scene_filtered(
                             ENEMY_PROJECTILE_COLOUR
                         },
                     });
+                }
+                ActiveProjectileKind::LionProjectile => {
+                    if !push_lion_projectile_sprite_loc_3e12a(
+                        &mut commands,
+                        level_visuals,
+                        &projectile,
+                        sx,
+                        sy,
+                    ) {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 3,
+                            y: sy - 3,
+                            width: 6,
+                            height: 6,
+                            colour: ENEMY_PROJECTILE_COLOUR,
+                        });
+                    }
                 }
                 ActiveProjectileKind::ManiaxeAxe => {
                     let pushed_sprite = level_visuals

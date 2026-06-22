@@ -3410,6 +3410,50 @@ mod tests {
     }
 
     #[test]
+    fn lion_projectile_uses_stru_3df34_sprite_frames() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x0006_0000,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: 0,
+            animation_elapsed_frames: 6,
+            kind: ActiveProjectileKind::LionProjectile,
+            boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let projectile_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                tile_sheet, tiles, ..
+            } if tile_sheet.tiles[0].pixels[0] == 60 => Some(tiles),
+            _ => None,
+        });
+        let tiles = projectile_sprite.expect(
+            "ASM Lion.asm loc_3E12A / `stru_3DF34` should render the second C7E28 projectile frame",
+        );
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x004,
+            "ASM Lion projectile frame C7E28 uses sprite_frame_vram tile base `$004`"
+        );
+        assert_eq!(
+            tiles[0].tile.palette_line, 2,
+            "ASM Lion.asm loc_3E12A sets projectile palette_line(a3) to 2"
+        );
+        assert!(
+            !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),
+            "Lion projectiles should not collapse to the generic enemy projectile dot"
+        );
+    }
+
+    #[test]
     fn shooter_block_projectile_uses_visible_one_tile_render_loc_ef62() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
@@ -6960,6 +7004,9 @@ mod tests {
                     sample_object_frame_with_base(56, 0x2E, 0x2E, 0x00C),
                     sample_object_frame_with_base(57, 0x31, 0x30, 0x030),
                     sample_object_frame_with_base(58, 0x30, 0x30, 0x05A),
+                    sample_object_frame_with_base(59, 0x0C, 0x0C, 0x000),
+                    sample_object_frame_with_base(60, 0x0C, 0x0C, 0x004),
+                    sample_object_frame_with_base(61, 0x0A, 0x0B, 0x008),
                 ],
                 frame_duration: 7,
             },
