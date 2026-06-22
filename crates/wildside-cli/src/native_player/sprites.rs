@@ -1143,6 +1143,43 @@ fn select_live_emo_rock_frame<'a>(
     Some(&enemy_visuals.frames[phase])
 }
 
+fn select_live_lion_frame<'a>(
+    trace: &NativeTraceFrame,
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x12 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 6
+    {
+        return None;
+    }
+
+    // ASM Lion.asm loc_3DFD8/loc_3E0F4 restore the saved walk animation
+    // (`stru_3DEDA`, or `stru_3DEF4` for HP 8) before dispatching through
+    // loc_3E11E's charge path. The extracted sheet appends death frames after
+    // the six live C7E88..C7EB0 mappings, so live Lions must stay in that
+    // script instead of free-running across the whole sheet.
+    let durations: &[usize] = if object.hit_points == Some(8) {
+        &[5, 4, 4, 5, 4, 5]
+    } else {
+        &[7, 6, 6, 7, 6, 6]
+    };
+    let cycle = durations.iter().sum::<usize>();
+    if cycle == 0 {
+        return None;
+    }
+    let offset = object.layout_index.unwrap_or(0) * 3;
+    let mut phase = (trace.frame_index + offset) % cycle;
+    for (frame_index, duration) in durations.iter().enumerate() {
+        if phase < *duration {
+            return enemy_visuals.frames.get(frame_index);
+        }
+        phase -= *duration;
+    }
+    enemy_visuals.frames.get(durations.len().saturating_sub(1))
+}
+
 pub(super) fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -1568,6 +1605,9 @@ pub(super) fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_emo_rock_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_lion_frame(trace, enemy_visuals, object) {
         return frame;
     }
     let keeps_base_animation = matches!(

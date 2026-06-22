@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#289 live Lion walk script)
+
+- **#289 stays `[~]`; live Lion rendering now uses the ROM walk scripts instead of cycling into appended death frames.** ASM `Lion.asm loc_3DFD8/loc_3E0F4` restores `stru_3DEDA` for HP-6 Lions and `stru_3DEF4` for HP-8 Lions before the charge path, while the extracted sheet stores death frames after the six live C7E88..C7EB0 mappings. Native-player now keeps live object type `$12` inside those scripts.
+- Fresh expected-red `issue289-level07-idle-current` remains state-clean/pixel-red but improves from frame 60 `1471` / MAE `1.626809` and frame 71 `1424` / `1.5797665` to frame 60 `1297` / `1.4228051` and frame 71 `277` / `0.2984375`. Enemy-state `tas-diff` frames 55..62 matches oracle, including Lion position, HP, facing, `shared_walker_state=10`, `wait_timer=0`, and `lion_state=ResumingCharge`.
+- Next #289 pass should inspect the remaining frame-60 Lion sprite/origin/palette nuance plus the small top/background residual, not gameplay state, B08/B17/B18/B19/B22/B23/B27/B29/B30 row words, global `Time_Frames`, static cloud H-scroll, Island shore age, or simple `loc_12110` current-phase rendering.
+- Verification: `cargo fmt --all --check`, `cargo check -q -p wildside-cli`, focused `cargo test -p wildside-cli live_lion_uses_rom_walk_script_not_death_frames -- --nocapture`, `cargo test -p wildside-cli walking_dragon_and_lion_death_snapshots_select_rom_frames -- --nocapture`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, `cargo run -q -p wildside-cli -- tas-diff --scenario .cache/recordings/issue289-level07-idle-current/scenario.json --include-advisory --frontier-kind enemy --frame-start 55 --frame-end 62 --show-object-roster-on-match`, `cargo run -q -p wildside-cli -- backlog-lint`, `git diff --check`, and `mise run verify-slice-fast`.
+
 ## 2026-06-22 handoff (#289 Island shore recording-settle tail)
 
 - **#289 stays `[~]`; settled recording warps now prime the Island shore `loc_1202A` DMA object by 16 object-local ticks.** The oracle VDP probe showed the shore tile rows were ahead of native's stored VRAM phase even though `Time_Frames` already matched oracle, so the fix advances only `step_island_shore_cycle_loc_1202a` after the recording settle window. Non-Island levels no-op because the object is absent.

@@ -27,22 +27,21 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 stays `[~]`; settled recording warps now prime the Island shore
-  `loc_1202A` VRAM object through its hidden level-skip tail without advancing
-  global `Time_Frames`.** Oracle VDP samples showed the residual y=100/y=113
-  shore pixels were native's object-local shore VRAM phase lagging the already
-  correct render clock. Native now advances only the Island shore DMA worker
-  by 16 object ticks after the recording settle window; non-Island levels no-op
-  because the object is absent. Fresh expected-red `issue289-level07-idle-current`
-  is still state-clean/pixel-red but improves from frame 60 `2479` / MAE
-  `2.4002976` and frame 71 `2546` / `2.473256` to frame 60 `1471` /
-  `1.626809` and frame 71 `1424` / `1.5797665`. 15/16/17 object ticks produce
-  the same checkpoint plateau; 18 regresses frame 71 (`1720` / `1.738565`), so
-  keep 16 as the oracle-probed transition offset. **NEXT #289:** inspect the
-  remaining lower shore/water row content and left-edge rows after the
-  `loc_1202A` age fix, not the broad row-word do-not-retry set, static cloud
-  H-scroll, global `Time_Frames`, or simple `loc_12110` current-phase rendering.
-  **archive #289**.
+- **#289 stays `[~]`; live Lion rendering now uses the ROM walk animation
+  scripts instead of free-running into appended death frames.** Re-reading
+  `Lion.asm` shows live HP-6 Lions restore `stru_3DEDA` at `loc_3E0F4`, while
+  HP-8 Lions use `stru_3DEF4`; the extracted sheet appends death frames after
+  the six live C7E88..C7EB0 mappings. Native-player now selects only those live
+  frames for object type `$12`. Fresh expected-red `issue289-level07-idle-current`
+  remains state-clean/pixel-red but improves from frame 60 `1471` / MAE
+  `1.626809` and frame 71 `1424` / `1.5797665` to frame 60 `1297` /
+  `1.4228051` and frame 71 `277` / `0.2984375`. `tas-diff` frames 55..62
+  match on enemy state, position, HP, facing, and Lion state, so the remaining
+  frame-60 residual is render-only. **NEXT #289:** inspect the remaining
+  frame-60 Lion sprite/origin/palette nuance and the small top/background
+  residual, not gameplay state, Plane-B rows B08/B17/B18/B19/B22/B23/B27/B29/B30,
+  global `Time_Frames`, static cloud H-scroll, or simple `loc_12110`
+  current-phase rendering. **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -70,10 +69,10 @@ and stop — never commit churn.
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
 - **Gates this session**: `cargo fmt --all --check`, `cargo check -q -p
-  wildside-cli`, focused cache-backed `wildside-core`
-  `issue289_level07_settled_recording_primes_island_shore_vram_loc_1202a`,
-  expected-red #289 recording, `backlog-lint`, `git diff --check`, and
-  `mise run verify-slice-fast` all passed.
+  wildside-cli`, focused `wildside-cli` Lion live/death frame tests,
+  expected-red #289 recording, enemy-state `tas-diff` frames 55..62,
+  `backlog-lint`, `git diff --check`, and `mise run verify-slice-fast` all
+  passed.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.
@@ -107,7 +106,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11 play-native: death-wall/hell route still shows green background artefacts. 2026-06-19 fixed candidate broadens Plane-B row wrapping to nonzero moving bgscroll rows across themes, covering the #289-linked Highwater/Bloody Swamp dark-green backdrop seam class; broader live-route background/layout validation remains open. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | 2026-06-22: native + oracle sampled tile-row diagnostics show the remaining Level 0x07 residual is VRAM art/source timing, not selected Plane-B rows; current expected-red frame 60 `2856` / MAE `2.682994`, frame 71 `2823` / `2.684696`. (full history: archive #289) |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | 2026-06-22: live Lion render now uses ASM `stru_3DEDA`/`stru_3DEF4` live scripts instead of death frames; current expected-red frame 60 `1297` / MAE `1.4228051`, frame 71 `277` / `0.2984375`, enemy state still matches oracle. (full history: archive #289) |
 | 323 | [ ] | P2 | render | Fixed candidate updated 2026-06-18: Maniaxe/Iron Knight axe now traces as `ActiveProjectileKind::ManiaxeAxe`, renders `stru_8B86`/`maniaxe_axe_1..4.bin` from the Maniaxe form visual bank instead of the generic green friendly-projectile rect, and advances the live `loc_8A52`/`stru_8B86` animation clock so thrown axes spin instead of staying on frame 1. Engine colid_hurt remains covered by #296 Maniaxe axe tests, so any remaining "doesn't hurt enemies" report needs a separate collision repro with the correct sprite visible. | Human validation: throw the axe in Maniaxe/Iron Knight form and confirm axe art spins, not a green dot/static frame. (full history: archive #323) |
 | 324 | [ ] | P1 | render/block | Fixed candidate refined 2026-06-18: static live `$E7xx`/block cells follow ASM `sub_302F6`/`sub_3034A` and draw only Block_Mappings art, and active temporary `$6Fxx` prize-wobble cells now suppress the immutable foreground tile-layout layer while ASM `sub_1007A`'s copied `unk_E0E4E`/`unk_E0E5E` wobble object owns the cell. This prevents tree/wood foreground pixels showing through transparent prize-block wobble art. | Human validation: on a forest level, hit a prize block over tree decoration; the wobbling block should not show tree/wood pixels through it. (full history: archive #324) |
 | 336 | [ ] | P1 | level/entry | 2026-06-20 playtest CONFIRMED real regression (human): on cold boot the first level shows Kid floating in the sky then snapping down to the floor. Visually obvious and clearly wrong; reported as a relatively recent regression, NOT the intended Load_InGame entry-settle. | 2026-06-21: bisected to c65df2500 (2026-06-12) — `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` (camera 216→115px, level-0 only). NEXT: oracle capture PAST the title card into live gameplay, diff per-frame camera/kid-Y; don't edit the ramp without it (may be oracle-derived). See archive #336. |

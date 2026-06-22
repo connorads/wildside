@@ -17459,6 +17459,50 @@ mod tests {
     }
 
     #[test]
+    fn live_lion_uses_rom_walk_script_not_death_frames() {
+        let visuals = sample_level_visuals();
+        let lion_visuals = visuals.enemies.families.get(&0x12).expect("lion visuals");
+        let mut trace = sample_trace(GameMode::InGame);
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x12 },
+            x_pos: 0x01EF_0000,
+            y_pos: 0x02C0_0000,
+            layout_index: Some(1),
+            x_velocity: Some(-0x0001_8000),
+            y_velocity: Some(0),
+            facing: Some(Direction::Left),
+            on_ground: Some(true),
+            hit_points: Some(6),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: Some(10),
+            shared_walker_patrol_timer: Some(0x003C),
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: Some(0),
+            debug_fields: std::collections::BTreeMap::from([(
+                String::from("lion_state"),
+                String::from("ResumingCharge"),
+            )]),
+        };
+
+        for (frame_index, signature, tile_base) in [(60, 53, 0x1D8), (71, 55, 0x21A)] {
+            trace.frame_index = frame_index;
+            let frame = sprites::select_enemy_frame(&trace, lion_visuals, &object);
+            assert_eq!(
+                frame.tile_sheet.tiles[0].pixels[0], signature,
+                "ASM Lion.asm loc_3DFF0/loc_3E0F4 should keep live HP-6 Lions in `stru_3DEDA` rather than cycling into appended death frames"
+            );
+            assert_eq!(
+                frame.tile_base_index, tile_base,
+                "ASM Lion.asm `stru_3DEDA` frame descriptor should match C7E88..C7EB0 live sprite mappings"
+            );
+        }
+    }
+
+    #[test]
     fn live_walking_dragon_uses_rom_walk_sequence_not_death_frames() {
         let visuals = sample_level_visuals();
         let walking_dragon_visuals = visuals
