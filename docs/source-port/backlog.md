@@ -61,10 +61,16 @@ and stop — never commit churn.
   title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
+- **#271 moved back to `[b]` route-needed after fresh Red Stealth audit.** BLW2 natural
+  and two clean run+jump overlays are oracle-clean; the HP-loss cases are grounded/side
+  contact before a clean first-frame stomp, not a native-only missed `$2C`. Highwater
+  natural walk never activates a tank. Do NOT retune `loc_1CE4`/Tank HP without an exact
+  live route or frame capture that shows a native-only clean jump-stomp failure.
 - **Gates this triage session (docs-only):** `mise run backlog-lint` and `git diff --check`
   pass; no code changed this session.
-- **Reopened P0s (#271 stomp-hurts, #257 continue-screen, #335 Hills instant-death) are the
-  highest-priority open items.** The rest of the `[?]` set in `backlog-awaiting-human.md` still
+- **Open P0s #257 continue-screen and #335 Hills instant-death are the highest-priority
+  actionable items.** #271 now waits in `backlog-awaiting-human.md` for an exact route.
+  The rest of the `[?]` set in `backlog-awaiting-human.md` still
   waits on a playtest; for audio rows (#342/#264 and the reopened #272/#339) the recurring
   "needs a real audio device" block IS that listen. The promoted #343/#346 await your final close.
 
@@ -106,7 +112,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 348 | [ ] | P1 | input | 2026-06-20 playtest: level/title card ignores early Start; ASM `loc_1AE2E` exits on first Start edge from frame 2, native gates it. | Exit on first live Start edge; gate replay delay for boot traces. DynamicScenario card-frame ~5 should reach Game_Mode $C in 1-2 frames. See archive #348. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
-| 271 | [ ] | P0 | player/enemy | 2026-06-22 RECONFIRM (fix failed): jumping on a Rock Tank HURTS Red Stealth instead of stomp-killing it (BLW2 0x01 + Highwater 0x02). Stomp-kill is ROM-correct (Tank.asm loc_3B478 writes $2C). | FRESH live stomp-first-tank route (BLW2 + Highwater) vs oracle: a clean stomp must write $2C, not hurt. Do NOT re-tweak loc_1CE4 (jugg60/jugg80 dead end). See archive #271. |
 | 257 | [ ] | P0 | gameflow/death | 2026-06-22 playtest (fix failed validation): continue (CONTINUES) screen renders wrong — a wall-like graphic slides in from BOTH left and right instead of legible CONTINUES text + count. | Capture a live death→continue card frame; CONTINUES label + count must render as legible text/digits sliding to centre, not blocky wall art from either edge. Slide direction (loc_D31E/loc_D350) is faithful — don't remove it. See archive #257. |
 | 335 | [ ] | P0 | gameflow/death | 2026-06-22 RECONFIRM (fix failed): Hills 0x08 still instant-kills Kid on ENTRY — now on the NATURAL 0x07→0x08 progression carrying a form, not just the debug skip the fix covered. Lost form = crush-death. | Enter Hills 0x08 naturally from Isle 0x07 with a form: Kid must NOT instantly die. Headless-repro the transition; diff MurderWall_X_pos vs Kid (suspect stale fraction, weather.rs:3155). See archive #335. |
 | 252 | [ ] | P1 | render/enemy | 2026-06-22 playtest reconfirm (P2→P1): BLW2 0x01 / Highwater 0x02 RockTank (0x0A/0x0B) renders doubled/humanoid + low in floor; the shooting tank's bullets (TankBullet child) render as GREEN blobs. Render-only (enemy state oracle-faithful). | Walk BLW2/Highwater past a shooting RockTank: one solid grey tank (not doubled/humanoid, not half in floor) + bullets show ROM stru_3B526 art, not green rects (scene.rs:5923-5957; forest-borrow palette). Capture native vs oracle. See archive #252. |

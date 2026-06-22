@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#271 Red Stealth RockTank route audit)
+
+- **#271 moved `[~]`→`[b]`; no gameplay patch.** Fresh Red Stealth BLW2 natural and clean run+jump overlays all match oracle; observed HP-loss cases are grounded/side contact before/without a clean first-frame `$2C` stomp. Highwater natural Red Stealth walk never activates a 0x0B RockTank.
+- The existing `loc_1CE4` / FA74 stomp gate remains the ASM-backed explanation for many "stomp hurts" cases. Re-patching Tank HP or stomp registration without a reproducing live route would be churn.
+- **Next actionable open P0s:** #257 continue-screen render, then #335 natural 0x07→0x08 Hills instant-death, per `mise run project-status`.
+- Verification: old sharp route CRC-clean; BLW2 base `verify-tas` frames 130..190 CRC-clean; BLW2 run+jump150 frames 130..190 CRC-clean; BLW2 run+jump126-long frames 120..200 CRC-clean; Highwater base frames 0..760 CRC-clean. Tracker gates pending in this commit: `mise run backlog-lint`, `git diff --check`.
+
 ## 2026-06-22 handoff (playtest triage — big batch)
 
 - **Triaged a large human playtest (~21 observations) against the lanes; docs-only session, no code changed.** Per-issue evidence is in archive block "## 2026-06-22 playtest triage" (grep by `#NNN`). A 21-investigator read-only fan-out did the matching; the synthesis/edits were applied centrally to keep the lanes lint-clean.
