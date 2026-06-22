@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (playtest triage — big batch)
+
+- **Triaged a large human playtest (~21 observations) against the lanes; docs-only session, no code changed.** Per-issue evidence is in archive block "## 2026-06-22 playtest triage" (grep by `#NNN`). A 21-investigator read-only fan-out did the matching; the synthesis/edits were applied centrally to keep the lanes lint-clean.
+- **9 fix-candidates FAILED human validation and were REOPENED `[?]`→`[ ]`** (moved from `backlog-awaiting-human.md` to the open queue): #271 stomp-on-RockTank hurts (P0), #257 continue-screen wall-from-both-sides (P0), #335 Hills instant-death (P0, now on the NATURAL 0x07→0x08 entry, not just the debug skip the loc_74E0 fix covered), #252 tank sprite doubled + green bullets (P1, raised P2→P1), #259 RockTank floor-sink (P1, 5th reconfirm — close `[-]` or prove on a natural L2 route), #352 hidden jump-up block no anim (P1, renderer-only gap scene.rs:5057), #272 Cyclone transform voice (P1), #339 USM "washing" drone (P1), #265 EOL tally tick missing + rumble (P2).
+- **2 human-CONFIRMED WORKING and promoted `[?]`→`[x]`** (moved to the archive resolved index): #343 Maniaxe axe now kills dragons, #346 spike→spike-wall chain. Final close is the human's.
+- **3 NEW rows opened:** #353 invisible metal-block spikes (P1, kills with no visible hazard), #355 Cyclone spin form no anim (P2 render), #356 Skydragon Castle bg piece dropout (P2).
+- **4 open rows refreshed with 2026-06-22 evidence:** #336 (Kid floats in trees), #324 (prize-block wood bleed, canonical forest route now confirmed broken), #280 (blue/green seam-bar + late/half clouds; island/0x07 Chunked-arm subcase), #345 (Lion now ABSENT after death+respawn on 0x07).
+- **NOT-A-BUG / working-confirm:** O7 USM "stacked hovering enemy" = EmoRock hover tracking Kid's X (ASM loc_3621A), faithful — only the #333 render approx stays open; O21 USM3 0x06 "~back to normal" = working-confirm of landed #289 USM3 fixes (#289 stays `[~]`). O14 "Lion red squares" is already addressed by the concurrent commit `4a591855d` (#289 Lion-projectile sprite) — verify next playtest, no new row.
+- **Process note:** a concurrent loop session was editing the lanes during triage and reverted in-progress edits; once the human stopped it (after it committed `4a591855d`), the triage was applied cleanly. A standalone `playtest-triage-2026-06-22.md` report written during the conflict was removed once folded into the lanes.
+- **Verification:** `mise run backlog-lint` and `git diff --check` pass; no code changed.
+
 ## 2026-06-22 handoff (#289 Lion projectile sprite)
 
 - **#289 stays `[~]`; Lion projectiles now render the ROM `stru_3DF34` sprite path instead of the generic red hostile-projectile dot.** ASM `Lion.asm loc_3E12A` sets the projectile child to palette line 2, VRAM tile `$2FB`, and animation `stru_3DF34`; `ingame/anim/enemy/Lion.asm` maps that script to C7E20/C7E28/C7E30 for six ticks each.

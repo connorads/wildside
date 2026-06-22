@@ -27,37 +27,31 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 stays `[~]`; Lion projectiles now render the ROM `stru_3DF34`
-  sprite instead of the generic red dot.** Re-reading `Lion.asm loc_3E12A`
-  shows the projectile child sets palette line 2, VRAM tile `$2FB`, and
-  animation `stru_3DF34` (C7E20/C7E28/C7E30, six ticks each). Native-player now
-  compiles those three mappings into object type `$12` and renders
-  `ActiveProjectileKind::LionProjectile` through the Lion palette/art. Fresh
-  expected-red `issue289-level07-idle-current` remains state-clean/pixel-red but
-  improves from frame 60 `1297` / MAE `1.4228051` and frame 71 `277` /
-  `0.2984375` to frame 60 `1289` / `1.4096261` and frame 71 `269` /
-  `0.28263578`. **NEXT #289:** inspect the remaining frame-60 Lion
-  sprite/origin/palette/body nuance and tiny top/background residual, not Lion
-  projectile dot rendering, gameplay state, Plane-B rows
-  B08/B17/B18/B19/B22/B23/B27/B29/B30, global `Time_Frames`, static cloud
-  H-scroll, or simple `loc_12110` current-phase rendering. **archive #289**.
-- **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
-  enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
-  verification are in archive #343/#346.
-- **#308 follow-up surfaced (still `[b]`, do not auto-take)**: #343 fixed only the
-  projectile path; RedStealth sword (helmets.rs:6369) + berzerker charge (6532) still use
-  the fixed `±4×±8` enemy box and per ROM `sub_1D84` should also source
-  `enemy_contact_bounds` — same vein, separate CRC risk. Captured under archive #343.
-- **#289 still should not be ground by guesswork**: the full do-not-retry list is in
-  archive #289. Avoid header/start layout, simple scroll offsets, placement wrap,
-  raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`, stateless
-  `$FFFF87B2`, broad raw `loc_30452` display-scroll substitution without the
-  row-history/underlay fix, current-time all-row overlay, packed timed-row
-  full-upload placement, alias-only rendering, alias-fed full row uploads,
-  direct row-number-to-bgscroll preload mapping, source-row 8 live writes for
-  B08, static cloud H-scroll after the previous-VDP-table latch, simple
-  `loc_12110` middle-shore current-phase rendering, and reworking
-  B08/B17/B18/B19/B22/B23/B27/B29/B30 row cells without fresh oracle row evidence.
+- **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
+  lanes; full per-issue evidence is in the archive block "## 2026-06-22 playtest triage". NET:
+  - **9 fix-candidates FAILED human validation → REOPENED `[?]`→`[ ]`:** #271 stomp-on-RockTank
+    hurts (P0), #257 continue-screen wall-from-both-sides (P0), #335 Hills instant-death (P0,
+    now on NATURAL 0x07→0x08 entry, not just the debug skip the loc_74E0 fix covered), #252 tank
+    sprite doubled + green bullets (P1), #259 RockTank floor-sink (P1, 5th reconfirm — close
+    `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #352 hidden jump-up block
+    no anim (P1, RENDERER-only gap: scene.rs:5057 skips the HiddenReveal cell), #272 Cyclone
+    transform voice (P1), #339 USM "washing" drone (P1), #265 EOL tally tick missing + rumble (P2).
+  - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
+    #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
+  - **3 NEW rows:** #353 invisible metal-block spikes (P1 — kills you with no visible hazard),
+    #355 Cyclone spin form no anim (P2 render), #356 Skydragon Castle bg piece dropout (P2).
+  - **4 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds), #345
+    (Lion now ABSENT after death+respawn on 0x07).
+- **O14 "Lion shoots red squares" is the #289 Lion-projectile fix just landed (4a591855d).**
+  VERIFY next playtest; do NOT open a separate row.
+- **#289 stays `[~]`.** USM3 0x06 human-confirmed "~back to normal" (working-confirm of the landed
+  platform/blank-top-row/live-block/Dragon fixes). Open residual = Level 0x07 Lion body +
+  Plane-B background; full do-not-retry list in archive #289.
+- **NOT-A-BUG:** O7 USM "stacked hovering enemy" = EmoRock (0x1B) hover tracking Kid's X (ASM
+  loc_3621A) — faithful; multiple rocks converge above the Kid by design. Only the #333 render
+  approximation (unextracted hover frames) stays open.
+- **Render-gap lesson:** headless CRC/state gates pass while a render-only gap ships (#352, #349);
+  every missing-sprite/animation fix needs a native-player RENDER assertion or capture-frames diff.
 - **#336 stays `[ ]`, regression bisected (no code change — oracle-gated)**: the
   cold-boot "Kid floats then drops" is the `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y`
   camera pan (216→115px) introduced by c65df2500 (2026-06-12, recent — corrects the
@@ -67,14 +61,12 @@ and stop — never commit churn.
   title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
-- **Gates this session**: `cargo fmt --all --check`, `cargo check -q -p
-  wildside-cli`, focused `wildside-cli` Lion live/death frame tests,
-  expected-red #289 recording, enemy-state `tas-diff` frames 55..62,
-  `backlog-lint`, `git diff --check`, and `mise run verify-slice-fast` all
-  passed.
-- **Blocked on you (human repro/validation)**: the large `[?]` set in
-  `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
-  the recurring "needs a real audio device" block IS that listen.
+- **Gates this triage session (docs-only):** `mise run backlog-lint` and `git diff --check`
+  pass; no code changed this session.
+- **Reopened P0s (#271 stomp-hurts, #257 continue-screen, #335 Hills instant-death) are the
+  highest-priority open items.** The rest of the `[?]` set in `backlog-awaiting-human.md` still
+  waits on a playtest; for audio rows (#342/#264 and the reopened #272/#339) the recurring
+  "needs a real audio device" block IS that listen. The promoted #343/#346 await your final close.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -104,13 +96,25 @@ For newly opened items, capture these facts in the investigation notes:
 | 210 | [ ] | P0 | gameflow/render | 2026-05-30 playtest: intro/title/menu path still visually corrupt and can re-enter demo loop over Start/menu | Evidence source: human playtest after pushed commits. Symptoms: Wild Side kids… |
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
-| 280 | [ ] | P2 | render/background | 2026-06-09 playtest: parallax sky loads in late (level 3 top), stray dark-green… | Reconfirmed 2026-06-11; Plane-B wrapping candidate landed, broader live-route validation remains. See archive #280. |
+| 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |
 | 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | 2026-06-22: Lion projectile sprite fix; expected-red frame 60 `1289` / MAE `1.4096261`, frame 71 `269` / `0.28263578`, state green. See archive #289. |
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
-| 324 | [ ] | P1 | render/block | Fixed candidate: live/wobbling prize blocks draw Block_Mappings art and suppress foreground tree/wood bleed-through per ASM `sub_302F6`/`sub_1007A`. | Human validation: hit a prize block over forest tree decoration; no tree/wood pixels should show through. See archive #324. |
-| 336 | [ ] | P1 | level/entry | 2026-06-20 human-confirmed cold-boot regression: level 1 shows Kid floating in sky then snapping down. Bisected to camera ramp change. | NEXT: oracle capture past title card into live gameplay, diff camera/kid-Y; do not edit ramp without oracle. See archive #336. |
+| 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
+| 336 | [ ] | P1 | level/entry | 2026-06-22 playtest RECONFIRM (persistent): BLW1 0x00 cold boot starts Kid high in/above the trees then floats down — level-0-only camera ramp (216→115px) outpaces the Kid world-Y settle (255→271px). Bisected to c65df2500. | NEXT: oracle capture PAST the title card (frame 719 / Game_Mode $C), per-frame camera/kid-Y diff; do NOT edit the ramp first (may be oracle-derived). See archive #336. |
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive; likely ASM-faithful survivor hurt/hibernate, needs visual/UX check. | Human distinguish survive-flash vs death+resurrect; verify hurt anim during hibernate. See archive #344. |
-| 345 | [ ] | P1 | enemy | 2026-06-20 playtest: Lion vanishes mid-level on Isle/Land of the Lion Lord (0x07), likely premature off-window cull vs ROM `sub_3E8BA`. | Oracle scroll-off/scroll-back probe on 0x07; check respawn marker `loc_3E97C`. See archive #345. |
+| 345 | [ ] | P1 | enemy | 2026-06-22 playtest: Lion now ABSENT after death+respawn on Isle of the Lion Lord 0x07 (extends the mid-level vanish) — same `large_pacer` off-window cull (roster len vs ROM Number_Objects) re-firing during the post-respawn camera resettle. | Probe 0x07 post-death respawn: confirm Lion respawns after resettle (enemy_status_words.fill(0)=SpawnFresh, not a stale $2168 marker); rule out #239 ledge-fall. See archive #345. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 348 | [ ] | P1 | input | 2026-06-20 playtest: level/title card ignores early Start; ASM `loc_1AE2E` exits on first Start edge from frame 2, native gates it. | Exit on first live Start edge; gate replay delay for boot traces. DynamicScenario card-frame ~5 should reach Game_Mode $C in 1-2 frames. See archive #348. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
+| 271 | [ ] | P0 | player/enemy | 2026-06-22 RECONFIRM (fix failed): jumping on a Rock Tank HURTS Red Stealth instead of stomp-killing it (BLW2 0x01 + Highwater 0x02). Stomp-kill is ROM-correct (Tank.asm loc_3B478 writes $2C). | FRESH live stomp-first-tank route (BLW2 + Highwater) vs oracle: a clean stomp must write $2C, not hurt. Do NOT re-tweak loc_1CE4 (jugg60/jugg80 dead end). See archive #271. |
+| 257 | [ ] | P0 | gameflow/death | 2026-06-22 playtest (fix failed validation): continue (CONTINUES) screen renders wrong — a wall-like graphic slides in from BOTH left and right instead of legible CONTINUES text + count. | Capture a live death→continue card frame; CONTINUES label + count must render as legible text/digits sliding to centre, not blocky wall art from either edge. Slide direction (loc_D31E/loc_D350) is faithful — don't remove it. See archive #257. |
+| 335 | [ ] | P0 | gameflow/death | 2026-06-22 RECONFIRM (fix failed): Hills 0x08 still instant-kills Kid on ENTRY — now on the NATURAL 0x07→0x08 progression carrying a form, not just the debug skip the fix covered. Lost form = crush-death. | Enter Hills 0x08 naturally from Isle 0x07 with a form: Kid must NOT instantly die. Headless-repro the transition; diff MurderWall_X_pos vs Kid (suspect stale fraction, weather.rs:3155). See archive #335. |
+| 252 | [ ] | P1 | render/enemy | 2026-06-22 playtest reconfirm (P2→P1): BLW2 0x01 / Highwater 0x02 RockTank (0x0A/0x0B) renders doubled/humanoid + low in floor; the shooting tank's bullets (TankBullet child) render as GREEN blobs. Render-only (enemy state oracle-faithful). | Walk BLW2/Highwater past a shooting RockTank: one solid grey tank (not doubled/humanoid, not half in floor) + bullets show ROM stru_3B526 art, not green rects (scene.rs:5923-5957; forest-borrow palette). Capture native vs oracle. See archive #252. |
+| 259 | [ ] | P1 | enemy/render | 2026-06-22 reconfirm (5th human): specific RockTanks render half-sunk in floor — BLW2 0x01 (teleporter + flag tanks) and the first Highwater 0x02 tank; not all tanks. | ONE natural oracle BLW2 0x01 route at the named tanks + first Highwater tank; diff body/turret Y + occlusion vs oracle. Only-grass occludes → close [-]; else real residual. NOT direct-warp. See archive #259. |
+| 352 | [ ] | P1 | render/block | 2026-06-22 reconfirm (fix failed): hidden jump-up blocks (USM 0x04-0x06 / Highwater 0x02) still pop in/out with no fold anim — core landed but the renderer skips the revealed cell. | Headbutt a hidden block (USM 0x04-0x06 / Highwater 0x02); the 8-frame y-bob (loc_E2E2/E2F0) must animate. Wire HiddenReveal into scene.rs:5057 block-bounce draw loop (mirror #347). See archive #352. |
+| 272 | [ ] | P1 | audio | 2026-06-22 (transform-voice fix failed): picking up the Cyclone "spin form" helmet plays NO transform noise. Core mapping exists (id 0x32) but no Cyclone route was ever validated. Render half = #355. | Real-device/oracle: pick up a Cyclone helmet in normal play; transform SFX id 0x32 must be audible. Needs a state-aligned natural Cyclone-pickup route (none validated). See archive #272. |
+| 339 | [ ] | P1 | audio | 2026-06-22 (fix failed): looping "washing"/rumble GEMS drone (Rock Tank drive $1F) still plays as soon as Under Skull Mountain 0x04 loads. j_StopMusic mirror only stops it at the OUTGOING teardown. | Real-audio-device: enter USM 0x04 — no looping drone on load. Confirm StopSequence($1F) HALTS not restarts (#341 audio-audit on the boundary); check skip/death vs clean load. See archive #339. |
+| 265 | [ ] | P2 | audio/gameflow | 2026-06-22 playtest (fix failed validation, symptom inverted): EOL score-tally tick NOT heard + a "weird rumbling" at level end; 2026-06-15 StopMusic/suppress candidate likely over-suppressed the loc_D752 $0C tick. | Real-audio-device EOL run: counting tick (sfx_Socre_counter $0C, loc_D752) audible during the tally + stops at loc_D7F4; no rumble bleed. Cross-ref #339 drone / #264. Dummy SDL never repros. See archive #265. |
+| 353 | [ ] | P1 | render/block | 2026-06-22 (NEW): USM spiked metal blocks render with NO screws/spikes — the spike art is missing so the kill hazard is INVISIBLE (player died on a visually-empty metal block). | capture-frames USM 0x04-0x06 at a spiked metal block vs oracle; native must draw the spikes. Collision still kills ($7000) while the foreground/Block_Mappings spike tile is absent. See archive #353. |
+| 355 | [ ] | P2 | render/form | 2026-06-22 (NEW): the Cyclone "spin form" does not visibly SPIN in normal play. Cyclone art is extracted/wired but there is no continuous-spin path, so grounded Cyclone uses generic idle/walk. Audio half = #272. | Pick up a Cyclone helmet in normal play vs oracle: the spin/transform anim must play (CYCLONE_TRANSFORM_STEPS; flight spin sub_B270), then grounded Cyclone should animate. Distinct from #284 demo. See archive #355. |
+| 356 | [ ] | P2 | render/background | 2026-06-22 (NEW): Skydragon Castle 0x1B sky-castle background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam) and #210 (demo/intro). | capture-frames --level 1B at scroll positions vs oracle; classify as Plane-A/B tile gaps vs Cloud/Tornado over-cull (#345/#289) vs faithful VDP 20-per-line sprite limit. See archive #356. |

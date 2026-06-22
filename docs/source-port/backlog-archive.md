@@ -10543,6 +10543,8 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
+| 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
+| 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 338 | [x] | P3 | audio | RockTank shot ($41) and creak ($3C/$42) SFX now have native emit sites; human-confirmed audible 2026-06-20. | Regressions tank_shooting_fire_queues_tank_shoots_sfx_loc_3b730 + 2; human-confirmed fixed 2026-06-20. See archive #338. |
 | 294 | [x] | P1 | combat | Murder-wall contact now follows ASM `sub_5E02 loc_5E34 -> off_B640 -> Crushed_to_Death`: contact enters DeathWindup directly, bypasses HP decrement, and ignores damage invulnerability | Verified by `murder_wall_contact_crushes_helmeted_kid_loc_5e34_b640`, `murder_wall_crush_bypasses_damage_invulnerability_loc_5e34_b640`, Level 0x08 respawn regression, and `cargo test -q -p wildside-core murder_wall -- --nocapture` |
 | 295 | [x] | P1 | terrain | Spike routing now follows ASM `loc_91A6`/`loc_92B6`: floor, ceiling, and side-wall spike contacts latch spike damage and route through normal `Check_for_recent_damge -> loc_B700` HP/helmet/invulnerability handling instead of plain ceiling or instant death | Verified by floor spike damage, ceiling spike damage, side-wall spike classification, and `loc_91A6` regression groups: `cargo test -q -p wildside-core spike_contact -- --nocapture`, `cargo test -q -p wildside-core ceiling_spike -- --nocapture`, `cargo test -q -p wildside-core loc_91a6 -- --nocapture`, `cargo test -q -p wildside-core loc_92b6_side_wall_spike_sets_on_spikes_and_clamps_x -- --nocapture` |
@@ -10975,3 +10977,226 @@ Retired 2026-06-21 (GitHub issue #25, "frame-951 RUSTFLAGS-sensitive divergence 
 Dead ends (do NOT re-attempt): (1) the issue's lead probe `overflow-checks=true` — the velocity pipeline is uniformly `saturating_add`/`clamp`/`.min`/`.max` (physics.rs:584,788-799), no signed-overflow path, and a clean i32 overflow wraps by a power of two, not the observed +1 LSB; (2) Miri/ASAN at the FFI boundary — all 11 `unsafe` blocks are YM2612 audio FFI in `ymfm-sys`, `wildside-core` has zero `unsafe`/`MaybeUninit`/floats, and audio output cannot feed Kid's y-velocity in a deterministic engine; (3) "hidden cfg" — no `cfg!(debug_assertions)`/`cfg!(test)`/`option_env!` gameplay branch exists for RUSTFLAGS to toggle. Note: the `+0x4001`/`frame 951` figures are real (verbatim in `.mise.toml`, not fabricated — an early grep missed them by searching only `docs/`+`crates/`).
 
 Outcome: the three stale `.mise.toml` caveats (verify-tas-frontier, view-tas, verify-tas-full) rewritten to the verified finding — no-strict-rust is kept because clippy is the warning authority (#24 step 1) and setting RUSTFLAGS would fork a redundant release cache, not for determinism. This unblocks #24 step 4 (TAS-profile unification). Reproduction artefacts under `.cache/frame951/` (untracked).
+
+---
+
+## 2026-06-22 playtest triage
+
+Large human playtest reported ~21 observations. Triaged read-only (one investigator
+per observation) against the lanes; each cites ASM + native `file:line`. NET: 9 `[?]`
+fix-candidates reopened `[?]`→`[ ]` (failed human validation), 2 promoted `[?]`→`[x]`
+(human-confirmed working), 3 new rows (#353/#355/#356), 4 open rows refreshed, plus
+NOT-A-BUG / working-confirm notes. Per-issue evidence below (grep by `#NNN`).
+
+NOTE on the concurrent loop: while this triage ran, a separate loop session committed
+`4a591855d "Render Lion projectile sprite for #289"`, which already addresses
+observation **O14** (Lion "red squares"). O14 is therefore tracked under #289, not a
+new row — verify it on the next playtest.
+
+- **#336 (level/entry, `[ ]`)** — O1. 2026-06-22 RECONFIRM (persistent, "reported many
+  times"): BLW1 0x00 cold boot starts Kid high in/above the trees then floats down.
+  Root cause known (archive #336): level-0-only camera ramp
+  `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` 216→115px over 26f outpaces the Kid world-Y
+  settle 255→271px over 13f (trace.rs), so on-screen Kid (world_y−camera_y) goes
+  255−216=39px (treetops) → 271−115=156px (floor). Bisected to c65df2500 (2026-06-12).
+  Blocker unchanged: `compare-native-oracle --scenario boot-title-start-level1` stops at
+  the title card (frame 719); the live float is after that. NEXT: oracle capture PAST the
+  title card (Game_Mode $C), per-frame camera_y/kid_y diff; do NOT edit the ramp first
+  (may be oracle-derived). Seed #289 (hell-spawn) is a keyword-deflection trap.
+
+- **#324 (render/block, `[ ]`)** — O2. 2026-06-22 reconfirm on the CANONICAL forest route:
+  BLW1 0x00 prize blocks still bleed tree/wood foreground through the wobble sprite's
+  transparent slots. This is the exact forest block/tree route the 2026-06-18
+  terrain-suppression fix-candidate (scene.rs:3795-3810) was awaiting — so that candidate
+  FAILED validation (already reopened on 2026-06-20 off a Highwater repro; this confirms it
+  on the canonical level). Two-plane render (foreground vs block layout, formats.txt:73-74);
+  ASM sub_1007A (kid.asm:21345) draws copied block art over the still-present foreground.
+  Do NOT blind-revert the two suppression `continue` guards (tuned for the closed #289 hell
+  residual, opposite direction) — get an oracle forest wobble frame-diff first.
+
+- **#259 (enemy/render, `[?]`→`[ ]`)** — O3. 5th human reconfirm: specific RockTanks render
+  half-sunk in the floor — BLW2 0x01 (tank by teleporter + tank by flag) and the first tank
+  in Highwater 0x02; NOT all tanks. The standing archive verdict (this file, "floor-sink
+  ROM-faithful": `priority(a3)=#0`, Tank.asm:49 → low-priority sprite, high-priority grass
+  legitimately draws in front; body/turret Y oracle-matched on L01/Highwater) has only ever
+  been checked against NON-authoritative captures (wrong-map bundles, frame-0 roster
+  divergence) and explicitly forbids a 5th `[?]` cycle. So it reopens: ONE natural
+  oracle-authoritative BLW2 0x01 route at the named tanks → if only grass occludes, close
+  `[-]` with the side-by-side; if heavier than oracle, real residual. NOT #331 (wall
+  self-kill), NOT #145 (turret offset, `[x]`).
+
+- **#271 (player/enemy, `[?]`→`[ ]`, P0)** — O4. Jumping/stomping a Rock Tank HURTS Red
+  Stealth instead of stomp-killing/bouncing; persistent on BLW2 0x01 + Highwater 0x02 first
+  tank. The human's expectation is ROM-CORRECT (not a "bounce-along hurts is faithful"
+  deflection): Tank.asm loc_3B464→loc_3B478 reads colid $38(a2); $2C (stomp) decrements HP
+  ($44(a3), Tank HP=2), so a clean airborne stomp must damage+bounce. The 2026-06-10
+  fix-candidate (loc_1CE4 jump-gate + FA74/FA75 latch; combat.rs:10239/13623/10262) FAILED
+  this human validation. Logged dead end (do not retry): the jugg60/jugg80 stomp-gate probes
+  no longer reproduce the bounce — needs a FRESH live Red-Stealth-stomps-first-tank route
+  diffed vs oracle (likely a stale-MoveID_Jump or FA74-set-on-descent edge blocking the
+  landing frame from writing $2C). Sibling #286 (`[b]`, second-stomp crush) kept separate.
+
+- **#280 (render/background, `[ ]`)** — O5 + O16 + (cross-ref O19). Background seam-bar near
+  sky colour appears/disappears: BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01; clouds
+  load in LATE after the bar; and half/quarter CLOUDS on Isle of the Lion Lord 0x07 (theme
+  0x04 island). Two open subcases (reopened 2026-06-20): (a) Chunked-theme bg arm hard-clips
+  with no horizontal wrap (`if screen_x <= -8 || >= FRAME_WIDTH continue`,
+  scene.rs:1823/1879/1923) so the 512px Plane-B nametable seam leaks the CRAM backdrop and
+  clips seam-straddling clouds to half/quarter; (b) auto-scroll uses an invented free-running
+  `trace.frame_index` (scene.rs:3404) vs camera-driven ASM loc_3050A (kid.asm:34172). The
+  2026-06-19 wrap fix was Layered-arm only; island/0x07 + Bloody Swamp 0x3E route through
+  Chunked (zero Chunked-arm coverage today). Do NOT retune the CRAM clear colour (dead end).
+  Distinct from #350 (Hills foliage palette) and the new #356 (Skydragon piece dropout).
+
+- **#265 (audio/gameflow, `[?]`→`[ ]`)** — O6. EOL score-tally tick NOT heard at level end +
+  a "weird rumbling". The 2026-06-15 fix-candidate (`StopMusic` clears fallback SFX tones +
+  same-frame score-counter suppression on the LevelTransition frame) FAILED validation and
+  appears to have INVERTED the symptom (tally now silent — likely over-suppressed the
+  loc_D752 `j_PlaySound sfx_Socre_counter` $0C that starts the tick; loc_D7F4 `j_PlaySound2`
+  $0C stops it; native models both at trace.rs:7186/7391). All prior #265 repros used dummy
+  SDL and could not reproduce — needs a REAL-AUDIO-DEVICE repro (audio-diagnostics+waveform).
+  The "rumble" cross-refs #339 (RockTank drive drone $1F "slow rumble") and #264 (channel
+  corruption from the 2-frame SDL queue cap) — do not split into a new row without a repro.
+  Do NOT add another headless suppression patch first.
+
+- **#333 (render/enemy, `[?]`) — O7 NOT-A-BUG on the mechanic.** USM "hovering enemy(s)
+  stacked above Kid's head" = EmoRock (0x1B). Emo_Rock.asm loc_3621A copies Kid X into
+  x_pos and sets y_pos = Kid_Y − hover_height each frame (EMO_ROCK_HOVER_HEIGHT
+  [0x50,0x3C,0x28], emo_rock.rs:5/49-63), so the rock deliberately HOVERS above the Kid's
+  head tracking him, dropping only when loc_3639E finds clearance. Multiple active EmoRocks
+  (inspect-level 04: obj01 136,431; obj02 392,447; obj09 328,1615) each track the same Kid X
+  and converge/stack above his head BY DESIGN — preserve as `// ORIGINAL_QUIRK`, do not
+  "fix" the stacking. Only the #333 render approximation (hover frames stru_3647E
+  unextracted, drop body frames 0-2 substituted) stays open, already `[?]` awaiting the same
+  level-04 capture this report partially confirms. Seed #322 (USM3 dragon-shoot crash) is
+  unrelated.
+
+- **#343 (combat, `[?]`→`[x]`) — O8 human-validated WORKING.** Maniaxe/Iron Knight thrown
+  axes now connect with & kill walking dragons (0x0D). The 2026-06-21 fix (per-family
+  `enemy_contact_bounds`/`friendly_projectile_overlaps_enemy_loc_1d84`, helmets.rs:4784/6426,
+  replacing the invented ±4×±8 that left the 32×32 dragon body outside reach) is validated
+  ("now killing dragons with thrown axes, was not happening before"). NOT #323 (axe RENDER /
+  green-dot, separate). The #308 follow-up (RedStealth sword helmets.rs:6369 + berzerker
+  charge 6532 still use the fixed box) is NOT validated by this and stays separate.
+
+- **#257 (render/continue-screen, `[?]`→`[ ]`)** — O9. Continue (CONTINUES) screen renders
+  wrong: a wall-like graphic slides in from BOTH left and right. ASM Continue_Screen
+  (kid.asm:16505; loc_D31E hold, loc_D350 countdown) allocates ONLY Spr_EOL_Continues text
+  (x=$FF88, +8 vel, from LEFT) and Object_EOL_Number (x=$134, −8 vel, from RIGHT) — the
+  two-sided slide is FAITHFUL (do not remove it); the bug is that the EOL text/number frames
+  render as garbled/blocky "wall" art. Native: push_game_over_continue_overlay (scene.rs:4313)
+  → push_eol_text/number_loc_c5a2 (scene.rs:3886/3955), frames from End_level_stats_text.bin.
+  The 2026-06-11 loc_D31E pre-countdown-hold candidate (for the earlier off-screen/late
+  symptom) FAILED this validation. Needs a live death→continue card frame capture before any
+  change. Not #303 (Start polling, closed) or #349 (post-death level-NAME card).
+
+- **#339 (audio/gems-drone, `[?]`→`[ ]`)** — O10. Looping "washing"/rumble GEMS drone (Rock
+  Tank drive $1F) still audible as soon as Under Skull Mountain 0x04 loads. The 2026-06-21
+  fix-candidate (`stop_level_looping_drones_on_load_ingame_loc_23629`, enemies.rs:9409, mirrors
+  ASM Load_InGame loc_23629 j_StopMusic) stops drones at the OUTGOING-level teardown only, and
+  its own note flags it UNVERIFIED whether StopSequence($1F) audibly HALTS vs RESTARTS the GEMS
+  loop. This human listen reports STILL BROKEN → failed validation. NEXT: use the #341
+  audio-audit on the level boundary to confirm halt-vs-restart; establish whether USM was
+  reached by skip/death (#339's path) or a clean natural load — a drone seeded fresh on the
+  INCOMING Load_InGame is NOT covered by the outgoing-teardown fix and would widen scope.
+
+- **#252 (render/enemy, `[?]`→`[ ]`, P2→P1)** — O11. BLW2 0x01 / Highwater 0x02 RockTank
+  (0x0A/0x0B) renders doubled/humanoid body+turret and low in the floor; the shooting tank's
+  bullets (TankBullet child) render as GREEN blobs/rects. Enemy STATE is oracle-faithful
+  (enemy-frontier verify-tas clean) → render-only. The dump-enemy-sheet 0B tile sheet mixes
+  tank-tread AND blue humanoid tiles, so the body+turret sub-sprite assembly stacks wrong
+  tiles. GREEN BULLET: native TankBullet path (scene.rs:5923-5957, tile_base 0x038/0x03A via
+  tank_bullet_child_frame) draws under the forest-borrowed family palette (which renders the
+  RockTank tile region green, cf #145) and falls back to ENEMY_PROJECTILE_COLOUR [255,80,40]
+  / FRIENDLY_PROJECTILE_COLOUR [100,255,100] rects when a frame/visual is unavailable. No
+  prior row tracks the green bullet → folded here as a sub-symptom. Fix body/turret tile
+  selection + the bullet sprite together; do NOT touch enemy state/placement.
+
+- **#352 (render/block, `[?]`→`[ ]`)** — O12. Hidden jump-up blocks (USM 0x04-0x06 /
+  Highwater 0x02) still pop in/out with no fold animation. The 2026-06-20 fix landed the CORE
+  (sfx_Reveal_Hidden_block $12 + 8-frame HiddenReveal worker, ASM loc_E2E2/loc_E2F0;
+  HIDDEN_BLOCK_REVEAL_Y_DELTAS blocks.rs:6, kind blocks.rs:3880, trace trace.rs:7694) but the
+  RENDERER never draws it: zero "HiddenReveal" refs in wildside-cli/render, and scene.rs:5057
+  `if !cell.has_block && !is_prize_bounce { continue; }` drops the revealed $60 cell
+  (kind=HiddenReveal != Prize) — the only block-at-offset draw path handles Prize only. Same
+  render-only gap class as #347 (Shifting). Headless CRC/state gates passed because they check
+  core state, not CLI render output (cf #349 lesson). Fix: wire HiddenReveal into the
+  scene.rs block-bounce draw loop + add a native-player RENDER regression.
+
+- **#353 (render/block, NEW `[ ]`, P1)** — O13. USM spiked metal blocks (collision "7 spikes"
+  + block-type "5 Metal block", ram_layout.txt:514/521) render with NO screws/spikes — the
+  spike art is missing so the kill hazard is INVISIBLE (player died on a visually-empty metal
+  block). Collision still kills ($7000 Spikes, terrain.rs:1926/2636) while the spike
+  decoration (drawn via the foreground/Block_Mappings tile layer,
+  resolve_ingame_vram_tile_with_foreground_palette scene.rs:1710) is absent. Seed #264 is
+  AUDIO (BGM stutter on hitting metal blocks) — keyword-deflection, do NOT reopen it for this.
+  Root cause not cheaply determinable (extraction miss vs FG-layer draw gap vs
+  palette/transparency) — needs a USM capture-frames vs oracle. Lead: the shooter-block
+  spike-tile $76 fallback handling (mod.rs:3982 "transparent spike tile, not a filled
+  fallback square"). Becomes a permanent regression once found.
+
+- **#345 (enemy/lifecycle, `[ ]`)** — O15 (extends mid-level vanish). Lion now entirely
+  ABSENT after death+respawn on Isle of the Lion Lord 0x07. NOT a stale respawn-marker bug:
+  native `enemy_status_words.fill(0)` (level.rs:18198) = SpawnFresh, which would respawn (ROM
+  despawn writes $2168/bit13 = countdown-to-respawn; layout reset clears all 30 status words,
+  loc_31F8E). So it is the same `large_pacer_should_remain_active` off-window cull band (keys
+  roster len `active_enemy_count`, not ROM Number_Objects; ASM sub_3E8BA, Lion.asm:855)
+  re-firing during the post-respawn camera resettle. Add a post-death-respawn resettle probe
+  (not just mid-level scroll-off); rule out the #239 faithful ledge-fall first. Cross-ref #289.
+
+- **#335 (gameflow/death, `[?]`→`[ ]`, P0)** — O17. Hills of the Warrior 0x08 still
+  instant-kills Kid on ENTRY — now reproduced on NATURAL progression from Isle 0x07 (carrying
+  a form), not just the N/A+C debug skip the 2026-06-20 loc_74E0 fix-candidate covered. So that
+  candidate FAILED validation and its scope was too narrow (the diagnostic explicitly noted
+  `play-native --warp-level 8` was clean and only the debug skip reproduced). The "lost Red
+  Stealth form" is the EXPECTED crush-death consequence (ASM sub_5E02/Crushed_to_Death respawns
+  base Kid; #283 covers respawn position; #312 loc_b7ea death strips helmet) — not a separate
+  bug. Suspected stale MurderWall_X_pos: init_murder_wall keeps previous_fraction and only
+  overwrites the integer word (weather.rs:3155-3169). NEXT: headless-repro the natural
+  0x07→0x08 transition (NOT recording-blocked), diff MurderWall_X_pos vs Kid in the first ~8
+  live frames. Cross-ref #238 (post-Highwater instant death), #266 (drills), #283.
+
+- **#272 (audio, `[?]`→`[ ]`) + #355 (render/form, NEW `[ ]`)** — O18 (two halves of one "old
+  bug"). The "spinning guy" is the Cyclone form (helmet id 2). AUDIO (#272): picking up the
+  Cyclone helmet plays NO transform noise. Core mapping exists —
+  transform_sound_effect_loc_7cd0(Cyclone)=CycloneTransform id 0x32 (combat.rs:324), queued in
+  real play under the `!demo_mode_active` guard (combat.rs:11064, faithful to ASM
+  loc_7CD0/Demo_Mode_flag) — but no Cyclone-transform audio route has ever been validated (all
+  prior #272 routes were Red Stealth), so this human "no noise" reconfirms #272 broken. RENDER
+  (#355): the Cyclone form does not visibly SPIN in normal play. #018's old "needs ROM sprite
+  extraction" placeholder is SUPERSEDED — Cyclone art IS extracted/wired (cyclone.bin,
+  cyclone_walk_1..6, cyclone_transformation_1/2, CYCLONE_TRANSFORM_STEPS bundle.rs:2616, flight
+  spin sub_B270 wildside-data:2670), but PlayerFormVisuals has no continuous-spin field
+  (player.rs:30) so grounded Cyclone uses generic idle/walk. Only the #284 demo-attract Cyclone
+  render is validated (pixel-perfect) — normal-play pickup spin is untracked → new row. Both
+  halves need state-aligned natural Cyclone-pickup routes vs oracle.
+
+- **#356 (render/background, NEW `[ ]`)** — O19. Skydragon Castle 0x1B (theme 1) sky-castle
+  background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam,
+  wrong colour not missing) and #210 (the demo/intro Skydragon plane-A/B over/under-draw,
+  archive:2179 — that is attract-mode, not live gameplay). Candidates needing a repro to split:
+  (a) Plane-A/B sky-castle TILE gaps; (b) the 4 Cloud (0x0E) / 5 Tornado (0x18) sky scenery
+  enemies (inspect-level 1B layout) culled by the same off-window accounting as #345/#289
+  (active_enemy_count vs ROM Number_Objects); (c) faithful VDP per-line sprite limit
+  (wildside-md MAX_SPRITES=80 / MAX_SPRITES_PER_LINE=20). capture-frames --level 1B at several
+  scroll positions vs oracle BEFORE any fix. The "general ... occasionally dropping out"
+  phrasing hints this may be a cross-level bg-dropout class — widen once repro'd.
+
+- **#346 (gameplay, `[?]`→`[x]`) — O20 human-validated WORKING.** Launched spike (ShooterObject)
+  now reaches a distant wall and re-fires the return-spike chain ("spike fires off and activates
+  another spike wall — works"). The 2026-06-21 fix (exempt EnemyProjectileKind::ShooterBlock
+  from the invented lifetime:120 cap; projectiles.rs:2678/2722/2755; ASM Process_ShooterObjects
+  loc_EDFA has no frame timer, dies only on a collidable cell / level edge) is validated.
+  Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`;
+  verify-tas-full CRC-clean. Death-wall rows #266 (drills) / #283 (respawn) are different axes,
+  not covered.
+
+- **#289 (level/spawn, `[~]`) — O21 working-confirm + O14 note.** USM3 0x06 human-confirmed
+  "~back to normal" — validates the landed USM3 fixes (moving stair platforms loc_2836,
+  live-block FG suppression sub_302F6/sub_3034A, blank-top-row sub_140F6, Flying-Dragon render).
+  Stays `[~]` (the human qualifies it "somewhat"; open residual = Level 0x07 Lion body +
+  Plane-B background). O14 (Isle 0x07 Lion "red squares") is addressed by the concurrent commit
+  4a591855d (Lion projectile now renders ROM stru_3DF34 sprite, not the generic red dot) —
+  verify next playtest. Soft note under #322: USM3 LOADS without crashing on this run, but the
+  actual #322 repro (shoot a flying dragon with the axe form) was not exercised — #322 stays
+  `[?]`.
