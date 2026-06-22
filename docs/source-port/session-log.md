@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-21 handoff (#289 loc_3050A display H-scroll / Plane-B underlay)
+
+- **#289 stays `[~]`; native chunked Plane-B display now uses the actual hardware H-scroll phase from ASM `BackgroundScroll_ComputeShiftData loc_30452` as consumed by `BackgroundScroll_ComputeShiftLayers loc_3050A`.** The decisive residual sample was frame 60 top-left: oracle debug had slot `$08` `cur=0x007B` and hbuf `FF85`, while native display sampling used the older 43px upload phase and selected B17 column 5 (`$2791`). Native now separates display H-scroll from the row-upload/preload phase, so row-history content stays intact while screen sampling matches hbuf.
+- A second residual check showed row dumps and oracle agreed B17 column 18 was `$2780`, but native still showed direct chunk tile `$09` because the old direct source-chunk pass sat underneath the reconstructed VDP row. Rows managed by `sub_30744/sub_307D8` now skip the direct underlay; transparent `$2780` row-history cells reveal the scene background instead of stale source art.
+- Fresh expected-red `issue289-level07-idle-current`: trace/state stay green, pixels remain red but improve from frame 60 `3915` / MAE `4.2537017` and frame 71 `4113` / `4.5239353` to frame 60 `2856` / `2.682994`, frame 71 `2823` / `2.684696`. The old top-left row-17 display-selection mismatch is gone; remaining samples are lower/mid-row colour swaps (notably y=100 tile 57) and right/top cloud residuals.
+- Verification: `cargo test -q -p wildside-cli chunked_plane_b --no-default-features -- --nocapture`, `cargo fmt --check --all`, `cargo check -q -p wildside-cli`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, plus pending final loop gates recorded in NOW.
+
 ## 2026-06-21 handoff (#289 Load_InGame grid-preload Plane-B state)
 
 - **#289 stays `[~]`; settled Plane-B row reconstruction now preserves the earlier `Load_InGame loc_11F48` camera-grid preload state.** Settle-trace evidence showed B08 cols 4..6 plus B27/B29 far-edge cells first appeared during `title_wait` step 57 with `Camera_X=0x0140`, `Camera_Y=0x02A0`, before the later target-live settled camera (`0x0124`, `0x0223`). ASM `Load_InGame loc_11F48` rounds `PlayerStart_X/Y` to `$140`/`$E0` screen-grid camera values before calling `loc_2FFE8`, and later `sub_307D8` passes leave cells outside their spans intact.

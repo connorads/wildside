@@ -27,16 +27,21 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 just landed the `Load_InGame loc_11F48` grid-preload row-history fix
-  (`[~]` remains open)**: settled level-skip Plane-B reconstruction now replays
-  the player-start camera-grid `loc_2FFE8` pass before the settled-camera pass,
-  preserving old nametable edge cells outside later `sub_307D8` spans. Fresh
-  expected-red `issue289-level07-idle-current` remains pixel-red at frame 60
-  `3915` / MAE `4.2537017`, frame 71 `4113` / `4.5239353`, but native row dumps
-  now match oracle for B08/B27/B29/B30 at both checkpoints. **NEXT #289:** inspect
-  the remaining sampled pixel residual against adjacent Plane-B rows/palette or
-  display selection; do not retune B08/B27/B29/B30 row history without new
-  oracle evidence. **archive #289**.
+- **#289 just landed the `loc_3050A` display H-scroll / Plane-B underlay fix
+  (`[~]` remains open)**: chunked Plane-B display now samples with the hardware
+  H-scroll word from `BackgroundScroll_ComputeShiftData loc_30452` as consumed by
+  `BackgroundScroll_ComputeShiftLayers loc_3050A`, while row uploads keep their
+  preload-era phase. Rows owned by `sub_30744/sub_307D8` no longer draw the direct
+  source-chunk underlay underneath the reconstructed VDP row, so transparent
+  `$2780` cells reveal the scene background instead of stale source tiles. Fresh
+  expected-red `issue289-level07-idle-current` improves from frame 60 `3915` /
+  MAE `4.2537017` and frame 71 `4113` / `4.5239353` to frame 60 `2856` /
+  `2.682994` and frame 71 `2823` / `2.684696`; trace/state remain green and
+  pixels remain red. **NEXT #289:** residual samples are now lower/mid-row
+  colour swaps (e.g. frame 60 y=100 tile 57, and right/top cloud pixels), not the
+  old top-left row-17 display selection. Continue from sampled residuals plus
+  oracle/native row dumps; do not retune B08/B17/B18/B19/B22/B23/B27/B29/B30 row
+  words without fresh oracle row evidence. **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -47,10 +52,11 @@ and stop — never commit churn.
 - **#289 still should not be ground by guesswork**: the full do-not-retry list is in
   archive #289. Avoid header/start layout, simple scroll offsets, placement wrap,
   raw `$00/$08`, y=100 H-scroll, row-window count, render `Time_Frames`, stateless
-  `$FFFF87B2`, raw `loc_30452` display-scroll substitution, current-time all-row
-  overlay, packed timed-row full-upload placement, alias-only rendering, alias-fed
-  full row uploads, direct row-number-to-bgscroll preload mapping, source-row 8
-  live writes for B08, and reworking B08/B27/B29/B30 row cells without fresh
+  `$FFFF87B2`, broad raw `loc_30452` display-scroll substitution without the
+  row-history/underlay fix, current-time all-row overlay, packed timed-row
+  full-upload placement, alias-only rendering, alias-fed full row uploads,
+  direct row-number-to-bgscroll preload mapping, source-row 8 live writes for
+  B08, and reworking B08/B17/B18/B19/B22/B23/B27/B29/B30 row cells without fresh
   oracle row evidence.
 - **#336 stays `[ ]`, regression bisected (no code change — oracle-gated)**: the
   cold-boot "Kid floats then drops" is the `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y`
@@ -61,9 +67,8 @@ and stop — never commit churn.
   title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
-- **Gates this session**: focused `wildside-cli`
-  `chunked_settled_row_history_seeds_loc_2ffe8_persisted_plane_b_row`, `cargo check -q -p
-  wildside-cli`, `cargo fmt --check --all`, expected-red #289 recording,
+- **Gates this session**: focused `wildside-cli` `chunked_plane_b`, `cargo check
+  -q -p wildside-cli`, `cargo fmt --check --all`, expected-red #289 recording,
   `mise run verify-slice-fast`, `backlog-lint`, and `git diff --check`.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)

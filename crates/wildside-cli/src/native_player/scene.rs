@@ -1766,6 +1766,13 @@ pub(super) fn push_background_tiles(
                     continue;
                 };
                 for row in 0..chunk.height_tiles {
+                    let background_row = usize::from(placement.y_tiles + row);
+                    if chunked_background_row_window_applies_loc_30744(
+                        level_visuals,
+                        background_row,
+                    ) {
+                        continue;
+                    }
                     for column in 0..chunk.width_tiles {
                         let tile_index =
                             usize::from(row) * usize::from(chunk.width_tiles) + usize::from(column);
@@ -1829,7 +1836,8 @@ pub(super) fn push_background_tiles(
                     continue;
                 }
                 let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
-                let scroll_x_px = background_scroll_x_px(trace, camera_x_px, layer_speed);
+                let scroll_x_px =
+                    background_display_scroll_x_px_loc_3050a(trace, camera_x_px, layer_speed);
                 for (column, cell) in cells.iter().enumerate() {
                     let Some(cell) = cell else {
                         continue;
@@ -2040,7 +2048,7 @@ pub(crate) fn background_scroll_pixel_diagnostic_loc_3050a(
     }
     let sample_row = usize::try_from(sample_row).ok()?;
     let layer_speed = background_layer_speed_loc_3050a(level_visuals, sample_row);
-    let scroll_x_px = background_scroll_x_px(trace, camera_x_px, layer_speed);
+    let scroll_x_px = background_display_scroll_x_px_loc_3050a(trace, camera_x_px, layer_speed);
     // ASM BackgroundScroll_ComputeShiftLayers loc_3050A supplies the scroll
     // column, while sub_30744/sub_307D8 refresh the exposed Plane-B window.
     let destination_column = scroll_x_px
@@ -2098,6 +2106,13 @@ pub(crate) fn sample_background_pixel_loc_c070(
                     continue;
                 };
                 for row in 0..chunk.height_tiles {
+                    let background_row = usize::from(placement.y_tiles + row);
+                    if chunked_background_row_window_applies_loc_30744(
+                        level_visuals,
+                        background_row,
+                    ) {
+                        continue;
+                    }
                     for column in 0..chunk.width_tiles {
                         let tile_index =
                             usize::from(row) * usize::from(chunk.width_tiles) + usize::from(column);
@@ -2131,7 +2146,7 @@ pub(crate) fn sample_background_pixel_loc_c070(
                             None,
                             screen_x,
                             screen_y,
-                            Some(usize::from(placement.y_tiles + row)),
+                            Some(background_row),
                             None,
                             Some(usize::from(placement.x_tiles + column)),
                         ) {
@@ -2152,7 +2167,8 @@ pub(crate) fn sample_background_pixel_loc_c070(
                         plane_b.row_for_trace(trace, level_visuals, camera_x_px, row as usize)
                 {
                     let layer_speed = background_layer_speed_loc_3050a(level_visuals, row as usize);
-                    let scroll_x_px = background_scroll_x_px(trace, camera_x_px, layer_speed);
+                    let scroll_x_px =
+                        background_display_scroll_x_px_loc_3050a(trace, camera_x_px, layer_speed);
                     if let Some((column, screen_x)) =
                         chunked_plane_b_cell_at_sample_x_loc_3050a(sample_x, scroll_x_px)
                         && let Some(cell) = cells[column]
@@ -4485,7 +4501,11 @@ pub(super) fn background_tile_screen_position(
 
     let layer_speed = background_layer_speed_loc_3050a(level_visuals, usize::from(y_tiles));
     (
-        world_x_px.saturating_sub(background_scroll_x_px(trace, camera_x_px, layer_speed)),
+        world_x_px.saturating_sub(background_display_scroll_x_px_loc_3050a(
+            trace,
+            camera_x_px,
+            layer_speed,
+        )),
         world_y_px.saturating_sub(background_scroll_y_px),
     )
 }
@@ -4576,6 +4596,23 @@ pub(super) fn background_scroll_x_px(
         camera_x_px,
         layer_speed,
     )
+}
+
+pub(super) fn background_display_scroll_x_px_loc_3050a(
+    trace: &NativeTraceFrame,
+    camera_x_px: i32,
+    layer_speed: u8,
+) -> i32 {
+    // ASM loc_3050A (kid.asm:34220-34239) copies the packed
+    // `Horiz_Scroll_Data+4` word into the per-scanline H-scroll table after
+    // negating it. The positive word is the display scroll phase; sub_30744's
+    // row-upload window can use a different preload-era phase.
+    i32::from(background_scroll_data_word_loc_30452(
+        background_time_frames_for_trace_loc_3050a(trace),
+        camera_x_px,
+        layer_speed,
+    ))
+    .rem_euclid(512)
 }
 
 fn background_scroll_x_px_for_time_loc_3050a(

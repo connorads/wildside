@@ -11548,6 +11548,30 @@ mod tests {
     }
 
     #[test]
+    fn chunked_plane_b_display_uses_horiz_scroll_data_loc_3050a() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 60;
+        trace.time_frames_loc_3038a = 174;
+        let camera_x_px = 292;
+
+        assert_eq!(
+            super::scene::background_display_scroll_x_px_loc_3050a(&trace, camera_x_px, 0x08),
+            123,
+            "ASM loc_3050A copies `Horiz_Scroll_Data+4` into the H-scroll table; issue #289 frame 60 oracle hbuf `FF85` is display scroll 123px, not the 43px row-upload phase"
+        );
+        assert_eq!(
+            super::scene::background_scroll_x_px(&trace, camera_x_px, 0x08),
+            43,
+            "sub_30744 row-history modelling keeps the older `$08` upload phase separate from the loc_3050A display H-scroll"
+        );
+        assert_eq!(
+            super::scene::background_display_scroll_x_px_loc_3050a(&trace, camera_x_px, 0x00),
+            210,
+            "ASM BackgroundScroll_ComputeShiftData loc_30452 adds Camera_X>>3 to Time_Frames for `$00` rows before loc_3050A negates it into hbuf `FF2E`"
+        );
+    }
+
+    #[test]
     fn build_game_scene_emits_level_layout_terrain_tiles() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
