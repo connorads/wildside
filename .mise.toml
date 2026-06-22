@@ -46,11 +46,14 @@ run = "cargo run -p wildside-cli -- probe-cpu"
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- verify-gameplay --all"
 
 [tasks.verify-slice-fast]
-depends = ["verify-tas-frontier", "backlog-lint"]
-# No scripts/strict-rust.sh here: RUSTFLAGS=-D warnings forks a separate build
-# cache, and the pre-commit `cargo clippy --workspace --all-targets -- -D warnings`
-# step already denies every rustc warning over the same scope (lints are clippy's
-# job). Dropping it lets the clippy and test debug caches converge. (#24)
+depends = ["lint", "verify-tas-frontier", "backlog-lint"]
+# `lint` (cargo clippy --workspace --all-targets -- -D warnings) is a direct dep,
+# so clippy warnings fail the gate here regardless of hook state — this covers the
+# manual `mise run verify-slice-fast` path agents run at step 7, not just the
+# pre-commit hook. No scripts/strict-rust.sh on the test body below: RUSTFLAGS=-D
+# warnings would fork a separate build cache, and clippy already denies every
+# rustc warning over the same scope (lints are clippy's job). Sharing the plain
+# debug target dir lets the clippy and test caches converge. (#24)
 run = """
 sh -ec '
 cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas --skip snapshot \
