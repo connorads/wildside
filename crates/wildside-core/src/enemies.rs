@@ -28541,11 +28541,14 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
     }
 }
 
+// Shared enemy test fixtures, lifted out of `mod tests` so each per-family
+// sibling module's own test mod can reach them (issue #40). Imported via
+// `use crate::enemies::test_fixtures::*;`. Mirrors the crate's tests/fixtures.rs.
 #[cfg(test)]
-mod tests {
+pub(crate) mod test_fixtures {
     use super::*;
 
-    fn mini_hopping_skull_test_enemy() -> ActiveEnemy {
+    pub(crate) fn mini_hopping_skull_test_enemy() -> ActiveEnemy {
         ActiveEnemy {
             segment_index: 0,
             layout_index: 0,
@@ -28614,7 +28617,7 @@ mod tests {
         }
     }
 
-    fn mini_hopping_skull_test_grid() -> terrain::BlockGrid {
+    pub(crate) fn mini_hopping_skull_test_grid() -> terrain::BlockGrid {
         let data = vec![0u8; 8 * 4 * 2];
         let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
         for col in 0..8 {
@@ -28622,6 +28625,55 @@ mod tests {
         }
         grid
     }
+
+    pub(crate) fn tar_monster_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::TarMonster,
+            hit_points: 2,
+            death_animation_active: false,
+            facing: Direction::Right,
+            tar_monster_state: TarMonsterState::Attacking,
+            wait_timer: TAR_MONSTER_ATTACK_FRAMES,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    pub(crate) fn fireball_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Fireball,
+            hit_points: 1,
+            death_animation_active: false,
+            facing: Direction::Right,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    pub(crate) fn sphere_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Sphere,
+            hit_points: 1,
+            death_animation_active: false,
+            facing: Direction::Right,
+            x_velocity: 0x0001_0000,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    pub(crate) fn ninja_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Ninja,
+            hit_points: 2,
+            death_animation_active: false,
+            facing: Direction::Left,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::enemies::test_fixtures::*;
 
     #[test]
     fn active_enemy_step_respects_samurai_haze_object_gate_loc_e1e() {
@@ -29060,49 +29112,6 @@ mod tests {
             "ASM Fireball.asm loc_32CE4 should still allocate the obstacle trail child after the bounce cue",
         );
         assert_eq!(projectiles[0].kind, EnemyProjectileKind::FireballTrail);
-    }
-
-    fn tar_monster_test_enemy() -> ActiveEnemy {
-        ActiveEnemy {
-            family: EnemyFamily::TarMonster,
-            hit_points: 2,
-            death_animation_active: false,
-            facing: Direction::Right,
-            tar_monster_state: TarMonsterState::Attacking,
-            wait_timer: TAR_MONSTER_ATTACK_FRAMES,
-            ..mini_hopping_skull_test_enemy()
-        }
-    }
-
-    fn fireball_test_enemy() -> ActiveEnemy {
-        ActiveEnemy {
-            family: EnemyFamily::Fireball,
-            hit_points: 1,
-            death_animation_active: false,
-            facing: Direction::Right,
-            ..mini_hopping_skull_test_enemy()
-        }
-    }
-
-    fn sphere_test_enemy() -> ActiveEnemy {
-        ActiveEnemy {
-            family: EnemyFamily::Sphere,
-            hit_points: 1,
-            death_animation_active: false,
-            facing: Direction::Right,
-            x_velocity: 0x0001_0000,
-            ..mini_hopping_skull_test_enemy()
-        }
-    }
-
-    fn ninja_test_enemy() -> ActiveEnemy {
-        ActiveEnemy {
-            family: EnemyFamily::Ninja,
-            hit_points: 2,
-            death_animation_active: false,
-            facing: Direction::Left,
-            ..mini_hopping_skull_test_enemy()
-        }
     }
 
     #[test]
