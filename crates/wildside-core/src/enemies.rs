@@ -296,102 +296,143 @@ pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
     }
 }
 
-pub(crate) const LION_COLID_HURT: u16 = 0x001C;
-pub(crate) const LION_COLID_KIDABOVE: u16 = 0x002C;
+/// Canonical collision-ID values shared by every enemy family.
+///
+/// These mirror the `; Collision` jump-table in the Kid Chameleon disassembly
+/// (`constants.asm:163-175`): one 12-entry table, stride 4, that every enemy
+/// collision handler indexes. The per-family `*_COLID_*` aliases below (e.g.
+/// `NINJA_COLID_HURT`, `CRAB_COLID_HURT`) all resolve to these values — only the
+/// Rust type varies between families (`u16` vs `i16`), never the number. One
+/// source of truth makes that consistency structural rather than accidental: a
+/// future edit to one family can no longer silently diverge from the ROM.
+///
+/// `EMPTY` and `KIDBELOW` have no standard-family consumer (only the
+/// deliberately-remapped `MINI_SKULL_COLID_GROUND_*` set uses `0x28`), hence
+/// `#[allow(dead_code)]` on the module.
+#[allow(dead_code)]
+mod colid {
+    /// ASM `colid_empty` (constants.asm:164).
+    pub const EMPTY: u16 = 0x0000;
+    /// ASM `colid_rightwall` (constants.asm:165).
+    pub const RIGHTWALL: u16 = 0x0004;
+    /// ASM `colid_leftwall` (constants.asm:166).
+    pub const LEFTWALL: u16 = 0x0008;
+    /// ASM `colid_floor` (constants.asm:167).
+    pub const FLOOR: u16 = 0x000C;
+    /// ASM `colid_ceiling` (constants.asm:168).
+    pub const CEILING: u16 = 0x0010;
+    /// ASM `colid_slopeup` (constants.asm:169).
+    pub const SLOPEUP: u16 = 0x0014;
+    /// ASM `colid_slopedown` (constants.asm:170).
+    pub const SLOPEDOWN: u16 = 0x0018;
+    /// ASM `colid_hurt` (constants.asm:171).
+    pub const HURT: u16 = 0x001C;
+    /// ASM `colid_kidright` (constants.asm:172).
+    pub const KIDRIGHT: u16 = 0x0020;
+    /// ASM `colid_kidleft` (constants.asm:173).
+    pub const KIDLEFT: u16 = 0x0024;
+    /// ASM `colid_kidbelow` (constants.asm:174).
+    pub const KIDBELOW: u16 = 0x0028;
+    /// ASM `colid_kidabove` (constants.asm:175).
+    pub const KIDABOVE: u16 = 0x002C;
+}
+
+pub(crate) const LION_COLID_HURT: u16 = colid::HURT;
+pub(crate) const LION_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const NINJA_COLID_RIGHTWALL: u16 = 0x0004;
+pub(crate) const NINJA_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const NINJA_COLID_LEFTWALL: u16 = 0x0008;
+pub(crate) const NINJA_COLID_LEFTWALL: u16 = colid::LEFTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const NINJA_COLID_FLOOR: u16 = 0x000C;
+pub(crate) const NINJA_COLID_FLOOR: u16 = colid::FLOOR;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const NINJA_COLID_CEILING: u16 = 0x0010;
+pub(crate) const NINJA_COLID_CEILING: u16 = colid::CEILING;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const NINJA_COLID_HURT: u16 = 0x001C;
+pub(crate) const NINJA_COLID_HURT: u16 = colid::HURT;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const NINJA_COLID_KIDABOVE: u16 = 0x002C;
+pub(crate) const NINJA_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const NINJA_COLID_KIDRIGHT: u16 = 0x0020;
+pub(crate) const NINJA_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const NINJA_COLID_KIDLEFT: u16 = 0x0024;
+pub(crate) const NINJA_COLID_KIDLEFT: u16 = colid::KIDLEFT;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const DRAGON_COLID_HURT: u16 = 0x001C;
+pub(crate) const DRAGON_COLID_HURT: u16 = colid::HURT;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const DRAGON_COLID_KIDRIGHT: u16 = 0x0020;
+pub(crate) const DRAGON_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const DRAGON_COLID_KIDLEFT: u16 = 0x0024;
-pub(crate) const DRAGON_COLID_KIDABOVE: u16 = 0x002C;
-pub(crate) const CRAB_COLID_HURT: i16 = 0x001C;
-pub(crate) const CRAB_COLID_KIDRIGHT: i16 = 0x0020;
-pub(crate) const CRAB_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const DRAGON_COLID_KIDLEFT: u16 = colid::KIDLEFT;
+pub(crate) const DRAGON_COLID_KIDABOVE: u16 = colid::KIDABOVE;
+pub(crate) const CRAB_COLID_HURT: i16 = colid::HURT as i16;
+pub(crate) const CRAB_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
+pub(crate) const CRAB_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const GOAT_COLID_HURT: i16 = 0x001C;
+pub(crate) const GOAT_COLID_HURT: i16 = colid::HURT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const GOAT_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const GOAT_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const GOAT_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const GOAT_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const GOAT_COLID_KIDABOVE: i16 = 0x002C;
+pub(crate) const GOAT_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ARMADILLO_COLID_FLOOR: i16 = 0x000C;
+pub(crate) const ARMADILLO_COLID_FLOOR: i16 = colid::FLOOR as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ARMADILLO_COLID_HURT: i16 = 0x001C;
+pub(crate) const ARMADILLO_COLID_HURT: i16 = colid::HURT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ARMADILLO_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const ARMADILLO_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ARMADILLO_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const ARMADILLO_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ARMADILLO_COLID_KIDABOVE: i16 = 0x002C;
-pub(crate) const SCORPION_COLID_HURT: i16 = 0x001C;
-pub(crate) const SCORPION_COLID_KIDRIGHT: i16 = 0x0020;
-pub(crate) const SCORPION_COLID_KIDLEFT: i16 = 0x0024;
-pub(crate) const SCORPION_COLID_KIDABOVE: i16 = 0x002C;
+pub(crate) const ARMADILLO_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
+pub(crate) const SCORPION_COLID_HURT: i16 = colid::HURT as i16;
+pub(crate) const SCORPION_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
+pub(crate) const SCORPION_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
+pub(crate) const SCORPION_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_RIGHTWALL: i16 = 0x0004;
+pub(crate) const ORCA_COLID_RIGHTWALL: i16 = colid::RIGHTWALL as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_LEFTWALL: i16 = 0x0008;
+pub(crate) const ORCA_COLID_LEFTWALL: i16 = colid::LEFTWALL as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_FLOOR: i16 = 0x000C;
+pub(crate) const ORCA_COLID_FLOOR: i16 = colid::FLOOR as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_CEILING: i16 = 0x0010;
+pub(crate) const ORCA_COLID_CEILING: i16 = colid::CEILING as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_SLOPEUP: i16 = 0x0014;
+pub(crate) const ORCA_COLID_SLOPEUP: i16 = colid::SLOPEUP as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_SLOPEDOWN: i16 = 0x0018;
+pub(crate) const ORCA_COLID_SLOPEDOWN: i16 = colid::SLOPEDOWN as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_HURT: i16 = 0x001C;
+pub(crate) const ORCA_COLID_HURT: i16 = colid::HURT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const ORCA_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const ORCA_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const ORCA_COLID_KIDABOVE: i16 = 0x002C;
+pub(crate) const ORCA_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const FIRE_DEMON_COLID_HURT: i16 = 0x001C;
+pub(crate) const FIRE_DEMON_COLID_HURT: i16 = colid::HURT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = 0x0020;
+pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = 0x0024;
+pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const DRILLER_COLID_KIDABOVE: u16 = 0x002C;
-pub(crate) const TANK_COLID_HURT: u16 = 0x001C;
+pub(crate) const DRILLER_COLID_KIDABOVE: u16 = colid::KIDABOVE;
+pub(crate) const TANK_COLID_HURT: u16 = colid::HURT;
 #[cfg_attr(not(test), allow(dead_code))]
-const CRAB_COLID_RIGHTWALL: u16 = 0x0004;
+const CRAB_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
-const CRAB_COLID_LEFTWALL: u16 = 0x0008;
+const CRAB_COLID_LEFTWALL: u16 = colid::LEFTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
-const CRAB_COLID_SLOPEUP: u16 = 0x0014;
+const CRAB_COLID_SLOPEUP: u16 = colid::SLOPEUP;
 #[cfg_attr(not(test), allow(dead_code))]
-const CRAB_COLID_SLOPEDOWN: u16 = 0x0018;
-pub(crate) const DIAMOND_COLID_RIGHTWALL: u16 = 0x0004;
-pub(crate) const DIAMOND_COLID_LEFTWALL: u16 = 0x0008;
-pub(crate) const DIAMOND_COLID_FLOOR: u16 = 0x000C;
-pub(crate) const DIAMOND_COLID_CEILING: u16 = 0x0010;
-pub(crate) const DIAMOND_COLID_SLOPEUP: u16 = 0x0014;
-pub(crate) const DIAMOND_COLID_SLOPEDOWN: u16 = 0x0018;
-pub(crate) const DIAMOND_COLID_HURT: u16 = 0x001C;
-pub(crate) const DIAMOND_COLID_KIDRIGHT: u16 = 0x0020;
-pub(crate) const DIAMOND_COLID_KIDLEFT: u16 = 0x0024;
+const CRAB_COLID_SLOPEDOWN: u16 = colid::SLOPEDOWN;
+pub(crate) const DIAMOND_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
+pub(crate) const DIAMOND_COLID_LEFTWALL: u16 = colid::LEFTWALL;
+pub(crate) const DIAMOND_COLID_FLOOR: u16 = colid::FLOOR;
+pub(crate) const DIAMOND_COLID_CEILING: u16 = colid::CEILING;
+pub(crate) const DIAMOND_COLID_SLOPEUP: u16 = colid::SLOPEUP;
+pub(crate) const DIAMOND_COLID_SLOPEDOWN: u16 = colid::SLOPEDOWN;
+pub(crate) const DIAMOND_COLID_HURT: u16 = colid::HURT;
+pub(crate) const DIAMOND_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
+pub(crate) const DIAMOND_COLID_KIDLEFT: u16 = colid::KIDLEFT;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -2581,19 +2622,19 @@ pub(crate) enum MiniHoppingSkullAirSprite {
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const MINI_SKULL_COLID_RIGHTWALL: u16 = 0x0004;
+pub(crate) const MINI_SKULL_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const MINI_SKULL_COLID_LEFTWALL: u16 = 0x0008;
+pub(crate) const MINI_SKULL_COLID_LEFTWALL: u16 = colid::LEFTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const MINI_SKULL_COLID_FLOOR: u16 = 0x000C;
+pub(crate) const MINI_SKULL_COLID_FLOOR: u16 = colid::FLOOR;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const MINI_SKULL_COLID_CEILING: u16 = 0x0010;
+pub(crate) const MINI_SKULL_COLID_CEILING: u16 = colid::CEILING;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const MINI_SKULL_COLID_SLOPEUP: u16 = 0x0014;
+pub(crate) const MINI_SKULL_COLID_SLOPEUP: u16 = colid::SLOPEUP;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const MINI_SKULL_COLID_SLOPEDOWN: u16 = 0x0018;
+pub(crate) const MINI_SKULL_COLID_SLOPEDOWN: u16 = colid::SLOPEDOWN;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const MINI_SKULL_COLID_HURT: u16 = 0x001C;
+pub(crate) const MINI_SKULL_COLID_HURT: u16 = colid::HURT;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_GROUND_KIDABOVE: u16 = 0x001C;
 #[cfg_attr(not(test), allow(dead_code))]
@@ -7757,12 +7798,12 @@ const DRAGON_TERRAIN_UP_SLIDE_Y_ACCEL: i32 = 0x5000;
 const DRAGON_TERRAIN_DOWN_SLIDE_Y_DECEL: i32 = 0x2000;
 /// Post-snap rebound vertical acceleration per frame: $2000. ASM loc_34AC2.
 const DRAGON_TERRAIN_REBOUND_Y_ACCEL: i32 = 0x2000;
-const DRAGON_FLYING_COLID_RIGHTWALL: u16 = 0x0004;
-const DRAGON_FLYING_COLID_LEFTWALL: u16 = 0x0008;
-const DRAGON_FLYING_COLID_FLOOR: u16 = 0x000C;
-const DRAGON_FLYING_COLID_CEILING: u16 = 0x0010;
-const DRAGON_FLYING_COLID_SLOPEUP: u16 = 0x0014;
-const DRAGON_FLYING_COLID_SLOPEDOWN: u16 = 0x0018;
+const DRAGON_FLYING_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
+const DRAGON_FLYING_COLID_LEFTWALL: u16 = colid::LEFTWALL;
+const DRAGON_FLYING_COLID_FLOOR: u16 = colid::FLOOR;
+const DRAGON_FLYING_COLID_CEILING: u16 = colid::CEILING;
+const DRAGON_FLYING_COLID_SLOPEUP: u16 = colid::SLOPEUP;
+const DRAGON_FLYING_COLID_SLOPEDOWN: u16 = colid::SLOPEDOWN;
 const DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES: u16 = 2;
 const DRAGON_FLYING_MAIN_ANIMATION_FRAME_TICKS: u16 = 7;
 const DRAGON_FLYING_MAIN_ANIMATION_FRAMES: u16 = 20;
@@ -24502,7 +24543,7 @@ pub(crate) fn drips_splash_animation_remaining_loc_33488(wait_timer: u16) -> Opt
     }
 }
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const DRIPS_COLID_CEILING: u16 = 0x0010;
+pub(crate) const DRIPS_COLID_CEILING: u16 = colid::CEILING;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
@@ -26094,17 +26135,17 @@ pub(crate) const SPINNING_TWINS_DROP_X_DRAG: i32 = 0x1200;
 pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
 pub(crate) const SPINNING_TWINS_WALKING_SETTLE_X_SPEED: i32 = 0x3000;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const SPINNING_TWINS_COLID_RIGHTWALL: u16 = 0x0004;
+pub(crate) const SPINNING_TWINS_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const SPINNING_TWINS_COLID_LEFTWALL: u16 = 0x0008;
+pub(crate) const SPINNING_TWINS_COLID_LEFTWALL: u16 = colid::LEFTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const SPINNING_TWINS_COLID_FLOOR: u16 = 0x000C;
-pub(crate) const SPINNING_TWINS_COLID_HURT: u16 = 0x001C;
+pub(crate) const SPINNING_TWINS_COLID_FLOOR: u16 = colid::FLOOR;
+pub(crate) const SPINNING_TWINS_COLID_HURT: u16 = colid::HURT;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = 0x0020;
+pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = 0x0024;
-pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = 0x002C;
+pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = colid::KIDLEFT;
+pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 pub(crate) const SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34: u16 = 0x14;
 pub(crate) const SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C: u16 = 0xB93C;
 pub(crate) const SPINNING_TWINS_PARTNER_DEATH_SIGNAL_LOC_3BCA6: i16 = -1;
@@ -45015,5 +45056,141 @@ impl NativeRuntime {
         if let Some(slice) = self.opening_slice.as_mut() {
             slice.set_kid_grabbed_by_hand(kid_grabbed_by_hand);
         }
+    }
+}
+
+/// Permanent guard for the collision-ID deduplication (issue #41).
+///
+/// Every per-family `*_COLID_*` alias now resolves to a value in the shared
+/// `colid` module instead of its own hardcoded literal. A single wrong canonical
+/// value would silently corrupt a collision ID across many families, and the
+/// fast gate may not surface it — so this test pins the exact pre-refactor number
+/// for every alias against a *hardcoded literal* (NOT `colid::X`, which would be a
+/// tautology). A typo in any `colid::` value then fails here loudly.
+#[cfg(test)]
+mod colid_dedup_regression {
+    use super::*;
+
+    /// Layer 1 — the load-bearing layer. Each alias must still equal the exact
+    /// literal it had before the refactor (`grep _COLID_` snapshot, 2026-06-22).
+    /// Hardcoded numbers on purpose: comparing against `colid::X` would be circular.
+    #[test]
+    fn family_aliases_keep_their_pre_refactor_values() {
+        // u16 families
+        assert_eq!(LION_COLID_HURT, 0x001Cu16);
+        assert_eq!(LION_COLID_KIDABOVE, 0x002Cu16);
+        assert_eq!(NINJA_COLID_RIGHTWALL, 0x0004u16);
+        assert_eq!(NINJA_COLID_LEFTWALL, 0x0008u16);
+        assert_eq!(NINJA_COLID_FLOOR, 0x000Cu16);
+        assert_eq!(NINJA_COLID_CEILING, 0x0010u16);
+        assert_eq!(NINJA_COLID_HURT, 0x001Cu16);
+        assert_eq!(NINJA_COLID_KIDABOVE, 0x002Cu16);
+        assert_eq!(NINJA_COLID_KIDRIGHT, 0x0020u16);
+        assert_eq!(NINJA_COLID_KIDLEFT, 0x0024u16);
+        assert_eq!(DRAGON_COLID_HURT, 0x001Cu16);
+        assert_eq!(DRAGON_COLID_KIDRIGHT, 0x0020u16);
+        assert_eq!(DRAGON_COLID_KIDLEFT, 0x0024u16);
+        assert_eq!(DRAGON_COLID_KIDABOVE, 0x002Cu16);
+        assert_eq!(DRILLER_COLID_KIDABOVE, 0x002Cu16);
+        assert_eq!(TANK_COLID_HURT, 0x001Cu16);
+        assert_eq!(CRAB_COLID_RIGHTWALL, 0x0004u16);
+        assert_eq!(CRAB_COLID_LEFTWALL, 0x0008u16);
+        assert_eq!(CRAB_COLID_SLOPEUP, 0x0014u16);
+        assert_eq!(CRAB_COLID_SLOPEDOWN, 0x0018u16);
+        assert_eq!(DIAMOND_COLID_RIGHTWALL, 0x0004u16);
+        assert_eq!(DIAMOND_COLID_LEFTWALL, 0x0008u16);
+        assert_eq!(DIAMOND_COLID_FLOOR, 0x000Cu16);
+        assert_eq!(DIAMOND_COLID_CEILING, 0x0010u16);
+        assert_eq!(DIAMOND_COLID_SLOPEUP, 0x0014u16);
+        assert_eq!(DIAMOND_COLID_SLOPEDOWN, 0x0018u16);
+        assert_eq!(DIAMOND_COLID_HURT, 0x001Cu16);
+        assert_eq!(DIAMOND_COLID_KIDRIGHT, 0x0020u16);
+        assert_eq!(DIAMOND_COLID_KIDLEFT, 0x0024u16);
+        assert_eq!(MINI_SKULL_COLID_RIGHTWALL, 0x0004u16);
+        assert_eq!(MINI_SKULL_COLID_LEFTWALL, 0x0008u16);
+        assert_eq!(MINI_SKULL_COLID_FLOOR, 0x000Cu16);
+        assert_eq!(MINI_SKULL_COLID_CEILING, 0x0010u16);
+        assert_eq!(MINI_SKULL_COLID_SLOPEUP, 0x0014u16);
+        assert_eq!(MINI_SKULL_COLID_SLOPEDOWN, 0x0018u16);
+        assert_eq!(MINI_SKULL_COLID_HURT, 0x001Cu16);
+        assert_eq!(DRAGON_FLYING_COLID_RIGHTWALL, 0x0004u16);
+        assert_eq!(DRAGON_FLYING_COLID_LEFTWALL, 0x0008u16);
+        assert_eq!(DRAGON_FLYING_COLID_FLOOR, 0x000Cu16);
+        assert_eq!(DRAGON_FLYING_COLID_CEILING, 0x0010u16);
+        assert_eq!(DRAGON_FLYING_COLID_SLOPEUP, 0x0014u16);
+        assert_eq!(DRAGON_FLYING_COLID_SLOPEDOWN, 0x0018u16);
+        assert_eq!(DRIPS_COLID_CEILING, 0x0010u16);
+        assert_eq!(SPINNING_TWINS_COLID_RIGHTWALL, 0x0004u16);
+        assert_eq!(SPINNING_TWINS_COLID_LEFTWALL, 0x0008u16);
+        assert_eq!(SPINNING_TWINS_COLID_FLOOR, 0x000Cu16);
+        assert_eq!(SPINNING_TWINS_COLID_HURT, 0x001Cu16);
+        assert_eq!(SPINNING_TWINS_COLID_KIDRIGHT, 0x0020u16);
+        assert_eq!(SPINNING_TWINS_COLID_KIDLEFT, 0x0024u16);
+        assert_eq!(SPINNING_TWINS_COLID_KIDABOVE, 0x002Cu16);
+
+        // i16 families
+        assert_eq!(CRAB_COLID_HURT, 0x001Ci16);
+        assert_eq!(CRAB_COLID_KIDRIGHT, 0x0020i16);
+        assert_eq!(CRAB_COLID_KIDLEFT, 0x0024i16);
+        assert_eq!(GOAT_COLID_HURT, 0x001Ci16);
+        assert_eq!(GOAT_COLID_KIDRIGHT, 0x0020i16);
+        assert_eq!(GOAT_COLID_KIDLEFT, 0x0024i16);
+        assert_eq!(GOAT_COLID_KIDABOVE, 0x002Ci16);
+        assert_eq!(ARMADILLO_COLID_FLOOR, 0x000Ci16);
+        assert_eq!(ARMADILLO_COLID_HURT, 0x001Ci16);
+        assert_eq!(ARMADILLO_COLID_KIDRIGHT, 0x0020i16);
+        assert_eq!(ARMADILLO_COLID_KIDLEFT, 0x0024i16);
+        assert_eq!(ARMADILLO_COLID_KIDABOVE, 0x002Ci16);
+        assert_eq!(SCORPION_COLID_HURT, 0x001Ci16);
+        assert_eq!(SCORPION_COLID_KIDRIGHT, 0x0020i16);
+        assert_eq!(SCORPION_COLID_KIDLEFT, 0x0024i16);
+        assert_eq!(SCORPION_COLID_KIDABOVE, 0x002Ci16);
+        assert_eq!(ORCA_COLID_RIGHTWALL, 0x0004i16);
+        assert_eq!(ORCA_COLID_LEFTWALL, 0x0008i16);
+        assert_eq!(ORCA_COLID_FLOOR, 0x000Ci16);
+        assert_eq!(ORCA_COLID_CEILING, 0x0010i16);
+        assert_eq!(ORCA_COLID_SLOPEUP, 0x0014i16);
+        assert_eq!(ORCA_COLID_SLOPEDOWN, 0x0018i16);
+        assert_eq!(ORCA_COLID_HURT, 0x001Ci16);
+        assert_eq!(ORCA_COLID_KIDRIGHT, 0x0020i16);
+        assert_eq!(ORCA_COLID_KIDLEFT, 0x0024i16);
+        assert_eq!(ORCA_COLID_KIDABOVE, 0x002Ci16);
+        assert_eq!(FIRE_DEMON_COLID_HURT, 0x001Ci16);
+        assert_eq!(FIRE_DEMON_COLID_KIDRIGHT, 0x0020i16);
+        assert_eq!(FIRE_DEMON_COLID_KIDLEFT, 0x0024i16);
+    }
+
+    /// Layer 2 — documents the canonical ROM map. Each shared value must match
+    /// the `; Collision` table in `constants.asm:163-175` exactly.
+    #[test]
+    fn shared_module_matches_constants_asm() {
+        assert_eq!(colid::EMPTY, 0x0000u16); // colid_empty
+        assert_eq!(colid::RIGHTWALL, 0x0004u16); // colid_rightwall
+        assert_eq!(colid::LEFTWALL, 0x0008u16); // colid_leftwall
+        assert_eq!(colid::FLOOR, 0x000Cu16); // colid_floor
+        assert_eq!(colid::CEILING, 0x0010u16); // colid_ceiling
+        assert_eq!(colid::SLOPEUP, 0x0014u16); // colid_slopeup
+        assert_eq!(colid::SLOPEDOWN, 0x0018u16); // colid_slopedown
+        assert_eq!(colid::HURT, 0x001Cu16); // colid_hurt
+        assert_eq!(colid::KIDRIGHT, 0x0020u16); // colid_kidright
+        assert_eq!(colid::KIDLEFT, 0x0024u16); // colid_kidleft
+        assert_eq!(colid::KIDBELOW, 0x0028u16); // colid_kidbelow
+        assert_eq!(colid::KIDABOVE, 0x002Cu16); // colid_kidabove
+    }
+
+    /// Layer 3 — excluded-set sanity. The `MINI_SKULL_COLID_GROUND_*` set
+    /// deliberately remaps suffix→non-canonical value (consumed by real combat
+    /// at combat.rs:8752+); it must NOT be folded into `colid`. Fails loudly if a
+    /// future edit wrongly canonicalises it.
+    #[test]
+    fn mini_skull_ground_set_stays_non_canonical() {
+        assert_eq!(MINI_SKULL_COLID_GROUND_KIDABOVE, 0x001Cu16);
+        assert_eq!(MINI_SKULL_COLID_GROUND_KIDLEFT, 0x0020u16);
+        assert_eq!(MINI_SKULL_COLID_GROUND_KIDRIGHT, 0x0024u16);
+        assert_eq!(MINI_SKULL_COLID_GROUND_KIDBELOW, 0x0028u16);
+        assert_eq!(MINI_SKULL_COLID_GROUND_HURT, 0x002Cu16);
+        // The remap is genuine: GROUND_KIDABOVE is the hurt value, not the
+        // canonical kidabove value — proves these are NOT shared aliases.
+        assert_ne!(MINI_SKULL_COLID_GROUND_KIDABOVE, colid::KIDABOVE);
     }
 }
