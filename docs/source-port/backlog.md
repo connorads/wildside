@@ -27,24 +27,22 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
-- **#289 just landed the `loc_3050A` display H-scroll / Plane-B underlay fix
-  (`[~]` remains open)**: chunked Plane-B display now samples with the hardware
-  H-scroll word from `BackgroundScroll_ComputeShiftData loc_30452` as consumed by
-  `BackgroundScroll_ComputeShiftLayers loc_3050A`, while row uploads keep their
-  preload-era phase. Rows owned by `sub_30744/sub_307D8` no longer draw the direct
-  source-chunk underlay underneath the reconstructed VDP row, so transparent
-  `$2780` cells reveal the scene background instead of stale source tiles. Fresh
-  expected-red `issue289-level07-idle-current` improves from frame 60 `3915` /
-  MAE `4.2537017` and frame 71 `4113` / `4.5239353` to frame 60 `2856` /
-  `2.682994` and frame 71 `2823` / `2.684696`; trace/state remain green and
-  pixels remain red. **NEXT #289:** residual samples are now lower/mid-row
-  colour swaps (e.g. frame 60 y=100 tile 57, and right/top cloud pixels), not the
-  old top-left row-17 display selection. Continue from sampled residuals plus
-  oracle/native row dumps; do not retune B08/B17/B18/B19/B22/B23/B27/B29/B30 row
-  words without fresh oracle row evidence. 2026-06-22 rejected a simple
-  `loc_12110` middle-shore current-`d2` phase render substitution: frame 71
-  improved (`2542` / `2.5376906`) but frame 60 regressed (`2981` /
-  `2.7480702`). **archive #289**.
+- **#289 stays `[~]`; new report diagnostic exposes sampled tile rows**:
+  `native_background_samples[].sample.source_row_pixels` now records the eight
+  palette indices from the source tile row used by `loc_C070`-style background
+  sampling. Fresh expected-red `issue289-level07-idle-current` is unchanged
+  (`trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`;
+  frame 60 `2856` / `2.682994`, frame 71 `2823` / `2.684696`) but the report now
+  proves the remaining residual is row-word-clean art/pixel content. Example:
+  frame 60 `(86,100)` tile `$39` samples row `[10,10,10,10,11,11,10,10]` at
+  `source_x=2,source_y=4`, while the oracle wants the colour represented by
+  index `11`; frame 60 `(284,10)` tile `$02` samples
+  `[11,11,11,11,11,11,11,13]` at `source_x=7,source_y=2`, while the oracle wants
+  index `11`. **NEXT #289:** investigate VRAM art/source timing for Island
+  background tiles and shore band `$F6C0`, not B08/B17/B18/B19/B22/B23/B27/B29/B30
+  row words. 2026-06-22 rejected a simple `loc_12110` middle-shore current-`d2`
+  phase render substitution: frame 71 improved (`2542` / `2.5376906`) but frame
+  60 regressed (`2981` / `2.7480702`). **archive #289**.
 - **Recent landed rows now await human playtest**: #343 friendly projectiles vs large
   enemies and #346 launched spike-bullet lifetime are both `[?]`; full evidence and
   verification are in archive #343/#346.
@@ -71,9 +69,10 @@ and stop — never commit churn.
   title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
   into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
   oracle-derived — never guess). Full evidence in **archive #336**.
-- **Gates this session**: focused `wildside-cli` `chunked_plane_b`, `cargo check
-  -q -p wildside-cli`, `cargo fmt --check --all`, expected-red #289 recording,
-  `mise run verify-slice-fast`, `backlog-lint`, and `git diff --check`.
+- **Gates this session**: `cargo fmt --all --check`, focused `wildside-cli`
+  `background_pixel_sampler_reports_last_drawn_tile_provenance_loc_c070`,
+  `cargo check -q -p wildside-cli`, expected-red #289 recording, `backlog-lint`,
+  `git diff --check`, and `mise run verify-slice-fast` all passed.
 - **Blocked on you (human repro/validation)**: the large `[?]` set in
   `backlog-awaiting-human.md` is waiting on a playtest; for audio rows (#342/#339/#264/#272)
   the recurring "needs a real audio device" block IS that listen.

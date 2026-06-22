@@ -2003,6 +2003,7 @@ pub(crate) struct BackgroundPixelSample {
     pub(crate) palette_index: u8,
     pub(crate) source_x: u8,
     pub(crate) source_y: u8,
+    pub(crate) source_row_pixels: [u8; 8],
     pub(crate) row_offset: Option<i32>,
     pub(crate) rgb: [u8; 3],
 }
@@ -3232,6 +3233,10 @@ fn sample_background_tile_pixel(
     let source_y = if tile_ref.flip_y { 7 - dest_y } else { dest_y };
     let tile = tile_sheet.tiles.get(usize::from(tile_ref.tile_index))?;
     let palette_index = tile.pixels[(source_y * 8 + source_x) as usize];
+    let row_start = (source_y * 8) as usize;
+    let source_row_pixels = tile.pixels[row_start..row_start + 8]
+        .try_into()
+        .expect("tile rows are always 8 pixels wide");
     let rgb = resolve_palette_colour(palette, tile_ref.palette_line, palette_index)?;
     Some(BackgroundPixelSample {
         screen_x,
@@ -3250,6 +3255,7 @@ fn sample_background_tile_pixel(
         palette_index,
         source_x: source_x as u8,
         source_y: source_y as u8,
+        source_row_pixels,
         row_offset,
         rgb,
     })

@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#289 sampled tile-row diagnostics)
+
+- **#289 stays `[~]`; no renderer fix landed this pass.** The previous simple `loc_12110` current-phase trial remains rejected, so this session added narrow report instrumentation instead: `native_background_samples[].sample.source_row_pixels` now records the eight palette indices from the sampled tile row selected by native background provenance.
+- Fresh expected-red `issue289-level07-idle-current` is unchanged: `trace_match=true`, `oracle_state_match=true`, `oracle_frame_match=false`; frame 60 `2856` / MAE `2.682994`, frame 71 `2823` / `2.684696`. The report now shows residual art rows directly, e.g. frame 60 `(86,100)` tile `$39` row `[10,10,10,10,11,11,10,10]` at `source_x=2,source_y=4`, and frame 60 `(284,10)` tile `$02` row `[11,11,11,11,11,11,11,13]` at `source_x=7,source_y=2`.
+- Native/oracle row dumps still have zero diffs for B08/B17/B18/B19/B22/B23/B27/B29/B30. Next #289 pass should investigate Island VRAM art/source timing (static background art and shore `$F6C0`) rather than row-history placement or simple middle-shore phase substitution.
+- Verification: `cargo fmt --all --check`, `cargo test -q -p wildside-cli background_pixel_sampler_reports_last_drawn_tile_provenance_loc_c070 --no-default-features -- --nocapture`, `cargo check -q -p wildside-cli`, expected-red `cargo run -q -p wildside-cli -- verify-recording --slug issue289-level07-idle-current`, `cargo run -q -p wildside-cli -- backlog-lint`, `git diff --check`, and `mise run verify-slice-fast`.
+
 ## 2026-06-21 handoff (#289 loc_3050A display H-scroll / Plane-B underlay)
 
 - **#289 stays `[~]`; native chunked Plane-B display now uses the actual hardware H-scroll phase from ASM `BackgroundScroll_ComputeShiftData loc_30452` as consumed by `BackgroundScroll_ComputeShiftLayers loc_3050A`.** The decisive residual sample was frame 60 top-left: oracle debug had slot `$08` `cur=0x007B` and hbuf `FF85`, while native display sampling used the older 43px upload phase and selected B17 column 5 (`$2791`). Native now separates display H-scroll from the row-upload/preload phase, so row-history content stays intact while screen sampling matches hbuf.

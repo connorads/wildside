@@ -9558,6 +9558,7 @@ mod tests {
         assert_eq!(sample.palette_index, 2);
         assert_eq!(sample.source_x, 5);
         assert_eq!(sample.source_y, 4);
+        assert_eq!(sample.source_row_pixels, [0, 0, 0, 0, 0, 2, 0, 0]);
         assert_eq!(sample.rgb, [40, 50, 60]);
     }
 

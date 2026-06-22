@@ -295,6 +295,8 @@ pub(crate) struct NativeBackgroundPixelSample {
     pub(crate) palette_index: u8,
     pub(crate) source_x: u8,
     pub(crate) source_y: u8,
+    #[serde(default)]
+    pub(crate) source_row_pixels: [u8; 8],
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) row_offset: Option<i32>,
     pub(crate) rgb: [u8; 3],
@@ -1829,6 +1831,7 @@ impl From<BackgroundPixelSample> for NativeBackgroundPixelSample {
             palette_index: sample.palette_index,
             source_x: sample.source_x,
             source_y: sample.source_y,
+            source_row_pixels: sample.source_row_pixels,
             row_offset: sample.row_offset,
             rgb: sample.rgb,
         }
