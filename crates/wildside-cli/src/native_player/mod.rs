@@ -8737,6 +8737,62 @@ mod tests {
     }
 
     #[test]
+    fn prize_block_wobble_reuses_base_copy_when_second_slot_is_neighbour_art_sub_1007a() {
+        // ASM sub_1007A/stru_101B6 alternates sprite mappings at VRAM
+        // `$220/$229`, but those are live copied slots. Native generated block
+        // sheets are static; a visible `+9` tile range can be neighbouring
+        // block art, not the second copied VRAM slot.
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.block_bounces = vec![(1, 0, 8, -2)];
+        trace.block_bounce_details = vec![BlockBounceTrace {
+            cell_x: 1,
+            cell_y: 0,
+            remaining: 8,
+            y_offset_px: -2,
+            kind: BlockBounceTraceKind::Prize,
+        }];
+        let mut visuals = sample_level_visuals();
+        for tile in &mut visuals.block_tiles.tiles[0x008..=0x00B] {
+            tile.pixels = [3; 64];
+        }
+        for tile in &mut visuals.block_tiles.tiles[0x011..=0x014] {
+            tile.pixels = [7; 64];
+        }
+        let mut data = vec![0u8; 20 * 14 * 2];
+        data[2] = 0x6F;
+        data[3] = 0x02;
+        let grid = BlockGrid::from_level_layout(&data, 20, 14);
+
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
+
+        let Some(copied_wobble_tiles) = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                x: 16,
+                y: -2,
+                tile_sheet,
+                tiles,
+                ..
+            } if tile_sheet.tiles.len() == 0x200 => Some(tiles),
+            _ => None,
+        }) else {
+            panic!("sub_1007A prize wobble should draw copied block art");
+        };
+        assert_eq!(
+            copied_wobble_tiles.first().map(|tile| tile.tile.tile_index),
+            Some(0x008),
+            "native must not treat visible neighbouring `+9` block-sheet tiles as ASM `$229` copied VRAM art"
+        );
+        assert!(
+            !copied_wobble_tiles
+                .iter()
+                .any(|tile| (0x011..=0x014).contains(&tile.tile.tile_index)),
+            "ASM `$229` is a live copied VRAM slot; mismatched generated `+9` tiles are unrelated block art"
+        );
+    }
+
+    #[test]
     fn live_prize_block_scenario_renders_sub_1007a_wobble_sprite_not_terrain() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

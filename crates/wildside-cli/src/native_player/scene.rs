@@ -5080,7 +5080,7 @@ fn push_prize_block_wobble_sub_1007a(
     let frame = prize_block_wobble_frame_sub_1007a(level_visuals, remaining);
     let use_second_frame = frame.tile_base_index == 0x009;
     let tile_offset = if use_second_frame
-        && !prize_wobble_should_reuse_base_copy_sub_1007a(
+        && prize_wobble_shifted_copy_matches_base_sub_1007a(
             level_visuals,
             quad,
             frame.tile_base_index,
@@ -5116,37 +5116,35 @@ fn push_prize_block_wobble_sub_1007a(
     });
 }
 
-fn prize_wobble_should_reuse_base_copy_sub_1007a(
+fn prize_wobble_shifted_copy_matches_base_sub_1007a(
     level_visuals: &NativeLevelVisuals,
     quad: &wildside_render::TileQuad,
     tile_offset: u16,
 ) -> bool {
     // ASM sub_1007A/stru_101B6 alternates temporary VRAM slots `$220/$229`.
-    // Native generated block sheets can omit the `$229` copy for a live copied
-    // prize skin; in that case keep drawing the `$220` copy rather than making
-    // the prize block disappear for half the wobble.
-    let base_copy_visible = prize_wobble_quad_has_visible_pixels_sub_1007a(level_visuals, quad, 0);
-    let shifted_copy_visible =
-        prize_wobble_quad_has_visible_pixels_sub_1007a(level_visuals, quad, tile_offset);
-    base_copy_visible && !shifted_copy_visible
-}
-
-fn prize_wobble_quad_has_visible_pixels_sub_1007a(
-    level_visuals: &NativeLevelVisuals,
-    quad: &wildside_render::TileQuad,
-    tile_offset: u16,
-) -> bool {
+    // The generated block sheet is not live VRAM; `+9` can point at unrelated
+    // neighbouring block art unless it is a real duplicate of the copied quad.
     quad.tiles.iter().all(|tile| {
         let local_tile_index = tile
             .tile_index
             .checked_sub(BLOCK_TILE_VRAM_BASE)
-            .unwrap_or(tile.tile_index)
-            .saturating_add(tile_offset);
-        level_visuals
+            .unwrap_or(tile.tile_index);
+        let shifted_tile_index = local_tile_index.saturating_add(tile_offset);
+        let Some(base_tile) = level_visuals
             .block_tiles
             .tiles
             .get(usize::from(local_tile_index))
-            .is_some_and(|tile| tile.pixels.iter().any(|pixel| *pixel != 0))
+        else {
+            return false;
+        };
+        let Some(shifted_tile) = level_visuals
+            .block_tiles
+            .tiles
+            .get(usize::from(shifted_tile_index))
+        else {
+            return false;
+        };
+        base_tile.pixels == shifted_tile.pixels
     })
 }
 

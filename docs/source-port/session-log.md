@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#324 prize wobble fixed candidate)
+
+- **#324 moved `[~]` -> `[?]`.** Prize-block wobble now treats `$229` as a
+  live copied VRAM slot, not a blind `+9` lookup into the generated block sheet;
+  shifted tiles are used only when pixel-identical to the copied `$220` quad.
+- Evidence: ASM `sub_1007A` / `stru_101B6` alternates `unk_E0E4E`/`unk_E0E5E`
+  (`$220/$229`). BLW1 row-12 native/oracle captures around frame 31/36 are clean;
+  direct row-1 native probe hits `(57,1)` and is clean, but direct row-1 oracle
+  capture is rejected because patched camera/start state leaves invalid VDP columns.
+- Verification: new regression
+  `prize_block_wobble_reuses_base_copy_when_second_slot_is_neighbour_art_sub_1007a`,
+  `KID_ENABLE_CACHE_BACKED_TESTS=1 cargo test -p wildside-cli prize_block -- --nocapture`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, and `mise run verify-slice-fast`.
+- NEXT: continue with `mise run project-status`; #324 needs human validation on
+  the canonical BLW1 forest route and a Highwater prize block before `[x]`.
+
 ## 2026-06-23 handoff (#256 Highwater priority route-blocked)
 
 - **#256 moved `[~]` -> `[b]`.** Current Highwater priority route and the best
