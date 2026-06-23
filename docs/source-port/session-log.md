@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (proactive Fire Demon mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/sphere.rs` first; it was already clean
+  (`12 mutants tested in 5m: 4 caught, 8 unviable`, zero missed).
+- Then mutation-tested `crates/wildside-core/src/enemies/fire_demon.rs`.
+  Evidence: initial run reported `40 mutants tested in 14m: 2 missed,
+  21 caught, 17 unviable`; survivors were delete-arm mutants for raw
+  enemy_level `0` in `fire_demon_palette_pulse_seed_loc_3a4b4` and
+  collision_type `0` in `fire_demon_collision_dispatch_loc_3a586`.
+- ASM `Fire_Demon.asm loc_3A48E`/`loc_3A4B8` keeps enemy_level `0` on
+  Data_Index+$634 with no `$C` add. ASM `loc_3A586` has an explicit
+  `beq.s loc_3A5D4` no-collision branch before the side/hurt comparisons;
+  native now records that source separately from unknown-positive clear/resume
+  so the branch edge is covered without changing live side effects.
+- Verification: focused `fire_demon_` tests pass; rerun
+  `.cache/mutants/fire-demon-after` reports
+  `40 mutants tested in 14m: 23 caught, 17 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-23 handoff (proactive Driller mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

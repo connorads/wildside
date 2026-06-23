@@ -266,9 +266,17 @@ pub(crate) fn fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) enum FireDemonResumeSharedWalkerSourceLoc3A586 {
+    NoCollision,
+    UnknownPositive,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonCollisionRouteLoc3A586 {
     ResumeSharedWalker {
         next_collision_type: u16,
+        source: FireDemonResumeSharedWalkerSourceLoc3A586,
     },
     Death {
         death_animation: &'static str,
@@ -393,6 +401,7 @@ pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
     match collision_type {
         0 => FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
             next_collision_type: 0,
+            source: FireDemonResumeSharedWalkerSourceLoc3A586::NoCollision,
         },
         FIRE_DEMON_COLID_KIDRIGHT | FIRE_DEMON_COLID_KIDLEFT => {
             FireDemonCollisionRouteLoc3A586::BerzerkerSideGate
@@ -407,6 +416,7 @@ pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
         }
         _ => FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
             next_collision_type: 0,
+            source: FireDemonResumeSharedWalkerSourceLoc3A586::UnknownPositive,
         },
     }
 }

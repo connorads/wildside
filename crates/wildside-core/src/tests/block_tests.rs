@@ -4109,6 +4109,11 @@ mod chunk_04 {
     #[test]
     fn fire_demon_palette_loc_3a4b4_steps_data_index_for_higher_levels() {
         assert_eq!(
+            fire_demon_palette_pulse_seed_loc_3a4b4(0, 0).map(|seed| seed.data_index_byte_offset),
+            Some(0x0634),
+            "ASM Fire_Demon.asm loc_3A48E/loc_3A4B8 keeps raw enemy_level 0 on the base Data_Index+$634 palette pulse"
+        );
+        assert_eq!(
             fire_demon_palette_pulse_seed_loc_3a4b4(0, 1).map(|seed| seed.data_index_byte_offset),
             Some(0x0640),
             "ASM Fire_Demon.asm loc_3A4B4 adds one $C step for raw enemy_level 1"
@@ -4333,6 +4338,7 @@ mod chunk_04 {
             fire_demon_collision_dispatch_loc_3a586(0, 3),
             FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
                 next_collision_type: 0,
+                source: FireDemonResumeSharedWalkerSourceLoc3A586::NoCollision,
             },
             "ASM Fire_Demon.asm loc_3A586 sends zero collision_type to the shared clear tail without damage"
         );
@@ -4368,6 +4374,7 @@ mod chunk_04 {
             fire_demon_collision_dispatch_loc_3a586(0x0004, 3),
             FireDemonCollisionRouteLoc3A586::ResumeSharedWalker {
                 next_collision_type: 0,
+                source: FireDemonResumeSharedWalkerSourceLoc3A586::UnknownPositive,
             },
             "ASM Fire_Demon.asm loc_3A586 ignores unrecognised positive collision IDs via the shared clear tail"
         );
