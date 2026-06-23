@@ -16,6 +16,8 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   current `unk_146B6`/`unk_146A0` template label reached by `loc_147BA`.
 - The steady `unk_146A0` entries now keep each template live for three frames,
   matching the ASM `d2=2` script words before `$FFFF -> loc_1484E`.
+- Script rows now use ASM `loc_147D6` camera culling, so off-window script
+  rows do not render and do not fall back to the legacy lava column.
 - Native-player renders the exact `unk_145CA`, `unk_145D4`, `unk_145DE`,
   `unk_145E8`, and `unk_14602` template rows for those script frames, then
   skips the old conservative height-column fallback for the same geyser/frame.
@@ -26,10 +28,11 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   `cargo test -q -p wildside-cli lava_geyser -- --nocapture`,
   `cargo fmt --all --check`, `cargo check -q -p wildside-core -p wildside-cli`,
   `git diff --check`, `mise run backlog-lint`, `mise run verify-slice-fast`,
-  and `mise run verify-tas-full` (CRC all 37,759 frames match; known baseline
-  212 authoritative divergences + 2 oracle limitations).
-- **Next:** keep #317 open for exact row-window/backend modelling and the shared
-  typed VRAM backend.
+  and, after the repeat-cadence gameplay fix, `mise run verify-tas-full` (CRC
+  all 37,759 frames match; known baseline 212 authoritative divergences + 2
+  oracle limitations).
+- **Next:** keep #317 open for exact full-height row-window/backend modelling
+  and the shared typed VRAM backend.
 
 ## 2026-06-23 handoff (#352 HiddenReveal render worker)
 

@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **#317 remains `[~]`:** Island shore DMA labels, storm `loc_14D8A` shared-art sprite consumption, storm `loc_14D32` pattern-plane rendering plus `Transfer_ScrollDataToVRAM loc_30110` countdown/scroll gating, lava geyser `loc_14772/loc_1478E` sound gates plus `$FFFE -> loc_1483A` disable/cooldown, lava `loc_147BA` startup/repeat template-row trace/render with steady `unk_146A0` `d2=2` cadence, and Unknown `loc_14E42` foreground-plane rendering are fixed; shared typed VRAM backend and exact row-window/backend debt remain.
+- **#317 remains `[~]`:** Island shore DMA labels, storm `loc_14D8A` shared-art sprite consumption, storm `loc_14D32` pattern-plane rendering plus `Transfer_ScrollDataToVRAM loc_30110` countdown/scroll gating, lava geyser `loc_14772/loc_1478E` sound gates plus `$FFFE -> loc_1483A` disable/cooldown, lava `loc_147BA` startup/repeat template-row trace/render with steady `unk_146A0` `d2=2` cadence and script-row `loc_147D6` culling, and Unknown `loc_14E42` foreground-plane rendering are fixed; shared typed VRAM backend and exact full-height row-window/backend debt remain.
 - **#316 remains `[~]`:** DP shared list + `sub_3F798` sprite compiler are
   gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the

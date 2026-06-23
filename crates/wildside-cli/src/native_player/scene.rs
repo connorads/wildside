@@ -4031,6 +4031,16 @@ fn push_lava_geyser_script_template_loc_147ba(
     let Some(templates) = lava_geyser_script_template_loc_147ba(&template.source_label) else {
         return false;
     };
+    if !wildside_core::lava_geyser_is_inside_camera_window_loc_147D6(
+        wildside_core::LavaGeyserCameraWindowInputLoc147D6 {
+            x_px: template.x_px,
+            y_px: template.base_y_px,
+            camera_x_px,
+            camera_y_px,
+        },
+    ) {
+        return true;
+    }
     // ASM loc_147BA/loc_1480C hands `sub_14BD8` the geyser baseline `d1`.
     // `push_lava_geyser_template_loc_14be8` adds the top-loop `$10` bias, so
     // subtract it here to leave the script rows at their ROM baseline.

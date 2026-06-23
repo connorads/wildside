@@ -10889,6 +10889,58 @@ mod tests {
     }
 
     #[test]
+    fn build_game_scene_culls_lava_geyser_script_template_loc_147d6() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0x0100_0000;
+        trace.camera_y_pos = 0;
+        trace.active_geysers = vec![(0x00DF, 0x0030, 0x0010)];
+        trace.lava_geyser_script_templates_loc_147ba =
+            vec![wildside_core::LavaGeyserScriptTemplateTraceLoc147BA {
+                x_px: 0x00DF,
+                base_y_px: 0x0040,
+                source_label: "unk_14602".to_owned(),
+            }];
+        let mut visuals = sample_level_visuals();
+        visuals.lava = Some(wildside_render::LavaVisuals {
+            palette: Palette {
+                colours: (0..8).map(|value| colour(value * 16, 0, 0)).collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0xC0],
+            },
+            vram_base_tile_index: 0x02FB,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                ) || matches!(command, DrawCommand::Rect { colour, .. } if *colour == [255, 120, 20])
+            }),
+            "ASM loc_147D6 should cull off-window loc_147BA script rows without falling back to the legacy lava column"
+        );
+    }
+
+    #[test]
     fn build_game_scene_uses_live_lava_geyser_palette_words_loc_14b2a() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;

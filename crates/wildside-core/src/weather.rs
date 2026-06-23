@@ -2389,16 +2389,16 @@ pub(crate) fn lava_geyser_loop_back_edge_loc_1486C() -> LavaGeyserLoopBackEdgeLo
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct LavaGeyserCameraWindowInputLoc147D6 {
-    pub(crate) x_px: u16,
-    pub(crate) y_px: u16,
-    pub(crate) camera_x_px: u16,
-    pub(crate) camera_y_px: u16,
+pub struct LavaGeyserCameraWindowInputLoc147D6 {
+    pub x_px: u16,
+    pub y_px: u16,
+    pub camera_x_px: u16,
+    pub camera_y_px: u16,
 }
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn lava_geyser_is_inside_camera_window_loc_147D6(
+pub fn lava_geyser_is_inside_camera_window_loc_147D6(
     input: LavaGeyserCameraWindowInputLoc147D6,
 ) -> bool {
     // ASM loc_147D6 (kid.asm:27858): before building one sprite row, the lava
