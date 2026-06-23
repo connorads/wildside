@@ -863,6 +863,7 @@ pub(crate) fn render_trace_with_vdp_latched_state(
             .clone_from(&previous_trace.active_objects);
         render_trace.frame_index = previous_trace.frame_index;
         render_trace.current_helmet_id = previous_trace.current_helmet_id;
+        render_trace.cyclone_flying = previous_trace.cyclone_flying;
         render_trace.kid_facing = previous_trace.kid_facing;
         render_trace.kid_on_ground = previous_trace.kid_on_ground;
         render_trace.kid_on_slope = previous_trace.kid_on_slope;
@@ -899,6 +900,7 @@ pub(crate) fn render_trace_with_vdp_latched_state(
         render_trace.kid_y_pos = previous_trace.kid_y_pos;
         render_trace.frame_index = previous_trace.frame_index;
         render_trace.current_helmet_id = previous_trace.current_helmet_id;
+        render_trace.cyclone_flying = previous_trace.cyclone_flying;
         render_trace.kid_facing = previous_trace.kid_facing;
         render_trace.kid_on_ground = previous_trace.kid_on_ground;
         render_trace.kid_on_slope = previous_trace.kid_on_slope;

@@ -31079,6 +31079,23 @@ mod chunk_05 {
     }
 
     #[test]
+    fn cyclone_flight_advances_spin_phase_sub_b270_loc_b2a0() {
+        let mut rt = cyclone_runtime();
+        rt.helmet.cyclone_flying = true;
+        rt.helmet.cyclone_y_accel = CYCLONE_ACCEL_INITIAL;
+        let mut slice = airborne_slice();
+        slice.player.y_velocity = 0;
+        slice.walk_visual_accumulator = 0x0100;
+
+        rt.step_cyclone_flight(&mut slice, FrameInput::default());
+
+        assert_eq!(
+            slice.walk_visual_accumulator, 0x0138,
+            "ASM sub_B270 loc_B2A0: post-physics Cyclone_YAcceleration $1200 produces phase delta $38 and stores it in `$FFFFF8F0`"
+        );
+    }
+
+    #[test]
     fn cyclone_c_newly_pressed_provides_thrust() {
         let mut rt = cyclone_runtime();
         rt.helmet.cyclone_flying = true;

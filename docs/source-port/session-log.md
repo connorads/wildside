@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#355 Cyclone flight spin render)
+
+- **#355 moved `[ ]`→`[?]`.** Cyclone flight now mirrors ASM `sub_B270 loc_B2A0`:
+  core advances `$FFFFF8F0` from post-physics `Cyclone_YAcceleration`, trace exposes
+  `Cyclone_flying`, and native-player renders `cyclone_spinning_1..3` while that flag is set.
+- The old "grounded continuous spin" hypothesis was rejected by the ASM; grounded Cyclone still
+  uses ordinary `loc_9600/off_96D8` walk frames. Cyclone transform audio remains separate #272.
+- Regressions: `cyclone_flight_advances_spin_phase_sub_b270_loc_b2a0`,
+  `cyclone_flight_uses_spin_frame_sub_b270_loc_b2a0`, and
+  `grounded_cyclone_keeps_walk_table_when_not_flying_loc_9600`.
+- Verification: focused tests, `cargo fmt --all --check`, `cargo check -q -p wildside-core`,
+  `cargo check -q -p wildside-cli`, `cargo check -q -p wildside-render`, `git diff --check`,
+  and `mise run verify-slice-fast` (clippy/hooks/backlog, TAS frontier slices, 6269 core tests
+  + 9 CLI tests).
+- **Next:** `mise run project-status` shows no ready item; top open playability risk is
+  #317 and top visual risk is #210. #355 now waits for human natural Cyclone validation.
+
 ## 2026-06-23 handoff (#344 walking Dragon hurt render)
 
 - **#344 moved `[ ]`→`[?]`.** Nonlethal walking-Dragon stomps now render ASM

@@ -3215,6 +3215,7 @@ mod tests {
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
+            cyclone_flying: false,
             paused: false,
             pause_menu_option: 0,
             kid_x_pos: Some(0x0020_0000),
@@ -6059,6 +6060,7 @@ mod tests {
                     sample_player_frame(6),
                     sample_player_frame(7),
                 ],
+                flight_spin: Vec::new(),
                 charge: Vec::new(),
                 climb: Vec::new(),
                 axe: Vec::new(),
@@ -6111,6 +6113,7 @@ mod tests {
                     sample_player_frame(15),
                     sample_player_frame(16),
                 ],
+                flight_spin: Vec::new(),
                 charge: Vec::new(),
                 climb: vec![
                     sample_player_frame(50),
@@ -6153,6 +6156,7 @@ mod tests {
                 },
                 idle: sample_player_frame(21),
                 walk: vec![sample_player_frame(22)],
+                flight_spin: Vec::new(),
                 charge: Vec::new(),
                 climb: Vec::new(),
                 axe: Vec::new(),
@@ -6200,6 +6204,11 @@ mod tests {
                 },
                 idle: sample_player_frame(48),
                 walk: vec![sample_player_frame(49)],
+                flight_spin: vec![
+                    sample_player_frame(53),
+                    sample_player_frame(54),
+                    sample_player_frame(55),
+                ],
                 charge: Vec::new(),
                 climb: Vec::new(),
                 axe: Vec::new(),
@@ -6245,6 +6254,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            flight_spin: Vec::new(),
             charge: vec![
                 sample_player_frame(40),
                 sample_player_frame(41),
@@ -6296,6 +6306,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            flight_spin: Vec::new(),
             charge: vec![
                 sample_player_frame(40),
                 sample_player_frame(41),
@@ -6348,6 +6359,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            flight_spin: Vec::new(),
             charge: vec![
                 sample_player_frame(40),
                 sample_player_frame(41),
@@ -6400,6 +6412,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            flight_spin: Vec::new(),
             charge: vec![
                 sample_player_frame(40),
                 sample_player_frame(41),
@@ -6453,6 +6466,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            flight_spin: Vec::new(),
             charge: vec![
                 sample_player_frame(40),
                 sample_player_frame(41),
@@ -6505,6 +6519,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            flight_spin: Vec::new(),
             charge: vec![
                 sample_player_frame(40),
                 sample_player_frame(41),
@@ -6553,6 +6568,7 @@ mod tests {
             },
             idle: sample_player_frame(1),
             walk: vec![sample_player_frame(10), sample_player_frame(11)],
+            flight_spin: Vec::new(),
             charge: Vec::new(),
             climb: Vec::new(),
             axe: Vec::new(),
@@ -6612,6 +6628,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            flight_spin: Vec::new(),
             charge: Vec::new(),
             climb: Vec::new(),
             axe: Vec::new(),
@@ -6656,6 +6673,7 @@ mod tests {
                 sample_player_frame(34),
                 sample_player_frame(35),
             ],
+            flight_spin: Vec::new(),
             charge: Vec::new(),
             climb: Vec::new(),
             axe: Vec::new(),
@@ -6693,6 +6711,7 @@ mod tests {
             },
             idle: sample_player_frame(1),
             walk: vec![sample_player_frame(10), sample_player_frame(11)],
+            flight_spin: Vec::new(),
             charge: Vec::new(),
             climb: vec![
                 sample_player_frame(60),
@@ -6742,6 +6761,7 @@ mod tests {
                 sample_player_frame(14),
                 sample_player_frame(15),
             ],
+            flight_spin: Vec::new(),
             charge: Vec::new(),
             climb: Vec::new(),
             axe: Vec::new(),
@@ -16123,7 +16143,7 @@ mod tests {
     }
 
     fn is_player_test_signature(signature: u8) -> bool {
-        (1..=52).contains(&signature)
+        (1..=55).contains(&signature)
     }
 
     fn player_sprite_signature(scene: &Scene) -> Option<u8> {
@@ -16295,6 +16315,42 @@ mod tests {
             player_sprite_signature(&scene),
             Some(35),
             "ASM sub_B270 buckets the Red Stealth airborne slash through `unk_B40DE..unk_B4870`",
+        );
+    }
+
+    #[test]
+    fn cyclone_flight_uses_spin_frame_sub_b270_loc_b2a0() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::Cyclone.helmet_id();
+        trace.cyclone_flying = true;
+        trace.kid_on_ground = Some(false);
+        trace.kid_y_velocity = Some(0x0001_0000);
+        trace.walk_visual_accumulator = 0x0100;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(54),
+            "ASM sub_B270 loc_B2A0 stores the Cyclone flight phase in `$FFFFF8F0`; phase $0100 selects `unk_BA7E0` / cyclone_spinning_2"
+        );
+    }
+
+    #[test]
+    fn grounded_cyclone_keeps_walk_table_when_not_flying_loc_9600() {
+        let mut trace = trace_with_player(720, 0);
+        trace.current_helmet_id = PlayerForm::Cyclone.helmet_id();
+        trace.cyclone_flying = false;
+        trace.kid_on_ground = Some(true);
+        trace.kid_x_velocity = Some(0x0001_0000);
+        trace.walk_visual_accumulator = 0;
+
+        let scene = build_ingame_scene(&trace, false, None);
+
+        assert_eq!(
+            player_sprite_signature(&scene),
+            Some(49),
+            "ASM loc_9600/off_96D8 owns grounded Cyclone walking; the sub_B270 flight spin branch must stay gated by Cyclone_flying"
         );
     }
 

@@ -1343,6 +1343,10 @@ pub struct NativeTraceFrame {
     /// `red_stealth_sword_timer` so the renderer can distinguish.
     #[serde(default, skip_serializing_if = "is_zero_u8")]
     pub red_stealth_airborne_slash_counter: u8,
+    /// ROM `Cyclone_flying` (`$FFFFFA68`): when set, ASM `sub_B270 loc_B2A0`
+    /// renders the three Cyclone spin frames from `$FFFFF8F0 >> 8`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub cyclone_flying: bool,
     pub paused: bool,
     /// ROM `Pause_Option` (`$FFFFFAD1`): 0 = Continue, 1 = Restart Round/Give Up.
     /// Advisory/render-only; `paused` remains the gameplay gate.
@@ -1705,6 +1709,7 @@ impl Default for NativeTraceFrame {
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
+            cyclone_flying: false,
             paused: false,
             pause_menu_option: 0,
             kid_x_pos: None,
@@ -1823,6 +1828,14 @@ fn is_zero_u16(value: &u16) -> bool {
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_zero_usize(value: &usize) -> bool {
     *value == 0
+}
+
+#[allow(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires a reference predicate"
+)]
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 impl NativeTraceFrame {

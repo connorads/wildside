@@ -31,6 +31,9 @@ pub struct PlayerFormVisuals {
     pub palette: Palette,
     pub idle: SpriteFrame,
     pub walk: Vec<SpriteFrame>,
+    /// ASM `sub_B270 loc_B2A0`: Cyclone flight spin frames.
+    /// Empty for forms without separate flight-spin art.
+    pub flight_spin: Vec<SpriteFrame>,
     /// ASM `off_9688`: Berzerker head-forward charge/run frames.
     /// Empty for forms without a separate charge table.
     pub charge: Vec<SpriteFrame>,

@@ -1272,6 +1272,8 @@ struct PlayerFormSpec {
     palette_family: &'static str,
     idle: PlayerFrameDescriptor,
     walk: &'static [PlayerFrameDescriptor],
+    /// ASM `sub_B270 loc_B2A0`: Cyclone flight spin frames.
+    flight_spin: &'static [PlayerFrameDescriptor],
     /// ASM stru_8B6A: pre-drawn tilted slope walk frames (right-facing).
     slope_walk: &'static [PlayerFrameDescriptor],
     /// Left-facing slope walk frames.
@@ -2623,6 +2625,11 @@ const CYCLONE_WALK_FRAMES: [PlayerFrameDescriptor; 6] = [
     pfd("artunc_kid/cyclone_walk_5.bin", 0x0D, 0x01, 0x17, 0x20),
     pfd("artunc_kid/cyclone_walk_6.bin", 0x0D, 0x01, 0x17, 0x1F),
 ];
+const CYCLONE_FLIGHT_SPIN_FRAMES: [PlayerFrameDescriptor; 3] = [
+    pfd("artunc_kid/cyclone_spinning_1.bin", 0x0E, 0x04, 0x1B, 0x26),
+    pfd("artunc_kid/cyclone_spinning_2.bin", 0x0D, 0x04, 0x1A, 0x27),
+    pfd("artunc_kid/cyclone_spinning_3.bin", 0x0F, 0x04, 0x1C, 0x26),
+];
 const CYCLONE_TRANSFORM_STEPS: [PlayerTransformStepDescriptor; 10] = [
     tfd(16, KID_WALK_1_FRAME),
     tfd(
@@ -3474,6 +3481,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Kid palette",
         idle: KID_IDLE_FRAME,
         walk: &KID_WALK_FRAMES,
+        flight_spin: &[],
         slope_walk: &KID_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &KID_SLOPE_WALK_LEFT_FRAMES,
         axe: &[],
@@ -3492,6 +3500,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Skycutter palette",
         idle: SKYCUTTER_IDLE_FRAME,
         walk: &SKYCUTTER_WALK_FRAMES,
+        flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &[],
@@ -3513,6 +3522,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Cyclone palette",
         idle: CYCLONE_IDLE_FRAME,
         walk: &CYCLONE_WALK_FRAMES,
+        flight_spin: &CYCLONE_FLIGHT_SPIN_FRAMES,
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &[],
@@ -3531,6 +3541,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Red Stealth palette",
         idle: RED_STEALTH_IDLE_FRAME,
         walk: &RED_STEALTH_WALK_FRAMES,
+        flight_spin: &[],
         slope_walk: &RED_STEALTH_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &RED_STEALTH_SLOPE_WALK_LEFT_FRAMES,
         axe: &[],
@@ -3564,6 +3575,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Eyeclops palette",
         idle: EYECLOPS_IDLE_FRAME,
         walk: &EYECLOPS_WALK_FRAMES,
+        flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &[],
@@ -3585,6 +3597,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Iron Knight palette",
         idle: IRON_KNIGHT_IDLE_FRAME,
         walk: &IRON_KNIGHT_WALK_FRAMES,
+        flight_spin: &[],
         slope_walk: &IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES,
         axe: &[],
@@ -3606,6 +3619,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Berzerker palette",
         idle: BERZERKER_IDLE_FRAME,
         walk: &BERZERKER_WALK_FRAMES,
+        flight_spin: &[],
         slope_walk: &BERZERKER_SLOPE_WALK_RIGHT_FRAMES,
         slope_walk_left: &BERZERKER_SLOPE_WALK_LEFT_FRAMES,
         axe: &[],
@@ -3627,6 +3641,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Maniaxe palette",
         idle: MANIAXE_IDLE_FRAME,
         walk: &MANIAXE_WALK_FRAMES,
+        flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &MANIAXE_AXE_FRAMES,
@@ -3645,6 +3660,7 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
         palette_family: "Micromax palette",
         idle: MICROMAX_IDLE_FRAME,
         walk: &MICROMAX_WALK_FRAMES,
+        flight_spin: &[],
         slope_walk: &[],
         slope_walk_left: &[],
         axe: &[],
@@ -4000,6 +4016,7 @@ fn load_juggernaut_form_visuals_if_present(
                 load_composite_player_frame(manifest, &[bottom, head])
             })
             .collect::<Result<Vec<_>>>()?,
+        flight_spin: Vec::new(),
         charge: Vec::new(),
         climb: Vec::new(),
         axe: Vec::new(),
@@ -4091,6 +4108,7 @@ fn load_player_form_visuals(
             .copied()
             .map(|descriptor| load_player_frame(manifest, descriptor))
             .collect::<Result<Vec<_>>>()?,
+        flight_spin: load_player_frames(manifest, spec.flight_spin)?,
         charge: if spec.form_id == PLAYER_FORM_BERZERKER {
             // ASM loc_9564 indexes off_9688, which is a separate Berzerker
             // run/head-forward table rather than the normal off_967C walk art.

@@ -518,6 +518,17 @@ pub(super) fn select_player_frame<'a>(
         return &player_visuals.pull_up[frame_index];
     }
 
+    if trace.current_helmet_id == PlayerForm::Cyclone.helmet_id()
+        && trace.cyclone_flying
+        && !player_visuals.flight_spin.is_empty()
+    {
+        // ASM sub_B270 loc_B2A0 (kid.asm:14154-14175) stores the flight phase
+        // in `$FFFFF8F0` and selects `cyclone_spinning_1..3` via `phase >> 8`.
+        let frame_index = usize::from(trace.walk_visual_accumulator >> 8)
+            .min(player_visuals.flight_spin.len() - 1);
+        return &player_visuals.flight_spin[frame_index];
+    }
+
     // ASM sub_B270 loc_B350/loc_B380 (kid.asm:14220-14248): the airborne
     // attack-down counter (`red_stealth_airborne_slash_counter`, 0→$7F)
     // selects one of four downward-slash phases via `counter >> 5`. Native

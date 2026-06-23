@@ -7350,6 +7350,7 @@ impl NativeRuntime {
             } else {
                 self.helmet.red_stealth_airborne_slash_counter
             },
+            cyclone_flying: !hidden_boot_progression && self.helmet.cyclone_flying,
             paused: self.paused || self.demo_1_late_controller_pause_active(),
             pause_menu_option: if self.paused {
                 self.pause_menu_option

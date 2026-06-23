@@ -6095,6 +6095,27 @@ impl NativeRuntime {
             .player
             .y_velocity
             .clamp(CYCLONE_MAX_RISE_VEL, CYCLONE_MAX_FALL_VEL);
+
+        // ASM sub_B270 loc_B2A0 (kid.asm:14154-14175): after flight physics,
+        // advance `$FFFFF8F0` from `Cyclone_YAcceleration` and use it to select
+        // the Cyclone spin sprite. Native-player consumes the stored phase.
+        let visual_step = kid_airborne_visual_sub_B270(KidAirborneVisualInputSubB270 {
+            helmet_id: self.progression.current_form.helmet_id(),
+            is_animated: false,
+            on_ground: slice.player.on_ground,
+            global_lock_active: false,
+            airborne_latch_active: false,
+            cyclone_flying: self.helmet.cyclone_flying,
+            cyclone_y_accel: self.helmet.cyclone_y_accel,
+            cyclone_frame_accum: slice.walk_visual_accumulator,
+            juggernaut_companion_animation_active: false,
+            maniaxe_throwing_axe: false,
+            y_velocity: slice.player.y_velocity,
+            jump_threshold: 0,
+            c_held: input.c,
+            red_stealth_sword_swing: 0,
+        });
+        slice.walk_visual_accumulator = visual_step.next_cyclone_frame_accum;
     }
 
     /// ASM kid_flip (loc_ACB0): C rising edge activates flight when airborne.

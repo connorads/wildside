@@ -11263,6 +11263,21 @@ new row — verify it on the next playtest.
   render is validated (pixel-perfect) — normal-play pickup spin is untracked → new row. Both
   halves need state-aligned natural Cyclone-pickup routes vs oracle.
 
+- **#355 (render/form, `[ ]`→`[?]`) — FIXED candidate 2026-06-23.** The earlier
+  "continuous grounded spin" hypothesis was wrong: ASM `sub_B270 loc_B2A0` only selects the
+  `unk_BA55A`/`unk_BA7E0`/`unk_BAA66` Cyclone spinning mappings when `Cyclone_flying` is set;
+  grounded Cyclone falls through the ordinary `loc_9600/off_96D8` walk table. Native now mirrors
+  that split. Core `step_cyclone_flight` advances the `$FFFFF8F0` phase from post-physics
+  `Cyclone_YAcceleration`, trace exposes ROM `Cyclone_flying` for the renderer, and
+  native-player loads/renders `cyclone_spinning_1..3` via a dedicated `flight_spin` table.
+  Regressions: `cyclone_flight_advances_spin_phase_sub_b270_loc_b2a0`,
+  `cyclone_flight_uses_spin_frame_sub_b270_loc_b2a0`, and
+  `grounded_cyclone_keeps_walk_table_when_not_flying_loc_9600`. Verification:
+  `cargo fmt --all --check`, `cargo check -q -p wildside-core`, `cargo check -q -p wildside-cli`,
+  `cargo check -q -p wildside-render`, focused tests, `git diff --check`, and
+  `mise run verify-slice-fast` (clippy/hooks/backlog, TAS frontier slices, 6269 core tests + 9 CLI
+  tests). Human still needs to validate a natural Cyclone pickup/flight route; audio remains #272.
+
 - **#356 (render/background, NEW `[ ]`)** — O19. Skydragon Castle 0x1B (theme 1) sky-castle
   background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam,
   wrong colour not missing) and #210 (the demo/intro Skydragon plane-A/B over/under-draw,

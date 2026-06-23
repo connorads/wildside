@@ -41,8 +41,7 @@ and stop — never commit churn.
     #335 Hills instant-death has a new fixed candidate and waits in `backlog-awaiting-human.md`.
   - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
-  - **3 NEW rows:** #353 invisible metal-block spikes (P1 — kills you with no visible hazard),
-    #355 Cyclone spin form no anim (P2 render), #356 Skydragon Castle bg piece dropout (P2).
+  - **3 NEW rows opened:** #353 and #356 remain open; #355 has since moved to `[?]`.
   - **3 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds).
     #345 has since moved to `[b]` route-blocked after the settled probes did not reproduce
     the Lion absence.
@@ -81,9 +80,10 @@ and stop — never commit churn.
   murder-wall runtime at `loc_1AE2E -> loc_6E2 -> Load_InGame` while preserving the carried
   helmet. Cache-backed Red Stealth regression, `verify-slice-fast`, and `verify-tas-full`
   are green; human needs to re-test natural Hills entry.
-- **#344 moved to `[?]` fixed candidate.** Walking Dragon nonlethal stomp render now
-  holds ASM `stru_3CCE6` hurt frame during hibernate. Next queue: #355 playability,
-  #210 visual.
+- **#344 moved to `[?]` fixed candidate.** Walking Dragon nonlethal stomp render now holds
+  ASM `stru_3CCE6` hurt frame during hibernate.
+- **#355 moved to `[?]` fixed candidate.** Cyclone flight now renders ASM `sub_B270 loc_B2A0`
+  `cyclone_spinning_1..3`; grounded Cyclone stays on the normal walk table. Audio remains #272.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -123,5 +123,4 @@ For newly opened items, capture these facts in the investigation notes:
 | 352 | [ ] | P1 | render/block | 2026-06-22 reconfirm (fix failed): hidden jump-up blocks (USM 0x04-0x06 / Highwater 0x02) still pop in/out with no fold anim — core landed but the renderer skips the revealed cell. | Headbutt a hidden block (USM 0x04-0x06 / Highwater 0x02); the 8-frame y-bob (loc_E2E2/E2F0) must animate. Wire HiddenReveal into scene.rs:5057 block-bounce draw loop (mirror #347). See archive #352. |
 | 272 | [ ] | P1 | audio | 2026-06-22 (transform-voice fix failed): picking up the Cyclone "spin form" helmet plays NO transform noise. Core mapping exists (id 0x32) but no Cyclone route was ever validated. Render half = #355. | Real-device/oracle: pick up a Cyclone helmet in normal play; transform SFX id 0x32 must be audible. Needs a state-aligned natural Cyclone-pickup route (none validated). See archive #272. |
 | 353 | [ ] | P1 | render/block | 2026-06-22 (NEW): USM spiked metal blocks render with NO screws/spikes — the spike art is missing so the kill hazard is INVISIBLE (player died on a visually-empty metal block). | capture-frames USM 0x04-0x06 at a spiked metal block vs oracle; native must draw the spikes. Collision still kills ($7000) while the foreground/Block_Mappings spike tile is absent. See archive #353. |
-| 355 | [ ] | P2 | render/form | 2026-06-22 (NEW): the Cyclone "spin form" does not visibly SPIN in normal play. Cyclone art is extracted/wired but there is no continuous-spin path, so grounded Cyclone uses generic idle/walk. Audio half = #272. | Pick up a Cyclone helmet in normal play vs oracle: the spin/transform anim must play (CYCLONE_TRANSFORM_STEPS; flight spin sub_B270), then grounded Cyclone should animate. Distinct from #284 demo. See archive #355. |
 | 356 | [ ] | P2 | render/background | 2026-06-22 (NEW): Skydragon Castle 0x1B sky-castle background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam) and #210 (demo/intro). | capture-frames --level 1B at scroll positions vs oracle; classify as Plane-A/B tile gaps vs Cloud/Tornado over-cull (#345/#289) vs faithful VDP 20-per-line sprite limit. See archive #356. |

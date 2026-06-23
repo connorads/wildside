@@ -1022,6 +1022,7 @@ mod tests {
             current_helmet_id: 0,
             red_stealth_sword_timer: 0,
             red_stealth_airborne_slash_counter: 0,
+            cyclone_flying: false,
             paused: false,
             pause_menu_option: 0,
             kid_x_pos: None,
