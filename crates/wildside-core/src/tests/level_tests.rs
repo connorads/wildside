@@ -218,6 +218,8 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
             y_px: 48,
             height_px: 64,
             startup_delay_frames: 0,
+            first_eruption_pending: false,
+            sound_suppressed: false,
             phase: 1,
             timer: 5,
             current_height: 24,
@@ -21772,6 +21774,9 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_shifting_block());
         start_level(&mut runtime);
+        for geyser in &mut runtime.weather.lava_geysers {
+            geyser.sound_suppressed = true;
+        }
 
         // Position player just below shifting block at col 2, row 2.
         if let Some(ref mut slice) = runtime.opening_slice {
@@ -22042,6 +22047,9 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_hidden_block());
         start_level(&mut runtime);
+        for geyser in &mut runtime.weather.lava_geysers {
+            geyser.sound_suppressed = true;
+        }
 
         // Verify hidden block at col 2, row 2
         let grid = runtime.block_grid.as_ref().unwrap();

@@ -77,6 +77,7 @@ pub(crate) enum QueuedSoundEffect {
     ClockPrize,
     CoinPrize,
     Teleport,
+    LavaGeyser,
     DripsDripping,
     TarMonsterDisappears,
     TarMonsterAppears,
@@ -194,6 +195,10 @@ impl QueuedSoundEffect {
             // only when the caller passes d6=-5; teleporter blocks do so at
             // loc_BCF6.
             Self::Teleport => 0x76,
+            // ASM loc_14772/loc_1478E/loc_1483A (kid.asm:27820,27831,27900)
+            // play `sfx_Lava_Geyser_starting` / `sfx_Lava_Geyser`; constants.asm
+            // aliases both labels to `$1E`.
+            Self::LavaGeyser => 0x1E,
             // ASM Drips.asm loc_3345C plays `sfx_Drips_dripping = $58`
             // when the falling child reaches floor collision before loc_33488.
             Self::DripsDripping => 0x58,

@@ -2189,6 +2189,10 @@ pub(crate) struct LavaGeyser {
     pub(crate) height_px: u16,
     /// ASM loc_14772 startup hibernate, reused after each collapse.
     pub(crate) startup_delay_frames: u16,
+    /// True until the worker leaves the first loc_14772 -> loc_14788 startup path.
+    pub(crate) first_eruption_pending: bool,
+    /// ASM `$19(a3)`: non-zero when Make_SpriteFromGfxObject clipped the object.
+    pub(crate) sound_suppressed: bool,
     /// Phase: 0=waiting, 1=erupting upward, 2=holding, 3=collapsing.
     pub(crate) phase: u8,
     /// Frames remaining in current phase.

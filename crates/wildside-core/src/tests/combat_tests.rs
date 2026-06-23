@@ -21491,6 +21491,9 @@ mod chunk_05 {
     fn level_timer_death_on_expiry() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
+        for geyser in &mut runtime.weather.lava_geysers {
+            geyser.sound_suppressed = true;
+        }
 
         // Fast-forward timer to near-expiry
         runtime.level_timer.seconds = 0;
@@ -23020,6 +23023,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 16,
             startup_delay_frames: 0,
+            first_eruption_pending: true,
+            sound_suppressed: false,
             phase: 0,
             timer: 0, // ready to erupt immediately
             current_height: 0,
@@ -28710,6 +28715,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 40,
             startup_delay_frames: 0,
+            first_eruption_pending: false,
+            sound_suppressed: false,
             phase: 1,
             timer: 0,
             current_height: 40, // fully erupted
@@ -28738,6 +28745,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 40,
             startup_delay_frames: 0,
+            first_eruption_pending: false,
+            sound_suppressed: false,
             phase: 1,
             timer: 0,
             current_height: 40,
@@ -28766,6 +28775,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 40,
             startup_delay_frames: 0,
+            first_eruption_pending: false,
+            sound_suppressed: false,
             phase: 1,
             timer: 0,
             current_height: 40,
@@ -28793,6 +28804,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 40,
             startup_delay_frames: 0,
+            first_eruption_pending: false,
+            sound_suppressed: false,
             phase: 1,
             timer: 0,
             current_height: 40,
@@ -28821,6 +28834,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 16,
             startup_delay_frames: 30,
+            first_eruption_pending: false,
+            sound_suppressed: false,
             phase: 3,
             timer: 0,
             current_height: LAVA_GEYSER_ROW_HEIGHT_PX, // one row from collapse end
@@ -28848,6 +28863,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 40,
             startup_delay_frames: 0,
+            first_eruption_pending: true,
+            sound_suppressed: false,
             phase: 0,
             timer: 5,
             current_height: 0, // dormant, no eruption
@@ -29100,6 +29117,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 16,
             startup_delay_frames: 0,
+            first_eruption_pending: true,
+            sound_suppressed: false,
             phase: 0,
             timer: 5,
             current_height: 0,
@@ -29136,6 +29155,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 16,
             startup_delay_frames: 0,
+            first_eruption_pending: true,
+            sound_suppressed: false,
             phase: 0,
             timer: 5,
             current_height: 0,
@@ -29157,6 +29178,98 @@ mod chunk_05 {
     }
 
     #[test]
+    fn step_lava_geysers_phase_0_queues_first_sound_when_visible_loc_14772() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            startup_delay_frames: 0,
+            first_eruption_pending: true,
+            sound_suppressed: false,
+            phase: 0,
+            timer: 0,
+            current_height: 0,
+        });
+
+        let slice = airborne_slice();
+        runtime.step_lava_geysers(&slice);
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::LavaGeyser],
+            "ASM loc_14772 should play `sfx_Lava_Geyser_starting` when `$19(a3)` is clear before the first loc_14788 startup script"
+        );
+        assert_eq!(
+            QueuedSoundEffect::LavaGeyser.sound_id(),
+            0x1E,
+            "constants.asm aliases `sfx_Lava_Geyser_starting` and `sfx_Lava_Geyser` to sound id $1E"
+        );
+        assert!(
+            !geyser.first_eruption_pending,
+            "native should leave the first-eruption path once loc_14772 falls through to loc_14788"
+        );
+        assert_eq!(geyser.phase, 1);
+    }
+
+    #[test]
+    fn step_lava_geysers_phase_0_skips_first_sound_when_clipped_loc_14772() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            startup_delay_frames: 0,
+            first_eruption_pending: true,
+            sound_suppressed: true,
+            phase: 0,
+            timer: 0,
+            current_height: 0,
+        });
+
+        let slice = airborne_slice();
+        runtime.step_lava_geysers(&slice);
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert!(
+            runtime.played_sound_effects.is_empty(),
+            "ASM loc_14772 should skip `j_PlaySound` when Make_SpriteFromGfxObject leaves `$19(a3)` non-zero"
+        );
+        assert!(!geyser.first_eruption_pending);
+        assert_eq!(geyser.phase, 1);
+    }
+
+    #[test]
+    fn step_lava_geysers_phase_0_queues_repeat_sound_after_startup_path_loc_1478e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            startup_delay_frames: 0,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: 0,
+            timer: 0,
+            current_height: 0,
+        });
+
+        let slice = airborne_slice();
+        runtime.step_lava_geysers(&slice);
+
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::LavaGeyser],
+            "ASM loc_1478E should play `sfx_Lava_Geyser` on visible repeat cycles before loc_1479C reloads `unk_146A0`"
+        );
+        assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
+    }
+
+    #[test]
     fn step_lava_geysers_rotates_live_palette_every_five_frames_loc_14b2a() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 1;
@@ -29165,6 +29278,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 16,
             startup_delay_frames: 0,
+            first_eruption_pending: true,
+            sound_suppressed: false,
             phase: 0,
             timer: 10,
             current_height: 0,
@@ -29208,6 +29323,8 @@ mod chunk_05 {
             y_px: 200,
             height_px: 32,
             startup_delay_frames: 0,
+            first_eruption_pending: false,
+            sound_suppressed: false,
             phase: 3,
             timer: 0,
             current_height: 32,
@@ -29662,6 +29779,20 @@ mod chunk_05 {
                 vram_destination: crate::weather::LAVA_GEYSER_ART_VRAM_DESTINATION_LOC_14C6A,
             }],
             "ASM Init_SpecialEffect_Lava loc_14C6A decompresses ArtComp_983D2_Lava to VRAM $5F60 immediately after allocating the lava geyser objects"
+        );
+    }
+
+    #[test]
+    fn loc_14772_only_plays_the_starting_lava_geyser_sound_when_the_flag_is_clear() {
+        assert_eq!(
+            crate::weather::lava_geyser_start_sound_loc_14772(false),
+            Some("sfx_Lava_Geyser_starting"),
+            "ASM loc_14772 should queue `sfx_Lava_Geyser_starting` when `$19(a3)` is zero before the startup script"
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_start_sound_loc_14772(true),
+            None,
+            "ASM loc_14772 should skip the starting sound when `$19(a3)` is non-zero"
         );
     }
 
@@ -30250,6 +30381,8 @@ mod chunk_05 {
             y_px: 0,
             height_px: 0,
             startup_delay_frames: 0,
+            first_eruption_pending: true,
+            sound_suppressed: false,
             phase: 0,
             timer: 0,
             current_height: 0,

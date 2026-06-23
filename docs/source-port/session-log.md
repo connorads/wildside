@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 lava geyser sound gate)
+
+- **#317 remains `[~]`.** Lava geyser phase-0 transitions now model the
+  first-eruption vs repeat path and the ASM `$19(a3)` sound-suppression flag.
+- Live `step_lava_geysers` queues `QueuedSoundEffect::LavaGeyser` (`$1E`) for
+  loc_14772 startup and loc_1478E repeat sounds only when the geyser is visible.
+- Regressions: `step_lava_geysers_phase_0_queues_first_sound_when_visible_loc_14772`,
+  `step_lava_geysers_phase_0_skips_first_sound_when_clipped_loc_14772`,
+  `step_lava_geysers_phase_0_queues_repeat_sound_after_startup_path_loc_1478e`,
+  and `loc_14772_only_plays_the_starting_lava_geyser_sound_when_the_flag_is_clear`.
+- **Next:** keep #317 open for the actual script walker/intro row output,
+  `$FFFE -> loc_1483A` disable coroutine, storm/Unknown plane renderer
+  consumption, and the shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#317 storm shared art trace)
 
 - **#317 remains `[~]`.** Storm init now records ASM `Init_SpecialEffect_Storm`

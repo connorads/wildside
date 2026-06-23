@@ -2106,6 +2106,16 @@ pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {
 
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn lava_geyser_start_sound_loc_14772(sound_suppressed: bool) -> Option<&'static str> {
+    // ASM loc_14772 (kid.asm:27820): after the initial per-geyser hibernate,
+    // the first eruption plays `sfx_Lava_Geyser_starting` only when `$19(a3)`
+    // is clear; Make_SpriteFromGfxObject sets that flag while the object is
+    // clipped out of the visible sprite window.
+    (!sound_suppressed).then_some("sfx_Lava_Geyser_starting")
+}
+
+#[allow(non_snake_case)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_repeat_sound_loc_1478E(sound_suppressed: bool) -> Option<&'static str> {
     // ASM loc_1478E (kid.asm:27830): the repeat-cycle path plays
     // `sfx_Lava_Geyser` only when `$19(a3)` is clear; non-zero skips the sound
@@ -3036,6 +3046,8 @@ impl NativeRuntime {
                 y_px: geyser.y_px,
                 height_px: geyser.height_px,
                 startup_delay_frames: geyser.startup_delay_frames,
+                first_eruption_pending: true,
+                sound_suppressed: false,
                 phase: 0,
                 timer: geyser.startup_delay_frames,
                 current_height: 0,
@@ -3064,6 +3076,7 @@ impl NativeRuntime {
         }
 
         let mut should_damage = false;
+        let mut lava_geyser_sound_starts = 0usize;
 
         // ASM Animation_Geyser loc_14B2A runs as its own lava-effect object:
         // hibernate five one-frame ticks, then rotate the live Palette_Buffer
@@ -3082,6 +3095,15 @@ impl NativeRuntime {
                     if geyser.timer > 0 {
                         geyser.timer -= 1;
                     } else {
+                        let should_play_sound = if geyser.first_eruption_pending {
+                            geyser.first_eruption_pending = false;
+                            lava_geyser_start_sound_loc_14772(geyser.sound_suppressed).is_some()
+                        } else {
+                            lava_geyser_repeat_sound_loc_1478E(geyser.sound_suppressed).is_some()
+                        };
+                        if should_play_sound {
+                            lava_geyser_sound_starts += 1;
+                        }
                         let reset = lava_geyser_rise_reset_loc_1484E();
                         geyser.phase = 1;
                         geyser.timer = reset.frames_per_sprite_row;
@@ -3153,6 +3175,10 @@ impl NativeRuntime {
             if lava_geyser_hits_kid_sub_14A58(geyser, slice) {
                 should_damage = true;
             }
+        }
+
+        for _ in 0..lava_geyser_sound_starts {
+            self.queue_start_sequence(QueuedSoundEffect::LavaGeyser);
         }
 
         for fireball in &mut self.weather.lava_fireballs {
