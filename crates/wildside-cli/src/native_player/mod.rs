@@ -10819,15 +10819,61 @@ mod tests {
                 )
             })
             .count();
-        assert!(
-            lava_sprites >= 4,
-            "ASM loc_14BE8 should render active lava geysers from Lava.bin sprite chunks"
+        assert_eq!(
+            lava_sprites, 6,
+            "ASM loc_14874/loc_148F8 should render the top, three middle, and bottom loc_14BE8 full-height sprite rows"
         );
         assert!(
             !scene.commands.iter().any(|command| {
                 matches!(command, DrawCommand::Rect { colour, .. } if *colour == [255, 120, 20])
             }),
             "loaded Lava.bin art should replace the native-player placeholder column"
+        );
+    }
+
+    #[test]
+    fn build_game_scene_culls_lava_geyser_full_height_rows_loc_14874() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0x0100_0000;
+        trace.camera_y_pos = 0;
+        trace.active_geysers = vec![(0x00DF, 0x0030, 0x0030)];
+        let mut visuals = sample_level_visuals();
+        visuals.lava = Some(wildside_render::LavaVisuals {
+            palette: Palette {
+                colours: (0..8).map(|value| colour(value * 16, 0, 0)).collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0xC0],
+            },
+            vram_base_tile_index: 0x02FB,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        assert!(
+            !scene.commands.iter().any(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                ) || matches!(command, DrawCommand::Rect { colour, .. } if *colour == [255, 120, 20])
+            }),
+            "ASM loc_14874 should cull off-window full-height rows without falling back to the legacy lava column"
         );
     }
 

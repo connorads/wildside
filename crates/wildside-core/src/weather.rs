@@ -2429,6 +2429,14 @@ pub(crate) struct LavaGeyserTopSpriteWindowInputLoc14874 {
     pub(crate) camera_y_px: u16,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LavaGeyserFullHeightRowLoc14874 {
+    /// ASM `loc_14874/loc_148F8`: world-space `d1` passed to `sub_14BD8`.
+    pub row_y_px: u16,
+    /// ASM sprite-template label selected for the current full-height row.
+    pub source_label: &'static str,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LavaGeyserTopSpriteWindowResultLoc14874 {
@@ -2560,6 +2568,86 @@ pub(crate) fn lava_geyser_middle_row_advance_loc_14914(
         next_middle_row_index,
         continue_middle_rows: next_middle_row_index <= middle_row_limit,
     }
+}
+
+#[allow(non_snake_case)]
+pub fn lava_geyser_full_height_rows_loc_14874(
+    x_px: u16,
+    base_y_px: u16,
+    current_height_px: u16,
+    camera_x_px: u16,
+    camera_y_px: u16,
+    top_sprite_frame_within_row: u8,
+) -> Vec<LavaGeyserFullHeightRowLoc14874> {
+    // ASM loc_14874/loc_148F8/loc_14914 (kid.asm:27928-28004): once the
+    // worker reaches the full-height loop, `d3` is the current top sprite-row
+    // index, `$44/$46(a5)` are still `$80`-biased, and each row is separately
+    // culled before `sub_14BD8` appends its sprite-template chunks.
+    let row_count = current_height_px / LAVA_GEYSER_ROW_HEIGHT_PX;
+    if row_count == 0 {
+        return Vec::new();
+    }
+    let sprite_row_index = row_count - 1;
+    let biased_x_px = x_px.wrapping_add(0x80);
+    let biased_y_px = base_y_px.wrapping_add(0x80);
+
+    let mut rows = Vec::new();
+    let mut row_y_px =
+        match lava_geyser_top_sprite_window_loc_14874(LavaGeyserTopSpriteWindowInputLoc14874 {
+            x_px: biased_x_px,
+            y_px: biased_y_px,
+            sprite_row_index,
+            camera_x_px,
+            camera_y_px,
+        }) {
+            LavaGeyserTopSpriteWindowResultLoc14874::Culled => return rows,
+            LavaGeyserTopSpriteWindowResultLoc14874::SkipTopSprite { sprite_row_y_px } => {
+                sprite_row_y_px
+            }
+            LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite { sprite_row_y_px } => {
+                rows.push(LavaGeyserFullHeightRowLoc14874 {
+                    row_y_px: sprite_row_y_px,
+                    source_label: lava_geyser_top_sprite_script_loc_148CE(
+                        top_sprite_frame_within_row,
+                    ),
+                });
+                sprite_row_y_px
+            }
+        };
+
+    row_y_px = row_y_px.wrapping_add(LAVA_GEYSER_ROW_HEIGHT_PX);
+    let mut middle_row_index = 0;
+    loop {
+        match lava_geyser_middle_sprite_row_window_loc_148F8(row_y_px, camera_y_px) {
+            LavaGeyserMiddleSpriteRowResultLoc148F8::SkipAboveWindow => {}
+            LavaGeyserMiddleSpriteRowResultLoc148F8::BuildSpriteRow => {
+                rows.push(LavaGeyserFullHeightRowLoc14874 {
+                    row_y_px,
+                    source_label: "unk_1465A",
+                });
+            }
+            LavaGeyserMiddleSpriteRowResultLoc148F8::CulledBelowWindow => return rows,
+        }
+
+        let advance =
+            lava_geyser_middle_row_advance_loc_14914(row_y_px, middle_row_index, sprite_row_index);
+        row_y_px = advance.next_sprite_row_y_px;
+        middle_row_index = advance.next_middle_row_index;
+        if !advance.continue_middle_rows {
+            break;
+        }
+    }
+
+    if lava_geyser_middle_sprite_row_window_loc_148F8(row_y_px, camera_y_px)
+        == LavaGeyserMiddleSpriteRowResultLoc148F8::BuildSpriteRow
+    {
+        rows.push(LavaGeyserFullHeightRowLoc14874 {
+            row_y_px,
+            source_label: "unk_14650",
+        });
+    }
+
+    rows
 }
 
 #[allow(non_snake_case)]

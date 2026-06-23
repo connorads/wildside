@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 lava loc_14874 full-height rows)
+
+- **#317 remains `[~]`.** Full-height lava geyser rows now route through ASM
+  `loc_14874/loc_148F8/loc_14914` row planning instead of the old
+  smooth-height column approximation.
+- The core planner emits `unk_14624`/`dword_14636` top rows, `unk_1465A`
+  middle rows, and `unk_14650` bottom rows with the ASM camera windows.
+- Native-player consumes that planner for `active_geysers`, so off-window
+  full-height rows do not draw and do not fall back to the placeholder column.
+- Regressions: `loc_14874_plans_full_height_rows_through_the_asm_camera_windows`,
+  `loc_14874_full_height_planner_culls_or_skips_rows_like_the_rom`,
+  `build_game_scene_draws_lava_geyser_from_loc_14be8_sprite_tiles`, and
+  `build_game_scene_culls_lava_geyser_full_height_rows_loc_14874`.
+- Verification: `cargo test -q -p wildside-core lava_geyser -- --nocapture`,
+  `cargo test -q -p wildside-cli lava_geyser -- --nocapture`,
+  `cargo fmt --all --check`, `cargo check -q -p wildside-core -p wildside-cli`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`.
+- **Next:** keep #317 open for live `$4C/$4A` top-row alternation state and
+  the shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#317 lava loc_147BA template rows)
 
 - **#317 remains `[~]`.** Lava geyser repeat cycles now follow ASM

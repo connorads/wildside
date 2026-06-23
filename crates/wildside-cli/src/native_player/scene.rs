@@ -80,6 +80,27 @@ const LAVA_GEYSER_TOP_TEMPLATE_UNK_14624: [wildside_core::LavaGeyserSpriteTempla
         size_word: 0x0F00,
     },
 ];
+const LAVA_GEYSER_TOP_ALT_TEMPLATE_DWORD_14636: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8;
+    3] = [
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0000,
+        y_step_px: 0x0010,
+        tile_base_word: 0xA3A9,
+        size_word: 0x0D00,
+    },
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0000,
+        y_step_px: 0x0008,
+        tile_base_word: 0xA33B,
+        size_word: 0x0C00,
+    },
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0001,
+        y_step_px: 0x0020,
+        tile_base_word: 0xA389,
+        size_word: 0x0F00,
+    },
+];
 const LAVA_GEYSER_MIDDLE_TEMPLATE_UNK_1465A: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 1] =
     [wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
         x_offset_px: 0x0001,
@@ -3969,42 +3990,43 @@ fn push_lava_geyser_rom_sprites_loc_14be8(
     camera_x_px: u16,
     camera_y_px: u16,
 ) {
-    let top_screen_y = i32::from(geyser_top_y_px) - i32::from(camera_y_px);
-    push_lava_geyser_template_loc_14be8(
-        commands,
-        visuals,
-        palette,
+    let base_y_px = geyser_top_y_px.saturating_add(height_px);
+    for row in wildside_core::lava_geyser_full_height_rows_loc_14874(
         geyser_x_px,
+        base_y_px,
+        height_px,
         camera_x_px,
-        top_screen_y,
-        &LAVA_GEYSER_TOP_TEMPLATE_UNK_14624,
-    );
-
-    let middle_top = top_screen_y + 16;
-    let middle_bottom = top_screen_y + i32::from(height_px).saturating_sub(16);
-    let mut row_y = middle_top;
-    while row_y < middle_bottom {
+        camera_y_px,
+        0,
+    ) {
+        let Some(templates) = lava_geyser_full_height_template_loc_14874(row.source_label) else {
+            continue;
+        };
+        // ASM loc_14874/loc_148F8 passes row `d1` directly to sub_14BD8.
+        // The shared push helper adds the `$10` top-loop compensation before
+        // converting back into the sub_14BD8 biased screen coordinate.
         push_lava_geyser_template_loc_14be8(
             commands,
             visuals,
             palette,
             geyser_x_px,
             camera_x_px,
-            row_y,
-            &LAVA_GEYSER_MIDDLE_TEMPLATE_UNK_1465A,
+            i32::from(row.row_y_px) - i32::from(camera_y_px) - 0x10,
+            templates,
         );
-        row_y += 16;
     }
+}
 
-    push_lava_geyser_template_loc_14be8(
-        commands,
-        visuals,
-        palette,
-        geyser_x_px,
-        camera_x_px,
-        top_screen_y + i32::from(height_px).saturating_sub(16),
-        &LAVA_GEYSER_BOTTOM_TEMPLATE_UNK_14650,
-    );
+fn lava_geyser_full_height_template_loc_14874(
+    source_label: &str,
+) -> Option<&'static [wildside_core::LavaGeyserSpriteTemplateLoc14BE8]> {
+    match source_label {
+        "unk_14624" => Some(&LAVA_GEYSER_TOP_TEMPLATE_UNK_14624),
+        "dword_14636" => Some(&LAVA_GEYSER_TOP_ALT_TEMPLATE_DWORD_14636),
+        "unk_1465A" => Some(&LAVA_GEYSER_MIDDLE_TEMPLATE_UNK_1465A),
+        "unk_14650" => Some(&LAVA_GEYSER_BOTTOM_TEMPLATE_UNK_14650),
+        _ => None,
+    }
 }
 
 fn lava_geyser_script_template_loc_147ba(

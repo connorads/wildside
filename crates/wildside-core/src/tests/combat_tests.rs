@@ -30378,6 +30378,69 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_14874_plans_full_height_rows_through_the_asm_camera_windows() {
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_rows_loc_14874(
+                0x0180, 0x0210, 0x0030, 0x0100, 0x0160, 0
+            ),
+            vec![
+                crate::weather::LavaGeyserFullHeightRowLoc14874 {
+                    row_y_px: 0x01D0,
+                    source_label: "unk_14624",
+                },
+                crate::weather::LavaGeyserFullHeightRowLoc14874 {
+                    row_y_px: 0x01E0,
+                    source_label: "unk_1465A",
+                },
+                crate::weather::LavaGeyserFullHeightRowLoc14874 {
+                    row_y_px: 0x01F0,
+                    source_label: "unk_1465A",
+                },
+                crate::weather::LavaGeyserFullHeightRowLoc14874 {
+                    row_y_px: 0x0200,
+                    source_label: "unk_1465A",
+                },
+                crate::weather::LavaGeyserFullHeightRowLoc14874 {
+                    row_y_px: 0x0210,
+                    source_label: "unk_14650",
+                },
+            ],
+            "ASM loc_14874 should build the top row, three middle rows for d3=2, and the bottom row through loc_148F8/loc_14914"
+        );
+
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_rows_loc_14874(
+                0x0180, 0x0210, 0x0030, 0x0100, 0x0160, 1
+            )[0]
+            .source_label,
+            "dword_14636",
+            "ASM loc_148CE should switch the planned top template when `$4C(a5)` is non-zero"
+        );
+    }
+
+    #[test]
+    fn loc_14874_full_height_planner_culls_or_skips_rows_like_the_rom() {
+        assert!(
+            crate::weather::lava_geyser_full_height_rows_loc_14874(
+                0x00DF, 0x0210, 0x0030, 0x0100, 0x0160, 0
+            )
+            .is_empty(),
+            "ASM loc_14874 should branch to loc_14940 when the full-height row is left of the X camera window"
+        );
+
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_rows_loc_14874(
+                0x0180, 0x0150, 0x0010, 0x0100, 0x0160, 0
+            ),
+            vec![crate::weather::LavaGeyserFullHeightRowLoc14874 {
+                row_y_px: 0x0150,
+                source_label: "unk_14650",
+            }],
+            "ASM loc_14874 should skip an above-window top row but still allow the bottom row through loc_148F8 when it enters the middle/bottom window"
+        );
+    }
+
+    #[test]
     fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
         assert_eq!(
             crate::weather::lava_geyser_inter_row_hibernations_loc_14804(0),
