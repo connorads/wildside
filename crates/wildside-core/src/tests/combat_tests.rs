@@ -25393,7 +25393,8 @@ mod chunk_05 {
         assert_eq!(
             record,
             crate::weather::StormPatternRuntimeUploadLoc14D32 {
-                source_asset_label: crate::weather::STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E,
+                source_asset_label: crate::weather::STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E
+                    .to_owned(),
                 vram_tile_addend: 0x0380_0380,
                 skipped_header_longwords: 1,
                 vdp_command: crate::weather::STORM_PATTERN_VDP_COMMAND_LOC_14D32,
@@ -30554,7 +30555,8 @@ mod chunk_05 {
         assert_eq!(
             runtime.weather.storm_pattern_upload_loc_14d32,
             Some(crate::weather::StormPatternRuntimeUploadLoc14D32 {
-                source_asset_label: crate::weather::STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E,
+                source_asset_label: crate::weather::STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E
+                    .to_owned(),
                 vram_tile_addend: 0x0380_0380,
                 skipped_header_longwords: 1,
                 vdp_command: crate::weather::STORM_PATTERN_VDP_COMMAND_LOC_14D32,
@@ -30572,6 +30574,10 @@ mod chunk_05 {
             "ASM loc_14D8A should decompress the shared weather art to VRAM `$76A0` during storm init"
         );
         let trace = runtime.trace_frame();
+        assert_eq!(
+            trace.storm_pattern_upload_loc_14d32, runtime.weather.storm_pattern_upload_loc_14d32,
+            "native trace should expose ASM loc_14D1E/loc_14D32 storm pattern upload shape for renderer consumption"
+        );
         assert_eq!(
             trace.storm_shared_art_upload_loc_14d8a,
             runtime.weather.storm_shared_art_upload_loc_14d8a,
@@ -30597,7 +30603,8 @@ mod chunk_05 {
         assert_eq!(
             runtime.weather.storm_pattern_upload_loc_14d32,
             Some(crate::weather::StormPatternRuntimeUploadLoc14D32 {
-                source_asset_label: crate::weather::STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E,
+                source_asset_label: crate::weather::STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E
+                    .to_owned(),
                 vram_tile_addend: 0x0380_0380,
                 skipped_header_longwords: 1,
                 vdp_command: crate::weather::STORM_PATTERN_VDP_COMMAND_LOC_14D32,

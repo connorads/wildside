@@ -431,13 +431,13 @@ pub(crate) struct StormPatternUploadLoc14D32 {
     pub(crate) written_longwords: Vec<u32>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct StormPatternRuntimeUploadLoc14D32 {
-    pub(crate) source_asset_label: &'static str,
-    pub(crate) vram_tile_addend: u32,
-    pub(crate) skipped_header_longwords: usize,
-    pub(crate) vdp_command: u32,
-    pub(crate) written_longword_count: usize,
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StormPatternRuntimeUploadLoc14D32 {
+    pub source_asset_label: String,
+    pub vram_tile_addend: u32,
+    pub skipped_header_longwords: usize,
+    pub vdp_command: u32,
+    pub written_longword_count: usize,
 }
 
 #[allow(non_snake_case)]
@@ -475,7 +475,7 @@ pub(crate) fn record_storm_pattern_upload_loc_14D32(
     // selected rain/hail table, `$0380_0380` tile offset, skipped header
     // longword, VRAM `$6000` command, and inclusive DBF write count.
     StormPatternRuntimeUploadLoc14D32 {
-        source_asset_label: setup.source_asset.asset_label(),
+        source_asset_label: setup.source_asset.asset_label().to_owned(),
         vram_tile_addend: setup.vram_tile_addend,
         skipped_header_longwords: setup.skipped_header_longwords,
         vdp_command: STORM_PATTERN_VDP_COMMAND_LOC_14D32,

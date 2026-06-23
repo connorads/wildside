@@ -3297,6 +3297,7 @@ mod tests {
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
+            storm_pattern_upload_loc_14d32: None,
             storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,
@@ -10996,6 +10997,149 @@ mod tests {
             }
             _ => unreachable!("weather sprite command matched Sprite above"),
         }
+    }
+
+    #[test]
+    fn build_game_scene_draws_storm_pattern_plane_loc_14d32() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.storm_pattern_upload_loc_14d32 =
+            Some(wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: String::from("unk_9B65C"),
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: 0x4000_0003,
+                written_longword_count: 4 * 8 * 8 * 4,
+            });
+        let mut visuals = sample_level_visuals();
+        visuals.weather = Some(wildside_render::WeatherVisuals {
+            palette: Palette {
+                colours: (0..8)
+                    .map(|value| MdColour::from_word(0x0600 + value))
+                    .collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0x60],
+            },
+            vram_base_tile_index: 0x0380,
+            shared_art: None,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: true,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let storm_tiles: Vec<_> = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::IndexedTile {
+                    x,
+                    y,
+                    tile_sheet,
+                    tile,
+                    ..
+                } if tile_sheet.tiles.len() == 0x60 => Some((*x, *y, *tile)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            storm_tiles.len(),
+            (FRAME_WIDTH.div_ceil(8) as usize + 1) * (FRAME_HEIGHT.div_ceil(8) as usize + 1),
+            "ASM Init_SpecialEffect_Storm loc_14D32 writes enough Scroll-B pattern data to cover the visible plane"
+        );
+        assert_eq!(storm_tiles[0].0, 0);
+        assert_eq!(storm_tiles[0].1, 0);
+        assert_eq!(storm_tiles[0].2.tile_index, 0);
+        assert_eq!(storm_tiles[0].2.palette_line, 0);
+        assert!(!storm_tiles[0].2.priority);
+        assert_eq!(
+            storm_tiles[8].2.tile_index, 0,
+            "ASM loc_14D32 repeats the 8-word pattern group across Scroll B"
+        );
+        let row_1_col_0 = FRAME_WIDTH.div_ceil(8) as usize + 1;
+        assert_eq!(
+            storm_tiles[row_1_col_0].2.tile_index, 8,
+            "ASM unk_9B65C second post-header group starts at source tile word $0008"
+        );
+    }
+
+    #[test]
+    fn build_game_scene_preserves_hail_storm_pattern_attr_bits_loc_14d32() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.storm_pattern_upload_loc_14d32 =
+            Some(wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: String::from("unk_9B6E0"),
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: 0x4000_0003,
+                written_longword_count: 4 * 8 * 8 * 4,
+            });
+        let mut visuals = sample_level_visuals();
+        visuals.weather = Some(wildside_render::WeatherVisuals {
+            palette: Palette {
+                colours: (0..8)
+                    .map(|value| MdColour::from_word(0x0600 + value))
+                    .collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0x60],
+            },
+            vram_base_tile_index: 0x0380,
+            shared_art: None,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: true,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let storm_tiles: Vec<_> = scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::IndexedTile {
+                    tile_sheet, tile, ..
+                } if tile_sheet.tiles.len() == 0x60 => Some(*tile),
+                _ => None,
+            })
+            .collect();
+        let visible_cols = FRAME_WIDTH.div_ceil(8) as usize + 1;
+        let attr_tile = storm_tiles[6 * visible_cols + 1];
+        assert_eq!(
+            attr_tile.tile_index, 0x0013,
+            "ASM unk_9B6E0 word $1813 keeps tile id $13 after loc_14D32 adds VRAM base $0380"
+        );
+        assert!(attr_tile.flip_x, "ASM hail word $1813 sets H-flip");
+        assert!(attr_tile.flip_y, "ASM hail word $1813 sets V-flip");
+        assert_eq!(attr_tile.palette_line, 0);
+        assert!(!attr_tile.priority);
     }
 
     #[test]

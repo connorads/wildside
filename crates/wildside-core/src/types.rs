@@ -1561,6 +1561,9 @@ pub struct NativeTraceFrame {
     /// live CRAM words at `Palette_Buffer+$20..+$2E`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lava_geyser_palette_words_loc_14b2a: Option<[u16; 8]>,
+    /// ASM `Init_SpecialEffect_Storm` loc_14D1E/loc_14D32 Scroll-B pattern upload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storm_pattern_upload_loc_14d32: Option<crate::weather::StormPatternRuntimeUploadLoc14D32>,
     /// ASM `Init_SpecialEffect_Storm` loc_14D8A shared weather art upload.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storm_shared_art_upload_loc_14d8a:
@@ -1802,6 +1805,7 @@ impl Default for NativeTraceFrame {
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
+            storm_pattern_upload_loc_14d32: None,
             storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,

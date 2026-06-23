@@ -3703,6 +3703,94 @@ fn push_lava_geyser_chunk_loc_14be8(
     true
 }
 
+// ASM Init_SpecialEffect_Storm loc_14D1E/loc_14D32 skips the first longword of
+// `unk_9B65C`/`unk_9B6E0`, then uploads these 64 source tile words to Scroll B
+// as a 64x32 plane while adding `$0380_0380` to each longword.
+const STORM_PATTERN_RAIN_WORDS_LOC_14D32: [u16; 64] = [
+    0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000A, 0x000B,
+    0x000C, 0x000D, 0x000E, 0x000F, 0x000A, 0x000B, 0x0007, 0x000C, 0x000D, 0x000E, 0x0007, 0x000F,
+    0x0007, 0x0007, 0x0010, 0x0011, 0x0007, 0x0012, 0x0013, 0x0001, 0x0001, 0x0001, 0x0001, 0x0001,
+    0x0001, 0x0014, 0x0006, 0x0015, 0x0016, 0x0017, 0x0018, 0x0019, 0x0007, 0x0007, 0x001A, 0x001B,
+    0x001C, 0x001D, 0x0002, 0x0002, 0x0002, 0x0002, 0x0002, 0x0007, 0x0002, 0x001E, 0x001F, 0x0020,
+    0x0007, 0x0007, 0x0021, 0x0022,
+];
+
+const STORM_PATTERN_HAIL_WORDS_LOC_14D32: [u16; 64] = [
+    0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0004, 0x0007, 0x0008, 0x0004, 0x0009,
+    0x0004, 0x000A, 0x000B, 0x000C, 0x0004, 0x000D, 0x0004, 0x000E, 0x0004, 0x000F, 0x000A, 0x000B,
+    0x000C, 0x0009, 0x000D, 0x0004, 0x000E, 0x000F, 0x0010, 0x0004, 0x0011, 0x0012, 0x0004, 0x0004,
+    0x0004, 0x0013, 0x0001, 0x0004, 0x0004, 0x0004, 0x0001, 0x0004, 0x0004, 0x0001, 0x0001, 0x0001,
+    0x0001, 0x1813, 0x0014, 0x0015, 0x0004, 0x0004, 0x0016, 0x0017, 0x0018, 0x0004, 0x0004, 0x0019,
+    0x0004, 0x001A, 0x0004, 0x001B,
+];
+
+fn storm_pattern_words_loc_14d32(source_asset_label: &str) -> Option<&'static [u16; 64]> {
+    match source_asset_label {
+        "unk_9B65C" => Some(&STORM_PATTERN_RAIN_WORDS_LOC_14D32),
+        "unk_9B6E0" => Some(&STORM_PATTERN_HAIL_WORDS_LOC_14D32),
+        _ => None,
+    }
+}
+
+fn push_storm_pattern_plane_loc_14d32(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) -> bool {
+    let Some(upload) = &trace.storm_pattern_upload_loc_14d32 else {
+        return false;
+    };
+    let Some(visuals) = &level_visuals.weather else {
+        return false;
+    };
+    let Some(source_words) = storm_pattern_words_loc_14d32(&upload.source_asset_label) else {
+        return false;
+    };
+    if upload.vram_tile_addend != 0x0380_0380
+        || upload.skipped_header_longwords != 1
+        || upload.vdp_command != 0x4000_0003
+        || upload.written_longword_count != 4 * 8 * 8 * 4
+    {
+        return false;
+    }
+
+    // TODO(fidelity): consume the live Transfer_ScrollDataToVRAM loc_30110
+    // `$FFFFFAD6/$FFFFFAD8` countdown/offset so this Scroll-B plane is gated
+    // and scrolled on the exact hardware frames instead of rendering the
+    // init-time plane contents continuously once the trace exposes loc_14D32.
+    let tile_addend = (upload.vram_tile_addend & 0xFFFF) as u16;
+    let visible_cols = FRAME_WIDTH.div_ceil(8) as usize + 1;
+    let visible_rows = FRAME_HEIGHT.div_ceil(8) as usize + 1;
+    let tile_sheet = Arc::new(visuals.tile_sheet.clone());
+    let palette = Arc::new(background_palette_for_scene(trace, level_visuals));
+
+    for screen_row in 0..visible_rows {
+        let pattern_row = screen_row % 8;
+        for screen_col in 0..visible_cols {
+            let source_word = source_words[pattern_row * 8 + (screen_col % 8)];
+            let tile = TileRef::from_attr_word(source_word.wrapping_add(tile_addend));
+            if tile.tile_index < visuals.vram_base_tile_index {
+                continue;
+            }
+            let local_tile_index = tile.tile_index - visuals.vram_base_tile_index;
+            if usize::from(local_tile_index) >= visuals.tile_sheet.tiles.len() {
+                continue;
+            }
+            commands.push(DrawCommand::IndexedTile {
+                x: i32::try_from(screen_col).expect("visible col fits i32") * 8,
+                y: i32::try_from(screen_row).expect("visible row fits i32") * 8,
+                tile_sheet: tile_sheet.clone(),
+                tile: TileRef {
+                    tile_index: local_tile_index,
+                    ..tile
+                },
+                palette: palette.clone(),
+            });
+        }
+    }
+    true
+}
+
 fn push_storm_weather_sprite_sub_61ca(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
@@ -5604,7 +5692,9 @@ fn build_game_scene_filtered(
         // hand-off, but the oracle frame at native `level_complete_elapsed=0`
         // still contains the previous Scroll B frame. Suppress ordinary Scroll
         // B during the later pre-hologram hibernate frames.
-        push_background_tiles(&mut commands, trace, level_visuals);
+        if !push_storm_pattern_plane_loc_14d32(&mut commands, trace, level_visuals) {
+            push_background_tiles(&mut commands, trace, level_visuals);
+        }
     }
     if filter.terrain {
         push_level_layout_terrain(&mut commands, trace, level_visuals, block_grid);

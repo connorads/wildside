@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 storm pattern plane renderer)
+
+- **#317 remains `[~]`.** Native-player now consumes ASM
+  `Init_SpecialEffect_Storm loc_14D1E/loc_14D32` pattern-plane uploads
+  from `unk_9B65C` / `unk_9B6E0`.
+- The renderer draws the init-time Scroll-B pattern using the recorded
+  `$0380_0380` addend, `$6000` VDP command shape, and post-header 8x8
+  source table; hail word `$1813` keeps its H/V flip attribute bits.
+- Regressions: `build_game_scene_draws_storm_pattern_plane_loc_14d32`,
+  `build_game_scene_preserves_hail_storm_pattern_attr_bits_loc_14d32`,
+  `first_trace_drift_accepts_legacy_frames_missing_storm_pattern_diagnostics`,
+  and `init_weather_seeds_storm_machine_from_loc_14dac`.
+- Verification: `cargo test -q -p wildside-cli storm_pattern -- --nocapture`,
+  `cargo test -q -p wildside-cli first_trace_drift_accepts_legacy_frames_missing_storm_pattern_diagnostics -- --nocapture`,
+  `cargo test -q -p wildside-core init_weather_seeds_storm_machine_from_loc_14dac -- --nocapture`,
+  plus final `cargo fmt --all --check`, `cargo check -q -p wildside-cli`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`.
+- **Next:** keep #317 open for exact `Transfer_ScrollDataToVRAM loc_30110`
+  storm timing/scroll, full lava script-walk/template-row output, and the
+  shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#317 storm shared art renderer)
 
 - **#317 remains `[~]`.** Native-player now consumes ASM

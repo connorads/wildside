@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[cfg(test)]
 use wildside_core::{
     BlockBounceTrace, BlockBounceTraceKind, IslandShoreDmaUploadLoc1202A, NativeObjectKind,
-    NativeObjectSnapshot, StormSharedArtRuntimeUploadLoc14D8A,
+    NativeObjectSnapshot, StormPatternRuntimeUploadLoc14D32, StormSharedArtRuntimeUploadLoc14D8A,
 };
 use wildside_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm};
 use wildside_render::NativeLevelVisuals;
@@ -2244,6 +2244,15 @@ fn trace_frames_match(
             .clone_from(&actual.storm_shared_art_upload_loc_14d8a);
     }
 
+    if expected.storm_pattern_upload_loc_14d32.is_none() {
+        // `storm_pattern_upload_loc_14d32` is additive diagnostics for ASM
+        // Init_SpecialEffect_Storm loc_14D1E/loc_14D32. Pixel checkpoints
+        // still guard the visible Scroll-B plane for legacy recordings.
+        normalised_expected
+            .storm_pattern_upload_loc_14d32
+            .clone_from(&actual.storm_pattern_upload_loc_14d32);
+    }
+
     if !expected
         .gameplay_debug_fields
         .contains_key("native_platform_loader_loc_2744")
@@ -2837,6 +2846,7 @@ mod tests {
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
+            storm_pattern_upload_loc_14d32: None,
             storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,
@@ -3281,6 +3291,32 @@ mod tests {
         assert_eq!(
             drift, None,
             "loc_14D8A storm shared-art upload is additive diagnostics; pixel checkpoints guard the visible VDP effect for legacy recordings"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_storm_pattern_diagnostics() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.storm_pattern_upload_loc_14d32 = Some(StormPatternRuntimeUploadLoc14D32 {
+            source_asset_label: "unk_9B65C".to_owned(),
+            vram_tile_addend: 0x0380_0380,
+            skipped_header_longwords: 1,
+            vdp_command: 0x4000_0003,
+            written_longword_count: 4 * 8 * 8 * 4,
+        });
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "loc_14D1E/loc_14D32 storm pattern upload is additive diagnostics; pixel checkpoints guard the visible Scroll-B plane for legacy recordings"
         );
     }
 
