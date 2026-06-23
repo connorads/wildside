@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 blocked: weather VRAM backend)
+
+- **#317 moved `[~]` -> `[b]`.** After the lava `loc_14940` slice, the remaining
+  weather audit residue is only the shared typed VRAM/backend cache.
+- Concrete weather render paths now have live coverage for Island shore DMA
+  frame patching, storm shared art and pattern plane, lava script/full-height
+  rows including `$4C/$4A`, and weather-4 Unknown plane fill.
+- The remaining work is a cross-effect mutable VDP/VRAM renderer model, not a
+  narrow unattended bug slice; reopen with a deliberate architecture plan or a
+  concrete pixel/oracle route proving the current per-effect render paths diverge.
+- Verification for the block/status move: `mise run backlog-lint` and
+  `git diff --check`.
+- **Next:** `project-status` should advance to #318.
+
 ## 2026-06-23 handoff (#317 lava loc_14940 top alternation)
 
 - **#317 remains `[~]`.** Active lava geyser traces now carry the ASM

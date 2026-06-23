@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **#317 remains `[~]`:** Island shore DMA labels, storm `loc_14D8A` shared-art sprite consumption, storm `loc_14D32` pattern-plane rendering plus `Transfer_ScrollDataToVRAM loc_30110` countdown/scroll gating, lava geyser `loc_14772/loc_1478E` sound gates plus `$FFFE -> loc_1483A` disable/cooldown, lava `loc_147BA` startup/repeat template-row trace/render with steady `unk_146A0` `d2=2` cadence and script-row `loc_147D6` culling, lava full-height `loc_14874/loc_148F8` row planning/render culling plus live `$4C/$4A` top-row alternation, and Unknown `loc_14E42` foreground-plane rendering are fixed; shared typed VRAM backend remains.
+- **#317 moved to `[b]`:** Island shore, storm, lava geyser, and weather-4 Unknown concrete slices are fixed/covered; the only remaining weather debt is a shared typed VRAM backend, which is a dedicated renderer-cache architecture session rather than a narrow unattended bug slice.
 - **#316 remains `[~]`:** DP shared list + `sub_3F798` sprite compiler are
   gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
@@ -105,7 +105,6 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — DP shared list and sprite compiler rows are fixed candidates; exact raw shared DP payload storage remains open. | Continue from remaining helmets row; see archive #316. |
-| 317 | [~] | P3 | weather | Umbrella: audits/weather-fidelity-audit.md — weather gaps still open after the staleness check | Per-gap rows in doc. (full history: archive #317) |
 | 318 | [ ] | P3 | player | Umbrella: audits/movement-fidelity-audit.md — 8 of 25 still open after the staleness check | Per-gap rows in doc |
 | 319 | [ ] | P3 | audio | Umbrella: audits/audio-triggers-fidelity-audit.md — remaining low/stub trigger gaps after Ankh/evanescent/ice-block/no-time and later enemy/BGM follow-ups; timeout `$51`/`$60` path is already live-tested | Per-gap rows in doc; tick off as wired |
 | 320 | [ ] | P3 | camera | Umbrella: audits/camera-fidelity-audit.md — 6 gaps, none high | Per-gap rows in doc |
