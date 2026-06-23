@@ -95,9 +95,10 @@ pub(crate) const LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME: usize =
     LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 1;
 // ASM Load_TitleCard allocates loc_1AB26/loc_1AE2E immediately, but oracle
 // boot traces do not let the queued Start edge reach visible gameplay until
-// global frame 520 after the frame-178 title-card hand-off. Keep the shared
-// title-card lineage on the hidden bootstrap for 342 local frames so slot-2
-// stays hidden at frame 200 and only the title shell appears on frame 504.
+// global frame 520 after the frame-178 title-card hand-off. Test fixtures keep
+// this hidden bootstrap age so slot-2 stays hidden at frame 200 and only the
+// title shell appears on frame 504.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES: usize = 342;
 
 #[allow(non_snake_case)]

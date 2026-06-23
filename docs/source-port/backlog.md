@@ -44,12 +44,9 @@ and stop — never commit churn.
   - **3 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds).
     #345 has since moved to `[b]` route-blocked after the settled probes did not reproduce
     the Lion absence.
-- **#289 moved to `[?]` fixed-candidate human validation.** The refreshed deterministic
-  `issue289-level07-idle-current` reproduction is now trace/state/frame green: frame 60 and
-  frame 71 both exact (`0` changed pixels / MAE `0.0`). USM3 0x06 was already human-confirmed
-  "~back to normal"; O14 "Lion shoots red squares" stays under #289 and needs the same playtest
-  pass, not a separate row. `verify-slice-fast` is green. Full do-not-retry/final evidence is in
-  archive #289.
+- **#289 moved to `[?]` fixed-candidate human validation.** `issue289-level07-idle-current`
+  is trace/state/frame exact at frames 60 and 71; USM3 0x06 and O14 Lion projectiles need the
+  same live retest. Full do-not-retry/final evidence is in archive #289.
 - **NOT-A-BUG:** O7 USM "stacked hovering enemy" = EmoRock (0x1B) hover tracking Kid's X (ASM
   loc_3621A) — faithful; multiple rocks converge above the Kid by design. Only the #333 render
   approximation (unextracted hover frames) stays open.
@@ -66,10 +63,11 @@ and stop — never commit churn.
   freshly seeded local tank. Native now mirrors ASM `Load_InGame loc_23629` `StopMusic`
   even when the BGM cue tracker is `None`: the clean 0x04 audio transcript changed from
   `Start(6)` to `StopMusicThenStart(6)`. Human real-device listen still required.
-- **#345 moved to `[b]` route-blocked.** Direct Level 0x07 settled native/oracle probes
-  show the Lion present; the only reproduced post-death route is still stuck on the
-  title card because #348 ignores early Start. Keep the `large_pacer` `Number_Objects`
-  audit smell, but do not patch it without a clean live absence route.
+- **#345 moved to `[b]` route-blocked.** Direct Level 0x07 probes show the Lion present;
+  after #348, Start reaches live mode and the target Lion is still observed. Keep the
+  `large_pacer` audit smell, but do not patch without a clean live absence route.
+- **#348 moved to `[?]` fixed candidate.** Live/direct title cards now exit on the first
+  `loc_1AE2E` Start edge; ScriptRunner/TAS keeps the issue305 replay delay.
 - **#271 moved back to `[b]` route-needed after fresh Red Stealth audit.** BLW2 natural
   and two clean run+jump overlays are oracle-clean; the HP-loss cases are grounded/side
   contact before a clean first-frame stomp, not a native-only missed `$2C`. Highwater
@@ -118,7 +116,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive; likely ASM-faithful survivor hurt/hibernate, needs visual/UX check. | Human distinguish survive-flash vs death+resurrect; verify hurt anim during hibernate. See archive #344. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
-| 348 | [ ] | P1 | input | 2026-06-20 playtest: level/title card ignores early Start; ASM `loc_1AE2E` exits on first Start edge from frame 2, native gates it. | Exit on first live Start edge; gate replay delay for boot traces. DynamicScenario card-frame ~5 should reach Game_Mode $C in 1-2 frames. See archive #348. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
 | 257 | [ ] | P0 | gameflow/death | 2026-06-22 playtest (fix failed validation): continue (CONTINUES) screen renders wrong — a wall-like graphic slides in from BOTH left and right instead of legible CONTINUES text + count. | Capture a live death→continue card frame; CONTINUES label + count must render as legible text/digits sliding to centre, not blocky wall art from either edge. Slide direction (loc_D31E/loc_D350) is faithful — don't remove it. See archive #257. |
 | 252 | [ ] | P1 | render/enemy | 2026-06-22 playtest reconfirm (P2→P1): BLW2 0x01 / Highwater 0x02 RockTank (0x0A/0x0B) renders doubled/humanoid + low in floor; the shooting tank's bullets (TankBullet child) render as GREEN blobs. Render-only (enemy state oracle-faithful). | Walk BLW2/Highwater past a shooting RockTank: one solid grey tank (not doubled/humanoid, not half in floor) + bullets show ROM stru_3B526 art, not green rects (scene.rs:5923-5957; forest-borrow palette). Capture native vs oracle. See archive #252. |

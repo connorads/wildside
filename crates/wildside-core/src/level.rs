@@ -18185,7 +18185,7 @@ impl NativeRuntime {
         // Rock Tank / clock-prize drones (the per-exit stop edge never fires
         // here). #339.
         self.stop_level_looping_drones_on_load_ingame_loc_23629();
-        self.respawn_start_held_frames = 0;
+        self.respawn_start_latched_frames = 0;
         self.respawn_live_handoff_frames = 0;
         let level_id = self.current_level;
         self.reload_block_grid_for_level(level_id);
@@ -18885,7 +18885,7 @@ impl NativeRuntime {
         self.current_level = level_id;
         self.level_start_frame = None;
         self.player_lifecycle = PlayerLifecycle::Alive;
-        self.respawn_start_held_frames = 0;
+        self.respawn_start_latched_frames = 0;
         self.death_camera_lock = None;
         self.death_shell_snapshot = None;
         self.level_complete_gfx_snapshot = None;

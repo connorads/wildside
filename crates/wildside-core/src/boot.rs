@@ -6609,6 +6609,7 @@ impl NativeRuntime {
         let intro_sequence_5_frames_override =
             self.demo_auto_timeout_intro_sequence_5_frames_override;
         let current_level_has_title_card = self.level_has_title_card(self.current_level);
+        let title_screen_ready = self.frame_index >= self.title_screen_ready_frame;
         let mut activate_intro_sequence_3_roster = false;
         let mut play_navigate_jingle = false;
         match &mut self.boot_state {
@@ -7413,12 +7414,13 @@ impl NativeRuntime {
                 }
                 let handoff_ready = if *uses_load_ingame_bootstrap {
                     *elapsed_frames >= EARLY_START_LOAD_INGAME_HANDOFF_FRAMES
-                } else if title_card_bootstrap_active {
-                    *elapsed_frames > crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 1
                 } else {
                     *elapsed_frames > 0
                 };
                 if handoff_ready {
+                    let recorded_title_replay = *uses_load_ingame_bootstrap
+                        || self.recorded_title_card_handoff_delay
+                        || !title_screen_ready;
                     // ASM loc_1AE2E: the title-card worker hibernates for one
                     // frame, then polls Ctrl_Pressed before it writes
                     // `Game_Mode=$000C` and jumps to `loc_6E2`. Oracle-backed
@@ -7427,15 +7429,17 @@ impl NativeRuntime {
                     // path. ASM loc_1AE2E only consumes a Start edge; gameplay
                     // buttons must not release the title-card hibernate worker
                     // into live Mode_Level input.
-                    enter_gameplay = if title_card_bootstrap_active {
-                        if *start_latched {
+                    enter_gameplay = if recorded_title_replay {
+                        if start_pressed {
+                            *start_latched = true;
+                            false
+                        } else if *start_latched {
                             !self.previous_input.start
                         } else {
-                            if start_pressed {
-                                *start_latched = true;
-                            }
                             false
                         }
+                    } else if title_card_bootstrap_active {
+                        start_pressed
                     } else {
                         *start_latched || start_pressed
                     };
@@ -7837,23 +7841,24 @@ impl NativeRuntime {
                 // i.e. the SAME `Game_Mode=8` title-card/level-load path as a
                 // normal level entry. Settled oracle probe
                 // `issue-248-death-start-resume-settled` keeps `Game_Mode=$0008`
-                // on Start-held frames 560/561 and returns to
-                // `Game_Mode=$000C` on frame 562 while the hidden respawn
-                // bootstrap pose/object view is still visible. Native trace
-                // frames are post-step, so the live-mode hand-off starts on
-                // the second counted held frame. The old fixed
+                // on the first Start-edge frame and returns to
+                // `Game_Mode=$000C` on the following frame while the hidden
+                // respawn bootstrap pose/object view is still visible. Native
+                // trace frames are post-step, so the live-mode hand-off starts
+                // one frame after the edge. The old fixed
                 // `Respawning` countdown ignored input, so live play sat on a
                 // black `LevelTransition` frame for the whole ~7210-frame settle
                 // and the player's Start press did nothing ("press start —
-                // nothing"). Hold Start through the ROM-observed hand-off delay
-                // before resuming: the death tumble (DeathWindup) and hidden window (Dying) have already
-                // played by the time we reach Respawning, and the level runtime
-                // was reset for respawn at the Dying->Respawning hand-off.
+                // nothing"). Latch that Start edge for the ROM-observed
+                // hand-off delay before resuming: the death tumble
+                // (DeathWindup) and hidden window (Dying) have already played
+                // by the time we reach Respawning, and the level runtime was
+                // reset for respawn at the Dying->Respawning hand-off.
                 //
                 // The #245 `death_respawn_level1_window_*` STATE tests compare
                 // against an IDLE oracle trace that never presses Start during the
                 // hold, so they keep running the full countdown and are unaffected
-                // (the held-frame latch is zero without a Start press).
+                // (the edge latch is zero without a Start press).
                 if self.respawn_live_handoff_frames > 0 {
                     self.respawn_live_handoff_frames =
                         self.respawn_live_handoff_frames.saturating_sub(1);
@@ -7876,20 +7881,24 @@ impl NativeRuntime {
                     return false;
                 }
 
-                if input.start {
-                    self.respawn_start_held_frames =
-                        self.respawn_start_held_frames.saturating_add(1);
+                let respawn_start_pressed = input.start && !self.previous_input.start;
+                let release_respawn = if respawn_start_pressed {
+                    self.respawn_start_latched_frames =
+                        PLAYER_DEATH_RESPAWN_START_EDGE_HANDOFF_FRAMES;
+                    false
+                } else if self.respawn_start_latched_frames > 0 {
+                    self.respawn_start_latched_frames =
+                        self.respawn_start_latched_frames.saturating_sub(1);
+                    true
                 } else {
-                    self.respawn_start_held_frames = 0;
-                }
-                let release_respawn =
-                    self.respawn_start_held_frames >= PLAYER_DEATH_RESPAWN_START_HELD_FRAMES;
+                    false
+                };
                 if remaining_frames > 1 && !release_respawn {
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: remaining_frames - 1,
                     };
                 } else {
-                    self.respawn_start_held_frames = 0;
+                    self.respawn_start_latched_frames = 0;
                     self.respawn_live_handoff_frames = PLAYER_DEATH_RESPAWN_LIVE_HANDOFF_FRAMES;
                     self.player_lifecycle = PlayerLifecycle::Respawning {
                         remaining_frames: remaining_frames.saturating_sub(1),

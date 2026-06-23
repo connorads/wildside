@@ -4437,7 +4437,7 @@ mod chunk_02 {
     }
 
     #[test]
-    fn title_screen_level_entry_after_ready_waits_for_title_card_start_edge() {
+    fn title_screen_level_entry_after_ready_exits_on_first_title_card_start_edge_loc_1ae2e() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
         };
@@ -4463,13 +4463,13 @@ mod chunk_02 {
             "ready title-screen hand-off should not preserve early-bootstrap title worker RNG",
         );
 
-        for _ in 0..crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10 {
+        for _ in 0..5 {
             runtime.step_frame(FrameInput::default());
         }
         assert_eq!(
             runtime.trace_frame().game_mode,
             GameMode::LevelTransition,
-            "ASM loc_1AE2E clears the title-menu Start press and keeps Load_TitleCard in mode $0008 until a later Start edge"
+            "ASM loc_1AE2E clears the title-menu Start press and keeps Load_TitleCard in mode $0008 until a later Start edge; there is no 342-frame minimum on the visible title card"
         );
 
         runtime.step_frame(FrameInput {
@@ -4478,22 +4478,8 @@ mod chunk_02 {
         });
         assert_eq!(
             runtime.trace_frame().game_mode,
-            GameMode::LevelTransition,
-            "ASM loc_1AE2E consumes the later Start edge during the hibernating title-card frame before the mode-$000C hand-off",
-        );
-
-        runtime.step_frame(FrameInput::default());
-        assert_eq!(
-            runtime.trace_frame().game_mode,
-            GameMode::LevelTransition,
-            "ASM loc_1AE2E keeps one more hibernate frame after consuming the later Start edge",
-        );
-
-        runtime.step_frame(FrameInput::default());
-        assert_eq!(
-            runtime.trace_frame().game_mode,
             GameMode::InGame,
-            "ASM loc_1AE2E should write Game_Mode=$000C after the post-Start hibernate frame",
+            "ASM loc_1AE2E should write Game_Mode=$000C on the first live Start edge after its one-frame hibernate",
         );
         let first_live = runtime.trace_frame();
         assert_eq!(
@@ -4562,15 +4548,13 @@ mod chunk_02 {
         runtime.frame_index = runtime.title_screen_ready_frame;
 
         runtime.begin_level_entry(LevelId(2));
-        for _ in 0..crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10 {
+        for _ in 0..5 {
             runtime.step_frame(FrameInput::default());
         }
         runtime.step_frame(FrameInput {
             start: true,
             ..FrameInput::default()
         });
-        runtime.step_frame(FrameInput::default());
-        runtime.step_frame(FrameInput::default());
 
         let first_live = runtime.trace_frame();
         assert_eq!(first_live.game_mode, GameMode::InGame);
@@ -4621,7 +4605,7 @@ mod chunk_02 {
             "empty synthetic title script should prove the gate comes from title-card metadata rather than visible workers"
         );
 
-        for _ in 0..crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10 {
+        for _ in 0..5 {
             runtime.step_frame(FrameInput::default());
         }
         runtime.step_frame(FrameInput {
@@ -4630,22 +4614,8 @@ mod chunk_02 {
         });
         assert_eq!(
             runtime.trace_frame().game_mode,
-            GameMode::LevelTransition,
-            "ASM loc_1AE2E still hibernates for the Start-consume frame when the level has title-card metadata but no visible glyph workers"
-        );
-
-        runtime.step_frame(FrameInput::default());
-        assert_eq!(
-            runtime.trace_frame().game_mode,
-            GameMode::LevelTransition,
-            "ASM loc_1AE2E still hibernates for one frame after consuming Start even without visible glyph workers"
-        );
-
-        runtime.step_frame(FrameInput::default());
-        assert_eq!(
-            runtime.trace_frame().game_mode,
             GameMode::InGame,
-            "ASM loc_1AE2E should expose gameplay after the post-Start hibernate"
+            "ASM loc_1AE2E should expose gameplay on the first Start edge even when title-card metadata has no visible glyph workers"
         );
     }
 
@@ -10754,11 +10724,11 @@ PlatformScript_361C:   ; relative offset: 001A\n\
 
         // #248 regression: ASM `lose_life -> loc_6E2` routes through the same
         // hidden mode-8 shell as level entry. Settled oracle probe
-        // `issue-248-death-start-resume-settled` keeps frames 560/561 hidden
-        // and reports live Game_Mode on frame 562 while the hidden Load_InGame
-        // bootstrap still owns Kid/object state; the synthetic probe exposes
-        // that mode on the second counted held frame because traces are
-        // post-step.
+        // `issue-248-death-start-resume-settled` keeps the first Start-edge
+        // frame hidden and reports live Game_Mode on the following frame while
+        // the hidden Load_InGame bootstrap still owns Kid/object state; the
+        // synthetic probe exposes that mode one frame after the edge because
+        // traces are post-step.
         runtime.step_frame(FrameInput {
             start: true,
             ..FrameInput::default()
@@ -10770,15 +10740,12 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
         assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
 
-        runtime.step_frame(FrameInput {
-            start: true,
-            ..FrameInput::default()
-        });
+        runtime.step_frame(FrameInput::default());
 
         let resumed_trace = runtime.trace_frame();
         assert!(
             matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
-            "second counted Start-held frame during spike-death Respawning should stay in the live-mode handoff (got {:?})",
+            "post-edge handoff frame during spike-death Respawning should stay in the live-mode handoff (got {:?})",
             runtime.player_lifecycle
         );
         assert_eq!(resumed_trace.game_mode, GameMode::InGame);
@@ -11136,10 +11103,11 @@ PlatformScript_361C:   ; relative offset: 001A\n\
 
         // ASM Use_Continue resumes through lose_life's `loc_6E2` reload path; native
         // keeps the hidden state-parity countdown but the settled oracle requires
-        // frame 560/561 hidden before frame 562 reports live Game_Mode. The
-        // hidden Load_InGame bootstrap still owns Kid/object state, so the
-        // synthetic lifecycle probe exposes live mode on the second counted
-        // held frame before releasing normal gameplay after the carry window.
+        // first Start-edge frame hidden before the next frame reports live
+        // Game_Mode. The hidden Load_InGame bootstrap still owns Kid/object
+        // state, so the synthetic lifecycle probe exposes live mode one frame
+        // after the edge before releasing normal gameplay after the carry
+        // window.
         runtime.step_frame(FrameInput::default());
         runtime.step_frame(FrameInput {
             start: true,
@@ -11152,14 +11120,11 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
         assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
 
-        runtime.step_frame(FrameInput {
-            start: true,
-            ..FrameInput::default()
-        });
+        runtime.step_frame(FrameInput::default());
 
         assert!(
             matches!(runtime.player_lifecycle, PlayerLifecycle::Respawning { .. }),
-            "second counted Start-held frame after continue respawn should stay in live-mode handoff"
+            "post-edge handoff frame after continue respawn should stay in live-mode handoff"
         );
         assert_eq!(
             runtime.trace_frame().game_mode,
@@ -11619,13 +11584,13 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         assert_eq!(runtime.current_level, LevelId(1));
         assert_eq!(runtime.trace_frame().game_mode, GameMode::LevelTransition);
 
-        for _ in 0..crate::movement::LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES + 10 {
+        for _ in 0..5 {
             runtime.step_frame(FrameInput::default());
         }
         assert_eq!(
             runtime.trace_frame().game_mode,
             GameMode::LevelTransition,
-            "ASM loc_1AE2E should keep idling in Load_TitleCard until Start is pressed"
+            "ASM loc_1AE2E should keep idling in Load_TitleCard until Start is pressed, without an invented long minimum"
         );
 
         runtime.step_frame(FrameInput {
@@ -11635,24 +11600,8 @@ PlatformScript_361C:   ; relative offset: 001A\n\
 
         assert_eq!(
             runtime.trace_frame().game_mode,
-            GameMode::LevelTransition,
-            "ASM loc_1AE2E `bclr #Button_Start,(Ctrl_Pressed)` should consume the Start edge before the mode-$000C hand-off",
-        );
-
-        runtime.step_frame(FrameInput::default());
-
-        assert_eq!(
-            runtime.trace_frame().game_mode,
-            GameMode::LevelTransition,
-            "ASM loc_1AE2E should keep the post-Start hibernate frame in mode-$0008",
-        );
-
-        runtime.step_frame(FrameInput::default());
-
-        assert_eq!(
-            runtime.trace_frame().game_mode,
             GameMode::InGame,
-            "ASM loc_1AE2E should write Game_Mode=$000C after the post-Start hibernate frame",
+            "ASM loc_1AE2E should write Game_Mode=$000C on the first live Start edge",
         );
         assert_eq!(runtime.current_level, LevelId(1));
         assert!(matches!(runtime.player_lifecycle, PlayerLifecycle::Alive));

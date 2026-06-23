@@ -2524,6 +2524,52 @@ mod tests {
     }
 
     #[test]
+    fn loc_1ae2e_recorded_title_card_start_keeps_replay_release_frame() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.boot_state = BootState::StartingLevel {
+            start_latched: false,
+            elapsed_frames: crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME + 2,
+            uses_load_ingame_bootstrap: false,
+            load_ingame_bootstrap_started: false,
+        };
+        runtime
+            .starting_level_title_workers
+            .push(LevelEntryTitleWorker {
+                gfx_slot_index: 0,
+                glyph: 0x61,
+                activation_frame: crate::movement::LEVEL_ENTRY_TITLE_FIRST_VISIBLE_TRACE_FRAME,
+                target_x_pos: 0x80,
+                target_y_pos: 0x80,
+                motion: None,
+            });
+
+        let start_trace = runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        assert_eq!(
+            start_trace.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E consumes the recorded Start edge before exposing the mode-$000C handoff",
+        );
+
+        let release_trace = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            release_trace.game_mode,
+            GameMode::LevelTransition,
+            "ASM loc_1AE2E replay comparisons keep the recorded release frame in mode $0008",
+        );
+
+        let gameplay_trace = runtime.step_frame(FrameInput::default());
+        assert_eq!(
+            gameplay_trace.game_mode,
+            GameMode::InGame,
+            "ASM loc_1AE2E replay guard should release on the frame after the recorded Start release",
+        );
+    }
+
+    #[test]
     fn current_player_state_exposes_title_menu_cursor_before_title_ready() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::TitleScreen { cursor: 1 };
@@ -9175,7 +9221,7 @@ impl NativeRuntime {
 
     pub fn game_mode(&self) -> GameMode {
         if self.respawn_live_handoff_frames > 0 {
-            // ASM lose_life -> loc_6E2 -> Load_InGame: the settled Start-held
+            // ASM lose_life -> loc_6E2 -> Load_InGame: the settled Start-edge
             // probe has already written Game_Mode=$000C while the hidden
             // respawn bootstrap WRAM view still owns Kid/camera/object state.
             return GameMode::InGame;

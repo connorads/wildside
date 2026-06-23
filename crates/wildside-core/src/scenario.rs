@@ -394,6 +394,7 @@ impl ScriptRunner {
         capture_vdp: bool,
     ) -> (Vec<NativeTraceFrame>, Vec<Option<vdp::VdpState>>) {
         let mut runtime = NativeRuntime::with_generated_level_layout(self.assets);
+        runtime.set_recorded_title_card_handoff_delay(true);
         if let Some(order) = self.physics_order {
             runtime.set_physics_order(order);
         }

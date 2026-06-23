@@ -154,9 +154,10 @@ pub struct NativeRuntime {
     trace_input: FrameInput,
     prior_input: FrameInput,
     previous_input: FrameInput,
-    respawn_start_held_frames: u8,
+    respawn_start_latched_frames: u8,
     respawn_live_handoff_frames: u8,
     title_card_live_handoff_frames: u8,
+    recorded_title_card_handoff_delay: bool,
     debug_level_entry_suppresses_title_card_live_handoff: bool,
     start_press_count: usize,
     current_level: LevelId,
@@ -1014,9 +1015,10 @@ impl NativeRuntime {
             trace_input: FrameInput::default(),
             prior_input: FrameInput::default(),
             previous_input: FrameInput::default(),
-            respawn_start_held_frames: 0,
+            respawn_start_latched_frames: 0,
             respawn_live_handoff_frames: 0,
             title_card_live_handoff_frames: 0,
+            recorded_title_card_handoff_delay: false,
             debug_level_entry_suppresses_title_card_live_handoff: false,
             start_press_count: 0,
             current_level: LevelId(0),
@@ -1540,6 +1542,10 @@ impl NativeRuntime {
     /// Enable sub-frame physics tracing for TAS debugging.
     pub fn set_trace_physics(&mut self, enabled: bool) {
         self.trace_physics = enabled;
+    }
+
+    pub(crate) fn set_recorded_title_card_handoff_delay(&mut self, enabled: bool) {
+        self.recorded_title_card_handoff_delay = enabled;
     }
 
     /// Set the block collision grid for the current level.

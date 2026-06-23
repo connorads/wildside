@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#348 fixed candidate)
+
+- **#348 moved `[~]`→`[?]` fixed candidate.** Live/direct title-card entry now follows ASM `loc_1AE2E`: after the one-frame hibernate, the first Start edge releases `Game_Mode=$000C` with no invented 343-frame minimum and no release requirement.
+- ScriptRunner/TAS playback enables `recorded_title_card_handoff_delay`, preserving the issue305 recorded timing: Start edge and release frame stay in `$0008`, then playback releases on the following frame. Respawn Start handling now latches the edge for the one-frame `lose_life -> loc_6E2 -> Load_InGame` handoff instead of requiring Start to be held.
+- Regressions cover live title-card first-edge entry, metadata/no-worker entry, level-complete title-card handoff, replay release-frame delay, and death/continue respawn Start-edge handling. The Level 0x07 probe with `--input 330:start` now reaches `InGame` at frame 331, and still observes the target Lion on the route, so #345 remains blocked on an exact missing-Lion route.
+- Verification: focused `loc_1ae2e`, `respawn_hold`, `continue_restores_lives_and_respawns`; issue305 fast-action/options TAS probes; Level 0x07 Start probe; `cargo fmt --all --check`; `cargo check -q -p wildside-core`; `cargo check -q -p wildside-cli`; `mise run verify-slice-fast`; `mise run verify-tas-full` (CRC all 37,759 frames match; known baseline divergences only).
+- Human still needs to playtest title-card Start feel in native play before promoting #348 to `[x]`.
+- **Next:** run `mise run project-status`; #257 continue-screen render should remain the highest-priority open P0 unless the queue changes.
+
 ## 2026-06-23 handoff (#345 route-blocked)
 
 - **#345 moved `[~]`→`[b]`; no gameplay patch.** The reported Lion absence after death+respawn on Level 0x07 did not reproduce in settled native/oracle probes. Both sides have a Lion at frame 0 of `.cache/recordings/issue345-settled-level07-idle/scenario.json`, and native keeps one active at `level_settle@60`.

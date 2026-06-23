@@ -418,10 +418,10 @@ pub(crate) const PLAYER_DEATH_HIDDEN_CAMERA_VISIBLE_FRAMES: usize = 23;
 // `Load_InGame` return is still a separate frontier.
 pub(crate) const PLAYER_DEATH_RESPAWN_SETTLE_FRAMES: usize = 24_210;
 // Settled oracle probe `issue-248-death-start-resume-settled` keeps
-// `Game_Mode=$0008` for Start-held frames 560/561 and returns to live
-// `Game_Mode=$000C` on frame 562. Trace frames are sampled after the native
-// step, so the release happens on the second counted held frame.
-pub(crate) const PLAYER_DEATH_RESPAWN_START_HELD_FRAMES: u8 = 2;
+// `Game_Mode=$0008` on the first Start-edge frame and returns to live
+// `Game_Mode=$000C` on the following frame. Trace frames are sampled after the
+// native step, so latch the edge for one local frame before the live hand-off.
+pub(crate) const PLAYER_DEATH_RESPAWN_START_EDGE_HANDOFF_FRAMES: u8 = 1;
 // ASM `loc_1AE2E -> loc_6E2 -> Load_InGame` exposes `Game_Mode=$000C` before
 // the hidden respawn/bootstrap WRAM view has collapsed to the normal level
 // slice. Keep the post-Start hand-off in live mode while the existing
