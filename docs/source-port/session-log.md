@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#319 audio-trigger audit closed)
+
+- **#319 moved `[ ]` -> `[x]`.** Rechecked `docs/source-port/audits/audio-triggers-fidelity-audit.md`,
+  archive #319, and `backlog-validation-2026-06-14`: the only concrete #319
+  follow-up, boss-eye pop `$48`, was resolved on 2026-06-16, and the current
+  audit has an empty backlog-candidates table.
+- Remaining audio notes are not #319 slices: broad live-audio/device gaps are
+  owned by #160 or specific rows, StopMusic/BGM details are native-player/GEMS
+  architecture, and PlaySound/PlaySound2 command-byte nuance has no current
+  consumer beyond the real `wildside-md` GEMS path.
+- Verification: tracker/audit review; no code change warranted.
+
 ## 2026-06-23 handoff (#210 fixed candidate)
 
 - **#210 moved `[~]` -> `[?]`.** Direct IntroSequence5 frame-2100 Start/title
