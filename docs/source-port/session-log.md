@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#356 Skydragon dropout route-needed)
+
+- **#356 moved `[~]` -> `[b]`.** Current Skydragon Castle 0x1B evidence does
+  not reproduce a native-only sky-castle dropout. Forced-camera probes were
+  rejected because the oracle helper showed stale/striped VDP state and later
+  left gameplay, so they are not a valid basis for render changes.
+- Evidence: natural `any-percent-published` captures over frames `875..1825`
+  every 25 frames keep castle chunks, clouds, tornado scenery, and background
+  present in both native and oracle. The settled no-camera Level 0x1B idle probe
+  also keeps the background stable through frames `0..840`.
+- Verification: `inspect-level --level 1B`, native/oracle `capture-scenario-frames`
+  and `capture-oracle-scenario-frames`, contact-sheet inspection, and ImageMagick
+  AE checks. No code change; next useful work needs an exact live route/frame.
+- NEXT: continue with `mise run project-status`. If no ready/open item remains,
+  follow the proactive-verification fallback in `loop.md`; do not patch #356
+  without a reproducible current dropout.
+
 ## 2026-06-23 handoff (#351 Drips child palette variant)
 
 - **#351 moved `[~]` -> `[?]`.** Drips child projectiles now carry the parent

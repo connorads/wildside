@@ -11335,6 +11335,22 @@ new row — verify it on the next playtest.
   scroll positions vs oracle BEFORE any fix. The "general ... occasionally dropping out"
   phrasing hints this may be a cross-level bg-dropout class — widen once repro'd.
 
+- **#356 (render/background, `[~]`→`[b]`) — route-needed 2026-06-23.** Rejected the
+  current actionable hypotheses instead of patching from stale evidence. Direct forced-camera
+  probes at `.cache/debug/issue356/level1b-cam-*` are not oracle-authoritative: oracle frames
+  show stale/striped VDP data and even leave gameplay on long samples, while native remains
+  live. Natural `any-percent-published` captures across the 0x1B segment
+  (`875..1825` every 25 frames) keep castle chunks, clouds, tornado scenery, and background
+  present in native and oracle; the first black transition frames match oracle, and pixel AE
+  stays in ordinary timing-diff scale (max sampled AE 5220 / 71680 at frame 1750) with no
+  sudden missing-plane spike. A settled no-camera Level 0x1B idle probe
+  `.cache/debug/issue356/level1b-natural-idle.json` also keeps the sky/castle/ocean-strip
+  background present through frames 0,120,240,360,480,600,720,840; native/oracle AE stays
+  1149..1493 pixels, and the visible oracle-only green projectile/orb is a separate enemy
+  timing/render difference, not the reported background dropout. Moved to `[b]`: needs an
+  exact current live route/frame/coordinate before changing chunked Plane-A/B row wrapping,
+  Cloud/Tornado culling, or MD sprite-limit logic.
+
 - **#346 (gameplay, `[?]`→`[x]`) — O20 human-validated WORKING.** Launched spike (ShooterObject)
   now reaches a distant wall and re-fires the return-spike chain ("spike fires off and activates
   another spike wall — works"). The 2026-06-21 fix (exempt EnemyProjectileKind::ShooterBlock

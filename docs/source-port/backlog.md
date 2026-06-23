@@ -37,7 +37,7 @@ and stop — never commit churn.
     #259/#271/#272 are `[b]`; do not 6th-cycle #259.
   - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
-  - **3 NEW rows opened:** #356 remains open; #353 has moved to `[b]` exact-repro-needed, and #355 has since moved to `[?]`.
+  - **3 NEW rows opened:** #356/#353 moved to `[b]`; #355 moved to `[?]`.
   - **3 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds).
     #280 and #345 have since moved to `[b]` route-blocked after fresh probes failed to
     isolate their reported live symptoms.
@@ -105,4 +105,3 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 356 | [ ] | P2 | render/background | 2026-06-22 (NEW): Skydragon Castle 0x1B sky-castle background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam) and #210 (demo/intro). | capture-frames --level 1B at scroll positions vs oracle; classify as Plane-A/B tile gaps vs Cloud/Tornado over-cull (#345/#289) vs faithful VDP 20-per-line sprite limit. See archive #356. |
