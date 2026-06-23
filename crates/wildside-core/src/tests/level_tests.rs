@@ -7074,6 +7074,11 @@ mod chunk_02 {
         };
         let mut frame_2101 = None;
         let mut frame_2102 = None;
+        let mut frame_2106 = None;
+        let mut frame_2107 = None;
+        let mut frame_2109 = None;
+        let mut frame_2113 = None;
+        let mut frame_2119 = None;
         let mut frame_2120 = None;
 
         for frame_index in 0..=2_120 {
@@ -7090,6 +7095,16 @@ mod chunk_02 {
                 frame_2101 = runtime.vdp_state().cloned();
             } else if frame_index == 2_102 {
                 frame_2102 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_106 {
+                frame_2106 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_107 {
+                frame_2107 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_109 {
+                frame_2109 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_113 {
+                frame_2113 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_119 {
+                frame_2119 = runtime.vdp_state().cloned();
             } else if frame_index == 2_120 {
                 frame_2120 = runtime.vdp_state().cloned();
             }
@@ -7106,11 +7121,53 @@ mod chunk_02 {
             after.cram.iter().any(|&byte| byte != 0),
             "oracle frame 2102 carries the visible IntroSequence5 palette, not the early black shell",
         );
+        let source_cram = cram_words(&before);
+        for (frame_index, vdp, fade_progress) in [
+            (2_106, frame_2106, 0x00F0),
+            (2_107, frame_2107, 0x00E0),
+            (2_109, frame_2109, 0x00C0),
+            (2_113, frame_2113, 0x0080),
+            (2_119, frame_2119, 0x0020),
+        ] {
+            let vdp = vdp.expect("title-return Pal_FadeOut frame should keep the carried VDP");
+            assert_eq!(
+                vdp.vram, before.vram,
+                "ASM Pal_FadeOut loc_28C6 fades CRAM before loc_700 clears VRAM on frame {frame_index}",
+            );
+            assert_eq!(
+                cram_words(&vdp),
+                faded_cram_to_black(source_cram, fade_progress),
+                "ASM Pal_FadeOut loc_28C6 should expose `$FFFFF876={fade_progress:#06x}` on frame {frame_index}",
+            );
+        }
         let black = frame_2120.expect("title-return blackout should still have a VDP snapshot");
         assert!(
             black.vram.iter().all(|&byte| byte == 0) && black.cram.iter().all(|&byte| byte == 0),
             "ASM loc_1BA60 -> sub_1C246 -> loc_1C264 reaches the black hidden title shell after the short carried-VDP fade",
         );
+    }
+
+    fn cram_words(vdp: &crate::vdp::VdpState) -> [u16; 0x40] {
+        core::array::from_fn(|word_offset| {
+            let byte_offset = word_offset * 2;
+            u16::from_be_bytes([vdp.cram[byte_offset], vdp.cram[byte_offset + 1]])
+        })
+    }
+
+    fn faded_cram_to_black(source_cram: [u16; 0x40], fade_progress: u16) -> [u16; 0x40] {
+        let mut pending_palette_0_mask = u32::MAX;
+        let mut pending_palette_1_mask = u32::MAX;
+        let mut palette_buffer = [0u16; 0x40];
+
+        crate::level::apply_pending_palette_fade_sub_14C0(
+            fade_progress,
+            &mut pending_palette_0_mask,
+            &mut pending_palette_1_mask,
+            &source_cram,
+            &[0u16; 0x40],
+            &mut palette_buffer,
+        );
+        palette_buffer
     }
 
     #[test]

@@ -599,9 +599,9 @@ pub(crate) fn apply_intro_sequence_5_title_return_fade_to_black(
 ) -> bool {
     let fade_progress = match title_elapsed_frames {
         0..=3 => return true,
-        4 => 0x00E0,
-        5 | 6 => 0x00C0,
-        7 => 0x0080,
+        4..=17 => {
+            0x0100u16.saturating_sub(((title_elapsed_frames - 3) as u16).saturating_mul(0x10))
+        }
         _ => return false,
     };
     let palette_buffer_2 = vdp_cram_words(vdp);
@@ -610,9 +610,9 @@ pub(crate) fn apply_intro_sequence_5_title_return_fade_to_black(
     let mut pending_palette_0_mask = u32::MAX;
     let mut pending_palette_1_mask = u32::MAX;
 
-    // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 keeps the current
-    // IntroSequence5 VDP visible for a few traced frames, then the title
-    // rebuild darkens it before the black hidden shell.
+    // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 jumps through loc_6E2.
+    // Because `$FFFFFBCE` is set, loc_6E2 runs Pal_FadeOut (loc_28C6),
+    // stepping `$FFFFF876` by `$10` per VBlank before the VRAM clear.
     crate::level::apply_pending_palette_fade_sub_14C0(
         fade_progress,
         &mut pending_palette_0_mask,
@@ -2439,6 +2439,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_and_title_objects
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct TitleScreenVdpLineage {
     pub(crate) intro_return_hidden_shell: bool,
+    pub(crate) direct_intro_sequence_5_title_return: bool,
     pub(crate) natural_intro_sequence_6_pre_ready_shell: bool,
 }
 
@@ -2513,6 +2514,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
             data,
             title_elapsed_frames,
             lineage.intro_return_hidden_shell,
+            lineage.direct_intro_sequence_5_title_return,
             lineage.natural_intro_sequence_6_pre_ready_shell,
         );
         if !lineage.natural_intro_sequence_6_pre_ready_shell {
@@ -2778,9 +2780,17 @@ fn write_title_text_chameleon_anim_loc_1b71a(
     data: &TitleScreenData,
     elapsed: usize,
     intro_return_hidden_shell: bool,
+    direct_intro_sequence_5_title_return: bool,
     natural_intro_sequence_6_pre_ready_shell: bool,
 ) {
-    let d3_elapsed = if intro_return_hidden_shell {
+    let d3_elapsed = if direct_intro_sequence_5_title_return {
+        // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 enters Load_TitleScreen,
+        // which allocates fresh Obj_TitleTextChameleon at kid.asm:29464-29466.
+        // Oracle pixels on the direct `$24` title-return route show that this
+        // worker is already seven sub_1B71A ticks ahead when the rebuilt title
+        // VDP is first presented.
+        elapsed.saturating_add(7)
+    } else if intro_return_hidden_shell {
         // ASM loc_1B6AC/loc_1B6DC is allocated by loc_1B45A before the
         // Start-skip title VDP becomes visible. The hidden Chameleon worker's
         // preserved `d3` is five sub_1B71A ticks ahead through the visible
@@ -5239,6 +5249,7 @@ mod tests {
             INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES,
             TitleScreenVdpLineage {
                 intro_return_hidden_shell: true,
+                direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
             },
         );
@@ -5257,6 +5268,7 @@ mod tests {
             visible_elapsed,
             TitleScreenVdpLineage {
                 intro_return_hidden_shell: true,
+                direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
             },
         );
@@ -5294,6 +5306,7 @@ mod tests {
             INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES + 1,
             TitleScreenVdpLineage {
                 intro_return_hidden_shell: true,
+                direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
             },
         );
@@ -5313,6 +5326,7 @@ mod tests {
             666,
             TitleScreenVdpLineage {
                 intro_return_hidden_shell: true,
+                direct_intro_sequence_5_title_return: false,
                 natural_intro_sequence_6_pre_ready_shell: false,
             },
         );
@@ -5321,6 +5335,27 @@ mod tests {
             vram_word(&tail, 0x090A),
             0x1000,
             "ASM loc_1BAB0's title-attract pre-roll lets the inherited loc_1B6DC worker reach one additional sub_1B71A tick by oracle frame 3299"
+        );
+
+        let direct_intro_sequence_5_return =
+            build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                &data,
+                7,
+                0,
+                None,
+                true,
+                crate::constants::TITLE_ATTRACT_LOCK_FRAMES + 2,
+                TitleScreenVdpLineage {
+                    intro_return_hidden_shell: true,
+                    direct_intro_sequence_5_title_return: true,
+                    natural_intro_sequence_6_pre_ready_shell: false,
+                },
+            );
+
+        assert_eq!(
+            vram_word(&direct_intro_sequence_5_return, 0x090A),
+            0x1000,
+            "ASM loc_1BA60 -> sub_1C246 -> Load_TitleScreen allocates fresh Obj_TitleTextChameleon; oracle pixels show direct IntroSequence5 title return presents that worker seven sub_1B71A ticks ahead"
         );
     }
 

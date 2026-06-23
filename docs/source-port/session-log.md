@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#210 fade/Chameleon phase partial)
+
+- **#210 remains `[~]`.** Direct IntroSequence5 frame-2100 Start now matches
+  the ROM `Pal_FadeOut` window (`loc_6E2 -> Pal_FadeOut loc_28C6`) for frames
+  2100..2120, and the steady direct title Chameleon cadence is exact at 2250
+  and 2300.
+- The direct `$24` title return needs a separate `sub_1B71A` phase from the
+  IntroSequence6 Start-skip lineage: `Load_TitleScreen` allocates fresh
+  `Obj_TitleTextChameleon`, but the first presented direct title VDP is seven
+  Chameleon ticks ahead.
+- **Remaining:** frame 2160 is still AE 22, all on the tiny `TM` edge beside
+  `CHAMELEON` (x=268..278, y=148..152). Rejected direct positive `d2` reveal
+  retunes; they clip the main word and make the frame much worse. Next pass
+  should inspect the exact `TM` tilemap/plane write, not retune `d2`.
+- Verification: `cargo fmt --all`, focused tests including
+  `KID_ENABLE_CACHE_BACKED_TESTS=1`, `git diff --check`,
+  `cargo clippy --workspace --all-targets -- -D warnings`,
+  `mise run verify-slice-fast`, and `mise run verify-tas-full` (exit 0; CRC all
+  37,759 frames match; existing long-route state divergences still reported).
+
 ## 2026-06-23 handoff (#210 intro Start-skip partial)
 
 - **#210 remains `[~]`.** The engine-level Start-skip path now follows ASM

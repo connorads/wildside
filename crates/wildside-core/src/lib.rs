@@ -1769,6 +1769,10 @@ impl NativeRuntime {
                         vdp::TitleScreenVdpLineage {
                             intro_return_hidden_shell: self
                                 .title_screen_uses_intro_return_hidden_shell,
+                            direct_intro_sequence_5_title_return: self
+                                .title_screen_uses_intro_return_hidden_shell
+                                && self.timeout_restart_title_intro_sequence_5_pose
+                                && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry,
                             natural_intro_sequence_6_pre_ready_shell,
                         },
                     )
