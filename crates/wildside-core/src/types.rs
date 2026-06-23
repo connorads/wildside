@@ -198,6 +198,16 @@ pub struct EyeclopsHardBeamObjectSnapshot {
     pub mapping_word: u16,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LavaGeyserScriptTemplateTraceLoc147BA {
+    /// ASM `$44(a5)-$80`: world X used by `sub_14BD8`.
+    pub x_px: u16,
+    /// ASM `$46(a5)-$80`: baseline world Y used by the current script row.
+    pub base_y_px: u16,
+    /// ASM `loc_147BA`: sprite-template label reached from `unk_146B6`/`unk_146A0`.
+    pub source_label: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FireDemonTrailChild {
     pub(crate) x_pos: u32,
@@ -1541,6 +1551,9 @@ pub struct NativeTraceFrame {
     pub eyeclops_hard_beam_object: Option<EyeclopsHardBeamObjectSnapshot>,
     /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
     pub active_geysers: Vec<(u16, u16, u16)>,
+    /// Active lava geyser script rows from ASM `loc_147BA`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lava_geyser_script_templates_loc_147ba: Vec<LavaGeyserScriptTemplateTraceLoc147BA>,
     /// ASM `loc_1202A` Island shore-animation object is active.
     #[serde(default)]
     pub island_shore_cycle_active: bool,
@@ -1805,6 +1818,7 @@ impl Default for NativeTraceFrame {
             diamond_power_sprites: Vec::new(),
             eyeclops_hard_beam_object: None,
             active_geysers: Vec::new(),
+            lava_geyser_script_templates_loc_147ba: Vec::new(),
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
             island_shore_vram_frames_loc_1202a: None,

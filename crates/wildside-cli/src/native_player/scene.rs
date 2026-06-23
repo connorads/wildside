@@ -94,6 +94,73 @@ const LAVA_GEYSER_BOTTOM_TEMPLATE_UNK_14650: [wildside_core::LavaGeyserSpriteTem
         tile_base_word: 0xA3B1,
         size_word: 0x0D00,
     }];
+const LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_145CA: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 1] =
+    [wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0006,
+        y_step_px: 0x0008,
+        tile_base_word: 0xA376,
+        size_word: 0x0800,
+    }];
+const LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_145D4: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 1] =
+    [wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0001,
+        y_step_px: 0x0018,
+        tile_base_word: 0xA307,
+        size_word: 0x0E00,
+    }];
+const LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_145DE: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 1] =
+    [wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0001,
+        y_step_px: 0x0020,
+        tile_base_word: 0xA379,
+        size_word: 0x0F00,
+    }];
+const LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_145E8: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 3] = [
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0000,
+        y_step_px: 0x0010,
+        tile_base_word: 0xA3A9,
+        size_word: 0x0D00,
+    },
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0000,
+        y_step_px: 0x0008,
+        tile_base_word: 0xA33B,
+        size_word: 0x0C00,
+    },
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0001,
+        y_step_px: 0x0020,
+        tile_base_word: 0xA389,
+        size_word: 0x0F00,
+    },
+];
+const LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_14602: [wildside_core::LavaGeyserSpriteTemplateLoc14BE8; 4] = [
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0002,
+        y_step_px: 0x0010,
+        tile_base_word: 0xA3B1,
+        size_word: 0x0D00,
+    },
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0001,
+        y_step_px: 0x0010,
+        tile_base_word: 0xA36E,
+        size_word: 0x0D00,
+    },
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0001,
+        y_step_px: 0x0008,
+        tile_base_word: 0xA33F,
+        size_word: 0x0C00,
+    },
+    wildside_core::LavaGeyserSpriteTemplateLoc14BE8 {
+        x_offset_px: 0x0000,
+        y_step_px: 0x0020,
+        tile_base_word: 0xA399,
+        size_word: 0x0F00,
+    },
+];
 
 const FIRE_DEMON_DEATH_TRAIL_FRAMES: [wildside_render::SpriteFrame; 6] = [
     fire_demon_trail_frame(0x0B0, 0x07, 0x00, 0x0E, 0x08),
@@ -3940,6 +4007,46 @@ fn push_lava_geyser_rom_sprites_loc_14be8(
     );
 }
 
+fn lava_geyser_script_template_loc_147ba(
+    source_label: &str,
+) -> Option<&'static [wildside_core::LavaGeyserSpriteTemplateLoc14BE8]> {
+    match source_label {
+        "unk_145CA" => Some(&LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_145CA),
+        "unk_145D4" => Some(&LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_145D4),
+        "unk_145DE" => Some(&LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_145DE),
+        "unk_145E8" => Some(&LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_145E8),
+        "unk_14602" => Some(&LAVA_GEYSER_SCRIPT_TEMPLATE_UNK_14602),
+        _ => None,
+    }
+}
+
+fn push_lava_geyser_script_template_loc_147ba(
+    commands: &mut Vec<DrawCommand>,
+    visuals: &wildside_render::LavaVisuals,
+    palette: &Palette,
+    template: &wildside_core::LavaGeyserScriptTemplateTraceLoc147BA,
+    camera_x_px: u16,
+    camera_y_px: u16,
+) -> bool {
+    let Some(templates) = lava_geyser_script_template_loc_147ba(&template.source_label) else {
+        return false;
+    };
+    // ASM loc_147BA/loc_1480C hands `sub_14BD8` the geyser baseline `d1`.
+    // `push_lava_geyser_template_loc_14be8` adds the top-loop `$10` bias, so
+    // subtract it here to leave the script rows at their ROM baseline.
+    let base_screen_y = i32::from(template.base_y_px) - i32::from(camera_y_px) - 0x10;
+    push_lava_geyser_template_loc_14be8(
+        commands,
+        visuals,
+        palette,
+        template.x_px,
+        camera_x_px,
+        base_screen_y,
+        templates,
+    );
+    true
+}
+
 fn push_eol_number_sprites_with_palette(
     commands: &mut Vec<DrawCommand>,
     eol: &wildside_render::EolScoreVisuals,
@@ -5924,13 +6031,31 @@ fn build_game_scene_filtered(
         }
 
         // ASM `sub_14BD8 -> loc_14BE8` (kid.asm:28255-28278) emits lava
-        // geyser sprite chunks from 8-byte template entries. NativeTraceFrame
-        // exposes the live eruption column but not the full worker script
-        // phase, so this renderer uses the ROM top/middle/bottom templates
+        // geyser sprite chunks from 8-byte template entries. Traced
+        // `loc_147BA` script rows use their exact template labels; the
+        // full-height loop falls back to the ROM top/middle/bottom templates
         // (`unk_14624`, `unk_1465A`, `unk_14650`) over the active height.
-        for &(gx, gy_top, height) in &trace.active_geysers {
-            if let Some(lava_visuals) = &level_visuals.lava {
-                let lava_palette = lava_geyser_palette_for_scene_loc_14b2a(trace, lava_visuals);
+        if let Some(lava_visuals) = &level_visuals.lava {
+            let lava_palette = lava_geyser_palette_for_scene_loc_14b2a(trace, lava_visuals);
+            for template in &trace.lava_geyser_script_templates_loc_147ba {
+                push_lava_geyser_script_template_loc_147ba(
+                    &mut commands,
+                    lava_visuals,
+                    &lava_palette,
+                    template,
+                    (trace.camera_x_pos >> 16) as u16,
+                    (trace.camera_y_pos >> 16) as u16,
+                );
+            }
+            for &(gx, gy_top, height) in &trace.active_geysers {
+                let base_y = gy_top.saturating_add(height);
+                if trace
+                    .lava_geyser_script_templates_loc_147ba
+                    .iter()
+                    .any(|template| template.x_px == gx && template.base_y_px == base_y)
+                {
+                    continue;
+                }
                 push_lava_geyser_rom_sprites_loc_14be8(
                     &mut commands,
                     lava_visuals,
@@ -5941,7 +6066,9 @@ fn build_game_scene_filtered(
                     (trace.camera_x_pos >> 16) as u16,
                     (trace.camera_y_pos >> 16) as u16,
                 );
-            } else {
+            }
+        } else {
+            for &(gx, gy_top, height) in &trace.active_geysers {
                 let sx = i32::from(gx) - (trace.camera_x_pos >> 16) as i32;
                 let sy = i32::from(gy_top) - (trace.camera_y_pos >> 16) as i32;
                 commands.push(DrawCommand::Rect {

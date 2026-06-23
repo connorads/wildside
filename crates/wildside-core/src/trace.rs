@@ -5475,6 +5475,35 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_exports_lava_geyser_script_template_loc_147ba() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 0x0120,
+            y_px: 0x0312,
+            height_px: 0x0060,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+            timer: LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0,
+            current_height: LAVA_GEYSER_ROW_HEIGHT_PX,
+        });
+
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.lava_geyser_script_templates_loc_147ba,
+            vec![LavaGeyserScriptTemplateTraceLoc147BA {
+                x_px: 0x0120,
+                base_y_px: 0x0312,
+                source_label: "unk_145CA".to_owned(),
+            }],
+            "ASM loc_147BA should expose the current `unk_146A0` template row for native-player rendering"
+        );
+    }
+
+    #[test]
     fn trace_frame_exports_sub_61ca_weather_slots() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -7632,6 +7661,19 @@ impl NativeRuntime {
                         g.y_px.saturating_sub(g.current_height),
                         g.current_height,
                     )
+                })
+                .collect(),
+            lava_geyser_script_templates_loc_147ba: self
+                .weather
+                .lava_geysers
+                .iter()
+                .filter_map(|g| {
+                    crate::weather::lava_geyser_script_template_label_loc_147BA(g.phase, g.timer)
+                        .map(|source_label| LavaGeyserScriptTemplateTraceLoc147BA {
+                            x_px: g.x_px,
+                            base_y_px: g.y_px,
+                            source_label: source_label.to_owned(),
+                        })
                 })
                 .collect(),
             island_shore_cycle_active: self.island_shore_cycle_loc_1202a.is_some(),

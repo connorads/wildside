@@ -5400,6 +5400,7 @@ AddrTbl_LevelNames:
             diamond_power_sprites: Vec::new(),
             eyeclops_hard_beam_object: None,
             active_geysers: Vec::new(),
+            lava_geyser_script_templates_loc_147ba: Vec::new(),
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
             island_shore_vram_frames_loc_1202a: None,

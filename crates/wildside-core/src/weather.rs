@@ -2136,6 +2136,44 @@ pub(crate) fn lava_geyser_repeat_script_loc_1479C() -> &'static str {
     "unk_146A0"
 }
 
+const LAVA_GEYSER_STARTUP_SCRIPT_TEMPLATES_LOC_146B6: [&str; 5] = [
+    "unk_14602",
+    "unk_145E8",
+    "unk_145DE",
+    "unk_145D4",
+    "unk_145CA",
+];
+const LAVA_GEYSER_REPEAT_SCRIPT_TEMPLATES_LOC_146A0: [&str; 5] = [
+    "unk_145CA",
+    "unk_145D4",
+    "unk_145DE",
+    "unk_145E8",
+    "unk_14602",
+];
+
+#[allow(non_snake_case)]
+pub(crate) fn lava_geyser_script_template_label_loc_147BA(
+    phase: u8,
+    timer: u16,
+) -> Option<&'static str> {
+    // ASM loc_147BA (kid.asm:27847): each live script entry points at a
+    // `LoadGameModeData` sprite template word. `unk_146B6` walks down through
+    // the five startup templates before `$FFFE`; `unk_146A0` walks back up
+    // before `$FFFF` hands control to loc_1484E.
+    let labels = match phase {
+        LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788 => {
+            &LAVA_GEYSER_STARTUP_SCRIPT_TEMPLATES_LOC_146B6
+        }
+        LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C => &LAVA_GEYSER_REPEAT_SCRIPT_TEMPLATES_LOC_146A0,
+        _ => return None,
+    };
+    let timer = usize::from(timer);
+    if timer == 0 || timer > labels.len() {
+        return None;
+    }
+    labels.get(labels.len() - timer).copied()
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LavaGeyserFullHeightStateLoc147A0 {
@@ -2659,6 +2697,15 @@ fn start_lava_geyser_startup_script_loc_14788(geyser: &mut LavaGeyser) {
 }
 
 #[allow(non_snake_case)]
+fn start_lava_geyser_repeat_script_loc_1479C(geyser: &mut LavaGeyser) {
+    // ASM loc_1479C/unk_146A0: after the repeat sound gate, the geyser emits
+    // five template rows before `$FFFF` transfers to the full-height loop.
+    geyser.phase = LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C;
+    geyser.timer = LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0;
+    geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
+}
+
+#[allow(non_snake_case)]
 fn start_lava_geyser_rise_loc_1484E(geyser: &mut LavaGeyser) {
     let reset = lava_geyser_rise_reset_loc_1484E();
     geyser.phase = LAVA_GEYSER_PHASE_RISING_LOC_1484E;
@@ -3155,7 +3202,7 @@ impl NativeRuntime {
                         if lava_geyser_repeat_sound_loc_1478E(geyser.sound_suppressed).is_some() {
                             lava_geyser_sound_starts += 1;
                         }
-                        start_lava_geyser_rise_loc_1484E(geyser);
+                        start_lava_geyser_repeat_script_loc_1479C(geyser);
                     }
                 }
                 LAVA_GEYSER_PHASE_RISING_LOC_1484E => {
@@ -3241,6 +3288,17 @@ impl NativeRuntime {
                         if lava_geyser_repeat_sound_loc_1478E(geyser.sound_suppressed).is_some() {
                             lava_geyser_sound_starts += 1;
                         }
+                        start_lava_geyser_repeat_script_loc_1479C(geyser);
+                    }
+                }
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C => {
+                    // ASM loc_147BA over `unk_146A0`: the repeat path walks
+                    // five visible template rows, then `$FFFF` jumps to
+                    // loc_1484E for the full-height row loop.
+                    if geyser.timer > 1 {
+                        geyser.timer -= 1;
+                        geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
+                    } else {
                         start_lava_geyser_rise_loc_1484E(geyser);
                     }
                 }

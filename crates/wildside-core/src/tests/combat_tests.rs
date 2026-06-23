@@ -23024,26 +23024,31 @@ mod chunk_05 {
             height_px: 16,
             first_eruption_pending: false,
             sound_suppressed: false,
-            phase: 0,
-            timer: 0, // ready to erupt immediately
-            current_height: 0,
+            phase: LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+            timer: 1, // ready to hand off from `$FFFF` to the rise loop
+            current_height: LAVA_GEYSER_ROW_HEIGHT_PX,
         });
 
         let slice = airborne_slice();
 
-        // Phase 0 → phase 1 (steady repeat eruption)
+        // ASM loc_147BA `$FFFF` sentinel → loc_1484E (steady repeat eruption)
         runtime.step_lava_geysers(&slice);
-        assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
+        assert_eq!(
+            runtime.weather.lava_geysers[0].phase,
+            LAVA_GEYSER_PHASE_RISING_LOC_1484E
+        );
 
         // ASM loc_1484E/loc_14940: `$48(a5)=2` means the live column gains
         // one 16px sprite row only after the two-frame rise cadence completes.
         runtime.step_lava_geysers(&slice);
-        assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
+        assert_eq!(
+            runtime.weather.lava_geysers[0].phase,
+            LAVA_GEYSER_PHASE_RISING_LOC_1484E
+        );
         assert_eq!(runtime.weather.lava_geysers[0].current_height, 0);
-        assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
         runtime.step_lava_geysers(&slice);
         assert_eq!(
-            runtime.weather.lava_geysers[0].phase, 2,
+            runtime.weather.lava_geysers[0].phase, LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
             "should transition to hold phase"
         );
         assert_eq!(runtime.weather.lava_geysers[0].current_height, 16);
@@ -29312,7 +29317,49 @@ mod chunk_05 {
             vec![QueuedSoundEffect::LavaGeyser],
             "ASM loc_1478E should play `sfx_Lava_Geyser` on visible repeat cycles before loc_1479C reloads `unk_146A0`"
         );
-        assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C);
+        assert_eq!(
+            geyser.timer,
+            LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0
+        );
+        assert_eq!(geyser.current_height, LAVA_GEYSER_ROW_HEIGHT_PX);
+    }
+
+    #[test]
+    fn loc_147ba_exposes_startup_and_repeat_template_labels() {
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+                LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6
+            ),
+            Some("unk_14602"),
+            "ASM `unk_146B6` starts with the tallest startup template before walking down"
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+                1
+            ),
+            Some("unk_145CA"),
+            "ASM `unk_146B6` ends at the smallest startup template before `$FFFE`"
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+                LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0
+            ),
+            Some("unk_145CA"),
+            "ASM `unk_146A0` starts with the smallest repeat template before walking up"
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+                1
+            ),
+            Some("unk_14602"),
+            "ASM `unk_146A0` ends at the tallest repeat template before `$FFFF`"
+        );
     }
 
     #[test]
@@ -29371,9 +29418,12 @@ mod chunk_05 {
             vec![QueuedSoundEffect::LavaGeyser],
             "ASM loc_1483A resumes at loc_1478E, so the visible repeat sound gate runs before the steady `unk_146A0` rise path"
         );
-        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_RISING_LOC_1484E);
-        assert_eq!(geyser.timer, LAVA_GEYSER_RISE_FRAMES_PER_ROW);
-        assert_eq!(geyser.current_height, 0);
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C);
+        assert_eq!(
+            geyser.timer,
+            LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0
+        );
+        assert_eq!(geyser.current_height, LAVA_GEYSER_ROW_HEIGHT_PX);
     }
 
     #[test]

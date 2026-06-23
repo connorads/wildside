@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 lava loc_147BA template rows)
+
+- **#317 remains `[~]`.** Lava geyser repeat cycles now follow ASM
+  `loc_1478E -> loc_1479C/unk_146A0` instead of jumping directly from the
+  repeat sound gate to `loc_1484E`.
+- Trace output now exposes `lava_geyser_script_templates_loc_147ba` for the
+  current `unk_146B6`/`unk_146A0` template label reached by `loc_147BA`.
+- Native-player renders the exact `unk_145CA`, `unk_145D4`, `unk_145DE`,
+  `unk_145E8`, and `unk_14602` template rows for those script frames, then
+  skips the old conservative height-column fallback for the same geyser/frame.
+- Regressions: `loc_147ba_exposes_startup_and_repeat_template_labels`,
+  `trace_frame_exports_lava_geyser_script_template_loc_147ba`, and
+  `build_game_scene_draws_lava_geyser_script_template_loc_147ba`.
+- Verification: `cargo test -q -p wildside-core lava_geyser -- --nocapture`,
+  `cargo test -q -p wildside-cli lava_geyser -- --nocapture`,
+  `cargo fmt --all --check`, `cargo check -q -p wildside-core -p wildside-cli`,
+  `git diff --check`, `mise run backlog-lint`, `mise run verify-slice-fast`,
+  and `mise run verify-tas-full` (CRC all 37,759 frames match; known baseline
+  212 authoritative divergences + 2 oracle limitations).
+- **Next:** keep #317 open for exact row-window/backend modelling and the shared
+  typed VRAM backend.
+
 ## 2026-06-23 handoff (#352 HiddenReveal render worker)
 
 - **#352 moved to `[?]` fixed candidate.** Native-player now draws typed

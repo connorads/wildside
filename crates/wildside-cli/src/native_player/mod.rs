@@ -3289,6 +3289,7 @@ mod tests {
             diamond_power_sprites: Vec::new(),
             eyeclops_hard_beam_object: None,
             active_geysers: Vec::new(),
+            lava_geyser_script_templates_loc_147ba: Vec::new(),
             island_shore_cycle_active: false,
             island_shore_cycle_state_loc_1202a: None,
             island_shore_vram_frames_loc_1202a: None,
@@ -10827,6 +10828,63 @@ mod tests {
                 matches!(command, DrawCommand::Rect { colour, .. } if *colour == [255, 120, 20])
             }),
             "loaded Lava.bin art should replace the native-player placeholder column"
+        );
+    }
+
+    #[test]
+    fn build_game_scene_draws_lava_geyser_script_template_loc_147ba() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_geysers = vec![(0x0080, 0x0030, 0x0010)];
+        trace.lava_geyser_script_templates_loc_147ba =
+            vec![wildside_core::LavaGeyserScriptTemplateTraceLoc147BA {
+                x_px: 0x0080,
+                base_y_px: 0x0040,
+                source_label: "unk_14602".to_owned(),
+            }];
+        let mut visuals = sample_level_visuals();
+        visuals.lava = Some(wildside_render::LavaVisuals {
+            palette: Palette {
+                colours: (0..8).map(|value| colour(value * 16, 0, 0)).collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0xC0],
+            },
+            vram_base_tile_index: 0x02FB,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let lava_sprites = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite { tile_sheet, .. } if tile_sheet.tiles.len() == 0xC0
+                )
+            })
+            .count();
+        assert_eq!(
+            lava_sprites, 4,
+            "ASM loc_147BA should draw the exact four-entry `unk_14602` script template and skip the legacy height-column fallback for that geyser"
         );
     }
 
