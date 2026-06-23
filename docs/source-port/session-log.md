@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (proactive Driller mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/driller.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `24 mutants tested in 10m: 2 missed, 17 caught,
+  5 unviable`; both survivors changed the left-facing
+  `cx - DRILLER_DRILL_CHILD_X_OFFSET` probe in
+  `driller_drilled_cells_loc_3be78`.
+- ASM `Driller.asm loc_3BE78`/`loc_3BE8E` selects the left linked drill child
+  `$3A(a5)`, whose init path places x at parent-$18, and seeds `d0=1`.
+  Existing coverage only pinned the right child. Added
+  `loc_3be78_driller_probes_left_child_x_not_parent_collision_width`.
+- Verification: focused `loc_3be78_driller_` tests pass; rerun
+  `.cache/mutants/driller-after` reports
+  `24 mutants tested in 10m: 19 caught, 5 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-23 handoff (proactive Tornado mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

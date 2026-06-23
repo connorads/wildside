@@ -23410,6 +23410,36 @@ mod chunk_10 {
     }
 
     #[test]
+    fn loc_3be78_driller_probes_left_child_x_not_parent_collision_width() {
+        let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
+        enemy.facing = Direction::Left;
+        let grid = grid_with_cells(
+            9,
+            8,
+            &[
+                // ASM Driller.asm loc_3BE78 selects the left linked drill
+                // child `$3A(a5)`, whose init path places x at parent-$18.
+                (4, 4, 0xE0, 0x01),
+                (4, 5, 0x60, 0x00),
+                (5, 5, 0x60, 0x00),
+            ],
+        );
+
+        let drilled = step_driller(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            drilled,
+            vec![DrilledBlockLoc3BE78 {
+                col: 4,
+                row: 4,
+                action: DrillerBlockDrillActionLoc3BEDE::SmashBits,
+                direction: 1,
+            }],
+            "ASM loc_3BE78/loc_3BE8E should probe the left linked drill child at parent-$18 and seed direction d0=1",
+        );
+    }
+
+    #[test]
     fn loc_3bef2_driller_preserves_ice_block_dispatch_for_runtime_bullets() {
         let mut enemy = make_pacer(EnemyFamily::Driller, 3, 88, 80);
         enemy.facing = Direction::Right;

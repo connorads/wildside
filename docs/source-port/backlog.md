@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **No ready/open agent rows remain.** Proactive fallback: Tornado collision/terrain mutation shard is clean on current HEAD after pinning `loc_35948`/`loc_35056` dispatch edges and terrain velocity gates.
+- **No ready/open agent rows remain.** Proactive fallback: Driller mutation shard is clean on current HEAD after pinning the left-linked `loc_3BE78` drill-child probe at parent x-$18.
 - **#280 moved to `[b]` route-needed.** Fresh BLW2/Hills/Bloody Swamp `$3E` probes go
   state-red; old `frame_index` diagnosis is stale. Do not patch without a clean route.
 - **#317 moved to `[b]`:** Island shore, storm, lava geyser, and weather-4 Unknown concrete slices are fixed/covered; the only remaining weather debt is a shared typed VRAM backend, which is a dedicated renderer-cache architecture session rather than a narrow unattended bug slice.
