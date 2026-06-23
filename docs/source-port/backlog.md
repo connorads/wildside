@@ -53,15 +53,12 @@ and stop — never commit churn.
   approximation (unextracted hover frames) stays open.
 - **Render-gap lesson:** headless CRC/state gates pass while a render-only gap ships (#352, #349);
   every missing-sprite/animation fix needs a native-player RENDER assertion or capture-frames diff.
-- **#336 stays `[ ]`, regression bisected (no code change — oracle-gated)**: the
-  cold-boot "Kid floats then drops" is the `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y`
-  camera pan (216→115px) introduced by c65df2500 (2026-06-12, recent — corrects the
-  archive's stale "not a recent regression" verdict). It is applied only for level 0
-  (other levels use the settled camera). The decisive oracle comparison is still
-  unmet: `compare-native-oracle --scenario boot-title-start-level1` only reaches the
-  title card (frame 719), not the live float. NEXT: oracle capture PAST the title card
-  into live gameplay, per-frame camera/kid-Y diff; do NOT edit the ramp first (may be
-  oracle-derived — never guess). Full evidence in **archive #336**.
+- **#336 closed `[-]` NOT-A-BUG / ORIGINAL_QUIRK.** The missing live oracle gate is
+  now met: a cold-boot route that presses Start on the BLW1 level card is CRC/checkpoint
+  clean through the visible handoff, and direct oracle WRAM watches match native's
+  `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` / Kid-Y tables byte-for-byte. Do not edit the
+  ramp without a new native-vs-oracle divergence. The separate "level card ignores early
+  Start" feel issue remains #348.
 - **#271 moved back to `[b]` route-needed after fresh Red Stealth audit.** BLW2 natural
   and two clean run+jump overlays are oracle-clean; the HP-loss cases are grounded/side
   contact before a clean first-frame stomp, not a native-only missed `$2C`. Highwater
@@ -108,7 +105,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
-| 336 | [ ] | P1 | level/entry | 2026-06-22 playtest RECONFIRM (persistent): BLW1 0x00 cold boot starts Kid high in/above the trees then floats down — level-0-only camera ramp (216→115px) outpaces the Kid world-Y settle (255→271px). Bisected to c65df2500. | NEXT: oracle capture PAST the title card (frame 719 / Game_Mode $C), per-frame camera/kid-Y diff; do NOT edit the ramp first (may be oracle-derived). See archive #336. |
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive; likely ASM-faithful survivor hurt/hibernate, needs visual/UX check. | Human distinguish survive-flash vs death+resurrect; verify hurt anim during hibernate. See archive #344. |
 | 345 | [ ] | P1 | enemy | 2026-06-22 playtest: Lion now ABSENT after death+respawn on Isle of the Lion Lord 0x07 (extends the mid-level vanish) — same `large_pacer` off-window cull (roster len vs ROM Number_Objects) re-firing during the post-respawn camera resettle. | Probe 0x07 post-death respawn: confirm Lion respawns after resettle (enemy_status_words.fill(0)=SpawnFresh, not a stale $2168 marker); rule out #239 ledge-fall. See archive #345. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |

@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#336 oracle-faithful)
+
+- **#336 moved `[~]`→`[-]` NOT-A-BUG / ORIGINAL_QUIRK.** The missing live oracle gate is now met: a dynamic cold-boot route that presses Start on the BLW1 level card (`.cache/debug/issue336-cold-boot-live/scenario-card-start.json`) is CRC/checkpoint clean across frames 880..1040.
+- Direct oracle WRAM watches on frames 970..996 confirm the ROM uses the same `loc_1AE2E -> loc_6E2 -> Load_InGame` ramp as native: camera Y `$00D8_0000`→`$0073_0000` while Kid Y `$00FF_0000`→`$010F_0000`. The visible treetop-to-floor presentation is faithful, so changing the ramp would be a deviation.
+- The separate "level/title card ignores early Start" feel issue remains #348. Reopen #336 only with a new native-vs-oracle divergence.
+- Verification: `verify-tas --scenario .cache/debug/issue336-cold-boot-live/scenario-card-start.json --frame-start 880 --frame-end 1041 --checkpoint-interval 1 --frontier-kind gameplay`, oracle PNG inspection, and `oracle-probe --watches 0xFFF820:u32,0xFFF85E:u32,0xFF24FA:u32,0xFF24FE:u32` over frames 970..996.
+- **Next:** run `mise run project-status`; #257 continue-screen render should remain the highest-priority open P0 unless the queue changes.
+
 ## 2026-06-23 handoff (#289 fixed candidate)
 
 - **#289 moves to `[?]`; the deterministic Level 0x07 settled recording is now exact.** The remaining 7-pixel frame-71 residual was the top-right ankh/life icon, not foliage/background.
