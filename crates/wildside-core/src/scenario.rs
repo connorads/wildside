@@ -1,5 +1,7 @@
 use super::*;
-use crate::level::step_island_palette_cycle_lower_band_loc_12188;
+use crate::level::{
+    island_shore_art_source_label_loc_1220e, step_island_palette_cycle_lower_band_loc_12188,
+};
 
 // Full-frame oracle warps do more than the explicit 60-frame stable-level poll:
 // the ROM level-skip path has a live title-card tail before the helper starts
@@ -265,6 +267,8 @@ impl NativeRuntime {
             self.island_shore_dma_uploads_loc_1202a
                 .push(IslandShoreDmaUploadLoc1202A {
                     frame_index,
+                    art_source_label: island_shore_art_source_label_loc_1220e(frame_index)
+                        .to_owned(),
                     source_offset,
                     vram_word_address,
                     dma_length_bytes,

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 Island shore DMA source labels)
+
+- **#317 remains `[~]`.** Island shore `loc_1202A` DMA trace events now carry the resolved
+  `off_1220E` art source labels (`unk_9784A`, `unk_97B2C`, `unk_97E0E`, `unk_980F0`,
+  mirrored `unk_97E0E`, `unk_97B2C`) instead of only frame indices and offsets.
+- This closes the weather-audit source-label subgap while preserving legacy recording
+  deserialisation for older `IslandShoreDmaUploadLoc1202A` JSON.
+- Regressions: `loc_1220e_resolves_island_shore_frame_source_labels`,
+  `begin_level_entry_spawns_island_shore_cycle_loc_11fb0`,
+  `step_island_shore_cycle_ticks_loc_12098_12110_12188`, and
+  `first_trace_drift_accepts_legacy_frames_missing_island_shore_diagnostics`.
+- **Next:** keep #317 open for storm/Unknown plane renderer consumption, lava geyser
+  script-walk/sentinel sound timing, and the shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#355 Cyclone flight spin render)
 
 - **#355 moved `[ ]`→`[?]`.** Cyclone flight now mirrors ASM `sub_B270 loc_B2A0`:

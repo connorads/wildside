@@ -4136,6 +4136,26 @@ mod chunk_08 {
     }
 
     #[test]
+    fn loc_1220e_resolves_island_shore_frame_source_labels() {
+        let expected = [
+            "unk_9784A",
+            "unk_97B2C",
+            "unk_97E0E",
+            "unk_980F0",
+            "unk_97E0E",
+            "unk_97B2C",
+        ];
+
+        for (frame_index, source_label) in expected.into_iter().enumerate() {
+            assert_eq!(
+                crate::level::island_shore_art_source_label_loc_1220e(frame_index as u16),
+                source_label,
+                "ASM off_1220E should resolve each Island shore frame index to the ROM art label used before the loc_1202A DMA source offset is added"
+            );
+        }
+    }
+
+    #[test]
     fn loc_1223a_computes_lava_water_rotation_delay_from_foreground_theme() {
         // ASM loc_1223A (kid.asm:24370): after `RotatePalette_Lava_Water`
         // initialises `d0 = #5`, the Mountain compare branches here on match;

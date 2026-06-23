@@ -8910,6 +8910,21 @@ pub(crate) struct IslandPaletteCycleLowerBandLoc12188 {
     pub(crate) dma_length_bytes: Option<u16>,
 }
 
+const ISLAND_SHORE_ART_SOURCE_LABELS_LOC_1220E: [&str; 6] = [
+    "unk_9784A",
+    "unk_97B2C",
+    "unk_97E0E",
+    "unk_980F0",
+    "unk_97E0E",
+    "unk_97B2C",
+];
+
+pub(crate) fn island_shore_art_source_label_loc_1220e(frame_index: u16) -> &'static str {
+    // ASM off_1220E (kid.asm:24350): six frame-art pointers feed the three
+    // `loc_1202A` shore DMA bands. Entries 4 and 5 mirror frames 3 and 2.
+    ISLAND_SHORE_ART_SOURCE_LABELS_LOC_1220E[usize::from(frame_index)]
+}
+
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_art_permutation_loc_11E48(
@@ -18694,6 +18709,7 @@ impl NativeRuntime {
                 self.island_shore_dma_uploads_loc_1202a
                     .push(IslandShoreDmaUploadLoc1202A {
                         frame_index: 0,
+                        art_source_label: island_shore_art_source_label_loc_1220e(0).to_owned(),
                         source_offset: 0x0002,
                         vram_word_address: 0xF600,
                         dma_length_bytes: 0x02E0,
@@ -18750,6 +18766,8 @@ impl NativeRuntime {
             self.island_shore_dma_uploads_loc_1202a
                 .push(IslandShoreDmaUploadLoc1202A {
                     frame_index,
+                    art_source_label: island_shore_art_source_label_loc_1220e(frame_index)
+                        .to_owned(),
                     source_offset,
                     vram_word_address,
                     dma_length_bytes,
@@ -18777,6 +18795,8 @@ impl NativeRuntime {
             self.island_shore_dma_uploads_loc_1202a
                 .push(IslandShoreDmaUploadLoc1202A {
                     frame_index,
+                    art_source_label: island_shore_art_source_label_loc_1220e(frame_index)
+                        .to_owned(),
                     source_offset,
                     vram_word_address,
                     dma_length_bytes,
@@ -18804,6 +18824,8 @@ impl NativeRuntime {
             self.island_shore_dma_uploads_loc_1202a
                 .push(IslandShoreDmaUploadLoc1202A {
                     frame_index,
+                    art_source_label: island_shore_art_source_label_loc_1220e(frame_index)
+                        .to_owned(),
                     source_offset,
                     vram_word_address,
                     dma_length_bytes,

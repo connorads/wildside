@@ -3206,6 +3206,7 @@ mod tests {
         replay.island_shore_vram_frames_loc_1202a = Some((7, 8, 9));
         replay.island_shore_dma_uploads_loc_1202a = vec![IslandShoreDmaUploadLoc1202A {
             frame_index: 3,
+            art_source_label: "unk_980F0".to_owned(),
             source_offset: 0x120,
             vram_word_address: 0x6400,
             dma_length_bytes: 0x80,

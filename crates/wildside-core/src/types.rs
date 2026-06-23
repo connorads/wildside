@@ -815,10 +815,16 @@ pub(crate) struct RotatePaletteLavaWaterStateLoc1223C {
     pub(crate) completed_rotations: u16,
 }
 
+fn default_island_shore_art_source_label_loc_1202a() -> String {
+    "unk_9784A".to_owned()
+}
+
 /// ASM `loc_1202A` Island shore animated-tile DMA upload.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IslandShoreDmaUploadLoc1202A {
     pub frame_index: u16,
+    #[serde(default = "default_island_shore_art_source_label_loc_1202a")]
+    pub art_source_label: String,
     pub source_offset: u32,
     pub vram_word_address: u16,
     pub dma_length_bytes: u16,

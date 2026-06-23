@@ -2996,6 +2996,7 @@ mod chunk_02 {
             trace.island_shore_dma_uploads_loc_1202a,
             vec![IslandShoreDmaUploadLoc1202A {
                 frame_index: 0,
+                art_source_label: "unk_9784A".to_owned(),
                 source_offset: 0x0002,
                 vram_word_address: 0xF600,
                 dma_length_bytes: 0x02E0,
@@ -3064,11 +3065,12 @@ mod chunk_02 {
             trace.island_shore_dma_uploads_loc_1202a,
             vec![IslandShoreDmaUploadLoc1202A {
                 frame_index: 1,
+                art_source_label: "unk_97B2C".to_owned(),
                 source_offset: 0x0002,
                 vram_word_address: 0xF600,
                 dma_length_bytes: 0x00C0,
             }],
-            "ASM loc_12098 uploads `off_1220E[d3]+2` for `$C0` bytes to VRAM `$F600` when `$44(a5)` reaches zero"
+            "ASM loc_12098 uploads `off_1220E[d3]+2` (`unk_97B2C+2` for pre-increment d3=1) for `$C0` bytes to VRAM `$F600` when `$44(a5)` reaches zero"
         );
     }
 

@@ -25,8 +25,8 @@ and stop — never commit churn.
 
 ## NOW
 
-- **Select work with `mise run project-status`** (priority-ordered across the live
-  lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
+- **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
+- **#317 remains `[~]`:** Island shore DMA trace labels are fixed; storm/Unknown plane renderer, lava script-walk/sentinel sound, and shared VRAM backend debt remain.
 - **#316 remains `[~]`:** DP shared list + `sub_3F798` sprite compiler are
   gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
@@ -106,7 +106,7 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — DP shared list and sprite compiler rows are fixed candidates; exact raw shared DP payload storage remains open. | Continue from remaining helmets row; see archive #316. |
-| 317 | [ ] | P3 | weather | Umbrella: audits/weather-fidelity-audit.md — weather gaps still open after the staleness check | Per-gap rows in doc. (full history: archive #317) |
+| 317 | [~] | P3 | weather | Umbrella: audits/weather-fidelity-audit.md — weather gaps still open after the staleness check | Per-gap rows in doc. (full history: archive #317) |
 | 318 | [ ] | P3 | player | Umbrella: audits/movement-fidelity-audit.md — 8 of 25 still open after the staleness check | Per-gap rows in doc |
 | 319 | [ ] | P3 | audio | Umbrella: audits/audio-triggers-fidelity-audit.md — remaining low/stub trigger gaps after Ankh/evanescent/ice-block/no-time and later enemy/BGM follow-ups; timeout `$51`/`$60` path is already live-tested | Per-gap rows in doc; tick off as wired |
 | 320 | [ ] | P3 | camera | Umbrella: audits/camera-fidelity-audit.md — 6 gaps, none high | Per-gap rows in doc |
