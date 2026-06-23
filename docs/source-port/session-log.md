@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#345 route-blocked)
+
+- **#345 moved `[~]`→`[b]`; no gameplay patch.** The reported Lion absence after death+respawn on Level 0x07 did not reproduce in settled native/oracle probes. Both sides have a Lion at frame 0 of `.cache/recordings/issue345-settled-level07-idle/scenario.json`, and native keeps one active at `level_settle@60`.
+- Re-reading `Lion.asm sub_3E8BA` still leaves a real audit smell: ROM cull bands use `(Number_Objects)`, while native `large_pacer_should_remain_active` uses active enemy roster length. That is not enough evidence for a patch because the reproduced divergence is an X offset, not lifecycle absence.
+- The natural post-death route reaches `LevelTransition`; Start overlays at 330/420 remain on the card because #348 level-card Start handling is still open. Re-run #345 after #348, or with an exact human route/frame that reaches live respawn and shows a native-only missing Lion.
+- Verification: `inspect-level --level 07`, `probe-record-scenario` settled/native probes, `record-scenario --slug issue345-settled-level07-idle`, `probe-record-scenario-file`, `verify-tas` and `tas-diff` over the settled route, `mise run backlog-lint`, and `git diff --check`.
+- **Next:** run `mise run project-status`; #345 is no longer in the open queue.
+
 ## 2026-06-23 handoff (#339 fixed candidate)
 
 - **#339 moved `[~]`→`[?]` fixed candidate.** The 2026-06-21 outgoing drone-stop fix missed a clean incoming level-load path: native replayed the first USM 0x04 level cue as plain `Start(6)` when `active_bgm_cue=None`, so ASM `Load_InGame loc_23629` `j_StopMusic` never reset GEMS at the incoming boundary.

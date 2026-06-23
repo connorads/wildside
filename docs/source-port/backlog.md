@@ -41,8 +41,9 @@ and stop — never commit churn.
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
   - **3 NEW rows:** #353 invisible metal-block spikes (P1 — kills you with no visible hazard),
     #355 Cyclone spin form no anim (P2 render), #356 Skydragon Castle bg piece dropout (P2).
-  - **4 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds), #345
-    (Lion now ABSENT after death+respawn on 0x07).
+  - **3 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds).
+    #345 has since moved to `[b]` route-blocked after the settled probes did not reproduce
+    the Lion absence.
 - **#289 moved to `[?]` fixed-candidate human validation.** The refreshed deterministic
   `issue289-level07-idle-current` reproduction is now trace/state/frame green: frame 60 and
   frame 71 both exact (`0` changed pixels / MAE `0.0`). USM3 0x06 was already human-confirmed
@@ -65,6 +66,10 @@ and stop — never commit churn.
   freshly seeded local tank. Native now mirrors ASM `Load_InGame loc_23629` `StopMusic`
   even when the BGM cue tracker is `None`: the clean 0x04 audio transcript changed from
   `Start(6)` to `StopMusicThenStart(6)`. Human real-device listen still required.
+- **#345 moved to `[b]` route-blocked.** Direct Level 0x07 settled native/oracle probes
+  show the Lion present; the only reproduced post-death route is still stuck on the
+  title card because #348 ignores early Start. Keep the `large_pacer` `Number_Objects`
+  audit smell, but do not patch it without a clean live absence route.
 - **#271 moved back to `[b]` route-needed after fresh Red Stealth audit.** BLW2 natural
   and two clean run+jump overlays are oracle-clean; the HP-loss cases are grounded/side
   contact before a clean first-frame stomp, not a native-only missed `$2C`. Highwater
@@ -112,7 +117,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive; likely ASM-faithful survivor hurt/hibernate, needs visual/UX check. | Human distinguish survive-flash vs death+resurrect; verify hurt anim during hibernate. See archive #344. |
-| 345 | [ ] | P1 | enemy | 2026-06-22 playtest: Lion now ABSENT after death+respawn on Isle of the Lion Lord 0x07 (extends the mid-level vanish) — same `large_pacer` off-window cull (roster len vs ROM Number_Objects) re-firing during the post-respawn camera resettle. | Probe 0x07 post-death respawn: confirm Lion respawns after resettle (enemy_status_words.fill(0)=SpawnFresh, not a stale $2168 marker); rule out #239 ledge-fall. See archive #345. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 348 | [ ] | P1 | input | 2026-06-20 playtest: level/title card ignores early Start; ASM `loc_1AE2E` exits on first Start edge from frame 2, native gates it. | Exit on first live Start edge; gate replay delay for boot traces. DynamicScenario card-frame ~5 should reach Game_Mode $C in 1-2 frames. See archive #348. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
