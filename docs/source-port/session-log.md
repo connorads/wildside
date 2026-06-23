@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#289 fixed candidate)
+
+- **#289 moves to `[?]`; the deterministic Level 0x07 settled recording is now exact.** The remaining 7-pixel frame-71 residual was the top-right ankh/life icon, not foliage/background.
+- ASM `sub_44DC loc_4546/loc_4586` stores `AniArt_LifeIcon` speed/frame pairs at offsets 0, 2, 4, and 6. Settled recording compatibility now scopes the current-page exception to `$FFFFFA5E=6 -> tile base 4`; `$FFFFFA5E=4` stays on the frozen HUD page, preserving frame 60.
+- Regression coverage adds `settled_level_skip_hud_life_icon_keeps_verified_sub_44dc_phases_loc_4546`, pinning both frame phases.
+- Refreshed `issue289-level07-idle-current` is trace/state/frame green: frame 60 exact (`0` / MAE `0.0`) and frame 71 exact (`0` / `0.0`). Visual diff panes are blank at both checkpoints.
+- Verification: focused `sub_44DC` HUD tests, green #289 recording, and `verify-slice-fast` green.
+- Human still needs to validate the original hell-theme start/layout symptom and O14 Lion-projectile report in live play; do not reopen #289 without a fresh route/frame because the deterministic repro is closed.
+
 ## 2026-06-23 handoff (#289 settled HUD diamond latch)
 
 - **#289 stays `[~]`; the Level 0x07 settled-recording HUD diamond strip is gone.** Normal trace-scene HUD rendering still presents the subsequent `sub_44DC loc_45EE` `unk_461C` page, but settled recording compatibility keeps `LevelSkip_Cheat` armed with the synthetic one-second `Level_completion_time` seed while gameplay is active, and that reduced oracle path already samples `$FFFFFA5D` at the visible page.

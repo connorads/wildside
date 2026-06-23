@@ -327,6 +327,17 @@ fn hud_diamond_palette_loc_1223c(
 fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
     if trace.level_complete && trace.level_complete_elapsed_frames == 0 {
         4
+    } else if trace.level_skip_cheat_enabled != 0
+        && trace.level_completion_time == 1
+        && !trace.level_complete
+        && let Some(tile_base_index) =
+            hud_life_icon_settled_recording_tile_base_index_loc_4586(trace.hud_life_frame_offset)
+    {
+        // ASM sub_44DC loc_4546/loc_4586 (kid.asm:5592): `AniArt_LifeIcon`
+        // stores speed/frame pairs at offsets 0,2,4,6. Settled LevelSkip_Cheat
+        // recordings only expose the final offset-6 live page before the frozen
+        // HUD hand-off; earlier offsets remain on the frozen HUD page.
+        tile_base_index
     } else if trace.hud_life_frame_offset == Some(0) {
         // ASM sub_44DC loc_4546 starts `AniArt_LifeIcon` at byte offset 0.
         // Oracle frame issue-289-level06-idle-current@179 shows the normal
@@ -334,6 +345,13 @@ fn hud_life_icon_tile_base_index_loc_4546(trace: &NativeTraceFrame) -> u16 {
         8
     } else {
         0
+    }
+}
+
+fn hud_life_icon_settled_recording_tile_base_index_loc_4586(offset: Option<u8>) -> Option<u16> {
+    match offset {
+        Some(6) => Some(4),
+        _ => None,
     }
 }
 

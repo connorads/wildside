@@ -42,14 +42,12 @@ and stop — never commit churn.
     #355 Cyclone spin form no anim (P2 render), #356 Skydragon Castle bg piece dropout (P2).
   - **4 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds), #345
     (Lion now ABSENT after death+respawn on 0x07).
-- **O14 "Lion shoots red squares" stays under #289.** The current Lion-projectile local-palette
-  and animation-clock fix removes the projectile residual in the refreshed recording. VERIFY next
-  playtest; do NOT open a separate row.
-- **#289 stays `[~]`.** USM3 0x06 human-confirmed "~back to normal" (working-confirm of the landed
-  platform/blank-top-row/live-block/Dragon fixes). Latest pass fixed the settled-recording HUD
-  diamond page latch; refreshed expected-red recording is trace/state-green with frame 60 exact
-  (`0` / MAE `0.0`) and frame 71 `7` / `0.01000744`. Remaining residual = frame-71 top-right
-  background/foliage edge pixels at `x=289..293,y=13..16`. Full do-not-retry list in archive #289.
+- **#289 moved to `[?]` fixed-candidate human validation.** The refreshed deterministic
+  `issue289-level07-idle-current` reproduction is now trace/state/frame green: frame 60 and
+  frame 71 both exact (`0` changed pixels / MAE `0.0`). USM3 0x06 was already human-confirmed
+  "~back to normal"; O14 "Lion shoots red squares" stays under #289 and needs the same playtest
+  pass, not a separate row. `verify-slice-fast` is green. Full do-not-retry/final evidence is in
+  archive #289.
 - **NOT-A-BUG:** O7 USM "stacked hovering enemy" = EmoRock (0x1B) hover tracking Kid's X (ASM
   loc_3621A) — faithful; multiple rocks converge above the Kid by design. Only the #333 render
   approximation (unextracted hover frames) stays open.
@@ -108,7 +106,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | 2026-06-23: settled-recording HUD diamond page latch fixed; expected-red trace/state green, frame 60 exact (`0` / MAE `0.0`), frame 71 `7` / `0.01000744`; residual is top-right background/foliage edge pixels. See archive #289. |
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
 | 336 | [ ] | P1 | level/entry | 2026-06-22 playtest RECONFIRM (persistent): BLW1 0x00 cold boot starts Kid high in/above the trees then floats down — level-0-only camera ramp (216→115px) outpaces the Kid world-Y settle (255→271px). Bisected to c65df2500. | NEXT: oracle capture PAST the title card (frame 719 / Game_Mode $C), per-frame camera/kid-Y diff; do NOT edit the ramp first (may be oracle-derived). See archive #336. |

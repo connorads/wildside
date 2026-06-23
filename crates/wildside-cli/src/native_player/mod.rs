@@ -18979,6 +18979,38 @@ mod tests {
     }
 
     #[test]
+    fn settled_level_skip_hud_life_icon_keeps_verified_sub_44dc_phases_loc_4546() {
+        let ankh_tile = |scene: &Scene| {
+            scene.commands.iter().find_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. }
+                    if *x == 0x1A1 - 128 && *y == 0x8D - 128 && tiles.len() == 4 =>
+                {
+                    tiles.first().map(|tile| tile.tile.tile_index)
+                }
+                _ => None,
+            })
+        };
+
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_skip_cheat_enabled = 1;
+        trace.level_completion_time = 1;
+
+        trace.hud_life_frame_offset = Some(4);
+        assert_eq!(
+            ankh_tile(&build_ingame_scene(&trace, false, None)),
+            Some(0),
+            "ASM sub_44DC loc_4546 stores `$FFFFFA5E=4`; oracle frame issue-289-level07-idle-current@60 keeps the settled LevelSkip_Cheat HUD ankh on the frozen page"
+        );
+
+        trace.hud_life_frame_offset = Some(6);
+        assert_eq!(
+            ankh_tile(&build_ingame_scene(&trace, false, None)),
+            Some(4),
+            "ASM sub_44DC loc_4546 stores `$FFFFFA5E=6`; oracle frame issue-289-level07-idle-current@71 renders the current `AniArt_LifeIcon` frame byte `$04`"
+        );
+    }
+
+    #[test]
     fn level_complete_first_handoff_uses_latched_life_icon_page_loc_4546() {
         let ankh_tile = |scene: &Scene| {
             scene.commands.iter().find_map(|command| match command {
