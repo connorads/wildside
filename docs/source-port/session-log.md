@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#254 intro skip fixed candidate)
+
+- **#254 moved `[~]` -> `[?]`.** IntroSequence6 Start-skip no longer replays the
+  blue hidden-shell VDP after `loc_1BAB0 -> sub_1C246` has entered `Load_TitleScreen`;
+  it carries/fades the resident VDP briefly, blacks the restore window, then exposes
+  title VDP at the 58-frame visual point.
+- Evidence: `.cache/recordings/issue210-intro6-start2400-control/scenario.json`
+  original samples now AE 22/0/0/0/0/0/8/0 at frames 2460, 2520, 2600,
+  2640, 2700, 2720, 2800, 3000; Start=2500 blackout exact at 2520/2550.
+- Verification: cache-backed `cold_boot_intro_sequence_6_` tests,
+  `cargo clippy --workspace --all-targets -- -D warnings`, and
+  `mise run verify-slice-fast`.
+- NEXT: run `mise run project-status`; with #254 awaiting human, continue the next
+  open visual row from the priority-ordered list.
+
 ## 2026-06-23 handoff (#320 camera audit closed)
 
 - **#320 moved `[ ]` -> `[x]`.** Rechecked `docs/source-port/audits/camera-fidelity-audit.md`,

@@ -6927,6 +6927,7 @@ impl NativeRuntime {
                 if *pending_title_skip > 0 {
                     *pending_title_skip -= 1;
                     if *pending_title_skip == 0 {
+                        let carried_vdp_snapshot = self.vdp_state.clone();
                         if *pending_title_skip_fast_restore {
                             // ASM loc_1BAB0 (kid.asm:30368) polls
                             // sub_1C246 during its `$B8` wait. When Start is
@@ -6942,6 +6943,8 @@ impl NativeRuntime {
                                 // visible after the `$28` -> `$2C` hand-off.
                                 self.timeout_restart_title_intro_sequence_5_pose = true;
                                 self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = true;
+                                self.intro_sequence_5_title_return_vdp_snapshot =
+                                    carried_vdp_snapshot;
                             }
                             let ready_frame = self.frame_index.saturating_add(
                                 INTRO_SEQUENCE_6_EARLY_START_SKIP_TITLE_READY_FRAMES,
@@ -6963,6 +6966,8 @@ impl NativeRuntime {
                                 // visible after the `$28` -> `$2C` hand-off.
                                 self.timeout_restart_title_intro_sequence_5_pose = true;
                                 self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = true;
+                                self.intro_sequence_5_title_return_vdp_snapshot =
+                                    carried_vdp_snapshot;
                             }
                             self.intro_sequence_6_start_skip_cursor_trace_priority = true;
                             self.title_screen_ready_frame = self

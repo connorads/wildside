@@ -56,6 +56,12 @@ pub(crate) const INTRO_SEQUENCE_6_EARLY_START_SKIP_TITLE_READY_FRAMES: usize = 1
 /// Oracle frame 2700 is visually complete while state still reports
 /// `title_screen_ready=false`; frame 2720 is the later trace-ready point.
 pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES: usize = 66;
+/// ASM loc_1BAB0 -> sub_1C246 can jump to `Load_TitleScreen` during
+/// IntroSequence6's hidden wait. Oracle frame probes for Start at 2400 blackout
+/// by title-local frame 19, then expose the rebuilt title VDP on frame 58
+/// before trace-facing title readiness.
+pub(crate) const INTRO_SEQUENCE_6_EARLY_START_SKIP_TITLE_VDP_READY_FRAMES: usize =
+    TITLE_ATTRACT_LOCK_FRAMES;
 /// ASM loc_1BA60 -> Load_IntroSequence6 -> loc_1BAB0 can enter title through
 /// sub_1C246 while the stale loc_1BCD0 slot-2 pose is still visible. Oracle
 /// frame probes for a cold frame-2400 Start keep that pose through frame 2429
@@ -74,14 +80,6 @@ pub(crate) const INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES: usize = 244;
 /// `loc_1B45A` hidden-shell restore to the normal title VDP shell by oracle
 /// frame 2700, while trace-facing title readiness remains false.
 pub(crate) const INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES: usize = 304;
-/// Cold boot global frame where `Load_IntroSequence6` first owns
-/// `Game_Mode=$0028`.
-pub(crate) const INTRO_SEQUENCE_6_COLD_BOOT_GLOBAL_START_FRAME: usize = SEGA_SCREEN_FRAMES
-    + INTRO_FIRST_SEGMENT_FRAMES
-    + INTRO_SECOND_SEGMENT_FRAMES
-    + INTRO_THIRD_SEGMENT_FRAMES
-    + INTRO_FOURTH_SEGMENT_FRAMES
-    + INTRO_FIFTH_SEGMENT_FRAMES;
 /// Stock title-card levels ignore the early intro-skip Start taps, then let
 /// the frame-178 press arm Obj_TitleMenu before the later frame-360 press
 /// selects 1P and flips into the hidden level bootstrap on the next frame.

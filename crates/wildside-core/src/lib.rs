@@ -1699,23 +1699,22 @@ impl NativeRuntime {
                     && !self.intro_sequence_6_start_skip_cursor_trace_priority
                     && !self.title_screen_vdp_ready() =>
             {
-                self.title_screen_data.as_ref().map(|data| {
-                    // ASM loc_1BAB0 (kid.asm:30370) can switch Game_Mode via
-                    // sub_1C246 while the sibling sub_1B43A worker is still
-                    // presenting loc_1B446 hidden-shell frames. Until the
-                    // early fast-restore title shell is ready, keep rebuilding
-                    // that still-visible IntroSequence6 VDP from the cold
-                    // Load_IntroSequence6 global timeline.
-                    let intro_sequence_6_elapsed = self
-                        .frame_index
-                        .saturating_sub(INTRO_SEQUENCE_6_COLD_BOOT_GLOBAL_START_FRAME);
-                    vdp::build_intro_sequence_6_vdp_with_character_frame_at_elapsed(
-                        data,
-                        intro_sequence_6_elapsed,
-                        self.title_screen_region_byte,
-                        self.current_camera_state().y_pos,
-                    )
-                })
+                // ASM loc_1BAB0 (kid.asm:30370) can switch Game_Mode via
+                // sub_1C246 while sibling intro workers still own the current
+                // VDP image. Oracle Start-at-2400/2450 probes carry that
+                // resident image only briefly after the `$28 -> $2C` jump,
+                // then the `Load_TitleScreen` restore is black until the
+                // title VDP rebuild reaches the short 58-frame reveal.
+                self.intro_sequence_5_title_return_vdp_snapshot
+                    .clone()
+                    .and_then(|mut vdp| {
+                        vdp::apply_intro_sequence_5_title_return_fade_to_black(
+                            &mut vdp,
+                            self.title_screen_elapsed_frames,
+                        )
+                        .then_some(vdp)
+                    })
+                    .or_else(|| Some(vdp::blank_vdp_state()))
             }
             BootState::TitleScreen { .. }
                 if self.title_screen_uses_intro_return_hidden_shell
@@ -1906,6 +1905,10 @@ impl NativeRuntime {
             || (self.intro_sequence_6_start_skip_cursor_trace_priority
                 && self.title_screen_elapsed_frames
                     >= INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES)
+            || (self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
+                && !self.intro_sequence_6_start_skip_cursor_trace_priority
+                && self.title_screen_elapsed_frames
+                    >= INTRO_SEQUENCE_6_EARLY_START_SKIP_TITLE_VDP_READY_FRAMES)
             || (matches!(self.boot_state, BootState::IntroSequence6 { .. })
                 && !self.intro_sequence_6_start_skip_cursor_trace_priority
                 && self.title_screen_elapsed_frames

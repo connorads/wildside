@@ -79,10 +79,8 @@ and stop — never commit churn.
 - **#352 moved to `[?]` fixed candidate.** Native-player draws ASM `sub_DFB0` HiddenReveal `$60xx` workers with the `loc_E2E2/loc_E2F0` bob.
 - **#272 moved to `[b]` route/real-device blocked.** Native emits Cyclone `$32` on a
   level 0x14 pickup, but the route is oracle-red; 0x1B/0x25 searches found no bounce.
-- **#210 moved to `[?]` fixed candidate.** Direct IntroSequence5 frame-2100
-  Start now has exact fade/title pixels at frames 2100..2120, 2160, 2161,
-  2250, 2278..2282, 2299..2302, and 2310; human title/menu skip validation
-  remains required before close.
+- **#210 moved to `[?]` fixed candidate.** Direct IntroSequence5 frame-2100 Start now has exact fade/title samples; human title/menu skip validation remains required.
+- **#254 moved to `[?]` fixed candidate.** IntroSequence6 Start-skip no longer shows the blue hidden shell; original sample route AE is 22/0/0/0/0/0/8/0.
 - **#319/#320 moved to `[x]`.** Audio-trigger and camera audits have no standalone backlog candidates left.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
@@ -106,7 +104,6 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — DP shared list and sprite compiler rows are fixed candidates; exact raw shared DP payload storage remains open. | Continue from remaining helmets row; see archive #316. |
-| 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
