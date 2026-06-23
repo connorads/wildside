@@ -3462,6 +3462,7 @@ mod tests {
             remaining_frames: 0,
             animation_elapsed_frames: 6,
             kind: ActiveProjectileKind::LionProjectile,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -3516,6 +3517,7 @@ mod tests {
             remaining_frames: 120,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -3575,6 +3577,7 @@ mod tests {
             remaining_frames: 0,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ManiaxeAxe,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -3630,6 +3633,7 @@ mod tests {
             remaining_frames: 0,
             animation_elapsed_frames: 4,
             kind: ActiveProjectileKind::ManiaxeAxe,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -3739,6 +3743,7 @@ mod tests {
             remaining_frames: 120,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::BossEyeAttack,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 5,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -3773,6 +3778,7 @@ mod tests {
             remaining_frames: 0,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::BossEyeSatellite,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 3,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -3942,6 +3948,7 @@ mod tests {
                 remaining_frames: 0,
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::BossEyeSatellite,
+                palette_variant: 0,
                 boss_eye_sprite_mapping_index: 5,
                 boss_eye_sprite_order_word_a: 0xFFFF,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -3956,6 +3963,7 @@ mod tests {
                 remaining_frames: 0,
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::BossEyeSatellite,
+                palette_variant: 0,
                 boss_eye_sprite_mapping_index: 3,
                 boss_eye_sprite_order_word_a: 1,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4004,6 +4012,7 @@ mod tests {
             remaining_frames: 120,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::ShooterBlock,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4345,6 +4354,7 @@ mod tests {
             remaining_frames: u16::MAX,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TankBullet,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4385,6 +4395,7 @@ mod tests {
             remaining_frames: 120,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TarMonsterGlob,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4429,6 +4440,7 @@ mod tests {
             remaining_frames: 60,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::TarMonsterBurstChild,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4585,6 +4597,7 @@ mod tests {
                 remaining_frames,
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::RobotShotImpact,
+                palette_variant: 0,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4629,6 +4642,7 @@ mod tests {
                 remaining_frames: 60,
                 animation_elapsed_frames,
                 kind: ActiveProjectileKind::RobotShot,
+                palette_variant: 0,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4675,6 +4689,7 @@ mod tests {
             remaining_frames: 45,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4709,6 +4724,7 @@ mod tests {
             remaining_frames: 45,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::FireDemonDeathTrail,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4745,6 +4761,7 @@ mod tests {
             remaining_frames: 68,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DragonWalkingBreath,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4814,6 +4831,7 @@ mod tests {
                 remaining_frames: 0,
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DragonFlyingDescentFire,
+                palette_variant: 0,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: state,
@@ -4884,6 +4902,7 @@ mod tests {
                 remaining_frames: 68,
                 animation_elapsed_frames: 0,
                 kind: ActiveProjectileKind::DragonWalkingBreath,
+                palette_variant: 0,
                 boss_eye_sprite_mapping_index: 0,
                 boss_eye_sprite_order_word_a: 0,
                 dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4939,7 +4958,27 @@ mod tests {
 
     #[test]
     fn drips_drop_uses_rom_child_sprite_frame_loc_33424() {
-        let visuals = sample_level_visuals();
+        let mut visuals = sample_level_visuals();
+        let variant_palette = Palette {
+            colours: vec![
+                colour(0, 0, 0),
+                colour(5, 10, 15),
+                colour(10, 20, 30),
+                colour(15, 30, 45),
+                colour(20, 40, 60),
+                colour(25, 50, 75),
+                colour(30, 60, 90),
+                colour(35, 70, 105),
+                colour(40, 80, 120),
+            ],
+        };
+        visuals
+            .enemies
+            .families
+            .get_mut(&0x16)
+            .expect("sample visuals include Drips")
+            .extra_palettes
+            .push(variant_palette.clone());
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
@@ -4950,6 +4989,7 @@ mod tests {
             remaining_frames: 200,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsDrop,
+            palette_variant: 1,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -4958,14 +4998,21 @@ mod tests {
 
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
-        let drop_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite { x, y, tiles, .. } if *x == 30 && *y == 23 => Some(tiles),
-            _ => None,
+        let drop_sprite = scene.commands.iter().find(|command| match command {
+            DrawCommand::Sprite { x, y, .. } => *x == 30 && *y == 23,
+            _ => false,
         });
-        let tiles = drop_sprite.expect("ASM Drips.asm loc_33424 should render the falling child");
+        let drop_sprite =
+            drop_sprite.expect("ASM Drips.asm loc_33424 should render the falling child");
+        let tiles = sprite_tiles(drop_sprite);
         assert_eq!(
             tiles[0].tile.tile_index, 0x082,
             "ASM `unk_C7B26: sprite_frame_vram $082,$02,$09,$05,$0A` is the falling-drop child frame",
+        );
+        assert_eq!(
+            sprite_palette(drop_sprite),
+            &variant_palette,
+            "ASM Drips.asm loc_33424 reuses the Drip child object, whose palette line was set by loc_32146 from the parent enemy slot"
         );
         assert!(
             !has_rect(&scene, 30, 22, 4, 5, [120, 200, 90]),
@@ -4986,6 +5033,7 @@ mod tests {
             remaining_frames: u16::MAX,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -5025,6 +5073,7 @@ mod tests {
             remaining_frames: 200,
             animation_elapsed_frames: 31,
             kind: ActiveProjectileKind::DripsSurfaceCrawler,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -5058,6 +5107,7 @@ mod tests {
             remaining_frames: 60,
             animation_elapsed_frames: 0,
             kind: ActiveProjectileKind::DripsSurfaceCrawlerFinish,
+            palette_variant: 0,
             boss_eye_sprite_mapping_index: 0,
             boss_eye_sprite_order_word_a: 0,
             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,

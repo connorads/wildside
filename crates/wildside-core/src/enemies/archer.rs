@@ -532,6 +532,7 @@ pub(crate) fn step_archer(
         drips_spawn_crawler_on_splash: false,
         owner: None,
         kind: EnemyProjectileKind::ArcherArrow,
+        palette_variant: 0,
         shooter_tracks_layout: false,
         shooter_layout_col: 0,
         shooter_layout_row: 0,

@@ -1595,6 +1595,7 @@ pub(crate) fn step_drips(
         drips_spawn_crawler_on_splash: false,
         drips_child_byte_44,
         drips_child_byte_45,
+        palette_variant: enemy.palette_variant,
         owner: Some(EnemyProjectileOwner {
             segment_index: enemy.segment_index,
             layout_index: enemy.layout_index,
@@ -1701,6 +1702,7 @@ mod tests {
         let mut enemy = ActiveEnemy {
             family: EnemyFamily::Drips,
             enemy_level: 2,
+            palette_variant: 2,
             drips_attached: true,
             wait_timer: 0,
             ..mini_hopping_skull_test_enemy()
@@ -1719,6 +1721,10 @@ mod tests {
         assert_eq!(
             projectiles[0].drips_child_byte_45, 0xFF,
             "ASM Enemy16_Drip_Init loc_3333E copies `$45(a5)` from `unk_33338`; loc_33526 uses it for the doubled startup delta"
+        );
+        assert_eq!(
+            projectiles[0].palette_variant, 2,
+            "ASM Drips.asm loc_33424 exposes the preallocated child object; its object_meta `$16` inherits the Drip art slot/palette selected by loc_32146"
         );
     }
 

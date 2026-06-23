@@ -163,6 +163,9 @@ pub struct ActiveProjectileSnapshot {
     pub animation_elapsed_frames: u16,
     #[serde(default)]
     pub kind: ActiveProjectileKind,
+    /// Enemy palette variant resolved from the level's enemy type slot.
+    #[serde(default)]
+    pub palette_variant: u8,
     #[serde(default)]
     pub boss_eye_sprite_mapping_index: u8,
     /// ROM sprite-order word `$A(a3)` for boss-eye workers. ASM `sub_393C8`
@@ -3241,6 +3244,8 @@ pub(crate) struct EnemyProjectile {
     /// the spawner state. ASM Lion.asm sub_3E2CE / loc_3E1B4.
     pub(crate) owner: Option<EnemyProjectileOwner>,
     pub(crate) kind: EnemyProjectileKind,
+    /// Enemy palette variant resolved from the level's enemy type slot.
+    pub(crate) palette_variant: u8,
     /// ASM loc_EC76 stores `(a3)` as the shooter object's current Level_Layout
     /// word pointer and `$8(a3)=#$FFFE`. Native keeps the equivalent cell
     /// coordinates/state for shooter-block workers so loc_EE2A/loc_EF2E timing

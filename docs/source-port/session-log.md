@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#351 Drips child palette variant)
+
+- **#351 moved `[~]` -> `[?]`.** Drips child projectiles now carry the parent
+  enemy-slot palette variant from `step_drips` through the falling child,
+  `loc_335D8` surface crawler, and `loc_3392C` finish shell.
+- Evidence: Level `$12`/resource `$49` decodes Drip slot `0x0016` (palette
+  variant 0) with Drips at x≈2264/2104/2408. Parent enemies already used the
+  slot variant; the missing render path was the Drips child projection, which
+  previously always used `drips_visuals.palette`.
+- Verification: focused Drips producer/crawler/finish propagation tests,
+  focused native-player Drips drop render/palette test, `drips_` core/CLI
+  slices, `enemy_art_palette`, and `inspect-level --level 12`. `capture-frames`
+  cannot jump directly to x≈2264, so final visual confirmation remains human.
+- NEXT: continue with `mise run project-status`; the top open row should now be
+  #356 unless a higher-priority ready item appears.
+
 ## 2026-06-23 handoff (#347 Shifting block rise render)
 
 - **#347 moved `[~]` -> `[?]`.** Native-player now renders typed Shifting

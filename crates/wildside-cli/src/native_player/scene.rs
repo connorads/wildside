@@ -6223,6 +6223,7 @@ fn build_game_scene_filtered(
                         remaining_frames: 0,
                         animation_elapsed_frames: 0,
                         kind: ActiveProjectileKind::Generic,
+                        palette_variant: 0,
                         boss_eye_sprite_mapping_index: 0,
                         boss_eye_sprite_order_word_a: 0,
                         dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -6610,7 +6611,10 @@ fn build_game_scene_filtered(
                             push_sprite_frame(
                                 &mut commands,
                                 &frame,
-                                &drips_visuals.palette,
+                                sprites::select_enemy_palette(
+                                    drips_visuals,
+                                    projectile.palette_variant,
+                                ),
                                 sx,
                                 sy,
                             );

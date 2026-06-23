@@ -1957,7 +1957,7 @@ fn scripted_tank_turret_frame(
     specs.last().copied()
 }
 
-fn select_enemy_palette(
+pub(super) fn select_enemy_palette(
     visuals: &wildside_render::AnimatedSpriteVisual,
     variant: u8,
 ) -> &wildside_render::Palette {

@@ -7618,6 +7618,7 @@ impl NativeRuntime {
                     remaining_frames: p.lifetime,
                     animation_elapsed_frames: p.animation_elapsed_frames,
                     kind: active_projectile_kind(p),
+                    palette_variant: p.palette_variant,
                     boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
                         p.boss_eye_sprite_mapping_label,
                     ),
@@ -7637,6 +7638,7 @@ impl NativeRuntime {
                             remaining_frames: 0,
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::Generic,
+                            palette_variant: 0,
                             boss_eye_sprite_mapping_index: 0,
                             boss_eye_sprite_order_word_a: 0,
                             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -7655,6 +7657,7 @@ impl NativeRuntime {
                             remaining_frames: trail.remaining_frames,
                             animation_elapsed_frames: 0,
                             kind: ActiveProjectileKind::FireDemonDeathTrail,
+                            palette_variant: 0,
                             boss_eye_sprite_mapping_index: 0,
                             boss_eye_sprite_order_word_a: 0,
                             dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
@@ -7992,6 +7995,7 @@ impl NativeRuntime {
                         remaining_frames: 0,
                         animation_elapsed_frames: 0,
                         kind: ActiveProjectileKind::BossEyeSatellite,
+                        palette_variant: 0,
                         boss_eye_sprite_mapping_index: boss_eye_sprite_mapping_index(
                             slot.sprite_mapping,
                         ),

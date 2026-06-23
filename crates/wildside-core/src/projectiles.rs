@@ -527,6 +527,7 @@ fn drips_surface_crawler_from_drop_loc_335d8(
         splash_reset.surface_child_y_pos,
         drop.drips_child_byte_44,
         drop.drips_child_byte_45,
+        drop.palette_variant,
         random_byte,
     )
 }
@@ -536,6 +537,7 @@ fn drips_surface_crawler_from_splash_loc_335d8(
     splash_y_pos: u32,
     child_byte_44: u8,
     child_byte_45: u8,
+    palette_variant: u8,
     random_byte: u8,
 ) -> EnemyProjectile {
     let drop_x_word = (splash_x_pos >> 16) as u16;
@@ -568,6 +570,7 @@ fn drips_surface_crawler_from_splash_loc_335d8(
         drips_surface_crawler_x_direction_flipped: init.x_direction != 0,
         drips_child_byte_44: init.child_byte_44,
         drips_child_byte_45: init.child_byte_45,
+        palette_variant,
         animation_elapsed_frames: DRIPS_SURFACE_CRAWLER_STARTUP_FRAMES_LOC_335D8,
         ..Default::default()
     }
@@ -631,6 +634,7 @@ fn drips_surface_crawler_finish_animation_loc_3392c(crawler: &EnemyProjectile) -
         y_pos: crawler.y_pos,
         x_velocity: 0,
         y_velocity: 0,
+        palette_variant: crawler.palette_variant,
         lifetime: 60,
         gravity: 0,
         friendly: false,
@@ -770,6 +774,7 @@ mod drips_surface_crawler_tests {
             y_pos: 0x00E6_0000,
             drips_child_byte_44: 0xFF,
             drips_child_byte_45: 0xFF,
+            palette_variant: 2,
             ..Default::default()
         };
 
@@ -791,6 +796,10 @@ mod drips_surface_crawler_tests {
         );
         assert_eq!(crawler.drips_child_byte_44, 0xFF);
         assert_eq!(crawler.drips_child_byte_45, 0xFF);
+        assert_eq!(
+            crawler.palette_variant, 2,
+            "ASM Drips.asm loc_335D8 creates object_meta `$16` and runs loc_32146, so the crawler keeps the same Drip palette variant as the falling child"
+        );
     }
 
     #[test]
@@ -858,7 +867,7 @@ mod drips_surface_crawler_tests {
     #[test]
     fn drips_surface_crawler_spawn_persists_as_hostile_loc_335d8() {
         let crawler =
-            drips_surface_crawler_from_splash_loc_335d8(0x0248_0000, 0x0229_0000, 0, 0, 0);
+            drips_surface_crawler_from_splash_loc_335d8(0x0248_0000, 0x0229_0000, 0, 0, 0, 0);
 
         assert_eq!(
             crawler.kind,
@@ -888,7 +897,7 @@ mod drips_surface_crawler_tests {
         );
 
         let flipped =
-            drips_surface_crawler_from_splash_loc_335d8(0x0248_0000, 0x0229_0000, 0, 0, 0x04);
+            drips_surface_crawler_from_splash_loc_335d8(0x0248_0000, 0x0229_0000, 0, 0, 0, 0x04);
         assert!(
             flipped.drips_surface_crawler_x_direction_flipped,
             "ASM Drips.asm loc_335D8 uses `bclr #2,d7` to set flipped x_direction when random bit 2 was set"
@@ -951,6 +960,7 @@ mod drips_surface_crawler_tests {
             y_pos: 0x0220_0000,
             x_velocity: -0x0000_3000,
             y_velocity: 0x0000_5000,
+            palette_variant: 2,
             lifetime: DRIPS_SURFACE_CRAWLER_LIFETIME,
             ..Default::default()
         };
@@ -975,6 +985,10 @@ mod drips_surface_crawler_tests {
         );
         assert_eq!(finish.gravity, 0);
         assert!(!finish.friendly);
+        assert_eq!(
+            finish.palette_variant, 2,
+            "ASM Drips.asm loc_3392C keeps rendering the same Drip object after loc_335D8/loc_32146 selected its palette"
+        );
     }
 
     #[test]
@@ -2451,6 +2465,7 @@ impl NativeRuntime {
                     enemy.drips_pending_splash_y_pos,
                     drips_child_byte_44,
                     drips_child_byte_45,
+                    enemy.palette_variant,
                     crawler_random_byte.expect("crawler random byte is reserved above"),
                 ));
                 *drips_surface_crawler_count += 1;
