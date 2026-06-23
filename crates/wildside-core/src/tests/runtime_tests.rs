@@ -7242,6 +7242,14 @@ mod chunk_09 {
             "ASM loc_3038A Time_Frames already matches the recording oracle; loc_1202A shore priming must not advance the global timer"
         );
         assert_eq!(
+            (
+                frame_60.level_timer_seconds,
+                frame_60.level_timer_sub_frames
+            ),
+            (178, 0x07),
+            "ASM Make_SpriteAttr_HUD loc_BE82 decrements Time_SubSeconds before loc_BEE8 writes the visible timer; #289 oracle watches frame 60 at 2:58/$07"
+        );
+        assert_eq!(
             frame_60.island_shore_vram_frames_loc_1202a,
             Some((3, 2, 1)),
             "ASM loc_12098/loc_12110/loc_12188: oracle VDP samples for #289 frame 60 show the primary/mid bands at 3/2 and the lower shore band at frame 1"
@@ -7251,6 +7259,14 @@ mod chunk_09 {
         assert_eq!(
             frame_71.time_frames_loc_3038a, 185,
             "ASM loc_3038A remains on the oracle global timer at the second #289 checkpoint"
+        );
+        assert_eq!(
+            (
+                frame_71.level_timer_seconds,
+                frame_71.level_timer_sub_frames
+            ),
+            (177, 0x38),
+            "ASM Make_SpriteAttr_HUD loc_BE82/loc_BEE8: #289 oracle watches frame 71 after the next visible timer rollover at 2:57/$38"
         );
         assert_eq!(
             frame_71.island_shore_vram_frames_loc_1202a,

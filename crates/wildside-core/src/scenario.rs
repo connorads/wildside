@@ -7,6 +7,8 @@ use crate::level::step_island_palette_cycle_lower_band_loc_12188;
 // that tail, so settled full-frame traces need the oracle-observed live age.
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
+const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
+const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
 const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
 const ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A: usize = 0x10;
 const ISLAND_RECORDING_SHORE_LOWER_EXTRA_TICKS_LOC_12188: usize = 0x12;
@@ -196,6 +198,14 @@ impl NativeRuntime {
             RECORDING_SETTLED_WARP_LIVE_FRAMES
         };
         self.settle_target_level_live_window(level_id, target_live_frames);
+        // ASM Init_SpriteAttr_HUD loc_BDC0 seeds Time_SubSeconds to 1, then
+        // the ROM level-skip recording path reaches scenario frame 0 with
+        // Time_Seconds=2:59 and Time_SubSeconds=$08. The first scripted frame
+        // decrements that to $07; #289 oracle watches show frame 60 at 2:58/$07
+        // and frame 71 at 2:57/$38. Keep this on the recording settle shim so
+        // ordinary gameplay timer startup stays on LevelTimer::new.
+        self.level_timer.seconds = RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0;
+        self.level_timer.sub_frames = RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0;
         if level_id == LevelId(0x06) {
             // ASM loc_124A6 calls sub_F730 for ghost blocks on the level-skip
             // tail that the recording helper observes. Dragon_Flying.asm

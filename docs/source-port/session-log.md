@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#289 recording timer phase)
+
+- **#289 stays `[~]`; the Level 0x07 settled-recording HUD timer phase now matches oracle watches.** ASM `Init_SpriteAttr_HUD loc_BDC0` seeds the timer path before the first scripted recording frame; the recording settle shim now starts at 2:59/$08 so frame 0 decrements to 2:59/$07, frame 60 is 2:58/$07, and frame 71 rolls to 2:57/$38.
+- Regression coverage extends `issue289_level07_settled_recording_primes_island_shore_vram_loc_1202a` with timer assertions at frames 60 and 71 while keeping `Time_Frames` and the Island shore frames pinned.
+- Refreshed `issue289-level07-idle-current` remains expected-red but trace/state-green: frame 60 stays `45` / MAE `0.04169922`; frame 71 improves from `83` / `0.12003813` to `52` / `0.05170666`. Remaining residual is the HUD diamond strip at both checkpoints plus seven frame-71 top-right foliage/edge pixels, not the visible timer.
+- Next #289 pass should inspect the HUD diamond latch/current-page split or top-right foliage/edge samples, not the HUD timer, Island shore age, selected Plane-B rows, global `Time_Frames`, static cloud H-scroll, simple `loc_12110`, or broad HUD phase/position tuning.
+- Verification: focused cache-backed `cargo test -q -p wildside-core issue289_level07_settled_recording_primes_island_shore_vram_loc_1202a -- --nocapture`, refreshed `record-scenario --slug issue289-level07-idle-current`, and expected-red `verify-recording --slug issue289-level07-idle-current`; final gates recorded in the commit session.
+
 ## 2026-06-23 handoff (#289 Island lower-shore settle)
 
 - **#289 stays `[~]`; the Level 0x07 bottom-left Island shore residual is gone.** Oracle VDP samples showed `loc_12188`'s lower shore band had reached `shore_2.bin` / frame `1` while the already fixed primary/mid bands were correct, so the recording settle shim now advances only the lower-band state after the unified `loc_1202A` tail.
