@@ -30441,6 +30441,52 @@ mod chunk_05 {
     }
 
     #[test]
+    fn loc_14940_exposes_full_height_top_frame_alternation_for_rendering() {
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                LAVA_GEYSER_PHASE_RISING_LOC_1484E,
+                2,
+                0x0030,
+                0x0030,
+            ),
+            Some(crate::weather::LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index: 2,
+                top_sprite_frame_within_row: 0,
+            }),
+            "ASM loc_1484E should keep `$4C(a5)=0` while the visible row index is still rising"
+        );
+
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
+                LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE,
+                0x0030,
+                0x0030,
+            ),
+            Some(crate::weather::LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index: 1,
+                top_sprite_frame_within_row: 1,
+            }),
+            "ASM loc_14940 should toggle `$4C(a5)` to one and subtract two from `$4A(a5)` when the geyser first reaches the top row"
+        );
+
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
+                LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
+                    - LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE,
+                0x0030,
+                0x0030,
+            ),
+            Some(crate::weather::LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index: 3,
+                top_sprite_frame_within_row: 0,
+            }),
+            "ASM loc_14966 should add two back to `$4A(a5)` when `$4C(a5)` toggles back to zero"
+        );
+    }
+
+    #[test]
     fn loc_14804_hibernates_once_per_additional_sprite_row_after_the_first() {
         assert_eq!(
             crate::weather::lava_geyser_inter_row_hibernations_loc_14804(0),

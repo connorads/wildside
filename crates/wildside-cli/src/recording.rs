@@ -2235,6 +2235,18 @@ fn trace_frames_match(
             actual.lava_geyser_palette_words_loc_14b2a;
     }
 
+    if active_geysers_match_with_legacy_render_state(
+        &expected.active_geysers,
+        &actual.active_geysers,
+    ) {
+        // Legacy traces predate ASM loc_14874 `d3`/`$4C` render state. The
+        // compact `(x,y,height)` fields still identify the eruption; pixel
+        // checkpoints guard the visible full-height template alternation.
+        normalised_expected
+            .active_geysers
+            .clone_from(&actual.active_geysers);
+    }
+
     if expected.storm_shared_art_upload_loc_14d8a.is_none() {
         // `storm_shared_art_upload_loc_14d8a` is additive diagnostics for ASM
         // Init_SpecialEffect_Storm loc_14D8A. Pixel checkpoints still guard the
@@ -2282,6 +2294,30 @@ fn trace_frames_match(
     }
 
     &normalised_expected == actual
+}
+
+fn active_geysers_match_with_legacy_render_state(
+    expected: &[(u16, u16, u16, u16, u8)],
+    actual: &[(u16, u16, u16, u16, u8)],
+) -> bool {
+    expected.len() == actual.len()
+        && expected.iter().zip(actual).all(
+            |(
+                &(expected_x, expected_y, expected_height, expected_row, expected_frame),
+                &(actual_x, actual_y, actual_height, actual_row, actual_frame),
+            )| {
+                (
+                    expected_x,
+                    expected_y,
+                    expected_height,
+                    expected_row,
+                    expected_frame,
+                ) == (actual_x, actual_y, actual_height, actual_row, actual_frame)
+                    || ((expected_x, expected_y, expected_height)
+                        == (actual_x, actual_y, actual_height)
+                        && (expected_row, expected_frame) == (u16::MAX, u8::MAX))
+            },
+        )
 }
 
 fn title_screen_ready_affects_recording_match(game_mode: GameMode) -> bool {
@@ -3278,6 +3314,27 @@ mod tests {
         assert_eq!(
             drift, None,
             "level-start BGM ids and loc_1223C lava/water palette fields are additive diagnostics for legacy visual-validation recordings"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_lava_geyser_render_state() {
+        let mut recorded = sample_trace_frame(0);
+        recorded.active_geysers = vec![(0x0080, 0x0040, 0x0030, u16::MAX, u8::MAX)];
+        let mut replay = recorded.clone();
+        replay.active_geysers = vec![(0x0080, 0x0040, 0x0030, 1, 1)];
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "legacy lava traces predate ASM loc_14874 `d3`/`$4C` render state; compact eruption coordinates still identify the same full-height row"
         );
     }
 

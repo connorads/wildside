@@ -1549,8 +1549,12 @@ pub struct NativeTraceFrame {
     /// Visual-only Eyeclops hard-beam companion object (`$FFFFFABA`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub eyeclops_hard_beam_object: Option<EyeclopsHardBeamObjectSnapshot>,
-    /// Active lava geyser eruptions: (x_px, y_top_px, height_px) for rendering.
-    pub active_geysers: Vec<(u16, u16, u16)>,
+    /// Active lava geyser eruptions: (x_px, y_top_px, height_px, ASM `d3`,
+    /// ASM `$4C(a5)`) for rendering. Legacy recordings only carry the first
+    /// three fields; their render-state fields are deserialised as sentinels so
+    /// native-player can keep the old row derivation.
+    #[serde(default, deserialize_with = "deserialize_active_geysers")]
+    pub active_geysers: Vec<(u16, u16, u16, u16, u8)>,
     /// Active lava geyser script rows from ASM `loc_147BA`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lava_geyser_script_templates_loc_147ba: Vec<LavaGeyserScriptTemplateTraceLoc147BA>,
@@ -1666,6 +1670,34 @@ enum BlockBounceTraceEntry {
 }
 
 type BlockBounceTraceTuple = (u16, u16, u8, i16);
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ActiveGeyserTraceEntry {
+    Current(ActiveGeyserTraceTuple),
+    Legacy((u16, u16, u16)),
+}
+
+type ActiveGeyserTraceTuple = (u16, u16, u16, u16, u8);
+
+fn deserialize_active_geysers<'de, D>(
+    deserializer: D,
+) -> Result<Vec<ActiveGeyserTraceTuple>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Vec::<ActiveGeyserTraceEntry>::deserialize(deserializer).map(|entries| {
+        entries
+            .into_iter()
+            .map(|entry| match entry {
+                ActiveGeyserTraceEntry::Current(entry) => entry,
+                ActiveGeyserTraceEntry::Legacy((x_px, y_top_px, height_px)) => {
+                    (x_px, y_top_px, height_px, u16::MAX, u8::MAX)
+                }
+            })
+            .collect()
+    })
+}
 
 fn deserialize_block_bounces<'de, D>(
     deserializer: D,
@@ -3457,6 +3489,32 @@ mod tests {
         let frame: NativeTraceFrame = serde_json::from_str(json).expect("current trace frame");
 
         assert_eq!(frame.block_bounces, vec![(8, 12, 8, -2)]);
+    }
+
+    #[test]
+    fn native_trace_frame_reads_legacy_three_field_lava_geysers() {
+        let json = r#"{
+            "active_geysers": [[144, 184, 24]]
+        }"#;
+
+        let frame: NativeTraceFrame = serde_json::from_str(json).expect("legacy trace frame");
+
+        assert_eq!(
+            frame.active_geysers,
+            vec![(144, 184, 24, u16::MAX, u8::MAX)],
+            "legacy traces predate ASM loc_14874 `d3`/`$4C` render state; mark those fields for legacy derivation"
+        );
+    }
+
+    #[test]
+    fn native_trace_frame_reads_current_five_field_lava_geysers() {
+        let json = r#"{
+            "active_geysers": [[144, 184, 24, 2, 1]]
+        }"#;
+
+        let frame: NativeTraceFrame = serde_json::from_str(json).expect("current trace frame");
+
+        assert_eq!(frame.active_geysers, vec![(144, 184, 24, 2, 1)]);
     }
 
     #[test]

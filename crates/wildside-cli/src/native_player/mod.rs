@@ -10779,7 +10779,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.active_geysers = vec![(0x0080, 0x0040, 0x0030)];
+        trace.active_geysers = vec![(0x0080, 0x0040, 0x0030, u16::MAX, u8::MAX)];
         let mut visuals = sample_level_visuals();
         visuals.lava = Some(wildside_render::LavaVisuals {
             palette: Palette {
@@ -10836,7 +10836,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0x0100_0000;
         trace.camera_y_pos = 0;
-        trace.active_geysers = vec![(0x00DF, 0x0030, 0x0030)];
+        trace.active_geysers = vec![(0x00DF, 0x0030, 0x0030, u16::MAX, u8::MAX)];
         let mut visuals = sample_level_visuals();
         visuals.lava = Some(wildside_render::LavaVisuals {
             palette: Palette {
@@ -10878,11 +10878,64 @@ mod tests {
     }
 
     #[test]
+    fn build_game_scene_uses_lava_geyser_top_alt_template_dword_14636() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.active_geysers = vec![(0x0080, 0x0040, 0x0030, 1, 1)];
+        let mut visuals = sample_level_visuals();
+        visuals.lava = Some(wildside_render::LavaVisuals {
+            palette: Palette {
+                colours: (0..8).map(|value| colour(value * 16, 0, 0)).collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0xC0],
+            },
+            vram_base_tile_index: 0x02FB,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let lava_tile_indices: Vec<u16> = scene
+            .commands
+            .iter()
+            .flat_map(|command| match command {
+                DrawCommand::Sprite {
+                    tile_sheet, tiles, ..
+                } if tile_sheet.tiles.len() == 0xC0 => {
+                    tiles.iter().map(|tile| tile.tile.tile_index).collect()
+                }
+                _ => Vec::new(),
+            })
+            .collect();
+        assert!(
+            lava_tile_indices.contains(&0x00AF),
+            "ASM loc_148CE should select dword_14636 when `$4C(a5)` is non-zero; loc_14BE8 then adds the incremented sprite count to tile `$3A9`"
+        );
+    }
+
+    #[test]
     fn build_game_scene_draws_lava_geyser_script_template_loc_147ba() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.active_geysers = vec![(0x0080, 0x0030, 0x0010)];
+        trace.active_geysers = vec![(0x0080, 0x0030, 0x0010, u16::MAX, u8::MAX)];
         trace.lava_geyser_script_templates_loc_147ba =
             vec![wildside_core::LavaGeyserScriptTemplateTraceLoc147BA {
                 x_px: 0x0080,
@@ -10939,7 +10992,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0x0100_0000;
         trace.camera_y_pos = 0;
-        trace.active_geysers = vec![(0x00DF, 0x0030, 0x0010)];
+        trace.active_geysers = vec![(0x00DF, 0x0030, 0x0010, u16::MAX, u8::MAX)];
         trace.lava_geyser_script_templates_loc_147ba =
             vec![wildside_core::LavaGeyserScriptTemplateTraceLoc147BA {
                 x_px: 0x00DF,
@@ -10991,7 +11044,7 @@ mod tests {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.active_geysers = vec![(0x0080, 0x0040, 0x0010)];
+        trace.active_geysers = vec![(0x0080, 0x0040, 0x0010, u16::MAX, u8::MAX)];
         trace.lava_geyser_palette_words_loc_14b2a = Some([
             0x0CCC, 0x0222, 0x0444, 0x0666, 0x0004, 0x0008, 0x000C, 0x002E,
         ]);

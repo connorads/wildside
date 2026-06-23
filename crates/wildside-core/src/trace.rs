@@ -5466,7 +5466,7 @@ mod tests {
         // height is non-zero. Prize_Init/sub_10C50 stores prize objects in
         // FP16.16 WRAM, while the trace renderer consumes whole pixels.
         let trace = runtime.trace_frame();
-        assert_eq!(trace.active_geysers, vec![(144, 184, 24)]);
+        assert_eq!(trace.active_geysers, vec![(144, 184, 24, 0, 0)]);
         assert_eq!(trace.floating_items, vec![(0x0123, 0x0045, 0x01AB, 0)]);
         assert_eq!(trace.death_windup_elapsed, 7);
 
@@ -7656,10 +7656,23 @@ impl NativeRuntime {
                 .iter()
                 .filter(|g| g.current_height > 0)
                 .map(|g| {
+                    let full_height_render =
+                        crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                            g.phase,
+                            g.timer,
+                            g.current_height,
+                            g.height_px,
+                        );
+                    let (sprite_row_index, top_sprite_frame_within_row) = full_height_render
+                        .map_or((u16::MAX, u8::MAX), |state| {
+                            (state.sprite_row_index, state.top_sprite_frame_within_row)
+                        });
                     (
                         g.x_px,
                         g.y_px.saturating_sub(g.current_height),
                         g.current_height,
+                        sprite_row_index,
+                        top_sprite_frame_within_row,
                     )
                 })
                 .collect(),

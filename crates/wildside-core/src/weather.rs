@@ -2570,6 +2570,86 @@ pub(crate) fn lava_geyser_middle_row_advance_loc_14914(
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LavaGeyserFullHeightRenderStateLoc14940 {
+    pub(crate) sprite_row_index: u16,
+    pub(crate) top_sprite_frame_within_row: u8,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn lava_geyser_full_height_render_state_loc_14940(
+    phase: u8,
+    timer: u16,
+    current_height_px: u16,
+    peak_height_px: u16,
+) -> Option<LavaGeyserFullHeightRenderStateLoc14940> {
+    // ASM loc_14940/loc_14966/loc_1496C (kid.asm:28004-28028): after the
+    // rising loop reaches `$4A`, the worker toggles `$4C(a5)` and alternates
+    // `$4A(a5)` by two sprite rows while `$50(a5)` counts the full-height hold
+    // cycles. Native keeps collision height separate, but rendering needs the
+    // current `d3` row index and `$4C` top-template bit.
+    let visible_rows = current_height_px / LAVA_GEYSER_ROW_HEIGHT_PX;
+    if visible_rows == 0 {
+        return None;
+    }
+
+    match phase {
+        LAVA_GEYSER_PHASE_RISING_LOC_1484E => Some(LavaGeyserFullHeightRenderStateLoc14940 {
+            sprite_row_index: visible_rows - 1,
+            top_sprite_frame_within_row: 0,
+        }),
+        LAVA_GEYSER_PHASE_HOLDING_LOC_1496C => {
+            let peak_rows = peak_height_px / LAVA_GEYSER_ROW_HEIGHT_PX;
+            if peak_rows == 0 {
+                return None;
+            }
+            let total_hold_frames = LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
+            let elapsed_frames = total_hold_frames.saturating_sub(timer.min(total_hold_frames));
+            let elapsed_cycles = elapsed_frames / LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
+            let top_sprite_frame_within_row = if elapsed_cycles.is_multiple_of(2) {
+                1
+            } else {
+                0
+            };
+            let sprite_row_index = if top_sprite_frame_within_row == 0 {
+                peak_rows
+            } else {
+                peak_rows.saturating_sub(2)
+            };
+            Some(LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index,
+                top_sprite_frame_within_row,
+            })
+        }
+        LAVA_GEYSER_PHASE_COLLAPSING_LOC_1498C => Some(LavaGeyserFullHeightRenderStateLoc14940 {
+            sprite_row_index: visible_rows - 1,
+            top_sprite_frame_within_row: 0,
+        }),
+        _ => None,
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn lava_geyser_full_height_rows_for_sprite_row_loc_14874(
+    x_px: u16,
+    base_y_px: u16,
+    sprite_row_index: u16,
+    camera_x_px: u16,
+    camera_y_px: u16,
+    top_sprite_frame_within_row: u8,
+) -> Vec<LavaGeyserFullHeightRowLoc14874> {
+    // ASM loc_14874 consumes `d3` directly. This entry point is for traced
+    // native state that already carries the current `$4A`/`d3` row target.
+    lava_geyser_full_height_rows_from_sprite_row_loc_14874(
+        x_px,
+        base_y_px,
+        sprite_row_index,
+        camera_x_px,
+        camera_y_px,
+        top_sprite_frame_within_row,
+    )
+}
+
 #[allow(non_snake_case)]
 pub fn lava_geyser_full_height_rows_loc_14874(
     x_px: u16,
@@ -2588,6 +2668,29 @@ pub fn lava_geyser_full_height_rows_loc_14874(
         return Vec::new();
     }
     let sprite_row_index = row_count - 1;
+    lava_geyser_full_height_rows_from_sprite_row_loc_14874(
+        x_px,
+        base_y_px,
+        sprite_row_index,
+        camera_x_px,
+        camera_y_px,
+        top_sprite_frame_within_row,
+    )
+}
+
+#[allow(non_snake_case)]
+fn lava_geyser_full_height_rows_from_sprite_row_loc_14874(
+    x_px: u16,
+    base_y_px: u16,
+    sprite_row_index: u16,
+    camera_x_px: u16,
+    camera_y_px: u16,
+    top_sprite_frame_within_row: u8,
+) -> Vec<LavaGeyserFullHeightRowLoc14874> {
+    // ASM loc_14874/loc_148F8/loc_14914 (kid.asm:27928-28004): once the
+    // worker reaches the full-height loop, `d3` is the current top sprite-row
+    // index, `$44/$46(a5)` are still `$80`-biased, and each row is separately
+    // culled before `sub_14BD8` appends its sprite-template chunks.
     let biased_x_px = x_px.wrapping_add(0x80);
     let biased_y_px = base_y_px.wrapping_add(0x80);
 

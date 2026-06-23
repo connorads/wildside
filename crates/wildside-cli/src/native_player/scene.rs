@@ -3987,18 +3987,32 @@ fn push_lava_geyser_rom_sprites_loc_14be8(
     geyser_x_px: u16,
     geyser_top_y_px: u16,
     height_px: u16,
+    sprite_row_index: u16,
+    top_sprite_frame_within_row: u8,
     camera_x_px: u16,
     camera_y_px: u16,
 ) {
     let base_y_px = geyser_top_y_px.saturating_add(height_px);
-    for row in wildside_core::lava_geyser_full_height_rows_loc_14874(
-        geyser_x_px,
-        base_y_px,
-        height_px,
-        camera_x_px,
-        camera_y_px,
-        0,
-    ) {
+    let rows = if sprite_row_index == u16::MAX || top_sprite_frame_within_row == u8::MAX {
+        wildside_core::lava_geyser_full_height_rows_loc_14874(
+            geyser_x_px,
+            base_y_px,
+            height_px,
+            camera_x_px,
+            camera_y_px,
+            0,
+        )
+    } else {
+        wildside_core::lava_geyser_full_height_rows_for_sprite_row_loc_14874(
+            geyser_x_px,
+            base_y_px,
+            sprite_row_index,
+            camera_x_px,
+            camera_y_px,
+            top_sprite_frame_within_row,
+        )
+    };
+    for row in rows {
         let Some(templates) = lava_geyser_full_height_template_loc_14874(row.source_label) else {
             continue;
         };
@@ -6065,8 +6079,9 @@ fn build_game_scene_filtered(
         // ASM `sub_14BD8 -> loc_14BE8` (kid.asm:28255-28278) emits lava
         // geyser sprite chunks from 8-byte template entries. Traced
         // `loc_147BA` script rows use their exact template labels; the
-        // full-height loop falls back to the ROM top/middle/bottom templates
-        // (`unk_14624`, `unk_1465A`, `unk_14650`) over the active height.
+        // full-height loop consumes traced `loc_14874` `d3`/`$4C` state when
+        // present, falling back to the legacy height-derived row plan for old
+        // recordings.
         if let Some(lava_visuals) = &level_visuals.lava {
             let lava_palette = lava_geyser_palette_for_scene_loc_14b2a(trace, lava_visuals);
             for template in &trace.lava_geyser_script_templates_loc_147ba {
@@ -6079,7 +6094,9 @@ fn build_game_scene_filtered(
                     (trace.camera_y_pos >> 16) as u16,
                 );
             }
-            for &(gx, gy_top, height) in &trace.active_geysers {
+            for &(gx, gy_top, height, sprite_row_index, top_sprite_frame_within_row) in
+                &trace.active_geysers
+            {
                 let base_y = gy_top.saturating_add(height);
                 if trace
                     .lava_geyser_script_templates_loc_147ba
@@ -6095,12 +6112,14 @@ fn build_game_scene_filtered(
                     gx,
                     gy_top,
                     height,
+                    sprite_row_index,
+                    top_sprite_frame_within_row,
                     (trace.camera_x_pos >> 16) as u16,
                     (trace.camera_y_pos >> 16) as u16,
                 );
             }
         } else {
-            for &(gx, gy_top, height) in &trace.active_geysers {
+            for &(gx, gy_top, height, _, _) in &trace.active_geysers {
                 let sx = i32::from(gx) - (trace.camera_x_pos >> 16) as i32;
                 let sy = i32::from(gy_top) - (trace.camera_y_pos >> 16) as i32;
                 commands.push(DrawCommand::Rect {

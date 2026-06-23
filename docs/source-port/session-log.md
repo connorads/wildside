@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 lava loc_14940 top alternation)
+
+- **#317 remains `[~]`.** Active lava geyser traces now carry the ASM
+  `loc_14874/loc_14940` full-height render state: current `d3` sprite-row
+  index and `$4C(a5)` top-template bit.
+- Native-player consumes that state for current recordings, so full-height
+  rows select `dword_14636` when `$4C(a5)` is non-zero instead of always
+  using `unk_14624`.
+- Legacy three-field `active_geysers` traces deserialize with sentinel render
+  state and replay verification normalises that sentinel only when the compact
+  `(x,y,height)` eruption identity still matches.
+- Regressions: `loc_14940_exposes_full_height_top_frame_alternation_for_rendering`,
+  `native_trace_frame_reads_legacy_three_field_lava_geysers`,
+  `build_game_scene_uses_lava_geyser_top_alt_template_dword_14636`, and
+  `first_trace_drift_accepts_legacy_frames_missing_lava_geyser_render_state`.
+- Verification: `cargo check -q -p wildside-core -p wildside-cli`,
+  `cargo test -q -p wildside-core lava_geyser -- --nocapture`,
+  `cargo test -q -p wildside-core native_trace_frame_reads_legacy_three_field_lava_geysers -- --nocapture`,
+  `cargo test -q -p wildside-cli lava_geyser -- --nocapture`,
+  `cargo test -q -p wildside-cli first_trace_drift_accepts_legacy_frames_missing_lava_geyser_render_state -- --nocapture`,
+  `cargo fmt --all --check`, `git diff --check`, `mise run backlog-lint`,
+  and `mise run verify-slice-fast` (`6285 + 9` tests; TAS frontier green,
+  known oracle-limitation-only notes).
+- **Next:** keep #317 open for the shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#317 lava loc_14874 full-height rows)
 
 - **#317 remains `[~]`.** Full-height lava geyser rows now route through ASM

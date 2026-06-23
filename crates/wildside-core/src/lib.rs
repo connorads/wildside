@@ -67,8 +67,8 @@ pub use weather::{
     MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
     SpecialEffectUnknownPlaneFillRuntimeLoc14E42, StormPatternRuntimeUploadLoc14D32,
     StormSharedArtRuntimeUploadLoc14D8A, compile_murder_wall_warning_sprites_sub_5E02,
-    lava_geyser_full_height_rows_loc_14874, lava_geyser_is_inside_camera_window_loc_147D6,
-    lava_geyser_sprite_chunks_loc_14BE8,
+    lava_geyser_full_height_rows_for_sprite_row_loc_14874, lava_geyser_full_height_rows_loc_14874,
+    lava_geyser_is_inside_camera_window_loc_147D6, lava_geyser_sprite_chunks_loc_14BE8,
 };
 
 #[allow(non_snake_case)]
