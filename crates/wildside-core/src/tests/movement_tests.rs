@@ -6065,6 +6065,50 @@ mod chunk_11 {
         );
     }
 
+    #[test]
+    fn loc_a94e_landing_runs_sub_db22_clearing_berzerker_charge() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.physics_order = PhysicsOrder::AsmFaithful;
+        runtime.block_grid = Some(grid_with_floor_at_row(4));
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charge_accum = 0xFF;
+
+        let bounds = LevelBounds {
+            width_pixels: 120 * 16,
+            height_pixels: 56 * 16,
+        };
+        let mut slice = OpeningSliceState::new(bounds);
+        slice.player.x_pos = 48 << 16;
+        slice.player.y_pos = 60 << 16;
+        slice.player.x_velocity = 0x0001_0000;
+        slice.player.y_velocity = 0x0004_0000;
+        slice.player.facing = Direction::Right;
+        slice.player.on_ground = false;
+        runtime.opening_slice = Some(slice);
+
+        runtime.refresh_opening_slice(
+            FrameInput {
+                right: true,
+                ..FrameInput::default()
+            },
+            false,
+        );
+
+        let slice = runtime
+            .opening_slice
+            .expect("opening slice after landing frame");
+        assert!(slice.player.on_ground, "fixture should land this frame");
+        assert!(
+            !runtime.helmet.berzerker_charging,
+            "ASM loc_A94E (kid.asm:13236) calls sub_DB22 (kid.asm:17170), clearing Berzerker_charging before grounded movement resumes",
+        );
+        assert_eq!(
+            runtime.helmet.berzerker_charge_accum, 0,
+            "ASM sub_DB22 clears the Berzerker charge accumulator alongside Berzerker_charging",
+        );
+    }
+
     /// ASM loc_8C12: walking-state clamp to 0 when decrement goes negative.
     #[test]
     fn loc_8c12_walking_offset_clamp_to_zero() {

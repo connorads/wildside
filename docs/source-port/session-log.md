@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#318 movement audit closed)
+
+- **#318 moved `[~]` -> `[x]`.** The movement-fidelity audit now has no
+  standalone open rows after rechecking the stale platform/climb entries and
+  the #224 `$14`/`$18` stuck-in-solid recovery reclassification.
+- `sub_DB22` is now live-wired on airborne-to-grounded transitions before
+  grounded `sub_78E8`, with mounted Skycutter board landings preserved on the
+  `$FA6A` board loop/bounce path.
+- Focused regressions for `sub_DB22`, Berzerker landing, Skycutter board
+  landing, platform `sub_8F26` carry, `loc_A9AA` climb/platform exit, and
+  airborne Iron Knight attach pass.
+- Verification: `cargo fmt --all --check`, `cargo check -q -p wildside-core`,
+  `git diff --check`, `mise run backlog-lint`, `mise run verify-slice-fast`,
+  and `mise run verify-tas-full` (CRC all 37,759 frames match; known baseline
+  divergences only).
+- **Next:** `project-status` should advance to #319 unless #316 remains the
+  higher-priority in-progress umbrella.
+
 ## 2026-06-23 handoff (#317 blocked: weather VRAM backend)
 
 - **#317 moved `[~]` -> `[b]`.** After the lava `loc_14940` slice, the remaining

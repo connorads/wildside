@@ -3197,6 +3197,8 @@ impl NativeRuntime {
                 return;
             }
         }
+        let frame_start_on_ground = slice.player.on_ground;
+
         // Step helmet abilities BEFORE physics
         let player_before_skycutter_flipboard = slice.player;
         self.step_skycutter_flipboard(&mut slice, input);
@@ -4121,6 +4123,17 @@ impl NativeRuntime {
         // Native runs sub_78E8 unconditionally each grounded frame, covering
         // the "platform gone" (loc_787E/loc_78C6) and "platform supported"
         // (loc_789C) paths.
+        let mounted_skycutter_board_landing = self.progression.current_form
+            == PlayerForm::Skycutter
+            && self.helmet.skycutter_on_board;
+        if !frame_start_on_ground && slice.player.on_ground && !mounted_skycutter_board_landing {
+            // ASM loc_A94E (kid.asm:13236), loc_A9BE (kid.asm:13274), and
+            // loc_AB0A/loc_AB4A (kid.asm:13372/13394) clear transient helmet
+            // motion state through sub_DB22 before grounded movement resumes.
+            // Mounted Skycutter board landings take the `$FA6A` loop/bounce
+            // path instead, so keep that state for the board handler.
+            self.clear_special_movement_state_sub_DB22();
+        }
         if slice.player.on_ground {
             self.refresh_grounded_helmet_state_sub_78E8();
         } else {

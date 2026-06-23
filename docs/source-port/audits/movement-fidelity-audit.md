@@ -1,9 +1,9 @@
 <!-- Generated 2026-05-30 by the `player-movement-fidelity-audit` workflow (1 read-only Explore scout enumerated 15 player move-states; one read-only Explore auditor per move-state compared native to kid.asm; every gap adversarially verified by an independent refuter, defaulting to refuted, before inclusion). 44 agents total. This is a reviewable research artefact, not a gate. Each gap cites the owning ASM label and the native `file:line` searched. Re-run the workflow to refresh. -->
-<!-- Staleness-checked 2026-06-10. Maintained 2026-06-13 as stale entries are fixed or reclassified below. -->
+<!-- Staleness-checked 2026-06-10. Maintained 2026-06-13 and 2026-06-23 as stale entries are fixed or reclassified below. -->
 
 # Player Movement Fidelity Audit
 
-> First committed 2026-05-30; last substantive update 2026-06-13.
+> First committed 2026-05-30; last substantive update 2026-06-23.
 
 Adversarially-verified audit of the Kid Chameleon source-port's player movement, comparing each native move-state to the `kid.asm` player object-update routines.
 
@@ -18,23 +18,23 @@ Two findings are player-specific and do not fit that mould:
 
 | Move-state | Coverage | Confirmed gaps |
 |---|---|---|
-| Kid main object update (integrate + collision dispatch) | partial | 1 |
+| Kid main object update (integrate + collision dispatch) | full | 0 |
 | Standing / idle (`MoveID_Standingstill=0`) | full | 0 |
 | Ground walk/run horizontal acceleration | full | 0 |
 | Braking / skid / turn-around | full | 0 |
 | Duck / crawl (`MoveID_Crawling=1`) | full | 0 |
 | Jump initiation (ground launch velocity) | full | 0 |
 | Variable jump height (B-held gravity + terminal velocity) | full | 0 |
-| Airborne horizontal control | partial | 1 |
+| Airborne horizontal control | full | 0 |
 | Secondary airborne path (`sub_8506`) | full | 0 |
 | Up-/down-slope walking (`MoveID_Up_Down_Hill=6`) | full | 0 |
-| Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | partial | 3 |
-| Landing / floor-support & platform riding | partial | 2 |
-| Wall-hit + ceiling-hit collision response | partial | 1 |
-| Damage recoil / knockback & Berzerker charge | partial | 3 |
+| Wall-grab / climb (Iron Knight, `MoveID_Wall_Climbing=4`) | full | 0 |
+| Landing / floor-support & platform riding | full | 0 |
+| Wall-hit + ceiling-hit collision response | full | 0 |
+| Damage recoil / knockback & Berzerker charge | full | 0 |
 | Skycutter form-specific horizontal movement | full | 0 |
 
-Original totals: 15 move-states audited, 3 full (no gaps), 12 partial. 26 confirmed gaps (5 high, 9 medium, 12 low; 23 wiring, 3 hygiene). The `$14/$18` compound corner is the remaining duplicated defect surfaced by different auditors (main-object-update + wall/ceiling); the former airborne Skycutter `sub_9A20` duplicate is fixed below.
+Original totals: 15 move-states audited, 3 full (no gaps), 12 partial. 26 confirmed gaps (5 high, 9 medium, 12 low; 23 wiring, 3 hygiene). Current 2026-06-23 status: no standalone movement-audit gap remains open. The former `$14/$18` compound-corner pair is resolved as #224's stuck-in-solid recovery branch, not a natural-play defect; the stale platform, climb, and hygiene rows are fixed below.
 
 ## Confirmed gaps
 
@@ -54,11 +54,11 @@ ROM stand-up runs `sub_DAA6` (overhead platform) to `sub_B43A` (floor) to Skycut
 
 ### Medium severity
 
-**Main object update: `$14/$18` compound-corner response absent** (`sub_A4EE`/`loc_A53C`/`loc_A594`/`loc_A556`/`loc_A5AE`; IK tails `loc_B9A2`/`loc_BA5A`/`loc_BB08`/`loc_BB30`) *(architectural; same root as the wall/ceiling-response gap below)*
-ROM integrates X+Y together then runs a single `j_GfxObjects_Collision`; `collision_type` `$14` (floor+right-wall corner)/`$18` (floor+left-wall) dispatch to corner handlers. Juggernaut/Skycutter get a diagonal escape (`x_vel`/`y_vel=$FFFE0000` for `$14`; `y_vel=$FFFE0000`, `x_vel=+$00020000` for `$18`) repositioned from the cached tile addr `$FFFFFB6C`; other helmets take `loc_B9A2` recovery. The native decomposed per-axis passes (`movement.rs:3374`/`3389` floor, `3563`/`3567` wall) never form the compound type; `movement.rs:3211` states plainly "The `$14/$18` crush paths are not yet ported". Only triggers on slope-into-wall corner geometry (hence medium).
+**RESOLVED 2026-06-04 / rechecked 2026-06-23: `$14/$18` compound-corner response is stuck-in-solid recovery, not a natural-play gap** (`sub_A4EE`/`loc_A53C`/`loc_A594`/`loc_A556`/`loc_A5AE`; IK tails `loc_B9A2`/`loc_BA5A`/`loc_BB08`/`loc_BB30`)
+#224 corrected the original audit interpretation: `$14`/`$18` are `colid_slopeup`/`colid_slopedown`, not floor+wall crush. The ROM only reaches `loc_B9A2`/`loc_BA5A` after compound diagonal object-collision embeds Kid inside a solid+slope junction; open-air approaches stayed oracle-clean. Native now documents the branch as unreachable outside artificial stuck-in-solid probes and covers the natural slope routes separately, so this is not a standalone movement-audit bug.
 
-**Wall/ceiling response: slope-compound corner-crush (`loc_B9A2`/`loc_BA5A`) unported** (reached from `sub_A4EE` `loc_A53C`/`$14`, `loc_A594`/`$18`; Juggernaut bounce `loc_BB08`/`loc_BB30`; recovery snap `loc_BA1C`/`loc_BAD2`)
-Same compound-`collision_type` root as above, audited from the wall/ceiling angle: corner-crush kill (unless Juggernaut/Skycutter), the Juggernaut fixed-velocity bounce, and the grid-aligned wall-hit recovery snap have no executable counterpart, only the comment block at `movement.rs:3198-3243`. The genuine `$04`/`$08` wall and `$10` ceiling responses are faithfully wired (`apply_wall_collision` `movement.rs:5057`, `apply_ceiling_collision` `movement.rs:5253`); only the compound `$14/$18` corner is missing. Relates to #207.
+**RESOLVED 2026-06-04 / rechecked 2026-06-23: wall/ceiling duplicate of the `$14/$18` recovery row** (reached from `sub_A4EE` `loc_A53C`/`$14`, `loc_A594`/`$18`; Juggernaut bounce `loc_BB08`/`loc_BB30`; recovery snap `loc_BA1C`/`loc_BAD2`)
+Same corrected #224 root as above. The genuine `$04`/`$08` wall and `$10` ceiling responses are wired through the live movement probes and covered by the wall/ceiling regression groups; the compound slope recovery path remains documented as a stuck-in-solid recovery branch rather than an open live-play defect.
 
 **FIXED 2026-06-13: Braking resolves Left+Right before `sub_B084`** (`loc_7464` @kid.asm:7610-7614; affects facing gate `loc_9B14`)
 ROM clears Right once per frame when both are held, so both-held resolves to LEFT. The live `update_horizontal_velocity_only` and `update_horizontal_motion` paths now call `with_left_right_conflict_resolved` before constructing `HorizontalInput`, matching `loc_7464` before `sub_B084` consumes the direction bytes. Regression `loc_7464_left_right_conflict_resolves_left_before_sub_b084` verifies both helpers face Left and take the `loc_9B90` strong-brake slot from a stopped, right-facing Kid.
@@ -69,8 +69,8 @@ ROM gates crawl entry: `bsr sub_7A10; bne loc_8CB6`. When blocked (both head-hei
 **FIXED 2026-06-13: Grounded jump honours `KidGrabbedByHand` `+$20000` weakening** (`sub_A432`/`loc_A466` @kid.asm:12799-12801)
 ROM adds `$20000` to the negated launch `y_vel` when `KidGrabbedByHand` is set, shortening a jump made while held by a Hand. Native live jump paths now call `initiate_jump_with_hand_grab` with the slice flag (`movement.rs:5346-5352`, `5796-5800`, `5816-5820`, `5868-5872`, `5889-5893`), and the Hand enemy step surfaces `HandState::Grabbing` onto `kid_grabbed_by_hand` before the player slice runs (`enemies.rs:42115-42130`). Regression `loc_A466_kid_grabbed_by_hand_weakens_live_grounded_jump` verifies the grounded player consumer, and `refresh_active_roster_surfaces_hand_grab_onto_slice_loc_32906` verifies the live Hand producer.
 
-**Landing: moving-platform carry bypasses the `sub_8F26`/`sub_902A` move-and-collide passes** (`loc_8D72` @kid.asm:10150, `loc_82D8` @9063)
-ROM inherits platform motion into the player's velocity then re-runs the collision passes, so the carried displacement is wall/floor/ceiling-clamped. Native (`platforms.rs:780-783`) adds `platform.x_velocity`/`y_velocity` straight onto `x_pos`/`y_pos` with no wall pass on the carried X delta, so a platform pushing a grounded Kid into a wall drives him through it. Falls under #208 (platform physics).
+**FIXED by 2026-06-23 recheck: moving-platform carry runs the `sub_8F26` wall clamp** (`loc_8D72` @kid.asm:10150, `loc_82D8` @9063)
+Native now copies the platform X delta into `slice.player.x_velocity`, applies the carried X position, and calls `slice.apply_wall_collision_for_form` before restoring the previous velocity when the carried step was unobstructed (`platforms.rs`). Regression `platform_riding_runs_sub_8f26_wall_clamp` proves a right-moving platform clamps Kid to `wall_x - (half_width + 1)` instead of pushing through the wall.
 
 **FIXED 2026-06-13: Damage preserves wall-grab/cling state** (`Check_for_recent_damge`/`loc_B700`/`loc_B72C` @kid.asm:14632-14659)
 The ROM hurt path only touches HP, damage flags, SFX, and helmet/death routing; it never writes the wall-stick/cling latches. Native `apply_damage_core` now leaves `right_wall_sticky`/`left_wall_sticky`/`wall_cling_direction` untouched while applying the `Just_received_damage` and hitpoint effects. Regression `damage_preserves_wall_sticky_loc_b700` covers the preservation against the ASM hurt path.
@@ -98,8 +98,8 @@ ROM stores the diagonal slope velocity every `loc_9D22` frame: `y_vel = -x_vel` 
 **FIXED 2026-06-13: Climb wall-gone release seeds −4 px/frame pop and hibernates through `loc_A6F8`** (`loc_A2F6`/`loc_A30A` @kid.asm:12610-12625)
 At the top of a wall ROM sets `y_vel=$FFFC0000` (−4.0 px upward), runs the airborne visual update, and branches to `loc_A6F8`, which sets `MoveID_Jump` and hibernates the release frame. Native now clears Iron Knight climb state, seeds `slice.player.y_velocity = -0x4_0000`, and returns `IronKnightClimbStep::ExitHibernate` from the wall-gone probe path (`helmets.rs:5577-5584`) so the runtime uses the existing `loc_A6F8` hibernate shell (`lib.rs:3385-3410`). Regression `loc_A30A_wall_gone_releases_with_upward_pop_velocity` verifies both the velocity seed and the hibernate handoff against ASM `loc_A30A`.
 
-**Climb: loop ignores the per-frame `Addr_PlatformStandingOn` moving-platform exit** (`loc_A28A`/`loc_A9AA` @kid.asm:12579-12585,13266-13283)
-ROM clears then re-checks `Addr_PlatformStandingOn` each climb iteration to transfer the climber onto a moving platform crossing the climb column. Neither `step_iron_knight_climb` nor `_resume` checks `active_platforms`. Edge geometry.
+**FIXED 2026-05-31 / rechecked 2026-06-23: climb platform landing exits through `loc_A9AA`** (`loc_A28A`/`loc_A9AA` @kid.asm:12579-12585,13266-13283)
+#223 wired the platform-landing exit after the hibernate/platform collision phase: `exit_iron_knight_climb_on_platform_landing_loc_A9AA` clears climb state when `Addr_PlatformStandingOn` becomes non-zero for a previously airborne climber. Regression `loc_A9AA_platform_landing_exits_iron_knight_climb_same_frame` verifies the same-frame exit and that no extra climb-acceleration frame runs.
 
 **FIXED 2026-06-13: Climb B-press jump-off honours `KidGrabbedByHand` weakening** (`loc_A426` to `sub_A432` `loc_A466` @kid.asm:12774-12805)
 Climb B-press now calls `initiate_jump_with_hand_grab(0, jump_height, slice.kid_grabbed_by_hand)` (`helmets.rs:5533-5540`), matching the ROM's jump through `sub_A432` before `loc_A466` stores y velocity. Regression `loc_A426_iron_knight_climb_b_press_honours_kid_grabbed_by_hand_loc_A466` proves the grabbed launch is exactly `$20000` weaker while the existing `iron_knight_b_press_*` tests preserve normal detachment and held-left momentum.
@@ -107,21 +107,21 @@ Climb B-press now calls `initiate_jump_with_hand_grab(0, jump_height, slice.kid_
 **FIXED 2026-06-13: `iron_knight_climb_visual_sub_A3BC` no longer carries stale dead-code attr** (`sub_A3BC` @kid.asm:12694-12717)
 The helper is live-called every climb frame from `step_iron_knight_climb` (`helmets.rs:5627`) and no longer carries `#[cfg_attr(not(test), allow(dead_code))]`. Existing regressions `iron_knight_climb_visual_sub_a3bc_wraps_negative_motion_to_top_pose` and `iron_knight_resume_climb_updates_sub_a3bc_pose_accumulator` cover the accumulator behaviour against ASM `sub_A3BC`.
 
-**Climb: airborne wall-attach is a native extension with no ROM entry** (`loc_7696` @kid.asm:7762-7769 is the sole `bra loc_A276`)
-The only ROM path into the wall-climb state is the grounded walk state; native additionally allows attach while airborne (`helmets.rs:4684-4698`), letting the Iron Knight grab a wall mid-jump where the ROM cannot. Over-permissive extension; the grounded (common) case is faithful.
+**FIXED 2026-05-31 / rechecked 2026-06-23: airborne wall-attach extension removed** (`loc_7696` @kid.asm:7762-7769 is the sole `bra loc_A276`)
+#223 removed the invented airborne Iron Knight attach. The live C-press attach gate now requires `slice.player.on_ground` before probing the facing wall via `loc_7696`/`sub_922C` (`helmets.rs`). Regression `iron_knight_c_press_does_not_attach_to_wall_when_airborne` keeps the airborne `kid_flip` path from entering wall climb or seeding attach velocity.
 
 **FIXED 2026-06-13: Grounded platform carry re-seats `y_pos = platform_top − 1`** *(to #208)* (`loc_8D72` @kid.asm:10164-10165, `loc_8306` @9077-9078)
 ROM hard-reseats `y_pos` to `platform_y − 1` each riding frame and copies platform `y_vel` before the ceiling probe. Native now mirrors that in both the generic platform rider path and the lift-platform rider path instead of applying additive Y velocity. Regressions `loc_8da0_platform_y_position_reseats_grounded_player`, `platform_collision_reseats_rider_to_platform_y_loc_8da0`, and `lift_platform_carries_grounded_player` cover the generic and lift variants. The remaining platform-carry gap is the horizontal `sub_8F26`/wall re-collision bypass above.
 
-**Damage: `clear_special_movement_state_sub_DB22` is test-only** *(hygiene to #209)* (`sub_DB22` @kid.asm:17170)
-`#[cfg(test)]` helper (`helmets.rs:4180-4207`); not a behavioural gap (production clears flags via `refresh_grounded_helmet_state_sub_78E8`) but the ASM symbol resolves only to a test fixture, so an auditor searching this symbol finds no live wiring.
+**FIXED 2026-06-23: `clear_special_movement_state_sub_DB22` is live on grounded transitions** (`sub_DB22` @kid.asm:17170)
+The helper is no longer `#[cfg(test)]`. `refresh_opening_slice` now calls it once when a frame transitions from airborne to grounded, before `sub_78E8`, matching `loc_A94E`, `loc_A9BE`, and `loc_AB0A/loc_AB4A`; mounted Skycutter board landings keep the `$FA6A` loop/bounce path. Regression `loc_a94e_landing_runs_sub_db22_clearing_berzerker_charge` first failed with `Berzerker_charging` surviving landing, then passed.
 
 **FIXED 2026-06-13: Skycutter raw both-direction-held facing follows `sub_9A20` branch order** (`sub_9A20` `loc_9A84`/`loc_9A32` @kid.asm:11589-11594,11631-11635)
 `update_skycutter_horizontal_velocity_sub_9A20` now derives `next_facing` from the same branch selector used for velocity (`physics.rs:569-579`): facing Right with raw Left+Right held flips left and takes `loc_9A90`, matching the ROM's left-first test. Regression `skycutter_sub_9a20_raw_both_held_uses_current_direction_branch_order` locks the edge case; live movement paths still resolve Left+Right earlier via `loc_7464`.
 
 ## Relationship to existing backlog
 
-- Hygiene (1 remaining gap: `clear_special_movement_state_sub_DB22`): fold into #209 (strip stale `cfg_attr(not(test))` from wired helpers).
-- Platform carry (remaining gap: X-axis re-collision): under #208 (all platform physics unwired).
-- Compound `$14/$18` corner (the architectural pair): relates to #207 (generic collision primitives unwired).
-- Wiring gaps that change behaviour against the ROM need the #205 object/enemy-active oracle harness to verify, except the ice/rubber inversion, which is a deterministic table-mapping bug fixable and verifiable now via a grounded-walk scenario.
+- #318 current status: no standalone open player-movement audit rows remain after the 2026-06-23 recheck.
+- The former hygiene row (`clear_special_movement_state_sub_DB22`) is live-wired and regression-tested.
+- The former platform-carry and Iron Knight climb rows are stale; current code has `sub_8F26` carry clamping, loc_A9AA platform exit, and no airborne Iron Knight attach.
+- The former compound `$14/$18` pair was resolved under #224 as a stuck-in-solid recovery branch, not a natural-play movement defect. Reopen via #207/#224 only with a concrete oracle-visible route proving a live divergence.

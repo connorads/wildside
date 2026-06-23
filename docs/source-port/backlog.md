@@ -27,6 +27,7 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **#317 moved to `[b]`:** Island shore, storm, lava geyser, and weather-4 Unknown concrete slices are fixed/covered; the only remaining weather debt is a shared typed VRAM backend, which is a dedicated renderer-cache architecture session rather than a narrow unattended bug slice.
+- **#318 moved to `[x]`:** movement-fidelity audit now has no standalone open rows. `sub_DB22` is live-wired on airborne-to-grounded transitions; stale platform/climb rows were already covered, and `$14/$18` remains resolved under #224 as stuck-in-solid recovery rather than natural-play movement debt.
 - **#316 remains `[~]`:** DP shared list + `sub_3F798` sprite compiler are
   gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
@@ -105,7 +106,6 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — DP shared list and sprite compiler rows are fixed candidates; exact raw shared DP payload storage remains open. | Continue from remaining helmets row; see archive #316. |
-| 318 | [ ] | P3 | player | Umbrella: audits/movement-fidelity-audit.md — 8 of 25 still open after the staleness check | Per-gap rows in doc |
 | 319 | [ ] | P3 | audio | Umbrella: audits/audio-triggers-fidelity-audit.md — remaining low/stub trigger gaps after Ankh/evanescent/ice-block/no-time and later enemy/BGM follow-ups; timeout `$51`/`$60` path is already live-tested | Per-gap rows in doc; tick off as wired |
 | 320 | [ ] | P3 | camera | Umbrella: audits/camera-fidelity-audit.md — 6 gaps, none high | Per-gap rows in doc |
 | 210 | [ ] | P0 | gameflow/render | 2026-05-30 playtest: intro/title/menu path still visually corrupt and can re-enter demo loop over Start/menu | Evidence source: human playtest after pushed commits. Symptoms: Wild Side kids… |

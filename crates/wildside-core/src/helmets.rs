@@ -5641,7 +5641,6 @@ impl NativeRuntime {
         }
     }
 
-    #[cfg(test)]
     #[allow(non_snake_case)]
     pub(crate) fn clear_special_movement_state_sub_DB22(&mut self) {
         // ASM sub_DB22 (kid.asm:17170): grounded/default-pose recovery clears
