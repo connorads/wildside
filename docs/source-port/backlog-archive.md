@@ -10290,6 +10290,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
 ### #320
 
 - Filed 2026-06-11 umbrella: audits/camera-fidelity-audit.md (6 gaps, none high; healthiest audited domain).
+- RESOLVED 2026-06-23 (`[ ]` -> `[x]`): rechecked `docs/source-port/audits/camera-fidelity-audit.md`, `backlog-validation-2026-06-14`, and current code evidence before taking a camera slice. The audit now reports 10 audited units, 0 confirmed gaps, and its backlog-candidate table has all six rows marked `[x]`: MurderWall right-bound clamp, Iron Knight attach camera follow, `loc_728C` floor-clamp decrement, `KidGrabbedByHand` look-down gate, post-collision `camera_last_kid_y`, and respawn +2px carry gating. Validation already called #320 stale on 2026-06-14. No code patch is warranted for #320 itself; reopen only if the camera audit gains a concrete non-`[x]` candidate or a new oracle-visible camera divergence.
 
 ### #322
 
@@ -10601,6 +10602,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 319 | [x] | P3 | audio | Umbrella: `audio-triggers-fidelity-audit.md` has no standalone backlog candidates left after recheck; concrete trigger gaps are resolved, blocked under human/audio-device rows, or owned by broader #160/GEMS-driver architecture. | Rechecked audit backlog-candidate table, archive #319, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #319. |
+| 320 | [x] | P3 | camera | Umbrella: `camera-fidelity-audit.md` has no standalone backlog candidates left after recheck; all six candidate camera rows are already `[x]` and the audit reports 0 confirmed gaps. | Rechecked audit backlog-candidate table, archive #320, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #320. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |

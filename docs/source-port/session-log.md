@@ -7,6 +7,16 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#320 camera audit closed)
+
+- **#320 moved `[ ]` -> `[x]`.** Rechecked `docs/source-port/audits/camera-fidelity-audit.md`,
+  archive #320, and `backlog-validation-2026-06-14`: the audit reports zero
+  confirmed camera gaps and all six backlog-candidate rows are already `[x]`.
+- Validation had already flagged #320 as stale on 2026-06-14. No code change is
+  warranted unless a new non-`[x]` camera candidate or oracle-visible camera
+  divergence appears.
+- Verification: tracker/audit review; no code change warranted.
+
 ## 2026-06-23 handoff (#319 audio-trigger audit closed)
 
 - **#319 moved `[ ]` -> `[x]`.** Rechecked `docs/source-port/audits/audio-triggers-fidelity-audit.md`,
