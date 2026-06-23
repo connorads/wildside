@@ -9341,6 +9341,28 @@ Column of origin shown in brackets; text is verbatim.
   and WAV export do not reproduce the human report; #265 still needs a
   real-device/live-display capture if the audible bleed persists outside dummy
   SDL.
+- [Evidence] 2026-06-23 current-HEAD recheck after the latest failed human validation:
+  the headless paths still reject a code patch. Regenerated
+  `.cache/recordings/issue-265-eol-audio-current/` with
+  `record-scenario --slug issue-265-eol-audio-current --scenario
+  highwater-flag-floor-contact-audit --level 02`; `audio-events.txt` emits
+  scoreboard `StopMusicThenStart(116)` at frame 15, `StartSequence(12)` at frame
+  314 (ASM `loc_D752`/`loc_D770` score-counter start), `StopSequence(12)` at
+  frame 558 (ASM `loc_D7F4` stop), `StopMusic` at the `LevelTransition` frame
+  667, and next-level `Start(0)` at frame 1101. `verify-recording --slug
+  issue-265-eol-audio-current --native-only` passes. The live dummy-SDL command
+  `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy cargo run -q -p wildside-cli --
+  play-native --scenario .cache/recordings/issue-265-eol-audio-current/scenario.json
+  --record issue265-eol-live-sdl-current --record-frames 2400` produces the same
+  event transcript; diagnostics report `generated_frames=2400`,
+  `queued_frames=2400`, `skipped_full_frames=0`, `queue_errors=0`,
+  `queue_clear_events=3`, `backlog_full_frames=0`, and `max_backlog_frames=1`.
+  `ffmpeg` window checks on the saved live WAV show non-silent score-counter
+  windows (`5.20..5.55s max_volume=-13.4 dB`, `9.25..9.60s max_volume=-14.8 dB`)
+  and silence after the transition (`11.65..12.00s max_volume=-91.0 dB`). Move
+  #265 to `[b]`: the remaining "tick not heard + rumble" report needs a
+  real-audio-device capture/listen on the exact route; do not add another
+  headless StopMusic or same-frame suppression patch first.
 
 ### #266
 

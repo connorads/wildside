@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#265 real-device-blocked)
+
+- **#265 moved `[~]`→`[b]`; no code patch.** Current HEAD still emits the EOL score-counter command pair in both scripted export and dummy-SDL live playback: `StartSequence(12)` at frame 314 (`loc_D752`/`loc_D770`) and `StopSequence(12)` at frame 558 (`loc_D7F4`), followed by `StopMusic` at the first `LevelTransition` frame.
+- Regenerated `.cache/recordings/issue-265-eol-audio-current/` and replay-verified it native-only. The live dummy-SDL bundle `.cache/recordings/issue265-eol-live-sdl-current/` has the same audio-events transcript, no skipped full frames, no queue errors, and `max_backlog_frames=1`.
+- WAV checks show score-counter energy in the tally windows and silence after the transition, so another headless StopMusic/suppression tweak would be speculative and risks reintroducing the inverted symptom.
+- Verification: `record-scenario`, `verify-recording --native-only`, dummy-SDL `play-native --record-frames 2400`, `ffmpeg` WAV window checks, `mise run backlog-lint`, and `git diff --check`.
+- **Next:** run `mise run project-status`; #257 continue-screen render should remain the highest open P0 unless the queue changes.
+
 ## 2026-06-23 handoff (#348 fixed candidate)
 
 - **#348 moved `[~]`→`[?]` fixed candidate.** Live/direct title-card entry now follows ASM `loc_1AE2E`: after the one-frame hibernate, the first Start edge releases `Game_Mode=$000C` with no invented 343-frame minimum and no release requirement.

@@ -35,7 +35,7 @@ and stop — never commit churn.
     sprite doubled + green bullets (P1), #259 RockTank floor-sink (P1, 5th reconfirm —
     close `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #352 hidden
     jump-up block no anim (P1, RENDERER-only gap: scene.rs:5057 skips the HiddenReveal
-    cell), #272 Cyclone transform voice (P1), #265 EOL tally tick missing + rumble (P2).
+    cell), #272 Cyclone transform voice (P1).
     #335 Hills instant-death has a new fixed candidate and waits in `backlog-awaiting-human.md`.
   - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
@@ -68,6 +68,8 @@ and stop — never commit churn.
   `large_pacer` audit smell, but do not patch without a clean live absence route.
 - **#348 moved to `[?]` fixed candidate.** Live/direct title cards now exit on the first
   `loc_1AE2E` Start edge; ScriptRunner/TAS keeps the issue305 replay delay.
+- **#265 moved to `[b]` real-device-blocked.** Current HEAD scripted and dummy-SDL
+  captures both emit `$0C` start/stop and go silent after transition; needs real-device repro before code.
 - **#271 moved back to `[b]` route-needed after fresh Red Stealth audit.** BLW2 natural
   and two clean run+jump overlays are oracle-clean; the HP-loss cases are grounded/side
   contact before a clean first-frame stomp, not a native-only missed `$2C`. Highwater
@@ -122,7 +124,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 259 | [ ] | P1 | enemy/render | 2026-06-22 reconfirm (5th human): specific RockTanks render half-sunk in floor — BLW2 0x01 (teleporter + flag tanks) and the first Highwater 0x02 tank; not all tanks. | ONE natural oracle BLW2 0x01 route at the named tanks + first Highwater tank; diff body/turret Y + occlusion vs oracle. Only-grass occludes → close [-]; else real residual. NOT direct-warp. See archive #259. |
 | 352 | [ ] | P1 | render/block | 2026-06-22 reconfirm (fix failed): hidden jump-up blocks (USM 0x04-0x06 / Highwater 0x02) still pop in/out with no fold anim — core landed but the renderer skips the revealed cell. | Headbutt a hidden block (USM 0x04-0x06 / Highwater 0x02); the 8-frame y-bob (loc_E2E2/E2F0) must animate. Wire HiddenReveal into scene.rs:5057 block-bounce draw loop (mirror #347). See archive #352. |
 | 272 | [ ] | P1 | audio | 2026-06-22 (transform-voice fix failed): picking up the Cyclone "spin form" helmet plays NO transform noise. Core mapping exists (id 0x32) but no Cyclone route was ever validated. Render half = #355. | Real-device/oracle: pick up a Cyclone helmet in normal play; transform SFX id 0x32 must be audible. Needs a state-aligned natural Cyclone-pickup route (none validated). See archive #272. |
-| 265 | [ ] | P2 | audio/gameflow | 2026-06-22 playtest (fix failed validation, symptom inverted): EOL score-tally tick NOT heard + a "weird rumbling" at level end; 2026-06-15 StopMusic/suppress candidate likely over-suppressed the loc_D752 $0C tick. | Real-audio-device EOL run: counting tick (sfx_Socre_counter $0C, loc_D752) audible during the tally + stops at loc_D7F4; no rumble bleed. Cross-ref #339 drone / #264. Dummy SDL never repros. See archive #265. |
 | 353 | [ ] | P1 | render/block | 2026-06-22 (NEW): USM spiked metal blocks render with NO screws/spikes — the spike art is missing so the kill hazard is INVISIBLE (player died on a visually-empty metal block). | capture-frames USM 0x04-0x06 at a spiked metal block vs oracle; native must draw the spikes. Collision still kills ($7000) while the foreground/Block_Mappings spike tile is absent. See archive #353. |
 | 355 | [ ] | P2 | render/form | 2026-06-22 (NEW): the Cyclone "spin form" does not visibly SPIN in normal play. Cyclone art is extracted/wired but there is no continuous-spin path, so grounded Cyclone uses generic idle/walk. Audio half = #272. | Pick up a Cyclone helmet in normal play vs oracle: the spin/transform anim must play (CYCLONE_TRANSFORM_STEPS; flight spin sub_B270), then grounded Cyclone should animate. Distinct from #284 demo. See archive #355. |
 | 356 | [ ] | P2 | render/background | 2026-06-22 (NEW): Skydragon Castle 0x1B sky-castle background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam) and #210 (demo/intro). | capture-frames --level 1B at scroll positions vs oracle; classify as Plane-A/B tile gaps vs Cloud/Tornado over-cull (#345/#289) vs faithful VDP 20-per-line sprite limit. See archive #356. |
