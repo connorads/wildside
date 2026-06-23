@@ -10421,6 +10421,66 @@ mod chunk_04 {
     }
 
     #[test]
+    fn tornado_wall_collision_bounces_x_velocity_loc_35948() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 40 << 16, 48 << 16, 1);
+        enemy.x_velocity = 0x0002_0000;
+        enemy.target_x_velocity = enemy.x_velocity;
+        enemy.x_acceleration = 0x0000_0800;
+        enemy.wait_timer = 4;
+        let grid = bounce_grid(&[(3, 2)]);
+
+        step_tornado(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, -0x0002_0000,
+            "ASM Tornado.asm loc_35948 maps wall collisions through UFO.asm loc_35120, negating x_vel",
+        );
+        assert_eq!(enemy.x_acceleration, -0x0000_0800);
+        assert_eq!(enemy.target_x_velocity, 0);
+        assert_eq!(enemy.facing, Direction::Right);
+    }
+
+    #[test]
+    fn tornado_floor_collision_bounces_only_while_falling_loc_35948() {
+        let grid = bounce_grid(&[(2, 3)]);
+
+        let mut falling = test_enemy(EnemyFamily::Tornado, 40 << 16, 47 << 16, 1);
+        falling.y_velocity = 0x0001_0000;
+        falling.target_y_velocity = falling.y_velocity;
+        falling.y_acceleration = 0x0000_0800;
+        falling.wait_timer = 4;
+        step_tornado(&mut falling, Some(&grid));
+        assert_eq!(
+            falling.y_velocity, -0x0001_0000,
+            "ASM Tornado.asm loc_35948 should bounce floor contact only after a downward y_vel reaches the floor",
+        );
+        assert_eq!(falling.y_acceleration, -0x0000_0800);
+        assert_eq!(falling.target_y_velocity, 0);
+
+        let mut stationary = test_enemy(EnemyFamily::Tornado, 40 << 16, 48 << 16, 1);
+        stationary.y_velocity = 0;
+        stationary.target_y_velocity = 0;
+        stationary.y_acceleration = 0x0000_0800;
+        stationary.wait_timer = 4;
+        step_tornado(&mut stationary, Some(&grid));
+        assert_eq!(
+            stationary.y_acceleration, 0x0000_0800,
+            "ASM Tornado.asm loc_35948 should not floor-bounce the zero-y-velocity boundary",
+        );
+
+        let mut rising = test_enemy(EnemyFamily::Tornado, 40 << 16, 49 << 16, 1);
+        rising.y_velocity = -0x0001_0000;
+        rising.target_y_velocity = rising.y_velocity;
+        rising.y_acceleration = 0x0000_0800;
+        rising.wait_timer = 4;
+        step_tornado(&mut rising, Some(&grid));
+        assert_eq!(
+            rising.y_velocity, -0x0001_0000,
+            "ASM Tornado.asm loc_35948 should not floor-bounce while the Tornado is still moving upward",
+        );
+    }
+
+    #[test]
     fn tornado_ceiling_collision_bounces_y_velocity_loc_35948() {
         let mut enemy = test_enemy(EnemyFamily::Tornado, 40 << 16, 34 << 16, 1);
         enemy.y_velocity = -0x0002_0000;
@@ -10437,6 +10497,27 @@ mod chunk_04 {
         );
         assert_eq!(enemy.y_acceleration, 0);
         assert_eq!(enemy.target_y_velocity, 0);
+    }
+
+    #[test]
+    fn tornado_ceiling_collision_requires_upward_velocity_loc_35948() {
+        let mut enemy = test_enemy(EnemyFamily::Tornado, 40 << 16, 34 << 16, 1);
+        enemy.y_velocity = 0;
+        enemy.target_y_velocity = 0;
+        enemy.y_acceleration = 0x0000_0800;
+        enemy.wait_timer = 4;
+        let grid = bounce_grid(&[(2, 1)]);
+
+        step_tornado(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_velocity, 0,
+            "ASM Tornado.asm loc_35948 should not ceiling-bounce without upward velocity",
+        );
+        assert_eq!(
+            enemy.y_acceleration, 0x0000_0800,
+            "ASM UFO.asm loc_35146 is skipped for the zero-y-velocity ceiling boundary",
+        );
     }
 
     #[test]
@@ -10499,13 +10580,24 @@ mod chunk_04 {
     fn tornado_collision_dispatch_loc_35948_uses_tornado_table() {
         use enemies::{
             TornadoCollisionBehaviorLoc35948, TornadoCollisionDispatchLoc35948,
-            tornado_collision_dispatch_loc_35948,
+            TornadoCollisionRouteLoc35056, tornado_collision_dispatch_loc_35948,
         };
+
+        assert_eq!(
+            tornado_collision_dispatch_loc_35948(-1),
+            TornadoCollisionDispatchLoc35948 {
+                collision_type: 0,
+                route: TornadoCollisionRouteLoc35056::NegativeClear,
+                behavior: None,
+            },
+            "ASM UFO.asm loc_35056 clears negative collision_type before returning",
+        );
 
         assert_eq!(
             tornado_collision_dispatch_loc_35948(0),
             TornadoCollisionDispatchLoc35948 {
                 collision_type: 0,
+                route: TornadoCollisionRouteLoc35056::ZeroReturn,
                 behavior: None,
             },
             "ASM Tornado.asm loc_35948 reaches shared `loc_35056`, which returns directly when collision_type is zero",
@@ -10514,6 +10606,7 @@ mod chunk_04 {
             tornado_collision_dispatch_loc_35948(0x0004),
             TornadoCollisionDispatchLoc35948 {
                 collision_type: 0,
+                route: TornadoCollisionRouteLoc35056::TableDispatch,
                 behavior: Some(TornadoCollisionBehaviorLoc35948::BounceWall),
             },
             "ASM Tornado.asm loc_35948 table-selects wall bounce for collision_type=$04",
@@ -10522,6 +10615,7 @@ mod chunk_04 {
             tornado_collision_dispatch_loc_35948(0x001C),
             TornadoCollisionDispatchLoc35948 {
                 collision_type: 0,
+                route: TornadoCollisionRouteLoc35056::TableDispatch,
                 behavior: Some(TornadoCollisionBehaviorLoc35948::Hurt),
             },
             "ASM Tornado.asm loc_35948 table-selects the hurt/deletion path for collision_type=$1C",
@@ -10530,6 +10624,7 @@ mod chunk_04 {
             tornado_collision_dispatch_loc_35948(0x0020),
             TornadoCollisionDispatchLoc35948 {
                 collision_type: 0,
+                route: TornadoCollisionRouteLoc35056::TableDispatch,
                 behavior: Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidRight),
             },
             "ASM Tornado.asm loc_35948 routes collision_type=$20 through the Tornado-specific side-contact table entry",
@@ -10538,9 +10633,19 @@ mod chunk_04 {
             tornado_collision_dispatch_loc_35948(0x0024),
             TornadoCollisionDispatchLoc35948 {
                 collision_type: 0,
+                route: TornadoCollisionRouteLoc35056::TableDispatch,
                 behavior: Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidLeft),
             },
             "ASM Tornado.asm loc_35948 routes collision_type=$24 through the opposite side-contact table entry",
+        );
+        assert_eq!(
+            tornado_collision_dispatch_loc_35948(0x0028),
+            TornadoCollisionDispatchLoc35948 {
+                collision_type: 0,
+                route: TornadoCollisionRouteLoc35056::TableDispatch,
+                behavior: Some(TornadoCollisionBehaviorLoc35948::ReturnOnly),
+            },
+            "ASM Tornado.asm off_35950 keeps collision_type=$28 as an explicit return-only table slot",
         );
     }
 
@@ -10668,6 +10773,12 @@ mod chunk_04 {
                 .player_x_velocity,
             0x0002_0000,
             "ASM Tornado.asm loc_35986 should use the loc_3597E right-contact branch when Kid is right of the Tornado",
+        );
+        assert_eq!(
+            tornado_cyclone_bounce_for_positions_loc_35986(0x0110_0000, 0x0110_0000)
+                .player_x_velocity,
+            0x0002_0000,
+            "Native side-branch derivation keeps the equal-X boundary with the right-contact loc_3597E path",
         );
     }
 

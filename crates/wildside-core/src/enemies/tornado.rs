@@ -13,8 +13,17 @@ pub(crate) enum TornadoCollisionBehaviorLoc35948 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum TornadoCollisionRouteLoc35056 {
+    NegativeClear,
+    ZeroReturn,
+    TableDispatch,
+    UnknownPositiveClear,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct TornadoCollisionDispatchLoc35948 {
     pub(crate) collision_type: u16,
+    pub(crate) route: TornadoCollisionRouteLoc35056,
     pub(crate) behavior: Option<TornadoCollisionBehaviorLoc35948>,
 }
 
@@ -26,6 +35,7 @@ pub(crate) fn tornado_collision_dispatch_loc_35948(
     if collision_type < 0 {
         return TornadoCollisionDispatchLoc35948 {
             collision_type: 0,
+            route: TornadoCollisionRouteLoc35056::NegativeClear,
             behavior: None,
         };
     }
@@ -33,24 +43,50 @@ pub(crate) fn tornado_collision_dispatch_loc_35948(
     if collision_type == 0 {
         return TornadoCollisionDispatchLoc35948 {
             collision_type: 0,
+            route: TornadoCollisionRouteLoc35056::ZeroReturn,
             behavior: None,
         };
     }
 
-    let behavior = match collision_type as u16 {
-        0x0004 | 0x0008 => Some(TornadoCollisionBehaviorLoc35948::BounceWall),
-        0x000C | 0x0010 => Some(TornadoCollisionBehaviorLoc35948::BounceFloorCeil),
-        0x0014 => Some(TornadoCollisionBehaviorLoc35948::BounceSlopeUp),
-        0x0018 => Some(TornadoCollisionBehaviorLoc35948::BounceSlopeDown),
-        0x001C | 0x002C => Some(TornadoCollisionBehaviorLoc35948::Hurt),
-        0x0020 => Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidRight),
-        0x0024 => Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidLeft),
-        0x0028 => Some(TornadoCollisionBehaviorLoc35948::ReturnOnly),
-        _ => None,
+    let (route, behavior) = match collision_type as u16 {
+        0x0004 | 0x0008 => (
+            TornadoCollisionRouteLoc35056::TableDispatch,
+            Some(TornadoCollisionBehaviorLoc35948::BounceWall),
+        ),
+        0x000C | 0x0010 => (
+            TornadoCollisionRouteLoc35056::TableDispatch,
+            Some(TornadoCollisionBehaviorLoc35948::BounceFloorCeil),
+        ),
+        0x0014 => (
+            TornadoCollisionRouteLoc35056::TableDispatch,
+            Some(TornadoCollisionBehaviorLoc35948::BounceSlopeUp),
+        ),
+        0x0018 => (
+            TornadoCollisionRouteLoc35056::TableDispatch,
+            Some(TornadoCollisionBehaviorLoc35948::BounceSlopeDown),
+        ),
+        0x001C | 0x002C => (
+            TornadoCollisionRouteLoc35056::TableDispatch,
+            Some(TornadoCollisionBehaviorLoc35948::Hurt),
+        ),
+        0x0020 => (
+            TornadoCollisionRouteLoc35056::TableDispatch,
+            Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidRight),
+        ),
+        0x0024 => (
+            TornadoCollisionRouteLoc35056::TableDispatch,
+            Some(TornadoCollisionBehaviorLoc35948::CycloneBounceKidLeft),
+        ),
+        0x0028 => (
+            TornadoCollisionRouteLoc35056::TableDispatch,
+            Some(TornadoCollisionBehaviorLoc35948::ReturnOnly),
+        ),
+        _ => (TornadoCollisionRouteLoc35056::UnknownPositiveClear, None),
     };
 
     TornadoCollisionDispatchLoc35948 {
         collision_type: 0,
+        route,
         behavior,
     }
 }

@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (proactive Tornado mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/tornado.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `70 mutants tested in 28m: 12 missed, 50 caught,
+  8 unviable`. Survivors were all Tornado branch-boundary coverage gaps:
+  negative-vs-zero `loc_35056` dispatch, `$28` return-only table slot, equal-X
+  Cyclone side derivation, wall-bounce side effects, and floor/ceiling velocity
+  gates in live `step_tornado`.
+- Native now exposes a test-only-observable `TornadoCollisionRouteLoc35056`
+  route in the dispatch result so zero-return and negative-clear stay distinct
+  without changing live behaviour. Focused regressions pin the missed terrain and
+  Cyclone boundary cases against `Tornado.asm loc_35948`/`loc_35986` and
+  `UFO.asm loc_35056`/`loc_35120`/`loc_35146`.
+- Verification: `cargo test -q -p wildside-core tornado_ -- --nocapture` passes
+  38 tests; rerun `.cache/mutants/tornado-after` reports
+  `70 mutants tested in 28m: 62 caught, 8 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-23 handoff (proactive Goat mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
