@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#259 route-blocked)
+
+- **#259 moved `[~]` -> `[b]`.** The latest BLW2 shooting-tank candidate activates
+  0x0B layouts but diverges before the target proof window, so it is route-search
+  evidence only.
+- ASM still supports the prior hypothesis: RockTank body Y is layout-driven and the
+  linked mouth/turret is body_y-8; no current evidence justifies changing Tank Y,
+  priority, or renderer occlusion.
+- **Next:** a human/current natural route must reach the named BLW2 teleporter/flag
+  tanks or first Highwater tank while staying native/oracle comparable.
+
 ## 2026-06-23 handoff (#353 route-blocked)
 
 - **#353 moved `[ ]` -> `[b]`.** Current USM 0x04-0x06 evidence does not reproduce
