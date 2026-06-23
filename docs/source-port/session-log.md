@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#316 DP object-list runtime mirror)
+
+- **Current #316 remains `[~]`, with the shared DP object-list row fixed as a code candidate.** Runtime now mirrors ASM `sub_3F586/3F596/3F5BC/3F5E8/3F63C`: ten-slot free list from `$FFFFF2AC`, active/free/last pointers, allocation on activation/spawn, removal on status/cull, and shared flag clears on list reset/empty.
+- Existing per-power payload vectors stay in place, but each live payload now has the ROM slot address projection beside it. Circle/Wall/Five-Way/Snake/Rain removals update the shared list through `sub_3F5E8`; Extra HP/Life and Invulnerability/Haze expiry reset through `sub_3F63C`; level reload clears through `sub_3F586`.
+- Regressions: `circle_of_doom_activation_seeds_shared_dp_object_list_sub_3f596_3f5bc`, `circle_of_doom_status_removal_updates_shared_dp_object_list_sub_3f5e8`, `invulnerability_expiry_resets_shared_dp_object_list_sub_3f63c`, plus the pure `diamond_power_object_*` tests.
+- Verification: `cargo test -q -p wildside-core diamond_power_object -- --nocapture`, `cargo test -q -p wildside-core shared_dp_object_list -- --nocapture`, `cargo test -q -p wildside-core diamond_power -- --nocapture` (184 pass), `cargo check -q -p wildside-core`, `cargo fmt --all --check`, `mise run backlog-lint`, `git diff --check`, `mise run verify-slice-fast`, and `mise run verify-tas-full` (CRC all 37,759 frames match; known baseline divergences only).
+- **Next:** continue #316 from the next concrete open audit row: raw shared payload storage / `DiamondPower_CompileSprites sub_3F798` live sprite-table compile wiring.
+
 ## 2026-06-23 handoff (#265 real-device-blocked)
 
 - **#265 moved `[~]`→`[b]`; no code patch.** Current HEAD still emits the EOL score-counter command pair in both scripted export and dummy-SDL live playback: `StartSequence(12)` at frame 314 (`loc_D752`/`loc_D770`) and `StopSequence(12)` at frame 558 (`loc_D7F4`), followed by `StopMusic` at the first `LevelTransition` frame.

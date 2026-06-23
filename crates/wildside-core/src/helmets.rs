@@ -1388,9 +1388,9 @@ impl NativeRuntime {
     pub(crate) fn diamond_power_active_loc_3f610(&self) -> bool {
         // ASM DiamondPower_Check loc_3F6B0 sets Diamond_power_active at
         // activation, then sub_3F5E8 loc_3F610 keeps it nonzero while
-        // Addr_FirstDPObjectSlot points at any live DP object. Native stores
-        // the shared list as per-power slot vectors.
-        self.progression.diamond_power_frames > 0
+        // Addr_FirstDPObjectSlot points at any live DP object.
+        self.diamond_power_object_lists.diamond_power_active
+            || self.progression.diamond_power_frames > 0
             || !self.diamond_power_circle_slots.is_empty()
             || !self.diamond_power_wall_slots.is_empty()
             || !self.diamond_power_five_way_slots.is_empty()
@@ -1399,9 +1399,123 @@ impl NativeRuntime {
             || !self.diamond_power_extra_hp_life_slots.is_empty()
             || !self.diamond_power_invuln_haze_slots.is_empty()
     }
+
+    fn refresh_diamond_power_object_list_shared_flags_loc_3f610(&mut self) {
+        self.diamond_power_object_lists.five_way_shot_ready = self.five_way_shot_ready;
+        self.diamond_power_object_lists.kid_is_invulnerable = self.kid_is_invulnerable;
+        self.diamond_power_object_lists.samurai_haze_active =
+            self.diamond_power_object_lists.diamond_power_active
+                && self.progression.diamond_power_type == DiamondPowerType::SamuraiHaze;
+    }
+
+    fn sync_runtime_shared_flags_from_diamond_power_list_loc_3f610(&mut self) {
+        self.five_way_shot_ready = self.diamond_power_object_lists.five_way_shot_ready;
+        self.kid_is_invulnerable = self.diamond_power_object_lists.kid_is_invulnerable;
+        if !self.diamond_power_object_lists.diamond_power_active {
+            self.diamond_power_object_slot_addrs.clear();
+        }
+    }
+
+    pub(crate) fn clear_diamond_power_runtime_object_ram_sub_3f586(&mut self) {
+        // ASM sub_3F586 clears the shared DP object-list RAM block and the
+        // shared Diamond Power flags during level/runtime resets.
+        self.diamond_power_object_lists =
+            diamond_power_object_clear_ram_sub_3F586(self.diamond_power_object_lists.clone());
+        self.diamond_power_object_slot_addrs.clear();
+        self.sync_runtime_shared_flags_from_diamond_power_list_loc_3f610();
+    }
+
+    pub(crate) fn initialise_diamond_power_runtime_object_slots_sub_3f596(&mut self) {
+        // ASM DiamondPower_Run loc_3F6B0 sets Diamond_power_active before
+        // Initialize_DiamondPowerObjectSlots seeds the ten-slot free list.
+        self.diamond_power_object_lists.diamond_power_active = true;
+        self.refresh_diamond_power_object_list_shared_flags_loc_3f610();
+        self.diamond_power_object_lists =
+            diamond_power_object_initialize_sub_3F596(self.diamond_power_object_lists.clone());
+        self.diamond_power_object_slot_addrs.clear();
+    }
+
+    pub(crate) fn allocate_diamond_power_runtime_object_slot_sub_3f5bc(&mut self) -> u16 {
+        if self.diamond_power_object_lists.free_slots.is_empty() {
+            self.initialise_diamond_power_runtime_object_slots_sub_3f596();
+        }
+        self.refresh_diamond_power_object_list_shared_flags_loc_3f610();
+        let (lists, allocated) =
+            diamond_power_object_allocate_sub_3F5BC(self.diamond_power_object_lists.clone());
+        self.diamond_power_object_lists = lists;
+        allocated.slot
+    }
+
+    pub(crate) fn allocate_diamond_power_runtime_object_slots_sub_3f5bc(
+        &mut self,
+        count: usize,
+    ) -> Vec<u16> {
+        if self.diamond_power_object_lists.free_slots.len() < count {
+            self.initialise_diamond_power_runtime_object_slots_sub_3f596();
+        }
+        (0..count)
+            .map(|_| self.allocate_diamond_power_runtime_object_slot_sub_3f5bc())
+            .collect()
+    }
+
+    pub(crate) fn ensure_diamond_power_runtime_object_slot_addrs_sub_3f596(
+        &mut self,
+        slot_count: usize,
+    ) {
+        if slot_count == 0 {
+            if self.diamond_power_object_slot_addrs.is_empty()
+                && self.diamond_power_object_lists.active_slots.is_empty()
+            {
+                return;
+            }
+            self.diamond_power_object_slot_addrs.clear();
+            return;
+        }
+        if self.diamond_power_object_slot_addrs.len() == slot_count
+            && self.diamond_power_object_lists.active_slots.len() == slot_count
+        {
+            return;
+        }
+        self.initialise_diamond_power_runtime_object_slots_sub_3f596();
+        self.diamond_power_object_slot_addrs =
+            self.allocate_diamond_power_runtime_object_slots_sub_3f5bc(slot_count);
+    }
+
+    pub(crate) fn remove_diamond_power_runtime_object_slot_sub_3f5e8(&mut self, slot_addr: u16) {
+        // ASM sub_3F5E8 expects the removed slot to be live. Direct unit tests
+        // can still seed native vectors without the shared mirror, so runtime
+        // removal tolerates a missing address after debug-checking it.
+        debug_assert!(
+            self.diamond_power_object_lists
+                .active_slots
+                .contains(&slot_addr),
+            "ASM sub_3F5E8 removes only live DP object slots"
+        );
+        if !self
+            .diamond_power_object_lists
+            .active_slots
+            .contains(&slot_addr)
+        {
+            return;
+        }
+        self.diamond_power_object_lists = diamond_power_object_remove_sub_3F5E8(
+            self.diamond_power_object_lists.clone(),
+            slot_addr,
+        );
+        self.sync_runtime_shared_flags_from_diamond_power_list_loc_3f610();
+    }
+
+    pub(crate) fn reset_diamond_power_runtime_object_slots_sub_3f63c(&mut self) {
+        // ASM sub_3F63C clears the active/free heads and shared flags while
+        // leaving Addr_LastDPObjectSlot stale.
+        self.diamond_power_object_lists =
+            diamond_power_object_reset_sub_3F63C(self.diamond_power_object_lists.clone());
+        self.diamond_power_object_slot_addrs.clear();
+        self.sync_runtime_shared_flags_from_diamond_power_list_loc_3f610();
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerObjectListsSub3F5E8 {
     pub(crate) active_slots: Vec<u16>,
@@ -1419,6 +1533,15 @@ pub(crate) struct DiamondPowerAllocatedSlotSub3F5BC {
     pub(crate) slot: u16,
     pub(crate) active_word_8: u16,
     pub(crate) status_word_38: u16,
+}
+
+pub(crate) const DIAMOND_POWER_FIRST_SLOT_LOC_3F596: u16 = 0xF2AC;
+pub(crate) const DIAMOND_POWER_SLOT_STRIDE_LOC_3F596: u16 = 0x004C;
+pub(crate) const DIAMOND_POWER_SLOT_COUNT_LOC_3F596: usize = 10;
+
+pub(crate) fn diamond_power_slot_addr_loc_3f596(index: usize) -> u16 {
+    DIAMOND_POWER_FIRST_SLOT_LOC_3F596
+        .wrapping_add(DIAMOND_POWER_SLOT_STRIDE_LOC_3F596.wrapping_mul(index as u16))
 }
 
 #[allow(non_snake_case)]
@@ -1445,12 +1568,8 @@ pub(crate) fn diamond_power_object_initialize_sub_3F596(
 ) -> DiamondPowerObjectListsSub3F5E8 {
     // ASM sub_3F596: Addr_NextFreeDPObjectSlot starts at $FFFFF2AC, then
     // nine DBF iterations link each slot's 4(a0) to the next $4C-byte slot.
-    const FIRST_SLOT: u16 = 0xF2AC;
-    const SLOT_STRIDE: u16 = 0x004C;
-    const SLOT_COUNT: u16 = 10;
-
-    lists.free_slots = (0..SLOT_COUNT)
-        .map(|index| FIRST_SLOT + SLOT_STRIDE * index)
+    lists.free_slots = (0..DIAMOND_POWER_SLOT_COUNT_LOC_3F596)
+        .map(diamond_power_slot_addr_loc_3f596)
         .collect();
     lists.active_slots.clear();
     lists.last_active_slot = None;
@@ -4973,13 +5092,21 @@ impl NativeRuntime {
         let camera_x = (slice.camera.x_pos >> 16) as i16;
         let camera_y = (slice.camera.y_pos >> 16) as i16;
 
+        self.ensure_diamond_power_runtime_object_slot_addrs_sub_3f596(
+            self.diamond_power_circle_slots.len(),
+        );
         let circle_slots = std::mem::take(&mut self.diamond_power_circle_slots);
+        let circle_slot_addrs = std::mem::take(&mut self.diamond_power_object_slot_addrs);
         let mut retained_slots = Vec::with_capacity(circle_slots.len());
+        let mut retained_slot_addrs = Vec::with_capacity(circle_slot_addrs.len());
         let mut queued_collisions = Vec::new();
-        for mut slot in circle_slots {
+        for (mut slot, slot_addr) in circle_slots.into_iter().zip(circle_slot_addrs) {
             let result =
                 diamond_power_main_circle_of_doom_slot(&mut slot, kid_x, kid_y, camera_x, camera_y);
             if result.removed {
+                // ASM DiamondPower_Main_CircleOfDoom loc_3F8AA calls
+                // sub_3F5E8 when `$38(a0)` is nonzero or the radius underflows.
+                self.remove_diamond_power_runtime_object_slot_sub_3f5e8(slot_addr);
                 continue;
             }
             let (size_word, pattern_word) = CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E
@@ -5003,8 +5130,10 @@ impl NativeRuntime {
                 slot.status = DIAMOND_POWER_SLOT_COLID_RIGHTWALL_LOC_1EA0;
             }
             retained_slots.push(slot);
+            retained_slot_addrs.push(slot_addr);
         }
         self.diamond_power_circle_slots = retained_slots;
+        self.diamond_power_object_slot_addrs = retained_slot_addrs;
     }
 
     fn step_diamond_power_wall_of_death_slots_loc_40026(&mut self) {
@@ -5019,10 +5148,15 @@ impl NativeRuntime {
             .map_or(0, |slice| (slice.camera.y_pos >> 16) as i16);
         let timer = self.progression.diamond_power_frames as i16;
 
+        self.ensure_diamond_power_runtime_object_slot_addrs_sub_3f596(
+            self.diamond_power_wall_slots.len(),
+        );
         let wall_slots = std::mem::take(&mut self.diamond_power_wall_slots);
+        let wall_slot_addrs = std::mem::take(&mut self.diamond_power_object_slot_addrs);
         let mut retained_slots = Vec::with_capacity(wall_slots.len());
+        let mut retained_slot_addrs = Vec::with_capacity(wall_slot_addrs.len());
         let mut queued_collisions = Vec::new();
-        for mut slot in wall_slots {
+        for (mut slot, slot_addr) in wall_slots.into_iter().zip(wall_slot_addrs) {
             match diamond_power_main_wall_of_death_slot(&mut slot, camera_x, camera_y, timer) {
                 WallOfDeathSlotAction::Visible {
                     world_x,
@@ -5049,11 +5183,17 @@ impl NativeRuntime {
                         &mut queued_collisions,
                     );
                     retained_slots.push(slot);
+                    retained_slot_addrs.push(slot_addr);
                 }
-                WallOfDeathSlotAction::Removed => {}
+                WallOfDeathSlotAction::Removed => {
+                    // ASM DiamondPower_Main_WallOfDeath loc_400AE removes
+                    // off-screen slots through sub_3F5E8.
+                    self.remove_diamond_power_runtime_object_slot_sub_3f5e8(slot_addr);
+                }
             }
         }
         self.diamond_power_wall_slots = retained_slots;
+        self.diamond_power_object_slot_addrs = retained_slot_addrs;
     }
 
     fn step_diamond_power_five_way_shot_slots_loc_40140(&mut self) {
@@ -5068,10 +5208,15 @@ impl NativeRuntime {
             .map_or(0, |slice| (slice.camera.y_pos >> 16) as i16);
         let timer = self.progression.diamond_power_frames as i16;
 
+        self.ensure_diamond_power_runtime_object_slot_addrs_sub_3f596(
+            self.diamond_power_five_way_slots.len(),
+        );
         let five_way_slots = std::mem::take(&mut self.diamond_power_five_way_slots);
+        let five_way_slot_addrs = std::mem::take(&mut self.diamond_power_object_slot_addrs);
         let mut retained_slots = Vec::with_capacity(five_way_slots.len());
+        let mut retained_slot_addrs = Vec::with_capacity(five_way_slot_addrs.len());
         let mut queued_collisions = Vec::new();
-        for mut slot in five_way_slots {
+        for (mut slot, slot_addr) in five_way_slots.into_iter().zip(five_way_slot_addrs) {
             match diamond_power_main_five_way_shot_slot(&mut slot, camera_x, camera_y, timer) {
                 FiveWayShotSlotAction::Visible {
                     world_x,
@@ -5098,11 +5243,17 @@ impl NativeRuntime {
                         &mut queued_collisions,
                     );
                     retained_slots.push(slot);
+                    retained_slot_addrs.push(slot_addr);
                 }
-                FiveWayShotSlotAction::Removed => {}
+                FiveWayShotSlotAction::Removed => {
+                    // ASM DiamondPower_Main_FiveWayShot loc_401EA fades out
+                    // by removing each DP object with sub_3F5E8.
+                    self.remove_diamond_power_runtime_object_slot_sub_3f5e8(slot_addr);
+                }
             }
         }
         self.diamond_power_five_way_slots = retained_slots;
+        self.diamond_power_object_slot_addrs = retained_slot_addrs;
     }
 
     fn initialise_diamond_power_snake_slots_loc_3f91c(&mut self, power: DiamondPowerType) {
@@ -5130,6 +5281,10 @@ impl NativeRuntime {
             kid_y,
         );
         self.diamond_power_snake_slots = init.slots;
+        self.diamond_power_object_slot_addrs = self
+            .allocate_diamond_power_runtime_object_slots_sub_3f5bc(
+                self.diamond_power_snake_slots.len(),
+            );
         self.diamond_power_snake_head_angle = init.head_timer;
         self.diamond_power_snake_turn_rate = init.wander_speed;
         self.diamond_power_snake_movement_speed = init.movement_speed;
@@ -5202,10 +5357,15 @@ impl NativeRuntime {
 
         let timer = self.progression.diamond_power_frames as i16;
         let time_frames = self.frame_index as u16;
+        self.ensure_diamond_power_runtime_object_slot_addrs_sub_3f596(
+            self.diamond_power_snake_slots.len(),
+        );
         let snake_slots = std::mem::take(&mut self.diamond_power_snake_slots);
+        let snake_slot_addrs = std::mem::take(&mut self.diamond_power_object_slot_addrs);
         let mut retained_slots = Vec::with_capacity(snake_slots.len());
+        let mut retained_slot_addrs = Vec::with_capacity(snake_slot_addrs.len());
         let mut queued_collisions = Vec::new();
-        for mut slot in snake_slots {
+        for (mut slot, slot_addr) in snake_slots.into_iter().zip(snake_slot_addrs) {
             match diamond_power_snake_slot_sprite(&mut slot, camera_x, camera_y, timer, time_frames)
             {
                 SnakeSlotSpriteAction::Visible {
@@ -5227,12 +5387,21 @@ impl NativeRuntime {
                         &mut queued_collisions,
                     );
                     retained_slots.push(slot);
+                    retained_slot_addrs.push(slot_addr);
                 }
-                SnakeSlotSpriteAction::Skipped => retained_slots.push(slot),
-                SnakeSlotSpriteAction::Removed => {}
+                SnakeSlotSpriteAction::Skipped => {
+                    retained_slots.push(slot);
+                    retained_slot_addrs.push(slot_addr);
+                }
+                SnakeSlotSpriteAction::Removed => {
+                    // ASM DiamondPower_Main_Snake loc_3FB52 removes each
+                    // culled slot through sub_3F5E8.
+                    self.remove_diamond_power_runtime_object_slot_sub_3f5e8(slot_addr);
+                }
             }
         }
         self.diamond_power_snake_slots = retained_slots;
+        self.diamond_power_object_slot_addrs = retained_slot_addrs;
     }
 
     fn initialise_diamond_power_extra_hp_life_slots_loc_3fb96(&mut self, power: DiamondPowerType) {
@@ -5247,6 +5416,10 @@ impl NativeRuntime {
         // allocate ten DP-object slots, then clear Diamond_power_timer.
         self.diamond_power_extra_hp_life_slots =
             diamond_power_init_extra_hp_life(is_extra_life).slots;
+        self.diamond_power_object_slot_addrs = self
+            .allocate_diamond_power_runtime_object_slots_sub_3f5bc(
+                self.diamond_power_extra_hp_life_slots.len(),
+            );
     }
 
     fn step_diamond_power_extra_hp_life_slots_loc_3fbe4(&mut self) {
@@ -5305,12 +5478,12 @@ impl NativeRuntime {
                     }
                     // ASM loc_3FC52 branches to sub_3F63C, clearing all live
                     // DP-object slots after the first converged reward.
+                    self.reset_diamond_power_runtime_object_slots_sub_3f63c();
                     self.progression.diamond_power_frames = 0;
                     self.progression.diamond_power_type = DiamondPowerType::None;
                     self.progression.diamond_power_id = 0;
                     self.diamond_power_sprites.clear();
                     self.diamond_power_extra_hp_life_slots.clear();
-                    self.five_way_shot_ready = false;
                     return;
                 }
             }
@@ -5331,6 +5504,10 @@ impl NativeRuntime {
         self.kid_is_invulnerable = is_invulnerability;
         let init = diamond_power_init_invuln_haze(is_invulnerability);
         self.diamond_power_invuln_haze_slots = init.slots;
+        self.diamond_power_object_slot_addrs = self
+            .allocate_diamond_power_runtime_object_slots_sub_3f5bc(
+                self.diamond_power_invuln_haze_slots.len(),
+            );
         self.diamond_power_invuln_haze_timer = init.diamond_power_timer as i16;
     }
 
@@ -5348,12 +5525,11 @@ impl NativeRuntime {
             InvulnHazeFrameAction::Expired => {
                 // ASM DiamondPower_Main_InvulnAndHaze: timer below -$1B
                 // branches to sub_3F63C and clears the DP-object list.
+                self.reset_diamond_power_runtime_object_slots_sub_3f63c();
                 self.diamond_power_invuln_haze_slots.clear();
                 self.progression.diamond_power_frames = 0;
                 self.progression.diamond_power_type = DiamondPowerType::None;
                 self.progression.diamond_power_id = 0;
-                self.five_way_shot_ready = false;
-                self.kid_is_invulnerable = false;
             }
             InvulnHazeFrameAction::Active { fade } => {
                 for slot in &mut self.diamond_power_invuln_haze_slots {
@@ -7646,6 +7822,7 @@ impl NativeRuntime {
                             cam_y,
                             self.rom_random.next_byte(),
                         );
+                        let slot_addr = self.allocate_diamond_power_runtime_object_slot_sub_3f5bc();
                         self.diamond_power_rain_slots.push(DiamondPowerRainSlot {
                             x_pos: rain_slot.x_pos,
                             y_pos: rain_slot.y_pos,
@@ -7654,6 +7831,7 @@ impl NativeRuntime {
                             tracking_word_3e: rain_slot.tracking_word_3e,
                             size_word_24: rain_slot.size_word_24,
                         });
+                        self.diamond_power_object_slot_addrs.push(slot_addr);
                     }
                 }
                 DiamondPowerType::FiveWayShot => {
@@ -7684,6 +7862,10 @@ impl NativeRuntime {
                             x_direction_nonzero,
                         )
                         .slots;
+                        self.diamond_power_object_slot_addrs = self
+                            .allocate_diamond_power_runtime_object_slots_sub_3f5bc(
+                                self.diamond_power_five_way_slots.len(),
+                            );
                     }
                     self.step_diamond_power_five_way_shot_slots_loc_40140();
                 }
@@ -7741,6 +7923,7 @@ impl NativeRuntime {
                     // fade window; `step_diamond_power_invuln_haze_slots_loc_3fd28`
                     // clears them when the signed timer drops below -$1B.
                 } else {
+                    self.reset_diamond_power_runtime_object_slots_sub_3f63c();
                     self.progression.diamond_power_type = DiamondPowerType::None;
                     self.progression.diamond_power_id = 0;
                     self.diamond_power_rain_slots.clear();
@@ -7751,8 +7934,6 @@ impl NativeRuntime {
                     self.diamond_power_extra_hp_life_slots.clear();
                     self.diamond_power_invuln_haze_slots.clear();
                     self.diamond_power_invuln_haze_timer = 0;
-                    self.five_way_shot_ready = false;
-                    self.kid_is_invulnerable = false;
                     self.diamond_power_sprites.clear();
                 }
             }
@@ -7809,9 +7990,12 @@ impl NativeRuntime {
         self.diamond_power_snake_slots.clear();
         self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_invuln_haze_slots.clear();
+        self.diamond_power_object_lists = DiamondPowerObjectListsSub3F5E8::default();
+        self.diamond_power_object_slot_addrs.clear();
         self.diamond_power_invuln_haze_timer = 0;
         self.kid_is_invulnerable = false;
         self.diamond_power_sprites.clear();
+        self.initialise_diamond_power_runtime_object_slots_sub_3f596();
 
         // ASM loc_3FDFE (kid.asm:45172): shared init epilogue for
         // DiamondPower_Init_TrackingRain/SlashingRain — clr.w ($FFFFF5C0).w
@@ -7823,11 +8007,19 @@ impl NativeRuntime {
             // then DiamondPower_Init_CircleOfDoom loc_3F7D0/loc_3F7E6 seeds
             // eight live DP-object slots before the main loop renders them.
             self.diamond_power_circle_slots = diamond_power_init_circle_of_doom_sub_3F7D0();
+            self.diamond_power_object_slot_addrs = self
+                .allocate_diamond_power_runtime_object_slots_sub_3f5bc(
+                    self.diamond_power_circle_slots.len(),
+                );
         }
         if power == DiamondPowerType::WallOfDeath {
             // ASM DiamondPower_Init_WallOfDeath loc_3FFE4/loc_3FFEA seeds ten
             // DP-object slots and stores `$4B0` into `Diamond_power_timer`.
             self.diamond_power_wall_slots = diamond_power_init_wall_of_death().slots;
+            self.diamond_power_object_slot_addrs = self
+                .allocate_diamond_power_runtime_object_slots_sub_3f5bc(
+                    self.diamond_power_wall_slots.len(),
+                );
         }
         if power == DiamondPowerType::FiveWayShot {
             // ASM DiamondPower_Init_FiveWayShot loc_400DE/loc_400F4 seeds
@@ -7846,6 +8038,10 @@ impl NativeRuntime {
             self.diamond_power_five_way_slots =
                 diamond_power_init_five_way_shot(px, py, camera_x, camera_y, x_direction_nonzero)
                     .slots;
+            self.diamond_power_object_slot_addrs = self
+                .allocate_diamond_power_runtime_object_slots_sub_3f5bc(
+                    self.diamond_power_five_way_slots.len(),
+                );
         }
         if matches!(
             power,

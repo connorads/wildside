@@ -2518,7 +2518,14 @@ impl NativeRuntime {
             })
             .collect();
 
-        self.diamond_power_rain_slots.retain_mut(|slot| {
+        self.ensure_diamond_power_runtime_object_slot_addrs_sub_3f596(
+            self.diamond_power_rain_slots.len(),
+        );
+        let rain_slots = std::mem::take(&mut self.diamond_power_rain_slots);
+        let rain_slot_addrs = std::mem::take(&mut self.diamond_power_object_slot_addrs);
+        let mut retained_slots = Vec::with_capacity(rain_slots.len());
+        let mut retained_slot_addrs = Vec::with_capacity(rain_slot_addrs.len());
+        for (mut slot, slot_addr) in rain_slots.into_iter().zip(rain_slot_addrs) {
             if slot.tracking_word_3e == 0
                 && tracking_rain_scan_enabled
                 && let Some(camera) = camera
@@ -2580,12 +2587,18 @@ impl NativeRuntime {
                     slot.size_word_24,
                 );
                 if action == RainSlotSpriteAction::Removed {
-                    return false;
+                    // ASM DiamondPower_Main_SlashingRain loc_3FFC0 removes
+                    // off-screen rain objects through sub_3F5E8.
+                    self.remove_diamond_power_runtime_object_slot_sub_3f5e8(slot_addr);
+                    continue;
                 }
             }
 
-            true
-        });
+            retained_slots.push(slot);
+            retained_slot_addrs.push(slot_addr);
+        }
+        self.diamond_power_rain_slots = retained_slots;
+        self.diamond_power_object_slot_addrs = retained_slot_addrs;
     }
 
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.

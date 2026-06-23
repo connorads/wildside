@@ -18217,6 +18217,7 @@ impl NativeRuntime {
         self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_invuln_haze_slots.clear();
         self.diamond_power_invuln_haze_timer = 0;
+        self.clear_diamond_power_runtime_object_ram_sub_3f586();
         self.five_way_shot_ready = false;
         self.kid_is_invulnerable = false;
         self.diamond_power_sprites.clear();
@@ -18388,6 +18389,7 @@ impl NativeRuntime {
         self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_invuln_haze_slots.clear();
         self.diamond_power_invuln_haze_timer = 0;
+        self.clear_diamond_power_runtime_object_ram_sub_3f586();
         self.five_way_shot_ready = false;
         self.kid_is_invulnerable = false;
         self.diamond_power_sprites.clear();
@@ -18604,6 +18606,7 @@ impl NativeRuntime {
         self.diamond_power_extra_hp_life_slots.clear();
         self.diamond_power_invuln_haze_slots.clear();
         self.diamond_power_invuln_haze_timer = 0;
+        self.clear_diamond_power_runtime_object_ram_sub_3f586();
         self.five_way_shot_ready = false;
         self.kid_is_invulnerable = false;
         self.diamond_power_sprites.clear();

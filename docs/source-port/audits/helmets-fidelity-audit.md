@@ -3,7 +3,7 @@
 
 # Helmet / Form / Diamond-Power Fidelity Audit
 
-> First committed 2026-05-31; last substantive update 2026-06-20.
+> First committed 2026-05-31; last substantive update 2026-06-23.
 
 Adversarially-verified audit of the Kid Chameleon source-port's **helmet, form, and Diamond-Power** subsystem (`helmets.rs`, with `combat.rs` transform/HP, `projectiles.rs` weapons, `constants.rs`), comparing the live path to the `kid.asm` `Kid_Transform`, `DiamondPower_*`, and per-form weapon routines. Form *movement physics* is covered by `movement-fidelity-audit.md`; this audit covers transforms, abilities, and weapons.
 
@@ -11,11 +11,11 @@ The recurring failure mode is the same one the other audits found crate-wide: **
 
 Findings that stand out:
 
-- **Architectural — the Diamond-Power object model is still represented as per-power vectors, not the ROM shared slot pool.** The ROM allocates `$FFFFF2AC` slot objects threaded through free/active lists, advances each per-frame via the `DiamondPower_Main_Index` jump table, and tears them down on a status word (`kid.asm:44233-44441`). Native now has live slot vectors for the major powers and projects the shared `Diamond_power_active` byte from those vectors, but the exact free/active/last linked-list representation remains architectural debt.
+- **Architectural — the Diamond-Power shared list is now mirrored at runtime, while payloads still live in per-power vectors.** The ROM allocates `$FFFFF2AC` slot objects threaded through free/active/last lists, advances each per-frame via the `DiamondPower_Main_Index` jump table, and tears them down on a status word (`kid.asm:44233-44441`). Native now mirrors the shared free/active/last list and `Diamond_power_active`/shared flag clears beside the existing live slot vectors. Remaining architectural debt is exact single-payload slot storage and sprite-table compile parity, not list-head maintenance.
 
 - **Circle of Doom and Wall of Death still have geometry/collision gaps.** Circle now keeps its ROM slot-owned lifetime and Wall has live sweep slots, but native damage still does not fully mirror the ROM's per-DP-object collision path. The remaining risk is enemy damage being too broad or mistimed compared with the orbit/wall objects in `DiamondPower_Main_CircleOfDoom` / `DiamondPower_Main_WallOfDeath`.
 
-- **Snake Diamond Powers still have architectural gaps.** Native now keeps the six DP-object slots and distinct Mini/Swift/Death Snake parameters, but the wider ROM chain fidelity work is not complete: nearest-enemy acquisition, per-segment collision/sprite ownership, and full object-list lifecycle still need parity verification against `DiamondPower_Main_Snake` (`kid.asm:44621-44892`).
+- **Snake Diamond Powers still have architectural gaps.** Native now keeps the six DP-object slots and distinct Mini/Swift/Death Snake parameters, but the wider ROM chain fidelity work is not complete: nearest-enemy acquisition and per-segment collision/sprite ownership still need parity verification against `DiamondPower_Main_Snake` (`kid.asm:44621-44892`).
 
 - **The Eyeclops beam gameplay path now uses state-owned strip collision** rather than a travelling point projectile. Short-beam `off_E560` table dispatch now covers all four ROM tables, and the hard-beam path now exposes the ROM companion object geometry from `loc_E948`.
 
@@ -33,7 +33,7 @@ The transform/HP core (`Kid_Transform`, `sub_7EB2`) is, by contrast, well-wired 
 | Transform hitpoints (`sub_7EB2`) + per-helmet base HP table (`unk_7EC2`) | partial | 1 |
 | Post-transform cleanup, half-width (`sub_B41C`), transient-flag clear (`sub_DB22`) | partial | 4 |
 | Diamond Power activation gate + two-tier cost (`DiamondPower_Run`/`_Check`) | partial | 4 |
-| Diamond Power object list + sprite compile (`Addr_*DPObjectSlot`, `sub_3F5xx`) | stub | 3 |
+| Diamond Power object list + sprite compile (`Addr_*DPObjectSlot`, `sub_3F5xx`) | partial | 2 |
 | Circle of Doom / Wall of Death (geometry vs kill-all AoE) | stub | 3 |
 | Snake Diamond Powers (Mini/Death/Swift/Death2) and tracking | stub | 4 |
 | Slashing Rain / Tracking Rain Diamond Power | partial | 2 |
@@ -50,8 +50,8 @@ Totals: 11 units audited, 0 full, 8 partial, 3 stub. **37 confirmed gaps** (10 h
 **RESOLVED candidate 2026-06-19 — ExtraHitPoint Diamond Power awards through the `loc_3FC2A` slot convergence path and honours the four-slot cap** (`DiamondPower_Main_ExtraHPLife / loc_3FC2A…loc_3FC52`, `DiamondPower_Init_ExtraHitPoint`)
 The ROM awards the IronKnight tier-2 +HP only when a converging slot lands, and only if `Extra_hitpoint_slots < 4`: `cmpi.w #4 … bge; addq.w #1,(Extra_hitpoint_slots); addq.w #1,(Number_Hitpoints)` (`kid.asm:44965-44968`). Native now seeds the ten orbiting reward slots from `DiamondPower_Init_ExtraHitPoint loc_3FB90/loc_3FB96`, renders them through `DiamondPower_Main_ExtraHPLife loc_3FBE4`, and only mutates `extra_hitpoint_slots`/`number_hitpoints` on convergence while respecting the ROM cap. Covered by `extra_hit_point_activation_waits_for_orbit_convergence_loc_3fb96_loc_3fc2a`, `extra_hit_point_activation_respects_four_slot_cap_loc_3fc4c`, and the pure `diamond_power_main_extra_hp_life_*` tests.
 
-**Diamond Power — shared object linked-list/free-list representation still approximated** (`sub_3F586/3F596/3F5BC/3F5E8/3F63C`)
-The ROM threads each spawned DP object through the `$FFFFF2AC` slot pool with free/active/last lists, self-removal on status word `$38`, and `Diamond_power_active` maintenance that clears `FiveWayShotReady`/`SamuraiHazeActive`/`KidIsInvulnerable` when the list empties (`kid.asm:44233-44315`). Native now wires most live powers through per-power slot vectors and projects `Diamond_power_active` from those vectors for traces and Boss Eye projectile rendering, including timerless Circle slots after `DiamondPower_Check loc_3F6B0`. Covered by `circle_of_doom_activation_exposes_live_dp_sprites_loc_3f7d0_loc_3f880`. Remaining debt: there is still no single shared free/active/last DP object list, so exact cross-power slot ordering and generic list-head teardown semantics are approximated.
+**FIXED CANDIDATE 2026-06-23 — Diamond Power shared object linked-list/free-list representation is mirrored at runtime** (`sub_3F586/3F596/3F5BC/3F5E8/3F63C`)
+The ROM threads each spawned DP object through the `$FFFFF2AC` slot pool with free/active/last lists, self-removal on status word `$38`, and `Diamond_power_active` maintenance that clears `FiveWayShotReady`/`SamuraiHazeActive`/`KidIsInvulnerable` when the list empties (`kid.asm:44233-44315`). Native now keeps `DiamondPowerObjectListsSub3F5E8` on `NativeRuntime`, seeds the ten-slot free list on activation, records allocated ROM slot addresses beside the existing per-power payload vectors, removes slots through the `sub_3F5E8` mirror on Circle/Wall/Five-Way/Snake/Rain culls, and runs the `sub_3F63C` reset mirror for Extra HP/Life and Invulnerability/Haze teardown. Covered by `circle_of_doom_activation_seeds_shared_dp_object_list_sub_3f596_3f5bc`, `circle_of_doom_status_removal_updates_shared_dp_object_list_sub_3f5e8`, `invulnerability_expiry_resets_shared_dp_object_list_sub_3f63c`, and the existing pure `diamond_power_object_*` tests. Remaining debt: payload fields are still stored in per-power vectors rather than one raw DP-object struct, and `DiamondPower_CompileSprites sub_3F798` is still tracked separately below.
 
 **FIXED CANDIDATE 2026-06-20 — Diamond Power per-frame dispatch now keys off `Diamond_power_ID`** (`loc_3F71E`, `off_3F748`, `DiamondPower_Run`)
 Every frame the ROM indexes the 20-entry `DiamondPower_Main_Index` jump table by `Diamond_power_ID` and runs the per-power worker (`kid.asm:44331-44416`). Native now stores the ROM ID on activation, including Juggernaut's `DiamondPower_Init_FiveWayShot` ID 5 path, and derives the active worker from the ID instead of only from the collapsed native effect enum. This preserves aliased workers such as TheKid/Skycutter tier-2 Death Snake IDs 10/11 and Tracking Rain ID 12. Covered by `diamond_power_check_stores_rom_id_before_init_loc_3f6b0` and `diamond_power_main_execute_dispatches_rain_from_id_loc_3f71e`. Remaining object-list iteration debt stays with the shared DP linked-list/free-list row above.

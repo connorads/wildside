@@ -5590,6 +5590,88 @@ mod chunk_03 {
     }
 
     #[test]
+    fn circle_of_doom_activation_seeds_shared_dp_object_list_sub_3f596_3f5bc() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        let allocated_slots: Vec<_> = (0..8)
+            .map(helmets::diamond_power_slot_addr_loc_3f596)
+            .collect();
+        let active_slots: Vec<_> = allocated_slots.iter().rev().copied().collect();
+        let free_slots: Vec<_> = (8..helmets::DIAMOND_POWER_SLOT_COUNT_LOC_3F596)
+            .map(helmets::diamond_power_slot_addr_loc_3f596)
+            .collect();
+
+        assert_eq!(
+            runtime.diamond_power_object_slot_addrs, allocated_slots,
+            "ASM DiamondPower_Init_CircleOfDoom loc_3F7E6 allocates from the `$FFFFF2AC` free-list head in ascending slot order"
+        );
+        assert_eq!(
+            runtime.diamond_power_object_lists.active_slots, active_slots,
+            "ASM sub_3F5BC prepends each allocated DP object as Addr_FirstDPObjectSlot"
+        );
+        assert_eq!(
+            runtime.diamond_power_object_lists.free_slots, free_slots,
+            "ASM sub_3F596 seeds ten slots; Circle consumes the first eight"
+        );
+        assert_eq!(
+            runtime.diamond_power_object_lists.last_active_slot,
+            Some(helmets::diamond_power_slot_addr_loc_3f596(0)),
+            "ASM sub_3F5BC keeps the first allocated object as Addr_LastDPObjectSlot"
+        );
+        assert!(runtime.diamond_power_object_lists.diamond_power_active);
+    }
+
+    #[test]
+    fn circle_of_doom_status_removal_updates_shared_dp_object_list_sub_3f5e8() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::TheKid;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        let removed_slot_addr = runtime.diamond_power_object_slot_addrs[0];
+        runtime.diamond_power_circle_slots[0].status = 1;
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert_eq!(
+            runtime.diamond_power_circle_slots.len(),
+            7,
+            "ASM DiamondPower_Main_CircleOfDoom loc_3F81A removes a slot whose `$38(a0)` status word is nonzero"
+        );
+        assert!(
+            !runtime
+                .diamond_power_object_lists
+                .active_slots
+                .contains(&removed_slot_addr),
+            "ASM sub_3F5E8 unlinks the removed DP object from the active list"
+        );
+        assert_eq!(
+            runtime
+                .diamond_power_object_lists
+                .free_slots
+                .first()
+                .copied(),
+            Some(removed_slot_addr),
+            "ASM sub_3F5E8 pushes the removed DP object onto Addr_NextFreeDPObjectSlot"
+        );
+        assert!(runtime.diamond_power_object_lists.diamond_power_active);
+    }
+
+    #[test]
     fn circle_of_doom_activation_uses_slot_lifetime_not_timer_loc_3f7d0() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
@@ -5980,6 +6062,43 @@ mod chunk_03 {
         assert!(
             !runtime.trace_frame().kid_is_invulnerable,
             "ASM sub_3F63C clears KidIsInvulnerable with the DP-object list"
+        );
+    }
+
+    #[test]
+    fn invulnerability_expiry_resets_shared_dp_object_list_sub_3f63c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.current_form = PlayerForm::Skycutter;
+        runtime.progression.diamond_count = 20;
+
+        runtime.step_diamond_power(FrameInput {
+            start: true,
+            a: true,
+            ..FrameInput::default()
+        });
+
+        let stale_tail = runtime.diamond_power_object_lists.last_active_slot;
+        runtime.diamond_power_invuln_haze_timer = -0x1B;
+        runtime.step_diamond_power(FrameInput::default());
+
+        assert!(
+            runtime.diamond_power_object_lists.active_slots.is_empty(),
+            "ASM sub_3F63C clears Addr_FirstDPObjectSlot when Invulnerability expires"
+        );
+        assert!(
+            runtime.diamond_power_object_lists.free_slots.is_empty(),
+            "ASM sub_3F63C clears Addr_NextFreeDPObjectSlot instead of rebuilding the free list"
+        );
+        assert_eq!(
+            runtime.diamond_power_object_lists.last_active_slot, stale_tail,
+            "ASM sub_3F63C does not write Addr_LastDPObjectSlot"
+        );
+        assert!(!runtime.diamond_power_object_lists.diamond_power_active);
+        assert!(!runtime.diamond_power_object_lists.kid_is_invulnerable);
+        assert!(
+            runtime.diamond_power_object_slot_addrs.is_empty(),
+            "Native payload address projection must clear with the ROM object-list heads"
         );
     }
 
