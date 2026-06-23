@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#210 intro Start-skip partial)
+
+- **#210 remains `[~]`.** The engine-level Start-skip path now follows ASM
+  `loc_1BA60 -> sub_1C246 -> loc_1C264` for direct IntroSequence5 and early
+  IntroSequence6 title returns instead of frame-specific constants.
+- Focused probes are green for ignored frame-1930 Start, accepted frame-1933
+  Start, accepted frame-2100 visible IntroSequence5 Start, and frame-2400
+  IntroSequence6 Start. Direct frame captures are exact for the black
+  frame-1933 title return and the main frame-2100 carry/black/title samples.
+- **Remaining:** visible IntroSequence5 frame-2100 Start still has residual
+  fade/title pixels at frames 2106..2110, 2160, and 2300. Next pass should
+  derive the direct title-return CRAM fade/title cadence from ASM/oracle before
+  moving #210 to human validation.
+- Verification: `cargo fmt`, `cargo test -q -p wildside-core cold_intro_sequence_ -- --nocapture`,
+  `cargo clippy --workspace --all-targets -- -D warnings`, `mise run verify-slice-fast`,
+  and `mise run verify-tas-full` (CRC all 37,759 frames match; known baseline
+  state report remains).
+
 ## 2026-06-23 handoff (#272 route-blocked)
 
 - **#272 moved `[ ]` -> `[b]`.** Cyclone cue wiring is already present and native can

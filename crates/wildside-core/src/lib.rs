@@ -558,6 +558,13 @@ pub struct NativeRuntime {
     /// as the trace-facing gfx object after the hidden title rebuild. Earlier
     /// title-entry routes keep reporting the standard title pose.
     intro_sequence_6_start_skip_cursor_trace_priority: bool,
+    /// IntroSequence6 Start-skip enters `$2C` through the `$28` sub_1C246
+    /// branch while stale loc_1BCD0 slot-2 WRAM survives longer than the
+    /// direct `$24` intro-sequence-5 title return.
+    intro_sequence_6_start_skip_intro_sequence_5_pose_carry: bool,
+    /// Direct `$24` IntroSequence5 title returns keep the current VDP image for
+    /// a few frames before the hidden title rebuild blacks it out.
+    intro_sequence_5_title_return_vdp_snapshot: Option<vdp::VdpState>,
     /// ASM `$FFFFFC82`: title/intro region selector. Load_IntroSequence5 calls
     /// sub_1C278 before selecting its helmet art and palette overlay.
     title_screen_region_byte: u8,
@@ -1187,6 +1194,8 @@ impl NativeRuntime {
             title_screen_elapsed_frames: 0,
             title_screen_uses_intro_return_hidden_shell: false,
             intro_sequence_6_start_skip_cursor_trace_priority: false,
+            intro_sequence_6_start_skip_intro_sequence_5_pose_carry: false,
+            intro_sequence_5_title_return_vdp_snapshot: None,
             // ASM loc_61C seeds `$FFFFFC82` to 2 before the cold-boot intro;
             // Load_IntroSequence5's first sub_1C278 call then wraps it to 0.
             title_screen_region_byte: 2,
@@ -1686,11 +1695,9 @@ impl NativeRuntime {
                 })
             }
             BootState::TitleScreen { .. }
-                if self.title_screen_uses_intro_return_hidden_shell
+                if self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
                     && !self.intro_sequence_6_start_skip_cursor_trace_priority
-                    && !self.title_screen_vdp_ready()
-                    && self.title_screen_ready_frame
-                        <= INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME =>
+                    && !self.title_screen_vdp_ready() =>
             {
                 self.title_screen_data.as_ref().map(|data| {
                     // ASM loc_1BAB0 (kid.asm:30370) can switch Game_Mode via
@@ -1709,6 +1716,23 @@ impl NativeRuntime {
                         self.current_camera_state().y_pos,
                     )
                 })
+            }
+            BootState::TitleScreen { .. }
+                if self.title_screen_uses_intro_return_hidden_shell
+                    && self.timeout_restart_title_intro_sequence_5_pose
+                    && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
+                    && !self.title_screen_vdp_ready() =>
+            {
+                self.intro_sequence_5_title_return_vdp_snapshot
+                    .clone()
+                    .and_then(|mut vdp| {
+                        vdp::apply_intro_sequence_5_title_return_fade_to_black(
+                            &mut vdp,
+                            self.title_screen_elapsed_frames,
+                        )
+                        .then_some(vdp)
+                    })
+                    .or_else(|| Some(vdp::blank_vdp_state()))
             }
             BootState::TitleScreen { .. } if self.title_screen_vdp_blackout() => {
                 Some(vdp::blank_vdp_state())
@@ -1871,6 +1895,10 @@ impl NativeRuntime {
 
     fn title_screen_vdp_ready(&self) -> bool {
         self.title_screen_ready()
+            || (self.title_screen_uses_intro_return_hidden_shell
+                && self.timeout_restart_title_intro_sequence_5_pose
+                && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
+                && self.title_screen_elapsed_frames >= TITLE_ATTRACT_LOCK_FRAMES)
             || (self.intro_sequence_6_start_skip_cursor_trace_priority
                 && self.title_screen_elapsed_frames
                     >= INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES)
@@ -1893,8 +1921,7 @@ impl NativeRuntime {
         // short-circuits when skip is set, so it is dropped here.
         (self.intro_sequence_6_start_skip_cursor_trace_priority
             || (self.title_screen_uses_intro_return_hidden_shell
-                && self.title_screen_ready_frame
-                    > INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME))
+                && !self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry))
             && !self.title_screen_vdp_ready()
     }
 

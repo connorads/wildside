@@ -6938,30 +6938,178 @@ mod chunk_02 {
     }
 
     #[test]
-    fn intro_start_from_intro_sequence_5_writes_game_mode_2c_at_loc_1c264() {
-        let mut script = vec![0u8; 1_741];
-        script[33] = 0x80;
-        script[1_739] = 0x80;
+    fn cold_intro_sequence_5_ignores_start_before_loc_1ba60_poll_window() {
+        let mut script = vec![0u8; 1_956];
+        script[1_930] = 0x80;
         let trace = run_script(manifest(), &script, script.len());
-        let frame_1738 = &trace[1_738];
-        let frame_1739 = &trace[1_739];
-        let frame_1740 = &trace[1_740];
 
-        assert_eq!(frame_1738.game_mode, GameMode::IntroSequence5);
         assert_eq!(
-            frame_1739.game_mode,
+            trace[1_930].game_mode,
             GameMode::IntroSequence5,
-            "ASM loc_1BA60 polls sub_1C246 from the intro-sequence-5 hibernate loop before loc_1C250 consumes the Start edge",
+            "ASM loc_1BA28 is still in the hidden IntroSequence5 setup before the cold frame-1933 sub_1C246 polling window",
         );
         assert_eq!(
-            frame_1740.game_mode,
-            GameMode::TitleScreen,
-            "ASM loc_1C250: cmpi.w #$24,(Game_Mode).w; beq.s loc_1C264 branch targets loc_1C264 for intro sequence 5 (Game_Mode=$24)",
+            trace[1_931].game_mode,
+            GameMode::IntroSequence5,
+            "Oracle probe issue210-intro5-start1930 keeps Game_Mode=$24 after the ignored Start edge",
         );
         assert_eq!(
-            frame_1740.game_mode,
+            trace[1_955].game_mode,
+            GameMode::IntroSequence5,
+            "ASM loc_1BA60 has not seen a later Start edge, so the ignored frame-1930 tap must not force loc_1C264",
+        );
+    }
+
+    #[test]
+    fn cold_intro_sequence_5_start_reaches_title_after_loc_1c264_deferral() {
+        let mut script = vec![0u8; 1_936];
+        script[1_933] = 0x80;
+        let trace = run_script(manifest(), &script, script.len());
+
+        assert_eq!(
+            trace[1_933].game_mode,
+            GameMode::IntroSequence5,
+            "ASM loc_1BA60 polls sub_1C246 after the frame-1933 Start edge, so the press frame remains Game_Mode=$24",
+        );
+        assert_eq!(
+            trace[1_934].game_mode,
+            GameMode::IntroSequence5,
+            "Oracle exposes Ctrl_1_Pressed=$80 on frame 1934 while Game_Mode is still $24",
+        );
+        assert_eq!(
+            trace[1_935].game_mode,
             GameMode::TitleScreen,
-            "ASM loc_1C264: move.w #$2C,(Game_Mode).w writes TitleScreen mode when branching from either intro sequence 5 ($24) or 6 ($28)",
+            "ASM loc_1C264 writes Game_Mode=$2C two frames after the accepted cold IntroSequence5 Start tap",
+        );
+        assert_eq!(
+            trace[1_935].kid_y_pos,
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+            "ASM loc_1C264 enters title mode before loc_1BCD0's slot-2 IntroSequence5 pose is cleared",
+        );
+        assert_eq!(
+            trace[1_935].number_objects, 4,
+            "Oracle issue210-intro5-start1933 frame 1935 keeps the loc_1BA28/loc_1BCD0 workers plus title hidden-shell worker count-visible",
+        );
+    }
+
+    #[test]
+    fn cold_intro_sequence_6_early_start_carries_intro_5_pose_until_loc_1b45a_clear() {
+        let mut script = vec![0u8; 2_553];
+        script[2_400] = 0x80;
+        let trace = run_script(manifest(), &script, script.len());
+
+        assert_eq!(
+            trace[2_402].game_mode,
+            GameMode::TitleScreen,
+            "ASM loc_1BAB0 -> sub_1C246 -> loc_1C264 writes Game_Mode=$2C after the accepted IntroSequence6 Start edge",
+        );
+        assert_eq!(
+            trace[2_429].kid_y_pos,
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+            "ASM loc_1C264 enters title mode before loc_1B45A clears the stale loc_1BCD0 slot-2 pose",
+        );
+        assert_ne!(
+            trace[2_430].kid_y_pos,
+            Some(INTRO_SEQUENCE_5_SLOT_2_Y_POS),
+            "ASM loc_1B45A clears the stale slot-2 pose before the old hidden worker count disappears",
+        );
+        assert_eq!(
+            trace[2_433].number_objects, 4,
+            "Oracle issue210-intro6-start2400-control frame 2433 keeps the old intro/title workers count-visible",
+        );
+        assert_ne!(
+            trace[2_434].number_objects, 4,
+            "Oracle clears the carried hidden worker count on the next frame after the stale pose has already cleared",
+        );
+        assert_eq!(
+            trace[2_551].kid_x_pos, None,
+            "ASM loc_1B45A/loc_1B5CE keeps the early IntroSequence6 Start-skip title shell hidden through frame 2551",
+        );
+        assert_eq!(
+            trace[2_552].kid_x_pos,
+            Some(TITLE_KID_X_POS),
+            "ASM loc_1B5CE exposes the standard title pose on oracle frame 2552",
+        );
+        assert_eq!(trace[2_552].kid_y_pos, Some(TITLE_KID_Y_POS));
+    }
+
+    #[test]
+    fn cold_intro_sequence_5_start_title_return_vdp_is_black_before_rebuild() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut frame_1935 = None;
+        let mut frame_1960 = None;
+
+        for frame_index in 0..=1_960 {
+            let input = if frame_index == 1_933 {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            runtime.step_frame(input);
+            if frame_index == 1_935 {
+                frame_1935 = runtime.vdp_state().cloned();
+            } else if frame_index == 1_960 {
+                frame_1960 = runtime.vdp_state().cloned();
+            }
+        }
+
+        for (frame_index, vdp) in [(1_935, frame_1935), (1_960, frame_1960)] {
+            let vdp = vdp.expect("title return should still have a VDP snapshot");
+            assert!(
+                vdp.vram.iter().all(|&byte| byte == 0) && vdp.cram.iter().all(|&byte| byte == 0),
+                "ASM loc_1BA60 -> sub_1C246 -> loc_1C264 enters title mode before Load_TitleScreen has a visible VDP; oracle frame {frame_index} is black",
+            );
+        }
+    }
+
+    #[test]
+    fn cold_intro_sequence_5_visible_start_carries_current_vdp_into_title_return() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut frame_2101 = None;
+        let mut frame_2102 = None;
+        let mut frame_2120 = None;
+
+        for frame_index in 0..=2_120 {
+            let input = if frame_index == 2_100 {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            runtime.step_frame(input);
+            if frame_index == 2_101 {
+                frame_2101 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_102 {
+                frame_2102 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_120 {
+                frame_2120 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let before = frame_2101.expect("visible intro-sequence-5 frame should have VDP");
+        let after = frame_2102.expect("title-return carry should have VDP");
+        assert_eq!(
+            after.vram, before.vram,
+            "ASM loc_1BA60 -> sub_1C246 -> loc_1C264 switches to title before the visible IntroSequence5 alley VDP is cleared",
+        );
+        assert_eq!(after.cram, before.cram);
+        assert!(
+            after.cram.iter().any(|&byte| byte != 0),
+            "oracle frame 2102 carries the visible IntroSequence5 palette, not the early black shell",
+        );
+        let black = frame_2120.expect("title-return blackout should still have a VDP snapshot");
+        assert!(
+            black.vram.iter().all(|&byte| byte == 0) && black.cram.iter().all(|&byte| byte == 0),
+            "ASM loc_1BA60 -> sub_1C246 -> loc_1C264 reaches the black hidden title shell after the short carried-VDP fade",
         );
     }
 

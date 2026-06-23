@@ -5354,6 +5354,8 @@ impl NativeRuntime {
         self.title_screen_elapsed_frames = 0;
         self.title_screen_uses_intro_return_hidden_shell = false;
         self.intro_sequence_6_start_skip_cursor_trace_priority = false;
+        self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = false;
+        self.intro_sequence_5_title_return_vdp_snapshot = None;
         self.title_screen_ready_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
             self.frame_index
                 .saturating_add(TITLE_SCREEN_EARLY_ENTRY_LOCAL_READY_FRAMES)
@@ -6652,6 +6654,10 @@ impl NativeRuntime {
                         } else {
                             let intro_sequence_1_uses_early_title_restore = *segment == 0
                                 && self.timeout_restart_intro_sequence_1_uses_early_title_restore;
+                            let intro_sequence_5_title_pose = *segment == 4;
+                            let intro_sequence_5_title_vdp_snapshot = intro_sequence_5_title_pose
+                                .then(|| self.vdp_state.clone())
+                                .flatten();
                             if intro_sequence_1_uses_early_title_restore {
                                 self.enter_title_screen_from_intro_return(true);
                                 self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
@@ -6661,6 +6667,15 @@ impl NativeRuntime {
                                 // title rebuild before Obj_TitleMenu accepts
                                 // the later frame-360 / frame-460 Start taps.
                                 self.enter_title_screen_from_intro_return(false);
+                                if intro_sequence_5_title_pose {
+                                    // ASM loc_1BA60 -> sub_1C246 -> loc_1C264
+                                    // keeps loc_1BCD0's slot-2 IntroSequence5
+                                    // pose count-visible in the first cold
+                                    // title-return frames.
+                                    self.timeout_restart_title_intro_sequence_5_pose = true;
+                                    self.intro_sequence_5_title_return_vdp_snapshot =
+                                        intro_sequence_5_title_vdp_snapshot.clone();
+                                }
                                 self.next_demo_uses_start_skip_intro_return_camera_wrap = true;
                             } else {
                                 // ASM sub_1C246 -> loc_1C250 jumps to
@@ -6677,6 +6692,15 @@ impl NativeRuntime {
                                     self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
                                 self.title_menu_active = true;
                                 self.title_menu_cursor_pending = true;
+                                if intro_sequence_5_title_pose {
+                                    // ASM loc_1BA60 -> sub_1C246 -> loc_1C264
+                                    // carries loc_1BCD0's slot-2 pose into
+                                    // title mode even on title-card-less test
+                                    // manifests.
+                                    self.timeout_restart_title_intro_sequence_5_pose = true;
+                                    self.intro_sequence_5_title_return_vdp_snapshot =
+                                        intro_sequence_5_title_vdp_snapshot;
+                                }
                             }
                         }
                         return;
@@ -6730,8 +6754,12 @@ impl NativeRuntime {
                     *segment == 3 && self.timeout_restart_intro_sequence_4_pose_carry;
                 let timeout_restart_intro_sequence_5_title_return =
                     *segment == 4 && intro_sequence_5_frames_override.is_some();
-                let start_advances_segment = start_pressed && *segment != 0;
+                let intro_sequence_5_start_poll_active =
+                    *segment != 4 || *elapsed >= INTRO_SEQUENCE_5_START_POLL_ELAPSED_FRAMES;
+                let start_advances_segment =
+                    start_pressed && *segment != 0 && intro_sequence_5_start_poll_active;
                 let start_jumps_to_title = start_pressed
+                    && intro_sequence_5_start_poll_active
                     && ((matches!(*segment, 0 | 1)
                         && *elapsed >= INTRO_FIRST_SEGMENT_DIRECT_TITLE_FRAMES)
                         || *segment >= 3);
@@ -6761,6 +6789,13 @@ impl NativeRuntime {
                         // sub_1C204 fade-in shell; the first-segment
                         // sub_1C246 Start edge is reflected in traced
                         // Game_Mode two outer frames later.
+                        2
+                    } else if *segment == 4 {
+                        // ASM loc_1BA60 polls sub_1C246 from the
+                        // IntroSequence5 hibernate loop. Oracle exposes the
+                        // frame-N Start bit on N+1 and loc_1C264's `$2C`
+                        // write on N+2, matching the other hibernate-backed
+                        // intro returns.
                         2
                     } else if *segment == 1 && intro_sequence_2_frames_override.is_some() {
                         // ASM loc_1BA02 calls sub_1C246 after
@@ -6884,9 +6919,10 @@ impl NativeRuntime {
                 cursor,
                 pending_title_skip,
                 pending_title_skip_fast_restore,
-                carry_intro_sequence_5_slot_2_pose: _,
+                carry_intro_sequence_5_slot_2_pose,
                 carry_timeout_restart_hidden_camera_wrap,
             } => {
+                let carries_intro_sequence_5_slot_2_pose = *carry_intro_sequence_5_slot_2_pose;
                 let mut just_activated_title_menu = false;
                 if *pending_title_skip > 0 {
                     *pending_title_skip -= 1;
@@ -6895,15 +6931,23 @@ impl NativeRuntime {
                             // ASM loc_1BAB0 (kid.asm:30368) polls
                             // sub_1C246 during its `$B8` wait. When Start is
                             // consumed there, Load_TitleScreen's normal hidden
-                            // restore reaches the red title pose after the
-                            // short attract-lock window instead of replaying
-                            // the later loc_1B5CE delayed shell.
+                            // restore keeps the red title pose hidden until
+                            // the early loc_1B45A/loc_1B5CE shell completes.
                             self.enter_title_screen();
                             self.title_screen_uses_intro_return_hidden_shell = true;
-                            self.title_screen_ready_frame =
-                                self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
-                            self.title_menu_arm_frame =
-                                self.frame_index.saturating_add(TITLE_ATTRACT_LOCK_FRAMES);
+                            if carries_intro_sequence_5_slot_2_pose {
+                                // ASM loc_1BA60 -> Load_IntroSequence6 ->
+                                // loc_1BAB0 -> sub_1C246 -> loc_1C264 keeps
+                                // the stale loc_1BCD0 slot-2 pose/count
+                                // visible after the `$28` -> `$2C` hand-off.
+                                self.timeout_restart_title_intro_sequence_5_pose = true;
+                                self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = true;
+                            }
+                            let ready_frame = self.frame_index.saturating_add(
+                                INTRO_SEQUENCE_6_EARLY_START_SKIP_TITLE_READY_FRAMES,
+                            );
+                            self.title_screen_ready_frame = ready_frame;
+                            self.title_menu_arm_frame = ready_frame;
                         } else {
                             // ASM sub_1C246 -> loc_1C264 switches
                             // Game_Mode=$28 to $2C after the hibernating
@@ -6912,6 +6956,14 @@ impl NativeRuntime {
                             // before Obj_TitleMenu accepts the next Start edge.
                             self.enter_title_screen();
                             self.title_screen_uses_intro_return_hidden_shell = true;
+                            if carries_intro_sequence_5_slot_2_pose {
+                                // ASM loc_1BA60 -> Load_IntroSequence6 ->
+                                // loc_1BAB0 -> sub_1C246 -> loc_1C264 keeps
+                                // the stale loc_1BCD0 slot-2 pose/count
+                                // visible after the `$28` -> `$2C` hand-off.
+                                self.timeout_restart_title_intro_sequence_5_pose = true;
+                                self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = true;
+                            }
                             self.intro_sequence_6_start_skip_cursor_trace_priority = true;
                             self.title_screen_ready_frame = self
                                 .frame_index

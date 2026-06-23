@@ -32,6 +32,11 @@ pub(crate) const INTRO_FOURTH_SEGMENT_FRAMES: usize = 594;
 // probes keep mode `$0024` through frame 2395 and enter intro sequence 6
 // (`Game_Mode=$0028`) on frame 2396.
 pub(crate) const INTRO_FIFTH_SEGMENT_FRAMES: usize = 520;
+/// ASM loc_1BA28 (kid.asm) reaches the live IntroSequence5 polling window only
+/// after the hidden setup has exposed the first loc_1BCD0 gfx slots. Oracle
+/// probes show cold Start taps before global frame 1933 are ignored, while a
+/// frame-1933 tap publishes `Ctrl_1_Pressed=$80` on 1934 before loc_1C264.
+pub(crate) const INTRO_SEQUENCE_5_START_POLL_ELAPSED_FRAMES: usize = 57;
 pub(crate) const INTRO_SEGMENT_FRAMES: usize = 80;
 pub(crate) const TITLE_TO_LEVEL_FRAMES: usize = 60;
 /// Demo/title-return lineages still use the short local title attract lock
@@ -41,11 +46,25 @@ pub(crate) const TITLE_ATTRACT_LOCK_FRAMES: usize = 58;
 /// rebuilt title shell hidden from the frame-2634 `sub_1C246` handoff until
 /// frame 2720, when the standard title text/Kid workers are visible.
 pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_READY_FRAMES: usize = 86;
+/// Early cold IntroSequence6 Start taps consumed during loc_1BAB0 enter title
+/// before the hidden title rebuild has advanced as far as the later frame-2634
+/// route. A frame-2400 Start reaches `$2C` on frame 2402, and oracle first
+/// exposes the standard title pose on frame 2552.
+pub(crate) const INTRO_SEQUENCE_6_EARLY_START_SKIP_TITLE_READY_FRAMES: usize = 150;
 /// The same cold IntroSequence6 Start-skip route draws the visible
 /// `Load_TitleScreen` VDP shell before the trace-facing title pose is exposed.
 /// Oracle frame 2700 is visually complete while state still reports
 /// `title_screen_ready=false`; frame 2720 is the later trace-ready point.
 pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES: usize = 66;
+/// ASM loc_1BA60 -> Load_IntroSequence6 -> loc_1BAB0 can enter title through
+/// sub_1C246 while the stale loc_1BCD0 slot-2 pose is still visible. Oracle
+/// frame probes for a cold frame-2400 Start keep that pose through frame 2429
+/// and clear it on 2430, i.e. 29 title-local elapsed frames.
+pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES: usize = 29;
+/// The same `$28` -> `$2C` Start-skip lineage keeps the old hidden workers
+/// count-visible after the stale slot-2 pose has cleared. Oracle frame probes
+/// keep four objects through frame 2433 and clear the count on 2434.
+pub(crate) const INTRO_SEQUENCE_6_START_SKIP_TITLE_INTRO_SEQUENCE_5_COUNT_CARRY_FRAMES: usize = 33;
 /// On the no-input cold IntroSequence6 path, oracle frame 2640 has already
 /// passed `sub_1B43A`'s loc_1B45A palette-restore tail and restored
 /// `Load_TitleArt`/`sub_1B532`, even though trace-facing title readiness
@@ -63,11 +82,6 @@ pub(crate) const INTRO_SEQUENCE_6_COLD_BOOT_GLOBAL_START_FRAME: usize = SEGA_SCR
     + INTRO_THIRD_SEGMENT_FRAMES
     + INTRO_FOURTH_SEGMENT_FRAMES
     + INTRO_FIFTH_SEGMENT_FRAMES;
-/// Oracle Start-skip probes at cold frames 2450 and 2500 split the
-/// `loc_1BAB0` fast-restore path: the earlier handoff keeps presenting the
-/// existing `sub_1B43A/loc_1B446` VDP until the short title restore is ready,
-/// while the later handoff has reached the title blackout/clear phase.
-pub(crate) const INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME: usize = 2_510;
 /// Stock title-card levels ignore the early intro-skip Start taps, then let
 /// the frame-178 press arm Obj_TitleMenu before the later frame-360 press
 /// selects 1P and flips into the hidden level bootstrap on the next frame.

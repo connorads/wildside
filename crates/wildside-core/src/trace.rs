@@ -6825,13 +6825,28 @@ impl NativeRuntime {
     }
 
     fn title_uses_timeout_restart_intro_sequence_5_pose(&self) -> bool {
+        let carry_frames = if self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry {
+            INTRO_SEQUENCE_6_START_SKIP_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
+        } else {
+            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
+        };
         matches!(self.boot_state, BootState::TitleScreen { .. })
             // ASM sub_1C246 writes `Game_Mode=$2C` and returns immediately, so
-            // the loc_1BCD0 slot-2 pose survives into title mode until the
-            // later title rebuild overwrites that WRAM slot 28 frames later.
+            // the loc_1BCD0 slot-2 pose survives into title mode until each
+            // lineage's later title rebuild overwrites that WRAM slot.
             && self.timeout_restart_title_intro_sequence_5_pose
-            && self.title_screen_elapsed_frames
-                < TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
+            && self.title_screen_elapsed_frames < carry_frames
+    }
+
+    fn title_counts_intro_sequence_5_workers(&self) -> bool {
+        let carry_frames = if self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry {
+            INTRO_SEQUENCE_6_START_SKIP_TITLE_INTRO_SEQUENCE_5_COUNT_CARRY_FRAMES
+        } else {
+            TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
+        };
+        matches!(self.boot_state, BootState::TitleScreen { .. })
+            && self.timeout_restart_title_intro_sequence_5_pose
+            && self.title_screen_elapsed_frames < carry_frames
     }
 
     fn intro_sequence_4_uses_intro_sequence_3_pose(&self) -> bool {
@@ -10395,16 +10410,18 @@ impl NativeRuntime {
             // intro-sequence-3 pose is carried into the first title frames.
             return (3, 0x000B);
         }
-        if matches!(self.boot_state, BootState::TitleScreen { .. })
-            && self.timeout_restart_title_intro_sequence_5_pose
-            && self.title_screen_elapsed_frames
-                < TIMEOUT_RESTART_TITLE_INTRO_SEQUENCE_5_POSE_CARRY_FRAMES
-        {
-            // ASM sub_1C246 -> loc_1C264 switches Game_Mode to $2C without
-            // immediately clearing the live loc_1BA28/loc_1BCD0 workers. The
-            // stale three-object intro-sequence-5 shell stays count-visible
-            // while the carried slot-2 pose remains in WRAM.
-            return (3, 0);
+        if self.title_counts_intro_sequence_5_workers() {
+            // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 switches Game_Mode to
+            // $2C without immediately clearing the live loc_1BA28/loc_1BCD0
+            // workers. Cold intro-return keeps the title hidden-shell worker
+            // count-visible too; timeout-restart keeps only the stale three
+            // intro-sequence-5 workers.
+            let count_visible = if self.title_screen_uses_intro_return_hidden_shell {
+                4
+            } else {
+                3
+            };
+            return (count_visible, 0);
         }
         if let Some(counts) = self.timeout_restart_intro_3_title_return_object_counts() {
             return counts;

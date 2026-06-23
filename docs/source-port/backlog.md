@@ -79,6 +79,10 @@ and stop — never commit churn.
 - **#352 moved to `[?]` fixed candidate.** Native-player draws ASM `sub_DFB0` HiddenReveal `$60xx` workers with the `loc_E2E2/loc_E2F0` bob.
 - **#272 moved to `[b]` route/real-device blocked.** Native emits Cyclone `$32` on a
   level 0x14 pickup, but the route is oracle-red; 0x1B/0x25 searches found no bounce.
+- **#210 remains `[~]` after a partial intro Start-skip fix.** `loc_1BA60` /
+  `sub_1C246` / `loc_1C264` now matches focused IntroSequence5/early 6 Start
+  probes, including slot-2 pose/count carry and direct title-return VDP
+  carry/blackout. Remaining visual residuals: frames 2106..2110, 2160, 2300.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -103,7 +107,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — DP shared list and sprite compiler rows are fixed candidates; exact raw shared DP payload storage remains open. | Continue from remaining helmets row; see archive #316. |
 | 319 | [ ] | P3 | audio | Umbrella: audits/audio-triggers-fidelity-audit.md — remaining low/stub trigger gaps after Ankh/evanescent/ice-block/no-time and later enemy/BGM follow-ups; timeout `$51`/`$60` path is already live-tested | Per-gap rows in doc; tick off as wired |
 | 320 | [ ] | P3 | camera | Umbrella: audits/camera-fidelity-audit.md — 6 gaps, none high | Per-gap rows in doc |
-| 210 | [ ] | P0 | gameflow/render | 2026-05-30 playtest: intro/title/menu path still visually corrupt and can re-enter demo loop over Start/menu | Evidence source: human playtest after pushed commits. Symptoms: Wild Side kids… |
+| 210 | [~] | P0 | gameflow/render | 2026-06-23 partial fix for intro/title/menu Start-skip: ASM `sub_1C246` direct `$24`/`$28` -> `$2C` state/carry path now matches focused probes; original playtest visual corruption remains open. | Remaining pixels: IntroSequence5 visible Start frame-2100 route fade/title residuals at 2106..2110, 2160, 2300. Continue from archive #210. |
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |

@@ -593,6 +593,38 @@ fn apply_intro_sequence_5_loc_1ba90_fade_to_aaa(vdp: &mut VdpState, fade_elapsed
     vdp.write_cram_words(0, &palette_buffer);
 }
 
+pub(crate) fn apply_intro_sequence_5_title_return_fade_to_black(
+    vdp: &mut VdpState,
+    title_elapsed_frames: usize,
+) -> bool {
+    let fade_progress = match title_elapsed_frames {
+        0..=3 => return true,
+        4 => 0x00E0,
+        5 | 6 => 0x00C0,
+        7 => 0x0080,
+        _ => return false,
+    };
+    let palette_buffer_2 = vdp_cram_words(vdp);
+    let palette_buffer_3 = [0u16; 0x40];
+    let mut palette_buffer = [0u16; 0x40];
+    let mut pending_palette_0_mask = u32::MAX;
+    let mut pending_palette_1_mask = u32::MAX;
+
+    // ASM loc_1BA60 -> sub_1C246 -> loc_1C264 keeps the current
+    // IntroSequence5 VDP visible for a few traced frames, then the title
+    // rebuild darkens it before the black hidden shell.
+    crate::level::apply_pending_palette_fade_sub_14C0(
+        fade_progress,
+        &mut pending_palette_0_mask,
+        &mut pending_palette_1_mask,
+        &palette_buffer_2,
+        &palette_buffer_3,
+        &mut palette_buffer,
+    );
+    vdp.write_cram_words(0, &palette_buffer);
+    true
+}
+
 pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(
     data: &IntroSub1B850Data,
     sega_data: &SegaScreenData,
