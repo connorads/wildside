@@ -25,7 +25,7 @@ pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
     FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpriteFrame, WeatherVisuals,
+    PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame, WeatherVisuals,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 

@@ -3185,7 +3185,8 @@ mod tests {
         BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals, EnemyVisuals,
         ForegroundLayout, HudIcon, HudVisuals, IslandShoreVisualsLoc1202A, LevelVisuals, MdColour,
         NativeLevelVisuals, Palette, PaletteSet, PlatformVisuals, PlayerFormVisuals,
-        PlayerTransformStep, PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
+        PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame, Tile,
+        TileQuad, TileRef, TileSheet,
     };
 
     fn sample_trace(mode: GameMode) -> NativeTraceFrame {
@@ -7589,6 +7590,7 @@ mod tests {
             murder_wall: None,
             lava: None,
             weather: None,
+            special_effect_unknown: None,
             platforms: sample_platform_visuals(),
             eol_score: Some(sample_eol_score_visuals()),
             eol_hologram: None,
@@ -10857,6 +10859,90 @@ mod tests {
                 );
             }
             _ => unreachable!("weather sprite command matched Sprite above"),
+        }
+    }
+
+    #[test]
+    fn build_game_scene_draws_unknown_foreground_plane_loc_14e42() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.special_effect_unknown_plane_fill_loc_14e42 = Some(
+            wildside_core::SpecialEffectUnknownPlaneFillRuntimeLoc14E42 {
+                vdp_command: 0x4000_0003,
+                outer_pass_count: 8,
+                group_count_per_pass: 4,
+                inner_repeat_count: 16,
+                written_longword_count: 8 * 4 * 16 * 2,
+                foreground_plane_register: 0x8218,
+                background_plane_register: 0x8400,
+            },
+        );
+        let mut visuals = sample_level_visuals();
+        visuals.special_effect_unknown = Some(SpecialEffectUnknownVisuals {
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [2; 64] }; 16],
+            },
+            vram_base_tile_index: 0x0380,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: true,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let unknown_tiles = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { tile_sheet, .. } if tile_sheet.tiles.len() == 16
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            unknown_tiles.len(),
+            41 * 29,
+            "ASM loc_14E42 fills a 64x32 foreground plane; native draws one 8px margin around the 320x224 viewport"
+        );
+        match unknown_tiles[0] {
+            DrawCommand::IndexedTile { x, y, tile, .. } => {
+                assert_eq!((*x, *y), (0, 0));
+                assert_eq!(
+                    tile.tile_index, 0,
+                    "ASM loc_14E46 first word `$8380` is absolute VRAM tile `$380`, local tile 0"
+                );
+                assert_eq!(tile.palette_line, 0);
+                assert!(
+                    tile.priority,
+                    "ASM loc_14E46 writes priority tile word `$8380`"
+                );
+            }
+            _ => unreachable!("unknown plane command matched IndexedTile above"),
+        }
+        match unknown_tiles[41] {
+            DrawCommand::IndexedTile { x, y, tile, .. } => {
+                assert_eq!((*x, *y), (0, 8));
+                assert_eq!(
+                    tile.tile_index, 4,
+                    "ASM loc_14E44 adds `$0004_0004` before the second plane row"
+                );
+            }
+            _ => unreachable!("unknown plane command matched IndexedTile above"),
         }
     }
 

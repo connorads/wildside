@@ -50,6 +50,7 @@ const BACKGROUND_TILE_VRAM_BASE_LOC_128BA: u16 = 0x0780;
 const ISLAND_SHORE_PRIMARY_VRAM_TILE_LOC_12098: u16 = 0xF600 / 32;
 const ISLAND_SHORE_MID_VRAM_TILE_LOC_12110: u16 = 0xF6C0 / 32;
 const ISLAND_SHORE_LOWER_VRAM_TILE_LOC_12188: u16 = 0xF760 / 32;
+const SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42: u16 = 0x8218;
 const KID_PROJECTILE_HIT_SPARK_FRAMES_STRU_1F40: [(u8, u16); 4] =
     [(1, 0x02CF), (1, 0x02D8), (1, 0x02E1), (1, 0x02EA)];
 const BLOCK_DEBRIS_TILE_ATTR_SUB_2A4C: u16 = 0x8228;
@@ -5029,6 +5030,76 @@ pub(super) fn push_level_layout_terrain(
     }
 }
 
+fn push_special_effect_unknown_foreground_plane_loc_14e42(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+    level_visuals: &NativeLevelVisuals,
+) {
+    let Some(fill) = &trace.special_effect_unknown_plane_fill_loc_14e42 else {
+        return;
+    };
+    let Some(visuals) = &level_visuals.special_effect_unknown else {
+        return;
+    };
+    if fill.foreground_plane_register != SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42
+        || fill.group_count_per_pass == 0
+        || fill.inner_repeat_count == 0
+        || fill.outer_pass_count == 0
+    {
+        return;
+    }
+
+    let plane_width_tiles = fill.inner_repeat_count * 4;
+    let plane_height_tiles = fill.outer_pass_count * fill.group_count_per_pass;
+    let camera_x_px = (trace.camera_x_pos >> 16) as i32;
+    let camera_y_px = (trace.camera_y_pos >> 16) as i32;
+    let first_plane_col = camera_x_px.div_euclid(8);
+    let first_plane_row = camera_y_px.div_euclid(8);
+    let x_offset = camera_x_px.rem_euclid(8);
+    let y_offset = camera_y_px.rem_euclid(8);
+    let visible_cols = FRAME_WIDTH.div_ceil(8) as usize + 1;
+    let visible_rows = FRAME_HEIGHT.div_ceil(8) as usize + 1;
+    let tile_sheet = Arc::new(visuals.tile_sheet.clone());
+    let palette = Arc::new(foreground_palette_for_scene(trace, level_visuals));
+
+    for screen_row in 0..visible_rows {
+        let plane_row = (first_plane_row + screen_row as i32)
+            .rem_euclid(i32::try_from(plane_height_tiles).expect("plane height fits i32"))
+            as usize;
+        let pattern_row = plane_row % fill.group_count_per_pass;
+        for screen_col in 0..visible_cols {
+            let plane_col = (first_plane_col + screen_col as i32)
+                .rem_euclid(i32::try_from(plane_width_tiles).expect("plane width fits i32"))
+                as usize;
+            // ASM Init_SpecialEffect_Unknown loc_14E42/loc_14E44/loc_14E46:
+            // the inner loop writes `d6=$8380_8381` then `d7=$8382_8383`
+            // sixteen times per row; the middle loop adds `$0004_0004`
+            // for four rows, and the outer loop repeats those four rows.
+            let attr_word = 0x8380
+                + u16::try_from(pattern_row * 4 + (plane_col % 4))
+                    .expect("loc_14E42 tile word offset fits u16");
+            let tile = TileRef::from_attr_word(attr_word);
+            if tile.tile_index < visuals.vram_base_tile_index {
+                continue;
+            }
+            let local_tile_index = tile.tile_index - visuals.vram_base_tile_index;
+            if usize::from(local_tile_index) >= visuals.tile_sheet.tiles.len() {
+                continue;
+            }
+            commands.push(DrawCommand::IndexedTile {
+                x: i32::try_from(screen_col).expect("visible col fits i32") * 8 - x_offset,
+                y: i32::try_from(screen_row).expect("visible row fits i32") * 8 - y_offset,
+                tile_sheet: tile_sheet.clone(),
+                tile: TileRef {
+                    tile_index: local_tile_index,
+                    ..tile
+                },
+                palette: palette.clone(),
+            });
+        }
+    }
+}
+
 fn block_bounce_kind_for_trace(
     trace: &NativeTraceFrame,
     col: u16,
@@ -5514,6 +5585,9 @@ fn build_game_scene_filtered(
     }
     if filter.block_overrides {
         push_block_grid_overrides(&mut commands, trace, level_visuals, block_grid);
+    }
+    if filter.terrain {
+        push_special_effect_unknown_foreground_plane_loc_14e42(&mut commands, trace, level_visuals);
     }
     if eol_hologram_visible && filter.terrain {
         push_eol_foreground_reveal_tiles(&mut commands, trace, level_visuals, block_grid);

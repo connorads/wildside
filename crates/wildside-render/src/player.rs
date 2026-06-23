@@ -106,6 +106,14 @@ pub struct WeatherVisuals {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpecialEffectUnknownVisuals {
+    pub tile_sheet: TileSheet,
+    /// ASM Init_SpecialEffect_Unknown loc_14DE4/loc_14DF6 uploads
+    /// `unk_9AA50` to VRAM byte offset `$7000`, i.e. tile `$380`.
+    pub vram_base_tile_index: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EolScoreVisuals {
     pub palette: Palette,
     pub bonus: SpriteFrame,

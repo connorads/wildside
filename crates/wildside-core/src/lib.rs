@@ -63,8 +63,8 @@ pub use types::*;
 pub use weather::{
     LavaGeyserSpriteChunkLoc14BE8, LavaGeyserSpriteTemplateLoc14BE8, MurderWallWarningInputSub5E02,
     MurderWallWarningRenderSub5E02, MurderWallWarningSpriteSub5E02,
-    StormSharedArtRuntimeUploadLoc14D8A, compile_murder_wall_warning_sprites_sub_5E02,
-    lava_geyser_sprite_chunks_loc_14BE8,
+    SpecialEffectUnknownPlaneFillRuntimeLoc14E42, StormSharedArtRuntimeUploadLoc14D8A,
+    compile_murder_wall_warning_sprites_sub_5E02, lava_geyser_sprite_chunks_loc_14BE8,
 };
 
 #[allow(non_snake_case)]

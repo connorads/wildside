@@ -9,7 +9,7 @@ use crate::palette::{MdColour, Palette, PaletteSet};
 use crate::player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
     FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpriteFrame, WeatherVisuals,
+    PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame, WeatherVisuals,
 };
 use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -80,6 +80,8 @@ const WEATHER_HAIL_ART_PATH: &str = "artcomp/Hail_Sparkles.bin";
 const WEATHER_HAIL_MOUNTAIN_PALETTE_PATH: &str = "palette/hail_mountain.bin";
 const WEATHER_HAIL_ICE_PALETTE_PATH: &str = "palette/hail_ice.bin";
 const WEATHER_VRAM_BASE_TILE_INDEX_LOC_14CCE: u16 = 0x0380;
+const SPECIAL_EFFECT_UNKNOWN_ART_PATH: &str = "artunc/unknown_1.bin";
+const SPECIAL_EFFECT_UNKNOWN_VRAM_BASE_TILE_INDEX_LOC_14DE4: u16 = 0x0380;
 const BACKGROUND_THEME_ICE_ID: u8 = 2;
 const EOL_HOLOGRAM_BACKGROUND_ART_PATH: &str = "artcomp/Hologram_background.bin";
 const EOL_HOLOGRAM_BLOCKS_ART_PATH: &str = "artcomp/Hologram_blocks.bin";
@@ -164,6 +166,10 @@ pub struct NativeLevelVisuals {
     /// ASM Init_SpecialEffect_Storm loc_14CCE/loc_14CD8 loads rain/hail art to
     /// VRAM `$7000` and copies the selected hail palette to CRAM line 1.
     pub weather: Option<WeatherVisuals>,
+    /// ASM Init_SpecialEffect_Unknown loc_14DE4/loc_14DF6 loads `unk_9AA50`
+    /// art to VRAM `$7000`; loc_14E42 fills Scroll A with tile words rooted
+    /// at that art.
+    pub special_effect_unknown: Option<SpecialEffectUnknownVisuals>,
     pub platforms: PlatformVisuals,
     /// ASM `loc_D55E` / `Load_Object_EOL_Text` / `Load_Object_EOL_Number`
     /// draw score-screen labels and digits from `End_level_stats_text`.
@@ -439,6 +445,14 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         }
         None
     });
+    let special_effect_unknown =
+        load_special_effect_unknown_visuals(manifest, visual_theme_header.weather_flags)
+            .unwrap_or_else(|err| {
+                if !cfg!(test) {
+                    eprintln!("warning: special effect unknown art unavailable: {err}");
+                }
+                None
+            });
     let platforms = load_platform_visuals(manifest, foreground_theme)?;
 
     let palettes = PaletteSet {
@@ -513,6 +527,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         murder_wall,
         lava,
         weather,
+        special_effect_unknown,
         platforms,
         eol_score: load_eol_score_visuals(manifest).unwrap_or_else(|err| {
             if !cfg!(test) {
@@ -693,6 +708,24 @@ fn load_weather_visuals(
         palette,
         tile_sheet,
         vram_base_tile_index: WEATHER_VRAM_BASE_TILE_INDEX_LOC_14CCE,
+    }))
+}
+
+fn load_special_effect_unknown_visuals(
+    manifest: &AssetManifest,
+    weather_flags: u8,
+) -> Result<Option<SpecialEffectUnknownVisuals>> {
+    if weather_flags != 4 {
+        return Ok(None);
+    }
+    let Some(art) = find_scene_asset(manifest, SPECIAL_EFFECT_UNKNOWN_ART_PATH) else {
+        return Ok(None);
+    };
+    let tile_sheet =
+        load_uncompressed_tile_sheet(manifest, "scenes", art, "special effect unknown tile sheet")?;
+    Ok(Some(SpecialEffectUnknownVisuals {
+        tile_sheet,
+        vram_base_tile_index: SPECIAL_EFFECT_UNKNOWN_VRAM_BASE_TILE_INDEX_LOC_14DE4,
     }))
 }
 
@@ -950,6 +983,13 @@ fn find_ingame_asset<'a>(
 ) -> Option<&'a AssetFile> {
     manifest
         .ingame_assets
+        .iter()
+        .find(|asset| asset.relative_path == relative_path)
+}
+
+fn find_scene_asset<'a>(manifest: &'a AssetManifest, relative_path: &str) -> Option<&'a AssetFile> {
+    manifest
+        .scene_assets
         .iter()
         .find(|asset| asset.relative_path == relative_path)
 }
@@ -4634,6 +4674,7 @@ fn read_root_asset(
     let root = match root_name {
         "theme" => manifest.output_root.join("theme"),
         "ingame" => manifest.output_root.join("ingame"),
+        "scenes" => manifest.output_root.join("scenes"),
         other => bail!("unsupported generated bundle root {other}"),
     };
     let path = root.join(&asset.relative_path);
@@ -4689,7 +4730,7 @@ mod tests {
         compose_player_frame, enemy_palette_with_cleared_slot_eight, fg_permutation_file,
         forest_enemy_art_permutation, forest_enemy_palette_with_borrowed_slots, frame_to_pixels,
         layered_background_enigma_base_word_loc_128ba, load_palette_permutation,
-        normalise_layered_background_tile_base_loc_128ba,
+        load_special_effect_unknown_visuals, normalise_layered_background_tile_base_loc_128ba,
     };
     use crate::{
         LayeredBackgroundPlane, MdColour, Palette, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
@@ -4899,6 +4940,70 @@ mod tests {
                 decoded_levels: Vec::new(),
             },
         )
+    }
+
+    fn scene_manifest(relative_path: &str, bytes: &[u8]) -> (TempDir, AssetManifest) {
+        let temp_dir = TempDir::new().expect("temp generated bundle root");
+        let scene_root = temp_dir.path().join("scenes");
+        let asset_path = scene_root.join(relative_path);
+        fs::create_dir_all(asset_path.parent().expect("asset has parent"))
+            .expect("create scene asset parent");
+        fs::write(&asset_path, bytes).expect("write scene asset");
+
+        (
+            temp_dir,
+            AssetManifest {
+                generated_bundle_version: 0,
+                rom_sha1: "test-rom".to_owned(),
+                upstream_commit: "test-upstream".to_owned(),
+                source_root: ".".into(),
+                output_root: scene_root
+                    .parent()
+                    .expect("scene root has parent")
+                    .to_owned(),
+                map_order: Vec::new(),
+                levels: Vec::new(),
+                constants: Vec::new(),
+                ram_variables: Vec::new(),
+                enemy_sources: Vec::new(),
+                theme_assets: Vec::new(),
+                scene_assets: vec![asset_file(relative_path, bytes)],
+                animation_assets: Vec::new(),
+                sound_assets: Vec::new(),
+                ingame_assets: Vec::new(),
+                decoded_levels: Vec::new(),
+            },
+        )
+    }
+
+    #[test]
+    fn load_special_effect_unknown_visuals_reads_scene_art_loc_14de4() {
+        let bytes = vec![0x12; 16 * 32];
+        let (_temp_dir, manifest) = scene_manifest("artunc/unknown_1.bin", &bytes);
+
+        assert!(
+            load_special_effect_unknown_visuals(&manifest, 0)
+                .expect("weather flag 0 skips unknown art")
+                .is_none()
+        );
+        let visuals = load_special_effect_unknown_visuals(&manifest, 4)
+            .expect("load unknown art")
+            .expect("weather flag 4 loads unknown art");
+
+        assert_eq!(
+            visuals.vram_base_tile_index, 0x0380,
+            "ASM Init_SpecialEffect_Unknown loc_14DE4 uploads `unk_9AA50` to VRAM `$7000`"
+        );
+        assert_eq!(
+            visuals.tile_sheet.tiles.len(),
+            16,
+            "ASM loc_14DF6 streams `$10` uncompressed 4bpp tiles"
+        );
+        assert_eq!(
+            &visuals.tile_sheet.tiles[0].pixels[0..4],
+            &[1, 2, 1, 2],
+            "weather-4 scene art is raw 4bpp, not Saxman-compressed"
+        );
     }
 
     #[test]

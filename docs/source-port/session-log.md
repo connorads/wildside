@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 Unknown foreground plane render)
+
+- **#317 remains `[~]`.** Native-player now consumes weather-4 Unknown
+  `Init_SpecialEffect_Unknown` `loc_14E42` foreground-plane fills.
+- `wildside-render` loads `scenes/artunc/unknown_1.bin` (`unk_9AA50`) as
+  16 raw 4bpp tiles at VRAM tile `$380`, and native-player reconstructs the
+  `$8380..$838F` Scroll A tile-word pattern from the ASM loop shape.
+- Regressions: `load_special_effect_unknown_visuals_reads_scene_art_loc_14de4`
+  and `build_game_scene_draws_unknown_foreground_plane_loc_14e42`.
+- **Next:** keep #317 open for storm pattern/shared-art renderer consumption,
+  the lava script walker/intro row output, `$FFFE -> loc_1483A` disable
+  coroutine, and the shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#317 lava geyser sound gate)
 
 - **#317 remains `[~]`.** Lava geyser phase-0 transitions now model the

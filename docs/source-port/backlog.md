@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **#317 remains `[~]`:** Island shore DMA labels, storm `loc_14D8A` shared-art trace, and lava geyser `loc_14772/loc_1478E` sound gates are fixed; storm/Unknown plane renderer, lava script-walk/`$FFFE` disable coroutine, and shared VRAM backend debt remain.
+- **#317 remains `[~]`:** Island shore DMA labels, storm `loc_14D8A` shared-art trace, lava geyser `loc_14772/loc_1478E` sound gates, and Unknown `loc_14E42` foreground-plane rendering are fixed; storm pattern/shared-art renderer, lava script-walk/`$FFFE` disable coroutine, and shared VRAM backend debt remain.
 - **#316 remains `[~]`:** DP shared list + `sub_3F798` sprite compiler are
   gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
