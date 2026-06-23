@@ -103,6 +103,15 @@ pub struct WeatherVisuals {
     /// ASM Init_SpecialEffect_Storm loc_14CCE/loc_14CD8 uploads rain/hail art
     /// to VRAM byte offset `$7000`, i.e. tile `$380`.
     pub vram_base_tile_index: u16,
+    /// ASM Init_SpecialEffect_Storm loc_14D8A uploads shared weather art
+    /// `ArtComp_9A7D2` to VRAM byte offset `$76A0`, i.e. tile `$3B5`.
+    pub shared_art: Option<StormSharedWeatherArtVisuals>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StormSharedWeatherArtVisuals {
+    pub tile_sheet: TileSheet,
+    pub vram_base_tile_index: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

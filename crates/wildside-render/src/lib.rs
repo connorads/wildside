@@ -25,7 +25,8 @@ pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
     FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame, WeatherVisuals,
+    PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame,
+    StormSharedWeatherArtVisuals, WeatherVisuals,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
@@ -140,6 +141,12 @@ mod tests {
             .expect("ASM Init_SpecialEffect_Storm loc_14CD8 weather art should load");
         assert_eq!(weather.vram_base_tile_index, 0x0380);
         assert_eq!(weather.tile_sheet.tiles.len(), 0x60);
+        let shared_art = weather
+            .shared_art
+            .as_ref()
+            .expect("ASM Init_SpecialEffect_Storm loc_14D8A shared art should load");
+        assert_eq!(shared_art.vram_base_tile_index, 0x03B5);
+        assert_eq!(shared_art.tile_sheet.tiles.len(), 0x20);
         assert_eq!(weather.palette.colours.len(), 8);
         assert_eq!(
             weather.palette.colours[0].raw_word, 0x0600,
@@ -1127,6 +1134,15 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/artcomp/Spinning_rock_(loaded_into_VRAM_but_unused).bin",
+                &direct_copy_saxman(
+                    &(0..(32 * 0x20))
+                        .map(|value| 0x08 + (value % 8) as u8)
+                        .collect::<Vec<_>>(),
+                ),
+            )?;
+            write_file(
+                root.path(),
                 "ingame/palette/hail_mountain.bin",
                 &(0..8)
                     .map(|value| 0x0600_u16 + value)
@@ -1767,6 +1783,10 @@ mod tests {
                     asset_file(root.path(), "ingame/artcomp/Lava.bin"),
                     asset_file(root.path(), "ingame/artcomp/Rain.bin"),
                     asset_file(root.path(), "ingame/artcomp/Hail_Sparkles.bin"),
+                    asset_file(
+                        root.path(),
+                        "ingame/artcomp/Spinning_rock_(loaded_into_VRAM_but_unused).bin",
+                    ),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
                     asset_file(root.path(), "ingame/artunc/Hitpoint_display.bin"),
                     asset_file(root.path(), "ingame/artunc/Pause_menu.bin"),

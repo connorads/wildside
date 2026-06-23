@@ -10874,6 +10874,7 @@ mod tests {
                 tiles: vec![Tile { pixels: [8; 64] }; 0x60],
             },
             vram_base_tile_index: 0x0380,
+            shared_art: None,
         });
 
         let scene = build_scene_filtered(
@@ -10909,6 +10910,84 @@ mod tests {
                 assert_eq!((*x, *y), (0x011F, 0x0008));
                 assert_eq!(tiles.len(), 1);
                 assert_eq!(tiles[0].tile.tile_index, 0x004D);
+                assert_eq!(tiles[0].tile.palette_line, 1);
+                assert!(
+                    tiles[0].tile.priority,
+                    "ASM sub_61CA loc_63C4 writes priority tile word $A3CD"
+                );
+            }
+            _ => unreachable!("weather sprite command matched Sprite above"),
+        }
+    }
+
+    #[test]
+    fn build_game_scene_uses_loc_14d8a_shared_weather_art_for_storm_sprites() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.storm_sprites_sub_61ca = vec![(0x0088, 0x0501, 0xA3CD, 0x019F)];
+        trace.storm_shared_art_upload_loc_14d8a =
+            Some(wildside_core::StormSharedArtRuntimeUploadLoc14D8A {
+                source_asset_label: String::from("ArtComp_9A7D2"),
+                vram_word: 0x76A0,
+            });
+        let mut visuals = sample_level_visuals();
+        visuals.weather = Some(wildside_render::WeatherVisuals {
+            palette: Palette {
+                colours: (0..8)
+                    .map(|value| MdColour::from_word(0x0600 + value))
+                    .collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0x60],
+            },
+            vram_base_tile_index: 0x0380,
+            shared_art: Some(wildside_render::StormSharedWeatherArtVisuals {
+                tile_sheet: TileSheet {
+                    tiles: vec![Tile { pixels: [9; 64] }; 0x20],
+                },
+                vram_base_tile_index: 0x03B5,
+            }),
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: false,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: true,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let weather_sprite = scene
+            .commands
+            .iter()
+            .find(|command| match command {
+                DrawCommand::Sprite { tile_sheet, .. } => {
+                    tile_sheet.tiles.len() == 0x20
+                        && tile_sheet
+                            .tiles
+                            .first()
+                            .is_some_and(|tile| tile.pixels == [9; 64])
+                }
+                _ => false,
+            })
+            .expect("ASM Init_SpecialEffect_Storm loc_14D8A shared art for sub_61CA sprite");
+        match weather_sprite {
+            DrawCommand::Sprite { x, y, tiles, .. } => {
+                assert_eq!((*x, *y), (0x011F, 0x0008));
+                assert_eq!(tiles.len(), 1);
+                assert_eq!(
+                    tiles[0].tile.tile_index, 0x0018,
+                    "ASM loc_14D8A uploads ArtComp_9A7D2 to tile $3B5, so sub_61CA tile $3CD resolves to shared local tile $18"
+                );
                 assert_eq!(tiles[0].tile.palette_line, 1);
                 assert!(
                     tiles[0].tile.priority,

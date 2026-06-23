@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 storm shared art renderer)
+
+- **#317 remains `[~]`.** Native-player now consumes ASM
+  `Init_SpecialEffect_Storm loc_14D8A` shared `ArtComp_9A7D2 -> $76A0`
+  uploads for `sub_61CA` storm sprites.
+- Tile words in the shared range, e.g. `$A3CD`, resolve against base `$3B5`
+  (local tile `$18`) when the trace carries the upload; missing upload/assets
+  keep the existing `$380` rain/hail fallback.
+- Regressions: `load_level_visuals_loads_storm_weather_art_loc_14cce_14cd8`,
+  `build_game_scene_draws_storm_weather_sprites_from_sub_61ca`, and
+  `build_game_scene_uses_loc_14d8a_shared_weather_art_for_storm_sprites`.
+- Verification: `cargo fmt --all --check`, `cargo check -q -p wildside-cli`,
+  `git diff --check`, focused render/native-player tests, and
+  `mise run verify-slice-fast`.
+- **Next:** keep #317 open for the storm pattern plane renderer, full lava
+  script-walk/template-row output, and the shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#252 RockTank bullet render)
 
 - **#252 moved to `[?]` fixed candidate.** The current renderer already covered

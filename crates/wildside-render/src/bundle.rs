@@ -9,7 +9,8 @@ use crate::palette::{MdColour, Palette, PaletteSet};
 use crate::player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
     FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame, WeatherVisuals,
+    PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame,
+    StormSharedWeatherArtVisuals, WeatherVisuals,
 };
 use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -77,9 +78,12 @@ const LAVA_PALETTE_PATH: &str = "palette/lava.bin";
 const LAVA_VRAM_BASE_TILE_INDEX: u16 = 0x02FB;
 const WEATHER_RAIN_ART_PATH: &str = "artcomp/Rain.bin";
 const WEATHER_HAIL_ART_PATH: &str = "artcomp/Hail_Sparkles.bin";
+const WEATHER_SHARED_ART_PATH_LOC_14D8A: &str =
+    "artcomp/Spinning_rock_(loaded_into_VRAM_but_unused).bin";
 const WEATHER_HAIL_MOUNTAIN_PALETTE_PATH: &str = "palette/hail_mountain.bin";
 const WEATHER_HAIL_ICE_PALETTE_PATH: &str = "palette/hail_ice.bin";
 const WEATHER_VRAM_BASE_TILE_INDEX_LOC_14CCE: u16 = 0x0380;
+const WEATHER_SHARED_VRAM_BASE_TILE_INDEX_LOC_14D8A: u16 = 0x03B5;
 const SPECIAL_EFFECT_UNKNOWN_ART_PATH: &str = "artunc/unknown_1.bin";
 const SPECIAL_EFFECT_UNKNOWN_VRAM_BASE_TILE_INDEX_LOC_14DE4: u16 = 0x0380;
 const BACKGROUND_THEME_ICE_ID: u8 = 2;
@@ -697,6 +701,20 @@ fn load_weather_visuals(
         return Ok(None);
     };
     let tile_sheet = load_tile_sheet(manifest, "ingame", art, "hail weather tile sheet")?;
+    let shared_art = find_ingame_asset(manifest, WEATHER_SHARED_ART_PATH_LOC_14D8A)
+        .map(|asset| {
+            load_tile_sheet(
+                manifest,
+                "ingame",
+                asset,
+                "loc_14D8A shared storm weather tile sheet",
+            )
+            .map(|tile_sheet| StormSharedWeatherArtVisuals {
+                tile_sheet,
+                vram_base_tile_index: WEATHER_SHARED_VRAM_BASE_TILE_INDEX_LOC_14D8A,
+            })
+        })
+        .transpose()?;
     let palette = Palette::from_bytes(&read_root_asset(
         manifest,
         "ingame",
@@ -708,6 +726,7 @@ fn load_weather_visuals(
         palette,
         tile_sheet,
         vram_base_tile_index: WEATHER_VRAM_BASE_TILE_INDEX_LOC_14CCE,
+        shared_art,
     }))
 }
 

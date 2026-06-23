@@ -3705,18 +3705,18 @@ fn push_lava_geyser_chunk_loc_14be8(
 
 fn push_storm_weather_sprite_sub_61ca(
     commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
     visuals: &wildside_render::WeatherVisuals,
     sprite: (u16, u16, u16, u16),
 ) -> bool {
     let (screen_y, _link_word, tile_word, screen_x) = sprite;
     let tile_ref = TileRef::from_attr_word(tile_word);
-    let Some(tile_base_index) = tile_ref
-        .tile_index
-        .checked_sub(visuals.vram_base_tile_index)
-    else {
+    let (tile_sheet, vram_base_tile_index) =
+        storm_weather_tile_sheet_loc_14d8a(trace, visuals, tile_ref.tile_index);
+    let Some(tile_base_index) = tile_ref.tile_index.checked_sub(vram_base_tile_index) else {
         return false;
     };
-    if usize::from(tile_base_index) >= visuals.tile_sheet.tiles.len() {
+    if usize::from(tile_base_index) >= tile_sheet.tiles.len() {
         return false;
     }
     let frame = wildside_render::SpriteFrame {
@@ -3725,7 +3725,7 @@ fn push_storm_weather_sprite_sub_61ca(
         width_px: 8,
         height_px: 8,
         tile_base_index,
-        tile_sheet: visuals.tile_sheet.clone(),
+        tile_sheet: tile_sheet.clone(),
     };
     let mut tiles = build_sprite_tiles(&frame, Direction::Right, tile_ref.palette_line);
     for tile in &mut tiles {
@@ -3736,11 +3736,37 @@ fn push_storm_weather_sprite_sub_61ca(
     commands.push(DrawCommand::Sprite {
         x: i32::from(screen_x) - VDP_SPRITE_SCREEN_BIAS_LOC_13C0,
         y: i32::from(screen_y) - VDP_SPRITE_SCREEN_BIAS_LOC_13C0,
-        tile_sheet: Arc::new(visuals.tile_sheet.clone()),
+        tile_sheet: Arc::new(tile_sheet.clone()),
         palette: Arc::new(visuals.palette.clone()),
         tiles,
     });
     true
+}
+
+fn storm_weather_tile_sheet_loc_14d8a<'a>(
+    trace: &NativeTraceFrame,
+    visuals: &'a wildside_render::WeatherVisuals,
+    tile_index: u16,
+) -> (&'a wildside_render::TileSheet, u16) {
+    let Some(upload) = &trace.storm_shared_art_upload_loc_14d8a else {
+        return (&visuals.tile_sheet, visuals.vram_base_tile_index);
+    };
+    let Some(shared_art) = &visuals.shared_art else {
+        return (&visuals.tile_sheet, visuals.vram_base_tile_index);
+    };
+    // ASM Init_SpecialEffect_Storm loc_14D8A decompresses `ArtComp_9A7D2` to
+    // VRAM byte offset `$76A0` after the rain/hail `$7000` upload. Later
+    // `sub_61CA` sprite tile words can reference that shared tail.
+    let vram_base_tile_index = upload.vram_word / 32;
+    if vram_base_tile_index == shared_art.vram_base_tile_index
+        && tile_index >= shared_art.vram_base_tile_index
+        && usize::from(tile_index - shared_art.vram_base_tile_index)
+            < shared_art.tile_sheet.tiles.len()
+    {
+        (&shared_art.tile_sheet, shared_art.vram_base_tile_index)
+    } else {
+        (&visuals.tile_sheet, visuals.vram_base_tile_index)
+    }
 }
 
 fn push_lava_geyser_template_loc_14be8(
@@ -5818,10 +5844,16 @@ fn build_game_scene_filtered(
 
         // ASM sub_61CA loc_63C4/loc_6462 emits storm weather sprites with
         // VDP-biased screen coordinates and absolute tile words rooted at the
-        // Init_SpecialEffect_Storm loc_14CCE/loc_14CD8 `$7000` art upload.
+        // Init_SpecialEffect_Storm loc_14CCE/loc_14CD8 `$7000` art upload
+        // plus loc_14D8A shared `$76A0` storm art when the trace exposes it.
         if let Some(weather_visuals) = &level_visuals.weather {
             for &sprite in &trace.storm_sprites_sub_61ca {
-                let _ = push_storm_weather_sprite_sub_61ca(&mut commands, weather_visuals, sprite);
+                let _ = push_storm_weather_sprite_sub_61ca(
+                    &mut commands,
+                    trace,
+                    weather_visuals,
+                    sprite,
+                );
             }
         }
 
