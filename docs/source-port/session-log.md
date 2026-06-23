@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#289 Lion projectile local palette/clock)
+
+- **#289 stays `[~]`; the Level 0x07 Lion projectile residual is gone from the oracle pixel diff.** Re-reading `Lion.asm loc_3E12A` confirmed the ROM sets hardware `palette_line(a3)=2`, but native-player stores the extracted Lion enemy palette as local slots, so the sprite tiles must index local palette line 0. Re-reading `Lion.asm loc_3E180/loc_3E192` and `ingame/anim/enemy/Lion.asm` confirmed `stru_3DF34` keeps ticking through the hibernated projectile worker.
+- Native-player now renders the projectile through the packed Lion palette slots, and core ticks the Lion projectile animation clock once per `loc_3E192` hibernated step. Regression coverage pins the rendered local slot colour and the ticking `animation_elapsed_frames`.
+- Refreshed `issue289-level07-idle-current` is still expected-red on pixels but is trace/state-green: frame 60 improves from `236` / MAE `0.2491397` to `133` / `0.11480655`; frame 71 improves from `269` / `0.28263578` to `171` / `0.19314545`. Component inspection shows frame 60 now has only the bottom-left water/edge strip (88 px) and right/top background strip (45 px); frame 71 has those plus timer/HUD/top-right specks. No Lion body or projectile component remains.
+- Next #289 pass should continue from the residual background/HUD pixels, not Lion projectile palette/phase, Lion body frame selection, gameplay state, selected Plane-B row words, global `Time_Frames`, static cloud H-scroll, Island shore age, or simple `loc_12110` current-phase rendering.
+- Verification: refreshed `record-scenario --slug issue289-level07-idle-current`, focused Lion projectile CLI/core tests, expected-red `verify-recording --slug issue289-level07-idle-current`, component diff inspection, `cargo fmt --all --check`, `cargo check -q -p wildside-cli`, `cargo run -q -p wildside-cli -- backlog-lint`, `git diff --check`, and `mise run verify-slice-fast`.
+
 ## 2026-06-22 handoff (#289 Lion resumed-walk phase)
 
 - **#289 stays `[~]`; the Level 0x07 Lion body phase now matches the oracle checkpoints.** After `Lion.asm loc_3E0F4` restores `$62(a5)` and resumes `loc_3E11E`, native exposes a Lion live walk phase through `NativeObjectSnapshot.walk_phase`; native-player uses that phase with the ROM `stru_3DEDA`/`stru_3DEF4` durations instead of the old global-frame approximation.

@@ -3411,7 +3411,35 @@ mod tests {
 
     #[test]
     fn lion_projectile_uses_stru_3df34_sprite_frames() {
-        let visuals = sample_level_visuals();
+        let mut visuals = sample_level_visuals();
+        let lion_visuals = visuals
+            .enemies
+            .families
+            .get_mut(&0x12)
+            .expect("sample Lion visuals");
+        lion_visuals.palette = Palette {
+            colours: vec![
+                colour(0, 0, 0),
+                colour(10, 20, 30),
+                colour(20, 30, 40),
+                colour(30, 40, 50),
+                colour(40, 50, 60),
+                colour(50, 60, 70),
+                colour(60, 70, 80),
+                colour(220, 0, 0),
+                colour(180, 0, 0),
+                colour(140, 0, 0),
+                colour(100, 0, 0),
+                colour(0, 220, 0),
+                colour(36, 182, 0),
+                colour(146, 255, 73),
+                colour(0, 255, 146),
+            ],
+        };
+        lion_visuals.frames[10].tile_sheet = blank_tile_sheet(8);
+        for tile in &mut lion_visuals.frames[10].tile_sheet.tiles[4..8] {
+            tile.pixels = [12; 64];
+        }
         let mut trace = sample_trace(GameMode::InGame);
         trace.active_projectile_details = vec![ActiveProjectileSnapshot {
             x_pos: 0x0030_0000,
@@ -3431,9 +3459,13 @@ mod tests {
         let scene = build_scene(&trace, false, Some(&visuals), None);
 
         let projectile_sprite = scene.commands.iter().find_map(|command| match command {
-            DrawCommand::Sprite {
-                tile_sheet, tiles, ..
-            } if tile_sheet.tiles[0].pixels[0] == 60 => Some(tiles),
+            DrawCommand::Sprite { tiles, .. }
+                if tiles
+                    .first()
+                    .is_some_and(|tile| tile.tile.tile_index == 0x004) =>
+            {
+                Some(tiles)
+            }
             _ => None,
         });
         let tiles = projectile_sprite.expect(
@@ -3444,8 +3476,15 @@ mod tests {
             "ASM Lion projectile frame C7E28 uses sprite_frame_vram tile base `$004`"
         );
         assert_eq!(
-            tiles[0].tile.palette_line, 2,
-            "ASM Lion.asm loc_3E12A sets projectile palette_line(a3) to 2"
+            tiles[0].tile.palette_line, 0,
+            "ASM Lion.asm loc_3E12A sets hardware palette_line(a3) to 2, but native's extracted Lion palette is already local-slot indexed"
+        );
+        let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+        assert_eq!(
+            pixel_at(&rgb, 26, 24),
+            [0, 220, 0],
+            "ASM Lion.asm loc_3E12A / `stru_3DF34` projectile pixels should use the packed local Lion palette slots, not disappear behind the scene"
         );
         assert!(
             !has_rect(&scene, 30, 22, 4, 4, [255, 80, 40]),

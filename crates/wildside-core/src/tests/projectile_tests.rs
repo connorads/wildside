@@ -7774,6 +7774,10 @@ mod chunk_06 {
             "ASM Lion.asm loc_3E192 should not decrement the native lifetime sentinel"
         );
         assert_eq!(
+            rt.projectiles[0].animation_elapsed_frames, 2,
+            "ASM Lion.asm loc_3E180/stru_3DF34 should keep ticking during the loc_3E192 hibernated loop"
+        );
+        assert_eq!(
             rt.active_enemies[0].ufo_beam_segments, 1,
             "in-camera live projectile must not release the owning Lion count"
         );

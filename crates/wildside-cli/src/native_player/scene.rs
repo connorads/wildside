@@ -800,8 +800,10 @@ fn push_lion_projectile_sprite_loc_3e12a(
     let Some(lion_visuals) = level_visuals.enemies.families.get(&LION_OBJECT_TYPE) else {
         return false;
     };
-    // ASM Lion.asm loc_3E12A initialises projectile children with
-    // `stru_3DF34`: C7E20, C7E28, C7E30 for six frames each.
+    // ASM Lion.asm loc_3E12A sets hardware `palette_line(a3)=2` before
+    // initialising `stru_3DF34`: C7E20, C7E28, C7E30 for six frames each.
+    // Native stores Lion's packed enemy palette as local slots, so use line 0
+    // when indexing the extracted palette colours.
     let frame_index = 9 + usize::from(projectile.animation_elapsed_frames / 6) % 3;
     let Some(frame) = lion_visuals.frames.get(frame_index) else {
         return false;
@@ -817,7 +819,7 @@ fn push_lion_projectile_sprite_loc_3e12a(
         y: draw_y,
         tile_sheet: Arc::new(frame.tile_sheet.clone()),
         palette: Arc::new(lion_visuals.palette.clone()),
-        tiles: build_sprite_tiles(frame, facing, 2),
+        tiles: build_sprite_tiles(frame, facing, 0),
     });
     true
 }

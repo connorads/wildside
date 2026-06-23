@@ -2769,6 +2769,12 @@ impl NativeRuntime {
                 // four `maniaxe_axe_1..4` frames.
                 p.animation_elapsed_frames = p.animation_elapsed_frames.wrapping_add(1);
             }
+            if is_lion_projectile {
+                // ASM Lion.asm loc_3E180 initialises `stru_3DF34`; each
+                // loc_3E192 hibernated loop advances the projectile gfx
+                // animation even though the worker has no DBF lifetime.
+                p.animation_elapsed_frames = p.animation_elapsed_frames.wrapping_add(1);
+            }
             if p.kind == EnemyProjectileKind::DripsSurfaceCrawler
                 && p.drips_surface_crawler_state == DripsSurfaceCrawlerState::StartupLoc335D8
             {
