@@ -7688,6 +7688,7 @@ impl NativeRuntime {
                 ]
             }),
             storm_pattern_upload_loc_14d32: self.weather.storm_pattern_upload_loc_14d32.clone(),
+            storm_scroll_transfer_loc_30110: self.weather.storm_scroll_transfer_loc_30110,
             storm_shared_art_upload_loc_14d8a: self
                 .weather
                 .storm_shared_art_upload_loc_14d8a

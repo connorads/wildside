@@ -3740,6 +3740,9 @@ fn push_storm_pattern_plane_loc_14d32(
     let Some(upload) = &trace.storm_pattern_upload_loc_14d32 else {
         return false;
     };
+    let Some(transfer) = trace.storm_scroll_transfer_loc_30110 else {
+        return false;
+    };
     let Some(visuals) = &level_visuals.weather else {
         return false;
     };
@@ -3753,21 +3756,32 @@ fn push_storm_pattern_plane_loc_14d32(
     {
         return false;
     }
+    if transfer.plane_address_word != 0x8403 || transfer.h_scroll_word_pairs != 0x00E0 {
+        return false;
+    }
 
-    // TODO(fidelity): consume the live Transfer_ScrollDataToVRAM loc_30110
-    // `$FFFFFAD6/$FFFFFAD8` countdown/offset so this Scroll-B plane is gated
-    // and scrolled on the exact hardware frames instead of rendering the
-    // init-time plane contents continuously once the trace exposes loc_14D32.
+    // ASM Transfer_ScrollDataToVRAM loc_30110: the Scroll-B storm pattern uses
+    // the second HScroll/VSRAM words, both sourced from `$FFFFFAD8`.
+    let scroll_x_px = i32::from(transfer.second_h_scroll_word);
+    let scroll_y_px = i32::from(transfer.second_vsram_word);
+    let first_plane_col = scroll_x_px.div_euclid(8);
+    let first_plane_row = scroll_y_px.div_euclid(8);
     let tile_addend = (upload.vram_tile_addend & 0xFFFF) as u16;
     let visible_cols = FRAME_WIDTH.div_ceil(8) as usize + 1;
     let visible_rows = FRAME_HEIGHT.div_ceil(8) as usize + 1;
     let tile_sheet = Arc::new(visuals.tile_sheet.clone());
     let palette = Arc::new(background_palette_for_scene(trace, level_visuals));
 
-    for screen_row in 0..visible_rows {
-        let pattern_row = screen_row % 8;
-        for screen_col in 0..visible_cols {
-            let source_word = source_words[pattern_row * 8 + (screen_col % 8)];
+    for visible_row in 0..visible_rows {
+        let plane_row = first_plane_row
+            + i32::try_from(visible_row).expect("visible row fits i32 for storm plane");
+        let pattern_row = plane_row.rem_euclid(8) as usize;
+        let y = plane_row * 8 - scroll_y_px;
+        for visible_col in 0..visible_cols {
+            let plane_col = first_plane_col
+                + i32::try_from(visible_col).expect("visible col fits i32 for storm plane");
+            let pattern_col = plane_col.rem_euclid(8) as usize;
+            let source_word = source_words[pattern_row * 8 + pattern_col];
             let tile = TileRef::from_attr_word(source_word.wrapping_add(tile_addend));
             if tile.tile_index < visuals.vram_base_tile_index {
                 continue;
@@ -3777,8 +3791,8 @@ fn push_storm_pattern_plane_loc_14d32(
                 continue;
             }
             commands.push(DrawCommand::IndexedTile {
-                x: i32::try_from(screen_col).expect("visible col fits i32") * 8,
-                y: i32::try_from(screen_row).expect("visible row fits i32") * 8,
+                x: plane_col * 8 - scroll_x_px,
+                y,
                 tile_sheet: tile_sheet.clone(),
                 tile: TileRef {
                     tile_index: local_tile_index,

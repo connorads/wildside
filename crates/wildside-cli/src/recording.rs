@@ -2253,6 +2253,14 @@ fn trace_frames_match(
             .clone_from(&actual.storm_pattern_upload_loc_14d32);
     }
 
+    if expected.storm_scroll_transfer_loc_30110.is_none() {
+        // `storm_scroll_transfer_loc_30110` is additive diagnostics for ASM
+        // Transfer_ScrollDataToVRAM loc_30110. Pixel checkpoints still guard
+        // the visible Scroll-B plane for legacy recordings.
+        normalised_expected.storm_scroll_transfer_loc_30110 =
+            actual.storm_scroll_transfer_loc_30110;
+    }
+
     if !expected
         .gameplay_debug_fields
         .contains_key("native_platform_loader_loc_2744")
@@ -2847,6 +2855,7 @@ mod tests {
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
             storm_pattern_upload_loc_14d32: None,
+            storm_scroll_transfer_loc_30110: None,
             storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,
@@ -3317,6 +3326,36 @@ mod tests {
         assert_eq!(
             drift, None,
             "loc_14D1E/loc_14D32 storm pattern upload is additive diagnostics; pixel checkpoints guard the visible Scroll-B plane for legacy recordings"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_storm_scroll_transfer_diagnostics() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.storm_scroll_transfer_loc_30110 =
+            Some(wildside_core::TransferScrollDataStormLoc30110 {
+                plane_address_word: 0x8403,
+                h_scroll_word_pairs: 0x00E0,
+                first_h_scroll_word: 0,
+                second_h_scroll_word: 0x0100,
+                first_vsram_word: 0,
+                second_vsram_word: 0x0100,
+                weather_mode_byte: 4,
+                next_storm_scroll_offset: 0x00F8,
+            });
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "loc_30110 storm scroll transfer is additive diagnostics; pixel checkpoints guard the visible Scroll-B plane for legacy recordings"
         );
     }
 

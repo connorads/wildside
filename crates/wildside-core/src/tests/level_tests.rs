@@ -186,6 +186,8 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         storm_impact_slots_sub_61ca: [crate::weather::WeatherImpactSlotSub61CA::default(); 10],
         storm_kid_collision_timer_sub_61ca: 0,
         storm_weather_mode_byte: 4,
+        storm_scroll_offset_loc_30110: 0,
+        storm_scroll_transfer_loc_30110: None,
         storm_fade_countdown: 0x0100,
         storm_thunder_timer: 1,
         storm_art_upload_loc_14cd8: Some(crate::weather::upload_storm_art_loc_14CD8(

@@ -5409,6 +5409,7 @@ AddrTbl_LevelNames:
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
             storm_pattern_upload_loc_14d32: None,
+            storm_scroll_transfer_loc_30110: None,
             storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,

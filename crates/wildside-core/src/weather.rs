@@ -1527,39 +1527,43 @@ pub(crate) fn step_level_special_effects_sub_6048(
         }
     }
 
-    // ASM loc_6172 (kid.asm:6151): cmpi.w #$834,d6; bls.s loc_61C2
-    // also gates this block, but its early-exit just sets weather_mode_byte=4
-    // (which we always emit at the end of the function) and the second gate
-    // `cmpi.w #$873,(Frame_Counter)` strictly dominates it. Collapse the two
-    // checks to a single binding boundary so a `> with >=` mutant on the
-    // weaker $834 check cannot survive as an equivalent mutant.
-    if state.level_special_effects == 3 && state.frame_counter > 0x0873 {
-        state.hail_period_timer = state.hail_period_timer.wrapping_sub(1);
-        if state.hail_period_timer == 0 {
-            // ASM loc_619C (kid.asm:6163): addi.w #$258,($FFFFFB52).w;
-            // eori.b #$FF,($FFFFFB54).w — when inactive→active the pre-set
-            // $258 is added to give $4B0; when active→inactive only the $258
-            // from loc_619C applies.
-            state.hail_period_timer = if state.hail_active { 0x0258 } else { 0x04B0 };
-            state.hail_active = !state.hail_active;
-        }
-
-        // ASM loc_61A8 (kid.asm:6167): tst.b ($FFFFFB54).w; bne.s loc_61BC
-        // — active period always falls through to sub_61CA.
-        // Inactive period: cmpi.b #5,($FFFFFB3D).w; beq.s return_61C0
-        // — full slots (5) skip sub_61CA entirely.
-        if state.hail_active {
-            // ASM loc_61BC (kid.asm:6174): bsr.w sub_61CA
-            state.call_snow_worker = true;
-        } else if state.snow_slot_count != 5 {
-            state.snow_spawn_cooldown = 2;
-            // ASM loc_61BC (kid.asm:6174): bsr.w sub_61CA
-            state.call_snow_worker = true;
-        }
-        // else: ASM beq.s return_61C0 — inactive with all 5 slots, no sub_61CA
+    // ASM loc_6172 (kid.asm:6151): `cmpi.w #$834,d6; bls.s loc_61C2`.
+    // Only this branch and the earlier fade/thunder paths reseed
+    // `($FFFFFAD6).w=4`; after the storm-intro window, the independent
+    // `Transfer_ScrollDataToVRAM loc_30110` countdown is allowed to run.
+    if state.frame_counter <= 0x0834 {
+        state.weather_mode_byte = 4;
+        return state;
     }
 
-    state.weather_mode_byte = 4;
+    if state.level_special_effects != 3 || state.frame_counter <= 0x0873 {
+        return state;
+    }
+
+    state.hail_period_timer = state.hail_period_timer.wrapping_sub(1);
+    if state.hail_period_timer == 0 {
+        // ASM loc_619C (kid.asm:6163): addi.w #$258,($FFFFFB52).w;
+        // eori.b #$FF,($FFFFFB54).w — when inactive→active the pre-set
+        // $258 is added to give $4B0; when active→inactive only the $258
+        // from loc_619C applies.
+        state.hail_period_timer = if state.hail_active { 0x0258 } else { 0x04B0 };
+        state.hail_active = !state.hail_active;
+    }
+
+    // ASM loc_61A8 (kid.asm:6167): tst.b ($FFFFFB54).w; bne.s loc_61BC
+    // — active period always falls through to sub_61CA.
+    // Inactive period: cmpi.b #5,($FFFFFB3D).w; beq.s return_61C0
+    // — full slots (5) skip sub_61CA entirely.
+    if state.hail_active {
+        // ASM loc_61BC (kid.asm:6174): bsr.w sub_61CA
+        state.call_snow_worker = true;
+    } else if state.snow_slot_count != 5 {
+        state.snow_spawn_cooldown = 2;
+        // ASM loc_61BC (kid.asm:6174): bsr.w sub_61CA
+        state.call_snow_worker = true;
+    }
+    // else: ASM beq.s return_61C0 — inactive with all 5 slots, no sub_61CA
+
     state
 }
 
@@ -2764,6 +2768,34 @@ impl NativeRuntime {
         }
     }
 
+    pub(crate) fn transfer_scroll_data_storm_loc_30110(&mut self) {
+        self.weather.storm_scroll_transfer_loc_30110 = None;
+        if !matches!(self.weather.weather_type, 2 | 3) {
+            return;
+        }
+
+        // ASM Transfer_ScrollDataToVRAM loc_300FE/loc_30110 (kid.asm:33688):
+        // storm weather decrements `($FFFFFAD6).w` before the Mode_Level
+        // gameplay workers. Only the zero frame switches Scroll B to `$8403`,
+        // writes the HScroll/VSRAM storm offset pairs, resets `$FAD6=4`, and
+        // subtracts 8 from `$FFFFFAD8`.
+        let weather_mode_byte = self.weather.storm_weather_mode_byte.wrapping_sub(1);
+        self.weather.storm_weather_mode_byte = weather_mode_byte;
+        if weather_mode_byte != 0 {
+            return;
+        }
+
+        let camera = self.current_camera_state();
+        let transfer = crate::level::transfer_scroll_data_storm_loc_30110(
+            ((camera.x_pos >> 16) as u16) as i16,
+            ((camera.y_pos >> 16) as u16) as i16,
+            self.weather.storm_scroll_offset_loc_30110,
+        );
+        self.weather.storm_weather_mode_byte = transfer.weather_mode_byte;
+        self.weather.storm_scroll_offset_loc_30110 = transfer.next_storm_scroll_offset;
+        self.weather.storm_scroll_transfer_loc_30110 = Some(transfer);
+    }
+
     pub(crate) fn step_weather(&mut self, slice: &OpeningSliceState) {
         self.weather.storm_sprites_sub_61ca.clear();
         if dispatch_level_special_effects_sub_6034(u16::from(self.weather.weather_type)).is_none() {
@@ -2895,6 +2927,8 @@ impl NativeRuntime {
         self.weather.storm_kid_collision_timer_sub_61ca = 0;
         self.weather.storm_sprites_sub_61ca.clear();
         self.weather.storm_weather_mode_byte = 0;
+        self.weather.storm_scroll_offset_loc_30110 = 0;
+        self.weather.storm_scroll_transfer_loc_30110 = None;
         self.weather.storm_fade_countdown = 0;
         self.weather.storm_thunder_timer = 0;
         self.weather.storm_art_upload_loc_14cd8 = None;

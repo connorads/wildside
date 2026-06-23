@@ -750,6 +750,11 @@ pub(crate) struct WeatherState {
     pub(crate) storm_sprites_sub_61ca: Vec<crate::weather::WeatherSpriteSub61CA>,
     /// ASM loc_14DAC/sub_6048 `$FFFFFAD6`: storm worker mode byte.
     pub(crate) storm_weather_mode_byte: u8,
+    /// ASM `Transfer_ScrollDataToVRAM loc_30110` `$FFFFFAD8`: Scroll-B storm offset.
+    pub(crate) storm_scroll_offset_loc_30110: i16,
+    /// ASM `Transfer_ScrollDataToVRAM loc_30110`: storm Scroll-B transfer emitted this frame.
+    pub(crate) storm_scroll_transfer_loc_30110:
+        Option<crate::level::TransferScrollDataStormLoc30110>,
     /// ASM loc_14DAC/sub_6048 `$FFFFFADA`: storm fade countdown.
     pub(crate) storm_fade_countdown: u16,
     /// ASM loc_14DAC/sub_6048 `$FFFFFADC`: Mountain thunder timer.
@@ -1564,6 +1569,9 @@ pub struct NativeTraceFrame {
     /// ASM `Init_SpecialEffect_Storm` loc_14D1E/loc_14D32 Scroll-B pattern upload.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storm_pattern_upload_loc_14d32: Option<crate::weather::StormPatternRuntimeUploadLoc14D32>,
+    /// ASM `Transfer_ScrollDataToVRAM loc_30110` Scroll-B transfer for storm pattern display.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storm_scroll_transfer_loc_30110: Option<crate::level::TransferScrollDataStormLoc30110>,
     /// ASM `Init_SpecialEffect_Storm` loc_14D8A shared weather art upload.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub storm_shared_art_upload_loc_14d8a:
@@ -1806,6 +1814,7 @@ impl Default for NativeTraceFrame {
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
             storm_pattern_upload_loc_14d32: None,
+            storm_scroll_transfer_loc_30110: None,
             storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,

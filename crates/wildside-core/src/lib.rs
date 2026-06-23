@@ -52,7 +52,8 @@ pub use level::{
     EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
     EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE, EolScoreCounterSnapshotLocD770,
     FlagpoleScoreboardRevealTileLocC21E, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
-    eol_score_counter_snapshot_loc_D770, eol_score_counter_transfer_frames_from_trace_loc_D770,
+    TransferScrollDataStormLoc30110, eol_score_counter_snapshot_loc_D770,
+    eol_score_counter_transfer_frames_from_trace_loc_D770,
     eol_title_return_faded_palette_word_loc_D734, flagpole_scoreboard_reveal_tiles_loc_C21E,
 };
 use std::collections::HashSet;
@@ -1968,6 +1969,7 @@ impl NativeRuntime {
         self.last_kid_frame_jump_gravity_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         self.last_drips_splash_reseed_probe = None;
+        self.weather.storm_scroll_transfer_loc_30110 = None;
         self.wall_cling_boundary_trace_y_velocity = self
             .wall_cling_boundary_trace_y_velocity
             .and_then(|(y_velocity, frames)| {
@@ -2117,6 +2119,11 @@ impl NativeRuntime {
             BootState::StartingLevel { .. } | BootState::InGame
         ) || (self.demo_gameplay_active()
             && self.opening_slice.is_some());
+        if gameplay_slice_active {
+            // ASM Mode_Level loc_7E2/Transfer_ScrollDataToVRAM loc_30110 runs
+            // before Execute_Objects and the later `sub_6034` weather worker.
+            self.transfer_scroll_data_storm_loc_30110();
+        }
         let preserve_demo_title_snapshot_frame =
             matches!(self.boot_state, BootState::TitleScreen { .. })
                 && self.preserve_demo_title_snapshot;

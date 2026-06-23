@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 storm loc_30110 scroll gate)
+
+- **#317 remains `[~]`.** Native now models ASM
+  `Transfer_ScrollDataToVRAM loc_300FE/loc_30110` for storm Scroll B:
+  `$FFFFFAD6` counts down after the `$834` storm-intro window, the zero
+  frame emits a trace record, resets `$FAD6=4`, and subtracts 8 from
+  `$FFFFFAD8`.
+- Native-player now draws the `loc_14D32` storm pattern plane only when the
+  trace carries the `loc_30110` transfer, using the second HScroll/VSRAM words
+  as the Scroll-B offset; the hail `$1813` attribute-bit test still covers H/V
+  flip preservation.
+- Regressions: `sub_6048_after_storm_intro_preserves_weather_mode_byte_for_loc_30110_countdown`,
+  `transfer_scroll_data_storm_loc_30110_counts_down_and_exposes_trace`,
+  `build_game_scene_gates_storm_pattern_plane_on_loc_30110_transfer`,
+  `build_game_scene_draws_storm_pattern_plane_loc_30110`,
+  `build_game_scene_scrolls_storm_pattern_plane_from_loc_30110_offset`, and
+  `first_trace_drift_accepts_legacy_frames_missing_storm_scroll_transfer_diagnostics`.
+- Verification: `cargo test -q -p wildside-core sub_6048 -- --nocapture`,
+  `cargo test -q -p wildside-core transfer_scroll_data_storm_loc_30110 -- --nocapture`,
+  `cargo test -q -p wildside-cli storm_pattern -- --nocapture`,
+  `cargo test -q -p wildside-cli first_trace_drift_accepts_legacy_frames_missing_storm -- --nocapture`,
+  plus final `cargo fmt --all --check`, `cargo check -q -p wildside-cli`,
+  `git diff --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`.
+- **Next:** keep #317 open for full lava script-walk/template-row output and
+  the shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#317 storm pattern plane renderer)
 
 - **#317 remains `[~]`.** Native-player now consumes ASM

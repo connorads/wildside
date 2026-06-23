@@ -26352,6 +26352,46 @@ mod chunk_05 {
     }
 
     #[test]
+    fn sub_6048_after_storm_intro_preserves_weather_mode_byte_for_loc_30110_countdown() {
+        let stepped = step_level_special_effects_sub_6048(
+            WeatherSpecialEffectsStepSub6048 {
+                frame_counter: 0x0835,
+                level_special_effects: 2,
+                foreground_theme_is_mountain: false,
+                background_theme_is_mountain: false,
+                fade_countdown: 0,
+                fade_progress_latch: 0,
+                palette_animation_speed: 0,
+                pending_palette_mask_0: 0,
+                weather_mode_byte: 3,
+                thunder_timer: 10,
+                hail_period_timer: 7,
+                hail_active: false,
+                snow_spawn_cooldown: 9,
+                snow_slot_count: 3,
+                play_thunder_sound: false,
+                call_snow_worker: false,
+                palette_ops: Vec::new(),
+            },
+            [0; 8],
+            [0; 15],
+            [0; 7],
+            [0; 7],
+            0,
+        );
+
+        assert_eq!(
+            stepped.weather_mode_byte, 3,
+            "ASM loc_6172 return_61C0: after `Frame_Counter > $834`, plain storm must stop reseeding `$FFFFFAD6=4` so Transfer_ScrollDataToVRAM loc_30110 can count down"
+        );
+        assert_eq!(stepped.hail_period_timer, 7);
+        assert!(
+            !stepped.call_snow_worker,
+            "ASM loc_6172 bne.s return_61C0: weather 2 exits before hail worker logic"
+        );
+    }
+
+    #[test]
     fn sub_61ca_reuses_deleted_falling_slot_and_keeps_its_animation_word() {
         let mut collision_rows = empty_weather_collision_rows_sub_61_ca();
         collision_rows.rows[2][8] = 0;
@@ -30415,6 +30455,18 @@ mod chunk_05 {
         };
         runtime.weather.storm_kid_collision_timer_sub_61ca = 0x28;
         runtime.weather.storm_weather_mode_byte = 4;
+        runtime.weather.storm_scroll_offset_loc_30110 = 0x0100;
+        runtime.weather.storm_scroll_transfer_loc_30110 =
+            Some(crate::level::TransferScrollDataStormLoc30110 {
+                plane_address_word: 0x8403,
+                h_scroll_word_pairs: 0x00E0,
+                first_h_scroll_word: 0,
+                second_h_scroll_word: 0x0100,
+                first_vsram_word: 0,
+                second_vsram_word: 0x0100,
+                weather_mode_byte: 4,
+                next_storm_scroll_offset: 0x00F8,
+            });
         runtime.weather.storm_fade_countdown = 0x0100;
         runtime.weather.storm_thunder_timer = -3;
         runtime.weather.storm_art_upload_loc_14cd8 = Some(
@@ -30469,6 +30521,8 @@ mod chunk_05 {
         );
         assert_eq!(runtime.weather.storm_kid_collision_timer_sub_61ca, 0);
         assert_eq!(runtime.weather.storm_weather_mode_byte, 0);
+        assert_eq!(runtime.weather.storm_scroll_offset_loc_30110, 0);
+        assert_eq!(runtime.weather.storm_scroll_transfer_loc_30110, None);
         assert_eq!(runtime.weather.storm_fade_countdown, 0);
         assert_eq!(runtime.weather.storm_thunder_timer, 0);
         assert_eq!(runtime.weather.storm_art_upload_loc_14cd8, None);
@@ -30518,6 +30572,14 @@ mod chunk_05 {
         assert_eq!(
             runtime.weather.storm_weather_mode_byte, 4,
             "ASM loc_14DAC writes `4` to `$FFFFFAD6`"
+        );
+        assert_eq!(
+            runtime.weather.storm_scroll_offset_loc_30110, 0,
+            "ASM Transfer_ScrollDataToVRAM loc_30110 consumes `$FFFFFAD8`; native storm init starts the runtime offset from cleared RAM"
+        );
+        assert_eq!(
+            runtime.weather.storm_scroll_transfer_loc_30110, None,
+            "ASM Init_SpecialEffect_Storm loc_14DAC seeds counters but does not run the later loc_30110 VDP transfer"
         );
         assert_eq!(
             runtime.weather.storm_fade_countdown, 0x0100,
@@ -30579,6 +30641,10 @@ mod chunk_05 {
             "native trace should expose ASM loc_14D1E/loc_14D32 storm pattern upload shape for renderer consumption"
         );
         assert_eq!(
+            trace.storm_scroll_transfer_loc_30110, None,
+            "native trace should only expose Transfer_ScrollDataToVRAM loc_30110 on frames where `$FFFFFAD6` reaches zero"
+        );
+        assert_eq!(
             trace.storm_shared_art_upload_loc_14d8a,
             runtime.weather.storm_shared_art_upload_loc_14d8a,
             "native trace should expose the live loc_14D8A shared storm art upload shape for oracle/debug comparison"
@@ -30611,6 +30677,54 @@ mod chunk_05 {
                 written_longword_count: 4 * 8 * 8 * 4,
             }),
             "ASM Init_SpecialEffect_Storm loc_14D1E should select the hail pattern table when `Background_theme == Ice` even for plain storm weather"
+        );
+    }
+
+    #[test]
+    fn transfer_scroll_data_storm_loc_30110_counts_down_and_exposes_trace() {
+        let mut manifest = manifest_with_levels(2);
+        manifest.levels[0]
+            .header_metadata
+            .as_mut()
+            .unwrap()
+            .weather_flags = 2;
+        let mut runtime = NativeRuntime::new(manifest);
+        runtime.init_weather(LevelId(0));
+
+        runtime.weather.storm_weather_mode_byte = 2;
+        runtime.weather.storm_scroll_offset_loc_30110 = 0x0100;
+        runtime.transfer_scroll_data_storm_loc_30110();
+
+        assert_eq!(
+            runtime.weather.storm_weather_mode_byte, 1,
+            "ASM loc_300FE should decrement `$FFFFFAD6` without transfer while the result is non-zero"
+        );
+        assert_eq!(runtime.weather.storm_scroll_offset_loc_30110, 0x0100);
+        assert_eq!(runtime.weather.storm_scroll_transfer_loc_30110, None);
+
+        runtime.transfer_scroll_data_storm_loc_30110();
+
+        let expected = crate::level::TransferScrollDataStormLoc30110 {
+            plane_address_word: 0x8403,
+            h_scroll_word_pairs: 0x00E0,
+            first_h_scroll_word: 0,
+            second_h_scroll_word: 0x0100,
+            first_vsram_word: 0,
+            second_vsram_word: 0x0100,
+            weather_mode_byte: 4,
+            next_storm_scroll_offset: 0x00F8,
+        };
+        assert_eq!(
+            runtime.weather.storm_scroll_transfer_loc_30110,
+            Some(expected),
+            "ASM Transfer_ScrollDataToVRAM loc_30110 should emit the Scroll-B storm transfer on the zero countdown frame"
+        );
+        assert_eq!(runtime.weather.storm_weather_mode_byte, 4);
+        assert_eq!(runtime.weather.storm_scroll_offset_loc_30110, 0x00F8);
+        assert_eq!(
+            runtime.trace_frame().storm_scroll_transfer_loc_30110,
+            Some(expected),
+            "native trace should expose the loc_30110 transfer for renderer consumption"
         );
     }
 

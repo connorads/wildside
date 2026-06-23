@@ -13057,16 +13057,16 @@ pub(crate) struct TransferScrollDataDmaTailLoc300D2 {
     pub(crate) dma_word_count: u16,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct TransferScrollDataStormLoc30110 {
-    pub(crate) plane_address_word: u16,
-    pub(crate) h_scroll_word_pairs: u16,
-    pub(crate) first_h_scroll_word: i16,
-    pub(crate) second_h_scroll_word: i16,
-    pub(crate) first_vsram_word: i16,
-    pub(crate) second_vsram_word: i16,
-    pub(crate) weather_mode_byte: u8,
-    pub(crate) next_storm_scroll_offset: i16,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TransferScrollDataStormLoc30110 {
+    pub plane_address_word: u16,
+    pub h_scroll_word_pairs: u16,
+    pub first_h_scroll_word: i16,
+    pub second_h_scroll_word: i16,
+    pub first_vsram_word: i16,
+    pub second_vsram_word: i16,
+    pub weather_mode_byte: u8,
+    pub next_storm_scroll_offset: i16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

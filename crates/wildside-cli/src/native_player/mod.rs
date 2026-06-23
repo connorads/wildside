@@ -3298,6 +3298,7 @@ mod tests {
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
             storm_pattern_upload_loc_14d32: None,
+            storm_scroll_transfer_loc_30110: None,
             storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,
@@ -11000,7 +11001,7 @@ mod tests {
     }
 
     #[test]
-    fn build_game_scene_draws_storm_pattern_plane_loc_14d32() {
+    fn build_game_scene_gates_storm_pattern_plane_on_loc_30110_transfer() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.storm_pattern_upload_loc_14d32 =
             Some(wildside_core::StormPatternRuntimeUploadLoc14D32 {
@@ -11009,6 +11010,76 @@ mod tests {
                 skipped_header_longwords: 1,
                 vdp_command: 0x4000_0003,
                 written_longword_count: 4 * 8 * 8 * 4,
+            });
+        let mut visuals = sample_level_visuals();
+        visuals.weather = Some(wildside_render::WeatherVisuals {
+            palette: Palette {
+                colours: (0..8)
+                    .map(|value| MdColour::from_word(0x0600 + value))
+                    .collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0x60],
+            },
+            vram_base_tile_index: 0x0380,
+            shared_art: None,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: true,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let storm_tiles = scene
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    DrawCommand::IndexedTile { tile_sheet, .. } if tile_sheet.tiles.len() == 0x60
+                )
+            })
+            .count();
+        assert_eq!(
+            storm_tiles, 0,
+            "ASM Transfer_ScrollDataToVRAM loc_300FE keeps the normal plane-B path active until `$FFFFFAD6` reaches zero and branches to loc_30110"
+        );
+    }
+
+    #[test]
+    fn build_game_scene_draws_storm_pattern_plane_loc_30110() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.storm_pattern_upload_loc_14d32 =
+            Some(wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: String::from("unk_9B65C"),
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: 0x4000_0003,
+                written_longword_count: 4 * 8 * 8 * 4,
+            });
+        trace.storm_scroll_transfer_loc_30110 =
+            Some(wildside_core::TransferScrollDataStormLoc30110 {
+                plane_address_word: 0x8403,
+                h_scroll_word_pairs: 0x00E0,
+                first_h_scroll_word: -0x0010,
+                second_h_scroll_word: 0,
+                first_vsram_word: 0x0008,
+                second_vsram_word: 0,
+                weather_mode_byte: 4,
+                next_storm_scroll_offset: -8,
             });
         let mut visuals = sample_level_visuals();
         visuals.weather = Some(wildside_render::WeatherVisuals {
@@ -11059,7 +11130,7 @@ mod tests {
         assert_eq!(
             storm_tiles.len(),
             (FRAME_WIDTH.div_ceil(8) as usize + 1) * (FRAME_HEIGHT.div_ceil(8) as usize + 1),
-            "ASM Init_SpecialEffect_Storm loc_14D32 writes enough Scroll-B pattern data to cover the visible plane"
+            "ASM Transfer_ScrollDataToVRAM loc_30110 displays enough Scroll-B pattern data to cover the visible plane"
         );
         assert_eq!(storm_tiles[0].0, 0);
         assert_eq!(storm_tiles[0].1, 0);
@@ -11078,6 +11149,85 @@ mod tests {
     }
 
     #[test]
+    fn build_game_scene_scrolls_storm_pattern_plane_from_loc_30110_offset() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.storm_pattern_upload_loc_14d32 =
+            Some(wildside_core::StormPatternRuntimeUploadLoc14D32 {
+                source_asset_label: String::from("unk_9B65C"),
+                vram_tile_addend: 0x0380_0380,
+                skipped_header_longwords: 1,
+                vdp_command: 0x4000_0003,
+                written_longword_count: 4 * 8 * 8 * 4,
+            });
+        trace.storm_scroll_transfer_loc_30110 =
+            Some(wildside_core::TransferScrollDataStormLoc30110 {
+                plane_address_word: 0x8403,
+                h_scroll_word_pairs: 0x00E0,
+                first_h_scroll_word: -0x0010,
+                second_h_scroll_word: -8,
+                first_vsram_word: 0x0008,
+                second_vsram_word: -8,
+                weather_mode_byte: 4,
+                next_storm_scroll_offset: -16,
+            });
+        let mut visuals = sample_level_visuals();
+        visuals.weather = Some(wildside_render::WeatherVisuals {
+            palette: Palette {
+                colours: (0..8)
+                    .map(|value| MdColour::from_word(0x0600 + value))
+                    .collect(),
+            },
+            tile_sheet: TileSheet {
+                tiles: vec![Tile { pixels: [8; 64] }; 0x60],
+            },
+            vram_base_tile_index: 0x0380,
+            shared_art: None,
+        });
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            None,
+            LayerFilter {
+                background: true,
+                terrain: false,
+                block_overrides: false,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+
+        let first_storm_tile = scene
+            .commands
+            .iter()
+            .find_map(|command| match command {
+                DrawCommand::IndexedTile {
+                    x,
+                    y,
+                    tile_sheet,
+                    tile,
+                    ..
+                } if tile_sheet.tiles.len() == 0x60 => Some((*x, *y, *tile)),
+                _ => None,
+            })
+            .expect("storm transfer should draw Scroll-B pattern tiles");
+        assert_eq!(
+            (first_storm_tile.0, first_storm_tile.1),
+            (0, 0),
+            "ASM loc_30110 uses tile-aligned `$FFFFFAD8` steps, so a -8 offset keeps the first visible tile aligned to the viewport"
+        );
+        assert_eq!(
+            first_storm_tile.2.tile_index, 0x0022,
+            "ASM loc_30110 Scroll-B offset -8 samples the previous 8x8 pattern row/column; unk_9B65C row 7 col 7 is tile `$22`"
+        );
+    }
+
+    #[test]
     fn build_game_scene_preserves_hail_storm_pattern_attr_bits_loc_14d32() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.storm_pattern_upload_loc_14d32 =
@@ -11087,6 +11237,17 @@ mod tests {
                 skipped_header_longwords: 1,
                 vdp_command: 0x4000_0003,
                 written_longword_count: 4 * 8 * 8 * 4,
+            });
+        trace.storm_scroll_transfer_loc_30110 =
+            Some(wildside_core::TransferScrollDataStormLoc30110 {
+                plane_address_word: 0x8403,
+                h_scroll_word_pairs: 0x00E0,
+                first_h_scroll_word: -0x0010,
+                second_h_scroll_word: 0,
+                first_vsram_word: 0x0008,
+                second_vsram_word: 0,
+                weather_mode_byte: 4,
+                next_storm_scroll_offset: -8,
             });
         let mut visuals = sample_level_visuals();
         visuals.weather = Some(wildside_render::WeatherVisuals {
