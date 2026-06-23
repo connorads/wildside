@@ -1182,6 +1182,7 @@ pub(crate) struct ActiveEnemy {
     pub(crate) dragon_script_variant: u8,
     /// Dragon Flying: current command index within the script.
     /// Tornado reuses this as the next `loc_359F2` pattern index from `unk_35A0C`.
+    /// Lion reuses this as the live `stru_3DEDA`/`stru_3DEF4` animation phase.
     pub(crate) dragon_script_cmd: u8,
     /// Dragon Flying: anchor Y position (FP16.16) — initial spawn Y to return to.
     /// Big Hopping Skull reuses this as packed `loc_364A0` patrol bounds because
@@ -2300,8 +2301,16 @@ impl ActiveEnemy {
                 .then_some(self.shared_walker_patrol_timer);
         let shared_walker_patrol_short_next = matches!(self.family, EnemyFamily::DragonWalking)
             .then_some(self.shared_walker_patrol_short_next);
-        let walk_phase =
-            matches!(self.family, EnemyFamily::DragonWalking).then_some(self.dragon_script_cmd);
+        let walk_phase = if matches!(self.family, EnemyFamily::DragonWalking)
+            || (matches!(self.family, EnemyFamily::Lion)
+                && matches!(
+                    self.lion_state,
+                    LionState::Walking | LionState::Charging | LionState::ResumingCharge
+                )) {
+            Some(self.dragon_script_cmd)
+        } else {
+            None
+        };
         let wait_timer = if matches!(self.family, EnemyFamily::DragonWalking | EnemyFamily::Lion)
             || (matches!(self.family, EnemyFamily::BigHoppingSkull)
                 && self.wait_timer > 0

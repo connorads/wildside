@@ -1169,8 +1169,12 @@ fn select_live_lion_frame<'a>(
     if cycle == 0 {
         return None;
     }
-    let offset = object.layout_index.unwrap_or(0) * 3;
-    let mut phase = (trace.frame_index + offset) % cycle;
+    let mut phase = if let Some(walk_phase) = object.walk_phase {
+        usize::from(walk_phase) % cycle
+    } else {
+        let offset = object.layout_index.unwrap_or(0) * 3;
+        (trace.frame_index + offset) % cycle
+    };
     for (frame_index, duration) in durations.iter().enumerate() {
         if phase < *duration {
             return enemy_visuals.frames.get(frame_index);

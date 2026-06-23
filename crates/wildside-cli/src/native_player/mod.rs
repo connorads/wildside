@@ -17507,7 +17507,7 @@ mod tests {
         let visuals = sample_level_visuals();
         let lion_visuals = visuals.enemies.families.get(&0x12).expect("lion visuals");
         let mut trace = sample_trace(GameMode::InGame);
-        let object = NativeObjectSnapshot {
+        let mut object = NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type: 0x12 },
             x_pos: 0x01EF_0000,
             y_pos: 0x02C0_0000,
@@ -17542,6 +17542,16 @@ mod tests {
             assert_eq!(
                 frame.tile_base_index, tile_base,
                 "ASM Lion.asm `stru_3DEDA` frame descriptor should match C7E88..C7EB0 live sprite mappings"
+            );
+        }
+
+        for (walk_phase, tile_base) in [(13, 0x1B4), (24, 0x1D8)] {
+            object.walk_phase = Some(walk_phase);
+            trace.frame_index = 0;
+            let frame = sprites::select_enemy_frame(&trace, lion_visuals, &object);
+            assert_eq!(
+                frame.tile_base_index, tile_base,
+                "ASM Lion.asm loc_3E0F4 resumes `stru_3DEDA`; issue #289 frame checkpoints should render the phase-selected C7E98/C7EA0 live bodies"
             );
         }
     }

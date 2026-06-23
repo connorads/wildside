@@ -1403,6 +1403,27 @@ fn step_lion_walking_tracking_loc_3e03c(enemy: &mut ActiveEnemy, player_x_pos: O
     }
 }
 
+fn lion_live_walk_animation_cycle_loc_3dfd8(hit_points: u8) -> u8 {
+    // ASM Lion.asm loc_3DFD8 selects `stru_3DEDA` for every HP value except
+    // exactly 8; HP 8 selects `stru_3DEF4`. The byte counts below are the
+    // summed `anim_frame` durations from ingame/anim/enemy/Lion.asm.
+    if hit_points == 8 { 27 } else { 38 }
+}
+
+fn reset_lion_live_walk_animation_loc_3dff0(enemy: &mut ActiveEnemy) {
+    // ASM Init_Animation (kid.asm sub_1040) installs the first sprite and
+    // starts the script timer from the beginning. Native object snapshots are
+    // post-update while Mode_Level loc_901 presents the previous sprite table;
+    // the visible resumed charge body in issue #289 matches phase 29 of the
+    // restored `stru_3DEDA` duration cursor.
+    enemy.dragon_script_cmd = 29 % lion_live_walk_animation_cycle_loc_3dfd8(enemy.hit_points);
+}
+
+fn advance_lion_live_walk_animation_loc_3dfd8(enemy: &mut ActiveEnemy) {
+    let cycle = lion_live_walk_animation_cycle_loc_3dfd8(enemy.hit_points);
+    enemy.dragon_script_cmd = enemy.dragon_script_cmd.wrapping_add(1) % cycle;
+}
+
 /// Step a Lion enemy: paces normally, then charges toward player and fires a
 /// homing projectile. Charge ends on wall/edge or player overshoot >112px.
 /// ASM: Lion.asm — full state machine with detection, charge, and cooldown.
@@ -1423,6 +1444,7 @@ pub(crate) fn step_lion(
             // always ticks and the charge fires unconditionally on expiry.
             if enemy.wait_timer > 0 {
                 enemy.wait_timer -= 1;
+                advance_lion_live_walk_animation_loc_3dfd8(enemy);
                 return;
             }
 
@@ -1430,6 +1452,7 @@ pub(crate) fn step_lion(
             // count in $5B(a5) suppresses the next roar/fire cycle.
             if lion_active_projectile_count(enemy) > 0 {
                 enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+                advance_lion_live_walk_animation_loc_3dfd8(enemy);
                 return;
             }
 
@@ -1458,6 +1481,8 @@ pub(crate) fn step_lion(
 
             let Some(px) = player_x_pos else {
                 enemy.lion_state = LionState::Charging;
+                reset_lion_live_walk_animation_loc_3dff0(enemy);
+                advance_lion_live_walk_animation_loc_3dfd8(enemy);
                 return;
             };
             fire_lion_projectile_loc_3e09e(enemy, px, projectiles);
@@ -1479,6 +1504,7 @@ pub(crate) fn step_lion(
             }
             // ASM Lion.asm loc_3E0F4 restores `$62(a5)` before dispatching to
             // loc_3E11E's direction-specific charge branch.
+            reset_lion_live_walk_animation_loc_3dff0(enemy);
             enemy.lion_state = LionState::ResumingCharge;
         }
         LionState::Charging => {
@@ -1489,6 +1515,7 @@ pub(crate) fn step_lion(
             if enemy.wait_timer == 0 {
                 if lion_active_projectile_count(enemy) > 0 {
                     enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+                    advance_lion_live_walk_animation_loc_3dfd8(enemy);
                 } else {
                     enemy.lion_state = LionState::Roaring;
                     enemy.wait_timer = LION_ROAR_FIRE_DELAY;
@@ -1497,6 +1524,7 @@ pub(crate) fn step_lion(
             }
 
             step_lion_charge_movement_loc_3e11e(enemy, block_grid, player_x_pos);
+            advance_lion_live_walk_animation_loc_3dfd8(enemy);
         }
         LionState::ResumingCharge => {
             // ASM Lion.asm loc_3E0F4 falls directly into loc_3E11E after the
@@ -1504,6 +1532,7 @@ pub(crate) fn step_lion(
             // `$54/$5B` roar/cooldown gate, or the Level 0x07 charge body
             // contact happens several frames late.
             step_lion_charge_movement_loc_3e11e(enemy, block_grid, player_x_pos);
+            advance_lion_live_walk_animation_loc_3dfd8(enemy);
         }
     }
 }
@@ -2091,6 +2120,30 @@ mod tests {
                 animation_script: "saved_lion_charge_animation",
             },
             "ASM Lion.asm loc_3E0F4 should restore the animation script saved in `$62(a5)` when `$18(a3)` is set"
+        );
+    }
+
+    #[test]
+    fn lion_post_fire_resume_exposes_walk_phase_loc_3e0f4() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Lion;
+        enemy.hit_points = 6;
+        enemy.lion_state = LionState::PostFire;
+        enemy.wait_timer = 0;
+        enemy.dragon_script_cmd = 0;
+
+        let mut projectiles = None;
+        step_lion(&mut enemy, None, Some(0), &mut projectiles);
+
+        assert_eq!(enemy.lion_state, LionState::ResumingCharge);
+        assert_eq!(
+            enemy.dragon_script_cmd, 29,
+            "ASM Lion.asm loc_3E0F4 restores `$62(a5)` before loc_3E11E; issue #289 oracle frames show the resumed HP-6 `stru_3DEDA` body at phase 29"
+        );
+        assert_eq!(
+            enemy.snapshot().walk_phase,
+            Some(29),
+            "Lion snapshots should expose the live walk phase only after the `loc_3E0F4` restore resumes the charge script"
         );
     }
 

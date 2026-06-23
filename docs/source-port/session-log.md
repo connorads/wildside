@@ -7,6 +7,13 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-22 handoff (#289 Lion resumed-walk phase)
+
+- **#289 stays `[~]`; the Level 0x07 Lion body phase now matches the oracle checkpoints.** After `Lion.asm loc_3E0F4` restores `$62(a5)` and resumes `loc_3E11E`, native exposes a Lion live walk phase through `NativeObjectSnapshot.walk_phase`; native-player uses that phase with the ROM `stru_3DEDA`/`stru_3DEF4` durations instead of the old global-frame approximation.
+- The verified HP-6 resumed phase is 29: checkpoint frame 60 displays previous object phase 13 (C7E98 / tile base `$1B4`), and frame 71 displays phase 24 (C7EA0 / `$1D8`). Regressions cover both the core `loc_3E0F4` phase exposure and renderer phase selection.
+- Fresh expected-red `issue289-level07-idle-current` remains state-clean/pixel-red but improves frame 60 from `1289` / MAE `1.4096261` to `236` / `0.2491397`; frame 71 stays `269` / `0.28263578`. The remaining residual is small projectile/timer/top-background pixels, not Lion body frame selection.
+- Verification: focused Lion core/CLI tests, expected-red `verify-recording --slug issue289-level07-idle-current`, visual diff inspection, and `mise run verify-slice-fast`.
+
 ## 2026-06-22 handoff (#335 natural Hills entry fixed candidate)
 
 - **#335 moved `[~]`→`[?]`.** Natural Isle 0x07→Hills 0x08 level-complete title-card handoff now refreshes the murder-wall runtime at `loc_1AE2E -> loc_6E2 -> Load_InGame` for murder-wall levels, instead of carrying an aged hidden title-card wall/death state into live gameplay.
