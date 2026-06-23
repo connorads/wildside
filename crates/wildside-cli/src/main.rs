@@ -278,7 +278,7 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = RecordScenarioKind::WalkRight)]
         scenario: RecordScenarioKind,
         /// Level to warp into.
-        #[arg(long)]
+        #[arg(long, value_parser = parse_level_id)]
         level: u8,
         /// Override the default scenario frame count (post-settle frames).
         #[arg(long)]
@@ -314,7 +314,7 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = RecordScenarioKind::WalkRight)]
         scenario: RecordScenarioKind,
         /// Level to warp into.
-        #[arg(long)]
+        #[arg(long, value_parser = parse_level_id)]
         level: u8,
         /// Override the default scenario frame count (post-settle frames).
         #[arg(long)]
@@ -4646,8 +4646,8 @@ mod tests {
         oracle_probe_watch_row_in_range, parse_batch_probe_candidate, parse_batch_probe_window,
         parse_batch_target_block_event, parse_batch_target_projectile_cell,
         parse_batch_target_projectile_direction, parse_button_mask, parse_input_spec,
-        parse_sfx_constants, prepare_generated_assets_with, record_scenario_command,
-        record_scenario_file_command, recording_scenario_manifest,
+        parse_level_id, parse_sfx_constants, prepare_generated_assets_with,
+        record_scenario_command, record_scenario_file_command, recording_scenario_manifest,
         recording_start_for_dynamic_scenario, selected_reference_repos, sorted_batch_probe_results,
         summarise_chip_activity, target_block_event_from_frame,
     };
@@ -7425,6 +7425,26 @@ AddrTbl_LevelNames:
         assert_eq!(
             command,
             "cargo run --release -p wildside-cli -- record-scenario --slug issue-136-prize-emergence --scenario prize-block --level 00 --walk-frames 420"
+        );
+    }
+
+    #[test]
+    fn record_scenario_command_hex_level_is_parseable() {
+        let command = record_scenario_command(
+            "issue280-bloody-swamp",
+            RecordScenarioKind::Idle,
+            0x3E,
+            None,
+        );
+        let level = command
+            .split_whitespace()
+            .skip_while(|part| *part != "--level")
+            .nth(1)
+            .expect("record command should include a level argument");
+
+        assert_eq!(
+            parse_level_id(level).expect("printed record-scenario level should parse"),
+            0x3E
         );
     }
 
