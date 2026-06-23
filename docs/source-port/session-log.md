@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#280 route-needed)
+
+- **#280 moved `[~]` -> `[b]`.** Current BLW2, Hills, and Bloody Swamp `$3E`
+  probes all become state-red before they can prove a new render fix.
+- Evidence: BLW2 still shows a narrow top-right blue seam at frame 60, but object
+  counts diverge at `level_settle@60`; Hills drifts in camera by `idle_tail@239`;
+  Bloody Swamp `$3E` drifts in camera at `level_settle@60`.
+- Tooling fix: `record-scenario` / `probe-record-scenario` now parse hex level ids
+  via the shared parser (`e66265603`), so `--level 3E` reaches the intended level.
+- Verification: `cargo fmt --check`; focused parser test; `record-scenario --level 3E`
+  succeeds; `verify-recording` captures the expected state-red blocker; `mise run
+  verify-slice-fast` passed, and the commit hook reran it.
+- NEXT: continue with `mise run project-status`. #280 needs an exact current live
+  route/frame or oracle-comparable scenario before more Chunked/background code.
+
 ## 2026-06-23 handoff (#324 prize wobble fixed candidate)
 
 - **#324 moved `[~]` -> `[?]`.** Prize-block wobble now treats `$229` as a

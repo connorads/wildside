@@ -26,10 +26,11 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
+- **#280 moved to `[b]` route-needed.** Fresh BLW2/Hills/Bloody Swamp `$3E` probes go
+  state-red; old `frame_index` diagnosis is stale. Do not patch without a clean route.
 - **#317 moved to `[b]`:** Island shore, storm, lava geyser, and weather-4 Unknown concrete slices are fixed/covered; the only remaining weather debt is a shared typed VRAM backend, which is a dedicated renderer-cache architecture session rather than a narrow unattended bug slice.
 - **#318 moved to `[x]`:** movement-fidelity audit now has no standalone open rows. `sub_DB22` is live-wired on airborne-to-grounded transitions; stale platform/climb rows were already covered, and `$14/$18` remains resolved under #224 as stuck-in-solid recovery rather than natural-play movement debt.
-- **#316 remains `[~]`:** DP shared list + `sub_3F798` sprite compiler are
-  gate-green; remaining helmets debt is exact raw shared DP payload storage.
+- **#316 remains `[~]`:** gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
   lanes; full per-issue evidence is in the archive block "## 2026-06-22 playtest triage". NET:
   - **8 fix-candidates FAILED human validation.** #339/#335 are back to `[?]`, #257 is `[x]`,
@@ -38,8 +39,8 @@ and stop — never commit churn.
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
   - **3 NEW rows opened:** #356 remains open; #353 has moved to `[b]` exact-repro-needed, and #355 has since moved to `[?]`.
   - **3 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds).
-    #345 has since moved to `[b]` route-blocked after the settled probes did not reproduce
-    the Lion absence.
+    #280 and #345 have since moved to `[b]` route-blocked after fresh probes failed to
+    isolate their reported live symptoms.
 - **#289 moved to `[?]` fixed-candidate human validation.** `issue289-level07-idle-current`
   is trace/state/frame exact at frames 60 and 71; USM3 0x06 and O14 Lion projectiles need the
   same live retest. Full do-not-retry/final evidence is in archive #289.
@@ -105,7 +106,6 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — DP shared list and sprite compiler rows are fixed candidates; exact raw shared DP payload storage remains open. | Continue from remaining helmets row; see archive #316. |
-| 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
