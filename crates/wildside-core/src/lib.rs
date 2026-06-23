@@ -264,7 +264,7 @@ pub struct NativeRuntime {
     diamond_power_extra_hp_life_slots: Vec<helmets::ExtraHPLifeSlot>,
     diamond_power_invuln_haze_slots: Vec<helmets::InvulnHazeSlot>,
     diamond_power_object_lists: helmets::DiamondPowerObjectListsSub3F5E8,
-    diamond_power_object_slot_addrs: Vec<u16>,
+    diamond_power_object_ram: helmets::DiamondPowerObjectRamSub3F596,
     diamond_power_invuln_haze_timer: i16,
     /// ROM `FiveWayShotReady` byte, armed by `sub_7428` from Juggernaut
     /// player-state handlers and consumed later by `DiamondPower_Run`.
@@ -1100,7 +1100,7 @@ impl NativeRuntime {
             diamond_power_extra_hp_life_slots: Vec::new(),
             diamond_power_invuln_haze_slots: Vec::new(),
             diamond_power_object_lists: helmets::DiamondPowerObjectListsSub3F5E8::default(),
-            diamond_power_object_slot_addrs: Vec::new(),
+            diamond_power_object_ram: helmets::DiamondPowerObjectRamSub3F596::default(),
             diamond_power_invuln_haze_timer: 0,
             five_way_shot_ready: false,
             kid_is_invulnerable: false,

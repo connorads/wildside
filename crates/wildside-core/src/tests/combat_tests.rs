@@ -5053,7 +5053,7 @@ mod chunk_03 {
 
         runtime.step_diamond_power(FrameInput::default());
 
-        let expected_spreads = [(6, -4), (7, -2), (8, 0), (7, 2), (6, 4)];
+        let expected_spreads = [(6, 4), (7, 2), (8, 0), (7, -2), (6, -4)];
         assert_eq!(
             runtime.diamond_power_five_way_slots.len(),
             expected_spreads.len(),
@@ -5082,8 +5082,8 @@ mod chunk_03 {
             "ASM loc_401BA: sprite_x = screen_x + $7F - size after the first word_40124 x step"
         );
         assert_eq!(
-            first_sprite.screen_y, 0x00C6,
-            "ASM loc_401BA: sprite_y = screen_y + $7F - size after the first word_40124 y step"
+            first_sprite.screen_y, 0x00CE,
+            "ASM sub_3F5BC prepends slots, so loc_401BA sees the last word_40124 y step first"
         );
         assert_eq!(
             first_sprite.size_word, 0x0501,
@@ -5097,7 +5097,7 @@ mod chunk_03 {
             assert_eq!(
                 slot.screen_x,
                 0x0060 + expected_xv,
-                "ASM loc_400DE seeds screen X at Kid+$20, then loc_4014C advances by word_40124 x velocity"
+                "ASM loc_400DE seeds screen X at Kid+$20; loc_40140 walks the prepended active list"
             );
             assert_eq!(
                 slot.screen_y,
@@ -5613,10 +5613,32 @@ mod chunk_03 {
             .map(helmets::diamond_power_slot_addr_loc_3f596)
             .collect();
 
-        assert_eq!(
-            runtime.diamond_power_object_slot_addrs, allocated_slots,
-            "ASM DiamondPower_Init_CircleOfDoom loc_3F7E6 allocates from the `$FFFFF2AC` free-list head in ascending slot order"
-        );
+        for (index, slot_addr) in allocated_slots.iter().copied().enumerate() {
+            let raw_slot = runtime
+                .diamond_power_object_ram
+                .slot(slot_addr)
+                .expect("allocated Circle slot should exist in raw DP object RAM");
+            assert_eq!(
+                raw_slot.read_word(0x0008),
+                1,
+                "ASM sub_3F5BC: move.w #1,8(a0) marks each allocated DP object live"
+            );
+            assert_eq!(
+                raw_slot.read_word(0x0038),
+                0,
+                "ASM sub_3F5BC: move.w #0,$38(a0) clears each slot status word"
+            );
+            assert_eq!(
+                raw_slot.read_long(0x003E),
+                0x0021_0000,
+                "ASM DiamondPower_Init_CircleOfDoom loc_3F7E6 stores `$00210000` at $3E(a0)"
+            );
+            assert_eq!(
+                raw_slot.read_long(0x0042),
+                (index as u32) * 0x0020_0000,
+                "ASM loc_3F7E6 stores the allocation-order Circle angle at $42(a0)"
+            );
+        }
         assert_eq!(
             runtime.diamond_power_object_lists.active_slots, active_slots,
             "ASM sub_3F5BC prepends each allocated DP object as Addr_FirstDPObjectSlot"
@@ -5646,8 +5668,12 @@ mod chunk_03 {
             ..FrameInput::default()
         });
 
-        let removed_slot_addr = runtime.diamond_power_object_slot_addrs[0];
-        runtime.diamond_power_circle_slots[0].status = 1;
+        let removed_slot_addr = runtime.diamond_power_object_lists.active_slots[0];
+        runtime
+            .diamond_power_object_ram
+            .slot_mut(removed_slot_addr)
+            .expect("active Circle slot should exist in raw DP object RAM")
+            .write_word(0x0038, 1);
         runtime.step_diamond_power(FrameInput::default());
 
         assert_eq!(
@@ -6122,6 +6148,7 @@ mod chunk_03 {
             ..FrameInput::default()
         });
 
+        let stale_head = runtime.diamond_power_object_lists.active_slots[0];
         let stale_tail = runtime.diamond_power_object_lists.last_active_slot;
         runtime.diamond_power_invuln_haze_timer = -0x1B;
         runtime.step_diamond_power(FrameInput::default());
@@ -6140,9 +6167,14 @@ mod chunk_03 {
         );
         assert!(!runtime.diamond_power_object_lists.diamond_power_active);
         assert!(!runtime.diamond_power_object_lists.kid_is_invulnerable);
-        assert!(
-            runtime.diamond_power_object_slot_addrs.is_empty(),
-            "Native payload address projection must clear with the ROM object-list heads"
+        assert_eq!(
+            runtime
+                .diamond_power_object_ram
+                .slot(stale_head)
+                .expect("stale raw slot should still exist after sub_3F63C")
+                .read_word(0x0008),
+            1,
+            "ASM sub_3F63C clears list heads and flags but does not erase the shared slot payload RAM"
         );
     }
 

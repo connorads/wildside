@@ -2518,14 +2518,17 @@ impl NativeRuntime {
             })
             .collect();
 
-        self.ensure_diamond_power_runtime_object_slot_addrs_sub_3f596(
+        let raw_payload_ready = self.diamond_power_object_lists.active_slots.len()
+            == self.diamond_power_rain_slots.len();
+        let rain_slot_addrs = self.ensure_diamond_power_runtime_object_slot_addrs_sub_3f596(
             self.diamond_power_rain_slots.len(),
         );
         let rain_slots = std::mem::take(&mut self.diamond_power_rain_slots);
-        let rain_slot_addrs = std::mem::take(&mut self.diamond_power_object_slot_addrs);
         let mut retained_slots = Vec::with_capacity(rain_slots.len());
-        let mut retained_slot_addrs = Vec::with_capacity(rain_slot_addrs.len());
         for (mut slot, slot_addr) in rain_slots.into_iter().zip(rain_slot_addrs) {
+            if raw_payload_ready && let Some(raw) = self.diamond_power_object_ram.slot(slot_addr) {
+                crate::helmets::read_rain_slot_raw_loc_3fe90(raw, &mut slot);
+            }
             if slot.tracking_word_3e == 0
                 && tracking_rain_scan_enabled
                 && let Some(camera) = camera
@@ -2594,11 +2597,12 @@ impl NativeRuntime {
                 }
             }
 
+            if let Some(raw) = self.diamond_power_object_ram.slot_mut(slot_addr) {
+                crate::helmets::write_rain_slot_raw_loc_3fdfe(raw, &slot);
+            }
             retained_slots.push(slot);
-            retained_slot_addrs.push(slot_addr);
         }
         self.diamond_power_rain_slots = retained_slots;
-        self.diamond_power_object_slot_addrs = retained_slot_addrs;
     }
 
     /// Advance all active projectiles: move by velocity, decrement lifetime, remove expired.

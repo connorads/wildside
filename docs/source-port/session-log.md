@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#316 raw DP payload storage resolved)
+
+- **#316 moved `[~]` -> `[x]`.** The last helmets/DP audit debt is closed:
+  raw shared DP payload storage now lives in `DiamondPowerObjectRamSub3F596`
+  beside the active/free/last list and sprite compiler.
+- Evidence: live DP powers write/read ROM slot offsets for Circle, Wall,
+  Five-Way, Snake, Rain, Extra HP/Life, and Invulnerability/Haze; payload
+  vectors now follow `Addr_FirstDPObjectSlot` traversal order. Circle removal
+  reads raw `$38(a0)`, and `sub_3F63C` leaves stale raw slot payload intact.
+- Verification: focused DP filters (`circle_of_doom`, `diamond_power_rain`,
+  `invulnerability`, `diamond_power_snake`, `diamond_power_object`, Five-Way
+  startup), `cargo fmt`, `mise run verify-slice-fast`, and `mise run
+  verify-tas-full` (exit 0; CRC all 37,759 frames match; known #290
+  checkpoint-state baseline still reported).
+- NEXT: continue with `mise run project-status`; the top open row should now be
+  #323 unless a higher-priority ready item appears.
+
 ## 2026-06-23 handoff (#280 route-needed)
 
 - **#280 moved `[~]` -> `[b]`.** Current BLW2, Hills, and Bloody Swamp `$3E`
