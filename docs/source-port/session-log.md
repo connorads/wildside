@@ -7,6 +7,15 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#339 fixed candidate)
+
+- **#339 moved `[~]`→`[?]` fixed candidate.** The 2026-06-21 outgoing drone-stop fix missed a clean incoming level-load path: native replayed the first USM 0x04 level cue as plain `Start(6)` when `active_bgm_cue=None`, so ASM `Load_InGame loc_23629` `j_StopMusic` never reset GEMS at the incoming boundary.
+- `inspect-level --level 04` shows clean USM 0x04 contains Dragon/Drip/EmoRock objects only, no RockTank, so the reported load-time "washing" drone fits stale incoming GEMS state rather than a fresh local `$1F` tank start.
+- `native_bgm_state_after_trace` now emits `StopMusicThenStart(bgm)` for cold `Level`/`CoreQueued` cues, preserving the existing `StoppedForTransition` sentinel after explicit transition resets. The clean recording changed from `.cache/recordings/issue339-clean-usm04-audio-current/audio-events.txt` frame 0 `Start(6)` to `.cache/recordings/issue339-clean-usm04-audio-load-ingame-reset/audio-events.txt` frame 0 `StopMusicThenStart(6)`.
+- Verification: focused #339 BGM tests, `cargo test -q -p wildside-cli play_native_`, md StopMusic regression, native replay of `issue339-clean-usm04-audio-load-ingame-reset`, `backlog-lint`, and `verify-slice-fast`.
+- Human still needs a real-device listen on USM 0x04 clean/death/skip loads; the drone should not carry into the loaded level.
+- **Next:** run `mise run project-status`; with #339 back in the human lane, #257 continue-screen render is likely the highest open P0 unless the queue changes.
+
 ## 2026-06-23 handoff (#336 oracle-faithful)
 
 - **#336 moved `[~]`→`[-]` NOT-A-BUG / ORIGINAL_QUIRK.** The missing live oracle gate is now met: a dynamic cold-boot route that presses Start on the BLW1 level card (`.cache/debug/issue336-cold-boot-live/scenario-card-start.json`) is CRC/checkpoint clean across frames 880..1040.

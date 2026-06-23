@@ -11117,6 +11117,28 @@ new row — verify it on the next playtest.
   reached by skip/death (#339's path) or a clean natural load — a drone seeded fresh on the
   INCOMING Load_InGame is NOT covered by the outgoing-teardown fix and would widen scope.
 
+- **#339 (audio/gems-drone, `[ ]`→`[?]`)** — FIXED candidate 2026-06-23. Clean Under Skull
+  Mountain 0x04 has no RockTank objects (`inspect-level --level 04` lists Dragon/Drip/EmoRock
+  only), so a load-time `$1F`-like drone is stale incoming GEMS state, not a fresh local tank
+  start. Root cause: native's BGM event helper replayed the first level cue as plain `Start(bgm)`
+  whenever `active_bgm_cue=None`; that skipped ASM `Load_InGame loc_23629` `j_StopMusic`, whose
+  real GEMS reset is the incoming-level off switch before `loc_11FD2/loc_12004` queues the new
+  BGM. Repro bundle before fix: `.cache/recordings/issue339-clean-usm04-audio-current/`
+  `audio-events.txt` frame 0 was `mode=InGame level=04 ... active_after=Some(CoreQueued(6))
+  command=Start(6)`. Fix: `native_bgm_state_after_trace` now emits `StopMusicThenStart(bgm)` for
+  cold `Level`/`CoreQueued` cues, preserving the existing `StoppedForTransition` sentinel path
+  after explicit transition resets. New bundle `.cache/recordings/issue339-clean-usm04-audio-load-ingame-reset/`
+  records frame 0 as `... command=StopMusicThenStart(6)` and `verify-recording --slug
+  issue339-clean-usm04-audio-load-ingame-reset --native-only` passes. Regression coverage:
+  `play_native_initial_level_bgm_runs_load_ingame_stopmusic`,
+  `play_native_core_queued_level_bgm_runs_load_ingame_stopmusic_from_cold_cue`,
+  updated `settled_audio_events_do_not_restart_active_level_bgm`; existing md
+  `gems_engine_stop_music_reloads_driver_and_requeues_pointer_init_like_rom` proves StopMusic
+  reloads/clears the standalone GEMS driver rather than using the old stop-all command. Gates:
+  focused tests, `cargo test -q -p wildside-cli play_native_`, recording replay, `backlog-lint`,
+  and `verify-slice-fast` green. Human real-audio listen still required: USM 0x04 clean/death/skip
+  loads should not carry the washing/rumble drone.
+
 - **#252 (render/enemy, `[?]`→`[ ]`, P2→P1)** — O11. BLW2 0x01 / Highwater 0x02 RockTank
   (0x0A/0x0B) renders doubled/humanoid body+turret and low in the floor; the shooting tank's
   bullets (TankBullet child) render as GREEN blobs/rects. Enemy STATE is oracle-faithful

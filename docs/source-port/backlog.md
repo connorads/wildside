@@ -29,12 +29,13 @@ and stop — never commit churn.
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
   lanes; full per-issue evidence is in the archive block "## 2026-06-22 playtest triage". NET:
-  - **8 fix-candidates FAILED human validation and still need work:** #271 stomp-on-RockTank
-    hurts (P0, now route-needed), #257 continue-screen wall-from-both-sides (P0), #252 tank
-    sprite doubled + green bullets (P1), #259 RockTank floor-sink (P1, 5th reconfirm — close
-    `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #352 hidden jump-up block
-    no anim (P1, RENDERER-only gap: scene.rs:5057 skips the HiddenReveal cell), #272 Cyclone
-    transform voice (P1), #339 USM "washing" drone (P1), #265 EOL tally tick missing + rumble (P2).
+  - **8 fix-candidates FAILED human validation; #339 has since been re-fixed and moved
+    back to `[?]`. Remaining failed rows still open:** #271 stomp-on-RockTank hurts
+    (P0, now route-needed), #257 continue-screen wall-from-both-sides (P0), #252 tank
+    sprite doubled + green bullets (P1), #259 RockTank floor-sink (P1, 5th reconfirm —
+    close `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #352 hidden
+    jump-up block no anim (P1, RENDERER-only gap: scene.rs:5057 skips the HiddenReveal
+    cell), #272 Cyclone transform voice (P1), #265 EOL tally tick missing + rumble (P2).
     #335 Hills instant-death has a new fixed candidate and waits in `backlog-awaiting-human.md`.
   - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
@@ -59,6 +60,11 @@ and stop — never commit churn.
   `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` / Kid-Y tables byte-for-byte. Do not edit the
   ramp without a new native-vs-oracle divergence. The separate "level card ignores early
   Start" feel issue remains #348.
+- **#339 moved back to `[?]` fixed candidate.** Clean USM 0x04 has no RockTank objects;
+  the live report's load-time "washing" drone fits stale incoming GEMS state, not a
+  freshly seeded local tank. Native now mirrors ASM `Load_InGame loc_23629` `StopMusic`
+  even when the BGM cue tracker is `None`: the clean 0x04 audio transcript changed from
+  `Start(6)` to `StopMusicThenStart(6)`. Human real-device listen still required.
 - **#271 moved back to `[b]` route-needed after fresh Red Stealth audit.** BLW2 natural
   and two clean run+jump overlays are oracle-clean; the HP-loss cases are grounded/side
   contact before a clean first-frame stomp, not a native-only missed `$2C`. Highwater
@@ -115,7 +121,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 259 | [ ] | P1 | enemy/render | 2026-06-22 reconfirm (5th human): specific RockTanks render half-sunk in floor — BLW2 0x01 (teleporter + flag tanks) and the first Highwater 0x02 tank; not all tanks. | ONE natural oracle BLW2 0x01 route at the named tanks + first Highwater tank; diff body/turret Y + occlusion vs oracle. Only-grass occludes → close [-]; else real residual. NOT direct-warp. See archive #259. |
 | 352 | [ ] | P1 | render/block | 2026-06-22 reconfirm (fix failed): hidden jump-up blocks (USM 0x04-0x06 / Highwater 0x02) still pop in/out with no fold anim — core landed but the renderer skips the revealed cell. | Headbutt a hidden block (USM 0x04-0x06 / Highwater 0x02); the 8-frame y-bob (loc_E2E2/E2F0) must animate. Wire HiddenReveal into scene.rs:5057 block-bounce draw loop (mirror #347). See archive #352. |
 | 272 | [ ] | P1 | audio | 2026-06-22 (transform-voice fix failed): picking up the Cyclone "spin form" helmet plays NO transform noise. Core mapping exists (id 0x32) but no Cyclone route was ever validated. Render half = #355. | Real-device/oracle: pick up a Cyclone helmet in normal play; transform SFX id 0x32 must be audible. Needs a state-aligned natural Cyclone-pickup route (none validated). See archive #272. |
-| 339 | [ ] | P1 | audio | 2026-06-22 (fix failed): looping "washing"/rumble GEMS drone (Rock Tank drive $1F) still plays as soon as Under Skull Mountain 0x04 loads. j_StopMusic mirror only stops it at the OUTGOING teardown. | Real-audio-device: enter USM 0x04 — no looping drone on load. Confirm StopSequence($1F) HALTS not restarts (#341 audio-audit on the boundary); check skip/death vs clean load. See archive #339. |
 | 265 | [ ] | P2 | audio/gameflow | 2026-06-22 playtest (fix failed validation, symptom inverted): EOL score-tally tick NOT heard + a "weird rumbling" at level end; 2026-06-15 StopMusic/suppress candidate likely over-suppressed the loc_D752 $0C tick. | Real-audio-device EOL run: counting tick (sfx_Socre_counter $0C, loc_D752) audible during the tally + stops at loc_D7F4; no rumble bleed. Cross-ref #339 drone / #264. Dummy SDL never repros. See archive #265. |
 | 353 | [ ] | P1 | render/block | 2026-06-22 (NEW): USM spiked metal blocks render with NO screws/spikes — the spike art is missing so the kill hazard is INVISIBLE (player died on a visually-empty metal block). | capture-frames USM 0x04-0x06 at a spiked metal block vs oracle; native must draw the spikes. Collision still kills ($7000) while the foreground/Block_Mappings spike tile is absent. See archive #353. |
 | 355 | [ ] | P2 | render/form | 2026-06-22 (NEW): the Cyclone "spin form" does not visibly SPIN in normal play. Cyclone art is extracted/wired but there is no continuous-spin path, so grounded Cyclone uses generic idle/walk. Audio half = #272. | Pick up a Cyclone helmet in normal play vs oracle: the spin/transform anim must play (CYCLONE_TRANSFORM_STEPS; flight spin sub_B270), then grounded Cyclone should animate. Distinct from #284 demo. See archive #355. |

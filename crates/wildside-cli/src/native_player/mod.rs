@@ -2201,8 +2201,14 @@ fn native_bgm_state_after_trace(
     let Some(bgm) = bgm_for_native_cue(manifest, cue) else {
         return (active_bgm_cue, None);
     };
-    let command = if active_bgm_cue
-        .is_some_and(|active| active != NativeBgmCue::StoppedForTransition)
+    let command = if active_bgm_cue.is_none()
+        && matches!(cue, NativeBgmCue::Level(_) | NativeBgmCue::CoreQueued(_))
+    {
+        // ASM Load_InGame loc_23629 (kid.asm:23629) runs StopMusic even when
+        // native's cue tracker has no previous BGM. This hard reset is the
+        // incoming-level off switch for stale looping GEMS sequences (#339).
+        NativeBgmPlaybackCommand::StopMusicThenStart(bgm)
+    } else if active_bgm_cue.is_some_and(|active| active != NativeBgmCue::StoppedForTransition)
         || (cue == NativeBgmCue::TitleShell && trace.game_mode == GameMode::IntroSequence1)
     {
         NativeBgmPlaybackCommand::StopMusicThenStart(bgm)
@@ -19641,9 +19647,9 @@ mod tests {
         assert_eq!(
             cold_events.first().map(String::as_str),
             Some(
-                "frame=0 mode=InGame level=00 active_before=None active_after=Some(Level(LevelId(0))) command=Start(7)"
+                "frame=0 mode=InGame level=00 active_before=None active_after=Some(Level(LevelId(0))) command=StopMusicThenStart(7)"
             ),
-            "cold play-native recordings should still queue ASM loc_12004 level music"
+            "cold play-native recordings must mirror ASM Load_InGame loc_23629 StopMusic before ASM loc_12004 queues level music"
         );
         assert!(
             settled_events
@@ -19728,6 +19734,26 @@ mod tests {
                 .and_then(|cue| bgm_for_native_cue(&fixture.manifest, cue)),
             Some(gems_bgm::MURDERWALL),
             "when wildside-core has queued ASM loc_11FD2 into played_bgm_ids, play-native should replay that exact command instead of re-resolving the level header"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_core_queued_level_bgm_runs_load_ingame_stopmusic_from_cold_cue()
+    -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.played_bgm_ids = vec![gems_bgm::MURDERWALL];
+
+        assert_eq!(
+            native_bgm_state_after_trace(&fixture.manifest, &trace, None),
+            (
+                Some(NativeBgmCue::CoreQueued(gems_bgm::MURDERWALL)),
+                Some(NativeBgmPlaybackCommand::StopMusicThenStart(
+                    gems_bgm::MURDERWALL
+                )),
+            ),
+            "ASM Load_InGame loc_23629 (kid.asm:23629) runs StopMusic before loc_11FD2/loc_12004 queues the level BGM, even when native has no active cue to replace"
         );
         Ok(())
     }
@@ -19969,7 +19995,7 @@ mod tests {
     }
 
     #[test]
-    fn play_native_initial_level_bgm_starts_without_stop_all() -> anyhow::Result<()> {
+    fn play_native_initial_level_bgm_runs_load_ingame_stopmusic() -> anyhow::Result<()> {
         let fixture = ManifestFixture::new()?;
         let trace = sample_trace(GameMode::InGame);
 
@@ -19977,9 +20003,9 @@ mod tests {
             native_bgm_state_after_trace(&fixture.manifest, &trace, None),
             (
                 Some(NativeBgmCue::Level(LevelId(0))),
-                Some(NativeBgmPlaybackCommand::Start(gems_bgm::CAVE)),
+                Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE)),
             ),
-            "direct settled native play has no previous music context, so queueing stop-all before the first level BGM can silence the standalone GEMS start"
+            "ASM Load_InGame loc_23629 (kid.asm:23629) runs StopMusic before loc_12004 queues the first level BGM; this uses the real GEMS reset, not the old stop-all command"
         );
         Ok(())
     }
