@@ -3174,7 +3174,7 @@ mod chunk_04 {
     fn goat_collision_dispatch_loc_3cb14_routes_collision_words() {
         assert_eq!(
             goat_collision_dispatch_loc_3cb14(0),
-            GoatCollisionRouteLoc3CB14::ContinueSharedWalker,
+            GoatCollisionRouteLoc3CB14::NoCollisionClearResume,
             "ASM Goat.asm loc_3CB14 sends zero collision_type to the shared walker resume path"
         );
         assert_eq!(
@@ -3204,8 +3204,8 @@ mod chunk_04 {
         );
         assert_eq!(
             goat_collision_dispatch_loc_3cb14(0x0010),
-            GoatCollisionRouteLoc3CB14::ContinueSharedWalker,
-            "ASM Goat.asm loc_3CB14 treats unrelated positive collision words as clear-and-resume"
+            GoatCollisionRouteLoc3CB14::UnknownPositiveClearResume,
+            "ASM Goat.asm loc_3CB14 sends unrelated positive collision words to the loc_3CBF6 tail through the final bne branch"
         );
     }
 

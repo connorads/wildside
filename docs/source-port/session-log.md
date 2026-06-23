@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (proactive Goat mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/goat.rs` via `mise run mutants-file`.
+- Evidence: initial run found one survivor: deleting the explicit
+  `collision_type == 0` arm in `goat_collision_dispatch_loc_3cb14`. ASM
+  `Goat.asm loc_3CB14` reaches the shared `loc_3CBF6` tail by distinct zero
+  (`beq`) and unknown-positive (`bne`) branches, so native now exposes separate
+  no-op route variants for those branches while `combat.rs` keeps both as no-op.
+- Verification: focused Goat dispatch/live-collision tests pass; rerun
+  `.cache/mutants/goat-after` reports `23 mutants tested in 9m: 15 caught, 8 unviable`,
+  with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-23 handoff (#356 Skydragon dropout route-needed)
 
 - **#356 moved `[~]` -> `[b]`.** Current Skydragon Castle 0x1B evidence does

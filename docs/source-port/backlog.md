@@ -26,6 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
+- **No ready/open agent rows remain.** Proactive fallback: Goat collision-dispatch mutation shard is clean on current HEAD after splitting zero vs unknown-positive loc_3CB14 resume routes.
 - **#280 moved to `[b]` route-needed.** Fresh BLW2/Hills/Bloody Swamp `$3E` probes go
   state-red; old `frame_index` diagnosis is stale. Do not patch without a clean route.
 - **#317 moved to `[b]`:** Island shore, storm, lava geyser, and weather-4 Unknown concrete slices are fixed/covered; the only remaining weather debt is a shared typed VRAM backend, which is a dedicated renderer-cache architecture session rather than a narrow unattended bug slice.
@@ -77,7 +78,6 @@ and stop — never commit churn.
   ASM `stru_3CCE6` hurt frame during hibernate.
 - **#355 moved to `[?]` fixed candidate.** Cyclone flight now renders ASM `sub_B270 loc_B2A0`
   `cyclone_spinning_1..3`; grounded Cyclone stays on the normal walk table. Audio remains #272.
-- **#352 moved to `[?]` fixed candidate.** Native-player draws ASM `sub_DFB0` HiddenReveal `$60xx` workers with the `loc_E2E2/loc_E2F0` bob.
 - **#272 moved to `[b]` route/real-device blocked.** Native emits Cyclone `$32` on a
   level 0x14 pickup, but the route is oracle-red; 0x1B/0x25 searches found no bounce.
 - **#210 moved to `[?]` fixed candidate.** Direct IntroSequence5 frame-2100 Start now has exact fade/title samples; human title/menu skip validation remains required.

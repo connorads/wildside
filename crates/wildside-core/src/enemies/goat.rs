@@ -66,7 +66,8 @@ pub(crate) fn goat_initial_dispatch_loc_3_cb02(
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatCollisionRouteLoc3CB14 {
-    ContinueSharedWalker,
+    NoCollisionClearResume,
+    UnknownPositiveClearResume,
     Damage,
     BerzerkerSideGate,
     Death,
@@ -76,17 +77,19 @@ pub(crate) enum GoatCollisionRouteLoc3CB14 {
 pub(crate) fn goat_collision_dispatch_loc_3cb14(collision_type: i16) -> GoatCollisionRouteLoc3CB14 {
     // ASM Goat.asm loc_3CB14: read `collision_type(a3)` before clearing it.
     // Signed-negative words enter the death path, zero and unknown positives
-    // resume walking, hurt/Kid-above contacts damage HP, and side contacts
-    // branch to the Berzerker side-contact gate.
+    // both resume walking through loc_3CBF6, but the ASM reaches that tail by
+    // different branches (`beq` for zero, `bne` after the Kid-above compare for
+    // unknown positives). Keep those routes distinct so tests pin the branch
+    // shape even though live side effects are identical.
     if collision_type.is_negative() {
         return GoatCollisionRouteLoc3CB14::Death;
     }
 
     match collision_type {
-        0 => GoatCollisionRouteLoc3CB14::ContinueSharedWalker,
+        0 => GoatCollisionRouteLoc3CB14::NoCollisionClearResume,
         GOAT_COLID_HURT | GOAT_COLID_KIDABOVE => GoatCollisionRouteLoc3CB14::Damage,
         GOAT_COLID_KIDRIGHT | GOAT_COLID_KIDLEFT => GoatCollisionRouteLoc3CB14::BerzerkerSideGate,
-        _ => GoatCollisionRouteLoc3CB14::ContinueSharedWalker,
+        _ => GoatCollisionRouteLoc3CB14::UnknownPositiveClearResume,
     }
 }
 

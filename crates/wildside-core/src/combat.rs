@@ -9427,7 +9427,8 @@ impl NativeRuntime {
                             GoatBerzerkerSideGateLoc3CB76::ResumeSharedWalker { .. } => {}
                         }
                     }
-                    GoatCollisionRouteLoc3CB14::ContinueSharedWalker => {}
+                    GoatCollisionRouteLoc3CB14::NoCollisionClearResume
+                    | GoatCollisionRouteLoc3CB14::UnknownPositiveClearResume => {}
                 }
                 continue;
             }
