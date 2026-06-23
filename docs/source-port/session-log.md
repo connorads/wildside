@@ -14,6 +14,8 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   repeat sound gate to `loc_1484E`.
 - Trace output now exposes `lava_geyser_script_templates_loc_147ba` for the
   current `unk_146B6`/`unk_146A0` template label reached by `loc_147BA`.
+- The steady `unk_146A0` entries now keep each template live for three frames,
+  matching the ASM `d2=2` script words before `$FFFF -> loc_1484E`.
 - Native-player renders the exact `unk_145CA`, `unk_145D4`, `unk_145DE`,
   `unk_145E8`, and `unk_14602` template rows for those script frames, then
   skips the old conservative height-column fallback for the same geyser/frame.

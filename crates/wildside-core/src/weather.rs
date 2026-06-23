@@ -2158,20 +2158,30 @@ pub(crate) fn lava_geyser_script_template_label_loc_147BA(
 ) -> Option<&'static str> {
     // ASM loc_147BA (kid.asm:27847): each live script entry points at a
     // `LoadGameModeData` sprite template word. `unk_146B6` walks down through
-    // the five startup templates before `$FFFE`; `unk_146A0` walks back up
-    // before `$FFFF` hands control to loc_1484E.
-    let labels = match phase {
-        LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788 => {
-            &LAVA_GEYSER_STARTUP_SCRIPT_TEMPLATES_LOC_146B6
-        }
-        LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C => &LAVA_GEYSER_REPEAT_SCRIPT_TEMPLATES_LOC_146A0,
+    // five one-frame startup templates before `$FFFE`; `unk_146A0` walks back
+    // up through five `d2=2` entries, so each repeat template is built for
+    // three frames before `$FFFF` hands control to loc_1484E.
+    let (labels, frames_per_template, total_frames) = match phase {
+        LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788 => (
+            &LAVA_GEYSER_STARTUP_SCRIPT_TEMPLATES_LOC_146B6,
+            1,
+            LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6,
+        ),
+        LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C => (
+            &LAVA_GEYSER_REPEAT_SCRIPT_TEMPLATES_LOC_146A0,
+            LAVA_GEYSER_REPEAT_SCRIPT_FRAMES_PER_TEMPLATE_LOC_146A0,
+            LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0,
+        ),
         _ => return None,
     };
     let timer = usize::from(timer);
-    if timer == 0 || timer > labels.len() {
+    let total_frames = usize::from(total_frames);
+    if timer == 0 || timer > total_frames {
         return None;
     }
-    labels.get(labels.len() - timer).copied()
+    let elapsed = total_frames - timer;
+    let label_index = elapsed / usize::from(frames_per_template);
+    labels.get(label_index).copied()
 }
 
 #[allow(dead_code)]
@@ -2699,7 +2709,8 @@ fn start_lava_geyser_startup_script_loc_14788(geyser: &mut LavaGeyser) {
 #[allow(non_snake_case)]
 fn start_lava_geyser_repeat_script_loc_1479C(geyser: &mut LavaGeyser) {
     // ASM loc_1479C/unk_146A0: after the repeat sound gate, the geyser emits
-    // five template rows before `$FFFF` transfers to the full-height loop.
+    // five `d2=2` template entries before `$FFFF` transfers to the
+    // full-height loop.
     geyser.phase = LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C;
     geyser.timer = LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0;
     geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;

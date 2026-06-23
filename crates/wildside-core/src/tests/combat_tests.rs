@@ -29355,6 +29355,24 @@ mod chunk_05 {
         assert_eq!(
             crate::weather::lava_geyser_script_template_label_loc_147BA(
                 LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+                LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0
+                    - (LAVA_GEYSER_REPEAT_SCRIPT_FRAMES_PER_TEMPLATE_LOC_146A0 - 1)
+            ),
+            Some("unk_145CA"),
+            "ASM `unk_146A0` has `d2=2`, so each repeat template remains live for three builds"
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+                LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0
+                    - LAVA_GEYSER_REPEAT_SCRIPT_FRAMES_PER_TEMPLATE_LOC_146A0
+            ),
+            Some("unk_145D4"),
+            "ASM `unk_146A0` advances to the next template only after the third build of the previous entry"
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
                 1
             ),
             Some("unk_14602"),
