@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#316 DP sprite compiler)
+
+- **Current #316 remains `[~]`, with the `DiamondPower_CompileSprites sub_3F798` row fixed as a code candidate.** Runtime now mirrors the frame-local DP sprite compiler state: `DiamondPower_Run loc_3F6B0` clears the buffer/count, direct DP sprite paths write size/link bytes immediately, and small Invulnerability/Haze sprites buffer through `loc_3FDAE` before `sub_3F798` links them and masks pattern bit 15.
+- Circle/Wall/Five-Way/Snake/Extra/large Invuln-Haze sprite snapshots now carry the ROM link byte in `size_word` low byte while preserving pattern bit 15. Buffered small Invuln/Haze snapshots are compiled through the existing `diamond_power_compile_sprites_sub_3F798` helper, so their pattern high bit is cleared like the ROM.
+- Regressions: `invulnerability_small_sprites_compile_via_sub_3f798_loc_3fdae`, `diamond_power_compile_sprites_adjusts_link_and_masks_pattern_loc_3f7ae`, updated live DP sprite assertions, and the full `diamond_power` filter.
+- Verification: focused compiler/live sprite tests, `cargo test -q -p wildside-core diamond_power -- --nocapture` (184 pass), `cargo check -q -p wildside-core`, `cargo fmt --all --check`, `git diff --check`, `mise run verify-slice-fast` (clippy/backlog/frontier + 6268+9 tests), and `mise run verify-tas-full` (CRC all 37,759 frames match; known baseline divergences only).
+- **Next:** continue #316 from the remaining DP architectural debt: exact raw shared payload storage instead of per-power vectors, then rerun `mise run project-status` to confirm priority.
+
 ## 2026-06-23 handoff (#316 DP object-list runtime mirror)
 
 - **Current #316 remains `[~]`, with the shared DP object-list row fixed as a code candidate.** Runtime now mirrors ASM `sub_3F586/3F596/3F5BC/3F5E8/3F63C`: ten-slot free list from `$FFFFF2AC`, active/free/last pointers, allocation on activation/spawn, removal on status/cull, and shared flag clears on list reset/empty.

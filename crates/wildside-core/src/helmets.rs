@@ -1400,6 +1400,74 @@ impl NativeRuntime {
             || !self.diamond_power_invuln_haze_slots.is_empty()
     }
 
+    fn clear_diamond_power_sprite_compiler_loc_3f6b0(&mut self) {
+        // ASM DiamondPower_Run loc_3F6B0 resets `$FFFFF5B0` to the buffered
+        // DP sprite start before the per-power main routine can append entries.
+        self.diamond_power_sprites.clear();
+        self.diamond_power_sprite_buffer_sub_3f798.clear();
+        self.diamond_power_number_sprites_sub_3f798 = 0;
+    }
+
+    fn push_diamond_power_direct_sprite_loc_3f880(
+        &mut self,
+        screen_x: i16,
+        screen_y: i16,
+        size_word: u16,
+        pattern_word: u16,
+    ) {
+        // ASM direct DP sprite paths write to Addr_NextSpriteSlot immediately:
+        // move size byte, addq.b #1,d2, write d2 as the link byte, then write
+        // the pattern word unchanged. `d2` is native-local here because the
+        // trace stores only DP sprites, not the whole hardware sprite table.
+        self.diamond_power_number_sprites_sub_3f798 =
+            self.diamond_power_number_sprites_sub_3f798.wrapping_add(1);
+        let size_link = (size_word & 0xFF00)
+            .wrapping_add(u16::from(self.diamond_power_number_sprites_sub_3f798));
+        self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
+            screen_x,
+            screen_y,
+            size_word: size_link,
+            pattern_word,
+        });
+    }
+
+    fn buffer_diamond_power_sprite_sub_3f798(
+        &mut self,
+        screen_x: i16,
+        screen_y: i16,
+        size_link: u16,
+        pattern_word: u16,
+    ) {
+        // ASM DiamondPower_Main_InvulnAndHaze loc_3FDAE writes small sprites
+        // into the F5C2 scratch buffer; Mode_Level later calls sub_3F798.
+        self.diamond_power_sprite_buffer_sub_3f798.push([
+            screen_y as u16,
+            size_link,
+            pattern_word,
+            screen_x as u16,
+        ]);
+    }
+
+    fn compile_buffered_diamond_power_sprites_sub_3f798(&mut self) {
+        let (compiled, number_sprites) = diamond_power_compile_sprites_sub_3F798(
+            &self.diamond_power_sprite_buffer_sub_3f798,
+            self.diamond_power_number_sprites_sub_3f798,
+        );
+        self.diamond_power_number_sprites_sub_3f798 = number_sprites;
+        self.diamond_power_sprites
+            .extend(
+                compiled
+                    .into_iter()
+                    .map(|sprite| DiamondPowerSpriteSnapshot {
+                        screen_x: sprite.x as i16,
+                        screen_y: sprite.y as i16,
+                        size_word: sprite.size_link,
+                        pattern_word: sprite.pattern,
+                    }),
+            );
+        self.diamond_power_sprite_buffer_sub_3f798.clear();
+    }
+
     fn refresh_diamond_power_object_list_shared_flags_loc_3f610(&mut self) {
         self.diamond_power_object_lists.five_way_shot_ready = self.five_way_shot_ready;
         self.diamond_power_object_lists.kid_is_invulnerable = self.kid_is_invulnerable;
@@ -1422,6 +1490,7 @@ impl NativeRuntime {
         self.diamond_power_object_lists =
             diamond_power_object_clear_ram_sub_3F586(self.diamond_power_object_lists.clone());
         self.diamond_power_object_slot_addrs.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         self.sync_runtime_shared_flags_from_diamond_power_list_loc_3f610();
     }
 
@@ -5083,7 +5152,7 @@ impl NativeRuntime {
     }
 
     fn step_diamond_power_circle_of_doom_slots_loc_3f81a(&mut self) {
-        self.diamond_power_sprites.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         let Some(slice) = self.opening_slice.as_ref() else {
             return;
         };
@@ -5113,12 +5182,12 @@ impl NativeRuntime {
                 .get(usize::from(result.half_size))
                 .copied()
                 .unwrap_or(CIRCLE_OF_DOOM_SPRITE_ATTRS_WORD_4020E[0]);
-            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
-                screen_x: result.screen_x,
-                screen_y: result.screen_y,
+            self.push_diamond_power_direct_sprite_loc_3f880(
+                result.screen_x,
+                result.screen_y,
                 size_word,
                 pattern_word,
-            });
+            );
             if self.queue_diamond_power_slot_collisions_loc_1d84(
                 result.world_x,
                 result.world_y,
@@ -5137,7 +5206,7 @@ impl NativeRuntime {
     }
 
     fn step_diamond_power_wall_of_death_slots_loc_40026(&mut self) {
-        self.diamond_power_sprites.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         let camera_x = self
             .opening_slice
             .as_ref()
@@ -5170,12 +5239,12 @@ impl NativeRuntime {
                     // ASM DiamondPower_Main_WallOfDeath loc_4006E/loc_4009C
                     // compiles sprite-buffer coordinates and `word_4020E`
                     // attrs after moving each DP-object slot.
-                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
-                        screen_x: x as i16,
-                        screen_y: y as i16,
-                        size_word: u16::from(size_byte) << 8,
-                        pattern_word: pattern,
-                    });
+                    self.push_diamond_power_direct_sprite_loc_3f880(
+                        x as i16,
+                        y as i16,
+                        u16::from(size_byte) << 8,
+                        pattern,
+                    );
                     self.queue_wall_of_death_slot_collisions_loc_1d84(
                         world_x,
                         world_y,
@@ -5197,7 +5266,7 @@ impl NativeRuntime {
     }
 
     fn step_diamond_power_five_way_shot_slots_loc_40140(&mut self) {
-        self.diamond_power_sprites.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         let camera_x = self
             .opening_slice
             .as_ref()
@@ -5230,12 +5299,12 @@ impl NativeRuntime {
                     // ASM DiamondPower_Main_FiveWayShot loc_401BA compiles
                     // sprite-buffer coordinates and `word_4020E` attrs after
                     // moving each DP-object slot.
-                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
-                        screen_x: x as i16,
-                        screen_y: y as i16,
-                        size_word: u16::from(size_byte) << 8,
-                        pattern_word: pattern,
-                    });
+                    self.push_diamond_power_direct_sprite_loc_3f880(
+                        x as i16,
+                        y as i16,
+                        u16::from(size_byte) << 8,
+                        pattern,
+                    );
                     let _ = self.queue_diamond_power_slot_collisions_loc_1d84(
                         world_x,
                         world_y,
@@ -5291,7 +5360,7 @@ impl NativeRuntime {
     }
 
     fn step_diamond_power_snake_slots_loc_3f978(&mut self) {
-        self.diamond_power_sprites.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         if self.diamond_power_snake_slots.is_empty() {
             return;
         }
@@ -5374,12 +5443,12 @@ impl NativeRuntime {
                     pattern,
                     x,
                 } => {
-                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
-                        screen_x: x as i16,
-                        screen_y: y as i16,
-                        size_word: u16::from(size_byte) << 8,
-                        pattern_word: pattern,
-                    });
+                    self.push_diamond_power_direct_sprite_loc_3f880(
+                        x as i16,
+                        y as i16,
+                        u16::from(size_byte) << 8,
+                        pattern,
+                    );
                     let _ = self.queue_diamond_power_slot_collisions_loc_1d84(
                         slot.x_pos,
                         slot.y_pos,
@@ -5423,7 +5492,7 @@ impl NativeRuntime {
     }
 
     fn step_diamond_power_extra_hp_life_slots_loc_3fbe4(&mut self) {
-        self.diamond_power_sprites.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         let Some(slice) = self.opening_slice.as_ref() else {
             return;
         };
@@ -5454,12 +5523,12 @@ impl NativeRuntime {
                 } => {
                     // ASM loc_3FC56 compiles the orbiting reward sprites
                     // through word_4020E while the slots expand/contract.
-                    self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
-                        screen_x: x as i16,
-                        screen_y: y as i16,
-                        size_word: u16::from(size_byte) << 8,
-                        pattern_word: pattern,
-                    });
+                    self.push_diamond_power_direct_sprite_loc_3f880(
+                        x as i16,
+                        y as i16,
+                        u16::from(size_byte) << 8,
+                        pattern,
+                    );
                     retained_slots.push(slot);
                 }
                 ExtraHPLifeSlotAction::Converged {
@@ -5482,7 +5551,7 @@ impl NativeRuntime {
                     self.progression.diamond_power_frames = 0;
                     self.progression.diamond_power_type = DiamondPowerType::None;
                     self.progression.diamond_power_id = 0;
-                    self.diamond_power_sprites.clear();
+                    self.clear_diamond_power_sprite_compiler_loc_3f6b0();
                     self.diamond_power_extra_hp_life_slots.clear();
                     return;
                 }
@@ -5512,7 +5581,7 @@ impl NativeRuntime {
     }
 
     fn step_diamond_power_invuln_haze_slots_loc_3fd28(&mut self) {
-        self.diamond_power_sprites.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         let Some(slice) = self.opening_slice.as_ref() else {
             return;
         };
@@ -5532,22 +5601,24 @@ impl NativeRuntime {
                 self.progression.diamond_power_id = 0;
             }
             InvulnHazeFrameAction::Active { fade } => {
+                let mut sprite_actions =
+                    Vec::with_capacity(self.diamond_power_invuln_haze_slots.len());
                 for slot in &mut self.diamond_power_invuln_haze_slots {
-                    match diamond_power_invuln_haze_slot_sprite(
+                    sprite_actions.push(diamond_power_invuln_haze_slot_sprite(
                         slot, fade, kid_x, kid_y, camera_x, camera_y,
-                    ) {
+                    ));
+                }
+                for action in sprite_actions {
+                    match action {
                         InvulnHazeSpriteAction::SmallSprite {
                             y,
                             size_link,
                             pattern,
                             x,
                         } => {
-                            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
-                                screen_x: x as i16,
-                                screen_y: y as i16,
-                                size_word: size_link,
-                                pattern_word: pattern,
-                            });
+                            self.buffer_diamond_power_sprite_sub_3f798(
+                                x as i16, y as i16, size_link, pattern,
+                            );
                         }
                         InvulnHazeSpriteAction::LargeSprite {
                             y,
@@ -5555,16 +5626,17 @@ impl NativeRuntime {
                             pattern,
                             x,
                         } => {
-                            self.diamond_power_sprites.push(DiamondPowerSpriteSnapshot {
-                                screen_x: x as i16,
-                                screen_y: y as i16,
-                                size_word: u16::from(size_byte) << 8,
-                                pattern_word: pattern,
-                            });
+                            self.push_diamond_power_direct_sprite_loc_3f880(
+                                x as i16,
+                                y as i16,
+                                u16::from(size_byte) << 8,
+                                pattern,
+                            );
                         }
                         InvulnHazeSpriteAction::Skipped => {}
                     }
                 }
+                self.compile_buffered_diamond_power_sprites_sub_3f798();
             }
         }
     }
@@ -7744,7 +7816,7 @@ impl NativeRuntime {
     /// Two tiers: 20 diamonds = basic power, 50 diamonds (20+30) = enhanced power.
     /// Each form has a unique effect per tier (ASM: DiamondPower_Init_Index).
     pub(crate) fn step_diamond_power(&mut self, input: FrameInput) {
-        self.diamond_power_sprites.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         let active_power = self.diamond_power_dispatch_type_loc_3f71e();
         // Count down active Diamond Power.
         let slot_owned_fade_power_active = matches!(active_power, DiamondPowerType::WallOfDeath)
@@ -7934,7 +8006,7 @@ impl NativeRuntime {
                     self.diamond_power_extra_hp_life_slots.clear();
                     self.diamond_power_invuln_haze_slots.clear();
                     self.diamond_power_invuln_haze_timer = 0;
-                    self.diamond_power_sprites.clear();
+                    self.clear_diamond_power_sprite_compiler_loc_3f6b0();
                 }
             }
             return;
@@ -7994,7 +8066,7 @@ impl NativeRuntime {
         self.diamond_power_object_slot_addrs.clear();
         self.diamond_power_invuln_haze_timer = 0;
         self.kid_is_invulnerable = false;
-        self.diamond_power_sprites.clear();
+        self.clear_diamond_power_sprite_compiler_loc_3f6b0();
         self.initialise_diamond_power_runtime_object_slots_sub_3f596();
 
         // ASM loc_3FDFE (kid.asm:45172): shared init epilogue for

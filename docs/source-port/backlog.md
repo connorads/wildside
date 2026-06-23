@@ -27,6 +27,8 @@ and stop — never commit churn.
 
 - **Select work with `mise run project-status`** (priority-ordered across the live
   lanes; file order is not priority). Take its top "ready"/open item — do not eyeball.
+- **#316 remains `[~]`:** DP shared list + `sub_3F798` sprite compiler are
+  gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
   lanes; full per-issue evidence is in the archive block "## 2026-06-22 playtest triage". NET:
   - **8 fix-candidates FAILED human validation; #339 has since been re-fixed and moved
@@ -79,11 +81,8 @@ and stop — never commit churn.
   murder-wall runtime at `loc_1AE2E -> loc_6E2 -> Load_InGame` while preserving the carried
   helmet. Cache-backed Red Stealth regression, `verify-slice-fast`, and `verify-tas-full`
   are green; human needs to re-test natural Hills entry.
-- **Open P0 #257 continue-screen is the highest-priority actionable item.** #271 now waits in
-  `backlog-awaiting-human.md` for an exact route.
-  The rest of the `[?]` set in `backlog-awaiting-human.md` still
-  waits on a playtest; for audio rows (#342/#264 and the reopened #272/#339) the recurring
-  "needs a real audio device" block IS that listen. The promoted #343/#346 await your final close.
+- **Open P0 #257 continue-screen is the highest-priority actionable item.** #271
+  waits on an exact route; `[?]`/audio rows still wait on human playtest/device listen.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -105,7 +104,7 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — fixed candidates landed for several helmet gaps; remaining rows still open after staleness check. | Per-gap rows in doc; continue from next open helmets row. |
+| 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — DP shared list and sprite compiler rows are fixed candidates; exact raw shared DP payload storage remains open. | Continue from remaining helmets row; see archive #316. |
 | 317 | [ ] | P3 | weather | Umbrella: audits/weather-fidelity-audit.md — weather gaps still open after the staleness check | Per-gap rows in doc. (full history: archive #317) |
 | 318 | [ ] | P3 | player | Umbrella: audits/movement-fidelity-audit.md — 8 of 25 still open after the staleness check | Per-gap rows in doc |
 | 319 | [ ] | P3 | audio | Umbrella: audits/audio-triggers-fidelity-audit.md — remaining low/stub trigger gaps after Ankh/evanescent/ice-block/no-time and later enemy/BGM follow-ups; timeout `$51`/`$60` path is already live-tested | Per-gap rows in doc; tick off as wired |

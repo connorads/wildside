@@ -5086,8 +5086,8 @@ mod chunk_03 {
             "ASM loc_401BA: sprite_y = screen_y + $7F - size after the first word_40124 y step"
         );
         assert_eq!(
-            first_sprite.size_word, 0x0500,
-            "ASM loc_401BA/word_4020E: move.b size into the sprite size byte, stored natively as the high byte"
+            first_sprite.size_word, 0x0501,
+            "ASM loc_401BA writes size byte, increments d2, then writes d2 as the sprite link byte"
         );
         for (slot, (expected_xv, expected_yv)) in runtime
             .diamond_power_five_way_slots
@@ -5580,11 +5580,14 @@ mod chunk_03 {
             8,
             "ASM DiamondPower_Main_CircleOfDoom loc_3F81A/loc_3F880 should expose eight compiled DP sprites"
         );
-        assert!(
-            trace
-                .diamond_power_sprites
-                .iter()
-                .any(|sprite| { sprite.size_word == 0x0500 && sprite.pattern_word == 0x86F2 }),
+        let circle_sprite = trace
+            .diamond_power_sprites
+            .iter()
+            .find(|sprite| (sprite.size_word & 0xFF00) == 0x0500 && sprite.pattern_word == 0x86F2)
+            .expect("ASM word_4020E should map Circle half-size 5 to `$0500,$86F2`");
+        assert_ne!(
+            circle_sprite.size_word & 0x00FF,
+            0,
             "ASM word_4020E should map Circle half-size 5 to `$0500,$86F2`"
         );
     }
@@ -5796,11 +5799,14 @@ mod chunk_03 {
             10,
             "ASM DiamondPower_Main_WallOfDeath loc_40026/loc_4009C should expose ten compiled DP sprites"
         );
-        assert!(
-            trace
-                .diamond_power_sprites
-                .iter()
-                .any(|sprite| { sprite.size_word == 0x0500 && sprite.pattern_word == 0x86F6 }),
+        let wall_sprite = trace
+            .diamond_power_sprites
+            .iter()
+            .find(|sprite| (sprite.size_word & 0xFF00) == 0x0500 && sprite.pattern_word == 0x86F6)
+            .expect("ASM loc_4009C with initial size index 6 should map through word_4020E to `$0500,$86F6`");
+        assert_ne!(
+            wall_sprite.size_word & 0x00FF,
+            0,
             "ASM loc_4009C with initial size index 6 should map through word_4020E to `$0500,$86F6`"
         );
     }
@@ -5979,6 +5985,44 @@ mod chunk_03 {
                 .iter()
                 .any(|sprite| sprite.pattern_word == 0x86ED),
             "ASM loc_3FDC2 should compile Invulnerability large sprites through word_4020E"
+        );
+    }
+
+    #[test]
+    fn invulnerability_small_sprites_compile_via_sub_3f798_loc_3fdae() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        runtime.progression.diamond_power_type = helmets::DiamondPowerType::Invulnerability;
+        runtime.progression.diamond_power_frames = 0;
+        runtime.kid_is_invulnerable = true;
+        runtime.diamond_power_invuln_haze_timer = -8;
+        runtime.diamond_power_invuln_haze_slots = vec![helmets::InvulnHazeSlot {
+            radius: 0x18,
+            radius_frac: 0,
+            y_offset: -0x10,
+            phase: 0,
+            rotation_speed: 6,
+        }];
+
+        runtime.step_diamond_power(FrameInput::default());
+        let trace = runtime.trace_frame();
+
+        assert_eq!(
+            trace.diamond_power_sprites.len(),
+            1,
+            "ASM loc_3FDAE buffers one small Invuln/Haze sprite before sub_3F798 compiles it"
+        );
+        let sprite = trace
+            .diamond_power_sprites
+            .first()
+            .expect("ASM loc_3FDAE should expose the buffered small sprite after sub_3F798");
+        assert_eq!(
+            sprite.size_word, 0x0001,
+            "ASM loc_3F7AE increments Number_Sprites and adds it into the buffered size/link word"
+        );
+        assert_eq!(
+            sprite.pattern_word, 0x06EB,
+            "ASM loc_3F7B8 masks bit 15 from word_4020E entry 1 while compiling buffered Invuln/Haze small sprites"
         );
     }
 

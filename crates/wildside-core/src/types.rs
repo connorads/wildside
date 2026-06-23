@@ -181,7 +181,8 @@ pub struct DiamondPowerSpriteSnapshot {
     pub screen_x: i16,
     /// VDP sprite Y after the ROM's `$7F - Camera_Y_pos` screen offset.
     pub screen_y: i16,
-    /// ROM sprite size word, e.g. `0` for 8x8 and `$0500` for 16x16.
+    /// ROM sprite size/link word; the high byte is the size and the low byte
+    /// is the VDP sprite link/count emitted by the Diamond Power compiler.
     pub size_word: u16,
     /// ROM tile/palette/priority attribute word from Diamond Power tables.
     pub pattern_word: u16,
