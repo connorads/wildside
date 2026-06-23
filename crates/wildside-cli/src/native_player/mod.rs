@@ -18924,6 +18924,39 @@ mod tests {
     }
 
     #[test]
+    fn settled_level_skip_hud_diamond_icon_uses_current_sub_44dc_offset_loc_45ee() {
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.level_skip_cheat_enabled = 1;
+        trace.level_completion_time = 1;
+        trace.hud_diamond_frame_offset = Some(6);
+        let frame_offset_6 = build_ingame_scene(&trace, false, None);
+
+        let diamond_page_sample = |scene: &Scene| {
+            scene.commands.iter().find_map(|command| match command {
+                DrawCommand::Sprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    tiles,
+                    ..
+                } if *x == 0x1A0 - 128
+                    && *y == 0xA2 - 128
+                    && tiles.first().is_some_and(|tile| tile.tile.tile_index == 8) =>
+                {
+                    tile_sheet.tiles.first().map(|tile| tile.pixels[0])
+                }
+                _ => None,
+            })
+        };
+
+        assert_eq!(
+            diamond_page_sample(&frame_offset_6),
+            Some(19),
+            "ASM sub_44DC loc_45EE stores `$FFFFFA5D=6`; settled LevelSkip_Cheat recordings render the current oracle-visible `unk_461C` page instead of the normal subsequent VBlank page"
+        );
+    }
+
+    #[test]
     fn game_hud_life_icon_prefers_traced_sub_44dc_offset() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.hud_life_frame_offset = Some(0);

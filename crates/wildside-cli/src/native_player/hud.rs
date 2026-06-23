@@ -221,8 +221,7 @@ pub(super) fn push_hud_icon(
             // drives `unk_461C` at 6 VBlanks per frame and `sub_5D4A` DMAs
             // diamond_1..4 into the same $6EA VRAM page.
             let animation_frame = hud_diamond_animation_frame_index(
-                trace.hud_diamond_frame_offset,
-                trace.frame_index,
+                trace,
                 level_visuals.floating_prizes.diamond.frames.len(),
             );
             let tile_sheet = level_visuals
@@ -259,28 +258,36 @@ pub(super) fn push_hud_icon(
     }
 }
 
-fn hud_diamond_animation_frame_index(
-    hud_diamond_frame_offset: Option<u8>,
-    frame_index: usize,
-    frame_count: usize,
-) -> usize {
+fn hud_diamond_animation_frame_index(trace: &NativeTraceFrame, frame_count: usize) -> usize {
     if frame_count == 0 {
         return 0;
     }
-    if let Some(offset) = hud_diamond_frame_offset {
+    if let Some(offset) = trace.hud_diamond_frame_offset {
         // ASM sub_44DC loc_45EE/loc_460A (kid.asm:5670): `$FFFFFA5D`
         // stores the byte offset into `unk_461C`, whose speed/frame pairs are
-        // laid out at offsets 0,2,4,6 for diamond pages 0..3. Oracle frame
-        // issue-289-level06-idle-current shows trace-scene rendering must use
-        // the next page because the sampled trace is post-`sub_44DC` while the
-        // visible HUD art is the page presented by the subsequent VBlank.
-        return (usize::from(offset / 2) + 1) % frame_count;
+        // laid out at offsets 0,2,4,6 for diamond pages 0..3. Normal trace
+        // rendering uses the next page because the sampled trace is
+        // post-`sub_44DC` while the visible HUD art is the page presented by the
+        // subsequent VBlank. Settled recording compatibility keeps the ROM
+        // `LevelSkip_Cheat` path armed (loc_BB2/loc_74B0) and carries the
+        // one-second `Level_completion_time` seed for loc_D468 while gameplay is
+        // still active; that reduced oracle trace already samples `$FFFFFA5D`
+        // at the visible page.
+        let render_lead = if trace.level_skip_cheat_enabled != 0
+            && trace.level_completion_time == 1
+            && !trace.level_complete
+        {
+            0
+        } else {
+            1
+        };
+        return (usize::from(offset / 2) + render_lead) % frame_count;
     }
     // ASM sub_44B0 seeds `$FFFFFA58` (diamond countdown) to 1. The native
     // trace frame is sampled after the previous visible VBlank plus the
     // current sub_44DC loc_45EE upload, so the rendered HUD page is two
     // `unk_461C` DMA slots ahead of the replay-local frame bucket.
-    ((frame_index / HUD_DIAMOND_ANIMATION_FRAME_DURATION)
+    ((trace.frame_index / HUD_DIAMOND_ANIMATION_FRAME_DURATION)
         + HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE)
         % frame_count
 }

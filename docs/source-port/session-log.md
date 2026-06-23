@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#289 settled HUD diamond latch)
+
+- **#289 stays `[~]`; the Level 0x07 settled-recording HUD diamond strip is gone.** Normal trace-scene HUD rendering still presents the subsequent `sub_44DC loc_45EE` `unk_461C` page, but settled recording compatibility keeps `LevelSkip_Cheat` armed with the synthetic one-second `Level_completion_time` seed while gameplay is active, and that reduced oracle path already samples `$FFFFFA5D` at the visible page.
+- Regression coverage adds `settled_level_skip_hud_diamond_icon_uses_current_sub_44dc_offset_loc_45ee` while keeping `game_hud_diamond_icon_prefers_traced_sub_44dc_offset` green for the Level 0x06 normal-path fix.
+- Refreshed `issue289-level07-idle-current` remains expected-red but trace/state-green: frame 60 improves from `45` / MAE `0.04169922` to exact `0` / `0.0`; frame 71 improves from `52` / `0.05170666` to `7` / `0.01000744`.
+- Remaining residual is only the frame-71 top-right background/foliage edge pixels at `x=289..293,y=13..16`. Next #289 pass should inspect that edge/provenance, not HUD diamond, HUD timer, Island shore age, selected Plane-B rows, global `Time_Frames`, static cloud H-scroll, simple `loc_12110`, or broad HUD phase/position tuning.
+- Verification: exact normal/settled HUD diamond tests, expected-red `verify-recording --slug issue289-level07-idle-current`, and visual diff inspection. Full gates recorded in the commit session.
+
 ## 2026-06-23 handoff (#289 recording timer phase)
 
 - **#289 stays `[~]`; the Level 0x07 settled-recording HUD timer phase now matches oracle watches.** ASM `Init_SpriteAttr_HUD loc_BDC0` seeds the timer path before the first scripted recording frame; the recording settle shim now starts at 2:59/$08 so frame 0 decrements to 2:59/$07, frame 60 is 2:58/$07, and frame 71 rolls to 2:57/$38.
