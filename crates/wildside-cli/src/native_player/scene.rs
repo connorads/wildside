@@ -46,6 +46,7 @@ const PAUSE_MENU_CURSOR_TILE_LOC_6B0E: u16 = 0x0006;
 const PAUSE_MENU_BLANK_TILE_LOC_6B0E: u16 = 0x0002;
 const PRIZE_BLOCK_SPAWN_FLASH_FRAMES_STRU_102DE: [(u8, u16); 4] =
     [(4, 0x02CF), (6, 0x02D8), (10, 0x02E1), (4, 0x02EA)];
+const SHIFTING_BLOCK_RISE_TILE_LOC_113F4: u16 = 0x0276;
 const BACKGROUND_TILE_VRAM_BASE_LOC_128BA: u16 = 0x0780;
 const ISLAND_SHORE_PRIMARY_VRAM_TILE_LOC_12098: u16 = 0xF600 / 32;
 const ISLAND_SHORE_MID_VRAM_TILE_LOC_12110: u16 = 0xF6C0 / 32;
@@ -5116,6 +5117,47 @@ fn push_prize_block_wobble_sub_1007a(
     });
 }
 
+fn push_shifting_block_rise_loc_113f4(
+    commands: &mut Vec<DrawCommand>,
+    level_visuals: &NativeLevelVisuals,
+    x: i32,
+    y: i32,
+) -> bool {
+    let Some(tile_base_index) =
+        SHIFTING_BLOCK_RISE_TILE_LOC_113F4.checked_sub(BLOCK_TILE_VRAM_BASE)
+    else {
+        return false;
+    };
+    if usize::from(tile_base_index.saturating_add(3)) >= level_visuals.block_tiles.tiles.len() {
+        return false;
+    }
+    // ASM sub_113C0/loc_113F4 (kid.asm:23332-23339) draws
+    // `LnkTo_unk_E0EBE` while the worker rises by 2px for eight frames, then
+    // commits `$E710` to the cell above. The temporary `$6F00` reservation
+    // does not describe the sprite art.
+    let tiles = (0..4)
+        .map(|index| SpriteTile {
+            offset_x: if index % 2 == 0 { 0 } else { 8 },
+            offset_y: if index < 2 { 0 } else { 8 },
+            tile: TileRef {
+                tile_index: tile_base_index + u16::try_from(index).expect("2x2 tile index fits"),
+                palette_line: 0,
+                priority: false,
+                flip_x: false,
+                flip_y: false,
+            },
+        })
+        .collect();
+    commands.push(DrawCommand::Sprite {
+        x,
+        y,
+        tile_sheet: Arc::new(level_visuals.block_tiles.clone()),
+        palette: Arc::new(level_visuals.palettes.foreground.clone()),
+        tiles,
+    });
+    true
+}
+
 fn prize_wobble_shifted_copy_matches_base_sub_1007a(
     level_visuals: &NativeLevelVisuals,
     quad: &wildside_render::TileQuad,
@@ -5435,13 +5477,29 @@ pub(super) fn push_block_grid_overrides(
             let bounce_kind = block_bounce_kind_for_trace(trace, col, row);
             let is_prize_bounce = bounce_kind == Some(BlockBounceTraceKind::Prize);
             let is_hidden_reveal_bounce = bounce_kind == Some(BlockBounceTraceKind::HiddenReveal);
-            if !cell.has_block && !is_prize_bounce && !is_hidden_reveal_bounce {
+            let is_shifting_bounce = bounce_kind == Some(BlockBounceTraceKind::Shifting);
+            if !cell.has_block
+                && !is_prize_bounce
+                && !is_hidden_reveal_bounce
+                && !is_shifting_bounce
+            {
                 continue;
             }
             if !cell.has_block && bounce_y_offset.is_none() {
                 continue;
             }
             if is_prize_bounce {
+                continue;
+            }
+            if is_shifting_bounce {
+                if let Some((_, y_offset)) = bounce_y_offset {
+                    push_shifting_block_rise_loc_113f4(
+                        commands,
+                        level_visuals,
+                        i32::from(col) * 16 - camera_x_px,
+                        i32::from(row) * 16 - camera_y_px + y_offset,
+                    );
+                }
                 continue;
             }
 

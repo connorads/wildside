@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#347 Shifting block rise render)
+
+- **#347 moved `[~]` -> `[?]`.** Native-player now renders typed Shifting
+  block-bounce workers with ASM `sub_113C0/loc_113F4` `LnkTo_unk_E0EBE`
+  sprite art at VRAM `$276`, instead of dropping the no-block `$6F00`
+  reserved-cell worker and snapping straight to `$E710`.
+- Evidence: the renderer branch is keyed on `BlockBounceTraceKind::Shifting`
+  and applies the traced y offset; prize and HiddenReveal render paths remain
+  covered by neighbouring focused tests.
+- Verification: focused Shifting renderer test, neighbouring prize/HiddenReveal
+  renderer tests, `cargo test -q -p wildside-core shifting_block --
+  --nocapture`, `cargo test -q -p wildside-cli shifting_block --
+  --nocapture`, and `verify-slice-fast`.
+- NEXT: continue with `mise run project-status`; the top open row should now be
+  #351 unless a higher-priority ready item appears.
+
 ## 2026-06-23 handoff (#323 Maniaxe axe render validation)
 
 - **#323 moved `[~]` -> `[?]`.** Current HEAD still traces Maniaxe axes as

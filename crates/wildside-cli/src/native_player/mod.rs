@@ -8916,34 +8916,48 @@ mod tests {
     }
 
     #[test]
-    fn non_prize_cleared_block_bounce_keeps_foreground_terrain_visible() {
+    fn build_scene_draws_shifting_block_rise_worker_loc_113f4() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
-        trace.block_bounces = vec![(1, 0, 12, -2)];
+        trace.block_bounces = vec![(1, 0, 7, 14)];
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
-            remaining: 12,
-            y_offset_px: -2,
+            remaining: 7,
+            y_offset_px: 14,
             kind: BlockBounceTraceKind::Shifting,
         }];
         let data = vec![0u8; 20 * 14 * 2];
         let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
-        grid.set_cell_at(1, 0, Cell::from_be_bytes(0, 0));
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0x6F, 0x00));
+        grid.set_cell_at(1, 1, Cell::from_be_bytes(0xE7, 0x00));
+        let visuals = sample_level_visuals();
 
-        let scene = build_ingame_scene(&trace, false, Some(&grid));
+        let scene = build_scene(&trace, false, Some(&visuals), Some(&grid));
 
-        assert!(
-            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200).is_none(),
-            "typed non-prize bounces must not borrow ASM sub_1007A prize-block wobble sprites"
-        );
-        let Some((_, tile, _)) = indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x80) else {
-            panic!("expected immutable foreground terrain under cleared non-prize bounce");
+        let Some(shifting_tiles) = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite {
+                x: 16,
+                y: 14,
+                tile_sheet,
+                tiles,
+                ..
+            } if tile_sheet.tiles.len() == 0x200 => Some(tiles),
+            _ => None,
+        }) else {
+            panic!(
+                "ASM sub_113C0/loc_113F4 should render `LnkTo_unk_E0EBE` at the bobbed y-position while the reserved cell is `$6F00`"
+            );
         };
         assert_eq!(
-            tile.tile_index, 12,
-            "forest foreground leaves should stay visible when a non-prize live cell has been cleared"
+            shifting_tiles.first().map(|tile| tile.tile.tile_index),
+            Some(0x0276 - BLOCK_TILE_VRAM_BASE),
+            "ASM loc_113F4 uses fixed `LnkTo_unk_E0EBE` block art at VRAM `$276`, not the temporary `$6F00` cell skin or the prize wobble `$220/$229` slots"
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, 14, 0x200).is_none(),
+            "the shifting rise worker should render as a sprite object, not as a static block-grid tile snapped to the destination cell"
         );
     }
 
