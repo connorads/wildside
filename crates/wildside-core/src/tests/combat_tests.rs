@@ -25456,8 +25456,9 @@ mod chunk_05 {
 
     #[test]
     fn loc_14d8a_selects_the_shared_weather_art_and_seeds_the_later_slot_fill_loop() {
+        let setup = crate::weather::initialise_storm_setup_loc_14D8A();
         assert_eq!(
-            crate::weather::initialise_storm_setup_loc_14D8A(),
+            setup,
             crate::weather::StormInitSetupLoc14D8A {
                 art_asset: crate::weather::StormSharedArtAssetLoc14D8A::ArtComp9A7D2,
                 art_vram_word: 0x76A0,
@@ -25469,6 +25470,15 @@ mod chunk_05 {
                 },
             },
             "ASM loc_14D8A should decompress `LnkTo_ArtComp_9A7D2` to `$76A0` and seed the later loc_14DAC loop with `d0=#4`, `d2=#$100`, and `d1=#$FFFF_FFFF`"
+        );
+        assert_eq!(
+            crate::weather::record_storm_shared_art_upload_loc_14D8A(setup),
+            crate::weather::StormSharedArtRuntimeUploadLoc14D8A {
+                source_asset_label: crate::weather::STORM_SHARED_ART_SOURCE_LABEL_LOC_14D8A
+                    .to_owned(),
+                vram_word: 0x76A0,
+            },
+            "the live trace record should retain ASM loc_14D8A's shared storm art source and VRAM word"
         );
     }
 
@@ -30224,6 +30234,10 @@ mod chunk_05 {
             Some(crate::weather::record_storm_pattern_upload_loc_14D32(
                 crate::weather::select_storm_pattern_upload_loc_14D1E(false),
             ));
+        runtime.weather.storm_shared_art_upload_loc_14d8a =
+            Some(crate::weather::record_storm_shared_art_upload_loc_14D8A(
+                crate::weather::initialise_storm_setup_loc_14D8A(),
+            ));
         runtime.weather.unknown_art_upload_loc_14df6 =
             Some(crate::weather::record_special_effect_unknown_art_upload_loc_14DF6());
         runtime.weather.unknown_plane_fill_loc_14e42 =
@@ -30264,6 +30278,7 @@ mod chunk_05 {
         assert_eq!(runtime.weather.storm_palette_copy_loc_14cf2, None);
         assert_eq!(runtime.weather.storm_saved_palette_label_loc_14d82, None);
         assert_eq!(runtime.weather.storm_pattern_upload_loc_14d32, None);
+        assert_eq!(runtime.weather.storm_shared_art_upload_loc_14d8a, None);
         assert_eq!(runtime.weather.unknown_art_upload_loc_14df6, None);
         assert_eq!(runtime.weather.unknown_plane_fill_loc_14e42, None);
         assert!(!runtime.weather.hail_active);
@@ -30350,6 +30365,21 @@ mod chunk_05 {
                 written_longword_count: 4 * 8 * 8 * 4,
             }),
             "ASM loc_14D1E/loc_14D32 should run during storm init, selecting the rain pattern table for non-Ice backgrounds and programming the `$6000` plane upload"
+        );
+        assert_eq!(
+            runtime.weather.storm_shared_art_upload_loc_14d8a,
+            Some(crate::weather::StormSharedArtRuntimeUploadLoc14D8A {
+                source_asset_label: crate::weather::STORM_SHARED_ART_SOURCE_LABEL_LOC_14D8A
+                    .to_owned(),
+                vram_word: 0x76A0,
+            }),
+            "ASM loc_14D8A should decompress the shared weather art to VRAM `$76A0` during storm init"
+        );
+        let trace = runtime.trace_frame();
+        assert_eq!(
+            trace.storm_shared_art_upload_loc_14d8a,
+            runtime.weather.storm_shared_art_upload_loc_14d8a,
+            "native trace should expose the live loc_14D8A shared storm art upload shape for oracle/debug comparison"
         );
         assert_eq!(
             runtime.weather.hail_period_timer, 1,

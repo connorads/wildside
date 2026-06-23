@@ -20,6 +20,7 @@ const STORM_MOUNTAIN_FOREGROUND_PALETTE_PATH_LOC_6097: &str = "palette_fg/mounta
 pub(crate) const STORM_PATTERN_RAIN_TABLE_LABEL_LOC_14D1E: &str = "unk_9B65C";
 pub(crate) const STORM_PATTERN_HAIL_TABLE_LABEL_LOC_14D1E: &str = "unk_9B6E0";
 pub(crate) const STORM_PATTERN_VDP_COMMAND_LOC_14D32: u32 = 0x4000_0003;
+pub(crate) const STORM_SHARED_ART_SOURCE_LABEL_LOC_14D8A: &str = "ArtComp_9A7D2";
 pub(crate) const SPECIAL_EFFECT_UNKNOWN_ART_LABEL_LOC_14DE4: &str = "unk_9AA50";
 pub(crate) const SPECIAL_EFFECT_UNKNOWN_PLANE_VDP_COMMAND_LOC_14E42: u32 = 0x4000_0003;
 pub(crate) const SPECIAL_EFFECT_UNKNOWN_FOREGROUND_PLANE_REGISTER_LOC_14E42: u16 = 0x8218;
@@ -534,6 +535,20 @@ pub(crate) enum StormSharedArtAssetLoc14D8A {
     ArtComp9A7D2,
 }
 
+impl StormSharedArtAssetLoc14D8A {
+    pub(crate) const fn asset_label(self) -> &'static str {
+        match self {
+            Self::ArtComp9A7D2 => STORM_SHARED_ART_SOURCE_LABEL_LOC_14D8A,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StormSharedArtRuntimeUploadLoc14D8A {
+    pub source_asset_label: String,
+    pub vram_word: u16,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StormSlotFillSetupLoc14D8A {
@@ -566,6 +581,18 @@ pub(crate) fn initialise_storm_setup_loc_14D8A() -> StormInitSetupLoc14D8A {
             falling_slot_y_word: 0x0100,
             impact_slot_sentinel: 0xFFFF_FFFF,
         },
+    }
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn record_storm_shared_art_upload_loc_14D8A(
+    setup: StormInitSetupLoc14D8A,
+) -> StormSharedArtRuntimeUploadLoc14D8A {
+    // ASM loc_14D8A (kid.asm:28423): `LnkTo_ArtComp_9A7D2` is decompressed
+    // into VRAM word `$76A0` before the shared loc_14DAC storm slot fill tail.
+    StormSharedArtRuntimeUploadLoc14D8A {
+        source_asset_label: setup.art_asset.asset_label().to_owned(),
+        vram_word: setup.art_vram_word,
     }
 }
 
@@ -2847,6 +2874,7 @@ impl NativeRuntime {
         self.weather.storm_palette_copy_loc_14cf2 = None;
         self.weather.storm_saved_palette_label_loc_14d82 = None;
         self.weather.storm_pattern_upload_loc_14d32 = None;
+        self.weather.storm_shared_art_upload_loc_14d8a = None;
         self.weather.unknown_art_upload_loc_14df6 = None;
         self.weather.unknown_plane_fill_loc_14e42 = None;
         self.weather.hail_active = false;
@@ -2876,6 +2904,8 @@ impl NativeRuntime {
                     select_storm_pattern_upload_loc_14D1E(background_theme_is_ice),
                 ));
             let setup = initialise_storm_setup_loc_14D8A();
+            self.weather.storm_shared_art_upload_loc_14d8a =
+                Some(record_storm_shared_art_upload_loc_14D8A(setup));
             let seeded = initialise_storm_slots_loc_14DAC(setup.fill_setup);
             self.weather.storm_spawn_cooldown = seeded.spawn_cooldown;
             self.weather.storm_free_falling_slots = seeded.free_falling_slots;

@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **#317 remains `[~]`:** Island shore DMA trace labels are fixed; storm/Unknown plane renderer, lava script-walk/sentinel sound, and shared VRAM backend debt remain.
+- **#317 remains `[~]`:** Island shore DMA labels + storm `loc_14D8A` shared-art trace are fixed; storm/Unknown plane renderer, lava script-walk/sentinel sound, and shared VRAM backend debt remain.
 - **#316 remains `[~]`:** DP shared list + `sub_3F798` sprite compiler are
   gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the

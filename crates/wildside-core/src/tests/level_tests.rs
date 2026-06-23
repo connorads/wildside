@@ -202,6 +202,11 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
                 crate::weather::select_storm_pattern_upload_loc_14D1E(false),
             ),
         ),
+        storm_shared_art_upload_loc_14d8a: Some(
+            crate::weather::record_storm_shared_art_upload_loc_14D8A(
+                crate::weather::initialise_storm_setup_loc_14D8A(),
+            ),
+        ),
         unknown_art_upload_loc_14df6: None,
         unknown_plane_fill_loc_14e42: None,
         storm_sprites_sub_61ca: Vec::new(),

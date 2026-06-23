@@ -7685,6 +7685,10 @@ impl NativeRuntime {
                     self.palette_buffer[start + 7],
                 ]
             }),
+            storm_shared_art_upload_loc_14d8a: self
+                .weather
+                .storm_shared_art_upload_loc_14d8a
+                .clone(),
             special_effect_unknown_art_upload_loc_14df6: self
                 .weather
                 .unknown_art_upload_loc_14df6

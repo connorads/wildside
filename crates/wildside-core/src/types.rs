@@ -763,6 +763,9 @@ pub(crate) struct WeatherState {
     /// ASM loc_14D1E/loc_14D32: selected storm pattern table and VRAM upload shape.
     pub(crate) storm_pattern_upload_loc_14d32:
         Option<crate::weather::StormPatternRuntimeUploadLoc14D32>,
+    /// ASM loc_14D8A: shared storm weather art decompression to VRAM `$76A0`.
+    pub(crate) storm_shared_art_upload_loc_14d8a:
+        Option<crate::weather::StormSharedArtRuntimeUploadLoc14D8A>,
     /// ASM Init_SpecialEffect_Unknown loc_14DE4/loc_14DF6: weather-4 art upload.
     pub(crate) unknown_art_upload_loc_14df6:
         Option<crate::weather::SpecialEffectUnknownRuntimeArtUploadLoc14DF6>,
@@ -1558,6 +1561,10 @@ pub struct NativeTraceFrame {
     /// live CRAM words at `Palette_Buffer+$20..+$2E`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lava_geyser_palette_words_loc_14b2a: Option<[u16; 8]>,
+    /// ASM `Init_SpecialEffect_Storm` loc_14D8A shared weather art upload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub storm_shared_art_upload_loc_14d8a:
+        Option<crate::weather::StormSharedArtRuntimeUploadLoc14D8A>,
     /// ASM `Init_SpecialEffect_Unknown` loc_14DE4/loc_14DF6 weather-4 art upload.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub special_effect_unknown_art_upload_loc_14df6:
@@ -1795,6 +1802,7 @@ impl Default for NativeTraceFrame {
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
+            storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,
             storm_falling_slots_sub_61ca: Vec::new(),

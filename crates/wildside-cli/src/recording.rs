@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[cfg(test)]
 use wildside_core::{
     BlockBounceTrace, BlockBounceTraceKind, IslandShoreDmaUploadLoc1202A, NativeObjectKind,
-    NativeObjectSnapshot,
+    NativeObjectSnapshot, StormSharedArtRuntimeUploadLoc14D8A,
 };
 use wildside_core::{FrameInput, GameMode, LevelId, NativeRuntime, NativeTraceFrame, PlayerForm};
 use wildside_render::NativeLevelVisuals;
@@ -2235,6 +2235,15 @@ fn trace_frames_match(
             actual.lava_geyser_palette_words_loc_14b2a;
     }
 
+    if expected.storm_shared_art_upload_loc_14d8a.is_none() {
+        // `storm_shared_art_upload_loc_14d8a` is additive diagnostics for ASM
+        // Init_SpecialEffect_Storm loc_14D8A. Pixel checkpoints still guard the
+        // visible weather art for legacy recordings.
+        normalised_expected
+            .storm_shared_art_upload_loc_14d8a
+            .clone_from(&actual.storm_shared_art_upload_loc_14d8a);
+    }
+
     if !expected
         .gameplay_debug_fields
         .contains_key("native_platform_loader_loc_2744")
@@ -2828,6 +2837,7 @@ mod tests {
             rotate_palette_lava_water_state_loc_1223c: None,
             lava_water_palette_words_loc_1223c: None,
             lava_geyser_palette_words_loc_14b2a: None,
+            storm_shared_art_upload_loc_14d8a: None,
             special_effect_unknown_art_upload_loc_14df6: None,
             special_effect_unknown_plane_fill_loc_14e42: None,
             storm_falling_slots_sub_61ca: Vec::new(),
@@ -3248,6 +3258,29 @@ mod tests {
         assert_eq!(
             drift, None,
             "level-start BGM ids and loc_1223C lava/water palette fields are additive diagnostics for legacy visual-validation recordings"
+        );
+    }
+
+    #[test]
+    fn first_trace_drift_accepts_legacy_frames_missing_storm_shared_art_diagnostics() {
+        let recorded = sample_trace_frame(0);
+        let mut replay = recorded.clone();
+        replay.storm_shared_art_upload_loc_14d8a = Some(StormSharedArtRuntimeUploadLoc14D8A {
+            source_asset_label: "ArtComp_9A7D2".to_owned(),
+            vram_word: 0x76A0,
+        });
+
+        let drift = first_trace_drift(
+            &[recorded],
+            &[replay],
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+            false,
+        );
+
+        assert_eq!(
+            drift, None,
+            "loc_14D8A storm shared-art upload is additive diagnostics; pixel checkpoints guard the visible VDP effect for legacy recordings"
         );
     }
 

@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 storm shared art trace)
+
+- **#317 remains `[~]`.** Storm init now records ASM `Init_SpecialEffect_Storm`
+  `loc_14D8A`: shared `ArtComp_9A7D2` decompression to VRAM word `$76A0`.
+- The record is exposed through `NativeTraceFrame::storm_shared_art_upload_loc_14d8a`
+  and replay comparison treats the absent field as legacy additive diagnostics.
+- Regressions: `loc_14d8a_selects_the_shared_weather_art_and_seeds_the_later_slot_fill_loop`,
+  `init_weather_clears_previous_state`, `init_weather_seeds_storm_machine_from_loc_14dac`,
+  and `first_trace_drift_accepts_legacy_frames_missing_storm_shared_art_diagnostics`.
+- **Next:** keep #317 open for renderer consumption of recorded storm/Unknown plane
+  uploads, lava geyser script-walk/sentinel sound timing, and the shared typed VRAM backend.
+
 ## 2026-06-23 handoff (#317 Island shore DMA source labels)
 
 - **#317 remains `[~]`.** Island shore `loc_1202A` DMA trace events now carry the resolved
