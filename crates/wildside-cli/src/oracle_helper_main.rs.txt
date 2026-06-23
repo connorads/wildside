@@ -1935,20 +1935,30 @@ fn background_vdp_pixel_samples_debug_loc_c070(
     const H_SCROLL_TABLE_BASE: usize = 0x1400;
     const PLANE_WIDTH_CELLS: usize = 64;
     const PLANE_HEIGHT_CELLS: usize = 32;
-    const SAMPLES: [(usize, usize); 16] = [
+    const SAMPLES: [(usize, usize); 26] = [
         (284, 10),
         (292, 10),
         (282, 13),
+        (38, 17),
         (307, 45),
+        (0, 181),
+        (0, 182),
+        (5, 182),
+        (9, 189),
         (86, 100),
         (88, 100),
         (91, 102),
         (139, 102),
+        (288, 40),
+        (294, 34),
+        (294, 40),
+        (297, 40),
         (298, 42),
         (304, 42),
         (296, 45),
         (291, 52),
         (305, 53),
+        (0, 191),
         (85, 100),
         (90, 103),
         (67, 113),

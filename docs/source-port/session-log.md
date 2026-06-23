@@ -7,6 +7,14 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#289 Island lower-shore settle)
+
+- **#289 stays `[~]`; the Level 0x07 bottom-left Island shore residual is gone.** Oracle VDP samples showed `loc_12188`'s lower shore band had reached `shore_2.bin` / frame `1` while the already fixed primary/mid bands were correct, so the recording settle shim now advances only the lower-band state after the unified `loc_1202A` tail.
+- Regression coverage pins `Time_Frames` unchanged at 174/185 while `island_shore_vram_frames_loc_1202a` becomes `(3,2,1)` at frame 60 and `(0,3,1)` at frame 71. The oracle sampler also now covers the bottom-left shore and top-right HUD residual coordinates.
+- Refreshed `issue289-level07-idle-current` remains expected-red but trace/state-green: frame 60 improves from `133` / MAE `0.11480655` to `45` / `0.04169922`; frame 71 improves from `171` / `0.19314545` to `83` / `0.12003813`. Remaining residual is the top-right HUD/diamond strip and frame-71 timer/top specks.
+- A HUD-diamond phase shim was rejected: it only improved to `39`/`77` pixels and did not close the known top-right HUD residual class. Next #289 pass should inspect HUD/timer sprite or text evidence, not Island shore age, selected Plane-B rows, global `Time_Frames`, static cloud H-scroll, simple `loc_12110`, or broad HUD phase/position tuning.
+- Verification: `cargo fmt --all`, focused cache-backed `cargo test -q -p wildside-core issue289_level07_settled_recording_primes_island_shore_vram_loc_1202a -- --nocapture`, refreshed `record-scenario --slug issue289-level07-idle-current`, and expected-red `verify-recording --slug issue289-level07-idle-current`; final gates recorded in the commit session.
+
 ## 2026-06-23 handoff (#289 Lion projectile local palette/clock)
 
 - **#289 stays `[~]`; the Level 0x07 Lion projectile residual is gone from the oracle pixel diff.** Re-reading `Lion.asm loc_3E12A` confirmed the ROM sets hardware `palette_line(a3)=2`, but native-player stores the extracted Lion enemy palette as local slots, so the sprite tiles must index local palette line 0. Re-reading `Lion.asm loc_3E180/loc_3E192` and `ingame/anim/enemy/Lion.asm` confirmed `stru_3DF34` keeps ticking through the hibernated projectile worker.

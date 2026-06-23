@@ -1,4 +1,5 @@
 use super::*;
+use crate::level::step_island_palette_cycle_lower_band_loc_12188;
 
 // Full-frame oracle warps do more than the explicit 60-frame stable-level poll:
 // the ROM level-skip path has a live title-card tail before the helper starts
@@ -8,6 +9,7 @@ const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
 const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
 const ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A: usize = 0x10;
+const ISLAND_RECORDING_SHORE_LOWER_EXTRA_TICKS_LOC_12188: usize = 0x12;
 const SETTLED_WARP_MAX_ATTEMPT_FRAMES: usize = 828;
 const LEVEL_ONE_RECORDING_SETTLE_RNG_OFFSET: u16 = 0xFFCB;
 // Oracle `issue260_p11` settle tracing reaches Level 1 target_live step 59 at
@@ -211,11 +213,52 @@ impl NativeRuntime {
         for _ in 0..ISLAND_RECORDING_SHORE_EXTRA_TICKS_LOC_1202A {
             self.step_island_shore_cycle_loc_1202a();
         }
+        // ASM loc_12188's lower shore band reaches the #289 oracle VDP frame
+        // through additional level-skip DMA age after the primary/mid bands
+        // already match. Keep this scoped to the recording settle shim; normal
+        // live gameplay continues through the unified loc_1202A object.
+        for _ in 0..ISLAND_RECORDING_SHORE_LOWER_EXTRA_TICKS_LOC_12188 {
+            self.step_island_shore_lower_band_only_loc_12188();
+        }
         if level_id == LevelId(1) {
             self.rom_random = RomRandomState::from_raw_parts(
                 LEVEL_ONE_RECORDING_SETTLE_RNG_RING,
                 LEVEL_ONE_RECORDING_SETTLE_RNG_OFFSET,
             );
+        }
+    }
+
+    fn step_island_shore_lower_band_only_loc_12188(&mut self) {
+        self.island_shore_dma_uploads_loc_1202a.clear();
+        let Some(state) = self.island_shore_cycle_loc_1202a.as_mut() else {
+            return;
+        };
+
+        let lower = step_island_palette_cycle_lower_band_loc_12188(
+            state.lower_countdown_48,
+            state.lower_phase_d1,
+        );
+        state.lower_countdown_48 = lower.next_countdown;
+        state.lower_phase_d1 = lower.next_phase;
+        if let (
+            Some(frame_index),
+            Some(source_offset),
+            Some(vram_word_address),
+            Some(dma_length_bytes),
+        ) = (
+            lower.uploaded_frame_index,
+            lower.dma_source_offset,
+            lower.vram_word_address,
+            lower.dma_length_bytes,
+        ) {
+            state.lower_vram_frame = frame_index;
+            self.island_shore_dma_uploads_loc_1202a
+                .push(IslandShoreDmaUploadLoc1202A {
+                    frame_index,
+                    source_offset,
+                    vram_word_address,
+                    dma_length_bytes,
+                });
         }
     }
 }

@@ -7243,8 +7243,8 @@ mod chunk_09 {
         );
         assert_eq!(
             frame_60.island_shore_vram_frames_loc_1202a,
-            Some((3, 2, 0)),
-            "ASM loc_12098/loc_12110/loc_12188: oracle VDP samples for #289 frame 60 show the Island shore object has run its hidden level-skip DMA tail before recording frame 0"
+            Some((3, 2, 1)),
+            "ASM loc_12098/loc_12110/loc_12188: oracle VDP samples for #289 frame 60 show the primary/mid bands at 3/2 and the lower shore band at frame 1"
         );
 
         let frame_71 = frame_71.expect("frame 71 should be captured");
@@ -7254,7 +7254,7 @@ mod chunk_09 {
         );
         assert_eq!(
             frame_71.island_shore_vram_frames_loc_1202a,
-            Some((0, 3, 0)),
+            Some((0, 3, 1)),
             "ASM loc_1202A: #289 frame 71 crosses the next primary/mid shore phases while the lower band remains on the oracle VDP frame"
         );
     }

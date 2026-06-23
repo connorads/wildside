@@ -46,11 +46,10 @@ and stop — never commit churn.
   and animation-clock fix removes the projectile residual in the refreshed recording. VERIFY next
   playtest; do NOT open a separate row.
 - **#289 stays `[~]`.** USM3 0x06 human-confirmed "~back to normal" (working-confirm of the landed
-  platform/blank-top-row/live-block/Dragon fixes). Latest pass fixed the Level 0x07 Lion projectile
-  palette and `stru_3DF34` clock; refreshed expected-red recording is trace/state-green with frame 60
-  `133` / MAE `0.11480655` and frame 71 `171` / `0.19314545`. Remaining residual = bottom-left
-  water/edge strip, right/top background strip, and frame-71 timer/HUD pixels. Full do-not-retry list
-  in archive #289.
+  platform/blank-top-row/live-block/Dragon fixes). Latest pass fixed the Level 0x07 Island lower-shore
+  `loc_12188` recording-settle phase; refreshed expected-red recording is trace/state-green with frame
+  60 `45` / MAE `0.04169922` and frame 71 `83` / `0.12003813`. Remaining residual = top-right
+  HUD/diamond strip plus frame-71 timer/top specks. Full do-not-retry list in archive #289.
 - **NOT-A-BUG:** O7 USM "stacked hovering enemy" = EmoRock (0x1B) hover tracking Kid's X (ASM
   loc_3621A) — faithful; multiple rocks converge above the Kid by design. Only the #333 render
   approximation (unextracted hover frames) stays open.
@@ -109,7 +108,7 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-07 playtest: intro ninja animation has black outline artefacts | Evidence source: human playtest. Symptom: ninja animation in the intro has… |
 | 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |
-| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | 2026-06-23: Lion projectile local palette + `stru_3DF34` clock; expected-red trace/state green, frame 60 `133` / MAE `0.11480655`, frame 71 `171` / `0.19314545`; residual is background/HUD only. See archive #289. |
+| 289 | [~] | P1 | level/spawn | 2026-06-10 playtest: hell-theme levels start Kid in the wrong place and the map layout looks wrong | 2026-06-23: Island lower-shore `loc_12188` settle fixed; expected-red trace/state green, frame 60 `45` / MAE `0.04169922`, frame 71 `83` / `0.12003813`; residual is HUD/timer only. See archive #289. |
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
 | 336 | [ ] | P1 | level/entry | 2026-06-22 playtest RECONFIRM (persistent): BLW1 0x00 cold boot starts Kid high in/above the trees then floats down — level-0-only camera ramp (216→115px) outpaces the Kid world-Y settle (255→271px). Bisected to c65df2500. | NEXT: oracle capture PAST the title card (frame 719 / Game_Mode $C), per-frame camera/kid-Y diff; do NOT edit the ramp first (may be oracle-derived). See archive #336. |
