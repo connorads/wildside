@@ -81,7 +81,7 @@ and stop — never commit churn.
   level 0x14 pickup, but the route is oracle-red; 0x1B/0x25 searches found no bounce.
 - **#210 moved to `[?]` fixed candidate.** Direct IntroSequence5 frame-2100 Start now has exact fade/title samples; human title/menu skip validation remains required.
 - **#254 moved to `[?]` fixed candidate.** IntroSequence6 Start-skip no longer shows the blue hidden shell; original sample route AE is 22/0/0/0/0/0/8/0.
-- **#319/#320 moved to `[x]`.** Audio-trigger and camera audits have no standalone backlog candidates left.
+- **#256 moved to `[b]` route-needed.** Current Highwater route and best B+Right overlay still stop 75px left of the waterfall mask; priority-mask tests are green.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -104,7 +104,6 @@ For newly opened items, capture these facts in the investigation notes:
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
 | 316 | [~] | P2 | form | Umbrella: audits/helmets-fidelity-audit.md — DP shared list and sprite compiler rows are fixed candidates; exact raw shared DP payload storage remains open. | Continue from remaining helmets row; see archive #316. |
-| 256 | [ ] | P1 | render/enemy | 2026-06-07 playtest: third-level Rhino/Berzerker renders in front of foreground tiles | Evidence source: human playtest. (full history: archive #256) |
 | 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |

@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#256 Highwater priority route-blocked)
+
+- **#256 moved `[~]` -> `[b]`.** Current Highwater priority route and the best
+  `760..1240 B+Right` overlay still stop at `(840,1548)`, 75 px left of the
+  reported waterfall-front mask `(915,1548)`.
+- Renderer invariant remains green: ordinary Kid/enemy sprites stay low priority
+  except the narrow flagpole override, and priority-marked foreground terrain masks
+  later low-priority sprite tiles, including the Highwater asset-backed test.
+- Verification: regenerated `.cache/recordings/issue-256-highwater-water-priority-current-20260623/`,
+  `verify-tas` frames 940..970 CRC-clean, native/oracle frame captures at 816/960/1284,
+  focused priority tests, and `compare -metric AE` frame 1284 = 259.
+- NEXT: continue with `mise run project-status`; #256 needs a fresh live route/frame
+  that actually enters the waterfall/foreground mask before implementation work.
+
 ## 2026-06-23 handoff (#254 intro skip fixed candidate)
 
 - **#254 moved `[~]` -> `[?]`.** IntroSequence6 Start-skip no longer replays the
