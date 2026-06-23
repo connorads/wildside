@@ -7,6 +7,18 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#272 route-blocked)
+
+- **#272 moved `[ ]` -> `[b]`.** Cyclone cue wiring is already present and native can
+  emit transform `$32`, but the only successful pickup route is not oracle-valid.
+- Level 0x14 route `issue272-level14-cyclone-r0-205-b186-241-l205-280` queues
+  `StartSequence(50)` at the Cyclone pickup, then verifier rejects it: audio gate fails
+  at `route_tail@219`, and `verify-tas` first CRC-splits at frame 200 on block contact.
+- Level 0x1B and 0x25 visible Cyclone starts were searched with simple fall/jump/right/left
+  overlays; both produce no target block bounce.
+- **Next:** exact human/current audio route or a new state-aligned natural Cyclone pickup
+  route. Do not retune GEMS, cue ids, or Cyclone transform mapping from native-only evidence.
+
 ## 2026-06-23 handoff (#259 route-blocked)
 
 - **#259 moved `[~]` -> `[b]`.** The latest BLW2 shooting-tank candidate activates

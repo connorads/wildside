@@ -32,11 +32,8 @@ and stop — never commit churn.
   gate-green; remaining helmets debt is exact raw shared DP payload storage.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
   lanes; full per-issue evidence is in the archive block "## 2026-06-22 playtest triage". NET:
-  - **8 fix-candidates FAILED human validation; #339 has since been re-fixed and moved
-    back to `[?]`. #257 has since been fixed and moved to `[x]`. Remaining failed rows
-    still open:** #271 stomp-on-RockTank hurts (P0, now route-needed), #259 RockTank floor-sink (P1, 5th reconfirm —
-    now route-blocked, do not 6th-cycle `[?]`), #272 Cyclone transform voice (P1).
-    #335 Hills instant-death has a new fixed candidate and waits in `backlog-awaiting-human.md`.
+  - **8 fix-candidates FAILED human validation.** #339/#335 are back to `[?]`, #257 is `[x]`,
+    #259/#271/#272 are `[b]`; do not 6th-cycle #259.
   - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
   - **3 NEW rows opened:** #356 remains open; #353 has moved to `[b]` exact-repro-needed, and #355 has since moved to `[?]`.
@@ -51,12 +48,8 @@ and stop — never commit churn.
   approximation (unextracted hover frames) stays open.
 - **Render-gap lesson:** headless CRC/state gates pass while a render-only gap ships (#352, #349);
   every missing-sprite/animation fix needs a native-player RENDER assertion or capture-frames diff.
-- **#336 closed `[-]` NOT-A-BUG / ORIGINAL_QUIRK.** The missing live oracle gate is
-  now met: a cold-boot route that presses Start on the BLW1 level card is CRC/checkpoint
-  clean through the visible handoff, and direct oracle WRAM watches match native's
-  `LEVEL_ONE_LOAD_INGAME_CAMERA_RAMP_Y` / Kid-Y tables byte-for-byte. Do not edit the
-  ramp without a new native-vs-oracle divergence. The separate "level card ignores early
-  Start" feel issue remains #348.
+- **#336 closed `[-]` NOT-A-BUG / ORIGINAL_QUIRK.** Cold-boot Start on the BLW1 card is
+  CRC/checkpoint clean and oracle WRAM matches the camera/Kid-Y ramp; early-Start feel is #348.
 - **#339 moved back to `[?]` fixed candidate.** Clean USM 0x04 has no RockTank objects;
   the live report's load-time "washing" drone fits stale incoming GEMS state, not a
   freshly seeded local tank. Native now mirrors ASM `Load_InGame loc_23629` `StopMusic`
@@ -84,6 +77,8 @@ and stop — never commit churn.
 - **#355 moved to `[?]` fixed candidate.** Cyclone flight now renders ASM `sub_B270 loc_B2A0`
   `cyclone_spinning_1..3`; grounded Cyclone stays on the normal walk table. Audio remains #272.
 - **#352 moved to `[?]` fixed candidate.** Native-player draws ASM `sub_DFB0` HiddenReveal `$60xx` workers with the `loc_E2E2/loc_E2F0` bob.
+- **#272 moved to `[b]` route/real-device blocked.** Native emits Cyclone `$32` on a
+  level 0x14 pickup, but the route is oracle-red; 0x1B/0x25 searches found no bounce.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -116,5 +111,4 @@ For newly opened items, capture these facts in the investigation notes:
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
-| 272 | [ ] | P1 | audio | 2026-06-22 (transform-voice fix failed): picking up the Cyclone "spin form" helmet plays NO transform noise. Core mapping exists (id 0x32) but no Cyclone route was ever validated. Render half = #355. | Real-device/oracle: pick up a Cyclone helmet in normal play; transform SFX id 0x32 must be audible. Needs a state-aligned natural Cyclone-pickup route (none validated). See archive #272. |
 | 356 | [ ] | P2 | render/background | 2026-06-22 (NEW): Skydragon Castle 0x1B sky-castle background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam) and #210 (demo/intro). | capture-frames --level 1B at scroll positions vs oracle; classify as Plane-A/B tile gaps vs Cloud/Tornado over-cull (#345/#289) vs faithful VDP 20-per-line sprite limit. See archive #356. |
