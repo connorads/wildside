@@ -32,8 +32,8 @@ and stop — never commit churn.
 - **2026-06-22 HUMAN PLAYTEST TRIAGE (big batch).** 21 observations triaged against the
   lanes; full per-issue evidence is in the archive block "## 2026-06-22 playtest triage". NET:
   - **8 fix-candidates FAILED human validation; #339 has since been re-fixed and moved
-    back to `[?]`. Remaining failed rows still open:** #271 stomp-on-RockTank hurts
-    (P0, now route-needed), #257 continue-screen wall-from-both-sides (P0), #252 tank
+    back to `[?]`. #257 has since been fixed and moved to `[x]`. Remaining failed rows
+    still open:** #271 stomp-on-RockTank hurts (P0, now route-needed), #252 tank
     sprite doubled + green bullets (P1), #259 RockTank floor-sink (P1, 5th reconfirm —
     close `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #352 hidden
     jump-up block no anim (P1, RENDERER-only gap: scene.rs:5057 skips the HiddenReveal
@@ -81,8 +81,8 @@ and stop — never commit churn.
   murder-wall runtime at `loc_1AE2E -> loc_6E2 -> Load_InGame` while preserving the carried
   helmet. Cache-backed Red Stealth regression, `verify-slice-fast`, and `verify-tas-full`
   are green; human needs to re-test natural Hills entry.
-- **Open P0 #257 continue-screen is the highest-priority actionable item.** #271
-  waits on an exact route; `[?]`/audio rows still wait on human playtest/device listen.
+- **#257 closed `[x]`.** Continue-screen EOL text/count now use the ROM `$1C`
+  slide duration. Use `mise run project-status` for the next item.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -118,7 +118,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive; likely ASM-faithful survivor hurt/hibernate, needs visual/UX check. | Human distinguish survive-flash vs death+resurrect; verify hurt anim during hibernate. See archive #344. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
-| 257 | [ ] | P0 | gameflow/death | 2026-06-22 playtest (fix failed validation): continue (CONTINUES) screen renders wrong — a wall-like graphic slides in from BOTH left and right instead of legible CONTINUES text + count. | Capture a live death→continue card frame; CONTINUES label + count must render as legible text/digits sliding to centre, not blocky wall art from either edge. Slide direction (loc_D31E/loc_D350) is faithful — don't remove it. See archive #257. |
 | 252 | [ ] | P1 | render/enemy | 2026-06-22 playtest reconfirm (P2→P1): BLW2 0x01 / Highwater 0x02 RockTank (0x0A/0x0B) renders doubled/humanoid + low in floor; the shooting tank's bullets (TankBullet child) render as GREEN blobs. Render-only (enemy state oracle-faithful). | Walk BLW2/Highwater past a shooting RockTank: one solid grey tank (not doubled/humanoid, not half in floor) + bullets show ROM stru_3B526 art, not green rects (scene.rs:5923-5957; forest-borrow palette). Capture native vs oracle. See archive #252. |
 | 259 | [ ] | P1 | enemy/render | 2026-06-22 reconfirm (5th human): specific RockTanks render half-sunk in floor — BLW2 0x01 (teleporter + flag tanks) and the first Highwater 0x02 tank; not all tanks. | ONE natural oracle BLW2 0x01 route at the named tanks + first Highwater tank; diff body/turret Y + occlusion vs oracle. Only-grass occludes → close [-]; else real residual. NOT direct-warp. See archive #259. |
 | 352 | [ ] | P1 | render/block | 2026-06-22 reconfirm (fix failed): hidden jump-up blocks (USM 0x04-0x06 / Highwater 0x02) still pop in/out with no fold anim — core landed but the renderer skips the revealed cell. | Headbutt a hidden block (USM 0x04-0x06 / Highwater 0x02); the 8-frame y-bob (loc_E2E2/E2F0) must animate. Wire HiddenReveal into scene.rs:5057 block-bounce draw loop (mirror #347). See archive #352. |

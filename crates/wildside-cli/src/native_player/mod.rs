@@ -12632,6 +12632,48 @@ mod tests {
             moving_x_positions.contains(&-0x38),
             "ASM Object_EOL_Text loc_C5A2 applies `$6C=8` only after the initial Continue_Screen hold"
         );
+
+        trace.continue_countdown_elapsed_frames = 0x1C + 0x1C;
+        let settled_text_scene = build_scene(&trace, false, Some(&visuals), None);
+        let settled_text_x_positions = settled_text_scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, tiles, .. }
+                    if tiles
+                        .first()
+                        .is_some_and(|tile| tile.tile.tile_index == 0x008) =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            settled_text_x_positions.contains(&0x68),
+            "ASM Continue_Screen sets `$46=$1C`; the CONTINUES label must finish at x=$68 instead of freezing half off-screen"
+        );
+
+        trace.continue_countdown_elapsed_frames = 0x1C + 0x1D;
+        let settled_number_scene = build_scene(&trace, false, Some(&visuals), None);
+        let settled_count_x_positions = settled_number_scene
+            .commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, tiles, .. }
+                    if tiles
+                        .first()
+                        .is_some_and(|tile| tile.tile.tile_index == 0x0CE) =>
+                {
+                    Some(*x)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            settled_count_x_positions.contains(&0x9C),
+            "ASM Continue_Screen sets Object_EOL_Number `$A=$1C`; the visible count digit must slide to centre instead of remaining off the right edge"
+        );
     }
 
     #[test]

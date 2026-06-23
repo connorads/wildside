@@ -37,6 +37,7 @@ pub(super) const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8
 // is 15 worker ticks ahead of the trace's post-frame row counter.
 const EOL_SCORE_ROWS_RENDER_LATCH_LEAD_FRAMES_LOC_C070_ORACLE: usize = 15;
 const CONTINUE_SCREEN_INITIAL_HOLD_FRAMES_LOC_D31E: usize = 0x1C;
+const EOL_TEXT_WORKER_SLIDE_FRAMES_LOC_C5A2: usize = 0x1C;
 const PAUSE_MENU_TEXT_X_LOC_69D2: i32 = 0x78;
 const PAUSE_MENU_TEXT_TOP_Y_RESTART_TEXT: i32 = 0x48;
 const PAUSE_MENU_TEXT_BOTTOM_Y_RESTART_TEXT: i32 = 0x58;
@@ -4327,14 +4328,22 @@ fn push_game_over_continue_overlay(
         let elapsed = trace
             .continue_countdown_elapsed_frames
             .saturating_sub(CONTINUE_SCREEN_INITIAL_HOLD_FRAMES_LOC_D31E);
-        push_eol_text_loc_c5a2(commands, &eol.continues, eol, -0x78, 0x60, 8, elapsed);
+        push_eol_text_loc_c5a2(
+            commands,
+            &eol.continues,
+            eol,
+            -0x78,
+            0x60,
+            EOL_TEXT_WORKER_SLIDE_FRAMES_LOC_C5A2,
+            elapsed,
+        );
         push_eol_number_loc_c5a2(
             commands,
             eol,
             0x134,
             -8,
             0x80,
-            8,
+            EOL_TEXT_WORKER_SLIDE_FRAMES_LOC_C5A2,
             elapsed,
             u32::from(trace.number_continues),
         );
@@ -4344,8 +4353,25 @@ fn push_game_over_continue_overlay(
         // x=$FF98 with +8 velocity and OVER enters from x=$158 with -8.
         // If continues remain, the ROM branches to Continue_Screen instead of
         // showing GAME OVER, so native must not render a pre-continue panel.
-        push_eol_text_loc_c5a2(commands, &eol.game, eol, -0x68, 0x60, 8, elapsed);
-        push_eol_text_with_velocity_loc_c5a2(commands, &eol.over, eol, 0x158, -8, 0x80, 8, elapsed);
+        push_eol_text_loc_c5a2(
+            commands,
+            &eol.game,
+            eol,
+            -0x68,
+            0x60,
+            EOL_TEXT_WORKER_SLIDE_FRAMES_LOC_C5A2,
+            elapsed,
+        );
+        push_eol_text_with_velocity_loc_c5a2(
+            commands,
+            &eol.over,
+            eol,
+            0x158,
+            -8,
+            0x80,
+            EOL_TEXT_WORKER_SLIDE_FRAMES_LOC_C5A2,
+            elapsed,
+        );
     }
 }
 

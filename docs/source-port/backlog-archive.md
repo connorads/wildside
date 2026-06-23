@@ -10794,6 +10794,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 251 | [x] | P1 | level | 2026-06-04 playtest: skull-theme levels… | archived |
 | 253 | [-] | P3 | gameflow | Highwater Pass 2 flag-transition score/object-count gap is collapsed EOL worker modelling, not a current gameplay bug | Archive #253: Kid/game mode/level-complete match at onset; extra oracle objects are EOL/flag workers and only bonus timing differs. Reopen only if final EOL bonus total is wrong or a non-flag mid-level route reproduces it. |
 | 255 | [x] | P1 | menu/input | 2026-06-07 playtest: level select accepts… | archived |
+| 257 | [x] | P0 | gameflow/death | Continue countdown `CONTINUES` label/count now use ROM `$1C` `Object_EOL_Text`/`Object_EOL_Number` slide duration instead of freezing half off-screen. | Live one-life death→continue capture `.cache/debug/issue257/native-after-tight/issue257_one_life_continue_card_frame_01290.png` shows centred, legible `CONTINUES` + `3`; regression `continue_countdown_holds_before_slide_in_loc_d31e`; ASM `Continue_Screen`/`loc_D31E`/`loc_D350`. |
 | 261 | [x] | P1 | block/projectile | 2026-06-07 playtest: fourth-level growing blocks still shoot spikes | archived |
 | 267 | [x] | P1 | gameflow/eol | 2026-06-07 playtest: EOL flag only activates when jumped on, should activate on floor contact | 2026-06-10 verified fixed: Highwater floor-contact probe is authoritative-clean through the flag contact window once synthetic probe-camera drift is ignored; later frame-111 object-count drift is separate score/transition verifier debt. |
 | 278 | [x] | P1 | block/collision | 2026-06-09 playtest: breakable floor blocks (level 3, below the Heavy Man… | Fixed 2026-06-11: floor prize-block impacts now route through ASM `loc_1002E`/`sub_1007A`, keeping the struck cell `$6Fxx` solid during the wobble instead of erasing Kid's support. |
@@ -11132,6 +11133,19 @@ new row — verify it on the next playtest.
   The 2026-06-11 loc_D31E pre-countdown-hold candidate (for the earlier off-screen/late
   symptom) FAILED this validation. Needs a live death→continue card frame capture before any
   change. Not #303 (Start polling, closed) or #349 (post-death level-NAME card).
+
+- **#257 (render/continue-screen, `[ ]`→`[x]`) — FIXED 2026-06-23.** Reproduced with
+  a one-life Level 0x00 death→continue route: transcript enters `game_over` at frame 1203
+  and `continue_countdown` at frame 1213. Native-before frame 1290 still showed only a
+  partial/off-centre label and no visible count because `push_game_over_continue_overlay`
+  passed an invented 8-frame timer to `Object_EOL_Text`/`Object_EOL_Number`. ASM
+  `Continue_Screen` seeds `$46=$1C` for `Spr_EOL_Continues` and `$A=$1C` for the count;
+  the two-sided slide is faithful, but the worker must run for 28 frames. Native now uses
+  `EOL_TEXT_WORKER_SLIDE_FRAMES_LOC_C5A2=$1C` for continue and no-continue EOL rows.
+  After capture `.cache/debug/issue257/native-after-tight/issue257_one_life_continue_card_frame_01290.png`
+  shows centred, legible `CONTINUES` + `3`. Regression
+  `continue_countdown_holds_before_slide_in_loc_d31e` now asserts the final text x=$68 and
+  count digit x=$9C positions; existing continue/no-continue EOL sprite tests still pass.
 
 - **#339 (audio/gems-drone, `[?]`→`[ ]`)** — O10. Looping "washing"/rumble GEMS drone (Rock
   Tank drive $1F) still audible as soon as Under Skull Mountain 0x04 loads. The 2026-06-21

@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#257 continue-screen slide)
+
+- **#257 moved `[ ]`→`[x]`.** `Continue_Screen` text/count now use the ASM `$46/$A=$1C`
+  worker duration; native had capped the EOL text/number overlay at 8 frames, leaving
+  `CONTINUES` half off left and the count off the right.
+- Repro: `.cache/debug/issue257/one_life_continue.json`; transcript enters `game_over`
+  at frame 1203 and `continue_countdown` at frame 1213. Before native frame 1290 showed
+  the off-centre partial label; after capture
+  `.cache/debug/issue257/native-after-tight/issue257_one_life_continue_card_frame_01290.png`
+  shows centred, legible `CONTINUES` + `3`.
+- Regressions: `continue_countdown_holds_before_slide_in_loc_d31e` now asserts final
+  text/count x positions; existing continue/no-continue EOL sprite tests still pass.
+- Verification: focused continue/no-continue tests, visual before/after capture,
+  `cargo fmt --all --check`, `cargo check -q -p wildside-cli`, `git diff --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` (clippy/hooks/backlog,
+  TAS frontier slices, 6268 core tests + 9 CLI tests). Render-only CLI change, so
+  `verify-tas-full` was not required.
+- **Next:** `mise run project-status` shows no "ready to implement now" items; top open
+  playability risk is #344 and top visual risk is #210.
+
 ## 2026-06-23 handoff (#316 DP sprite compiler)
 
 - **Current #316 remains `[~]`, with the `DiamondPower_CompileSprites sub_3F798` row fixed as a code candidate.** Runtime now mirrors the frame-local DP sprite compiler state: `DiamondPower_Run loc_3F6B0` clears the buffer/count, direct DP sprite paths write size/link bytes immediately, and small Invulnerability/Haze sprites buffer through `loc_3FDAE` before `sub_3F798` links them and masks pattern bit 15.
