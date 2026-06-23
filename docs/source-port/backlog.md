@@ -81,8 +81,9 @@ and stop — never commit churn.
   murder-wall runtime at `loc_1AE2E -> loc_6E2 -> Load_InGame` while preserving the carried
   helmet. Cache-backed Red Stealth regression, `verify-slice-fast`, and `verify-tas-full`
   are green; human needs to re-test natural Hills entry.
-- **#257 closed `[x]`.** Continue-screen EOL text/count now use the ROM `$1C`
-  slide duration. Use `mise run project-status` for the next item.
+- **#344 moved to `[?]` fixed candidate.** Walking Dragon nonlethal stomp render now
+  holds ASM `stru_3CCE6` hurt frame during hibernate. Next queue: #355 playability,
+  #210 visual.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -115,7 +116,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 280 | [ ] | P2 | render/background | 2026-06-22 playtest reconfirm: background seam-bar near sky colour appears/disappears — BLUE on BLW2 0x01, GREEN on Hills 0x08 + 0x00/0x01 — clouds load in late and render half/quarter (Isle 0x07, island=Chunked bg). | Chunked-arm hard seam-clip, no Plane-B wrap (scene.rs:1823/1879) + invented frame_index auto-scroll (scene.rs:3404 vs camera-driven loc_3050A); broaden wrap to Chunked arm, add 0x07/0x3E coverage, do NOT retune CRAM colour. See archive #280. |
 | 323 | [ ] | P2 | render | Fixed candidate: Maniaxe axe traces as `ActiveProjectileKind::ManiaxeAxe`, renders/spins via ASM `stru_8B86`; any damage report needs separate collision repro. | Human validation: throw axe in Maniaxe/Iron Knight form and confirm spinning axe art. See archive #323. |
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
-| 344 | [ ] | P2 | enemy | 2026-06-20 playtest: walking-dragon stomp reads as die-then-revive; likely ASM-faithful survivor hurt/hibernate, needs visual/UX check. | Human distinguish survive-flash vs death+resurrect; verify hurt anim during hibernate. See archive #344. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
 | 252 | [ ] | P1 | render/enemy | 2026-06-22 playtest reconfirm (P2→P1): BLW2 0x01 / Highwater 0x02 RockTank (0x0A/0x0B) renders doubled/humanoid + low in floor; the shooting tank's bullets (TankBullet child) render as GREEN blobs. Render-only (enemy state oracle-faithful). | Walk BLW2/Highwater past a shooting RockTank: one solid grey tank (not doubled/humanoid, not half in floor) + bullets show ROM stru_3B526 art, not green rects (scene.rs:5923-5957; forest-borrow palette). Capture native vs oracle. See archive #252. |

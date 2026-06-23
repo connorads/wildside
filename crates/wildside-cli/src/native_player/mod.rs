@@ -17738,6 +17738,46 @@ mod tests {
     }
 
     #[test]
+    fn nonlethal_walking_dragon_stomp_uses_hurt_frame_loc_3cebe_stru_3cce6() {
+        let visuals = sample_level_visuals();
+        let walking_dragon_visuals = visuals
+            .enemies
+            .families
+            .get(&0x0D)
+            .expect("walking dragon visuals");
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.frame_index = 18;
+        let object = NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type: 0x0D },
+            x_pos: 0x0040_0000,
+            y_pos: 0x0010_0000,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(1),
+            damage_flash: true,
+            palette_variant: 0,
+            stationary: true,
+            contact_phase: None,
+            shared_walker_state: Some(10),
+            shared_walker_patrol_timer: Some(0x12C),
+            shared_walker_patrol_short_next: Some(true),
+            walk_phase: Some(0),
+            wait_timer: Some(0x12C),
+            debug_fields: std::collections::BTreeMap::new(),
+        };
+
+        let frame = sprites::select_enemy_frame(&trace, walking_dragon_visuals, &object);
+
+        assert_eq!(
+            frame.tile_sheet.tiles[0].pixels[0], 167,
+            "ASM Dragon.asm loc_3CEBE installs `stru_3CCE6`: a nonlethal stomp should hold `unk_C755E`, not continue the walk cycle or run the full loc_3CEFC death sequence"
+        );
+    }
+
+    #[test]
     fn live_walking_dragon_breath_phase_uses_parent_mouth_frame_loc_3cf90() {
         let visuals = sample_level_visuals();
         let walking_dragon_visuals = visuals

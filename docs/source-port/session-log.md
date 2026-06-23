@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#344 walking Dragon hurt render)
+
+- **#344 moved `[ ]`→`[?]`.** Nonlethal walking-Dragon stomps now render ASM
+  `Dragon.asm loc_3CEBE` / `stru_3CCE6`: the single `unk_C755E` hurt frame during
+  hibernate. Native previously free-ran the normal walk cycle while `damage_flash=true`.
+- HP-zero death rendering is unchanged and still uses `loc_3CEFC` / `stru_3CCEC`;
+  breath-phase rendering still uses `loc_3CF90` when not hurt.
+- Regressions: new `nonlethal_walking_dragon_stomp_uses_hurt_frame_loc_3cebe_stru_3cce6`
+  plus existing live walking, breath-phase, and zero-HP death renderer tests.
+- Verification: focused renderer tests, `cargo fmt --all --check`,
+  `cargo check -q -p wildside-cli`, `git diff --check`, `mise run backlog-lint`,
+  and `mise run verify-slice-fast` (clippy/hooks/backlog, TAS frontier slices,
+  6268 core tests + 9 CLI tests). Render-only CLI change, so `verify-tas-full`
+  was not required.
+- **Next:** `mise run project-status` shows no "ready to implement now" items; top open
+  playability risk is #355 and top visual risk is #210.
+
 ## 2026-06-23 handoff (#257 continue-screen slide)
 
 - **#257 moved `[ ]`→`[x]`.** `Continue_Screen` text/count now use the ASM `$46/$A=$1C`

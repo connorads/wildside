@@ -958,6 +958,13 @@ fn select_live_walking_dragon_frame<'a>(
     // sheet appends `loc_3CEFC` death/smoke frames after the live frames, so
     // live animation must follow the ROM sequence rather than cycling every
     // frame in the sheet.
+    if object.damage_flash && enemy_visuals.frames.len() > 6 {
+        // ASM Dragon.asm loc_3CEBE installs `stru_3CCE6` after a nonlethal
+        // `colid_hurt`/`colid_kidabove` hit and hibernates until that one-frame
+        // sequence finishes before restoring the saved walking script.
+        return Some(&enemy_visuals.frames[6]);
+    }
+
     if object.walk_phase == Some(1) && enemy_visuals.frames.len() > 10 {
         // ASM Dragon.asm loc_3CF90 starts `stru_3CCC2` on the parent while
         // the child breath object (`stru_3CCC8`) is active.
