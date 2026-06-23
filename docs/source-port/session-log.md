@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#323 Maniaxe axe render validation)
+
+- **#323 moved `[~]` -> `[?]`.** Current HEAD still traces Maniaxe axes as
+  `ActiveProjectileKind::ManiaxeAxe` and native-player renders the Maniaxe
+  `stru_8B86` axe frame bank rather than the green friendly projectile rect.
+- Evidence: focused trace, sprite, spin-cadence, and live-throw regressions all
+  pass. No code change was warranted; this was a stale open-lane row.
+- Verification: `cargo test -q -p wildside-core
+  maniaxe_axe_projectile_projects_to_trace_stru_8b86 -- --nocapture`; `cargo
+  test -q -p wildside-cli
+  maniaxe_axe_projectile_uses_stru_8b86_player_form_sprite -- --nocapture`;
+  `cargo test -q -p wildside-cli
+  maniaxe_axe_projectile_spins_through_stru_8b86_frames -- --nocapture`; `cargo
+  test -q -p wildside-cli live_maniaxe_throw_renders_spinning_stru_8b86_frames
+  -- --nocapture`.
+- NEXT: continue with `mise run project-status`; the top open row should now be
+  #347 unless a higher-priority ready item appears.
+
 ## 2026-06-23 handoff (#316 raw DP payload storage resolved)
 
 - **#316 moved `[~]` -> `[x]`.** The last helmets/DP audit debt is closed:
