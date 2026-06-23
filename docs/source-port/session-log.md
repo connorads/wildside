@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#210 fixed candidate)
+
+- **#210 moved `[~]` -> `[?]`.** Direct IntroSequence5 frame-2100 Start/title
+  return now matches oracle pixels for the previously red fade/title samples:
+  frames 2100..2120, 2160, 2161, 2250, 2278..2282, 2299..2302, and 2310.
+- Final residual root cause: frame 2160's 22px `TM` edge was an extra linked
+  `loc_1BB10` sprite at hardware `(x,y)=($018C,$0114)`; frame 2161 also needed
+  the direct-lineage `loc_1C7A0` SegaText boundary. Both now follow the
+  `Load_TitleScreen` first object pass / next-frame child-worker cadence.
+- Regression coverage: cache-backed `cold_intro_sequence_5_visible_start_carries_current_vdp_into_title_return`
+  checks the 2160/2161 sprite boundary; VDP unit tests cover direct SegaText and
+  Chameleon phase lineage.
+- Verification this slice: focused tests, fresh native/oracle captures,
+  `compare -metric AE` = 0 for frames 2160, 2161, 2250, and 2300,
+  `cargo clippy --workspace --all-targets -- -D warnings`,
+  `mise run verify-slice-fast`, and `mise run verify-tas-full` (exit 0; CRC
+  all 37,759 frames match, with the existing long-route state divergence report
+  starting at `transition_15_to_00_post`).
+
 ## 2026-06-23 handoff (#210 fade/Chameleon phase partial)
 
 - **#210 remains `[~]`.** Direct IntroSequence5 frame-2100 Start now matches

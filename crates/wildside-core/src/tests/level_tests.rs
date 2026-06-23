@@ -108,6 +108,16 @@ fn vdp_sprite_table_contains(
     (0..80).any(|entry_index| vdp_sprite_entry_words(vdp, entry_index) == expected)
 }
 
+fn vdp_sprite_table_contains_without_link(
+    vdp: &crate::vdp::VdpState,
+    expected: (u16, u8, u16, u16),
+) -> bool {
+    (0..80).any(|entry_index| {
+        let (y_pos, size, _link, pattern, x_pos) = vdp_sprite_entry_words(vdp, entry_index);
+        (y_pos, size, pattern, x_pos) == expected
+    })
+}
+
 fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
     runtime.killed_enemies.insert((0, 0));
     runtime.projectiles.push(EnemyProjectile {
@@ -7080,8 +7090,10 @@ mod chunk_02 {
         let mut frame_2113 = None;
         let mut frame_2119 = None;
         let mut frame_2120 = None;
+        let mut frame_2160 = None;
+        let mut frame_2161 = None;
 
-        for frame_index in 0..=2_120 {
+        for frame_index in 0..=2_161 {
             let input = if frame_index == 2_100 {
                 FrameInput {
                     start: true,
@@ -7107,6 +7119,10 @@ mod chunk_02 {
                 frame_2119 = runtime.vdp_state().cloned();
             } else if frame_index == 2_120 {
                 frame_2120 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_160 {
+                frame_2160 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_161 {
+                frame_2161 = runtime.vdp_state().cloned();
             }
         }
 
@@ -7144,6 +7160,25 @@ mod chunk_02 {
         assert!(
             black.vram.iter().all(|&byte| byte == 0) && black.cram.iter().all(|&byte| byte == 0),
             "ASM loc_1BA60 -> sub_1C246 -> loc_1C264 reaches the black hidden title shell after the short carried-VDP fade",
+        );
+
+        let first_visible_title =
+            frame_2160.expect("direct title return should rebuild visible title VDP");
+        assert!(
+            !vdp_sprite_table_contains_without_link(
+                &first_visible_title,
+                (0x0114, 0x04, 0x4780, 0x018C)
+            ),
+            "ASM Obj_TitleMenu allocates loc_1BB10 after the first direct IntroSequence5 title-return object pass; oracle frame 2160 has only the Kid title chunks",
+        );
+        let second_visible_title =
+            frame_2161.expect("direct title return should keep visible title VDP");
+        assert!(
+            vdp_sprite_table_contains_without_link(
+                &second_visible_title,
+                (0x0114, 0x04, 0x4780, 0x018C)
+            ),
+            "ASM loc_1BB10 should link the small title text sprite by oracle frame 2161",
         );
     }
 

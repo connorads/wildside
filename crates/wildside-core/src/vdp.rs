@@ -18,6 +18,7 @@ use crate::constants::{
     INTRO_FIFTH_SEGMENT_FRAMES, INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES,
     INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS, INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES,
     INTRO_SEQUENCE_6_START_SKIP_TITLE_VDP_READY_FRAMES, INTRO_SEQUENCE_6_TITLE_ATTRACT_LOCK_FRAMES,
+    TITLE_ATTRACT_LOCK_FRAMES,
 };
 
 const VRAM_SIZE: usize = 0x1_0000;
@@ -1512,12 +1513,20 @@ fn overlay_title_sega_text_worker_loc_1c7a0(
     vdp: &mut VdpState,
     elapsed: usize,
     intro_return_hidden_shell: bool,
+    direct_intro_sequence_5_title_return: bool,
 ) {
     // ASM loc_1B6AC hibernates 30 frames, loc_1B6CE reveals Chameleon for 40
     // frames, and loc_1B6DC spawns SegaText when its preserved counter reaches
     // `$1E`. The loc_1C7A0 worker then performs its own initial one-frame
     // hibernate before writing this zero-delay text in one pass.
-    let start_elapsed = if intro_return_hidden_shell {
+    let start_elapsed = if direct_intro_sequence_5_title_return {
+        // ASM loc_1BA60 -> sub_1C246 -> Load_TitleScreen reaches the direct
+        // IntroSequence5 title-return shell at the title-attract lock frame.
+        // The freshly allocated SegaText worker still spends loc_1C7A0's
+        // one-frame hibernate there, so oracle frame 2160 has no copyright
+        // stamp and frame 2161 has the full zero-delay string.
+        TITLE_ATTRACT_LOCK_FRAMES
+    } else if intro_return_hidden_shell {
         // ASM sub_1C246 -> Load_TitleScreen on the cold IntroSequence6
         // Start-skip path inherits the already-running hidden loc_1B6AC /
         // loc_1B6DC cadence; oracle frame 2700 has the visible title VDP and
@@ -2506,8 +2515,18 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
             // at y=$006F while trace-facing title readiness is still false.
             append_title_text_kid_sprite_loc_1b5e4_with_y(&mut sprite_entries, 0x006F);
         } else {
+            let direct_title_return_first_object_frame = lineage
+                .direct_intro_sequence_5_title_return
+                && title_elapsed_frames == TITLE_ATTRACT_LOCK_FRAMES;
             append_title_text_kid_sprite_loc_1b5e4(&mut sprite_entries, title_elapsed_frames);
-            append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
+            if !direct_title_return_first_object_frame {
+                // ASM Load_TitleScreen allocates Obj_TitleMenu before
+                // Obj_TitleTextKid, but Obj_TitleMenu must run once more before
+                // its loc_1BB10 child sprite appears. On the direct
+                // IntroSequence5 title-return route, oracle frame 2160 shows
+                // only the Kid title chunks; frame 2161 links loc_1BB10.
+                append_title_intro_text_sprite_loc_1bb10(&mut sprite_entries, title_elapsed_frames);
+            }
         }
         write_title_text_chameleon_anim_loc_1b71a(
             &mut vdp,
@@ -2522,6 +2541,7 @@ pub(crate) fn build_title_screen_vdp_with_character_frame_menu_title_objects_and
                 &mut vdp,
                 title_elapsed_frames,
                 lineage.intro_return_hidden_shell,
+                lineage.direct_intro_sequence_5_title_return,
             );
         }
     }
@@ -5276,6 +5296,52 @@ mod tests {
             vram_word(&visible, usize::from(copyright_write.vram_word_address)),
             0x67FD,
             "ASM sub_1C246 -> Load_TitleScreen on the cold IntroSequence6 Start-skip path inherits the hidden loc_1B6AC/loc_1B6DC cadence, so SegaText is visible with the frame-2700 title VDP"
+        );
+
+        let direct_hidden =
+            build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                &data,
+                0,
+                0,
+                None,
+                true,
+                TITLE_ATTRACT_LOCK_FRAMES,
+                TitleScreenVdpLineage {
+                    intro_return_hidden_shell: true,
+                    direct_intro_sequence_5_title_return: true,
+                    natural_intro_sequence_6_pre_ready_shell: false,
+                },
+            );
+        assert_eq!(
+            vram_word(
+                &direct_hidden,
+                usize::from(copyright_write.vram_word_address)
+            ),
+            0x20BC,
+            "ASM loc_1C7A0 still hibernates for the first direct IntroSequence5 title-return VDP frame",
+        );
+
+        let direct_visible =
+            build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                &data,
+                0,
+                0,
+                None,
+                true,
+                TITLE_ATTRACT_LOCK_FRAMES + 1,
+                TitleScreenVdpLineage {
+                    intro_return_hidden_shell: true,
+                    direct_intro_sequence_5_title_return: true,
+                    natural_intro_sequence_6_pre_ready_shell: false,
+                },
+            );
+        assert_eq!(
+            vram_word(
+                &direct_visible,
+                usize::from(copyright_write.vram_word_address)
+            ),
+            0x67FD,
+            "ASM loc_1BA60 -> sub_1C246 -> Load_TitleScreen direct return shows SegaText one frame after the visible title VDP appears",
         );
     }
 
