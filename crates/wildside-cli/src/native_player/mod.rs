@@ -4459,22 +4459,33 @@ mod tests {
         };
         let session_assets =
             load_native_session_assets(&manifest, 0x01).expect("Blue Lake Woods 2 session assets");
-        let mut runtime = NativeRuntime::new(manifest);
-        runtime.set_block_grid(session_assets.block_grid.clone());
-        runtime.enter_level_playtest(LevelId(0x01));
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        runtime.boot_to_level(LevelId(0x01));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x01));
         runtime.set_player_probe_position(1544, 383);
         runtime.set_camera_probe_position(1400, 240);
 
         let mut bullet_scene = None;
-        for _ in 0..90 {
+        for _ in 0..100 {
             let trace = runtime.step_frame(FrameInput::default());
-            if trace.active_projectile_details.iter().any(|projectile| {
-                projectile.kind == ActiveProjectileKind::TankBullet
-                    && projectile.x_velocity != 0
-                    && !projectile.friendly
-            }) {
+            if let Some(projectile_y_pos) = trace
+                .active_projectile_details
+                .iter()
+                .find(|projectile| {
+                    projectile.kind == ActiveProjectileKind::TankBullet
+                        && projectile.x_velocity != 0
+                        && !projectile.friendly
+                })
+                .map(|projectile| projectile.y_pos)
+            {
+                let mut render_trace = trace;
+                // ASM Tank_Shooting.asm loc_3B730 supplies the live projectile
+                // state. Shift only the render viewport so this remains a
+                // sprite-art assertion even when the public settled probe route
+                // activates a lower off-screen tank.
+                render_trace.camera_y_pos = projectile_y_pos.saturating_sub(120 << 16);
                 bullet_scene = Some(build_scene(
-                    &trace,
+                    &render_trace,
                     false,
                     Some(&session_assets.level_visuals),
                     runtime.block_grid(),
@@ -4485,22 +4496,68 @@ mod tests {
 
         let scene = bullet_scene
             .expect("ASM Tank_Shooting.asm loc_3C50E -> loc_3B730 should emit a live TankBullet");
+        let (bullet_command_index, bullet_x, bullet_y, bullet_tiles) = scene
+            .commands
+            .iter()
+            .enumerate()
+            .find_map(|(index, command)| match command {
+                DrawCommand::Sprite { x, y, tiles, .. }
+                    if tiles.len() == 2
+                        && matches!(tiles[0].tile.tile_index, 0x038 | 0x03A) =>
+                {
+                    Some((index, *x, *y, tiles))
+                }
+                _ => None,
+            })
+            .expect(
+                "ASM Tank_Shooting.asm `stru_3B526` should render live `$0B` RockTank bullets with ROM child sprite frames",
+            );
+
+        let sample_pixels = bullet_tiles
+            .iter()
+            .flat_map(|tile| {
+                let x0 = bullet_x + tile.offset_x;
+                let y0 = bullet_y + tile.offset_y;
+                (0..8).flat_map(move |dy| (0..8).map(move |dx| (x0 + dx, y0 + dy)))
+            })
+            .filter_map(|(x, y)| {
+                (x >= 0 && y >= 0 && x < FRAME_WIDTH as i32 && y < FRAME_HEIGHT as i32)
+                    .then_some((x as usize, y as usize))
+            })
+            .collect::<BTreeSet<_>>();
+        let bullet_samples = sample_scene_pixel_provenance(&scene, &sample_pixels);
+        let visible_bullet_pixels = bullet_samples
+            .into_iter()
+            .filter(|sample| {
+                sample.writes.iter().any(|write| {
+                    write.command_index == bullet_command_index
+                        && write.accepted
+                        && write.kind == "sprite_tile"
+                        && matches!(write.tile_index, Some(0x038..=0x03B))
+                        && write.rgb.is_some()
+                })
+            })
+            .collect::<Vec<_>>();
         assert!(
-            scene.commands.iter().any(|command| matches!(
-                command,
-                DrawCommand::Sprite { tiles, .. }
-                    if tiles
-                        .iter()
-                        .any(|tile| matches!(tile.tile.tile_index, 0x038 | 0x03A))
-            )),
-            "ASM Tank_Shooting.asm `stru_3B526` should render live `$0B` RockTank bullets with ROM child sprite frames"
+            !visible_bullet_pixels.is_empty(),
+            "ASM Tank_Shooting.asm `stru_3B526` bullet pixels should come from visible ROM sprite tiles, not a solid placeholder blob"
+        );
+        assert!(
+            visible_bullet_pixels.iter().all(|sample| {
+                sample.writes.iter().any(|write| {
+                    write.command_index == bullet_command_index
+                        && write.accepted
+                        && write.rgb.is_some_and(|rgb| rgb != [100, 255, 100])
+                })
+            }),
+            "hostile TankBullet pixels must not render with the friendly green projectile placeholder colour"
         );
         assert!(
             !scene.commands.iter().any(|command| matches!(
                 command,
                 DrawCommand::Rect {
-                    width: 4,
-                    height: 4,
+                    width: 8,
+                    height: 5,
                     colour,
                     ..
                 } if *colour == [255, 80, 40]

@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#252 RockTank bullet render)
+
+- **#252 moved to `[?]` fixed candidate.** The current renderer already covered
+  the RockTank body/turret doubled/humanoid path; the stale live TankBullet test
+  now exercises a public settled Level 1 route and waits for a real
+  `ActiveProjectileKind::TankBullet`.
+- The renderer regression recentres only the render viewport around that live
+  projectile, then samples visible ASM `Tank_Shooting.asm` `stru_3B526` sprite
+  pixels from ROM tiles `$038..=$03B`, rejecting both the orange fallback rect
+  and friendly green projectile colour.
+- Manual frame dumps for `--frame 38,10,05` and `--frame 3A,0F,05` show grey
+  RockTank bullet art in `.cache/debug/issue252-tank-bullet-*.png`.
+- **Next:** human playtest should walk BLW2/Highwater past shooting RockTanks
+  and confirm coherent grey body/turret plus grey bullet art; floor-sink/
+  foreground occlusion remains #259.
+
 ## 2026-06-23 handoff (#317 lava geyser disable path)
 
 - **#317 remains `[~]`.** Live lava geysers now honour the `unk_146B6`

@@ -33,8 +33,7 @@ and stop — never commit churn.
   lanes; full per-issue evidence is in the archive block "## 2026-06-22 playtest triage". NET:
   - **8 fix-candidates FAILED human validation; #339 has since been re-fixed and moved
     back to `[?]`. #257 has since been fixed and moved to `[x]`. Remaining failed rows
-    still open:** #271 stomp-on-RockTank hurts (P0, now route-needed), #252 tank
-    sprite doubled + green bullets (P1), #259 RockTank floor-sink (P1, 5th reconfirm —
+    still open:** #271 stomp-on-RockTank hurts (P0, now route-needed), #259 RockTank floor-sink (P1, 5th reconfirm —
     close `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #352 hidden
     jump-up block no anim (P1, RENDERER-only gap: scene.rs:5057 skips the HiddenReveal
     cell), #272 Cyclone transform voice (P1).
@@ -64,6 +63,7 @@ and stop — never commit churn.
   freshly seeded local tank. Native now mirrors ASM `Load_InGame loc_23629` `StopMusic`
   even when the BGM cue tracker is `None`: the clean 0x04 audio transcript changed from
   `Start(6)` to `StopMusicThenStart(6)`. Human real-device listen still required.
+- **#252 moved back to `[?]`:** live `stru_3B526` bullet pixels reject green/fallback colours; body/turret tests still cover doubled RockTanks; human BLW2/Highwater check remains.
 - **#345 moved to `[b]` route-blocked.** Direct Level 0x07 probes show the Lion present;
   after #348, Start reaches live mode and the target Lion is still observed. Keep the
   `large_pacer` audit smell, but do not patch without a clean live absence route.
@@ -118,7 +118,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 324 | [ ] | P1 | render/block | 2026-06-22 playtest reconfirm: BLW1 0x00 prize blocks STILL show tree/wood foreground through the wobble sprite's transparent slots — the 2026-06-18 terrain-suppression candidate (scene.rs:3795-3810) FAILED on the canonical forest route. | Oracle frame-diff a BLW1 0x00 prize block over tree decoration during the hit/wobble; no tree/wood pixels through it. Do NOT blind-revert the suppression `continue` guards — get an oracle forest frame first. See archive #324. |
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
-| 252 | [ ] | P1 | render/enemy | 2026-06-22 playtest reconfirm (P2→P1): BLW2 0x01 / Highwater 0x02 RockTank (0x0A/0x0B) renders doubled/humanoid + low in floor; the shooting tank's bullets (TankBullet child) render as GREEN blobs. Render-only (enemy state oracle-faithful). | Walk BLW2/Highwater past a shooting RockTank: one solid grey tank (not doubled/humanoid, not half in floor) + bullets show ROM stru_3B526 art, not green rects (scene.rs:5923-5957; forest-borrow palette). Capture native vs oracle. See archive #252. |
 | 259 | [ ] | P1 | enemy/render | 2026-06-22 reconfirm (5th human): specific RockTanks render half-sunk in floor — BLW2 0x01 (teleporter + flag tanks) and the first Highwater 0x02 tank; not all tanks. | ONE natural oracle BLW2 0x01 route at the named tanks + first Highwater tank; diff body/turret Y + occlusion vs oracle. Only-grass occludes → close [-]; else real residual. NOT direct-warp. See archive #259. |
 | 352 | [ ] | P1 | render/block | 2026-06-22 reconfirm (fix failed): hidden jump-up blocks (USM 0x04-0x06 / Highwater 0x02) still pop in/out with no fold anim — core landed but the renderer skips the revealed cell. | Headbutt a hidden block (USM 0x04-0x06 / Highwater 0x02); the 8-frame y-bob (loc_E2E2/E2F0) must animate. Wire HiddenReveal into scene.rs:5057 block-bounce draw loop (mirror #347). See archive #352. |
 | 272 | [ ] | P1 | audio | 2026-06-22 (transform-voice fix failed): picking up the Cyclone "spin form" helmet plays NO transform noise. Core mapping exists (id 0x32) but no Cyclone route was ever validated. Render half = #355. | Real-device/oracle: pick up a Cyclone helmet in normal play; transform SFX id 0x32 must be audible. Needs a state-aligned natural Cyclone-pickup route (none validated). See archive #272. |
