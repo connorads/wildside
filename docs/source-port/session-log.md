@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#353 route-blocked)
+
+- **#353 moved `[ ]` -> `[b]`.** Current USM 0x04-0x06 evidence does not reproduce
+  invisible spike-metal blocks.
+- Generated layouts contain zero `$F5` collision-7/block-type-5 cells; every USM
+  collision-7 hazard is plain `0x70xx` terrain. Representative native captures for
+  USM1, USM2, and USM3 all draw visible spike/lava/skull hazard art.
+- Aligned settled spawn native/oracle frame captures for USM2 and USM3 show no
+  missing-spike gap. Direct off-screen oracle camera probes are rejected because the ROM
+  camera follows after the one-time camera patch.
+- **Next:** keep #353 out of the open lane until a human supplies an exact route,
+  coordinate, or frame where Kid dies on a visually empty hazard.
+
 ## 2026-06-23 handoff (#318 movement audit closed)
 
 - **#318 moved `[~]` -> `[x]`.** The movement-fidelity audit now has no

@@ -11240,6 +11240,20 @@ new row — verify it on the next playtest.
   palette/transparency) — needs a USM capture-frames vs oracle. Lead: the shooter-block
   spike-tile $76 fallback handling (mod.rs:3982 "transparent spike tile, not a filled
   fallback square"). Becomes a permanent regression once found.
+  2026-06-23 follow-up: moved `[ ]` -> `[b]` exact-repro-needed after the current evidence
+  failed to reproduce an implementable render bug. Generated layouts for USM 0x04-0x06 contain
+  **zero** `$F5` spike-metal cells (`collision=7` + `block_type=5`); the only block-type-5
+  cells are `$E50B` solid metal, while every collision-7 hazard cell is plain `0x70xx` terrain
+  (USM1 448 cells, USM2 716, USM3 388). Native targeted captures show representative hazards
+  visibly rendered: USM1 `.cache/debug/issue353-usm04-native/issue353_usm04_spikes_frame_00000.png`
+  draws skull/lava hazard art; USM2 early/right probes draw white spikes, skull piles, and lava
+  (`issue353-usm05-early-native`, `issue353-usm05-right-native`); USM3 lower-row probe draws the
+  spike/lava floor (`issue353-usm06-low-native`). Aligned settled spawn native/oracle captures
+  for USM2/USM3 (`issue353-usm05-{native,oracle}` and `issue353-usm06-{native,oracle}` at frame
+  60) show no missing-spike gap; the direct off-screen oracle camera probes are not valid visual
+  evidence because ROM camera follow moves after the one-time probe camera write. Do not patch
+  block/foreground rendering from the stale diagnosis; require an exact live route/coordinate/frame
+  where Kid dies on a visually empty hazard before reopening for code.
 
 - **#345 (enemy/lifecycle, `[ ]`)** — O15 (extends mid-level vanish). Lion now entirely
   ABSENT after death+respawn on Isle of the Lion Lord 0x07. NOT a stale respawn-marker bug:

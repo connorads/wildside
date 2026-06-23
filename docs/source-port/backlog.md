@@ -39,7 +39,7 @@ and stop — never commit churn.
     #335 Hills instant-death has a new fixed candidate and waits in `backlog-awaiting-human.md`.
   - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
-  - **3 NEW rows opened:** #353 and #356 remain open; #355 has since moved to `[?]`.
+  - **3 NEW rows opened:** #356 remains open; #353 has moved to `[b]` exact-repro-needed, and #355 has since moved to `[?]`.
   - **3 open rows refreshed:** #336, #324, #280 (blue/green seam-bar + late/half clouds).
     #345 has since moved to `[b]` route-blocked after the settled probes did not reproduce
     the Lion absence.
@@ -118,5 +118,4 @@ For newly opened items, capture these facts in the investigation notes:
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
 | 259 | [~] | P1 | enemy/render | 2026-06-22 reconfirm (5th human): specific RockTanks render half-sunk in floor — BLW2 0x01 (teleporter + flag tanks) and the first Highwater 0x02 tank; not all tanks. | ONE natural oracle BLW2 0x01 route at the named tanks + first Highwater tank; diff body/turret Y + occlusion vs oracle. Only-grass occludes → close [-]; else real residual. NOT direct-warp. See archive #259. |
 | 272 | [ ] | P1 | audio | 2026-06-22 (transform-voice fix failed): picking up the Cyclone "spin form" helmet plays NO transform noise. Core mapping exists (id 0x32) but no Cyclone route was ever validated. Render half = #355. | Real-device/oracle: pick up a Cyclone helmet in normal play; transform SFX id 0x32 must be audible. Needs a state-aligned natural Cyclone-pickup route (none validated). See archive #272. |
-| 353 | [ ] | P1 | render/block | 2026-06-22 (NEW): USM spiked metal blocks render with NO screws/spikes — the spike art is missing so the kill hazard is INVISIBLE (player died on a visually-empty metal block). | capture-frames USM 0x04-0x06 at a spiked metal block vs oracle; native must draw the spikes. Collision still kills ($7000) while the foreground/Block_Mappings spike tile is absent. See archive #353. |
 | 356 | [ ] | P2 | render/background | 2026-06-22 (NEW): Skydragon Castle 0x1B sky-castle background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam) and #210 (demo/intro). | capture-frames --level 1B at scroll positions vs oracle; classify as Plane-A/B tile gaps vs Cloud/Tornado over-cull (#345/#289) vs faithful VDP 20-per-line sprite limit. See archive #356. |
