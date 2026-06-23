@@ -8891,6 +8891,40 @@ mod tests {
     }
 
     #[test]
+    fn build_scene_draws_hidden_reveal_worker_over_solid_placeholder_loc_e096() {
+        // ASM sub_DFB0 loc_E096 writes `$60` into Level_Layout, then
+        // loc_E2E2/loc_E2F0 bob the reveal object for eight frames before
+        // sub_11530 commits the final block word. The renderer must therefore
+        // draw a typed HiddenReveal worker even when the live cell has no
+        // block flag.
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.block_bounces = vec![(1, 0, 8, -2)];
+        trace.block_bounce_details = vec![BlockBounceTrace {
+            cell_x: 1,
+            cell_y: 0,
+            remaining: 8,
+            y_offset_px: -2,
+            kind: BlockBounceTraceKind::HiddenReveal,
+        }];
+        let data = vec![0u8; 20 * 14 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0x60, 0x0B));
+
+        let scene = build_ingame_scene(&trace, false, Some(&grid));
+
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, -2, 0x200).is_some(),
+            "ASM loc_E096/loc_E2E2 should render the hidden-block reveal object at the bobbed y-position while the cell is the `$60xx` placeholder"
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200).is_none(),
+            "ASM loc_E2E2 moves the reveal object before hibernating; native must not leave the block art snapped to the static cell origin"
+        );
+    }
+
+    #[test]
     fn erased_forest_block_renders_restored_loc_11542_skin() {
         let mut trace = sample_trace(GameMode::InGame);
         trace.camera_x_pos = 0;

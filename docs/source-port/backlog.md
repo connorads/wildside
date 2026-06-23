@@ -34,9 +34,7 @@ and stop — never commit churn.
   - **8 fix-candidates FAILED human validation; #339 has since been re-fixed and moved
     back to `[?]`. #257 has since been fixed and moved to `[x]`. Remaining failed rows
     still open:** #271 stomp-on-RockTank hurts (P0, now route-needed), #259 RockTank floor-sink (P1, 5th reconfirm —
-    close `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #352 hidden
-    jump-up block no anim (P1, RENDERER-only gap: scene.rs:5057 skips the HiddenReveal
-    cell), #272 Cyclone transform voice (P1).
+    close `[-]` or prove it on a natural L2 route, do not 6th-cycle `[?]`), #272 Cyclone transform voice (P1).
     #335 Hills instant-death has a new fixed candidate and waits in `backlog-awaiting-human.md`.
   - **2 human-CONFIRMED WORKING → promoted `[?]`→`[x]`:** #343 Maniaxe axe now kills dragons,
     #346 spike→spike-wall chain. (Rows moved to the archive resolved index; final close is yours.)
@@ -84,6 +82,7 @@ and stop — never commit churn.
   ASM `stru_3CCE6` hurt frame during hibernate.
 - **#355 moved to `[?]` fixed candidate.** Cyclone flight now renders ASM `sub_B270 loc_B2A0`
   `cyclone_spinning_1..3`; grounded Cyclone stays on the normal walk table. Audio remains #272.
+- **#352 moved to `[?]` fixed candidate.** Native-player draws ASM `sub_DFB0` HiddenReveal `$60xx` workers with the `loc_E2E2/loc_E2F0` bob.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -119,7 +118,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 347 | [ ] | P2 | render | 2026-06-20 playtest: shifting/push-up block snaps to new cell instead of showing ASM `loc_113F4` 8-frame/16px rise; renderer drops non-prize bounce sprite. | Draw kind=Shifting bounce sprite (E0EBE art) over 8 rise frames; flip enforcing test. See archive #347. |
 | 351 | [ ] | P2 | render | 2026-06-20 playtest: Whispering Woods Drip enemies (0x16) render wrong palette variant; native hardcodes one Drip palette. | Add per-level slot/palette-line variant selection; compare level $12 x~2264 vs oracle. See archive #351. |
 | 259 | [ ] | P1 | enemy/render | 2026-06-22 reconfirm (5th human): specific RockTanks render half-sunk in floor — BLW2 0x01 (teleporter + flag tanks) and the first Highwater 0x02 tank; not all tanks. | ONE natural oracle BLW2 0x01 route at the named tanks + first Highwater tank; diff body/turret Y + occlusion vs oracle. Only-grass occludes → close [-]; else real residual. NOT direct-warp. See archive #259. |
-| 352 | [ ] | P1 | render/block | 2026-06-22 reconfirm (fix failed): hidden jump-up blocks (USM 0x04-0x06 / Highwater 0x02) still pop in/out with no fold anim — core landed but the renderer skips the revealed cell. | Headbutt a hidden block (USM 0x04-0x06 / Highwater 0x02); the 8-frame y-bob (loc_E2E2/E2F0) must animate. Wire HiddenReveal into scene.rs:5057 block-bounce draw loop (mirror #347). See archive #352. |
 | 272 | [ ] | P1 | audio | 2026-06-22 (transform-voice fix failed): picking up the Cyclone "spin form" helmet plays NO transform noise. Core mapping exists (id 0x32) but no Cyclone route was ever validated. Render half = #355. | Real-device/oracle: pick up a Cyclone helmet in normal play; transform SFX id 0x32 must be audible. Needs a state-aligned natural Cyclone-pickup route (none validated). See archive #272. |
 | 353 | [ ] | P1 | render/block | 2026-06-22 (NEW): USM spiked metal blocks render with NO screws/spikes — the spike art is missing so the kill hazard is INVISIBLE (player died on a visually-empty metal block). | capture-frames USM 0x04-0x06 at a spiked metal block vs oracle; native must draw the spikes. Collision still kills ($7000) while the foreground/Block_Mappings spike tile is absent. See archive #353. |
 | 356 | [ ] | P2 | render/background | 2026-06-22 (NEW): Skydragon Castle 0x1B sky-castle background pieces/sprites occasionally drop out in live play. Distinct from #280 (colour-seam) and #210 (demo/intro). | capture-frames --level 1B at scroll positions vs oracle; classify as Plane-A/B tile gaps vs Cloud/Tornado over-cull (#345/#289) vs faithful VDP 20-per-line sprite limit. See archive #356. |

@@ -5283,7 +5283,8 @@ pub(super) fn push_block_grid_overrides(
                 .map(|(_, _, remaining, y)| (*remaining, i32::from(*y)));
             let bounce_kind = block_bounce_kind_for_trace(trace, col, row);
             let is_prize_bounce = bounce_kind == Some(BlockBounceTraceKind::Prize);
-            if !cell.has_block && !is_prize_bounce {
+            let is_hidden_reveal_bounce = bounce_kind == Some(BlockBounceTraceKind::HiddenReveal);
+            if !cell.has_block && !is_prize_bounce && !is_hidden_reveal_bounce {
                 continue;
             }
             if !cell.has_block && bounce_y_offset.is_none() {
@@ -5307,6 +5308,13 @@ pub(super) fn push_block_grid_overrides(
                 skin,
                 Some(if cell.has_block {
                     cell.block_type as u8
+                } else if is_hidden_reveal_bounce {
+                    // ASM sub_DFB0 loc_E096 (kid.asm:17413) writes only the
+                    // `$60` solid-placeholder byte while loc_E2E2/loc_E2F0
+                    // bob the reveal object; block type is not represented
+                    // in the temporary cell and native block quads are keyed
+                    // by the preserved skin byte.
+                    wildside_core::terrain::BlockType::Smash as u8
                 } else {
                     // ASM sub_1007A writes `$6Fxx` while the prize-block
                     // wobble object remains live. The block flag is clear,

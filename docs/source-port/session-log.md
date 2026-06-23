@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#352 HiddenReveal render worker)
+
+- **#352 moved to `[?]` fixed candidate.** Native-player now draws typed
+  HiddenReveal block-bounce workers during ASM `sub_DFB0 loc_E096`'s
+  temporary `$60xx` no-block phase.
+- The renderer resolves the preserved skin byte as block art and applies the
+  traced `loc_E2E2/loc_E2F0` y-bob, so hidden jump-up blocks render a reveal
+  object instead of snapping at the static cell origin.
+- The separate #347 Shifting rise path remains unchanged; its row still needs
+  the oracle mid-rise capture called out in archive #347 before rendering a
+  no-block Shifting worker.
+- Regression: `build_scene_draws_hidden_reveal_worker_over_solid_placeholder_loc_e096`,
+  with neighbouring guards
+  `non_prize_cleared_block_bounce_keeps_foreground_terrain_visible` and
+  `build_scene_draws_prize_block_wobble_sprite_even_after_deleted_cell_write`
+  still green.
+- Verification: focused CLI tests, `cargo fmt --all --check`, `backlog-lint`,
+  and `verify-slice-fast`.
+- **Next:** continue with `mise run project-status`; remaining open b748 rows
+  are #259/#272 or blocked/human-validation items, not #352.
+
 ## 2026-06-23 handoff (#317 storm loc_30110 scroll gate)
 
 - **#317 remains `[~]`.** Native now models ASM
