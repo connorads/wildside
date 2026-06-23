@@ -23022,8 +23022,7 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
-            startup_delay_frames: 0,
-            first_eruption_pending: true,
+            first_eruption_pending: false,
             sound_suppressed: false,
             phase: 0,
             timer: 0, // ready to erupt immediately
@@ -23032,7 +23031,7 @@ mod chunk_05 {
 
         let slice = airborne_slice();
 
-        // Phase 0 → phase 1 (erupt)
+        // Phase 0 → phase 1 (steady repeat eruption)
         runtime.step_lava_geysers(&slice);
         assert_eq!(runtime.weather.lava_geysers[0].phase, 1);
 
@@ -23059,13 +23058,17 @@ mod chunk_05 {
             "should transition to collapse phase"
         );
 
-        // ASM loc_1498C: collapse clears one 16px sprite row per tick.
+        // ASM loc_1498C: collapse clears the final 16px sprite row, then
+        // branches straight back to the loc_14788 startup script.
         runtime.step_lava_geysers(&slice);
         assert_eq!(
-            runtime.weather.lava_geysers[0].phase, 0,
-            "should return to dormant"
+            runtime.weather.lava_geysers[0].phase, LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+            "should return to the startup script"
         );
-        assert_eq!(runtime.weather.lava_geysers[0].current_height, 0);
+        assert_eq!(
+            runtime.weather.lava_geysers[0].current_height,
+            LAVA_GEYSER_ROW_HEIGHT_PX
+        );
     }
 
     // --- Murder wall kill detection ---
@@ -28714,7 +28717,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
-            startup_delay_frames: 0,
             first_eruption_pending: false,
             sound_suppressed: false,
             phase: 1,
@@ -28744,7 +28746,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
-            startup_delay_frames: 0,
             first_eruption_pending: false,
             sound_suppressed: false,
             phase: 1,
@@ -28774,7 +28775,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
-            startup_delay_frames: 0,
             first_eruption_pending: false,
             sound_suppressed: false,
             phase: 1,
@@ -28803,7 +28803,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
-            startup_delay_frames: 0,
             first_eruption_pending: false,
             sound_suppressed: false,
             phase: 1,
@@ -28824,16 +28823,16 @@ mod chunk_05 {
     }
 
     #[test]
-    fn lava_geyser_dormant_timer_resets_after_collapse() {
-        // ASM loc_1498C loops back through loc_14788/loc_14772, reusing this
-        // geyser's encoded-height startup hibernate instead of a global delay.
+    fn lava_geyser_collapse_reenters_startup_script_loc_14788() {
+        // ASM loc_1498C clears `$4D(a5)` and branches straight to loc_14788
+        // after the final collapse row; it does not re-run the low-nibble
+        // startup hibernate at loc_14772.
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 1;
         runtime.weather.lava_geysers.push(LavaGeyser {
             x_px: 100,
             y_px: 200,
             height_px: 16,
-            startup_delay_frames: 30,
             first_eruption_pending: false,
             sound_suppressed: false,
             phase: 3,
@@ -28845,12 +28844,15 @@ mod chunk_05 {
         runtime.step_lava_geysers(&slice);
 
         let g = &runtime.weather.lava_geysers[0];
-        assert_eq!(g.phase, 0, "should return to dormant");
         assert_eq!(
-            g.timer, 30,
-            "ASM loc_1498C should re-arm the per-geyser loc_14772 startup hibernate"
+            g.phase, LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+            "ASM loc_1498C should re-enter the loc_14788 startup script"
         );
-        assert_eq!(g.current_height, 0);
+        assert_eq!(
+            g.timer, LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6,
+            "ASM loc_14788 should restart the five-entry `unk_146B6` script, not the per-geyser loc_14772 hibernate"
+        );
+        assert_eq!(g.current_height, LAVA_GEYSER_ROW_HEIGHT_PX);
     }
 
     #[test]
@@ -28862,7 +28864,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 40,
-            startup_delay_frames: 0,
             first_eruption_pending: true,
             sound_suppressed: false,
             phase: 0,
@@ -29116,7 +29117,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
-            startup_delay_frames: 0,
             first_eruption_pending: true,
             sound_suppressed: false,
             phase: 0,
@@ -29154,7 +29154,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
-            startup_delay_frames: 0,
             first_eruption_pending: true,
             sound_suppressed: false,
             phase: 0,
@@ -29185,7 +29184,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
-            startup_delay_frames: 0,
             first_eruption_pending: true,
             sound_suppressed: false,
             phase: 0,
@@ -29211,7 +29209,15 @@ mod chunk_05 {
             !geyser.first_eruption_pending,
             "native should leave the first-eruption path once loc_14772 falls through to loc_14788"
         );
-        assert_eq!(geyser.phase, 1);
+        assert_eq!(
+            geyser.phase, LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+            "ASM loc_14788 should enter the five-entry `unk_146B6` startup script before the `$FFFE` disable"
+        );
+        assert_eq!(
+            geyser.timer, LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6,
+            "ASM `unk_146B6` has five visible one-row startup entries before the `$FFFE` sentinel"
+        );
+        assert_eq!(geyser.current_height, LAVA_GEYSER_ROW_HEIGHT_PX);
     }
 
     #[test]
@@ -29222,7 +29228,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
-            startup_delay_frames: 0,
             first_eruption_pending: true,
             sound_suppressed: true,
             phase: 0,
@@ -29239,7 +29244,8 @@ mod chunk_05 {
             "ASM loc_14772 should skip `j_PlaySound` when Make_SpriteFromGfxObject leaves `$19(a3)` non-zero"
         );
         assert!(!geyser.first_eruption_pending);
-        assert_eq!(geyser.phase, 1);
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788);
+        assert_eq!(geyser.current_height, LAVA_GEYSER_ROW_HEIGHT_PX);
     }
 
     #[test]
@@ -29250,7 +29256,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
-            startup_delay_frames: 0,
             first_eruption_pending: false,
             sound_suppressed: false,
             phase: 0,
@@ -29270,6 +29275,67 @@ mod chunk_05 {
     }
 
     #[test]
+    fn step_lava_geysers_startup_script_hits_fffe_disable_loc_1483a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            first_eruption_pending: false,
+            sound_suppressed: true,
+            phase: LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+            timer: 1,
+            current_height: LAVA_GEYSER_ROW_HEIGHT_PX,
+        });
+
+        let slice = airborne_slice();
+        runtime.step_lava_geysers(&slice);
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::LavaGeyser],
+            "ASM loc_1483A uses `j_PlaySound2` for `sfx_Lava_Geyser` when the `$FFFE` startup-script sentinel is reached, independent of `$19(a3)` clipping"
+        );
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_DISABLED_LOC_1483A);
+        assert_eq!(
+            geyser.timer, 0x003C,
+            "ASM loc_1483A should hibernate for `$3C` frames after the `$FFFE` sentinel"
+        );
+        assert_eq!(geyser.current_height, 0);
+    }
+
+    #[test]
+    fn step_lava_geysers_disabled_phase_resumes_repeat_loop_loc_1478e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 16,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_DISABLED_LOC_1483A,
+            timer: 1,
+            current_height: 0,
+        });
+
+        let slice = airborne_slice();
+        runtime.step_lava_geysers(&slice);
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::LavaGeyser],
+            "ASM loc_1483A resumes at loc_1478E, so the visible repeat sound gate runs before the steady `unk_146A0` rise path"
+        );
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_RISING_LOC_1484E);
+        assert_eq!(geyser.timer, LAVA_GEYSER_RISE_FRAMES_PER_ROW);
+        assert_eq!(geyser.current_height, 0);
+    }
+
+    #[test]
     fn step_lava_geysers_rotates_live_palette_every_five_frames_loc_14b2a() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.weather.weather_type = 1;
@@ -29277,7 +29343,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 16,
-            startup_delay_frames: 0,
             first_eruption_pending: true,
             sound_suppressed: false,
             phase: 0,
@@ -29322,7 +29387,6 @@ mod chunk_05 {
             x_px: 100,
             y_px: 200,
             height_px: 32,
-            startup_delay_frames: 0,
             first_eruption_pending: false,
             sound_suppressed: false,
             phase: 3,
@@ -30380,7 +30444,6 @@ mod chunk_05 {
             x_px: 0,
             y_px: 0,
             height_px: 0,
-            startup_delay_frames: 0,
             first_eruption_pending: true,
             sound_suppressed: false,
             phase: 0,

@@ -2645,6 +2645,23 @@ fn advance_lava_fireball(fireball: &mut LavaFireball) {
     }
 }
 
+#[allow(non_snake_case)]
+fn start_lava_geyser_startup_script_loc_14788(geyser: &mut LavaGeyser) {
+    // ASM loc_14788/unk_146B6: the startup path emits five one-row entries
+    // before `$FFFE` falls into loc_1483A.
+    geyser.phase = LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788;
+    geyser.timer = LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6;
+    geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
+}
+
+#[allow(non_snake_case)]
+fn start_lava_geyser_rise_loc_1484E(geyser: &mut LavaGeyser) {
+    let reset = lava_geyser_rise_reset_loc_1484E();
+    geyser.phase = LAVA_GEYSER_PHASE_RISING_LOC_1484E;
+    geyser.timer = reset.frames_per_sprite_row;
+    geyser.current_height = reset.sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
+}
+
 impl NativeRuntime {
     /// Advance the murder wall one frame: accelerate then move.
     ///
@@ -3045,10 +3062,9 @@ impl NativeRuntime {
                 x_px: geyser.x_px,
                 y_px: geyser.y_px,
                 height_px: geyser.height_px,
-                startup_delay_frames: geyser.startup_delay_frames,
                 first_eruption_pending: true,
                 sound_suppressed: false,
-                phase: 0,
+                phase: LAVA_GEYSER_PHASE_DORMANT_LOC_14772,
                 timer: geyser.startup_delay_frames,
                 current_height: 0,
             });
@@ -3090,27 +3106,25 @@ impl NativeRuntime {
 
         for geyser in &mut self.weather.lava_geysers {
             match geyser.phase {
-                0 => {
-                    // Waiting/dormant
+                LAVA_GEYSER_PHASE_DORMANT_LOC_14772 => {
+                    // ASM loc_14772: initial per-geyser hibernate before the
+                    // first startup script, reused by native for dormant loops.
                     if geyser.timer > 0 {
                         geyser.timer -= 1;
-                    } else {
-                        let should_play_sound = if geyser.first_eruption_pending {
-                            geyser.first_eruption_pending = false;
-                            lava_geyser_start_sound_loc_14772(geyser.sound_suppressed).is_some()
-                        } else {
-                            lava_geyser_repeat_sound_loc_1478E(geyser.sound_suppressed).is_some()
-                        };
-                        if should_play_sound {
+                    } else if geyser.first_eruption_pending {
+                        geyser.first_eruption_pending = false;
+                        if lava_geyser_start_sound_loc_14772(geyser.sound_suppressed).is_some() {
                             lava_geyser_sound_starts += 1;
                         }
-                        let reset = lava_geyser_rise_reset_loc_1484E();
-                        geyser.phase = 1;
-                        geyser.timer = reset.frames_per_sprite_row;
-                        geyser.current_height = reset.sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
+                        start_lava_geyser_startup_script_loc_14788(geyser);
+                    } else {
+                        if lava_geyser_repeat_sound_loc_1478E(geyser.sound_suppressed).is_some() {
+                            lava_geyser_sound_starts += 1;
+                        }
+                        start_lava_geyser_rise_loc_1484E(geyser);
                     }
                 }
-                1 => {
+                LAVA_GEYSER_PHASE_RISING_LOC_1484E => {
                     // ASM loc_1484E/loc_14940: the geyser rises in 16px
                     // sprite rows, not a smooth pixel ramp, and `$48(a5)=2`
                     // paces each new row.
@@ -3130,7 +3144,7 @@ impl NativeRuntime {
                                 hold.frames_per_sprite,
                                 LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
                             );
-                            geyser.phase = 2;
+                            geyser.phase = LAVA_GEYSER_PHASE_HOLDING_LOC_1496C;
                             geyser.timer = hold.next_hold_frames
                                 * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
                                 + LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
@@ -3139,34 +3153,61 @@ impl NativeRuntime {
                         }
                     }
                 }
-                2 => {
+                LAVA_GEYSER_PHASE_HOLDING_LOC_1496C => {
                     // ASM loc_1496C: the `$1E` hold counter advances once per
                     // 6-frame top-sprite cycle.
                     if geyser.timer > 1 {
                         geyser.timer -= 1;
                     } else {
-                        geyser.phase = 3;
+                        geyser.phase = LAVA_GEYSER_PHASE_COLLAPSING_LOC_1498C;
                         geyser.timer = 0;
                     }
                 }
-                3 => {
+                LAVA_GEYSER_PHASE_COLLAPSING_LOC_1498C => {
                     // ASM loc_1498C: collapse subtracts one sprite row from
-                    // `d3` per tick, then restarts the loc_14788 startup loop
-                    // when the final row clears.
+                    // `d3` per tick, then branches straight back to the
+                    // loc_14788 startup-script loop when the final row clears.
                     if geyser.current_height == 0 {
-                        geyser.phase = 0;
-                        geyser.timer = geyser.startup_delay_frames;
+                        start_lava_geyser_startup_script_loc_14788(geyser);
                         continue;
                     }
                     let row_index = geyser.current_height / LAVA_GEYSER_ROW_HEIGHT_PX;
                     let step = lava_geyser_collapse_step_loc_1498C(row_index);
                     if step.restart_startup_script {
-                        geyser.current_height = 0;
-                        geyser.phase = 0;
-                        geyser.timer = geyser.startup_delay_frames;
+                        start_lava_geyser_startup_script_loc_14788(geyser);
                     } else {
                         geyser.current_height =
                             step.next_sprite_row_index * LAVA_GEYSER_ROW_HEIGHT_PX;
+                    }
+                }
+                LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788 => {
+                    // ASM loc_147BA over `unk_146B6`: each normal entry emits
+                    // one row, hibernates once through loc_1480C, then advances
+                    // to the next word. After five entries, `$FFFE` branches to
+                    // loc_1483A.
+                    if geyser.timer > 1 {
+                        geyser.timer -= 1;
+                        geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
+                    } else {
+                        let disable = lava_geyser_disable_step_loc_1483A();
+                        debug_assert!(disable.resumes_at_repeat_loop);
+                        lava_geyser_sound_starts += 1;
+                        geyser.phase = LAVA_GEYSER_PHASE_DISABLED_LOC_1483A;
+                        geyser.timer = disable.disabled_frames;
+                        geyser.current_height = 0;
+                    }
+                }
+                LAVA_GEYSER_PHASE_DISABLED_LOC_1483A => {
+                    // ASM loc_1483A: after `PlaySound2`, `Hibernate_Object`
+                    // waits `$3C` frames before falling through to loc_1478E.
+                    geyser.current_height = 0;
+                    if geyser.timer > 1 {
+                        geyser.timer -= 1;
+                    } else {
+                        if lava_geyser_repeat_sound_loc_1478E(geyser.sound_suppressed).is_some() {
+                            lava_geyser_sound_starts += 1;
+                        }
+                        start_lava_geyser_rise_loc_1484E(geyser);
                     }
                 }
                 _ => {}

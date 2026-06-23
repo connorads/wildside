@@ -668,6 +668,13 @@ pub(crate) const LAVA_GEYSER_ROW_HEIGHT_PX: u16 = 16;
 pub(crate) const LAVA_GEYSER_RISE_FRAMES_PER_ROW: u16 = 2;
 pub(crate) const LAVA_GEYSER_HOLD_CYCLES: u16 = 30;
 pub(crate) const LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE: u16 = 6;
+pub(crate) const LAVA_GEYSER_PHASE_DORMANT_LOC_14772: u8 = 0;
+pub(crate) const LAVA_GEYSER_PHASE_RISING_LOC_1484E: u8 = 1;
+pub(crate) const LAVA_GEYSER_PHASE_HOLDING_LOC_1496C: u8 = 2;
+pub(crate) const LAVA_GEYSER_PHASE_COLLAPSING_LOC_1498C: u8 = 3;
+pub(crate) const LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788: u8 = 4;
+pub(crate) const LAVA_GEYSER_PHASE_DISABLED_LOC_1483A: u8 = 5;
+pub(crate) const LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6: u16 = 5;
 
 // === Ending sequence ===
 

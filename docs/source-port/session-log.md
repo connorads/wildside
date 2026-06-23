@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (#317 lava geyser disable path)
+
+- **#317 remains `[~]`.** Live lava geysers now honour the `unk_146B6`
+  startup path through the `$FFFE -> loc_1483A` disable coroutine.
+- `step_lava_geysers` emits five startup-script frames, queues the unconditional
+  `PlaySound2` geyser sound at `loc_1483A`, hibernates `$3C` frames, then
+  resumes through the visible `loc_1478E` repeat sound gate into the existing
+  `loc_1484E` rise path; collapse restarts now follow `loc_1498C -> loc_14788`.
+- Regressions: `step_lava_geysers_startup_script_hits_fffe_disable_loc_1483a`,
+  `step_lava_geysers_disabled_phase_resumes_repeat_loop_loc_1478e`, plus the
+  lava-geyser filter.
+- **Next:** keep #317 open for full geyser script-walk/template-row output,
+  storm pattern/shared-art renderer consumption, and the shared typed VRAM
+  backend.
+
 ## 2026-06-23 handoff (#317 Unknown foreground plane render)
 
 - **#317 remains `[~]`.** Native-player now consumes weather-4 Unknown

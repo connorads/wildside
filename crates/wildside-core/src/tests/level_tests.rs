@@ -217,7 +217,6 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
             x_px: 32,
             y_px: 48,
             height_px: 64,
-            startup_delay_frames: 0,
             first_eruption_pending: false,
             sound_suppressed: false,
             phase: 1,
