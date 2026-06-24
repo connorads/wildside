@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Emo Rock mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/emo_rock.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `73 mutants tested in 29m: 4 missed,
+  58 caught, 11 unviable`. Survivors clustered in live-step edge coverage:
+  settled zero-wait disappear (`loc_362B6` -> `loc_36320`), partial hover
+  Y tracking (`loc_3621A`), integer-pixel floor probe (`loc_36274`), and
+  floor snap back to FP16.16 (`loc_362A4`).
+- Native behaviour is unchanged. Added focused regressions for the surviving
+  wait, hover, floor-probe, and snap edges, using a one-cell floor fixture so
+  the floor probe's `x_pos >> 16` conversion is observable.
+- Verification: focused `emo_rock` tests pass; final rerun
+  `.cache/mutants/emo-rock-final` reports
+  `73 mutants tested in 29m: 62 caught, 11 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Scorpion mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

@@ -537,6 +537,90 @@ fn step_emo_rock_berzerker_airborne(enemy: &mut ActiveEnemy) {
 mod tests {
     use super::*;
 
+    fn emo_rock_test_enemy(x_pos: u32, y_pos: u32, hit_points: u8) -> ActiveEnemy {
+        ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            enemy_level: 0,
+            family: EnemyFamily::EmoRock,
+            x_pos,
+            y_pos,
+            x_velocity: 0,
+            y_velocity: 0,
+            target_x_velocity: 0,
+            target_y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points,
+            death_animation_active: false,
+            grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer: 0,
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            drips_attached: false,
+            drips_surface_table_index: 0,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
+            boss_movement_delay_counter: 0,
+            boss_movement_script_index: 0,
+            heady_metal_palette_phase_counter: 0,
+            heady_metal_palette_word_5e: 0x0200,
+            scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
+            flight_double_acceleration: false,
+            flight_double_terminal_speed: false,
+            walk_speed_override: 0,
+            crab_frozen: false,
+            crab_berzerker_knockback: false,
+            shared_walker_state: spawn_shared_walker_state(EnemyFamily::EmoRock),
+            shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(EnemyFamily::EmoRock),
+            shared_walker_turnaround_counter: 0,
+            shared_walker_right_turn_extra_step_consumed: false,
+            shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
+                EnemyFamily::EmoRock,
+            ),
+            shared_walker_debug_branch: None,
+            shared_walker_dx_to_kid_px: None,
+            shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        }
+    }
+
+    fn grid_with_solid_cell(
+        width: u16,
+        height: u16,
+        solid_col: u16,
+        solid_row: u16,
+    ) -> terrain::BlockGrid {
+        let mut data = vec![0u8; usize::from(width) * usize::from(height) * 2];
+        let offset = (usize::from(solid_row) * usize::from(width) + usize::from(solid_col)) * 2;
+        data[offset] = 0x60;
+        data[offset + 1] = 0x01;
+        terrain::BlockGrid::from_level_layout(&data, width, height)
+    }
+
     #[test]
     fn emo_rock_wait_countdown_loc_36212_loops_until_subq_reaches_zero() {
         assert_eq!(
@@ -815,6 +899,91 @@ mod tests {
                 deletes_current_object: true,
             },
             "ASM Emo_Rock.asm loc_3639A deletes directly when bit 7 is set and bit 6 is clear"
+        );
+    }
+
+    #[test]
+    fn step_emo_rock_settled_zero_wait_enters_disappear_loc_362b6_36320() {
+        let mut enemy = emo_rock_test_enemy(0x0064_0000, 0x00E0_0000, 1);
+        enemy.on_ground = true;
+        enemy.wait_timer = 0;
+        let mut sound_effects = Vec::new();
+
+        step_emo_rock_with_rng(
+            &mut enemy,
+            None,
+            None,
+            None,
+            &mut RomRandomState::default(),
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            enemy.grounded_frames, EMO_ROCK_DISAPPEAR_ANIMATION_FRAMES_LOC_36320,
+            "ASM Emo_Rock.asm loc_362B6 falls through immediately when the settled wait word is already zero"
+        );
+        assert_eq!(enemy.wait_timer, 0);
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::EmoRockDisappears],
+            "ASM Emo_Rock.asm loc_36320 plays the disappear sound before hibernating on stru_36456"
+        );
+    }
+
+    #[test]
+    fn step_emo_rock_hover_partial_y_update_uses_fp_height_loc_3621a() {
+        let mut enemy = emo_rock_test_enemy(0x0040_0000, 0x0010_0000, 2);
+        enemy.wait_timer = 2;
+
+        step_emo_rock_with_rng(
+            &mut enemy,
+            None,
+            None,
+            Some(0x00C8_0000),
+            &mut RomRandomState::default(),
+            None,
+        );
+
+        assert_eq!(
+            enemy.x_pos, 0x0040_0000,
+            "ASM Emo_Rock.asm loc_3621A only copies Kid X when the caller has a player X sample"
+        );
+        assert_eq!(
+            enemy.y_pos, 0x008C_0000,
+            "ASM Emo_Rock.asm loc_3621A stores Kid Y minus the level-1 `$3C` hover height as FP16.16"
+        );
+        assert_eq!(enemy.wait_timer, 1);
+    }
+
+    #[test]
+    fn step_emo_rock_drop_floor_probe_and_snap_use_fp_pixels_loc_36274_362a4() {
+        let grid = grid_with_solid_cell(8, 5, 2, 3);
+        let mut enemy = emo_rock_test_enemy(0x0020_0000, 0x002F_C000, 1);
+        enemy.wait_timer = 0;
+
+        step_emo_rock_with_rng(
+            &mut enemy,
+            Some(&grid),
+            Some(0x0030_0000),
+            None,
+            &mut RomRandomState::default(),
+            None,
+        );
+
+        assert!(enemy.on_ground);
+        assert_eq!(
+            enemy.y_pos, 0x0030_0000,
+            "ASM Emo_Rock.asm loc_36274 probes the integer Y pixel, then loc_362A4 snaps the floor pixel back to FP16.16"
+        );
+        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(
+            enemy.wait_timer,
+            EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Emo_Rock.asm loc_36274 sets x_direction when Kid is equal to or right of the rock"
         );
     }
 }

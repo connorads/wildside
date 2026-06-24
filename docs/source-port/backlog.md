@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **No ready/open agent rows remain.** Proactive fallback: Archer, Big Hopping Skull, and Scorpion mutation shards are clean on current HEAD. Latest Scorpion pass pins `loc_3DD7E`, `loc_3DDA8`, `loc_3DDC8`, `loc_3DDEE`, and `stru_3DB8E` edges.
+- **No ready/open agent rows remain.** Proactive mutation shards clean: Archer, Big Hopping Skull, Scorpion, Emo Rock (see session-log).
 - **#280 moved to `[b]` route-needed.** Fresh BLW2/Hills/Bloody Swamp `$3E` probes go
   state-red; old `frame_index` diagnosis is stale. Do not patch without a clean route.
 - **#317 moved to `[b]`:** Island shore, storm, lava geyser, and weather-4 Unknown concrete slices are fixed/covered; the only remaining weather debt is a shared typed VRAM backend, which is a dedicated renderer-cache architecture session rather than a narrow unattended bug slice.
