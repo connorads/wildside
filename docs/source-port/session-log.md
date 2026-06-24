@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Goat mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/goat.rs` via `mise run mutants-file`.
+- Evidence: `.cache/mutants/goat` reports
+  `23 mutants tested in 9m: 15 caught, 8 unviable`, with zero missed mutants.
+- Native behaviour is unchanged. Existing ASM-cited Goat coverage already pins
+  the init, collision dispatch, Berzerker side-contact, hurt/death,
+  player-tracking, and contact-box branches tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Orca mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
