@@ -81,7 +81,7 @@ pub(crate) fn archer_shot_selection_loc_340C0(target_angle: usize) -> ArcherShot
     // horizontal-right opening poses.  The following table reader then converts
     // the pose table's fixed opening angle, not the exact target angle; later
     // arrow logic re-aims.
-    let (facing, table) = match target_angle.min(ARROW_ANGLE_TABLE.len() - 1) {
+    let (facing, table) = match target_angle {
         0..=5 => (Direction::Right, ArcherShootingTableLoc3419A::Vertical),
         6..=13 => (Direction::Left, ArcherShootingTableLoc3419A::Vertical),
         14..=20 => (Direction::Left, ArcherShootingTableLoc3419A::Horizontal),
@@ -342,7 +342,9 @@ pub(crate) fn archer_angle_loc_34458(
         };
     }
 
-    let quadrant_selector = match (dx > 0, dy >= 0) {
+    let dx_is_right = dx.is_positive();
+    let dy_is_down = !dy.is_negative();
+    let quadrant_selector = match (dx_is_right, dy_is_down) {
         (true, false) => 0,
         (false, false) => 1,
         (false, true) => 2,
@@ -356,16 +358,19 @@ pub(crate) fn archer_angle_loc_34458(
     // ASM loc_34546: ratio >= $3F → nearly vertical, return 6 (up) or 21 (down).
     if ratio >= 0x3F {
         return ArcherAngleLoc34458 {
-            angle: if dy < 0 { 6 } else { 0x15 },
+            angle: match dy.signum() {
+                -1 => 6,
+                _ => 0x15,
+            },
             // ASM Archer.asm loc_3452C: overflow paths keep the d5 quadrant
             // selector and return it in d7 alongside the vertical angle in d6.
             quadrant_selector,
         };
     }
 
-    let sub = RATIO_TABLE[(ratio as usize).min(RATIO_TABLE.len() - 1)] as i32;
+    let sub = RATIO_TABLE[ratio as usize] as i32;
 
-    let angle = match (dx > 0, dy >= 0) {
+    let angle = match (dx_is_right, dy_is_down) {
         // ASM Archer.asm loc_344C6: right+up keeps the ratio-table sub-angle.
         (true, false) => sub as usize,
         // ASM Archer.asm loc_34492: left+up negates both deltas, looks up the
@@ -400,7 +405,11 @@ pub(crate) fn archer_adjust_angle(current: u8, target: u8) -> u8 {
         return current;
     }
     let delta = target as i16 - current as i16; // -27..27
-    let threshold: i16 = if target > current { 14 } else { -14 };
+    let threshold: i16 = match target.cmp(&current) {
+        std::cmp::Ordering::Greater => 14,
+        std::cmp::Ordering::Less => -14,
+        std::cmp::Ordering::Equal => unreachable!("equal angles returned above"),
+    };
     if delta >= threshold {
         // Decrement path (ASM loc_34320)
         if current == 0 { 27 } else { current - 1 }
@@ -562,6 +571,193 @@ pub(crate) fn step_archer(
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn archer_kill_bounce_loc_3414a_uses_negative_rom_velocity() {
+        assert_eq!(
+            ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A, -0x0004_0000,
+            "ASM Archer.asm loc_3414A writes `$FFFC0000` to Kid y_vel"
+        );
+        assert_eq!(
+            archer_death_sequence_loc_3414A(0x80).kid_y_velocity,
+            -0x0004_0000,
+            "ASM Archer.asm loc_3414A preserves the upward death-bounce sign"
+        );
+    }
+
+    #[test]
+    fn archer_byte_3437a_velocity_table_is_exact() {
+        assert_eq!(
+            ARROW_ANGLE_TABLE,
+            [
+                (0x20, 0),
+                (0x20, -8),
+                (0x1C, -16),
+                (0x18, -24),
+                (0x10, -28),
+                (8, -32),
+                (0, -32),
+                (0, -32),
+                (-8, -32),
+                (-16, -28),
+                (-24, -24),
+                (-28, -16),
+                (-32, -8),
+                (-32, 0),
+                (-32, 0),
+                (-32, 8),
+                (-28, 16),
+                (-24, 24),
+                (-16, 28),
+                (-8, 32),
+                (0, 32),
+                (0, 32),
+                (8, 32),
+                (16, 28),
+                (24, 24),
+                (28, 16),
+                (32, 8),
+                (32, 0),
+            ],
+            "ASM Archer.asm byte_3437A stores signed x/y velocity bytes for all 28 arrow angles"
+        );
+    }
+
+    #[test]
+    fn archer_shot_selection_loc_340c0_clamps_out_of_range_to_right_horizontal_pose() {
+        assert_eq!(
+            archer_shot_selection_loc_340C0(usize::MAX),
+            ArcherShotSelectionLoc340C0 {
+                initial_angle: 0,
+                facing: Direction::Right,
+                uses_vertical_table: false,
+            },
+            "ASM Archer.asm loc_340C0 only receives 0..27 from loc_34458; native out-of-range callers stay in the right-horizontal catch-all"
+        );
+    }
+
+    #[test]
+    fn archer_angle_loc_34458_pins_ratio_edges_and_quadrants() {
+        assert_eq!(
+            archer_angle_loc_34458(100 << 16, 100 << 16, 36 << 16, 92 << 16),
+            ArcherAngleLoc34458 {
+                angle: 0x0B,
+                quadrant_selector: 1,
+            },
+            "ASM Archer.asm loc_34492 computes `0x0D - sub` for the left/up ratio path"
+        );
+        assert_eq!(
+            archer_angle_loc_34458(100 << 16, 100 << 16, 164 << 16, 140 << 16),
+            ArcherAngleLoc34458 {
+                angle: 0x19,
+                quadrant_selector: 3,
+            },
+            "ASM Archer.asm loc_3450A computes `0x1B - sub` for the right/down ratio path"
+        );
+        assert_eq!(
+            archer_angle_loc_34458(100 << 16, 100 << 16, 101 << 16, 22 << 16),
+            ArcherAngleLoc34458 {
+                angle: 6,
+                quadrant_selector: 0,
+            },
+            "ASM Archer.asm loc_34546 keeps the up-vertical overflow angle when d4 is negative"
+        );
+        assert_eq!(
+            archer_angle_loc_34458(100 << 16, 100 << 16, 101 << 16, 179 << 16),
+            ArcherAngleLoc34458 {
+                angle: 0x15,
+                quadrant_selector: 3,
+            },
+            "ASM Archer.asm loc_34546 switches to down-vertical overflow when d4 is non-negative"
+        );
+    }
+
+    #[test]
+    fn archer_adjust_angle_keeps_half_ring_boundary_on_decrement_path() {
+        assert_eq!(
+            archer_adjust_angle(5, 19),
+            4,
+            "ASM Archer.asm loc_34308 uses `bge loc_34320`, so +14 takes the decrement/wrap-shortcut path"
+        );
+        assert_eq!(
+            archer_adjust_angle(19, 5),
+            18,
+            "ASM Archer.asm loc_34320 also handles the exact -14 half-ring boundary by decrementing"
+        );
+    }
+
+    #[test]
+    fn archer_arrow_velocity_from_angle_clamps_to_last_rom_entry() {
+        assert_eq!(
+            arrow_velocity_from_angle(usize::MAX),
+            (32 * 0x1000, 0),
+            "ASM Archer.asm byte_3437A has 28 entries; native clamps defensive out-of-range angles to the duplicated final right-facing entry"
+        );
+    }
+
+    #[test]
+    fn archer_live_step_decrements_wait_timer_without_firing() {
+        let mut archer = ActiveEnemy {
+            family: EnemyFamily::Archer,
+            wait_timer: 2,
+            facing: Direction::Left,
+            hit_points: 1,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(200 << 16),
+            Some(100 << 16),
+            None,
+        );
+
+        assert_eq!(
+            archer.wait_timer, 1,
+            "ASM Archer.asm loc_34248 DBF countdown is modelled as a one-frame decrement before returning"
+        );
+        assert!(
+            projectiles.is_empty(),
+            "ASM Archer.asm loc_34248 should not reach the fire sentinel while the countdown remains non-zero"
+        );
+    }
+
+    #[test]
+    fn archer_live_step_uses_vertical_table_spawn_offset() {
+        let mut archer = ActiveEnemy {
+            family: EnemyFamily::Archer,
+            wait_timer: 0,
+            facing: Direction::Left,
+            hit_points: 1,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(36 << 16),
+            Some(62 << 16),
+            None,
+        );
+
+        assert_eq!(projectiles.len(), 1);
+        assert_eq!(
+            (projectiles[0].x_pos >> 16, projectiles[0].y_pos >> 16),
+            (92, 76),
+            "ASM Archer.asm Shooting_Vertical third fire frame uses x offset `$FFF8` and y offset `$FFE8`"
+        );
+        assert_eq!(
+            projectiles[0].current_angle, 0x0A,
+            "ASM Archer.asm loc_3419A selects the left-facing vertical opening angle"
+        );
+    }
 
     #[test]
     fn archer_live_step_queues_shoot_sound_when_arrow_spawns() {

@@ -26,7 +26,7 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **No ready/open agent rows remain.** Proactive fallback: Cloud mutation shard is clean on current HEAD after pinning `loc_35BB2`, `loc_35CD8`, `loc_35BDE`, `loc_35DB8`, and `loc_35DF0` branch/offset edges.
+- **No ready/open agent rows remain.** Proactive fallback: Archer mutation shard is clean on current HEAD after pinning `byte_3437A`, `loc_340C0`, `loc_3414A`, `loc_34248`, `loc_34308`/`loc_34320`, `loc_34458`, and shooting-table offset edges.
 - **#280 moved to `[b]` route-needed.** Fresh BLW2/Hills/Bloody Swamp `$3E` probes go
   state-red; old `frame_index` diagnosis is stale. Do not patch without a clean route.
 - **#317 moved to `[b]`:** Island shore, storm, lava geyser, and weather-4 Unknown concrete slices are fixed/covered; the only remaining weather debt is a shared typed VRAM backend, which is a dedicated renderer-cache architecture session rather than a narrow unattended bug slice.

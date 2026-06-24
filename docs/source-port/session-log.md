@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Archer mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/archer.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `149 mutants tested in 60m: 31 missed,
+  108 caught, 10 unviable`. Survivors clustered in exact Archer ASM edge
+  coverage: `byte_3437A` signed velocity bytes, `loc_3414A` Kid bounce sign,
+  `loc_340C0`/`loc_34458` angle boundaries, `loc_34308`/`loc_34320` half-ring
+  re-aim boundary, vertical shooting-table spawn offsets, defensive
+  `arrow_velocity_from_angle` clamp, and `loc_34248` live countdown decrement.
+- Native behaviour is unchanged except for removing dead defensive clamps that
+  sit behind already-bounded ASM-derived angle/range checks. Added focused
+  regressions for the surviving table values, angle quadrants, half-ring
+  re-aim boundary, spawn offsets, velocity clamp, death-bounce sign, and live
+  countdown path.
+- Verification: focused `archer_` tests pass; final rerun
+  `.cache/mutants/archer-final` reports
+  `133 mutants tested in 54m: 123 caught, 10 unviable`, with zero missed
+  mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-23 handoff (proactive Cloud mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
