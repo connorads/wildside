@@ -7,6 +7,17 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Sphere mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/sphere.rs` via `mise run mutants-file`.
+- Evidence: `.cache/mutants/sphere` reported
+  `12 mutants tested in 5m: 4 caught, 8 unviable`, with zero missed mutants.
+- Native behaviour is unchanged; no source changes were needed.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Armadillo mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
