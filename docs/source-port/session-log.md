@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Diamond mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/diamond.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `67 mutants tested in 27m: 15 missed,
+  42 caught, 10 unviable`. Survivors clustered around high-HP `loc_3ADA4`
+  floor dispatch, live high-HP terrain collision classification, and
+  Berzerker launch step wrappers `loc_3AEB2`/`loc_3AF50`.
+- Native behaviour is unchanged. Added exact terrain/launch regressions and
+  split `FloorLoop` from the unknown loop route so the explicit ASM
+  `colid_floor` branch remains testable while both routes stay runtime no-ops.
+- Verification: focused `diamond` tests pass; final rerun
+  `.cache/mutants/diamond-final` reports
+  `67 mutants tested in 27m: 57 caught, 10 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Fireball mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

@@ -8688,6 +8688,7 @@ impl NativeRuntime {
                             }
                         }
                         DiamondHighHpCollisionRouteLoc3ADA4::Loop
+                        | DiamondHighHpCollisionRouteLoc3ADA4::FloorLoop
                         | DiamondHighHpCollisionRouteLoc3ADA4::Fall { .. }
                         | DiamondHighHpCollisionRouteLoc3ADA4::Bounce { .. }
                         | DiamondHighHpCollisionRouteLoc3ADA4::Slope { .. } => {}

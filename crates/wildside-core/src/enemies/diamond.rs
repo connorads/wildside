@@ -33,6 +33,7 @@ pub(crate) fn diamond_high_hp_init_loc_3ad7c(
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DiamondHighHpCollisionRouteLoc3ADA4 {
     Loop,
+    FloorLoop,
     Fall { y_velocity: i32 },
     Damage,
     Bounce { x_velocity: i32, y_velocity: i32 },
@@ -61,7 +62,7 @@ pub(crate) fn diamond_high_hp_collision_dispatch_loc_3ada4(
             y_velocity: diamond_high_hp_fall_y_velocity_loc_3ae78(),
         },
         DIAMOND_COLID_HURT => DiamondHighHpCollisionRouteLoc3ADA4::Damage,
-        DIAMOND_COLID_FLOOR => DiamondHighHpCollisionRouteLoc3ADA4::Loop,
+        DIAMOND_COLID_FLOOR => DiamondHighHpCollisionRouteLoc3ADA4::FloorLoop,
         DIAMOND_COLID_RIGHTWALL | DIAMOND_COLID_LEFTWALL | DIAMOND_COLID_CEILING => {
             // ASM Diamond.asm loc_3AE3E: wall and ceiling contacts negate both
             // velocity axes before returning to the high-HP collision loop.
@@ -399,7 +400,8 @@ pub(crate) fn step_diamond_high_hp(
     )
     .route
     {
-        DiamondHighHpCollisionRouteLoc3ADA4::Loop => {}
+        DiamondHighHpCollisionRouteLoc3ADA4::Loop
+        | DiamondHighHpCollisionRouteLoc3ADA4::FloorLoop => {}
         DiamondHighHpCollisionRouteLoc3ADA4::Fall { y_velocity }
         | DiamondHighHpCollisionRouteLoc3ADA4::Slope { y_velocity } => {
             enemy.y_velocity = y_velocity;
@@ -474,6 +476,26 @@ mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
 
+    fn diamond_test_enemy(x_px: u32, y_px: u32, x_velocity: i32, y_velocity: i32) -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Diamond,
+            hit_points: 4,
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            x_velocity,
+            y_velocity,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    fn diamond_grid_with_solid_cells(cells: &[(u16, u16)]) -> terrain::BlockGrid {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8);
+        for &(col, row) in cells {
+            grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0x60, 0x00));
+        }
+        grid
+    }
+
     #[test]
     fn diamond_hp_and_walk_speed_follow_loc_3ad16_and_loc_3ad4c() {
         // ASM Diamond.asm loc_3AD16 copies `enemy_level(a3)` to d7, adds 2 HP,
@@ -514,16 +536,12 @@ mod tests {
 
     #[test]
     fn diamond_high_hp_runtime_uses_loc_3ad7c_collision_loop_instead_of_shared_walker() {
-        let mut diamond = ActiveEnemy {
-            family: EnemyFamily::Diamond,
-            hit_points: 4,
-            x_pos: 80 << 16,
-            y_pos: 112 << 16,
-            x_velocity: diamond_high_hp_init_loc_3ad7c(80, 112).x_velocity,
-            y_velocity: 0,
-            on_ground: false,
-            ..mini_hopping_skull_test_enemy()
-        };
+        let mut diamond = diamond_test_enemy(
+            80,
+            112,
+            diamond_high_hp_init_loc_3ad7c(80, 112).x_velocity,
+            0,
+        );
         let mut enemies = [diamond];
         let mut rng = RomRandomState::default();
         let mut drilled_blocks = Vec::new();
@@ -560,6 +578,110 @@ mod tests {
         assert_eq!(
             diamond.y_velocity, 0x0001_C000,
             "ASM Diamond.asm loc_3AE78 should store +$1C000 when loc_3ADA4 observes no collision",
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_step_loc_3ada4_loops_on_floor_without_fall_velocity() {
+        let grid = diamond_grid_with_solid_cells(&[(5, 7)]);
+        let mut diamond = diamond_test_enemy(80, 112, 0x0001_8000, 0x0000_4000);
+
+        step_diamond_high_hp(&mut diamond, Some(&grid));
+
+        assert_eq!(
+            diamond.x_pos,
+            (80 << 16) + 0x0001_8000,
+            "ASM Diamond.asm loc_3ADA4 should move the high-HP Diamond before polling collision"
+        );
+        assert_eq!(
+            diamond.y_pos,
+            (112 << 16) + 0x0000_4000,
+            "ASM Diamond.asm loc_3ADA4 should move the high-HP Diamond vertically before polling collision"
+        );
+        assert_eq!(
+            diamond.y_velocity, 0x0000_4000,
+            "ASM Diamond.asm loc_3ADA4 should loop on colid_floor instead of taking loc_3AE78's fall velocity"
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_berzerker_launch_step_loc_3aeb2_moves_then_adds_gravity() {
+        let mut diamond = diamond_test_enemy(80, 112, 0, -0x0004_8000);
+
+        step_diamond_high_hp_berzerker_launch(&mut diamond);
+
+        assert_eq!(
+            diamond.y_pos,
+            ((112 << 16_i32) - 0x0004_8000) as u32,
+            "ASM Diamond.asm loc_3AEB2 should move by the old y_vel before adding gravity"
+        );
+        assert_eq!(
+            diamond.y_velocity, -0x0004_4000,
+            "ASM Diamond.asm loc_3AEB2 should add +$4000 to y_vel after movement"
+        );
+    }
+
+    #[test]
+    fn diamond_low_hp_berzerker_launch_step_loc_3af50_moves_then_adds_gravity() {
+        let mut diamond = diamond_test_enemy(80, 112, 0, -0x0004_8000);
+
+        step_diamond_low_hp_berzerker_launch(&mut diamond);
+
+        assert_eq!(
+            diamond.y_pos,
+            ((112 << 16_i32) - 0x0004_8000) as u32,
+            "ASM Diamond.asm loc_3AF50 should move by the old y_vel before adding gravity"
+        );
+        assert_eq!(
+            diamond.y_velocity, -0x0004_4000,
+            "ASM Diamond.asm loc_3AF50 should add +$4000 to y_vel after movement"
+        );
+    }
+
+    #[test]
+    fn diamond_high_hp_collision_type_maps_terrain_to_loc_3ada4_collision_words() {
+        assert_eq!(
+            diamond_high_hp_collision_type(&diamond_test_enemy(80, 112, 0x0001_8000, 0), None),
+            0,
+            "ASM Diamond.asm loc_3ADA4 sees zero collision when no terrain probe is available"
+        );
+
+        let right_wall_grid = diamond_grid_with_solid_cells(&[(5, 6)]);
+        assert_eq!(
+            diamond_high_hp_collision_type(
+                &diamond_test_enemy(80, 112, 0x0001_8000, 0),
+                Some(&right_wall_grid),
+            ),
+            DIAMOND_COLID_RIGHTWALL,
+            "ASM Diamond.asm loc_3ADA4 should route a right lead-cell hit to colid_rightwall"
+        );
+
+        let left_wall_grid = diamond_grid_with_solid_cells(&[(4, 6)]);
+        assert_eq!(
+            diamond_high_hp_collision_type(
+                &diamond_test_enemy(80, 112, -0x0001_8000, 0),
+                Some(&left_wall_grid),
+            ),
+            DIAMOND_COLID_LEFTWALL,
+            "ASM Diamond.asm loc_3ADA4 should route a left lead-cell hit to colid_leftwall"
+        );
+
+        let floor_grid = diamond_grid_with_solid_cells(&[(5, 7)]);
+        assert_eq!(
+            diamond_high_hp_collision_type(
+                &diamond_test_enemy(80, 112, 0x0001_8000, 0),
+                Some(&floor_grid),
+            ),
+            DIAMOND_COLID_FLOOR,
+            "ASM Diamond.asm loc_3ADA4 should route solid support while descending or level to colid_floor"
+        );
+        assert_eq!(
+            diamond_high_hp_collision_type(
+                &diamond_test_enemy(80, 112, 0x0001_8000, -0x0001_0000),
+                Some(&floor_grid),
+            ),
+            0,
+            "ASM Diamond.asm loc_3ADA4 should not report floor contact while the high-HP Diamond is rising"
         );
     }
 
@@ -606,7 +728,7 @@ mod tests {
         );
         assert_eq!(
             diamond_high_hp_collision_dispatch_loc_3ada4(DIAMOND_COLID_FLOOR, 0, 0).route,
-            DiamondHighHpCollisionRouteLoc3ADA4::Loop,
+            DiamondHighHpCollisionRouteLoc3ADA4::FloorLoop,
             "ASM Diamond.asm loc_3ADA4 should loop on floor contact",
         );
         assert_eq!(
