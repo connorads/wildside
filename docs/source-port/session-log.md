@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Big Hopping Skull mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/big_hopping_skull.rs` via
+  `mise run mutants-file`.
+- Evidence: initial run reported `91 mutants tested in 35m: 26 missed,
+  50 caught, 15 unviable`. Survivors clustered in exact ASM edge coverage:
+  floor-contact wait frame arithmetic (`loc_36580`/`loc_366B6`), high-word
+  velocity writes (`loc_365D8`/`loc_36664`), terrain collision dispatch
+  (`loc_3674E`), live position advance/wall backup (`loc_36540`/`loc_366EC`),
+  floor-contact gating, slope deflections (`loc_36706`/`loc_36720`), and
+  ceiling bounce gating (`loc_366E6`).
+- Native behaviour is unchanged except for using the existing high-word velocity
+  writer and sign predicates to remove equivalent mutation targets. Added
+  focused regressions with tiny synthetic grids for the surviving wall, floor,
+  slope, ceiling, dispatcher, and timer edges.
+- Verification: focused `big_hopping_skull` tests pass; final rerun
+  `.cache/mutants/big-hopping-skull-after` reports
+  `72 mutants tested in 28m: 57 caught, 15 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Archer mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

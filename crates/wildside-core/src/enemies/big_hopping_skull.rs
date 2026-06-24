@@ -110,8 +110,7 @@ pub(crate) fn big_hopping_skull_damage_entry_loc_365d8(
     hit_points_word: u16,
     kid_y_velocity: i32,
 ) -> BigHoppingSkullDamageEntryLoc365D8 {
-    let kid_y_velocity_low_word = kid_y_velocity & 0x0000_FFFF;
-    let kid_y_velocity = (i32::from(-3_i16) << 16) | kid_y_velocity_low_word;
+    let kid_y_velocity = write_velocity_high_word(kid_y_velocity, -3);
     let remaining_hit_points = hit_points_word.wrapping_sub(1);
     let skull_destroyed = remaining_hit_points == 0;
 
@@ -269,8 +268,7 @@ pub(crate) fn big_hopping_skull_death_wait_loc_36664(
     let y_velocity = if collision_probe_nonzero {
         y_velocity
     } else {
-        let low_word = y_velocity & 0x0000_FFFF;
-        (i32::from(2_i16) << 16) | low_word
+        write_velocity_high_word(y_velocity, 2)
     };
 
     // ASM Big_Hopping_Skull.asm loc_36664: hibernate once, range-check, probe
@@ -456,8 +454,6 @@ pub(crate) fn big_hopping_skull_collision_dispatch_loc_3674e(
     const COLID_CEILING: u16 = 0x0010;
     const COLID_SLOPE_UP: u16 = 0x0014;
     const COLID_SLOPE_DOWN: u16 = 0x0018;
-    const COLID_HURT: u16 = 0x001C;
-
     // ASM Big_Hopping_Skull.asm loc_3674E: zero collision returns without
     // clearing; any non-zero word is cleared before hurt-or-higher contacts are
     // ignored or terrain contacts dispatch through off_36736.
@@ -466,19 +462,13 @@ pub(crate) fn big_hopping_skull_collision_dispatch_loc_3674e(
     } else {
         0
     };
-    let action = if collision_type == 0 || collision_type >= COLID_HURT {
-        BigHoppingSkullCollisionActionLoc3674E::Return
-    } else {
-        match collision_type {
-            COLID_RIGHT_WALL | COLID_LEFT_WALL => {
-                BigHoppingSkullCollisionActionLoc3674E::WallBounce
-            }
-            COLID_FLOOR => BigHoppingSkullCollisionActionLoc3674E::FloorContact,
-            COLID_CEILING => BigHoppingSkullCollisionActionLoc3674E::CeilingBounce,
-            COLID_SLOPE_UP => BigHoppingSkullCollisionActionLoc3674E::SlopeUpDeflect,
-            COLID_SLOPE_DOWN => BigHoppingSkullCollisionActionLoc3674E::SlopeDownDeflect,
-            _ => BigHoppingSkullCollisionActionLoc3674E::Return,
-        }
+    let action = match collision_type {
+        COLID_RIGHT_WALL | COLID_LEFT_WALL => BigHoppingSkullCollisionActionLoc3674E::WallBounce,
+        COLID_FLOOR => BigHoppingSkullCollisionActionLoc3674E::FloorContact,
+        COLID_CEILING => BigHoppingSkullCollisionActionLoc3674E::CeilingBounce,
+        COLID_SLOPE_UP => BigHoppingSkullCollisionActionLoc3674E::SlopeUpDeflect,
+        COLID_SLOPE_DOWN => BigHoppingSkullCollisionActionLoc3674E::SlopeDownDeflect,
+        _ => BigHoppingSkullCollisionActionLoc3674E::Return,
     };
 
     BigHoppingSkullCollisionDispatchLoc3674E {
@@ -599,7 +589,7 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
         let cy = (enemy.y_pos >> 16) as i32;
 
         // Wall collision (ASM loc_366EC: backup 2x, negate x_vel, clear y_vel)
-        let moving_right = enemy.x_velocity >= 0;
+        let moving_right = !enemy.x_velocity.is_negative();
         let wall = terrain::probe_wall(
             grid,
             cx,
@@ -621,7 +611,7 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
         // loc_366D0 relaunches by restoring saved d0=x_vel and writing only
         // y_vel's high word to $FFFE.
         let floor = terrain::probe_floor(grid, cx, cy);
-        if floor.on_ground && enemy.y_velocity > 0 {
+        if floor.on_ground && enemy.y_velocity.is_positive() {
             let saved_x_velocity = enemy.x_velocity;
             let floor_y_fp = (floor.floor_y_px as u32) << 16;
             if enemy.y_pos >= floor_y_fp {
@@ -658,8 +648,236 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
 
         // Ceiling bounce (ASM loc_366E6: neg.l y_vel)
         let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
-        if ceil.hit && enemy.y_velocity < 0 {
+        if ceil.hit && enemy.y_velocity.is_negative() {
             enemy.y_velocity = -enemy.y_velocity;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::enemies::test_fixtures::mini_hopping_skull_test_enemy;
+
+    fn big_skull_at(x_pos: u32, y_pos: u32) -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::BigHoppingSkull,
+            x_pos,
+            y_pos,
+            hit_points: 3,
+            on_ground: false,
+            facing: Direction::Right,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    fn empty_grid() -> terrain::BlockGrid {
+        terrain::BlockGrid::from_level_layout(&[0; 8 * 8 * 2], 8, 8)
+    }
+
+    fn grid_with_cell(col: u16, row: u16, cell: terrain::Cell) -> terrain::BlockGrid {
+        let mut grid = empty_grid();
+        grid.set_cell_at(col, row, cell);
+        grid
+    }
+
+    fn solid_cell() -> terrain::Cell {
+        terrain::Cell::from_be_bytes(0x60, 0x00)
+    }
+
+    fn slope_up_cell() -> terrain::Cell {
+        terrain::Cell::from_be_bytes(0x40, 0x00)
+    }
+
+    fn slope_down_cell() -> terrain::Cell {
+        terrain::Cell::from_be_bytes(0x50, 0x00)
+    }
+
+    #[test]
+    fn big_hopping_skull_floor_contact_wait_frames_match_loc_36580_366b6() {
+        assert_eq!(
+            BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580, 0x005D,
+            "ASM Big_Hopping_Skull.asm loc_36580 uses `$50` ticks, then loc_366B6/stru_367B4 contributes `$0C + 1` ticks before relaunch",
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_damage_and_death_word_writes_preserve_fraction_loc_365d8_36664() {
+        assert_eq!(
+            big_hopping_skull_damage_entry_loc_365d8(2, 0x1234_8001).kid_y_velocity,
+            i32::from_ne_bytes(0xFFFD_8001_u32.to_ne_bytes()),
+            "ASM Big_Hopping_Skull.asm loc_365D8 writes only Kid y_vel.high=$FFFD",
+        );
+        assert_eq!(
+            big_hopping_skull_death_wait_loc_36664(false, false, 0x1234_CDEF).y_velocity,
+            0x0002_CDEF,
+            "ASM Big_Hopping_Skull.asm loc_36664 writes only skull y_vel.high=2 when the collision probe is clear",
+        );
+        assert_eq!(
+            big_hopping_skull_death_wait_loc_36664(true, false, 0x1234_CDEF).y_velocity,
+            0x1234_CDEF,
+            "ASM Big_Hopping_Skull.asm loc_36664 leaves y_vel untouched when d6 is non-zero",
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_collision_dispatch_covers_floor_and_ignored_contacts_loc_3674e() {
+        assert_eq!(
+            big_hopping_skull_collision_dispatch_loc_3674e(0x000C),
+            BigHoppingSkullCollisionDispatchLoc3674E {
+                captured_collision_type: 0x000C,
+                next_collision_type: 0,
+                action: BigHoppingSkullCollisionActionLoc3674E::FloorContact,
+            },
+            "ASM Big_Hopping_Skull.asm loc_3674E indexes off_36736's floor entry at colid_floor",
+        );
+        assert_eq!(
+            big_hopping_skull_collision_dispatch_loc_3674e(0x0020),
+            BigHoppingSkullCollisionDispatchLoc3674E {
+                captured_collision_type: 0x0020,
+                next_collision_type: 0,
+                action: BigHoppingSkullCollisionActionLoc3674E::Return,
+            },
+            "ASM Big_Hopping_Skull.asm loc_3674E clears but ignores contacts at or above colid_hurt",
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_live_step_advances_position_before_collision_loc_36540() {
+        let mut skull = big_skull_at(32 << 16, 32 << 16);
+        skull.x_velocity = 0x0001_0000;
+        skull.y_velocity = 0;
+
+        step_big_hopping_skull(&mut skull, None);
+
+        assert_eq!(
+            skull.x_pos,
+            33 << 16,
+            "ASM Big_Hopping_Skull.asm loc_36540 advances x_pos by x_vel before terrain dispatch",
+        );
+        assert_eq!(skull.y_velocity, BIG_SKULL_GRAVITY);
+        assert_eq!(skull.y_pos, (32 << 16) + BIG_SKULL_GRAVITY as u32);
+    }
+
+    #[test]
+    fn big_hopping_skull_wall_bounce_backs_up_twice_and_flips_loc_366ec() {
+        let grid = grid_with_cell(3, 3, solid_cell());
+        let mut skull = big_skull_at(38 << 16, 64 << 16);
+        skull.x_velocity = 0x0001_0000;
+        skull.y_velocity = 0;
+        skull.facing = Direction::Right;
+
+        step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(
+            skull.x_pos,
+            37 << 16,
+            "ASM Big_Hopping_Skull.asm loc_366EC subtracts x_vel twice from the already-advanced x_pos",
+        );
+        assert_eq!(skull.x_velocity, -0x0001_0000);
+        assert_eq!(skull.y_velocity, 0);
+        assert_eq!(skull.facing, Direction::Left);
+    }
+
+    #[test]
+    fn big_hopping_skull_empty_fall_does_not_start_floor_wait_loc_36580() {
+        let grid = empty_grid();
+        let mut skull = big_skull_at(32 << 16, 32 << 16);
+        skull.x_velocity = 0x0001_0000;
+        skull.y_velocity = 0;
+
+        step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(skull.wait_timer, 0);
+        assert_eq!(skull.x_velocity, 0x0001_0000);
+        assert_eq!(skull.y_velocity, BIG_SKULL_GRAVITY);
+        assert_eq!(skull.y_pos, (32 << 16) + BIG_SKULL_GRAVITY as u32);
+    }
+
+    #[test]
+    fn big_hopping_skull_zero_vertical_speed_does_not_land_loc_36580() {
+        let grid = grid_with_cell(2, 4, solid_cell());
+        let mut skull = big_skull_at(32 << 16, 64 << 16);
+        skull.x_velocity = 0x0001_2222;
+        skull.y_velocity = -BIG_SKULL_GRAVITY;
+
+        step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(
+            skull.wait_timer, 0,
+            "ASM Big_Hopping_Skull.asm loc_3674E only reaches loc_36580 for a downward floor collision",
+        );
+        assert_eq!(skull.x_velocity, 0x0001_2222);
+        assert_eq!(skull.y_velocity, 0);
+    }
+
+    #[test]
+    fn big_hopping_skull_slope_up_deflects_nonzero_velocity_loc_36706() {
+        let grid = grid_with_cell(2, 3, slope_up_cell());
+        let mut skull = big_skull_at(45 << 16, 47 << 16);
+        skull.x_velocity = 0x0002_0000;
+        skull.y_velocity = 0;
+        skull.facing = Direction::Right;
+
+        step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(
+            skull.y_velocity, -0x0002_0000,
+            "ASM Big_Hopping_Skull.asm loc_36706 negates old x_vel into y_vel",
+        );
+        assert_eq!(
+            skull.x_velocity, -BIG_SKULL_GRAVITY,
+            "ASM Big_Hopping_Skull.asm loc_36706 negates old y_vel into x_vel after gravity",
+        );
+        assert_eq!(skull.facing, Direction::Left);
+    }
+
+    #[test]
+    fn big_hopping_skull_slope_down_swaps_nonzero_velocity_loc_36720() {
+        let grid = grid_with_cell(2, 3, slope_down_cell());
+        let mut skull = big_skull_at(30 << 16, 47 << 16);
+        skull.x_velocity = 0x0002_0000;
+        skull.y_velocity = 0;
+        skull.facing = Direction::Right;
+
+        step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(
+            skull.y_velocity, 0x0002_0000,
+            "ASM Big_Hopping_Skull.asm loc_36720 copies old x_vel into y_vel",
+        );
+        assert_eq!(
+            skull.x_velocity, BIG_SKULL_GRAVITY,
+            "ASM Big_Hopping_Skull.asm loc_36720 copies old y_vel into x_vel after gravity",
+        );
+        assert_eq!(skull.facing, Direction::Left);
+    }
+
+    #[test]
+    fn big_hopping_skull_ceiling_bounce_negates_only_rising_velocity_loc_366e6() {
+        let grid = grid_with_cell(2, 2, solid_cell());
+        let mut skull = big_skull_at(32 << 16, 64 << 16);
+        skull.y_velocity = -0x0001_0000 - BIG_SKULL_GRAVITY;
+
+        step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(
+            skull.y_velocity, 0x0001_0000,
+            "ASM Big_Hopping_Skull.asm loc_366E6 negates y_vel on ceiling collision",
+        );
+    }
+
+    #[test]
+    fn big_hopping_skull_rising_without_ceiling_keeps_negative_velocity_loc_366e6() {
+        let grid = empty_grid();
+        let mut skull = big_skull_at(32 << 16, 64 << 16);
+        skull.y_velocity = -0x0001_0000 - BIG_SKULL_GRAVITY;
+
+        step_big_hopping_skull(&mut skull, Some(&grid));
+
+        assert_eq!(
+            skull.y_velocity, -0x0001_0000,
+            "ASM Big_Hopping_Skull.asm loc_366E6 is only reached when the ceiling collision dispatch fires",
+        );
     }
 }
