@@ -483,6 +483,29 @@ mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
 
+    fn scorpion_tracking_enemy(x_px: u32, y_px: u32, facing: Direction) -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Scorpion,
+            enemy_level: 2,
+            hit_points: 5,
+            death_animation_active: false,
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            facing,
+            x_velocity: 0x0001_8000,
+            walk_speed_override: SCORPION_BASE_SPEED,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    #[test]
+    fn scorpion_sting_animation_duration_matches_stru_3db8e_loc_3ddee() {
+        assert_eq!(
+            SCORPION_STING_ANIMATION_FRAMES_LOC_3DDEE, 0x1B,
+            "ASM Scorpion.asm loc_3DDEE hibernates through `stru_3DB8E`: `$06 + $0F + $06` frames",
+        );
+    }
+
     #[test]
     fn scorpion_spawn_faces_toward_player_per_loc_3dbd8() {
         // ASM Scorpion.asm loc_3DBD8 is the common init tail reached after
@@ -584,6 +607,99 @@ mod tests {
         );
         assert_eq!(scorpion.x_velocity, 0);
         assert_eq!(scorpion.y_velocity, 0);
+    }
+
+    #[test]
+    fn scorpion_close_range_continue_does_not_lock_tracking_loc_3ddc8() {
+        let route = scorpion_close_range_route_loc_3ddc8(0x25, 0, Direction::Left, 1);
+
+        assert_eq!(route, ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker);
+        assert!(
+            !route.locks_tracking(),
+            "ASM Scorpion.asm loc_3DDC8 exits to loc_3DE64 outside the +/-$24 close range without setting `$4E(a5)`",
+        );
+    }
+
+    #[test]
+    fn step_scorpion_tracking_equal_x_preserves_facing_loc_3dd7e() {
+        let mut right = scorpion_tracking_enemy(100, 64, Direction::Right);
+        step_scorpion_tracking(&mut right, Some(100 << 16), Some(64 << 16), Some(0));
+        assert_eq!(
+            right.facing,
+            Direction::Right,
+            "ASM Scorpion.asm loc_3DD7E leaves x_direction unchanged when d4 == 0",
+        );
+        assert!(
+            !right.scorpion_tracking_lock,
+            "ASM Scorpion.asm loc_3DDC8 rejects d4 == 0 when the scorpion is still facing right",
+        );
+
+        let mut left = scorpion_tracking_enemy(100, 64, Direction::Left);
+        step_scorpion_tracking(&mut left, Some(100 << 16), Some(64 << 16), Some(0));
+        assert_eq!(
+            left.facing,
+            Direction::Left,
+            "ASM Scorpion.asm loc_3DD7E also leaves clear x_direction unchanged when d4 == 0",
+        );
+        assert!(
+            left.scorpion_tracking_lock,
+            "ASM Scorpion.asm loc_3DDC8 accepts d4 == 0 only while x_direction is clear",
+        );
+    }
+
+    #[test]
+    fn step_scorpion_tracking_keeps_plus_minus_aa_inside_range_loc_3dda8() {
+        let mut left_edge = scorpion_tracking_enemy(400, 64, Direction::Right);
+        step_scorpion_tracking(&mut left_edge, Some(230 << 16), None, Some(0));
+        assert_eq!(
+            left_edge.facing,
+            Direction::Left,
+            "ASM Scorpion.asm loc_3DD7E clears x_direction when d4 is positive",
+        );
+        assert_eq!(
+            left_edge.walk_speed_override, SCORPION_BOOST_SPEED,
+            "ASM Scorpion.asm loc_3DDA8 keeps d4 == +$AA inside the boost window",
+        );
+
+        let mut right_edge = scorpion_tracking_enemy(400, 64, Direction::Left);
+        step_scorpion_tracking(&mut right_edge, Some(570 << 16), None, Some(0));
+        assert_eq!(
+            right_edge.facing,
+            Direction::Right,
+            "ASM Scorpion.asm loc_3DDA4 sets x_direction when d4 is negative",
+        );
+        assert_eq!(
+            right_edge.walk_speed_override, SCORPION_BOOST_SPEED,
+            "ASM Scorpion.asm loc_3DDA8 keeps d4 == -$AA inside the boost window",
+        );
+
+        let mut outside = scorpion_tracking_enemy(400, 64, Direction::Right);
+        outside.walk_speed_override = SCORPION_BOOST_SPEED;
+        step_scorpion_tracking(&mut outside, Some(229 << 16), None, Some(0));
+        assert_eq!(
+            outside.walk_speed_override, SCORPION_BASE_SPEED,
+            "ASM Scorpion.asm loc_3DDA8 exits to loc_3DE7E only when d4 is greater than +$AA",
+        );
+    }
+
+    #[test]
+    fn step_scorpion_tracking_vertical_miss_locks_without_sting_loc_3ddee() {
+        let mut scorpion = scorpion_tracking_enemy(100, 64, Direction::Left);
+        scorpion.x_velocity = 0x0001_2222;
+        scorpion.y_velocity = 0x0000_3333;
+
+        step_scorpion_tracking(&mut scorpion, Some(100 << 16), Some(97 << 16), Some(0));
+
+        assert!(
+            scorpion.scorpion_tracking_lock,
+            "ASM Scorpion.asm loc_3DDEE sets `$4E(a5)` before testing the vertical sting window",
+        );
+        assert_eq!(
+            scorpion.scorpion_sting_frames, 0,
+            "ASM Scorpion.asm loc_3DE96 handles d5 below -$20 without starting `stru_3DB8E`",
+        );
+        assert_eq!(scorpion.x_velocity, 0x0001_2222);
+        assert_eq!(scorpion.y_velocity, 0x0000_3333);
     }
 
     #[test]

@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Scorpion mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/scorpion.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `62 mutants tested in 24m: 10 missed,
+  41 caught, 11 unviable`. Survivors clustered in exact Scorpion ASM edge
+  coverage: `stru_3DB8E` sting duration, `loc_3DDC8` close-range lock routing,
+  `loc_3DD7E` equal-X facing preservation, `loc_3DDA8` inclusive `+/-$AA`
+  tracking window, and `loc_3DDEE` vertical-miss lock-without-sting.
+- Native behaviour is unchanged. Added focused regressions for the surviving
+  tracking, range, duration, and lock edges.
+- Verification: focused `scorpion` tests pass; final rerun
+  `.cache/mutants/scorpion-after` reports
+  `62 mutants tested in 25m: 51 caught, 11 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Big Hopping Skull mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
