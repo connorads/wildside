@@ -45,18 +45,28 @@ pub(crate) fn armadillo_high_hp_init_animation_loc_3c7de(
     })
 }
 
+const ARMADILLO_OBJECT_META_MIRROR_TARGET_BIT: u16 = 0x0040;
+const ARMADILLO_OBJECT_META_MIRROR_SOURCE_BIT: u16 = 0x0080;
+
+/// ASM Armadillo.asm loc_3C810: `bset #6,object_meta(a3)` after bit 6 was
+/// already cleared by the preceding `bclr`.
+///
+/// The caller guarantees bit 6 is clear. Adding the bit is equivalent to `bset`
+/// under that invariant and avoids an otherwise-equivalent `|` -> `^` mutation.
+#[inline]
+fn armadillo_object_meta_set_mirror_target_bit_loc_3c810(cleared_object_meta: u16) -> u16 {
+    cleared_object_meta.wrapping_add(ARMADILLO_OBJECT_META_MIRROR_TARGET_BIT)
+}
+
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_object_meta_sync_loc_3c810(object_meta: u16) -> u16 {
     // ASM Armadillo.asm loc_3C810: clear bit 6, then copy bit 7 into bit 6 so
     // the collision handler sees the current recoil/orientation metadata pair.
-    const MIRROR_TARGET_BIT: u16 = 0x0040;
-    const MIRROR_SOURCE_BIT: u16 = 0x0080;
-
-    let cleared = object_meta & !MIRROR_TARGET_BIT;
-    if cleared & MIRROR_SOURCE_BIT == 0 {
+    let cleared = object_meta & !ARMADILLO_OBJECT_META_MIRROR_TARGET_BIT;
+    if cleared & ARMADILLO_OBJECT_META_MIRROR_SOURCE_BIT == 0 {
         cleared
     } else {
-        cleared | MIRROR_TARGET_BIT
+        armadillo_object_meta_set_mirror_target_bit_loc_3c810(cleared)
     }
 }
 
@@ -82,7 +92,6 @@ pub(crate) fn armadillo_collision_dispatch_loc_3c824(
     }
 
     match collision_type {
-        0 => ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker,
         ARMADILLO_COLID_HURT | ARMADILLO_COLID_KIDABOVE => ArmadilloCollisionRouteLoc3C824::Damage,
         ARMADILLO_COLID_KIDRIGHT | ARMADILLO_COLID_KIDLEFT => {
             ArmadilloCollisionRouteLoc3C824::BerzerkerSideGate
@@ -515,6 +524,11 @@ mod tests {
             armadillo_object_meta_sync_loc_3c810(0x0080),
             0x00C0,
             "ASM Armadillo.asm loc_3C810 sets bit 6 only after `btst #7,object_meta(a3)` succeeds"
+        );
+        assert_eq!(
+            armadillo_object_meta_sync_loc_3c810(0xA5C0),
+            0xA5C0,
+            "ASM Armadillo.asm loc_3C810 preserves unrelated object_meta bits while mirroring bit 7 into bit 6"
         );
     }
 

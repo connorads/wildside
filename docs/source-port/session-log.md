@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Armadillo mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/armadillo.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `47 mutants tested in 18m: 2 missed,
+  33 caught, 12 unviable`. Survivors were both equivalent mutation targets:
+  `loc_3C810` set-bit `|` -> `^` after bit 6 was already cleared, and
+  `loc_3C824` deleting the explicit zero-collision arm that returned the same
+  shared-walker route as the default unmatched-positive arm.
+- Native behaviour is unchanged. Kept the `loc_3C810` mirror invariant explicit,
+  added an unrelated-bit preservation assertion, expressed the known-clear bit
+  set as wrapping addition, and removed the redundant zero match arm while
+  leaving zero covered by the dispatch test.
+- Verification: focused `armadillo` tests pass; final rerun
+  `.cache/mutants/armadillo-final` reports
+  `46 mutants tested in 18m: 34 caught, 12 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Emo Rock mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
