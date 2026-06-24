@@ -469,7 +469,7 @@ pub(crate) fn crab_freeze_direction_gate_loc_3b0fe(
 ///
 /// Unfreeze when:
 /// - Distance > 224px, OR
-/// - Within 64px but player is moving away from the crab
+/// - Within 64px while the player is moving toward the crab
 ///
 /// The freeze uses the player's facing direction and velocity to determine
 /// whether to freeze or unfreeze.
@@ -485,13 +485,28 @@ pub(crate) fn step_crab_freeze(
     let dx = (enemy.x_pos as i64 - px as i64) >> 16; // crab_x - player_x
     let abs_dx = dx.abs();
 
-    if !enemy.crab_frozen {
+    let was_frozen = enemy.crab_frozen;
+    if !was_frozen {
         enemy.facing = crab_facing_toward_kid_loc_3b0e0(dx as i16);
     }
 
     // ASM loc_3B142-loc_3B170: unfreeze when distance > 224px
     if abs_dx > CRAB_UNFREEZE_DISTANCE {
         enemy.crab_frozen = false;
+        return;
+    }
+
+    if was_frozen {
+        if abs_dx <= CRAB_FREEZE_DISTANCE {
+            // ASM loc_3B142-loc_3B16C: while frozen, close-range movement toward
+            // the crab clears `$6E(a5)` and resumes the walking sprite.
+            if let Some(p_vel) = player_x_velocity {
+                let player_moving_toward_crab = if dx >= 0 { p_vel > 0 } else { p_vel < 0 };
+                if player_moving_toward_crab {
+                    enemy.crab_frozen = false;
+                }
+            }
+        }
         return;
     }
 
@@ -507,24 +522,6 @@ pub(crate) fn step_crab_freeze(
             // move.l #0,$50(a5) - zero x_velocity
             enemy.crab_frozen = true;
             enemy.x_velocity = 0;
-            return;
-        }
-
-        // ASM loc_3B142-loc_3B16C: within 64px, check if player moving toward crab
-        // If player moving away, unfreeze
-        if let Some(p_vel) = player_x_velocity {
-            // Player to left of crab (dx > 0), moving right (p_vel > 0): moving toward -> keep frozen
-            // Player to left of crab (dx > 0), not moving right: moving away -> unfreeze
-            // Player to right of crab (dx < 0), moving left (p_vel < 0): moving toward -> keep frozen
-            // Player to right of crab (dx < 0), not moving left: moving away -> unfreeze
-            let player_moving_toward_crab = if dx > 0 {
-                p_vel > 0 // player to left, moving right toward crab
-            } else {
-                p_vel < 0 // player to right, moving left toward crab
-            };
-            if !player_moving_toward_crab {
-                enemy.crab_frozen = false;
-            }
         }
     }
     // ASM loc_3B11E: outside 64px but within 224px, keep current state
@@ -535,6 +532,17 @@ pub(crate) fn step_crab_freeze(
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    fn crab_test_enemy(x_px: u32, crab_frozen: bool, facing: Direction) -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Crab,
+            x_pos: x_px << 16,
+            x_velocity: 0x0001_8000,
+            crab_frozen,
+            facing,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
 
     #[test]
     fn crab_init_visible_state_matches_loc_3afd0() {
@@ -1109,6 +1117,108 @@ mod tests {
             !crab_freeze_direction_gate_loc_3b0fe(Direction::Left, Direction::Left),
             "ASM Crab.asm loc_3B0E4 should skip freeze when Kid's set x_direction sees a clear-x_direction crab"
         );
+    }
+
+    #[test]
+    fn crab_freeze_callback_loc_3b0be_freezes_when_kid_faces_crab_inside_64px() {
+        let mut enemy = crab_test_enemy(100, false, Direction::Left);
+
+        step_crab_freeze(&mut enemy, Some(140 << 16), Some(Direction::Left), Some(0));
+
+        assert!(
+            enemy.crab_frozen,
+            "ASM Crab.asm loc_3B104 should set `$6E(a5)` when Kid is inside 64px and faces the crab"
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Crab.asm loc_3B0E0 should face the crab toward Kid before freezing"
+        );
+        assert_eq!(
+            enemy.x_velocity, 0,
+            "ASM Crab.asm loc_3B104 should zero `$50(a5)` while frozen"
+        );
+    }
+
+    #[test]
+    fn crab_frozen_callback_loc_3b142_keeps_facing_and_holds_at_224px_edge() {
+        let mut enemy = crab_test_enemy(300, true, Direction::Left);
+
+        step_crab_freeze(&mut enemy, Some(76 << 16), Some(Direction::Right), None);
+
+        assert!(
+            enemy.crab_frozen,
+            "ASM Crab.asm loc_3B142 should hold the frozen flag at exact 224px distance"
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Crab.asm loc_3B142 skips the loc_3B0E0 facing update while `$6E(a5)` is set"
+        );
+    }
+
+    #[test]
+    fn crab_frozen_callback_loc_3b142_unfreezes_beyond_224px() {
+        let mut enemy = crab_test_enemy(300, true, Direction::Left);
+
+        step_crab_freeze(&mut enemy, Some(75 << 16), Some(Direction::Right), None);
+
+        assert!(
+            !enemy.crab_frozen,
+            "ASM Crab.asm loc_3B142 should clear `$6E(a5)` once distance exceeds 224px"
+        );
+    }
+
+    #[test]
+    fn crab_frozen_callback_loc_3b142_unfreezes_when_kid_moves_toward_crab() {
+        let mut kid_left = crab_test_enemy(100, true, Direction::Left);
+        step_crab_freeze(
+            &mut kid_left,
+            Some(60 << 16),
+            Some(Direction::Right),
+            Some(0x0001_0000),
+        );
+        assert!(
+            !kid_left.crab_frozen,
+            "ASM Crab.asm loc_3B142 should clear `$6E(a5)` when non-negative d7 sees positive Kid x_vel"
+        );
+
+        let mut kid_right = crab_test_enemy(100, true, Direction::Right);
+        step_crab_freeze(
+            &mut kid_right,
+            Some(140 << 16),
+            Some(Direction::Left),
+            Some(-0x0001_0000),
+        );
+        assert!(
+            !kid_right.crab_frozen,
+            "ASM Crab.asm loc_3B16C should clear `$6E(a5)` when negative d7 sees negative Kid x_vel"
+        );
+    }
+
+    #[test]
+    fn crab_frozen_callback_loc_3b142_holds_when_kid_stops_or_moves_away() {
+        for (player_x, player_x_velocity) in [
+            (100 << 16, 0),
+            (60 << 16, 0),
+            (60 << 16, -0x0001_0000),
+            (140 << 16, 0),
+            (140 << 16, 0x0001_0000),
+        ] {
+            let mut enemy = crab_test_enemy(100, true, Direction::Left);
+
+            step_crab_freeze(
+                &mut enemy,
+                Some(player_x),
+                Some(Direction::Right),
+                Some(player_x_velocity),
+            );
+
+            assert!(
+                enemy.crab_frozen,
+                "ASM Crab.asm loc_3B142/loc_3B16C should hold `$6E(a5)` unless close-range Kid x_vel points toward the crab; player_x={player_x:#010X}, player_x_velocity={player_x_velocity:#010X}"
+            );
+        }
     }
 
     #[test]

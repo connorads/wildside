@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Crab mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/crab.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `87 mutants tested in 34m: 19 missed,
+  52 caught, 16 unviable`. All survivors were in `step_crab_freeze`, covering
+  the live `loc_3B0BE`/`loc_3B142` freeze callback, X delta extraction,
+  frozen-facing preservation, distance thresholds, and close-range Kid velocity
+  gates.
+- Fixed one ASM mismatch while adding the missing regressions: when `$6E(a5)`
+  is set, Crab.asm jumps straight to `loc_3B142`, skipping the unfrozen facing
+  and freeze-sprite branch. The frozen close-range branch clears `$6E(a5)` when
+  Kid moves toward the crab, not away.
+- Verification: focused `crab` tests pass; final rerun
+  `.cache/mutants/crab-final` reports
+  `85 mutants tested in 33m: 69 caught, 16 unviable`, with zero missed mutants.
+  `mise run verify-slice-fast` passes. `mise run verify-tas-full` reports the
+  same pre-existing full-recording divergences on current HEAD and `origin/main`
+  (`CRC: all 37759 frames match`; first diff `transition_15_to_00_post`), so
+  this change does not move the full-TAS frontier.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Diamond mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
