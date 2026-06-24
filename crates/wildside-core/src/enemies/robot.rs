@@ -59,7 +59,6 @@ pub(crate) fn robot_collision_dispatch_loc_3a8ae(
         return RobotCollisionRouteLoc3A8Ae::EnterCharge;
     }
     match child_collision_type {
-        0x0000 => RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
         0x001C | 0x002C => RobotCollisionRouteLoc3A8Ae::HitReaction,
         0x0020 | 0x0024 => robot_berzerker_side_gate_loc_3a9cc(berzerker_charging),
         0x0800 => RobotCollisionRouteLoc3A8Ae::ContinueCharge,
@@ -588,14 +587,8 @@ fn push_robot_shot(
             x_pos: (enemy.x_pos as i64 + (i64::from(spawn.projectile_x_delta_px) << 16)) as u32,
             y_pos: (enemy.y_pos as i64 + (i64::from(spawn.projectile_y_delta_px) << 16)) as u32,
             x_velocity: spawn.projectile_x_velocity,
-            y_velocity: 0,
             lifetime: 60,
-            gravity: 0,
-            friendly: false,
             kind: EnemyProjectileKind::RobotShot,
-            homing_accel: 0,
-            speed_cap: 0,
-            wall_bounce: false,
             ..Default::default()
         });
         if let Some(sound_effects) = sound_effects {
@@ -653,11 +646,9 @@ pub(crate) fn step_robot_with_rng(
                     let wall_fp = (wall.wall_x_px as u32) << 16;
                     let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
                     if moving_right {
-                        if enemy.x_pos + edge_fp > wall_fp {
-                            enemy.x_pos = wall_fp.saturating_sub(edge_fp);
-                        }
-                    } else if enemy.x_pos < wall_fp + edge_fp {
-                        enemy.x_pos = wall_fp + edge_fp;
+                        enemy.x_pos = enemy.x_pos.min(wall_fp.saturating_sub(edge_fp));
+                    } else {
+                        enemy.x_pos = enemy.x_pos.max(wall_fp + edge_fp);
                     }
                     reverse_enemy_direction(enemy);
                     return;
@@ -681,6 +672,7 @@ pub(crate) fn step_robot_with_rng(
                     return;
                 };
                 let parent_x_direction = robot_x_direction_byte(enemy.facing);
+                let robot_x_pos_px = (enemy.x_pos >> 16) as u16;
                 let result =
                     shared_enemy_robot_helper_sub_3C4F8(SharedEnemyRobotHelperInputSub3C4F8 {
                         helper_kind: SharedEnemyRobotHelperKindSub3C4F8::Robot,
@@ -689,8 +681,8 @@ pub(crate) fn step_robot_with_rng(
                         child_state_word_40: 1,
                         child_counter_word_4e: 0,
                         child_timer_word_54: 0,
-                        parent_x_pos: (enemy.x_pos >> 16) as u16,
-                        walker_x_pos: (enemy.x_pos >> 16) as u16,
+                        parent_x_pos: robot_x_pos_px,
+                        walker_x_pos: robot_x_pos_px,
                         kid_x_pos: (px >> 16) as u16,
                         parent_x_direction,
                         parent_flag_15: true,
@@ -780,6 +772,63 @@ mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
 
+    fn robot_test_enemy(
+        robot_state: RobotState,
+        facing: Direction,
+        x_px: u32,
+        y_px: u32,
+        wait_timer: u16,
+    ) -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Robot,
+            robot_state,
+            facing,
+            hit_points: 2,
+            wait_timer,
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    fn grid_with_solid_cells(cells: &[(u16, u16)]) -> terrain::BlockGrid {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        for &(col, row) in cells {
+            grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0x60, 0x00));
+        }
+        grid
+    }
+
+    fn rng_at_robot_random_gate() -> RomRandomState {
+        let mut rng = RomRandomState::default();
+        while (rng.clone().next_long() as u16) > 0x000A {
+            rng.next_long();
+        }
+        rng
+    }
+
+    #[test]
+    fn robot_shot_impact_animation_frame_count_matches_stru_3a762() {
+        assert_eq!(
+            ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762, 15,
+            "ASM Robot.asm loc_3AC92 starts `stru_3A762`, whose impact animation lasts 3 + 4 + 8 frames",
+        );
+    }
+
+    #[test]
+    fn robot_collision_dispatch_child_zero_and_default_route_clear_loc_3a958() {
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0, 0, false),
+            RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+            "ASM Robot.asm loc_3A8AE: `beq.w loc_3A958` clears the child/parent collision words",
+        );
+        assert_eq!(
+            robot_collision_dispatch_loc_3a8ae(0, 0x0010, false),
+            RobotCollisionRouteLoc3A8Ae::ClearAndWalk,
+            "ASM Robot.asm loc_3A8AE: unhandled positive child collision types also fall through to loc_3A958",
+        );
+    }
+
     #[test]
     fn robot_live_step_queues_shoot_sound_when_loc_3ac0c_spawns_projectile() {
         let robot = ActiveEnemy {
@@ -822,11 +871,166 @@ mod tests {
             1,
             "ASM Robot.asm loc_3AC0C should allocate the shot object when the aiming sequence reaches its shoot tail",
         );
+        let projectile = projectiles[0];
+        assert_eq!(projectile.x_pos, 126 << 16);
+        assert_eq!(projectile.y_pos, 64 << 16);
+        assert_eq!(projectile.x_velocity, ROBOT_PROJECTILE_SPEED);
+        assert_eq!(projectile.y_velocity, 0);
+        assert_eq!(projectile.lifetime, 60);
+        assert_eq!(projectile.gravity, 0);
+        assert!(!projectile.friendly);
+        assert_eq!(projectile.kind, EnemyProjectileKind::RobotShot);
+        assert_eq!(projectile.homing_accel, 0);
+        assert_eq!(projectile.speed_cap, 0);
+        assert!(!projectile.wall_bounce);
         assert_eq!(
             sound_effects,
             vec![QueuedSoundEffect::RobotShoots],
             "ASM Robot.asm loc_3AC0C should play `sfx_Robot_shoots` after the spawned shot object's one-frame hibernate",
         );
         assert_eq!(sound_effects[0].sound_id(), 0x3A);
+    }
+
+    #[test]
+    fn robot_aiming_zero_wait_shoots_without_underflowing_loc_3aa9e_3aac4() {
+        let mut robot = robot_test_enemy(RobotState::Aiming, Direction::Right, 100, 80, 0);
+        let mut rng = RomRandomState::default();
+        let mut projectiles = Vec::new();
+
+        step_robot_with_rng(
+            &mut robot,
+            None,
+            Some(140 << 16),
+            &mut Some(&mut projectiles),
+            &mut rng,
+            None,
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM Robot.asm loc_3AAC4 should shoot immediately once the aiming wait reaches zero",
+        );
+        assert_eq!(robot.robot_state, RobotState::Walking);
+        assert_eq!(robot.wait_timer, ROBOT_SHOOT_INTERVAL);
+    }
+
+    #[test]
+    fn robot_walk_wall_probe_clamps_to_leading_edge_and_reverses() {
+        let cases = [
+            (
+                Direction::Right,
+                56,
+                &[(4, 1)][..],
+                56 << 16,
+                Direction::Left,
+                "right wall",
+            ),
+            (
+                Direction::Left,
+                72,
+                &[(3, 1)][..],
+                72 << 16,
+                Direction::Right,
+                "left wall",
+            ),
+        ];
+
+        for (facing, x_px, cells, expected_x, expected_facing, label) in cases {
+            let grid = grid_with_solid_cells(cells);
+            let mut robot = robot_test_enemy(RobotState::Walking, facing, x_px, 32, 10);
+
+            step_robot(&mut robot, Some(&grid), None, &mut None);
+
+            assert_eq!(
+                robot.x_pos, expected_x,
+                "ASM Robot.asm loc_3A884 shared walker should clamp Robot at the {label} leading edge",
+            );
+            assert_eq!(
+                robot.facing, expected_facing,
+                "ASM Robot.asm loc_3A884 shared walker should reverse at the {label}",
+            );
+        }
+    }
+
+    #[test]
+    fn robot_walk_floor_lookahead_uses_leading_edge_for_both_directions() {
+        let cases = [
+            (Direction::Right, 80, &[(5, 2)][..]),
+            (Direction::Left, 80, &[(4, 2)][..]),
+        ];
+
+        for (facing, x_px, cells) in cases {
+            let grid = grid_with_solid_cells(cells);
+            let mut robot = robot_test_enemy(RobotState::Walking, facing, x_px, 32, 10);
+
+            step_robot(&mut robot, Some(&grid), None, &mut None);
+
+            assert_eq!(
+                robot.facing, facing,
+                "ASM Robot.asm loc_3A884 shared walker should keep direction when the leading-edge floor probe is grounded",
+            );
+        }
+    }
+
+    #[test]
+    fn robot_walk_shoot_helper_uses_robot_integer_x_for_loc_3c56a() {
+        let mut robot = robot_test_enemy(RobotState::Walking, Direction::Left, 0x0200, 80, 0);
+        let mut rng = rng_at_robot_random_gate();
+        let mut projectiles = Vec::new();
+
+        step_robot_with_rng(
+            &mut robot,
+            None,
+            Some(0x0140 << 16),
+            &mut Some(&mut projectiles),
+            &mut rng,
+            None,
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            1,
+            "ASM sub_3C4F8 loc_3C56A should see Robot right of Kid and facing left, then branch to Enemy03_Robot_Shoot",
+        );
+        assert_eq!(projectiles[0].x_velocity, -ROBOT_PROJECTILE_SPEED);
+        assert_eq!(robot.robot_state, RobotState::Walking);
+    }
+
+    #[test]
+    fn robot_charging_advances_at_charge_speed_loc_3a96c() {
+        let mut robot = robot_test_enemy(RobotState::Charging, Direction::Right, 80, 32, 1);
+        let start_x = robot.x_pos;
+
+        step_robot(&mut robot, None, None, &mut None);
+
+        assert_eq!(
+            robot.x_pos,
+            start_x + ROBOT_CHARGE_SPEED as u32,
+            "ASM Robot.asm loc_3A96C seeds `$50(a5)=$28000`, and the charge loop advances by that speed each frame",
+        );
+        assert_eq!(robot.robot_state, RobotState::Charging);
+    }
+
+    #[test]
+    fn robot_charging_floor_lookahead_uses_leading_edge_for_both_directions() {
+        let cases = [
+            (Direction::Right, 80, &[(5, 2)][..]),
+            (Direction::Left, 80, &[(4, 2)][..]),
+        ];
+
+        for (facing, x_px, cells) in cases {
+            let grid = grid_with_solid_cells(cells);
+            let mut robot = robot_test_enemy(RobotState::Charging, facing, x_px, 32, 10);
+
+            step_robot(&mut robot, Some(&grid), None, &mut None);
+
+            assert_eq!(
+                robot.robot_state,
+                RobotState::Charging,
+                "ASM Robot.asm charge should remain active while the leading-edge floor probe is grounded",
+            );
+            assert_eq!(robot.facing, facing);
+        }
     }
 }

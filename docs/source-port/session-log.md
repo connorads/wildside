@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Robot mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/robot.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `122 mutants tested in 49m: 38 missed,
+  73 caught, 11 unviable`. Survivors clustered around `loc_3A762` impact-frame
+  arithmetic, `loc_3A8AE` child-zero/default clear routing, `loc_3AC0C` shot
+  payload/default fields, and live walking/aiming/charging terrain/cadence
+  edges in `step_robot_with_rng`.
+- Native behaviour is unchanged. Added focused Robot edge regressions, removed
+  equivalent/default mutation targets, and kept wall clamping explicit via
+  bounds rather than nested comparisons.
+- Verification: focused `robot` tests pass; final rerun
+  `.cache/mutants/robot-after` reports
+  `104 mutants tested in 42m: 93 caught, 11 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Sphere mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
