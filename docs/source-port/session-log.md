@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Orca mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/orca.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `87 mutants tested in 34m: 18 missed,
+  52 caught, 17 unviable`. Survivors clustered around ASM `loc_3D348`
+  lunge Y velocity, live `loc_3D35A` lunge displacement/FP terrain probes,
+  `loc_3D3DE` slope relaunch, `loc_3D40C` wall pinning, `loc_3D47A`
+  ceiling bounce gating, `loc_3D420` floor snap, and `loc_3D496` fatal-fall
+  movement/collision classification.
+- Native behaviour is unchanged. Added exact ASM-cited regressions and
+  extracted the fatal-fall floor/slope collision-word classification into a
+  tested helper. Removed redundant floor-landing slope exclusions after the
+  earlier slope branch has already returned.
+- Verification: focused `orca` tests pass; final rerun
+  `.cache/mutants/orca-final` reports
+  `86 mutants tested in 34m: 69 caught, 17 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Crab mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

@@ -12781,6 +12781,10 @@ mod chunk_04 {
     #[test]
     fn orca_lunge_launch_tail_matches_loc_3d348() {
         assert_eq!(
+            ORCA_LUNGE_Y_SPEED, -0x0002_8000,
+            "ASM Orca.asm loc_3D348 stores `$FFFD8000` into y_vel(a3)"
+        );
+        assert_eq!(
             orca_lunge_launch_tail_loc_3d348(),
             OrcaLungeLaunchTailLoc3D348 {
                 y_velocity: ORCA_LUNGE_Y_SPEED,
@@ -12867,6 +12871,146 @@ mod chunk_04 {
             0x0000_0100,
             "ASM Orca.asm loc_3D3D2 should use signed long addition, not clamp at zero"
         );
+    }
+
+    #[test]
+    fn orca_lunge_frame_moves_by_updated_velocity_loc_3d35a() {
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, 80 << 16, 4);
+        enemy.orca_state = OrcaState::Lunging;
+        enemy.facing = Direction::Right;
+        enemy.x_velocity = ORCA_LUNGE_X_SPEED;
+        enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
+        enemy.on_ground = false;
+        enemy.wall_pinned = false;
+
+        let x_before = enemy.x_pos;
+        let y_before = enemy.y_pos;
+        let expected_x_velocity = ORCA_LUNGE_X_SPEED + ORCA_LUNGE_X_ACCEL;
+        let expected_y_velocity = ORCA_LUNGE_Y_SPEED + ORCA_LUNGE_GRAVITY;
+
+        step_orca(&mut enemy, None, None);
+
+        assert_eq!(enemy.x_velocity, expected_x_velocity);
+        assert_eq!(enemy.y_velocity, expected_y_velocity);
+        assert_eq!(
+            enemy.x_pos,
+            (i64::from(x_before) + i64::from(expected_x_velocity)) as u32,
+            "ASM Orca.asm loc_3D35A applies sub_3E8BA motion before the lunge loop continues"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            (i64::from(y_before) + i64::from(expected_y_velocity)) as u32,
+            "ASM Orca.asm loc_3D35A should move by the signed upward lunge velocity"
+        );
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
+    }
+
+    #[test]
+    fn orca_lunge_slope_contact_relaunches_loc_3d3de() {
+        let grid = grid_with_cells(8, 8, &[(5, 5, 0x50, 0)]);
+        let mut enemy = test_enemy(EnemyFamily::Orca, (5 * 16 + 8) << 16, 88 << 16, 4);
+        enemy.orca_state = OrcaState::Lunging;
+        enemy.facing = Direction::Right;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        enemy.on_ground = false;
+        enemy.wall_pinned = true;
+
+        step_orca(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Orca.asm loc_3D3DE flips x_direction on slope contact before re-entering loc_3D320"
+        );
+        assert_eq!(enemy.x_velocity, -ORCA_LUNGE_X_SPEED);
+        assert_eq!(enemy.y_velocity, ORCA_LUNGE_Y_SPEED);
+        assert!(!enemy.wall_pinned);
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
+    }
+
+    #[test]
+    fn orca_lunge_wall_contact_sets_wall_pin_loc_3d40c() {
+        let grid = grid_with_cells(8, 8, &[(5, 3, 0x60, 0)]);
+        let mut enemy = test_enemy(EnemyFamily::Orca, 71 << 16, 56 << 16, 4);
+        enemy.orca_state = OrcaState::Lunging;
+        enemy.facing = Direction::Right;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        enemy.on_ground = false;
+        enemy.wall_pinned = false;
+
+        step_orca(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.x_velocity, 0,
+            "ASM Orca.asm loc_3D40C clears x_vel on wall contact"
+        );
+        assert!(
+            enemy.wall_pinned,
+            "ASM Orca.asm loc_3D40C sets `$5C(a5)` so later lunge frames suppress X acceleration"
+        );
+        assert_eq!(enemy.facing, Direction::Left);
+        assert_eq!(enemy.orca_state, OrcaState::Lunging);
+    }
+
+    #[test]
+    fn orca_lunge_ceiling_bounces_only_while_moving_up_loc_3d47a() {
+        let ceiling_grid = grid_with_cells(6, 6, &[(2, 1, 0x60, 0)]);
+        let mut upward = test_enemy(EnemyFamily::Orca, 40 << 16, 48 << 16, 4);
+        upward.orca_state = OrcaState::Lunging;
+        upward.facing = Direction::Right;
+        upward.x_velocity = 0;
+        upward.y_velocity = -0x0001_0000;
+        upward.on_ground = false;
+        upward.wall_pinned = true;
+
+        step_orca(&mut upward, Some(&ceiling_grid), None);
+
+        assert_eq!(
+            upward.y_velocity, 0x0001_8000,
+            "ASM Orca.asm loc_3D47A bounces an upward lunge downward after ceiling collision"
+        );
+
+        let zero_grid = grid_with_cells(6, 6, &[(2, 2, 0x60, 0)]);
+        let mut zero = test_enemy(EnemyFamily::Orca, 40 << 16, 48 << 16, 4);
+        zero.orca_state = OrcaState::Lunging;
+        zero.facing = Direction::Right;
+        zero.x_velocity = 0;
+        zero.y_velocity = -ORCA_LUNGE_GRAVITY;
+        zero.on_ground = false;
+        zero.wall_pinned = true;
+
+        step_orca(&mut zero, Some(&zero_grid), None);
+
+        assert_eq!(
+            zero.y_velocity, 0,
+            "ASM Orca.asm loc_3D35A only reaches the ceiling branch for colid_ceiling, not for a neutral vertical frame"
+        );
+        assert_eq!(zero.orca_state, OrcaState::Lunging);
+        assert!(!zero.on_ground);
+    }
+
+    #[test]
+    fn orca_lunge_zero_y_velocity_does_not_land_on_floor_loc_3d35a() {
+        let grid = grid_with_cells(8, 8, &[(2, 5, 0x60, 0)]);
+        let mut enemy = test_enemy(EnemyFamily::Orca, 40 << 16, 80 << 16, 4);
+        enemy.orca_state = OrcaState::Lunging;
+        enemy.facing = Direction::Right;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = -ORCA_LUNGE_GRAVITY;
+        enemy.on_ground = false;
+        enemy.wall_pinned = true;
+
+        step_orca(&mut enemy, Some(&grid), None);
+
+        assert_eq!(
+            enemy.orca_state,
+            OrcaState::Lunging,
+            "ASM Orca.asm loc_3D35A continues the lunge loop when the native floor probe has no downward frame"
+        );
+        assert_eq!(enemy.y_velocity, 0);
+        assert!(!enemy.on_ground);
     }
 
     #[test]
@@ -12972,6 +13116,37 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_fatal_fall_collision_type_matches_loc_3d496() {
+        let empty = grid_with_cells(8, 8, &[]);
+        assert_eq!(
+            orca_fatal_fall_collision_type_loc_3d496(terrain::probe_floor(&empty, 72, 64)),
+            0,
+            "ASM Orca.asm loc_3D496 keeps looping while collision_type is zero"
+        );
+
+        let flat = grid_with_cells(8, 8, &[(4, 4, 0x60, 0)]);
+        assert_eq!(
+            orca_fatal_fall_collision_type_loc_3d496(terrain::probe_floor(&flat, 72, 64)),
+            ORCA_COLID_FLOOR,
+            "ASM Orca.asm loc_3D496 routes colid_floor to loc_3D4BC"
+        );
+
+        let slope_up = grid_with_cells(8, 8, &[(4, 4, 0x40, 0)]);
+        assert_eq!(
+            orca_fatal_fall_collision_type_loc_3d496(terrain::probe_floor(&slope_up, 72, 71)),
+            ORCA_COLID_SLOPEUP,
+            "ASM Orca.asm loc_3D496 routes colid_slopeup to loc_3D4BC"
+        );
+
+        let slope_down = grid_with_cells(8, 8, &[(4, 4, 0x50, 0)]);
+        assert_eq!(
+            orca_fatal_fall_collision_type_loc_3d496(terrain::probe_floor(&slope_down, 72, 72)),
+            ORCA_COLID_SLOPEDOWN,
+            "ASM Orca.asm loc_3D496 routes colid_slopedown to loc_3D4BC"
+        );
+    }
+
+    #[test]
     fn orca_ignores_distant_player() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;
@@ -13023,6 +13198,11 @@ mod chunk_04 {
         assert_eq!(enemy.orca_state, OrcaState::Walking);
         assert_eq!(enemy.wait_timer, ORCA_LUNGE_COOLDOWN);
         assert!(enemy.on_ground);
+        assert_eq!(
+            enemy.y_pos,
+            (17 * 16) << 16,
+            "ASM Orca.asm loc_3D420 snaps y_pos to the contacted floor before resuming patrol"
+        );
     }
 
     #[test]
@@ -13062,6 +13242,54 @@ mod chunk_04 {
             enemy.x_velocity, 0,
             "X accel should be suppressed when wall-pinned"
         );
+    }
+
+    #[test]
+    fn orca_fatal_fall_frame_moves_before_gravity_loc_3d496() {
+        let mut enemy = test_enemy(EnemyFamily::Orca, 64 << 16, 48 << 16, 1);
+        enemy.orca_state = OrcaState::FatalFall;
+        enemy.x_velocity = 0x0000_4000;
+        enemy.y_velocity = 0x0001_8000;
+        enemy.on_ground = false;
+
+        let x_before = enemy.x_pos;
+        let y_before = enemy.y_pos;
+
+        step_orca(&mut enemy, None, None);
+
+        assert_eq!(
+            enemy.x_pos,
+            (i64::from(x_before) + 0x0000_4000) as u32,
+            "ASM Orca.asm loc_3D496 applies movement before the fatal-fall gravity increment"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            (i64::from(y_before) + 0x0001_8000) as u32,
+            "ASM Orca.asm loc_3D496 moves downward by the current y_vel"
+        );
+        assert_eq!(enemy.y_velocity, 0x0001_9800);
+        assert!(!enemy.death_animation_active);
+        assert_eq!(enemy.orca_state, OrcaState::FatalFall);
+    }
+
+    #[test]
+    fn orca_fatal_fall_floor_probe_uses_fp_position_loc_3d496() {
+        let grid = grid_with_cells(8, 8, &[(4, 4, 0x60, 0)]);
+        let mut enemy = test_enemy(EnemyFamily::Orca, (4 * 16 + 8) << 16, 64 << 16, 1);
+        enemy.orca_state = OrcaState::FatalFall;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+        enemy.on_ground = false;
+
+        step_orca(&mut enemy, Some(&grid), None);
+
+        assert!(
+            enemy.death_animation_active,
+            "ASM Orca.asm loc_3D496 converts FP position to pixel coordinates before floor contact starts loc_3D4BC"
+        );
+        assert_eq!(enemy.wait_timer, ORCA_DEATH_ANIMATION_FRAMES);
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
     }
 
     // --- TarMonster ---

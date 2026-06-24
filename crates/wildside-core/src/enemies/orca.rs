@@ -527,6 +527,20 @@ pub(crate) fn orca_fatal_fall_frame_loc_3d496(
     }
 }
 
+pub(crate) fn orca_fatal_fall_collision_type_loc_3d496(floor: terrain::FloorProbe) -> i16 {
+    // ASM Orca.asm loc_3D496: floor, slope-up, and slope-down contacts all
+    // enter loc_3D4BC, but the collision word is still classified first.
+    if !floor.on_ground {
+        0
+    } else if floor.cell.collision == terrain::CollisionKind::SlopeUp {
+        ORCA_COLID_SLOPEUP
+    } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
+        ORCA_COLID_SLOPEDOWN
+    } else {
+        ORCA_COLID_FLOOR
+    }
+}
+
 /// Orca proximity detection range (Orca.asm loc_3D2DE: ~$30 px).
 pub(crate) const ORCA_DETECT_RANGE: i32 = 0x30;
 
@@ -661,10 +675,7 @@ pub(crate) fn step_orca(
             // Floor landing (Orca.asm loc_3D420)
             if enemy.y_velocity > 0 {
                 let floor = terrain::probe_floor(grid, cx, cy);
-                if floor.on_ground
-                    && floor.cell.collision != terrain::CollisionKind::SlopeUp
-                    && floor.cell.collision != terrain::CollisionKind::SlopeDown
-                {
+                if floor.on_ground {
                     let floor_y_fp = (floor.floor_y_px as u32) << 16;
                     if enemy.y_pos >= floor_y_fp {
                         enemy.y_pos = floor_y_fp;
@@ -689,15 +700,7 @@ pub(crate) fn step_orca(
                 let cx = (enemy.x_pos >> 16) as i32;
                 let cy = (enemy.y_pos >> 16) as i32;
                 let floor = terrain::probe_floor(grid, cx, cy);
-                if !floor.on_ground {
-                    0
-                } else if floor.cell.collision == terrain::CollisionKind::SlopeUp {
-                    ORCA_COLID_SLOPEUP
-                } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
-                    ORCA_COLID_SLOPEDOWN
-                } else {
-                    ORCA_COLID_FLOOR
-                }
+                orca_fatal_fall_collision_type_loc_3d496(floor)
             });
             let frame =
                 orca_fatal_fall_frame_loc_3d496(collision_type, enemy.x_velocity, enemy.y_velocity);
