@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Fireball mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/fireball.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `59 mutants tested in 23m: 5 missed,
+  42 caught, 12 unviable`. Survivors covered `loc_32F3E` signed branch
+  boundaries and `unk_32EDC` ratio-table range edges used by
+  `loc_32F78/loc_32FAC/loc_32FC8/loc_32FE8`.
+- Native behaviour is unchanged. Replaced an equivalent post-zero signed-X
+  comparison with `is_negative()` and added exact ASM-table/zero-Y regressions.
+- Verification: focused `fireball` tests pass; final rerun
+  `.cache/mutants/fireball-after` reports
+  `56 mutants tested in 22m: 44 caught, 12 unviable`, with zero missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Spinning Twins mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

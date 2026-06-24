@@ -174,7 +174,7 @@ pub(crate) fn fireball_sprite_branch_loc_32f3e(
         };
     }
 
-    if signed_x < 0 {
+    if signed_x.is_negative() {
         return FireballSpriteBranchLoc32F3E::NegativeX;
     }
 
@@ -749,6 +749,11 @@ mod tests {
             "ASM Fireball.asm loc_32F3E should route positive X / negative Y into the loc_32FAC branch"
         );
         assert_eq!(
+            fireball_sprite_branch_loc_32f3e(0x0001_0000, 0),
+            FireballSpriteBranchLoc32F3E::PositiveXNonNegativeY,
+            "ASM Fireball.asm loc_32F3E should route positive X / zero Y through the loc_32FE8 branch"
+        );
+        assert_eq!(
             fireball_sprite_branch_loc_32f3e(-0x0001_0000, -0x0000_8000),
             FireballSpriteBranchLoc32F3E::NegativeX,
             "ASM Fireball.asm loc_32F3E should route negative X into the loc_32F78 branch"
@@ -831,6 +836,50 @@ mod tests {
                 next_animation_countdown: 5,
             }),
             "ASM Fireball.asm loc_3304A should keep set x_direction from byte_33080 and clear non-zero d2 after expiry"
+        );
+    }
+
+    #[test]
+    fn fireball_ratio_lookup_unk_32edc_matches_table_edges() {
+        assert_eq!(
+            fireball_ratio_lookup_unk_32edc(0),
+            0,
+            "ASM Fireball.asm unk_32EDC should start with three 0 entries"
+        );
+        assert_eq!(
+            fireball_ratio_lookup_unk_32edc(2),
+            0,
+            "ASM Fireball.asm unk_32EDC should end the 0 range at index 2"
+        );
+        assert_eq!(
+            fireball_ratio_lookup_unk_32edc(3),
+            1,
+            "ASM Fireball.asm unk_32EDC should start the 1 range at index 3"
+        );
+        assert_eq!(
+            fireball_ratio_lookup_unk_32edc(5),
+            1,
+            "ASM Fireball.asm unk_32EDC should end the 1 range at index 5"
+        );
+        assert_eq!(
+            fireball_ratio_lookup_unk_32edc(6),
+            2,
+            "ASM Fireball.asm unk_32EDC should start the 2 range at index 6"
+        );
+        assert_eq!(
+            fireball_ratio_lookup_unk_32edc(13),
+            2,
+            "ASM Fireball.asm unk_32EDC should end the 2 range at index 13"
+        );
+        assert_eq!(
+            fireball_ratio_lookup_unk_32edc(14),
+            3,
+            "ASM Fireball.asm unk_32EDC should map index 14 and later ratio slots to 3"
+        );
+        assert_eq!(
+            fireball_ratio_lookup_unk_32edc(62),
+            3,
+            "ASM Fireball.asm loc_32F78/loc_32FAC/loc_32FC8/loc_32FE8 should use unk_32EDC through the last ratio slot before `$3F` fallback"
         );
     }
 
