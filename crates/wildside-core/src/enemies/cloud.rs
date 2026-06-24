@@ -580,8 +580,10 @@ pub(crate) fn step_cloud_attack(
             object_45: 0xFF,
             animation_done_flag_18: true,
             x_direction,
-            cloud_x: (enemy.x_pos >> 16) as i16,
-            cloud_y: (enemy.y_pos >> 16) as i16,
+            // ASM Cloud.asm loc_35DAE/loc_35DB8 only reuses latched `d1`,
+            // `$18(a3)`, and the flipped direction byte; positions are ignored.
+            cloud_x: 0,
+            cloud_y: 0,
             kid_x: 0,
             kid_y: 0,
             attack_x_word: (enemy.target_x_velocity >> 16) as i16,
@@ -631,5 +633,274 @@ pub(crate) fn step_cloud_attack(
         enemy.ufo_beam_segments = 1;
         enemy.target_x_velocity = i32::from(x_word) << 16;
         enemy.target_y_velocity = i32::from(y_word) << 16;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::terrain;
+
+    fn cloud_attack_input(
+        x_direction: u8,
+        cloud_x: i16,
+        cloud_y: i16,
+        kid_x: i16,
+        kid_y: i16,
+    ) -> CloudDiagonalAttackInputLoc35CD8 {
+        CloudDiagonalAttackInputLoc35CD8 {
+            object_45: 0x00,
+            animation_done_flag_18: false,
+            x_direction,
+            cloud_x,
+            cloud_y,
+            kid_x,
+            kid_y,
+            attack_x_word: 0,
+            attack_y_word: 0,
+        }
+    }
+
+    fn cloud_start_attack(x_word: i16, y_word: i16) -> CloudDiagonalAttackSetupLoc35CD8 {
+        CloudDiagonalAttackSetupLoc35CD8 {
+            route: CloudDiagonalAttackRouteLoc35CD8::StartAttack { x_word, y_word },
+            animation_script: Some("stru_35EC8"),
+            object_45_value: Some(0xFF),
+        }
+    }
+
+    fn cloud_later_range_checks() -> CloudDiagonalAttackSetupLoc35CD8 {
+        CloudDiagonalAttackSetupLoc35CD8 {
+            route: CloudDiagonalAttackRouteLoc35CD8::LaterRangeChecks,
+            animation_script: None,
+            object_45_value: None,
+        }
+    }
+
+    fn grid_with_solid_cells(
+        width_cells: u16,
+        height_cells: u16,
+        solid_cells: &[(u16, u16)],
+    ) -> terrain::BlockGrid {
+        let mut data = vec![0; usize::from(width_cells) * usize::from(height_cells) * 2];
+        for &(col, row) in solid_cells {
+            let offset = (usize::from(row) * usize::from(width_cells) + usize::from(col)) * 2;
+            data[offset] = 0xE0;
+            data[offset + 1] = 0;
+        }
+        terrain::BlockGrid::from_level_layout(&data, width_cells, height_cells)
+    }
+
+    fn cloud_enemy_for_attack() -> ActiveEnemy {
+        ActiveEnemy {
+            segment_index: 0,
+            layout_index: 0,
+            enemy_level: 0,
+            family: EnemyFamily::Cloud,
+            x_pos: 100 << 16,
+            y_pos: 50 << 16,
+            x_velocity: -0x3000,
+            y_velocity: 0,
+            target_x_velocity: 0,
+            target_y_velocity: 0,
+            x_acceleration: 0,
+            y_acceleration: 0,
+            facing: Direction::Left,
+            on_ground: false,
+            hit_points: 1,
+            death_animation_active: false,
+            grounded_frames: 0,
+            tank_mouth_animation_phase: 0,
+            damage_flash_frames: 0,
+            palette_variant: 0,
+            wait_timer: 0,
+            dragon_phase: DragonFlyingState::None,
+            dragon_phase_frames: 0,
+            dragon_script_variant: 0,
+            dragon_script_cmd: 0,
+            dragon_anchor_y: 0,
+            dragon_descent_index: 0,
+            dragon_descent_frames: 0,
+            ninja_state: NinjaState::Stealth,
+            hand_state: HandState::Walking,
+            lion_state: LionState::Walking,
+            robot_state: RobotState::Walking,
+            orca_state: OrcaState::Walking,
+            wall_pinned: false,
+            drips_attached: false,
+            drips_surface_table_index: 0,
+            drips_pending_splash_x_pos: 0,
+            drips_pending_splash_y_pos: 0,
+            tar_monster_state: TarMonsterState::default(),
+            spinning_twins_phase: SpinningTwinsPhase::default(),
+            spinning_twins_orbit_index: 0,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0,
+            boss_head_index: BOSS_HEAD_NONE,
+            boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
+            boss_movement_delay_counter: 0,
+            boss_movement_script_index: 0,
+            heady_metal_palette_phase_counter: 0,
+            heady_metal_palette_word_5e: 0x0200,
+            scorpion_tracking_lock: false,
+            scorpion_sting_frames: 0,
+            flight_double_acceleration: false,
+            flight_double_terminal_speed: false,
+            walk_speed_override: 0,
+            crab_frozen: false,
+            crab_berzerker_knockback: false,
+            shared_walker_state: 0,
+            shared_walker_patrol_timer: 0,
+            shared_walker_turnaround_counter: 0,
+            shared_walker_right_turn_extra_step_consumed: false,
+            shared_walker_patrol_short_next: false,
+            shared_walker_debug_branch: None,
+            shared_walker_dx_to_kid_px: None,
+            shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
+        }
+    }
+
+    #[test]
+    fn cloud_control_script_dispatch_loc_35bb2_decodes_transition_offset() {
+        assert_eq!(
+            cloud_control_script_dispatch_loc_35BB2(0x000C),
+            CloudControlDispatchLoc35BB2::PlayTransitionAnimation,
+            "ASM Cloud.asm off_35BCE maps table offset $0C to loc_35C82 transition animation"
+        );
+    }
+
+    #[test]
+    fn cloud_diagonal_attack_setup_loc_35cd8_keeps_diagonal_bands_strict() {
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(cloud_attack_input(0, 100, 50, 100, 50)),
+            cloud_start_attack(0, 6),
+            "ASM Cloud.asm loc_35CD8 clear x_direction requires Kid-minus-cloud X to be negative before the diagonal band; dx=0 falls through to loc_35D40"
+        );
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(cloud_attack_input(0, 100, 50, 92, 70)),
+            cloud_start_attack(0, 6),
+            "ASM Cloud.asm loc_35CD8 rejects d7 > abs(dx) before loc_35D40 can start the straight-down attack"
+        );
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(cloud_attack_input(0xFF, 100, 50, 108, 70)),
+            cloud_start_attack(0, 6),
+            "ASM Cloud.asm loc_35D1E rejects d7 > dx for mirrored diagonal attacks before loc_35D40"
+        );
+    }
+
+    #[test]
+    fn cloud_diagonal_attack_setup_loc_35d40_keeps_column_bounds_asymmetric() {
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(cloud_attack_input(0, 100, 50, 84, 70)),
+            cloud_start_attack(-6, 0),
+            "ASM Cloud.asm loc_35D40 uses `cmpi #$FFF0; ble` so dx=-16 is outside the straight-down column and reaches loc_35D62"
+        );
+    }
+
+    #[test]
+    fn cloud_diagonal_attack_setup_loc_35d62_requires_kid_in_front() {
+        assert_eq!(
+            cloud_diagonal_attack_setup_loc_35CD8(cloud_attack_input(0, 100, 50, 100, 40)),
+            cloud_later_range_checks(),
+            "ASM Cloud.asm loc_35D62 clear x_direction uses `bpl return_35DAC`, so dx=0 is not in front"
+        );
+    }
+
+    #[test]
+    fn cloud_loc_35bde_treats_zero_velocity_as_right_wall_probe() {
+        let grid = grid_with_solid_cells(20, 15, &[(4, 4), (4, 5)]);
+        let mut enemy = cloud_enemy_for_attack();
+        enemy.x_pos = 64 << 16;
+        enemy.y_pos = 96 << 16;
+        enemy.x_velocity = 0;
+        enemy.facing = Direction::Left;
+
+        step_cloud(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
+            "ASM Cloud.asm loc_35BDE treats zero x_vel as the right-facing wall probe before toggling x_direction on contact"
+        );
+    }
+
+    #[test]
+    fn cloud_runtime_loc_35d1e_latches_right_diagonal_lightning() {
+        let mut active = vec![cloud_enemy_for_attack()];
+        active[0].facing = Direction::Right;
+        active[0].x_velocity = 0x3000;
+        let mut projectiles = Vec::new();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            None,
+            Some(140 << 16),
+            Some(89 << 16),
+            None,
+            None,
+            PlayerForm::TheKid,
+            Some(&mut projectiles),
+            &mut drilled_blocks,
+        );
+
+        assert!(
+            projectiles.is_empty(),
+            "ASM loc_35D1E should latch before loc_35DB8 allocates the mirrored attack worker",
+        );
+        assert_eq!(active[0].ufo_beam_segments, 1);
+        assert_eq!(active[0].target_x_velocity, 0x3_0000);
+        assert_eq!(active[0].target_y_velocity, 0x3_0000);
+    }
+
+    #[test]
+    fn cloud_projectile_spawn_loc_35df0_positions_vectors_and_offsets() {
+        let enemy = cloud_enemy_for_attack();
+
+        let vertical = cloud_projectile_spawn_loc_35df0(&enemy, 0, 6, 0);
+        assert_eq!(vertical.x_pos, 100 << 16);
+        assert_eq!(vertical.y_pos, 39 << 16);
+        assert_eq!(vertical.x_velocity, 0);
+        assert_eq!(vertical.y_velocity, 0x6_0000);
+
+        let diagonal_left = cloud_projectile_spawn_loc_35df0(&enemy, -3, 3, 0xFF);
+        assert_eq!(
+            diagonal_left.x_pos,
+            96 << 16,
+            "ASM Cloud.asm loc_35DF0 nudges diagonal sprites +4px, then subtracts 8px when copied x_direction is non-zero"
+        );
+        assert_eq!(diagonal_left.y_pos, 39 << 16);
+        assert_eq!(diagonal_left.x_velocity, -0x3_0000);
+        assert_eq!(diagonal_left.y_velocity, 0x3_0000);
+
+        let diagonal_right = cloud_projectile_spawn_loc_35df0(&enemy, 3, 3, 0x00);
+        assert_eq!(
+            diagonal_right.x_pos,
+            104 << 16,
+            "ASM Cloud.asm loc_35DF0 leaves the +4px diagonal nudge when copied x_direction is clear"
+        );
+        assert_eq!(diagonal_right.y_pos, 39 << 16);
+        assert_eq!(diagonal_right.x_velocity, 0x3_0000);
+        assert_eq!(diagonal_right.y_velocity, 0x3_0000);
+    }
+
+    #[test]
+    fn cloud_runtime_loc_35db8_respects_projectile_capacity() {
+        let mut enemy = cloud_enemy_for_attack();
+        enemy.ufo_beam_segments = 1;
+        enemy.target_x_velocity = -0x3_0000;
+        enemy.target_y_velocity = 0x3_0000;
+        let mut projectiles = vec![EnemyProjectile::default(); MAX_PROJECTILES];
+
+        step_cloud_attack(&mut enemy, &mut projectiles, None, None);
+
+        assert_eq!(
+            projectiles.len(),
+            MAX_PROJECTILES,
+            "ASM Cloud.asm loc_35DB8 allocation is mirrored by native projectile capacity; a full pool must not append a lightning worker"
+        );
+        assert_eq!(enemy.ufo_beam_segments, 0);
+        assert_eq!(enemy.target_x_velocity, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
     }
 }

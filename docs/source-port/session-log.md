@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-23 handoff (proactive Cloud mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/cloud.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `122 mutants tested in 48m: 23 missed,
+  84 caught, 15 unviable`. Survivors clustered in ASM branch/offset coverage:
+  control dispatch offset `$0C` (`loc_35BB2`), diagonal attack strict bands
+  (`loc_35CD8`/`loc_35D40`/`loc_35D62`), zero-velocity wall probe direction
+  (`loc_35BDE`), projectile capacity (`loc_35DB8`), and lightning spawn fixed
+  point/4px/8px offsets (`loc_35DF0`).
+- Native behaviour is unchanged except for removing dead latched-path
+  Cloud/Kid position extraction: ASM `loc_35DAE`/`loc_35DB8` only reuses
+  latched `d1`, `$18(a3)`, and the flipped direction byte. Added focused
+  regressions for the surviving branch edges and projectile construction.
+- Verification: focused `cloud_` tests pass; rerun `.cache/mutants/cloud-local-tests`
+  reports `120 mutants tested in 47m: 105 caught, 15 unviable`, with zero
+  missed mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-23 handoff (proactive Fire Demon mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
