@@ -677,64 +677,61 @@ pub(crate) fn spinning_twins_falling_visual_step_loc_3ba00(
 }
 
 pub(crate) fn materialize_spinning_twins_drop_splits(active: &mut Vec<ActiveEnemy>) {
-    let mut idx = 0;
-    while idx < active.len() {
-        let split_pending = matches!(active[idx].family, EnemyFamily::SpinningTwins)
-            && matches!(
-                active[idx].spinning_twins_phase,
-                SpinningTwinsPhase::Walking
-            )
-            && active[idx].wait_timer == SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C;
-        if !split_pending {
-            idx += 1;
+    let original = std::mem::take(active);
+    for source in original {
+        let split_pending = matches!(source.family, EnemyFamily::SpinningTwins)
+            && matches!(source.spinning_twins_phase, SpinningTwinsPhase::Walking)
+            && source.wait_timer == SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C;
+        if split_pending {
+            let first =
+                spinning_twins_first_walking_child_init_loc_3bb0c(source.x_pos, source.y_pos);
+            let second =
+                spinning_twins_second_walking_child_init_loc_3bb06(source.x_pos, source.y_pos);
+            let visual = spinning_twins_falling_visual_init_loc_3b9b0(source.x_pos, source.y_pos);
+
+            let mut first_child = source;
+            first_child.x_pos = first.x_pos;
+            first_child.y_pos = first.y_pos;
+            first_child.x_velocity = first.x_velocity;
+            first_child.y_velocity = first.y_velocity;
+            first_child.facing = Direction::Left;
+            first_child.on_ground = false;
+            first_child.wait_timer = 0;
+            first_child.spinning_twins_phase = SpinningTwinsPhase::Walking;
+
+            let mut second_child = source;
+            second_child.x_pos = second.x_pos;
+            second_child.y_pos = second.y_pos;
+            second_child.x_velocity = second.x_velocity;
+            second_child.y_velocity = second.y_velocity;
+            second_child.facing = Direction::Right;
+            second_child.on_ground = false;
+            second_child.wait_timer = 0;
+            second_child.spinning_twins_phase = SpinningTwinsPhase::Walking;
+
+            let mut falling_visual = source;
+            falling_visual.x_pos = visual.x_pos;
+            falling_visual.y_pos = visual.y_pos;
+            falling_visual.x_velocity = 0;
+            falling_visual.y_velocity = 0;
+            falling_visual.hit_points = 0;
+            falling_visual.on_ground = false;
+            falling_visual.wait_timer = 0;
+            falling_visual.grounded_frames = visual.frames_until_next_step_index;
+            falling_visual.spinning_twins_orbit_index = visual.step_index;
+            falling_visual.shared_walker_patrol_short_next = false;
+            falling_visual.spinning_twins_phase = SpinningTwinsPhase::FallingVisual;
+
+            // ASM Spinning_Twins.asm loc_3B93C deletes the original orbit object
+            // after allocating both loc_3BA74 walking children and the loc_3B9B0
+            // transition visual; native replaces the source with those live slots.
+            active.push(first_child);
+            active.push(second_child);
+            active.push(falling_visual);
             continue;
         }
 
-        let source = active[idx];
-        let first = spinning_twins_first_walking_child_init_loc_3bb0c(source.x_pos, source.y_pos);
-        let second = spinning_twins_second_walking_child_init_loc_3bb06(source.x_pos, source.y_pos);
-        let visual = spinning_twins_falling_visual_init_loc_3b9b0(source.x_pos, source.y_pos);
-
-        let mut first_child = source;
-        first_child.x_pos = first.x_pos;
-        first_child.y_pos = first.y_pos;
-        first_child.x_velocity = first.x_velocity;
-        first_child.y_velocity = first.y_velocity;
-        first_child.facing = Direction::Left;
-        first_child.on_ground = false;
-        first_child.wait_timer = 0;
-        first_child.spinning_twins_phase = SpinningTwinsPhase::Walking;
-
-        let mut second_child = source;
-        second_child.x_pos = second.x_pos;
-        second_child.y_pos = second.y_pos;
-        second_child.x_velocity = second.x_velocity;
-        second_child.y_velocity = second.y_velocity;
-        second_child.facing = Direction::Right;
-        second_child.on_ground = false;
-        second_child.wait_timer = 0;
-        second_child.spinning_twins_phase = SpinningTwinsPhase::Walking;
-
-        let mut falling_visual = source;
-        falling_visual.x_pos = visual.x_pos;
-        falling_visual.y_pos = visual.y_pos;
-        falling_visual.x_velocity = 0;
-        falling_visual.y_velocity = 0;
-        falling_visual.hit_points = 0;
-        falling_visual.on_ground = false;
-        falling_visual.wait_timer = 0;
-        falling_visual.grounded_frames = visual.frames_until_next_step_index;
-        falling_visual.spinning_twins_orbit_index = visual.step_index;
-        falling_visual.shared_walker_patrol_short_next = false;
-        falling_visual.spinning_twins_phase = SpinningTwinsPhase::FallingVisual;
-
-        // ASM Spinning_Twins.asm loc_3B93C deletes the original orbit object
-        // after allocating both loc_3BA74 walking children and the loc_3B9B0
-        // transition visual; native replaces the source with those live slots.
-        active[idx] = first_child;
-        active.insert(idx + 1, second_child);
-        active.insert(idx + 2, falling_visual);
-        idx += 3;
+        active.push(source);
     }
 }
 
@@ -792,7 +789,7 @@ pub(crate) fn step_spinning_twins(
                 enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
                 enemy.y_velocity =
                     spinning_twins_walking_child_y_velocity_loc_3bb2c(enemy.y_velocity);
-                enemy.x_velocity = if enemy.x_velocity < 0 {
+                enemy.x_velocity = if enemy.x_velocity.is_negative() {
                     spinning_twins_walking_child_left_x_velocity_loc_3bb42(enemy.x_velocity)
                 } else {
                     spinning_twins_walking_child_right_x_velocity_loc_3bb52(enemy.x_velocity)

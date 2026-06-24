@@ -13487,6 +13487,15 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_orbit_offset_table_matches_word_3b9a0() {
+        assert_eq!(
+            SPINNING_TWINS_ORBIT_OFFSETS,
+            [-0x10, -0x0A, 0x05, 0x11, 0x10, 0x0A, -0x05, -0x11],
+            "ASM Spinning_Twins.asm word_3B9A0 is the signed child-GFX X orbit table"
+        );
+    }
+
+    #[test]
     fn spinning_twins_orbit_collision_route_loc_3b904_drops_only_for_rom_contact_words() {
         assert_eq!(
             spinning_twins_orbit_collision_route_loc_3b904(-1),
@@ -13533,6 +13542,56 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_live_contact_box_uses_strict_native_edges() {
+        let cases = [
+            (84, 50, SpinningTwinsPhase::Orbiting, "x exactly 16px away"),
+            (85, 50, SpinningTwinsPhase::Walking, "x 15px away"),
+            (100, 26, SpinningTwinsPhase::Orbiting, "y exactly 24px away"),
+            (100, 27, SpinningTwinsPhase::Walking, "y 23px away"),
+            (
+                85,
+                150,
+                SpinningTwinsPhase::Orbiting,
+                "x inside but y far outside",
+            ),
+            (
+                0,
+                50,
+                SpinningTwinsPhase::Orbiting,
+                "y inside but x far outside",
+            ),
+            (
+                100,
+                30,
+                SpinningTwinsPhase::Walking,
+                "y inside the +8 vertical extension",
+            ),
+            (
+                100,
+                150,
+                SpinningTwinsPhase::Orbiting,
+                "y outside the non-scaled vertical extension",
+            ),
+        ];
+
+        for (player_x_px, player_y_px, expected_phase, label) in cases {
+            let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
+
+            step_spinning_twins(
+                &mut enemy,
+                None,
+                Some(player_x_px << 16),
+                Some(player_y_px << 16),
+            );
+
+            assert_eq!(
+                enemy.spinning_twins_phase, expected_phase,
+                "ASM Spinning_Twins.asm loc_3B904 native contact approximation should classify {label}"
+            );
+        }
+    }
+
+    #[test]
     fn spinning_twins_runtime_drop_materializes_two_children_and_visual_loc_3b93c() {
         let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
         enemy.facing = Direction::Right;
@@ -13576,6 +13635,54 @@ mod chunk_04 {
         assert_eq!(enemies[0].y_velocity, SPINNING_TWINS_DROP_Y_VEL);
         assert_eq!(enemies[1].y_velocity, SPINNING_TWINS_DROP_Y_VEL);
         assert!(!enemies[2].is_vulnerable());
+    }
+
+    #[test]
+    fn spinning_twins_drop_materialization_skips_only_non_pending_sources_loc_3b93c() {
+        let mut wrong_family = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);
+        wrong_family.wait_timer = SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C;
+
+        let mut wrong_phase = test_enemy(EnemyFamily::SpinningTwins, 0x00A0_0000, 0x0040_0000, 1);
+        wrong_phase.spinning_twins_phase = SpinningTwinsPhase::Orbiting;
+        wrong_phase.wait_timer = SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C;
+
+        let mut first_pending = test_enemy(EnemyFamily::SpinningTwins, 0x0100_0000, 0x0080_0000, 1);
+        first_pending.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        first_pending.wait_timer = SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C;
+
+        let mut second_pending =
+            test_enemy(EnemyFamily::SpinningTwins, 0x0200_0000, 0x0090_0000, 1);
+        second_pending.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        second_pending.wait_timer = SPINNING_TWINS_DROP_SPLIT_PENDING_LOC_3B93C;
+
+        let mut enemies = vec![wrong_family, wrong_phase, first_pending, second_pending];
+
+        materialize_spinning_twins_drop_splits(&mut enemies);
+
+        assert_eq!(
+            enemies.len(),
+            8,
+            "ASM Spinning_Twins.asm loc_3B93C should materialize only Walking SpinningTwins with the pending split marker"
+        );
+        assert_eq!(enemies[0], wrong_family);
+        assert_eq!(enemies[1], wrong_phase);
+        assert_eq!(enemies[2].x_pos, 0x00E0_0000);
+        assert_eq!(enemies[3].x_pos, 0x0120_0000);
+        assert_eq!(enemies[4].x_pos, 0x00ED_0000);
+        assert_eq!(
+            enemies[4].spinning_twins_phase,
+            SpinningTwinsPhase::FallingVisual
+        );
+        assert_eq!(
+            enemies[5].x_pos, 0x01E0_0000,
+            "the idx advance must skip the first source's inserted children before processing the next pending source"
+        );
+        assert_eq!(enemies[6].x_pos, 0x0220_0000);
+        assert_eq!(enemies[7].x_pos, 0x01ED_0000);
+        assert_eq!(
+            enemies[7].spinning_twins_phase,
+            SpinningTwinsPhase::FallingVisual
+        );
     }
 
     #[test]
@@ -13721,6 +13828,62 @@ mod chunk_04 {
             enemy.y_velocity,
             spinning_twins_walking_child_y_velocity_loc_3bb2c(SPINNING_TWINS_DROP_Y_VEL)
         );
+    }
+
+    #[test]
+    fn spinning_twins_live_walking_child_applies_left_x_motion_and_drag_loc_3bb2c_3bb42() {
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 100 << 16, 50 << 16, 1);
+        enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        enemy.on_ground = false;
+        enemy.x_velocity = SPINNING_TWINS_DROP_X_VEL_LEFT;
+        enemy.y_velocity = SPINNING_TWINS_DROP_Y_VEL;
+        let start_x = enemy.x_pos;
+        let start_y = enemy.y_pos;
+
+        step_spinning_twins(&mut enemy, None, None, None);
+
+        assert_eq!(
+            enemy.x_pos,
+            (i64::from(start_x) + i64::from(SPINNING_TWINS_DROP_X_VEL_LEFT)) as u32,
+            "ASM Spinning_Twins.asm loc_3BB2C moves by the current negative x_vel before loc_3BB42 drag"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            (i64::from(start_y) + i64::from(SPINNING_TWINS_DROP_Y_VEL)) as u32
+        );
+        assert_eq!(
+            enemy.x_velocity,
+            spinning_twins_walking_child_left_x_velocity_loc_3bb42(SPINNING_TWINS_DROP_X_VEL_LEFT)
+        );
+        assert_eq!(
+            enemy.y_velocity,
+            spinning_twins_walking_child_y_velocity_loc_3bb2c(SPINNING_TWINS_DROP_Y_VEL)
+        );
+    }
+
+    #[test]
+    fn spinning_twins_live_airborne_child_floor_probe_uses_moved_pixel_position_loc_3bb6e() {
+        let grid = grid_with_solid_cells(8, 5, &[(2, 3)]);
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 27 << 16, 47 << 16, 1);
+        enemy.spinning_twins_phase = SpinningTwinsPhase::Walking;
+        enemy.on_ground = false;
+        enemy.x_velocity = 0x0005_0000;
+        enemy.y_velocity = 0;
+
+        step_spinning_twins(&mut enemy, Some(&grid), None, None);
+
+        assert_eq!(
+            enemy.x_pos,
+            32 << 16,
+            "ASM Spinning_Twins.asm loc_3BB2C/sub_3C3CE applies X motion before floor collision checks"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            48 << 16,
+            "native floor probe should use the moved integer Y and snap back to the solid cell top"
+        );
+        assert!(enemy.on_ground);
+        assert_eq!(enemy.y_velocity, 0);
     }
 
     #[test]
@@ -14075,6 +14238,26 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_falling_visual_step_loc_3ba00_uses_signed_camera_relative_position() {
+        let state = SpinningTwinsFallingVisualStateLoc3BA00 {
+            x_pos: 256 << 16,
+            y_pos: 128 << 16,
+            step_index: 0,
+            frames_until_next_step_index: 4,
+            reverse_x_motion: false,
+        };
+
+        let stepped = spinning_twins_falling_visual_step_loc_3ba00(state, 300 << 16, 100 << 16);
+
+        assert!(
+            stepped.alive,
+            "ASM Spinning_Twins.asm loc_3BA00 subtracts camera words after converting FP positions to signed screen pixels"
+        );
+        assert_eq!(stepped.state.x_pos, (256 << 16) + 0x1_2000);
+        assert_eq!(stepped.state.y_pos, 129 << 16);
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_step_loc_3ba3c_moves_and_uses_table_cadence() {
         let mut state = SpinningTwinsFallingVisualStateLoc3BA00 {
             x_pos: 0x0100_0000,
@@ -14126,6 +14309,29 @@ mod chunk_04 {
     }
 
     #[test]
+    fn spinning_twins_falling_visual_step_loc_3ba3c_reverses_x_drift_after_table_wrap() {
+        let state = SpinningTwinsFallingVisualStateLoc3BA00 {
+            x_pos: 0x0124_0000,
+            y_pos: 0x0094_0000,
+            step_index: 0,
+            frames_until_next_step_index: 4,
+            reverse_x_motion: true,
+        };
+
+        let stepped = spinning_twins_falling_visual_step_loc_3ba00(state, 0, 0);
+
+        assert!(stepped.alive);
+        assert_eq!(
+            stepped.state.x_pos, 0x0122_E000,
+            "ASM Spinning_Twins.asm loc_3BA00 negates dword_3BA60 when d3 is negative"
+        );
+        assert_eq!(stepped.state.y_pos, 0x0095_0000);
+        assert_eq!(stepped.state.step_index, 0);
+        assert_eq!(stepped.state.frames_until_next_step_index, 3);
+        assert!(stepped.state.reverse_x_motion);
+    }
+
+    #[test]
     fn spinning_twins_falling_visual_step_loc_3ba5c_deletes_outside_camera_box() {
         let state = SpinningTwinsFallingVisualStateLoc3BA00 {
             x_pos: 100 << 16,
@@ -14144,6 +14350,20 @@ mod chunk_04 {
         assert_eq!(
             stepped.state, state,
             "ASM loc_3BA5C is reached before applying movement"
+        );
+    }
+
+    #[test]
+    fn spinning_twins_live_falling_visual_marks_zero_hp_when_outside_loc_3ba5c() {
+        let mut enemy = test_enemy(EnemyFamily::SpinningTwins, 0x0300_0000, 0x0080_0000, 1);
+        enemy.spinning_twins_phase = SpinningTwinsPhase::FallingVisual;
+        enemy.grounded_frames = 4;
+
+        step_spinning_twins(&mut enemy, None, None, None);
+
+        assert_eq!(
+            enemy.hit_points, 0,
+            "ASM Spinning_Twins.asm loc_3BA5C deletes the falling visual once it leaves the signed screen box"
         );
     }
 

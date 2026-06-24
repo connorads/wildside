@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Spinning Twins mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/spinning_twins.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `143 mutants tested in 56m: 22 missed,
+  98 caught, 21 unviable, 2 timeouts`. Survivors clustered around
+  `word_3B9A0` orbit offsets, `loc_3BA00` falling-visual signed camera/reverse
+  drift, `loc_3B93C` split materialisation, `loc_3B904` live contact edges,
+  `loc_3BB2C/loc_3BB42/loc_3BB52` live walking, `loc_3BB6E` floor snap, and
+  `loc_3BA5C` falling-visual deletion.
+- Native behaviour is unchanged. Added exact edge regressions and changed
+  `materialize_spinning_twins_drop_splits` from index inserts to an
+  order-preserving rebuild, removing the loop-counter timeout mutation mode.
+- Verification: focused `spinning_twins` tests pass; final rerun
+  `.cache/mutants/spinning-twins-final` reports
+  `128 mutants tested in 49m: 107 caught, 21 unviable`, with zero missed
+  mutants and zero timeouts.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Robot mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
