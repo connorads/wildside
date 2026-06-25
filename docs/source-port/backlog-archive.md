@@ -9894,7 +9894,7 @@ oracle repro = authoritative; minimum gate = fast-slice.
   mutants now reports **10 caught / 0 missed** (`.cache/mutants/ice-bullets-fields`).
   `verify-slice-fast` green (6111+9); test-only ⇒ no `verify-tas-full`.
 - **Actionable next slice (metal-block push, `off_933E[5]`/`loc_111F4`/`sub_1129C`,
-  owned by dark-model-wiring-triage.md §1 but live-wired via Berzerker side-hit in
+  routed through the block/combat audit backlog and live-wired via Berzerker side-hit in
   helmets.rs):** 6 genuine survivors remain in the same run, each an exact-value
   sign/compare/bitop needing ASM cross-check before pinning:
   `blocks.rs:4067 < vs <=` in `metal_block_push_scan_right_loc_11208` (right-edge
