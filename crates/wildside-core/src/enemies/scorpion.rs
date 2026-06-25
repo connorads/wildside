@@ -272,7 +272,6 @@ pub(crate) fn scorpion_collision_dispatch_loc_3dcb0(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ScorpionDeathRouteLoc3DCF4 {
     pub(crate) linked_tail_has_kid_collision: bool,
     pub(crate) death_animation: &'static str,
@@ -280,7 +279,6 @@ pub(crate) struct ScorpionDeathRouteLoc3DCF4 {
     pub(crate) delete_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_death_route_loc_3dcf4() -> ScorpionDeathRouteLoc3DCF4 {
     // ASM Scorpion.asm loc_3DCF4: load linked tail gfx object from `$3A(a5)`,
     // set its `$3D` flag, run the scorpion death animation, then hibernate
@@ -366,7 +364,6 @@ pub(crate) fn scorpion_berzerker_airborne_frame_loc_3dd4a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionCollisionResumeBranchLoc3DD5C {
     PatrolLeft,
     PatrolRight,
@@ -375,13 +372,11 @@ pub(crate) enum ScorpionCollisionResumeBranchLoc3DD5C {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ScorpionCollisionResumeLoc3DD5C {
     pub(crate) next_collision_type: u16,
     pub(crate) next: ScorpionCollisionResumeBranchLoc3DD5C,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_collision_resume_loc_3dd5c(
     post_charge_state: bool,
     facing: Direction,

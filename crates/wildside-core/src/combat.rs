@@ -8776,6 +8776,11 @@ impl NativeRuntime {
             if matches!(enemy.family, EnemyFamily::Scorpion) {
                 match scorpion_collision_dispatch_loc_3dcb0(collision.collision_type as i16) {
                     ScorpionCollisionRouteLoc3DCB0::Death => {
+                        let death = scorpion_death_route_loc_3dcf4();
+                        debug_assert!(death.linked_tail_has_kid_collision);
+                        debug_assert_eq!(death.death_animation, "stru_3DB80");
+                        debug_assert!(death.hibernate_until_animation_finished);
+                        debug_assert!(death.delete_current_object);
                         // ASM Scorpion.asm loc_3DCB0: signed-negative parent
                         // collision words branch straight to loc_3DCF4 before
                         // the positive hurt/above HP damage route at loc_3DCD4.
@@ -8817,9 +8822,15 @@ impl NativeRuntime {
                             enemy.walk_speed_override = 0;
                             enemy.damage_flash_frames = 0;
                             changed_enemy_state = true;
+                        } else {
+                            let resume = scorpion_collision_resume_loc_3dd5c(false, enemy.facing);
+                            debug_assert_eq!(resume.next_collision_type, 0);
                         }
                     }
-                    ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker => {}
+                    ScorpionCollisionRouteLoc3DCB0::ContinueSharedWalker => {
+                        let resume = scorpion_collision_resume_loc_3dd5c(false, enemy.facing);
+                        debug_assert_eq!(resume.next_collision_type, 0);
+                    }
                 }
                 continue;
             }
