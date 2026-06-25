@@ -1,0 +1,9 @@
+# Downward-only dead-code marker baseline — the #32 scoreboard.
+#
+# `max_count` is the ceiling on `#[cfg_attr(not(test), allow(dead_code))]`
+# markers across crates/**/*.rs. Each marker is a faithful-but-dark ASM model
+# not yet on the live path; incorporating the port wires them up and strips the
+# marker, so this number may only ever fall. scripts/dead_code_ratchet.py
+# enforces it (own hk pre-commit step); `--update` lowers it, never raises.
+version: 1
+max_count: 2026

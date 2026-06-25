@@ -51,6 +51,18 @@ hooks {
                 glob = List("docs/source-port/backlog.md")
                 check = "python3 scripts/check_backlog_lean.py"
             }
+            // #32 scoreboard: the dead-code marker count may only ever fall.
+            // Own step (not in verify-slice-fast). check_first = false so the
+            // fix always runs and a strip re-stages the lowered baseline; the
+            // fix modifies a different file than its glob reads, so `stage`
+            // names the baseline explicitly (Step.stage default is the glob).
+            ["dead-code-ratchet"] {
+                glob = List("crates/**/*.rs", "docs/source-port/dead-code-baseline.yaml")
+                stage = List("docs/source-port/dead-code-baseline.yaml")
+                check_first = false
+                check = "python3 scripts/dead_code_ratchet.py"
+                fix = "python3 scripts/dead_code_ratchet.py --update"
+            }
             ["verify-slice-fast"] {
                 glob = List(
                     "crates/**/*.rs",

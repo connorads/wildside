@@ -91,6 +91,10 @@ description = "Summarise repo health: 1P-playable first, 1P-accurate second, bac
 run = "cargo run -q -p wildside-cli -- backlog-lint"
 description = "Enforce backlog hygiene: NOW size, lean open-queue Verify cells, lane/status consistency (runs in verify-slice-fast)"
 
+[tasks.dead-code-ratchet]
+run = "python3 scripts/dead_code_ratchet.py"
+description = "#32 scoreboard: fail if #[cfg_attr(not(test), allow(dead_code))] count exceeds the baseline (downward-only ratchet)"
+
 [tasks.completion-audit]
 run = "cargo run -q -p wildside-cli -- project-status --fail-on-human-blockers"
 description = "Fail until all source-port validation/repro blockers ([?]/[b] rows) are resolved by a human playtest"
