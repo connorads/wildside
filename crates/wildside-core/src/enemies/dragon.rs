@@ -160,14 +160,12 @@ pub(crate) fn dragon_descent_move_setup_loc_348e4(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonDescentCollisionOutcomeLoc348FC {
     ContinueLoop,
     Explosion,
     TerrainResponse(u16),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_descent_collision_outcome_loc_348fc(
     collision_type: u16,
 ) -> DragonDescentCollisionOutcomeLoc348FC {
@@ -1273,7 +1271,16 @@ pub(crate) fn step_dragon(
             if let Some(grid) = block_grid
                 && let Some(collision_type) = dragon_flying_terrain_collision_type(enemy, grid)
             {
-                dragon_enter_terrain_response(enemy, collision_type);
+                match dragon_descent_collision_outcome_loc_348fc(collision_type) {
+                    DragonDescentCollisionOutcomeLoc348FC::ContinueLoop => {}
+                    DragonDescentCollisionOutcomeLoc348FC::Explosion => {
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                    }
+                    DragonDescentCollisionOutcomeLoc348FC::TerrainResponse(collision_type) => {
+                        dragon_enter_terrain_response(enemy, collision_type);
+                    }
+                }
             }
         }
         DragonFlyingState::TerrainSlideRight
