@@ -9703,7 +9703,7 @@ impl NativeRuntime {
                 None
             };
             let goat_death_sequence = if matches!(family, EnemyFamily::Goat) {
-                Some(goat_death_sequence_loc_3cb64())
+                Some(goat_death_sequence_loc_3cb64(layout_index as u8))
             } else {
                 None
             };
@@ -9948,6 +9948,14 @@ impl NativeRuntime {
         } else {
             None
         };
+        let goat_status_action = if matches!(family, EnemyFamily::Goat) {
+            let death_sequence = goat_death_sequence_loc_3cb64(layout_index as u8);
+            debug_assert!(death_sequence.waits_until_animation_finished);
+            debug_assert!(death_sequence.exits_enemy);
+            Some(death_sequence.status_action)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -10028,10 +10036,13 @@ impl NativeRuntime {
         if let Some(status_action) = dragon_walking_status_action {
             self.apply_deactivation_status_action_loc_3C4C0(status_action);
         }
+        if let Some(status_action) = goat_status_action {
+            self.apply_deactivation_status_action_loc_3C4C0(status_action);
+        }
         // ASM Lion.asm loc_3E956, Mini_Hopping_Skull.asm loc_3F32E, and
-        // Dragon.asm loc_3CEFC -> loc_3E956 update EnemyStatus_Table and
-        // delete the object after their death animations; they do not touch
-        // `(Score).w`.
+        // Dragon.asm loc_3CEFC / Goat.asm loc_3CB64 -> loc_3E956 update
+        // EnemyStatus_Table and delete the object after their death animations;
+        // they do not touch `(Score).w`.
         self.rebuild_active_enemy_roster();
     }
 

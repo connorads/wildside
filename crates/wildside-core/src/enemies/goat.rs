@@ -86,15 +86,17 @@ pub(crate) fn goat_collision_dispatch_loc_3cb14(collision_type: i16) -> GoatColl
 pub(crate) struct GoatDeathSequenceLoc3CB64 {
     pub(crate) death_animation: &'static str,
     pub(crate) waits_until_animation_finished: bool,
+    pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
     pub(crate) exits_enemy: bool,
 }
 
-pub(crate) fn goat_death_sequence_loc_3cb64() -> GoatDeathSequenceLoc3CB64 {
+pub(crate) fn goat_death_sequence_loc_3cb64(object_status_slot: u8) -> GoatDeathSequenceLoc3CB64 {
     // ASM Goat.asm loc_3CB64: initialise `stru_3C9EA`, hibernate until the
-    // animation completes, then branch to the shared enemy exit routine.
+    // animation completes, then branch to loc_3E956's shared delete tail.
     GoatDeathSequenceLoc3CB64 {
         death_animation: "stru_3C9EA",
         waits_until_animation_finished: true,
+        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
         exits_enemy: true,
     }
 }

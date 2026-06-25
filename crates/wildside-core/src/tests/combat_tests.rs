@@ -15668,6 +15668,10 @@ mod chunk_03 {
             !runtime.killed_enemies.contains(&killed_identity),
             "ASM Goat.asm loc_3CB64 should not mark the layout killed until the death animation reaches the delete tail"
         );
+        assert_eq!(
+            runtime.enemy_status_words[9], 0,
+            "ASM Goat.asm loc_3E97C should not write the respawn marker until `stru_3C9EA` finishes"
+        );
 
         runtime.active_enemies[0].wait_timer = 0;
         runtime.remove_dead_enemy(0);
@@ -15676,6 +15680,10 @@ mod chunk_03 {
         assert!(
             runtime.killed_enemies.contains(&killed_identity),
             "ASM Goat.asm loc_3E956 delete tail should mark the layout killed after stru_3C9EA"
+        );
+        assert_eq!(
+            runtime.enemy_status_words[9], 0x2168,
+            "ASM Goat.asm loc_3E97C writes `$2168` into EnemyStatus_Table after the Goat death animation finishes"
         );
     }
 

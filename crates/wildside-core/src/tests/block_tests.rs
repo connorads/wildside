@@ -3271,13 +3271,14 @@ mod chunk_04 {
     #[test]
     fn goat_death_sequence_matches_loc_3cb64() {
         assert_eq!(
-            goat_death_sequence_loc_3cb64(),
+            goat_death_sequence_loc_3cb64(0x05),
             GoatDeathSequenceLoc3CB64 {
                 death_animation: "stru_3C9EA",
                 waits_until_animation_finished: true,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
                 exits_enemy: true,
             },
-            "ASM Goat.asm loc_3CB64 should play the death animation to completion before enemy exit"
+            "ASM Goat.asm loc_3CB64 should play the death animation to completion before exiting through loc_3E956"
         );
     }
 
