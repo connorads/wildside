@@ -23,7 +23,10 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
   (Cyclone-level Sphere missing at spawn).
 - **Route-blocked reconfirmed LIVE on HEAD (stay `[b]`):** #271 + #259 (stomp-hurts + floor-sink at
   the L2 teleporter tank and L3 first tank), #249/#270 (slope-into-wall float, now confirmed on
-  BOTH left/right slopes — was "not reproduced on main"; need the exact level), #345 (Lion vanish).
+  BOTH left/right slopes — level named Under Skull Mountain 3, 0x06), #345 (Lion vanish).
+- **#360 opened (`[ ]` P1 infra):** record-inputs capture flow so a NATURAL playtest becomes an
+  oracle-comparable route — the unblock-key for the route-blocked tank/slope/Lion/Hills items.
+  Requested by the human as an issue, not to be built inline.
 - **Confirmed correct:** Storm-Mtn "head guy" = EmoRock hover-track (no projectile). Positives:
   continues load, level 2 clean, Cyclone spin (#355), Tar/blob render (#243), Hand grab (#185).
 - NEXT: `mise run project-status` now lists the 9 reopened/new open rows priority-ordered; #210

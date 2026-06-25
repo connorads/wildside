@@ -11466,6 +11466,19 @@ camera/Kid-Y values are oracle-faithful per `c65df2500`); investigate the fade t
   misremember). Needs the exact level id + entry path (skip vs natural) before coding. Do NOT
   remap `merge_level_catalogues` wholesale (#334 dead end).
 
+- **#360 (record-inputs capture flow, P1 infra).** Requested by the human as the enabler for the
+  route-blocked items rather than something to build inline. Gap: `play-native --settled --record
+  <slug>` (recording.rs) already emits oracle-comparable DynamicScenario bundles, but only from a
+  warp+settled start, and `--record` rejects N/P/R debug skips (deterministic-input guard,
+  native_player/mod.rs:543). So a NATURAL live route to a specific reported tank/slope/enemy cannot
+  be captured today, which is exactly why #271/#259/#249/#270/#345/#335 are all "route-needed". Aim:
+  let a human record natural inputs from a settled level start to a named coordinate/enemy, emit a
+  bundle that stays native/oracle CRC-comparable through the target window, and round-trip it. First
+  concrete targets: USM3 0x06 slope (#249/#270), L2 teleporter tank + L3 first tank (#271/#259),
+  Lion 0x07 (#345), Hills 0x08 entry (#335). The recorded routes so far drift from oracle before the
+  target (e.g. #259 BLW2 shooting-tank route diverges at frame 99), so the flow must surface where a
+  route first leaves oracle parity.
+
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro coordinates logged)
 
 - **#271 (stomp hurts, P0).** Human reconfirms jumping on a Rock Tank HURTS at the **Level-2 tank
@@ -11493,8 +11506,10 @@ camera/Kid-Y values are oracle-faithful per `c65df2500`); investigate the fade t
   `loc_9FBC`). ASM-faithful fix direction is written (port the centre-tile Solid destination read
   into the native slope path) but uncommitted — needs the EXACT level/slope name to record a
   natural oracle route. DEAD ENDS: the 4055 wall_hit guard (no-op, wall_hit always false on a
-  grounded slope), the clean 0x04 USM1 held-Right/no-jump route (does NOT reproduce). Get the
-  level name next.
+  grounded slope), the clean 0x04 USM1 held-Right/no-jump route (does NOT reproduce). Level named
+  2026-06-25: **Under Skull Mountain 3 (Level 0x06)** (aliased `0x06 -> resource 0x02`) — record a
+  natural USM3 0x06 route into a slope (the #360 capture-flow target) and diff against oracle; this
+  is the first concrete target the long-standing "need the exact level" blocker was waiting on.
 
 - **#345 (Lion vanish, P1).** The "disappeared" half of the Lion observation: base Kid, normal
   play, Lion vanishes. Previously blocked as "not reproduced in settled probes"; now

@@ -39,7 +39,9 @@ and stop — never commit churn.
   - **Route-blocked reconfirmed LIVE on HEAD (stay `[b]`; sharper repro in the triage block):**
     #271 (stomp hurts at the L2 teleporter tank + L3 first tank), #259 (those same tanks sit in
     the floor), #249/#270 (slope-into-wall upward float now confirmed on BOTH left/right slopes —
-    was previously "not reproduced on main"; need the exact level), #345 (Lion vanish, base Kid).
+    level named: **Under Skull Mountain 3, 0x06**), #345 (Lion vanish, base Kid).
+- **#360 opened (`[ ]` P1 infra):** record-inputs capture flow to turn natural playtests into
+  oracle-comparable routes — the unblock-key for the route-blocked tank/slope/Lion/Hills items.
 - **CONFIRMED CORRECT (not bugs):** Storm-Mtn overhead "head guy" = EmoRock (0x1B) hover-track,
   no projectile (only #333 render approximation open). Lightning firing ~4 shots = correct count.
 - **POSITIVES this playtest:** continues load; level 2 clean; Cyclone spin renders (#355); Tar/
@@ -76,3 +78,4 @@ For newly opened items, capture these facts in the investigation notes:
 | 357 | [ ] | P1 | enemy | 2026-06-25 playtest: the Lion died to a single stomp as plain base Kid (and/or vanished). ASM Lion HP = enemy_level+6 (min 6); a kidabove stomp should only decrement `$44` by 1 (Lion.asm loc_3E32C), needing ~6 hits. | Probe a base-Kid stomp on a full-HP Lion; confirm it needs ~6 hits, not 1, and does not vanish. Check the stomp reaches the live HP-decrement path (#315) vs a generic kill. Cross-ref #186/#345. |
 | 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |
 | 359 | [ ] | P2 | enemy/level | 2026-06-25 playtest: on the Cyclone-form sky level the bouncing ball (Sphere 0x06) usually at the spawn point is missing. Untracked before now. | Confirm the exact level id and entry path (level-skip vs natural). Check the enemy-loading activation window and the level-skip roster join (#334). See 2026-06-25 triage. |
+| 360 | [ ] | P1 | infra | 2026-06-25 requested enabler: a record-inputs flow turning a natural live playtest into an oracle-comparable route. Existing `--settled --record` is warp-only and rejects debug skips, so live routes to named tanks/slopes can't be captured. | Record natural inputs from a settled start to a named coordinate/enemy; emit a bundle staying native/oracle CRC-comparable to the target window. Unblock-key for #271/#259/#249/#270/#345/#335; first target USM3 0x06 slope. See archive #360. |
