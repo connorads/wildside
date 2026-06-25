@@ -9804,9 +9804,9 @@ impl NativeRuntime {
             return;
         }
         let spinning_twins_status_route = if matches!(family, EnemyFamily::SpinningTwins) {
-            Some(spinning_twins_death_status_route_loc_3bc78(
-                enemy.layout_index as u8,
-            ))
+            let status = spinning_twins_death_status_loc_3bc78(enemy.layout_index as u8);
+            debug_assert!(status.delete_tail.deletes_current_object);
+            Some(status.status_route)
         } else {
             None
         };
