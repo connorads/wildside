@@ -1,0 +1,8 @@
+[package]
+name = "wildside-frame"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lints]
+workspace = true

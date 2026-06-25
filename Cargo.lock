@@ -1480,6 +1480,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "wildside-frame"
+version = "0.1.0"
+
+[[package]]
 name = "wildside-md"
 version = "0.1.0"
 dependencies = [
