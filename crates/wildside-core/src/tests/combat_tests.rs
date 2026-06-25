@@ -18609,6 +18609,10 @@ mod chunk_03 {
             runtime.active_enemies[0].wait_timer,
             ARCHER_DEATH_ANIMATION_FRAMES
         );
+        assert_eq!(
+            runtime.enemy_status_words[28], 0,
+            "ASM Archer.asm loc_34188 should not write the respawn marker until `stru_33FC2` finishes"
+        );
         assert!(!runtime.killed_enemies.contains(&killed_identity));
 
         runtime.active_enemies[0].wait_timer = 0;
@@ -18616,6 +18620,47 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[28], 0x2168,
+            "ASM Archer.asm loc_34188 writes `$2168` into EnemyStatus_Table after the death animation finishes"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn archer_death_status_route_updates_native_enemy_status_table_loc_3414A() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.apply_archer_death_status_route_loc_3414A(
+            ArcherDeathStatusRouteLoc3414A::WriteRespawnMarker(ArcherRespawnMarkerLoc34188 {
+                index: 3,
+                word_value: 0x2168,
+            }),
+        );
+        assert_eq!(
+            runtime.enemy_status_words[3], 0x2168,
+            "ASM Archer.asm loc_34188 writes `$2168` into the selected EnemyStatus_Table word"
+        );
+
+        runtime.enemy_status_words[7] = 0xC400;
+        runtime.apply_archer_death_status_route_loc_3414A(
+            ArcherDeathStatusRouteLoc3414A::SubtractSpawnCounter {
+                index: 7,
+                decrement: 0x0400,
+            },
+        );
+        assert_eq!(
+            runtime.enemy_status_words[7], 0xC000,
+            "ASM Archer.asm loc_3414A subtracts `$400` from bit-7+bit-6 status slots after masking with `$3F`"
+        );
+
+        runtime.enemy_status_words[9] = 0xAAAA;
+        runtime
+            .apply_archer_death_status_route_loc_3414A(ArcherDeathStatusRouteLoc3414A::DeleteOnly);
+        assert_eq!(
+            runtime.enemy_status_words[9], 0xAAAA,
+            "ASM Archer.asm loc_3414A bit-7 without bit-6 falls through to delete without touching EnemyStatus_Table"
+        );
     }
 
     #[test]

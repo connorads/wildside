@@ -4,7 +4,6 @@ use super::*;
 /// From Archer.asm `arrow_accuracy`: $1E=30, $14=20, $0A=10 frames.
 pub(crate) const ARCHER_FIRE_TIMER: [u16; 3] = [0x1E, 0x14, 0x0A];
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A: i32 = -0x0004_0000;
 
 /// Arrow velocity table from Archer.asm `byte_3437A`.
@@ -233,7 +232,6 @@ pub(crate) fn archer_held_arrow_position_loc_34234(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArcherDeathStatusRouteLoc3414A {
     WriteRespawnMarker(ArcherRespawnMarkerLoc34188),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -241,14 +239,12 @@ pub(crate) enum ArcherDeathStatusRouteLoc3414A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherRespawnMarkerLoc34188 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn archer_respawn_marker_loc_34188(
     object_status_slot: u8,
 ) -> ArcherRespawnMarkerLoc34188 {
@@ -262,7 +258,6 @@ pub(crate) fn archer_respawn_marker_loc_34188(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherDeathSequenceLoc3414A {
     pub(crate) has_kid_collision: bool,
     pub(crate) kid_y_velocity: i32,
@@ -271,7 +266,6 @@ pub(crate) struct ArcherDeathSequenceLoc3414A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn archer_death_sequence_loc_3414A(
     object_status_slot: u8,
 ) -> ArcherDeathSequenceLoc3414A {

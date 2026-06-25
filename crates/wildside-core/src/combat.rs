@@ -9868,6 +9868,18 @@ impl NativeRuntime {
         } else {
             None
         };
+        let archer_status_route = if matches!(family, EnemyFamily::Archer) {
+            let death_sequence = archer_death_sequence_loc_3414A(layout_index as u8);
+            debug_assert!(death_sequence.has_kid_collision);
+            debug_assert_eq!(
+                death_sequence.kid_y_velocity,
+                ARCHER_KILL_BOUNCE_Y_VELOCITY_LOC_3414A
+            );
+            debug_assert!(death_sequence.deletes_current_object);
+            Some(death_sequence.status_route)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -9926,6 +9938,9 @@ impl NativeRuntime {
         }
         if let Some(status_route) = spinning_twins_status_route {
             self.apply_spinning_twins_death_status_route_loc_3bc78(status_route);
+        }
+        if let Some(status_route) = archer_status_route {
+            self.apply_archer_death_status_route_loc_3414A(status_route);
         }
         // ASM Lion.asm loc_3E956 (shared by Dragon.asm loc_3CEFC and other
         // death-animation tails) updates EnemyStatus_Table and deletes the
@@ -10061,6 +10076,30 @@ impl NativeRuntime {
                 }
             }
             EmoRockDeathStatusRouteLoc3639A::DeleteOnly => {}
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn apply_archer_death_status_route_loc_3414A(
+        &mut self,
+        status_route: ArcherDeathStatusRouteLoc3414A,
+    ) {
+        match status_route {
+            ArcherDeathStatusRouteLoc3414A::WriteRespawnMarker(marker) => {
+                if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                    // ASM Archer.asm loc_34188: positive `$42(a5)` writes
+                    // `$2168` before loc_34196 deletes the current object.
+                    *word = marker.word_value;
+                }
+            }
+            ArcherDeathStatusRouteLoc3414A::SubtractSpawnCounter { index, decrement } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    // ASM Archer.asm loc_3414A: bit-7+bit-6 `$42(a5)`
+                    // masks the low six bits and subtracts `$400`.
+                    *word = word.wrapping_sub(decrement);
+                }
+            }
+            ArcherDeathStatusRouteLoc3414A::DeleteOnly => {}
         }
     }
 
