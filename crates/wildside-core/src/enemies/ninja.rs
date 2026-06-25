@@ -550,6 +550,25 @@ pub(crate) fn ninja_kid_above_landing_loop_loc_3dabc(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct NinjaDeathSequenceLoc3DB4E {
+    pub(crate) death_animation: &'static str,
+    pub(crate) waits_until_animation_finished: bool,
+    pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
+    pub(crate) exits_enemy: bool,
+}
+
+pub(crate) fn ninja_death_sequence_loc_3db4e(object_status_slot: u8) -> NinjaDeathSequenceLoc3DB4E {
+    // ASM Ninja.asm loc_3DB4E: initialise `stru_3D50A`, hibernate until that
+    // animation finishes, then branch to loc_3E956's shared delete tail.
+    NinjaDeathSequenceLoc3DB4E {
+        death_animation: "stru_3D50A",
+        waits_until_animation_finished: true,
+        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
+        exits_enemy: true,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct NinjaBerzerkerSideLaunchStateLoc3DB0A {
     pub(crate) has_kid_collision: bool,
     pub(crate) has_level_collision: bool,
@@ -2382,6 +2401,20 @@ mod tests {
                 loops: true,
             },
             "ASM Ninja.asm loc_3DB3C applies the same $4000 gravity increment regardless of velocity sign"
+        );
+    }
+
+    #[test]
+    fn ninja_death_sequence_matches_loc_3db4e() {
+        assert_eq!(
+            ninja_death_sequence_loc_3db4e(0x05),
+            NinjaDeathSequenceLoc3DB4E {
+                death_animation: "stru_3D50A",
+                waits_until_animation_finished: true,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                exits_enemy: true,
+            },
+            "ASM Ninja.asm loc_3DB4E should play the death animation, wait for it, then exit through loc_3E956"
         );
     }
 

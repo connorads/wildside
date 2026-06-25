@@ -16021,12 +16021,20 @@ mod chunk_03 {
             NINJA_DEATH_ANIMATION_FRAMES
         );
         assert!(!runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[11], 0,
+            "ASM Ninja.asm loc_3E97C should not write the respawn marker until `stru_3D50A` finishes"
+        );
 
         runtime.active_enemies[0].wait_timer = 0;
         runtime.remove_dead_enemy(0);
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[11], 0x2168,
+            "ASM Ninja.asm loc_3E97C writes `$2168` into EnemyStatus_Table after the Ninja death animation finishes"
+        );
     }
 
     #[test]
