@@ -31,8 +31,9 @@ pub use scenario::{
     run_script_with_trace, run_script_with_warp,
 };
 use wildside_data::{
-    AssetManifest, EnemyLayout, EnemyLayoutObject, PlatformLayout, PlatformPlacement,
-    load_level_asset_bundle, resource_level_id, resource_level_record,
+    AssetManifest, AssetSource, EnemyLayout, EnemyLayoutObject, FsAssetSource, PlatformLayout,
+    PlatformPlacement, load_level_asset_bundle_with_source, resource_level_id,
+    resource_level_record,
 };
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
@@ -57,7 +58,7 @@ pub use level::{
     eol_title_return_faded_palette_word_loc_D734, flagpole_scoreboard_reveal_tiles_loc_C21E,
 };
 use std::collections::HashSet;
-use std::fs;
+use std::sync::Arc;
 #[cfg(test)]
 pub(crate) use trace::opening_level_one_object_counts;
 pub use types::*;
@@ -153,6 +154,11 @@ fn heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
 #[derive(Debug, Clone)]
 pub struct NativeRuntime {
     assets: AssetManifest,
+    /// Injected byte source for every generated-bundle read at level-load and
+    /// boot time (VDP loaders, level/block decoders). `Arc` so the derived
+    /// `Clone` shares one immutable source across sweep/recording threads;
+    /// `new` default-wires a native [`FsAssetSource`] over `assets.output_root`.
+    assets_source: Arc<dyn AssetSource>,
     frame_index: usize,
     time_frames_loc_3038a: u16,
     boot_state: BootState,
@@ -1019,12 +1025,23 @@ impl NativeRuntime {
     }
 
     pub fn new(assets: AssetManifest) -> Self {
-        let sega_screen_data = vdp::load_sega_screen_data(&assets).ok();
-        let intro_sub_1b850_data = vdp::load_intro_sub_1b850_data(&assets).ok();
-        let title_screen_data = vdp::load_title_screen_data(&assets).ok();
-        let title_card_data = vdp::load_title_card_data(&assets).ok();
+        let assets_source: Arc<dyn AssetSource> =
+            Arc::new(FsAssetSource::new(assets.output_root.clone()));
+        Self::new_with_source(assets, assets_source)
+    }
+
+    /// Construct a runtime reading generated-bundle bytes through an injected
+    /// [`AssetSource`]. The four VDP loaders run here (so the source must exist
+    /// at construction); [`new`](Self::new) default-wires a native
+    /// [`FsAssetSource`] for the ~1500 legacy call sites.
+    pub fn new_with_source(assets: AssetManifest, assets_source: Arc<dyn AssetSource>) -> Self {
+        let sega_screen_data = vdp::load_sega_screen_data(assets_source.as_ref()).ok();
+        let intro_sub_1b850_data = vdp::load_intro_sub_1b850_data(assets_source.as_ref()).ok();
+        let title_screen_data = vdp::load_title_screen_data(assets_source.as_ref()).ok();
+        let title_card_data = vdp::load_title_card_data(assets_source.as_ref()).ok();
         let mut runtime = Self {
             assets,
+            assets_source,
             frame_index: 0,
             time_frames_loc_3038a: 0,
             boot_state: BootState::SegaScreen { elapsed: 0 },
@@ -1546,14 +1563,29 @@ impl NativeRuntime {
     }
 
     fn load_platform_script_table(&mut self) {
-        let scripts_path = self.assets.source_root.join("level/platform_scripts.asm");
-        if let Ok(contents) = std::fs::read_to_string(&scripts_path) {
+        // Redirect from the legacy `source_root` read to the bundle: `level` is
+        // a COPIED_DIRECTORY, so `level/platform_scripts.asm` is byte-identical
+        // under `output_root`. Best-effort: a miss leaves the table unset.
+        if let Ok(bytes) = self
+            .assets_source
+            .read(std::path::Path::new("level/platform_scripts.asm"))
+            && let Ok(contents) = String::from_utf8(bytes)
+        {
             self.platform_script_table = Some(wildside_data::parse_platform_scripts(&contents));
         }
     }
 
     pub fn with_generated_level_layout(assets: AssetManifest) -> Self {
         Self::new(assets)
+    }
+
+    /// Like [`with_generated_level_layout`](Self::with_generated_level_layout)
+    /// but reads generated-bundle bytes through an injected [`AssetSource`].
+    pub fn with_generated_level_layout_with_source(
+        assets: AssetManifest,
+        assets_source: Arc<dyn AssetSource>,
+    ) -> Self {
+        Self::new_with_source(assets, assets_source)
     }
 
     /// Override the physics sub-step ordering (for sweep comparison experiments).
@@ -1962,10 +1994,14 @@ impl NativeRuntime {
     }
 
     fn current_level_title_card_theme_index(&self) -> u8 {
-        load_level_asset_bundle(&self.assets, self.current_level.0)
-            .ok()
-            .and_then(|bundle| bundle.parsed_header.map(|header| header.level_theme & 0x0F))
-            .unwrap_or(0)
+        load_level_asset_bundle_with_source(
+            &self.assets,
+            self.current_level.0,
+            self.assets_source.as_ref(),
+        )
+        .ok()
+        .and_then(|bundle| bundle.parsed_header.map(|header| header.level_theme & 0x0F))
+        .unwrap_or(0)
     }
 
     pub fn block_grid(&self) -> Option<&terrain::BlockGrid> {

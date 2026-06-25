@@ -3253,7 +3253,11 @@ impl NativeRuntime {
         {
             return None;
         }
-        let loaded = wildside_data::load_ingame_asset(&self.assets, relative_path).ok()?;
+        let loaded = wildside_data::load_ingame_asset_with_source(
+            relative_path,
+            self.assets_source.as_ref(),
+        )
+        .ok()?;
         if loaded.bytes.len() < N * 2 {
             return None;
         }

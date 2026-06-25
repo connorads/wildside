@@ -2626,11 +2626,10 @@ impl NativeRuntime {
                     .find(|decoded| decoded.level_id == self.current_level.0)
             })?;
         let header = self.level_header(self.current_level)?;
-        let terrain_path = self
-            .assets
-            .output_root
-            .join(&decoded.foreground.relative_path);
-        let terrain_bytes = fs::read(terrain_path).ok()?;
+        let terrain_bytes = self
+            .assets_source
+            .read(std::path::Path::new(&decoded.foreground.relative_path))
+            .ok()?;
         let width = u16::from(header.width_screens) * 20;
         let index = usize::from(row) * usize::from(width) + usize::from(col);
         let terrain_byte = *terrain_bytes.get(index)?;
@@ -2655,13 +2654,10 @@ impl NativeRuntime {
         terrain_byte: u8,
     ) -> Option<u8> {
         let filename = crate::level::theme_collision_filename_loc_11C30(foreground_theme)?;
-        let path = self
-            .assets
-            .output_root
-            .join("theme")
-            .join("collision")
-            .join(filename);
-        let collision = fs::read(path).ok()?;
+        let collision = self
+            .assets_source
+            .read(&std::path::Path::new("theme/collision").join(filename))
+            .ok()?;
         collision.get(usize::from(terrain_byte)).copied()
     }
 

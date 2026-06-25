@@ -10951,11 +10951,10 @@ impl NativeRuntime {
         // background word, seed `$FFFFF876=$0100`, then prime both pending
         // palette masks before the first loc_C1D0 fade frame.
         self.palette_buffer_2.copy_from_slice(&self.palette_buffer);
-        let score_palette_path = self
-            .assets
-            .output_root
-            .join("scenes/palette/Score_screen.bin");
-        if let Ok(bytes) = fs::read(score_palette_path) {
+        if let Ok(bytes) = self
+            .assets_source
+            .read(std::path::Path::new("scenes/palette/Score_screen.bin"))
+        {
             let start_word =
                 usize::from(crate::level::FLAGPOLE_HOLO_PALETTE_DEST_OFFSET_LOC_C1BC) / 2;
             let word_count =

@@ -9,7 +9,7 @@
 /// Art is Saxman-compressed in the ROM and decompressed to VRAM.  Palettes are
 /// raw 9-bit BGR words written to CRAM.
 use anyhow::{Context, Result};
-use wildside_data::AssetManifest;
+use wildside_data::AssetSource;
 
 use crate::boot::{
     VDP_GAME_INIT_VALUES, intro_text_buggy_substitution_loc_1C7DC, title_text_word_writes_sub_1B7B6,
@@ -230,19 +230,20 @@ pub(crate) fn build_sega_screen_vdp(data: &SegaScreenData, elapsed: usize) -> Vd
 }
 
 /// Load and cache Sega screen art + palette data from the asset bundle.
-pub(crate) fn load_sega_screen_data(manifest: &AssetManifest) -> Result<SegaScreenData> {
-    let scenes_root = manifest.output_root.join("scenes");
+pub(crate) fn load_sega_screen_data(source: &dyn AssetSource) -> Result<SegaScreenData> {
+    let scenes_root = std::path::Path::new("scenes");
 
     // Load and decompress Saxman-compressed Sega logo art.
     let art_path = scenes_root.join("artcomp/Sega_Logo.bin");
-    let art_compressed = std::fs::read(&art_path)
+    let art_compressed = source
+        .read(&art_path)
         .with_context(|| format!("failed to read Sega logo art: {}", art_path.display()))?;
     let art_bytes = wildside_data::decode_saxman(&art_compressed)
         .context("failed to decompress Sega logo art")?;
 
     // Load raw palette data (SegaLogo.bin = 66 bytes = 33 big-endian words).
     let palette_path = scenes_root.join("palette/SegaLogo.bin");
-    let palette_raw = std::fs::read(&palette_path).with_context(|| {
+    let palette_raw = source.read(&palette_path).with_context(|| {
         format!(
             "failed to read Sega logo palette: {}",
             palette_path.display()
@@ -316,8 +317,8 @@ pub(crate) struct IntroSub1B850Data {
 /// ASM sub_1B850 (kid.asm:30172): decompress 5 art pieces to VRAM, decode
 /// `unk_2FDE0` as 40×28 tilemap to plane A, decode `unk_2FDCE` and stamp
 /// each of 28 words across full 64-word rows to plane B at $E000.
-pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<IntroSub1B850Data> {
-    let scenes = manifest.output_root.join("scenes");
+pub(crate) fn load_intro_sub_1b850_data(source: &dyn AssetSource) -> Result<IntroSub1B850Data> {
+    let scenes = std::path::Path::new("scenes");
 
     // Art uploads — label→filename mapping from kid.asm / extract pipeline.
     let art_files: [(u16, &str); 5] = [
@@ -329,7 +330,7 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     ];
     let mut art_chunks = Vec::new();
     for (vram_addr, filename) in &art_files {
-        let decompressed = load_saxman_art(&scenes.join(filename))?;
+        let decompressed = load_saxman_art(source, &scenes.join(filename))?;
         // VDP addresses in wildside_data are byte addresses (the VDP control port
         // encodes byte addresses, not word addresses, despite the field name).
         art_chunks.push((*vram_addr as usize, decompressed));
@@ -341,7 +342,8 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     // Decode plane A tilemap: unk_2FDE0 with base tile $80BC → 40×28 tile words.
     // ASM sub_1B850: `move.w #$80BC,d0` then `jsr (j_EniDec)`.
     let tilemap_path = scenes.join("mapeni/intro1_wildside.bin");
-    let tilemap_raw = std::fs::read(&tilemap_path)
+    let tilemap_raw = source
+        .read(&tilemap_path)
         .with_context(|| format!("failed to read intro tilemap: {}", tilemap_path.display()))?;
     let plane_a_tilemap = wildside_data::decode_enigma(&tilemap_raw, 0x80BC)
         .context("failed to decode intro tilemap")?;
@@ -350,7 +352,7 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     // ASM sub_1B850: `move.w #$413A,d0` then `jsr (j_EniDec)`.
     // Each of the first 28 decoded words is stamped across a full 64-word row.
     let row_tilemap_path = scenes.join("mapeni/2FDCE.bin");
-    let row_raw = std::fs::read(&row_tilemap_path).with_context(|| {
+    let row_raw = source.read(&row_tilemap_path).with_context(|| {
         format!(
             "failed to read intro row tilemap: {}",
             row_tilemap_path.display()
@@ -365,15 +367,19 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     let plane_b_rows = load_plan.repeated_rows_upload.rows;
 
     // Load palettes for each segment variant.
-    let palette_segment_0 = load_palette_words(&scenes.join("palette/intro1_wildside.bin"))?;
-    let palette_segment_1 = load_palette_words(&scenes.join("palette/intro2_sky.bin"))?;
-    let palette_segment_2 = load_palette_words(&scenes.join("palette/intro3_alley.bin"))?;
+    let palette_segment_0 =
+        load_palette_words(source, &scenes.join("palette/intro1_wildside.bin"))?;
+    let palette_segment_1 = load_palette_words(source, &scenes.join("palette/intro2_sky.bin"))?;
+    let palette_segment_2 = load_palette_words(source, &scenes.join("palette/intro3_alley.bin"))?;
 
-    let hologram_background_art = load_saxman_art(&scenes.join("artcomp/Hologram_background.bin"))?;
-    let hologram_blocks_art = load_saxman_art(&scenes.join("artcomp/Hologram_blocks.bin"))?;
-    let intro_text_letters_art = load_saxman_art(&scenes.join("artcomp/Intro_text_letters.bin"))?;
+    let hologram_background_art =
+        load_saxman_art(source, &scenes.join("artcomp/Hologram_background.bin"))?;
+    let hologram_blocks_art = load_saxman_art(source, &scenes.join("artcomp/Hologram_blocks.bin"))?;
+    let intro_text_letters_art =
+        load_saxman_art(source, &scenes.join("artcomp/Intro_text_letters.bin"))?;
 
-    let hologram_tilemap_raw = std::fs::read(scenes.join("mapeni/hologram_background.bin"))
+    let hologram_tilemap_raw = source
+        .read(&scenes.join("mapeni/hologram_background.bin"))
         .context("failed to read hologram background tilemap")?;
     let intro_sequence_2_hologram_tilemap =
         wildside_data::decode_enigma(&hologram_tilemap_raw, 0x2114)
@@ -382,14 +388,17 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         wildside_data::decode_enigma(&hologram_tilemap_raw, 0x20BC)
             .context("failed to decode intro sequence 4 hologram tilemap")?;
 
-    let intro_sequence_2_tilemap_raw = std::fs::read(scenes.join("mapeni/intro2_sky.bin"))
+    let intro_sequence_2_tilemap_raw = source
+        .read(&scenes.join("mapeni/intro2_sky.bin"))
         .context("failed to read intro sequence 2 tilemap")?;
     let intro_sequence_2_tilemap =
         wildside_data::decode_enigma(&intro_sequence_2_tilemap_raw, 0x00BC)
             .context("failed to decode intro sequence 2 tilemap")?;
-    let intro_sequence_2_sky_castle_art = intro_sequence_2_special_sky_art_loc_1B00A(
-        load_saxman_art(&scenes.join("artcomp/Sky_castle_and_night_sky_from_intro_scene.bin"))?,
-    );
+    let intro_sequence_2_sky_castle_art =
+        intro_sequence_2_special_sky_art_loc_1B00A(load_saxman_art(
+            source,
+            &scenes.join("artcomp/Sky_castle_and_night_sky_from_intro_scene.bin"),
+        )?);
 
     let intro_sequence_5_common_art_files: [(u16, &str); 3] = [
         (0x1780, "artcomp/Dark_alley_from_intro.bin"),
@@ -400,7 +409,7 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     for (vram_addr, filename) in &intro_sequence_5_common_art_files {
         intro_sequence_5_common_art_chunks.push((
             *vram_addr as usize,
-            load_saxman_art(&scenes.join(filename))?,
+            load_saxman_art(source, &scenes.join(filename))?,
         ));
     }
     let intro_sequence_5_common_art_chunks: [(usize, Vec<u8>); 3] =
@@ -417,16 +426,17 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     ];
     let mut intro_sequence_5_helmet_art_variants = Vec::new();
     for filename in intro_sequence_5_helmet_art_files {
-        intro_sequence_5_helmet_art_variants.push(load_saxman_art(&scenes.join(filename))?);
+        intro_sequence_5_helmet_art_variants.push(load_saxman_art(source, &scenes.join(filename))?);
     }
     let intro_sequence_5_helmet_art_variants: [Vec<u8>; 3] = intro_sequence_5_helmet_art_variants
         .try_into()
         .map_err(|_| anyhow::anyhow!("expected 3 intro sequence 5 helmet art variants"))?;
     let intro_sequence_5_palette_variant_1_overlay =
-        load_palette_words(&scenes.join("palette/title_maniaxe_mask.bin"))?;
+        load_palette_words(source, &scenes.join("palette/title_maniaxe_mask.bin"))?;
     let intro_sequence_5_palette_variant_2_overlay =
-        load_palette_words(&scenes.join("palette/title_juggernaut_mask.bin"))?;
-    let intro_sequence_5_tilemap_raw = std::fs::read(scenes.join("mapeni/intro3_alley.bin"))
+        load_palette_words(source, &scenes.join("palette/title_juggernaut_mask.bin"))?;
+    let intro_sequence_5_tilemap_raw = source
+        .read(&scenes.join("mapeni/intro3_alley.bin"))
         .context("failed to read intro sequence 5 tilemap")?;
     let intro_sequence_5_tilemap =
         wildside_data::decode_enigma(&intro_sequence_5_tilemap_raw, 0x00BC)
@@ -436,9 +446,11 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
         let plan = wildside_data::intro_sequence_5_frame_load_plan_sub_1C034(frame_index)
             .context("failed to build intro sequence 5 frame upload plan")?;
         let filename = asset_label_mapeni_filename(plan.tilemap_load.asset_label);
-        let raw = std::fs::read(scenes.join("mapeni").join(&filename)).with_context(|| {
-            format!("failed to read intro sequence 5 frame tilemap: {filename}")
-        })?;
+        let raw = source
+            .read(&scenes.join("mapeni").join(&filename))
+            .with_context(|| {
+                format!("failed to read intro sequence 5 frame tilemap: {filename}")
+            })?;
         let decoded = wildside_data::decode_enigma(&raw, plan.tilemap_load.vram_word_address)
             .with_context(|| {
                 format!("failed to decode intro sequence 5 frame tilemap: {filename}")
@@ -447,8 +459,9 @@ pub(crate) fn load_intro_sub_1b850_data(manifest: &AssetManifest) -> Result<Intr
     }
     let panel_plan = wildside_data::intro_sequence_5_panel_load_plan_sub_1C0EE(3, 0x13);
     let panel_filename = asset_label_mapeni_filename(panel_plan.tilemap_load.asset_label);
-    let panel_raw =
-        std::fs::read(scenes.join("mapeni").join(&panel_filename)).with_context(|| {
+    let panel_raw = source
+        .read(&scenes.join("mapeni").join(&panel_filename))
+        .with_context(|| {
             format!("failed to read intro sequence 5 panel tilemap: {panel_filename}")
         })?;
     let intro_sequence_5_panel_tilemap =
@@ -2201,8 +2214,8 @@ const TITLE_CARD_THEME_SIZES: [(u16, u16); 11] = [
 ///
 /// ASM Load_TitleScreen (kid.asm:29444): clear VRAM, run sub_1B2A4, Load_TitleArt,
 /// sub_1BF24, and sub_1B532 before spawning menu/title text objects.
-pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleScreenData> {
-    let scenes = manifest.output_root.join("scenes");
+pub(crate) fn load_title_screen_data(source: &dyn AssetSource) -> Result<TitleScreenData> {
+    let scenes = std::path::Path::new("scenes");
 
     // Art uploads — label→filename from kid.asm.
     let art_files: [(u16, &str); 4] = [
@@ -2214,7 +2227,8 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     let mut art_chunks = Vec::new();
     for (vram_addr, filename) in &art_files {
         let path = scenes.join(filename);
-        let compressed = std::fs::read(&path)
+        let compressed = source
+            .read(&path)
             .with_context(|| format!("failed to read title art: {}", path.display()))?;
         let decompressed = wildside_data::decode_saxman(&compressed)
             .with_context(|| format!("failed to decompress title art: {filename}"))?;
@@ -2238,7 +2252,8 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     let mut title_art_chunks = Vec::new();
     for (vram_addr, filename, uses_ram_permutation) in &title_art_files {
         let path = scenes.join(filename);
-        let compressed = std::fs::read(&path)
+        let compressed = source
+            .read(&path)
             .with_context(|| format!("failed to read title art: {}", path.display()))?;
         let mut decompressed = wildside_data::decode_saxman(&compressed)
             .with_context(|| format!("failed to decompress title art: {filename}"))?;
@@ -2256,12 +2271,13 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     // After decode, the caller (Load_IntroSequence6 / Load_TitleScreen) calls
     // sub_1C5D0 with d4=$15, d5=1, d6=$12, d7=$14 → 18×20 at cell (21,1).
     let tilemap_path = scenes.join("mapeni/2F7D0.bin");
-    let tilemap_raw = std::fs::read(&tilemap_path)
+    let tilemap_raw = source
+        .read(&tilemap_path)
         .with_context(|| format!("failed to read title tilemap: {}", tilemap_path.display()))?;
     let plane_a_tilemap = wildside_data::decode_enigma(&tilemap_raw, 0x20C1)
         .context("failed to decode title tilemap")?;
     let chameleon_tilemap_path = scenes.join("mapeni/2F840.bin");
-    let chameleon_tilemap_raw = std::fs::read(&chameleon_tilemap_path).with_context(|| {
+    let chameleon_tilemap_raw = source.read(&chameleon_tilemap_path).with_context(|| {
         format!(
             "failed to read title chameleon tilemap: {}",
             chameleon_tilemap_path.display()
@@ -2273,12 +2289,12 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
         wildside_data::title_text_chameleon_tilemap_upload_sub_1B532(&chameleon_decoded_words)
             .context("failed to build title chameleon tilemap upload")?;
     let title_text_chameleon_anim_maps = [
-        decode_title_text_chameleon_anim_map(&scenes, "2E706.bin")?,
-        decode_title_text_chameleon_anim_map(&scenes, "2E728.bin")?,
-        decode_title_text_chameleon_anim_map(&scenes, "2E77A.bin")?,
+        decode_title_text_chameleon_anim_map(source, scenes, "2E706.bin")?,
+        decode_title_text_chameleon_anim_map(source, scenes, "2E728.bin")?,
+        decode_title_text_chameleon_anim_map(source, scenes, "2E77A.bin")?,
     ];
     let title_menu_tilemap_path = scenes.join("mapeni/2EAAE.bin");
-    let title_menu_tilemap_raw = std::fs::read(&title_menu_tilemap_path).with_context(|| {
+    let title_menu_tilemap_raw = source.read(&title_menu_tilemap_path).with_context(|| {
         format!(
             "failed to read title menu tilemap: {}",
             title_menu_tilemap_path.display()
@@ -2295,7 +2311,8 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
             )
             .context("failed to build title character load plan")?;
             let filename = asset_label_mapeni_filename(plan.tilemap_load.asset_label);
-            let raw = std::fs::read(scenes.join("mapeni").join(&filename))
+            let raw = source
+                .read(&scenes.join("mapeni").join(&filename))
                 .with_context(|| format!("failed to read title character tilemap: {filename}"))?;
             let tilemap_words =
                 wildside_data::decode_enigma(&raw, plan.tilemap_load.vram_word_address)
@@ -2312,7 +2329,7 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     }
     let lightning_art_path =
         scenes.join("artunc/Grey_mixed_pixels_during_title_transformation.bin");
-    let lightning_art_bytes = std::fs::read(&lightning_art_path).with_context(|| {
+    let lightning_art_bytes = source.read(&lightning_art_path).with_context(|| {
         format!(
             "failed to read title transformation lightning art: {}",
             lightning_art_path.display()
@@ -2332,7 +2349,7 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
     // ASM loc_1C4E2 (kid.asm:31216): non-default regions copy their selected
     // 0x13-word overlay into Palette_Buffer+$1A; the default region path leaves
     // the base palette unchanged before native writes it to CRAM.
-    let palette_words = load_palette_words(&scenes.join("palette/title.bin"))?;
+    let palette_words = load_palette_words(source, &scenes.join("palette/title.bin"))?;
 
     Ok(TitleScreenData {
         art_chunks,
@@ -2349,11 +2366,12 @@ pub(crate) fn load_title_screen_data(manifest: &AssetManifest) -> Result<TitleSc
 }
 
 fn decode_title_text_chameleon_anim_map(
+    source: &dyn AssetSource,
     scenes: &std::path::Path,
     filename: &str,
 ) -> Result<Vec<u16>> {
     let path = scenes.join("mapeni").join(filename);
-    let raw = std::fs::read(&path).with_context(|| {
+    let raw = source.read(&path).with_context(|| {
         format!(
             "failed to read title chameleon animation tilemap: {}",
             path.display()
@@ -2363,8 +2381,8 @@ fn decode_title_text_chameleon_anim_map(
         .with_context(|| format!("failed to decode title chameleon animation tilemap: {filename}"))
 }
 
-pub(crate) fn load_title_card_data(manifest: &AssetManifest) -> Result<TitleCardData> {
-    let root = manifest.output_root.join("theme/titlecard");
+pub(crate) fn load_title_card_data(source: &dyn AssetSource) -> Result<TitleCardData> {
+    let root = std::path::Path::new("theme/titlecard");
     let mut themes = vec![None; TITLE_CARD_THEME_NAMES.len()];
 
     for (theme_index, maybe_name) in TITLE_CARD_THEME_NAMES.iter().enumerate() {
@@ -2374,13 +2392,14 @@ pub(crate) fn load_title_card_data(manifest: &AssetManifest) -> Result<TitleCard
         let art_path = root.join("artcomp").join(format!("{name}.bin"));
         let map_path = root.join("mapeni").join(format!("{name}.bin"));
         let palette_path = root.join("palette").join(format!("{name}.bin"));
-        let art_bytes = load_saxman_art(&art_path)
+        let art_bytes = load_saxman_art(source, &art_path)
             .with_context(|| format!("failed to load title-card art for {name}"))?;
-        let map_raw = std::fs::read(&map_path)
+        let map_raw = source
+            .read(&map_path)
             .with_context(|| format!("failed to read title-card map: {}", map_path.display()))?;
         let tilemap_words = wildside_data::decode_enigma(&map_raw, 0x02FB)
             .with_context(|| format!("failed to decode title-card map for {name}"))?;
-        let palette_words = load_palette_words(&palette_path)
+        let palette_words = load_palette_words(source, &palette_path)
             .with_context(|| format!("failed to load title-card palette for {name}"))?;
         let (width_tiles, height_tiles) = TITLE_CARD_THEME_SIZES[theme_index];
         themes[theme_index] = Some(TitleCardThemeData {
@@ -3105,10 +3124,11 @@ pub(crate) fn build_title_card_vdp(data: &TitleCardData, theme_index: u8) -> Opt
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/// Load raw palette file as big-endian u16 words.
-fn load_palette_words(path: &std::path::Path) -> Result<Vec<u16>> {
-    let raw = std::fs::read(path)
-        .with_context(|| format!("failed to read palette: {}", path.display()))?;
+/// Load raw palette file (bundle-relative) as big-endian u16 words.
+fn load_palette_words(source: &dyn AssetSource, rel: &std::path::Path) -> Result<Vec<u16>> {
+    let raw = source
+        .read(rel)
+        .with_context(|| format!("failed to read palette: {}", rel.display()))?;
     Ok(raw
         .chunks_exact(2)
         .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
@@ -3121,11 +3141,12 @@ fn load_palette_words(path: &std::path::Path) -> Result<Vec<u16>> {
 /// (e.g. sub_1B850 in kid.asm:30172) where each `move.l #ArtAddr,a0` is
 /// followed by a decompression call before the resulting bytes are streamed
 /// into VRAM.
-fn load_saxman_art(path: &std::path::Path) -> Result<Vec<u8>> {
-    let compressed = std::fs::read(path)
-        .with_context(|| format!("failed to read intro art: {}", path.display()))?;
+fn load_saxman_art(source: &dyn AssetSource, rel: &std::path::Path) -> Result<Vec<u8>> {
+    let compressed = source
+        .read(rel)
+        .with_context(|| format!("failed to read intro art: {}", rel.display()))?;
     wildside_data::decode_saxman(&compressed)
-        .with_context(|| format!("failed to decompress intro art: {}", path.display()))
+        .with_context(|| format!("failed to decompress intro art: {}", rel.display()))
 }
 
 #[cfg(test)]
@@ -5528,29 +5549,23 @@ mod tests {
     }
 
     #[test]
-    fn load_palette_words_decodes_big_endian_pairs_from_disk() {
+    fn load_palette_words_decodes_big_endian_pairs_through_source() {
         // ASM Palette_Buffer / Pal_1C28A / Pal_1C2F0 / Pal_1C346 (kid.asm:31232,
         // 31247, 31262) all hold raw 9-bit BGR palette words written through
-        // `move.w (a0)+,(a1)+` — the on-disk layout extracted by the asset
-        // pipeline is therefore big-endian u16 word pairs. load_palette_words
-        // mirrors that with `chunks_exact(2).map(u16::from_be_bytes)`.
+        // `move.w (a0)+,(a1)+` — the layout extracted by the asset pipeline is
+        // therefore big-endian u16 word pairs. load_palette_words mirrors that
+        // with `chunks_exact(2).map(u16::from_be_bytes)`.
         //
         // Driving the loader with a known byte sequence (and asserting on both
         // length AND value) pins all three Result<Vec<u16>>-replacement mutants
         // cargo-mutants generates for the wrapper: `Ok(vec![])` shrinks the
         // length, `Ok(vec![0])` and `Ok(vec![1])` change both the length and
         // the first word's value.
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system time should be after unix epoch")
-            .as_nanos();
-        let path =
-            std::env::temp_dir().join(format!("kc-vdp-palette-{}-{nanos}.bin", std::process::id()));
-        let bytes: [u8; 6] = [0x0E, 0xEE, 0x04, 0x44, 0x00, 0x00];
-        std::fs::write(&path, bytes).expect("write temp palette");
+        let rel = std::path::Path::new("palette/fixture.bin");
+        let mut source = wildside_data::InMemoryAssetSource::new();
+        source.insert(rel.to_path_buf(), vec![0x0E, 0xEE, 0x04, 0x44, 0x00, 0x00]);
 
-        let words = load_palette_words(&path).expect("load palette words");
-        let _ = std::fs::remove_file(&path);
+        let words = load_palette_words(&source, rel).expect("load palette words");
 
         assert_eq!(words.len(), 3, "three big-endian word pairs from 6 bytes");
         assert_eq!(words[0], 0x0EEE, "first word is BE pair of bytes 0..2");
@@ -5559,7 +5574,7 @@ mod tests {
     }
 
     #[test]
-    fn load_saxman_art_decompresses_known_fixture_from_disk() {
+    fn load_saxman_art_decompresses_known_fixture_through_source() {
         // ASM sub_1B850 (kid.asm:30172) and Load_IntroSequence{2,4,5} all upload
         // Saxman-compressed art via `jsr (j_SaxDec)` after seeding `a0` with the
         // ROM offset. load_saxman_art is the I/O wrapper around that decode and
@@ -5569,17 +5584,14 @@ mod tests {
         // Saxman framing matches wildside_data::SAXMAN_FIXTURE: a 2-byte little-
         // endian compressed length, a control byte selecting eight literal
         // slots, the four ASCII bytes "ABCD", and a trailing zero pair.
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system time should be after unix epoch")
-            .as_nanos();
-        let path =
-            std::env::temp_dir().join(format!("kc-vdp-saxman-{}-{nanos}.bin", std::process::id()));
-        let compressed: [u8; 10] = [0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
-        std::fs::write(&path, compressed).expect("write temp saxman blob");
+        let rel = std::path::Path::new("artcomp/fixture.bin");
+        let mut source = wildside_data::InMemoryAssetSource::new();
+        source.insert(
+            rel.to_path_buf(),
+            vec![0x00, 0x02, 0xF4, 0x60, 0x41, 0x42, 0x43, 0x44, 0x00, 0x00],
+        );
 
-        let decoded = load_saxman_art(&path).expect("decompress saxman art");
-        let _ = std::fs::remove_file(&path);
+        let decoded = load_saxman_art(&source, rel).expect("decompress saxman art");
 
         assert_eq!(decoded.len(), 4, "fixture decodes to four literal bytes");
         assert_eq!(decoded, b"ABCD", "fixture decodes to ASCII 'ABCD'");

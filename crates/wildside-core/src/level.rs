@@ -1821,7 +1821,7 @@ pub(crate) fn theme_palette_basename(theme: u8) -> Option<&'static str> {
 /// last table (`city`) match the ROM reading into the adjacent mappings region.
 #[allow(non_snake_case)]
 pub(crate) fn theme_collision_table_loc_11C36(
-    collision_dir: &std::path::Path,
+    source: &dyn AssetSource,
     foreground_theme: u8,
 ) -> Option<Vec<u8>> {
     let theme = usize::from(foreground_theme & 0x0F);
@@ -1833,7 +1833,9 @@ pub(crate) fn theme_collision_table_loc_11C36(
     let mut region = Vec::with_capacity(256 + 16);
     let mut base_offset = 0usize;
     for (index, filename) in THEME_COLLISION_FILES_LOC_11C30.iter().enumerate() {
-        let bytes = fs::read(collision_dir.join(filename)).ok()?;
+        let bytes = source
+            .read(&std::path::Path::new("theme/collision").join(filename))
+            .ok()?;
         if index < theme {
             base_offset += bytes.len();
         }
@@ -18114,13 +18116,10 @@ impl NativeRuntime {
             .theme_assets
             .iter()
             .find(|asset| asset.relative_path == relative_path)?;
-        let bytes = std::fs::read(
-            self.assets
-                .output_root
-                .join("theme")
-                .join(&asset.relative_path),
-        )
-        .ok()?;
+        let bytes = self
+            .assets_source
+            .read(&std::path::Path::new("theme").join(&asset.relative_path))
+            .ok()?;
         if bytes.len() < N * 2 {
             return None;
         }
@@ -19217,25 +19216,26 @@ impl NativeRuntime {
         &self,
         level_id: LevelId,
     ) -> Option<terrain::BlockGrid> {
-        let layout_dir = self.assets.output_root.join("level-layout");
+        let layout_dir = std::path::Path::new("level-layout");
         let logical_layout_path = layout_dir.join(format!("{:02X}.bin", level_id.0));
         let logical_metadata_path = layout_dir.join(format!("{:02X}.json", level_id.0));
-        let (layout_path, metadata_path) =
-            if logical_layout_path.is_file() && logical_metadata_path.is_file() {
-                (logical_layout_path, logical_metadata_path)
-            } else {
-                // ASM Load_Level_Data resolves Current_LevelID through
-                // MapOrder_Index before loading the BLOCK resource. Generated
-                // Level_Layout files may already be keyed by logical level;
-                // fall back to the resource level only when the logical
-                // specialisation is absent.
-                let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
-                (
-                    layout_dir.join(format!("{resource_level:02X}.bin")),
-                    layout_dir.join(format!("{resource_level:02X}.json")),
-                )
-            };
-        if !layout_path.is_file() {
+        let (layout_path, metadata_path) = if self.assets_source.exists(&logical_layout_path)
+            && self.assets_source.exists(&logical_metadata_path)
+        {
+            (logical_layout_path, logical_metadata_path)
+        } else {
+            // ASM Load_Level_Data resolves Current_LevelID through
+            // MapOrder_Index before loading the BLOCK resource. Generated
+            // Level_Layout files may already be keyed by logical level;
+            // fall back to the resource level only when the logical
+            // specialisation is absent.
+            let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
+            (
+                layout_dir.join(format!("{resource_level:02X}.bin")),
+                layout_dir.join(format!("{resource_level:02X}.json")),
+            )
+        };
+        if !self.assets_source.exists(&layout_path) {
             // No pre-dumped Level_Layout fixture: decode the collision terrain
             // natively from the foreground resource + theme collision table.
             // This is the only terrain source for levels the dumper never
@@ -19244,9 +19244,12 @@ impl NativeRuntime {
             // bonus-level falling-death half of #238).
             return self.decode_level_layout(level_id);
         }
-        let mut data = fs::read(layout_path).ok()?;
-        let metadata = fs::read_to_string(metadata_path)
+        let mut data = self.assets_source.read(&layout_path).ok()?;
+        let metadata = self
+            .assets_source
+            .read(&metadata_path)
             .ok()
+            .and_then(|bytes| String::from_utf8(bytes).ok())
             .and_then(|json| serde_json::from_str::<LevelLayoutMetadata>(&json).ok())?;
         data.truncate(metadata.data_bytes.min(data.len()));
         let erase_words_loc_11542 = self
@@ -19288,17 +19291,16 @@ impl NativeRuntime {
                     .iter()
                     .find(|decoded| decoded.level_id == level_id.0)
             })?;
-        let terrain_path = self
-            .assets
-            .output_root
-            .join(&terrain.foreground.relative_path);
-        let terrain_bytes = fs::read(terrain_path).ok()?;
+        let terrain_bytes = self
+            .assets_source
+            .read(std::path::Path::new(&terrain.foreground.relative_path))
+            .ok()?;
         let expected_cells = usize::from(width_blocks) * usize::from(height_blocks);
         if terrain_bytes.len() < expected_cells {
             return None;
         }
-        let collision_dir = self.assets.output_root.join("theme").join("collision");
-        let collision_index = theme_collision_table_loc_11C36(&collision_dir, header.level_theme)?;
+        let collision_index =
+            theme_collision_table_loc_11C36(self.assets_source.as_ref(), header.level_theme)?;
         Some(level_layout_cells_loc_11C34(
             &terrain_bytes,
             &collision_index,
@@ -19361,11 +19363,10 @@ impl NativeRuntime {
                     .iter()
                     .find(|decoded| decoded.level_id == level_id.0)
             })?;
-        let terrain_path = self
-            .assets
-            .output_root
-            .join(&terrain.foreground.relative_path);
-        let terrain_bytes = fs::read(terrain_path).ok()?;
+        let terrain_bytes = self
+            .assets_source
+            .read(std::path::Path::new(&terrain.foreground.relative_path))
+            .ok()?;
 
         // ASM loc_11C30/loc_11C36: collision nibbles come from
         // `ThemeCollision_Index[theme]` indexed by the full 8-bit skin byte. Build
@@ -19374,8 +19375,8 @@ impl NativeRuntime {
         // ROM's `(a0,d2.w)` does, rather than zero-padding the trimmed per-file
         // slice (which loses real collision nibbles at high skins — e.g. swamp
         // skin 254 reads $06/Solid from the following `mountain` table).
-        let collision_dir = self.assets.output_root.join("theme").join("collision");
-        let collision_index = theme_collision_table_loc_11C36(&collision_dir, header.level_theme)?;
+        let collision_index =
+            theme_collision_table_loc_11C36(self.assets_source.as_ref(), header.level_theme)?;
 
         // ASM Load_LevelData loc_15A0 computes the final height with
         // Number_blank_top_rows included, but loc_11C34 still consumes only the
@@ -19433,9 +19434,9 @@ impl NativeRuntime {
                     .resources
                     .block
                     .as_deref()
-                    .map(|relative| self.assets.output_root.join("level").join(relative))
+                    .map(|relative| std::path::Path::new("level").join(relative))
             })
-            && let Ok(block_bytes) = fs::read(&block_resource)
+            && let Ok(block_bytes) = self.assets_source.read(&block_resource)
             && let Ok(block_words) = wildside_data::decode_block_layout(&block_bytes)
         {
             apply_block_overlay_loc_11C7E(
@@ -19467,15 +19468,15 @@ impl NativeRuntime {
         grid: &terrain::BlockGrid,
         blank_top_rows: u16,
     ) -> Option<terrain::BlockList> {
-        let layout_dir = self.assets.output_root.join("level-layout");
+        let layout_dir = std::path::Path::new("level-layout");
         let logical_path = layout_dir.join(format!("{:02X}.blocklist.bin", level_id.0));
-        let path = if logical_path.is_file() {
+        let path = if self.assets_source.exists(&logical_path) {
             logical_path
         } else {
             let resource_level = wildside_data::resource_level_id(&self.assets, level_id.0);
             layout_dir.join(format!("{resource_level:02X}.blocklist.bin"))
         };
-        let data = fs::read(path).ok()?;
+        let data = self.assets_source.read(&path).ok()?;
         Some(
             terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid)
                 .with_blank_top_rows_sub_140F6(blank_top_rows, layout_width),

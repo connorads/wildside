@@ -3512,8 +3512,10 @@ mod chunk_02 {
         let Some(manifest) = cached_generated_manifest() else {
             return;
         };
-        let title_card_data =
-            vdp::load_title_card_data(&manifest).expect("generated title-card theme data");
+        let title_card_data = vdp::load_title_card_data(&wildside_data::FsAssetSource::new(
+            manifest.output_root.clone(),
+        ))
+        .expect("generated title-card theme data");
 
         for (level_id, expected_theme, route_name) in [
             (0x00, 0x09, "Blue Lake Woods 1 forest"),
@@ -7526,10 +7528,12 @@ mod chunk_02 {
     #[test]
     fn under_skull_mountain3_platforms_attach_platformscript_361c_loc_2836() {
         let mut manifest = manifest_with_levels(7);
-        let source_root = unique_temp_path("under-skull-mountain3-platform-script-table");
-        fs::create_dir_all(source_root.join("level")).expect("temp source level dir");
+        // The platform-script table now loads from the bundle (output_root);
+        // `level/platform_scripts.asm` is a COPIED_DIRECTORY entry there.
+        let output_root = unique_temp_path("under-skull-mountain3-platform-script-table");
+        fs::create_dir_all(output_root.join("level")).expect("temp output level dir");
         fs::write(
-            source_root.join("level/platform_scripts.asm"),
+            output_root.join("level/platform_scripts.asm"),
             "PlatformScript_BaseAddress:\n\
 PlatformScript_361C:   ; relative offset: 001A\n\
 \tptfm_move   $E1, $0, -$11000\n\
@@ -7538,7 +7542,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
 \tdc.l    PlatformScript_361C\n",
         )
         .expect("temp platform scripts");
-        manifest.source_root = source_root.clone();
+        manifest.output_root = output_root.clone();
         manifest.map_order[6] = 2;
 
         let resource_level = manifest
@@ -7598,7 +7602,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
             "ASM loc_2836 must attach PlatformScript_361C's relative `$001A` command; otherwise Skull Mountain 3's moving platforms stay static"
         );
 
-        fs::remove_dir_all(source_root).expect("temp source dir should be removable");
+        fs::remove_dir_all(output_root).expect("temp output dir should be removable");
     }
 
     #[test]
@@ -31794,9 +31798,9 @@ mod native_level_terrain_decoder {
         let Some(runtime) = cached_runtime_for_decoder() else {
             return;
         };
-        let collision_dir = runtime.assets.output_root.join("theme").join("collision");
+        let source = runtime.assets_source.as_ref();
         // swamp = theme 6. Its own table is 252 bytes, so skin 254 falls past it.
-        let swamp = crate::level::theme_collision_table_loc_11C36(&collision_dir, 6)
+        let swamp = crate::level::theme_collision_table_loc_11C36(source, 6)
             .expect("swamp collision table");
         assert_eq!(swamp.len(), 256, "the table is full 8-bit-indexable");
         // The ROM byte at swamp_base + 254 belongs to the next (mountain) table
@@ -31807,7 +31811,7 @@ mod native_level_terrain_decoder {
              reproducing the ROM's contiguous (a0,d2.w) read"
         );
         // In-range entries are unaffected (island skin 207 = Solid).
-        let island = crate::level::theme_collision_table_loc_11C36(&collision_dir, 4)
+        let island = crate::level::theme_collision_table_loc_11C36(source, 4)
             .expect("island collision table");
         assert_eq!(island[207], 0x06, "in-range entries are unchanged");
     }
