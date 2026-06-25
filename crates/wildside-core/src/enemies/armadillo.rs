@@ -1,6 +1,5 @@
 use super::*;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_FLOOR: i16 = colid::FLOOR as i16;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_HURT: i16 = colid::HURT as i16;
@@ -101,7 +100,6 @@ pub(crate) fn armadillo_collision_dispatch_loc_3c824(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArmadilloDeathRouteLoc3C87E {
     DeathAnimation {
         animation_script: &'static str,
@@ -116,7 +114,6 @@ pub(crate) enum ArmadilloDeathRouteLoc3C87E {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_death_route_loc_3c87e(
     spawned_child_flag: bool,
 ) -> ArmadilloDeathRouteLoc3C87E {
@@ -140,14 +137,12 @@ pub(crate) fn armadillo_death_route_loc_3c87e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloDeathAnimationLoc3C886 {
     pub(crate) animation_script: &'static str,
     pub(crate) waits_until_animation_finished: bool,
     pub(crate) exits_enemy: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_death_animation_loc_3c886() -> ArmadilloDeathAnimationLoc3C886 {
     // ASM Armadillo.asm loc_3C886: initialise `stru_3C69A`, hibernate until
     // that animation completes, then branch to the shared enemy exit path.
@@ -349,7 +344,6 @@ pub(crate) fn armadillo_ordinary_resume_loc_3c930(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloSpawnedChildFallSetupLoc3C93C {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -357,7 +351,6 @@ pub(crate) struct ArmadilloSpawnedChildFallSetupLoc3C93C {
     pub(crate) is_moved: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_spawned_child_fall_setup_loc_3c93c()
 -> ArmadilloSpawnedChildFallSetupLoc3C93C {
     // ASM Armadillo.asm loc_3C93C: spawned-child death setup clears `x_vel(a3)`,
@@ -372,7 +365,6 @@ pub(crate) fn armadillo_spawned_child_fall_setup_loc_3c93c()
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArmadilloSpawnedChildFallWaitRouteLoc3C954 {
     Loop,
     DeathAnimation {
@@ -383,7 +375,6 @@ pub(crate) enum ArmadilloSpawnedChildFallWaitRouteLoc3C954 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloSpawnedChildFallWaitLoc3C954 {
     pub(crate) next_collision_type: i16,
     pub(crate) y_velocity: i32,
@@ -393,7 +384,6 @@ pub(crate) struct ArmadilloSpawnedChildFallWaitLoc3C954 {
     pub(crate) route: ArmadilloSpawnedChildFallWaitRouteLoc3C954,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_spawned_child_fall_wait_loc_3c954(
     collision_type: i16,
     y_velocity: i32,

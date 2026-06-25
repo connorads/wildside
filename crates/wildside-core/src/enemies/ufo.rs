@@ -915,7 +915,6 @@ pub(crate) fn ufo_hurt_hibernate_gate_loc_351b6(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamSpawnLoc351EE {
     pub(crate) allocation_selector: u16,
     pub(crate) beam_routine: &'static str,
@@ -923,7 +922,6 @@ pub(crate) struct UfoBeamSpawnLoc351EE {
     pub(crate) beam_y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_segment_spawn_loc_351f2(
     parent_x_velocity: i32,
     raw_x_velocity: i16,
@@ -943,7 +941,6 @@ pub(crate) fn ufo_beam_segment_spawn_loc_351f2(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_spawn_loc_351ee(
     parent_x_velocity: i32,
     beam_velocity_pairs: &[(i16, i16)],

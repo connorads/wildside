@@ -27,9 +27,7 @@ pub(crate) const SPINNING_TWINS_COLID_LEFTWALL: u16 = colid::LEFTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_FLOOR: u16 = colid::FLOOR;
 pub(crate) const SPINNING_TWINS_COLID_HURT: u16 = colid::HURT;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_KIDLEFT: u16 = colid::KIDLEFT;
 pub(crate) const SPINNING_TWINS_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 pub(crate) const SPINNING_TWINS_HURT_RECOVERY_FRAMES_LOC_3BC34: u16 = 0x14;
@@ -218,7 +216,6 @@ pub(crate) fn spinning_twins_settle_entry_loc_3bb94(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SpinningTwinsSettledCollisionRouteLoc3BBC4 {
     ResumeWalk,
     Death,
@@ -226,7 +223,6 @@ pub(crate) enum SpinningTwinsSettledCollisionRouteLoc3BBC4 {
     BerzerkerSideGate,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_settled_collision_dispatch_loc_3bbc4(
     collision_type: u16,
 ) -> SpinningTwinsSettledCollisionRouteLoc3BBC4 {

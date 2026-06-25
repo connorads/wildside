@@ -114,7 +114,6 @@ pub(crate) fn drips_wait_timer_loc_3340e(random_byte: u8, kid_x_word: u16) -> u1
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsSplashResetLoc33488 {
     pub(crate) drop_is_moved: bool,
     pub(crate) drop_status_flag: bool,
@@ -125,7 +124,6 @@ pub(crate) struct DripsSplashResetLoc33488 {
     pub(crate) surface_child_y_pos: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_splash_reset_loc_33488(
     drop_x_pos: u32,
     drop_y_pos: u32,

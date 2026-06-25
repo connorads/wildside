@@ -102,7 +102,6 @@ pub(crate) const LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME: usize =
 pub(crate) const LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES: usize = 342;
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn intro_sequence_3_descriptor_loc_1AEBA(
     roster_index: usize,
     descriptor_slot: usize,
@@ -120,7 +119,6 @@ pub(crate) fn intro_sequence_3_descriptor_loc_1AEBA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn intro_sequence_3_allocation_spec_loc_1AEE2(
     descriptor: IntroSequence3Descriptor,
 ) -> u32 {
@@ -134,7 +132,6 @@ pub(crate) fn intro_sequence_3_allocation_spec_loc_1AEE2(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IntroSequence3GfxObjectLoc1AEEC {
     pub(crate) x_pos: u16,
@@ -148,7 +145,6 @@ pub(crate) struct IntroSequence3GfxObjectLoc1AEEC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn intro_sequence_3_x_direction_loc_1AF12(raw_flags: u16) -> u8 {
     // ASM loc_1AF12 (kid.asm:29137): `bclr #1,d0` clears descriptor bit 1 and
     // `sne $16(a1)` stores `$FF` only when that bit was previously set.
@@ -156,7 +152,6 @@ pub(crate) fn intro_sequence_3_x_direction_loc_1AF12(raw_flags: u16) -> u8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn intro_sequence_3_gfx_object_loc_1AEEC(
     descriptor: IntroSequence3Descriptor,
 ) -> IntroSequence3GfxObjectLoc1AEEC {
@@ -1487,7 +1482,6 @@ pub(crate) fn hidden_block_jump_horizontal_scan_loc_DFEE(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn juggernaut_walk_visual_accumulator_loc_9484(
     current_accumulator: u16,
     x_velocity: i32,

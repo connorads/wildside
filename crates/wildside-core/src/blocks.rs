@@ -148,7 +148,6 @@ pub(crate) struct HelmetCleanupAnimationSub10D3E {
     pub(crate) deletes_after_animation: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundRefcountLoc10792 {
     pub(crate) should_play_sound: bool,
@@ -163,7 +162,6 @@ pub(crate) struct PrizeClockCountdownLoc10796 {
     pub(crate) should_swap_animation: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockFallGateLoc107B0 {
     pub(crate) stays_active: bool,
@@ -212,7 +210,6 @@ pub(crate) struct PrizeContinueDeleteLoc10838 {
     pub(crate) should_delete_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FloatingPrizeFallStepLoc10C50 {
     pub(crate) next_y_velocity: i32,
@@ -238,7 +235,6 @@ pub(crate) struct ShooterHorizontalSpanLocF808 {
     pub(crate) sprite_cells: Vec<ShooterHorizontalSpriteCellLocF808>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OneTimePrizeInitLoc10856 {
     pub(crate) was_first_prize_initialisation: bool,
@@ -246,7 +242,6 @@ pub(crate) struct OneTimePrizeInitLoc10856 {
     pub(crate) entries: [u32; 0x28],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OneTimePrizeScanStartLoc1086A {
     pub(crate) remaining_entry_checks: u16,
@@ -254,7 +249,6 @@ pub(crate) struct OneTimePrizeScanStartLoc1086A {
     pub(crate) entry_byte_offset_from_table_base: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OneTimePrizeEntryCheckLoc10876 {
     pub(crate) entry_layout_addr: u16,
@@ -264,7 +258,6 @@ pub(crate) struct OneTimePrizeEntryCheckLoc10876 {
     pub(crate) should_init_prize_diamond: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OneTimePrizeScanStepLoc10886 {
     pub(crate) next_remaining_entry_checks: u16,
@@ -272,7 +265,6 @@ pub(crate) struct OneTimePrizeScanStepLoc10886 {
     pub(crate) should_continue_scan: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OneTimePrizeStoreLoc1089A {
     pub(crate) next_write_index: u16,
@@ -345,7 +337,6 @@ pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) should_delete_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A: [i16; 31] = [
     -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2, -2, -2, 2,
     2, 2, 2, 2,
@@ -367,7 +358,6 @@ pub(crate) const SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4: [i16; 8] =
 pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = [2, 2, 2, 2];
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const EVANESCENT_BLOCK_REVEAL_ASCENT_Y_DELTAS_LOC_11188: [i16; 4] = [-2, -2, -2, -2];
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct MetalBlockPushWakeStep {
     pub(crate) x_pos: u16,
@@ -375,7 +365,6 @@ pub(crate) struct MetalBlockPushWakeStep {
     pub(crate) reached_neighbour_check: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum IronKnightBlockEffectSubAF7A {
     Smash,
@@ -384,7 +373,6 @@ pub(crate) enum IronKnightBlockEffectSubAF7A {
     Metal,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IronKnightBlockBreakerCollisionSubAF7A {
     pub(crate) next_block_breaker: bool,
@@ -393,7 +381,6 @@ pub(crate) struct IronKnightBlockBreakerCollisionSubAF7A {
     pub(crate) effect: Option<IronKnightBlockEffectSubAF7A>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShiftingBlockActivationLoc11364 {
     pub(crate) should_play_sound: bool,
@@ -428,7 +415,6 @@ pub(crate) struct ShooterLeftSupportProbeLoc11448 {
     pub(crate) next_block_col_for_right_probe: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterCenterWorkerGateLoc1146E {
     pub(crate) restored_block_col: u16,
@@ -582,7 +568,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_clock_sound_refcount_loc_10792(
         active_clock_prize_sounds: u8,
     ) -> PrizeClockSoundRefcountLoc10792 {
@@ -610,7 +595,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_clock_fall_gate_loc_107B0(
         integer_y: i64,
         level_height_pixels: i64,
@@ -719,7 +703,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn floating_prize_fall_step_loc_10C50(
         aligned_y: i32,
         y_pos: i64,
@@ -816,7 +799,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn one_time_prize_init_loc_10856(
         header_word: i16,
         entries: [u32; 0x28],
@@ -841,7 +823,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn one_time_prize_scan_start_loc_1086A(
         prize_layout_addr: u16,
     ) -> OneTimePrizeScanStartLoc1086A {
@@ -856,7 +837,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn one_time_prize_entry_check_loc_10876(
         packed_entry: u32,
         prize_layout_addr: u16,
@@ -881,7 +861,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn one_time_prize_scan_step_loc_10886(
         remaining_entry_checks: u16,
         entry_byte_offset_from_table_base: u16,
@@ -899,7 +878,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn one_time_prize_store_loc_1089A(
         current_write_index: u16,
         entries: [u32; 0x28],
@@ -1195,7 +1173,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_center_worker_gate_loc_1146E(
         block_col_after_right_probe: u16,
         queued_support_worker: bool,
@@ -1212,7 +1189,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_center_worker_loc_11474(
         block_col: u16,
         block_row: u16,
@@ -1229,7 +1205,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_collision_rects_sub_F568(
         kid_hitbox: CollisionRectSub1F52,
         shooter_blocks: &[(u16, u16, u8)],
@@ -1361,7 +1336,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_collision_top_block_loc_F574(kid_hitbox_top_px: i16) -> i16 {
         // ASM loc_F574 (kid.asm:20203): `asr.w #4; subq.w #1` derives the
         // expanded top block, and negative word results are clamped to zero
@@ -1370,7 +1344,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_collision_right_bottom_blocks_loc_F580(
         kid_hitbox_right_px: i16,
         kid_hitbox_bottom_px: i16,
@@ -1755,7 +1728,6 @@ impl NativeRuntime {
         )
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn helmet_cleanup_effect_loc_10cec(
         content: terrain::PrizeContent,
         x_pos: u32,
@@ -1857,7 +1829,6 @@ impl NativeRuntime {
     const IRON_KNIGHT_BLOCK_BREAKER_REBOUND_Y_VELOCITY_SUB_AF7A: i32 = -0x0000_8000;
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn iron_knight_block_breaker_collision_sub_AF7A(
         is_iron_knight: bool,
         current_block_breaker: bool,
@@ -1923,7 +1894,6 @@ impl NativeRuntime {
         }
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn rubber_block_base_skin_parts_for_sub_10de4(
         block_type: terrain::BlockType,
         skin: u8,
@@ -1941,7 +1911,6 @@ impl NativeRuntime {
         })
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn rubber_block_base_skin_for_sub_10de4(cell: terrain::Cell) -> Option<u8> {
         Self::rubber_block_base_skin_parts_for_sub_10de4(cell.block_type, cell.skin)
     }
@@ -1958,7 +1927,6 @@ impl NativeRuntime {
         entry_col == col && entry_row == row
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn rubber_block_animation_wait_state_sub_10de4(
         frames_until_next_write: u8,
     ) -> (u8, bool) {
@@ -1972,7 +1940,6 @@ impl NativeRuntime {
         )
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn rubber_block_animation_next_step_sub_10de4(phase: u8) -> Option<(u8, u8, bool)> {
         let next_phase = phase.saturating_add(1);
         let &(skin_offset, next_delay) =
@@ -2225,7 +2192,6 @@ impl NativeRuntime {
         });
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn ice_block_bullet_target_cell_sub_11006(
         source_col: u16,
         source_row: u16,
@@ -2260,7 +2226,6 @@ impl NativeRuntime {
         source_col.checked_sub(1).map(|col| (col, source_row))
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn ice_block_bullet_target_cell_open_loc_11052(cell: terrain::Cell) -> bool {
         // ASM loc_11052 (kid.asm:22963): `btst #6,(a0)` rejects the target
         // cell whenever the high collision bit is set, which covers slope,
@@ -2895,7 +2860,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_slot_tick_sub_F730(
         timer: u16,
         state: u16,
@@ -2949,7 +2913,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_player_in_range_sub_F536(
         player_x_pos: u32,
         player_y_pos: u32,
@@ -2989,7 +2952,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_slot_restart_phase_loc_F326(player_in_range: bool) -> Option<u16> {
         // ASM loc_F326 (kid.asm:19914): `sub_F536` returns non-zero while Kid
         // remains in range; that path writes phase `$A(a0)=1`. Zero falls
@@ -3405,7 +3367,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shifting_block_worker_gate_loc_113BA(
         source_row: u16,
         above_cell_sets_bit_6: bool,
@@ -3418,7 +3379,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shifting_block_activation_loc_11364(
         source_row: u16,
         above_cell: terrain::Cell,
@@ -3549,7 +3509,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_bob_deltas_sub_FB3E() -> &'static [i16] {
         // ASM sub_FB3E (kid.asm:20905): before the lift platform spawns, the
         // block bobs in three hibernating up/down passes: 6, 5, then 4/5
@@ -4122,7 +4081,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn floating_micromax_delete_exit_loc_106CC() -> bool {
         // ASM loc_106CC (kid.asm:21917): Micromax's fall loop exits by
         // jumping straight to `Delete_CurrentObject`.
@@ -4130,7 +4088,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_effect_cell_words_loc_110D0(cell_x: u16, cell_y: u16) -> (u16, u16) {
         // ASM loc_110D0 (kid.asm:23019): after `j_sub_E02`, the worker stores
         // the tile coordinates unmodified in `$44(a0)` and `$46(a0)` before
@@ -4159,7 +4116,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_scan_right_loc_11208(
         row: &[terrain::Cell],
         source_col: u16,
@@ -4187,7 +4143,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_scan_left_loc_11230(
         row: &[terrain::Cell],
         source_col: u16,
@@ -4213,7 +4168,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_mark_deleted_loc_1125C(cell: terrain::Cell) -> terrain::Cell {
         // ASM loc_1125C (kid.asm:23181): `or.b #$F,(a2)` keeps bit 15, the
         // collision nibble, and the skin byte intact while forcing the
@@ -4265,7 +4219,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_step_right_loc_112E2(
         x_pos: u16,
         substep_counter: u16,
@@ -4282,7 +4235,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_step_left_loc_112FE(
         x_pos: u16,
         substep_counter: u16,
@@ -4299,7 +4251,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_left_delete_gate_loc_11328(
         source_col: u16,
         left_neighbour: terrain::Cell,
@@ -4313,7 +4264,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_effect_sprite_pos_loc_1110E(cell_x: u16, cell_y: u16) -> (u16, u16) {
         let (cell_x, cell_y) = Self::metal_block_effect_cell_words_loc_110D0(cell_x, cell_y);
         // ASM loc_1110E (kid.asm:23038): copy the cached tile coordinates into
@@ -4323,7 +4273,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_right_delete_gate_loc_11358(
         source_col: u16,
         level_width_blocks: u16,

@@ -128,7 +128,6 @@ pub(crate) struct TarMonsterThirdAttackWaitLoc3235E {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterCollisionGateLoc3237A {
     Kill,
     Return,
@@ -136,7 +135,6 @@ pub(crate) enum TarMonsterCollisionGateLoc3237A {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterCollisionRouteLoc32386 {
     ReturnOnly,
     Hurt,
@@ -144,21 +142,18 @@ pub(crate) enum TarMonsterCollisionRouteLoc32386 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterBerzerkerCollisionLoc323AA {
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
     pub(crate) clears_kid_x_velocity: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterHurtRouteLoc323C0 {
     Death,
     HurtAnimation,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterHurtCollisionLoc323C0 {
     pub(crate) saved_child_visible: bool,
     pub(crate) child_visible_during_response: bool,
@@ -409,7 +404,6 @@ pub(crate) struct TarMonsterBurstTailLoc32534 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: TarMonsterCollisionRouteLoc32386,
@@ -517,7 +511,6 @@ pub(crate) fn tar_monster_third_attack_wait_loc_3235e() -> TarMonsterThirdAttack
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_collision_gate_loc_3237a(
     collision_type: i16,
 ) -> TarMonsterCollisionGateLoc3237A {
@@ -536,7 +529,6 @@ pub(crate) fn tar_monster_collision_gate_loc_3237a(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_berzerker_collision_loc_323AA(
     berzerker_charging: bool,
 ) -> TarMonsterBerzerkerCollisionLoc323AA {
@@ -557,7 +549,6 @@ pub(crate) fn tar_monster_berzerker_collision_loc_323AA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_hurt_collision_loc_323C0(
     current_hitpoints: u16,
     child_visible: bool,
@@ -1043,7 +1034,6 @@ pub(crate) fn tar_monster_burst_tail_loc_32534() -> TarMonsterBurstTailLoc32534 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_collision_dispatch_loc_32386(
     collision_type: u16,
     berzerker_charging: bool,

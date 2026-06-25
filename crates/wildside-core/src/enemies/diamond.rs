@@ -102,14 +102,12 @@ pub(crate) fn diamond_high_hp_fall_y_velocity_loc_3ae78() -> i32 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DiamondHighHpBerzerkerSideGateRouteLoc3AE84 {
     Loop,
     Launch(DiamondHighHpBerzerkerLaunchLoc3AE84),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpBerzerkerLaunchLoc3AE84 {
     pub(crate) has_level_collision: bool,
     pub(crate) has_kid_collision: bool,
@@ -120,7 +118,6 @@ pub(crate) struct DiamondHighHpBerzerkerLaunchLoc3AE84 {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_berzerker_side_gate_loc_3ae84(
     berzerker_charging: bool,
 ) -> DiamondHighHpBerzerkerSideGateRouteLoc3AE84 {
@@ -144,7 +141,6 @@ pub(crate) fn diamond_high_hp_berzerker_side_gate_loc_3ae84(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpBerzerkerLaunchTickLoc3AEB2 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) runs_shared_retention_check_sub_3c3ce: bool,
@@ -152,7 +148,6 @@ pub(crate) struct DiamondHighHpBerzerkerLaunchTickLoc3AEB2 {
     pub(crate) loops: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_berzerker_launch_tick_loc_3aeb2(
     y_velocity: i32,
 ) -> DiamondHighHpBerzerkerLaunchTickLoc3AEB2 {
@@ -189,14 +184,12 @@ pub(crate) fn diamond_high_hp_slopedown_y_velocity_loc_3ae68(x_velocity: i32) ->
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DiamondHighHpDamageRouteLoc3ADFA {
     HurtAnimation,
     DeathAnimation,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondHighHpDamageLoc3ADFA {
     pub(crate) remaining_hitpoints: u16,
     pub(crate) is_moved_during_response: bool,
@@ -208,7 +201,6 @@ pub(crate) struct DiamondHighHpDamageLoc3ADFA {
     pub(crate) route: DiamondHighHpDamageRouteLoc3ADFA,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_high_hp_damage_loc_3adfa(current_hp: u16) -> DiamondHighHpDamageLoc3ADFA {
     // ASM Diamond.asm loc_3ADFA: `subq.w #1,$44(a3)` chooses death only when
     // the decrement leaves exactly zero. Surviving Diamonds stop movement for
@@ -286,20 +278,17 @@ pub(crate) fn diamond_low_hp_hurt_animation_loc_3aef8() -> DiamondLowHpHurtAnima
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DiamondLowHpSharedWalkerNextLoc3AF14 {
     DefaultDirectionRoutineLoc3C0FA,
     FlippedDirectionRoutineLoc3C04E,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondLowHpSharedWalkerResumeLoc3AF14 {
     pub(crate) next_collision_type: u16,
     pub(crate) next_walker: DiamondLowHpSharedWalkerNextLoc3AF14,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_low_hp_shared_walker_resume_loc_3af14(
     x_direction_flipped: bool,
 ) -> DiamondLowHpSharedWalkerResumeLoc3AF14 {
@@ -316,14 +305,12 @@ pub(crate) fn diamond_low_hp_shared_walker_resume_loc_3af14(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DiamondLowHpBerzerkerSideGateRouteLoc3AF24 {
     ResumeSharedWalker(DiamondLowHpSharedWalkerResumeLoc3AF14),
     Launch(DiamondLowHpBerzerkerLaunchLoc3AF24),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondLowHpBerzerkerLaunchLoc3AF24 {
     pub(crate) has_level_collision: bool,
     pub(crate) has_kid_collision: bool,
@@ -334,7 +321,6 @@ pub(crate) struct DiamondLowHpBerzerkerLaunchLoc3AF24 {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_low_hp_berzerker_side_gate_loc_3af24(
     berzerker_charging: bool,
     x_direction_flipped: bool,
@@ -361,7 +347,6 @@ pub(crate) fn diamond_low_hp_berzerker_side_gate_loc_3af24(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondLowHpBerzerkerLaunchTickLoc3AF50 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) runs_shared_retention_check_sub_3c3ce: bool,
@@ -369,7 +354,6 @@ pub(crate) struct DiamondLowHpBerzerkerLaunchTickLoc3AF50 {
     pub(crate) loops: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_low_hp_berzerker_launch_tick_loc_3af50(
     y_velocity: i32,
 ) -> DiamondLowHpBerzerkerLaunchTickLoc3AF50 {

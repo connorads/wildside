@@ -927,7 +927,6 @@ impl WeatherCollisionRowsSub61CA {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn weather_collision_rows_from_block_grid_sub_61ca(
     grid: &terrain::BlockGrid,
 ) -> WeatherCollisionRowsSub61CA {
@@ -945,7 +944,6 @@ pub(crate) fn weather_collision_rows_from_block_grid_sub_61ca(
     WeatherCollisionRowsSub61CA { rows }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn weather_worker_input_from_runtime_sub_61ca(
     weather: &WeatherState,
     slice: &OpeningSliceState,
@@ -1019,7 +1017,6 @@ pub(crate) struct WeatherWorkerOutputSub61CA {
     pub(crate) sprites: Vec<WeatherSpriteSub61CA>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn apply_weather_worker_output_to_state_sub_61ca(
     weather: &mut WeatherState,
     output: &WeatherWorkerOutputSub61CA,
@@ -1037,7 +1034,6 @@ pub(crate) fn apply_weather_worker_output_to_state_sub_61ca(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hail_projectiles_from_falling_slots_sub_61ca(
     falling_slots: &[FallingWeatherSlotSub61CA; FALLING_WEATHER_SLOT_COUNT_SUB_61CA],
 ) -> Vec<EnemyProjectile> {
@@ -2109,7 +2105,6 @@ pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_start_sound_loc_14772(sound_suppressed: bool) -> Option<&'static str> {
     // ASM loc_14772 (kid.asm:27820): after the initial per-geyser hibernate,
     // the first eruption plays `sfx_Lava_Geyser_starting` only when `$19(a3)`
@@ -2119,7 +2114,6 @@ pub(crate) fn lava_geyser_start_sound_loc_14772(sound_suppressed: bool) -> Optio
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_repeat_sound_loc_1478E(sound_suppressed: bool) -> Option<&'static str> {
     // ASM loc_1478E (kid.asm:27830): the repeat-cycle path plays
     // `sfx_Lava_Geyser` only when `$19(a3)` is clear; non-zero skips the sound
@@ -2313,7 +2307,6 @@ pub(crate) struct LavaGeyserDisableStepLoc1483A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_disable_step_loc_1483A() -> LavaGeyserDisableStepLoc1483A {
     // ASM loc_1483A (kid.asm:27900): the `$FFFE` script sentinel falls here,
     // queues `sfx_Lava_Geyser`, hibernates for `$3C` frames, then resumes at
@@ -2397,7 +2390,6 @@ pub struct LavaGeyserCameraWindowInputLoc147D6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub fn lava_geyser_is_inside_camera_window_loc_147D6(
     input: LavaGeyserCameraWindowInputLoc147D6,
 ) -> bool {
@@ -2446,7 +2438,6 @@ pub(crate) enum LavaGeyserTopSpriteWindowResultLoc14874 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_top_sprite_window_loc_14874(
     input: LavaGeyserTopSpriteWindowInputLoc14874,
 ) -> LavaGeyserTopSpriteWindowResultLoc14874 {
@@ -2485,7 +2476,6 @@ pub(crate) fn lava_geyser_top_sprite_window_loc_14874(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_top_sprite_script_loc_148CE(sprite_frame_within_row: u8) -> &'static str {
     // ASM loc_148CE (kid.asm:27959): when `$4C(a5)` is non-zero the geyser uses
     // `dword_14636` for the top sprite-row template; zero keeps `unk_14624`.
@@ -2520,7 +2510,6 @@ pub(crate) enum LavaGeyserMiddleSpriteRowResultLoc148F8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_middle_sprite_row_window_loc_148F8(
     sprite_row_y_px: u16,
     camera_y_px: u16,
@@ -2552,7 +2541,6 @@ pub(crate) struct LavaGeyserMiddleRowAdvanceResultLoc14914 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_middle_row_advance_loc_14914(
     sprite_row_y_px: u16,
     middle_row_index: u16,

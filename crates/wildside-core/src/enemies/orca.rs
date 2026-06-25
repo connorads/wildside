@@ -26,29 +26,18 @@ pub(crate) fn orca_init_state_loc_3d194() -> OrcaInitStateLoc3D194 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_RIGHTWALL: i16 = colid::RIGHTWALL as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_LEFTWALL: i16 = colid::LEFTWALL as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_FLOOR: i16 = colid::FLOOR as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_CEILING: i16 = colid::CEILING as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_SLOPEUP: i16 = colid::SLOPEUP as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_SLOPEDOWN: i16 = colid::SLOPEDOWN as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_HURT: i16 = colid::HURT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaCollisionRouteLoc3D21E {
     Kill,
     Damage,
@@ -56,7 +45,6 @@ pub(crate) enum OrcaCollisionRouteLoc3D21E {
     Continue { next_collision_type: u16 },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_collision_dispatch_loc_3d21e(collision_type: i16) -> OrcaCollisionRouteLoc3D21E {
     // ASM Orca.asm loc_3D21E: negative collision words kill immediately,
     // hurt/Kid-above collisions enter the damage route, side contacts enter
@@ -76,7 +64,6 @@ pub(crate) fn orca_collision_dispatch_loc_3d21e(collision_type: i16) -> OrcaColl
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaDamageResponseLoc3D23E {
     Kill,
     Hurt {
@@ -88,7 +75,6 @@ pub(crate) enum OrcaDamageResponseLoc3D23E {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_damage_response_loc_3d23e(
     current_hp: u16,
     saved_walk_speed: i32,
@@ -335,7 +321,6 @@ pub(crate) fn orca_lunge_launch_tail_loc_3d348() -> OrcaLungeLaunchTailLoc3D348 
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaLungeCollisionRouteLoc3D35A {
     GravityAndAcceleration,
     FloorLanding,
@@ -346,7 +331,6 @@ pub(crate) enum OrcaLungeCollisionRouteLoc3D35A {
     BerzerkerSideGate,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_lunge_collision_dispatch_loc_3d35a(
     collision_type: i16,
 ) -> OrcaLungeCollisionRouteLoc3D35A {
@@ -411,14 +395,12 @@ pub(crate) fn orca_landing_resume_loc_3d466(facing: Direction) -> OrcaLandingRes
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaFatalFallStartLoc3D48A {
     pub(crate) y_velocity: i32,
     pub(crate) has_kid_collision: bool,
     pub(crate) falls_through_to_landing_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_fatal_fall_start_loc_3d48a() -> OrcaFatalFallStartLoc3D48A {
     // ASM Orca.asm loc_3D48A: after HP reaches zero, seed downward y_vel
     // `$18000`, set `has_kid_collision(a3)`, then fall through to landing.
@@ -429,11 +411,9 @@ pub(crate) fn orca_fatal_fall_start_loc_3d48a() -> OrcaFatalFallStartLoc3D48A {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_FATAL_FALL_GRAVITY_LOC_3D496: i32 = 0x0000_1800;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaFatalFallRouteLoc3D496 {
     Loop,
     DeathAnimation {
@@ -444,7 +424,6 @@ pub(crate) enum OrcaFatalFallRouteLoc3D496 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaFatalFallFrameLoc3D496 {
     pub(crate) next_collision_type: i16,
     pub(crate) x_velocity: i32,
@@ -456,7 +435,6 @@ pub(crate) struct OrcaFatalFallFrameLoc3D496 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaFatalFallDeathAnimationLoc3D4BC {
     pub(crate) next_collision_type: i16,
     pub(crate) x_velocity: i32,
@@ -468,7 +446,6 @@ pub(crate) struct OrcaFatalFallDeathAnimationLoc3D4BC {
     pub(crate) exits_enemy: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_fatal_fall_death_animation_loc_3d4bc() -> OrcaFatalFallDeathAnimationLoc3D4BC {
     // ASM Orca.asm loc_3D4BC: after fatal-fall floor/slope contact, stop
     // both velocity components, clear movement/level collision, play
@@ -485,7 +462,6 @@ pub(crate) fn orca_fatal_fall_death_animation_loc_3d4bc() -> OrcaFatalFallDeathA
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_fatal_fall_frame_loc_3d496(
     collision_type: i16,
     x_velocity: i32,

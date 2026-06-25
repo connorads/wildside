@@ -1,10 +1,7 @@
 use super::*;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const FIRE_DEMON_COLID_HURT: i16 = colid::HURT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -265,14 +262,12 @@ pub(crate) fn fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonResumeSharedWalkerSourceLoc3A586 {
     NoCollision,
     UnknownPositive,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonCollisionRouteLoc3A586 {
     ResumeSharedWalker {
         next_collision_type: u16,
@@ -291,7 +286,6 @@ pub(crate) enum FireDemonCollisionRouteLoc3A586 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_death_loc_3a5a6() -> FireDemonCollisionRouteLoc3A586 {
     // ASM Fire_Demon.asm loc_3A5A6: initialise `stru_3A378`, hibernate until
     // the animation finishes, decrement `(Fire_Demon).w`, then branch to delete.
@@ -301,7 +295,6 @@ pub(crate) fn fire_demon_death_loc_3a5a6() -> FireDemonCollisionRouteLoc3A586 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_hurt_recovery_loc_3a5be(
     remaining_hp: u16,
 ) -> FireDemonCollisionRouteLoc3A586 {
@@ -385,7 +378,6 @@ pub(crate) fn fire_demon_berzerker_side_gate_loc_3a5e4(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_collision_dispatch_loc_3a586(
     collision_type: i16,
     current_hp: u16,

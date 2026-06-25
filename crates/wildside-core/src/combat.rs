@@ -97,7 +97,6 @@ pub(crate) enum QueuedSoundEffect {
     BigHoppingSkullDies,
     BossEyePops,
     BossDies,
-    #[cfg_attr(not(test), allow(dead_code))]
     Thunderstorm,
     #[cfg_attr(not(test), allow(dead_code))]
     NavigateJingle,
@@ -433,7 +432,6 @@ pub(crate) struct EnemyDeathBurstCleanupLoc370C2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_death_burst_init_sub_37002(
     x_pos: u16,
     y_pos: u16,
@@ -460,7 +458,6 @@ pub(crate) fn enemy_death_burst_init_sub_37002(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_death_burst_loop_gate_loc_37054(
     collision_type: i16,
     chase_frames: u16,
@@ -2521,14 +2518,12 @@ pub(crate) struct HeadyMetalSpriteVelocitySub376EC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HeadyMetalTrackingVelocityLoc37582 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HeadyMetalSpawnAnimationLoc3761E {
     pub(crate) next_piece_counter: u16,
     pub(crate) selected_animation_label: &'static str,
@@ -2662,7 +2657,6 @@ pub const HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266: [(i16, i16); 12] =
 ];
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_init_sub_370D2(
     x_pos: u16,
     y_pos: u16,
@@ -2694,7 +2688,6 @@ pub(crate) fn boss_death_burst_init_sub_370D2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_fall_step_sub_370D2(y_velocity: i32) -> i32 {
     // ASM loc_3712E (kid.asm:38995): after each hibernate, add `$2710` to
     // `y_vel(a3)` until the grounded byte `$18(a3)` becomes non-zero.
@@ -2702,7 +2695,6 @@ pub(crate) fn boss_death_burst_fall_step_sub_370D2(y_velocity: i32) -> i32 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_loop_gate_loc_37148(
     collision_type: i16,
     chase_frames: u16,
@@ -2734,7 +2726,6 @@ pub(crate) fn boss_death_burst_loop_gate_loc_37148(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_collision_finish_loc_371B6() -> BossDeathBurstCollisionFinishLoc371B6
 {
     // ASM loc_371B6 (kid.asm:39048): clear `collision_type(a3)`, both velocity
@@ -2751,7 +2742,6 @@ pub(crate) fn boss_death_burst_collision_finish_loc_371B6() -> BossDeathBurstCol
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_homing_step_sub_370D2(
     effect_x: u16,
     effect_y: u16,
@@ -2786,7 +2776,6 @@ pub(crate) fn boss_death_burst_homing_step_sub_370D2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_timeout_loop_gate_loc_3720A(
     collision_type: i16,
 ) -> BossDeathBurstTimeoutLoopGateLoc3720A {
@@ -2809,7 +2798,6 @@ pub(crate) fn boss_death_burst_timeout_loop_gate_loc_3720A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_timeout_face_kid_loc_37246(effect_x: u16, kid_x: u16) -> u8 {
     // ASM loc_3720A/loc_37246 (kid.asm:39094-39103): `cmp.w d5,d3; bgt.s`
     // only clears `x_direction(a3)` at loc_37246 when the burst is strictly
@@ -2822,7 +2810,6 @@ pub(crate) fn boss_death_burst_timeout_face_kid_loc_37246(effect_x: u16, kid_x: 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_timeout_ground_gate_loc_3724A(
     grounded: bool,
     x_direction: u8,
@@ -2867,7 +2854,6 @@ pub(crate) fn boss_death_burst_finish_sub_3728C() -> BossDeathBurstFinishSub3728
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_pop_effect_init_sub_3729E(
     x_pos: u16,
     y_pos: u16,
@@ -2921,7 +2907,6 @@ pub(crate) fn boss_eye_pop_effect_finish_sub_3729E() -> BossEyePopEffectFinishSu
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_attack_init_sub_37332(
     x_pos: u16,
     y_pos: u16,
@@ -2984,7 +2969,6 @@ pub(crate) fn boss_eye_attack_sprite_mapping_loc_37B7C(table_index: usize) -> &'
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_attack_sprite_sub_37332(
     diamond_power_active: bool,
     v_int_counter_fff809: u8,
@@ -3047,7 +3031,6 @@ pub(crate) fn boss_eye_attack_sprite_sub_37332(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_attack_step_sub_37332(
     y_velocity: i32,
     inputs: BossEyeAttackFrameInputsSub37332,
@@ -3070,7 +3053,6 @@ pub(crate) fn boss_eye_attack_step_sub_37332(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_refresh_attack_sprites_sub_37ABC(
     mut slots: [Option<BossEyeSpriteRefreshSlotSub37ABC>; 12],
     diamond_power_active: bool,
@@ -3100,7 +3082,6 @@ pub(crate) fn boss_eye_refresh_attack_sprites_sub_37ABC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_detach_step_sub_393B2(
     sprite_word_y_adjust: u16,
 ) -> BossEyeDetachStepSub393B2 {
@@ -3120,7 +3101,6 @@ const BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_LEFT_SUB_39420: [i16; 5] = [12, 20, 24, 2
 const BOSS_EYE_COUNTER_ORBIT_X_OFFSETS_RIGHT_SUB_39420: [i16; 5] = [12, 0, -13, -13, -13];
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_orbit_placement_sub_393C8(
     parent_x: u16,
     parent_y: u16,
@@ -3165,7 +3145,6 @@ pub(crate) fn boss_eye_orbit_placement_sub_393C8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
     parent_x: u16,
     parent_y: u16,
@@ -3210,7 +3189,6 @@ pub(crate) fn boss_eye_counter_orbit_placement_sub_39420(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_projectile_spawn_sub_397E4(
     parent_x: u16,
     parent_y: u16,
@@ -4332,7 +4310,6 @@ pub(crate) fn boomerang_boss_skewer_piece_1_wait_loop_loc_384D6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_1_launch_loc_384E8()
 -> BoomerangBossSkewerPiece1LaunchLoc384E8 {
     // ASM loc_384E8 (kid.asm:40728): set y_vel to `$FFF9` (word = -7) and
@@ -4399,7 +4376,6 @@ pub(crate) fn boomerang_boss_skewer_piece_2_wait_loop_loc_38554(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_2_launch_loc_38566()
 -> BoomerangBossSkewerPiece2LaunchLoc38566 {
     // ASM loc_38566 (kid.asm:40770): set y_vel to `$FFF9` (word = -7) and
@@ -4466,7 +4442,6 @@ pub(crate) fn boomerang_boss_skewer_piece_3_wait_loop_loc_385D2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_3_launch_loc_385E4()
 -> BoomerangBossSkewerPiece3LaunchLoc385E4 {
     // ASM loc_385E4 (kid.asm:40812): set y_vel to `$FFF9` (word = -7) and
@@ -4533,7 +4508,6 @@ pub(crate) fn boomerang_boss_skewer_piece_4_wait_loop_loc_38650(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_4_launch_loc_38662()
 -> BoomerangBossSkewerPiece4LaunchLoc38662 {
     // ASM loc_38662 (kid.asm:40854): set y_vel to `$FFF9` (word = -7) and
@@ -4600,7 +4574,6 @@ pub(crate) fn boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_5_launch_loc_386E0()
 -> BoomerangBossSkewerPiece5LaunchLoc386E0 {
     // ASM loc_386E0 (kid.asm:40896): set y_vel to `$FFF9` (word = -7) and
@@ -4668,7 +4641,6 @@ pub(crate) fn boomerang_boss_skewer_piece_6_wait_loop_loc_3874C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_6_launch_loc_3875E()
 -> BoomerangBossSkewerPiece6LaunchLoc3875E {
     // ASM loc_3875E (kid.asm:40938): set y_vel to `$FFF9` (word = -7) and
@@ -4736,7 +4708,6 @@ pub(crate) fn boomerang_boss_skewer_piece_7_wait_loop_loc_387CA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_7_launch_loc_387DC()
 -> BoomerangBossSkewerPiece7LaunchLoc387DC {
     // ASM loc_387DC (kid.asm:40980): set y_vel to `$FFF9` (word = -7) and
@@ -4804,7 +4775,6 @@ pub(crate) fn boomerang_boss_skewer_piece_8_wait_loop_loc_38848(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_8_launch_loc_3885A()
 -> BoomerangBossSkewerPiece8LaunchLoc3885A {
     // ASM loc_3885A (kid.asm:41022): set y_vel to `$FFF8` (word = -8) and
@@ -4872,7 +4842,6 @@ pub(crate) fn boomerang_boss_skewer_piece_9_wait_loop_loc_388C6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_9_launch_loc_388D8()
 -> BoomerangBossSkewerPiece9LaunchLoc388D8 {
     // ASM loc_388D8 (kid.asm:41064): set y_vel to `$FFFA` (word = -6) and
@@ -6349,7 +6318,6 @@ pub(crate) fn boomerang_boss_head_2_post_projectile_animation_gate_loc_380EA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_step_sub_39846(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6974,7 +6942,6 @@ pub(crate) fn boss_head_movement_step_for_family_sub_39846(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'static str {
     // ASM loc_371D4..loc_37200 (kid.asm:39060): choose the timeout sound from
     // bit 0 of `$FFFFF809`. The odd branch queues `sfx_Plethora_x` but the ROM
@@ -7049,7 +7016,6 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A1A6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_collision_palette_sub_3A292(
     collision_type: u16,
     berzerker_charging: bool,
@@ -7234,7 +7200,6 @@ pub(crate) fn fire_demon_fragment_fade_step_loc_3A14E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fragment_decel_step_loc_3A24C(
     direction_byte_d0: u8,
     horizontal_counter_40: u16,
@@ -7434,7 +7399,6 @@ pub(crate) fn heady_metal_apply_piece_velocities_sub_376EC(
     slots
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_tracking_velocity_loc_37582(
     kid_gfx_x: u16,
     kid_gfx_y: u16,
@@ -7487,7 +7451,6 @@ pub(crate) fn heady_metal_tracking_velocity_loc_37582(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_spawn_animation_loc_3761E(
     piece_counter_before_spawn: u16,
 ) -> HeadyMetalSpawnAnimationLoc3761E {
@@ -7522,7 +7485,6 @@ pub(crate) fn heady_metal_spawn_animation_loc_3761E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_scatter_step_sub_3787C(
     mut velocities: HeadyMetalScatterVelocities,
     d6_x_velocity_delta: i32,
@@ -7540,7 +7502,6 @@ pub(crate) fn heady_metal_scatter_step_sub_3787C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_scatter_step_sub_378A2(
     mut velocities: HeadyMetalScatterVelocities,
     d6_x_velocity_delta: i32,
@@ -7663,7 +7624,6 @@ const HEADY_METAL_BREAKUP_SEQUENCE_SUB_37708: [usize; 37] = [
 ];
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 // piece_slots is a Copy POD array moved straight into the returned result; by-ref
 // would only add deref noise since the array is copied into `result` regardless.
 #[allow(clippy::large_types_passed_by_value)]
@@ -7804,7 +7764,6 @@ pub(crate) fn heady_metal_breakup_step_sub_37708(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_cleanup_sub_378C8(
     global_hit_latch_fb4e: bool,
     countdown_42: u16,
@@ -10644,7 +10603,6 @@ impl NativeRuntime {
         }
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     #[allow(non_snake_case)]
     pub(crate) fn play_thunderstorm_sound_sub_1B36C(&mut self, d0: u16) -> u16 {
         // ASM sub_1B36C (kid.asm:29577-29583) saves d0 on the stack, plays
@@ -10653,7 +10611,6 @@ impl NativeRuntime {
         d0
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     #[allow(non_snake_case)]
     pub(crate) fn play_navigate_jingle_sub_1BC26(&mut self, d0: u16) -> u16 {
         // ASM sub_1BC26 (kid.asm:30506-30512) saves d0 on the stack, plays
@@ -11990,7 +11947,6 @@ pub(crate) struct EnemyContactBounds {
     pub(crate) bottom_px: i64,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CollisionRectSub1F52 {
     pub(crate) left_px: i16,
@@ -12525,7 +12481,6 @@ pub(crate) fn first_solid_overlap_resolution_sub_1FA2(
     Some(solid_overlap_resolution_sub_201c(kid_hitbox, solid))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn support_overlap_detected_sub_1F52(
     kid_hitbox: CollisionRectSub1F52,

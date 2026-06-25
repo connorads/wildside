@@ -1650,7 +1650,6 @@ pub(crate) fn pause_menu_arrow_cursor_cmds_loc_6A84(
 /// the cursor can move, the loop writes two tile words to the arrow positions
 /// and updates `Pause_Option`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuCursorMove {
     /// Tile word written to the upper arrow VDP address.
     pub(crate) upper_arrow_tile: u16,
@@ -1665,9 +1664,7 @@ pub(crate) struct PauseMenuCursorMove {
 /// ASM Game_Paused_Loop (kid.asm:6839-6856):
 /// - `$867C`: the arrow-present tile (points at the selected option)
 /// - `$8678`: the arrow-absent tile (blank / no arrow)
-#[cfg_attr(not(test), allow(dead_code))]
 const PAUSE_ARROW_PRESENT_TILE: u16 = 0x867C;
-#[cfg_attr(not(test), allow(dead_code))]
 const PAUSE_ARROW_ABSENT_TILE: u16 = 0x8678;
 
 /// Handle the Down button press inside the pause loop.
@@ -1689,7 +1686,6 @@ const PAUSE_ARROW_ABSENT_TILE: u16 = 0x8678;
 /// Returns `Some(move)` if the cursor moved down, `None` if the button
 /// was not pressed or the cursor was already at the bottom.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_loop_down_handler_loc_6B0E(
     down_pressed: bool,
     pause_option: u8,
@@ -1724,7 +1720,6 @@ pub(crate) fn pause_loop_down_handler_loc_6B0E(
 ///
 /// Returns `Some(move)` if the cursor moved up, `None` if the button
 /// was not pressed or the cursor was already at the top.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_loop_up_handler_game_paused_loop(
     up_pressed: bool,
     pause_option: u8,
@@ -1750,7 +1745,6 @@ pub(crate) fn pause_loop_up_handler_game_paused_loop(
 ///   restart the level (lives remaining) or set `Game_Paused = 3` at loc_6B62
 ///   (last life → game over path).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PauseMenuStartResult {
     /// Start not pressed — continue the pause loop.
     NotPressed,
@@ -1781,7 +1775,6 @@ pub(crate) enum PauseMenuStartResult {
 /// loc_6B62:
 ///   move.b #3,(Game_Paused).w      ; signal game over path
 /// ```
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_loop_start_handler_chk_start(
     start_pressed: bool,
     pause_option: u8,
@@ -1817,7 +1810,6 @@ pub(crate) fn pause_loop_start_handler_chk_start(
 /// - `!= 3` → normal unpause at loc_6C3E: clear `Game_Paused`, call
 ///   `sub_E1338`, reload Eyeclops beam art via `off_Load_EyclopsBeamArt`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PauseMenuUnpauseExitLoc6C0A {
     /// ASM loc_6C0A, Game_Paused == 3: last life lost during pause menu.
     /// Play sfx_Voice_bummer, set Kid action = 4 / param = $30, lives = 1.
@@ -1859,7 +1851,6 @@ pub(crate) enum PauseMenuUnpauseExitLoc6C0A {
 ///   rts
 /// ```
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_unpause_exit_loc_6C0A(game_paused: u8) -> PauseMenuUnpauseExitLoc6C0A {
     // ASM loc_6C0A: cmpi.b #3,(Game_Paused).w; bne.s loc_6C3E
     if game_paused == 3 {
@@ -2500,7 +2491,6 @@ pub(crate) struct IntroTextGlyphStepLoc1C7E6 {
     pub(crate) hibernate_frames: Option<u16>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 impl TitleTextWordWritesSub1B7B6 {
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {

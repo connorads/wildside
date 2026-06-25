@@ -89,14 +89,12 @@ pub(crate) fn big_hopping_skull_contact_wait_loc_365ac(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullDamageEntryRouteLoc365D8 {
     DestroySkull,
     HitAnimationThenWait,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullDamageEntryLoc365D8 {
     pub(crate) has_kid_collision: bool,
     pub(crate) kid_y_velocity: i32,
@@ -105,7 +103,6 @@ pub(crate) struct BigHoppingSkullDamageEntryLoc365D8 {
     pub(crate) route: BigHoppingSkullDamageEntryRouteLoc365D8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_damage_entry_loc_365d8(
     hit_points_word: u16,
     kid_y_velocity: i32,
@@ -309,13 +306,11 @@ pub(crate) fn big_hopping_skull_death_animation_gate_loc_3667e(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullRespawnMarkerLoc366A4 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_respawn_marker_loc_366a4(
     object_status_slot: u8,
 ) -> BigHoppingSkullRespawnMarkerLoc366A4 {
@@ -479,7 +474,6 @@ pub(crate) fn big_hopping_skull_collision_dispatch_loc_3674e(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullBoundsRouteLoc36770 {
     Unchanged,
     HitLeftBound,
@@ -487,7 +481,6 @@ pub(crate) enum BigHoppingSkullBoundsRouteLoc36770 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullBoundsCorrectionLoc36770 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -495,7 +488,6 @@ pub(crate) struct BigHoppingSkullBoundsCorrectionLoc36770 {
     pub(crate) route: BigHoppingSkullBoundsRouteLoc36770,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_bounds_correction_loc_36770(
     x_pos_word: i16,
     left_bound_word: i16,

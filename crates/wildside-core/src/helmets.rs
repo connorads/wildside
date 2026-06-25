@@ -2,7 +2,6 @@ use super::*;
 use crate::constants::SINE_TABLE_WORD_402B0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamRenderSetupLocE4B2 {
     pub(crate) beam_counter: u16,
     pub(crate) x_offset_px: i16,
@@ -10,7 +9,6 @@ pub(crate) struct EyeclopsBeamRenderSetupLocE4B2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamScreenOriginLocE4C4 {
     pub(crate) screen_x_word: u16,
     pub(crate) screen_y_word: u16,
@@ -24,14 +22,12 @@ pub(crate) struct EyeclopsBeamMirroredAnchorLocE50A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamTableDispatchLocE512 {
     pub(crate) pc_table_byte_offset: u16,
     pub(crate) table_label: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamSpriteLocE51A {
     pub(crate) y: u16,
     pub(crate) size_link: u16,
@@ -40,7 +36,6 @@ pub(crate) struct EyeclopsBeamSpriteLocE51A {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamSpritesLocE51A {
     pub(crate) sprites: Vec<EyeclopsBeamSpriteLocE51A>,
     pub(crate) number_sprites: u8,
@@ -49,7 +44,6 @@ pub(crate) struct EyeclopsBeamSpritesLocE51A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_render_setup_loc_E4B2(
     beam_counter: u16,
     latched_x_direction: u8,
@@ -82,7 +76,6 @@ fn kid_projectile_hit_spark_loc_1_f08(x_pos: u32, y_pos: u32) -> KidProjectileHi
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_screen_origin_loc_E4C4(
     kid_x_word: u16,
     kid_y_word: u16,
@@ -123,7 +116,6 @@ pub(crate) fn eyeclops_beam_mirrored_anchor_loc_E50A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_table_dispatch_loc_E512(
     beam_segment_index: u16,
 ) -> Option<EyeclopsBeamTableDispatchLocE512> {
@@ -144,7 +136,6 @@ pub(crate) fn eyeclops_beam_table_dispatch_loc_E512(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_sprites_loc_E51A(
     table_label: &str,
     screen_x_word: u16,
@@ -217,7 +208,6 @@ pub(crate) fn eyeclops_beam_sprites_loc_E51A(
 }
 
 #[derive(Debug, Clone, Copy)]
-#[cfg_attr(not(test), allow(dead_code))]
 struct EyeclopsBeamTableEntryLocE51A {
     y_offset: i16,
     size_word: u16,
@@ -236,7 +226,6 @@ struct EyeclopsBeamWorldStripSubE49A {
     bottom_probe_screen_y: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
     EyeclopsBeamTableEntryLocE51A {
         y_offset: -0x10,
@@ -263,11 +252,8 @@ const EYECLOPS_BEAM_TABLE_UNK_E570: [EyeclopsBeamTableEntryLocE51A; 4] = [
         x_offset: 0,
     },
 ];
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E570_TOP_Y: i16 = -0x08;
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E570_BOTTOM_Y: i16 = 0x10;
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_TABLE_UNK_E596: [EyeclopsBeamTableEntryLocE51A; 5] = [
     EyeclopsBeamTableEntryLocE51A {
         y_offset: -0x10,
@@ -300,11 +286,8 @@ const EYECLOPS_BEAM_TABLE_UNK_E596: [EyeclopsBeamTableEntryLocE51A; 5] = [
         x_offset: 0,
     },
 ];
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E596_TOP_Y: i16 = -0x0C;
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E596_BOTTOM_Y: i16 = 0x14;
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_TABLE_UNK_E5C4: [EyeclopsBeamTableEntryLocE51A; 6] = [
     EyeclopsBeamTableEntryLocE51A {
         y_offset: -0x10,
@@ -343,11 +326,8 @@ const EYECLOPS_BEAM_TABLE_UNK_E5C4: [EyeclopsBeamTableEntryLocE51A; 6] = [
         x_offset: 0,
     },
 ];
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E5C4_TOP_Y: i16 = -0x10;
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E5C4_BOTTOM_Y: i16 = 0x18;
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_TABLE_UNK_E5FA: [EyeclopsBeamTableEntryLocE51A; 10] = [
     EyeclopsBeamTableEntryLocE51A {
         y_offset: -0x14,
@@ -410,12 +390,9 @@ const EYECLOPS_BEAM_TABLE_UNK_E5FA: [EyeclopsBeamTableEntryLocE51A; 10] = [
         x_offset: 8,
     },
 ];
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E5FA_TOP_Y: i16 = -0x14;
-#[cfg_attr(not(test), allow(dead_code))]
 const EYECLOPS_BEAM_UNK_E5FA_BOTTOM_Y: i16 = 0x1C;
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn i16_bits(value: i16) -> u16 {
     u16::from_ne_bytes(value.to_ne_bytes())
 }
@@ -1578,7 +1555,6 @@ impl NativeRuntime {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerObjectListsSub3F5E8 {
     pub(crate) active_slots: Vec<u16>,
     pub(crate) free_slots: Vec<u16>,
@@ -1590,7 +1566,6 @@ pub(crate) struct DiamondPowerObjectListsSub3F5E8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerAllocatedSlotSub3F5BC {
     pub(crate) slot: u16,
     pub(crate) active_word_8: u16,
@@ -1637,7 +1612,6 @@ fn diamond_power_slot_ram_word_index_loc_3f596(offset: u16) -> Option<usize> {
 
 /// ASM sub_3F596 (kid.asm): one raw DP object slot in `$FFFFF2AC..$FFFFF5A0`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerObjectSlotRamSub3F596 {
     active_word_8: u16,
     words_1a_4a: [u16; DIAMOND_POWER_SLOT_RAM_WORD_COUNT_LOC_3F596],
@@ -1652,7 +1626,6 @@ impl Default for DiamondPowerObjectSlotRamSub3F596 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 impl DiamondPowerObjectSlotRamSub3F596 {
     pub(crate) fn read_word(&self, offset: u16) -> u16 {
         match offset {
@@ -1685,12 +1658,10 @@ impl DiamondPowerObjectSlotRamSub3F596 {
 
 /// ASM sub_3F596/sub_3F5BC: raw storage for the ten shared DP object slots.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondPowerObjectRamSub3F596 {
     slots: [DiamondPowerObjectSlotRamSub3F596; DIAMOND_POWER_SLOT_COUNT_LOC_3F596],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 impl DiamondPowerObjectRamSub3F596 {
     pub(crate) fn clear_sub_3f586(&mut self) {
         *self = Self::default();
@@ -1887,7 +1858,6 @@ pub(crate) fn write_rain_slot_raw_loc_3fdfe(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_object_clear_ram_sub_3F586(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> DiamondPowerObjectListsSub3F5E8 {
@@ -1904,7 +1874,6 @@ pub(crate) fn diamond_power_object_clear_ram_sub_3F586(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_object_initialize_sub_3F596(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> DiamondPowerObjectListsSub3F5E8 {
@@ -1919,7 +1888,6 @@ pub(crate) fn diamond_power_object_initialize_sub_3F596(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_object_allocate_sub_3F5BC(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> (
@@ -1951,7 +1919,6 @@ pub(crate) fn diamond_power_object_allocate_sub_3F5BC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_object_remove_sub_3F5E8(
     mut lists: DiamondPowerObjectListsSub3F5E8,
     remove_slot: u16,
@@ -1990,7 +1957,6 @@ pub(crate) fn diamond_power_object_remove_sub_3F5E8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_object_reset_sub_3F63C(
     mut lists: DiamondPowerObjectListsSub3F5E8,
 ) -> DiamondPowerObjectListsSub3F5E8 {
@@ -2009,7 +1975,6 @@ pub(crate) fn diamond_power_object_reset_sub_3F63C(
 /// A single VDP sprite entry as compiled by DiamondPower_CompileSprites.
 /// ASM sprite table format: Y (word), size+link (word), pattern (word), X (word).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CompiledDpSprite {
     pub(crate) y: u16,
     pub(crate) size_link: u16,
@@ -2029,7 +1994,6 @@ pub(crate) struct CompiledDpSprite {
 ///   `move.w (a1)+,(a2)+` copies X;
 ///   loops until a1 reaches a0 (buffer end).
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_compile_sprites_sub_3F798(
     buffer: &[[u16; 4]],
     initial_sprite_count: u8,
@@ -2301,7 +2265,6 @@ pub(crate) struct SnakeInitResult {
 /// ASM: DiamondPower_InitData_SwiftMiniSnake (kid.asm:44598),
 ///      DiamondPower_InitData_MiniSnake (kid.asm:44610),
 ///      DiamondPower_InitData_DeathSnake (kid.asm:44651).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SNAKE_INIT_DATA_SWIFT_MINI: [u16; 6] = [5, 4, 3, 2, 1, 1];
 pub(crate) const SNAKE_INIT_DATA_MINI: [u16; 6] = [4, 3, 2, 1, 1, 1];
 pub(crate) const SNAKE_INIT_DATA_DEATH: [u16; 6] = [6, 6, 5, 4, 3, 2];
@@ -2733,7 +2696,6 @@ pub(crate) fn diamond_power_rain_compute_tracking_velocity(
 ///   uses 32-bit Y).
 ///
 /// Returns (new_x_pos_32bit, new_y_pos_word).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_power_rain_non_tracking_move(
     rain_x: u32,
     rain_y: u16,

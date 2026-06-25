@@ -658,7 +658,6 @@ const LEVEL_LAYOUT_RAM_BASE_LOC_11AFE: u16 = 0xA652;
 const LEVEL_TERRAIN_LAYOUT_RAM_BASE_LOC_11B40: u16 = 0x52C2;
 const BACKGROUND_ROW_POINTER_BASE_LOC_11B7A: u16 = 0x87B2;
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SpriteFrameStateSubB52 {
     pub(crate) number_sprites: u8,
@@ -666,7 +665,6 @@ pub(crate) struct SpriteFrameStateSubB52 {
     pub(crate) dynamic_sprite_art_addr: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ScratchQueueSub28FC {
     pub(crate) slots: [[u8; SUB_28FC_SLOT_STRIDE_BYTES]; SUB_28FC_SLOT_COUNT],
@@ -674,7 +672,6 @@ pub(crate) struct ScratchQueueSub28FC {
     pub(crate) slots_remaining: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LinkedObjectSlotInit {
     pub(crate) slot_addr: u32,
@@ -696,14 +693,12 @@ pub(crate) struct AllocatedObjectSlotListLocDF2 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DeallocateObjectSlotPredecessorLocEA2 {
     pub(crate) predecessor_link_addr: u32,
     pub(crate) scanned_links: usize,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DeallocatedObjectSlotLocEB0 {
     pub(crate) first_active_slot_addr: u32,
@@ -1389,13 +1384,11 @@ pub(crate) struct EvanescentBulletHitboxScanInputLocEAE4 {
     pub(crate) level_width_pixels: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletBottomClampLocEAF8 {
     pub(crate) bottom_px: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletVerticalRowsLocEB0C {
     pub(crate) top_row: u16,
@@ -1404,13 +1397,11 @@ pub(crate) struct EvanescentBulletVerticalRowsLocEB0C {
     pub(crate) first_row_pointer_table_byte_offset: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletRightClampLocEB2A {
     pub(crate) right_px: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletHorizontalColumnsLocEB3E {
     pub(crate) left_col: u16,
@@ -1419,7 +1410,6 @@ pub(crate) struct EvanescentBulletHorizontalColumnsLocEB3E {
     pub(crate) first_cell_byte_offset: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletScanHitLocEB48 {
     pub(crate) col: u16,
@@ -4200,7 +4190,6 @@ pub(crate) fn block_layout_property_words_loc_1337C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_index: &[u8]) -> u16 {
     // ASM loc_11C36 (kid.asm:23818-23822) reads one terrain byte through `d2`,
     // loads the matching theme-collision nibble through `d3`, shifts that
@@ -4211,7 +4200,6 @@ pub(crate) fn level_layout_cell_loc_11C36(terrain_byte: u8, theme_collision_inde
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_layout_cells_loc_11C34(
     terrain_layout: &[u8],
     theme_collision_index: &[u8],
@@ -4312,7 +4300,6 @@ pub(crate) fn block_layout_dispatch_words_loc_11C7E(block_layout_words: &[u16]) 
 /// width_blocks*2`. Working in word/cell-index space, `cell(X,Y) = Y*width + X`;
 /// horizontal advance `+1`, vertical advance (`Level_width_tiles` bytes) `+width`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn apply_block_overlay_loc_11C7E(
     cells: &mut [u16],
     block_layout_words: &[u16],
@@ -4910,7 +4897,6 @@ fn mark_corner_neighbour_sub_12792(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_base_cell_loc_122B8(block_type: u16) -> u16 {
     // ASM loc_122B8 (kid.asm:24405-24408): dispatches block types that are
     // routed through AddrTbl_BlockTypes to this handler. The routine:
@@ -8364,7 +8350,6 @@ pub(crate) fn object_out_of_range_delete_tail_loc_320B4() -> bool {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_check_in_range_normal_x_loc_320C0(
     object_x_pos: i16,
     camera_x_pos: i16,
@@ -8601,7 +8586,6 @@ pub(crate) enum ForegroundPaletteOverrideLoc11D8E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn classify_foreground_palette_override_loc_11D8E(
     map_id: u8,
 ) -> ForegroundPaletteOverrideLoc11D8E {
@@ -8733,7 +8717,6 @@ pub(crate) enum LateBackgroundPaletteOverrideLoc11E06 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn classify_late_background_palette_override_loc_11E06(
     map_id: u8,
 ) -> LateBackgroundPaletteOverrideLoc11E06 {
@@ -9116,7 +9099,6 @@ pub(crate) fn prepare_foreground_art_decompress_loc_11E60(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_camera_bootstrap_loc_11F48(
     player_start_x_pos: u16,
     player_start_y_pos: u16,
@@ -9142,7 +9124,6 @@ pub(crate) fn initialise_camera_bootstrap_loc_11F48(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn classify_post_load_object_routine_loc_11F96(
     foreground_theme: u16,
     background_theme: u16,
@@ -9177,7 +9158,6 @@ pub(crate) fn classify_post_load_object_routine_loc_11F96(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn classify_island_background_object_loc_11FB0(background_theme: u16) -> bool {
     const BACKGROUND_THEME_ISLAND_LOC_11FB0: u16 = 0x0004;
 
@@ -9189,7 +9169,6 @@ pub(crate) fn classify_island_background_object_loc_11FB0(background_theme: u16)
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_level_start_music_loc_11FD2(
     murder_wall_flag: bool,
     foreground_theme: u16,
@@ -9211,7 +9190,6 @@ pub(crate) fn select_level_start_music_loc_11FD2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn select_foreground_theme_music_loc_12004(
     foreground_theme: u16,
 ) -> ForegroundThemeMusicLoc12004 {
@@ -9228,7 +9206,6 @@ pub(crate) fn select_foreground_theme_music_loc_12004(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_island_palette_cycle_primary_band_loc_12098(
     countdown_44: u16,
     phase_d3: u16,
@@ -9261,7 +9238,6 @@ pub(crate) fn step_island_palette_cycle_primary_band_loc_12098(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_island_palette_cycle_mid_band_loc_12110(
     countdown_46: u16,
     phase_d2: u16,
@@ -9294,7 +9270,6 @@ pub(crate) fn step_island_palette_cycle_mid_band_loc_12110(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn step_island_palette_cycle_lower_band_loc_12188(
     countdown_48: u16,
     phase_d1: u16,
@@ -9339,7 +9314,6 @@ pub(crate) struct RotatePaletteLavaWaterDelayLoc1223A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn compute_rotate_palette_delay_loc_1223A(
     foreground_theme: u16,
 ) -> RotatePaletteLavaWaterDelayLoc1223A {
@@ -9360,7 +9334,6 @@ pub(crate) fn compute_rotate_palette_delay_loc_1223A(
 pub(crate) const PALETTE_BUFFER_ROTATE_START_LOC_1223C: usize = 0x07;
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn rotate_palette_lava_water_loc_1223C(palette_buffer: &mut [u16; 0x40]) {
     // ASM loc_1223C (kid.asm:24373): after the hibernate loop drains `d0`,
     // the routine rotates four palette words downward:
@@ -11284,7 +11257,6 @@ pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
 /// pixel, then clamp it to `Level_height_pixels - 1` before the row conversion
 /// at `loc_EB0C`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_bottom_clamp_loc_EAF8(
     kid_hitbox_bottom: u16,
     level_height_pixels: u16,
@@ -11301,7 +11273,6 @@ pub(crate) fn evanescent_bullet_bottom_clamp_loc_EAF8(
 /// inclusive DBF row counter, then double the top row for the `$FFFF4A04`
 /// row-pointer table lookup.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_vertical_rows_loc_EB0C(
     top_px: u16,
     bottom_px: u16,
@@ -11322,7 +11293,6 @@ pub(crate) fn evanescent_bullet_vertical_rows_loc_EB0C(
 /// otherwise clamp to `Level_width_pixels - 1` before the horizontal tile
 /// conversion at `loc_EB3E`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_right_clamp_loc_EB2A(
     kid_hitbox_right: u16,
     level_width_pixels: u16,
@@ -11342,7 +11312,6 @@ pub(crate) fn evanescent_bullet_right_clamp_loc_EB2A(
 /// inclusive DBF column counter, then double the left column before adding it
 /// into the current row pointer.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_horizontal_columns_loc_EB3E(
     left_px: u16,
     right_px: u16,
@@ -11363,7 +11332,6 @@ pub(crate) fn evanescent_bullet_horizontal_columns_loc_EB3E(
 /// `a1`, so every row starts at the same left column before `loc_EB4C` walks
 /// rightward through the inclusive column span.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_scan_rows_loc_EB48(
     grid: &terrain::BlockGrid,
     top_row: u16,
@@ -11665,7 +11633,6 @@ pub(crate) fn evanescent_bullet_action_loc_ED16(
 /// the terrain byte in `d1` as the index, `ror.w #4` that byte, then OR the
 /// rotated word back into `d1` before the shared layout write.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_collision_overlay_loc_ED7C(
     terrain_layout_byte: u8,
     theme_collision_byte: u8,
@@ -15697,7 +15664,6 @@ pub(crate) const EOL_NUMBER_DIGIT_SPACING_LOC_C4E2: u16 = 0x000C;
 #[allow(dead_code)]
 pub(crate) const POWERS_OF_TEN_LOC_C48C: [u32; 7] = [1_000_000, 100_000, 10_000, 1_000, 100, 10, 1];
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LevelSkipCompletionTimeDigitSpriteLocD468 {
     pub(crate) digit: u8,

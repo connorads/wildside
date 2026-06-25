@@ -1,12 +1,8 @@
 use super::*;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_COLID_HURT: i16 = colid::HURT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,7 +60,6 @@ pub(crate) fn goat_initial_dispatch_loc_3_cb02(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatCollisionRouteLoc3CB14 {
     NoCollisionClearResume,
     UnknownPositiveClearResume,
@@ -73,7 +68,6 @@ pub(crate) enum GoatCollisionRouteLoc3CB14 {
     Death,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_collision_dispatch_loc_3cb14(collision_type: i16) -> GoatCollisionRouteLoc3CB14 {
     // ASM Goat.asm loc_3CB14: read `collision_type(a3)` before clearing it.
     // Signed-negative words enter the death path, zero and unknown positives
@@ -160,11 +154,9 @@ pub(crate) fn goat_berzerker_side_gate_loc_3cb76(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const GOAT_BERZERKER_SIDE_SHOVE_PIXELS_LOC_3CBBA: i32 = 0x0014_0000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatBerzerkerSideShoveLoc3CBBA {
     pub(crate) x_position: i32,
     pub(crate) damage_animation: &'static str,
@@ -176,7 +168,6 @@ pub(crate) struct GoatBerzerkerSideShoveLoc3CBBA {
     pub(crate) falls_through_to_collision_clear: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_berzerker_side_shove_loc_3cbba(
     facing: Direction,
     x_position: i32,

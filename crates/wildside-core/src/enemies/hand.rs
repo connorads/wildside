@@ -75,7 +75,6 @@ pub(crate) fn hand_jump_loop_gravity_loc_328f0(y_velocity: i32) -> i32 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum HandGroundCollisionBehaviorLoc3299C {
     Reverse,
     KidBelowContact,
@@ -83,14 +82,12 @@ pub(crate) enum HandGroundCollisionBehaviorLoc3299C {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandGroundCollisionDispatchLoc3299C {
     pub(crate) collision_type: u16,
     pub(crate) behavior: Option<HandGroundCollisionBehaviorLoc3299C>,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_ground_collision_dispatch_loc_3299c(
     collision_type: i16,
 ) -> HandGroundCollisionDispatchLoc3299C {
@@ -125,7 +122,6 @@ pub(crate) fn hand_ground_collision_dispatch_loc_3299c(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum HandJumpCollisionBehaviorLoc329F8 {
     ClearXVelocity,
     ResetToPatrol,
@@ -138,14 +134,12 @@ pub(crate) enum HandJumpCollisionBehaviorLoc329F8 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandJumpCollisionDispatchLoc329F8 {
     pub(crate) collision_type: u16,
     pub(crate) behavior: Option<HandJumpCollisionBehaviorLoc329F8>,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_collision_dispatch_loc_329f8(
     collision_type: i16,
 ) -> HandJumpCollisionDispatchLoc329F8 {
@@ -184,14 +178,12 @@ pub(crate) fn hand_jump_collision_dispatch_loc_329f8(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum HandKidContactRouteLoc32A86 {
     ReturnOnly,
     StartGrab,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_kid_contact_gate_loc_32a86(
     character_movement_is_crawling: bool,
     current_helmet_is_juggernaut: bool,
@@ -345,14 +337,12 @@ pub(crate) fn hand_death_sequence_loc_32aa2(object_status_slot: u8) -> HandDeath
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandJumpCollisionVelocityLoc32A3E {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_collision_clear_y_velocity_loc_32a3e(
     x_velocity: i32,
     _y_velocity: i32,
@@ -366,14 +356,12 @@ pub(crate) fn hand_jump_collision_clear_y_velocity_loc_32a3e(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandJumpCollisionVelocityLoc32A44 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_collision_clear_x_velocity_loc_32a44(
     _x_velocity: i32,
     y_velocity: i32,
@@ -387,7 +375,6 @@ pub(crate) fn hand_jump_collision_clear_x_velocity_loc_32a44(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandJumpCollisionResetLoc32A4A {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -395,7 +382,6 @@ pub(crate) struct HandJumpCollisionResetLoc32A4A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_collision_reset_loc_32a4a(
     hit_points: u8,
     x_direction_flag: bool,
@@ -410,7 +396,6 @@ pub(crate) fn hand_jump_collision_reset_loc_32a4a(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandJumpCollisionBounceLoc32A5A {
     pub(crate) x_pos: i32,
     pub(crate) y_pos: i32,
@@ -419,7 +404,6 @@ pub(crate) struct HandJumpCollisionBounceLoc32A5A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_collision_bounce_up_left_loc_32a5a(
     x_pos: i32,
     y_pos: i32,
@@ -438,7 +422,6 @@ pub(crate) fn hand_jump_collision_bounce_up_left_loc_32a5a(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandJumpCollisionBounceLoc32A70 {
     pub(crate) x_pos: i32,
     pub(crate) y_pos: i32,
@@ -447,7 +430,6 @@ pub(crate) struct HandJumpCollisionBounceLoc32A70 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_jump_collision_bounce_up_right_loc_32a70(
     x_pos: i32,
     y_pos: i32,
@@ -466,14 +448,12 @@ pub(crate) fn hand_jump_collision_bounce_up_right_loc_32a70(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandGroundCollisionReverseLoc329E2 {
     pub(crate) x_velocity: i32,
     pub(crate) x_direction_flag: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_ground_collision_reverse_loc_329e2(
     x_velocity: i32,
     x_direction_flag: bool,
@@ -487,14 +467,12 @@ pub(crate) fn hand_ground_collision_reverse_loc_329e2(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandKidBelowContactLoc329EC {
     pub(crate) kid_collision_type: u16,
     pub(crate) kid_object_meta: u16,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_kid_below_contact_loc_329ec() -> HandKidBelowContactLoc329EC {
     // ASM Hand.asm loc_329EC: `a2` is the Kid GfxObject pointer captured by
     // Enemy17_Hand_Init; side contact from a grounded hand writes `$28` to

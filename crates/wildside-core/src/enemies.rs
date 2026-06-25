@@ -140,21 +140,13 @@ mod colid {
     pub const KIDABOVE: u16 = 0x002C;
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_LEFTWALL: u16 = colid::LEFTWALL;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_FLOOR: u16 = colid::FLOOR;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_CEILING: u16 = colid::CEILING;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_HURT: u16 = colid::HURT;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_KIDABOVE: u16 = colid::KIDABOVE;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_COLID_KIDLEFT: u16 = colid::KIDLEFT;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRAGON_COLID_HURT: u16 = colid::HURT;
@@ -229,25 +221,16 @@ pub(crate) const ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA: u16 = 0xD2AA;
 pub(crate) const MINI_SKULL_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_LEFTWALL: u16 = colid::LEFTWALL;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_FLOOR: u16 = colid::FLOOR;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_CEILING: u16 = colid::CEILING;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_SLOPEUP: u16 = colid::SLOPEUP;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_SLOPEDOWN: u16 = colid::SLOPEDOWN;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_HURT: u16 = colid::HURT;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_GROUND_KIDABOVE: u16 = 0x001C;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_GROUND_KIDLEFT: u16 = 0x0020;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_GROUND_KIDRIGHT: u16 = 0x0024;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_GROUND_KIDBELOW: u16 = 0x0028;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_GROUND_HURT: u16 = 0x002C;
 
 pub(crate) const MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200: u16 = 0xF200;
@@ -449,7 +432,6 @@ pub(crate) fn armadillo_walk_speed_loc_3c756_3c766(hit_points: u8) -> i32 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArmadilloDamageResponseLoc3C848 {
     RecoilActiveResume {
         current_hp: u16,
@@ -465,7 +447,6 @@ pub(crate) enum ArmadilloDamageResponseLoc3C848 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_damage_response_loc_3c848(
     current_hp: u16,
     recoil_state_word: i16,
@@ -656,7 +637,6 @@ pub(crate) fn goat_tracking_route_loc_3cc18(
 pub(crate) const DIAMOND_HIGH_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AEB2: u16 = 0xAEB2;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DiamondLowHpCollisionRouteLoc3AEC4 {
     ResumeSharedWalker { next_collision_type: u16 },
     BerzerkerSideGate,
@@ -664,7 +644,6 @@ pub(crate) enum DiamondLowHpCollisionRouteLoc3AEC4 {
     DeathAnimation,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_low_hp_collision_dispatch_loc_3aec4(
     collision_type: i16,
     current_hp: u16,
@@ -703,13 +682,11 @@ pub(crate) fn diamond_low_hp_collision_dispatch_loc_3aec4(
 pub(crate) const DIAMOND_LOW_HP_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3AF50: u16 = 0xAF50;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonFireTrailGateLoc3A542 {
     pub(crate) spawns_fire_trail: bool,
     pub(crate) next_fire_trail_count: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_level2_fire_trail_timer_matches_loc_3a55c(animation_timer: u16) -> bool {
     // ASM Fire_Demon.asm loc_3A55C: raw enemy_level 2 reaches allocation only
     // when `animation_timer(a3)` equals 3; every other timer falls through to
@@ -717,7 +694,6 @@ pub(crate) fn fire_demon_level2_fire_trail_timer_matches_loc_3a55c(animation_tim
     animation_timer == 3
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fire_trail_allocation_loc_3a564(
     fire_trail_count: u16,
 ) -> FireDemonFireTrailGateLoc3A542 {
@@ -735,7 +711,6 @@ pub(crate) fn fire_demon_fire_trail_allocation_loc_3a564(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
     sprite_is_trail_frame: bool,
     raw_enemy_level: u16,
@@ -761,14 +736,12 @@ pub(crate) fn fire_demon_fire_trail_gate_loc_3a542(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonWalkingTrailStepLoc3A542 {
     pub(crate) spawns_fire_trail: bool,
     pub(crate) next_fire_trail_count: u16,
     pub(crate) next_animation_phase: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_walking_trail_step_loc_3a542(
     raw_enemy_level: u16,
     animation_phase: u8,
@@ -4922,7 +4895,6 @@ fn mini_hopping_skull_facing_from_x_direction(x_direction: u8) -> Direction {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_air_damage_setup_loc_3f1e6(
     hit_counter: u16,
     x_velocity: i32,
@@ -6628,21 +6600,18 @@ fn tank_shooting_cycle_frames(hit_points: u8) -> u16 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankInitWalkerEntryLoc3B40A {
     LeftLoc3C0D2,
     RightLoc3C026,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankInitDriveSoundLoc3B40A {
     pub(crate) next_tank_drive_refcount: u8,
     pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
     pub(crate) walker_entry: TankInitWalkerEntryLoc3B40A,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_init_drive_sound_loc_3b40a(
     tank_drive_refcount: u8,
     motion_active_flag_19: bool,
@@ -6668,11 +6637,8 @@ pub(crate) fn tank_init_drive_sound_loc_3b40a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankMouthFrameLoc3B41C {
-    #[cfg_attr(not(test), allow(dead_code))]
     OpeningTimerA,
-    #[cfg_attr(not(test), allow(dead_code))]
     ClosingTimer37,
     Other,
 }
@@ -6693,7 +6659,6 @@ impl TankMouthSoundLoc3B41C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankMouthAnimationStepLoc3B27E {
     pub(crate) mouth_frame: TankMouthFrameLoc3B41C,
     pub(crate) next_animation_phase: u8,
@@ -6702,7 +6667,6 @@ pub(crate) struct TankMouthAnimationStepLoc3B27E {
 pub(crate) const TANK_MOUTH_ANIMATION_FRAMES_LOC_3B27E: u16 = 0x37 + 0x0A + 6 + 4 + 5;
 pub(crate) const TANK_MOUTH_OPEN_PHASE_LOC_3B27E: u16 = 0x37;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_mouth_animation_step_loc_3b27e(
     animation_phase: u8,
 ) -> TankMouthAnimationStepLoc3B27E {
@@ -6914,21 +6878,18 @@ fn tank_shooting_hurt_hibernate_frames_remaining(damage_flash_frames: u8) -> u8 
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankShootingInitWalkerEntryLoc3B690 {
     LeftLoc3C0D2,
     RightLoc3C026,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankShootingInitDriveSoundLoc3B690 {
     pub(crate) next_tank_drive_refcount: u8,
     pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
     pub(crate) walker_entry: TankShootingInitWalkerEntryLoc3B690,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_shooting_init_drive_sound_loc_3b690(
     tank_drive_refcount: u8,
     motion_active_flag_19: bool,

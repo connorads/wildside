@@ -41,7 +41,6 @@ fn ninja_detects_player_while_stealthed(dx_px: i64, dy_px: i64) -> bool {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaKidThreatRouteLoc3D734 {
     /// No close Kid-driven guard/contact response.
     ProjectileThreatCheck,
@@ -51,7 +50,6 @@ pub(crate) enum NinjaKidThreatRouteLoc3D734 {
     BerzerkerKillPath,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_kid_threat_route_loc_3d734(
     kid_minus_ninja_x_px: i16,
     kid_minus_ninja_y_px: i16,
@@ -81,7 +79,6 @@ pub(crate) fn ninja_kid_threat_route_loc_3d734(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaProjectileThreatRouteLoc3D776 {
     /// No active Maniaxe projectile threat; continue normal post-threat handling.
     ContinuePostThreat,
@@ -89,7 +86,6 @@ pub(crate) enum NinjaProjectileThreatRouteLoc3D776 {
     GuardPose,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_projectile_threat_route_loc_3d776(
     projectile_minus_ninja_x_px: Option<i16>,
     player_form: PlayerForm,
@@ -108,7 +104,6 @@ pub(crate) fn ninja_projectile_threat_route_loc_3d776(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaPostThreatRouteLoc3D79C {
     /// Keep the current guard/pacing branch.
     ResumePacing,
@@ -118,7 +113,6 @@ pub(crate) enum NinjaPostThreatRouteLoc3D79C {
     PositiveStateCheck,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_post_threat_route_loc_3d79c(
     threat_state_4c: i8,
     kid_projectile_present: bool,
@@ -149,14 +143,12 @@ pub(crate) fn ninja_post_threat_route_loc_3d79c(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaResetStealthPacingRouteLoc3D7CA {
     Loc3E546,
     Loc3E392,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaResetStealthPacingStateLoc3D7CA {
     pub(crate) threat_state_4c: i8,
     pub(crate) animation_script: &'static str,
@@ -165,7 +157,6 @@ pub(crate) struct NinjaResetStealthPacingStateLoc3D7CA {
     pub(crate) next: NinjaResetStealthPacingRouteLoc3D7CA,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_reset_stealth_pacing_loc_3d7ca(
     saved_walk_speed_override_5e: i32,
     x_direction_right: bool,
@@ -187,13 +178,11 @@ pub(crate) fn ninja_reset_stealth_pacing_loc_3d7ca(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaResumePacingRouteLoc3D7EE {
     Loc3E560,
     Loc3E3AC,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_resume_pacing_route_loc_3d7ee(
     x_direction_right: bool,
 ) -> NinjaResumePacingRouteLoc3D7EE {
@@ -208,7 +197,6 @@ pub(crate) fn ninja_resume_pacing_route_loc_3d7ee(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaPositiveStateRouteLoc3D7FA {
     ResetStealthPacing {
         next: NinjaResetStealthPacingRouteLoc3D7CA,
@@ -218,7 +206,6 @@ pub(crate) enum NinjaPositiveStateRouteLoc3D7FA {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_positive_state_route_loc_3d7fa(
     kid_minus_ninja_x_px: i16,
     kid_minus_ninja_y_px: i16,
@@ -241,13 +228,11 @@ pub(crate) fn ninja_positive_state_route_loc_3d7fa(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaThreatPoseRoute {
     Loc3D79C,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaThreatPoseState {
     pub(crate) threat_state_4c: i8,
     pub(crate) is_animated: bool,
@@ -257,7 +242,6 @@ pub(crate) struct NinjaThreatPoseState {
     pub(crate) next: NinjaThreatPoseRoute,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_guard_pose_loc_3d826(
     d4_kid_or_projectile_minus_ninja_x_px: i16,
 ) -> NinjaThreatPoseState {
@@ -274,7 +258,6 @@ pub(crate) fn ninja_guard_pose_loc_3d826(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_threat_pose_loc_3d84e(
     d4_kid_minus_ninja_x_px: i16,
 ) -> NinjaThreatPoseState {
@@ -296,7 +279,6 @@ pub(crate) const NINJA_JUMP_X_SPEED_LEFT: i32 = 0x1_8000;
 pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6: i32 = 0x0001_8000;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KNOCKDOWN_GRAVITY_LOC_3D8E6: i32 = 0x0000_1800;
@@ -368,7 +350,6 @@ pub(crate) fn ninja_jump_attack_airborne_tick_loc_3d9da(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaJumpAttackCollisionRouteLoc3DA0C {
     ContinueAirborneLoop,
     Land,
@@ -379,13 +360,11 @@ pub(crate) enum NinjaJumpAttackCollisionRouteLoc3DA0C {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaJumpAttackCollisionStateLoc3DA0C {
     pub(crate) next_collision_type: u16,
     pub(crate) route: NinjaJumpAttackCollisionRouteLoc3DA0C,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_attack_collision_dispatch_loc_3da0c(
     collision_type: u16,
 ) -> NinjaJumpAttackCollisionStateLoc3DA0C {
@@ -475,22 +454,18 @@ pub(crate) fn ninja_jump_attack_landing_loc_3da56(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KID_ABOVE_BOUNCE_Y_SPEED_LOC_3DA98: i32 = 0x0003_8000;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KID_ABOVE_LANDING_GRAVITY_LOC_3DABC: i32 = 0x0000_1800;
 pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_Y_SPEED_LOC_3DB0A: i32 = -0x0004_8000;
 pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_GRAVITY_LOC_3DB3C: i32 = 0x0000_4000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaKidAboveContactRouteLoc3DA98 {
     ContinueAirborneLoop,
     FallthroughLandingLoop,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaKidAboveContactStateLoc3DA98 {
     pub(crate) next_collision_type: u16,
     pub(crate) y_velocity: i32,
@@ -498,7 +473,6 @@ pub(crate) struct NinjaKidAboveContactStateLoc3DA98 {
     pub(crate) route: NinjaKidAboveContactRouteLoc3DA98,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_kid_above_contact_loc_3da98(
     block_timer_44: u16,
 ) -> NinjaKidAboveContactStateLoc3DA98 {
@@ -518,14 +492,12 @@ pub(crate) fn ninja_kid_above_contact_loc_3da98(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaKidAboveLandingLoopRouteLoc3DABC {
     Loop,
     To3DB4E,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaKidAboveLandingLoopStateLoc3DABC {
     pub(crate) next_collision_type: u16,
     pub(crate) x_velocity: i32,
@@ -538,7 +510,6 @@ pub(crate) struct NinjaKidAboveLandingLoopStateLoc3DABC {
     pub(crate) route: NinjaKidAboveLandingLoopRouteLoc3DABC,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_kid_above_landing_loop_loc_3dabc(
     collision_type: u16,
     x_velocity: i32,
@@ -640,14 +611,12 @@ pub(crate) fn ninja_berzerker_side_launch_loop_tick_loc_3db3c(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaCeilingContactStateLoc3DAB0 {
     pub(crate) next_collision_type: u16,
     pub(crate) y_velocity: i32,
     pub(crate) loops_airborne: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_ceiling_contact_loc_3dab0(y_velocity: i32) -> NinjaCeilingContactStateLoc3DAB0 {
     // ASM Ninja.asm loc_3DAB0: clear `collision_type(a3)`, negate `y_vel(a3)`,
     // then branch back to loc_3D9DA.
@@ -659,7 +628,6 @@ pub(crate) fn ninja_ceiling_contact_loc_3dab0(y_velocity: i32) -> NinjaCeilingCo
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionResumeLoc3D638 {
     /// ASM Ninja.asm loc_3E7CA: `beq.w loc_3E7CA` path (left-facing).
     Loc3E7CA,
@@ -671,7 +639,6 @@ pub(crate) enum NinjaCollisionResumeLoc3D638 {
     Loc3E3AC,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_collision_resume_loc_3d638(
     wall_pinned: bool,
     x_direction_right: bool,
@@ -692,7 +659,6 @@ pub(crate) fn ninja_collision_resume_loc_3d638(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaAirborneCollisionRouteLoc3D878 {
     Resume { next: NinjaCollisionResumeLoc3D638 },
     To3DB4E,
@@ -700,13 +666,11 @@ pub(crate) enum NinjaAirborneCollisionRouteLoc3D878 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaAirborneCollisionStateLoc3D878 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: NinjaAirborneCollisionRouteLoc3D878,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_airborne_collision_dispatch_loc_3d878(
     collision_type: i16,
     x_direction_right: bool,
@@ -741,13 +705,11 @@ pub(crate) fn ninja_airborne_collision_dispatch_loc_3d878(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaKnockdownStartRouteLoc3D8D6 {
     FallthroughLandingLoop,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaKnockdownStartStateLoc3D8D6 {
     pub(crate) y_velocity: i32,
     pub(crate) is_moved: bool,
@@ -755,7 +717,6 @@ pub(crate) struct NinjaKnockdownStartStateLoc3D8D6 {
     pub(crate) next: NinjaKnockdownStartRouteLoc3D8D6,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_knockdown_start_loc_3d8d6() -> NinjaKnockdownStartStateLoc3D8D6 {
     // ASM Ninja.asm loc_3D8D6: set `y_vel(a3)` to `$18000`, set
     // `is_moved(a3)` and `has_level_collision(a3)`, then fall through to
@@ -830,7 +791,6 @@ pub(crate) fn ninja_knockdown_landing_loop_loc_3d8e6(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaFarKidFacingDecisionLoc3D92A {
     WithinBand,
     AlreadyFacingFarKid,
@@ -838,13 +798,11 @@ pub(crate) enum NinjaFarKidFacingDecisionLoc3D92A {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaFarKidFacingStateLoc3D92A {
     pub(crate) x_direction_right: bool,
     pub(crate) decision: NinjaFarKidFacingDecisionLoc3D92A,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_far_kid_facing_loc_3d92a(
     kid_minus_ninja_x_px: i16,
     x_direction_right: bool,
@@ -899,20 +857,17 @@ pub(crate) fn ninja_advance_walk_phase_loc_3d4ea(walk_phase: u16) -> u16 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaAttackCooldownRouteLoc3D942 {
     ContinuePacing,
     CheckThrowFrame,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaAttackCooldownStateLoc3D942 {
     pub(crate) attack_timer: u16,
     pub(crate) route: NinjaAttackCooldownRouteLoc3D942,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_attack_cooldown_tick_loc_3d942(
     attack_timer: u16,
 ) -> NinjaAttackCooldownStateLoc3D942 {
@@ -932,13 +887,11 @@ pub(crate) fn ninja_attack_cooldown_tick_loc_3d942(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaThrowFrameGateRouteLoc3D958 {
     ContinuePacing { attack_timer: u16 },
     RotateAttackPeriod,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_throw_frame_gate_loc_3d958(
     sprite_is_throw_frame: bool,
     animation_timer: u16,
@@ -954,21 +907,18 @@ pub(crate) fn ninja_throw_frame_gate_loc_3d958(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaAttackPeriodRotationRouteLoc3D960 {
     ContinuePacing,
     StartJumpAttack,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaAttackPeriodRotationStateLoc3D960 {
     pub(crate) attack_period_pair: u32,
     pub(crate) attack_timer: u16,
     pub(crate) route: NinjaAttackPeriodRotationRouteLoc3D960,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_attack_period_rotate_loc_3d960(
     attack_period_pair: u32,
     guard_state: i8,
@@ -996,7 +946,6 @@ pub(crate) fn ninja_attack_period_rotate_loc_3d960(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionLoc3D606 {
     /// ASM Ninja.asm loc_3D6DA: no collision, so jump to stealth/attack gate.
     To3D6DA,
@@ -1011,13 +960,11 @@ pub(crate) enum NinjaCollisionLoc3D606 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaCollisionStateLoc3D606 {
     pub(crate) next_collision_type: u16,
     pub(crate) route: NinjaCollisionLoc3D606,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_collision_dispatch_loc_3d606(
     collision_type: i16,
     wall_pinned: bool,
@@ -1075,7 +1022,6 @@ pub(crate) fn ninja_collision_resume_loc_3d66e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaCollisionLoc3D670Route {
     /// ASM Ninja.asm loc_3D6DA branch after `$44(a5)` underflow.
     To3DB4E,
@@ -1084,7 +1030,6 @@ pub(crate) enum NinjaCollisionLoc3D670Route {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaCollisionStateLoc3D670 {
     pub(crate) next_collision_type: u16,
     pub(crate) remaining_block_timer: u16,
@@ -1096,7 +1041,6 @@ pub(crate) struct NinjaCollisionStateLoc3D670 {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_collision_block_animation_loc_3d670(
     block_timer: u16,
     wall_pinned: bool,

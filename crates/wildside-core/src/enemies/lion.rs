@@ -116,14 +116,12 @@ pub(crate) fn lion_init_facing_dispatch_loc_3e030(facing: Direction) -> LionFaci
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionTrackingGate {
     Hold,
     TrackKid,
     ClearLatchAndTrackKid,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_tracking_gate_loc_3e054(
     lion_x_word: u16,
     kid_x_word: u16,
@@ -147,13 +145,11 @@ pub(crate) fn lion_tracking_gate_loc_3e054(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLatchClearResult {
     pub(crate) range_latch_set: bool,
     pub(crate) facing: Direction,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_clear_tracking_latch_loc_3e066(
     lion_x_word: u16,
     kid_x_word: u16,
@@ -314,7 +310,6 @@ pub(crate) fn lion_post_fire_wait_dispatch_loc_3e0f4(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionCollisionResumeLoc3E318 {
     Loc3E7CA,
     Loc3E6AE,
@@ -323,7 +318,6 @@ pub(crate) enum LionCollisionResumeLoc3E318 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionCollisionLoc3E318 {
     Kill,
     Hurt {
@@ -336,7 +330,6 @@ pub(crate) enum LionCollisionLoc3E318 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_collision_response_loc_3e318(
     collision_type: i16,
     current_hp: u16,
@@ -516,7 +509,6 @@ pub(crate) fn lion_charge_terrain_gate_loc_3e406(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLoc3E434Branch {
     KeepAndContinue,
     Check60Band,
@@ -524,20 +516,17 @@ pub(crate) enum LionLoc3E434Branch {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E434Result {
     pub(crate) next_shared_state: i16,
     pub(crate) branch: LionLoc3E434Branch,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn lion_kid_minus_lion_x_delta(lion_x_word: u16, kid_x_word: u16) -> i16 {
     let lion_x = i16::from_be_bytes(lion_x_word.to_be_bytes());
     let kid_x = i16::from_be_bytes(kid_x_word.to_be_bytes());
     kid_x.wrapping_sub(lion_x)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_window_gate_loc_3e434(shared_walker_state: i16) -> LionLoc3E434Result {
     // ASM Lion.asm loc_3E434:
     // - `$42 == $A` skips the inner distance gates and continues movement.
@@ -568,14 +557,12 @@ pub(crate) fn lion_charge_window_gate_loc_3e434(shared_walker_state: i16) -> Lio
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLoc3E604Branch {
     ContinueMovement,
     EnterLoc3E4CE,
     EnterLoc3E50A,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_calm_distance_gate_loc_3e604(
     lion_x_word: u16,
     kid_x_word: u16,
@@ -594,13 +581,11 @@ pub(crate) fn lion_left_charge_calm_distance_gate_loc_3e604(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLoc3E62ABranch {
     ContinueMovement,
     EnterLoc3E642,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_alert_release_gate_loc_3e62a(
     lion_x_word: u16,
     kid_x_word: u16,
@@ -679,7 +664,6 @@ pub(crate) fn lion_left_charge_x_commit_loc_3e6f0(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLeftChargeVerticalEntryLoc3E6F6 {
     DownwardOrStationary {
         candidate_y_position: u32,
@@ -693,7 +677,6 @@ pub(crate) enum LionLeftChargeVerticalEntryLoc3E6F6 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_vertical_entry_loc_3e6f6(
     y_position: u32,
     y_velocity: i32,
@@ -726,7 +709,6 @@ pub(crate) fn lion_left_charge_vertical_entry_loc_3e6f6(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLeftChargeDownwardCollisionLoc3E732 {
     Airborne {
         y_position: u32,
@@ -744,7 +726,6 @@ pub(crate) enum LionLeftChargeDownwardCollisionLoc3E732 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_downward_collision_loc_3e732(
     y_position: u32,
     candidate_y_position: u32,
@@ -781,13 +762,11 @@ pub(crate) fn lion_left_charge_downward_collision_loc_3e732(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeLandingResumeLoc3E76E {
     pub(crate) restored_animation: &'static str,
     pub(crate) next_branch: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_landing_resume_loc_3e76e() -> LionLeftChargeLandingResumeLoc3E76E {
     // ASM Lion.asm loc_3E76E: load `$62(a5)` into d7, reinitialise the saved
     // charge animation, then branch to loc_3E392's velocity-clear/facing tail.
@@ -818,13 +797,11 @@ pub(crate) fn lion_left_charge_y_commit_loc_3e77a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeGravityTailLoc3E77E {
     pub(crate) y_velocity: i32,
     pub(crate) next_tail: LionLoc3E556Tail,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_gravity_tail_loc_3e77e(
     y_velocity: i32,
 ) -> LionLeftChargeGravityTailLoc3E77E {
@@ -835,7 +812,6 @@ pub(crate) fn lion_left_charge_gravity_tail_loc_3e77e(
     lion_left_charge_y_velocity_commit_loc_3e796(capped_velocity)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_y_velocity_commit_loc_3e796(
     y_velocity: i32,
 ) -> LionLeftChargeGravityTailLoc3E77E {
@@ -1092,7 +1068,6 @@ pub(crate) fn lion_charge_collision_y_velocity_commit_loc_3e8b2(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E6A4: after the airborne Y-velocity update, hibernate
     // for one frame, run sub_3E8BA's live object cull, then `jmp (a0)` back
@@ -1108,14 +1083,12 @@ pub(crate) fn lion_charge_collision_airborne_resume_loc_3e7c0() -> LionLoc3E556T
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E556Tail {
     pub(crate) hibernate_one_frame: bool,
     pub(crate) cull_routine: &'static str,
     pub(crate) resume_via_callback: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_hibernate_cull_resume_loc_3e556() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E556: hibernate for one frame, run sub_3E8BA's live
     // object cull, then `jmp (a0)` back into the current Lion routine pointer.

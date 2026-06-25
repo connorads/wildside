@@ -36,14 +36,12 @@ pub(crate) struct MiniHoppingSkullTerrainContact {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullSlopeDownWait {
     Left,
     Right,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullSlopeDownContact {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -55,13 +53,11 @@ pub(crate) struct MiniHoppingSkullSlopeDownContact {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullGroundWaitSprite {
     SlopeUpRight,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullGroundWaitSetup {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -72,7 +68,6 @@ pub(crate) struct MiniHoppingSkullGroundWaitSetup {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullStoppedWaitSetup {
     pub(crate) is_moved: bool,
     pub(crate) is_animated: bool,
@@ -132,11 +127,8 @@ pub(crate) enum MiniHoppingSkullStoppedWaitTail {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullGroundWaitCollisionRoute {
-    #[cfg_attr(not(test), allow(dead_code))]
     ContinueWait,
-    #[cfg_attr(not(test), allow(dead_code))]
     DamageSkull,
     QueueScreamWorker,
     BerzerkerChargeKillsSkull,
@@ -154,7 +146,6 @@ pub(crate) enum MiniHoppingSkullDamageSequence {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullDestroyedSequence {
     pub(crate) is_moved: bool,
     pub(crate) animation: &'static str,
@@ -163,7 +154,6 @@ pub(crate) struct MiniHoppingSkullDestroyedSequence {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullLoc3F158Route {
     RestartStoppedWait,
     DestroySkull(MiniHoppingSkullDestroyedSequence),
@@ -259,7 +249,6 @@ pub(crate) enum MiniHoppingSkullLandingTailCollisionOutcome {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullAirDamageSetup {
     pub(crate) remaining_hits: u16,
     pub(crate) y_velocity: i32,
@@ -270,7 +259,6 @@ pub(crate) struct MiniHoppingSkullAirDamageSetup {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirDamageLoopRoute {
     ContinueWait,
     FloorLanding,
@@ -278,7 +266,6 @@ pub(crate) enum MiniHoppingSkullAirDamageLoopRoute {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullAirDamageLoopFrame {
     pub(crate) y_velocity: i32,
     pub(crate) collision_type: u16,
@@ -287,7 +274,6 @@ pub(crate) struct MiniHoppingSkullAirDamageLoopFrame {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirDamageSlopeLanding {
     ResumeTerrainContact {
         x_velocity: i32,
@@ -297,7 +283,6 @@ pub(crate) enum MiniHoppingSkullAirDamageSlopeLanding {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirDamageDeathAnimation {
     Forward,
     BackwardOrNeutral,
@@ -389,7 +374,6 @@ pub(crate) fn mini_hopping_skull_terrain_contact_loc_3ead8(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_slopedown_contact_loc_3ed6c(
     x_velocity: i32,
 ) -> MiniHoppingSkullSlopeDownContact {
@@ -420,7 +404,6 @@ pub(crate) fn mini_hopping_skull_slopedown_contact_loc_3ed6c(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_wait_setup_loc_3ed80() -> MiniHoppingSkullGroundWaitSetup
 {
     // ASM Mini_Hopping_Skull.asm loc_3ED80: left-facing slope-landing setup.
@@ -614,7 +597,6 @@ pub(crate) fn mini_hopping_skull_landing_tail_loc_3ee7c(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_ground_wait_setup_loc_3eb00() -> MiniHoppingSkullGroundWaitSetup {
     // ASM Mini_Hopping_Skull.asm loc_3EB00: after positive-X slope-up contact,
     // clear both velocities, `st x_direction(a3)`, select `LnkTo_unk_C8030`,
@@ -1056,7 +1038,6 @@ pub(crate) fn mini_hopping_skull_left_hop_scream_worker_allocation_loc_3ecfe(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_setup_loc_3f000() -> MiniHoppingSkullStoppedWaitSetup
 {
     // ASM Mini_Hopping_Skull.asm loc_3EFEC -> loc_3F000: stop motion,
@@ -1074,7 +1055,6 @@ pub(crate) fn mini_hopping_skull_stopped_wait_setup_loc_3f000() -> MiniHoppingSk
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_side_contact_loc_3f052(
     berzerker_charging: bool,
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
@@ -1098,7 +1078,6 @@ pub(crate) fn mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(
     mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_collision_loc_3f00a(
     collision_type: u16,
     berzerker_charging: bool,
@@ -1199,7 +1178,6 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_damage_sequence_loc_3f0fa(
     mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_death_or_stopped_wait_loc_3f158(
     hit_counter: u16,
 ) -> MiniHoppingSkullLoc3F158Route {
@@ -1218,7 +1196,6 @@ pub(crate) fn mini_hopping_skull_death_or_stopped_wait_loc_3f158(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_air_damage_loop_loc_3f200(
     y_velocity: i32,
     collision_type: u16,
@@ -1242,7 +1219,6 @@ pub(crate) fn mini_hopping_skull_air_damage_loop_loc_3f200(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_air_damage_slope_landing_loc_3f22a(
     remaining_hits: u16,
     preserved_x_velocity: i32,
@@ -1271,7 +1247,6 @@ pub(crate) fn mini_hopping_skull_air_damage_slope_landing_loc_3f22a(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_air_damage_death_animation_loc_3f238(
     preserved_x_velocity: i32,
 ) -> MiniHoppingSkullAirDamageDeathAnimation {

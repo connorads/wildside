@@ -147,7 +147,6 @@ pub(crate) fn emo_rock_landing_setup_loc_362a4() -> EmoRockLandingSetupLoc362A4 
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum EmoRockSettledWaitRouteLoc362B6 {
     ContinueWait,
     Disappear,
@@ -156,14 +155,12 @@ pub(crate) enum EmoRockSettledWaitRouteLoc362B6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockSettledWaitFrameLoc362B6 {
     pub(crate) next_collision_type: u16,
     pub(crate) hibernates_one_frame: bool,
     pub(crate) route: EmoRockSettledWaitRouteLoc362B6,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_settled_wait_loc_362b6(
     animation_finished: bool,
     collision_type: i16,
@@ -267,7 +264,6 @@ pub(crate) fn emo_rock_berzerker_airborne_frame_loc_3630a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockDisappearLoc36320 {
     pub(crate) has_kid_collision: bool,
     pub(crate) sound_effect: &'static str,
@@ -277,7 +273,6 @@ pub(crate) struct EmoRockDisappearLoc36320 {
     pub(crate) next_loop: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_disappear_loc_36320() -> EmoRockDisappearLoc36320 {
     // ASM Emo_Rock.asm loc_36320: set Kid collision, play the disappear sound,
     // run `stru_36456` to completion, clear addroffset_sprite, then restart
@@ -320,13 +315,11 @@ pub(crate) fn emo_rock_death_start_loc_36346() -> EmoRockDeathStartLoc36346 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockRespawnMarkerLoc3638C {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_respawn_marker_loc_3638c(
     object_status_slot: u8,
 ) -> EmoRockRespawnMarkerLoc3638C {
@@ -339,7 +332,6 @@ pub(crate) fn emo_rock_respawn_marker_loc_3638c(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum EmoRockDeathStatusRouteLoc3639A {
     WriteRespawnMarker(EmoRockRespawnMarkerLoc3638C),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -347,14 +339,12 @@ pub(crate) enum EmoRockDeathStatusRouteLoc3639A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockDeathStatusLoc3639A {
     pub(crate) status_route: EmoRockDeathStatusRouteLoc3639A,
     pub(crate) deletes_current_object: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_death_status_loc_3639A(
     object_status_slot: u8,
 ) -> EmoRockDeathStatusLoc3639A {
