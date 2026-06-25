@@ -629,7 +629,6 @@ pub(crate) fn dragon_flying_rebound_frame_loc_34AC2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_flying_right_rebound_frame_loc_34B16(
     y_velocity: i32,
     collision_type: u16,
@@ -1521,8 +1520,20 @@ fn step_dragon_terrain_response(enemy: &mut ActiveEnemy, block_grid: Option<&ter
                 DragonDownSlideFrameLoc34A6E::CollisionRoute { .. } => {}
             }
         }
-        DragonFlyingState::TerrainReboundLeft | DragonFlyingState::TerrainReboundRight => {
+        DragonFlyingState::TerrainReboundLeft => {
             match dragon_flying_rebound_frame_loc_34AC2(enemy.y_velocity, 0) {
+                DragonFlyingReboundFrameLoc34AC2::BeginReturnToAnchor { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                    enemy.dragon_phase = DragonFlyingState::ReturningToAnchor;
+                }
+                DragonFlyingReboundFrameLoc34AC2::Continue { y_velocity } => {
+                    enemy.y_velocity = y_velocity;
+                }
+                DragonFlyingReboundFrameLoc34AC2::CollisionRoute { .. } => {}
+            }
+        }
+        DragonFlyingState::TerrainReboundRight => {
+            match dragon_flying_right_rebound_frame_loc_34B16(enemy.y_velocity, 0) {
                 DragonFlyingReboundFrameLoc34AC2::BeginReturnToAnchor { y_velocity } => {
                     enemy.y_velocity = y_velocity;
                     enemy.dragon_phase = DragonFlyingState::ReturningToAnchor;
