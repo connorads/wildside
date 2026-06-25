@@ -11300,6 +11300,15 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_patrol_loc_32804_zero_velocity_uses_nonnegative_branch() {
+        assert_eq!(
+            hand_patrol_decision_loc_32804(0, 1, 0),
+            HandPatrolDecision::ReverseDirection,
+            "ASM Hand.asm loc_32804 tests `bmi.w loc_32836`, so zero x_vel follows the nonnegative d7/d6 branch"
+        );
+    }
+
+    #[test]
     fn hand_patrol_loc_32832_reverses_positive_velocity_when_d6_nonzero() {
         assert_eq!(
             hand_patrol_decision_loc_32804(0x0000_3000, 1, 0),
@@ -11347,6 +11356,10 @@ mod chunk_04 {
         assert!(
             !hand_left_detection_loc_32886(-0x41, -0x18, 0x40),
             "ASM Hand.asm loc_32886 rejects when d6 is below the negated `$44(a5)` range"
+        );
+        assert!(
+            hand_left_detection_loc_32886(-0x40, -0x18, 0x40),
+            "ASM Hand.asm loc_32886 accepts the exact negative range boundary because `blt` rejects only d6 < -range"
         );
         assert!(
             !hand_left_detection_loc_32886(-0x20, -0x28, 0x40),
@@ -11497,6 +11510,16 @@ mod chunk_04 {
             hand_jump_collision_dispatch_loc_329f8(0x0010).behavior,
             Some(HandJumpCollisionBehaviorLoc329F8::ClearYVelocity),
             "ASM Hand.asm loc_329F8 maps the $10 airborne contact slot to vertical velocity clearing"
+        );
+        assert_eq!(
+            hand_jump_collision_dispatch_loc_329f8(0x000C).behavior,
+            Some(HandJumpCollisionBehaviorLoc329F8::ResetToPatrol),
+            "ASM Hand.asm off_32A12 maps the floor slot `$0C` to loc_32A4A, which clears velocity and resumes patrol setup"
+        );
+        assert_eq!(
+            hand_jump_collision_dispatch_loc_329f8(0x0018).behavior,
+            Some(HandJumpCollisionBehaviorLoc329F8::BounceUpRight),
+            "ASM Hand.asm off_32A12 maps the down-slope slot `$18` to loc_32A70's up-right bounce"
         );
         assert_eq!(
             hand_jump_collision_dispatch_loc_329f8(0x0028).behavior,
@@ -11764,6 +11787,10 @@ mod chunk_04 {
             (0x0066_0000, 0x00C4_0000, 0, 0),
             "ASM Hand.asm loc_3294C drives the native grabbing step through integer X+2/Y-4 snap and velocity clear"
         );
+        assert_eq!(
+            enemy.wait_timer, 0x0000,
+            "ASM Hand.asm loc_3292E still decrements d3 when no Kid direction byte is available to match"
+        );
     }
 
     #[test]
@@ -11874,6 +11901,303 @@ mod chunk_04 {
             "should jump at detected player"
         );
         assert!(enemy.y_velocity < 0, "should jump upward");
+        assert!(
+            enemy.x_velocity > 0,
+            "ASM Hand.asm loc_328AA skips the X negation when raw x_direction is set for right-facing Hands"
+        );
+    }
+
+    #[test]
+    fn hand_walking_loc_32804_integrates_subpixel_motion_before_floor_probe() {
+        let grid = grid_with_platform(3, 0, 20);
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.facing = Direction::Right;
+
+        for _ in 0..6 {
+            step_hand(&mut enemy, Some(&grid), None, None, None);
+        }
+
+        assert_eq!(
+            enemy.x_pos,
+            (60 << 16) + (6 * HAND_WALK_SPEED[0] as u32),
+            "ASM Hand.asm loc_32804 hibernates after movement; native must accumulate the tier-1 subpixel walk delta before probes"
+        );
+        assert_eq!(enemy.facing, Direction::Right);
+        assert_eq!(enemy.x_velocity, HAND_WALK_SPEED[0]);
+    }
+
+    #[test]
+    fn hand_walking_loc_32840_reverses_at_right_floor_edge() {
+        let grid = grid_with_platform(3, 0, 4);
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.facing = Direction::Right;
+
+        step_hand(&mut enemy, Some(&grid), None, None, None);
+
+        assert_eq!(
+            (enemy.facing, enemy.x_velocity),
+            (Direction::Left, -HAND_WALK_SPEED[0]),
+            "ASM Hand.asm loc_32804/loc_32840 reverses when the right lead probe loses `$4000` floor support"
+        );
+    }
+
+    #[test]
+    fn hand_walking_loc_32840_reverses_at_left_floor_edge() {
+        let grid = grid_with_solid_cells(8, 5, &[(0, 3), (4, 3)]);
+        let mut enemy = test_enemy(EnemyFamily::Hand, 68 << 16, 48 << 16, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.facing = Direction::Left;
+
+        step_hand(&mut enemy, Some(&grid), None, None, None);
+
+        assert_eq!(
+            (enemy.facing, enemy.x_velocity),
+            (Direction::Right, HAND_WALK_SPEED[0]),
+            "ASM Hand.asm loc_32836/loc_32840 uses `cx - half_width` for the left lead probe before reversing on lost `$4000` support"
+        );
+    }
+
+    #[test]
+    fn hand_walking_loc_32840_snaps_and_reverses_at_right_wall() {
+        let grid = grid_with_solid_cells(8, 6, &[(5, 3)]);
+        let mut enemy = test_enemy(EnemyFamily::Hand, 72 << 16, 64 << 16, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.facing = Direction::Right;
+
+        step_hand(&mut enemy, Some(&grid), None, None, None);
+
+        assert_eq!(
+            (enemy.x_pos, enemy.facing, enemy.x_velocity),
+            (72 << 16, Direction::Left, -HAND_WALK_SPEED[0]),
+            "ASM Hand.asm loc_32840 reverses after native snaps the right edge to the solid wall surface"
+        );
+    }
+
+    #[test]
+    fn hand_walking_loc_32840_snaps_and_reverses_at_left_wall() {
+        let grid = grid_with_solid_cells(8, 6, &[(4, 3)]);
+        let mut enemy = test_enemy(EnemyFamily::Hand, 88 << 16, 64 << 16, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.facing = Direction::Left;
+
+        step_hand(&mut enemy, Some(&grid), None, None, None);
+
+        assert_eq!(
+            (enemy.x_pos, enemy.facing, enemy.x_velocity),
+            (88 << 16, Direction::Right, HAND_WALK_SPEED[0]),
+            "ASM Hand.asm loc_32840 reverses after native snaps the left edge to the solid wall surface"
+        );
+    }
+
+    #[test]
+    fn hand_detection_loc_3284c_keeps_strict_front_and_vertical_edges() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+
+        let mut right_equal_x = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 1);
+        right_equal_x.hand_state = HandState::Walking;
+        right_equal_x.facing = Direction::Right;
+        step_hand(
+            &mut right_equal_x,
+            Some(&grid),
+            Some(61 << 16),
+            Some(floor_y),
+            None,
+        );
+        assert_eq!(
+            right_equal_x.hand_state,
+            HandState::Walking,
+            "ASM Hand.asm loc_3284C right-facing path rejects dx == 0 because `tst.w d6; bmi` is false and range must be in front"
+        );
+
+        let mut left_equal_x = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 1);
+        left_equal_x.hand_state = HandState::Walking;
+        left_equal_x.facing = Direction::Left;
+        step_hand(
+            &mut left_equal_x,
+            Some(&grid),
+            Some(60 << 16),
+            Some(floor_y),
+            None,
+        );
+        assert_eq!(
+            left_equal_x.hand_state,
+            HandState::Walking,
+            "ASM Hand.asm loc_32886 rejects dx == 0 for the clear x_direction left-facing path"
+        );
+
+        let mut left_boundary = test_enemy(EnemyFamily::Hand, 100 << 16, floor_y, 1);
+        left_boundary.hand_state = HandState::Walking;
+        left_boundary.facing = Direction::Left;
+        step_hand(
+            &mut left_boundary,
+            Some(&grid),
+            Some((100 - 0x40) << 16),
+            Some(((17 * 16) - 8) << 16),
+            None,
+        );
+        assert_eq!(
+            left_boundary.hand_state,
+            HandState::Jumping,
+            "ASM Hand.asm loc_32886 accepts the exact left range boundary because only `blt` rejects beyond it"
+        );
+        assert!(
+            left_boundary.x_velocity < 0,
+            "ASM Hand.asm loc_328AA negates X when raw x_direction is clear for left-facing Hands"
+        );
+
+        let mut left_beyond = test_enemy(EnemyFamily::Hand, 100 << 16, floor_y, 1);
+        left_beyond.hand_state = HandState::Walking;
+        left_beyond.facing = Direction::Left;
+        step_hand(
+            &mut left_beyond,
+            Some(&grid),
+            Some((100 - 0x41) << 16),
+            Some(((17 * 16) - 8) << 16),
+            None,
+        );
+        assert_eq!(
+            left_beyond.hand_state,
+            HandState::Walking,
+            "ASM Hand.asm loc_32886 rejects one pixel beyond the negative detection range"
+        );
+
+        let mut vertical_beyond = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 1);
+        vertical_beyond.hand_state = HandState::Walking;
+        vertical_beyond.facing = Direction::Right;
+        step_hand(
+            &mut vertical_beyond,
+            Some(&grid),
+            Some((60 + 0x20) << 16),
+            Some(((17 * 16) - 17) << 16),
+            None,
+        );
+        assert_eq!(
+            vertical_beyond.hand_state,
+            HandState::Walking,
+            "ASM Hand.asm loc_3284C rejects Kid positions more than 16px above the Hand before the cone check"
+        );
+    }
+
+    #[test]
+    fn hand_jumping_loc_328f0_applies_gravity_then_moves_without_grid() {
+        let mut enemy = test_enemy(EnemyFamily::Hand, 20 << 16, 30 << 16, 1);
+        enemy.hand_state = HandState::Jumping;
+        enemy.x_velocity = 0x0002_0000;
+        enemy.y_velocity = -0x0001_0000;
+
+        step_hand(&mut enemy, None, None, None, None);
+
+        assert_eq!(
+            (enemy.x_pos, enemy.y_pos, enemy.x_velocity, enemy.y_velocity),
+            (22 << 16, 0x001D_4000, 0x0002_0000, -0x0000_C000),
+            "ASM Hand.asm loc_328F0 applies `$4000` gravity and native moves by the updated velocity before terrain probes"
+        );
+    }
+
+    #[test]
+    fn hand_jumping_loc_329f8_wall_probe_uses_moved_pixel_position() {
+        let grid = grid_with_solid_cells(8, 6, &[(3, 3)]);
+        let mut enemy = test_enemy(EnemyFamily::Hand, 40 << 16, 64 << 16, 1);
+        enemy.hand_state = HandState::Jumping;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0;
+
+        step_hand(&mut enemy, Some(&grid), None, None, None);
+
+        assert_eq!(
+            (enemy.x_pos, enemy.x_velocity),
+            (41 << 16, 0),
+            "ASM Hand.asm loc_329F8 collision step must use the moved integer X and positive wall side before clearing x_vel"
+        );
+    }
+
+    #[test]
+    fn hand_jumping_loc_328f0_lands_only_while_falling() {
+        let grid = grid_with_platform(3, 0, 8);
+
+        let mut falling = test_enemy(EnemyFamily::Hand, 40 << 16, 48 << 16, 1);
+        falling.hand_state = HandState::Jumping;
+        falling.y_velocity = 0;
+        step_hand(&mut falling, Some(&grid), None, None, None);
+        assert_eq!(
+            (
+                falling.hand_state,
+                falling.on_ground,
+                falling.y_pos,
+                falling.x_velocity,
+                falling.y_velocity,
+            ),
+            (HandState::Walking, true, 48 << 16, 0, 0),
+            "ASM Hand.asm loc_328F0 floor contact returns to patrol after downward movement reaches the floor surface"
+        );
+
+        let mut not_falling = test_enemy(EnemyFamily::Hand, 40 << 16, 48 << 16, 1);
+        not_falling.hand_state = HandState::Jumping;
+        not_falling.y_velocity = -HAND_GRAVITY;
+        step_hand(&mut not_falling, Some(&grid), None, None, None);
+        assert_eq!(
+            (
+                not_falling.hand_state,
+                not_falling.on_ground,
+                not_falling.y_pos,
+                not_falling.y_velocity,
+            ),
+            (HandState::Jumping, false, 48 << 16, 0),
+            "ASM Hand.asm loc_328F0 applies gravity but does not run the floor landing branch when post-gravity y_vel is zero"
+        );
+    }
+
+    #[test]
+    fn hand_jumping_landing_grab_window_uses_exact_range_and_height() {
+        let grid = grid_with_platform(3, 0, 12);
+
+        let mut inside = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
+        inside.hand_state = HandState::Jumping;
+        step_hand(
+            &mut inside,
+            Some(&grid),
+            Some((60 + 0x40) << 16),
+            Some((48 - 16) << 16),
+            None,
+        );
+        assert_eq!(
+            (inside.hand_state, inside.wait_timer),
+            (HandState::Grabbing, HAND_GRAB_DURATION),
+            "ASM Hand.asm loc_32906 grab setup is reachable at the exact range and 16px vertical landing boundary"
+        );
+
+        let mut x_beyond = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
+        x_beyond.hand_state = HandState::Jumping;
+        step_hand(
+            &mut x_beyond,
+            Some(&grid),
+            Some((60 + 0x41) << 16),
+            Some((48 - 16) << 16),
+            None,
+        );
+        assert_eq!(
+            x_beyond.hand_state,
+            HandState::Walking,
+            "ASM Hand.asm loc_3284C-style landing grab rejects one pixel beyond `$44(a5)` range"
+        );
+
+        let mut y_beyond = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
+        y_beyond.hand_state = HandState::Jumping;
+        step_hand(
+            &mut y_beyond,
+            Some(&grid),
+            Some((60 + 0x40) << 16),
+            Some((48 - 17) << 16),
+            None,
+        );
+        assert_eq!(
+            y_beyond.hand_state,
+            HandState::Walking,
+            "ASM Hand.asm loc_32906 grab setup requires the landing target to stay within the 16px vertical window"
+        );
     }
 
     #[test]

@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-24 handoff (proactive Hand mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/hand.rs` via `mise run mutants-file`.
+- Evidence: initial run reported `200 mutants tested in 81m: 55 missed,
+  124 caught, 21 unviable`. Survivors clustered around ASM `loc_328AA`
+  random-byte XOR, `off_32A12` airborne `$0C`/`$18` dispatch arms,
+  `loc_3292E` grab timer direction packing, `loc_3284C`/`loc_32886`
+  strict detection boundaries, `loc_32840` reversal, and live walking /
+  jumping / landing / grab-window step fields.
+- Native behaviour is unchanged. Added exact ASM-cited helper and live-step
+  regressions; refactored disjoint grab timer bit packing and wall clamp
+  comparisons to avoid equivalent operator mutants.
+- Verification: focused `hand_` tests pass; final rerun
+  `.cache/mutants/hand-final2` reports
+  `184 mutants tested in 72m: 163 caught, 21 unviable`, with zero missed
+  mutants.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Goat mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

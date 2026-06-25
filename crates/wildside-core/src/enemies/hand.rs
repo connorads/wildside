@@ -528,8 +528,8 @@ fn hand_grab_timer_with_direction(remaining: u16, facing: Direction) -> u16 {
         0
     };
     HAND_GRAB_TIMER_LAST_DIRECTION_INIT
-        | direction_bit
-        | (remaining & HAND_GRAB_TIMER_REMAINING_MASK)
+        .wrapping_add(direction_bit)
+        .wrapping_add(remaining & HAND_GRAB_TIMER_REMAINING_MASK)
 }
 
 fn hand_grab_timer_step_loc_3292e(wait_timer: u16, player_facing: Option<Direction>) -> u16 {
@@ -792,11 +792,11 @@ pub(crate) fn step_hand(
                     let wall_fp = (wall.wall_x_px as u32) << 16;
                     let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
                     if moving_right {
-                        if enemy.x_pos + edge_fp > wall_fp {
-                            enemy.x_pos = wall_fp.saturating_sub(edge_fp);
-                        }
-                    } else if enemy.x_pos < wall_fp + edge_fp {
-                        enemy.x_pos = wall_fp + edge_fp;
+                        let blocked_x = wall_fp.saturating_sub(edge_fp);
+                        enemy.x_pos = enemy.x_pos.min(blocked_x);
+                    } else {
+                        let blocked_x = wall_fp.saturating_add(edge_fp);
+                        enemy.x_pos = enemy.x_pos.max(blocked_x);
                     }
                     reverse_hand_loc_32840(enemy);
                     return;
@@ -1043,6 +1043,47 @@ mod tests {
             spawn_x_velocity(EnemyFamily::Hand, 2),
             -0x0000_6000,
             "native Hand spawn x_velocity should expose the ASM Hand.asm loc_327F2 initial store for tier 3"
+        );
+    }
+
+    #[test]
+    fn hand_jump_components_loc_328aa_uses_eor_low_position_byte() {
+        let components = hand_jump_components_loc_328aa(2, true, 0x01, 0x0001, 0x02, 0x0002);
+
+        assert_eq!(
+            components,
+            HandJumpComponentsLoc328AA {
+                y_velocity: -0x0002_0000,
+                x_velocity_word: 2,
+            },
+            "ASM Hand.asm loc_328AA uses `eor.b d6,d7; andi.l #3,d7`, so equal random/Kid low bytes contribute zero rather than OR-ing bits"
+        );
+    }
+
+    #[test]
+    fn hand_grab_timer_loc_3292e_packs_direction_bits_and_counter() {
+        let first_left = hand_grab_timer_step_loc_3292e(HAND_GRAB_DURATION, Some(Direction::Left));
+        assert_eq!(
+            first_left, 0x8009,
+            "ASM Hand.asm loc_3292E starts with d2 clear, samples Kid x_direction, and decrements d3 on the first changed sample"
+        );
+
+        let held_left = hand_grab_timer_step_loc_3292e(first_left, Some(Direction::Left));
+        assert_eq!(
+            held_left, 0x8009,
+            "ASM Hand.asm loc_3292E loops without decrementing while the stored Kid direction byte is unchanged"
+        );
+
+        let turned_right = hand_grab_timer_step_loc_3292e(held_left, Some(Direction::Right));
+        assert_eq!(
+            turned_right, 0xC008,
+            "ASM Hand.asm loc_3292E stores the new nonzero Kid x_direction and decrements the remaining grab count"
+        );
+
+        assert_eq!(
+            hand_grab_timer_step_loc_3292e(turned_right, None),
+            0x0007,
+            "native no-player-facing path preserves only d3's remaining low byte before decrementing"
         );
     }
 
