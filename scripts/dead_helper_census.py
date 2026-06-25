@@ -88,11 +88,15 @@ def build_test_line_mask(text):
 
 
 def main():
-    files = sorted(SRC.glob("*.rs"))  # subsystem source files (declaration scan)
+    # Declaration scan, recursive: a flat SRC.glob("*.rs") silently missed the
+    # per-family enemy submodules (crates/wildside-core/src/enemies/<family>.rs,
+    # split out in #40), undercounting the census. rglob excluding the tests/
+    # subtree picks them up while leaving call-site classification intact.
+    files = sorted(p for p in SRC.rglob("*.rs") if "tests" not in p.relative_to(SRC).parts)
     # Call-site search must also see the test tree: tests live in separate files
     # under crates/wildside-core/src/tests/*.rs, NOT inline #[cfg(test)] mods. Treat every
     # reference in that directory as a test call.
-    test_files = sorted((SRC / "tests").glob("*.rs"))
+    test_files = sorted((SRC / "tests").rglob("*.rs"))
     search_text = {f: f.read_text() for f in files + test_files}
     all_text = {f: search_text[f] for f in files}
     # A line is test-context if it is in the tests/ dir, or inside an inline cfg(test) mod.
