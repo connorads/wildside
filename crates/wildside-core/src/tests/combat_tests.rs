@@ -14510,6 +14510,10 @@ mod chunk_03 {
             runtime.active_enemy_roster[0].wait_timer,
             Some(MINI_HOPPING_SKULL_DEATH_ANIMATION_FRAMES)
         );
+        assert_eq!(
+            runtime.enemy_status_words[7], 0,
+            "ASM Mini_Hopping_Skull.asm loc_3F354 should not write the respawn marker until `stru_3E9AC` finishes"
+        );
 
         runtime.active_enemies[0].wait_timer = 0;
         runtime.remove_dead_enemy(0);
@@ -14518,6 +14522,10 @@ mod chunk_03 {
         assert!(
             runtime.killed_enemies.contains(&killed_identity),
             "ASM Mini_Hopping_Skull.asm loc_3F158 delete tail should mark the layout killed after the animation"
+        );
+        assert_eq!(
+            runtime.enemy_status_words[7], 0x2168,
+            "ASM Mini_Hopping_Skull.asm loc_3F354 writes `$2168` into EnemyStatus_Table after the death animation finishes"
         );
     }
 

@@ -297,7 +297,6 @@ pub(crate) struct MiniHoppingSkullChargingBerzerkerLoopFrame {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullDeleteTailLoc3F32E {
     pub(crate) next_number_of_enemy: u16,
     pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
@@ -1319,7 +1318,6 @@ pub(crate) fn mini_hopping_skull_medium_load_camera_gate_loc_3f304(
     MiniHoppingSkullMediumLoadGateLoc3F304::Return
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_delete_tail_loc_3f32e(
     number_of_enemy: u16,
     object_status_slot: u8,

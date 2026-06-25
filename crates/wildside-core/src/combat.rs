@@ -9914,6 +9914,16 @@ impl NativeRuntime {
         } else {
             None
         };
+        let mini_hopping_skull_status_action = if matches!(family, EnemyFamily::MiniHoppingSkull) {
+            let delete_tail = mini_hopping_skull_delete_tail_loc_3f32e(
+                self.active_enemies.len() as u16,
+                layout_index as u8,
+            );
+            debug_assert!(delete_tail.deletes_current_object);
+            Some(delete_tail.status_action)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -9988,9 +9998,12 @@ impl NativeRuntime {
         if let Some(status_action) = lion_status_action {
             self.apply_deactivation_status_action_loc_3C4C0(status_action);
         }
-        // ASM Lion.asm loc_3E956 (shared by Dragon.asm loc_3CEFC and other
-        // death-animation tails) updates EnemyStatus_Table and deletes the
-        // object; it does not touch `(Score).w`.
+        if let Some(status_action) = mini_hopping_skull_status_action {
+            self.apply_deactivation_status_action_loc_3C4C0(status_action);
+        }
+        // ASM Lion.asm loc_3E956 and Mini_Hopping_Skull.asm loc_3F32E update
+        // EnemyStatus_Table and delete the object after their death animations;
+        // they do not touch `(Score).w`.
         self.rebuild_active_enemy_roster();
     }
 
