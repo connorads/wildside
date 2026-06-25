@@ -17755,6 +17755,10 @@ mod chunk_03 {
             runtime.active_enemies[0].wait_timer,
             LION_DEATH_ANIMATION_FRAMES
         );
+        assert_eq!(
+            runtime.enemy_status_words[20], 0,
+            "ASM Lion.asm loc_3E97C should not write the respawn marker until `stru_3DF48` finishes"
+        );
         assert!(!runtime.killed_enemies.contains(&killed_identity));
 
         runtime.active_enemies[0].wait_timer = 0;
@@ -17762,6 +17766,42 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[20], 0x2168,
+            "ASM Lion.asm loc_3E97C writes `$2168` into EnemyStatus_Table after the death animation finishes"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn shared_deactivation_status_action_updates_native_enemy_status_table_loc_3C4C0() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.apply_deactivation_status_action_loc_3C4C0(
+            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 3 },
+        );
+        assert_eq!(
+            runtime.enemy_status_words[3], 0x2168,
+            "ASM loc_3C4E6 writes `$2168` into the selected EnemyStatus_Table word"
+        );
+
+        runtime.enemy_status_words[7] = 0xC400;
+        runtime.apply_deactivation_status_action_loc_3C4C0(
+            DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index: 7 },
+        );
+        assert_eq!(
+            runtime.enemy_status_words[7], 0xC000,
+            "ASM loc_3C4C0 subtracts `$400` from bit-7+bit-6 status slots after masking with `$3F`"
+        );
+
+        runtime.enemy_status_words[9] = 0xAAAA;
+        runtime.apply_deactivation_status_action_loc_3C4C0(
+            DeactivationStatusActionLoc3C4C0::DeleteOnly,
+        );
+        assert_eq!(
+            runtime.enemy_status_words[9], 0xAAAA,
+            "ASM loc_3C4C0 bit-7 without bit-6 falls through to delete without touching EnemyStatus_Table"
+        );
     }
 
     #[test]

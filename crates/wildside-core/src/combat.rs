@@ -9907,6 +9907,13 @@ impl NativeRuntime {
         } else {
             None
         };
+        let lion_status_action = if matches!(family, EnemyFamily::Lion) {
+            // ASM Lion.asm loc_3E378 waits for `stru_3DF48`, then jumps to
+            // loc_3E956's shared deactivation status-table update.
+            Some(lion_cull_status_update_loc_3e956(layout_index as u8))
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -9977,6 +9984,9 @@ impl NativeRuntime {
         }
         if let Some(status_route) = tar_monster_status_route {
             self.apply_tar_monster_death_status_route_loc_3243A(status_route);
+        }
+        if let Some(status_action) = lion_status_action {
+            self.apply_deactivation_status_action_loc_3C4C0(status_action);
         }
         // ASM Lion.asm loc_3E956 (shared by Dragon.asm loc_3CEFC and other
         // death-animation tails) updates EnemyStatus_Table and deletes the
@@ -10088,6 +10098,30 @@ impl NativeRuntime {
                 }
             }
             SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly => {}
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn apply_deactivation_status_action_loc_3C4C0(
+        &mut self,
+        status_action: DeactivationStatusActionLoc3C4C0,
+    ) {
+        match status_action {
+            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    // ASM loc_3C4E6 / Lion.asm loc_3E97C: positive `$42(a5)`
+                    // writes `$2168` before the common delete-current-object tail.
+                    *word = 0x2168;
+                }
+            }
+            DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    // ASM loc_3C4C0 / Lion.asm loc_3E956: bit-7+bit-6 `$42(a5)`
+                    // masks the low six bits and subtracts `$400`.
+                    *word = word.wrapping_sub(0x0400);
+                }
+            }
+            DeactivationStatusActionLoc3C4C0::DeleteOnly => {}
         }
     }
 

@@ -8855,7 +8855,6 @@ pub(crate) fn deactivation_drive_sound_cleanup_loc_3C494(
 
 /// Result of the deactivation status table update at loc_3C4C0.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DeactivationStatusActionLoc3C4C0 {
     /// loc_3C4E6: bit 7 clear (positive slot) — write `$2168` to
     /// `EnemyStatus_Table[d0]`.
@@ -8878,7 +8877,6 @@ pub(crate) enum DeactivationStatusActionLoc3C4C0 {
 ///
 /// - Bit 7 set + bit 6 clear → falls straight to loc_3C4F4 (delete).
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn deactivation_status_update_loc_3C4C0(
     object_status_slot: u8,
 ) -> DeactivationStatusActionLoc3C4C0 {

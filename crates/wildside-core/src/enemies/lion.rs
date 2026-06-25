@@ -1155,8 +1155,9 @@ pub(crate) fn lion_respawn_marker_loc_3e97c(object_status_slot: u8) -> LionRespa
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
-fn lion_cull_status_update_loc_3e956(object_status_slot: u8) -> DeactivationStatusActionLoc3C4C0 {
+pub(crate) fn lion_cull_status_update_loc_3e956(
+    object_status_slot: u8,
+) -> DeactivationStatusActionLoc3C4C0 {
     // ASM Lion.asm loc_3E956 duplicates loc_3C4C0's delete-tail status-table
     // update, including the positive-slot respawn marker at loc_3E97C.
     deactivation_status_update_loc_3C4C0(object_status_slot)
