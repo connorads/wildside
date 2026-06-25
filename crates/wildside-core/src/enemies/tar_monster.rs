@@ -171,14 +171,12 @@ pub(crate) struct TarMonsterHurtAnimationLoc323D6 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterRespawnMarkerLoc3242C {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterDeathStatusRouteLoc3243A {
     WriteRespawnMarker(TarMonsterRespawnMarkerLoc3242C),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -186,7 +184,6 @@ pub(crate) enum TarMonsterDeathStatusRouteLoc3243A {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterDeathStatusUpdateLoc3243A {
     pub(crate) route: TarMonsterDeathStatusRouteLoc3243A,
     pub(crate) deletes_current_object: bool,
@@ -587,7 +584,6 @@ pub(crate) fn tar_monster_hurt_animation_loc_323D6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_respawn_marker_loc_3242C(
     object_status_slot: u8,
 ) -> TarMonsterRespawnMarkerLoc3242C {
@@ -600,7 +596,6 @@ pub(crate) fn tar_monster_respawn_marker_loc_3242C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_death_status_update_loc_3243A(
     object_status_slot: u8,
 ) -> TarMonsterDeathStatusUpdateLoc3243A {

@@ -9900,6 +9900,13 @@ impl NativeRuntime {
         } else {
             None
         };
+        let tar_monster_status_route = if matches!(family, EnemyFamily::TarMonster) {
+            let status = tar_monster_death_status_update_loc_3243A(layout_index as u8);
+            debug_assert!(status.deletes_current_object);
+            Some(status.route)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -9967,6 +9974,9 @@ impl NativeRuntime {
         }
         if let Some(status_route) = hand_status_route {
             self.apply_hand_death_status_route_loc_32AA2(status_route);
+        }
+        if let Some(status_route) = tar_monster_status_route {
+            self.apply_tar_monster_death_status_route_loc_3243A(status_route);
         }
         // ASM Lion.asm loc_3E956 (shared by Dragon.asm loc_3CEFC and other
         // death-animation tails) updates EnemyStatus_Table and deletes the
@@ -10174,6 +10184,30 @@ impl NativeRuntime {
                 }
             }
             HandDeathStatusRouteLoc32AA2::DeleteOnly => {}
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn apply_tar_monster_death_status_route_loc_3243A(
+        &mut self,
+        status_route: TarMonsterDeathStatusRouteLoc3243A,
+    ) {
+        match status_route {
+            TarMonsterDeathStatusRouteLoc3243A::WriteRespawnMarker(marker) => {
+                if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                    // ASM Tar_Monster.asm loc_3242C: positive `$42(a5)`
+                    // writes `$2168` before loc_3243A deletes the object.
+                    *word = marker.word_value;
+                }
+            }
+            TarMonsterDeathStatusRouteLoc3243A::SubtractSpawnCounter { index, decrement } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    // ASM Tar_Monster.asm loc_323E6: bit-7+bit-6 `$42(a5)`
+                    // masks the low six bits and subtracts `$400`.
+                    *word = word.wrapping_sub(decrement);
+                }
+            }
+            TarMonsterDeathStatusRouteLoc3243A::DeleteOnly => {}
         }
     }
 
