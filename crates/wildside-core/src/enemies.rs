@@ -7220,7 +7220,7 @@ fn heady_metal_eye_spawn_animation_frames(selected_animation_label: &str) -> u16
 }
 
 /// Bosses periodically fire projectiles at the player.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn step_boss_fire(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,

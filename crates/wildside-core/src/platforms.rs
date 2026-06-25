@@ -1449,7 +1449,7 @@ fn platform_placement_is_special_loc_2836(platform: &PlatformPlacement) -> bool 
 /// Runs after terrain collision so that platforms override terrain when the
 /// player is above a platform surface. Only applies when the player is not
 /// already grounded by terrain (falling or airborne).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn apply_platform_collision(
     slice: &mut OpeningSliceState,
     platforms: &[ActivePlatform],

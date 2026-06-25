@@ -343,7 +343,7 @@ pub(crate) fn ufo_motion_from_script_loc_35444(
     (command, facing)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn step_ufo(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
     let mut rng = RomRandomState::default();
     step_ufo_with_player_and_rng(enemy, block_grid, None, None, &mut rng);
@@ -611,7 +611,7 @@ fn apply_ufo_beam_start_loc_34eec(enemy: &mut ActiveEnemy) {
     enemy.wait_timer = beam_start.wait_timer;
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn step_ufo_beam(
     enemy: &mut ActiveEnemy,
     projectiles: &mut Vec<EnemyProjectile>,

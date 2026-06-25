@@ -1159,7 +1159,7 @@ pub(crate) fn tar_monster_child_init_loc_32200(
 /// ASM: Tar_Monster.asm, jump table off_32290.
 /// Submerged → Emerging → Visible → Attacking → Submerging → Submerged (loop).
 /// While Submerged, the enemy is invulnerable and invisible (handled by collision/render).
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn step_tar_monster(enemy: &mut ActiveEnemy, projectiles: &mut Vec<EnemyProjectile>) {
     let mut discarded_sound_effects = Vec::new();
     step_tar_monster_with_sounds(enemy, projectiles, &mut discarded_sound_effects);

@@ -383,7 +383,7 @@ pub(crate) fn emo_rock_death_status_loc_3639A(
 /// - wait_timer > 0: hover above player, count down
 /// - wait_timer == 0 && !on_ground: drop with gravity
 /// - on_ground: play the landing animation, disappear, then restart hover wait
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn step_emo_rock(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
