@@ -20,11 +20,8 @@ pub(crate) const SPINNING_TWINS_DROP_X_VEL_RIGHT: i32 = 0x3_8000;
 pub(crate) const SPINNING_TWINS_DROP_X_DRAG: i32 = 0x1200;
 pub(crate) const SPINNING_TWINS_WALKING_CHILD_X_OFFSET_PX: u32 = 0x20;
 pub(crate) const SPINNING_TWINS_WALKING_SETTLE_X_SPEED: i32 = 0x3000;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_LEFTWALL: u16 = colid::LEFTWALL;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SPINNING_TWINS_COLID_FLOOR: u16 = colid::FLOOR;
 pub(crate) const SPINNING_TWINS_COLID_HURT: u16 = colid::HURT;
 pub(crate) const SPINNING_TWINS_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
@@ -119,7 +116,6 @@ pub(crate) fn spinning_twins_walking_velocity_gate_loc_3bb5a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SpinningTwinsWalkingCollisionRouteLoc3BB6E {
     FloorLanding,
     WallSettle,
@@ -127,13 +123,11 @@ pub(crate) enum SpinningTwinsWalkingCollisionRouteLoc3BB6E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
     pub(crate) next_collision_type: u16,
     pub(crate) route: SpinningTwinsWalkingCollisionRouteLoc3BB6E,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_walking_collision_dispatch_loc_3bb6e(
     collision_type: u16,
 ) -> SpinningTwinsWalkingCollisionDispatchLoc3BB6E {
@@ -155,13 +149,11 @@ pub(crate) fn spinning_twins_walking_collision_dispatch_loc_3bb6e(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SpinningTwinsFloorLandingLoc3BB8A {
     pub(crate) next_collision_type: u16,
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn spinning_twins_floor_landing_loc_3bb8a(
     collision_type: u16,
     y_velocity: i32,
@@ -808,10 +800,27 @@ pub(crate) fn step_spinning_twins(
                     let x_px = (enemy.x_pos >> 16) as i32;
                     let y_px = (enemy.y_pos >> 16) as i32;
                     let probe = terrain::probe_floor(grid, x_px, y_px);
-                    if probe.on_ground {
-                        enemy.y_pos = (probe.floor_y_px as u32) << 16;
-                        enemy.y_velocity = 0;
-                        enemy.on_ground = true;
+                    let collision_type = if probe.on_ground {
+                        SPINNING_TWINS_COLID_FLOOR
+                    } else {
+                        0
+                    };
+                    let dispatch =
+                        spinning_twins_walking_collision_dispatch_loc_3bb6e(collision_type);
+                    debug_assert_eq!(dispatch.next_collision_type, 0);
+                    match dispatch.route {
+                        SpinningTwinsWalkingCollisionRouteLoc3BB6E::FloorLanding => {
+                            let landing = spinning_twins_floor_landing_loc_3bb8a(
+                                collision_type,
+                                enemy.y_velocity,
+                            );
+                            debug_assert_eq!(landing.next_collision_type, 0);
+                            enemy.y_pos = (probe.floor_y_px as u32) << 16;
+                            enemy.y_velocity = landing.y_velocity;
+                            enemy.on_ground = true;
+                        }
+                        SpinningTwinsWalkingCollisionRouteLoc3BB6E::WallSettle
+                        | SpinningTwinsWalkingCollisionRouteLoc3BB6E::ContinueAirborne => {}
                     }
                 }
             }
