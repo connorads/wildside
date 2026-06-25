@@ -2096,7 +2096,6 @@ pub(crate) fn lava_fireball_segment_back_edge_loc_14A46(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_startup_script_loc_14788() -> &'static str {
     // ASM loc_14788 (kid.asm:27825): after the initial hibernation and optional
     // `sfx_Lava_Geyser_starting`, the very first eruption seeds `a0` from
@@ -2122,7 +2121,6 @@ pub(crate) fn lava_geyser_repeat_sound_loc_1478E(sound_suppressed: bool) -> Opti
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_repeat_script_loc_1479C() -> &'static str {
     // ASM loc_1479C (kid.asm:27836): repeat eruptions reload `a0` from
     // `unk_146A0`, the steady-state geyser script that runs after the optional
@@ -2188,7 +2186,6 @@ pub(crate) struct LavaGeyserFullHeightStateLoc147A0 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_lava_geyser_full_height_state_loc_147A0(
     biased_x_px: u16,
     biased_y_px: u16,
@@ -2208,7 +2205,6 @@ pub(crate) fn initialise_lava_geyser_full_height_state_loc_147A0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_peak_row_target_loc_14966(sprite_row_target: u16) -> u16 {
     // ASM loc_14966 (kid.asm:28018): when the alternating top-cap frame wraps
     // back to zero, the worker grows `$4A(a5)` by 2 before reloading `d3`.
@@ -2278,7 +2274,6 @@ pub(crate) enum LavaGeyserScriptStepLoc147BA {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decode_lava_geyser_script_step_loc_147BA(
     script_words: &[u16],
 ) -> Option<LavaGeyserScriptStepLoc147BA> {
@@ -2599,10 +2594,16 @@ pub(crate) fn lava_geyser_full_height_render_state_loc_14940(
             } else {
                 0
             };
-            let sprite_row_index = if top_sprite_frame_within_row == 0 {
-                peak_rows
+            let contracted_peak_rows = peak_rows.saturating_sub(2);
+            let expanded_peak_rows = if peak_rows >= 2 {
+                lava_geyser_peak_row_target_loc_14966(contracted_peak_rows)
             } else {
-                peak_rows.saturating_sub(2)
+                peak_rows
+            };
+            let sprite_row_index = if top_sprite_frame_within_row == 0 {
+                expanded_peak_rows
+            } else {
+                contracted_peak_rows
             };
             Some(LavaGeyserFullHeightRenderStateLoc14940 {
                 sprite_row_index,
@@ -2742,7 +2743,6 @@ fn lava_geyser_full_height_rows_from_sprite_row_loc_14874(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one: u16) -> u16 {
     // ASM loc_14804 (kid.asm:27876): the `dbf d2,loc_14804` back-edge runs only
     // between sprite rows. With `d2` seeded from the "rows minus one" script
@@ -2878,20 +2878,38 @@ fn advance_lava_fireball(fireball: &mut LavaFireball) {
 
 #[allow(non_snake_case)]
 fn start_lava_geyser_startup_script_loc_14788(geyser: &mut LavaGeyser) {
-    // ASM loc_14788/unk_146B6: the startup path emits five one-row entries
-    // before `$FFFE` falls into loc_1483A.
-    geyser.phase = LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788;
-    geyser.timer = LAVA_GEYSER_STARTUP_SCRIPT_VISIBLE_STEPS_LOC_146B6;
-    geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
+    let script_name = lava_geyser_startup_script_loc_14788();
+    start_lava_geyser_script_loc_147BA(geyser, script_name);
 }
 
 #[allow(non_snake_case)]
 fn start_lava_geyser_repeat_script_loc_1479C(geyser: &mut LavaGeyser) {
-    // ASM loc_1479C/unk_146A0: after the repeat sound gate, the geyser emits
-    // five `d2=2` template entries before `$FFFF` transfers to the
-    // full-height loop.
-    geyser.phase = LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C;
-    geyser.timer = LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0;
+    let script_name = lava_geyser_repeat_script_loc_1479C();
+    start_lava_geyser_script_loc_147BA(geyser, script_name);
+}
+
+#[allow(non_snake_case)]
+fn start_lava_geyser_script_loc_147BA(geyser: &mut LavaGeyser, script_name: &str) {
+    // ASM loc_147BA walks the script selected by loc_14788/loc_1479C. Startup
+    // entries use `d2=0` (one visible frame each); repeat entries use `d2=2`
+    // and therefore take the loc_14804 back-edge twice per template.
+    let (phase, timer) = match script_name {
+        "unk_146B6" => (
+            LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+            LAVA_GEYSER_STARTUP_SCRIPT_TEMPLATES_LOC_146B6.len() as u16
+                * (lava_geyser_inter_row_hibernations_loc_14804(0) + 1),
+        ),
+        "unk_146A0" => (
+            LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+            LAVA_GEYSER_REPEAT_SCRIPT_TEMPLATES_LOC_146A0.len() as u16
+                * (lava_geyser_inter_row_hibernations_loc_14804(
+                    LAVA_GEYSER_REPEAT_SCRIPT_FRAMES_PER_TEMPLATE_LOC_146A0 - 1,
+                ) + 1),
+        ),
+        _ => unreachable!("unknown ASM lava geyser script {script_name}"),
+    };
+    geyser.phase = phase;
+    geyser.timer = timer;
     geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
 }
 
@@ -3411,18 +3429,21 @@ impl NativeRuntime {
                             .saturating_add(LAVA_GEYSER_ROW_HEIGHT_PX);
                         if geyser.current_height >= geyser.height_px {
                             geyser.current_height = geyser.height_px;
+                            let full_height = initialise_lava_geyser_full_height_state_loc_147A0(
+                                geyser.x_px.wrapping_add(0x80),
+                                geyser.y_px.wrapping_add(0x80),
+                            );
                             let hold = lava_geyser_peak_hold_step_loc_1496C(
                                 geyser.height_px / LAVA_GEYSER_ROW_HEIGHT_PX,
-                                LAVA_GEYSER_HOLD_CYCLES,
+                                full_height.hold_frames,
                             );
                             debug_assert_eq!(
                                 hold.frames_per_sprite,
                                 LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
                             );
                             geyser.phase = LAVA_GEYSER_PHASE_HOLDING_LOC_1496C;
-                            geyser.timer = hold.next_hold_frames
-                                * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
-                                + LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE;
+                            geyser.timer = hold.next_hold_frames * hold.frames_per_sprite
+                                + hold.frames_per_sprite;
                         } else {
                             geyser.timer = LAVA_GEYSER_RISE_FRAMES_PER_ROW;
                         }
@@ -3463,7 +3484,10 @@ impl NativeRuntime {
                     if geyser.timer > 1 {
                         geyser.timer -= 1;
                         geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
-                    } else {
+                    } else if matches!(
+                        decode_lava_geyser_script_step_loc_147BA(&[0xFFFE]),
+                        Some(LavaGeyserScriptStepLoc147BA::DisableForCooldown)
+                    ) {
                         let disable = lava_geyser_disable_step_loc_1483A();
                         debug_assert!(disable.resumes_at_repeat_loop);
                         lava_geyser_sound_starts += 1;
@@ -3492,7 +3516,10 @@ impl NativeRuntime {
                     if geyser.timer > 1 {
                         geyser.timer -= 1;
                         geyser.current_height = LAVA_GEYSER_ROW_HEIGHT_PX;
-                    } else {
+                    } else if matches!(
+                        decode_lava_geyser_script_step_loc_147BA(&[0xFFFF]),
+                        Some(LavaGeyserScriptStepLoc147BA::HoldAtFullHeight)
+                    ) {
                         start_lava_geyser_rise_loc_1484E(geyser);
                     }
                 }
