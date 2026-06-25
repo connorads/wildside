@@ -93,14 +93,12 @@ pub(crate) fn dragon_drift_store_loc_347c8(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonDriftDbfTailLoc347FC {
     pub(crate) next_d0: u16,
     pub(crate) loops_to_loc_3478c: bool,
     pub(crate) advances_script: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_drift_dbf_tail_loc_347fc(d0_before_dbf: u16) -> DragonDriftDbfTailLoc347FC {
     // ASM Dragon_Flying.asm loc_347FC: `dbf d0,loc_3478C` decrements the
     // low word, loops until it becomes `$FFFF`, then falls through to loc_346DA.
@@ -114,14 +112,12 @@ pub(crate) fn dragon_drift_dbf_tail_loc_347fc(d0_before_dbf: u16) -> DragonDrift
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonHoverDbfTailLoc3482E {
     pub(crate) next_d0: u16,
     pub(crate) loops_to_loc_3480a: bool,
     pub(crate) advances_script: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_hover_dbf_tail_loc_3482e(d0_before_dbf: u16) -> DragonHoverDbfTailLoc3482E {
     // ASM Dragon_Flying.asm loc_3482E: `dbf d0,loc_3480A` uses the same
     // low-word decrement/fall-through rule as the drift tail, but targets the
@@ -1199,8 +1195,14 @@ pub(crate) fn step_dragon(
             // before checking collision_type and continuing the hover loop.
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
-            enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_sub(1);
-            if enemy.dragon_phase_frames == 0 {
+            let hover_tail =
+                dragon_hover_dbf_tail_loc_3482e(enemy.dragon_phase_frames.saturating_sub(1));
+            enemy.dragon_phase_frames = if hover_tail.loops_to_loc_3480a {
+                hover_tail.next_d0.wrapping_add(1)
+            } else {
+                0
+            };
+            if hover_tail.advances_script {
                 dragon_advance_script(enemy, player_x_pos, projectiles);
             }
             dragon_apply_velocity(enemy);
@@ -1230,8 +1232,13 @@ pub(crate) fn step_dragon(
                 dragon_apply_velocity(enemy);
                 return;
             }
-            enemy.dragon_phase_frames = enemy.dragon_phase_frames.saturating_sub(1);
-            let drift_expired = enemy.dragon_phase_frames == 0;
+            let drift_tail =
+                dragon_drift_dbf_tail_loc_347fc(enemy.dragon_phase_frames.saturating_sub(1));
+            enemy.dragon_phase_frames = if drift_tail.loops_to_loc_3478c {
+                drift_tail.next_d0.wrapping_add(1)
+            } else {
+                0
+            };
             dragon_apply_velocity(enemy);
             // Wall collision during Drift: reverse direction on terrain hit.
             // ASM Dragon_Flying.asm loc_347D6 checks collision before the
@@ -1256,7 +1263,7 @@ pub(crate) fn step_dragon(
                     enemy.x_velocity = x_velocity;
                 }
             }
-            if drift_expired {
+            if drift_tail.advances_script {
                 // ASM Dragon_Flying.asm loc_347FC falls through to loc_346DA
                 // after the hibernated drift frame has already run.
                 dragon_advance_script(enemy, player_x_pos, projectiles);
