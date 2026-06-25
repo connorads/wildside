@@ -1353,10 +1353,7 @@ fn fire_lion_projectile_loc_3e09e(
             x_pos: proj_x,
             y_pos: proj_y,
             x_velocity: tail.x_velocity,
-            y_velocity: 0,
             lifetime: 120,
-            gravity: 0,
-            friendly: false,
             kind: EnemyProjectileKind::LionProjectile,
             homing_accel: 0x2000,             // Lion.asm loc_3E1C2
             speed_cap: LION_PROJECTILE_SPEED, // ±$60000 cap (Lion.asm)
@@ -1394,11 +1391,7 @@ fn step_lion_walking_tracking_loc_3e03c(enemy: &mut ActiveEnemy, player_x_pos: O
             enemy.facing = cleared.facing;
         }
         LionTrackingGate::TrackKid => {
-            enemy.facing = if delta < 0 {
-                lion_track_kid_negative_delta_facing_loc_3e074(lion_x_word, kid_x_word)
-            } else {
-                lion_track_kid_nonnegative_delta_facing_loc_3e06a(lion_x_word, kid_x_word)
-            };
+            enemy.facing = lion_clear_tracking_latch_loc_3e066(lion_x_word, kid_x_word).facing;
         }
     }
 }
@@ -2189,6 +2182,581 @@ mod tests {
             lion_projectile_x_offset_from_native_carrier_loc_3e12a(Direction::Left),
             -22,
             "ASM Lion.asm loc_3E12A copies parent GfxObject x, not native's carrier x; issue #289 oracle frame 19 needs native carrier x - 22 before the first movement step reaches @501"
+        );
+    }
+
+    #[test]
+    fn lion_roar_fire_delay_matches_stru_3df0e_fire_sprite_loc_3e09e() {
+        assert_eq!(
+            LION_ROAR_FIRE_DELAY, 42,
+            "ASM ingame/anim/enemy/Lion.asm stru_3DF0E has seven 6-tick frames before Lion.asm loc_3E09E sees LnkTo_unk_C7E78"
+        );
+    }
+
+    #[test]
+    fn lion_fire_projectile_wires_right_facing_child_loc_3e09e_3e12a() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 0x0100 << 16,
+            y_pos: 0x0080 << 16,
+            facing: Direction::Left,
+            ufo_beam_segments: 2,
+            ufo_beam_interval: 0x5A,
+            segment_index: 3,
+            layout_index: 7,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        {
+            let mut projectile_sink = Some(&mut projectiles);
+            fire_lion_projectile_loc_3e09e(&mut lion, 0x0120 << 16, &mut projectile_sink);
+        }
+
+        assert_eq!(
+            lion.facing,
+            Direction::Right,
+            "ASM Lion.asm loc_3E09E should set x_direction when Kid is to the right before allocating loc_3E12A"
+        );
+        assert_eq!(
+            lion.ufo_beam_segments, 3,
+            "ASM Lion.asm loc_3E0DA increments `$5B(a5)` after installing the projectile worker"
+        );
+        assert_eq!(
+            projectiles,
+            vec![EnemyProjectile {
+                x_pos: 0x010A << 16,
+                y_pos: 0x0068 << 16,
+                x_velocity: LION_PROJECTILE_SPEED,
+                lifetime: 120,
+                kind: EnemyProjectileKind::LionProjectile,
+                homing_accel: 0x2000,
+                speed_cap: LION_PROJECTILE_SPEED,
+                wall_bounce: true,
+                owner: Some(EnemyProjectileOwner {
+                    segment_index: 3,
+                    layout_index: 7,
+                    token: 0x5A,
+                }),
+                ..Default::default()
+            }],
+            "ASM Lion.asm loc_3E12A/loc_3E180 should spawn the right-facing homing roar child with the parent identity"
+        );
+    }
+
+    #[test]
+    fn lion_fire_projectile_wires_left_facing_child_loc_3e09e_3e12a() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 0x0100 << 16,
+            y_pos: 0x0080 << 16,
+            facing: Direction::Right,
+            ufo_beam_segments: 0,
+            ufo_beam_interval: 0x2C,
+            segment_index: 1,
+            layout_index: 4,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        {
+            let mut projectile_sink = Some(&mut projectiles);
+            fire_lion_projectile_loc_3e09e(&mut lion, 0x00F0 << 16, &mut projectile_sink);
+        }
+
+        assert_eq!(
+            lion.facing,
+            Direction::Left,
+            "ASM Lion.asm loc_3E09E should clear x_direction when Kid is not to the right"
+        );
+        assert_eq!(
+            lion.ufo_beam_segments, 1,
+            "ASM Lion.asm loc_3E0DA increments `$5B(a5)` for the left-facing projectile too"
+        );
+        assert_eq!(
+            projectiles,
+            vec![EnemyProjectile {
+                x_pos: 0x00EA << 16,
+                y_pos: 0x0068 << 16,
+                x_velocity: -LION_PROJECTILE_SPEED,
+                lifetime: 120,
+                kind: EnemyProjectileKind::LionProjectile,
+                homing_accel: 0x2000,
+                speed_cap: LION_PROJECTILE_SPEED,
+                wall_bounce: true,
+                owner: Some(EnemyProjectileOwner {
+                    segment_index: 1,
+                    layout_index: 4,
+                    token: 0x2C,
+                }),
+                ..Default::default()
+            }],
+            "ASM Lion.asm loc_3E12A copies parent GfxObject x; native's left carrier correction keeps the shot at x-22"
+        );
+    }
+
+    #[test]
+    fn lion_walking_tracking_edges_match_loc_3e03c() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 100 << 16,
+            facing: Direction::Left,
+            scorpion_tracking_lock: false,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_walking_tracking_loc_3e03c(&mut lion, Some((100 + 0x3F) << 16));
+        assert_eq!(
+            lion.facing,
+            Direction::Left,
+            "ASM Lion.asm loc_3E03C should skip tracking while signed d4 is inside (-$40..=$40)"
+        );
+
+        step_lion_walking_tracking_loc_3e03c(&mut lion, Some((100 + 0x40) << 16));
+        assert_eq!(
+            lion.facing,
+            Direction::Right,
+            "ASM Lion.asm loc_3E03C should track at exact d4=-$40 because `cmpi.w #$FFC0,d4; bgt` is false"
+        );
+
+        lion.facing = Direction::Right;
+        step_lion_walking_tracking_loc_3e03c(&mut lion, Some((100 - 0x41) << 16));
+        assert_eq!(
+            lion.facing,
+            Direction::Left,
+            "ASM Lion.asm loc_3E03C should track once positive d4 exceeds +$40"
+        );
+    }
+
+    #[test]
+    fn lion_live_walk_animation_wraps_hp_specific_cycles_loc_3dfd8() {
+        let mut fast_lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            hit_points: 8,
+            dragon_script_cmd: 26,
+            ..mini_hopping_skull_test_enemy()
+        };
+        advance_lion_live_walk_animation_loc_3dfd8(&mut fast_lion);
+        assert_eq!(
+            fast_lion.dragon_script_cmd, 0,
+            "ASM ingame/anim/enemy/Lion.asm stru_3DEF4 sums to 27 ticks for HP 8"
+        );
+
+        let mut regular_lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            hit_points: 6,
+            dragon_script_cmd: 37,
+            ..mini_hopping_skull_test_enemy()
+        };
+        advance_lion_live_walk_animation_loc_3dfd8(&mut regular_lion);
+        assert_eq!(
+            regular_lion.dragon_script_cmd, 0,
+            "ASM ingame/anim/enemy/Lion.asm stru_3DEDA sums to 38 ticks for non-8 HP"
+        );
+    }
+
+    #[test]
+    fn lion_walking_live_projectile_suppresses_roar_loc_3e078() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Walking,
+            on_ground: true,
+            wait_timer: 0,
+            ufo_beam_segments: 1,
+            dragon_script_cmd: 5,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion(&mut lion, None, Some(0x0140 << 16), &mut None);
+
+        assert_eq!(
+            lion.lion_state,
+            LionState::Walking,
+            "ASM Lion.asm loc_3E078 should skip the roar/fire animation while `$5B(a5)` is positive"
+        );
+        assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert_eq!(
+            lion.dragon_script_cmd, 6,
+            "ASM Lion.asm loc_3E078 falls back into loc_3E11E pacing animation after suppressing the roar"
+        );
+    }
+
+    #[test]
+    fn lion_postfire_wait_timer_holds_until_done_loc_3e0f4() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::PostFire,
+            on_ground: true,
+            wait_timer: 1,
+            x_velocity: 0x1234,
+            y_velocity: -0x1234,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion(&mut lion, None, Some(0x0100 << 16), &mut None);
+
+        assert_eq!(
+            lion.lion_state,
+            LionState::PostFire,
+            "ASM Lion.asm loc_3E0F4 should keep hibernating while `$18(a3)` is clear"
+        );
+        assert_eq!(lion.wait_timer, 0);
+        assert_eq!(lion.x_velocity, 0);
+        assert_eq!(lion.y_velocity, 0);
+    }
+
+    #[test]
+    fn lion_charging_timer_decrements_before_movement_loc_3e078_3e11e() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            wait_timer: 2,
+            facing: Direction::Right,
+            x_pos: 0x0100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion(&mut lion, None, None, &mut None);
+
+        assert_eq!(
+            lion.wait_timer, 1,
+            "ASM Lion.asm loc_3E078 should decrement the live charge timer before continuing through loc_3E11E"
+        );
+        assert_eq!(
+            lion.x_pos,
+            (0x0100 << 16) + lion_charge_speed(lion.hit_points) as u32,
+            "ASM Lion.asm loc_3E11E should still commit movement after a non-zero charge timer tick"
+        );
+    }
+
+    #[test]
+    fn lion_charging_timer_expiry_respects_live_projectile_gate_loc_3e078() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            wait_timer: 1,
+            ufo_beam_segments: 1,
+            dragon_script_cmd: 3,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion(&mut lion, None, Some(0x0100 << 16), &mut None);
+
+        assert_eq!(
+            lion.lion_state,
+            LionState::Charging,
+            "ASM Lion.asm loc_3E078 should remain in the charge loop when a live shot suppresses the next roar"
+        );
+        assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert_eq!(
+            lion.dragon_script_cmd, 4,
+            "ASM Lion.asm loc_3E078 should advance the live walk animation on the suppressed-roar frame"
+        );
+    }
+
+    #[test]
+    fn lion_charging_zero_timer_without_projectile_enters_roar_loc_3e078() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            wait_timer: 0,
+            ufo_beam_segments: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion(&mut lion, None, Some(0x0100 << 16), &mut None);
+
+        assert_eq!(
+            lion.lion_state,
+            LionState::Roaring,
+            "ASM Lion.asm loc_3E078 should start `stru_3DF0E` when the timer is zero and `$5B(a5)` is clear"
+        );
+        assert_eq!(lion.wait_timer, LION_ROAR_FIRE_DELAY);
+    }
+
+    #[test]
+    fn lion_grounded_charge_commits_next_x_without_grid_loc_3e4c6_3e67a() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            facing: Direction::Right,
+            hit_points: 6,
+            x_pos: 0x0100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_charge_movement_loc_3e11e(&mut lion, None, None);
+
+        assert_eq!(
+            lion.x_pos,
+            (0x0100 << 16) + 0x0001_8000,
+            "ASM Lion.asm loc_3E4C6/loc_3E67A should commit d2 = x_pos + charge speed"
+        );
+        assert_eq!(lion.x_velocity, 0);
+        assert_eq!(lion.y_velocity, 0);
+    }
+
+    #[test]
+    fn lion_grounded_charge_enters_airborne_at_ledge_loc_3e682_3e694() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            facing: Direction::Right,
+            hit_points: 6,
+            x_pos: 0x0020 << 16,
+            y_pos: 0x0020 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_charge_movement_loc_3e11e(&mut lion, Some(&grid), None);
+
+        assert!(
+            !lion.on_ground,
+            "ASM Lion.asm loc_3E682 should latch the airborne charge instead of turning around at ledges"
+        );
+        assert_eq!(lion.x_velocity, 0x0001_8000);
+        assert_eq!(lion.y_velocity, 0);
+        assert_eq!(
+            lion.y_pos,
+            0x0021 << 16,
+            "ASM Lion.asm loc_3E694 should add one pixel to y_pos before entering loc_3E6AE"
+        );
+        assert_eq!(
+            lion.shared_walker_debug_branch,
+            Some("lion_charge_airborne_start")
+        );
+    }
+
+    #[test]
+    fn lion_grounded_charge_snaps_to_floor_support_loc_3e11e() {
+        let grid = mini_hopping_skull_test_grid();
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            facing: Direction::Right,
+            hit_points: 6,
+            x_pos: 0x0020 << 16,
+            y_pos: 0x001F << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_charge_movement_loc_3e11e(&mut lion, Some(&grid), None);
+
+        assert_eq!(
+            lion.y_pos,
+            0x0020 << 16,
+            "ASM shared Lion/Dragon grounded walker should snap y_pos to the selected floor support before committing charge movement"
+        );
+        assert!(lion.on_ground);
+        assert_eq!(
+            lion.shared_walker_debug_branch,
+            Some("lion_charge_grounded")
+        );
+    }
+
+    #[test]
+    fn lion_grounded_left_charge_slope_boundary_uses_current_x_loc_3e566() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            facing: Direction::Left,
+            hit_points: 6,
+            x_pos: 41 << 16,
+            y_pos: 32 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_charge_movement_loc_3e11e(&mut lion, Some(&grid), None);
+
+        let wall = lion
+            .shared_walker_terrain_trace
+            .wall
+            .expect("grounded Lion charge should record the wall probe");
+        assert!(
+            wall.hit,
+            "ASM Lion.asm loc_3E566 -> sub_36A58 should treat the crossed left SlopeUp foot-row boundary as a wall"
+        );
+        assert_eq!(wall.cell_x, 1);
+        assert_eq!(wall.cell_y, 2);
+        assert_eq!(
+            lion.lion_state,
+            LionState::Walking,
+            "ASM Lion.asm loc_3E5BA/loc_3E642 should leave charge movement after the left slope boundary hit"
+        );
+        assert_eq!(
+            lion.x_pos,
+            41 << 16,
+            "ASM shared walker left-wall snap should place the Lion one half-width past the slope cell edge"
+        );
+        assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert!(lion.scorpion_tracking_lock);
+    }
+
+    #[test]
+    fn lion_grounded_charge_alert_release_sets_ff88_loc_3e48e_3e642() {
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            facing: Direction::Right,
+            shared_walker_state: SHARED_WALKER_STATE_FACE_RIGHT,
+            wait_timer: 12,
+            x_pos: 0x0100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_charge_movement_loc_3e11e(&mut lion, None, Some(0x0080 << 16));
+
+        assert_eq!(
+            lion.lion_state,
+            LionState::Walking,
+            "ASM Lion.asm loc_3E476 -> loc_3E48E should leave the charge when Kid exits the alert band"
+        );
+        assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert!(lion.scorpion_tracking_lock);
+        assert_eq!(
+            lion.shared_walker_state, -0x78,
+            "ASM Lion.asm loc_3E48E/loc_3E642 should write `$FF88` into `$42(a3)` for non-patrol alert states"
+        );
+    }
+
+    #[test]
+    fn lion_airborne_charge_deep_floor_overlap_still_kills_loc_3e6ae() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 6 * 6 * 2], 6, 6);
+        grid.set_cell_at(1, 1, terrain::Cell::from_be_bytes(0x40, 0x00));
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 24 << 16,
+            y_pos: 40 << 16,
+            x_velocity: 0x0001_0000,
+            y_velocity: 0,
+            facing: Direction::Right,
+            on_ground: false,
+            hit_points: 8,
+            lion_state: LionState::ResumingCharge,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+        let mut projectile_sink = Some(&mut projectiles);
+
+        step_lion(&mut lion, Some(&grid), None, &mut projectile_sink);
+
+        assert!(
+            lion.death_animation_active,
+            "ASM Lion.asm loc_3E6AE should still branch to loc_3E94E when the body overlaps terrain and the feet are deeper than the floor-edge tolerance"
+        );
+        assert_eq!(lion.hit_points, 0);
+        assert_eq!(
+            lion.shared_walker_debug_branch,
+            Some("lion_charge_airborne_terrain_kill")
+        );
+    }
+
+    #[test]
+    fn lion_airborne_lead_column_snap_requires_blocked_motion_past_boundary_loc_3e6ae_3e7ca() {
+        assert_eq!(
+            lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
+                100 << 16,
+                9 << 16,
+                Direction::Right,
+                false,
+            ),
+            None,
+            "ASM Lion.asm loc_3E6AE should only snap when sub_36B3C reports a blocked lead column"
+        );
+        assert_eq!(
+            lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
+                100 << 16,
+                0,
+                Direction::Right,
+                true,
+            ),
+            None,
+            "ASM Lion.asm loc_3E6AE should not snap without positive horizontal movement"
+        );
+        assert_eq!(
+            lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
+                100 << 16,
+                8 << 16,
+                Direction::Right,
+                true,
+            ),
+            None,
+            "ASM Lion.asm loc_3E6AE uses `bcc`, so exact boundary equality continues to loc_3E6F0"
+        );
+        assert_eq!(
+            lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
+                100 << 16,
+                9 << 16,
+                Direction::Right,
+                true,
+            ),
+            Some(108 << 16),
+            "ASM Lion.asm loc_3E6AE snaps to x+d3 only after the step crosses the boundary"
+        );
+        assert_eq!(
+            lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
+                101 << 16,
+                -(1 << 16),
+                Direction::Left,
+                true,
+            ),
+            None,
+            "ASM Lion.asm loc_3E7CA also lets exact boundary equality continue"
+        );
+        assert_eq!(
+            lion_airborne_charge_lead_column_snap_loc_3e6ae_3e7ca(
+                101 << 16,
+                -(2 << 16),
+                Direction::Left,
+                true,
+            ),
+            Some(100 << 16),
+            "ASM Lion.asm loc_3E7CA snaps to x-d3 after crossing the left boundary"
+        );
+    }
+
+    #[test]
+    fn lion_airborne_upward_clearance_skips_ceiling_probe_loc_3e6f6() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 6 * 6 * 2], 6, 6);
+        grid.set_cell_at(2, 0, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            x_pos: 32 << 16,
+            y_pos: 65 << 16,
+            y_velocity: -0x0002_0000,
+            on_ground: false,
+            hit_points: 8,
+            lion_state: LionState::ResumingCharge,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_charge_airborne_vertical_loc_3e6f6_3e812(&mut lion, &grid);
+
+        assert_eq!(
+            lion.y_pos,
+            63 << 16,
+            "ASM Lion.asm loc_3E6F6 should skip sub_36CB8 while the upward step is within the nibble clearance"
+        );
+        assert_eq!(
+            lion.y_velocity, -0x0001_C000,
+            "ASM Lion.asm loc_3E77E should apply `$4000` gravity after committing the unobstructed upward candidate"
+        );
+        assert_eq!(
+            lion.shared_walker_debug_branch,
+            Some("lion_charge_airborne_fall")
         );
     }
 
