@@ -2,7 +2,9 @@ use crate::recording::{
     RecordingBundleArtifacts, build_recording, recording_start_from_options,
     save_recording_with_artifacts,
 };
-use crate::scenarios::{DynamicScenario, DynamicStartPosition, GameplayCheckpoint};
+use crate::scenarios::{
+    DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayCheckpoint,
+};
 use anyhow::{Result, anyhow, bail};
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use sdl2::audio::AudioQueue;
@@ -138,9 +140,6 @@ pub(crate) use scene::{
     chunked_plane_b_row_debug_for_trace_loc_30744, eol_score_sprite_diagnostics,
     render_trace_with_vdp_latched_state, sample_background_pixel_loc_c070,
 };
-pub(crate) use sprites::render_dynamic_gameplay_frame_evidence;
-pub(crate) use sprites::render_gameplay_frame_evidence;
-pub(crate) use sprites::render_gameplay_frame_evidence_for_level;
 
 pub(crate) const NATIVE_FRAME_WIDTH: u32 = FRAME_WIDTH;
 pub(crate) const NATIVE_FRAME_HEIGHT: u32 = FRAME_HEIGHT;
@@ -166,6 +165,105 @@ pub(crate) fn load_session_assets(
 ) -> Result<(NativeLevelVisuals, BlockGrid)> {
     let assets = load_native_session_assets(manifest, level_id)?;
     Ok((assets.level_visuals, assets.block_grid))
+}
+
+// Frame-evidence helpers stay CLI-side: they bind the SDL-free rasteriser
+// (`build_scene`/`render_scene`) to the asset loader (`load_native_session_assets`)
+// and the scenario checkpoint types, which `wildside-frame` does not depend on.
+pub(crate) fn render_gameplay_frame_evidence(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[GameplayCheckpoint],
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    render_gameplay_frame_evidence_for_level(manifest, trace, checkpoints, 0x00)
+}
+
+pub(crate) fn render_dynamic_gameplay_frame_evidence(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[DynamicCheckpoint],
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    render_dynamic_gameplay_frame_evidence_for_level(manifest, trace, checkpoints, 0x00)
+}
+
+pub(crate) fn render_gameplay_frame_evidence_for_level(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[GameplayCheckpoint],
+    level_id: u8,
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    let session_assets = load_native_session_assets(manifest, level_id)?;
+    checkpoints
+        .iter()
+        .map(|checkpoint| {
+            let frame = trace
+                .iter()
+                .find(|frame| frame.frame_index == checkpoint.frame_index)
+                .or_else(|| trace.get(checkpoint.frame_index))
+                .ok_or_else(|| {
+                    anyhow!(
+                        "missing native gameplay frame evidence {}@{}",
+                        checkpoint.label,
+                        checkpoint.frame_index
+                    )
+                })?;
+            let scene = build_scene(
+                frame,
+                false,
+                Some(&session_assets.level_visuals),
+                Some(&session_assets.block_grid),
+            );
+            let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_scene(&scene, &mut rgb);
+            Ok((
+                checkpoint.label.to_string(),
+                checkpoint.frame_index,
+                FRAME_WIDTH as usize,
+                FRAME_HEIGHT as usize,
+                rgb,
+            ))
+        })
+        .collect()
+}
+
+pub(crate) fn render_dynamic_gameplay_frame_evidence_for_level(
+    manifest: &AssetManifest,
+    trace: &[NativeTraceFrame],
+    checkpoints: &[DynamicCheckpoint],
+    level_id: u8,
+) -> Result<Vec<(String, usize, usize, usize, Vec<u8>)>> {
+    let session_assets = load_native_session_assets(manifest, level_id)?;
+    checkpoints
+        .iter()
+        .map(|checkpoint| {
+            let frame = trace
+                .iter()
+                .find(|frame| frame.frame_index == checkpoint.frame_index)
+                .or_else(|| trace.get(checkpoint.frame_index))
+                .ok_or_else(|| {
+                    anyhow!(
+                        "missing native gameplay frame evidence {}@{}",
+                        checkpoint.label,
+                        checkpoint.frame_index
+                    )
+                })?;
+            let scene = build_scene(
+                frame,
+                false,
+                Some(&session_assets.level_visuals),
+                Some(&session_assets.block_grid),
+            );
+            let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_scene(&scene, &mut rgb);
+            Ok((
+                checkpoint.label.clone(),
+                checkpoint.frame_index,
+                FRAME_WIDTH as usize,
+                FRAME_HEIGHT as usize,
+                rgb,
+            ))
+        })
+        .collect()
 }
 
 pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) -> Result<()> {
