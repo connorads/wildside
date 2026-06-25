@@ -838,7 +838,7 @@ pub(crate) struct PlaneClearPassSetupLoc1698 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) struct PlaneClearWordFillLoc16B6 {
     pub(crate) target_addr: u32,
     pub(crate) next_addr: u32,
@@ -846,7 +846,7 @@ pub(crate) struct PlaneClearWordFillLoc16B6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn plane_clear_word_fill_loc_16B6(
     target_addr: u32,
     source_word: u16,
@@ -864,7 +864,7 @@ pub(crate) fn plane_clear_word_fill_loc_16B6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn plane_clear_word_fill_loc_16C8(
     target_addr: u32,
     source_word: u16,
@@ -878,7 +878,7 @@ pub(crate) fn plane_clear_word_fill_loc_16C8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn plane_clear_word_fill_loc_16E0(
     target_addr: u32,
     source_word: u16,
