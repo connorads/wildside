@@ -303,6 +303,7 @@ use wildside_data::{
 mod fixtures;
 use fixtures::*;
 
+mod asset_source_tests;
 mod block_tests;
 mod boot_tests;
 mod combat_tests;

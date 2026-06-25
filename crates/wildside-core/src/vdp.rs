@@ -60,7 +60,7 @@ const SEGA_FIRST_FADE_COPY_ELAPSED: usize = 67;
 const SEGA_FADE_FRAME_DELAY_INIT: i16 = 0x14;
 const SEGA_FADE_PALETTE_CURSOR_INIT: i16 = 0x28;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VdpState {
     pub registers: [u8; 0x20],
     pub vram: Vec<u8>,

@@ -290,6 +290,7 @@ pub struct ScriptRunner {
     playtest_form: Option<PlayerForm>,
     initial_diamond_count: Option<u16>,
     initial_lives: Option<u16>,
+    asset_source: Option<Arc<dyn AssetSource>>,
 }
 
 impl ScriptRunner {
@@ -306,7 +307,17 @@ impl ScriptRunner {
             playtest_form: None,
             initial_diamond_count: None,
             initial_lives: None,
+            asset_source: None,
         }
+    }
+
+    /// Inject the [`AssetSource`] used for generated-bundle reads. Defaults to a
+    /// native [`FsAssetSource`](wildside_data::FsAssetSource) over the manifest's
+    /// `output_root`; the determinism test uses this to drive an in-memory source.
+    #[must_use]
+    pub fn with_asset_source(mut self, source: Arc<dyn AssetSource>) -> Self {
+        self.asset_source = Some(source);
+        self
     }
 
     #[must_use]
@@ -397,7 +408,12 @@ impl ScriptRunner {
         frame_count: usize,
         capture_vdp: bool,
     ) -> (Vec<NativeTraceFrame>, Vec<Option<vdp::VdpState>>) {
-        let mut runtime = NativeRuntime::with_generated_level_layout(self.assets);
+        let mut runtime = match self.asset_source {
+            Some(source) => {
+                NativeRuntime::with_generated_level_layout_with_source(self.assets, source)
+            }
+            None => NativeRuntime::with_generated_level_layout(self.assets),
+        };
         runtime.set_recorded_title_card_handoff_delay(true);
         if let Some(order) = self.physics_order {
             runtime.set_physics_order(order);
