@@ -6,14 +6,12 @@ pub(crate) const GOAT_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 pub(crate) const GOAT_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatInitAnimationProfile {
     pub(crate) initial_animation_script: &'static str,
     pub(crate) saved_patrol_animation: &'static str,
     pub(crate) saved_damage_resume_animation: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_hp4_init_animation_loc_3_caca(
     current_hp: u8,
 ) -> Option<GoatInitAnimationProfile> {
@@ -26,7 +24,6 @@ pub(crate) fn goat_hp4_init_animation_loc_3_caca(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_high_hp_init_animation_loc_3_cae8(
     current_hp: u8,
 ) -> Option<GoatInitAnimationProfile> {
@@ -40,13 +37,11 @@ pub(crate) fn goat_high_hp_init_animation_loc_3_cae8(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatInitialDispatchRouteLoc3CB02 {
     ClearXDirection,
     FlippedXDirection,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_initial_dispatch_loc_3_cb02(
     facing: Direction,
 ) -> GoatInitialDispatchRouteLoc3CB02 {
@@ -88,14 +83,12 @@ pub(crate) fn goat_collision_dispatch_loc_3cb14(collision_type: i16) -> GoatColl
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatDeathSequenceLoc3CB64 {
     pub(crate) death_animation: &'static str,
     pub(crate) waits_until_animation_finished: bool,
     pub(crate) exits_enemy: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_death_sequence_loc_3cb64() -> GoatDeathSequenceLoc3CB64 {
     // ASM Goat.asm loc_3CB64: initialise `stru_3C9EA`, hibernate until the
     // animation completes, then branch to the shared enemy exit routine.
@@ -202,7 +195,6 @@ pub(crate) fn goat_berzerker_side_shove_loc_3cbba(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum GoatCollisionClearResumeRouteLoc3CBF6 {
     SpawnedChildLeft,
     SpawnedChildRight,
@@ -211,13 +203,11 @@ pub(crate) enum GoatCollisionClearResumeRouteLoc3CBF6 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct GoatCollisionClearResumeLoc3CBF6 {
     pub(crate) collision_type: u16,
     pub(crate) next: GoatCollisionClearResumeRouteLoc3CBF6,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn goat_collision_clear_resume_loc_3cbf6(
     parent_spawned_child: bool,
     facing: Direction,

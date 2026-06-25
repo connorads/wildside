@@ -9384,11 +9384,40 @@ impl NativeRuntime {
                                 enemy.wait_timer = 0;
                                 changed_enemy_state = true;
                             }
-                            GoatBerzerkerSideGateLoc3CB76::ResumeSharedWalker { .. } => {}
+                            GoatBerzerkerSideGateLoc3CB76::ResumeSharedWalker {
+                                next_collision_type,
+                            } => {
+                                let resume =
+                                    goat_collision_clear_resume_loc_3cbf6(false, enemy.facing);
+                                debug_assert_eq!(resume.collision_type, next_collision_type);
+                                debug_assert!(matches!(
+                                    (enemy.facing, resume.next),
+                                    (
+                                        Direction::Left,
+                                        GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryLeft
+                                    ) | (
+                                        Direction::Right,
+                                        GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryRight
+                                    )
+                                ));
+                            }
                         }
                     }
                     GoatCollisionRouteLoc3CB14::NoCollisionClearResume
-                    | GoatCollisionRouteLoc3CB14::UnknownPositiveClearResume => {}
+                    | GoatCollisionRouteLoc3CB14::UnknownPositiveClearResume => {
+                        let resume = goat_collision_clear_resume_loc_3cbf6(false, enemy.facing);
+                        debug_assert_eq!(resume.collision_type, 0);
+                        debug_assert!(matches!(
+                            (enemy.facing, resume.next),
+                            (
+                                Direction::Left,
+                                GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryLeft
+                            ) | (
+                                Direction::Right,
+                                GoatCollisionClearResumeRouteLoc3CBF6::OrdinaryRight
+                            )
+                        ));
+                    }
                 }
                 continue;
             }
@@ -9637,6 +9666,11 @@ impl NativeRuntime {
             } else {
                 None
             };
+            let goat_death_sequence = if matches!(family, EnemyFamily::Goat) {
+                Some(goat_death_sequence_loc_3cb64())
+            } else {
+                None
+            };
             let boss_head_death_transition = if is_multi_head_boss(family) {
                 let transition =
                     boss_head_death_transition_loc_39ebe(self.multi_head_boss_death_count_fb4e);
@@ -9748,6 +9782,14 @@ impl NativeRuntime {
                     debug_assert!(death_start.reads_object_status_slot);
                     debug_assert_eq!(death_animation_frames, EMO_ROCK_DEATH_ANIMATION_FRAMES);
                     EMO_ROCK_DEATH_ANIMATION_FRAMES
+                });
+            let death_animation_frames =
+                goat_death_sequence.map_or(death_animation_frames, |death_sequence| {
+                    debug_assert_eq!(death_sequence.death_animation, "stru_3C9EA");
+                    debug_assert!(death_sequence.waits_until_animation_finished);
+                    debug_assert!(death_sequence.exits_enemy);
+                    debug_assert_eq!(death_animation_frames, GOAT_DEATH_ANIMATION_FRAMES);
+                    GOAT_DEATH_ANIMATION_FRAMES
                 });
             let enemy = &mut self.active_enemies[idx];
             enemy.hit_points = 0;

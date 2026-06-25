@@ -3026,6 +3026,12 @@ fn activate_enemies_with_rng_inner(
             } else {
                 spawn_hit_points(family, enemy_level)
             };
+            let goat_init_animation = if matches!(family, EnemyFamily::Goat) {
+                goat_hp4_init_animation_loc_3_caca(hit_points)
+                    .or_else(|| goat_high_hp_init_animation_loc_3_cae8(hit_points))
+            } else {
+                None
+            };
             let base_x = spawn_x_pos(family, object_x);
             let base_y = spawn_y;
             let head_x = if is_multi_head_boss(family) {
@@ -3042,6 +3048,24 @@ fn activate_enemies_with_rng_inner(
             };
 
             let facing = spawn_facing(family, head_x, player_x);
+            if let Some(profile) = goat_init_animation {
+                debug_assert_eq!(profile.initial_animation_script, "stru_3C996");
+                debug_assert_eq!(profile.saved_patrol_animation, "stru_3C996");
+                debug_assert!(matches!(
+                    profile.saved_damage_resume_animation,
+                    "stru_3C9B0" | "stru_3C9CA"
+                ));
+            }
+            if matches!(family, EnemyFamily::Goat) {
+                match goat_initial_dispatch_loc_3_cb02(facing) {
+                    GoatInitialDispatchRouteLoc3CB02::ClearXDirection => {
+                        debug_assert_eq!(facing, Direction::Left);
+                    }
+                    GoatInitialDispatchRouteLoc3CB02::FlippedXDirection => {
+                        debug_assert_eq!(facing, Direction::Right);
+                    }
+                }
+            }
             let mut enemy = ActiveEnemy {
                 segment_index: view.segment_index,
                 layout_index: index,
