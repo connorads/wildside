@@ -1932,7 +1932,6 @@ pub(crate) struct LavaFireballScriptStartLoc149CC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_lava_fireball_script_loc_149CC(
     biased_x_px: u16,
     biased_y_px: u16,
@@ -2078,7 +2077,6 @@ pub(crate) struct LavaFireballSegmentBackEdgeLoc14A46 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_fireball_segment_back_edge_loc_14A46(
     dbf_counter: u16,
 ) -> LavaFireballSegmentBackEdgeLoc14A46 {
@@ -2342,7 +2340,6 @@ pub(crate) struct LavaGeyserPreLoopHibernateLoc1485E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_pre_loop_hibernate_loc_1485E() -> LavaGeyserPreLoopHibernateLoc1485E {
     // ASM loc_1485E (kid.asm:27915): before reloading `$48(a5)` into `d2` at
     // `loc_14866`, the worker hibernates exactly one frame, re-runs
@@ -2363,7 +2360,6 @@ pub(crate) struct LavaGeyserLoopBackEdgeLoc1486C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_loop_back_edge_loc_1486C() -> LavaGeyserLoopBackEdgeLoc1486C {
     // ASM loc_1486C (kid.asm:27924): each taken `dbf d2,loc_1486C` back-edge
     // hibernates one frame, re-runs `sub_14A58`, then re-enters the shared
@@ -2482,7 +2478,6 @@ pub(crate) fn lava_geyser_top_sprite_script_loc_148CE(sprite_frame_within_row: u
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_store_top_sprite_y_loc_148D4(
     sprite_screen_y_with_bias: u16,
     camera_y_px: u16,
@@ -2697,13 +2692,17 @@ fn lava_geyser_full_height_rows_from_sprite_row_loc_14874(
                 sprite_row_y_px
             }
             LavaGeyserTopSpriteWindowResultLoc14874::BuildTopSprite { sprite_row_y_px } => {
+                let sprite_screen_y_with_bias =
+                    sprite_row_y_px.wrapping_sub(camera_y_px).wrapping_add(0x80);
+                let row_y_px =
+                    lava_geyser_sprite_top_y_loc_1480C(sprite_screen_y_with_bias, camera_y_px);
                 rows.push(LavaGeyserFullHeightRowLoc14874 {
-                    row_y_px: sprite_row_y_px,
+                    row_y_px,
                     source_label: lava_geyser_top_sprite_script_loc_148CE(
                         top_sprite_frame_within_row,
                     ),
                 });
-                sprite_row_y_px
+                row_y_px
             }
         };
 
@@ -2752,7 +2751,6 @@ pub(crate) fn lava_geyser_inter_row_hibernations_loc_14804(sprite_rows_minus_one
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lava_geyser_sprite_top_y_loc_1480C(
     sprite_screen_y_with_bias: u16,
     camera_y_px: u16,
@@ -2844,9 +2842,7 @@ fn advance_lava_fireball(fireball: &mut LavaFireball) {
     if fireball.cooldown_timer > 0 {
         fireball.cooldown_timer -= 1;
         if fireball.cooldown_timer == 0 {
-            fireball.segment_index = 0;
-            fireball.segment_frame = 0;
-            fireball.current_y_px = fireball.base_y_px;
+            restart_lava_fireball_script_loc_149CC(fireball);
         }
         return;
     }
@@ -2861,9 +2857,15 @@ fn advance_lava_fireball(fireball: &mut LavaFireball) {
     let resume =
         lava_fireball_loop_resume_loc_149FC(fireball.current_y_px, segment.decoded.delta_y);
     fireball.current_y_px = resume.next_baseline_y_px;
+    let segment_back_edge = lava_fireball_segment_back_edge_loc_14A46(
+        segment
+            .decoded
+            .dbf_counter
+            .wrapping_sub(u16::from(fireball.segment_frame)),
+    );
     fireball.segment_frame = fireball.segment_frame.saturating_add(1);
 
-    if u16::from(fireball.segment_frame) >= segment.decoded.frames {
+    if segment_back_edge.advances_to_next_script_step {
         fireball.segment_frame = 0;
         let next_segment_index = fireball.segment_index.saturating_add(1);
         if lava_fireball_live_segment_loc_149E4(next_segment_index).is_none() {
@@ -2874,6 +2876,18 @@ fn advance_lava_fireball(fireball: &mut LavaFireball) {
             fireball.segment_index = next_segment_index;
         }
     }
+}
+
+#[allow(non_snake_case)]
+fn restart_lava_fireball_script_loc_149CC(fireball: &mut LavaFireball) {
+    let script_start = initialise_lava_fireball_script_loc_149CC(
+        fireball.x_px.wrapping_add(0x80),
+        fireball.base_y_px.wrapping_add(0x80),
+    );
+    debug_assert_eq!(script_start.script_name, "unk_146CC");
+    fireball.segment_index = 0;
+    fireball.segment_frame = 0;
+    fireball.current_y_px = script_start.sprite_top_y_px;
 }
 
 #[allow(non_snake_case)]
@@ -3422,7 +3436,16 @@ impl NativeRuntime {
                     // sprite rows, not a smooth pixel ramp, and `$48(a5)=2`
                     // paces each new row.
                     if geyser.timer > 1 {
-                        geyser.timer -= 1;
+                        let hibernation_frames = if geyser.current_height == 0 {
+                            let pre_loop = lava_geyser_pre_loop_hibernate_loc_1485E();
+                            debug_assert!(pre_loop.falls_through_to_shared_loop);
+                            pre_loop.hibernation_frames
+                        } else {
+                            let back_edge = lava_geyser_loop_back_edge_loc_1486C();
+                            debug_assert!(back_edge.reenters_shared_loop);
+                            back_edge.hibernation_frames
+                        };
+                        geyser.timer = geyser.timer.saturating_sub(hibernation_frames);
                     } else {
                         geyser.current_height = geyser
                             .current_height
