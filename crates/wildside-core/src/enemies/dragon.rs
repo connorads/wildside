@@ -184,14 +184,12 @@ pub(crate) fn dragon_descent_collision_outcome_loc_348fc(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonDescentDbfTailLoc34924 {
     pub(crate) next_d2: u16,
     pub(crate) loops_to_loc_348fc: bool,
     pub(crate) advances_descent_script: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_descent_dbf_tail_loc_34924(
     d2_before_dbf: u16,
 ) -> DragonDescentDbfTailLoc34924 {
@@ -1689,8 +1687,15 @@ fn step_dragon_descent(
                 // ASM Dragon_Flying.asm loc_34924 advances the descent script
                 // only after the DBF counter underflows to `$FFFF`; native uses
                 // a direct remaining-frame count for the same hibernated loop.
-                enemy.dragon_descent_frames -= 1;
-                if enemy.dragon_descent_frames == 0 {
+                let descent_tail =
+                    dragon_descent_dbf_tail_loc_34924(u16::from(enemy.dragon_descent_frames - 1));
+                enemy.dragon_descent_frames = if descent_tail.loops_to_loc_348fc {
+                    u8::try_from(descent_tail.next_d2.wrapping_add(1))
+                        .expect("ASM Dragon_Flying.asm loc_34924 descent counter stays byte-sized")
+                } else {
+                    0
+                };
+                if descent_tail.advances_descent_script {
                     enemy.dragon_descent_index += 1;
                 }
                 return; // Consume one frame.
