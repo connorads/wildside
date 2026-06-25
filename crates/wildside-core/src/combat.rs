@@ -9880,6 +9880,15 @@ impl NativeRuntime {
         } else {
             None
         };
+        let cloud_status_route = if matches!(family, EnemyFamily::Cloud) {
+            let death_sequence = cloud_death_sequence_loc_35C0E(layout_index as u8);
+            debug_assert_eq!(death_sequence.x_velocity, 0);
+            debug_assert_eq!(death_sequence.animation_script, "stru_35EBA");
+            debug_assert!(death_sequence.delete_tail.deletes_current_object);
+            Some(death_sequence.status_route)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -9941,6 +9950,9 @@ impl NativeRuntime {
         }
         if let Some(status_route) = archer_status_route {
             self.apply_archer_death_status_route_loc_3414A(status_route);
+        }
+        if let Some(status_route) = cloud_status_route {
+            self.apply_cloud_death_status_route_loc_35C0E(status_route);
         }
         // ASM Lion.asm loc_3E956 (shared by Dragon.asm loc_3CEFC and other
         // death-animation tails) updates EnemyStatus_Table and deletes the
@@ -10100,6 +10112,30 @@ impl NativeRuntime {
                 }
             }
             ArcherDeathStatusRouteLoc3414A::DeleteOnly => {}
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn apply_cloud_death_status_route_loc_35C0E(
+        &mut self,
+        status_route: CloudDeathStatusRouteLoc35C0E,
+    ) {
+        match status_route {
+            CloudDeathStatusRouteLoc35C0E::WriteRespawnMarker(marker) => {
+                if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                    // ASM Cloud.asm loc_35C42: positive `$42(a5)` writes
+                    // `$2168` before loc_35C50 deletes the current object.
+                    *word = marker.word_value;
+                }
+            }
+            CloudDeathStatusRouteLoc35C0E::SubtractSpawnCounter { index, decrement } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    // ASM Cloud.asm loc_35C0E: bit-7+bit-6 `$42(a5)`
+                    // masks the low six bits and subtracts `$400`.
+                    *word = word.wrapping_sub(decrement);
+                }
+            }
+            CloudDeathStatusRouteLoc35C0E::DeleteOnly => {}
         }
     }
 

@@ -397,7 +397,6 @@ pub(crate) fn cloud_attack_projectile_delete_tail_loc_35E9C()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudDeathSequenceLoc35C0E {
     pub(crate) x_velocity: i32,
     pub(crate) animation_script: &'static str,
@@ -406,14 +405,12 @@ pub(crate) struct CloudDeathSequenceLoc35C0E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudRespawnMarkerLoc35C42 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CloudDeathStatusRouteLoc35C0E {
     WriteRespawnMarker(CloudRespawnMarkerLoc35C42),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -421,13 +418,11 @@ pub(crate) enum CloudDeathStatusRouteLoc35C0E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudDeleteTailLoc35C50 {
     pub(crate) deletes_current_object: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_delete_tail_loc_35C50() -> CloudDeleteTailLoc35C50 {
     // ASM Cloud.asm loc_35C50: every death-status route converges on
     // `jmp (j_Delete_CurrentObject).w`.
@@ -437,7 +432,6 @@ pub(crate) fn cloud_delete_tail_loc_35C50() -> CloudDeleteTailLoc35C50 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_respawn_marker_loc_35C42(object_status_slot: u8) -> CloudRespawnMarkerLoc35C42 {
     // ASM Cloud.asm loc_35C42: positive `$42(a5)` is doubled as an
     // EnemyStatus_Table word offset, then `$2168` is written as the respawn marker.
@@ -448,7 +442,6 @@ pub(crate) fn cloud_respawn_marker_loc_35C42(object_status_slot: u8) -> CloudRes
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_death_sequence_loc_35C0E(object_status_slot: u8) -> CloudDeathSequenceLoc35C0E {
     // ASM Cloud.asm loc_35C0E: clear `x_vel(a3)`, run `stru_35EBA` to
     // completion, apply the `$42(a5)` status route, then delete the object.
