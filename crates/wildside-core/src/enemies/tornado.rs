@@ -92,7 +92,6 @@ pub(crate) fn tornado_collision_dispatch_loc_35948(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TornadoHitStatusRouteLoc359B2 {
     WriteRespawnMarker(TornadoRespawnMarkerLoc359E0),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -100,13 +99,11 @@ pub(crate) enum TornadoHitStatusRouteLoc359B2 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TornadoRespawnMarkerLoc359E0 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tornado_respawn_marker_loc_359e0(
     object_status_slot: u8,
 ) -> TornadoRespawnMarkerLoc359E0 {
@@ -119,12 +116,10 @@ pub(crate) fn tornado_respawn_marker_loc_359e0(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TornadoDeleteTailLoc359EE {
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tornado_delete_tail_loc_359ee() -> TornadoDeleteTailLoc359EE {
     // ASM Tornado.asm loc_359EE: all status-table branches finish by jumping to
     // `j_Delete_CurrentObject`.
@@ -134,14 +129,12 @@ pub(crate) fn tornado_delete_tail_loc_359ee() -> TornadoDeleteTailLoc359EE {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TornadoHitSequenceLoc359B2 {
     pub(crate) waits_for_hit_animation: bool,
     pub(crate) status_route: TornadoHitStatusRouteLoc359B2,
     pub(crate) delete_tail: TornadoDeleteTailLoc359EE,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tornado_hit_sequence_loc_359b2(object_status_slot: u8) -> TornadoHitSequenceLoc359B2 {
     // ASM Tornado.asm loc_359B2: play `stru_35B1E`, hibernate until it
     // finishes, then inspect `$42(a5)` to choose the status-table update.

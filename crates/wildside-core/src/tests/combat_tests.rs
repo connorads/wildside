@@ -18566,6 +18566,10 @@ mod chunk_03 {
             runtime.active_enemies[0].wait_timer,
             TORNADO_DEATH_ANIMATION_FRAMES
         );
+        assert_eq!(
+            runtime.enemy_status_words[29], 0,
+            "ASM Tornado.asm loc_359B2 should not write the status marker until `stru_35B1E` finishes"
+        );
         assert!(!runtime.killed_enemies.contains(&killed_identity));
 
         runtime.active_enemies[0].wait_timer = 0;
@@ -18573,6 +18577,10 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[29], 0x2168,
+            "ASM Tornado.asm loc_359E0 writes `$2168` into EnemyStatus_Table after the hit animation finishes"
+        );
     }
 
     #[test]

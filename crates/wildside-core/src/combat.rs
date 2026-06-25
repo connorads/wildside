@@ -9627,6 +9627,11 @@ impl NativeRuntime {
         if let Some(death_animation_frames) = enemy_death_animation_frames(family)
             && enemy.hit_points != 0
         {
+            let tornado_hit_sequence = if matches!(family, EnemyFamily::Tornado) {
+                Some(tornado_hit_sequence_loc_359b2(layout_index as u8))
+            } else {
+                None
+            };
             let boss_head_death_transition = if is_multi_head_boss(family) {
                 let transition =
                     boss_head_death_transition_loc_39ebe(self.multi_head_boss_death_count_fb4e);
@@ -9721,6 +9726,12 @@ impl NativeRuntime {
                     y_pos.wrapping_sub(0x0010_0000),
                 );
             }
+            let death_animation_frames =
+                tornado_hit_sequence.map_or(death_animation_frames, |hit_sequence| {
+                    debug_assert!(hit_sequence.waits_for_hit_animation);
+                    debug_assert!(hit_sequence.delete_tail.deletes_current_object);
+                    TORNADO_DEATH_ANIMATION_FRAMES
+                });
             let enemy = &mut self.active_enemies[idx];
             enemy.hit_points = 0;
             enemy.death_animation_active = true;
@@ -9748,6 +9759,13 @@ impl NativeRuntime {
         } else {
             None
         };
+        let tornado_status_route = if matches!(family, EnemyFamily::Tornado) {
+            let hit_sequence = tornado_hit_sequence_loc_359b2(layout_index as u8);
+            debug_assert!(hit_sequence.delete_tail.deletes_current_object);
+            Some(hit_sequence.status_route)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -9768,6 +9786,9 @@ impl NativeRuntime {
                 // positive `$42(a5)` writes `$2168` before loc_3639A deletes.
                 *word = marker.word_value;
             }
+        }
+        if let Some(status_route) = tornado_status_route {
+            self.apply_tornado_hit_status_route_loc_359b2(status_route);
         }
         if matches!(family, EnemyFamily::SpinningTwins)
             && matches!(spinning_twins_phase, SpinningTwinsPhase::Walking)
@@ -9921,6 +9942,26 @@ impl NativeRuntime {
                 }
             }
             SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly => {}
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn apply_tornado_hit_status_route_loc_359b2(
+        &mut self,
+        status_route: TornadoHitStatusRouteLoc359B2,
+    ) {
+        match status_route {
+            TornadoHitStatusRouteLoc359B2::WriteRespawnMarker(marker) => {
+                if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                    *word = marker.word_value;
+                }
+            }
+            TornadoHitStatusRouteLoc359B2::SubtractSpawnCounter { index, decrement } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    *word = word.wrapping_sub(decrement);
+                }
+            }
+            TornadoHitStatusRouteLoc359B2::DeleteOnly => {}
         }
     }
 
