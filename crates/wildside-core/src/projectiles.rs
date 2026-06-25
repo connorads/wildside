@@ -2369,7 +2369,8 @@ impl NativeRuntime {
                     && enemy.layout_index == owner.layout_index
                     && enemy.ufo_beam_interval == owner.token
             }) {
-                enemy.ufo_beam_segments = enemy.ufo_beam_segments.saturating_sub(1);
+                enemy.ufo_beam_segments =
+                    lion_projectile_release_count_after_camera_cull(enemy.ufo_beam_segments);
             }
         }
     }
@@ -3306,19 +3307,21 @@ impl NativeRuntime {
             if let (Some(owner), Some(camera)) = (p.owner, camera)
                 && p.kind != EnemyProjectileKind::DripsDrop
             {
-                if p.kind == EnemyProjectileKind::LionProjectile
-                    && !active_lion_projectile_owners.contains(&owner)
-                {
-                    // ASM Lion.asm sub_3E2CE: `cmp.b $71(a0),d6;
-                    // bne.s loc_3E314` deletes on owner-token mismatch
-                    // without reaching loc_3E30E's `$5B` decrement.
-                    return false;
-                }
                 let screen_x = ((p.x_pos >> 16) as i32) - ((camera.x_pos >> 16) as i32);
                 let screen_y = ((p.y_pos >> 16) as i32) - ((camera.y_pos >> 16) as i32);
                 let in_camera_box =
                     (-0x40..=0x180).contains(&screen_x) && (-0x40..=0x120).contains(&screen_y);
-                if !in_camera_box {
+                if p.kind == EnemyProjectileKind::LionProjectile {
+                    let owner_token_matches = active_lion_projectile_owners.contains(&owner);
+                    match lion_projectile_cull_route_sub_3e2ce(owner_token_matches, in_camera_box) {
+                        LionProjectileCullRouteSub3E2CE::KeepAlive => {}
+                        LionProjectileCullRouteSub3E2CE::DeleteWithoutRelease => return false,
+                        LionProjectileCullRouteSub3E2CE::DeleteAndRelease => {
+                            released_owners.push(owner);
+                            return false;
+                        }
+                    }
+                } else if !in_camera_box {
                     released_owners.push(owner);
                     return false;
                 }
@@ -3540,7 +3543,7 @@ impl NativeRuntime {
     }
 
     /// Check if any projectile overlaps the player hitbox, returning true if hit.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn projectile_hits_player(&mut self, slice: &OpeningSliceState) -> bool {
         matches!(
             self.projectile_player_contact_loc_b640(slice, false),
@@ -3864,31 +3867,31 @@ fn lion_projectile_bounce_iterations_continue_loc_3e2c0(remaining_bounces: &mut 
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) enum LionProjectileOutOfRangeLoc3E314 {
+pub(crate) enum LionProjectileCullRouteSub3E2CE {
     KeepAlive,
-    Delete,
+    DeleteWithoutRelease,
+    DeleteAndRelease,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn lion_projectile_owner_token_mismatch_loc_3e30e(active_projectile_count: u8) -> u8 {
-    // ASM Lion.asm loc_3E30E: when `$71(a5)` does not match `$71(a0)`,
-    // decrement the owner's active-projecile counter (`$5B(a0)`) with byte wrap.
+pub(crate) fn lion_projectile_release_count_after_camera_cull(active_projectile_count: u8) -> u8 {
+    // ASM Lion.asm loc_3E30E: after owner-token match, out-of-camera deletion
+    // decrements the owner's active-projectile counter (`$5B(a0)`) as a byte.
     active_projectile_count.wrapping_sub(1)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn lion_projectile_screen_range_delete_loc_3e314(
+pub(crate) fn lion_projectile_cull_route_sub_3e2ce(
     owner_token_matches: bool,
     in_camera_box: bool,
-) -> LionProjectileOutOfRangeLoc3E314 {
-    // ASM Lion.asm loc_3E314: this path is reached after owner-match plus
-    // the `sub_3E2CE` camera-box test. If outside bounds, delete the
-    // projectile.
-    if owner_token_matches && !in_camera_box {
-        LionProjectileOutOfRangeLoc3E314::Delete
+) -> LionProjectileCullRouteSub3E2CE {
+    // ASM Lion.asm sub_3E2CE: token mismatch jumps straight to loc_3E314
+    // delete. Only an owner-matched projectile outside the camera box reaches
+    // loc_3E30E's `$5B(a0)` decrement before deletion.
+    if !owner_token_matches {
+        LionProjectileCullRouteSub3E2CE::DeleteWithoutRelease
+    } else if !in_camera_box {
+        LionProjectileCullRouteSub3E2CE::DeleteAndRelease
     } else {
-        LionProjectileOutOfRangeLoc3E314::KeepAlive
+        LionProjectileCullRouteSub3E2CE::KeepAlive
     }
 }
 
@@ -4624,33 +4627,33 @@ mod loc_3e266_tests {
     #[test]
     fn loc_3e30e_decrements_owner_projectile_count_with_wrap() {
         assert_eq!(
-            super::lion_projectile_owner_token_mismatch_loc_3e30e(4),
+            super::lion_projectile_release_count_after_camera_cull(4),
             3,
-            "ASM Lion.asm loc_3E30E should reduce a live owner count by one"
+            "ASM Lion.asm loc_3E30E should reduce an owner-matched off-screen count by one"
         );
         assert_eq!(
-            super::lion_projectile_owner_token_mismatch_loc_3e30e(0),
+            super::lion_projectile_release_count_after_camera_cull(0),
             255,
             "ASM Lion.asm loc_3E30E is byte arithmetic and wraps on underflow"
         );
     }
 
     #[test]
-    fn loc_3e314_deletes_when_owner_token_matches_and_projectile_is_offscreen() {
+    fn sub_3e2ce_routes_token_and_camera_box_deletes() {
         assert_eq!(
-            super::lion_projectile_screen_range_delete_loc_3e314(true, false),
-            super::LionProjectileOutOfRangeLoc3E314::Delete,
-            "ASM Lion.asm loc_3E314 should delete only when owner matches and the object exits the camera box"
+            super::lion_projectile_cull_route_sub_3e2ce(true, false),
+            super::LionProjectileCullRouteSub3E2CE::DeleteAndRelease,
+            "ASM Lion.asm loc_3E30E should release the owner count before deleting owner-matched off-screen shots"
         );
         assert_eq!(
-            super::lion_projectile_screen_range_delete_loc_3e314(true, true),
-            super::LionProjectileOutOfRangeLoc3E314::KeepAlive,
+            super::lion_projectile_cull_route_sub_3e2ce(true, true),
+            super::LionProjectileCullRouteSub3E2CE::KeepAlive,
             "in-range owner-matched projectiles should stay alive"
         );
         assert_eq!(
-            super::lion_projectile_screen_range_delete_loc_3e314(false, false),
-            super::LionProjectileOutOfRangeLoc3E314::KeepAlive,
-            "owner mismatch routes through loc_3E30E first, not loc_3E314"
+            super::lion_projectile_cull_route_sub_3e2ce(false, false),
+            super::LionProjectileCullRouteSub3E2CE::DeleteWithoutRelease,
+            "ASM Lion.asm sub_3E2CE branches token mismatch straight to loc_3E314 without loc_3E30E's release decrement"
         );
     }
 }
