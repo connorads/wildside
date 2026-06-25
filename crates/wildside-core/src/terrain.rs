@@ -303,7 +303,7 @@ pub(crate) fn kid_block_interaction_probe_sub_BBE2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn juggernaut_wall_scan_sub_96E8(
     grid: &BlockGrid,
     x_px: i32,
@@ -499,7 +499,7 @@ pub(crate) fn blank_top_rows_from_height_flag_bits_sub_140F6(height_flag_bits: u
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn insert_blank_top_rows_sub_140F6(
     level_layout: &[u8],
     width_blocks: u16,
@@ -538,7 +538,7 @@ pub(crate) fn insert_blank_top_rows_sub_140F6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn insert_blank_top_rows_terrain_bytes_loc_141AA(
     terrain_layout: &[u8],
     width_blocks: u16,
@@ -724,7 +724,7 @@ pub(crate) struct HiddenBlockRevealSubE3C6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) struct HiddenBlockPrizeRevealScanStartLocE3E4 {
     pub(crate) target_layout_addr: u16,
     pub(crate) preincrement_cursor_addr: u32,
@@ -1051,7 +1051,7 @@ impl BlockList {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn hidden_block_search_initial_stride_bytes_loc_E386(
         hidden_block_count: u16,
     ) -> u16 {
@@ -1105,7 +1105,7 @@ impl BlockList {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn hidden_block_prize_reveal_scan_start_loc_E3E4(
         prize_block_list_base_addr: u32,
         entry: &HiddenBlockEntry,
