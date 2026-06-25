@@ -10842,7 +10842,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 282 | [x] | P3 | infra/debug | Level-skip (Next) should show the level intro/name card so the level name is visible for debugging | archived |
 | 285 | [x] | P2 | render/enemy | 2026-06-10 playtest: DripsSurfaceCrawler renders as a tiny blob instead of the proper floor-slime crawl animation | Fixed 2026-06-10: native now distinguishes ASM `Drips.asm loc_338F8`'s spawned `Tar_Monster.asm loc_325B6` helper from the original crawler's `loc_3392C` finish shell. The helper still renders the Tar `$0C1` fragment, while the crawler finish renders Drips `stru_33F06` (`$0C5/$0C9/$0D2`) and the existing startup/moving crawler render paths remain `stru_33FA6`/`stru_33F14`. Verified with focused core lifecycle tests, renderer regression, `cargo fmt --check`, and `cargo check -q -p wildside-cli`. |
 | 328 | [-] | P3 | helmet/physics | NOT A BUG (ORIGINAL_QUIRK): Cyclone helmet "flies straight up / no tornado spin / too powerful" matches the ROM — flight (sub_B168 loc_B214) mutates only y_vel, the tornado spin is sprite animation only (sub_B270 loc_B2A0, no x_vel), and there is no altitude/fuel/duration cap, only a 3px/frame rise clamp (loc_B25E). Native (helmets.rs:5354-5459, constants.rs:774-786) matches the ROM literals. | One cheap human check: confirm Kid does NOT keep rising on a single HELD C (ROM is rising-edge `bclr`; native uses input.c && !prev.c). If held-C keeps rising that IS a divergence -> reopen; otherwise stays [-]. Mark native with // ORIGINAL_QUIRK. See #328 archive. |
-| 336 | [-] | P1 | level/entry | NOT A BUG (ORIGINAL_QUIRK): BLW1 cold-boot title-card Start handoff ramp matches the ROM; camera Y falls 216→115 while Kid Y settles 255→271, producing the reported treetop-to-floor presentation. | `verify-tas` on `.cache/debug/issue336-cold-boot-live/scenario-card-start.json` is CRC/checkpoint-clean for frames 880..1040; direct `oracle-probe` watches `Camera_Y_pos`, `Addr_GfxObject_Kid`, and Kid x/y match native's `loc_1AE2E -> loc_6E2 -> Load_InGame` tables. Reopen only with native-vs-oracle divergence; input latency remains #348. |
+| 336 | [-] | P1 | level/entry | SUPERSEDED 2026-06-25 — REOPENED `[ ]` in backlog.md (human cross-emulator dispute; see "## 2026-06-25 playtest triage"). Historical verdict was NOT A BUG (ORIGINAL_QUIRK): BLW1 cold-boot title-card Start handoff ramp matches the ROM; camera Y falls 216→115 while Kid Y settles 255→271, producing the reported treetop-to-floor presentation. | `verify-tas` on `.cache/debug/issue336-cold-boot-live/scenario-card-start.json` is CRC/checkpoint-clean for frames 880..1040; direct `oracle-probe` watches `Camera_Y_pos`, `Addr_GfxObject_Kid`, and Kid x/y match native's `loc_1AE2E -> loc_6E2 -> Load_InGame` tables. Reopen only with native-vs-oracle divergence; input latency remains #348. |
 | 340 | [-] | P3 | audio | NOT-A-BUG 2026-06-19: `sfx_Voice_diamond` ($62) is an ORPHAN ROM asset — defined at constants.asm:45 but with ZERO trigger sites anywhere in the disassembly. The ROM plays only `sfx_Diamond_prize` ($2D) on diamond collect (kid.asm:21103/22184), which native already queues (`DiamondPrize`→0x2D, combat.rs:9635). Native is faithful; there is nothing to wire | n/a — closed NOT-A-BUG. See archive #340 |
 
 
@@ -11369,3 +11369,152 @@ new row — verify it on the next playtest.
   verify next playtest. Soft note under #322: USM3 LOADS without crashing on this run, but the
   actual #322 repro (shoot a flying dragon with the axe form) was not exercised — #322 stays
   `[?]`.
+
+
+## 2026-06-25 playtest triage
+
+Source: human voice playtest, build = last pushed commit `253e98961` (origin/main, "wire Driller
+collision dispatch (#32)", 2026-06-25), which **contains all the 2026-06-23 fixed candidates**. 17 distinct observations parsed and
+cross-referenced against the lanes + ASM + code by a fan-out research pass. Build identity is the
+key fact: because the candidates were in the build, the ones still broken **failed validation**.
+
+### Build-confirmed fixed-candidate FAILURES (reopened `[?]`→`[ ]` into the open queue)
+
+- **#210 / #254 (intro skip).** Skipping the intro still shows black/garbled graphics instead of
+  the title / Red-Stealth pose. The 2026-06-23 candidates (`5fc130013` carry VDP across skips,
+  `a9620dc14`/`77929c6b4`/`4624f6434` direct-title workers) FAILED. Known anti-pattern risk
+  recorded earlier: the fix tends to latch onto specific probe-frame constants
+  (`INTRO_SEQUENCE_6_FAST_RESTORE_CARRY_LAST_READY_FRAME=2510`, tests pinned to Start at
+  2400/2450/2500), so a live Start at an unprobed frame still garbles. Next step is engine-level:
+  carry the last composited VDP to Game_Mode `$2C` on ANY intro Start-skip frame (ASM `sub_1C246`
+  kid.asm:31119 jumps straight to `$2C`/`loc_6E2`/`Load_TitleScreen`), no frame constants. Do NOT
+  retune CRAM/d2 for the title fade (rejected: d2=8/d2=6 reveal countdowns clipped the title word,
+  AE ~8k). Capturing roughly when Start was pressed would sharpen the repro.
+
+- **#324 (prize block "witch" sprite).** A prize/P block still shows a wrong/garbled sprite during
+  the wobble. The 2026-06-23 candidate `1568e7199` (reuse copied prize wobble slots) FAILED, same
+  as the 2026-06-18 terrain-suppression candidate before it. Root cause stands: the wobble sprite
+  (ASM `sub_1007A`, kid.asm:21345, copied block art) has transparent slots and native leaks
+  foreground tree/wood terrain through them. Next step needs an oracle-comparable BLW1 forest
+  prize-wobble frame-diff (the direct row-1 oracle capture is invalid — patched-camera stale VDP
+  columns). Do NOT blind-revert the `scene.rs:3795-3810` terrain-suppression guards (they were
+  tuned for the closed #289 hell-theme residual and pull the opposite way).
+
+- **#335 (Hills of the Warrior 1 instant death, P0).** Reconfirmed via **level-skip** to Hills
+  0x08 (NOT natural completion): Kid instant-dies on entry unless Start is tapped immediately to
+  dismiss the title card. The 2026-06-22 candidate `c127396cd` refreshed the murder-wall runtime
+  on the natural `loc_1AE2E -> loc_6E2 -> Load_InGame` handoff but did not stop the skip-entry
+  pre-age. Leading hypothesis: the murder wall must not age/advance while the entry title card is
+  up (cross-ref #266 skip-tail pre-aging ~101 ticks; `init_murder_wall` keeps `previous_fraction`,
+  weather.rs:3576-3602). DEAD ENDS (do not retry): crush RESPONSE `sub_5E02`/`Crushed_to_Death` is
+  correct (#294); `--warp-level 8` is CLEAN (bypasses the title-card handoff, does NOT reproduce);
+  `--record` rejects N/P/R debug skips. Build a headless title-card-then-live Hills repro.
+
+- **#339 (Under-Skull-Mountain load drone, P1 audio).** The looping "washing"/rumble drone
+  (RockTank `$1F` drive seq) still plays on the USM load. The 2026-06-23 candidate (`StopMusic` on
+  incoming `Load_InGame loc_23629` even when the BGM cue tracker is `None`) was placed at level
+  entry but the drone leaks via paths the entry reset does not cover: Kid death (DeathWindup
+  early-return), respawn bulk-clear (`reset_current_level_runtime_state_for_respawn`), and
+  debug-skip (stale `active_bgm_cue`). Next step: extend the per-exit drone stop
+  (`stop_rock_tank_drive_sound_on_last_exit_loc_3c46e`) into those teardown paths; verify via the
+  audio-events transcript. CAVEAT (same as #264): UNVERIFIED in-engine whether `StopSequence($1F)`
+  audibly HALTS vs RESTARTS the GEMS loop — real-device listen still required to close.
+
+### #336 reopened `[-]`→`[ ]` (human overrides the oracle with cross-emulator evidence)
+
+The human played the original on **two emulators** and reports BLW1 does NOT show Kid floating in
+the sky; it "fades from black and scrolls up from the ground." Kid does drop to the floor within
+~1s in native (matches the prior "float then settle" presentation), so the dispute is about WHAT
+IS VISIBLE during the camera ramp, not the camera/Kid-Y values. The 2026-06-23 closure proved only
+camera/Kid-Y WRAM parity (`oracle-probe` of `Camera_Y_pos`/`Addr_GfxObject_Kid`) — it NEVER tested
+the **palette fade-in (`Pal_FadeIn`) timing relative to the camera ramp**. Hypothesis: native
+completes the fade-in earlier than the ROM, so the player SEES Kid mid-sky during frames the ROM
+keeps black/dark while the camera scrolls down to ground. This is a NEW, untested dimension that
+the WRAM probe did not cover, so the reopen is methodology-clean (not "trust the human over the
+oracle" — the fade dimension is itself oracle-probeable via CRAM/palette dumps). P3: brief
+visual-confusion, not game-breaking. DO NOT edit the `LEVEL_ONE_LOAD_INGAME_*_RAMP_Y` tables (the
+camera/Kid-Y values are oracle-faithful per `c65df2500`); investigate the fade timing instead.
+
+### New rows opened
+
+- **#357 (Lion one-stomp death as base Kid, P1 enemy).** Human stomped the Lion as **plain base
+  Kid** and it died instantly "and/or definitely disappeared." ASM Lion HP = enemy_level+6 (min 6,
+  Lion.asm:27/variables.asm:242); a `colid_kidabove` stomp only decrements `$44` by 1
+  (`loc_3E32C`), dying solely at HP 0; instant death needs a signed-negative collision (special
+  power, `loc_3E318 bmi`). So a base-Kid one-stomp kill is WRONG — likely a live-wiring gap (the
+  stomp not delivered as a kidabove pending collision into `apply_pending_enemy_collisions`,
+  combat.rs:8398, so the #315-wired HP-decrement never fires). The "disappeared" half overlaps
+  #345. Probe: base-Kid stomp on a full-HP Lion should need ~6 hits with flashing between each.
+  Cross-ref #186 (`[?]` Lion fidelity umbrella), #315, #345. NOT #239 (faithful ledge-fall cull).
+
+- **#358 (Cloud lightning renders as a red dot, P2 render/enemy).** Lightning clouds fire plain
+  red dots. Gameplay/lifetime is correct (#198 made `CloudLightning` collision-bound; the ~4-shot
+  count is also correct), but the renderer has no sprite arm for it, so it falls through to
+  `ActiveProjectileKind::Generic` and draws a 4x4 `ENEMY_PROJECTILE_COLOUR [255,80,40]` rect. ROM
+  truth: `Cloud.asm loc_35DF0` renders bolt sprite art (`LnkTo_unk_C786E`/`C7866`/`C7876`, palette
+  line 2, vram_tile `$409`). Fix = the same 3-file pattern already done for Tank/Tar/Lion bullets:
+  add the variant (types.rs:75), the trace.rs mapping arm (active_projectile_kind, ~line 78/160),
+  and a scene.rs draw arm reading the Cloud tile sheet. capture-frames diff on a lightning-cloud
+  level to close.
+
+- **#359 (Cyclone-level Sphere missing at spawn, P2 enemy/level).** On the Cyclone-form sky level
+  the bouncing ball (Sphere, Enemy06/0x06) that normally sits at the spawn point is absent
+  (Cyclone spin render itself works — the #355 positive). Untracked before now. Suspects: the
+  level was likely reached via level-skip, which can mis-resolve the enemy roster
+  (`merge_level_catalogues`, #334), OR the Sphere fails the `Manage_EnemyLoading` activation window
+  (`constants.rs:560-564`) at entry, OR it legitimately spawns just off-screen (player may
+  misremember). Needs the exact level id + entry path (skip vs natural) before coding. Do NOT
+  remap `merge_level_catalogues` wholesale (#334 dead end).
+
+### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro coordinates logged)
+
+- **#271 (stomp hurts, P0).** Human reconfirms jumping on a Rock Tank HURTS at the **Level-2 tank
+  by the teleporter** and the **Level-3 first tank** ("hurts most of the time"). Standing verdict:
+  largely ORIGINAL behaviour — stomp registers only on the first airborne (`MoveID_Jump`) overlap
+  frame (`loc_1CE4` + `$FFFFFA74` latch); sustained/bounce/side contact = damaging kidbelow `$28`.
+  Still route-blocked: never proven on a live L2/L3 tank, only synthetic jugg/Dragon probes. The
+  named tanks are the exact recordable targets needed. NOTE the #259 floor-sink may feed this:
+  a half-buried tank makes the player aim at the body side, not the head — faithful side damage.
+
+- **#259 (Rock Tanks in the floor, P1).** Same tanks: Level-2 has two (the teleporter one most
+  obvious), Level-3 first tank also embedded. Leading verdict: faithful z-priority — low-priority
+  tank sprite (`Tank.asm` priority `#0`, line 49) drawn behind high-priority foreground grass,
+  body Y is layout-driven and oracle-matched on clean routes. Route-blocked after 5th reconfirm;
+  do NOT 6th-cycle or retune Tank Y/priority from direct-camera/stale routes. A side-by-side vs a
+  real emulator at the named tanks would settle z-priority-vs-real-Y.
+
+- **#249 / #270 (slope-into-wall upward float, P1).** Human confirms walking into an angled slope
+  clips Kid into the wall and floats him up into the level, on **BOTH left and right slopes**,
+  "only on slopes." This is significant: #249/#270 were blocked precisely because the launch was
+  "not reproduced on current main" — it is now human-confirmed live on HEAD. Root cause stands
+  (native integrates Y per-axis: `y_vel=-x_vel` for SlopeUp applied before the X step + wall
+  collision, movement.rs:3436-3446, while the wall snap is suppressed during grounded slope walk
+  at movement.rs:6256; ASM `loc_9F18` re-derives Y purely from X and STOPS at a Solid tile,
+  `loc_9FBC`). ASM-faithful fix direction is written (port the centre-tile Solid destination read
+  into the native slope path) but uncommitted — needs the EXACT level/slope name to record a
+  natural oracle route. DEAD ENDS: the 4055 wall_hit guard (no-op, wall_hit always false on a
+  grounded slope), the clean 0x04 USM1 held-Right/no-jump route (does NOT reproduce). Get the
+  level name next.
+
+- **#345 (Lion vanish, P1).** The "disappeared" half of the Lion observation: base Kid, normal
+  play, Lion vanishes. Previously blocked as "not reproduced in settled probes"; now
+  human-reconfirmed live. Still needs an exact route/frame reaching live respawn with the Lion
+  missing in native. Do NOT patch the `large_pacer` cull until the absence is reproduced.
+
+### Confirmed CORRECT (not bugs) and positives
+
+- Storm-Mtn overhead "head guy" = EmoRock (0x1B): `Emo_Rock.asm loc_3621A` copies Kid X and sets
+  y_pos = Kid_Y − hover_height each frame, dropping to crush only on `loc_3639E` clearance. No
+  projectile in the ASM, so "doesn't shoot" is faithful. Only the #333 render approximation
+  (unextracted hover frames stru_3647E) stays open.
+- Lightning clouds firing ~4 shots: count/timing correct; only the sprite is wrong (#358).
+- Skull-Mountain "tank with green bullets / garbled sprite": NOT a tank (USM has zero Tank
+  objects) — it is the Maniaxe player form's axe, tracked/fixed under #323 (`8e26d67c5`, awaiting
+  validation). Green = `FRIENDLY_PROJECTILE_COLOUR`; a hostile bullet is `[255,80,40]` by
+  construction. Folded into #323's pending validation, not reopened here.
+- "Blue blobby guys improved a lot" = the #243 Tar-Monster render fix landing (positive). Residual
+  snap = unextracted emerge/submerge intermediate frames (cosmetic, known limit).
+- Hand grab+slow "works" = #185 gameplay; the residual flashing is the deliberately-out-of-scope
+  Hand render free-run follow-up from #243/#333 (no dedicated row — flagged for a future render
+  pass that adds a `select_live_hand_frame` selector).
+- POSITIVES: continues load properly; level 2 clean; Cyclone spin renders (#355).

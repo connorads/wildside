@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-25 handoff (human playtest triage)
+
+- **17-observation voice playtest triaged** against the lanes + ASM + code (fan-out research
+  pass). Build = last pushed commit `253e98961` (origin/main), so it CONTAINED the
+  2026-06-23 fixed candidates — the ones still broken therefore FAILED validation.
+- **4 fixed-candidates reopened `[?]`→`[ ]`:** #210/#254 (intro skip still garbles — next step is
+  an engine-level VDP carry on ANY skip frame, no frame constants), #324 (prize-block wrong
+  sprite), #335 (Hills 0x08 skip-entry instant death — freeze the murder wall during the entry
+  title card), #339 (USM load drone — extend the `$1F` stop to death/respawn/skip teardown).
+- **#336 reopened `[-]`→`[ ]` (P3).** Human cross-emulator evidence disputes the sky-float
+  NOT-A-BUG; the prior closure proved camera/Kid-Y WRAM only, never the palette fade-in timing.
+- **3 new rows:** #357 (Lion one-stomp death as base Kid — likely a live HP-decrement wiring gap),
+  #358 (Cloud lightning renders as a red dot not the bolt sprite — 3-file render fix), #359
+  (Cyclone-level Sphere missing at spawn).
+- **Route-blocked reconfirmed LIVE on HEAD (stay `[b]`):** #271 + #259 (stomp-hurts + floor-sink at
+  the L2 teleporter tank and L3 first tank), #249/#270 (slope-into-wall float, now confirmed on
+  BOTH left/right slopes — was "not reproduced on main"; need the exact level), #345 (Lion vanish).
+- **Confirmed correct:** Storm-Mtn "head guy" = EmoRock hover-track (no projectile). Positives:
+  continues load, level 2 clean, Cyclone spin (#355), Tar/blob render (#243), Hand grab (#185).
+- NEXT: `mise run project-status` now lists the 9 reopened/new open rows priority-ordered; #210
+  and #335 (P0) lead. Several route-blocked P0/P1s are unblockable only by a human recording at the
+  named tanks/slopes — surface that when picking work.
+
 ## 2026-06-25 handoff (proactive Tank mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
