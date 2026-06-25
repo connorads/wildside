@@ -200,14 +200,12 @@ pub(crate) fn hand_kid_contact_gate_loc_32a86(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandRespawnMarkerLoc32AD8 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_respawn_marker_loc_32ad8(object_status_slot: u8) -> HandRespawnMarkerLoc32AD8 {
     // ASM Hand.asm loc_32AD8: positive `$42(a5)` bytes are doubled as
     // EnemyStatus_Table word offsets, then `$2168` is written as the
@@ -219,7 +217,6 @@ pub(crate) fn hand_respawn_marker_loc_32ad8(object_status_slot: u8) -> HandRespa
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum HandDeathStatusRouteLoc32AA2 {
     WriteRespawnMarker(HandRespawnMarkerLoc32AD8),
     SubtractSpawnCounter { index: usize, decrement: u16 },
@@ -227,13 +224,11 @@ pub(crate) enum HandDeathStatusRouteLoc32AA2 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandDeleteTailLoc32AE6 {
     pub(crate) deletes_current_object: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_delete_tail_loc_32ae6() -> HandDeleteTailLoc32AE6 {
     // ASM Hand.asm loc_32AE6: every death-status route converges on a direct
     // jump to `j_Delete_CurrentObject`.
@@ -297,7 +292,6 @@ pub(crate) fn hand_terrain_scan_loc_32afe(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandDeathSequenceLoc32AA2 {
     pub(crate) has_kid_collision: bool,
     pub(crate) is_moved: bool,
@@ -308,7 +302,6 @@ pub(crate) struct HandDeathSequenceLoc32AA2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_death_sequence_loc_32aa2(object_status_slot: u8) -> HandDeathSequenceLoc32AA2 {
     // ASM Hand.asm loc_32AA2: death starts by enabling Kid collision,
     // stopping movement, playing `stru_32B78` to completion, then routing

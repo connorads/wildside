@@ -9889,6 +9889,17 @@ impl NativeRuntime {
         } else {
             None
         };
+        let hand_status_route = if matches!(family, EnemyFamily::Hand) {
+            let death_sequence = hand_death_sequence_loc_32aa2(layout_index as u8);
+            debug_assert!(death_sequence.has_kid_collision);
+            debug_assert!(!death_sequence.is_moved);
+            debug_assert_eq!(death_sequence.animation_label, "stru_32B78");
+            debug_assert!(death_sequence.hibernate_until_animation_finished);
+            debug_assert!(death_sequence.deletes_current_object);
+            Some(death_sequence.status_route)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -9953,6 +9964,9 @@ impl NativeRuntime {
         }
         if let Some(status_route) = cloud_status_route {
             self.apply_cloud_death_status_route_loc_35C0E(status_route);
+        }
+        if let Some(status_route) = hand_status_route {
+            self.apply_hand_death_status_route_loc_32AA2(status_route);
         }
         // ASM Lion.asm loc_3E956 (shared by Dragon.asm loc_3CEFC and other
         // death-animation tails) updates EnemyStatus_Table and deletes the
@@ -10136,6 +10150,30 @@ impl NativeRuntime {
                 }
             }
             CloudDeathStatusRouteLoc35C0E::DeleteOnly => {}
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn apply_hand_death_status_route_loc_32AA2(
+        &mut self,
+        status_route: HandDeathStatusRouteLoc32AA2,
+    ) {
+        match status_route {
+            HandDeathStatusRouteLoc32AA2::WriteRespawnMarker(marker) => {
+                if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                    // ASM Hand.asm loc_32AD8: positive `$42(a5)` writes
+                    // `$2168` before loc_32AE6 deletes the current object.
+                    *word = marker.word_value;
+                }
+            }
+            HandDeathStatusRouteLoc32AA2::SubtractSpawnCounter { index, decrement } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    // ASM Hand.asm loc_32AA2: bit-7+bit-6 `$42(a5)` masks
+                    // the low six bits and subtracts `$400`.
+                    *word = word.wrapping_sub(decrement);
+                }
+            }
+            HandDeathStatusRouteLoc32AA2::DeleteOnly => {}
         }
     }
 
