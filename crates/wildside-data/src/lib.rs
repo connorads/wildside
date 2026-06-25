@@ -1113,6 +1113,23 @@ pub fn resource_level_record(manifest: &AssetManifest, level_id: u8) -> Option<&
 }
 
 pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result<LevelAssetBundle> {
+    load_level_asset_bundle_with_source(
+        manifest,
+        level_id,
+        &FsAssetSource::new(manifest.output_root.clone()),
+    )
+}
+
+/// Load the full level asset bundle through an injected [`AssetSource`].
+///
+/// Core calls this with its runtime source so every level-load byte read flows
+/// through the port; [`load_level_asset_bundle`] preserves the legacy native
+/// call sites by delegating to a default [`FsAssetSource`].
+pub fn load_level_asset_bundle_with_source(
+    manifest: &AssetManifest,
+    level_id: u8,
+    source: &dyn AssetSource,
+) -> Result<LevelAssetBundle> {
     let level = manifest
         .levels
         .iter()
@@ -1123,12 +1140,12 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .cloned()
         .unwrap_or_else(|| level.clone());
     let header = load_asset(
-        manifest,
         resource_level
             .resources
             .header
             .as_deref()
             .or(level.resources.header.as_deref()),
+        source,
     )?;
     let parsed_header = header
         .as_ref()
@@ -1136,7 +1153,7 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         .transpose()?
         .or(level.header_metadata.clone())
         .or(resource_level.header_metadata.clone());
-    let enemy = load_asset(manifest, resource_level.resources.enemy.as_deref())?;
+    let enemy = load_asset(resource_level.resources.enemy.as_deref(), source)?;
     let parsed_enemy_layout = resource_level
         .enemy_layout_metadata
         .clone()
@@ -1145,16 +1162,13 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
             .as_ref()
             .map(|asset| parse_enemy_layout(&asset.bytes))
             .transpose()?);
-    let bgscroll = load_asset(manifest, resource_level.resources.bgscroll.as_deref())?;
+    let bgscroll = load_asset(resource_level.resources.bgscroll.as_deref(), source)?;
     let parsed_bgscroll = bgscroll
         .as_ref()
         .map(|asset| parse_bgscroll_profile(&asset.bytes))
         .transpose()?
         .or(resource_level.bgscroll_metadata.clone());
-    let platform_script = load_asset(
-        manifest,
-        resource_level.resources.platform_script.as_deref(),
-    )?;
+    let platform_script = load_asset(resource_level.resources.platform_script.as_deref(), source)?;
     let parsed_platform_layout = platform_script
         .as_ref()
         .map(|asset| parse_platform_layout(std::str::from_utf8(&asset.bytes)?))
@@ -1177,28 +1191,28 @@ pub fn load_level_asset_bundle(manifest: &AssetManifest, level_id: u8) -> Result
         enemy,
         parsed_enemy_layout,
         foreground: load_asset(
-            manifest,
             resource_level
                 .resources
                 .foreground
                 .as_deref()
                 .or(level.resources.foreground.as_deref()),
+            source,
         )?,
         block: load_asset(
-            manifest,
             resource_level
                 .resources
                 .block
                 .as_deref()
                 .or(level.resources.block.as_deref()),
+            source,
         )?,
         background: load_asset(
-            manifest,
             resource_level
                 .resources
                 .background
                 .as_deref()
                 .or(level.resources.background.as_deref()),
+            source,
         )?,
     })
 }
@@ -1592,7 +1606,12 @@ fn merge_level_catalogues(
 }
 
 fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
-    let background_layout_aliases = load_background_layout_aliases(&manifest.output_root)?;
+    // Default-wired native source: normalisation runs only in the extraction
+    // shell (`load_manifest`/`export_split_bundle`), so it reads the bundle it
+    // just parsed from `output_root` directly. Callers keep the legacy
+    // `&mut AssetManifest` signature.
+    let source = FsAssetSource::new(manifest.output_root.clone());
+    let background_layout_aliases = load_background_layout_aliases(&source)?;
     for level in &mut manifest.levels {
         if level.resources == LevelResources::default() {
             level.resources = level_resources_from_paths(&level.resource_paths);
@@ -1605,11 +1624,11 @@ fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
         if level.header_metadata.is_none()
             && let Some(relative_path) = level.resources.header.as_deref()
         {
-            let full_path = manifest.output_root.join("level").join(relative_path);
-            if full_path.is_file() {
-                let bytes = fs::read(&full_path).with_context(|| {
-                    format!("failed to read level header {}", full_path.display())
-                })?;
+            let rel = Path::new("level").join(relative_path);
+            if source.exists(&rel) {
+                let bytes = source
+                    .read(&rel)
+                    .with_context(|| format!("failed to read level header {}", rel.display()))?;
                 level.header_metadata = Some(parse_level_header(&bytes)?);
             }
         }
@@ -1619,31 +1638,35 @@ fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
             .is_none_or(|layout| layout.segments.is_empty())
             && let Some(relative_path) = level.resources.enemy.as_deref()
         {
-            let full_path = manifest.output_root.join("level").join(relative_path);
-            if full_path.is_file() {
-                let bytes = fs::read(&full_path).with_context(|| {
-                    format!("failed to read enemy layout {}", full_path.display())
-                })?;
+            let rel = Path::new("level").join(relative_path);
+            if source.exists(&rel) {
+                let bytes = source
+                    .read(&rel)
+                    .with_context(|| format!("failed to read enemy layout {}", rel.display()))?;
                 level.enemy_layout_metadata = Some(parse_enemy_layout(&bytes)?);
             }
         }
         if level.bgscroll_metadata.is_none()
             && let Some(relative_path) = level.resources.bgscroll.as_deref()
         {
-            let full_path = manifest.output_root.join("level").join(relative_path);
-            if full_path.is_file() {
-                let bytes = fs::read(&full_path)
-                    .with_context(|| format!("failed to read bgscroll {}", full_path.display()))?;
+            let rel = Path::new("level").join(relative_path);
+            if source.exists(&rel) {
+                let bytes = source
+                    .read(&rel)
+                    .with_context(|| format!("failed to read bgscroll {}", rel.display()))?;
                 level.bgscroll_metadata = Some(parse_bgscroll_profile(&bytes)?);
             }
         }
         if level.platform_metadata.is_none()
             && let Some(relative_path) = level.resources.platform_script.as_deref()
         {
-            let full_path = manifest.output_root.join("level").join(relative_path);
-            if full_path.is_file() {
-                let contents = fs::read_to_string(&full_path).with_context(|| {
-                    format!("failed to read platform layout {}", full_path.display())
+            let rel = Path::new("level").join(relative_path);
+            if source.exists(&rel) {
+                let bytes = source
+                    .read(&rel)
+                    .with_context(|| format!("failed to read platform layout {}", rel.display()))?;
+                let contents = String::from_utf8(bytes).with_context(|| {
+                    format!("platform layout {} was not valid UTF-8", rel.display())
                 })?;
                 level.platform_metadata = Some(parse_platform_layout(&contents)?);
             }
@@ -1653,18 +1676,24 @@ fn normalise_manifest(manifest: &mut AssetManifest) -> Result<()> {
 }
 
 fn load_background_layout_aliases(
-    output_root: &Path,
+    source: &dyn AssetSource,
 ) -> Result<BTreeMap<u8, BackgroundLayoutAlias>> {
-    let mapheader_path = output_root.join("level/mapheader_definitions.asm");
-    let background_path = output_root.join("level/background_includes.asm");
-    if !mapheader_path.is_file() || !background_path.is_file() {
+    let mapheader_rel = Path::new("level/mapheader_definitions.asm");
+    let background_rel = Path::new("level/background_includes.asm");
+    if !source.exists(mapheader_rel) || !source.exists(background_rel) {
         return Ok(BTreeMap::new());
     }
-    let mapheader_contents = fs::read_to_string(&mapheader_path)
-        .with_context(|| format!("failed to read {}", mapheader_path.display()))?;
-    let background_contents = fs::read_to_string(&background_path)
-        .with_context(|| format!("failed to read {}", background_path.display()))?;
+    let mapheader_contents = read_to_string_via_source(source, mapheader_rel)?;
+    let background_contents = read_to_string_via_source(source, background_rel)?;
     parse_background_layout_aliases(&mapheader_contents, &background_contents)
+}
+
+/// Read a bundle-relative UTF-8 text asset through an [`AssetSource`].
+fn read_to_string_via_source(source: &dyn AssetSource, rel: &Path) -> Result<String> {
+    let bytes = source
+        .read(rel)
+        .with_context(|| format!("failed to read {}", rel.display()))?;
+    String::from_utf8(bytes).with_context(|| format!("{} was not valid UTF-8", rel.display()))
 }
 
 fn parse_background_layout_aliases(
@@ -1857,15 +1886,16 @@ fn level_resources_from_paths(paths: &[String]) -> LevelResources {
 }
 
 fn load_asset(
-    manifest: &AssetManifest,
     relative_path: Option<&str>,
+    source: &dyn AssetSource,
 ) -> Result<Option<LoadedAsset>> {
     let Some(relative_path) = relative_path else {
         return Ok(None);
     };
-    let full_path = manifest.output_root.join("level").join(relative_path);
-    let bytes = fs::read(&full_path)
-        .with_context(|| format!("failed to read level asset {}", full_path.display()))?;
+    let rel = Path::new("level").join(relative_path);
+    let bytes = source
+        .read(&rel)
+        .with_context(|| format!("failed to read level asset {}", rel.display()))?;
     Ok(Some(LoadedAsset {
         relative_path: relative_path.to_owned(),
         bytes,
@@ -1873,9 +1903,25 @@ fn load_asset(
 }
 
 pub fn load_ingame_asset(manifest: &AssetManifest, relative_path: &str) -> Result<LoadedAsset> {
-    let full_path = manifest.output_root.join("ingame").join(relative_path);
-    let bytes = fs::read(&full_path)
-        .with_context(|| format!("failed to read ingame asset {}", full_path.display()))?;
+    load_ingame_asset_with_source(
+        relative_path,
+        &FsAssetSource::new(manifest.output_root.clone()),
+    )
+}
+
+/// Load an `ingame/<relative_path>` asset through an injected [`AssetSource`].
+///
+/// The bundle-relative read path lets the runtime pull identical bytes from
+/// fs (native), memory (tests), or a fetched bundle (wasm); the native
+/// [`load_ingame_asset`] wrapper preserves the legacy `manifest`-only call sites.
+pub fn load_ingame_asset_with_source(
+    relative_path: &str,
+    source: &dyn AssetSource,
+) -> Result<LoadedAsset> {
+    let rel = Path::new("ingame").join(relative_path);
+    let bytes = source
+        .read(&rel)
+        .with_context(|| format!("failed to read ingame asset {}", rel.display()))?;
     Ok(LoadedAsset {
         relative_path: relative_path.to_owned(),
         bytes,
