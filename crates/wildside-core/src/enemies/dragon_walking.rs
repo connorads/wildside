@@ -144,7 +144,6 @@ pub(crate) fn dragon_walking_collision_route_loc_3ce9a(
     }
 
     match collision_type as u16 {
-        0 => DragonWalkingCollisionRouteLoc3CE9A::Continue,
         DRAGON_COLID_HURT | DRAGON_COLID_KIDABOVE => DragonWalkingCollisionRouteLoc3CE9A::Damage,
         DRAGON_COLID_KIDRIGHT | DRAGON_COLID_KIDLEFT => {
             DragonWalkingCollisionRouteLoc3CE9A::BerzerkerSideGate
@@ -837,14 +836,7 @@ pub(crate) fn step_dragon_walking(
             projectiles.push(EnemyProjectile {
                 x_pos: child_position.x_pos,
                 y_pos: child_position.y_pos,
-                x_velocity: 0,
-                y_velocity: 0,
                 lifetime: DRAGON_WALKING_BREATH_LIFETIME,
-                gravity: 0,
-                friendly: false,
-                homing_accel: 0,
-                speed_cap: 0,
-                wall_bounce: false,
                 kind: EnemyProjectileKind::DragonWalkingBreath,
                 ..Default::default()
             });
@@ -914,6 +906,35 @@ pub(crate) fn step_dragon_walking(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::enemies::test_fixtures::*;
+
+    fn dragon_walking_test_enemy() -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::DragonWalking,
+            hit_points: 3,
+            facing: Direction::Right,
+            on_ground: true,
+            dragon_script_cmd: DRAGON_WALKING_PHASE_WALK,
+            shared_walker_state: SHARED_WALKER_STATE_PATROL,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    fn dragon_walking_grid(
+        width: u16,
+        height: u16,
+        solid_cells: &[(u16, u16)],
+    ) -> terrain::BlockGrid {
+        let mut grid = terrain::BlockGrid::from_level_layout(
+            &vec![0; usize::from(width) * usize::from(height) * 2],
+            width,
+            height,
+        );
+        for &(col, row) in solid_cells {
+            grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0x60, 0x00));
+        }
+        grid
+    }
 
     #[test]
     fn dragon_walking_child_seed_matches_loc_3cd16() {
@@ -1095,6 +1116,283 @@ mod tests {
             dragon_walking_collision_route_loc_3ce9a(0x0004),
             DragonWalkingCollisionRouteLoc3CE9A::Continue,
             "ASM Dragon.asm loc_3CE9A treats unrelated positive collision words as clear-and-resume"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_blocked_requires_grid_wall_or_missing_floor_loc_3e3b2_3e566() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 23 << 16;
+        dragon.y_pos = 32 << 16;
+
+        assert!(
+            !dragon_walking_blocked(&dragon, None),
+            "ASM Dragon.asm loc_3CE90 reaches the shared walker only after level collision data exists; native must not treat a missing grid as blocked"
+        );
+
+        let floor_grid = dragon_walking_grid(4, 4, &[(2, 2)]);
+        assert!(
+            !dragon_walking_blocked(&dragon, Some(&floor_grid)),
+            "ASM Lion.asm loc_3E3B2/loc_3E566 shared walker should use the projected next X and keep walking when the leading foot span has floor support"
+        );
+
+        let empty_grid = dragon_walking_grid(4, 4, &[]);
+        assert!(
+            dragon_walking_blocked(&dragon, Some(&empty_grid)),
+            "ASM Lion.asm loc_3E682/loc_3E79E should enter the airborne branch when the projected support scan has no floor"
+        );
+
+        let wall_grid = dragon_walking_grid(4, 4, &[(2, 1), (2, 2)]);
+        assert!(
+            dragon_walking_blocked(&dragon, Some(&wall_grid)),
+            "ASM Lion.asm sub_36972 shared by Dragon should treat the right leading body cell as a wall before accepting floor support"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_blocked_left_slope_boundary_uses_current_x_loc_3e566() {
+        let mut grid = dragon_walking_grid(4, 4, &[]);
+        grid.set_cell_at(1, 2, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 41 << 16;
+        dragon.y_pos = 32 << 16;
+        dragon.facing = Direction::Left;
+
+        assert!(
+            dragon_walking_blocked(&dragon, Some(&grid)),
+            "ASM Lion.asm loc_3E566 -> sub_36A58 should use the current X high word when deciding whether a left-moving Dragon has crossed the leading SlopeUp foot-row boundary"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_grounded_walk_uses_shared_walker_speed_loc_3e4c6_3e67a() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 0x0100 << 16;
+        dragon.shared_walker_state = 0;
+
+        let step = step_dragon_walking_walk(&mut dragon, None, None);
+
+        assert!(matches!(step, DragonWalkingWalkStep::Walked));
+        assert_eq!(
+            dragon.x_pos,
+            (0x0100 << 16) + pacer_walk_speed(EnemyFamily::DragonWalking, 3) as u32,
+            "ASM Lion.asm loc_3E4C6/loc_3E67A shared walker should commit d2 = x_pos + DragonWalking HP-3 speed while calm"
+        );
+        assert_eq!(dragon.shared_walker_debug_branch, Some("patrol_walk"));
+    }
+
+    #[test]
+    fn dragon_walking_cooldown_walk_counts_back_toward_zero_loc_3e434_3e5e8() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.shared_walker_state = -2;
+        dragon.x_pos = 0x0100 << 16;
+
+        let step = step_dragon_walking_walk(&mut dragon, None, None);
+
+        assert!(matches!(step, DragonWalkingWalkStep::Walked));
+        assert_eq!(
+            dragon.shared_walker_state, -1,
+            "ASM Lion.asm loc_3E434/loc_3E5E8 should add one to negative shared walker cooldown states before continuing the walk"
+        );
+        assert_eq!(dragon.shared_walker_debug_branch, Some("cooldown_walk"));
+    }
+
+    #[test]
+    fn dragon_walking_detects_and_releases_kid_at_shared_walker_bands_loc_3e450_3e476() {
+        let mut calm = dragon_walking_test_enemy();
+        calm.x_pos = 0x0100 << 16;
+        calm.shared_walker_state = 0;
+
+        let step = step_dragon_walking_walk(&mut calm, None, Some(0x0160 << 16));
+
+        assert!(matches!(step, DragonWalkingWalkStep::Idled));
+        assert_eq!(
+            calm.shared_walker_state, SHARED_WALKER_STATE_FACE_RIGHT,
+            "ASM Lion.asm loc_3E450 should enter the right-facing alert state at the inclusive `$60` detect boundary"
+        );
+        assert_eq!(calm.facing, Direction::Right);
+        assert_eq!(calm.shared_walker_dx_to_kid_px, Some(0x60));
+        assert_eq!(calm.shared_walker_debug_branch, Some("calm_face_kid"));
+
+        let mut held = dragon_walking_test_enemy();
+        held.x_pos = 0x0100 << 16;
+        held.shared_walker_state = SHARED_WALKER_STATE_FACE_RIGHT;
+        held.facing = Direction::Right;
+
+        let step = step_dragon_walking_walk(&mut held, None, Some(0x0170 << 16));
+
+        assert!(matches!(step, DragonWalkingWalkStep::Walked));
+        assert_eq!(
+            held.shared_walker_state, SHARED_WALKER_STATE_FACE_RIGHT,
+            "ASM Lion.asm loc_3E476 should keep alert hold at the inclusive `$70` release boundary"
+        );
+        assert_eq!(held.facing, Direction::Right);
+        assert_eq!(held.shared_walker_debug_branch, Some("alert_hold"));
+
+        let mut released = held;
+        let step = step_dragon_walking_walk(&mut released, None, Some(0x0171 << 16));
+
+        assert!(matches!(step, DragonWalkingWalkStep::Idled));
+        assert_eq!(
+            released.shared_walker_state, -120,
+            "ASM Lion.asm loc_3E48E/loc_3E642 should write `$FF88` when Kid leaves the alert release band"
+        );
+        assert_eq!(released.facing, Direction::Left);
+        assert_eq!(
+            released.shared_walker_debug_branch,
+            Some("alert_release_turn")
+        );
+    }
+
+    #[test]
+    fn dragon_walking_grounded_ledge_enters_airborne_loc_3e682() {
+        let grid = dragon_walking_grid(8, 4, &[]);
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 0x0020 << 16;
+        dragon.y_pos = 0x0020 << 16;
+        dragon.facing = Direction::Right;
+
+        let step = step_dragon_walking_walk(&mut dragon, Some(&grid), None);
+
+        assert!(matches!(step, DragonWalkingWalkStep::StartedAirborne));
+        assert!(
+            !dragon.on_ground,
+            "ASM Lion.asm loc_3E682 shared by Dragon should latch airborne instead of turning around when the next floor scan is empty"
+        );
+        assert_eq!(
+            dragon.x_velocity,
+            pacer_walk_speed(EnemyFamily::DragonWalking, 3)
+        );
+        assert_eq!(dragon.y_velocity, 0);
+        assert_eq!(
+            dragon.y_pos,
+            0x0021 << 16,
+            "ASM Lion.asm loc_3E694 should add one pixel to y_pos before entering the gravity loop"
+        );
+        assert_eq!(
+            dragon.shared_walker_debug_branch,
+            Some("patrol_airborne_start")
+        );
+    }
+
+    #[test]
+    fn dragon_walking_grounded_hibernate_decrements_unless_hurt_animation_is_armed_loc_3ce90() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.grounded_frames = 2;
+        dragon.damage_flash_frames = 0;
+        dragon.x_velocity = 0x1234;
+        dragon.y_velocity = -0x1234;
+        let mut projectiles = Vec::new();
+
+        step_dragon_walking(&mut dragon, None, &mut projectiles, None);
+
+        assert_eq!(
+            dragon.grounded_frames, 1,
+            "ASM Dragon.asm loc_3CE90 should spend one hibernate frame before resuming ordinary walking"
+        );
+        assert_eq!(dragon.x_velocity, 0);
+        assert_eq!(dragon.y_velocity, 0);
+        assert_eq!(
+            dragon.shared_walker_debug_branch,
+            Some("grounded_hibernate")
+        );
+        assert!(projectiles.is_empty());
+
+        dragon.grounded_frames = 2;
+        dragon.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+
+        step_dragon_walking(&mut dragon, None, &mut projectiles, None);
+
+        assert_eq!(
+            dragon.grounded_frames, 2,
+            "ASM Dragon.asm loc_3CEBE hurt hibernate is already represented by the armed damage-flash frame and must not spend the generic grounded hibernate"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_live_breath_spawn_copies_child_payload_loc_3cf6e_3d070() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.x_pos = 0x0123_8000;
+        dragon.y_pos = 0x0045_4000;
+        dragon.facing = Direction::Left;
+        dragon.wait_timer = 1;
+        dragon.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+        let mut projectiles = Vec::new();
+
+        step_dragon_walking(&mut dragon, None, &mut projectiles, None);
+
+        assert_eq!(projectiles.len(), 1);
+        let breath = projectiles[0];
+        assert_eq!(
+            breath.x_pos, 0x0107_8000,
+            "ASM Dragon.asm loc_3D070 should place the child breath hitbox 28px on the clear-x_direction side"
+        );
+        assert_eq!(
+            breath.y_pos, 0x0045_4000,
+            "ASM Dragon.asm loc_3D02A should copy the parent y_pos word into the breath child"
+        );
+        assert_eq!(breath.x_velocity, 0);
+        assert_eq!(breath.y_velocity, 0);
+        assert_eq!(breath.lifetime, DRAGON_WALKING_BREATH_LIFETIME);
+        assert_eq!(breath.kind, EnemyProjectileKind::DragonWalkingBreath);
+        assert_eq!(dragon.wait_timer, DRAGON_WALKING_BREATH_RESET);
+        assert_eq!(dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_BREATH);
+        assert_eq!(
+            dragon.dragon_phase_frames,
+            DRAGON_WALKING_BREATH_HOLD_FRAMES
+        );
+    }
+
+    #[test]
+    fn dragon_walking_breath_phase_ignores_blocked_terrain_until_child_done_loc_3d082() {
+        let grid = dragon_walking_grid(4, 4, &[]);
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.dragon_script_cmd = DRAGON_WALKING_PHASE_BREATH;
+        dragon.dragon_phase_frames = 1;
+        dragon.facing = Direction::Right;
+        let mut projectiles = Vec::new();
+
+        step_dragon_walking(&mut dragon, Some(&grid), &mut projectiles, None);
+
+        assert_eq!(
+            dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_BREATH,
+            "ASM Dragon.asm loc_3D082 should poll the breath child; blocked ground terrain does not run the walking turnaround while breathing"
+        );
+        assert_eq!(
+            dragon.dragon_phase_frames, 0,
+            "ASM Dragon.asm loc_3D082 should keep polling until the child animation done flag is set"
+        );
+        assert_eq!(dragon.facing, Direction::Right);
+
+        step_dragon_walking(&mut dragon, Some(&grid), &mut projectiles, None);
+
+        assert_eq!(
+            dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_RECOVER,
+            "ASM Dragon.asm loc_3D09E should delete the child and hand the parent to breath recovery once `$18(a3)` is set"
+        );
+        assert_eq!(dragon.dragon_phase_frames, DRAGON_WALKING_RECOVER_FRAMES);
+    }
+
+    #[test]
+    fn dragon_walking_recover_phase_counts_down_then_walks_loc_3cfe4_3d01e() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.dragon_script_cmd = DRAGON_WALKING_PHASE_RECOVER;
+        dragon.dragon_phase_frames = 1;
+        let mut projectiles = Vec::new();
+
+        step_dragon_walking(&mut dragon, None, &mut projectiles, None);
+
+        assert_eq!(dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_RECOVER);
+        assert_eq!(
+            dragon.dragon_phase_frames, 0,
+            "ASM Dragon.asm loc_3CFE4 hibernates through the recovery frame before restoring the walk animation"
+        );
+
+        step_dragon_walking(&mut dragon, None, &mut projectiles, None);
+
+        assert_eq!(
+            dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_WALK,
+            "ASM Dragon.asm loc_3D01E should resume the ordinary walking dispatch after recovery finishes"
         );
     }
 
