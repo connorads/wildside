@@ -153,20 +153,22 @@ pub(crate) fn dragon_walking_collision_route_loc_3ce9a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingDeathSequenceLoc3CEFC {
     pub(crate) death_animation: &'static str,
     pub(crate) waits_until_animation_finished: bool,
+    pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
     pub(crate) exits_enemy: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn dragon_walking_death_sequence_loc_3cefc() -> DragonWalkingDeathSequenceLoc3CEFC {
+pub(crate) fn dragon_walking_death_sequence_loc_3cefc(
+    object_status_slot: u8,
+) -> DragonWalkingDeathSequenceLoc3CEFC {
     // ASM Dragon.asm loc_3CEFC: initialise `stru_3CCEC`, hibernate until that
     // animation finishes, then branch to the shared enemy exit tail at loc_3E956.
     DragonWalkingDeathSequenceLoc3CEFC {
         death_animation: "stru_3CCEC",
         waits_until_animation_finished: true,
+        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
         exits_enemy: true,
     }
 }
@@ -1457,13 +1459,14 @@ mod tests {
     #[test]
     fn dragon_walking_death_sequence_matches_loc_3cefc() {
         assert_eq!(
-            dragon_walking_death_sequence_loc_3cefc(),
+            dragon_walking_death_sequence_loc_3cefc(0x05),
             DragonWalkingDeathSequenceLoc3CEFC {
                 death_animation: "stru_3CCEC",
                 waits_until_animation_finished: true,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
                 exits_enemy: true,
             },
-            "ASM Dragon.asm loc_3CEFC should play the walking-dragon death animation, wait for it, then exit the enemy"
+            "ASM Dragon.asm loc_3CEFC should play the walking-dragon death animation, wait for it, then exit through loc_3E956"
         );
     }
 

@@ -16750,6 +16750,10 @@ mod chunk_03 {
             runtime.active_enemies[0].wait_timer,
             DRAGON_WALKING_DEATH_ANIMATION_FRAMES
         );
+        assert_eq!(
+            runtime.enemy_status_words[16], 0,
+            "ASM Dragon.asm loc_3E97C should not write the respawn marker until `stru_3CCEC` finishes"
+        );
         assert!(!runtime.killed_enemies.contains(&killed_identity));
 
         runtime.active_enemies[0].wait_timer = 0;
@@ -16757,6 +16761,10 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[16], 0x2168,
+            "ASM Dragon.asm loc_3E97C writes `$2168` into EnemyStatus_Table after the walking-dragon death animation finishes"
+        );
     }
 
     #[test]
