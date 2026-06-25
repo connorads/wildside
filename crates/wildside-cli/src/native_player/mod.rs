@@ -37,8 +37,6 @@ use wildside_render::{
 #[cfg(test)]
 use wildside_render::load_level_visuals;
 
-const FRAME_WIDTH: u32 = 320;
-const FRAME_HEIGHT: u32 = 224;
 const FRAME_TIME: Duration = Duration::from_micros(16_667);
 const LEVEL_CARD_HOLD_FRAMES: usize = 60;
 const AUDIO_SAMPLE_RATE: u32 = 44_100;
@@ -49,27 +47,10 @@ const AUDIO_SOFTWARE_BACKLOG_MAX_FRAMES: usize = 60;
 const SDL_AUDIO_CALLBACK_SAMPLES: u16 = 512;
 #[cfg(test)]
 const PLAYER_COLOUR: [u8; 3] = [92, 214, 104];
-const ENEMY_COLOUR: [u8; 3] = [220, 90, 88];
-const ENEMY_FLASH_COLOUR: [u8; 3] = [255, 255, 255];
-
-/// Degraded-asset fallback colour for an enemy rect when its ROM sprite
-/// art is not loaded. The previous per-family hand-picked palette
-/// (orange-red Fire Demon, steel-grey Robot, military-green Tank, etc.)
-/// was a hand-invented "visually distinguishable" set with no ROM
-/// citation — the original game's per-family colours come from each
-/// family's `Pal_*` block (e.g. `Pal_A2382` for Heady Metal). Until
-/// those palettes flow through `level_visuals.enemies.families`, render
-/// a single consistent placeholder so missing-asset states do not claim
-/// per-family hues that the ROM does not specify.
-fn enemy_family_colour(_object_type: u8) -> [u8; 3] {
-    ENEMY_COLOUR
-}
 #[cfg(test)]
 const PLATFORM_COLOUR: [u8; 3] = [232, 176, 64];
 #[cfg(test)]
 const GUIDE_COLOUR: [u8; 3] = [62, 84, 108];
-const SKY_COLOUR: [u8; 3] = [28, 42, 56];
-const PALETTE_LINE_COLOUR_COUNT: usize = 15;
 
 #[derive(Debug, Clone)]
 pub struct NativePlayOptions {
@@ -111,136 +92,10 @@ impl From<DynamicScenario> for NativeScriptedRoute {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Scene {
-    background: [u8; 3],
-    commands: Vec<DrawCommand>,
-    pause_palette_darken: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum DrawCommand {
-    Rect {
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        colour: [u8; 3],
-    },
-    Tint {
-        colour: [u8; 3],
-        alpha: u8,
-    },
-    ClearPriorityRect {
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-    },
-    Text {
-        x: i32,
-        y: i32,
-        text: String,
-        colour: [u8; 3],
-        scale: i32,
-    },
-    #[allow(dead_code)]
-    IndexedTile {
-        x: i32,
-        y: i32,
-        tile_sheet: Arc<TileSheet>,
-        tile: TileRef,
-        palette: Arc<Palette>,
-    },
-    #[allow(dead_code)]
-    IndexedTileRow {
-        x: i32,
-        y: i32,
-        tile_sheet: Arc<TileSheet>,
-        tile: TileRef,
-        palette: Arc<Palette>,
-        row: u8,
-    },
-    #[allow(dead_code)]
-    IndexedTileSlice {
-        x: i32,
-        y: i32,
-        tile_sheet: Arc<TileSheet>,
-        tile: TileRef,
-        palette: Arc<Palette>,
-        row: u8,
-        start_column: u8,
-        width: u8,
-    },
-    #[allow(dead_code)]
-    Sprite {
-        x: i32,
-        y: i32,
-        tile_sheet: Arc<TileSheet>,
-        palette: Arc<Palette>,
-        tiles: Vec<SpriteTile>,
-    },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct SpriteTile {
-    offset_x: i32,
-    offset_y: i32,
-    tile: TileRef,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct NativeSpriteTileDiagnostic {
-    pub(crate) offset_x: i32,
-    pub(crate) offset_y: i32,
-    pub(crate) tile_index: u16,
-    pub(crate) palette_line: u8,
-    pub(crate) priority: bool,
-    pub(crate) flip_x: bool,
-    pub(crate) flip_y: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct NativeEolScoreHardwareSpriteDiagnostic {
-    pub(crate) command_index: usize,
-    pub(crate) chunk_index: usize,
-    pub(crate) x: i32,
-    pub(crate) y: i32,
-    pub(crate) width: u16,
-    pub(crate) height: u16,
-    pub(crate) first_tile_index: u16,
-    pub(crate) min_x: i32,
-    pub(crate) min_y: i32,
-    pub(crate) max_x: i32,
-    pub(crate) max_y: i32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct NativeEolScoreSpriteDiagnostic {
-    pub(crate) command_index: usize,
-    pub(crate) x: i32,
-    pub(crate) y: i32,
-    pub(crate) min_x: i32,
-    pub(crate) min_y: i32,
-    pub(crate) max_x: i32,
-    pub(crate) max_y: i32,
-    pub(crate) tile_count: usize,
-    pub(crate) tiles: Vec<NativeSpriteTileDiagnostic>,
-    #[serde(default)]
-    pub(crate) hardware_sprites: Vec<NativeEolScoreHardwareSpriteDiagnostic>,
-}
-
 #[derive(Debug, Clone)]
 struct NativeSessionAssets {
     level_visuals: NativeLevelVisuals,
     block_grid: BlockGrid,
-}
-
-#[derive(Debug, Clone)]
-struct ResolvedSceneTile {
-    tile_sheet: Arc<TileSheet>,
-    tile: TileRef,
-    palette: Arc<Palette>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -250,10 +105,20 @@ struct GeneratedLevelLayoutMetadata {
     height_blocks: u16,
 }
 
-const FOREGROUND_TILE_VRAM_BASE: u16 = 0x00BC;
-const BLOCK_TILE_VRAM_BASE: u16 = 0x0220;
-const HUD_TILE_VRAM_BASE: u16 = 0x06BA;
-const HUD_DIAMOND_TILE_VRAM_BASE: u16 = 0x06EA;
+// SDL-free rasteriser DTOs, diagnostics, frame geometry, VRAM bases, and
+// rendering colours now live in `wildside-frame`; re-exported below so the
+// sibling render modules' `use super::*` and the crate's consumers keep
+// resolving the same paths.
+pub(crate) use wildside_frame::{
+    BLOCK_TILE_VRAM_BASE, DrawCommand, ENEMY_FLASH_COLOUR, FOREGROUND_TILE_VRAM_BASE, FRAME_HEIGHT,
+    FRAME_WIDTH, FinalScenePixelDiagnostic, FinalScenePixelWrite, HUD_DIAMOND_TILE_VRAM_BASE,
+    HUD_TILE_VRAM_BASE, NativeEolScoreHardwareSpriteDiagnostic, NativeEolScoreSpriteDiagnostic,
+    NativeSpriteTileDiagnostic, PALETTE_LINE_COLOUR_COUNT, ResolvedSceneTile, SKY_COLOUR, Scene,
+    SpriteTile, enemy_family_colour,
+};
+// Only the native player's own tests assert against the enemy placeholder colour.
+#[cfg(test)]
+pub(crate) use wildside_frame::ENEMY_COLOUR;
 
 mod hud;
 mod render;
@@ -293,45 +158,6 @@ pub(crate) fn render_native_vdp_rgb(vdp: &wildside_core::vdp::VdpState, rgb: &mu
         vsram: vdp.vsram.clone(),
     };
     wildside_md::render_vdp_into(&snapshot, rgb);
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct FinalScenePixelDiagnostic {
-    pub(crate) x: usize,
-    pub(crate) y: usize,
-    pub(crate) final_rgb: [u8; 3],
-    pub(crate) final_high_priority: bool,
-    pub(crate) writes: Vec<FinalScenePixelWrite>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct FinalScenePixelWrite {
-    pub(crate) command_index: usize,
-    pub(crate) kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) origin_x: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) origin_y: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) width: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) height: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) tile_index: Option<u16>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) palette_line: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) palette_index: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) source_x: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) source_y: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) rgb: Option<[u8; 3]>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) priority: Option<bool>,
-    pub(crate) prior_high_priority: bool,
-    pub(crate) accepted: bool,
 }
 
 pub(crate) fn load_session_assets(

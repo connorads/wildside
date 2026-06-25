@@ -1446,6 +1446,7 @@ dependencies = [
  "toml",
  "wildside-core",
  "wildside-data",
+ "wildside-frame",
  "wildside-md",
  "wildside-render",
  "wildside-rom",
@@ -1482,6 +1483,10 @@ dependencies = [
 [[package]]
 name = "wildside-frame"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "wildside-render",
+]
 
 [[package]]
 name = "wildside-md"

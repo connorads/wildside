@@ -6,3 +6,7 @@ version.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+serde.workspace = true
+wildside-render = { path = "../wildside-render" }
