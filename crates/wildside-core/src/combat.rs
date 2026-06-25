@@ -9632,6 +9632,11 @@ impl NativeRuntime {
             } else {
                 None
             };
+            let emo_rock_death_start = if matches!(family, EnemyFamily::EmoRock) {
+                Some(emo_rock_death_start_loc_36346())
+            } else {
+                None
+            };
             let boss_head_death_transition = if is_multi_head_boss(family) {
                 let transition =
                     boss_head_death_transition_loc_39ebe(self.multi_head_boss_death_count_fb4e);
@@ -9707,7 +9712,12 @@ impl NativeRuntime {
                 // the skull-specific death cue before initialising `stru_367FA`.
                 self.queue_start_sequence(QueuedSoundEffect::BigHoppingSkullDies);
             }
-            if matches!(family, EnemyFamily::EmoRock) {
+            if let Some(death_start) = emo_rock_death_start {
+                debug_assert!(death_start.has_kid_collision);
+                debug_assert!(!death_start.is_moved);
+                debug_assert_eq!(death_start.animation_script, "stru_36468");
+                debug_assert!(death_start.hibernates_before_sound);
+                debug_assert_eq!(death_start.sound_effect, "sfx_Prize_block");
                 // ASM Emo_Rock.asm loc_36346: after the first break-animation
                 // hibernate, play `sfx_Prize_block` before waiting for
                 // `stru_36468` to finish and applying the status tail.
@@ -9731,6 +9741,13 @@ impl NativeRuntime {
                     debug_assert!(hit_sequence.waits_for_hit_animation);
                     debug_assert!(hit_sequence.delete_tail.deletes_current_object);
                     TORNADO_DEATH_ANIMATION_FRAMES
+                });
+            let death_animation_frames =
+                emo_rock_death_start.map_or(death_animation_frames, |death_start| {
+                    debug_assert!(death_start.waits_until_animation_finished);
+                    debug_assert!(death_start.reads_object_status_slot);
+                    debug_assert_eq!(death_animation_frames, EMO_ROCK_DEATH_ANIMATION_FRAMES);
+                    EMO_ROCK_DEATH_ANIMATION_FRAMES
                 });
             let enemy = &mut self.active_enemies[idx];
             enemy.hit_points = 0;
@@ -9766,6 +9783,13 @@ impl NativeRuntime {
         } else {
             None
         };
+        let emo_rock_status_route = if matches!(family, EnemyFamily::EmoRock) {
+            let status = emo_rock_death_status_loc_3639A(layout_index as u8);
+            debug_assert!(status.deletes_current_object);
+            Some(status.status_route)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -9777,15 +9801,8 @@ impl NativeRuntime {
                 *word = marker.word_value;
             }
         }
-        if matches!(family, EnemyFamily::EmoRock) {
-            let status = emo_rock_death_status_loc_3639A(layout_index as u8);
-            if let EmoRockDeathStatusRouteLoc3639A::WriteRespawnMarker(marker) = status.status_route
-                && let Some(word) = self.enemy_status_words.get_mut(marker.index)
-            {
-                // ASM Emo_Rock.asm loc_3638C: after `stru_36468` finishes,
-                // positive `$42(a5)` writes `$2168` before loc_3639A deletes.
-                *word = marker.word_value;
-            }
+        if let Some(status_route) = emo_rock_status_route {
+            self.apply_emo_rock_death_status_route_loc_3639A(status_route);
         }
         if let Some(status_route) = tornado_status_route {
             self.apply_tornado_hit_status_route_loc_359b2(status_route);
@@ -9942,6 +9959,30 @@ impl NativeRuntime {
                 }
             }
             SpinningTwinsDeathStatusRouteLoc3BC78::DeleteOnly => {}
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn apply_emo_rock_death_status_route_loc_3639A(
+        &mut self,
+        status_route: EmoRockDeathStatusRouteLoc3639A,
+    ) {
+        match status_route {
+            EmoRockDeathStatusRouteLoc3639A::WriteRespawnMarker(marker) => {
+                if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                    // ASM Emo_Rock.asm loc_3638C: positive `$42(a5)` writes
+                    // `$2168` before loc_3639A deletes the current object.
+                    *word = marker.word_value;
+                }
+            }
+            EmoRockDeathStatusRouteLoc3639A::SubtractSpawnCounter { index, decrement } => {
+                if let Some(word) = self.enemy_status_words.get_mut(index) {
+                    // ASM Emo_Rock.asm loc_36346: bit-7+bit-6 `$42(a5)`
+                    // masks the low six bits and subtracts `$400`.
+                    *word = word.wrapping_sub(decrement);
+                }
+            }
+            EmoRockDeathStatusRouteLoc3639A::DeleteOnly => {}
         }
     }
 

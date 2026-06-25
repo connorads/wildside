@@ -74,7 +74,6 @@ pub(crate) fn emo_rock_drop_velocity_loc_3625e(y_velocity: i32, gravity: i32) ->
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum EmoRockDropRouteLoc36274 {
     ContinueDrop,
     Death,
@@ -82,7 +81,6 @@ pub(crate) enum EmoRockDropRouteLoc36274 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockDropFrameLoc36274 {
     pub(crate) y_velocity: i32,
     pub(crate) next_collision_type: u16,
@@ -90,7 +88,6 @@ pub(crate) struct EmoRockDropFrameLoc36274 {
     pub(crate) route: EmoRockDropRouteLoc36274,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_drop_frame_loc_36274(
     y_velocity: i32,
     collision_type: i16,
@@ -126,7 +123,6 @@ pub(crate) fn emo_rock_drop_frame_loc_36274(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockLandingSetupLoc362A4 {
     pub(crate) y_velocity: i32,
     pub(crate) has_level_collision: bool,
@@ -134,7 +130,6 @@ pub(crate) struct EmoRockLandingSetupLoc362A4 {
     pub(crate) next_loop: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_landing_setup_loc_362a4() -> EmoRockLandingSetupLoc362A4 {
     // ASM Emo_Rock.asm loc_362A4: landing clears vertical motion, disables level
     // collision while the settling animation plays, and then enters the settled wait loop.
@@ -288,7 +283,6 @@ pub(crate) fn emo_rock_disappear_loc_36320() -> EmoRockDisappearLoc36320 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EmoRockDeathStartLoc36346 {
     pub(crate) has_kid_collision: bool,
     pub(crate) is_moved: bool,
@@ -299,7 +293,6 @@ pub(crate) struct EmoRockDeathStartLoc36346 {
     pub(crate) reads_object_status_slot: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn emo_rock_death_start_loc_36346() -> EmoRockDeathStartLoc36346 {
     // ASM Emo_Rock.asm loc_36346: re-enable Kid collision, stop movement, run
     // the break animation/sound sequence, then read `$42(a5)` for status routing.
@@ -494,20 +487,45 @@ pub(crate) fn step_emo_rock_with_rng(
     enemy.y_velocity = emo_rock_drop_velocity_loc_3625e(enemy.y_velocity, gravity);
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
-    if let Some(grid) = block_grid {
+    let floor_y_px = block_grid.and_then(|grid| {
         let cx = (enemy.x_pos >> 16) as i32;
         let cy = (enemy.y_pos >> 16) as i32;
         let floor = terrain::probe_floor(grid, cx, cy);
-        if floor.on_ground {
-            // ASM Emo_Rock.asm loc_362A4: snap to floor, clear vertical
-            // velocity, then let `stru_363FE` run before loc_36320.
-            enemy.y_pos = (floor.floor_y_px as u32) << 16;
-            enemy.y_velocity = 0;
-            enemy.on_ground = true;
-            enemy.wait_timer = EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4;
-            enemy.grounded_frames = 0;
-            if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
-                enemy.facing = dir;
+        floor.on_ground.then_some(floor.floor_y_px)
+    });
+    let drop_collision_type = if floor_y_px.is_some() { 0x000C } else { 0 };
+    let drop = emo_rock_drop_frame_loc_36274(
+        enemy.y_velocity,
+        drop_collision_type,
+        enemy.x_pos,
+        player_x_pos.unwrap_or(enemy.x_pos),
+    );
+    enemy.y_velocity = drop.y_velocity;
+    debug_assert!(drop.hibernates_one_frame);
+    debug_assert_eq!(drop.next_collision_type, 0);
+
+    match drop.route {
+        EmoRockDropRouteLoc36274::ContinueDrop => {}
+        EmoRockDropRouteLoc36274::Death => unreachable!(
+            "native Emo Rock terrain probing never synthesises signed-negative collision_type"
+        ),
+        EmoRockDropRouteLoc36274::Land { facing } => {
+            if let Some(floor_y_px) = floor_y_px {
+                let landing = emo_rock_landing_setup_loc_362a4();
+                debug_assert!(!landing.has_level_collision);
+                debug_assert_eq!(landing.animation_script, "stru_363FE");
+                debug_assert_eq!(landing.next_loop, "settled_wait_loop");
+
+                // ASM Emo_Rock.asm loc_362A4: snap to floor, clear vertical
+                // velocity, then let `stru_363FE` run before loc_36320.
+                enemy.y_pos = (floor_y_px as u32) << 16;
+                enemy.y_velocity = landing.y_velocity;
+                enemy.on_ground = true;
+                enemy.wait_timer = EMO_ROCK_SETTLED_ANIMATION_FRAMES_LOC_362A4;
+                enemy.grounded_frames = 0;
+                if player_x_pos.is_some() {
+                    enemy.facing = facing;
+                }
             }
         }
     }

@@ -18626,6 +18626,44 @@ mod chunk_03 {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn emo_rock_death_status_route_updates_native_enemy_status_table_loc_3639A() {
+        let mut runtime = NativeRuntime::new(manifest());
+
+        runtime.apply_emo_rock_death_status_route_loc_3639A(
+            EmoRockDeathStatusRouteLoc3639A::WriteRespawnMarker(EmoRockRespawnMarkerLoc3638C {
+                index: 3,
+                word_value: 0x2168,
+            }),
+        );
+        assert_eq!(
+            runtime.enemy_status_words[3], 0x2168,
+            "ASM Emo_Rock.asm loc_3638C writes `$2168` into the selected EnemyStatus_Table word"
+        );
+
+        runtime.enemy_status_words[7] = 0xC400;
+        runtime.apply_emo_rock_death_status_route_loc_3639A(
+            EmoRockDeathStatusRouteLoc3639A::SubtractSpawnCounter {
+                index: 7,
+                decrement: 0x0400,
+            },
+        );
+        assert_eq!(
+            runtime.enemy_status_words[7], 0xC000,
+            "ASM Emo_Rock.asm loc_36346 subtracts `$400` from bit-7+bit-6 status slots after masking with `$3F`"
+        );
+
+        runtime.enemy_status_words[9] = 0xAAAA;
+        runtime.apply_emo_rock_death_status_route_loc_3639A(
+            EmoRockDeathStatusRouteLoc3639A::DeleteOnly,
+        );
+        assert_eq!(
+            runtime.enemy_status_words[9], 0xAAAA,
+            "ASM Emo_Rock.asm loc_3639A bit-7 without bit-6 falls through to delete without touching EnemyStatus_Table"
+        );
+    }
+
+    #[test]
     fn emo_rock_settled_side_contact_waits_when_berzerker_is_not_charging_loc_362b6() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut emo_rock = test_enemy(EnemyFamily::EmoRock, 0x0080_0000, 0x0040_0000, 1);
