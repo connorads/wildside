@@ -25,11 +25,17 @@ use wildside_core::{
     NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand,
     NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
 };
-use wildside_data::{AssetManifest, LevelHeader, resource_level_id, resource_level_record};
+use wildside_data::{
+    AssetManifest, AssetSource, FsAssetSource, LevelHeader, resource_level_id,
+    resource_level_record,
+};
 use wildside_md::GemsAudioEngine;
 use wildside_render::{
-    MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals,
+    MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals_with_source,
 };
+// Test fixtures load visuals through the legacy default-fs path.
+#[cfg(test)]
+use wildside_render::load_level_visuals;
 
 const FRAME_WIDTH: u32 = 320;
 const FRAME_HEIGHT: u32 = 224;
@@ -1256,7 +1262,13 @@ fn load_native_session_assets(
     manifest: &AssetManifest,
     level_id: u8,
 ) -> Result<NativeSessionAssets> {
-    load_native_session_assets_with(manifest, level_id, load_level_visuals).map_err(|error| {
+    // Native conduit: build the bundle's fs source once and inject it into the
+    // render read path. A wasm host swaps this for a fetched-bundle source.
+    let source = FsAssetSource::new(manifest.output_root.clone());
+    load_native_session_assets_with(manifest, level_id, |manifest, level_id| {
+        load_level_visuals_with_source(manifest, level_id, &source)
+    })
+    .map_err(|error| {
         anyhow!(
             "{error:#}. play-native needs extracted level visuals and block layout; run `mise run extract-assets` if they are missing"
         )
@@ -1289,10 +1301,14 @@ fn initialise_runtime(
     session_assets: &NativeSessionAssets,
     options: &NativePlayOptions,
 ) -> NativeRuntime {
+    // Native conduit: one shared fs source feeds both runtime constructors. A
+    // wasm host injects a fetched-bundle source here instead.
+    let source: std::sync::Arc<dyn AssetSource> =
+        std::sync::Arc::new(FsAssetSource::new(manifest.output_root.clone()));
     let mut runtime = if options.settled && options.warp_level.is_some() {
-        NativeRuntime::with_generated_level_layout(manifest.clone())
+        NativeRuntime::with_generated_level_layout_with_source(manifest.clone(), source)
     } else {
-        let mut runtime = NativeRuntime::new(manifest.clone());
+        let mut runtime = NativeRuntime::new_with_source(manifest.clone(), source);
         runtime.set_block_grid(session_assets.block_grid.clone());
         runtime
     };

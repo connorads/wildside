@@ -15,12 +15,11 @@ use crate::player::{
 use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use sha1::{Digest, Sha1};
-use std::fs;
 use std::path::Path;
 use wildside_data::{
-    AssetFile, AssetManifest, DecodedAssetFile, EnemyLayout, decode_enigma, decode_saxman,
-    ensure_generated_bundle_contract, load_level_asset_bundle, resource_level_id,
-    resource_level_record,
+    AssetFile, AssetManifest, AssetSource, DecodedAssetFile, EnemyLayout, FsAssetSource,
+    decode_enigma, decode_saxman, ensure_generated_bundle_contract,
+    load_level_asset_bundle_with_source, resource_level_id, resource_level_record,
 };
 
 const HUD_DIGIT_BASE_TILE_INDEX: u16 = 0x06BA;
@@ -218,8 +217,23 @@ pub struct IslandShoreVisualsLoc1202A {
 }
 
 pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<NativeLevelVisuals> {
+    load_level_visuals_with_source(
+        manifest,
+        level_id,
+        &FsAssetSource::new(manifest.output_root.clone()),
+    )
+}
+
+/// Build the level's render visuals reading every generated-bundle byte through
+/// an injected [`AssetSource`]. [`load_level_visuals`] preserves the legacy
+/// native call sites by delegating to a default [`FsAssetSource`].
+pub fn load_level_visuals_with_source(
+    manifest: &AssetManifest,
+    level_id: u8,
+    source: &dyn AssetSource,
+) -> Result<NativeLevelVisuals> {
     ensure_generated_bundle_contract(manifest)?;
-    let level_bundle = load_level_asset_bundle(manifest, level_id)?;
+    let level_bundle = load_level_asset_bundle_with_source(manifest, level_id, source)?;
     let resource_level_id = resource_level_id(manifest, level_id);
     let header = level_bundle
         .parsed_header
@@ -264,7 +278,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     let foreground_layout = match level_bundle.foreground.as_ref() {
         Some(asset) => decode_level_saxman_asset(asset, "foreground layout")?,
         None => match decoded {
-            Some(d) => read_decoded_file(manifest, &d.foreground, "foreground layout")?,
+            Some(d) => read_decoded_file(source, &d.foreground, "foreground layout")?,
             None => bail!(
                 "level 0x{level_id:02X} resource 0x{resource_level_id:02X} has no foreground layout data"
             ),
@@ -273,7 +287,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     let block_layout = match level_bundle.block.as_ref() {
         Some(asset) => asset.bytes.clone(),
         None => match decoded {
-            Some(d) => read_decoded_file(manifest, &d.block, "block layout")?,
+            Some(d) => read_decoded_file(source, &d.block, "block layout")?,
             None => bail!(
                 "level 0x{level_id:02X} resource 0x{resource_level_id:02X} has no block layout data"
             ),
@@ -282,7 +296,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     let background_layout = match level_bundle.background.as_ref() {
         Some(asset) => asset.bytes.clone(),
         None => match decoded {
-            Some(d) => read_decoded_file(manifest, &d.background, "background layout")?,
+            Some(d) => read_decoded_file(source, &d.background, "background layout")?,
             None => bail!(
                 "level 0x{level_id:02X} resource 0x{resource_level_id:02X} has no background layout data"
             ),
@@ -319,7 +333,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     ))?;
 
     let mut foreground_tiles = load_tile_sheet(
-        manifest,
+        source,
         "theme",
         find_theme_asset(manifest, &format!("artcomp_fg/{foreground_theme}.bin")).ok_or_else(
             || anyhow!("missing foreground art asset theme/artcomp_fg/{foreground_theme}.bin"),
@@ -327,7 +341,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "foreground tile sheet",
     )?;
     let mut background_tiles = load_tile_sheet(
-        manifest,
+        source,
         "theme",
         find_theme_asset(manifest, &format!("artcomp_bg/{background_theme}.bin")).ok_or_else(
             || anyhow!("missing background art asset theme/artcomp_bg/{background_theme}.bin"),
@@ -335,14 +349,14 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "background tile sheet",
     )?;
     let mut block_tiles = load_tile_sheet(
-        manifest,
+        source,
         "ingame",
         find_ingame_asset(manifest, BLOCKS_ART_PATH)
             .ok_or_else(|| anyhow!("missing block art asset ingame/{BLOCKS_ART_PATH}"))?,
         "block tile sheet",
     )?;
     let terrain_quads = parse_tile_quads(&read_root_asset(
-        manifest,
+        source,
         "theme",
         find_theme_asset(manifest, &format!("mappings/{foreground_theme}.bin")).ok_or_else(
             || anyhow!("missing terrain mapping asset theme/mappings/{foreground_theme}.bin"),
@@ -356,14 +370,14 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         visual_theme_header.level_theme,
     );
     let hud_digits = load_tile_sheet(
-        manifest,
+        source,
         "ingame",
         find_ingame_asset(manifest, HUD_NUMBERS_ART_PATH)
             .ok_or_else(|| anyhow!("missing HUD digit art asset ingame/{HUD_NUMBERS_ART_PATH}"))?,
         "HUD digit tile sheet",
     )?;
     let hud_diamond_tiles = load_uncompressed_tile_sheet(
-        manifest,
+        source,
         "ingame",
         find_ingame_asset(manifest, HUD_DIAMOND_ART_PATH).ok_or_else(|| {
             anyhow!("missing HUD diamond art asset ingame/{HUD_DIAMOND_ART_PATH}")
@@ -371,7 +385,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "HUD diamond tile sheet",
     )?;
     let hud_hitpoint_sheet = load_uncompressed_tile_sheet(
-        manifest,
+        source,
         "ingame",
         find_ingame_asset(manifest, HUD_HITPOINT_ART_PATH).ok_or_else(|| {
             anyhow!("missing HUD hitpoint art asset ingame/{HUD_HITPOINT_ART_PATH}")
@@ -379,7 +393,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "HUD hitpoint tile sheet",
     )?;
     let fg_palette = Palette::from_bytes(&read_root_asset(
-        manifest,
+        source,
         "theme",
         find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(
             || anyhow!("missing foreground palette asset theme/palette_fg/{foreground_theme}.bin"),
@@ -387,7 +401,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         "foreground palette",
     )?)?;
     let bg_palette = Palette::from_bytes(&read_root_asset(
-        manifest,
+        source,
         "theme",
         find_theme_asset(manifest, &format!("palette_bg/{background_theme}.bin")).ok_or_else(
             || anyhow!("missing background palette asset theme/palette_bg/{background_theme}.bin"),
@@ -397,42 +411,47 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
 
     if let Some(perm) = load_palette_permutation(
         manifest,
+        source,
         fg_permutation_file(visual_theme_header.level_theme),
     ) {
         foreground_tiles.apply_pixel_permutation(&perm);
     }
     if let Some(perm) = load_palette_permutation(
         manifest,
+        source,
         bg_permutation_file(visual_theme_header.background_theme),
     ) {
         background_tiles.apply_pixel_permutation(&perm);
     }
     append_background_followup_art_loc_11ea2_11ec4(
         manifest,
+        source,
         &mut background_tiles,
         visual_theme_header.background_theme,
         visual_theme_header.weather_flags,
     )?;
-    let island_shore_tiles_loc_1202a = load_island_shore_visuals_loc_1202a(manifest)
+    let island_shore_tiles_loc_1202a = load_island_shore_visuals_loc_1202a(manifest, source)
         .transpose()
         .context("failed to load Island shore animation art")?;
 
-    let player = load_player_visuals(manifest)?;
+    let player = load_player_visuals(manifest, source)?;
     let enemies = load_enemy_visuals(
         manifest,
+        source,
         visual_theme_header.level_theme,
         level_bundle.parsed_enemy_layout.as_ref(),
         &bg_palette,
     );
-    let floating_prizes = load_floating_prize_visuals(manifest, &fg_palette, &hud_diamond_tiles)?;
-    let flag = load_flag_visuals(manifest, &fg_palette)?;
-    let murder_wall = load_murder_wall_visuals(manifest).unwrap_or_else(|err| {
+    let floating_prizes =
+        load_floating_prize_visuals(manifest, source, &fg_palette, &hud_diamond_tiles)?;
+    let flag = load_flag_visuals(manifest, source, &fg_palette)?;
+    let murder_wall = load_murder_wall_visuals(manifest, source).unwrap_or_else(|err| {
         if !cfg!(test) {
             eprintln!("warning: murder wall art unavailable: {err}");
         }
         None
     });
-    let lava = load_lava_visuals(manifest).unwrap_or_else(|err| {
+    let lava = load_lava_visuals(manifest, source).unwrap_or_else(|err| {
         if !cfg!(test) {
             eprintln!("warning: lava art unavailable: {err}");
         }
@@ -440,6 +459,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     });
     let weather = load_weather_visuals(
         manifest,
+        source,
         visual_theme_header.background_theme,
         visual_theme_header.weather_flags,
     )
@@ -450,14 +470,14 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         None
     });
     let special_effect_unknown =
-        load_special_effect_unknown_visuals(manifest, visual_theme_header.weather_flags)
+        load_special_effect_unknown_visuals(manifest, source, visual_theme_header.weather_flags)
             .unwrap_or_else(|err| {
                 if !cfg!(test) {
                     eprintln!("warning: special effect unknown art unavailable: {err}");
                 }
                 None
             });
-    let platforms = load_platform_visuals(manifest, foreground_theme)?;
+    let platforms = load_platform_visuals(manifest, source, foreground_theme)?;
 
     let palettes = PaletteSet {
         foreground: fg_palette,
@@ -465,7 +485,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     };
 
     let block_quads = parse_tile_quads(&read_root_asset(
-        manifest,
+        source,
         "theme",
         find_theme_asset(manifest, BLOCK_MAPPING_PATH)
             .ok_or_else(|| anyhow!("missing block mapping asset theme/{BLOCK_MAPPING_PATH}"))?,
@@ -473,6 +493,7 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     )?)?;
     let background = load_background_visuals(
         manifest,
+        source,
         background_theme,
         visual_theme_header.background_theme,
         visual_theme_header.weather_flags,
@@ -533,25 +554,25 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
         weather,
         special_effect_unknown,
         platforms,
-        eol_score: load_eol_score_visuals(manifest).unwrap_or_else(|err| {
+        eol_score: load_eol_score_visuals(source).unwrap_or_else(|err| {
             if !cfg!(test) {
                 eprintln!("warning: end-of-level score art unavailable: {err}");
             }
             None
         }),
-        eol_hologram: load_eol_hologram_visuals(manifest).unwrap_or_else(|err| {
+        eol_hologram: load_eol_hologram_visuals(source).unwrap_or_else(|err| {
             if !cfg!(test) {
                 eprintln!("warning: end-of-level hologram art unavailable: {err}");
             }
             None
         }),
-        pause_menu: load_pause_menu_visuals(manifest).unwrap_or_else(|err| {
+        pause_menu: load_pause_menu_visuals(manifest, source).unwrap_or_else(|err| {
             if !cfg!(test) {
                 eprintln!("warning: pause menu art unavailable: {err}");
             }
             None
         }),
-        title_card_letters: load_title_card_letters_visuals(manifest).unwrap_or_else(|err| {
+        title_card_letters: load_title_card_letters_visuals(source).unwrap_or_else(|err| {
             if !cfg!(test) {
                 eprintln!("warning: title card letter art unavailable: {err}");
             }
@@ -560,12 +581,15 @@ pub fn load_level_visuals(manifest: &AssetManifest, level_id: u8) -> Result<Nati
     })
 }
 
-fn load_pause_menu_visuals(manifest: &AssetManifest) -> Result<Option<PauseMenuVisuals>> {
+fn load_pause_menu_visuals(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+) -> Result<Option<PauseMenuVisuals>> {
     let Some(asset) = find_ingame_asset(manifest, PAUSE_MENU_ART_PATH) else {
         return Ok(None);
     };
     let tile_sheet =
-        load_uncompressed_tile_sheet(manifest, "ingame", asset, "pause menu tile sheet loc_690C")?;
+        load_uncompressed_tile_sheet(source, "ingame", asset, "pause menu tile sheet loc_690C")?;
     Ok(Some(PauseMenuVisuals {
         tile_sheet,
         vram_base_tile_index: PAUSE_MENU_VRAM_BASE_TILE_INDEX_LOC_690C,
@@ -600,18 +624,18 @@ fn pause_menu_rows_from_rom_words_loc_6ce4(words: &[u16; 80]) -> Vec<Vec<TileRef
 /// mapped through `off_1AC2A` (kid.asm:28859-28893), each `glyph - $61`
 /// indexes into the tile sheet.
 fn load_title_card_letters_visuals(
-    manifest: &AssetManifest,
+    source: &dyn AssetSource,
 ) -> Result<Option<TitleCardLettersVisuals>> {
-    let scenes_root = manifest.output_root.join("scenes");
+    let scenes_root = Path::new("scenes");
     let art_path = scenes_root.join("artcomp/Title_card_letters.bin");
-    if !art_path.is_file() {
+    if !source.exists(&art_path) {
         return Ok(None);
     }
     let palette_path = scenes_root.join("palette/Title_card_letters.bin");
-    if !palette_path.is_file() {
+    if !source.exists(&palette_path) {
         return Ok(None);
     }
-    let art_compressed = fs::read(&art_path).with_context(|| {
+    let art_compressed = source.read(&art_path).with_context(|| {
         format!(
             "failed to read title card letters art: {}",
             art_path.display()
@@ -621,7 +645,7 @@ fn load_title_card_letters_visuals(
         decode_saxman(&art_compressed).context("failed to decompress title card letters art")?;
     let tile_sheet = TileSheet::from_4bpp_bytes(&art_bytes)
         .context("failed to parse title card letters tile sheet")?;
-    let palette_raw = fs::read(&palette_path).with_context(|| {
+    let palette_raw = source.read(&palette_path).with_context(|| {
         format!(
             "failed to read title card letters palette: {}",
             palette_path.display()
@@ -635,16 +659,19 @@ fn load_title_card_letters_visuals(
     }))
 }
 
-fn load_murder_wall_visuals(manifest: &AssetManifest) -> Result<Option<MurderWallVisuals>> {
+fn load_murder_wall_visuals(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+) -> Result<Option<MurderWallVisuals>> {
     let Some(art) = find_ingame_asset(manifest, MURDER_WALL_ART_PATH) else {
         return Ok(None);
     };
     let Some(palette_asset) = find_ingame_asset(manifest, MURDER_WALL_PALETTE_PATH) else {
         return Ok(None);
     };
-    let tile_sheet = load_tile_sheet(manifest, "ingame", art, "murder wall tile sheet")?;
+    let tile_sheet = load_tile_sheet(source, "ingame", art, "murder wall tile sheet")?;
     let palette = Palette::from_bytes(&read_root_asset(
-        manifest,
+        source,
         "ingame",
         palette_asset,
         "murder wall palette",
@@ -657,16 +684,23 @@ fn load_murder_wall_visuals(manifest: &AssetManifest) -> Result<Option<MurderWal
     }))
 }
 
-fn load_lava_visuals(manifest: &AssetManifest) -> Result<Option<LavaVisuals>> {
+fn load_lava_visuals(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+) -> Result<Option<LavaVisuals>> {
     let Some(art) = find_ingame_asset(manifest, LAVA_ART_PATH) else {
         return Ok(None);
     };
-    let palette_path = manifest.source_root.join("ingame").join(LAVA_PALETTE_PATH);
-    if !palette_path.is_file() {
+    // Redirect from the legacy source_root read to the bundle, matching the
+    // murder-wall/weather siblings: `ingame/palette` is a COPIED_DIRECTORY, so
+    // the bytes are identical under output_root.
+    let palette_path = Path::new("ingame").join(LAVA_PALETTE_PATH);
+    if !source.exists(&palette_path) {
         return Ok(None);
     }
-    let tile_sheet = load_tile_sheet(manifest, "ingame", art, "lava tile sheet")?;
-    let palette_raw = fs::read(&palette_path)
+    let tile_sheet = load_tile_sheet(source, "ingame", art, "lava tile sheet")?;
+    let palette_raw = source
+        .read(&palette_path)
         .with_context(|| format!("failed to read lava palette: {}", palette_path.display()))?;
     let palette = Palette::from_bytes(&palette_raw).context("failed to parse lava palette")?;
     Ok(Some(LavaVisuals {
@@ -678,6 +712,7 @@ fn load_lava_visuals(manifest: &AssetManifest) -> Result<Option<LavaVisuals>> {
 
 fn load_weather_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     background_theme_id: u8,
     weather_flags: u8,
 ) -> Result<Option<WeatherVisuals>> {
@@ -700,11 +735,11 @@ fn load_weather_visuals(
     let Some(palette_asset) = find_ingame_asset(manifest, palette_path) else {
         return Ok(None);
     };
-    let tile_sheet = load_tile_sheet(manifest, "ingame", art, "hail weather tile sheet")?;
+    let tile_sheet = load_tile_sheet(source, "ingame", art, "hail weather tile sheet")?;
     let shared_art = find_ingame_asset(manifest, WEATHER_SHARED_ART_PATH_LOC_14D8A)
         .map(|asset| {
             load_tile_sheet(
-                manifest,
+                source,
                 "ingame",
                 asset,
                 "loc_14D8A shared storm weather tile sheet",
@@ -716,7 +751,7 @@ fn load_weather_visuals(
         })
         .transpose()?;
     let palette = Palette::from_bytes(&read_root_asset(
-        manifest,
+        source,
         "ingame",
         palette_asset,
         "hail weather palette",
@@ -732,6 +767,7 @@ fn load_weather_visuals(
 
 fn load_special_effect_unknown_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     weather_flags: u8,
 ) -> Result<Option<SpecialEffectUnknownVisuals>> {
     if weather_flags != 4 {
@@ -741,29 +777,30 @@ fn load_special_effect_unknown_visuals(
         return Ok(None);
     };
     let tile_sheet =
-        load_uncompressed_tile_sheet(manifest, "scenes", art, "special effect unknown tile sheet")?;
+        load_uncompressed_tile_sheet(source, "scenes", art, "special effect unknown tile sheet")?;
     Ok(Some(SpecialEffectUnknownVisuals {
         tile_sheet,
         vram_base_tile_index: SPECIAL_EFFECT_UNKNOWN_VRAM_BASE_TILE_INDEX_LOC_14DE4,
     }))
 }
 
-fn load_eol_score_visuals(manifest: &AssetManifest) -> Result<Option<EolScoreVisuals>> {
-    let scenes_root = manifest.output_root.join("scenes");
+fn load_eol_score_visuals(source: &dyn AssetSource) -> Result<Option<EolScoreVisuals>> {
+    let scenes_root = Path::new("scenes");
     let art_path = scenes_root.join("artcomp/End_level_stats_text.bin");
-    if !art_path.is_file() {
+    if !source.exists(&art_path) {
         return Ok(None);
     }
     let palette_path = scenes_root.join("palette/Score_screen.bin");
-    if !palette_path.is_file() {
+    if !source.exists(&palette_path) {
         return Ok(None);
     }
-    let art_compressed = fs::read(&art_path)
+    let art_compressed = source
+        .read(&art_path)
         .with_context(|| format!("failed to read EOL score art: {}", art_path.display()))?;
     let art_bytes = decode_saxman(&art_compressed).context("failed to decompress EOL score art")?;
     let tile_sheet =
         TileSheet::from_4bpp_bytes(&art_bytes).context("failed to parse EOL score tile sheet")?;
-    let palette_raw = fs::read(&palette_path).with_context(|| {
+    let palette_raw = source.read(&palette_path).with_context(|| {
         format!(
             "failed to read EOL score palette: {}",
             palette_path.display()
@@ -853,21 +890,21 @@ fn crop_eol_score_frame_to_declared_bounds(
     }
 }
 
-fn load_eol_hologram_visuals(manifest: &AssetManifest) -> Result<Option<EolHologramVisuals>> {
-    let scenes_root = manifest.output_root.join("scenes");
+fn load_eol_hologram_visuals(source: &dyn AssetSource) -> Result<Option<EolHologramVisuals>> {
+    let scenes_root = Path::new("scenes");
     let background_path = scenes_root.join(EOL_HOLOGRAM_BACKGROUND_ART_PATH);
     let blocks_path = scenes_root.join(EOL_HOLOGRAM_BLOCKS_ART_PATH);
     let tilemap_path = scenes_root.join(EOL_HOLOGRAM_TILEMAP_PATH);
     let palette_path = scenes_root.join(EOL_HOLOGRAM_PALETTE_PATH);
-    if !background_path.is_file()
-        || !blocks_path.is_file()
-        || !tilemap_path.is_file()
-        || !palette_path.is_file()
+    if !source.exists(&background_path)
+        || !source.exists(&blocks_path)
+        || !source.exists(&tilemap_path)
+        || !source.exists(&palette_path)
     {
         return Ok(None);
     }
 
-    let background_compressed = fs::read(&background_path).with_context(|| {
+    let background_compressed = source.read(&background_path).with_context(|| {
         format!(
             "failed to read EOL hologram background art: {}",
             background_path.display()
@@ -878,7 +915,7 @@ fn load_eol_hologram_visuals(manifest: &AssetManifest) -> Result<Option<EolHolog
     let background_tiles = TileSheet::from_4bpp_bytes(&background_bytes)
         .context("failed to parse EOL hologram background tiles")?;
 
-    let blocks_compressed = fs::read(&blocks_path).with_context(|| {
+    let blocks_compressed = source.read(&blocks_path).with_context(|| {
         format!(
             "failed to read EOL hologram block art: {}",
             blocks_path.display()
@@ -891,7 +928,7 @@ fn load_eol_hologram_visuals(manifest: &AssetManifest) -> Result<Option<EolHolog
 
     let tiles = combine_eol_hologram_tile_sheet(background_tiles, block_tiles);
 
-    let tilemap_raw = fs::read(&tilemap_path).with_context(|| {
+    let tilemap_raw = source.read(&tilemap_path).with_context(|| {
         format!(
             "failed to read EOL hologram tilemap: {}",
             tilemap_path.display()
@@ -914,7 +951,7 @@ fn load_eol_hologram_visuals(manifest: &AssetManifest) -> Result<Option<EolHolog
         })
         .collect();
 
-    let palette_raw = fs::read(&palette_path).with_context(|| {
+    let palette_raw = source.read(&palette_path).with_context(|| {
         format!(
             "failed to read EOL hologram palette: {}",
             palette_path.display()
@@ -978,9 +1015,13 @@ fn bg_permutation_file(theme_id: u8) -> &'static str {
 }
 
 /// Load a 16-byte palette permutation table from the theme assets.
-fn load_palette_permutation(manifest: &AssetManifest, relative_path: &str) -> Option<[u8; 16]> {
+fn load_palette_permutation(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+    relative_path: &str,
+) -> Option<[u8; 16]> {
     let asset = find_theme_asset(manifest, relative_path)?;
-    let bytes = read_root_asset(manifest, "theme", asset, "palette permutation").ok()?;
+    let bytes = read_root_asset(source, "theme", asset, "palette permutation").ok()?;
     if bytes.len() < 16 {
         return None;
     }
@@ -1015,6 +1056,7 @@ fn find_scene_asset<'a>(manifest: &'a AssetManifest, relative_path: &str) -> Opt
 
 fn append_background_followup_art_loc_11ea2_11ec4(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     background_tiles: &mut TileSheet,
     background_theme_id: u8,
     weather_flags: u8,
@@ -1025,7 +1067,7 @@ fn append_background_followup_art_loc_11ea2_11ec4(
         return Ok(());
     };
     let mut followup_tiles = load_tile_sheet(
-        manifest,
+        source,
         "theme",
         find_theme_asset(manifest, relative_path).ok_or_else(|| {
             anyhow!("missing background follow-up art asset theme/{relative_path}")
@@ -1033,7 +1075,7 @@ fn append_background_followup_art_loc_11ea2_11ec4(
         "background follow-up tile sheet",
     )?;
     if let Some(permutation_path) = permutation_path
-        && let Some(permutation) = load_palette_permutation(manifest, permutation_path)
+        && let Some(permutation) = load_palette_permutation(manifest, source, permutation_path)
     {
         followup_tiles.apply_pixel_permutation(&permutation);
     }
@@ -1057,12 +1099,13 @@ fn append_background_followup_art_loc_11ea2_11ec4(
 
 fn load_island_shore_visuals_loc_1202a(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
 ) -> Option<Result<IslandShoreVisualsLoc1202A>> {
     let mut frames = Vec::with_capacity(ISLAND_SHORE_ART_PATHS_LOC_1202A.len());
     for path in ISLAND_SHORE_ART_PATHS_LOC_1202A {
         let asset = find_ingame_asset(manifest, path)?;
         let frame = load_uncompressed_tile_sheet(
-            manifest,
+            source,
             "ingame",
             asset,
             "Island shore animation tile sheet",
@@ -1110,6 +1153,7 @@ fn background_followup_art_loc_11ea2_11ec4(
 
 fn load_background_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     theme_name: &str,
     background_theme_id: u8,
     weather_flags: u8,
@@ -1118,6 +1162,7 @@ fn load_background_visuals(
     if uses_layered_backgrounds(theme_name) {
         return load_layered_background_visuals(
             manifest,
+            source,
             theme_name,
             background_theme_id,
             weather_flags,
@@ -1153,7 +1198,7 @@ fn load_background_visuals(
     ];
     for (chunk_id, asset) in chunk_assets {
         let bytes =
-            read_root_asset(manifest, "theme", asset, "background chunk").with_context(|| {
+            read_root_asset(source, "theme", asset, "background chunk").with_context(|| {
                 format!(
                     "failed to read background chunk {} for theme {theme_name}",
                     asset.relative_path
@@ -1190,6 +1235,7 @@ fn load_background_visuals(
 
 fn load_layered_background_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     theme_name: &str,
     background_theme_id: u8,
     weather_flags: u8,
@@ -1211,7 +1257,7 @@ fn load_layered_background_visuals(
 
     let mut planes = Vec::with_capacity(plane_assets.len());
     for (plane_id, asset) in plane_assets {
-        let encoded = read_root_asset(manifest, "theme", asset, "layered background plane")
+        let encoded = read_root_asset(source, "theme", asset, "layered background plane")
             .with_context(|| {
                 format!(
                     "failed to read layered background plane {} for theme {theme_name}",
@@ -3739,21 +3785,24 @@ static PLAYER_FORM_SPECS: &[PlayerFormSpec] = &[
 
 fn load_enemy_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     level_theme: u8,
     enemy_layout: Option<&EnemyLayout>,
     background_palette: &Palette,
 ) -> EnemyVisuals {
     let mut families = std::collections::HashMap::new();
     for spec in ENEMY_FAMILIES {
-        let palette = match load_ingame_palette_asset(manifest, spec.palette_path, spec.art_path) {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("skipping enemy 0x{:02X} sprite: {e}", spec.object_type);
-                continue;
-            }
-        };
+        let palette =
+            match load_ingame_palette_asset(manifest, source, spec.palette_path, spec.art_path) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("skipping enemy 0x{:02X} sprite: {e}", spec.object_type);
+                    continue;
+                }
+            };
         let mut frames = match load_compressed_sprite_frames(
             manifest,
+            source,
             spec.art_path,
             &format!("enemy 0x{:02X}", spec.object_type),
             spec.frames,
@@ -3780,7 +3829,7 @@ fn load_enemy_visuals(
             .extra_palette_paths
             .iter()
             .filter_map(|path| {
-                load_ingame_palette_asset(manifest, path, spec.art_path)
+                load_ingame_palette_asset(manifest, source, path, spec.art_path)
                     .ok()
                     .map(|extra| {
                         if forest_enemy_art_permutation(level_theme, enemy_layout, spec.object_type)
@@ -3879,6 +3928,7 @@ fn forest_enemy_palette_with_borrowed_slots(
 
 fn load_floating_prize_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     foreground_palette: &Palette,
     hud_diamond_tiles: &TileSheet,
 ) -> Result<FloatingPrizeVisuals> {
@@ -3900,7 +3950,7 @@ fn load_floating_prize_visuals(
                     height_px: 0x0C,
                     tile_base_index: 0x06F2 - HUD_DIAMOND_BASE_TILE_INDEX,
                     tile_sheet: load_uncompressed_tile_sheet(
-                        manifest,
+                        source,
                         "ingame",
                         find_ingame_asset(manifest, path)
                             .ok_or_else(|| anyhow!("missing floating diamond art ingame/{path}"))?,
@@ -3940,12 +3990,13 @@ fn load_floating_prize_visuals(
             AnimatedSpriteVisual {
                 palette: load_floating_prize_helmet_palette_asset(
                     manifest,
+                    source,
                     spec.base_palette_path,
                     spec.palette_path,
                     spec.palette_family,
                 )?,
                 extra_palettes: Vec::new(),
-                frames: vec![load_player_frame(manifest, spec.art)?],
+                frames: vec![load_player_frame(manifest, source, spec.art)?],
                 frame_duration: 1,
             },
         );
@@ -3961,7 +4012,7 @@ fn load_floating_prize_visuals(
             AnimatedSpriteVisual {
                 palette: foreground_palette.clone(),
                 extra_palettes: Vec::new(),
-                frames: vec![load_player_frame(manifest, spec.art)?],
+                frames: vec![load_player_frame(manifest, source, spec.art)?],
                 frame_duration: 1,
             },
         );
@@ -3976,10 +4027,11 @@ fn load_floating_prize_visuals(
 
 fn load_platform_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     foreground_theme: &str,
 ) -> Result<PlatformVisuals> {
     let palette = Palette::from_bytes(&read_root_asset(
-        manifest,
+        source,
         "theme",
         find_theme_asset(manifest, &format!("palette_fg/{foreground_theme}.bin")).ok_or_else(
             || anyhow!("missing platform palette asset theme/palette_fg/{foreground_theme}.bin"),
@@ -3991,12 +4043,14 @@ fn load_platform_visuals(
         palette,
         horizontal: load_compressed_sprite_frame(
             manifest,
+            source,
             HORIZONTAL_PLATFORM_ART_PATH,
             "horizontal platform art",
             HORIZONTAL_PLATFORM_FRAME,
         )?,
         vertical: load_compressed_sprite_frame(
             manifest,
+            source,
             VERTICAL_PLATFORM_ART_PATH,
             "vertical platform art",
             VERTICAL_PLATFORM_FRAME,
@@ -4004,10 +4058,13 @@ fn load_platform_visuals(
     })
 }
 
-fn load_player_visuals(manifest: &AssetManifest) -> Result<PlayerVisuals> {
+fn load_player_visuals(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+) -> Result<PlayerVisuals> {
     let mut forms = std::collections::HashMap::new();
     for spec in PLAYER_FORM_SPECS {
-        let Some(visuals) = load_player_form_visuals_if_present(manifest, spec)? else {
+        let Some(visuals) = load_player_form_visuals_if_present(manifest, source, spec)? else {
             if spec.form_id == PLAYER_FORM_THE_KID {
                 bail!("missing required Kid visuals");
             }
@@ -4021,7 +4078,7 @@ fn load_player_visuals(manifest: &AssetManifest) -> Result<PlayerVisuals> {
         };
         forms.insert(spec.form_id, visuals);
     }
-    if let Some(visuals) = load_juggernaut_form_visuals_if_present(manifest)? {
+    if let Some(visuals) = load_juggernaut_form_visuals_if_present(manifest, source)? {
         forms.insert(PLAYER_FORM_JUGGERNAUT, visuals);
     }
 
@@ -4030,23 +4087,25 @@ fn load_player_visuals(manifest: &AssetManifest) -> Result<PlayerVisuals> {
 
 fn load_player_form_visuals_if_present(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     spec: &PlayerFormSpec,
 ) -> Result<Option<PlayerFormVisuals>> {
     if find_ingame_asset(manifest, spec.palette_path).is_none() {
         return Ok(None);
     }
-    load_player_form_visuals(manifest, spec).map(Some)
+    load_player_form_visuals(manifest, source, spec).map(Some)
 }
 
 fn load_juggernaut_form_visuals_if_present(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
 ) -> Result<Option<PlayerFormVisuals>> {
     if find_ingame_asset(manifest, JUGGERNAUT_PALETTE_PATH).is_none() {
         return Ok(None);
     }
 
     let palette = Palette::from_bytes(&read_root_asset(
-        manifest,
+        source,
         "ingame",
         find_ingame_asset(manifest, JUGGERNAUT_PALETTE_PATH).ok_or_else(|| {
             anyhow!("missing Juggernaut palette asset ingame/{JUGGERNAUT_PALETTE_PATH}")
@@ -4055,6 +4114,7 @@ fn load_juggernaut_form_visuals_if_present(
     )?)?;
     let transform_palette = load_ingame_palette_asset(
         manifest,
+        source,
         JUGGERNAUT_TRANSFORM_PALETTE_PATH,
         "Juggernaut transform palette",
     )?;
@@ -4063,6 +4123,7 @@ fn load_juggernaut_form_visuals_if_present(
         palette,
         idle: load_composite_player_frame(
             manifest,
+            source,
             &[JUGGERNAUT_BOTTOM_IDLE_FRAME, JUGGERNAUT_HEAD_IDLE_FRAME],
         )?,
         walk: JUGGERNAUT_HEAD_WALK_FRAMES
@@ -4072,7 +4133,7 @@ fn load_juggernaut_form_visuals_if_present(
                 // ASM loc_94B4 selects the Juggernaut body on Kid's object,
                 // then sub_975C updates the companion head object. Preserve
                 // that draw intent by compositing the head over the body.
-                load_composite_player_frame(manifest, &[bottom, head])
+                load_composite_player_frame(manifest, source, &[bottom, head])
             })
             .collect::<Result<Vec<_>>>()?,
         flight_spin: Vec::new(),
@@ -4083,14 +4144,15 @@ fn load_juggernaut_form_visuals_if_present(
         // the same Iron Knight slope frame table.
         slope_walk: IRON_KNIGHT_SLOPE_WALK_RIGHT_FRAMES
             .iter()
-            .map(|&descriptor| load_player_frame(manifest, descriptor))
+            .map(|&descriptor| load_player_frame(manifest, source, descriptor))
             .collect::<Result<Vec<_>>>()?,
         slope_walk_left: IRON_KNIGHT_SLOPE_WALK_LEFT_FRAMES
             .iter()
-            .map(|&descriptor| load_player_frame(manifest, descriptor))
+            .map(|&descriptor| load_player_frame(manifest, source, descriptor))
             .collect::<Result<Vec<_>>>()?,
         jump_rise: load_composite_player_frame(
             manifest,
+            source,
             &[
                 pfd(
                     "artunc_kid/juggernaut_bottom_jumping_1.bin",
@@ -4104,6 +4166,7 @@ fn load_juggernaut_form_visuals_if_present(
         )?,
         jump_fall: load_composite_player_frame(
             manifest,
+            source,
             &[
                 pfd(
                     "artunc_kid/juggernaut_bottom_jumping_3.bin",
@@ -4128,7 +4191,7 @@ fn load_juggernaut_form_visuals_if_present(
                     duration_frames: step.duration_frames,
                     frame: step
                         .frame
-                        .map(|descriptor| load_player_frame(manifest, descriptor))
+                        .map(|descriptor| load_player_frame(manifest, source, descriptor))
                         .transpose()?,
                 })
             })
@@ -4138,10 +4201,11 @@ fn load_juggernaut_form_visuals_if_present(
 
 fn load_player_form_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     spec: &PlayerFormSpec,
 ) -> Result<PlayerFormVisuals> {
     let palette = Palette::from_bytes(&read_root_asset(
-        manifest,
+        source,
         "ingame",
         find_ingame_asset(manifest, spec.palette_path).ok_or_else(|| {
             anyhow!(
@@ -4155,53 +4219,55 @@ fn load_player_form_visuals(
 
     let transform_palette = spec
         .transform_palette
-        .map(|(relative_path, family)| load_ingame_palette_asset(manifest, relative_path, family))
+        .map(|(relative_path, family)| {
+            load_ingame_palette_asset(manifest, source, relative_path, family)
+        })
         .transpose()?;
 
     Ok(PlayerFormVisuals {
         palette,
-        idle: load_player_frame(manifest, spec.idle)?,
+        idle: load_player_frame(manifest, source, spec.idle)?,
         walk: spec
             .walk
             .iter()
             .copied()
-            .map(|descriptor| load_player_frame(manifest, descriptor))
+            .map(|descriptor| load_player_frame(manifest, source, descriptor))
             .collect::<Result<Vec<_>>>()?,
-        flight_spin: load_player_frames(manifest, spec.flight_spin)?,
+        flight_spin: load_player_frames(manifest, source, spec.flight_spin)?,
         charge: if spec.form_id == PLAYER_FORM_BERZERKER {
             // ASM loc_9564 indexes off_9688, which is a separate Berzerker
             // run/head-forward table rather than the normal off_967C walk art.
-            load_player_frames(manifest, &BERZERKER_CHARGE_FRAMES)?
+            load_player_frames(manifest, source, &BERZERKER_CHARGE_FRAMES)?
         } else {
             Vec::new()
         },
         climb: if spec.form_id == PLAYER_FORM_IRON_KNIGHT {
-            load_player_frames(manifest, &IRON_KNIGHT_CLIMB_FRAMES)?
+            load_player_frames(manifest, source, &IRON_KNIGHT_CLIMB_FRAMES)?
         } else {
             Vec::new()
         },
-        axe: load_player_frames(manifest, spec.axe)?,
+        axe: load_player_frames(manifest, source, spec.axe)?,
         slope_walk: spec
             .slope_walk
             .iter()
             .copied()
-            .filter_map(|descriptor| load_player_frame(manifest, descriptor).ok())
+            .filter_map(|descriptor| load_player_frame(manifest, source, descriptor).ok())
             .collect(),
         slope_walk_left: spec
             .slope_walk_left
             .iter()
             .copied()
-            .filter_map(|descriptor| load_player_frame(manifest, descriptor).ok())
+            .filter_map(|descriptor| load_player_frame(manifest, source, descriptor).ok())
             .collect(),
-        jump_rise: load_player_frame(manifest, spec.jump_rise)?,
-        jump_fall: load_player_frame(manifest, spec.jump_fall)?,
+        jump_rise: load_player_frame(manifest, source, spec.jump_rise)?,
+        jump_fall: load_player_frame(manifest, source, spec.jump_fall)?,
         death: spec
             .death
-            .map(|descriptor| load_player_frame(manifest, descriptor))
+            .map(|descriptor| load_player_frame(manifest, source, descriptor))
             .transpose()?,
-        pull_up: load_player_frames(manifest, spec.pull_up)?,
-        slash_ground: load_player_frames(manifest, spec.slash_ground)?,
-        slash_air: load_player_frames(manifest, spec.slash_air)?,
+        pull_up: load_player_frames(manifest, source, spec.pull_up)?,
+        slash_ground: load_player_frames(manifest, source, spec.slash_ground)?,
+        slash_air: load_player_frames(manifest, source, spec.slash_air)?,
         transform_palette,
         transform_steps: spec
             .transform_steps
@@ -4212,7 +4278,7 @@ fn load_player_form_visuals(
                     duration_frames: step.duration_frames,
                     frame: step
                         .frame
-                        .map(|descriptor| load_player_frame(manifest, descriptor))
+                        .map(|descriptor| load_player_frame(manifest, source, descriptor))
                         .transpose()?,
                 })
             })
@@ -4222,6 +4288,7 @@ fn load_player_form_visuals(
 
 fn load_player_frame(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     descriptor: PlayerFrameDescriptor,
 ) -> Result<SpriteFrame> {
     let asset = find_ingame_asset(manifest, descriptor.relative_path).ok_or_else(|| {
@@ -4231,7 +4298,7 @@ fn load_player_frame(
         )
     })?;
     let tile_sheet = load_uncompressed_tile_sheet(
-        manifest,
+        source,
         "ingame",
         asset,
         &format!("Kid sprite frame {}", descriptor.relative_path),
@@ -4248,23 +4315,25 @@ fn load_player_frame(
 
 fn load_player_frames(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     descriptors: &[PlayerFrameDescriptor],
 ) -> Result<Vec<SpriteFrame>> {
     descriptors
         .iter()
         .copied()
-        .map(|descriptor| load_player_frame(manifest, descriptor))
+        .map(|descriptor| load_player_frame(manifest, source, descriptor))
         .collect()
 }
 
 fn load_composite_player_frame(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     descriptors: &[PlayerFrameDescriptor],
 ) -> Result<SpriteFrame> {
     let parts = descriptors
         .iter()
         .copied()
-        .map(|descriptor| load_player_frame(manifest, descriptor))
+        .map(|descriptor| load_player_frame(manifest, source, descriptor))
         .collect::<Result<Vec<_>>>()?;
     compose_player_frame(&parts)
 }
@@ -4388,11 +4457,12 @@ const fn align_sprite_dimension(value: u16) -> u16 {
 
 fn load_ingame_palette_asset(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     relative_path: &str,
     family: &str,
 ) -> Result<Palette> {
     Palette::from_bytes(&read_root_asset(
-        manifest,
+        source,
         "ingame",
         find_ingame_asset(manifest, relative_path)
             .ok_or_else(|| anyhow!("missing {family} asset ingame/{relative_path}"))?,
@@ -4402,6 +4472,7 @@ fn load_ingame_palette_asset(
 
 fn load_floating_prize_helmet_palette_asset(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     base_relative_path: &str,
     relative_path: &str,
     family: &str,
@@ -4411,8 +4482,8 @@ fn load_floating_prize_helmet_palette_asset(
     } else {
         KID_PALETTE_PATH
     };
-    let base = load_ingame_palette_asset(manifest, base_path, family)?;
-    let helmet = load_ingame_palette_asset(manifest, relative_path, family)?;
+    let base = load_ingame_palette_asset(manifest, source, base_path, family)?;
+    let helmet = load_ingame_palette_asset(manifest, source, relative_path, family)?;
     if helmet.colours.len() != 3 {
         return Ok(helmet);
     }
@@ -4429,11 +4500,12 @@ fn load_floating_prize_helmet_palette_asset(
 
 fn load_compressed_sprite_frames(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     relative_path: &str,
     family: &str,
     descriptors: &[SpriteFrameDescriptor],
 ) -> Result<Vec<SpriteFrame>> {
-    let tile_sheet = load_compressed_sprite_sheet(manifest, relative_path, family)?;
+    let tile_sheet = load_compressed_sprite_sheet(manifest, source, relative_path, family)?;
     Ok(descriptors
         .iter()
         .copied()
@@ -4450,6 +4522,7 @@ fn load_compressed_sprite_frames(
 
 fn load_compressed_sprite_frame(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     relative_path: &str,
     family: &str,
     descriptor: SpriteFrameDescriptor,
@@ -4460,22 +4533,24 @@ fn load_compressed_sprite_frame(
         width_px: descriptor.width_px,
         height_px: descriptor.height_px,
         tile_base_index: descriptor.tile_base_index,
-        tile_sheet: load_compressed_sprite_sheet(manifest, relative_path, family)?,
+        tile_sheet: load_compressed_sprite_sheet(manifest, source, relative_path, family)?,
     })
 }
 
 fn load_compressed_sprite_sheet(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     relative_path: &str,
     family: &str,
 ) -> Result<TileSheet> {
     let asset = find_ingame_asset(manifest, relative_path)
         .ok_or_else(|| anyhow!("missing {family} asset ingame/{relative_path}"))?;
-    load_tile_sheet(manifest, "ingame", asset, family)
+    load_tile_sheet(source, "ingame", asset, family)
 }
 
 fn load_flag_visuals(
     manifest: &AssetManifest,
+    source: &dyn AssetSource,
     foreground_palette: &Palette,
 ) -> Result<FlagVisuals> {
     let flag_art = find_ingame_asset(manifest, FLAG_ART_PATH)
@@ -4484,9 +4559,9 @@ fn load_flag_visuals(
         anyhow!("missing flag pole bottom art asset ingame/{FLAG_BOTTOM_ART_PATH}")
     })?;
     let flag_tile_sheet =
-        load_uncompressed_tile_sheet(manifest, "ingame", flag_art, "end-of-level flag art")?;
+        load_uncompressed_tile_sheet(source, "ingame", flag_art, "end-of-level flag art")?;
     let pole_tile_sheet =
-        load_uncompressed_tile_sheet(manifest, "ingame", pole_art, "flag pole bottom art")?;
+        load_uncompressed_tile_sheet(source, "ingame", pole_art, "flag pole bottom art")?;
 
     Ok(FlagVisuals {
         palette: foreground_palette.clone(),
@@ -4622,12 +4697,12 @@ fn compose_indoor_rubber_block_tile_sub_144da(
 }
 
 fn load_tile_sheet(
-    manifest: &AssetManifest,
+    source: &dyn AssetSource,
     root_name: &str,
     asset: &AssetFile,
     family: &str,
 ) -> Result<TileSheet> {
-    let compressed = read_root_asset(manifest, root_name, asset, family)?;
+    let compressed = read_root_asset(source, root_name, asset, family)?;
     let decoded = decode_saxman(&compressed).with_context(|| {
         format!(
             "failed to decode {family} from {root_name}/{}",
@@ -4650,12 +4725,12 @@ fn load_tile_sheet(
 }
 
 fn load_uncompressed_tile_sheet(
-    manifest: &AssetManifest,
+    source: &dyn AssetSource,
     root_name: &str,
     asset: &AssetFile,
     family: &str,
 ) -> Result<TileSheet> {
-    let bytes = read_root_asset(manifest, root_name, asset, family)?;
+    let bytes = read_root_asset(source, root_name, asset, family)?;
     TileSheet::from_4bpp_bytes(&bytes).with_context(|| {
         format!(
             "failed to parse {family} from {root_name}/{}",
@@ -4670,13 +4745,14 @@ fn decode_level_saxman_asset(asset: &wildside_data::LoadedAsset, family: &str) -
 }
 
 fn read_decoded_file(
-    manifest: &AssetManifest,
+    source: &dyn AssetSource,
     asset: &DecodedAssetFile,
     family: &str,
 ) -> Result<Vec<u8>> {
-    let path = manifest.output_root.join(&asset.relative_path);
+    let rel = Path::new(&asset.relative_path);
     read_file_with_contract(
-        &path,
+        source,
+        rel,
         &asset.relative_path,
         asset.size_bytes,
         &asset.sha1,
@@ -4685,20 +4761,19 @@ fn read_decoded_file(
 }
 
 fn read_root_asset(
-    manifest: &AssetManifest,
+    source: &dyn AssetSource,
     root_name: &str,
     asset: &AssetFile,
     family: &str,
 ) -> Result<Vec<u8>> {
     let root = match root_name {
-        "theme" => manifest.output_root.join("theme"),
-        "ingame" => manifest.output_root.join("ingame"),
-        "scenes" => manifest.output_root.join("scenes"),
+        "theme" | "ingame" | "scenes" => Path::new(root_name),
         other => bail!("unsupported generated bundle root {other}"),
     };
-    let path = root.join(&asset.relative_path);
+    let rel = root.join(&asset.relative_path);
     read_file_with_contract(
-        &path,
+        source,
+        &rel,
         &format!("{root_name}/{}", asset.relative_path),
         asset.size_bytes,
         &asset.sha1,
@@ -4707,17 +4782,19 @@ fn read_root_asset(
 }
 
 fn read_file_with_contract(
-    path: &Path,
+    source: &dyn AssetSource,
+    rel: &Path,
     display_path: &str,
     expected_size: u64,
     expected_sha1: &str,
     family: &str,
 ) -> Result<Vec<u8>> {
-    if !path.is_file() {
+    if !source.exists(rel) {
         bail!("missing {family} asset at {display_path}");
     }
-    let bytes = fs::read(path)
-        .with_context(|| format!("failed to read {family} asset from {}", path.display()))?;
+    let bytes = source
+        .read(rel)
+        .with_context(|| format!("failed to read {family} asset from {}", rel.display()))?;
     if bytes.len() as u64 != expected_size {
         bail!(
             "{family} asset size mismatch for {display_path}: expected {expected_size} bytes, got {}",
@@ -4757,7 +4834,7 @@ mod tests {
     use sha1::{Digest, Sha1};
     use std::fs;
     use tempfile::TempDir;
-    use wildside_data::{AssetFile, AssetManifest, EnemyLayout};
+    use wildside_data::{AssetFile, AssetManifest, EnemyLayout, FsAssetSource};
 
     fn tile_ref(tile_index: u16) -> TileRef {
         TileRef {
@@ -4999,13 +5076,14 @@ mod tests {
     fn load_special_effect_unknown_visuals_reads_scene_art_loc_14de4() {
         let bytes = vec![0x12; 16 * 32];
         let (_temp_dir, manifest) = scene_manifest("artunc/unknown_1.bin", &bytes);
+        let source = FsAssetSource::new(manifest.output_root.clone());
 
         assert!(
-            load_special_effect_unknown_visuals(&manifest, 0)
+            load_special_effect_unknown_visuals(&manifest, &source, 0)
                 .expect("weather flag 0 skips unknown art")
                 .is_none()
         );
-        let visuals = load_special_effect_unknown_visuals(&manifest, 4)
+        let visuals = load_special_effect_unknown_visuals(&manifest, &source, 4)
             .expect("load unknown art")
             .expect("weather flag 4 loads unknown art");
 
@@ -5075,18 +5153,20 @@ mod tests {
         let exact_bytes = [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
         let (_temp_dir, manifest) =
             palette_manifest("palette_permutations/exact.bin", &exact_bytes);
+        let source = FsAssetSource::new(manifest.output_root.clone());
 
         assert_eq!(
-            load_palette_permutation(&manifest, "palette_permutations/exact.bin"),
+            load_palette_permutation(&manifest, &source, "palette_permutations/exact.bin"),
             Some(exact_bytes),
             "ASM Palette_Permutation_* tables are valid at exactly sixteen entries"
         );
 
         let bytes = [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 99];
         let (_temp_dir, manifest) = palette_manifest("palette_permutations/test.bin", &bytes);
+        let source = FsAssetSource::new(manifest.output_root.clone());
 
         assert_eq!(
-            load_palette_permutation(&manifest, "palette_permutations/test.bin"),
+            load_palette_permutation(&manifest, &source, "palette_permutations/test.bin"),
             Some([15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]),
             "ASM Palette_Permutation_* tables are 16 byte nibble lookup tables"
         );
@@ -5094,9 +5174,10 @@ mod tests {
         let short_bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
         let (_temp_dir, manifest) =
             palette_manifest("palette_permutations/short.bin", &short_bytes);
+        let source = FsAssetSource::new(manifest.output_root.clone());
 
         assert_eq!(
-            load_palette_permutation(&manifest, "palette_permutations/short.bin"),
+            load_palette_permutation(&manifest, &source, "palette_permutations/short.bin"),
             None,
             "ASM Palette_Permutation_* tables must contain all sixteen entries"
         );

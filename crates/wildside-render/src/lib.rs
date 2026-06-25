@@ -15,7 +15,7 @@ pub use background::{
 };
 pub use bundle::{
     IslandShoreVisualsLoc1202A, NativeLevelVisuals, PauseMenuVisuals, TitleCardLettersVisuals,
-    load_level_visuals,
+    load_level_visuals, load_level_visuals_with_source,
 };
 pub use hud::{HudIcon, HudVisuals};
 pub use level::{
