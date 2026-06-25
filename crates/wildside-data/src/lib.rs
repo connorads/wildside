@@ -7,7 +7,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
 
+mod asset_source;
 mod level_layout;
+
+pub use asset_source::{AssetSource, FsAssetSource, InMemoryAssetSource};
 
 const COPIED_DIRECTORIES: &[&str] = &[
     "code/enemy",
