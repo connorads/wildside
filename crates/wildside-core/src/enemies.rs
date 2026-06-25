@@ -6596,7 +6596,11 @@ fn step_armadillo_spawned_child_fall_wait_loc_3c954(
         0
     };
 
-    let wait = armadillo_spawned_child_fall_wait_loc_3c954(collision_type, enemy.y_velocity);
+    let wait = armadillo_spawned_child_fall_wait_loc_3c954(
+        collision_type,
+        enemy.y_velocity,
+        enemy.layout_index as u8,
+    );
     enemy.x_velocity = 0;
     enemy.y_velocity = wait.y_velocity;
     enemy.on_ground = !wait.has_level_collision;

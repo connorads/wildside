@@ -104,6 +104,7 @@ pub(crate) enum ArmadilloDeathRouteLoc3C87E {
     DeathAnimation {
         animation_script: &'static str,
         waits_until_animation_finished: bool,
+        status_action: DeactivationStatusActionLoc3C4C0,
         exits_enemy: bool,
     },
     SpawnedChildFallBeforeDeath {
@@ -116,6 +117,7 @@ pub(crate) enum ArmadilloDeathRouteLoc3C87E {
 
 pub(crate) fn armadillo_death_route_loc_3c87e(
     spawned_child_flag: bool,
+    object_status_slot: u8,
 ) -> ArmadilloDeathRouteLoc3C87E {
     // ASM Armadillo.asm loc_3C87E: `$5C(a5)` selects whether death starts
     // immediately or first runs a falling settle path for spawned children.
@@ -128,10 +130,12 @@ pub(crate) fn armadillo_death_route_loc_3c87e(
             is_moved: fall_setup.is_moved,
         }
     } else {
+        let death_animation = armadillo_death_animation_loc_3c886(object_status_slot);
         ArmadilloDeathRouteLoc3C87E::DeathAnimation {
-            animation_script: "stru_3C69A",
-            waits_until_animation_finished: true,
-            exits_enemy: true,
+            animation_script: death_animation.animation_script,
+            waits_until_animation_finished: death_animation.waits_until_animation_finished,
+            status_action: death_animation.status_action,
+            exits_enemy: death_animation.exits_enemy,
         }
     }
 }
@@ -140,15 +144,19 @@ pub(crate) fn armadillo_death_route_loc_3c87e(
 pub(crate) struct ArmadilloDeathAnimationLoc3C886 {
     pub(crate) animation_script: &'static str,
     pub(crate) waits_until_animation_finished: bool,
+    pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
     pub(crate) exits_enemy: bool,
 }
 
-pub(crate) fn armadillo_death_animation_loc_3c886() -> ArmadilloDeathAnimationLoc3C886 {
+pub(crate) fn armadillo_death_animation_loc_3c886(
+    object_status_slot: u8,
+) -> ArmadilloDeathAnimationLoc3C886 {
     // ASM Armadillo.asm loc_3C886: initialise `stru_3C69A`, hibernate until
-    // that animation completes, then branch to the shared enemy exit path.
+    // that animation completes, then branch to loc_3E956's shared delete tail.
     ArmadilloDeathAnimationLoc3C886 {
         animation_script: "stru_3C69A",
         waits_until_animation_finished: true,
+        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
         exits_enemy: true,
     }
 }
@@ -370,6 +378,7 @@ pub(crate) enum ArmadilloSpawnedChildFallWaitRouteLoc3C954 {
     DeathAnimation {
         animation_script: &'static str,
         waits_until_animation_finished: bool,
+        status_action: DeactivationStatusActionLoc3C4C0,
         exits_enemy: bool,
     },
 }
@@ -387,11 +396,12 @@ pub(crate) struct ArmadilloSpawnedChildFallWaitLoc3C954 {
 pub(crate) fn armadillo_spawned_child_fall_wait_loc_3c954(
     collision_type: i16,
     y_velocity: i32,
+    object_status_slot: u8,
 ) -> ArmadilloSpawnedChildFallWaitLoc3C954 {
     // ASM Armadillo.asm loc_3C954: clear stale collision_type, hibernate one
     // frame, then wait until the post-hibernate collision word is colid_floor.
     if collision_type == ARMADILLO_COLID_FLOOR {
-        let death_animation = armadillo_death_animation_loc_3c886();
+        let death_animation = armadillo_death_animation_loc_3c886(object_status_slot);
         ArmadilloSpawnedChildFallWaitLoc3C954 {
             next_collision_type: 0,
             y_velocity: 0,
@@ -401,6 +411,7 @@ pub(crate) fn armadillo_spawned_child_fall_wait_loc_3c954(
             route: ArmadilloSpawnedChildFallWaitRouteLoc3C954::DeathAnimation {
                 animation_script: death_animation.animation_script,
                 waits_until_animation_finished: death_animation.waits_until_animation_finished,
+                status_action: death_animation.status_action,
                 exits_enemy: death_animation.exits_enemy,
             },
         }
@@ -602,16 +613,17 @@ mod tests {
     #[test]
     fn armadillo_death_route_matches_loc_3c87e() {
         assert_eq!(
-            armadillo_death_route_loc_3c87e(false),
+            armadillo_death_route_loc_3c87e(false, 0x05),
             ArmadilloDeathRouteLoc3C87E::DeathAnimation {
                 animation_script: "stru_3C69A",
                 waits_until_animation_finished: true,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
                 exits_enemy: true,
             },
             "ASM Armadillo.asm loc_3C87E immediately plays the death animation when `$5C(a5)` is clear"
         );
         assert_eq!(
-            armadillo_death_route_loc_3c87e(true),
+            armadillo_death_route_loc_3c87e(true, 0x05),
             ArmadilloDeathRouteLoc3C87E::SpawnedChildFallBeforeDeath {
                 x_velocity: 0,
                 y_velocity: 0x0002_C000,
@@ -625,10 +637,11 @@ mod tests {
     #[test]
     fn armadillo_death_animation_matches_loc_3c886() {
         assert_eq!(
-            armadillo_death_animation_loc_3c886(),
+            armadillo_death_animation_loc_3c886(0x05),
             ArmadilloDeathAnimationLoc3C886 {
                 animation_script: "stru_3C69A",
                 waits_until_animation_finished: true,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
                 exits_enemy: true,
             },
             "ASM Armadillo.asm loc_3C886 plays `stru_3C69A`, waits for it to finish, then exits through loc_3E956"
@@ -638,7 +651,7 @@ mod tests {
     #[test]
     fn armadillo_spawned_child_fall_wait_matches_loc_3c954() {
         assert_eq!(
-            armadillo_spawned_child_fall_wait_loc_3c954(0, 0x0002_C000),
+            armadillo_spawned_child_fall_wait_loc_3c954(0, 0x0002_C000, 0x05),
             ArmadilloSpawnedChildFallWaitLoc3C954 {
                 next_collision_type: 0,
                 y_velocity: 0x0002_C000,
@@ -650,7 +663,7 @@ mod tests {
             "ASM Armadillo.asm loc_3C954 clears collision_type, hibernates, and loops while collision remains zero"
         );
         assert_eq!(
-            armadillo_spawned_child_fall_wait_loc_3c954(0x0004, 0x0002_C000),
+            armadillo_spawned_child_fall_wait_loc_3c954(0x0004, 0x0002_C000, 0x05),
             ArmadilloSpawnedChildFallWaitLoc3C954 {
                 next_collision_type: 0,
                 y_velocity: 0x0002_C000,
@@ -662,7 +675,7 @@ mod tests {
             "ASM Armadillo.asm loc_3C954 ignores non-floor collision words and waits for colid_floor"
         );
         assert_eq!(
-            armadillo_spawned_child_fall_wait_loc_3c954(ARMADILLO_COLID_FLOOR, 0x0002_C000),
+            armadillo_spawned_child_fall_wait_loc_3c954(ARMADILLO_COLID_FLOOR, 0x0002_C000, 0x05),
             ArmadilloSpawnedChildFallWaitLoc3C954 {
                 next_collision_type: 0,
                 y_velocity: 0,
@@ -672,6 +685,9 @@ mod tests {
                 route: ArmadilloSpawnedChildFallWaitRouteLoc3C954::DeathAnimation {
                     animation_script: "stru_3C69A",
                     waits_until_animation_finished: true,
+                    status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                        index: 5
+                    },
                     exits_enemy: true,
                 },
             },

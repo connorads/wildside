@@ -15489,6 +15489,10 @@ mod chunk_03 {
             !runtime.killed_enemies.contains(&killed_identity),
             "ASM Armadillo.asm loc_3C886 should not mark the layout killed until the death animation reaches the delete tail"
         );
+        assert_eq!(
+            runtime.enemy_status_words[8], 0,
+            "ASM Armadillo.asm loc_3E97C should not write the respawn marker until `stru_3C69A` finishes"
+        );
 
         runtime.active_enemies[0].wait_timer = 0;
         runtime.remove_dead_enemy(0);
@@ -15497,6 +15501,10 @@ mod chunk_03 {
         assert!(
             runtime.killed_enemies.contains(&killed_identity),
             "ASM Armadillo.asm loc_3E956 delete tail should mark the layout killed after stru_3C69A"
+        );
+        assert_eq!(
+            runtime.enemy_status_words[8], 0x2168,
+            "ASM Armadillo.asm loc_3E97C writes `$2168` into EnemyStatus_Table after the Armadillo death animation finishes"
         );
     }
 
