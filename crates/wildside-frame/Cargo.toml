@@ -8,5 +8,8 @@ version.workspace = true
 workspace = true
 
 [dependencies]
+font8x8 = "0.3.1"
 serde.workspace = true
+wildside-core = { path = "../wildside-core" }
+wildside-data = { path = "../wildside-data" }
 wildside-render = { path = "../wildside-render" }

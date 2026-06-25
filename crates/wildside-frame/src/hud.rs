@@ -1,4 +1,10 @@
-use super::*;
+use std::sync::Arc;
+
+use wildside_core::{GameMode, NativeTraceFrame, PlayerForm};
+use wildside_render::{NativeLevelVisuals, TileRef};
+
+use crate::dto::*;
+use crate::scene::*;
 
 const HUD_LIVES_X: i32 = 0x190 - 128;
 const HUD_LIVES_Y: i32 = 0x90 - 128;
@@ -185,7 +191,7 @@ fn hud_hitpoints_visible_loc_bdc0(
     usize::from(trace.form_change_flash_frames) >= transform_frames
 }
 
-pub(super) fn push_hud_icon(
+pub fn push_hud_icon(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
     icon_name: &str,
@@ -431,7 +437,7 @@ fn hud_timer_coord_loc_bd0a(position: wildside_core::HudTimerSpritePositionSubBD
     )
 }
 
-pub(super) fn push_game_hud(
+pub fn push_game_hud(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,

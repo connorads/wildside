@@ -1484,7 +1484,10 @@ dependencies = [
 name = "wildside-frame"
 version = "0.1.0"
 dependencies = [
+ "font8x8",
  "serde",
+ "wildside-core",
+ "wildside-data",
  "wildside-render",
 ]
 

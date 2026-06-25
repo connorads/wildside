@@ -1,11 +1,20 @@
-use super::*;
+use std::collections::BTreeSet;
+
+use font8x8::{BASIC_FONTS, UnicodeFonts};
+use wildside_core::physics::Direction;
+#[cfg(test)]
+use wildside_render::MdColour;
+use wildside_render::{Palette, TileRef, TileSheet};
+
+use crate::dto::*;
+use crate::sprites;
 
 /// Render a single sprite frame onto a blank 320x224 canvas at (`at_x`,`at_y`)
 /// using the real `build_sprite_tiles` assembly and `draw_sprite` blit, with a
 /// magenta backdrop so transparent pixels (where foreground would show through)
 /// are obvious. Returns the full-frame RGB buffer; callers crop as needed.
 /// Debug helper for inspecting sub-sprite geometry (e.g. RockTank turret #145).
-pub(crate) fn render_frame_on_blank_canvas(
+pub fn render_frame_on_blank_canvas(
     frame: &wildside_render::SpriteFrame,
     palette: &Palette,
     at_x: i32,
@@ -31,7 +40,7 @@ pub(crate) fn render_frame_on_blank_canvas(
     rgb
 }
 
-pub(crate) fn render_scene(scene: &Scene, rgb: &mut [u8]) {
+pub fn render_scene(scene: &Scene, rgb: &mut [u8]) {
     clear_frame(rgb, scene.background);
     render_scene_overlay(scene, rgb);
     if scene.pause_palette_darken {
@@ -39,7 +48,7 @@ pub(crate) fn render_scene(scene: &Scene, rgb: &mut [u8]) {
     }
 }
 
-pub(crate) fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
+pub fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
     let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
     for command in &scene.commands {
         match command {
@@ -164,7 +173,7 @@ fn tint_frame(rgb: &mut [u8], colour: [u8; 3], alpha: u8) {
     }
 }
 
-pub(crate) fn sample_scene_pixel_provenance(
+pub fn sample_scene_pixel_provenance(
     scene: &Scene,
     pixels: &BTreeSet<(usize, usize)>,
 ) -> Vec<FinalScenePixelDiagnostic> {
@@ -552,13 +561,13 @@ fn indexed_tile_source_pixel_write(
     })
 }
 
-pub(super) fn clear_frame(rgb: &mut [u8], colour: [u8; 3]) {
+pub fn clear_frame(rgb: &mut [u8], colour: [u8; 3]) {
     for chunk in rgb.chunks_exact_mut(3) {
         chunk.copy_from_slice(&colour);
     }
 }
 
-pub(super) fn apply_pause_palette_darken_loc_6c70(rgb: &mut [u8]) {
+pub fn apply_pause_palette_darken_loc_6c70(rgb: &mut [u8]) {
     // ASM Pause_DarkenPalette loc_6C70/loc_6C9E halves each MD CRAM channel
     // before Palette_to_VRAM uploads the paused palette. Native-player has
     // already resolved palette slots into expanded RGB by this point, so map
@@ -574,7 +583,7 @@ fn pause_darken_expanded_channel_loc_6c70(channel: u8) -> u8 {
     ((md_channel >> 1) * 255 / 7) as u8
 }
 
-pub(super) fn push_panel(
+pub fn push_panel(
     commands: &mut Vec<DrawCommand>,
     x: i32,
     y: i32,
@@ -620,7 +629,7 @@ pub(super) fn push_panel(
     });
 }
 
-pub(super) fn text(x: i32, y: i32, value: &str, colour: [u8; 3], scale: i32) -> DrawCommand {
+pub fn text(x: i32, y: i32, value: &str, colour: [u8; 3], scale: i32) -> DrawCommand {
     DrawCommand::Text {
         x,
         y,
@@ -630,7 +639,7 @@ pub(super) fn text(x: i32, y: i32, value: &str, colour: [u8; 3], scale: i32) -> 
     }
 }
 
-pub(super) fn draw_text(
+pub fn draw_text(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
     x: i32,
@@ -660,7 +669,7 @@ pub(super) fn draw_text(
     }
 }
 
-pub(super) fn draw_glyph(
+pub fn draw_glyph(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
     x: i32,
@@ -690,7 +699,7 @@ pub(super) fn draw_glyph(
     }
 }
 
-pub(super) fn fill_rect(
+pub fn fill_rect(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
     x: i32,
@@ -706,7 +715,7 @@ pub(super) fn fill_rect(
     }
 }
 
-pub(super) fn clear_priority_rect(
+pub fn clear_priority_rect(
     high_priority_pixels: &mut [bool],
     x: i32,
     y: i32,
@@ -721,7 +730,7 @@ pub(super) fn clear_priority_rect(
     }
 }
 
-pub(super) fn draw_sprite(
+pub fn draw_sprite(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
     x: i32,
@@ -743,7 +752,7 @@ pub(super) fn draw_sprite(
     }
 }
 
-pub(super) fn draw_indexed_tile_row(
+pub fn draw_indexed_tile_row(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
     x: i32,
@@ -778,7 +787,7 @@ pub(super) fn draw_indexed_tile_row(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn draw_indexed_tile_slice(
+pub fn draw_indexed_tile_slice(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
     x: i32,
@@ -817,7 +826,7 @@ pub(super) fn draw_indexed_tile_slice(
     }
 }
 
-pub(super) fn draw_indexed_tile(
+pub fn draw_indexed_tile(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
     x: i32,
@@ -852,7 +861,7 @@ pub(super) fn draw_indexed_tile(
     }
 }
 
-pub(super) fn resolve_palette_colour(
+pub fn resolve_palette_colour(
     palette: &Palette,
     selected_palette_line: u8,
     palette_index: u8,
@@ -897,7 +906,7 @@ pub(super) fn resolve_palette_colour(
     Some([colour.red, colour.green, colour.blue])
 }
 
-pub(super) fn set_pixel(
+pub fn set_pixel(
     rgb: &mut [u8],
     high_priority_pixels: &mut [bool],
     x: i32,

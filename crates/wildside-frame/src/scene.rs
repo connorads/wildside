@@ -1,4 +1,55 @@
-use super::*;
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use wildside_core::{
+    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
+    DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, GameMode, NativeObjectKind,
+    NativeObjectSnapshot, NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
+};
+use wildside_render::{MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet};
+
+use crate::dto::*;
+use crate::hud::*;
+use crate::render::*;
+use crate::sprites::{self, *};
+
+fn game_mode_label(mode: GameMode) -> &'static str {
+    match mode {
+        GameMode::SegaScreen => "SegaScreen",
+        GameMode::IntroSequence1 => "IntroSequence1",
+        GameMode::IntroSequence2 => "IntroSequence2",
+        GameMode::IntroSequence3 => "IntroSequence3",
+        GameMode::IntroSequence4 => "IntroSequence4",
+        GameMode::IntroSequence5 => "IntroSequence5",
+        GameMode::IntroSequence6 => "IntroSequence6",
+        GameMode::TitleScreen => "TitleScreen",
+        GameMode::LevelTransition => "LevelTransition",
+        GameMode::InGame => "InGame",
+        GameMode::DemoPlay => "DemoPlay",
+        GameMode::OptionsMenu => "OptionsMenu",
+        GameMode::EndingSequence => "EndingSequence",
+    }
+}
+
+fn form_label(helmet_id: u16) -> &'static str {
+    match PlayerForm::from_helmet_id(helmet_id) {
+        Some(PlayerForm::TheKid) => "TheKid",
+        Some(PlayerForm::Skycutter) => "Skycutter",
+        Some(PlayerForm::Cyclone) => "Cyclone",
+        Some(PlayerForm::RedStealth) => "RedStealth",
+        Some(PlayerForm::Eyeclops) => "Eyeclops",
+        Some(PlayerForm::Juggernaut) => "Juggernaut",
+        Some(PlayerForm::IronKnight) => "IronKnight",
+        Some(PlayerForm::Berzerker) => "Berzerker",
+        Some(PlayerForm::Maniaxe) => "Maniaxe",
+        Some(PlayerForm::Micromax) => "Micromax",
+        None => "Unknown",
+    }
+}
+
+fn on_off(value: bool) -> &'static str {
+    if value { "On" } else { "Off" }
+}
 
 const HEADYMETAL_WOBBLE_STAGE_1: u16 = 0x015E;
 const HEADYMETAL_WOBBLE_STAGE_2: u16 = 0x00FA;
@@ -29,7 +80,7 @@ const PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8: u8 = 25;
 // eight one-frame palette fade steps before the score rows are visible in the
 // reduced oracle bundle. The trace clock keeps loc_D468 object timing; the
 // renderer applies this final visual fade phase.
-pub(super) const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8;
+pub const EOL_SCORE_ROWS_RENDER_FADE_IN_FRAMES_LOC_D734_ORACLE: usize = 8;
 // ASM loc_D734 falls through after the fade, then loc_C5A2/loc_C48C workers
 // update before sub_13C0 latches the sprite table for the *next* displayed
 // frame. The reduced `issue-175-eol-flag-touch-level12` oracle bundle exposes
@@ -585,7 +636,7 @@ fn push_block_destroy_debris_sub_292e(
 
 /// Controls which layers are rendered. Used for layer-isolated diagnosis.
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct LayerFilter {
+pub struct LayerFilter {
     pub background: bool,
     pub terrain: bool,
     pub block_overrides: bool,
@@ -656,7 +707,7 @@ fn player_damage_flash_white_phase_loc_bc56(trace: &NativeTraceFrame) -> bool {
     (64usize.saturating_sub(trace.invulnerable_frames) % 6) < 2
 }
 
-pub(crate) fn eol_score_sprite_diagnostics(
+pub fn eol_score_sprite_diagnostics(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     block_grid: Option<&wildside_core::terrain::BlockGrid>,
@@ -915,7 +966,7 @@ fn push_lion_projectile_sprite_loc_3e12a(
     true
 }
 
-pub(crate) fn build_scene(
+pub fn build_scene(
     trace: &NativeTraceFrame,
     debug_overlay_visible: bool,
     level_visuals: Option<&NativeLevelVisuals>,
@@ -930,7 +981,7 @@ pub(crate) fn build_scene(
     )
 }
 
-pub(crate) fn render_trace_with_vdp_latched_state(
+pub fn render_trace_with_vdp_latched_state(
     trace: &NativeTraceFrame,
     previous_trace: Option<&NativeTraceFrame>,
 ) -> NativeTraceFrame {
@@ -1073,7 +1124,7 @@ fn previous_hud_diamond_frame_offset_loc_45ee(offset: u8) -> u8 {
     }
 }
 
-pub(crate) fn build_scene_filtered(
+pub fn build_scene_filtered(
     trace: &NativeTraceFrame,
     debug_overlay_visible: bool,
     level_visuals: Option<&NativeLevelVisuals>,
@@ -1095,7 +1146,7 @@ pub(crate) fn build_scene_filtered(
     }
 }
 
-pub(super) fn build_transition_scene(
+pub fn build_transition_scene(
     trace: &NativeTraceFrame,
     level_visuals: Option<&NativeLevelVisuals>,
 ) -> Scene {
@@ -1118,7 +1169,7 @@ pub(super) fn build_transition_scene(
     }
 }
 
-pub(super) fn build_title_card_worker_overlay_scene(
+pub fn build_title_card_worker_overlay_scene(
     trace: &NativeTraceFrame,
     level_visuals: Option<&NativeLevelVisuals>,
 ) -> Scene {
@@ -1308,7 +1359,7 @@ fn push_title_card_glyph_tiles(
     emitted > 0
 }
 
-pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> Scene {
+pub fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible: bool) -> Scene {
     let mut commands = Vec::new();
 
     if trace.game_complete {
@@ -1445,7 +1496,7 @@ pub(super) fn build_status_scene(trace: &NativeTraceFrame, debug_overlay_visible
     }
 }
 
-pub(super) fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
+pub fn build_options_scene(trace: &NativeTraceFrame) -> Scene {
     if let Some(track) = trace.sound_test_track {
         return build_sound_test_scene(track);
     }
@@ -1567,7 +1618,7 @@ fn build_sound_test_scene(track: u8) -> Scene {
     }
 }
 
-pub(super) fn build_victory_scene(trace: &NativeTraceFrame) -> Scene {
+pub fn build_victory_scene(trace: &NativeTraceFrame) -> Scene {
     let mut commands = Vec::new();
 
     // Dark green background
@@ -1710,7 +1761,7 @@ const CREDITS_START: usize = ENDING_PHASE3_END;
 /// Each credits screen: 112 frames scroll + 200 frames display = 312 frames.
 const CREDITS_PER_SCREEN: usize = 312;
 
-pub(super) fn build_ending_scene(trace: &NativeTraceFrame) -> Scene {
+pub fn build_ending_scene(trace: &NativeTraceFrame) -> Scene {
     let mut commands = Vec::new();
     let elapsed = trace.ending_elapsed.unwrap_or(0);
 
@@ -1791,7 +1842,7 @@ pub(super) fn build_ending_scene(trace: &NativeTraceFrame) -> Scene {
     }
 }
 
-pub(super) fn resolve_ingame_vram_tile(
+pub fn resolve_ingame_vram_tile(
     level_visuals: &NativeLevelVisuals,
     tile_ref: TileRef,
 ) -> Option<ResolvedSceneTile> {
@@ -1860,7 +1911,7 @@ fn resolve_ingame_vram_tile_with_foreground_palette(
     None
 }
 
-pub(super) fn push_resolved_tile(
+pub fn push_resolved_tile(
     commands: &mut Vec<DrawCommand>,
     x: i32,
     y: i32,
@@ -1875,7 +1926,7 @@ pub(super) fn push_resolved_tile(
     });
 }
 
-pub(super) fn push_background_tiles(
+pub fn push_background_tiles(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
@@ -2118,45 +2169,45 @@ fn island_shore_frame_loc_1220e(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BackgroundPixelSample {
-    pub(crate) screen_x: i32,
-    pub(crate) screen_y: i32,
-    pub(crate) tile_origin_x: i32,
-    pub(crate) tile_origin_y: i32,
-    pub(crate) background_row_index: Option<usize>,
-    pub(crate) background_row_selector: Option<u8>,
-    pub(crate) background_column: Option<usize>,
-    pub(crate) tile_index: u16,
-    pub(crate) palette_line: u8,
-    pub(crate) palette_index: u8,
-    pub(crate) source_x: u8,
-    pub(crate) source_y: u8,
-    pub(crate) source_row_pixels: [u8; 8],
-    pub(crate) row_offset: Option<i32>,
-    pub(crate) rgb: [u8; 3],
+pub struct BackgroundPixelSample {
+    pub screen_x: i32,
+    pub screen_y: i32,
+    pub tile_origin_x: i32,
+    pub tile_origin_y: i32,
+    pub background_row_index: Option<usize>,
+    pub background_row_selector: Option<u8>,
+    pub background_column: Option<usize>,
+    pub tile_index: u16,
+    pub palette_line: u8,
+    pub palette_index: u8,
+    pub source_x: u8,
+    pub source_y: u8,
+    pub source_row_pixels: [u8; 8],
+    pub row_offset: Option<i32>,
+    pub rgb: [u8; 3],
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct BackgroundScrollPixelDiagnostic {
-    pub(crate) camera_x_px: i32,
-    pub(crate) camera_y_px: i32,
-    pub(crate) time_frames_loc_3038a: usize,
-    pub(crate) background_scroll_y_px: i32,
-    pub(crate) sample_row: usize,
-    pub(crate) plane_b_row: usize,
-    pub(crate) sample_column: i32,
-    pub(crate) layer_speed_loc_3050a: u8,
-    pub(crate) scroll_x_px_loc_3050a: i32,
-    pub(crate) destination_column_loc_30744: usize,
-    pub(crate) source_column_bias_loc_30744: usize,
-    pub(crate) source_column_start_loc_30744: usize,
+pub struct BackgroundScrollPixelDiagnostic {
+    pub camera_x_px: i32,
+    pub camera_y_px: i32,
+    pub time_frames_loc_3038a: usize,
+    pub background_scroll_y_px: i32,
+    pub sample_row: usize,
+    pub plane_b_row: usize,
+    pub sample_column: i32,
+    pub layer_speed_loc_3050a: u8,
+    pub scroll_x_px_loc_3050a: i32,
+    pub destination_column_loc_30744: usize,
+    pub source_column_bias_loc_30744: usize,
+    pub source_column_start_loc_30744: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) fresh_window_offset_loc_30744: Option<usize>,
+    pub fresh_window_offset_loc_30744: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) sample_source_column_loc_30744: Option<usize>,
+    pub sample_source_column_loc_30744: Option<usize>,
 }
 
-pub(crate) fn background_scroll_pixel_diagnostic_loc_3050a(
+pub fn background_scroll_pixel_diagnostic_loc_3050a(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     sample_x: i32,
@@ -2214,7 +2265,7 @@ pub(crate) fn background_scroll_pixel_diagnostic_loc_3050a(
     })
 }
 
-pub(crate) fn sample_background_pixel_loc_c070(
+pub fn sample_background_pixel_loc_c070(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     sample_x: i32,
@@ -2440,21 +2491,21 @@ struct ChunkedPlaneBCellLoc307D8 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) struct ChunkedBackgroundSourceLoc12848 {
+pub struct ChunkedBackgroundSourceLoc12848 {
     width: usize,
     height: usize,
     cells: Vec<Option<ChunkedPlaneBCellLoc307D8>>,
 }
 
 impl ChunkedBackgroundSourceLoc12848 {
-    pub(super) fn from_background_direct_loc_12830(
+    pub fn from_background_direct_loc_12830(
         level_visuals: &NativeLevelVisuals,
         background: &wildside_render::ChunkedBackgroundVisuals,
     ) -> Option<Self> {
         Self::from_background_with_offsets_loc_12824_12830(level_visuals, background, 0, 0)
     }
 
-    pub(super) fn from_background_alias_loc_12824(
+    pub fn from_background_alias_loc_12824(
         level_visuals: &NativeLevelVisuals,
         background: &wildside_render::ChunkedBackgroundVisuals,
     ) -> Option<Self> {
@@ -2554,8 +2605,9 @@ impl ChunkedBackgroundSourceLoc12848 {
         })
     }
 
-    #[cfg(test)]
-    pub(super) fn tile_index_at(&self, row: usize, column: usize) -> Option<u16> {
+    // Used by the native player's cross-crate tests, so it cannot be
+    // `#[cfg(test)]`-gated (that compiles only for this crate's own tests).
+    pub fn tile_index_at(&self, row: usize, column: usize) -> Option<u16> {
         if row >= self.height || column >= self.width {
             return None;
         }
@@ -3135,8 +3187,9 @@ fn changed_column_write_debug_loc_30744(
     ))
 }
 
-#[cfg(test)]
-pub(super) fn chunked_plane_b_row_words_for_trace_loc_30744(
+// Cross-crate test helper for the native player's background-scroll tests, so
+// it cannot be `#[cfg(test)]`-gated (that compiles only for this crate's tests).
+pub fn chunked_plane_b_row_words_for_trace_loc_30744(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     camera_x_px: i32,
@@ -3156,8 +3209,8 @@ pub(super) fn chunked_plane_b_row_words_for_trace_loc_30744(
         })
 }
 
-#[cfg(test)]
-pub(super) fn chunked_plane_b_row_vdp_words_for_trace_loc_30744(
+// Cross-crate test helper (see `chunked_plane_b_row_words_for_trace_loc_30744`).
+pub fn chunked_plane_b_row_vdp_words_for_trace_loc_30744(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     camera_x_px: i32,
@@ -3177,7 +3230,7 @@ pub(super) fn chunked_plane_b_row_vdp_words_for_trace_loc_30744(
         })
 }
 
-pub(crate) fn chunked_plane_b_row_debug_for_trace_loc_30744(
+pub fn chunked_plane_b_row_debug_for_trace_loc_30744(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     camera_x_px: i32,
@@ -3200,7 +3253,7 @@ fn chunked_plane_b_cell_vdp_word_loc_307d8(cell: ChunkedPlaneBCellLoc307D8) -> u
     palette_bits | hflip_bit | 0x0780 | (cell.tile_ref.tile_index & 0x007F)
 }
 
-pub(super) fn background_scroll_data_word_loc_30452(
+pub fn background_scroll_data_word_loc_30452(
     time_frames: usize,
     camera_x_px: i32,
     layer_speed: u8,
@@ -3461,7 +3514,7 @@ fn push_layered_background_tile(
     }
 }
 
-pub(super) fn foreground_palette_for_scene(
+pub fn foreground_palette_for_scene(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
 ) -> Palette {
@@ -3619,7 +3672,7 @@ fn push_sprite_frame_with_priority(
     });
 }
 
-pub(super) fn push_sprite_frame_top_left(
+pub fn push_sprite_frame_top_left(
     commands: &mut Vec<DrawCommand>,
     frame: &wildside_render::SpriteFrame,
     palette: &Palette,
@@ -4756,9 +4809,7 @@ fn pause_menu_tile_with_live_cursor_loc_6b0e(
     tile
 }
 
-pub(super) fn hide_pause_menu_overwritten_sprite_commands_sub_6874(
-    commands: &mut Vec<DrawCommand>,
-) {
+pub fn hide_pause_menu_overwritten_sprite_commands_sub_6874(commands: &mut Vec<DrawCommand>) {
     // ASM loc_68AC-loc_68C0: sub_6874 scans the hardware sprite table and
     // clears the Y word for sprites whose masked first pattern tile overlaps
     // the pause-menu art upload range `$676..=$68E`.
@@ -4802,13 +4853,11 @@ fn background_time_frames_for_trace_loc_3050a(trace: &NativeTraceFrame) -> usize
     }
 }
 
-pub(super) fn forest_water_ripple_time_frames_for_trace_loc_305e6(
-    trace: &NativeTraceFrame,
-) -> usize {
+pub fn forest_water_ripple_time_frames_for_trace_loc_305e6(trace: &NativeTraceFrame) -> usize {
     background_time_frames_for_trace_loc_3050a(trace)
 }
 
-pub(super) fn forest_water_ripple_offset_for_screen_y_sub_30598(
+pub fn forest_water_ripple_offset_for_screen_y_sub_30598(
     frame_index: usize,
     screen_y: i32,
     effect_start_row_selector: u8,
@@ -4838,7 +4887,7 @@ pub(super) fn forest_water_ripple_offset_for_screen_y_sub_30598(
     Some(i32::from(FOREST_RIPPLE[table_idx]))
 }
 
-pub(super) fn background_tile_screen_position(
+pub fn background_tile_screen_position(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     x_tiles: u16,
@@ -4877,7 +4926,7 @@ fn background_layer_speed_loc_3050a(level_visuals: &NativeLevelVisuals, y_tiles:
         .unwrap_or(0x10)
 }
 
-pub(super) fn layered_background_row_wraps_loc_3050a(
+pub fn layered_background_row_wraps_loc_3050a(
     level_visuals: &NativeLevelVisuals,
     y_tiles: usize,
 ) -> bool {
@@ -4893,7 +4942,7 @@ pub(super) fn layered_background_row_wraps_loc_3050a(
         && matches!(layer_speed, 0x08..=0x88 if layer_speed.is_multiple_of(8))
 }
 
-pub(super) fn layered_background_row_wraps_for_trace_loc_3050a(
+pub fn layered_background_row_wraps_for_trace_loc_3050a(
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
     y_tiles: usize,
@@ -4906,7 +4955,7 @@ pub(super) fn layered_background_row_wraps_for_trace_loc_3050a(
         && layered_background_row_wraps_loc_3050a(level_visuals, y_tiles)
 }
 
-pub(super) fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px: i32) -> i32 {
+pub fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px: i32) -> i32 {
     if row_width_px <= 0 {
         return screen_x_px;
     }
@@ -4926,7 +4975,7 @@ pub(super) fn wrap_layered_background_x_loc_11b7a(screen_x_px: i32, row_width_px
     wrapped
 }
 
-pub(super) fn wrap_layered_background_y_loc_11b7a(screen_y_px: i32, row_height_px: i32) -> i32 {
+pub fn wrap_layered_background_y_loc_11b7a(screen_y_px: i32, row_height_px: i32) -> i32 {
     if row_height_px <= 0 {
         return screen_y_px;
     }
@@ -4944,11 +4993,7 @@ pub(super) fn wrap_layered_background_y_loc_11b7a(screen_y_px: i32, row_height_p
     wrapped
 }
 
-pub(super) fn background_scroll_x_px(
-    trace: &NativeTraceFrame,
-    camera_x_px: i32,
-    layer_speed: u8,
-) -> i32 {
+pub fn background_scroll_x_px(trace: &NativeTraceFrame, camera_x_px: i32, layer_speed: u8) -> i32 {
     background_scroll_x_px_for_time_loc_3050a(
         background_time_frames_for_trace_loc_3050a(trace),
         camera_x_px,
@@ -4956,7 +5001,7 @@ pub(super) fn background_scroll_x_px(
     )
 }
 
-pub(super) fn background_display_scroll_x_px_loc_3050a(
+pub fn background_display_scroll_x_px_loc_3050a(
     trace: &NativeTraceFrame,
     camera_x_px: i32,
     layer_speed: u8,
@@ -5005,7 +5050,7 @@ fn background_scroll_x_px_unwrapped_for_time_loc_3050a(
     }
 }
 
-pub(super) fn push_tile_quad(
+pub fn push_tile_quad(
     commands: &mut Vec<DrawCommand>,
     level_visuals: &NativeLevelVisuals,
     foreground_palette: &Palette,
@@ -5281,7 +5326,7 @@ fn push_kid_projectile_hit_spark_loc_1f08(
     });
 }
 
-pub(super) fn push_level_layout_terrain(
+pub fn push_level_layout_terrain(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
@@ -5446,7 +5491,7 @@ fn block_bounce_kind_for_trace(
         })
 }
 
-pub(super) fn push_block_grid_overrides(
+pub fn push_block_grid_overrides(
     commands: &mut Vec<DrawCommand>,
     trace: &NativeTraceFrame,
     level_visuals: &NativeLevelVisuals,
@@ -5596,7 +5641,7 @@ pub(super) fn push_block_grid_overrides(
     }
 }
 
-pub(super) fn background_colour(level_visuals: &NativeLevelVisuals) -> [u8; 3] {
+pub fn background_colour(level_visuals: &NativeLevelVisuals) -> [u8; 3] {
     level_visuals
         .palettes
         .background
@@ -5875,7 +5920,7 @@ fn push_eol_foreground_reveal_tiles(
     }
 }
 
-pub(super) fn object_rect(
+pub fn object_rect(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
     width: i32,
@@ -5891,7 +5936,7 @@ pub(super) fn object_rect(
     }
 }
 
-pub(super) fn screen_coord(world: u32, camera: u32) -> i32 {
+pub fn screen_coord(world: u32, camera: u32) -> i32 {
     let world = i64::from(world);
     let camera = i64::from(camera);
     ((world - camera) >> 16) as i32
@@ -7517,7 +7562,7 @@ fn push_collision_box(
     });
 }
 
-pub(super) fn floating_item_graphics_spec(
+pub fn floating_item_graphics_spec(
     content_id: u8,
 ) -> Option<wildside_core::FloatingPrizeGraphicsSpec> {
     wildside_core::floating_prize_graphics_spec(wildside_core::terrain::PrizeContent::from_id(

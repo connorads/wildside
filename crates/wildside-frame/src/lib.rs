@@ -15,6 +15,25 @@
 //! via `PixelFormatEnum::RGB24`; the web build expands to RGBA (alpha = 255)
 //! at its blit boundary rather than widening the stride here. See issue #18.
 
+// Faithful 68k translations carry wide signatures and complex tuple/closure
+// types; same crate-level posture the native player used before the move.
+#![allow(
+    clippy::too_many_arguments,
+    clippy::type_complexity,
+    clippy::doc_lazy_continuation
+)]
+
 mod dto;
+// The render modules are `pub` (not just glob-re-exported) so the native
+// player's qualified `scene::`/`sprites::` call sites keep resolving after the
+// move; their flat API is also re-exported below for bare-name callers.
+pub mod hud;
+pub mod render;
+pub mod scene;
+pub mod sprites;
 
 pub use dto::*;
+pub use hud::*;
+pub use render::*;
+pub use scene::*;
+pub use sprites::*;

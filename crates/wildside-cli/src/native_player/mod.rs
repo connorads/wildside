@@ -6,7 +6,6 @@ use crate::scenarios::{
     DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayCheckpoint,
 };
 use anyhow::{Result, anyhow, bail};
-use font8x8::{BASIC_FONTS, UnicodeFonts};
 use sdl2::audio::AudioQueue;
 use sdl2::controller::{Button, GameController};
 use sdl2::event::Event;
@@ -15,25 +14,30 @@ use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::video::FullscreenType;
-use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, VecDeque};
+use serde::Deserialize;
+use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use wildside_core::{
-    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
-    DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, FrameInput, GameMode, LevelId,
-    NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeRuntime, NativeSoundCommand,
-    NativeTraceFrame, PlayerForm, physics::Direction, terrain::BlockGrid,
+    FrameInput, GameMode, LevelId, NativeRuntime, NativeSoundCommand, NativeTraceFrame, PlayerForm,
+    terrain::BlockGrid,
 };
 use wildside_data::{
     AssetManifest, AssetSource, FsAssetSource, LevelHeader, resource_level_id,
     resource_level_record,
 };
 use wildside_md::GemsAudioEngine;
-use wildside_render::{
-    MdColour, NativeLevelVisuals, Palette, TileRef, TileSheet, load_level_visuals_with_source,
+use wildside_render::{NativeLevelVisuals, load_level_visuals_with_source};
+// Symbols the bin build no longer touches now the rasteriser lives in
+// wildside-frame; this module's raster tests still reach them via `super::*`.
+#[cfg(test)]
+use std::collections::BTreeSet;
+#[cfg(test)]
+use wildside_core::{
+    ActiveProjectileKind, ActiveProjectileSnapshot, BlockBounceTraceKind,
+    DiamondPowerSpriteSnapshot, DragonFlyingDescentFireState, NativeContactPhase,
+    NativeObjectSnapshot,
 };
 // Test fixtures load visuals through the legacy default-fs path.
 #[cfg(test)]
@@ -107,39 +111,12 @@ struct GeneratedLevelLayoutMetadata {
     height_blocks: u16,
 }
 
-// SDL-free rasteriser DTOs, diagnostics, frame geometry, VRAM bases, and
-// rendering colours now live in `wildside-frame`; re-exported below so the
-// sibling render modules' `use super::*` and the crate's consumers keep
-// resolving the same paths.
-pub(crate) use wildside_frame::{
-    BLOCK_TILE_VRAM_BASE, DrawCommand, ENEMY_FLASH_COLOUR, FOREGROUND_TILE_VRAM_BASE, FRAME_HEIGHT,
-    FRAME_WIDTH, FinalScenePixelDiagnostic, FinalScenePixelWrite, HUD_DIAMOND_TILE_VRAM_BASE,
-    HUD_TILE_VRAM_BASE, NativeEolScoreHardwareSpriteDiagnostic, NativeEolScoreSpriteDiagnostic,
-    NativeSpriteTileDiagnostic, PALETTE_LINE_COLOUR_COUNT, ResolvedSceneTile, SKY_COLOUR, Scene,
-    SpriteTile, enemy_family_colour,
-};
-// Only the native player's own tests assert against the enemy placeholder colour.
-#[cfg(test)]
-pub(crate) use wildside_frame::ENEMY_COLOUR;
-
-mod hud;
-mod render;
-mod scene;
-mod sprites;
-
-use hud::*;
-use render::*;
-use scene::*;
-use sprites::*;
-
-pub(crate) use render::sample_scene_pixel_provenance;
-pub(crate) use render::{render_frame_on_blank_canvas, render_scene, render_scene_overlay};
-pub(crate) use scene::{
-    BackgroundPixelSample, BackgroundScrollPixelDiagnostic, LayerFilter,
-    background_scroll_pixel_diagnostic_loc_3050a, build_scene, build_scene_filtered,
-    chunked_plane_b_row_debug_for_trace_loc_30744, eol_score_sprite_diagnostics,
-    render_trace_with_vdp_latched_state, sample_background_pixel_loc_c070,
-};
+// The SDL-free rasteriser (scene/render/sprites/hud + its DTOs, diagnostics,
+// frame geometry, VRAM bases, and rendering colours) now lives in
+// `wildside-frame`. Glob-re-export its public API so the native player, its
+// sibling consumers, and the raster tests keep resolving the same
+// `crate::native_player::X` paths unchanged.
+pub(crate) use wildside_frame::*;
 
 pub(crate) const NATIVE_FRAME_WIDTH: u32 = FRAME_WIDTH;
 pub(crate) const NATIVE_FRAME_HEIGHT: u32 = FRAME_HEIGHT;
@@ -1546,44 +1523,6 @@ fn open_first_controller(
         return Ok(Some(controller));
     }
     Ok(None)
-}
-
-fn game_mode_label(mode: GameMode) -> &'static str {
-    match mode {
-        GameMode::SegaScreen => "SegaScreen",
-        GameMode::IntroSequence1 => "IntroSequence1",
-        GameMode::IntroSequence2 => "IntroSequence2",
-        GameMode::IntroSequence3 => "IntroSequence3",
-        GameMode::IntroSequence4 => "IntroSequence4",
-        GameMode::IntroSequence5 => "IntroSequence5",
-        GameMode::IntroSequence6 => "IntroSequence6",
-        GameMode::TitleScreen => "TitleScreen",
-        GameMode::LevelTransition => "LevelTransition",
-        GameMode::InGame => "InGame",
-        GameMode::DemoPlay => "DemoPlay",
-        GameMode::OptionsMenu => "OptionsMenu",
-        GameMode::EndingSequence => "EndingSequence",
-    }
-}
-
-fn form_label(helmet_id: u16) -> &'static str {
-    match PlayerForm::from_helmet_id(helmet_id) {
-        Some(PlayerForm::TheKid) => "TheKid",
-        Some(PlayerForm::Skycutter) => "Skycutter",
-        Some(PlayerForm::Cyclone) => "Cyclone",
-        Some(PlayerForm::RedStealth) => "RedStealth",
-        Some(PlayerForm::Eyeclops) => "Eyeclops",
-        Some(PlayerForm::Juggernaut) => "Juggernaut",
-        Some(PlayerForm::IronKnight) => "IronKnight",
-        Some(PlayerForm::Berzerker) => "Berzerker",
-        Some(PlayerForm::Maniaxe) => "Maniaxe",
-        Some(PlayerForm::Micromax) => "Micromax",
-        None => "Unknown",
-    }
-}
-
-fn on_off(value: bool) -> &'static str {
-    if value { "On" } else { "Off" }
 }
 
 // ---------------------------------------------------------------------------

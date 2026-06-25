@@ -1,5 +1,13 @@
-use super::*;
-use wildside_render::{Palette, SpriteFrame};
+use std::sync::Arc;
+
+use wildside_core::{
+    NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame, PlayerForm,
+    physics::Direction,
+};
+use wildside_render::{MdColour, NativeLevelVisuals, Palette, SpriteFrame, TileRef};
+
+use crate::dto::*;
+use crate::scene::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TankTurretFrameSpec {
@@ -341,11 +349,11 @@ fn build_player_sprite_tiles_with_flip(
     tiles
 }
 
-pub(super) fn align_sprite_dimension(px: u16) -> u16 {
+pub fn align_sprite_dimension(px: u16) -> u16 {
     px.div_ceil(8) * 8
 }
 
-pub(super) fn sprite_draw_position(
+pub fn sprite_draw_position(
     frame: &wildside_render::SpriteFrame,
     screen_x: i32,
     screen_y: i32,
@@ -363,7 +371,7 @@ pub(super) fn sprite_draw_position(
     )
 }
 
-pub(super) fn build_sprite_tiles(
+pub fn build_sprite_tiles(
     frame: &wildside_render::SpriteFrame,
     facing: Direction,
     palette_line: u8,
@@ -416,7 +424,7 @@ fn build_sprite_tiles_with_flip(
     tiles
 }
 
-pub(super) fn append_sprite_band_tiles(
+pub fn append_sprite_band_tiles(
     tiles: &mut Vec<SpriteTile>,
     next_tile_index: &mut u16,
     band_y_px: u16,
@@ -461,7 +469,7 @@ pub(super) fn append_sprite_band_tiles(
     }
 }
 
-pub(super) fn append_sprite_chunk_tiles(
+pub fn append_sprite_chunk_tiles(
     tiles: &mut Vec<SpriteTile>,
     next_tile_index: &mut u16,
     chunk_x_px: u16,
@@ -499,7 +507,7 @@ pub(super) fn append_sprite_chunk_tiles(
     }
 }
 
-pub(super) fn select_player_frame<'a>(
+pub fn select_player_frame<'a>(
     trace: &NativeTraceFrame,
     player_visuals: &'a wildside_render::PlayerFormVisuals,
 ) -> &'a wildside_render::SpriteFrame {
@@ -671,7 +679,7 @@ pub(super) fn select_player_frame<'a>(
     }
 }
 
-pub(super) fn select_player_form_visuals<'a>(
+pub fn select_player_form_visuals<'a>(
     trace: &NativeTraceFrame,
     player_visuals: &'a wildside_render::PlayerVisuals,
 ) -> &'a wildside_render::PlayerFormVisuals {
@@ -682,7 +690,7 @@ pub(super) fn select_player_form_visuals<'a>(
         .expect("Kid visuals should always be loaded")
 }
 
-pub(super) fn select_player_transform_frame<'a>(
+pub fn select_player_transform_frame<'a>(
     trace: &NativeTraceFrame,
     player_visuals: &'a wildside_render::PlayerFormVisuals,
 ) -> Option<&'a wildside_render::SpriteFrame> {
@@ -750,7 +758,7 @@ fn kid_transform_frame_uses_kid_palette_loc_7cd0(
             .any(|kid_frame| frame == kid_frame)
 }
 
-pub(super) fn player_screen_position(
+pub fn player_screen_position(
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
 ) -> (i32, i32) {
@@ -760,7 +768,7 @@ pub(super) fn player_screen_position(
     )
 }
 
-pub(super) fn boss_eye_attack_highlight_offset_sub_37abc(mapping_index: u8) -> (i32, i32) {
+pub fn boss_eye_attack_highlight_offset_sub_37abc(mapping_index: u8) -> (i32, i32) {
     match mapping_index & 0x07 {
         0 => (-4, -4),
         1 => (0, -5),
@@ -773,7 +781,7 @@ pub(super) fn boss_eye_attack_highlight_offset_sub_37abc(mapping_index: u8) -> (
     }
 }
 
-pub(super) fn push_boss_eye_attack_marker_sub_37abc(
+pub fn push_boss_eye_attack_marker_sub_37abc(
     commands: &mut Vec<DrawCommand>,
     sx: i32,
     sy: i32,
@@ -800,7 +808,7 @@ pub(super) fn push_boss_eye_attack_marker_sub_37abc(
     });
 }
 
-pub(super) fn push_player_sprite_with_priority_override(
+pub fn push_player_sprite_with_priority_override(
     commands: &mut Vec<DrawCommand>,
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
@@ -1201,7 +1209,7 @@ fn select_live_lion_frame<'a>(
     enemy_visuals.frames.get(durations.len().saturating_sub(1))
 }
 
-pub(super) fn select_enemy_frame<'a>(
+pub fn select_enemy_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
     object: &NativeObjectSnapshot,
@@ -1649,7 +1657,7 @@ pub(super) fn select_enemy_frame<'a>(
     &enemy_visuals.frames[frame_index]
 }
 
-pub(super) fn push_enemy_sprite(
+pub fn push_enemy_sprite(
     commands: &mut Vec<DrawCommand>,
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
@@ -1956,7 +1964,7 @@ fn scripted_tank_turret_frame(
     specs.last().copied()
 }
 
-pub(super) fn select_enemy_palette(
+pub fn select_enemy_palette(
     visuals: &wildside_render::AnimatedSpriteVisual,
     variant: u8,
 ) -> &wildside_render::Palette {
@@ -1968,7 +1976,7 @@ pub(super) fn select_enemy_palette(
     &visuals.palette
 }
 
-pub(super) fn push_platform_tiles(
+pub fn push_platform_tiles(
     commands: &mut Vec<DrawCommand>,
     object: &NativeObjectSnapshot,
     trace: &NativeTraceFrame,
