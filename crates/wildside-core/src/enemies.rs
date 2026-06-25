@@ -1907,6 +1907,11 @@ impl ActiveEnemy {
                 u16::from(self.hit_points),
             ) {
                 DiamondLowHpCollisionRouteLoc3AEC4::HurtAnimation { remaining_hp } => {
+                    let hurt_animation = diamond_low_hp_hurt_animation_loc_3aef8();
+                    debug_assert_eq!(hurt_animation.hurt_animation_script, "stru_3ACBE");
+                    debug_assert_eq!(hurt_animation.next_collision_type, 0);
+                    debug_assert_eq!(hurt_animation.restored_animation_script, "stru_3ACA8");
+                    debug_assert!(hurt_animation.falls_through_to_shared_walker);
                     // ASM Diamond.asm loc_3AEC4 -> loc_3AEF8: generic
                     // `colid_hurt` decrements `$44(a3)`, plays the Diamond
                     // hurt script, clears collision, and resumes the base
@@ -1917,10 +1922,13 @@ impl ActiveEnemy {
                     return false;
                 }
                 DiamondLowHpCollisionRouteLoc3AEC4::DeathAnimation => {
+                    let death_animation = diamond_low_hp_death_animation_loc_3aee6();
+                    debug_assert_eq!(death_animation.animation_script, "stru_3ACC4");
+                    debug_assert!(death_animation.waits_until_animation_finished);
                     // ASM Diamond.asm loc_3AEE6: terminal `colid_hurt`
                     // initialises `stru_3ACC4` and waits for the Diamond
                     // death animation before the shared delete tail.
-                    return true;
+                    return death_animation.deletes_enemy;
                 }
                 DiamondLowHpCollisionRouteLoc3AEC4::ResumeSharedWalker { .. }
                 | DiamondLowHpCollisionRouteLoc3AEC4::BerzerkerSideGate => return false,

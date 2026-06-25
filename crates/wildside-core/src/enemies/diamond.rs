@@ -235,14 +235,12 @@ pub(crate) fn diamond_high_hp_damage_loc_3adfa(current_hp: u16) -> DiamondHighHp
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondLowHpDeathAnimationLoc3AEE6 {
     pub(crate) animation_script: &'static str,
     pub(crate) waits_until_animation_finished: bool,
     pub(crate) deletes_enemy: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_low_hp_death_animation_loc_3aee6() -> DiamondLowHpDeathAnimationLoc3AEE6 {
     // ASM Diamond.asm loc_3AEE6: initialise `stru_3ACC4`, hibernate until the
     // death animation finishes, then branch to shared enemy deletion.
@@ -254,7 +252,6 @@ pub(crate) fn diamond_low_hp_death_animation_loc_3aee6() -> DiamondLowHpDeathAni
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DiamondLowHpHurtAnimationLoc3AEF8 {
     pub(crate) hurt_animation_script: &'static str,
     pub(crate) waits_until_animation_finished: bool,
@@ -263,7 +260,6 @@ pub(crate) struct DiamondLowHpHurtAnimationLoc3AEF8 {
     pub(crate) falls_through_to_shared_walker: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn diamond_low_hp_hurt_animation_loc_3aef8() -> DiamondLowHpHurtAnimationLoc3AEF8 {
     // ASM Diamond.asm loc_3AEF8: play `stru_3ACBE` to completion, clear
     // `collision_type(a3)`, restore the base `stru_3ACA8` animation, then fall
