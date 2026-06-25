@@ -1,6 +1,5 @@
 use super::*;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRILLER_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,7 +71,6 @@ pub(crate) fn driller_block_drill_action_loc_3bede(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DrillerCollisionRouteLoc3BF02 {
     Continue,
     HurtAnimation,
@@ -80,14 +78,12 @@ pub(crate) enum DrillerCollisionRouteLoc3BF02 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DrillerCollisionDispatchLoc3BF02 {
     pub(crate) next_collision_type: u16,
     pub(crate) next_current_hp: u16,
     pub(crate) route: DrillerCollisionRouteLoc3BF02,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn driller_collision_dispatch_loc_3bf02(
     collision_type: i16,
     current_hp: u16,

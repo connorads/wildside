@@ -8824,6 +8824,31 @@ impl NativeRuntime {
                 continue;
             }
 
+            if matches!(enemy.family, EnemyFamily::Driller) {
+                let dispatch = driller_collision_dispatch_loc_3bf02(
+                    collision.collision_type as i16,
+                    u16::from(enemy.hit_points),
+                );
+                match dispatch.route {
+                    DrillerCollisionRouteLoc3BF02::DeathAnimation => {
+                        // ASM Driller.asm loc_3BF02 sends signed-negative
+                        // words and terminal colid_kidabove to loc_3BF1C
+                        // before the shared loc_3C46E delete tail.
+                        kill_indices.push(active_idx);
+                    }
+                    DrillerCollisionRouteLoc3BF02::HurtAnimation => {
+                        debug_assert_eq!(dispatch.next_collision_type, 0);
+                        // ASM Driller.asm loc_3BF4E hibernates through
+                        // `stru_3BCCE`, then restores the walk animation.
+                        enemy.hit_points = dispatch.next_current_hp as u8;
+                        enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                        changed_enemy_state = true;
+                    }
+                    DrillerCollisionRouteLoc3BF02::Continue => {}
+                }
+                continue;
+            }
+
             if matches!(enemy.family, EnemyFamily::Ninja) {
                 let x_direction_right = matches!(enemy.facing, Direction::Right);
                 if enemy.wall_pinned {

@@ -17664,6 +17664,78 @@ mod chunk_03 {
     }
 
     #[test]
+    fn driller_pending_kidabove_collision_enters_loc_3bf4e_hurt_animation() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut driller = test_enemy(EnemyFamily::Driller, 0x0080_0000, 0x0040_0000, 2);
+        driller.layout_index = 19;
+        runtime.active_enemies = vec![driller];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: driller.segment_index,
+                layout_index: driller.layout_index,
+                collision_type: DRILLER_COLID_KIDABOVE,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Driller.asm loc_3BF02 routes nonterminal colid_kidabove through loc_3BF4E, not delete"
+        );
+        let driller = runtime.active_enemies[0];
+        assert_eq!(
+            driller.hit_points, 1,
+            "ASM Driller.asm loc_3BF02 decrements `$44(a3)` before the loc_3BF4E hurt animation"
+        );
+        assert!(
+            driller.damage_flash_frames > 0,
+            "native should hibernate the Driller through the loc_3BF4E/stru_3BCCE hurt window"
+        );
+        assert!(!driller.death_animation_active);
+    }
+
+    #[test]
+    fn driller_pending_terminal_kidabove_collision_enters_loc_3bf1c_death_animation() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut driller = test_enemy(EnemyFamily::Driller, 0x0080_0000, 0x0040_0000, 1);
+        driller.layout_index = 20;
+        let killed_identity = (driller.segment_index, driller.layout_index);
+        runtime.active_enemies = vec![driller];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: driller.segment_index,
+                layout_index: driller.layout_index,
+                collision_type: DRILLER_COLID_KIDABOVE,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM Driller.asm loc_3BF1C hibernates the parent through stru_3BCD4 before loc_3C46E deletes the enemy"
+        );
+        assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.active_enemies[0].wait_timer,
+            DRILLER_DEATH_ANIMATION_FRAMES
+        );
+        assert!(
+            runtime.active_enemies[0].death_animation_active,
+            "ASM Driller.asm loc_3BF1C should leave the parent in its death animation"
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM loc_3C46E marks the layout killed only after stru_3BCD4 finishes"
+        );
+    }
+
+    #[test]
     fn lion_death_waits_for_stru_3df48_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut lion = test_enemy(EnemyFamily::Lion, 0x0080_0000, 0x0040_0000, 1);
