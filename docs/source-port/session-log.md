@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-25 handoff (proactive Tank mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/tank.rs` via `mise run mutants-file`.
+- Evidence: `.cache/mutants/tank` reports
+  `28 mutants tested in 12m: 21 caught, 7 unviable`, with zero missed mutants.
+- Native behaviour is unchanged. Existing ASM-cited Tank and Tank_Shooting
+  coverage already pins the visible init/art-slot, drive refcount, mouth SFX,
+  HP/death/hurt routing, turret resume, bullet bounds, shot cadence, and child
+  snapshot/recoil branches tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-24 handoff (proactive Hand mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
