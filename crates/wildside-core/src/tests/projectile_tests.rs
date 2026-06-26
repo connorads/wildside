@@ -9857,6 +9857,44 @@ mod chunk_06 {
         );
     }
 
+    /// ASM Armadillo.asm loc_3C898 -> loc_3C8DE/loc_3C8F2: charging Berzerker
+    /// side contact during the positive recoil window shoves and resumes the
+    /// Armadillo without decrementing HP.
+    #[test]
+    fn berzerker_charge_recoil_armadillo_shoves_without_damage_loc_3c8f2() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Berzerker;
+        rt.helmet.berzerker_charging = true;
+        let mut slice = combat_slice();
+        slice.player.x_pos = 0x0040_0000;
+        slice.player.y_pos = 0x0040_0000;
+        slice.player.x_velocity = 0x0001_8000;
+
+        let mut armadillo = test_enemy(EnemyFamily::Armadillo, 0x0040_0000, 0x0040_0000, 2);
+        armadillo.shared_walker_state = 1;
+        armadillo.walk_speed_override = pacer_walk_speed(EnemyFamily::Armadillo, 2);
+        rt.active_enemies.push(armadillo);
+
+        rt.process_berzerker_charge_hits(&mut slice);
+
+        let armadillo = rt.active_enemies[0];
+        assert_eq!(armadillo.hit_points, 2);
+        assert_eq!(
+            armadillo.x_pos,
+            0x0040_0000 + ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE as u32,
+            "ASM Armadillo.asm loc_3C8DE adds `$14` pixels when x_direction is clear"
+        );
+        assert_eq!(armadillo.x_velocity, 0);
+        assert_eq!(armadillo.y_velocity, 0);
+        assert_eq!(armadillo.shared_walker_state, -0x0078);
+        assert_eq!(
+            armadillo.walk_speed_override,
+            pacer_walk_speed(EnemyFamily::Armadillo, 2)
+        );
+        assert_eq!(armadillo.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert_eq!(armadillo.wait_timer, 0);
+    }
+
     /// ASM Spinning_Twins.asm loc_3BBF6: charging Berzerker side contact
     /// launches the settled twin into the loc_3BC22 loop instead of consuming
     /// HP through generic damage/death.

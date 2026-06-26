@@ -218,17 +218,14 @@ pub(crate) fn armadillo_berzerker_launch_loop_tick_loc_3c8cc(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE: i32 = 0x0014_0000;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_berzerker_clear_direction_shove_loc_3c8de(x_position: i32) -> i32 {
     // ASM Armadillo.asm loc_3C8DE: clear `x_direction` falls through to
     // `addi.w #$14,x_pos(a3)`, nudging the integer word 20 pixels right.
     x_position.wrapping_add(ARMADILLO_BERZERKER_RECOVERY_SHOVE_PIXELS_LOC_3C8DE)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_berzerker_flipped_direction_shove_loc_3c8ec(x_position: i32) -> i32 {
     // ASM Armadillo.asm loc_3C8EC: flipped `x_direction` subtracts `$14`
     // from the integer word of `x_pos(a3)` before recovery animation setup.
@@ -236,7 +233,6 @@ pub(crate) fn armadillo_berzerker_flipped_direction_shove_loc_3c8ec(x_position: 
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloBerzerkerRecoveryLoc3C8F2 {
     pub(crate) x_position: i32,
     pub(crate) damage_animation: &'static str,
@@ -248,7 +244,6 @@ pub(crate) struct ArmadilloBerzerkerRecoveryLoc3C8F2 {
     pub(crate) falls_through_to_collision_clear: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_berzerker_recovery_loc_3c8f2(
     facing: Direction,
     x_position: i32,

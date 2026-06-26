@@ -7227,20 +7227,62 @@ impl NativeRuntime {
                         GoatBerzerkerSideGateLoc3CB76::ResumeSharedWalker { .. } => {}
                     }
                 }
-                if matches!(enemy.family, EnemyFamily::Armadillo)
-                    && let ArmadilloBerzerkerSideContactLoc3C898::Launch(launch) =
-                        armadillo_berzerker_side_contact_loc_3c898(true, enemy.shared_walker_state)
-                {
-                    // ASM Armadillo.asm loc_3C898: with no positive recoil
-                    // word, charging Berzerker side contact enters the
-                    // launched loc_3C8CC loop instead of generic HP damage.
-                    enemy.x_velocity = launch.x_velocity;
-                    enemy.y_velocity = launch.y_velocity;
-                    enemy.on_ground = false;
-                    enemy.wait_timer = ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC;
-                    enemy.damage_flash_frames = 0;
-                    changed_enemy_state = true;
-                    continue;
+                if matches!(enemy.family, EnemyFamily::Armadillo) {
+                    match armadillo_berzerker_side_contact_loc_3c898(
+                        true,
+                        enemy.shared_walker_state,
+                    ) {
+                        ArmadilloBerzerkerSideContactLoc3C898::Launch(launch) => {
+                            // ASM Armadillo.asm loc_3C898: with no positive
+                            // recoil word, charging Berzerker side contact
+                            // enters the launched loc_3C8CC loop instead of
+                            // generic HP damage.
+                            enemy.x_velocity = launch.x_velocity;
+                            enemy.y_velocity = launch.y_velocity;
+                            enemy.on_ground = false;
+                            enemy.wait_timer = ARMADILLO_BERZERKER_LAUNCH_WAIT_TIMER_LOC_3C8CC;
+                            enemy.damage_flash_frames = 0;
+                            changed_enemy_state = true;
+                            continue;
+                        }
+                        ArmadilloBerzerkerSideContactLoc3C898::PositiveRecoilWord => {
+                            let saved_walk_speed = if enemy.walk_speed_override != 0 {
+                                enemy.walk_speed_override
+                            } else {
+                                pacer_walk_speed(enemy.family, enemy.hit_points)
+                            };
+                            let recovery = armadillo_berzerker_recovery_loc_3c8f2(
+                                enemy.facing,
+                                enemy.x_pos as i32,
+                                saved_walk_speed,
+                                0x0080 | u16::from(enemy.family.object_type()),
+                            );
+                            debug_assert_eq!(recovery.damage_animation, "stru_3C6D6");
+                            debug_assert!(recovery.waits_until_animation_finished);
+                            debug_assert_eq!(
+                                recovery.restored_animation,
+                                "saved_armadillo_patrol_animation"
+                            );
+                            debug_assert_eq!(
+                                recovery.object_meta,
+                                u16::from(enemy.family.object_type())
+                            );
+                            debug_assert!(recovery.falls_through_to_collision_clear);
+                            // ASM Armadillo.asm loc_3C8DE/loc_3C8EC ->
+                            // loc_3C8F2: positive `$42(a3)` shoves the
+                            // Armadillo, plays the hurt animation, restores
+                            // saved walker speed, and resumes without HP loss.
+                            enemy.x_pos = recovery.x_position as u32;
+                            enemy.x_velocity = 0;
+                            enemy.y_velocity = 0;
+                            enemy.shared_walker_state = recovery.recoil_state_word;
+                            enemy.walk_speed_override = recovery.restored_walk_speed;
+                            enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                            changed_enemy_state = true;
+                            continue;
+                        }
+                        ArmadilloBerzerkerSideContactLoc3C898::ResumeSharedWalker => {}
+                    }
                 }
                 if matches!(enemy.family, EnemyFamily::SpinningTwins)
                     && let SpinningTwinsBerzerkerSideGateLoc3BBF6::Launch(launch) =
