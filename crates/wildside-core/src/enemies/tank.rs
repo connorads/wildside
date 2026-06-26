@@ -180,14 +180,12 @@ pub(crate) fn tank_resume_walk_loc_3b4ba(x_direction: u8) -> TankResumeWalkLoc3B
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankShootingCollisionRouteLoc3B6C0 {
     Death,
     Damage,
     Walk,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_shooting_collision_route_loc_3b6c0(
     parent_collision_type: u16,
     child_collision_type: u16,
@@ -208,13 +206,11 @@ pub(crate) fn tank_shooting_collision_route_loc_3b6c0(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankShootingDamageRouteLoc3B6DE {
     Death,
     Hurt { remaining_hp: u16 },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_shooting_damage_after_hit_loc_3b6de(
     current_hp: u16,
 ) -> TankShootingDamageRouteLoc3B6DE {

@@ -8467,7 +8467,88 @@ impl NativeRuntime {
                 }
                 continue;
             }
-            if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting) {
+            if matches!(enemy.family, EnemyFamily::TankShooting) {
+                let parent_collision = match collision.target {
+                    PendingEnemyCollisionTarget::Parent => collision.collision_type,
+                    PendingEnemyCollisionTarget::ChildAttachment => 0,
+                };
+                let child_collision = match collision.target {
+                    PendingEnemyCollisionTarget::Parent => 0,
+                    PendingEnemyCollisionTarget::ChildAttachment => collision.collision_type,
+                };
+                match tank_shooting_collision_route_loc_3b6c0(parent_collision, child_collision) {
+                    TankShootingCollisionRouteLoc3B6C0::Death => {
+                        // ASM Tank_Shooting.asm loc_3B6C0: negative parent
+                        // or turret-child collision words route directly to
+                        // loc_3B6E6.
+                        kill_indices.push(active_idx);
+                    }
+                    TankShootingCollisionRouteLoc3B6C0::Damage => {
+                        match tank_shooting_damage_after_hit_loc_3b6de(u16::from(enemy.hit_points))
+                        {
+                            TankShootingDamageRouteLoc3B6DE::Death => {
+                                // ASM Tank_Shooting.asm loc_3B6DE: terminal
+                                // turret-child `$1C/$2C` damage falls through
+                                // to loc_3B6E6.
+                                kill_indices.push(active_idx);
+                            }
+                            TankShootingDamageRouteLoc3B6DE::Hurt { remaining_hp } => {
+                                // ASM Tank_Shooting.asm loc_3B700 reads
+                                // damage words from the linked turret child,
+                                // decrements `$44(a3)`, and clears parent
+                                // motion on a nonfatal hit.
+                                if matches!(
+                                    collision.target,
+                                    PendingEnemyCollisionTarget::ChildAttachment
+                                ) && matches!(collision.collision_type, 0x001C | 0x002C)
+                                    && let Some(slice) = self.opening_slice
+                                    && let Some(child) = enemy.child_attachment_snapshot()
+                                    && player_latches_enemy_collision_with_half_width_loc_1cf2(
+                                        slice.player,
+                                        &child,
+                                        self.progression.current_form.half_width() as i64,
+                                    )
+                                {
+                                    // ASM Tank_Shooting.asm loc_3B700
+                                    // hibernates for five frames before
+                                    // loc_3B720 clears the turret child
+                                    // `$38(a2)` collision word. Preserve that
+                                    // latched child hit for Kid's next
+                                    // Check_for_recent_damge pass.
+                                    self.delayed_player_contact_damage =
+                                        Some(PendingPlayerContactDamage {
+                                            enemy_x: child.x_pos,
+                                            enemy_family: enemy.family,
+                                        });
+                                }
+                                let x_direction = match enemy.facing {
+                                    Direction::Left => 0x00,
+                                    Direction::Right => 0xFF,
+                                };
+                                let recovery = tank_shooting_hurt_recovery_loc_3b700(x_direction);
+                                debug_assert_eq!(recovery.parent_motion_speed, 0);
+                                debug_assert_eq!(recovery.child_recoil_timer, 6);
+                                debug_assert_eq!(recovery.child_animation_script, "stru_3B294");
+                                debug_assert_eq!(
+                                    recovery.hibernate_frames,
+                                    u16::from(TANK_SHOOTING_HURT_HIBERNATE_FRAMES)
+                                );
+                                debug_assert_eq!(recovery.resume_walk.next_child_collision_type, 0);
+                                enemy.hit_points = remaining_hp as u8;
+                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES + 1;
+                                enemy.x_velocity = recovery.parent_motion_speed;
+                                enemy.y_velocity = 0;
+                                enemy.walk_speed_override =
+                                    TANK_STOPPED_WALK_SPEED_OVERRIDE_LOC_3B49A;
+                                changed_enemy_state = true;
+                            }
+                        }
+                    }
+                    TankShootingCollisionRouteLoc3B6C0::Walk => {}
+                }
+                continue;
+            }
+            if matches!(enemy.family, EnemyFamily::Tank) {
                 let parent_collision = match collision.target {
                     PendingEnemyCollisionTarget::Parent => collision.collision_type,
                     PendingEnemyCollisionTarget::ChildAttachment => 0,

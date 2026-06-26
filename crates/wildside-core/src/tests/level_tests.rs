@@ -26171,7 +26171,9 @@ mod chunk_10 {
         // damage the parent body.
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);
-        runtime.active_enemies = vec![make_pacer(EnemyFamily::TankShooting, 2, 100, 224)];
+        let mut tank = make_pacer(EnemyFamily::TankShooting, 2, 100, 224);
+        tank.x_velocity = 0x0001_0000;
+        runtime.active_enemies = vec![tank];
         runtime.active_enemy_roster = runtime
             .active_enemies
             .iter()
@@ -26204,6 +26206,10 @@ mod chunk_10 {
         runtime.apply_pending_enemy_collisions();
         assert_eq!(runtime.active_enemies[0].hit_points, 1);
         assert!(runtime.active_enemies[0].damage_flash_frames > 0);
+        assert_eq!(
+            runtime.active_enemies[0].x_velocity, 0,
+            "ASM Tank_Shooting.asm loc_3B700 clears parent motion `$50(a5)` after loc_3B6DE leaves nonzero HP",
+        );
     }
 
     #[test]
