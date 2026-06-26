@@ -9155,14 +9155,14 @@ impl NativeRuntime {
                         if let NinjaBerzerkerSideContactRouteLoc3DB0A::Launch(launch) =
                             ninja_berzerker_side_contact_loc_3db0a(berzerker_charging)
                         {
-                            // ASM Ninja.asm loc_3D698 -> loc_3DB0A: charging
+                            // ASM Ninja.asm loc_3D698: charging
                             // Berzerker side contact bypasses HP damage,
                             // freezes animation, disables terrain collision,
-                            // and enters the upward launch loop at loc_3DB3C.
+                            // and enters the upward stun loop at loc_3D6C8.
                             enemy.x_velocity = launch.x_velocity;
                             enemy.y_velocity = launch.y_velocity;
                             enemy.on_ground = false;
-                            enemy.wait_timer = NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C;
+                            enemy.wait_timer = NINJA_BERZERKER_SIDE_STUN_WAIT_TIMER_LOC_3D6C8;
                             enemy.damage_flash_frames = 0;
                             changed_enemy_state = true;
                         }

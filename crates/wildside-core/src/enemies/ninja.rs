@@ -1082,7 +1082,6 @@ pub(crate) fn ninja_collision_block_animation_loc_3d670(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaCollisionStateLoc3D6C8 {
     pub(crate) y_velocity: i32,
     pub(crate) hibernates_one_frame: bool,
@@ -1090,7 +1089,6 @@ pub(crate) struct NinjaCollisionStateLoc3D6C8 {
     pub(crate) loops: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_collision_stun_loop_loc_3d6c8(y_velocity: i32) -> NinjaCollisionStateLoc3D6C8 {
     // ASM Ninja.asm loc_3D6C8:
     // - hibernate one frame

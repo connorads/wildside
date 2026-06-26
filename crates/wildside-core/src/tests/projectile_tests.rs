@@ -10063,8 +10063,8 @@ mod chunk_06 {
         assert_eq!(ninja.y_velocity, -0x0004_8000);
         assert!(!ninja.on_ground);
         assert_eq!(
-            ninja.wait_timer, NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C,
-            "native marker keeps the live enemy in ASM Ninja.asm loc_3DB3C"
+            ninja.wait_timer, NINJA_BERZERKER_SIDE_STUN_WAIT_TIMER_LOC_3D6C8,
+            "native marker keeps the live enemy in ASM Ninja.asm loc_3D6C8"
         );
 
         let y_before = rt.active_enemies[0].y_pos;
@@ -10084,11 +10084,11 @@ mod chunk_06 {
         assert_eq!(
             ninja.y_pos,
             (y_before as i64 - 0x0004_8000) as u32,
-            "ASM Ninja.asm loc_3DB3C: launch loop should apply current y_vel"
+            "ASM Ninja.asm loc_3D6C8: stun loop should apply current y_vel"
         );
         assert_eq!(
             ninja.y_velocity, -0x0004_4000,
-            "ASM Ninja.asm loc_3DB3C: y_vel should add `$4000` each loop tick"
+            "ASM Ninja.asm loc_3D6C8: y_vel should add `$4000` each loop tick"
         );
     }
 

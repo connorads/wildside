@@ -3663,7 +3663,9 @@ pub(crate) fn step_active_enemies_with_rng(
             ),
             EnemyArchetype::Pacer => {
                 if matches!(enemy.family, EnemyFamily::Ninja) {
-                    if enemy.wait_timer == NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C {
+                    if enemy.wait_timer == NINJA_BERZERKER_SIDE_STUN_WAIT_TIMER_LOC_3D6C8 {
+                        step_ninja_berzerker_side_stun(enemy);
+                    } else if enemy.wait_timer == NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C {
                         step_ninja_berzerker_side_launch(enemy);
                     } else {
                         let maniaxe_projectile_dx =
@@ -6148,7 +6150,17 @@ pub(crate) struct DrilledBlockLoc3BE78 {
     pub(crate) direction: u16,
 }
 
+pub(crate) const NINJA_BERZERKER_SIDE_STUN_WAIT_TIMER_LOC_3D6C8: u16 = 0xD6C8;
 pub(crate) const NINJA_BERZERKER_SIDE_LAUNCH_WAIT_TIMER_LOC_3DB3C: u16 = 0xDB3C;
+
+fn step_ninja_berzerker_side_stun(enemy: &mut ActiveEnemy) {
+    // ASM Ninja.asm loc_3D6C8: hibernate one frame, run `sub_3E8BA`,
+    // add `$4000` to y_vel, then branch back to the stun loop.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    enemy.y_velocity = ninja_collision_stun_loop_loc_3d6c8(enemy.y_velocity).y_velocity;
+    enemy.on_ground = false;
+}
 
 fn step_ninja_berzerker_side_launch(enemy: &mut ActiveEnemy) {
     // ASM Ninja.asm loc_3DB3C: hibernate one frame, run `sub_3E8BA`,
