@@ -5175,15 +5175,26 @@ fn mini_hopping_skull_should_remain_active(
     if active_enemy_count <= 10 {
         return true;
     }
+    if active_enemy_count <= 20 {
+        // ASM Mini_Hopping_Skull.asm loc_3F304: the medium-load live-object
+        // camera gate returns to the caller inside the wide box and branches
+        // through loc_3F300 to the delete tail outside it.
+        return matches!(
+            mini_hopping_skull_medium_load_camera_gate_loc_3f304(
+                x_pos as u16,
+                y_pos as u16,
+                camera_x_px as u16,
+                camera_y_px as u16,
+                active_enemy_count as u16,
+                enemy.layout_index as u8,
+            ),
+            MiniHoppingSkullMediumLoadGateLoc3F304::Return
+        );
+    }
 
-    // ASM Mini_Hopping_Skull.asm sub_3F29A:
-    // 11..20 active objects use [-$1A4,+$2E4]x[-$1A4,+$284] relative to camera.
-    // 21+ active objects tighten to [-$40,+$180]x[-$40,+$120].
-    let (left_margin, right_margin, top_margin, bottom_margin) = if active_enemy_count <= 20 {
-        (0x1A4, 0x2E4, 0x1A4, 0x284)
-    } else {
-        (0x40, 0x180, 0x40, 0x120)
-    };
+    // ASM Mini_Hopping_Skull.asm sub_3F29A: 21+ active objects tighten to
+    // [-$40,+$180]x[-$40,+$120] after loc_3F304's medium-load branch.
+    let (left_margin, right_margin, top_margin, bottom_margin) = (0x40, 0x180, 0x40, 0x120);
     let relative_x = x_pos - camera_x_px as i32;
     let relative_y = y_pos - camera_y_px as i32;
     relative_x >= -left_margin

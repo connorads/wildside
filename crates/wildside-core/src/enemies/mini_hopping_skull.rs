@@ -296,7 +296,6 @@ pub(crate) struct MiniHoppingSkullDeleteTailLoc3F32E {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullMediumLoadGateLoc3F304 {
     Return,
     DeleteTail(MiniHoppingSkullDeleteTailLoc3F32E),
@@ -1267,7 +1266,6 @@ pub(crate) fn mini_hopping_skull_charging_berzerker_loop_loc_3f288(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_cull_reject_loc_3f300(
     number_of_enemy: u16,
     object_status_slot: u8,
@@ -1276,7 +1274,6 @@ pub(crate) fn mini_hopping_skull_cull_reject_loc_3f300(
     mini_hopping_skull_delete_tail_loc_3f32e(number_of_enemy, object_status_slot)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_medium_load_camera_gate_loc_3f304(
     x_pos_word: u16,
     y_pos_word: u16,
