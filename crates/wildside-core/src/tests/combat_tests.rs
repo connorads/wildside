@@ -1,4 +1,5 @@
 use super::*;
+use crate::projectiles::BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC;
 
 fn empty_weather_collision_rows_sub_61_ca() -> WeatherCollisionRowsSub61CA {
     WeatherCollisionRowsSub61CA {
@@ -3376,6 +3377,68 @@ fn live_heady_metal_late_breakup_spawns_from_selected_worker_slot_sub_37708() {
         (0x0074_0000, 0x003A_0000),
         "ASM sub_37708 loc_37778 indexes unk_3795E from `$FFFFFB7A`; phase `$18->$19` selects `$FFFFFB82`, the second body worker at x-0x0C/y-0x46, not the boss centre"
     );
+}
+
+#[test]
+fn live_boss_eye_pop_effect_runs_finish_animation_before_freeze_decrements_loc_3731c() {
+    let mut runtime = NativeRuntime::new(manifest());
+    let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 13);
+    boss.boss_movement_script_index = 1;
+    runtime.active_enemies = vec![boss];
+    runtime.projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::BossEyePopEffect,
+        lifetime: 1,
+        ..Default::default()
+    });
+
+    runtime.step_projectiles();
+
+    assert_eq!(
+        runtime.projectiles.len(),
+        1,
+        "ASM loc_3731C should hibernate through `stru_37BFC` before deleting the sub_3729E worker"
+    );
+    assert_eq!(
+        runtime.projectiles[0].animation_elapsed_frames,
+        BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC,
+        "ASM loc_3731C starts the four-frame-script `stru_37BFC` finish animation when d0 reaches zero"
+    );
+    assert_eq!(
+        runtime.active_enemies[0].boss_movement_script_index, 1,
+        "ASM loc_3731C decrements `$FFFFFB4F` only after the finish animation completes"
+    );
+
+    runtime.projectiles[0].animation_elapsed_frames = 1;
+    runtime.step_projectiles();
+
+    assert!(
+        runtime.projectiles.is_empty(),
+        "ASM loc_3731C deletes the sub_3729E worker after `stru_37BFC` finishes"
+    );
+    assert_eq!(
+        runtime.active_enemies[0].boss_movement_script_index, 0,
+        "native derives the HeadyMetal freeze count from the remaining sub_3729E workers after deletion"
+    );
+}
+
+#[test]
+fn live_boss_eye_pop_effect_zero_counter_wraps_in_loop_loc_372f6() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.projectiles.push(EnemyProjectile {
+        kind: EnemyProjectileKind::BossEyePopEffect,
+        lifetime: 0,
+        ..Default::default()
+    });
+
+    runtime.step_projectiles();
+
+    assert_eq!(
+        runtime.projectiles.len(),
+        1,
+        "ASM loc_372F6 uses a word decrement and branches while nonzero; an unexpected zero d0 wraps instead of entering loc_3731C"
+    );
+    assert_eq!(runtime.projectiles[0].lifetime, u16::MAX);
+    assert_eq!(runtime.projectiles[0].animation_elapsed_frames, 0);
 }
 
 #[test]

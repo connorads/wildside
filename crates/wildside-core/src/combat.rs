@@ -2896,7 +2896,6 @@ pub(crate) fn boss_eye_pop_effect_face_kid_sub_3729E(effect_x: u16, kid_x: u16) 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_pop_effect_finish_sub_3729E() -> BossEyePopEffectFinishSub3729E {
     // ASM loc_3731C (kid.asm:39187): play `stru_37BFC`, hibernate until the
     // animation ends, decrement `$FFFFFB4F`, then delete the object.

@@ -120,6 +120,8 @@ const DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A: i32 = 0x05;
 const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 = 0x05 + 0x05 + 0x0A + 0x01;
 const BOSS_DEATH_BURST_COLLISION_ANIMATION_FRAMES_STRU_37BC6: u16 = 0x0A * 4;
 const BOSS_DEATH_BURST_TIMEOUT_ANIMATION_FRAMES_STRU_37C0E: u16 = 0x64;
+pub(crate) const BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC: u16 =
+    0x32 + 0x0A + 0x0A + 0x0A;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProjectilePlayerContactLocB640 {
@@ -2760,6 +2762,32 @@ impl NativeRuntime {
                     &mut pending_projectile_sound_effects,
                     &mut spawned_projectiles,
                 );
+            }
+            if is_boss_eye_pop_effect {
+                if p.animation_elapsed_frames > 0 {
+                    if p.animation_elapsed_frames > 1 {
+                        p.animation_elapsed_frames -= 1;
+                        return true;
+                    }
+                    let finish = crate::combat::boss_eye_pop_effect_finish_sub_3729E();
+                    debug_assert!(finish.delete_current_object);
+                    debug_assert_eq!(finish.active_eye_delta, -1);
+                    return false;
+                }
+
+                // ASM loc_372F6 decrements `d0` after the one-frame hibernate.
+                // The worker enters loc_3731C only when that word decrement
+                // reaches zero; otherwise it keeps the `$FFFFFB4F` freeze count
+                // active and faces Kid for another frame.
+                p.lifetime = p.lifetime.wrapping_sub(1);
+                if p.lifetime == 0 {
+                    let finish = crate::combat::boss_eye_pop_effect_finish_sub_3729E();
+                    debug_assert_eq!(finish.animation_label, "stru_37BFC");
+                    debug_assert!(finish.hibernate_until_anim_finished);
+                    p.animation_elapsed_frames =
+                        BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC;
+                }
+                return true;
             }
             if is_boss_head_arrow && p.lifetime == 0 {
                 if p.animation_elapsed_frames == 0 {
