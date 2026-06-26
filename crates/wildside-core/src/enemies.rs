@@ -2130,7 +2130,18 @@ impl ActiveEnemy {
             return true;
         }
         if matches!(self.family, EnemyFamily::BigHoppingSkull) {
-            self.hit_points -= 1;
+            let damage_entry =
+                big_hopping_skull_damage_entry_loc_365d8(u16::from(self.hit_points), 0);
+            debug_assert!(damage_entry.has_kid_collision);
+            debug_assert_eq!(
+                damage_entry.remaining_hit_points,
+                u16::from(self.hit_points - 1)
+            );
+            debug_assert_eq!(
+                damage_entry.route,
+                BigHoppingSkullDamageEntryRouteLoc365D8::HitAnimationThenWait
+            );
+            self.hit_points = damage_entry.remaining_hit_points as u8;
             self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
             // ASM Big_Hopping_Skull.asm loc_365D8: nonfatal damage starts
             // `stru_367CC`; loc_365F2/loc_36616 hibernate the object until
@@ -3586,6 +3597,25 @@ pub(crate) fn step_active_enemies_with_rng(
                             debug_assert!(voice_gate.d0_preserved);
                             if voice_gate.sound_effect.is_some() {
                                 sound_effects.push(QueuedSoundEffect::VoiceDie);
+                            }
+                        }
+                        let hit_wait = big_hopping_skull_hit_animation_wait_loc_36632(
+                            true,
+                            enemy.grounded_frames == 0,
+                        );
+                        debug_assert_eq!(hit_wait.collision_probe_extent, 8);
+                        match hit_wait.route {
+                            BigHoppingSkullHitAnimationWaitRouteLoc36632::LoopHitAnimation => {
+                                debug_assert!(!hit_wait.clear_has_kid_collision);
+                            }
+                            BigHoppingSkullHitAnimationWaitRouteLoc36632::SharedTail => {
+                                debug_assert!(hit_wait.clear_has_kid_collision);
+                            }
+                            BigHoppingSkullHitAnimationWaitRouteLoc36632::Relaunch => {
+                                debug_assert!(
+                                    false,
+                                    "native Big Hopping Skull hit wait has no live loc_33286 clear-probe signal"
+                                );
                             }
                         }
                         continue;

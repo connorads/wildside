@@ -170,7 +170,6 @@ pub(crate) fn big_hopping_skull_hit_voice_gate_loc_36616(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullHitAnimationWaitRouteLoc36632 {
     Relaunch,
     LoopHitAnimation,
@@ -178,14 +177,12 @@ pub(crate) enum BigHoppingSkullHitAnimationWaitRouteLoc36632 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullHitAnimationWaitLoc36632 {
     pub(crate) collision_probe_extent: u16,
     pub(crate) clear_has_kid_collision: bool,
     pub(crate) route: BigHoppingSkullHitAnimationWaitRouteLoc36632,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_hit_animation_wait_loc_36632(
     collision_probe_nonzero: bool,
     animation_finished: bool,
