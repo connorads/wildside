@@ -918,7 +918,6 @@ pub(crate) const fn archer_shooting_cycle_delay_frames_loc_341BE() -> u16 {
     (0x0064 + 1) + (0x0006 + 1) + (0x000C + 1)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn fp16_integer_word(position: u32) -> u16 {
     u16::try_from(position >> 16).expect("FP16.16 integer word fits in u16")
 }
