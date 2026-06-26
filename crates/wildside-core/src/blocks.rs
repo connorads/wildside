@@ -265,10 +265,9 @@ pub(crate) struct OneTimePrizeStoreLoc1089A {
     pub(crate) entries: [u32; 0x28],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Prize10DiamondsInitLoc108E8 {
-    pub(crate) cleared_worker_slots: [u32; 10],
+pub struct Prize10DiamondsInitLoc108E8 {
+    pub cleared_worker_slots: [u32; 10],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -882,8 +881,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn prize_10_diamonds_init_loc_108E8() -> Prize10DiamondsInitLoc108E8 {
+    pub fn prize_10_diamonds_init_loc_108E8() -> Prize10DiamondsInitLoc108E8 {
         // ASM Prize10Diamonds_Init -> loc_108E8 (kid.asm:22170-22173): set
         // `a0 = $44(a5)`, seed `d0 = #9`, then `clr.l (a0)+` under DBF to
         // clear exactly ten longword worker slots before the per-frame loop

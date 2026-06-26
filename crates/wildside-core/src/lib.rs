@@ -37,7 +37,7 @@ use wildside_data::{
 };
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 pub use blocks::{
-    FloatingPrizeGraphicsSpec, Prize10DiamondsSpawnLoc108EE,
+    FloatingPrizeGraphicsSpec, Prize10DiamondsInitLoc108E8, Prize10DiamondsSpawnLoc108EE,
     Prize10DiamondsWorkerCountdownGateLoc10984, Prize10DiamondsWorkerScanStartLoc10960,
     PrizeBlockSpawnFlashLoc102B8, floating_prize_graphics_spec,
 };

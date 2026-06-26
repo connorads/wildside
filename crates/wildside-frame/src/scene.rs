@@ -7345,9 +7345,13 @@ fn render_ten_diamonds_worker_effect(
         tile_sheet: level_visuals.hud.diamond_tiles.clone(),
     };
     let worker_scan = wildside_core::NativeRuntime::prize_10_diamonds_worker_scan_start_loc_10960();
-    let max_worker_count =
-        worker_scan.worker_table_len_bytes / worker_scan.worker_slot_stride_bytes;
+    let worker_slots = wildside_core::NativeRuntime::prize_10_diamonds_init_loc_108E8();
+    let max_worker_count = worker_slots.cleared_worker_slots.len() as u16;
     debug_assert_eq!(worker_scan.first_worker_slot_byte_offset, 0);
+    debug_assert_eq!(
+        max_worker_count,
+        worker_scan.worker_table_len_bytes / worker_scan.worker_slot_stride_bytes
+    );
     let mut drew_worker = false;
     for spawn_frame in 0..=u16::from(effect_age).min(0x001D) {
         let spawn = wildside_core::NativeRuntime::prize_10_diamonds_spawn_loc_108EE(
