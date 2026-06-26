@@ -675,22 +675,21 @@ pub(crate) fn gfx_object_alloc_tail_loc_FBE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_alloc_insertion_predecessor_index_loc_FD4(
     next_indices: &[Option<usize>],
     priority_words: &[u16],
     target_priority_word: u16,
 ) -> usize {
     // ASM Allocate_GfxObjectSlot loc_FD4 (kid.asm:1897): starting at the
-    // sentinel `(Addr_FirstGfxObjectSlot).w`, follow `0(a4)` while the next
-    // node exists and its `$A(a4)` priority word is less than or equal to the
-    // new object's `d5`; allocation inserts after the last such node.
+    // sentinel `(Addr_FirstGfxObjectSlot).w`, `cmp.w $A(a4),d5; bls.s loc_FD4`
+    // follows `0(a4)` while the new object's priority word is lower than or
+    // equal to the existing node, so higher priority words stay earlier.
     let mut cursor_index = 0usize;
     loop {
         let Some(next_index) = next_indices[cursor_index] else {
             return cursor_index;
         };
-        if priority_words[next_index] > target_priority_word {
+        if priority_words[next_index] < target_priority_word {
             return cursor_index;
         }
         cursor_index = next_index;
@@ -698,7 +697,6 @@ pub(crate) fn gfx_object_alloc_insertion_predecessor_index_loc_FD4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_alloc_insert_loc_FE6(
     next_indices: &mut [Option<usize>],
     predecessor_index: usize,

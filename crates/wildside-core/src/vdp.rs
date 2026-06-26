@@ -986,7 +986,7 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
         });
     }
     push_intro_sequence_3_sliding_sprites_sub_1C572(&mut sprite_objects, visible_elapsed);
-    sprite_objects.sort_by_key(|object| std::cmp::Reverse(object.order_key));
+    let sprite_objects = intro_gfx_objects_in_alloc_chain_order_loc_FD4_FE6(&sprite_objects);
     let mut sprite_entries = Vec::new();
     for object in sprite_objects {
         append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
@@ -996,6 +996,38 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
         );
     }
     write_sprite_table_entries(vdp, sprite_table_base, &sprite_entries);
+}
+
+#[allow(non_snake_case)]
+fn intro_gfx_objects_in_alloc_chain_order_loc_FD4_FE6(
+    objects: &[IntroGfxObjectForSpriteTableWithOrder],
+) -> Vec<IntroGfxObjectForSpriteTableWithOrder> {
+    let mut next_indices = vec![None];
+    let mut priority_words = vec![0];
+    for object in objects {
+        let new_index = priority_words.len();
+        next_indices.push(None);
+        priority_words.push(object.order_key);
+        let predecessor_index =
+            crate::movement::gfx_object_alloc_insertion_predecessor_index_loc_FD4(
+                &next_indices,
+                &priority_words,
+                object.order_key,
+            );
+        crate::movement::gfx_object_alloc_insert_loc_FE6(
+            &mut next_indices,
+            predecessor_index,
+            new_index,
+        );
+    }
+
+    let mut ordered = Vec::with_capacity(objects.len());
+    let mut cursor = next_indices[0];
+    while let Some(index) = cursor {
+        ordered.push(objects[index - 1]);
+        cursor = next_indices[index];
+    }
+    ordered
 }
 
 #[allow(non_snake_case)]

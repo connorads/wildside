@@ -476,20 +476,20 @@ mod chunk_01 {
 
     #[test]
     #[allow(non_snake_case)]
-    fn gfx_object_alloc_loc_FD4_skips_equal_priorities_before_first_higher_priority() {
+    fn gfx_object_alloc_loc_FD4_skips_equal_priorities_before_first_lower_priority() {
         let next_indices = [
             Some(1), // sentinel -> first live node
-            Some(2), // priority 1
+            Some(2), // priority 3
             Some(3), // equal priority 2
-            Some(4), // higher priority 3
+            None,    // lower priority 1
             None,
         ];
-        let priority_words = [0, 1, 2, 3, 2];
+        let priority_words = [0, 3, 2, 1, 2];
 
         assert_eq!(
             gfx_object_alloc_insertion_predecessor_index_loc_FD4(&next_indices, &priority_words, 2),
             2,
-            "ASM loc_FD4 should keep walking while each existing `$A(a4)` priority is less than or equal to the new object's `d5`",
+            "ASM loc_FD4 should keep walking while the new object's `d5` priority is less than or equal to each existing `$A(a4)` priority",
         );
     }
 
