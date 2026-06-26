@@ -98,7 +98,6 @@ pub(crate) enum QueuedSoundEffect {
     BossEyePops,
     BossDies,
     Thunderstorm,
-    #[cfg_attr(not(test), allow(dead_code))]
     NavigateJingle,
 }
 
