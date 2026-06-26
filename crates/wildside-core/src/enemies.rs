@@ -5985,7 +5985,6 @@ pub(crate) fn hand_init_y_snap_loc_32aea(y_pos_word: u16) -> u16 {
     y_pos_word.wrapping_sub(8) & 0xFFF0 | 0x000F
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn asr4_word(value: u16) -> i16 {
     i16::from_be_bytes(value.to_be_bytes()) >> 4
 }
