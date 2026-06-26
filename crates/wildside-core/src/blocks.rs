@@ -2217,7 +2217,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn ice_block_load_bullets_restore_direction_loc_11080(
         remapped_direction: u16,
     ) -> u16 {
@@ -2325,10 +2324,13 @@ impl NativeRuntime {
                         drilled_block.row,
                     );
                 }
+                let restored_direction = Self::ice_block_load_bullets_restore_direction_loc_11080(
+                    drilled_block.direction ^ 2,
+                );
                 self.spawn_ice_block_effect_sub_10f9c(
                     drilled_block.col * 16,
                     drilled_block.row * 16,
-                    drilled_block.direction,
+                    restored_direction,
                 );
             }
         }
@@ -3640,8 +3642,10 @@ impl NativeRuntime {
             }
             // ASM off_BB80[2] -> IceBlock_SmashAndLoadBullets: after
             // IceBlock_LoadBullets, sub_10F9C queues the shard effect using
-            // the original `d6` direction from sub_BB54.
-            self.spawn_ice_block_effect_sub_10f9c(cell_x * 16, cell_y * 16, direction);
+            // `d6` after loc_11080 restores the original direction.
+            let restored_direction =
+                Self::ice_block_load_bullets_restore_direction_loc_11080(direction ^ 2);
+            self.spawn_ice_block_effect_sub_10f9c(cell_x * 16, cell_y * 16, restored_direction);
         }
 
         if let Some((cell_x, cell_y)) = slice.shooter_block_hit
