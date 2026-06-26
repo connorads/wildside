@@ -71,18 +71,15 @@ pub(crate) fn drips_splash_animation_remaining_loc_33488(wait_timer: u16) -> Opt
         Some(wait_timer & !DRIPS_SPLASH_ANIMATION_FLAG_LOC_33488)
     }
 }
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRIPS_COLID_CEILING: u16 = colid::CEILING;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsCeilingGateLoc333F6 {
     pub(crate) waiting_for_ceiling: bool,
     pub(crate) collision_type: u16,
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_ceiling_gate_loc_333_f6(
     collision_type: u16,
     y_velocity: i32,
@@ -1493,8 +1490,11 @@ pub(crate) fn step_drips(
                 // ASM GfxObjects_Collision_TopBoundary (loc_1B30): a negative
                 // box top clamps the object so its box top rests at 0 and
                 // reports colid_ceiling.
+                let gate = drips_ceiling_gate_loc_333_f6(DRIPS_COLID_CEILING, enemy.y_velocity);
+                debug_assert!(!gate.waiting_for_ceiling);
+                debug_assert_eq!(gate.collision_type, 0);
                 enemy.y_pos = (DRIPS_CEILING_BOX_TOP_OFFSET_LOC_1A6C as u32) << 16;
-                enemy.y_velocity = 0;
+                enemy.y_velocity = gate.y_velocity;
                 enemy.drips_attached = true;
                 enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E;
                 return;
@@ -1516,9 +1516,12 @@ pub(crate) fn step_drips(
                 // ASM loc_333F6 exits only after GfxObjects_Collision has
                 // reported colid_ceiling. loc_1A6C then writes back
                 // `y = contact_tile_top - y_off + $10` = tile_top + $12.
+                let gate = drips_ceiling_gate_loc_333_f6(DRIPS_COLID_CEILING, enemy.y_velocity);
+                debug_assert!(!gate.waiting_for_ceiling);
+                debug_assert_eq!(gate.collision_type, 0);
                 let contact_tile_top = i32::from(contact_row) * 16;
                 enemy.y_pos = ((contact_tile_top + DRIPS_CEILING_SNAP_TOP_OFFSET) as u32) << 16;
-                enemy.y_velocity = 0;
+                enemy.y_velocity = gate.y_velocity;
                 enemy.drips_attached = true;
                 // ASM loc_3340E draws the RNG byte at the object's own
                 // Execute_Objects slot. Same-frame attaches must consume RNG
