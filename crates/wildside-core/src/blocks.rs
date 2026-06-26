@@ -741,7 +741,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn floating_prize_fall_loc_103DE(
         aligned_y: i32,
         y_pos: i64,
@@ -755,7 +754,7 @@ impl NativeRuntime {
         // fall branch open, add `#$1388` to `d1`, advance `y_pos(a3)`, and
         // feed the snapped-row result into the shared `loc_10402/loc_10404`
         // tail.
-        Self::floating_prize_fall_step_loc_10C50(
+        Self::floating_prize_row_sync_loc_10402(
             aligned_y,
             y_pos,
             y_velocity,
@@ -767,7 +766,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn floating_prize_row_sync_loc_10402(
         aligned_y: i32,
         y_pos: i64,
@@ -4658,7 +4656,7 @@ impl NativeRuntime {
                 .is_none_or(|grid| floating_item_can_fall(grid, f));
             if can_fall {
                 let aligned_y = ((f.y_pos >> 16) as i32) & !0xF;
-                let fall = Self::floating_prize_fall_step_loc_10C50(
+                let fall = Self::floating_prize_fall_loc_103DE(
                     aligned_y,
                     f.y_pos,
                     f.y_velocity,
