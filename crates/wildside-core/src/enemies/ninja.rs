@@ -278,7 +278,6 @@ pub(crate) const NINJA_JUMP_X_SPEED_RIGHT: i32 = 0x1_0000;
 pub(crate) const NINJA_JUMP_Y_SPEED: i32 = -0x4_8000;
 pub(crate) const NINJA_GRAVITY: i32 = 0x2800;
 pub(crate) const NINJA_KNOCKDOWN_Y_SPEED_LOC_3D8D6: i32 = 0x0001_8000;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const NINJA_KNOCKDOWN_GRAVITY_LOC_3D8E6: i32 = 0x0000_1800;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -740,14 +739,12 @@ pub(crate) fn ninja_knockdown_start_loc_3d8d6() -> NinjaKnockdownStartStateLoc3D
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaKnockdownLandingRouteLoc3D8E6 {
     Loop,
     KillPath,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaKnockdownLandingStateLoc3D8E6 {
     pub(crate) next_collision_type: u16,
     pub(crate) x_velocity: i32,
@@ -760,7 +757,6 @@ pub(crate) struct NinjaKnockdownLandingStateLoc3D8E6 {
     pub(crate) route: NinjaKnockdownLandingRouteLoc3D8E6,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_knockdown_landing_loop_loc_3d8e6(
     collision_type: u16,
     x_velocity: i32,
@@ -1322,6 +1318,53 @@ pub(crate) fn step_ninja(
                     enemy.ninja_state = NinjaState::Stealth;
                     enemy.shared_walker_state = i16::from(reset.threat_state_4c);
                     enemy.walk_speed_override = reset.walk_speed_override;
+                }
+            }
+        }
+        NinjaState::AirborneKnockdown => {
+            let Some(grid) = block_grid else {
+                enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+                let fall = ninja_knockdown_landing_loop_loc_3d8e6(
+                    0,
+                    enemy.x_velocity,
+                    enemy.y_velocity,
+                    enemy.y_pos,
+                );
+                enemy.x_velocity = fall.x_velocity;
+                enemy.y_velocity = fall.y_velocity;
+                return;
+            };
+
+            enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+            let cx = (enemy.x_pos >> 16) as i32;
+            let cy = (enemy.y_pos >> 16) as i32;
+            let floor = terrain::probe_floor(grid, cx, cy);
+            let collision_type =
+                if floor.on_ground && enemy.y_pos >= ((floor.floor_y_px as u32) << 16) {
+                    NINJA_COLID_FLOOR
+                } else {
+                    0
+                };
+            let fall = ninja_knockdown_landing_loop_loc_3d8e6(
+                collision_type,
+                enemy.x_velocity,
+                enemy.y_velocity,
+                enemy.y_pos,
+            );
+            enemy.x_velocity = fall.x_velocity;
+            enemy.y_velocity = fall.y_velocity;
+            enemy.y_pos = fall.y_position;
+            match fall.route {
+                NinjaKnockdownLandingRouteLoc3D8E6::Loop => {
+                    enemy.on_ground = false;
+                }
+                NinjaKnockdownLandingRouteLoc3D8E6::KillPath => {
+                    // ASM Ninja.asm loc_3D8E6 reaches loc_3DB4E only after
+                    // floor contact, then hibernates through `stru_3D50A`.
+                    enemy.on_ground = true;
+                    enemy.hit_points = 0;
+                    enemy.death_animation_active = true;
+                    enemy.wait_timer = NINJA_DEATH_ANIMATION_FRAMES;
                 }
             }
         }

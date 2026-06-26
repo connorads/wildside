@@ -11343,6 +11343,34 @@ mod chunk_04 {
         assert!(enemy.on_ground);
     }
 
+    #[test]
+    fn ninja_airborne_knockdown_starts_death_after_floor_loc_3d8e6_3db4e() {
+        let grid = grid_with_platform(17, 0, 120);
+        let mut enemy = test_enemy(EnemyFamily::Ninja, 50 << 16, (17 * 16 - 1) << 16, 0);
+        enemy.ninja_state = NinjaState::AirborneKnockdown;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0x0001_0000;
+        enemy.on_ground = false;
+
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert!(
+            enemy.death_animation_active,
+            "ASM Ninja.asm loc_3D8E6 should start loc_3DB4E only after floor contact"
+        );
+        assert_eq!(enemy.wait_timer, NINJA_DEATH_ANIMATION_FRAMES);
+        assert_eq!(enemy.x_velocity, 0);
+        assert_eq!(enemy.y_velocity, 0);
+        assert!(enemy.on_ground);
+    }
+
     // --- Hand ---
 
     #[test]

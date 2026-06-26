@@ -16242,7 +16242,7 @@ mod chunk_03 {
 
         assert_eq!(
             runtime.active_enemies[0].ninja_state,
-            NinjaState::KidAboveKnockdown,
+            NinjaState::AirborneKnockdown,
             "ASM Ninja.asm loc_3D8BC should fall through to loc_3D8D6 when `$44(a3)` reaches zero"
         );
         assert_eq!(runtime.active_enemies[0].hit_points, 0);

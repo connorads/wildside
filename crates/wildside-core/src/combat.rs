@@ -9037,7 +9037,7 @@ impl NativeRuntime {
                                 // terminal airborne Berzerker/Kid-above
                                 // contact seeds the floor-wait knockdown loop.
                                 enemy.hit_points = 0;
-                                enemy.ninja_state = NinjaState::KidAboveKnockdown;
+                                enemy.ninja_state = NinjaState::AirborneKnockdown;
                                 enemy.y_velocity = knockdown.y_velocity;
                                 enemy.on_ground = false;
                             } else {

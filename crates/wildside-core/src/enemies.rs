@@ -1011,6 +1011,8 @@ pub(crate) enum NinjaState {
     JumpAttack,
     /// ASM Ninja.asm loc_3DABC: HP-depleted Kid-above contact falls until floor before death.
     KidAboveKnockdown,
+    /// ASM Ninja.asm loc_3D8E6: HP-depleted airborne knockdown falls until floor before death.
+    AirborneKnockdown,
 }
 
 /// Orca lunge state machine (Orca.asm).
