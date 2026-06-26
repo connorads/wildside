@@ -9889,6 +9889,11 @@ impl NativeRuntime {
             // if the live state had a nonzero hibernate/patrol timer, then
             // waits for that animation before reaching the shared delete tail.
             if matches!(family, EnemyFamily::BigHoppingSkull) {
+                let death_entry = big_hopping_skull_death_entry_loc_3664e();
+                debug_assert_eq!(death_entry.sound_effect, "sfx_Big_Hopping_Skull_dies");
+                debug_assert!(death_entry.d0_preserved);
+                debug_assert_eq!(death_entry.animation, "stru_367FA");
+                debug_assert_eq!(death_entry.next_loop, "death_animation_wait");
                 // ASM Big_Hopping_Skull.asm loc_3664E: terminal damage plays
                 // the skull-specific death cue before initialising `stru_367FA`.
                 self.queue_start_sequence(QueuedSoundEffect::BigHoppingSkullDies);
@@ -10182,6 +10187,13 @@ impl NativeRuntime {
         if matches!(family, EnemyFamily::FireDemon) {
             self.fire_demon_trails
                 .push(fire_demon_death_trail_child_loc_3a63c(x_pos, y_pos));
+        }
+        if matches!(family, EnemyFamily::BigHoppingSkull) {
+            let delete_tail = big_hopping_skull_delete_tail_loc_366b2();
+            debug_assert!(
+                delete_tail.deletes_current_object,
+                "ASM Big_Hopping_Skull.asm loc_366B2 should delete the current object after death-status finalisation",
+            );
         }
         self.active_enemies.remove(idx);
         if let Some((child, animation)) = dragon_death {

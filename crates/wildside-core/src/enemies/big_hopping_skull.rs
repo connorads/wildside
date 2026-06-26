@@ -218,7 +218,6 @@ pub(crate) fn big_hopping_skull_hit_animation_wait_loc_36632(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullDeathEntryLoc3664E {
     pub(crate) sound_effect: &'static str,
     pub(crate) d0_preserved: bool,
@@ -226,7 +225,6 @@ pub(crate) struct BigHoppingSkullDeathEntryLoc3664E {
     pub(crate) next_loop: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_death_entry_loc_3664e() -> BigHoppingSkullDeathEntryLoc3664E {
     // ASM Big_Hopping_Skull.asm loc_3664E: push d0, play
     // `sfx_Big_Hopping_Skull_dies`, restore d0, initialise `stru_367FA`,
@@ -324,12 +322,10 @@ pub(crate) fn big_hopping_skull_respawn_marker_loc_366a4(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullDeleteTailLoc366B2 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_delete_tail_loc_366b2() -> BigHoppingSkullDeleteTailLoc366B2 {
     // ASM Big_Hopping_Skull.asm loc_366B2: all death-status finalisation paths
     // converge on `jmp (j_Delete_CurrentObject).w`.
