@@ -1375,7 +1375,6 @@ pub(crate) fn pause_menu_tile_save_plan_loc_695C(
 /// + lea    (MapUnc_PauseMenu_Restart).l,a1
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PauseMenuTextSelectionRestartText {
     /// Number_Lives <= 1 — player cannot restart, only give up.
     GiveUp,
@@ -1387,7 +1386,6 @@ pub(crate) enum PauseMenuTextSelectionRestartText {
 ///
 /// ASM `restart_text` (kid.asm:6741-6745): `cmpi.w #1,(Number_Lives).w;
 /// bgt.s +` — if lives > 1, use "Restart Round" mappings; otherwise "Give Up".
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_text_selection_restart_text(
     number_lives: u16,
 ) -> PauseMenuTextSelectionRestartText {

@@ -1375,6 +1375,19 @@ impl NativeRuntime {
     }
 
     fn apply_pause_menu_frame_loc_6ae0(&mut self, input: FrameInput, start_pressed: bool) {
+        // ASM restart_text (kid.asm:6741): live pause menu text uses
+        // Number_Lives to choose "Give Up" vs "Restart Round" before the loop
+        // handles cursor movement or Start.
+        let restart_text =
+            boot::pause_menu_text_selection_restart_text(self.progression.number_lives);
+        debug_assert_eq!(
+            matches!(
+                restart_text,
+                boot::PauseMenuTextSelectionRestartText::RestartRound
+            ),
+            self.progression.number_lives > 1
+        );
+
         // ASM Game_Paused_Loop (kid.asm:6829-6857): Up/Down only move the
         // two-entry cursor when they are fresh Ctrl_Pressed edges.
         let arrow_cursor_cmds = self.opening_slice.as_ref().map(|slice| {
