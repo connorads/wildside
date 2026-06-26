@@ -16855,6 +16855,35 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_walking_pending_stomp_routes_through_loc_3ce9a_damage() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x009A_0000, 0x0110_0000, 2);
+        dragon.layout_index = 16;
+        dragon.hit_points = 3;
+        let collision_target = dragon;
+        runtime.active_enemies = vec![dragon];
+
+        runtime.queue_pending_enemy_collision(&collision_target, DRAGON_COLID_KIDABOVE);
+        runtime.apply_pending_enemy_collisions();
+
+        let dragon = runtime.active_enemies[0];
+        assert_eq!(
+            dragon.hit_points, 2,
+            "ASM Dragon.asm loc_3CE9A routes colid_kidabove to loc_3CEBE damage before the nonlethal hurt hibernate"
+        );
+        assert_eq!(
+            dragon.damage_flash_frames,
+            ENEMY_DAMAGE_FLASH_FRAMES + 1,
+            "ASM Dragon.asm loc_3CEBE plays the hurt animation after loc_3CE9A selects the damage route"
+        );
+        assert_eq!(
+            dragon.grounded_frames, DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES,
+            "native pending `$2C` handling should preserve the DragonWalking nonlethal stomp hibernate"
+        );
+    }
+
+    #[test]
     fn dragon_walking_death_ignores_repeated_pending_collision_loc_3cefc() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x009A_0000, 0x0110_0000, 1);

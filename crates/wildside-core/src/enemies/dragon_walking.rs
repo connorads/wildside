@@ -114,7 +114,6 @@ pub(crate) fn dragon_walking_normal_dispatch_loc_3ce84(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingCollisionRouteLoc3CE9A {
     Continue,
     Damage,
@@ -122,7 +121,6 @@ pub(crate) enum DragonWalkingCollisionRouteLoc3CE9A {
     Death,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_collision_route_loc_3ce9a(
     collision_type: i16,
 ) -> DragonWalkingCollisionRouteLoc3CE9A {

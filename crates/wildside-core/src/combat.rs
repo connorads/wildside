@@ -9578,10 +9578,19 @@ impl NativeRuntime {
             {
                 // ASM loc_1CF2 stores colid_kidabove into the object collision
                 // word; Dragon.asm loc_3CE9A consumes it on the next object pass.
-                if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
-                    kill_indices.push(active_idx);
-                } else {
-                    Self::apply_dragon_walking_stomp_hibernate(enemy);
+                match dragon_walking_collision_route_loc_3ce9a(collision.collision_type as i16) {
+                    DragonWalkingCollisionRouteLoc3CE9A::Damage => {
+                        if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
+                            kill_indices.push(active_idx);
+                        } else {
+                            Self::apply_dragon_walking_stomp_hibernate(enemy);
+                        }
+                    }
+                    DragonWalkingCollisionRouteLoc3CE9A::Continue
+                    | DragonWalkingCollisionRouteLoc3CE9A::BerzerkerSideGate => {}
+                    DragonWalkingCollisionRouteLoc3CE9A::Death => {
+                        kill_indices.push(active_idx);
+                    }
                 }
             }
         }
