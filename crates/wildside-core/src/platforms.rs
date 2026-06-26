@@ -509,44 +509,34 @@ impl PlatformSlotPoolLoc231C {
         &mut self,
         target_slot_addr: u16,
     ) -> DeallocatePlatformSlotResultSub23B4 {
-        let mut previous_slot_addr: Option<u16> = None;
-        let mut cursor = self.first_platform_slot_addr;
+        let mut active_links: [PlatformSlotLinkSub23B4; PLATFORM_SLOT_CAPACITY_LOC_231C] =
+            std::array::from_fn(|index| PlatformSlotLinkSub23B4 {
+                slot_addr: PlatformLoaderState::synthetic_slot_addr_loc_231C(index).unwrap_or(0),
+                next_slot_addr: self.slot_next_addrs[index],
+            });
+        let mut first_platform_slot_addr = self.first_platform_slot_addr;
+        let mut next_free_platform_slot_addr = self.next_free_platform_slot_addr;
+        let mut number_platforms = self.number_platforms;
+        let result = deallocate_platform_slot_sub_23B4(
+            &mut active_links,
+            &mut first_platform_slot_addr,
+            &mut next_free_platform_slot_addr,
+            &mut number_platforms,
+            target_slot_addr,
+        );
 
-        while cursor != 0 {
-            let Some(current_index) = Self::slot_index_loc_231C(cursor) else {
-                return DeallocatePlatformSlotResultSub23B4::MissingSlot {
-                    failure_label: "loc_6E2",
-                };
-            };
-
-            if cursor == target_slot_addr {
-                let next_active_addr = self.slot_next_addrs[current_index];
-                if let Some(previous_addr) = previous_slot_addr {
-                    let Some(previous_index) = Self::slot_index_loc_231C(previous_addr) else {
-                        return DeallocatePlatformSlotResultSub23B4::MissingSlot {
-                            failure_label: "loc_6E2",
-                        };
-                    };
-                    self.slot_next_addrs[previous_index] = next_active_addr;
-                } else {
-                    self.first_platform_slot_addr = next_active_addr;
+        if result == DeallocatePlatformSlotResultSub23B4::Deallocated {
+            self.first_platform_slot_addr = first_platform_slot_addr;
+            self.next_free_platform_slot_addr = next_free_platform_slot_addr;
+            self.number_platforms = number_platforms;
+            for link in active_links {
+                if let Some(slot_index) = Self::slot_index_loc_231C(link.slot_addr) {
+                    self.slot_next_addrs[slot_index] = link.next_slot_addr;
                 }
-                // ASM Deallocate_PlatformSlot/loc_23CC (kid.asm:4244-4248):
-                // splice the target out of the active chain, then push it to
-                // the free-list head by writing the old free head into 0(a3).
-                self.slot_next_addrs[current_index] = self.next_free_platform_slot_addr;
-                self.next_free_platform_slot_addr = target_slot_addr;
-                self.number_platforms = self.number_platforms.wrapping_sub(1);
-                return DeallocatePlatformSlotResultSub23B4::Deallocated;
             }
-
-            previous_slot_addr = Some(cursor);
-            cursor = self.slot_next_addrs[current_index];
         }
 
-        DeallocatePlatformSlotResultSub23B4::MissingSlot {
-            failure_label: "loc_6E2",
-        }
+        result
     }
 
     fn slot_index_loc_231C(slot_addr: u16) -> Option<usize> {
@@ -845,7 +835,6 @@ pub(crate) enum DeallocatePlatformSlotResultSub23B4 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn deallocate_platform_slot_sub_23B4(
     active_links: &mut [PlatformSlotLinkSub23B4],
     first_platform_slot_addr: &mut u16,
