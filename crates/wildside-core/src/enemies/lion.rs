@@ -937,7 +937,6 @@ pub(crate) fn lion_charge_collision_vertical_entry_loc_3e812(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionChargeCollisionDownwardCollisionLoc3E84E {
     Airborne {
         y_position: u32,
@@ -955,7 +954,6 @@ pub(crate) enum LionChargeCollisionDownwardCollisionLoc3E84E {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_downward_collision_loc_3e84e(
     y_position: u32,
     candidate_y_position: u32,
@@ -993,13 +991,11 @@ pub(crate) fn lion_charge_collision_downward_collision_loc_3e84e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionChargeCollisionLandingResumeLoc3E88A {
     pub(crate) restored_animation: &'static str,
     pub(crate) next_branch: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_landing_resume_loc_3e88a()
 -> LionChargeCollisionLandingResumeLoc3E88A {
     // ASM Lion.asm loc_3E88A: load `$62(a5)` into d7, reinitialise the saved
@@ -1011,13 +1007,11 @@ pub(crate) fn lion_charge_collision_landing_resume_loc_3e88a()
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionChargeCollisionYCommitLoc3E896 {
     pub(crate) y_position: u32,
     pub(crate) enters_gravity_tail: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_y_commit_loc_3e896(
     candidate_y_position: u32,
 ) -> LionChargeCollisionYCommitLoc3E896 {
@@ -1030,7 +1024,6 @@ pub(crate) fn lion_charge_collision_y_commit_loc_3e896(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_gravity_cap_loc_3e89a(y_velocity: i32) -> i32 {
     // ASM Lion.asm loc_3E89A: load `y_vel(a3)`, add `$4000`, then use a
     // signed compare against `$180000`; upward velocities are not clamped.
@@ -1039,13 +1032,11 @@ pub(crate) fn lion_charge_collision_gravity_cap_loc_3e89a(y_velocity: i32) -> i3
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionChargeCollisionYVelocityCommitLoc3E8B2 {
     pub(crate) y_velocity: i32,
     pub(crate) next_tail: LionLoc3E556Tail,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_y_velocity_commit_loc_3e8b2(
     y_velocity: i32,
 ) -> LionChargeCollisionYVelocityCommitLoc3E8B2 {
@@ -1064,7 +1055,6 @@ pub(crate) fn lion_left_charge_airborne_resume_loc_3e6a4() -> LionLoc3E556Tail {
     lion_hibernate_cull_resume_loc_3e556()
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_airborne_resume_loc_3e7c0() -> LionLoc3E556Tail {
     // ASM Lion.asm loc_3E7C0: after collision-reentry airborne movement,
     // hibernate one frame, run sub_3E8BA's live object cull, then `jmp (a0)`.
@@ -1759,10 +1749,24 @@ fn step_lion_charge_airborne_vertical_loc_3e6f6_3e812(
                 enemy.y_velocity = 0;
                 enemy.shared_walker_debug_branch = Some("lion_charge_airborne_ceiling_snap");
             } else {
-                let commit =
-                    lion_left_charge_y_commit_loc_3e77a(candidate_y_position, enemy.y_velocity);
-                enemy.y_pos = commit.y_position;
-                enemy.y_velocity = commit.gravity_tail.y_velocity;
+                match enemy.facing {
+                    Direction::Left => {
+                        let commit = lion_left_charge_y_commit_loc_3e77a(
+                            candidate_y_position,
+                            enemy.y_velocity,
+                        );
+                        enemy.y_pos = commit.y_position;
+                        enemy.y_velocity = commit.gravity_tail.y_velocity;
+                    }
+                    Direction::Right => {
+                        let commit = lion_charge_collision_y_commit_loc_3e896(candidate_y_position);
+                        let velocity = lion_charge_collision_y_velocity_commit_loc_3e8b2(
+                            lion_charge_collision_gravity_cap_loc_3e89a(enemy.y_velocity),
+                        );
+                        enemy.y_pos = commit.y_position;
+                        enemy.y_velocity = velocity.y_velocity;
+                    }
+                }
             }
         }
         LionLeftChargeVerticalEntryLoc3E6F6::DownwardOrStationary {
@@ -1776,40 +1780,92 @@ fn step_lion_charge_airborne_vertical_loc_3e6f6_3e812(
                 (enemy.y_pos >> 16) as i32,
                 LION_CHARGE_PROBE_HALF_WIDTH,
             );
-            match lion_left_charge_downward_collision_loc_3e732(
-                enemy.y_pos,
-                candidate_y_position,
-                downward_pixels,
-                floor_hit,
-                enemy.shared_walker_state,
-            ) {
-                LionLeftChargeDownwardCollisionLoc3E732::Landed {
-                    y_position,
-                    y_velocity,
-                    next_shared_walker_state,
-                    ..
-                } => {
-                    enemy.y_pos = y_position;
-                    enemy.y_velocity = y_velocity;
-                    enemy.x_velocity = 0;
-                    enemy.on_ground = true;
-                    if let Some(next_state) = next_shared_walker_state {
-                        enemy.shared_walker_state = next_state;
+            match enemy.facing {
+                Direction::Left => {
+                    match lion_left_charge_downward_collision_loc_3e732(
+                        enemy.y_pos,
+                        candidate_y_position,
+                        downward_pixels,
+                        floor_hit,
+                        enemy.shared_walker_state,
+                    ) {
+                        LionLeftChargeDownwardCollisionLoc3E732::Landed {
+                            y_position,
+                            y_velocity,
+                            next_shared_walker_state,
+                            ..
+                        } => {
+                            enemy.y_pos = y_position;
+                            enemy.y_velocity = y_velocity;
+                            enemy.x_velocity = 0;
+                            enemy.on_ground = true;
+                            if let Some(next_state) = next_shared_walker_state {
+                                enemy.shared_walker_state = next_state;
+                            }
+                            enemy.shared_walker_debug_branch = Some("lion_charge_airborne_land");
+                            return;
+                        }
+                        LionLeftChargeDownwardCollisionLoc3E732::Airborne {
+                            y_position, ..
+                        } => {
+                            let commit =
+                                lion_left_charge_y_commit_loc_3e77a(y_position, enemy.y_velocity);
+                            enemy.y_pos = commit.y_position;
+                            enemy.y_velocity = commit.gravity_tail.y_velocity;
+                        }
                     }
-                    enemy.shared_walker_debug_branch = Some("lion_charge_airborne_land");
-                    return;
                 }
-                LionLeftChargeDownwardCollisionLoc3E732::Airborne { y_position, .. } => {
-                    let commit = lion_left_charge_y_commit_loc_3e77a(y_position, enemy.y_velocity);
-                    enemy.y_pos = commit.y_position;
-                    enemy.y_velocity = commit.gravity_tail.y_velocity;
+                Direction::Right => {
+                    match lion_charge_collision_downward_collision_loc_3e84e(
+                        enemy.y_pos,
+                        candidate_y_position,
+                        downward_pixels,
+                        floor_hit,
+                        enemy.shared_walker_state,
+                    ) {
+                        LionChargeCollisionDownwardCollisionLoc3E84E::Landed {
+                            y_position,
+                            y_velocity,
+                            next_shared_walker_state,
+                            ..
+                        } => {
+                            enemy.y_pos = y_position;
+                            enemy.y_velocity = y_velocity;
+                            enemy.x_velocity = 0;
+                            enemy.on_ground = true;
+                            if let Some(next_state) = next_shared_walker_state {
+                                enemy.shared_walker_state = next_state;
+                            }
+                            enemy.shared_walker_debug_branch = Some("lion_charge_airborne_land");
+                            return;
+                        }
+                        LionChargeCollisionDownwardCollisionLoc3E84E::Airborne {
+                            y_position,
+                            ..
+                        } => {
+                            let commit = lion_charge_collision_y_commit_loc_3e896(y_position);
+                            let velocity = lion_charge_collision_y_velocity_commit_loc_3e8b2(
+                                lion_charge_collision_gravity_cap_loc_3e89a(enemy.y_velocity),
+                            );
+                            enemy.y_pos = commit.y_position;
+                            enemy.y_velocity = velocity.y_velocity;
+                        }
+                    }
                 }
             }
         }
     }
 
     if enemy.shared_walker_debug_branch == Some("lion_charge_airborne_ceiling_snap") {
-        enemy.y_velocity = lion_left_charge_gravity_tail_loc_3e77e(enemy.y_velocity).y_velocity;
+        enemy.y_velocity = match enemy.facing {
+            Direction::Left => lion_left_charge_gravity_tail_loc_3e77e(enemy.y_velocity).y_velocity,
+            Direction::Right => {
+                lion_charge_collision_y_velocity_commit_loc_3e8b2(
+                    lion_charge_collision_gravity_cap_loc_3e89a(enemy.y_velocity),
+                )
+                .y_velocity
+            }
+        };
     }
     enemy.on_ground = false;
     if enemy.shared_walker_debug_branch != Some("lion_charge_airborne_ceiling_snap") {
