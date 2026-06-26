@@ -5921,7 +5921,10 @@ mod chunk_04 {
             1,
             "ASM Fireball.asm loc_32CE4 allocates a loc_33128 trail child while Number_of_Fire_Trails < 5"
         );
-        assert_eq!(projectiles[0].kind, EnemyProjectileKind::FireballTrail);
+        assert_eq!(
+            projectiles[0].kind,
+            EnemyProjectileKind::FireballObstacleTrail
+        );
         assert_eq!(projectiles[0].lifetime, 0x96);
         assert_eq!(projectiles[0].y_pos, 0x00B0_0000);
     }
@@ -5939,7 +5942,7 @@ mod chunk_04 {
         active[0].y_velocity = 0x3_0000;
         let mut projectiles = vec![
             EnemyProjectile {
-                kind: EnemyProjectileKind::FireballTrail,
+                kind: EnemyProjectileKind::FireballObstacleTrail,
                 lifetime: 0x96,
                 ..Default::default()
             };

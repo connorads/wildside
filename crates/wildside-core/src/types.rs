@@ -3130,6 +3130,10 @@ pub(crate) enum EnemyProjectileKind {
     ArcherArrow,
     CloudLightning,
     FireballTrail,
+    /// Fireball obstacle trail child: ASM `Fireball.asm loc_33128` allocates
+    /// the same flame child as loc_330D0, but accepted wall/floor probes loop
+    /// through `loc_331BA` before the shared delete tail at loc_331CA.
+    FireballObstacleTrail,
     DripsDrop,
     /// Hostile Drips surface crawler child from ASM `Drips.asm loc_335D8`.
     DripsSurfaceCrawler,

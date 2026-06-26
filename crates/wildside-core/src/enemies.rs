@@ -4528,7 +4528,12 @@ pub(crate) fn fireball_floor_ceiling_bounce_loc_32ce4(
 fn count_live_fireball_trails(projectiles: &[EnemyProjectile]) -> u16 {
     projectiles
         .iter()
-        .filter(|projectile| projectile.kind == EnemyProjectileKind::FireballTrail)
+        .filter(|projectile| {
+            matches!(
+                projectile.kind,
+                EnemyProjectileKind::FireballTrail | EnemyProjectileKind::FireballObstacleTrail
+            )
+        })
         .count()
         .min(usize::from(u16::MAX)) as u16
 }
@@ -4591,7 +4596,9 @@ fn spawn_fireball_obstacle_trail_projectile_loc_33128(
     // with Y aligned to the next 16px row after adding $F.
     let x_px = ((enemy.x_pos as i64 + (i64::from(enemy.x_velocity) * 2)) >> 16) as i16;
     let y_px = ((((enemy.y_pos >> 16) as i32) + 0x0F) & !0x0F) as i16;
-    projectiles.push(fireball_trail_projectile_from_loc_330d0(0, x_px, y_px));
+    let mut projectile = fireball_trail_projectile_from_loc_330d0(0, x_px, y_px);
+    projectile.kind = EnemyProjectileKind::FireballObstacleTrail;
+    projectiles.push(projectile);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

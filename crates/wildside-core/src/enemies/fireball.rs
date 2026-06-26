@@ -62,13 +62,11 @@ pub(crate) fn fireball_trail_loop_step_loc_33110(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireballObstacleTrailLoopStepLoc331BA {
     Continue { lifetime_frames: u16 },
     Delete,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_obstacle_trail_loop_step_loc_331ba(
     flag_19_is_set: bool,
     lifetime_frames: u16,
@@ -108,13 +106,11 @@ pub(crate) fn fireball_trail_delete_tail_loc_33120(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireballObstacleTrailDeleteTailLoc331CA {
     pub(crate) next_fire_trail_count: u16,
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_obstacle_trail_delete_tail_loc_331ca(
     fire_trail_count: u16,
 ) -> FireballObstacleTrailDeleteTailLoc331CA {
@@ -479,7 +475,10 @@ mod tests {
             1,
             "ASM Fireball.asm loc_32CE4 should still allocate the obstacle trail child after the bounce cue",
         );
-        assert_eq!(projectiles[0].kind, EnemyProjectileKind::FireballTrail);
+        assert_eq!(
+            projectiles[0].kind,
+            EnemyProjectileKind::FireballObstacleTrail
+        );
     }
 
     #[test]

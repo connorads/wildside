@@ -80,7 +80,10 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::FireDemonDeathTrail {
         return ActiveProjectileKind::FireDemonDeathTrail;
     }
-    if projectile.kind == EnemyProjectileKind::FireballTrail {
+    if matches!(
+        projectile.kind,
+        EnemyProjectileKind::FireballTrail | EnemyProjectileKind::FireballObstacleTrail
+    ) {
         return ActiveProjectileKind::FireballTrail;
     }
     if projectile.kind == EnemyProjectileKind::DragonWalkingBreath {

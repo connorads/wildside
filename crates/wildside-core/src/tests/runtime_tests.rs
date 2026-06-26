@@ -16488,6 +16488,35 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fireball_obstacle_trail_lifetime_uses_loc_331ba_counter() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut expiring = make_projectile(100, 100);
+        expiring.kind = EnemyProjectileKind::FireballObstacleTrail;
+        expiring.lifetime = 1;
+        expiring.x_velocity = 0x0001_0000;
+        rt.projectiles.push(expiring);
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM Fireball.asm loc_331BA hibernates/moves, decrements d3 to zero, then falls through to loc_331CA without a generic zero-lifetime frame"
+        );
+
+        let mut wrapped = make_projectile(100, 100);
+        wrapped.kind = EnemyProjectileKind::FireballObstacleTrail;
+        wrapped.lifetime = 0;
+        rt.projectiles.push(wrapped);
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.projectiles[0].lifetime, 0xFFFF,
+            "ASM Fireball.asm loc_331BA uses word subtraction, so an unexpected d3=0 wraps and keeps the trail alive"
+        );
+    }
+
+    #[test]
     fn step_projectiles_homing_adjusts_velocity() {
         // Homing projectile accelerates toward player.
         let mut rt = NativeRuntime::new(manifest());
