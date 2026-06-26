@@ -7135,7 +7135,6 @@ pub(crate) fn boss_head_death_spin_loop_loc_39F7A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fragment_movement_step_loc_3A134(
     horizontal_counter_40: u16,
 ) -> FireDemonFragmentMovementStepLoc3A134 {
@@ -7169,7 +7168,6 @@ pub(crate) fn fire_demon_fragment_movement_step_loc_3A134(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fragment_fade_step_loc_3A14E(
     fade_counter_42: u16,
 ) -> FireDemonFragmentFadeStepLoc3A14E {

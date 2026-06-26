@@ -2811,6 +2811,16 @@ impl NativeRuntime {
             }
             if is_boss_head_arrow && p.lifetime == 0 {
                 if p.animation_elapsed_frames == 0 {
+                    let step = crate::combat::fire_demon_fragment_movement_step_loc_3A134(
+                        p.lifetime,
+                    );
+                    debug_assert!(step.hibernates_one_frame);
+                    debug_assert!(step.clears_x_vel);
+                    debug_assert_eq!(step.fade_animation_label, Some("stru_3A1D6"));
+                    debug_assert_eq!(
+                        step.next,
+                        crate::combat::FireDemonFragmentMovementNextLoc3A134::FadeLoopLoc3A14E
+                    );
                     // ASM loc_3A134 -> loc_3A14E: once `$40(a3)` reaches 0,
                     // clear x_vel, switch to the stuck animation, and seed
                     // `$42(a3)=$C8` for the wait-before-delete loop.
@@ -2818,6 +2828,13 @@ impl NativeRuntime {
                     p.y_velocity = 0;
                     p.animation_elapsed_frames = 0x00C8;
                 } else if p.animation_elapsed_frames == 1 {
+                    let step = crate::combat::fire_demon_fragment_fade_step_loc_3A14E(0);
+                    debug_assert!(step.hibernates_one_frame);
+                    debug_assert!(step.delete_current_object);
+                    debug_assert_eq!(
+                        step.next,
+                        crate::combat::FireDemonFragmentFadeNextLoc3A14E::DeleteCurrentObject
+                    );
                     return false;
                 }
             }
@@ -3234,14 +3251,31 @@ impl NativeRuntime {
             }
             if is_boss_head_arrow {
                 if p.lifetime > 0 {
+                    let step =
+                        crate::combat::fire_demon_fragment_movement_step_loc_3A134(p.lifetime);
+                    debug_assert!(step.hibernates_one_frame);
+                    debug_assert!(step.runs_collision_check_sub_3a1a6);
+                    debug_assert_eq!(
+                        step.next,
+                        crate::combat::FireDemonFragmentMovementNextLoc3A134::ContinueMovementLoc3A168
+                    );
                     // ASM loc_3A168: during the moving phase, each hibernated
                     // frame decrements `$40(a3)` after the object has moved.
-                    p.lifetime -= 1;
+                    p.lifetime = step.next_horizontal_counter_40;
                 } else {
+                    let step = crate::combat::fire_demon_fragment_fade_step_loc_3A14E(
+                        p.animation_elapsed_frames,
+                    );
+                    debug_assert!(step.hibernates_one_frame);
+                    debug_assert!(step.runs_collision_check_sub_3a172);
+                    debug_assert_eq!(
+                        step.next,
+                        crate::combat::FireDemonFragmentFadeNextLoc3A14E::ContinueFadeLoc3A15E
+                    );
                     // ASM loc_3A15E: after x_vel is cleared, each stuck frame
                     // decrements `$42(a3)` until the next loop sees zero and
                     // deletes the object.
-                    p.animation_elapsed_frames = p.animation_elapsed_frames.saturating_sub(1);
+                    p.animation_elapsed_frames = step.next_fade_counter_42;
                 }
             }
             if is_boss_head_boomerang {
