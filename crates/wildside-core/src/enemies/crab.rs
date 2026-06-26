@@ -391,7 +391,6 @@ pub(crate) fn crab_damage_after_hurt_loc_3b08c(current_hp: u16) -> CrabDamageRes
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabHurtSequenceLoc3B0A6 {
     pub(crate) hurt_animation_script: &'static str,
     pub(crate) waits_until_animation_finished: bool,
@@ -399,7 +398,6 @@ pub(crate) struct CrabHurtSequenceLoc3B0A6 {
     pub(crate) falls_through_to_proximity_callback: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_hurt_sequence_loc_3b0a6() -> CrabHurtSequenceLoc3B0A6 {
     // ASM Crab.asm loc_3B0A6: initialise `stru_3AF7C`, hibernate until that
     // hurt animation finishes, then restore `stru_3AF62` before loc_3B0BE.

@@ -15989,6 +15989,10 @@ mod chunk_03 {
             "ASM Crab.asm loc_3B048 -> loc_3B08C damages only when Kid is on the side x_direction faces"
         );
         assert_eq!(crab.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        assert!(
+            !crab.death_animation_active,
+            "ASM Crab.asm loc_3B08C -> loc_3B0A6 should keep a surviving crab active through the hurt animation before patrol resumes"
+        );
     }
 
     #[test]

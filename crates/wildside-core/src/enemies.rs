@@ -1989,8 +1989,23 @@ impl ActiveEnemy {
                 CrabCollisionRouteLoc3B048::Damage => {
                     let damage = crab_damage_after_hurt_loc_3b08c(u16::from(self.hit_points));
                     self.hit_points = damage.current_hp as u8;
-                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
-                    return matches!(damage.route, CrabDamageRouteLoc3B08C::DeathAnimation);
+                    match damage.route {
+                        CrabDamageRouteLoc3B08C::DeathAnimation => return true,
+                        CrabDamageRouteLoc3B08C::HurtAnimation => {
+                            let hurt_sequence = crab_hurt_sequence_loc_3b0a6();
+                            debug_assert_eq!(hurt_sequence.hurt_animation_script, "stru_3AF7C");
+                            debug_assert_eq!(hurt_sequence.resumed_animation_script, "stru_3AF62");
+                            debug_assert!(hurt_sequence.falls_through_to_proximity_callback);
+                            // ASM Crab.asm loc_3B0A6 hibernates through the
+                            // hurt animation before restoring the patrol script.
+                            // Native represents that observable delay through
+                            // the standard enemy damage-flash timer.
+                            if hurt_sequence.waits_until_animation_finished {
+                                self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                            }
+                            return false;
+                        }
+                    }
                 }
             }
         }
