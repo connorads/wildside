@@ -5299,8 +5299,16 @@ fn apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
 ) {
     // ASM Mini_Hopping_Skull.asm loc_3EAD8: slope terrain contact clears motion
     // and routes by collision ID plus the restored/live x_vel high word.
-    if collision_type == MINI_SKULL_COLID_SLOPEUP {
-        if x_velocity > 0 {
+    let contact = mini_hopping_skull_terrain_contact_loc_3ead8(collision_type, x_velocity);
+    let _cleared_flags = (
+        contact.is_moved,
+        contact.is_animated,
+        contact.has_level_collision,
+    );
+    debug_assert_eq!(_cleared_flags, (false, false, false));
+
+    match contact.route {
+        MiniHoppingSkullTerrainContactRoute::SlopeUpPositiveXVelocity => {
             let setup = mini_hopping_skull_ground_wait_setup_loc_3eb00();
             enemy.facing = mini_hopping_skull_facing_from_x_direction(setup.x_direction);
             enemy.x_velocity = setup.x_velocity;
@@ -5309,29 +5317,29 @@ fn apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
             enemy.grounded_frames = setup.wait_frames;
             enemy.wait_timer = 0;
             enemy.y_pos = floor_y_fp;
-            return;
         }
-
-        let setup = mini_hopping_skull_left_hop_wait_setup_loc_3ed80();
-        enemy.facing = mini_hopping_skull_facing_from_x_direction(setup.x_direction);
-        enemy.x_velocity = setup.x_velocity;
-        enemy.y_velocity = setup.y_velocity;
-        enemy.on_ground = true;
-        enemy.grounded_frames = setup.wait_frames;
-        enemy.wait_timer = 0;
-        enemy.y_pos = floor_y_fp;
-        return;
-    }
-
-    if collision_type == MINI_SKULL_COLID_SLOPEDOWN {
-        let contact = mini_hopping_skull_slopedown_contact_loc_3ed6c(x_velocity);
-        enemy.facing = mini_hopping_skull_facing_from_x_direction(contact.x_direction);
-        enemy.x_velocity = contact.x_velocity;
-        enemy.y_velocity = contact.y_velocity;
-        enemy.on_ground = true;
-        enemy.grounded_frames = contact.wait_frames;
-        enemy.wait_timer = 0;
-        enemy.y_pos = floor_y_fp;
+        MiniHoppingSkullTerrainContactRoute::SlopeUpNonPositiveXVelocity => {
+            let setup = mini_hopping_skull_left_hop_wait_setup_loc_3ed80();
+            enemy.facing = mini_hopping_skull_facing_from_x_direction(setup.x_direction);
+            enemy.x_velocity = setup.x_velocity;
+            enemy.y_velocity = setup.y_velocity;
+            enemy.on_ground = true;
+            enemy.grounded_frames = setup.wait_frames;
+            enemy.wait_timer = 0;
+            enemy.y_pos = floor_y_fp;
+        }
+        MiniHoppingSkullTerrainContactRoute::NotSlopeUp => {
+            if collision_type == MINI_SKULL_COLID_SLOPEDOWN {
+                let contact = mini_hopping_skull_slopedown_contact_loc_3ed6c(x_velocity);
+                enemy.facing = mini_hopping_skull_facing_from_x_direction(contact.x_direction);
+                enemy.x_velocity = contact.x_velocity;
+                enemy.y_velocity = contact.y_velocity;
+                enemy.on_ground = true;
+                enemy.grounded_frames = contact.wait_frames;
+                enemy.wait_timer = 0;
+                enemy.y_pos = floor_y_fp;
+            }
+        }
     }
 }
 

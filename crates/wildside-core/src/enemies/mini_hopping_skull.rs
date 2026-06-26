@@ -18,7 +18,6 @@ pub(crate) enum MiniHoppingSkullCollisionDispatch {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullTerrainContactRoute {
     NotSlopeUp,
     SlopeUpNonPositiveXVelocity,
@@ -26,7 +25,6 @@ pub(crate) enum MiniHoppingSkullTerrainContactRoute {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullTerrainContact {
     pub(crate) is_moved: bool,
     pub(crate) is_animated: bool,
@@ -347,7 +345,6 @@ pub(crate) fn mini_hopping_skull_collision_dispatch_loc_3eab2(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_terrain_contact_loc_3ead8(
     collision_type: u16,
     x_velocity: i32,
