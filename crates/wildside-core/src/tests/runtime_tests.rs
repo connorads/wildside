@@ -12303,6 +12303,34 @@ mod chunk_09 {
             !grid.cell_at(3, 5).has_block,
             "ASM sub_113C0 should erase the original lower source block after committing the upper cell",
         );
+        assert_eq!(
+            rt.block_bounces.len(),
+            1,
+            "ASM loc_1141E keeps the shifting-block sprite object alive after the layout commit",
+        );
+        assert_eq!(rt.block_bounces[0].kind, BlockBounceKind::ShiftingFall);
+        assert_eq!(rt.block_bounces[0].remaining, 16);
+        assert_eq!(
+            rt.block_bounces[0].y_offset_px, 16,
+            "ASM sub_113C0 should add `$10` to y_pos before the loc_1141E fall tail",
+        );
+
+        rt.step_visual_effects();
+
+        assert_eq!(rt.block_bounces[0].remaining, 15);
+        assert_eq!(
+            rt.block_bounces[0].y_offset_px, 15,
+            "ASM loc_1141E should subtract one y pixel on each hibernating fall-tail frame",
+        );
+
+        for _ in 0..15 {
+            rt.step_visual_effects();
+        }
+
+        assert!(
+            rt.block_bounces.is_empty(),
+            "ASM loc_1141E should jump to Delete_CurrentObject after sixteen 1px fall-tail frames",
+        );
     }
 
     #[test]

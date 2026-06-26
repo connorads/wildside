@@ -1104,7 +1104,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_fall_step_loc_1141E(
         y_pos: u16,
         loop_counter: u16,
@@ -4492,6 +4491,20 @@ impl NativeRuntime {
                 } else {
                     None
                 }
+            } else if b.kind == BlockBounceKind::ShiftingFall {
+                if elapsed < 16 {
+                    let loop_counter = 0x0F_u16.saturating_sub(u16::from(elapsed));
+                    let y_pos = b.y_offset_px as u16;
+                    let step = Self::lift_block_fall_step_loc_1141E(y_pos, loop_counter);
+                    debug_assert!(step.should_hibernate_one_frame);
+                    debug_assert_eq!(step.should_delete_current_object, elapsed == 15);
+                    debug_assert_eq!(step.should_repeat_loop, elapsed < 15);
+                    Some(i16::from_ne_bytes(
+                        step.next_y_pos.wrapping_sub(y_pos).to_ne_bytes(),
+                    ))
+                } else {
+                    None
+                }
             } else if b.kind == BlockBounceKind::Lift {
                 Self::lift_block_bob_delta_sub_FB3E(usize::from(elapsed))
             } else if b.kind == BlockBounceKind::Prize {
@@ -4508,6 +4521,9 @@ impl NativeRuntime {
                     }
                     BlockBounceKind::Shifting => {
                         unreachable!("shifting block rise uses loc_113F4 step model")
+                    }
+                    BlockBounceKind::ShiftingFall => {
+                        unreachable!("shifting block fall uses loc_1141E step model")
                     }
                     BlockBounceKind::Lift => {
                         unreachable!("lift block bob uses sub_FB3E pass model")
@@ -4532,7 +4548,7 @@ impl NativeRuntime {
         let mut finished_prize_bounce_tail_frames = Vec::new();
         let mut finished_lift_blocks = Vec::new();
         let mut finished_shifting_blocks = Vec::new();
-        self.block_bounces.retain(|b| {
+        self.block_bounces.retain_mut(|b| {
             if b.remaining > 0 {
                 true
             } else {
@@ -4558,6 +4574,15 @@ impl NativeRuntime {
                 }
                 if b.kind == BlockBounceKind::Shifting {
                     finished_shifting_blocks.push((b.cell_x, b.cell_y));
+                    // ASM sub_113C0 (kid.asm:23345-23352): after committing
+                    // the upper cell and erasing the source block, `addi.w
+                    // #$10,y_pos(a3)` keeps the sprite worker alive for the
+                    // loc_1141E 16-frame fall tail before Delete_CurrentObject.
+                    b.kind = BlockBounceKind::ShiftingFall;
+                    b.remaining = 16;
+                    b.initial_duration = 16;
+                    b.y_offset_px = 16;
+                    return true;
                 }
                 false
             }

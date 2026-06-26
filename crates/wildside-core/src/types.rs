@@ -2049,6 +2049,7 @@ pub(crate) enum BlockBounceKind {
     Metal,
     Prize,
     Shifting,
+    ShiftingFall,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

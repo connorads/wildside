@@ -7856,7 +7856,9 @@ impl NativeRuntime {
                         BlockBounceKind::Lift => BlockBounceTraceKind::Lift,
                         BlockBounceKind::Metal => BlockBounceTraceKind::Metal,
                         BlockBounceKind::Prize => BlockBounceTraceKind::Prize,
-                        BlockBounceKind::Shifting => BlockBounceTraceKind::Shifting,
+                        BlockBounceKind::Shifting | BlockBounceKind::ShiftingFall => {
+                            BlockBounceTraceKind::Shifting
+                        }
                     },
                 })
                 .collect(),
