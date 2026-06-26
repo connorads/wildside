@@ -26,29 +26,27 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-25 HUMAN PLAYTEST TRIAGE (build = last pushed commit `253e98961`).** 17 observations
-  triaged; full per-issue evidence in the archive block "## 2026-06-25 playtest triage". NET:
-  - **4 fixed-candidates FAILED validation → reopened to the open queue with next-step
-    hypotheses:** #210/#254 (intro skip still garbles — de-latch frame constants), #324 (prize
-    block wrong/"witch" sprite), #335 (Hills 0x08 skip-entry instant death — freeze murder wall
-    during the entry title card), #339 (USM load drone — extend StopMusic to death/respawn/skip).
-  - **#336 REOPENED `[-]`→`[ ]` (P3).** Human cross-emulator evidence disputes the sky-float
-    NOT-A-BUG; prior closure proved camera/Kid-Y WRAM only, never the palette fade-in timing.
-  - **2 new rows remain open:** #358 (Cloud lightning renders as a red dot not the bolt sprite —
-    3-file render fix), #359 (Cyclone-level Sphere missing at spawn). #357 is now a
-    fixed-candidate in the awaiting-human lane.
-  - **Route-blocked reconfirmed LIVE on HEAD (stay `[b]`; sharper repro in the triage block):**
-    #271 (stomp hurts at the L2 teleporter tank + L3 first tank), #259 (those same tanks sit in
-    the floor), #249/#270 (slope-into-wall upward float now confirmed on BOTH left/right slopes —
-    level named: **Under Skull Mountain 3, 0x06**), #345 (Lion vanish, base Kid).
-- **#360 opened (`[ ]` P1 infra):** record-inputs capture flow to turn natural playtests into
-  oracle-comparable routes — the unblock-key for the route-blocked tank/slope/Lion/Hills items.
-- **CONFIRMED CORRECT (not bugs):** Storm-Mtn overhead "head guy" = EmoRock (0x1B) hover-track,
-  no projectile (only #333 render approximation open). Lightning firing ~4 shots = correct count.
-- **POSITIVES this playtest:** continues load; level 2 clean; Cyclone spin renders (#355); Tar/
-  blob render improved (#243); Hand grab+slow works (#185 gameplay).
-- **Render-gap lesson stands:** headless CRC/state gates pass while render-only gaps ship; every
-  missing-sprite fix needs a native-player RENDER assertion or capture-frames diff.
+- **2026-06-26 HUMAN PLAYTEST TRIAGE (build = pushed HEAD `7c613d63f`, which contains the
+  2026-06-26 dead-code-wiring refactors + the `[?]` #357 Lion-stomp candidate).** Full per-issue
+  evidence in the archive block "## 2026-06-26 playtest triage". NET:
+  - **1 fixed-candidate FAILED → reopened `[?]`→`[ ]`:** #349 (post-death respawn card still shows
+    no level-NAME text; its 2026-06-21 fix `b55244ad1` IS in the build, so the candidate failed —
+    re-investigate the InGame respawn-card render path with a native capture assertion).
+  - **3 new rows opened `[ ]`:** #361 (Hand 0x17 render free-runs/"spazzes" — the deferred
+    #243/#333 follow-up, now its own row), #362 (RockTank `$1F` drive SFX STARTS too early /
+    audible far off-screen — the START side, distinct from #339's STOP side), #363 (Kid says
+    "ouch" instead of "die" on death — human says bug; capture exact death-cause to confirm).
+  - **#357 positive (death dimension):** base-Kid stomp no longer one-stomp-kills the Lion (took
+    the hit) — stays `[?]` until the full ~6-stomp flash/resume is validated.
+  - **Route-blocked reconfirmed LIVE (stay `[b]`; sharper repro in the triage block):** #249/#270
+    (slope/wall upward float now widened to ALL Under Skull Mountain — USM 0x04 + USM2 0x05, not
+    only USM3 0x06), #353 (invisible spike-drill blocks sharpened to USM3 0x06), #345 (Lion vanish
+    reconfirmed on the #357-included build — caveat: rule out a #357 resume side-effect on capture),
+    #271/#259 (stomp-hurt + floor-sink at the same L2/L3 tanks).
+  - **Positives / no-change:** green-projectile tank now FINE (#252/#323 — human may promote
+    #323 `[?]`→`[x]`); #324/#336 already open; #280 (blue bar over clouds + half-clouds on Isle of
+    the Lion Lord 0x07) stays `[b]`; #335 (Hills 0x08 instant death — double-"die") stays open;
+    #358 (storm-cloud red dots) stays open, never implemented. All blocked on the #360 capture flow.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -74,8 +72,12 @@ For newly opened items, capture these facts in the investigation notes:
 | 254 | [ ] | P1 | intro/render | 2026-06-25 playtest: same cluster as #210 — IntroSequence6 Start-skip still garbles (black-outline/blue shell); the 2026-06-23 candidate FAILED validation. | Engine-level VDP carry on any skip frame, no frame constants. Pair with #210. See archive #254 + 2026-06-25 triage. |
 | 324 | [ ] | P1 | render/block | 2026-06-25 playtest: a prize block still shows a wrong/"witch" sprite (foreground bleeding through the wobble's transparent slots); the 2026-06-23 candidate FAILED validation. | Get an oracle-comparable BLW1 forest prize-wobble frame-diff before another change; do not blind-revert the scene.rs terrain-suppression guards. See archive #324 + 2026-06-25 triage. |
 | 335 | [ ] | P0 | gameflow/death | 2026-06-25 playtest: entering Hills of the Warrior 1 (0x08) via level-skip still instant-kills Kid unless Start is tapped immediately; the 2026-06-22 natural-route candidate FAILED. | Hypothesis: the murder wall must not age/advance while the entry title card is up (cross-ref #266 skip-tail pre-age). Build a headless title-card-then-live Hills repro. See archive #335. |
-| 339 | [ ] | P1 | audio | 2026-06-25 playtest: the looping "washing" drone still plays on the Under-Skull-Mountain load; the 2026-06-23 StopMusic-on-load candidate did not cover the skip/death entry path. | Extend the `$1F` drive-drone stop to the death (DeathWindup), respawn bulk-clear, and debug-skip teardown paths; verify via the audio-events transcript. Real-device listen still required to close. See archive #339. |
+| 339 | [ ] | P1 | audio | 2026-06-25 playtest: the looping "washing" drone still plays on the Under-Skull-Mountain load; the 2026-06-23 StopMusic-on-load candidate did not cover the skip/death entry path. | Extend the `$1F` drone stop to death/respawn/debug-skip teardown; verify via audio-events. Real-device listen needed. 2026-06-26: drone + mouth-open squeak (`$3C`) also bleed into the post-death card. See archive #339. |
 | 336 | [ ] | P3 | render/intro | 2026-06-25: human disputes the NOT-A-BUG closure with cross-emulator evidence — the original fades from black and scrolls up from the ground, Kid not seen floating in the sky. | Prior closure proved camera/Kid-Y WRAM parity only, never palette fade-in timing. Probe oracle CRAM/palette fade vs the camera ramp: native may reveal Kid mid-sky during frames the ROM keeps black. See archive #336. |
 | 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |
-| 359 | [ ] | P2 | enemy/level | 2026-06-25 playtest: on the Cyclone-form sky level the bouncing ball (Sphere 0x06) usually at the spawn point is missing. Untracked before now. | Confirm the exact level id and entry path (level-skip vs natural). Check the enemy-loading activation window and the level-skip roster join (#334). See 2026-06-25 triage. |
+| 359 | [ ] | P2 | enemy/level | 2026-06-25 playtest: on the Cyclone-form sky level the bouncing ball (Sphere 0x06) usually at the spawn point is missing. Untracked before now. | 2026-06-26: ball APPEARS then drifts off the LEFT edge (not absent) — favour Sphere X-velocity vs camera-scroll/activation-window over the roster miss. Confirm exact level + entry path (#334). See 2026-06-26 + 2026-06-25 triage. |
 | 360 | [ ] | P1 | infra | 2026-06-25 requested enabler: a record-inputs flow turning a natural live playtest into an oracle-comparable route. Existing `--settled --record` is warp-only and rejects debug skips, so live routes to named tanks/slopes can't be captured. | Record natural inputs from a settled start to a named coordinate/enemy; emit a bundle staying native/oracle CRC-comparable to the target window. Unblock-key for #271/#259/#249/#270/#345/#335; first target USM3 0x06 slope. See archive #360. |
+| 349 | [ ] | P1 | render | 2026-06-26 playtest: post-death respawn card still shows the trees but NOT the level-NAME text; the 2026-06-21 fix (`b55244ad1`) IS in the build, so the candidate FAILED validation. | Re-investigate the respawn-card render path (InGame classification trace.rs:9177; glyph-worker filter; overlay window); add a native-player capture-frame assertion, not just the CRC-neutral render test. See archive #349. |
+| 361 | [ ] | P2 | render/enemy | 2026-06-26 playtest: on the hand level the live Hand (0x17) animation free-runs/flickers ("spazzes") instead of holding body frames. Deferred #243/#333 follow-up, never given its own row. NOT the grab gating #185 (grab+slow works). | Add a `select_live_hand_frame` selector mirroring `select_live_tar_monster_frame`: hold Hand body frames off HandState, early-return None on hp==0 so the death table keeps death frames; capture-frames to confirm no flicker. Cross-ref #243/#333, #185. |
+| 362 | [ ] | P2 | audio | 2026-06-26 playtest: RockTank drive SFX (`$1F` TankDriving) STARTS too early — audible from far off-screen before the tank is reached/visible. START side, distinct from #339 (STOP/persistence side). | The pooled drive refcount fires on first Tank activation, gated only by the off-screen enemy-activation window; compare native activation distance + `$1F` start-gate vs ROM `Tank.asm` Init on-screen gate. Needs #360. See archive #362. |
+| 363 | [ ] | P2 | audio | 2026-06-26 playtest: Kid sometimes says "ouch" instead of "die" on a full death; human confirms it is a bug, not the deliberately-kept ROM exception. | Capture exact death cause, helmet, hit-count, audio transcript. Ouch is suppressed only on a clean fatal CONTACT and kept on helmet-loss/survivable-then-die; the bug is ouch on a clean single fatal contact, no helmet. See archive #363 (#308). |

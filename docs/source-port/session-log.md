@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-26 handoff (playtest triage #2 — backlog validation)
+
+- Human playtested pushed HEAD `7c613d63f` and reported 18 observations. A read-only fan-out
+  pass (36 agents) cross-checked each against all four backlog shards. Full evidence in the
+  archive block "## 2026-06-26 playtest triage". Almost everything was already logged.
+- **Reopened #349 `[?]`→`[ ]`:** the post-death respawn card still shows no level-NAME text and
+  the 2026-06-21 fix `b55244ad1` is in the build, so the candidate failed validation.
+- **Opened #361** (Hand 0x17 render free-run, deferred #243/#333 follow-up), **#362** (RockTank
+  `$1F` drive SFX starts too early — START side, distinct from #339's STOP side), **#363** (Kid
+  says "ouch" not "die" on death — human-confirmed bug; capture exact death-cause to pin it).
+- **Sharper repros on the route-blocked cluster (stay `[b]`):** #249/#270 widened to all Under
+  Skull Mountain (USM 0x04 + USM2 0x05, not only USM3 0x06); #353 sharpened to USM3 0x06; #345
+  Lion vanish reconfirmed on the #357-included build (caveat: rule out a #357 resume side-effect).
+- **Positives:** green-projectile tank now fine (#252/#323 — #323 ready for a human `[?]`→`[x]`);
+  #357 death dimension confirmed (Lion takes the stomp). #324/#335/#336/#358/#280 unchanged.
+- All route-blocked items remain gated on the #360 record-inputs capture flow.
+
 ## 2026-06-26 handoff (#357 Lion stomp fixed candidate)
 
 - **#357 moved `[ ]` -> `[?]`.** Base-Kid Lion stomps now route through

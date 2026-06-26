@@ -11552,3 +11552,110 @@ and must not vanish/die immediately.
   Hand render free-run follow-up from #243/#333 (no dedicated row — flagged for a future render
   pass that adds a `select_live_hand_frame` selector).
 - POSITIVES: continues load properly; level 2 clean; Cyclone spin renders (#355).
+
+## 2026-06-26 playtest triage
+
+Source: human voice playtest, build = pushed HEAD `7c613d63f` (origin/main, 2026-06-26), which
+contains the 2026-06-26 dead-code-wiring/refactor commits AND the `[?]` #357 Lion-stomp candidate.
+18 observations cross-referenced against the lanes + ASM + archive by a read-only fan-out pass
+(36 agents, classify + adversarial re-check). Build identity is the key fact: a candidate dated
+`<= 2026-06-26` is IN this build, so a still-reproducing one FAILED validation. Almost every
+observation was already logged; the net new work is one reopen, three new rows, and sharper repros
+on the route-blocked cluster.
+
+### Build-confirmed fixed-candidate FAILURE (reopened `[?]`→`[ ]`)
+
+- **#349 (post-death respawn card shows no level-NAME text, P1 render).** After a Rock Tank death
+  the respawn load card shows the two trees but NOT the animating level name; pressing Start
+  returns to the level. `git merge-base --is-ancestor b55244ad1 7c613d63f` confirms the 2026-06-21
+  fix (game scene skips glyph workers + appends `build_title_card_worker_overlay_scene`) IS in the
+  build, so the candidate FAILED in native play. Next step: re-investigate the respawn-card render
+  path — InGame classification during `respawn_live_handoff` (trace.rs:9177), the glyph-worker
+  motion filter, and whether the overlay actually runs in the respawn-card window; the row's
+  existing test is CRC-neutral/headless, so add a real native-player capture-frame assertion.
+
+### New rows opened
+
+- **#361 (Hand 0x17 render free-run / "spazzing", P2 render/enemy).** On the hand level the live
+  Hand animation jitters/flickers instead of holding its body frames. This is the deliberately
+  out-of-scope follow-up that #243/#333 flagged with "no dedicated row" — the Hand shares the Tar
+  Monster free-run symptom but has a distinct HandState machine + atlas. NOT the grab gating #185
+  (grab+slow was confirmed working). Fix: add `select_live_hand_frame` mirroring
+  `select_live_tar_monster_frame` (hold body frames off HandState; early-return None on hp==0 so
+  the death table owns death frames); capture-frames on the hand level to confirm no flicker.
+
+- **#362 (RockTank `$1F` drive SFX starts too early, P2 audio).** Tanks are audible from far
+  off-screen ("miles" away) before they are reached or visible. This is the START side of the tank
+  drone and is DISTINCT from #339, which is strictly the STOP/persistence side (drone won't stop
+  after load/death/skip); folding it into #339 would repeat the keyword-deflection anti-pattern.
+  Mechanism: the pooled drive refcount fires on the first Tank/TankShooting activation, gated only
+  by the generic enemy-activation window (which activates tanks well off-screen). Compare native
+  tank activation distance + the `$1F` start-gate against ROM `Tank.asm` Init (loc_3B40A/loc_3B690)
+  and its on-screen/visible gate. Needs #360 to capture an oracle-comparable approach route to
+  confirm native starts the drone EARLIER than the ROM (vs a ROM-faithful early drone). MEDIUM
+  confidence pending that route. Also heard during the #349 post-death card: the rolling drone PLUS
+  the one-shot mouth-open squeak (`sfx_Tank_mouth_open $3C`) — noted on #339's death-entry scope.
+
+- **#363 (Kid says "ouch" instead of "die" on death, P2 audio).** Human reports hearing the hurt
+  voice ("ouch") rather than the death voice ("die") on some full deaths, and confirms it as a bug.
+  Discriminator from the 2026-06-12 combat-audit fix (combat-fidelity-audit.md:69-79): ouch is
+  suppressed ONLY on a clean single-hit, direct-to-Death, fatal TheKid CONTACT, and is
+  DELIBERATELY KEPT on (a) helmet-loss contact and (b) survivable-hit-then-die. So "sometimes ouch
+  on a full death" is, on its face, the preserved ROM exception (an ORIGINAL_QUIRK) UNLESS it is a
+  clean single fatal contact with no helmet. The voice catalog is wired correct (VoiceOuch=0x61 /
+  VoiceDie=0x60 / VoiceBummer=0x68, #340), and the ouch/die fix is NOT among the 9 candidates that
+  failed validation per session-log. Action: capture the exact death cause, helmet state,
+  hit-count, and audio transcript; if "ouch" fires on a clean single fatal CONTACT with no helmet,
+  that is the regression. Cross-ref #308 (combat audit umbrella, currently `[b]`).
+
+### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
+
+- **#249 / #270 (slope-into-wall upward float, P1).** WIDENED: the human now reports the
+  corner-of-slope-and-wall upward float on ALL Under Skull Mountain levels — USM (0x04) and USM2
+  (0x05), not only the previously-named USM3 (0x06). Same symptom class, so this is a scope
+  refinement on the existing `[b]` rows, not a new bug. Widens the #360 capture surface.
+
+- **#353 (invisible spike-drill metal blocks, P1).** SHARPENED to Under Skull Mountain 3 (0x06):
+  walking into the metal blocks deals damage but the spiky drills/screws are not drawn. A level
+  name is still not the exact coordinate/frame the `[b]` row requires (probes show visible
+  spike/lava art and zero `$F5` collision-7/block-type-5 cells in the generated layouts), so it
+  stays blocked on a #360 route that pins the exact damaging-but-empty cell.
+
+- **#345 (Lion vanish, P1).** Reconfirmed live on the build that INCLUDES the #357 stomp fix: base
+  Kid, the Lion SURVIVES the stomp (the #357 fix working) then disappears and does not return.
+  CAVEAT: #357 added a new resume/hibernate path (`$5C(a5)` + x_direction); before the fix the
+  Lion died before any post-stomp vanish could be seen, so the capture should record Lion state
+  immediately after the surviving stomp to disambiguate the pre-existing `large_pacer` off-window
+  cull from a #357 resume side-effect. Do NOT patch the cull until the absence is captured.
+
+- **#271 / #259 (stomp-hurt + floor-sink, P0/P1).** Reconfirmed at the same Level-2 teleporter tank
+  and Level-3 first tank; both already `[b]` on the #360 enabler and past their reconfirm budget.
+  No change beyond this dated reconfirm.
+
+- **#280 (blue bar over clouds + half-clouds, P2).** Reconfirmed: a blue bar hides the clouds at
+  the top across levels (Chunked-arm hard-clip, no Plane-B wrap), and a couple of half/quarter
+  clouds show on the lion level (Isle of the Lion Lord 0x07, subcase a). Stays `[b]` — the blocker
+  is the missing oracle-comparable route, which a render-only human sighting does not provide. NOT
+  #350 (below-canopy foliage, already green=correct) and NOT #356 (Skydragon piece dropout).
+
+- **#335 (Hills of the Warrior 1 instant death, P0).** Reconfirmed: leaving the Hills 0x08 entry
+  title card up WITHOUT tapping Start shows "die" twice then a fade (life likely lost). The double
+  "die" reinforces the standing hypothesis — the murder wall must not age/advance while the entry
+  title card is up. Already `[ ]` open; no status change.
+
+### Confirmed CORRECT / positives
+
+- **Green-projectile tank now FINE** (positive): the "steel/garbled tank shooting green
+  projectiles" is the Maniaxe player-form axe (#323) and/or the BLW2 RockTank green-bullet
+  renderer (#252), both 2026-06-23 `[?]` candidates that this build exercises. Human reports it is
+  now correct → a human may promote **#323 `[?]`→`[x]`**; for #252 only the green-projectile half
+  is confirmed (its body/turret-doubling half is untested). Do NOT reopen.
+- **#357 (Lion stomp) death dimension confirmed:** base-Kid stomp no longer one-stomp-kills the
+  Lion (it took the hit). Stays `[?]` — only ONE non-fatal stomp was seen, not the full ~6-stomp
+  flash/resume validation the row asks for (the #345 vanish cut the encounter short).
+- **#358 (storm-cloud red dots):** still red dots, as expected — the row is `[ ]` open and never
+  implemented (no CloudLightning render arm); the ~4-shot count is correct, only the bolt sprite is
+  missing. Human framing ("logged but not done") agrees. No change.
+- **#336 / #324:** already open from the 2026-06-25 triage; the 2026-06-26 sighting (Kid floats
+  high with no black fade-in on level-1 load; prize block leaks foreground wood) reconfirms them
+  with no status change.
