@@ -373,7 +373,6 @@ pub(crate) struct LiftBlockRiseStepLoc113F4 {
     pub(crate) should_repeat_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LiftBlockFallStepLoc1141E {
     pub(crate) next_y_pos: u16,
