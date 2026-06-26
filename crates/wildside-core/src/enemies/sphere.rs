@@ -2,14 +2,14 @@
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) struct SphereWallBounceTrapLoc35FC4 {
     pub(crate) reachable_from_collision_dispatch: bool,
     pub(crate) traps_forever: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn sphere_wall_bounce_trap_loc_35FC4() -> SphereWallBounceTrapLoc35FC4 {
     // ASM Sphere.asm loc_35FC4: `jmp loc_35FC4(pc)` is a self-loop trap after
     // Enemy06_Sphere_BounceWall's `bra.s Enemy06_Sphere_Loop`, so normal sphere
@@ -117,13 +117,13 @@ pub(crate) fn sphere_child_delete_tail_loc_3610E() -> SphereChildDeleteTailLoc36
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) struct SphereCollisionTableGuardLoc36128 {
     pub(crate) reachable_from_valid_table_index: bool,
     pub(crate) traps_forever: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn sphere_collision_table_guard_loc_36128() -> SphereCollisionTableGuardLoc36128 {
     // ASM Sphere.asm loc_36128: `bra.s loc_36128` sits immediately before
     // `off_3612A`; valid collision IDs start at `$04` and dispatch into the
