@@ -115,7 +115,6 @@ pub(crate) struct TarMonsterAppearAnimationLoc322C8 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterThirdAttackWaitLoc3235E {
     pub(crate) dbf_seed: u16,
     pub(crate) hibernate_frames: u16,
