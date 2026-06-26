@@ -11447,6 +11447,25 @@ camera/Kid-Y values are oracle-faithful per `c65df2500`); investigate the fade t
   #345. Probe: base-Kid stomp on a full-HP Lion should need ~6 hits with flashing between each.
   Cross-ref #186 (`[?]` Lion fidelity umbrella), #315, #345. NOT #239 (faithful ledge-fall cull).
 
+Fixed candidate 2026-06-26: native `process_stomps` now special-cases `EnemyFamily::Lion` and
+routes base-Kid `LION_COLID_KIDABOVE` through `lion_collision_response_loc_3e318`, matching
+`Lion.asm loc_3E318` / `loc_3E32C` instead of the generic damage path. Nonterminal stomps now
+subtract exactly one HP, seed the hit hibernate flash, and resume by `$5C(a5)` plus x_direction via
+`apply_lion_collision_resume_loc_3e318`; terminal stomps still enter the existing `loc_3E378`
+death-animation tail. Added regression `lion_stomp_decrements_one_hp_and_resumes_loc_3e318`: a
+plain Kid top-edge stomp on a full-HP right-facing Lion leaves the enemy active at HP 5, flashing,
+grounded, and still charging. Also wired live activation through `lion_init_visible_state_loc_3df92`
+and `lion_init_motion_profile_loc_3dfd8` / `lion_init_facing_dispatch_loc_3e030`, so HP, initial
+facing, and walk speed come from the ASM init helpers; `LionInitRuntimeFields` stays marked until
+its random/projectile-count state can be represented without changing live projectile semantics.
+Dead-code ratchet lowered 1339 -> 1333. Verification: `cargo test -q -p wildside-core lion_init`,
+`cargo test -q -p wildside-core lion_stomp_decrements_one_hp_and_resumes_loc_3e318`,
+`RUSTFLAGS='-D dead_code' cargo check --workspace --lib`, `mise run dead-code-ratchet`,
+`mise run verify-slice-fast` green, and `mise run verify-tas-full` exit 0 with CRC all 37,759
+frames matching and the baseline full-report divergences still beginning at `transition_15_to_00_post`.
+Awaiting human validation: stomp a full-health Lion as plain Kid; it should take about six stomps
+and must not vanish/die immediately.
+
 - **#358 (Cloud lightning renders as a red dot, P2 render/enemy).** Lightning clouds fire plain
   red dots. Gameplay/lifetime is correct (#198 made `CloudLightning` collision-bound; the ~4-shot
   count is also correct), but the renderer has no sprite arm for it, so it falls through to

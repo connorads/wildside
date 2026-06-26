@@ -1,7 +1,6 @@
 use super::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionInitVisibleState {
     pub(crate) status_flag_13: bool,
     pub(crate) object_meta: u16,
@@ -10,7 +9,6 @@ pub(crate) struct LionInitVisibleState {
     pub(crate) facing: Direction,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_init_visible_state_loc_3df92(
     enemy_level: u16,
     lion_x_word: u16,
@@ -36,14 +34,12 @@ pub(crate) fn lion_init_visible_state_loc_3df92(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionInitMotionProfile {
     pub(crate) walk_speed: i32,
     pub(crate) charge_speed: i32,
     pub(crate) animation_script: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_init_motion_profile_loc_3dfd8(current_hp: u16) -> LionInitMotionProfile {
     // ASM Lion.asm loc_3DFD8 is reached by `cmpi.w #8,d7; bne.s`: every HP
     // value except exactly 8 uses `$18000` for both `$50(a5)` and `$5E(a5)`
@@ -98,13 +94,11 @@ pub(crate) fn lion_init_runtime_fields_loc_3dff0(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionFacingDispatch {
     LeftPacing,
     RightPacing,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_init_facing_dispatch_loc_3e030(facing: Direction) -> LionFacingDispatch {
     // ASM Lion.asm loc_3E030: `tst.b x_direction(a3); beq.w loc_3E546;
     // bra.w loc_3E392`. For Lion art, clear x_direction is the left-facing

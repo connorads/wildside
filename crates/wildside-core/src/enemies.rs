@@ -3049,12 +3049,37 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
+            let base_x = spawn_x_pos(family, object_x);
+            let base_y = spawn_y;
+            let head_x = if is_multi_head_boss(family) {
+                let offset_px = head_x_offsets[head_idx as usize];
+                (base_x as i64 + (i64::from(offset_px) << 16)).clamp(0, i64::from(u32::MAX)) as u32
+            } else {
+                base_x
+            };
+            let head_y = if is_multi_head_boss(family) {
+                let offset_px = head_y_offsets[head_idx as usize];
+                (base_y as i64 + (i64::from(offset_px) << 16)).clamp(0, i64::from(u32::MAX)) as u32
+            } else {
+                base_y
+            };
+            let lion_visible_init = if matches!(family, EnemyFamily::Lion) {
+                Some(lion_init_visible_state_loc_3df92(
+                    u16::from(enemy_level),
+                    (head_x >> 16) as u16,
+                    (player_x >> 16) as u16,
+                ))
+            } else {
+                None
+            };
             let hit_points = if is_multi_head_boss(family) {
                 head_hp_table[head_idx as usize]
             } else if let Some(visible_init) = crab_visible_init {
                 visible_init.current_hp
             } else if let Some(init) = orca_init {
                 init.current_hp
+            } else if let Some(init) = lion_visible_init {
+                init.current_hp as u8
             } else {
                 spawn_hit_points(family, enemy_level)
             };
@@ -3138,22 +3163,34 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
-            let base_x = spawn_x_pos(family, object_x);
-            let base_y = spawn_y;
-            let head_x = if is_multi_head_boss(family) {
-                let offset_px = head_x_offsets[head_idx as usize];
-                (base_x as i64 + (i64::from(offset_px) << 16)).clamp(0, i64::from(u32::MAX)) as u32
-            } else {
-                base_x
-            };
-            let head_y = if is_multi_head_boss(family) {
-                let offset_px = head_y_offsets[head_idx as usize];
-                (base_y as i64 + (i64::from(offset_px) << 16)).clamp(0, i64::from(u32::MAX)) as u32
-            } else {
-                base_y
-            };
-
-            let facing = spawn_facing(family, head_x, player_x);
+            let lion_motion_profile =
+                lion_visible_init.map(|init| lion_init_motion_profile_loc_3dfd8(init.current_hp));
+            if let Some(visible_init) = lion_visible_init {
+                debug_assert!(visible_init.status_flag_13);
+                debug_assert_eq!(visible_init.object_meta, 0x0092);
+                debug_assert_eq!(visible_init.palette_line, 2);
+                debug_assert_eq!(visible_init.current_hp as u8, hit_points);
+            }
+            let facing = lion_visible_init.map_or_else(
+                || spawn_facing(family, head_x, player_x),
+                |init| init.facing,
+            );
+            if let Some(profile) = lion_motion_profile {
+                debug_assert_eq!(profile.walk_speed, pacer_walk_speed(family, hit_points));
+                debug_assert_eq!(profile.charge_speed, profile.walk_speed);
+                debug_assert!(matches!(
+                    profile.animation_script,
+                    "stru_3DEDA" | "stru_3DEF4"
+                ));
+                match lion_init_facing_dispatch_loc_3e030(facing) {
+                    LionFacingDispatch::LeftPacing => {
+                        debug_assert_eq!(facing, Direction::Left);
+                    }
+                    LionFacingDispatch::RightPacing => {
+                        debug_assert_eq!(facing, Direction::Right);
+                    }
+                }
+            }
             if let Some(profile) = goat_init_animation {
                 debug_assert_eq!(profile.initial_animation_script, "stru_3C996");
                 debug_assert_eq!(profile.saved_patrol_animation, "stru_3C996");
@@ -3267,7 +3304,10 @@ fn activate_enemies_with_rng_inner(
                     family,
                     EnemyFamily::UFO | EnemyFamily::Tornado
                 ) && enemy_level >= 2,
-                walk_speed_override: orca_init.map_or(0, |init| init.walk_speed),
+                walk_speed_override: lion_motion_profile.map_or_else(
+                    || orca_init.map_or(0, |init| init.walk_speed),
+                    |init| init.walk_speed,
+                ),
                 shared_walker_state: spawn_shared_walker_state(family),
                 shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
                 shared_walker_turnaround_counter: 0,

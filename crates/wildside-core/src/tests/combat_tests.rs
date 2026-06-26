@@ -17125,6 +17125,59 @@ mod chunk_03 {
     }
 
     #[test]
+    fn lion_stomp_decrements_one_hp_and_resumes_loc_3e318() {
+        let mut runtime = NativeRuntime::new(manifest());
+        start_level(&mut runtime);
+        let mut lion = test_enemy(EnemyFamily::Lion, 100 << 16, 120 << 16, 6);
+        lion.facing = Direction::Right;
+        lion.on_ground = true;
+        lion.x_velocity = 0x0001_8000;
+        runtime.active_enemies = vec![lion];
+
+        let mut slice = runtime.opening_slice.unwrap();
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 75 << 16;
+        slice.player.y_velocity = 0x0002_0000;
+        slice.player.on_ground = false;
+        let pre_y_velocity = slice.player.y_velocity;
+        let pre_y_pos = slice.player.y_pos;
+        let frame_start_x_pos = slice.player.x_pos;
+        let frame_start_y_pos = slice.player.y_pos;
+        let stomped = runtime.process_stomps(
+            &mut slice,
+            pre_y_velocity,
+            pre_y_pos,
+            frame_start_x_pos,
+            frame_start_y_pos,
+        );
+
+        let debug = runtime
+            .stomp_contact_candidates_debug(&slice, pre_y_velocity)
+            .unwrap_or_else(|| "no candidates".to_string());
+        assert!(
+            stomped,
+            "ASM loc_1CF2 writes colid_kidabove so Lion.asm loc_3E318 can consume the stomp: {debug}"
+        );
+        let lion = runtime.active_enemies[0];
+        assert_eq!(
+            lion.hit_points, 5,
+            "ASM Lion.asm loc_3E32C subtracts exactly one HP for nonterminal Kid-above contact"
+        );
+        assert_eq!(
+            lion.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES,
+            "native damage flash represents the loc_3E32C `stru_3DF42` hibernate"
+        );
+        assert_eq!(
+            lion.lion_state,
+            LionState::Charging,
+            "ASM Lion.asm loc_3E356 -> loc_3E3AC resumes the right-facing grounded charge path"
+        );
+        assert_eq!(lion.facing, Direction::Right);
+        assert!(lion.on_ground);
+        assert!(!lion.death_animation_active);
+    }
+
+    #[test]
     fn stomp_kill_keeps_walking_dragon_visible_for_loc_3cefc_death_animation() {
         let mut runtime = NativeRuntime::new(manifest());
         start_level(&mut runtime);

@@ -10945,6 +10945,41 @@ impl NativeRuntime {
                     if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                         kill_indices.push(active_idx);
                     }
+                } else if matches!(enemy.family, EnemyFamily::Lion) {
+                    match lion_collision_response_loc_3e318(
+                        LION_COLID_KIDABOVE as i16,
+                        u16::from(enemy.hit_points),
+                        !enemy.on_ground || matches!(enemy.lion_state, LionState::ResumingCharge),
+                        matches!(enemy.facing, Direction::Right),
+                    ) {
+                        LionCollisionLoc3E318::Kill => {
+                            // ASM Lion.asm loc_3E318 -> loc_3E378: terminal
+                            // Kid-above hits initialise `stru_3DF48` before
+                            // the shared loc_3E956 delete tail.
+                            kill_indices.push(active_idx);
+                        }
+                        LionCollisionLoc3E318::Hurt { remaining_hp, .. } => {
+                            // ASM Lion.asm loc_3E32C: Kid-above shares the
+                            // ordinary hurt path, subtracting one HP before
+                            // resuming by `$5C(a5)` and x_direction.
+                            enemy.hit_points = remaining_hp as u8;
+                            enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                            if let LionCollisionLoc3E318::Continue { next } =
+                                lion_collision_response_loc_3e318(
+                                    0,
+                                    remaining_hp,
+                                    !enemy.on_ground
+                                        || matches!(enemy.lion_state, LionState::ResumingCharge),
+                                    matches!(enemy.facing, Direction::Right),
+                                )
+                            {
+                                apply_lion_collision_resume_loc_3e318(enemy, next);
+                            }
+                        }
+                        LionCollisionLoc3E318::Continue { next } => {
+                            apply_lion_collision_resume_loc_3e318(enemy, next);
+                        }
+                    }
                 } else if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
                     kill_indices.push(active_idx);
                 } else {

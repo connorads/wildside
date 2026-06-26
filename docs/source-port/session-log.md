@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-26 handoff (#357 Lion stomp fixed candidate)
+
+- **#357 moved `[ ]` -> `[?]`.** Base-Kid Lion stomps now route through
+  `Lion.asm loc_3E318` / `loc_3E32C` in `process_stomps`, so a full-HP Lion
+  loses one HP, flashes, and resumes instead of taking generic damage/death.
+- Live Lion activation now consumes `loc_3DF92`, `loc_3DFD8`, and `loc_3E030`
+  helpers for initial HP, facing, speed, and first dispatch. The runtime-fields
+  helper remains marked until its random/projectile-count state is represented.
+- Dead-code ratchet lowered **1339 -> 1333**.
+- Verification: focused `lion_init` and
+  `lion_stomp_decrements_one_hp_and_resumes_loc_3e318`, `RUSTFLAGS='-D dead_code'
+  cargo check --workspace --lib`, `mise run dead-code-ratchet`,
+  `mise run verify-slice-fast`, and `mise run verify-tas-full` (exit 0; CRC all
+  37,759 frames match, baseline full-report divergences still start at
+  `transition_15_to_00_post`).
+- NEXT: human/playtest validation for #357: stomp a full-health Lion as plain
+  Kid; it should need about six stomps and must not vanish/die immediately.
+
 ## 2026-06-25 handoff (human playtest triage)
 
 - **17-observation voice playtest triaged** against the lanes + ASM + code (fan-out research
