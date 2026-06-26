@@ -47,7 +47,6 @@ pub(crate) struct DuplicatePlatformResolutionLoc286A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformCollisionEntryLoc257E {
     pub(crate) collision_response_word: u32,
     pub(crate) first_platform_slot_pointer_addr: u16,
@@ -63,7 +62,6 @@ pub(crate) struct PlayerHitboxLoc2590 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlatformCollisionReturnLoc2720 {
     pub(crate) collision_type_word: u16,
     pub(crate) scratch_bytes_released: u16,
@@ -123,7 +121,6 @@ pub(crate) struct VerticalPushMagnitudeLoc266A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn platform_collision_return_loc_2720(
     collision_type_word: u16,
 ) -> PlatformCollisionReturnLoc2720 {
@@ -1127,7 +1124,6 @@ pub(crate) fn find_active_platform_by_layout_offset_sub_2728(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn begin_platform_collision_loc_257E(
     kid_gfx_object_addr: u32,
 ) -> PlatformCollisionEntryLoc257E {
@@ -1473,7 +1469,21 @@ impl PlatformCollisionResultLoc257E {
     }
 
     fn no_contact(outcome: PlatformCollisionOutcome) -> Self {
-        Self::new(outcome, PlatformCollisionScratchLoc257E::default())
+        Self::return_via_loc_2720(outcome, PlatformCollisionScratchLoc257E::default())
+    }
+
+    fn return_via_loc_2720(
+        outcome: PlatformCollisionOutcome,
+        scratch: PlatformCollisionScratchLoc257E,
+    ) -> Self {
+        let collision_type_word = match outcome {
+            PlatformCollisionOutcome::CrushDeath => 4,
+            PlatformCollisionOutcome::None | PlatformCollisionOutcome::StandingOn(_) => 0,
+        };
+        let epilogue = platform_collision_return_loc_2720(collision_type_word);
+        debug_assert_eq!(epilogue.scratch_bytes_released, 8);
+        debug_assert_eq!(epilogue.collision_type_word, collision_type_word);
+        Self::new(outcome, scratch)
     }
 }
 
@@ -1589,10 +1599,18 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
         ));
     }
 
+    let entry = begin_platform_collision_loc_257E(0);
+    debug_assert_eq!(entry.first_platform_slot_pointer_addr, 0xFA8E);
     let mut touched_left_side = false;
     let mut touched_right_side = false;
     let mut touched_bottom_face = false;
-    let mut scratch = PlatformCollisionScratchLoc257E::default();
+    let mut scratch = PlatformCollisionScratchLoc257E {
+        touched_left_side_faa2: (entry.collision_response_word & 0xFF00_0000) != 0,
+        touched_right_side_faa3: (entry.collision_response_word & 0x00FF_0000) != 0,
+        touched_top_face_faa4: (entry.collision_response_word & 0x0000_FF00) != 0,
+        touched_bottom_face_faa5: (entry.collision_response_word & 0x0000_00FF) != 0,
+        jump_platform_ref_fa96: None,
+    };
     let mut standing_platform_after_scan = None;
     let mut scan_restarts = 0usize;
     loop {
@@ -1695,7 +1713,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                         }
                         scratch.touched_top_face_faa4 = landing.touched_top_face;
                         if landing.escalates_to_loc_271_a {
-                            return PlatformCollisionResultLoc257E::new(
+                            return PlatformCollisionResultLoc257E::return_via_loc_2720(
                                 PlatformCollisionOutcome::CrushDeath,
                                 scratch,
                             );
@@ -1727,7 +1745,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                     touched_bottom_face = carry.touched_bottom_face;
                     scratch.touched_bottom_face_faa5 = carry.touched_bottom_face;
                     if carry.escalates_to_loc_271_a {
-                        return PlatformCollisionResultLoc257E::new(
+                        return PlatformCollisionResultLoc257E::return_via_loc_2720(
                             PlatformCollisionOutcome::CrushDeath,
                             scratch,
                         );
@@ -1766,7 +1784,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                         touched_left_side = true;
                         scratch.touched_left_side_faa2 = commit.touched_left_wall;
                         if commit.escalates_to_loc_271_a {
-                            return PlatformCollisionResultLoc257E::new(
+                            return PlatformCollisionResultLoc257E::return_via_loc_2720(
                                 PlatformCollisionOutcome::CrushDeath,
                                 scratch,
                             );
@@ -1780,7 +1798,7 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                         touched_right_side = true;
                         scratch.touched_right_side_faa3 = carry.touched_right_wall;
                         if carry.escalates_to_loc_271_a {
-                            return PlatformCollisionResultLoc257E::new(
+                            return PlatformCollisionResultLoc257E::return_via_loc_2720(
                                 PlatformCollisionOutcome::CrushDeath,
                                 scratch,
                             );
@@ -1803,12 +1821,12 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
         }
     }
     if let Some(platform_addr) = standing_platform_after_scan {
-        return PlatformCollisionResultLoc257E::new(
+        return PlatformCollisionResultLoc257E::return_via_loc_2720(
             PlatformCollisionOutcome::StandingOn(platform_addr),
             scratch,
         );
     }
-    PlatformCollisionResultLoc257E::new(PlatformCollisionOutcome::None, scratch)
+    PlatformCollisionResultLoc257E::return_via_loc_2720(PlatformCollisionOutcome::None, scratch)
 }
 
 #[allow(non_snake_case)]
