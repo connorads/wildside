@@ -154,7 +154,31 @@ On 2026-04-22 those lanes were green but still intentionally separate (dated rec
 
 Treat sweep-parity evidence as a release-gate verification lane, not as evidence to reopen TAS work or to claim whole-game completion.
 
-**Self-consistency sweep vs authoritative cold-boot gate (issues #26, #7).** The idle `sweep` is a *self-consistency* check, not the authoritative fidelity gate. Both sides warp into the level — native via the synthetic `boot_to_level` shortcut, the oracle via the ROM level-skip cheat — so their warp-arrival initial conditions (RNG offset, enemy/Murderwall tick age, camera) differ. Any checkpoint where the oracle never reached a comparable gameplay state (paused, on the title card, or on the wrong warp level) is masked to `oracle_limitation`, so a level can read as `passed` while nothing real was compared. Such a level is **UNVERIFIED**, not faithful: read the sweep's `verified`/`unverified` line (and per-level `masked_checkpoints`/`total_checkpoints`), not `passed`, as the coverage signal — a fully-masked level proves only "native did not crash". Warping is legitimate here precisely because the sweep is self-consistency. The authoritative gate is `verify-tas`, which is meant to **cold-boot** (`warp_to_level: None`) and reach the level by replayed input from power-on, exactly like the published TAS. When a scenario warps, `verify-tas` flags it as non-authoritative (an advisory warning, `cold_boot_advisory`): a warp means the run proves self-consistency, not cold-boot fidelity. The flag stays advisory rather than a hard reject because committed frontier regression probes (e.g. `issue305_pause_give_up_last_life_probe`, `warp_to_level: 0`) legitimately auto-boot through this path; promoting the advisory to a hard reject is issue #7 itself (needs-decision).
+**Self-consistency sweep vs authoritative cold-boot gate (issues #26, #7).** The idle `sweep` is a *self-consistency* check, not the authoritative fidelity gate. Both sides warp into the level — native via the synthetic `boot_to_level` shortcut, the oracle via the ROM level-skip cheat — so their warp-arrival initial conditions (RNG offset, enemy/Murderwall tick age, camera) differ. Any checkpoint where the oracle never reached a comparable gameplay state (paused, on the title card, or on the wrong warp level) is masked to `oracle_limitation`, so a level can read as `passed` while nothing real was compared. Such a level is **UNVERIFIED**, not faithful: read the sweep's `verified`/`unverified` line (and per-level `masked_checkpoints`/`total_checkpoints`), not `passed`, as the coverage signal — a fully-masked level proves only "native did not crash". Warping is legitimate here precisely because the sweep is self-consistency. The authoritative gate is `verify-tas`, which is meant to **cold-boot** (`warp_to_level: None`) and reach the level by replayed input from power-on, exactly like the published TAS. When a scenario warps, `verify-tas` flags it as non-authoritative (an advisory warning, `cold_boot_advisory`): a warp means the run proves self-consistency, not cold-boot fidelity. The flag stays advisory rather than a hard reject because committed frontier regression probes (e.g. `issue305_pause_give_up_last_life_probe`, `warp_to_level: 0`) legitimately auto-boot through this path. By decision (issue #7, resolved path (a)) the gate keeps the warp flag **advisory**: a hard reject is a deferred follow-up, not adopted now, because committed cases legitimately warp and would all need migrating first.
+
+> **Policy — authoritative cold-boot (issue #7, decided).** Any scenario used as authoritative
+> fidelity evidence MUST cold-boot (`warp_to_level: None`) and reach the level by replayed input
+> from power-on, exactly like the published TAS. Synthetic `enter_level_playtest` warps
+> (`crates/wildside-core/src/scenario.rs:109`, builder at `:324`, field at `:283`) are for local
+> iteration and the self-consistency sweep only.
+>
+> **Rationale.** A warp spawns into a level with different RNG / enemy-tick-age / camera than the
+> ROM's title-card / level-skip arrival, so the warped run's steady state can never match the
+> oracle (e.g. DragonWalking spawn-X off by `0xD0000`/208px, `game_paused` true-vs-false,
+> divergent `camera_y`). Comparing such a run against the oracle generates false frontiers that
+> burn agent cycles.
+>
+> **Gate behaviour (decision = advisory, not hard reject).** `cold_boot_advisory`
+> (`crates/wildside-cli/src/tas.rs:333`) warns on any `warp_to_level`-set scenario (printed at
+> `:358`, never fatal); the sweep reclassifies warp-arrival diffs as oracle-unreliable
+> (`crates/wildside-cli/src/sweep/mod.rs:950`, `oracle_unreliable_checkpoints`); and
+> `settled_recording_oracle_bootstrap_block_reason` (`crates/wildside-cli/src/case.rs:920`) blocks
+> settled-recording bootstrap mismatches as an initial-conditions artefact. It stays advisory
+> because committed cases legitimately warp (warped `tests/data/dynamic-scenarios/*` probes such as
+> `issue-305-pause-give-up-last-life-probe.json`, `warp_to_level: 0`); a blanket reject would turn
+> the green frontier gate red. **Hard reject (path b) is deferred** — promoting it would first
+> require migrating those warp fixtures to cold-boot routes. See #26 (sweep self-consistency); the
+> decision unblocks #10 (cold-boot fuzzing).
 
 ### TAS (Tool-Assisted Speedrun) fidelity testing
 
