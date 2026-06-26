@@ -55,7 +55,6 @@ pub(crate) struct PlatformCollisionEntryLoc257E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PlayerHitboxLoc2590 {
     pub(crate) left: i16,
     pub(crate) right: i16,
@@ -1156,7 +1155,6 @@ pub(crate) fn begin_platform_collision_loc_257E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_player_hitbox_loc_2590(
     left: i16,
     right: i16,
@@ -1642,10 +1640,16 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                 let platform_right_px = plat_right as i16;
                 let platform_top_px = plat_y_px as i16;
                 let platform_bottom_px = plat_bottom as i16;
-                let kid_left_px = player_left as i16;
-                let kid_right_px = player_right as i16;
-                let kid_top_px = player_top as i16;
-                let kid_bottom_px = player_foot_y_px as i16;
+                let player_hitbox = load_player_hitbox_loc_2590(
+                    player_left as i16,
+                    player_right as i16,
+                    player_top as i16,
+                    player_foot_y_px as i16,
+                );
+                let kid_left_px = player_hitbox.left;
+                let kid_right_px = player_hitbox.right;
+                let kid_top_px = player_hitbox.top;
+                let kid_bottom_px = player_hitbox.bottom;
 
                 let push_x_px = if kid_left_px > platform_left_px {
                     if kid_right_px > platform_right_px {
