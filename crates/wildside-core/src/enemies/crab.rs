@@ -232,14 +232,12 @@ pub(crate) fn crab_reverse_x_velocity_loc_3b24c(x_velocity: i32) -> i32 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabSlopeCollisionRouteLoc3B1F8 {
     ReverseXVelocity { x_velocity: i32 },
     ReflectYVelocity { y_velocity: i32 },
     GravityTail,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_reflect_y_velocity_loc_3b204(y_velocity: i32) -> i32 {
     // ASM Crab.asm loc_3B204: `move.l y_vel,d7; lsr.l #1,d7; neg.l d7;
     // move.l d7,y_vel` uses a logical shift before the two's-complement negate.
@@ -248,13 +246,11 @@ pub(crate) fn crab_reflect_y_velocity_loc_3b204(y_velocity: i32) -> i32 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabNegativeSlopeRouteLoc3B212 {
     ReflectYVelocity,
     GravityTail,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_negative_slope_route_loc_3b212(
     collision_type: u16,
 ) -> CrabNegativeSlopeRouteLoc3B212 {
@@ -335,7 +331,6 @@ pub(crate) fn crab_gravity_tail_loc_3b218(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_slope_collision_response_loc_3b1f8(
     collision_type: u16,
     x_velocity: i32,
@@ -719,6 +714,41 @@ mod tests {
         assert_eq!(
             enemies[0].x_velocity, -0x0003_0000,
             "ASM Crab.asm loc_3B1DA should route a right-wall Berzerker knockback contact to loc_3B24C x-velocity reversal"
+        );
+    }
+
+    #[test]
+    fn crab_berzerker_knockback_slope_up_uses_loc_3b1f8_reverse() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 5 * 2], 8, 5);
+        grid.set_cell_at(4, 3, terrain::Cell::from_be_bytes(0x40, 0x00));
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Crab;
+        enemy.facing = Direction::Right;
+        enemy.x_pos = 72 << 16;
+        enemy.y_pos = 53 << 16;
+        enemy.x_velocity = 0x0001_4000;
+        enemy.y_velocity = 0;
+        enemy.on_ground = false;
+        enemy.crab_berzerker_knockback = true;
+        let mut enemies = [enemy];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut enemies,
+            Some(&grid),
+            None,
+            None,
+            None,
+            Some(0),
+            PlayerForm::Berzerker,
+            None,
+            &mut drilled_blocks,
+        );
+
+        assert!(enemies[0].crab_berzerker_knockback);
+        assert_eq!(
+            enemies[0].x_velocity, -0x0001_4000,
+            "ASM Crab.asm loc_3B1DA -> loc_3B1F8 -> loc_3B24C should reverse positive slope-up knockback"
         );
     }
 

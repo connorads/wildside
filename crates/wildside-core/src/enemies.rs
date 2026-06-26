@@ -6773,6 +6773,42 @@ fn step_crab_berzerker_knockback(enemy: &mut ActiveEnemy, block_grid: Option<&te
         ) {
             enemy.x_velocity = crab_reverse_x_velocity_loc_3b24c(enemy.x_velocity);
         }
+        return;
+    }
+
+    let floor = terrain::probe_floor(grid, cx, cy);
+    let slope_collision_type = match floor.cell.collision {
+        terrain::CollisionKind::SlopeUp if floor.on_ground => Some(CRAB_COLID_SLOPEUP),
+        terrain::CollisionKind::SlopeDown if floor.on_ground => Some(CRAB_COLID_SLOPEDOWN),
+        _ => None,
+    };
+    let Some(collision_type) = slope_collision_type else {
+        return;
+    };
+
+    // ASM Crab.asm loc_3B1DA: slope contacts fall through the airborne
+    // collision dispatch before loc_3B1F8 chooses the response.
+    let CrabAirborneCollisionRouteLoc3B1DA::SlopeTail { collision_type } =
+        crab_airborne_collision_dispatch_loc_3b1da(collision_type)
+    else {
+        return;
+    };
+
+    match crab_slope_collision_response_loc_3b1f8(
+        collision_type,
+        enemy.x_velocity,
+        enemy.y_velocity,
+    ) {
+        CrabSlopeCollisionRouteLoc3B1F8::ReverseXVelocity { x_velocity } => {
+            enemy.x_velocity = x_velocity;
+        }
+        CrabSlopeCollisionRouteLoc3B1F8::ReflectYVelocity { y_velocity } => {
+            enemy.y_velocity = y_velocity;
+        }
+        CrabSlopeCollisionRouteLoc3B1F8::GravityTail => {
+            // Native has already applied the collapsed loc_3B218 gravity tail
+            // before this terrain probe in the current airborne frame.
+        }
     }
 }
 
