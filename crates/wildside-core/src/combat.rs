@@ -8882,7 +8882,17 @@ impl NativeRuntime {
                     MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker => {
                         // ASM Mini_Hopping_Skull.asm loc_3F03C/loc_3F244:
                         // side/below contact allocates delayed `sub_3F3F0`.
-                        self.queue_mini_hopping_skull_scream(false);
+                        if enemy.on_ground {
+                            if let Some(allocation) =
+                                mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c(
+                                    route,
+                                )
+                            {
+                                self.queue_mini_hopping_skull_scream_worker(allocation, false);
+                            }
+                        } else {
+                            self.queue_mini_hopping_skull_scream(false);
+                        }
                     }
                     MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull => {
                         // ASM Mini_Hopping_Skull.asm loc_3F262: charging
@@ -11327,6 +11337,22 @@ impl NativeRuntime {
         self.pending_sound_effects.push(PendingSoundEffect {
             effect: QueuedSoundEffect::MiniHoppingSkullScream,
             delay_frames: Self::MINI_HOPPING_SKULL_SCREAM_DELAY_FRAMES,
+            suppress,
+        });
+    }
+
+    fn queue_mini_hopping_skull_scream_worker(
+        &mut self,
+        allocation: MiniHoppingSkullScreamWorkerAllocation,
+        suppress: bool,
+    ) {
+        // ASM Mini_Hopping_Skull.asm loc_3EB40/loc_3F03C install `sub_3F3F0`
+        // through selector `$A000`; the worker hibernates before playing SFX.
+        debug_assert_eq!(allocation.allocation_selector, 0xA000);
+        debug_assert_eq!(allocation.routine, "sub_3F3F0");
+        self.pending_sound_effects.push(PendingSoundEffect {
+            effect: QueuedSoundEffect::MiniHoppingSkullScream,
+            delay_frames: allocation.delay_frames,
             suppress,
         });
     }
@@ -14633,7 +14659,11 @@ impl NativeRuntime {
                 // ASM Mini_Hopping_Skull.asm loc_3EB40 allocates sub_3F3F0:
                 // side/below contact hibernates for 15 frames, then plays the
                 // scream SFX unless `$19(a3)` suppresses it.
-                self.queue_mini_hopping_skull_scream(false);
+                if let Some(allocation) = mini_hopping_skull_scream_worker_allocation_loc_3eb40(
+                    MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+                ) {
+                    self.queue_mini_hopping_skull_scream_worker(allocation, false);
+                }
             }
             self.apply_damage_with_knockback(slice, pending.enemy_x, pending.enemy_family);
             if matches!(self.player_lifecycle, PlayerLifecycle::DeathWindup { .. }) {

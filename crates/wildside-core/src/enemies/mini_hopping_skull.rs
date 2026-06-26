@@ -176,7 +176,6 @@ pub(crate) enum MiniHoppingSkullGroundWaitTail {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullScreamWorkerAllocation {
     pub(crate) allocation_selector: u16,
     pub(crate) routine: &'static str,
@@ -958,7 +957,6 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_scream_worker_allocation_loc_3eb40(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
@@ -1091,7 +1089,6 @@ pub(crate) fn mini_hopping_skull_stopped_wait_collision_loc_3f00a(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
