@@ -8671,7 +8671,6 @@ pub(crate) enum BackgroundPaletteOverrideLoc11DF4 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn classify_background_palette_override_loc_11DF4(
     map_id: u8,
 ) -> BackgroundPaletteOverrideLoc11DF4 {
