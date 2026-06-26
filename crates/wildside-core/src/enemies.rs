@@ -153,13 +153,9 @@ pub(crate) const DRAGON_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
 pub(crate) const DRAGON_COLID_KIDLEFT: u16 = colid::KIDLEFT;
 pub(crate) const DRAGON_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 pub(crate) const TANK_COLID_HURT: u16 = colid::HURT;
-#[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
-#[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_LEFTWALL: u16 = colid::LEFTWALL;
-#[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_SLOPEUP: u16 = colid::SLOPEUP;
-#[cfg_attr(not(test), allow(dead_code))]
 const CRAB_COLID_SLOPEDOWN: u16 = colid::SLOPEDOWN;
 pub(crate) const DIAMOND_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
 pub(crate) const DIAMOND_COLID_LEFTWALL: u16 = colid::LEFTWALL;
