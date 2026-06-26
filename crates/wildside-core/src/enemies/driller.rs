@@ -3,21 +3,18 @@ use super::*;
 pub(crate) const DRILLER_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DrillerInitTailRouteLoc3BE60 {
     ClearDirectionLoc3C0D2,
     SetDirectionLoc3C026,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DrillerInitTailLoc3BE60 {
     pub(crate) next_drill_refcount: u8,
     pub(crate) callback: &'static str,
     pub(crate) next_route: DrillerInitTailRouteLoc3BE60,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn driller_init_tail_loc_3be60(
     x_direction_set: bool,
     drill_refcount: u8,
@@ -210,6 +207,66 @@ fn driller_drilled_cells_loc_3be78(
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn driller_live_step_latches_init_tail_once_per_visible_driller() {
+        let mut enemies = [ActiveEnemy {
+            family: EnemyFamily::Driller,
+            facing: Direction::Right,
+            hit_points: 3,
+            ..mini_hopping_skull_test_enemy()
+        }];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            None,
+        );
+
+        assert!(
+            enemies[0].shared_walker_patrol_short_next,
+            "ASM Driller.asm loc_3BE60 increments the shared DrillMoving refcount after installing loc_3BE78",
+        );
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            1,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            None,
+        );
+
+        assert!(
+            enemies[0].shared_walker_patrol_short_next,
+            "ASM Driller.asm loc_3BE60 is an init tail, so the native latch must stay set after the first visible step",
+        );
+    }
 
     #[test]
     fn driller_spawn_setup_loc_3bd2a_faces_toward_player_and_seeds_hp() {

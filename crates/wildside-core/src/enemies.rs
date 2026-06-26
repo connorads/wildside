@@ -1247,7 +1247,8 @@ pub(crate) struct ActiveEnemy {
     /// turn has consumed the extra half-step.
     pub(crate) shared_walker_right_turn_extra_step_consumed: bool,
     /// Dragon alternates the next patrol cadence reload between $32 and $12C via $6E(a5).
-    /// Ninja reuses the same two-period phase for `$6E(a5)` attack cadence.
+    /// Ninja reuses the same two-period phase for `$6E(a5)` attack cadence. Driller and
+    /// Rock Tanks reuse the native field as a visible-init drive-refcount latch.
     pub(crate) shared_walker_patrol_short_next: bool,
     /// Frontier-only trace label for the last shared-walker branch taken.
     pub(crate) shared_walker_debug_branch: Option<&'static str>,
@@ -3318,6 +3319,13 @@ pub(crate) fn step_active_enemies_with_rng(
     drilled_blocks: &mut Vec<DrilledBlockLoc3BE78>,
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
+    let mut drill_drive_refcount = active
+        .iter()
+        .filter(|enemy| {
+            matches!(enemy.family, EnemyFamily::Driller) && enemy.shared_walker_patrol_short_next
+        })
+        .count()
+        .min(usize::from(u8::MAX)) as u8;
     let mut tank_drive_refcount = active
         .iter()
         .filter(|enemy| {
@@ -3327,6 +3335,26 @@ pub(crate) fn step_active_enemies_with_rng(
         .count()
         .min(usize::from(u8::MAX)) as u8;
     for enemy in active.iter_mut() {
+        if matches!(enemy.family, EnemyFamily::Driller) && !enemy.shared_walker_patrol_short_next {
+            // ASM Driller.asm loc_3BE60: increment the shared DrillMoving
+            // refcount, install loc_3BE78 as the callback, then enter the
+            // direction-specific shared walker loop.
+            let x_direction_set = matches!(enemy.facing, Direction::Right);
+            let init_tail = driller_init_tail_loc_3be60(x_direction_set, drill_drive_refcount);
+            debug_assert_eq!(
+                init_tail.next_drill_refcount,
+                drill_drive_refcount.wrapping_add(1)
+            );
+            debug_assert_eq!(init_tail.callback, "loc_3BE78");
+            let expected_route = if x_direction_set {
+                DrillerInitTailRouteLoc3BE60::SetDirectionLoc3C026
+            } else {
+                DrillerInitTailRouteLoc3BE60::ClearDirectionLoc3C0D2
+            };
+            debug_assert_eq!(init_tail.next_route, expected_route);
+            drill_drive_refcount = init_tail.next_drill_refcount;
+            enemy.shared_walker_patrol_short_next = true;
+        }
         if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
             && !enemy.shared_walker_patrol_short_next
         {
