@@ -5138,10 +5138,26 @@ fn large_pacer_should_remain_active(
     if active_enemy_count <= 10 {
         return true;
     }
+    if matches!(enemy.family, EnemyFamily::Lion) && active_enemy_count <= 20 {
+        // ASM Lion.asm loc_3E924: the medium-load `sub_3E8BA` camera gate
+        // returns to the restored Lion callback inside the wide box and
+        // branches through loc_3E920 to deletion outside it.
+        return matches!(
+            lion_medium_load_cull_loc_3e924(
+                x_pos as u16,
+                y_pos as u16,
+                camera_x_px as u16,
+                camera_y_px as u16,
+                active_enemy_count as u16,
+                enemy.layout_index as u8,
+            ),
+            LionMediumLoadCullLoc3E924::Return
+        );
+    }
 
-    // ASM Dragon.asm loc_37552 / Lion.asm sub_3E8BA:
-    // 11..20 active objects use the wider [-$1A4,+$2E4]x[-$1A4,+$284] box,
-    // 21+ active objects tighten to [-$104,+$244]x[-$104,+$1E4].
+    // ASM Dragon.asm loc_37552 and the analogous non-Lion shared-walker
+    // culls: 11..20 active objects use the wider [-$1A4,+$2E4]x[-$1A4,+$284]
+    // box, 21+ active objects tighten to [-$104,+$244]x[-$104,+$1E4].
     let (left_margin, right_margin, top_margin, bottom_margin) = if active_enemy_count <= 20 {
         (0x1A4, 0x2E4, 0x1A4, 0x284)
     } else {

@@ -1094,14 +1094,12 @@ pub(crate) fn lion_hibernate_cull_resume_loc_3e556() -> LionLoc3E556Tail {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionCullRejectLoc3E920 {
     pub(crate) next_number_of_enemy: u16,
     pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_cull_reject_loc_3e920(
     number_of_enemy: u16,
     object_status_slot: u8,
@@ -1117,12 +1115,10 @@ pub(crate) fn lion_cull_reject_loc_3e920(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionDeleteTailLoc3E98A {
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_delete_tail_loc_3e98a() -> LionDeleteTailLoc3E98A {
     // ASM Lion.asm loc_3E98A: all loc_3E956 status routes converge on
     // `jmp (j_Delete_CurrentObject).w`.
@@ -1158,13 +1154,11 @@ pub(crate) fn lion_cull_status_update_loc_3e956(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionMediumLoadCullLoc3E924 {
     Return,
     DeleteTail(LionCullRejectLoc3E920),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_medium_load_cull_loc_3e924(
     x_pos_word: u16,
     y_pos_word: u16,
