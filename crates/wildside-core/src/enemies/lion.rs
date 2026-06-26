@@ -925,7 +925,6 @@ pub(crate) fn lion_charge_collision_x_commit_loc_3e80c(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_vertical_entry_loc_3e812(
     y_position: u32,
     y_velocity: i32,
@@ -1726,11 +1725,19 @@ fn step_lion_charge_airborne_vertical_loc_3e6f6_3e812(
     // ASM Lion.asm loc_3E6F6/loc_3E812: after the X commit, add y_vel to
     // y_pos and branch by signed integer-pixel delta. Both directions share
     // the same sub_36CB8 ceiling and sub_36C6A floor scans using `$48/$4A`.
-    match lion_left_charge_vertical_entry_loc_3e6f6(
-        enemy.y_pos,
-        enemy.y_velocity,
-        LION_CHARGE_PROBE_HEIGHT as u16,
-    ) {
+    let vertical_entry = match enemy.facing {
+        Direction::Left => lion_left_charge_vertical_entry_loc_3e6f6(
+            enemy.y_pos,
+            enemy.y_velocity,
+            LION_CHARGE_PROBE_HEIGHT as u16,
+        ),
+        Direction::Right => lion_charge_collision_vertical_entry_loc_3e812(
+            enemy.y_pos,
+            enemy.y_velocity,
+            LION_CHARGE_PROBE_HEIGHT as u16,
+        ),
+    };
+    match vertical_entry {
         LionLeftChargeVerticalEntryLoc3E6F6::UpwardCollisionCheck {
             candidate_y_position,
             needs_ceiling_probe,
