@@ -229,14 +229,12 @@ pub(crate) fn big_hopping_skull_death_entry_loc_3664e() -> BigHoppingSkullDeathE
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullDeathWaitRouteLoc36664 {
     LoopDeathAnimation,
     FinalizeDeletion,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullDeathWaitLoc36664 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_object_range: bool,
@@ -245,7 +243,6 @@ pub(crate) struct BigHoppingSkullDeathWaitLoc36664 {
     pub(crate) route: BigHoppingSkullDeathWaitRouteLoc36664,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_death_wait_loc_36664(
     collision_probe_nonzero: bool,
     animation_finished: bool,

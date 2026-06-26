@@ -10034,6 +10034,25 @@ impl NativeRuntime {
             enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
             enemy.y_pos = enemy.y_pos.wrapping_add_signed(enemy.y_velocity);
         }
+        if matches!(enemy.family, EnemyFamily::BigHoppingSkull) {
+            let death_wait = big_hopping_skull_death_wait_loc_36664(
+                true,
+                enemy.wait_timer == 1,
+                enemy.y_velocity,
+            );
+            debug_assert!(death_wait.hibernates_one_frame);
+            debug_assert!(death_wait.checks_object_range);
+            debug_assert_eq!(death_wait.collision_probe_extent, 8);
+            enemy.y_velocity = death_wait.y_velocity;
+            match death_wait.route {
+                BigHoppingSkullDeathWaitRouteLoc36664::LoopDeathAnimation => {
+                    debug_assert!(enemy.wait_timer > 1);
+                }
+                BigHoppingSkullDeathWaitRouteLoc36664::FinalizeDeletion => {
+                    debug_assert_eq!(enemy.wait_timer, 1);
+                }
+            }
+        }
         // ASM Dragon.asm loc_3CEFC and the other death-animation tails call
         // j_Hibernate_UntilAnimFinished; the frame that consumes the last
         // animation tick still returns to the scheduler as a hibernated object.
