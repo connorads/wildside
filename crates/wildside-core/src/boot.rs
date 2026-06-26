@@ -2412,12 +2412,12 @@ pub(crate) struct Prize10000PointsStarAdvanceLoc10BCE {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Prize10000PointsStarStepLoc10B74 {
-    pub(crate) latched_screen_pos: Option<(i16, i16)>,
-    pub(crate) x_pos: i16,
-    pub(crate) is_moved: bool,
-    pub(crate) timer: u16,
-    pub(crate) delete_prize_worker: bool,
+pub struct Prize10000PointsStarStepLoc10B74 {
+    pub latched_screen_pos: Option<(i16, i16)>,
+    pub x_pos: i16,
+    pub is_moved: bool,
+    pub timer: u16,
+    pub delete_prize_worker: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5245,8 +5245,7 @@ pub(crate) fn prize_10000_points_star_cleanup_loc_10BE6(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
-pub(crate) fn prize_10000_points_star_latch_screen_pos_loc_10B9A(
+pub fn prize_10000_points_star_latch_screen_pos_loc_10B9A(
     x_pos: i16,
     y_pos: i16,
     camera_x_pos: i16,
@@ -5261,8 +5260,7 @@ pub(crate) fn prize_10000_points_star_latch_screen_pos_loc_10B9A(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
-pub(crate) fn prize_10000_points_star_step_loc_10B74(
+pub fn prize_10000_points_star_step_loc_10B74(
     slot_offset: u16,
     timer: u16,
     x_pos: i16,

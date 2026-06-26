@@ -292,12 +292,11 @@ pub struct Prize10DiamondsSpawnLoc108EE {
     pub lifetime_frames: Option<u16>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Prize10DiamondsWorkerScanStartLoc10960 {
-    pub(crate) first_worker_slot_byte_offset: u16,
-    pub(crate) worker_slot_stride_bytes: u16,
-    pub(crate) worker_table_len_bytes: u16,
+pub struct Prize10DiamondsWorkerScanStartLoc10960 {
+    pub first_worker_slot_byte_offset: u16,
+    pub worker_slot_stride_bytes: u16,
+    pub worker_table_len_bytes: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -994,9 +993,8 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn prize_10_diamonds_worker_scan_start_loc_10960()
-    -> Prize10DiamondsWorkerScanStartLoc10960 {
+    pub fn prize_10_diamonds_worker_scan_start_loc_10960() -> Prize10DiamondsWorkerScanStartLoc10960
+    {
         // ASM loc_10960 (kid.asm:22208) seeds `d2 = 0` before `loc_10962`
         // walks the ten longword worker slots at `$44(a5)` and `loc_10A3A`
         // advances the offset by four bytes until it reaches `$28`.

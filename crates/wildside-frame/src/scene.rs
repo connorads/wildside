@@ -7338,6 +7338,10 @@ fn render_ten_diamonds_worker_effect(
         tile_base_index: 0x06ED - level_visuals.hud.diamond_base_tile_index,
         tile_sheet: level_visuals.hud.diamond_tiles.clone(),
     };
+    let worker_scan = wildside_core::NativeRuntime::prize_10_diamonds_worker_scan_start_loc_10960();
+    let max_worker_count =
+        worker_scan.worker_table_len_bytes / worker_scan.worker_slot_stride_bytes;
+    debug_assert_eq!(worker_scan.first_worker_slot_byte_offset, 0);
     let mut drew_worker = false;
     for spawn_frame in 0..=u16::from(effect_age).min(0x001D) {
         let spawn = wildside_core::NativeRuntime::prize_10_diamonds_spawn_loc_108EE(
@@ -7361,6 +7365,7 @@ fn render_ten_diamonds_worker_effect(
         debug_assert_eq!(spawn.y_pos, Some(screen_y as u16));
         debug_assert_eq!(spawn.is_moved, Some(true));
         debug_assert_eq!(spawn.lifetime_frames, Some(0x0078));
+        debug_assert!(u16::from(spawn.burst_table_index.unwrap_or_default()) < max_worker_count);
 
         let worker_age_u16 = u16::from(effect_age).wrapping_sub(spawn_frame);
         let worker_lifetime = spawn
@@ -7418,7 +7423,7 @@ fn render_10000_points_worker_effect(
         debug_assert!(spawn.is_moved);
         debug_assert_eq!(spawn.timer, 0x0078);
 
-        let worker_age = i32::from(u16::from(effect_age).wrapping_sub(spawn_frame));
+        let worker_age = u16::from(effect_age).wrapping_sub(spawn_frame);
         let tile_base_index = if spawn.sprite_mapping_label == "LnkTo_unk_E1056-Data_Index" {
             1
         } else {
@@ -7433,17 +7438,70 @@ fn render_10000_points_worker_effect(
             tile_base_index,
             tile_sheet: level_visuals.hud.digits.clone(),
         };
-        let worker_x = screen_x - 6 * worker_age.saturating_sub(0x58);
+        let slot_offset = (spawn_frame / 5) * 4;
+        let Some(star_step) = prize_10000_points_star_visible_step_loc_10b74(
+            slot_offset,
+            spawn.timer,
+            screen_x as i16,
+            screen_y as i16,
+            spawn.is_moved,
+            worker_age,
+        ) else {
+            continue;
+        };
         push_worker_sprite(
             commands,
             &frame,
             &level_visuals.palettes.foreground,
-            worker_x,
+            i32::from(star_step.x_pos),
             screen_y,
         );
         drew_worker = true;
     }
     drew_worker
+}
+
+fn prize_10000_points_star_visible_step_loc_10b74(
+    slot_offset: u16,
+    initial_timer: u16,
+    initial_screen_x: i16,
+    initial_screen_y: i16,
+    initial_is_moved: bool,
+    worker_age: u16,
+) -> Option<wildside_core::Prize10000PointsStarStepLoc10B74> {
+    // ASM loc_10B74/loc_10BB2: the source-port renderer has screen-relative
+    // prize positions, so pass zero camera words and replay the star's age
+    // through the ROM step model before drawing this frame.
+    let mut timer = initial_timer;
+    let mut x_pos = initial_screen_x;
+    let mut is_moved = initial_is_moved;
+    let mut step = wildside_core::Prize10000PointsStarStepLoc10B74 {
+        latched_screen_pos: None,
+        x_pos,
+        is_moved,
+        timer,
+        delete_prize_worker: false,
+    };
+
+    for _ in 0..worker_age {
+        step = wildside_core::prize_10000_points_star_step_loc_10B74(
+            slot_offset,
+            timer,
+            x_pos,
+            initial_screen_y,
+            0,
+            0,
+            is_moved,
+        );
+        if step.delete_prize_worker {
+            return None;
+        }
+        timer = step.timer;
+        x_pos = step.x_pos;
+        is_moved = step.is_moved;
+    }
+
+    Some(step)
 }
 
 fn push_worker_sprite(
