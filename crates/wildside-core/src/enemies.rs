@@ -6637,7 +6637,19 @@ fn step_crab_berzerker_knockback(enemy: &mut ActiveEnemy, block_grid: Option<&te
         moving_right,
     );
     if wall.hit {
-        enemy.x_velocity = crab_reverse_x_velocity_loc_3b24c(enemy.x_velocity);
+        let collision_type = if moving_right {
+            CRAB_COLID_RIGHTWALL
+        } else {
+            CRAB_COLID_LEFTWALL
+        };
+        // ASM Crab.asm loc_3B1DA: Berzerker knockback wall contacts route
+        // through the airborne collision dispatch before loc_3B24C reverses x_vel.
+        if matches!(
+            crab_airborne_collision_dispatch_loc_3b1da(collision_type),
+            CrabAirborneCollisionRouteLoc3B1DA::ReverseXVelocity
+        ) {
+            enemy.x_velocity = crab_reverse_x_velocity_loc_3b24c(enemy.x_velocity);
+        }
     }
 }
 

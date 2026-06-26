@@ -202,7 +202,6 @@ pub(crate) fn crab_airborne_settle_tail_loc_3b254() -> CrabAirborneSettleTailLoc
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CrabAirborneCollisionRouteLoc3B1DA {
     GravityTail,
     ReverseXVelocity,
@@ -210,7 +209,6 @@ pub(crate) enum CrabAirborneCollisionRouteLoc3B1DA {
     Loop,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_airborne_collision_dispatch_loc_3b1da(
     collision_type: u16,
 ) -> CrabAirborneCollisionRouteLoc3B1DA {
@@ -691,6 +689,40 @@ mod tests {
         assert!(
             enemies[0].y_velocity > 0,
             "ASM Crab.asm loc_3B218 seeds downward recovery velocity from zero y_vel"
+        );
+    }
+
+    #[test]
+    fn crab_berzerker_knockback_wall_uses_loc_3b1da_dispatch() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        grid.set_cell_at(5, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::Crab;
+        enemy.facing = Direction::Right;
+        enemy.x_pos = 68 << 16;
+        enemy.y_pos = 48 << 16;
+        enemy.x_velocity = 0x0003_0000;
+        enemy.y_velocity = 0;
+        enemy.on_ground = false;
+        enemy.crab_berzerker_knockback = true;
+        let mut enemies = [enemy];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut enemies,
+            Some(&grid),
+            None,
+            None,
+            None,
+            Some(0),
+            PlayerForm::Berzerker,
+            None,
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            enemies[0].x_velocity, -0x0003_0000,
+            "ASM Crab.asm loc_3B1DA should route a right-wall Berzerker knockback contact to loc_3B24C x-velocity reversal"
         );
     }
 
