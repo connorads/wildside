@@ -1640,7 +1640,6 @@ pub(crate) fn enemy_death_animation_frames(family: EnemyFamily) -> Option<u16> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonArtInitLoc3CDB8 {
     pub(crate) art_slot_index: u8,
     pub(crate) status_flag_13: bool,
@@ -1648,7 +1647,6 @@ pub(crate) struct DragonArtInitLoc3CDB8 {
     pub(crate) current_hp: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_art_init_loc_3cdb8(
     first_header_word: u16,
     second_header_word: u16,
@@ -3029,6 +3027,15 @@ fn activate_enemies_with_rng_inner(
         } else {
             0
         };
+        let dragon_walking_art_init = if matches!(family, EnemyFamily::DragonWalking) {
+            Some(dragon_art_init_loc_3cdb8(
+                view.enemy_type_slots.first().copied().unwrap_or(0),
+                view.enemy_type_slots.get(1).copied().unwrap_or(0),
+                enemy_level,
+            ))
+        } else {
+            None
+        };
 
         // Multi-head bosses spawn 3 head objects per layout entry.
         let head_count = if is_multi_head_boss(family) { 3u8 } else { 1 };
@@ -3079,6 +3086,8 @@ fn activate_enemies_with_rng_inner(
             } else if let Some(init) = orca_init {
                 init.current_hp
             } else if let Some(init) = lion_visible_init {
+                init.current_hp as u8
+            } else if let Some(init) = dragon_walking_art_init {
                 init.current_hp as u8
             } else {
                 spawn_hit_points(family, enemy_level)
@@ -3170,6 +3179,12 @@ fn activate_enemies_with_rng_inner(
                 debug_assert_eq!(visible_init.object_meta, 0x0092);
                 debug_assert_eq!(visible_init.palette_line, 2);
                 debug_assert_eq!(visible_init.current_hp as u8, hit_points);
+            }
+            if let Some(init) = dragon_walking_art_init {
+                debug_assert!(init.art_slot_index <= 2);
+                debug_assert!(init.status_flag_13);
+                debug_assert_eq!(init.priority, 0);
+                debug_assert_eq!(init.current_hp as u8, hit_points);
             }
             let facing = lion_visible_init.map_or_else(
                 || spawn_facing(family, head_x, player_x),
@@ -8329,6 +8344,68 @@ mod tests {
             spawn_hit_points(EnemyFamily::DragonWalking, 2),
             3,
             "native DragonWalking HP should expose the same enemy_level+1 seed as ASM Dragon.asm loc_3CDB8"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_spawn_uses_loc_3cdb8_hp_seed() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0xFFFF, 0x800D, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![wildside_data::EnemyLayoutObject {
+                object_type: 0x81,
+                flags: 0xFF,
+                hit_points_plus_one: 2,
+                x: 200,
+                y: 144,
+            }],
+            segments: vec![wildside_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0xFFFF, 0x800D, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![wildside_data::EnemyLayoutObject {
+                    object_type: 0x81,
+                    flags: 0xFF,
+                    hit_points_plus_one: 2,
+                    x: 200,
+                    y: 144,
+                }],
+            }],
+        };
+        let window = ActivationWindow {
+            x_min: 0,
+            x_max: 640,
+            y_min: 0,
+            y_max: 480,
+        };
+        let mut active = Vec::new();
+
+        activate_enemies(
+            &mut active,
+            &layout,
+            window,
+            0,
+            0,
+            physics::LevelBounds {
+                width_pixels: 4096,
+                height_pixels: 512,
+            },
+            0,
+            0,
+            &std::collections::HashSet::new(),
+        );
+
+        let dragon = active.first().expect("walking dragon should activate");
+        assert_eq!(dragon.family, EnemyFamily::DragonWalking);
+        assert_eq!(
+            dragon.hit_points, 3,
+            "ASM Dragon.asm loc_3CDB8 stores enemy_level+1 in current_hp(a3), so raw level 2 spawns a 3 HP walking dragon"
         );
     }
 
