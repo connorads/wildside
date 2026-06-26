@@ -499,6 +499,10 @@ mod tests {
             summary.contains("number_platforms=2"),
             "ASM Allocate_PlatformSlot/Deallocate_PlatformSlot maintain `(Number_Platforms).w` independently of the native runtime vector, so the loader trace should expose the loaded-mask count directly",
         );
+        assert!(
+            summary.contains("next_free=0xedba") && summary.contains("active_links=none"),
+            "ASM Initialize_Platforms sub_231C seeds the free-list head before any platform allocation; trace should expose that pool state alongside the loader cursor",
+        );
     }
 
     #[test]
@@ -8225,13 +8229,25 @@ impl NativeRuntime {
             || "none".to_string(),
             |layout| layout.placements.len().to_string(),
         );
+        let active_links = loader.active_slot_next_links_loc_231C();
+        let active_links = if active_links.is_empty() {
+            "none".to_string()
+        } else {
+            active_links
+                .into_iter()
+                .map(|(slot_addr, next_addr)| format!("{slot_addr:#06x}->{next_addr:#06x}"))
+                .collect::<Vec<_>>()
+                .join(",")
+        };
         Some(format!(
-            "offset={:#06x} next_index={} number_platforms={} layout_len={} active_slots={}",
+            "offset={:#06x} next_index={} number_platforms={} next_free={:#06x} layout_len={} active_slots={} active_links={}",
             loader.offset_words,
             loader.next_index,
             loader.number_platforms_loc_231C(),
+            loader.next_free_platform_slot_addr_loc_231C(),
             layout_len,
-            self.active_platforms.len()
+            self.active_platforms.len(),
+            active_links
         ))
     }
 

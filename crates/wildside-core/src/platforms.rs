@@ -449,7 +449,6 @@ pub(crate) struct PlatformSlotPoolLoc231C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 impl PlatformSlotPoolLoc231C {
     pub(crate) fn initialize_sub_231C() -> Self {
         let init = initialize_platform_slots_sub_231C();
@@ -1213,6 +1212,25 @@ impl PlatformLoaderState {
             self.sync_slot_model_facade_loc_2744();
         }
         result
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn next_free_platform_slot_addr_loc_231C(&self) -> u16 {
+        self.slot_model.pool.next_free_platform_slot_addr()
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn active_slot_next_links_loc_231C(&self) -> Vec<(u16, u16)> {
+        self.slot_model
+            .active_slot_records_loc_2728()
+            .into_iter()
+            .filter_map(|record| {
+                self.slot_model
+                    .pool
+                    .slot_next_addr_sub_231C(record.slot_addr)
+                    .map(|next_addr| (record.slot_addr, next_addr))
+            })
+            .collect()
     }
 
     fn sync_slot_model_facade_loc_2744(&mut self) {
