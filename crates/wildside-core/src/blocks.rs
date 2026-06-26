@@ -177,7 +177,6 @@ pub(crate) struct PrizeCollectedArcHibernateStepLocFEEE {
     pub(crate) screen_y_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeCollectedWorldStepLocFEFE {
     pub(crate) world_x_word: u16,
@@ -510,7 +509,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_collected_world_step_loc_FEFE(
         arc_step: PrizeCollectedArcHibernateStepLocFEEE,
         camera_x_word: u16,

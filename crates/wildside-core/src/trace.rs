@@ -1,4 +1,5 @@
 use super::*;
+use crate::blocks::PrizeCollectedArcHibernateStepLocFEEE;
 use crate::combat::{
     BossEyeSpriteRefreshSlotSub37ABC, HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266,
     boss_eye_refresh_attack_sprites_sub_37ABC, enemy_contact_bounds,
@@ -4797,6 +4798,36 @@ mod tests {
     }
 
     #[test]
+    fn trace_frame_rebuilds_pending_prize_diamond_world_words_loc_fefe() {
+        let mut runtime = NativeRuntime::new(minimal_manifest());
+        runtime.boot_state = BootState::InGame;
+        runtime.opening_slice = Some(OpeningSliceState::respawn(crate::physics::LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        }));
+        runtime.opening_slice.as_mut().unwrap().camera = CameraState {
+            x_pos: 0x0020_8000,
+            y_pos: 0x0004_8000,
+        };
+
+        // ASM loc_FEFE reads only the high words of the cached screen FP
+        // coordinates and Camera_X/Y_pos, then adds those words; low-word
+        // fractions do not carry into the rendered world pixel.
+        runtime.queue_prize_diamond_award_at_screen_offset(0x0064_C000, 0x0050_C000);
+
+        assert_eq!(
+            runtime.trace_frame().floating_items,
+            vec![(
+                0x0084,
+                0x0054,
+                0x01F4,
+                terrain::PrizeContent::Diamond.to_id()
+            )],
+            "ASM loc_FEFE rebuilds collected-prize world x/y with word additions after loc_FEEE's cached screen-coordinate step",
+        );
+    }
+
+    #[test]
     fn trace_frame_floating_diamond_candidates_use_fixed_point_pixel_coordinates() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
@@ -7876,10 +7907,27 @@ impl NativeRuntime {
                     // flies the sprite toward screen x=$126/y=$30 using cached
                     // camera-relative `$3E/$42`, then rebuilds world x/y from
                     // the current camera before drawing.
-                    let x_fp = i64::from(flight.screen_x_fp) + i64::from(camera_state.x_pos);
-                    let y_fp = i64::from(flight.screen_y_fp) + i64::from(camera_state.y_pos);
-                    let x_px = (x_fp >> 16).clamp(0, i64::from(u16::MAX)) as u16;
-                    let y_px = (y_fp >> 16).clamp(0, i64::from(u16::MAX)) as u16;
+                    let arc_step = PrizeCollectedArcHibernateStepLocFEEE {
+                        next_screen_x_fp: flight.screen_x_fp,
+                        next_screen_y_fp: flight.screen_y_fp,
+                        screen_x_word: Self::high_word_from_i32(flight.screen_x_fp),
+                        screen_y_word: Self::high_word_from_i32(flight.screen_y_fp),
+                    };
+                    let loop_counter = u16::from(flight.remaining_delay.saturating_sub(1));
+                    let world_step = Self::prize_collected_world_step_loc_FEFE(
+                        arc_step,
+                        Self::high_word_from_i32(camera_state.x_pos as i32),
+                        Self::high_word_from_i32(camera_state.y_pos as i32),
+                        loop_counter,
+                    );
+                    debug_assert_eq!(world_step.next_loop_counter, loop_counter.wrapping_sub(1));
+                    debug_assert_eq!(
+                        world_step.should_loop,
+                        flight.remaining_delay > 1,
+                        "ASM loc_FEFE DBF loops until the final visible hibernate tick",
+                    );
+                    let x_px = world_step.world_x_word;
+                    let y_px = world_step.world_y_word;
                     let elapsed = u16::from(
                         NativeRuntime::PRIZE_DIAMOND_AWARD_DELAY_FRAMES
                             .saturating_sub(flight.remaining_delay),
