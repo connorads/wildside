@@ -238,7 +238,6 @@ pub(crate) fn hand_delete_tail_loc_32ae6() -> HandDeleteTailLoc32AE6 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandTerrainScanLoc32AFE {
     pub(crate) row_index: i16,
     pub(crate) start_col: i16,
@@ -250,7 +249,6 @@ pub(crate) struct HandTerrainScanLoc32AFE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_terrain_scan_loc_32afe(
     x_pos_word: u16,
     y_pos_word: u16,
@@ -289,6 +287,30 @@ pub(crate) fn hand_terrain_scan_loc_32afe(
         last_collision_4000,
         any_collision_4000,
     }
+}
+
+fn hand_terrain_scan_from_grid_loc_32afe(
+    grid: &terrain::BlockGrid,
+    x_pos_word: u16,
+    y_pos_word: u16,
+) -> HandTerrainScanLoc32AFE {
+    let row_index = asr4_word(y_pos_word.wrapping_add(1));
+    let start_col = asr4_word(x_pos_word.wrapping_sub(0x000E));
+    let end_col = asr4_word(x_pos_word.wrapping_add(0x000E));
+    let sampled_row_words = if start_col <= end_col {
+        (start_col..=end_col)
+            .map(|col| {
+                if row_index < 0 || col < 0 {
+                    0
+                } else {
+                    grid.raw_word_at(col as u16, row_index as u16)
+                }
+            })
+            .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    hand_terrain_scan_loc_32afe(x_pos_word, y_pos_word, &sampled_row_words)
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -620,7 +642,6 @@ pub(crate) struct HandInitialMotionLoc327F2 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum HandPatrolDecision {
     ContinuePatrol,
     JumpAttack,
@@ -693,7 +714,6 @@ pub(crate) fn hand_detection_reject_loc_328a2() -> i16 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_patrol_decision_loc_32804(
     x_velocity: i32,
     probe_d6: i16,
@@ -738,6 +758,27 @@ fn reverse_hand_loc_32840(enemy: &mut ActiveEnemy) {
     let reversal = hand_reversal_loc_32840(enemy.x_velocity, hand_x_direction_flag(enemy.facing));
     enemy.x_velocity = reversal.x_velocity;
     enemy.facing = hand_facing_from_x_direction_flag(reversal.x_direction_flag);
+}
+
+fn start_hand_jump_attack_loc_328a6(enemy: &mut ActiveEnemy, player_x_pos: u32, player_y_pos: u32) {
+    // ASM Hand.asm loc_328A6/loc_328AA: load the HP-tier speed seed, mix each
+    // random byte with Kid's low position byte, then store the prepared X/Y velocities.
+    enemy.hand_state = HandState::Jumping;
+    enemy.on_ground = false;
+    let speed_seed = hand_jump_seed_loc_328a6(enemy.hit_points);
+    let jump = hand_jump_components_loc_328aa(
+        speed_seed,
+        hand_x_direction_flag(enemy.facing),
+        u32::from(enemy.wait_timer).wrapping_mul(7).to_le_bytes()[0],
+        fixed_position_integer_word(player_y_pos),
+        u32::from(enemy.wait_timer)
+            .wrapping_mul(13)
+            .wrapping_add(5)
+            .to_le_bytes()[0],
+        fixed_position_integer_word(player_x_pos),
+    );
+    enemy.x_velocity = hand_x_velocity_loc_328e0(jump.x_velocity_word);
+    enemy.y_velocity = jump.y_velocity;
 }
 
 /// Step a Hand enemy through its walk/detect/jump state machine.
@@ -787,75 +828,82 @@ pub(crate) fn step_hand(
                     reverse_hand_loc_32840(enemy);
                     return;
                 }
+            }
 
-                let look_ahead_x = if moving_right {
-                    cx + ENEMY_PROBE_HALF_WIDTH
+            let hand_x_word = fixed_position_integer_word(enemy.x_pos);
+            let hand_y_word = fixed_position_integer_word(enemy.y_pos);
+            let player_words = player_x_pos.zip(player_y_pos).map(|(px, py)| {
+                (
+                    px,
+                    py,
+                    fixed_position_integer_word(px),
+                    fixed_position_integer_word(py),
+                )
+            });
+
+            if let Some((px, py, kid_x_word, kid_y_word)) = player_words {
+                // Player detection: forward cone from ASM Hand.asm loc_3284C/loc_32886.
+                let relative_x_px =
+                    i16::from_be_bytes(kid_x_word.wrapping_sub(hand_x_word).to_be_bytes());
+                let vertical_delta_minus_16_px = i16::from_be_bytes(
+                    kid_y_word
+                        .wrapping_sub(0x0010)
+                        .wrapping_sub(hand_y_word)
+                        .to_be_bytes(),
+                );
+
+                let detection_d7 = if vertical_delta_minus_16_px >= 0 {
+                    hand_detection_reject_loc_328a2()
                 } else {
-                    cx - ENEMY_PROBE_HALF_WIDTH
+                    let detect_range = HAND_DETECT_RANGE[tier] as i16;
+                    let in_cone = match enemy.facing {
+                        Direction::Right => hand_right_detection_loc_3284c(
+                            relative_x_px,
+                            vertical_delta_minus_16_px,
+                            detect_range,
+                        ),
+                        Direction::Left => hand_left_detection_loc_32886(
+                            relative_x_px,
+                            vertical_delta_minus_16_px,
+                            detect_range,
+                        ),
+                    };
+                    if in_cone {
+                        1
+                    } else {
+                        hand_detection_reject_loc_328a2()
+                    }
                 };
-                if !terrain::probe_floor(grid, look_ahead_x, cy).on_ground {
-                    reverse_hand_loc_32840(enemy);
+
+                if detection_d7 != 0 {
+                    start_hand_jump_attack_loc_328a6(enemy, px, py);
+                    return;
                 }
             }
 
-            // Player detection: forward cone from ASM Hand.asm loc_3284C/loc_32886.
-            let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
-                return;
-            };
-            let hand_x_word = fixed_position_integer_word(enemy.x_pos);
-            let hand_y_word = fixed_position_integer_word(enemy.y_pos);
-            let kid_x_word = fixed_position_integer_word(px);
-            let kid_y_word = fixed_position_integer_word(py);
-            let relative_x_px =
-                i16::from_be_bytes(kid_x_word.wrapping_sub(hand_x_word).to_be_bytes());
-            let vertical_delta_minus_16_px = i16::from_be_bytes(
-                kid_y_word
-                    .wrapping_sub(0x0010)
-                    .wrapping_sub(hand_y_word)
-                    .to_be_bytes(),
-            );
-
-            let detection_d7 = if vertical_delta_minus_16_px >= 0 {
-                hand_detection_reject_loc_328a2()
-            } else {
-                let detect_range = HAND_DETECT_RANGE[tier] as i16;
-                let in_cone = match enemy.facing {
-                    Direction::Right => hand_right_detection_loc_3284c(
-                        relative_x_px,
-                        vertical_delta_minus_16_px,
-                        detect_range,
-                    ),
-                    Direction::Left => hand_left_detection_loc_32886(
-                        relative_x_px,
-                        vertical_delta_minus_16_px,
-                        detect_range,
-                    ),
-                };
-                if in_cone {
-                    1
-                } else {
-                    hand_detection_reject_loc_328a2()
+            if let Some(grid) = block_grid {
+                let scan = hand_terrain_scan_from_grid_loc_32afe(grid, hand_x_word, hand_y_word);
+                if !scan.any_collision_4000 {
+                    enemy.hit_points = 0;
+                    enemy.death_animation_active = true;
+                    enemy.wait_timer = HAND_DEATH_ANIMATION_FRAMES;
+                    return;
                 }
-            };
 
-            if detection_d7 != 0 {
-                // Jump toward player with randomised velocity (Hand.asm lines 128-147)
-                enemy.hand_state = HandState::Jumping;
-                enemy.on_ground = false;
-                let speed_seed = hand_jump_seed_loc_328a6(enemy.hit_points);
-                let jump = hand_jump_components_loc_328aa(
-                    speed_seed,
-                    hand_x_direction_flag(enemy.facing),
-                    u32::from(enemy.wait_timer).wrapping_mul(7).to_le_bytes()[0],
-                    fixed_position_integer_word(py),
-                    u32::from(enemy.wait_timer)
-                        .wrapping_mul(13)
-                        .wrapping_add(5)
-                        .to_le_bytes()[0],
-                    fixed_position_integer_word(px),
+                let decision = hand_patrol_decision_loc_32804(
+                    enemy.x_velocity,
+                    i16::from_be_bytes(scan.first_collision_4000.to_be_bytes()),
+                    i16::from_be_bytes(scan.last_collision_4000.to_be_bytes()),
                 );
-                enemy.x_velocity = hand_x_velocity_loc_328e0(jump.x_velocity_word);
-                enemy.y_velocity = jump.y_velocity;
+                match decision {
+                    HandPatrolDecision::ContinuePatrol => {}
+                    HandPatrolDecision::ReverseDirection => reverse_hand_loc_32840(enemy),
+                    HandPatrolDecision::JumpAttack => {
+                        if let Some((px, py, _, _)) = player_words {
+                            start_hand_jump_attack_loc_328a6(enemy, px, py);
+                        }
+                    }
+                }
             }
         }
         HandState::Jumping => {

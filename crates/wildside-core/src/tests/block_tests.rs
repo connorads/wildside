@@ -11970,7 +11970,7 @@ mod chunk_04 {
 
     #[test]
     fn hand_walking_loc_32840_reverses_at_left_floor_edge() {
-        let grid = grid_with_solid_cells(8, 5, &[(0, 3), (4, 3)]);
+        let grid = grid_with_solid_cells(8, 5, &[(0, 3), (5, 3)]);
         let mut enemy = test_enemy(EnemyFamily::Hand, 68 << 16, 48 << 16, 1);
         enemy.hand_state = HandState::Walking;
         enemy.facing = Direction::Left;
@@ -11980,7 +11980,24 @@ mod chunk_04 {
         assert_eq!(
             (enemy.facing, enemy.x_velocity),
             (Direction::Right, HAND_WALK_SPEED[0]),
-            "ASM Hand.asm loc_32836/loc_32840 uses `cx - half_width` for the left lead probe before reversing on lost `$4000` support"
+            "ASM Hand.asm loc_32836/loc_32840 reverses when loc_32AFE reports left edge d6 clear but right edge d7 still has `$4000` support"
+        );
+    }
+
+    #[test]
+    fn hand_walking_loc_32afe_no_support_enters_death_sequence() {
+        let grid = grid_with_solid_cells(8, 5, &[]);
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.facing = Direction::Right;
+
+        step_hand(&mut enemy, Some(&grid), None, None, None);
+
+        assert_eq!(enemy.hit_points, 0);
+        assert!(enemy.death_animation_active);
+        assert_eq!(
+            enemy.wait_timer, HAND_DEATH_ANIMATION_FRAMES,
+            "ASM Hand.asm loc_32804 branches to loc_32AA2 when loc_32AFE leaves d4 zero because no scanned word has `$4000` support"
         );
     }
 
