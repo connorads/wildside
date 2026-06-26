@@ -150,21 +150,18 @@ pub(crate) fn scorpion_resume_after_tracking_loc_3de6c(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionTimerRestartRouteLoc3DEA0 {
     ClearDirection,
     SetDirection,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionTimerResumeRouteLoc3DECE {
     ClearDirection,
     SetDirection,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionTimerRouteLoc3DEA0 {
     ResumeSharedWalker {
         next: ScorpionTimerResumeRouteLoc3DECE,
@@ -175,14 +172,12 @@ pub(crate) enum ScorpionTimerRouteLoc3DEA0 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ScorpionTimerGateLoc3DEA0 {
     pub(crate) timer_54: u16,
     pub(crate) alternating_timer_pair_6e: u32,
     pub(crate) route: ScorpionTimerRouteLoc3DEA0,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_timer_gate_loc_3dea0(
     relative_y_word_42: i16,
     timer_54: u16,
@@ -228,7 +223,6 @@ pub(crate) fn scorpion_timer_gate_loc_3dea0(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_timer_resume_route_loc_3dece(
     facing: Direction,
 ) -> ScorpionTimerResumeRouteLoc3DECE {

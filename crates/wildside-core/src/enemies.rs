@@ -6283,9 +6283,61 @@ fn shared_walker_should_tick_patrol(enemy: &ActiveEnemy) -> bool {
     enemy.shared_walker_state <= 0 || enemy.shared_walker_state == SHARED_WALKER_STATE_PATROL
 }
 
+fn dragon_walking_patrol_timer_pair_loc_3dea0(short_next: bool) -> u32 {
+    // ASM Dragon.asm loc_3CDFC seeds `$6E(a5)=$0032_012C`; Scorpion.asm
+    // loc_3DEA0 later rotates that packed short/long pair before reloading
+    // `$54(a5)`.
+    let (high, low) = if short_next {
+        (
+            DRAGON_WALKING_PATROL_SHORT_FRAMES,
+            DRAGON_WALKING_PATROL_LONG_FRAMES,
+        )
+    } else {
+        (
+            DRAGON_WALKING_PATROL_LONG_FRAMES,
+            DRAGON_WALKING_PATROL_SHORT_FRAMES,
+        )
+    };
+    u32::from(high) << 16 | u32::from(low)
+}
+
+fn dragon_walking_patrol_short_next_loc_3dea0(timer_pair_6e: u32) -> bool {
+    timer_pair_6e == dragon_walking_patrol_timer_pair_loc_3dea0(true)
+}
+
 fn shared_walker_tick_patrol(enemy: &mut ActiveEnemy) -> bool {
     if !shared_walker_should_tick_patrol(enemy) || enemy.shared_walker_patrol_timer == 0 {
         return false;
+    }
+
+    if matches!(enemy.family, EnemyFamily::DragonWalking) {
+        let gate = scorpion_timer_gate_loc_3dea0(
+            enemy.shared_walker_state,
+            enemy.shared_walker_patrol_timer,
+            dragon_walking_patrol_timer_pair_loc_3dea0(enemy.shared_walker_patrol_short_next),
+            enemy.facing,
+        );
+        enemy.shared_walker_patrol_timer = gate.timer_54;
+        return match gate.route {
+            ScorpionTimerRouteLoc3DEA0::ResumeSharedWalker { next } => {
+                let resume_facing = match next {
+                    ScorpionTimerResumeRouteLoc3DECE::ClearDirection => Direction::Left,
+                    ScorpionTimerResumeRouteLoc3DECE::SetDirection => Direction::Right,
+                };
+                debug_assert_eq!(resume_facing, enemy.facing);
+                false
+            }
+            ScorpionTimerRouteLoc3DEA0::RestartPacing { next } => {
+                let restart_facing = match next {
+                    ScorpionTimerRestartRouteLoc3DEA0::ClearDirection => Direction::Left,
+                    ScorpionTimerRestartRouteLoc3DEA0::SetDirection => Direction::Right,
+                };
+                debug_assert_eq!(restart_facing, enemy.facing);
+                enemy.shared_walker_patrol_short_next =
+                    dragon_walking_patrol_short_next_loc_3dea0(gate.alternating_timer_pair_6e);
+                true
+            }
+        };
     }
 
     enemy.shared_walker_patrol_timer -= 1;
@@ -6294,15 +6346,6 @@ fn shared_walker_tick_patrol(enemy: &mut ActiveEnemy) -> bool {
     }
 
     enemy.shared_walker_patrol_timer = match enemy.family {
-        EnemyFamily::DragonWalking => {
-            let next = if enemy.shared_walker_patrol_short_next {
-                DRAGON_WALKING_PATROL_SHORT_FRAMES
-            } else {
-                DRAGON_WALKING_PATROL_LONG_FRAMES
-            };
-            enemy.shared_walker_patrol_short_next = !enemy.shared_walker_patrol_short_next;
-            next
-        }
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
         _ => 0,
     };
