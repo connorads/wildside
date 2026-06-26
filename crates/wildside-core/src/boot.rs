@@ -2386,16 +2386,16 @@ pub(crate) struct EndSequenceFallingSpriteInitSub1D8B4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Prize10000PointsStarSpawnLoc10B3A {
-    pub(crate) palette_line: u8,
-    pub(crate) display_enabled: bool,
-    pub(crate) sprite_mapping_label: &'static str,
-    pub(crate) x_pos: u16,
-    pub(crate) y_pos: u16,
-    pub(crate) x_velocity_fp: i32,
-    pub(crate) y_velocity_fp: i32,
-    pub(crate) is_moved: bool,
-    pub(crate) timer: u16,
+pub struct Prize10000PointsStarSpawnLoc10B3A {
+    pub palette_line: u8,
+    pub display_enabled: bool,
+    pub sprite_mapping_label: &'static str,
+    pub x_pos: u16,
+    pub y_pos: u16,
+    pub x_velocity_fp: i32,
+    pub y_velocity_fp: i32,
+    pub is_moved: bool,
+    pub timer: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5146,8 +5146,7 @@ pub(crate) fn end_sequence_burst_low_priority_wait_loop_loc_1D252()
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
-pub(crate) fn prize_10000_points_star_spawn_loc_10B3A(
+pub fn prize_10000_points_star_spawn_loc_10B3A(
     frame_counter: u16,
     x_pos: u16,
     y_pos: u16,

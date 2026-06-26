@@ -300,10 +300,9 @@ pub(crate) struct Prize10DiamondsWorkerScanStartLoc10960 {
     pub(crate) worker_table_len_bytes: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Prize10DiamondsWorkerCountdownGateLoc10984 {
-    pub(crate) should_clear_display_enabled: bool,
+pub struct Prize10DiamondsWorkerCountdownGateLoc10984 {
+    pub should_clear_display_enabled: bool,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -1009,8 +1008,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn prize_10_diamonds_worker_countdown_gate_loc_10984(
+    pub fn prize_10_diamonds_worker_countdown_gate_loc_10984(
         lifetime_frames: u16,
     ) -> Prize10DiamondsWorkerCountdownGateLoc10984 {
         // ASM loc_10984 (kid.asm:22223-22227): the `$70` frame clears

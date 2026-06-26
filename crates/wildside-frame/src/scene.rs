@@ -7362,7 +7362,20 @@ fn render_ten_diamonds_worker_effect(
         debug_assert_eq!(spawn.is_moved, Some(true));
         debug_assert_eq!(spawn.lifetime_frames, Some(0x0078));
 
-        let worker_age = i64::from(u16::from(effect_age).wrapping_sub(spawn_frame));
+        let worker_age_u16 = u16::from(effect_age).wrapping_sub(spawn_frame);
+        let worker_lifetime = spawn
+            .lifetime_frames
+            .unwrap_or_default()
+            .saturating_sub(worker_age_u16);
+        let countdown_gate =
+            wildside_core::NativeRuntime::prize_10_diamonds_worker_countdown_gate_loc_10984(
+                worker_lifetime,
+            );
+        if countdown_gate.should_clear_display_enabled || worker_lifetime < 0x0070 {
+            continue;
+        }
+
+        let worker_age = i64::from(worker_age_u16);
         let worker_x = screen_x
             + ((i64::from(spawn.x_velocity.unwrap_or_default()) * worker_age) >> 16) as i32;
         let worker_y = screen_y
@@ -7389,14 +7402,29 @@ fn render_10000_points_worker_effect(
     // ASM Prize10000Points_Init loc_10B00 uses unk_10A7A to spawn five workers
     // on frames 0,5,10,15,20. Frame 0 uses unk_E1056 (tile $6BB); later
     // workers use unk_E104E (tile $6BA), both 8x8 over HUD number tiles.
-    const SPAWNS: &[u8] = &[0, 5, 10, 15, 20];
     let mut drew_worker = false;
-    for &spawn_frame in SPAWNS {
-        if effect_age < spawn_frame {
+    for spawn_frame in 0..=u16::from(effect_age).min(0x0014) {
+        let Some(spawn) = wildside_core::prize_10000_points_star_spawn_loc_10B3A(
+            spawn_frame,
+            screen_x as u16,
+            screen_y as u16,
+        ) else {
             continue;
-        }
-        let worker_age = i32::from(effect_age - spawn_frame);
-        let tile_base_index = if spawn_frame == 0 { 1 } else { 0 };
+        };
+        debug_assert_eq!(spawn.palette_line, 1);
+        debug_assert!(spawn.display_enabled);
+        debug_assert_eq!(spawn.x_pos, screen_x as u16);
+        debug_assert_eq!(spawn.y_pos, screen_y as u16);
+        debug_assert!(spawn.is_moved);
+        debug_assert_eq!(spawn.timer, 0x0078);
+
+        let worker_age = i32::from(u16::from(effect_age).wrapping_sub(spawn_frame));
+        let tile_base_index = if spawn.sprite_mapping_label == "LnkTo_unk_E1056-Data_Index" {
+            1
+        } else {
+            debug_assert_eq!(spawn.sprite_mapping_label, "LnkTo_unk_E104E-Data_Index");
+            0
+        };
         let frame = wildside_render::SpriteFrame {
             origin_x: 0x04,
             origin_y: -4,
