@@ -39,7 +39,7 @@ pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_STAR
 pub use blocks::{
     FloatingPrizeGraphicsSpec, Prize10DiamondsSpawnLoc108EE,
     Prize10DiamondsWorkerCountdownGateLoc10984, Prize10DiamondsWorkerScanStartLoc10960,
-    floating_prize_graphics_spec,
+    PrizeBlockSpawnFlashLoc102B8, floating_prize_graphics_spec,
 };
 pub use boot::{
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, PAUSE_MENU_Y_OFFSET_LOC_6948,

@@ -5258,6 +5258,12 @@ fn prize_block_spawn_flash_frame_loc_102b8(
     level_visuals: &NativeLevelVisuals,
     remaining: u8,
 ) -> Option<wildside_render::SpriteFrame> {
+    let flash = wildside_core::NativeRuntime::prize_block_spawn_flash_loc_102B8();
+    debug_assert!(!flash.display_enabled);
+    debug_assert_eq!(flash.palette_line, 0);
+    debug_assert_eq!(flash.addroffset_sprite, 0x0F2E);
+    debug_assert_eq!(flash.animation_script_addr, 0x0001_02DE);
+
     let elapsed = PRIZE_BLOCK_SPAWN_FLASH_TOTAL_FRAMES_LOC_102B8.saturating_sub(remaining);
     let mut frame_start = 0_u8;
     // ASM loc_102B8/stru_102DE (kid.asm:21578) initialises four 24x24 sprite
