@@ -968,13 +968,19 @@ fn overlay_intro_sequence_3_sprite_table_loc_1AEEC(
         let Some(frame) = intro_sequence_3_sprite_frame_vram(gfx.addroffset_sprite) else {
             continue;
         };
+        let allocation_spec =
+            crate::movement::intro_sequence_3_allocation_spec_loc_1AEE2(descriptor);
+        let allocation_tail = crate::movement::gfx_object_alloc_tail_loc_FBE(
+            allocation_spec,
+            sprite_objects.len() as u16,
+            0,
+        );
         sprite_objects.push(IntroGfxObjectForSpriteTableWithOrder {
             // ASM Allocate_GfxObjectSlot loc_FBE stores the high word of the
             // caller's `$01FF0000`/`$02010000` allocation spec at `$A(a3)`;
             // loc_FD4 sorts the gfx list by that word before
             // Make_SpriteFromGfxObject builds the hardware sprite table.
-            order_key: (crate::movement::intro_sequence_3_allocation_spec_loc_1AEE2(descriptor)
-                >> 16) as u16,
+            order_key: allocation_tail.priority_word,
             gfx: gfx.into(),
             frame,
         });

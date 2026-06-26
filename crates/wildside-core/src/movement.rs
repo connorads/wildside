@@ -604,7 +604,6 @@ pub(crate) struct GfxObjectAllocationSpecialChainSpliceLocFB8 {
     pub(crate) new_special_chain_head_index: usize,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GfxObjectAllocTailLocFBE {
     pub(crate) object_kind_word: u16,
@@ -658,7 +657,6 @@ pub(crate) fn gfx_object_alloc_special_chain_splice_loc_FB8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_alloc_tail_loc_FBE(
     allocation_spec: u32,
     current_number_gfx_objects: u16,
