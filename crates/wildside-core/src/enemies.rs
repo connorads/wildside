@@ -3754,7 +3754,30 @@ pub(crate) fn step_active_enemies_with_rng(
                         enemy.y_velocity = 0;
                         enemy.scorpion_sting_frames = enemy.scorpion_sting_frames.saturating_sub(1);
                         if enemy.scorpion_sting_frames == 0 {
-                            enemy.walk_speed_override = 0;
+                            let recovery = scorpion_sting_recovery_loc_3de40(
+                                pacer_walk_speed(EnemyFamily::Scorpion, enemy.hit_points),
+                                0xC000 | u16::from(EnemyFamily::Scorpion.object_type()),
+                            );
+                            if cfg!(debug_assertions) {
+                                assert!(
+                                    !recovery.linked_tail_has_kid_collision,
+                                    "ASM Scorpion.asm loc_3DE40 clears linked tail `$3D`",
+                                );
+                                assert_eq!(
+                                    recovery.sprite_mapping, "LnkTo_unk_C7DDE-Data_Index",
+                                    "ASM Scorpion.asm loc_3DE40 restores base sprite mapping",
+                                );
+                                assert_eq!(
+                                    recovery.animation_script, "stru_3DB60",
+                                    "ASM Scorpion.asm loc_3DE40 restores base animation",
+                                );
+                                assert_eq!(
+                                    recovery.object_meta,
+                                    u16::from(EnemyFamily::Scorpion.object_type()),
+                                    "ASM Scorpion.asm loc_3DE40 masks high object_meta bits",
+                                );
+                            }
+                            enemy.walk_speed_override = recovery.walk_speed_override;
                         }
                         continue;
                     }

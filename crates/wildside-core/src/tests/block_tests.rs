@@ -3808,6 +3808,60 @@ mod chunk_04 {
     }
 
     #[test]
+    fn scorpion_sting_recovery_is_wired_after_hibernation_loc_3de40() {
+        let grid = grid_with_floor_at_row(14);
+        let mut scorpion = make_pacer(EnemyFamily::Scorpion, 5, 0x80, 0xE0);
+        scorpion.scorpion_sting_frames = 1;
+        scorpion.walk_speed_override = 0;
+        scorpion.x_velocity = 0x0001_8000;
+        let start_x = scorpion.x_pos;
+        let mut active = vec![scorpion];
+        let mut drilled_blocks = Vec::new();
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+
+        assert_eq!(
+            active[0].x_pos, start_x,
+            "ASM Scorpion.asm loc_3DDEE hibernates on the final sting frame before loc_3DE40 resumes"
+        );
+        assert_eq!(
+            active[0].scorpion_sting_frames, 0,
+            "ASM Scorpion.asm loc_3DE40 clears the native linked-tail collision phase"
+        );
+        assert_eq!(
+            active[0].walk_speed_override, 0x0001_8000,
+            "ASM Scorpion.asm loc_3DE40 restores `$50(a5)` from saved `$5E(a5)`"
+        );
+
+        step_active_enemies(
+            &mut active,
+            Some(&grid),
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+            &mut drilled_blocks,
+        );
+
+        assert!(
+            active[0].x_pos < start_x,
+            "ASM Scorpion.asm loc_3DE40 resumes the shared-walker left branch on the next scheduler pass"
+        );
+    }
+
+    #[test]
     fn scorpion_resume_after_tracking_matches_loc_3de6c_cache_and_clear() {
         use enemies::{
             ScorpionResumeRouteLoc3DE6C, ScorpionResumeStateLoc3DE6C,

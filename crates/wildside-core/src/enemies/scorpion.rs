@@ -93,7 +93,6 @@ pub(crate) fn scorpion_close_range_route_loc_3ddc8(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ScorpionStingRecoveryLoc3DE40 {
     pub(crate) linked_tail_has_kid_collision: bool,
     pub(crate) sprite_mapping: &'static str,
@@ -102,7 +101,6 @@ pub(crate) struct ScorpionStingRecoveryLoc3DE40 {
     pub(crate) object_meta: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_sting_recovery_loc_3de40(
     saved_walk_speed_override_5e: i32,
     object_meta: u16,
