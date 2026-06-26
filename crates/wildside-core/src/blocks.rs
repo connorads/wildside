@@ -2977,7 +2977,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_slot_freed_cell_loc_F336(skin: u8) -> terrain::Cell {
         // ASM loc_F336 (kid.asm:19921): before unlinking the active shooter
         // slot, `move.b #$EC,(a3)` restores the layout high byte and preserves
@@ -3158,64 +3157,82 @@ impl NativeRuntime {
     }
 
     pub(crate) fn step_shooter_blocks(&mut self, slice: &OpeningSliceState) {
-        let Some(grid) = &self.block_grid else {
+        if self.block_grid.is_none() {
             return;
-        };
+        }
 
         let kid_block_col = ((slice.player.x_pos >> 16) >> 4) as i16;
         let kid_block_row = ((slice.player.y_pos >> 16) >> 4) as i16;
-        let max_col = i16::try_from(grid.width_cells.saturating_sub(1))
-            .expect("block grids should fit in i16");
-        let max_row = i16::try_from(grid.height_cells.saturating_sub(1))
-            .expect("block grids should fit in i16");
+        let (max_col, max_row) = {
+            let grid = self.block_grid.as_ref().expect("checked above");
+            (
+                i16::try_from(grid.width_cells.saturating_sub(1))
+                    .expect("block grids should fit in i16"),
+                i16::try_from(grid.height_cells.saturating_sub(1))
+                    .expect("block grids should fit in i16"),
+            )
+        };
         let previous_col = self.block_state.shooter_last_scanned_col;
         let previous_row = self.block_state.shooter_last_scanned_row;
 
-        self.block_state.shooter_blocks.retain_mut(|entry| {
-            let cell = grid.cell_at(entry.col, entry.row);
-            let still_shooter = Self::shooter_direction_bits_loc_F106(cell).is_some()
-                || (entry.restored_touch_shooter
-                    && cell == Self::shooter_support_tile_for_sub_114f4());
-            if !still_shooter {
-                return false;
-            }
+        let mut freed_cells = Vec::new();
+        {
+            let grid = self.block_grid.as_ref().expect("checked above");
+            self.block_state.shooter_blocks.retain_mut(|entry| {
+                let cell = grid.cell_at(entry.col, entry.row);
+                let still_shooter = Self::shooter_direction_bits_loc_F106(cell).is_some()
+                    || (entry.restored_touch_shooter
+                        && cell == Self::shooter_support_tile_for_sub_114f4());
+                if !still_shooter {
+                    return false;
+                }
 
-            // ASM loc_7FC (kid.asm:915) runs the sub_F730 shooter tick before
-            // loc_806 calls sub_F096 to scan/register new shooter slots. Native
-            // handles existing entries here, then appends newly scanned entries
-            // below so a fresh loc_F24E slot cannot fire until the next frame.
-            // ASM loc_F28C/loc_F410 (kid.asm:19849/20035): negative visible
-            // shooter slots compile sprite entries around the source cell. They
-            // do not allocate ShooterObject_RAM bullets; moving shooter objects
-            // are loaded separately by loc_EC76 from evanescent/touch-triggered
-            // block workers. Native handles the visible-slot collision rectangles
-            // through sub_F568/sub_1F52 rather than spawning projectiles here.
+                // ASM loc_7FC (kid.asm:915) runs the sub_F730 shooter tick before
+                // loc_806 calls sub_F096 to scan/register new shooter slots. Native
+                // handles existing entries here, then appends newly scanned entries
+                // below so a fresh loc_F24E slot cannot fire until the next frame.
+                // ASM loc_F28C/loc_F410 (kid.asm:19849/20035): negative visible
+                // shooter slots compile sprite entries around the source cell. They
+                // do not allocate ShooterObject_RAM bullets; moving shooter objects
+                // are loaded separately by loc_EC76 from evanescent/touch-triggered
+                // block workers. Native handles the visible-slot collision rectangles
+                // through sub_F568/sub_1F52 rather than spawning projectiles here.
 
-            entry.age += 1;
-            if entry.age < Self::SHOOTER_FIRE_INTERVAL {
-                return true;
-            }
+                entry.age += 1;
+                if entry.age < Self::SHOOTER_FIRE_INTERVAL {
+                    return true;
+                }
 
-            let player_in_range = Self::shooter_player_in_range_sub_F536(
-                slice.player.x_pos,
-                slice.player.y_pos,
-                entry.col,
-                entry.row,
-            );
-            if Self::shooter_slot_restart_phase_loc_F326(player_in_range).is_some() {
-                // ASM loc_F326 (kid.asm:19914): while sub_F536 keeps Kid in
-                // range, the ROM writes phase `$A(a0)=1` and leaves the active
-                // slot linked. Native folds the slot phase table into `age`, so
-                // restarting means the slot fires again on its next live tick.
-                entry.age = 0;
-                true
-            } else {
-                // ASM loc_F336 (kid.asm:19921): the ROM unlinks expired active
-                // shooter slots back to `$FFFFF8C4`; native's retain false path
-                // is the same active-list removal in Vec form.
-                false
+                let player_in_range = Self::shooter_player_in_range_sub_F536(
+                    slice.player.x_pos,
+                    slice.player.y_pos,
+                    entry.col,
+                    entry.row,
+                );
+                if Self::shooter_slot_restart_phase_loc_F326(player_in_range).is_some() {
+                    // ASM loc_F326 (kid.asm:19914): while sub_F536 keeps Kid in
+                    // range, the ROM writes phase `$A(a0)=1` and leaves the active
+                    // slot linked. Native folds the slot phase table into `age`, so
+                    // restarting means the slot fires again on its next live tick.
+                    entry.age = 0;
+                    true
+                } else {
+                    // ASM loc_F336 (kid.asm:19921): before unlinking an
+                    // expired active shooter slot, restore the layout high
+                    // byte to `$EC` while preserving the source skin.
+                    freed_cells.push((entry.col, entry.row, cell.skin));
+                    false
+                }
+            });
+        }
+
+        if let Some(grid) = self.block_grid.as_mut() {
+            for (col, row, skin) in freed_cells {
+                grid.set_cell_at(col, row, Self::shooter_slot_freed_cell_loc_F336(skin));
             }
-        });
+        }
+
+        let grid = self.block_grid.as_ref().expect("checked above");
 
         let mut pending_entries = Vec::new();
         let mut queue_scan = |col: u16, row: u16, skin: u8| {
