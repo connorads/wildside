@@ -3479,12 +3479,23 @@ pub(crate) fn step_active_enemies_with_rng(
                             // after each hit-animation hibernate, play the
                             // groan on `C7FB0` timer 6 and Voice_die on
                             // `C7FE0` timer $C.
-                            if BIG_HOPPING_SKULL_HIT_GROAN_ELAPSED_FRAMES_LOC_365F2
-                                .contains(&elapsed)
-                            {
+                            let groan_gate = big_hopping_skull_hit_groan_gate_loc_365f2(
+                                BIG_HOPPING_SKULL_HIT_GROAN_ELAPSED_FRAMES_LOC_365F2
+                                    .contains(&elapsed),
+                                6,
+                            );
+                            debug_assert!(groan_gate.hibernates_one_frame);
+                            debug_assert!(groan_gate.checks_object_range);
+                            debug_assert!(groan_gate.d0_preserved);
+                            if groan_gate.sound_effect.is_some() {
                                 sound_effects.push(QueuedSoundEffect::BigHoppingSkullGroan);
                             }
-                            if elapsed == BIG_HOPPING_SKULL_HIT_VOICE_ELAPSED_FRAMES_LOC_36616 {
+                            let voice_gate = big_hopping_skull_hit_voice_gate_loc_36616(
+                                elapsed == BIG_HOPPING_SKULL_HIT_VOICE_ELAPSED_FRAMES_LOC_36616,
+                                0x000C,
+                            );
+                            debug_assert!(voice_gate.d0_preserved);
+                            if voice_gate.sound_effect.is_some() {
                                 sound_effects.push(QueuedSoundEffect::VoiceDie);
                             }
                         }

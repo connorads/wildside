@@ -126,7 +126,6 @@ pub(crate) fn big_hopping_skull_damage_entry_loc_365d8(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullHitGroanGateLoc365F2 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_object_range: bool,
@@ -134,7 +133,6 @@ pub(crate) struct BigHoppingSkullHitGroanGateLoc365F2 {
     pub(crate) d0_preserved: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_hit_groan_gate_loc_365f2(
     sprite_is_groan_frame: bool,
     animation_timer: u16,
@@ -152,13 +150,11 @@ pub(crate) fn big_hopping_skull_hit_groan_gate_loc_365f2(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullHitVoiceGateLoc36616 {
     pub(crate) sound_effect: Option<&'static str>,
     pub(crate) d0_preserved: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_hit_voice_gate_loc_36616(
     sprite_is_voice_frame: bool,
     animation_timer: u16,
