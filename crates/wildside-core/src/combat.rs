@@ -8848,18 +8848,28 @@ impl NativeRuntime {
                     MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait => {}
                     MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull => {
                         if enemy.on_ground {
-                            let remaining_hp = u16::from(enemy.hit_points).wrapping_sub(1);
-                            if remaining_hp == 0 {
-                                kill_indices.push(active_idx);
-                            } else {
-                                // ASM Mini_Hopping_Skull.asm loc_3F05C/
-                                // loc_3F0FA: nonfatal grounded contact clears
-                                // motion and hibernates through `stru_3E9C2`.
-                                enemy.hit_points = remaining_hp.min(u16::from(u8::MAX)) as u8;
-                                enemy.x_velocity = 0;
-                                enemy.y_velocity = 0;
-                                enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
-                                changed_enemy_state = true;
+                            match mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(
+                                u16::from(enemy.hit_points),
+                            ) {
+                                MiniHoppingSkullDamageSequence::SkullDestroyed => {
+                                    kill_indices.push(active_idx);
+                                }
+                                MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                                    remaining_hits,
+                                    animation,
+                                    hibernate_until_finished,
+                                } => {
+                                    // ASM Mini_Hopping_Skull.asm loc_3F05C/
+                                    // loc_3F0FA: nonfatal grounded contact clears
+                                    // motion and hibernates through `stru_3E9C2`.
+                                    debug_assert_eq!(animation, "stru_3E9C2");
+                                    debug_assert!(hibernate_until_finished);
+                                    enemy.hit_points = remaining_hits.min(u16::from(u8::MAX)) as u8;
+                                    enemy.x_velocity = 0;
+                                    enemy.y_velocity = 0;
+                                    enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                    changed_enemy_state = true;
+                                }
                             }
                         } else {
                             // ASM Mini_Hopping_Skull.asm loc_3F1E6: airborne

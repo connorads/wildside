@@ -132,7 +132,6 @@ pub(crate) enum MiniHoppingSkullGroundWaitCollisionRoute {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullDamageSequence {
     SkullDestroyed,
     PlayHitAnimation {
@@ -684,7 +683,6 @@ pub(crate) fn mini_hopping_skull_left_hop_side_contact_loc_3ed14(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_damage_sequence_loc_3eb60(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
@@ -1062,7 +1060,6 @@ pub(crate) fn mini_hopping_skull_stopped_wait_side_contact_loc_3f052(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
