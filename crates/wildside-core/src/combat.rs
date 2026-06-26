@@ -10308,6 +10308,15 @@ impl NativeRuntime {
                 *word = marker.word_value;
             }
         }
+        if matches!(family, EnemyFamily::Sphere) {
+            let marker = sphere_respawn_marker_loc_36088(layout_index as u8);
+            if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                // ASM Sphere.asm loc_36088: after `stru_36182` finishes,
+                // positive `$42(a5)` writes `$2168` before loc_36096 deletes
+                // the current object.
+                *word = marker.word_value;
+            }
+        }
         if let Some(status_route) = emo_rock_status_route {
             self.apply_emo_rock_death_status_route_loc_3639A(status_route);
         }
@@ -10349,6 +10358,13 @@ impl NativeRuntime {
             debug_assert!(
                 delete_tail.deletes_current_object,
                 "ASM Big_Hopping_Skull.asm loc_366B2 should delete the current object after death-status finalisation",
+            );
+        }
+        if matches!(family, EnemyFamily::Sphere) {
+            let delete_tail = sphere_delete_tail_loc_36096();
+            debug_assert!(
+                delete_tail.deletes_current_object,
+                "ASM Sphere.asm loc_36096 should delete the current object after death-status finalisation",
             );
         }
         self.active_enemies.remove(idx);

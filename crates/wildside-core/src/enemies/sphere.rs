@@ -21,13 +21,11 @@ pub(crate) fn sphere_wall_bounce_trap_loc_35FC4() -> SphereWallBounceTrapLoc35FC
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SphereRespawnMarkerLoc36088 {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sphere_respawn_marker_loc_36088(
     object_status_slot: u8,
 ) -> SphereRespawnMarkerLoc36088 {
@@ -40,12 +38,10 @@ pub(crate) fn sphere_respawn_marker_loc_36088(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SphereDeleteTailLoc36096 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sphere_delete_tail_loc_36096() -> SphereDeleteTailLoc36096 {
     // ASM Sphere.asm loc_36096: every death-status route converges on the direct
     // `jmp (j_Delete_CurrentObject).w` tail after the explosion animation.
