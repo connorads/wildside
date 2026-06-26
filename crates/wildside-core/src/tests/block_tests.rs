@@ -7495,8 +7495,8 @@ mod chunk_04 {
         );
         assert_eq!(
             enemy.facing,
-            Direction::Left,
-            "Fireball SlopeDown flips facing"
+            Direction::Right,
+            "ASM Fireball.asm loc_32D46 swaps velocities, then loc_32F3E/loc_3304A commits x_direction from the post-slope velocity"
         );
     }
 

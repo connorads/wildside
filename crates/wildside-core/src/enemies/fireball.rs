@@ -120,7 +120,6 @@ pub(crate) fn fireball_obstacle_trail_delete_tail_loc_331ca(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireballSpriteBranchLoc32F3E {
     Vertical { sprite_index: i16 },
     NegativeX,
@@ -128,14 +127,12 @@ pub(crate) enum FireballSpriteBranchLoc32F3E {
     PositiveXNonNegativeY,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn fireball_velocity_word_after_shift8_loc_32f3e(velocity: i32) -> u16 {
     let shifted = velocity >> 8;
     let bytes = shifted.to_be_bytes();
     u16::from_be_bytes([bytes[2], bytes[3]])
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_vertical_sprite_loc_3300a(y_velocity: i32) -> i16 {
     // ASM Fireball.asm loc_3300A: vertical fireballs start with sprite `4`;
     // only a negative shifted Y word keeps it, otherwise the routine returns
@@ -144,7 +141,6 @@ pub(crate) fn fireball_vertical_sprite_loc_3300a(y_velocity: i32) -> i16 {
     if signed_word(y_word) < 0 { 4 } else { 0x0F }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_sprite_branch_loc_32f3e(
     x_velocity: i32,
     y_velocity: i32,
@@ -174,13 +170,11 @@ pub(crate) fn fireball_sprite_branch_loc_32f3e(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireballSpriteSelectionLoc32F3E {
     pub(crate) sprite_index: i16,
     pub(crate) quadrant_index: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 const FIREBALL_SPRITE_DIRECTION_AND_BASE_LOC_3304A: [(u8, u8); 20] = [
     (0x00, 0x08),
     (0x00, 0x06),
@@ -204,7 +198,6 @@ const FIREBALL_SPRITE_DIRECTION_AND_BASE_LOC_3304A: [(u8, u8); 20] = [
     (0x00, 0x08),
 ];
 
-#[cfg_attr(not(test), allow(dead_code))]
 const FIREBALL_SPRITE_LINKS_LOC_33072: [&str; 18] = [
     "LnkTo_unk_C78D6-Data_Index",
     "LnkTo_unk_C78DE-Data_Index",
@@ -226,7 +219,6 @@ const FIREBALL_SPRITE_LINKS_LOC_33072: [&str; 18] = [
     "LnkTo_unk_C795E-Data_Index",
 ];
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_sprite_link_loc_33072(sprite_table_index: u8) -> Option<&'static str> {
     // ASM Fireball.asm loc_33072: sign-extend the selected byte, double it as
     // a word offset into `off_33026`, then store that link into addroffset_sprite.
@@ -235,7 +227,6 @@ pub(crate) fn fireball_sprite_link_loc_33072(sprite_table_index: u8) -> Option<&
         .copied()
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_zero_phase_expiry_loc_33070() -> u16 {
     // ASM Fireball.asm loc_33070: when loc_3304A's five-frame countdown expires
     // while `d2` is zero, the branch sets `d2` to one for the next sprite write.
@@ -243,7 +234,6 @@ pub(crate) fn fireball_zero_phase_expiry_loc_33070() -> u16 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireballSpriteCommitLoc3304A {
     pub(crate) x_direction: u8,
     pub(crate) sprite_table_index: u8,
@@ -252,7 +242,6 @@ pub(crate) struct FireballSpriteCommitLoc3304A {
     pub(crate) next_animation_countdown: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_sprite_commit_loc_3304a(
     sprite_index: i16,
     animation_phase: u16,
@@ -289,7 +278,6 @@ pub(crate) fn fireball_sprite_commit_loc_3304a(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn fireball_ratio_lookup_unk_32edc(index: usize) -> i16 {
     // ASM Fireball.asm unk_32EDC: the first $3F ratio slots map to 0, 1, 2,
     // then 3; loc_32F78/loc_32FAC mirror or offset that base sprite index.
@@ -301,7 +289,6 @@ fn fireball_ratio_lookup_unk_32edc(index: usize) -> i16 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn fireball_ratio_sprite_index(abs_x_word: u16, abs_y_word: u16) -> Option<i16> {
     let scaled_y_word = abs_y_word.wrapping_shl(3);
     let divisor = i32::from(signed_word(abs_x_word));
@@ -318,7 +305,6 @@ fn fireball_ratio_sprite_index(abs_x_word: u16, abs_y_word: u16) -> Option<i16> 
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_negative_x_negative_y_sprite_loc_32f78(
     x_velocity: i32,
     y_velocity: i32,
@@ -340,7 +326,6 @@ pub(crate) fn fireball_negative_x_negative_y_sprite_loc_32f78(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_positive_x_negative_y_sprite_loc_32fac(
     x_velocity: i32,
     y_velocity: i32,
@@ -359,7 +344,6 @@ pub(crate) fn fireball_positive_x_negative_y_sprite_loc_32fac(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_negative_x_nonnegative_y_sprite_loc_32fc8(
     x_velocity: i32,
     y_velocity: i32,
@@ -379,7 +363,6 @@ pub(crate) fn fireball_negative_x_nonnegative_y_sprite_loc_32fc8(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_positive_x_nonnegative_y_sprite_loc_32fe8(
     x_velocity: i32,
     y_velocity: i32,
@@ -395,6 +378,36 @@ pub(crate) fn fireball_positive_x_nonnegative_y_sprite_loc_32fe8(
     FireballSpriteSelectionLoc32F3E {
         sprite_index,
         quadrant_index: 3,
+    }
+}
+
+pub(crate) fn fireball_sprite_selection_loc_32f3e(
+    x_velocity: i32,
+    y_velocity: i32,
+) -> FireballSpriteSelectionLoc32F3E {
+    // ASM Fireball.asm loc_32F3E branches by shifted X/Y velocity words before
+    // loc_3304A commits x_direction and the animated sprite link.
+    match fireball_sprite_branch_loc_32f3e(x_velocity, y_velocity) {
+        FireballSpriteBranchLoc32F3E::Vertical { sprite_index } => {
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index,
+                quadrant_index: 0,
+            }
+        }
+        FireballSpriteBranchLoc32F3E::NegativeX => {
+            let y_word = fireball_velocity_word_after_shift8_loc_32f3e(y_velocity);
+            if signed_word(y_word) < 0 {
+                fireball_negative_x_negative_y_sprite_loc_32f78(x_velocity, y_velocity)
+            } else {
+                fireball_negative_x_nonnegative_y_sprite_loc_32fc8(x_velocity, y_velocity)
+            }
+        }
+        FireballSpriteBranchLoc32F3E::PositiveXNegativeY => {
+            fireball_positive_x_negative_y_sprite_loc_32fac(x_velocity, y_velocity)
+        }
+        FireballSpriteBranchLoc32F3E::PositiveXNonNegativeY => {
+            fireball_positive_x_nonnegative_y_sprite_loc_32fe8(x_velocity, y_velocity)
+        }
     }
 }
 
@@ -478,7 +491,7 @@ mod tests {
     }
 
     #[test]
-    fn fireball_wall_bounce_keeps_facing_through_loc_32c60_dispatch() {
+    fn fireball_wall_bounce_commits_sprite_direction_after_loc_32c60_dispatch() {
         let mut grid = mini_hopping_skull_test_grid();
         grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
 
@@ -494,8 +507,8 @@ mod tests {
 
         assert_eq!(
             enemy.facing,
-            Direction::Right,
-            "ASM Fireball.asm loc_32C60/loc_32C86 dispatches the wall-collision handler, and Enemy19_Fireball_BounceWall only negates x_vel without touching x_direction"
+            Direction::Left,
+            "ASM Fireball.asm loc_32C60/loc_32C86 only negates x_vel, then the same loc_32C1A loop runs loc_32F3E/loc_3304A and commits x_direction from the new velocity"
         );
         assert_eq!(enemy.x_velocity, -0x0001_8000);
     }

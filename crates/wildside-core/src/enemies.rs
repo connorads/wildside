@@ -4752,6 +4752,31 @@ fn queue_fireball_bounce_sound_loc_32c60(
     *already_queued = true;
 }
 
+fn update_fireball_sprite_state_loc_32f3e_3304a(enemy: &mut ActiveEnemy) {
+    // ASM Fireball.asm loc_32C1A calls loc_32F3E then loc_3304A every frame:
+    // the selected sprite writes `x_direction(a3)`, which the slope-trail
+    // allocation paths later use when positioning loc_330D0 child workers.
+    let selection = fireball_sprite_selection_loc_32f3e(enemy.x_velocity, enemy.y_velocity);
+    let animation_countdown = if enemy.dragon_phase_frames == 0 {
+        5
+    } else {
+        enemy.dragon_phase_frames
+    };
+    if let Some(commit) = fireball_sprite_commit_loc_3304a(
+        selection.sprite_index,
+        u16::from(enemy.dragon_script_cmd),
+        animation_countdown,
+    ) {
+        enemy.facing = if commit.x_direction == 0 {
+            Direction::Right
+        } else {
+            Direction::Left
+        };
+        enemy.dragon_script_cmd = commit.next_animation_phase as u8;
+        enemy.dragon_phase_frames = commit.next_animation_countdown;
+    }
+}
+
 pub(crate) fn step_bouncer_with_rng(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
@@ -4960,6 +4985,10 @@ pub(crate) fn step_bouncer_with_rng(
                 enemy.y_velocity = -(enemy.y_velocity >> 1);
             }
         }
+    }
+
+    if matches!(enemy.family, EnemyFamily::Fireball) {
+        update_fireball_sprite_state_loc_32f3e_3304a(enemy);
     }
 }
 
