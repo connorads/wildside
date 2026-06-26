@@ -502,7 +502,6 @@ pub(crate) fn enemy_death_burst_cleanup_loc_370C2() -> EnemyDeathBurstCleanupLoc
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_death_burst_homing_step_sub_37002(
     effect_x: u16,
     effect_y: u16,
