@@ -1094,14 +1094,12 @@ pub(crate) fn ufo_beam_child_turnaround_loc_3554a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamChildGravityGateLoc3555A {
     pub(crate) y_velocity: i32,
     pub(crate) keep_hibernating: bool,
     pub(crate) delete_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_child_gravity_gate_loc_3555a(
     y_velocity: i32,
     flag_19_set: bool,

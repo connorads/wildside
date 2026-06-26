@@ -42,7 +42,7 @@ use crate::enemies::{
     tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
-    tar_monster_projectile_velocity_swap_loc_326DC,
+    tar_monster_projectile_velocity_swap_loc_326DC, ufo_beam_child_gravity_gate_loc_3555a,
 };
 use crate::helmets::{
     RainSlotSpriteAction, RainTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -3323,7 +3323,7 @@ impl NativeRuntime {
                     return false;
                 }
             }
-            if is_drips_drop || uses_loc_3263c_post_move_gravity {
+            if is_drips_drop || (uses_loc_3263c_post_move_gravity && !is_ufo_first_hurt_debris) {
                 // ASM Drips.asm loc_3345C and Tar_Monster.asm loc_3263C: the
                 // hibernated object movement uses the previous y-velocity; the
                 // gravity step prepares the next frame.
@@ -3335,13 +3335,17 @@ impl NativeRuntime {
             {
                 return false;
             }
-            if is_ufo_first_hurt_debris
-                && let Some(g) = grid
-                && projectile_terrain_contact_loc_3345c(g, p)
-            {
-                // ASM UFO.asm loc_3555A deletes loc_354DA debris when its
-                // level-collision byte becomes non-zero.
-                return false;
+            if is_ufo_first_hurt_debris {
+                let flag_19_set =
+                    grid.is_some_and(|g| projectile_terrain_contact_loc_3345c(g, p));
+                let gate = ufo_beam_child_gravity_gate_loc_3555a(p.y_velocity, flag_19_set);
+                p.y_velocity = gate.y_velocity;
+                if gate.delete_current_object {
+                    debug_assert!(!gate.keep_hibernating);
+                    // ASM UFO.asm loc_3555A deletes loc_354DA debris when its
+                    // level-collision byte becomes non-zero.
+                    return false;
+                }
             }
 
             if p.kind == EnemyProjectileKind::ShooterBlock
