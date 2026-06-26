@@ -485,7 +485,6 @@ pub(crate) fn tar_monster_appear_animation_loc_322c8() -> TarMonsterAppearAnimat
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_third_attack_wait_loc_3235e() -> TarMonsterThirdAttackWaitLoc3235E {
     // ASM loc_3235E seeds d0 with 8, then the following loop hibernates,
     // range-checks, and polls collision once per inclusive DBF iteration before restoring
@@ -1148,8 +1147,20 @@ pub(crate) fn step_tar_monster_with_sounds(
     if enemy.wait_timer > 0 {
         // Check if we need to fire during attack sequence
         if enemy.tar_monster_state == TarMonsterState::Attacking {
+            let attack_wait = tar_monster_third_attack_wait_loc_3235e();
+            debug_assert_eq!(attack_wait.dbf_seed, 8);
+            debug_assert!(attack_wait.checks_object_range_each_frame);
+            debug_assert!(attack_wait.polls_collision_each_frame);
+            debug_assert_eq!(attack_wait.restored_sprite_link, "LnkTo_unk_C77D6");
+            debug_assert!(attack_wait.resumes_control_script);
+            // ASM Tar_Monster.asm loc_3231C/loc_32348/loc_32360 each use the
+            // loc_3235E `moveq #8,d0` DBF cadence, so each attack phase is
+            // nine frames and the shot fires after the first phase.
+            let attack_phase_frames = attack_wait.hibernate_frames;
             let elapsed = TAR_MONSTER_ATTACK_FRAMES - enemy.wait_timer;
-            if elapsed == TAR_MONSTER_ATTACK_FIRE_FRAME {
+            debug_assert_eq!(TAR_MONSTER_ATTACK_FRAMES, attack_phase_frames * 3);
+            debug_assert_eq!(TAR_MONSTER_ATTACK_FIRE_FRAME + 1, attack_phase_frames);
+            if elapsed + 1 == attack_phase_frames {
                 let sound = tar_monster_shot_sound_loc_32468();
                 debug_assert_eq!(sound.sound_effect_label, "sfx_Tar_Monster_shoots");
                 debug_assert!(sound.preserves_script_command_d0);
