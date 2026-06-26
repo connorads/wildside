@@ -341,11 +341,6 @@ pub(crate) const METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A: [i16; 8] = [2, 2, 2, 2, 
 /// blocks run four `subq.w #2,y_pos(a3)` hibernated frames then four
 /// `addq.w #2,y_pos(a3)` hibernated frames, producing a 0 -> -8 -> 0 arc.
 pub(crate) const METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196: [i16; 8] = [-2, -2, -2, -2, 2, 2, 2, 2];
-/// ASM sub_113C0 / loc_113F4 (kid.asm:23335-23339): shifting/lift block
-/// workers rise by two pixels for eight hibernated frames before the layout
-/// cell above is committed and the source cell is erased.
-pub(crate) const SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4: [i16; 8] =
-    [-2, -2, -2, -2, -2, -2, -2, -2];
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = [2, 2, 2, 2];
 #[cfg_attr(not(test), allow(dead_code))]
@@ -380,7 +375,6 @@ pub(crate) struct ShiftingBlockActivationLoc11364 {
     pub(crate) reserved_above_cell: Option<terrain::Cell>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LiftBlockRiseStepLoc113F4 {
     pub(crate) next_y_pos: u16,
@@ -1101,7 +1095,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_rise_step_loc_113F4(
         y_pos: u16,
         loop_counter: u16,
@@ -4375,21 +4368,36 @@ impl NativeRuntime {
         // shifting blocks use loc_113F4's rise steps.
         for b in &mut self.block_bounces {
             let elapsed = b.initial_duration.saturating_sub(b.remaining);
-            let delta_table: &[i16] = match b.kind {
-                BlockBounceKind::HiddenReveal => &HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0,
-                BlockBounceKind::Prize => &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A,
-                BlockBounceKind::Lift => Self::lift_block_bob_deltas_sub_FB3E(),
-                BlockBounceKind::Metal => {
-                    if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
-                        &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A
-                    } else {
-                        &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
-                    }
+            let delta = if b.kind == BlockBounceKind::Shifting {
+                if elapsed < 8 {
+                    let loop_counter = 7_u16.saturating_sub(u16::from(elapsed));
+                    let step = Self::lift_block_rise_step_loc_113F4(0, loop_counter);
+                    debug_assert!(step.should_hibernate_one_frame);
+                    debug_assert_eq!(step.should_repeat_loop, elapsed < 7);
+                    Some(i16::from_ne_bytes(step.next_y_pos.to_ne_bytes()))
+                } else {
+                    None
                 }
-                BlockBounceKind::Shifting => &SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4,
+            } else {
+                let delta_table: &[i16] = match b.kind {
+                    BlockBounceKind::HiddenReveal => &HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0,
+                    BlockBounceKind::Prize => &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A,
+                    BlockBounceKind::Lift => Self::lift_block_bob_deltas_sub_FB3E(),
+                    BlockBounceKind::Metal => {
+                        if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
+                            &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A
+                        } else {
+                            &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
+                        }
+                    }
+                    BlockBounceKind::Shifting => {
+                        unreachable!("shifting block rise uses loc_113F4 step model")
+                    }
+                };
+                delta_table.get(usize::from(elapsed)).copied()
             };
-            if let Some(delta) = delta_table.get(usize::from(elapsed)) {
-                b.y_offset_px = b.y_offset_px.saturating_add(*delta);
+            if let Some(delta) = delta {
+                b.y_offset_px = b.y_offset_px.saturating_add(delta);
             }
             b.remaining = b.remaining.saturating_sub(1);
         }

@@ -20550,14 +20550,29 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     /// sibling tables are pinned above but this one had no exact-value guard.
     #[test]
     fn shifting_block_rise_y_deltas_match_asm_loc_113f4() {
+        let mut y_pos = 0u16;
+        let mut loop_counter = 7u16;
+        let mut deltas = Vec::new();
+        loop {
+            let step = NativeRuntime::lift_block_rise_step_loc_113F4(y_pos, loop_counter);
+            deltas.push(i16::from_ne_bytes(
+                step.next_y_pos.wrapping_sub(y_pos).to_ne_bytes(),
+            ));
+            y_pos = step.next_y_pos;
+            loop_counter = step.next_loop_counter;
+            if !step.should_repeat_loop {
+                break;
+            }
+        }
+
         assert_eq!(
-            blocks::SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4,
-            [-2, -2, -2, -2, -2, -2, -2, -2],
+            deltas,
+            vec![-2, -2, -2, -2, -2, -2, -2, -2],
             "ASM loc_113F4 is eight unconditional subq.w #2 upward steps"
         );
 
         let mut cumulative = 0i16;
-        let cumulative_steps: Vec<i16> = blocks::SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4
+        let cumulative_steps: Vec<i16> = deltas
             .iter()
             .map(|d| {
                 cumulative += d;
@@ -20573,7 +20588,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         // The cell-above worker spawns at y_offset_px = 16 (blocks.rs:3744)
         // and these deltas must land it at exactly 0 once the row swap commits.
         let initial_offset: i16 = 16;
-        let final_offset = blocks::SHIFTING_BLOCK_RISE_Y_DELTAS_LOC_113F4
+        let final_offset = deltas
             .iter()
             .fold(initial_offset, |acc, d| acc.saturating_add(*d));
         assert_eq!(
