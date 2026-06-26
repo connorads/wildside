@@ -10317,6 +10317,15 @@ impl NativeRuntime {
                 *word = marker.word_value;
             }
         }
+        if matches!(family, EnemyFamily::Fireball) {
+            let marker = fireball_respawn_marker_loc_32eca(layout_index as u8);
+            if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
+                // ASM Fireball.asm loc_32ECA: after `stru_345E4` finishes,
+                // positive `$42(a5)` writes `$2168` before loc_32ED8 deletes
+                // the current object.
+                *word = marker.word_value;
+            }
+        }
         if let Some(status_route) = emo_rock_status_route {
             self.apply_emo_rock_death_status_route_loc_3639A(status_route);
         }
@@ -10365,6 +10374,13 @@ impl NativeRuntime {
             debug_assert!(
                 delete_tail.deletes_current_object,
                 "ASM Sphere.asm loc_36096 should delete the current object after death-status finalisation",
+            );
+        }
+        if matches!(family, EnemyFamily::Fireball) {
+            let delete_tail = fireball_delete_tail_loc_32ed8();
+            debug_assert!(
+                delete_tail.deletes_current_object,
+                "ASM Fireball.asm loc_32ED8 should delete the current object after death-status finalisation",
             );
         }
         self.active_enemies.remove(idx);

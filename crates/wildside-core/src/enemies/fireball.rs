@@ -1,13 +1,11 @@
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireballRespawnMarkerLoc32ECA {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_respawn_marker_loc_32eca(
     object_status_slot: u8,
 ) -> FireballRespawnMarkerLoc32ECA {
@@ -20,12 +18,10 @@ pub(crate) fn fireball_respawn_marker_loc_32eca(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireballDeleteTailLoc32ED8 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_delete_tail_loc_32ed8() -> FireballDeleteTailLoc32ED8 {
     // ASM Fireball.asm loc_32ED8: every death-status route converges on the
     // `j_Delete_CurrentObject` tail after the explosion animation finishes.
