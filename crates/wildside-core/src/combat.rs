@@ -8083,6 +8083,31 @@ impl NativeRuntime {
         enemy.y_velocity = 0;
     }
 
+    fn dragon_walking_clear_resume_route_loc_3cf4c(
+        enemy: &ActiveEnemy,
+        expected_collision_type: u16,
+    ) {
+        // ASM Dragon.asm loc_3CF4C clears collision_type, then falls through
+        // loc_3CF50/loc_3CF62 to resume the current pacing route.
+        let clear = dragon_walking_collision_clear_loc_3cf4c();
+        debug_assert_eq!(clear.collision_type, expected_collision_type);
+        debug_assert!(clear.falls_through_to_resume_dispatch);
+        match dragon_walking_spawned_resume_dispatch_loc_3cf50(
+            enemy.is_dragon_walking_parent_spawned_child(),
+            enemy.facing,
+        ) {
+            DragonWalkingSpawnedResumeDispatchLoc3CF50::OrdinaryDragonResume => {
+                let _ = dragon_walking_normal_resume_dispatch_loc_3cf62(enemy.facing);
+            }
+            DragonWalkingSpawnedResumeDispatchLoc3CF50::SpawnedChildLeftPacing => {
+                debug_assert_eq!(enemy.facing, Direction::Left);
+            }
+            DragonWalkingSpawnedResumeDispatchLoc3CF50::SpawnedChildRightPacing => {
+                debug_assert_eq!(enemy.facing, Direction::Right);
+            }
+        }
+    }
+
     fn apply_big_hopping_skull_kid_bounce_loc_365d8(slice: &mut OpeningSliceState) {
         // ASM Big_Hopping_Skull.asm loc_365D8:
         // `move.w #$FFFD,$2A(a2)` writes only Kid's y-velocity high word.
@@ -9573,11 +9598,11 @@ impl NativeRuntime {
                 continue;
             }
 
-            if matches!(enemy.family, EnemyFamily::DragonWalking)
-                && collision.collision_type == DRAGON_COLID_KIDABOVE
-            {
-                // ASM loc_1CF2 stores colid_kidabove into the object collision
-                // word; Dragon.asm loc_3CE9A consumes it on the next object pass.
+            if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                // ASM loc_1CF2 stores Kid/enemy contacts into the object
+                // collision word; Dragon.asm loc_3CE9A consumes the word on
+                // the next object pass and routes through loc_3CF4C clear /
+                // loc_3CF50 resume for ignored contacts.
                 match dragon_walking_collision_route_loc_3ce9a(collision.collision_type as i16) {
                     DragonWalkingCollisionRouteLoc3CE9A::Damage => {
                         if enemy.take_damage_or_queue_death_with_effects(&mut self.projectiles) {
@@ -9586,8 +9611,36 @@ impl NativeRuntime {
                             Self::apply_dragon_walking_stomp_hibernate(enemy);
                         }
                     }
-                    DragonWalkingCollisionRouteLoc3CE9A::Continue
-                    | DragonWalkingCollisionRouteLoc3CE9A::BerzerkerSideGate => {}
+                    DragonWalkingCollisionRouteLoc3CE9A::Continue => {
+                        Self::dragon_walking_clear_resume_route_loc_3cf4c(enemy, 0);
+                    }
+                    DragonWalkingCollisionRouteLoc3CE9A::BerzerkerSideGate => {
+                        match dragon_walking_berzerker_side_gate_loc_3cf0e(berzerker_charging) {
+                            DragonWalkingBerzerkerSideGateLoc3CF0E::ResumePatrol {
+                                next_collision_type,
+                            } => {
+                                Self::dragon_walking_clear_resume_route_loc_3cf4c(
+                                    enemy,
+                                    next_collision_type,
+                                );
+                            }
+                            DragonWalkingBerzerkerSideGateLoc3CF0E::Knockback(knockback) => {
+                                debug_assert!(!knockback.has_level_collision);
+                                debug_assert!(knockback.has_kid_collision);
+                                debug_assert!(knockback.is_moved);
+                                debug_assert!(!knockback.is_animated);
+                                debug_assert_eq!(
+                                    knockback.sprite_mapping,
+                                    "LnkTo_unk_C755E-Data_Index"
+                                );
+                                enemy.x_velocity = knockback.x_velocity;
+                                enemy.y_velocity = knockback.y_velocity;
+                                enemy.on_ground = false;
+                                enemy.damage_flash_frames = 0;
+                                changed_enemy_state = true;
+                            }
+                        }
+                    }
                     DragonWalkingCollisionRouteLoc3CE9A::Death => {
                         kill_indices.push(active_idx);
                     }

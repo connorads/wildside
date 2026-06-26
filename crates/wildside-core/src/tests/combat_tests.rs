@@ -16884,6 +16884,66 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_walking_pending_side_collision_without_charge_resumes_loc_3cf4c() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = false;
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x009A_0000, 0x0110_0000, 4);
+        dragon.layout_index = 18;
+        dragon.x_velocity = -0x0001_0000;
+        dragon.y_velocity = 0x0000_8000;
+        dragon.on_ground = true;
+        let collision_target = dragon;
+        runtime.active_enemies = vec![dragon];
+
+        runtime.queue_pending_enemy_collision(&collision_target, DRAGON_COLID_KIDRIGHT);
+        runtime.apply_pending_enemy_collisions();
+
+        let dragon = runtime.active_enemies[0];
+        assert_eq!(
+            dragon.hit_points, 4,
+            "ASM Dragon.asm loc_3CE9A routes side contact to loc_3CF0E; clear Berzerker_charging falls through loc_3CF4C without HP damage"
+        );
+        assert_eq!(dragon.x_velocity, -0x0001_0000);
+        assert_eq!(dragon.y_velocity, 0x0000_8000);
+        assert!(dragon.on_ground);
+        assert_eq!(dragon.damage_flash_frames, 0);
+        assert_eq!(runtime.active_enemies.len(), 1);
+    }
+
+    #[test]
+    fn dragon_walking_pending_side_collision_enters_loc_3cf0e_berzerker_launch() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.progression.current_form = PlayerForm::Berzerker;
+        runtime.helmet.berzerker_charging = true;
+        let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x009A_0000, 0x0110_0000, 4);
+        dragon.layout_index = 19;
+        dragon.x_velocity = 0x0001_0000;
+        dragon.y_velocity = 0;
+        dragon.on_ground = true;
+        dragon.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+        let collision_target = dragon;
+        runtime.active_enemies = vec![dragon];
+
+        runtime.queue_pending_enemy_collision(&collision_target, DRAGON_COLID_KIDLEFT);
+        runtime.apply_pending_enemy_collisions();
+
+        let dragon = runtime.active_enemies[0];
+        assert_eq!(
+            dragon.hit_points, 4,
+            "ASM Dragon.asm loc_3CF0E preserves HP for charging-Berzerker side contact"
+        );
+        assert_eq!(dragon.x_velocity, 0);
+        assert_eq!(
+            dragon.y_velocity, -0x0004_8000,
+            "ASM Dragon.asm loc_3CF0E seeds upward y_vel before the loc_3CF3A airborne loop"
+        );
+        assert!(!dragon.on_ground);
+        assert_eq!(dragon.damage_flash_frames, 0);
+        assert_eq!(runtime.active_enemies.len(), 1);
+    }
+
+    #[test]
     fn dragon_walking_death_ignores_repeated_pending_collision_loc_3cefc() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut dragon = test_enemy(EnemyFamily::DragonWalking, 0x009A_0000, 0x0110_0000, 1);

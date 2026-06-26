@@ -162,7 +162,6 @@ pub(crate) fn dragon_walking_death_sequence_loc_3cefc(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBerzerkerKnockbackStartLoc3CF0E {
     pub(crate) has_level_collision: bool,
     pub(crate) has_kid_collision: bool,
@@ -174,13 +173,11 @@ pub(crate) struct DragonWalkingBerzerkerKnockbackStartLoc3CF0E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingBerzerkerSideGateLoc3CF0E {
     ResumePatrol { next_collision_type: u16 },
     Knockback(DragonWalkingBerzerkerKnockbackStartLoc3CF0E),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_berzerker_side_gate_loc_3cf0e(
     berzerker_charging: bool,
 ) -> DragonWalkingBerzerkerSideGateLoc3CF0E {
@@ -234,13 +231,11 @@ pub(crate) fn dragon_walking_berzerker_airborne_frame_loc_3cf3a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingCollisionClearLoc3CF4C {
     pub(crate) collision_type: u16,
     pub(crate) falls_through_to_resume_dispatch: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_collision_clear_loc_3cf4c() -> DragonWalkingCollisionClearLoc3CF4C {
     // ASM Dragon.asm loc_3CF4C: `clr.w collision_type(a3)`, then fall through
     // to the current `$5C(a5)`/x_direction pacing route.
@@ -251,14 +246,12 @@ pub(crate) fn dragon_walking_collision_clear_loc_3cf4c() -> DragonWalkingCollisi
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingSpawnedResumeDispatchLoc3CF50 {
     OrdinaryDragonResume,
     SpawnedChildLeftPacing,
     SpawnedChildRightPacing,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_spawned_resume_dispatch_loc_3cf50(
     parent_spawned_child: bool,
     facing: Direction,
@@ -277,13 +270,11 @@ pub(crate) fn dragon_walking_spawned_resume_dispatch_loc_3cf50(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingNormalResumeDispatchLoc3CF62 {
     Loc3E560,
     Loc3E3AC,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_normal_resume_dispatch_loc_3cf62(
     facing: Direction,
 ) -> DragonWalkingNormalResumeDispatchLoc3CF62 {
