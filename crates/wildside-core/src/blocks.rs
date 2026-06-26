@@ -1998,7 +1998,6 @@ impl NativeRuntime {
         }
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     fn start_rubber_block_animation_sub_10de4(&mut self, col: u16, row: u16) {
         let mut remaining_object_slots =
             10usize.saturating_sub(self.block_state.rubber_block_animations.len());
@@ -3644,14 +3643,8 @@ impl NativeRuntime {
             // ASM loc_10DA4 (kid.asm:22697): `$FFFFFB5A` is a dedicated
             // rubber-worker counter, distinct from Number_Objects at
             // `$FFFFF84A`; existing gameplay objects do not consume the cap.
-            let mut remaining_object_slots =
-                10usize.saturating_sub(self.block_state.rubber_block_animations.len());
             for (contact_x, contact_y) in contacts {
-                self.start_rubber_block_animation_sub_10de4_with_budget(
-                    contact_x,
-                    contact_y,
-                    &mut remaining_object_slots,
-                );
+                self.start_rubber_block_animation_sub_10de4(contact_x, contact_y);
             }
         }
 
