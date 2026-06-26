@@ -392,7 +392,6 @@ pub(crate) struct LiftBlockFallStepLoc1141E {
     pub(crate) should_repeat_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterLeftSupportProbeLoc11448 {
     pub(crate) should_probe_support: bool,
@@ -1129,7 +1128,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_left_support_probe_loc_11448(
         block_col: u16,
         left_support_is_empty: bool,
@@ -3675,15 +3673,23 @@ impl NativeRuntime {
                 };
 
                 try_queue_support(cell_x);
-                if cell_x > 0 {
-                    try_queue_support(cell_x - 1);
+                let left_support_is_empty = cell_x > 0
+                    && grid.cell_at(cell_x - 1, support_row) == terrain::Cell::from_be_bytes(0, 0);
+                let left_probe =
+                    Self::shooter_left_support_probe_loc_11448(cell_x, left_support_is_empty);
+                if left_probe.should_probe_support {
+                    try_queue_support(
+                        left_probe
+                            .support_col
+                            .expect("loc_11448 exposes a support column when it probes"),
+                    );
                 }
-                if cell_x + 1 < grid.width_cells {
-                    try_queue_support(cell_x + 1);
+                if left_probe.next_block_col_for_right_probe < grid.width_cells {
+                    try_queue_support(left_probe.next_block_col_for_right_probe);
                 }
 
                 should_queue_center_worker = Self::shooter_center_worker_gate_loc_1146E(
-                    cell_x.wrapping_add(1),
+                    left_probe.next_block_col_for_right_probe,
                     queued_support_worker,
                 )
                 .should_queue_center_worker;
