@@ -428,7 +428,6 @@ pub(crate) fn drips_surface_crawler_init_loc_335d8(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsSurfaceCrawlerAnimationTailLoc33630 {
     pub(crate) first_animation: &'static str,
     pub(crate) second_animation: &'static str,
@@ -436,7 +435,6 @@ pub(crate) struct DripsSurfaceCrawlerAnimationTailLoc33630 {
     pub(crate) deltas: DripsVelocityDeltasLoc33526,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_animation_tail_loc_33630(
     child_byte_44: u8,
     child_byte_45: u8,
