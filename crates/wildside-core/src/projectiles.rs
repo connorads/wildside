@@ -8,8 +8,8 @@ use crate::enemies::{
     DripsSurfaceCrawlerTurnScriptLoc33AF6, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
     RobotShotFlightRouteLoc3AC48, TankBulletLoopRouteLoc3B7BA,
     TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
-    archer_angle_to_player, archer_reaim_loc_3432E, dragon_flying_descent_fire_cleanup_loc_34C4A,
-    dragon_flying_descent_fire_first_loop_loc_34C26,
+    archer_angle_to_player, archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
+    dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
     drips_enter_splash_animation_loc_33488, drips_left_bounds_gate_loc_335aa,
     drips_right_bounds_gate_loc_33588, drips_splash_animation_remaining_loc_33488,
@@ -2679,6 +2679,11 @@ impl NativeRuntime {
         let mut pending_shooter_layout_interactions = Vec::new();
         let mut pending_projectile_sound_effects = Vec::new();
         let mut expired_drips_surface_crawler_finishes = 0usize;
+        let mut archer_arrow_count = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
+            .count() as u16;
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
@@ -2759,6 +2764,11 @@ impl NativeRuntime {
                     // ASM Drips.asm loc_3392C decrements `$FFFFFB42` after
                     // the original crawler's finish animation completes.
                     expired_drips_surface_crawler_finishes += 1;
+                }
+                if p.kind == EnemyProjectileKind::ArcherArrow {
+                    let delete = archer_arrow_delete_loc_34336(archer_arrow_count);
+                    debug_assert!(delete.deletes_current_object);
+                    archer_arrow_count = delete.number_of_arrows;
                 }
                 if let Some(owner) = p.owner {
                     released_owners.push(owner);
@@ -3361,6 +3371,11 @@ impl NativeRuntime {
                 if let Some(owner) = p.owner {
                     released_owners.push(owner);
                 }
+                if p.kind == EnemyProjectileKind::ArcherArrow {
+                    let delete = archer_arrow_delete_loc_34336(archer_arrow_count);
+                    debug_assert!(delete.deletes_current_object);
+                    archer_arrow_count = delete.number_of_arrows;
+                }
                 return false; // destroyed on terrain contact
             }
 
@@ -3626,6 +3641,11 @@ impl NativeRuntime {
         );
         let mut contact = ProjectilePlayerContactLocB640::None;
         let mut released_owners = Vec::new();
+        let mut archer_arrow_count = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
+            .count() as u16;
         let stomp_registration_blocked = self.stomp_registration_blocked_loc_1ce4(slice.player);
         self.last_projectile_damage_probe = None;
         self.projectiles.retain_mut(|p| {
@@ -3737,6 +3757,11 @@ impl NativeRuntime {
                     // delete the child object.
                     true
                 } else {
+                    if p.kind == EnemyProjectileKind::ArcherArrow {
+                        let delete = archer_arrow_delete_loc_34336(archer_arrow_count);
+                        debug_assert!(delete.deletes_current_object);
+                        archer_arrow_count = delete.number_of_arrows;
+                    }
                     if let Some(owner) = p.owner {
                         released_owners.push(owner);
                     }

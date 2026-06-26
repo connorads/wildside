@@ -123,7 +123,6 @@ pub(crate) fn archer_arrow_setup_loc_341AA(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArcherShootingEntryLoc341BE {
     RestartCycle,
     PoseFrame {
@@ -138,7 +137,6 @@ pub(crate) enum ArcherShootingEntryLoc341BE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn archer_shooting_entry_loc_341BE(
     table_frame_delay: i16,
 ) -> ArcherShootingEntryLoc341BE {
@@ -160,14 +158,12 @@ pub(crate) fn archer_shooting_entry_loc_341BE(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherArrowDeleteLoc34336 {
     pub(crate) number_of_arrows: u16,
     pub(crate) deletes_current_object: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn archer_arrow_delete_loc_34336(number_of_arrows: u16) -> ArcherArrowDeleteLoc34336 {
     // ASM Archer.asm loc_34336: `subq.w #1,(Number_of_Arrows).w`, then jump to
     // j_Delete_CurrentObject. Native stores the same live-arrow count as the
@@ -179,7 +175,6 @@ pub(crate) fn archer_arrow_delete_loc_34336(number_of_arrows: u16) -> ArcherArro
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherPoseFrameLoc34222 {
     pub(crate) held_arrow_sprite_offset: u16,
     pub(crate) x_offset_px: i16,
@@ -187,7 +182,6 @@ pub(crate) struct ArcherPoseFrameLoc34222 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn archer_pose_frame_loc_34222(
     held_arrow_sprite_offset: u16,
     table_x_offset_px: i16,
@@ -209,14 +203,12 @@ pub(crate) fn archer_pose_frame_loc_34222(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArcherHeldArrowPositionLoc34234 {
     pub(crate) x_pos_word: u16,
     pub(crate) y_pos_word: u16,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn archer_held_arrow_position_loc_34234(
     archer_x_pos: u32,
     archer_y_pos: u32,
@@ -475,12 +467,11 @@ pub(crate) fn step_archer(
     // ASM loc_34248: `cmpi.w #2,(Number_of_Arrows).w; bge.w loc_3408C`.
     // Native represents `Number_of_Arrows` as live ArcherArrow projectiles,
     // not the whole shared projectile pool.
-    if projectiles
+    let archer_arrow_count = projectiles
         .iter()
         .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
-        .count()
-        >= 2
-    {
+        .count() as u16;
+    if archer_arrow_count >= 2 {
         return;
     }
     if projectiles.len() >= MAX_PROJECTILES {
@@ -511,8 +502,59 @@ pub(crate) fn step_archer(
     } else {
         ARCHER_ARROW_X_OFFSET
     };
+    let (
+        hold_frame_timer,
+        held_arrow_reset_sprite_offset,
+        arrow_count_increment,
+        held_arrow_position_nudge_px,
+    ) = match archer_shooting_entry_loc_341BE(0) {
+        ArcherShootingEntryLoc341BE::FireArrow {
+            hold_frame_timer,
+            held_arrow_reset_sprite_offset,
+            arrow_count_increment,
+            held_arrow_position_nudge_px,
+        } => (
+            hold_frame_timer,
+            held_arrow_reset_sprite_offset,
+            arrow_count_increment,
+            held_arrow_position_nudge_px,
+        ),
+        ArcherShootingEntryLoc341BE::RestartCycle
+        | ArcherShootingEntryLoc341BE::PoseFrame { .. } => {
+            unreachable!("ASM Archer.asm loc_341BE zero delay is the fire sentinel")
+        }
+    };
+    debug_assert_eq!(hold_frame_timer, 0x14);
+    debug_assert_eq!(arrow_count_increment, 1);
+    let held_arrow_position_nudge_px = if enemy.facing == Direction::Right {
+        held_arrow_position_nudge_px.wrapping_neg()
+    } else {
+        held_arrow_position_nudge_px
+    };
+    debug_assert!(matches!(held_arrow_position_nudge_px, -3 | 3));
+
+    // Native collapses the visible held-arrow pose table into the final spawn
+    // boundary, but the same ASM loc_34222/loc_34234 word-offset contract still
+    // guards the fire-frame position used below.
+    let pose_frame = archer_pose_frame_loc_34222(
+        held_arrow_reset_sprite_offset,
+        ARCHER_ARROW_X_OFFSET as i16,
+        y_offset as i16,
+        enemy.facing,
+    );
+    debug_assert_eq!(pose_frame.held_arrow_sprite_offset, 0);
+    debug_assert_eq!(i32::from(pose_frame.x_offset_px), x_offset);
+    debug_assert_eq!(i32::from(pose_frame.y_offset_px), y_offset);
+    let held_arrow_position = archer_held_arrow_position_loc_34234(
+        enemy.x_pos,
+        enemy.y_pos,
+        pose_frame.x_offset_px,
+        pose_frame.y_offset_px,
+    );
     let spawn_x = (enemy.x_pos as i64 + ((x_offset as i64) << 16)) as u32;
     let spawn_y = (enemy.y_pos as i64 + ((y_offset as i64) << 16)) as u32;
+    debug_assert_eq!(held_arrow_position.x_pos_word, fp16_integer_word(spawn_x));
+    debug_assert_eq!(held_arrow_position.y_pos_word, fp16_integer_word(spawn_y));
 
     projectiles.push(EnemyProjectile {
         x_pos: spawn_x,
@@ -554,6 +596,13 @@ pub(crate) fn step_archer(
         collision_type: 0,
         boss_eye_sprite_mapping_label: "",
     });
+    debug_assert_eq!(
+        projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
+            .count() as u16,
+        archer_arrow_count.wrapping_add(arrow_count_increment)
+    );
     if let Some(sound_effects) = played_sound_effects {
         // ASM Archer.asm loc_34266: `Enemy07_ArcherArrow_Init` plays
         // `sfx_Archer_shoots` before loading the arrow object.
