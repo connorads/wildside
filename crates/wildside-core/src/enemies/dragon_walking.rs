@@ -403,26 +403,22 @@ pub(crate) fn dragon_walking_breath_collision_poll_loc_3cfae(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingBreathDoneNextLoc3CFE4 {
     RepeatBreathPoll,
     RestoreWalkingAnimation { animation_label: &'static str },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBreathDoneWaitLoc3CFE4 {
     pub(crate) hibernates_after_done_flag: bool,
     pub(crate) next: DragonWalkingBreathDoneNextLoc3CFE4,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBreathNormalRestoreLoc3D002 {
     pub(crate) animation_label: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_normal_restore_loc_3d002()
 -> DragonWalkingBreathNormalRestoreLoc3D002 {
     // ASM Dragon.asm loc_3D002: non-HP3 walking dragons restore the normal
@@ -433,14 +429,12 @@ pub(crate) fn dragon_walking_breath_normal_restore_loc_3d002()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingBreathSpawnedDispatchLoc3D00C {
     OrdinaryResume,
     SpawnedChildLeftPacing,
     SpawnedChildRightPacing,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_spawned_dispatch_loc_3d00c(
     parent_spawned_child: bool,
     facing: Direction,
@@ -459,13 +453,11 @@ pub(crate) fn dragon_walking_breath_spawned_dispatch_loc_3d00c(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingBreathNormalDispatchLoc3D01E {
     Loc3E560,
     Loc3E3AC,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_normal_dispatch_loc_3d01e(
     facing: Direction,
 ) -> DragonWalkingBreathNormalDispatchLoc3D01E {
@@ -478,7 +470,6 @@ pub(crate) fn dragon_walking_breath_normal_dispatch_loc_3d01e(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_done_wait_loc_3cfe4(
     parent_phase_done_flag_5b: bool,
     enemy_level_word_40: u16,
@@ -884,10 +875,44 @@ pub(crate) fn step_dragon_walking(
             }
         }
         DRAGON_WALKING_PHASE_RECOVER => {
-            if enemy.dragon_phase_frames > 0 {
-                enemy.dragon_phase_frames -= 1;
-            } else {
-                enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+            let recovery = dragon_walking_breath_done_wait_loc_3cfe4(
+                enemy.dragon_phase_frames == 0,
+                u16::from(enemy.enemy_level),
+            );
+            match recovery.next {
+                DragonWalkingBreathDoneNextLoc3CFE4::RepeatBreathPoll => {
+                    debug_assert!(!recovery.hibernates_after_done_flag);
+                    enemy.dragon_phase_frames -= 1;
+                }
+                DragonWalkingBreathDoneNextLoc3CFE4::RestoreWalkingAnimation { .. } => {
+                    debug_assert!(recovery.hibernates_after_done_flag);
+                    let parent_spawned_child =
+                        enemy.dragon_script_variant & DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG != 0;
+                    match dragon_walking_breath_spawned_dispatch_loc_3d00c(
+                        parent_spawned_child,
+                        enemy.facing,
+                    ) {
+                        DragonWalkingBreathSpawnedDispatchLoc3D00C::OrdinaryResume => {
+                            match dragon_walking_breath_normal_dispatch_loc_3d01e(enemy.facing) {
+                                DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E560 => {
+                                    debug_assert_eq!(enemy.facing, Direction::Left);
+                                }
+                                DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E3AC => {
+                                    debug_assert_eq!(enemy.facing, Direction::Right);
+                                }
+                            }
+                        }
+                        DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildLeftPacing => {
+                            debug_assert!(parent_spawned_child);
+                            debug_assert_eq!(enemy.facing, Direction::Left);
+                        }
+                        DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildRightPacing => {
+                            debug_assert!(parent_spawned_child);
+                            debug_assert_eq!(enemy.facing, Direction::Right);
+                        }
+                    }
+                    enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
+                }
             }
         }
         _ => {}
@@ -1384,6 +1409,28 @@ mod tests {
         assert_eq!(
             dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_WALK,
             "ASM Dragon.asm loc_3D01E should resume the ordinary walking dispatch after recovery finishes"
+        );
+    }
+
+    #[test]
+    fn dragon_walking_spawned_child_recover_resumes_via_loc_3d00c() {
+        let mut dragon = dragon_walking_test_enemy();
+        dragon.dragon_script_variant = DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG;
+        dragon.dragon_script_cmd = DRAGON_WALKING_PHASE_RECOVER;
+        dragon.dragon_phase_frames = 0;
+        dragon.facing = Direction::Right;
+        let mut projectiles = Vec::new();
+
+        step_dragon_walking(&mut dragon, None, &mut projectiles, None);
+
+        assert_eq!(
+            dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_WALK,
+            "ASM Dragon.asm loc_3CFE4 restores the breath animation, then loc_3D00C dispatches spawned walking-dragon children by x_direction"
+        );
+        assert_eq!(dragon.facing, Direction::Right);
+        assert_eq!(
+            dragon.dragon_script_variant & DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG,
+            DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG
         );
     }
 
