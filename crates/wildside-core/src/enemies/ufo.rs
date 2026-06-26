@@ -982,24 +982,29 @@ pub(crate) fn spawn_ufo_first_hurt_debris_loc_351ee(
     parent_x_velocity: i32,
     parent_facing: Direction,
 ) {
-    let x_offset_px = match parent_facing {
-        // ASM UFO.asm loc_354DA: x starts at linked `$1A-$B`; non-zero
-        // x_direction adds `$16`, yielding `$1A+$B`.
-        Direction::Left => -0x0B,
-        Direction::Right => 0x0B,
+    let child_x_direction = match parent_facing {
+        Direction::Left => 0,
+        Direction::Right => 0xFF,
     };
-    let x_pos = (i64::from(parent_x_pos) + (i64::from(x_offset_px) << 16)) as u32;
-    let y_pos = (i64::from(parent_y_pos) - (0x18_i64 << 16)) as u32;
+    let linked_x_pos = (parent_x_pos >> 16) as u16;
+    let linked_y_pos = (parent_y_pos >> 16) as u16;
 
     for debris in ufo_beam_spawn_loc_351ee(
         parent_x_velocity,
         &UFO_FIRST_HURT_DEBRIS_VELOCITIES_LOC_351C4,
     ) {
+        let child = ufo_beam_child_init_loc_35512(
+            linked_x_pos,
+            linked_y_pos,
+            child_x_direction,
+            debris.beam_x_velocity,
+            debris.beam_y_velocity,
+        );
         projectiles.push(EnemyProjectile {
-            x_pos,
-            y_pos,
-            x_velocity: debris.beam_x_velocity,
-            y_velocity: debris.beam_y_velocity,
+            x_pos: u32::from(child.x_pos) << 16,
+            y_pos: u32::from(child.y_pos) << 16,
+            x_velocity: child.x_velocity,
+            y_velocity: child.y_velocity,
             gravity: 0x0000_3000,
             terrain_kill: true,
             lifetime: u16::MAX,
@@ -1010,7 +1015,6 @@ pub(crate) fn spawn_ufo_first_hurt_debris_loc_351ee(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamChildInitLoc35512 {
     pub(crate) x_pos: u16,
     pub(crate) y_pos: u16,
@@ -1026,7 +1030,6 @@ pub(crate) struct UfoBeamChildInitLoc35512 {
     pub(crate) loop_timer: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_child_init_loc_35512(
     linked_x_pos: u16,
     linked_y_pos: u16,
