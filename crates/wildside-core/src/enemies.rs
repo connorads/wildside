@@ -4399,7 +4399,6 @@ pub(crate) fn fireball_trail_init_loc_330d0(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 fn signed_word(word: u16) -> i16 {
     i16::from_be_bytes(word.to_be_bytes())
 }
