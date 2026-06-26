@@ -16525,6 +16525,7 @@ mod chunk_03 {
         tank.layout_index = 13;
         let killed_identity = (tank.segment_index, tank.layout_index);
         runtime.active_enemies = vec![tank];
+        runtime.enemy_status_words[13] = 0xAAAA;
 
         runtime.remove_dead_enemy(0);
 
@@ -16538,6 +16539,10 @@ mod chunk_03 {
             1,
             "ASM Tank_Shooting.asm loc_3B6E6 hides the turret child before hibernating through the parent death animation"
         );
+        assert_eq!(
+            runtime.enemy_status_words[13], 0xAAAA,
+            "ASM Tank_Shooting.asm loc_3B6E6 hibernates before loc_3C46E without touching EnemyStatus_Table"
+        );
         assert_eq!(runtime.active_enemies[0].hit_points, 0);
         assert_eq!(
             runtime.active_enemies[0].wait_timer,
@@ -16550,6 +16555,10 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[13], 0xAAAA,
+            "ASM Tank_Shooting.asm loc_3B6E6 reaches loc_3C46E directly, not the loc_3E956 EnemyStatus_Table tail"
+        );
     }
 
     #[test]

@@ -9722,6 +9722,11 @@ impl NativeRuntime {
             } else {
                 None
             };
+            let tank_shooting_death = if matches!(family, EnemyFamily::TankShooting) {
+                Some(tank_shooting_death_loc_3b6e6())
+            } else {
+                None
+            };
             let armadillo_death_animation = if matches!(family, EnemyFamily::Armadillo) {
                 Some(armadillo_death_animation_loc_3c886(layout_index as u8))
             } else {
@@ -9878,6 +9883,19 @@ impl NativeRuntime {
                     debug_assert!(death_sequence.exits_enemy);
                     debug_assert_eq!(death_animation_frames, CRAB_DEATH_ANIMATION_FRAMES);
                     CRAB_DEATH_ANIMATION_FRAMES
+                });
+            let death_animation_frames =
+                tank_shooting_death.map_or(death_animation_frames, |death_sequence| {
+                    debug_assert!(!death_sequence.child_visible);
+                    debug_assert!(death_sequence.child_has_kid_collision);
+                    debug_assert_eq!(death_sequence.death_animation_script, "stru_3B518");
+                    debug_assert!(death_sequence.hibernates_until_animation_finished);
+                    debug_assert!(matches!(
+                        death_sequence.route,
+                        TankShootingDeathRouteLoc3B6E6::SharedDeactivateLoc3C46E
+                    ));
+                    debug_assert_eq!(death_animation_frames, TANK_SHOOTING_DEATH_ANIMATION_FRAMES);
+                    TANK_SHOOTING_DEATH_ANIMATION_FRAMES
                 });
             let death_animation_frames =
                 armadillo_death_animation.map_or(death_animation_frames, |death_animation| {
