@@ -3398,6 +3398,12 @@ fn activate_enemies_with_rng_inner(
                 // counter is already live before the first hibernated frame.
                 dragon_restart_script(&mut enemy);
             }
+            if matches!(family, EnemyFamily::BigHoppingSkull) {
+                let startup = big_hopping_skull_startup_loc_3652e();
+                debug_assert!(startup.hibernates_one_frame);
+                debug_assert!(startup.checks_object_range);
+                debug_assert_eq!(startup.animation, "stru_367BE");
+            }
             active.push(enemy);
         }
     }

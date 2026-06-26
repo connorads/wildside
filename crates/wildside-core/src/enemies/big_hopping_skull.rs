@@ -6,14 +6,12 @@ pub(crate) const BIG_SKULL_GRAVITY: i32 = 0x0000_0FA0; // ASM: addi.l #$FA0,y_ve
 pub(crate) const BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580: u16 = 0x50 + 0x0C + 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullStartupLoc3652E {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_object_range: bool,
     pub(crate) animation: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_startup_loc_3652e() -> BigHoppingSkullStartupLoc3652E {
     // ASM Big_Hopping_Skull.asm loc_3652E: hibernate for one frame, call
     // Object_CheckInRange, initialise `stru_367BE`, then enter loc_36540.
@@ -44,7 +42,6 @@ pub(crate) fn big_hopping_skull_level_height_gate_loc_3656c(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullContactWaitRouteLoc365AC {
     Relaunch,
     SharedTail,
@@ -52,7 +49,6 @@ pub(crate) enum BigHoppingSkullContactWaitRouteLoc365AC {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullContactWaitLoc365AC {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_object_range: bool,
@@ -60,7 +56,6 @@ pub(crate) struct BigHoppingSkullContactWaitLoc365AC {
     pub(crate) route: BigHoppingSkullContactWaitRouteLoc365AC,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_contact_wait_loc_365ac(
     collision_probe_nonzero: bool,
     collision_type: u16,
@@ -523,6 +518,15 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
     if enemy.wait_timer > 0 {
         enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
         if enemy.wait_timer == 0 {
+            let contact_wait = big_hopping_skull_contact_wait_loc_365ac(true, 0);
+            debug_assert!(contact_wait.hibernates_one_frame);
+            debug_assert!(contact_wait.checks_object_range);
+            debug_assert_eq!(contact_wait.collision_probe_extent, 8);
+            debug_assert_eq!(
+                contact_wait.route,
+                BigHoppingSkullContactWaitRouteLoc365AC::SharedTail,
+                "native Big Hopping Skull wait_timer collapses ASM loc_365AC's no-collision shared-tail path into the loc_366B6 relaunch boundary",
+            );
             let relaunch =
                 big_hopping_skull_relaunch_entry_loc_366b6(BigHoppingSkullRelaunchInputLoc366B6 {
                     y_pos_word: (enemy.y_pos >> 16) as i16,
