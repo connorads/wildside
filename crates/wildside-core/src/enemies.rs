@@ -8960,14 +8960,12 @@ pub(crate) struct SharedEnemyAttachmentInputSub3BF72 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SharedEnemyDriveSoundEffectSub3C352 {
     DrillMoving,
     TankDriving,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SharedEnemyDriveSoundCallSub3C352 {
     // sub_3C352 starts the pooled drive drone via j_PlaySound (GEMS $10
     // cmdstartseq) on first activation, and stops it via j_PlaySound2 (GEMS
@@ -8977,7 +8975,6 @@ pub(crate) enum SharedEnemyDriveSoundCallSub3C352 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SharedEnemyDriveSoundResultSub3C352 {
     pub(crate) next_previous_motion_active: bool,
     pub(crate) next_refcount: u8,
