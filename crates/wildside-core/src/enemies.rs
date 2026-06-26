@@ -3555,6 +3555,24 @@ pub(crate) fn step_active_enemies_with_rng(
                         // a nonfatal child hit before resuming the shared
                         // walker; native `wait_timer` spans the ROM hibernate
                         // plus trace-sampling collision frames.
+                        if enemy.wait_timer == 1 {
+                            // ASM Tank.asm loc_3B4BA: clear the linked mouth
+                            // collision and branch by `x_direction` into the
+                            // shared walker.
+                            let x_direction = if matches!(enemy.facing, Direction::Right) {
+                                0xFF
+                            } else {
+                                0x00
+                            };
+                            let resume = tank_resume_walk_loc_3b4ba(x_direction);
+                            debug_assert_eq!(resume.next_child_collision_type, 0);
+                            let expected_branch = if matches!(enemy.facing, Direction::Right) {
+                                TankResumeWalkBranchLoc3B4BA::RightSharedWalker
+                            } else {
+                                TankResumeWalkBranchLoc3B4BA::LeftSharedWalker
+                            };
+                            debug_assert_eq!(resume.branch, expected_branch);
+                        }
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         enemy.wait_timer = enemy.wait_timer.saturating_sub(1);

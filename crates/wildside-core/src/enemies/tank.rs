@@ -141,20 +141,17 @@ pub(crate) fn tank_bullet_loop_route_loc_3b7ba(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TankResumeWalkBranchLoc3B4BA {
     LeftSharedWalker,
     RightSharedWalker,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankResumeWalkLoc3B4BA {
     pub(crate) next_child_collision_type: u16,
     pub(crate) branch: TankResumeWalkBranchLoc3B4BA,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_resume_walk_loc_3b4ba(x_direction: u8) -> TankResumeWalkLoc3B4BA {
     // ASM Tank.asm loc_3B4BA: clear mouth child collision `$38(a2)`, then
     // branch by `x_direction(a3)`; zero enters loc_3C0FA, nonzero loc_3C04E.
