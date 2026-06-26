@@ -3073,17 +3073,31 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
+            let tar_monster_init = if matches!(family, EnemyFamily::TarMonster) {
+                Some(tar_monster_init_loc_321e4(
+                    object_x as u16,
+                    object_y as u16,
+                    enemy_level,
+                    blank_top_rows,
+                ))
+            } else {
+                None
+            };
             let base_x = spawn_x_pos(family, object_x);
             let base_y = spawn_y;
             let head_x = if is_multi_head_boss(family) {
                 let offset_px = head_x_offsets[head_idx as usize];
                 (base_x as i64 + (i64::from(offset_px) << 16)).clamp(0, i64::from(u32::MAX)) as u32
+            } else if let Some(init) = tar_monster_init {
+                init.x_pos
             } else {
                 base_x
             };
             let head_y = if is_multi_head_boss(family) {
                 let offset_px = head_y_offsets[head_idx as usize];
                 (base_y as i64 + (i64::from(offset_px) << 16)).clamp(0, i64::from(u32::MAX)) as u32
+            } else if let Some(init) = tar_monster_init {
+                init.y_pos
             } else {
                 base_y
             };
@@ -3108,9 +3122,15 @@ fn activate_enemies_with_rng_inner(
                 init.current_hp as u8
             } else if let Some(init) = dragon_walking_art_init {
                 init.current_hp as u8
+            } else if let Some(init) = tar_monster_init {
+                init.hit_points
             } else {
                 spawn_hit_points(family, enemy_level)
             };
+            if let Some(init) = tar_monster_init {
+                debug_assert_eq!(init.priority, 0);
+                debug_assert_eq!(init.object_meta, u16::from(family.object_type()));
+            }
             if let Some(init) = orca_init {
                 debug_assert!(init.status_flag_13);
                 debug_assert_eq!(init.object_meta, u16::from(family.object_type()));

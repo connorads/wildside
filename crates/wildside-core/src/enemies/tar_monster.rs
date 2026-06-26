@@ -1038,7 +1038,6 @@ pub(crate) fn tar_monster_collision_dispatch_loc_32386(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterInitLoc321C6 {
     pub(crate) hit_points: u8,
     pub(crate) x_pos: u32,
@@ -1046,7 +1045,6 @@ pub(crate) struct TarMonsterInitLoc321C6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_init_loc_321c6(
     queued_x_word: u16,
     queued_y_word: u16,
@@ -1062,7 +1060,6 @@ pub(crate) fn tar_monster_init_loc_321c6(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterInitLoc321E4 {
     pub(crate) hit_points: u8,
     pub(crate) priority: u8,
@@ -1072,7 +1069,6 @@ pub(crate) struct TarMonsterInitLoc321E4 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_init_loc_321e4(
     queued_x_word: u16,
     queued_y_word: u16,
@@ -1082,6 +1078,7 @@ pub(crate) fn tar_monster_init_loc_321e4(
     // ASM loc_321E4 calls sub_36FF4, sets object priority and object_meta to 5,
     // then runs the shared setup path (loc_32146) before storing `a3` in `$3A(a5)`.
     let base = tar_monster_init_loc_321c6(queued_x_word, queued_y_word, enemy_level);
+    debug_assert_eq!(base.y_pos, u32::from(queued_y_word) << 16);
     TarMonsterInitLoc321E4 {
         hit_points: base.hit_points,
         priority: 0,
