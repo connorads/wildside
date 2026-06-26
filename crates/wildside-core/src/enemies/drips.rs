@@ -533,7 +533,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_336aa(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc3371A {
     Loc339B4,
     Loc336D0,
@@ -557,7 +556,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_3371a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc336D0 {
     Loc338F8,
     Loc3396E,
@@ -567,7 +565,6 @@ pub(crate) enum DripsSurfaceCrawlerMovementPathLoc336D0 {
     Loc33950,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_336d0(
     has_collision: bool,
     probe_is_solid: bool,
