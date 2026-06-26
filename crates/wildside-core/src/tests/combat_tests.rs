@@ -15926,6 +15926,7 @@ mod chunk_03 {
         crab.layout_index = 10;
         let killed_identity = (crab.segment_index, crab.layout_index);
         runtime.active_enemies = vec![crab];
+        runtime.enemy_status_words[10] = 0xAAAA;
 
         runtime.remove_dead_enemy(0);
 
@@ -15935,6 +15936,10 @@ mod chunk_03 {
             "ASM Crab.asm loc_3B094 hibernates through stru_3AF82 before loc_3C46E deletes the enemy"
         );
         assert_eq!(runtime.active_enemies[0].hit_points, 0);
+        assert_eq!(
+            runtime.enemy_status_words[10], 0xAAAA,
+            "ASM Crab.asm loc_3B094 hibernates before the loc_3C46E delete tail without touching EnemyStatus_Table"
+        );
         assert_eq!(
             runtime.active_enemies[0].wait_timer,
             CRAB_DEATH_ANIMATION_FRAMES
@@ -15946,6 +15951,10 @@ mod chunk_03 {
 
         assert!(runtime.active_enemies.is_empty());
         assert!(runtime.killed_enemies.contains(&killed_identity));
+        assert_eq!(
+            runtime.enemy_status_words[10], 0xAAAA,
+            "ASM Crab.asm loc_3B094 reaches loc_3C46E directly, not the loc_3E956 EnemyStatus_Table tail"
+        );
         assert_eq!(
             runtime.progression.score, 0,
             "ASM Crab.asm loc_3B094 reaches the shared loc_3C46E delete tail, which removes the object without writing `(Score).w`"

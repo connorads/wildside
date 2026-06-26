@@ -9717,6 +9717,11 @@ impl NativeRuntime {
             } else {
                 None
             };
+            let crab_death_sequence = if matches!(family, EnemyFamily::Crab) {
+                Some(crab_death_sequence_loc_3b094())
+            } else {
+                None
+            };
             let armadillo_death_animation = if matches!(family, EnemyFamily::Armadillo) {
                 Some(armadillo_death_animation_loc_3c886(layout_index as u8))
             } else {
@@ -9865,6 +9870,14 @@ impl NativeRuntime {
                     debug_assert!(death_sequence.exits_enemy);
                     debug_assert_eq!(death_animation_frames, NINJA_DEATH_ANIMATION_FRAMES);
                     NINJA_DEATH_ANIMATION_FRAMES
+                });
+            let death_animation_frames =
+                crab_death_sequence.map_or(death_animation_frames, |death_sequence| {
+                    debug_assert_eq!(death_sequence.animation_script, "stru_3AF82");
+                    debug_assert!(death_sequence.waits_until_animation_finished);
+                    debug_assert!(death_sequence.exits_enemy);
+                    debug_assert_eq!(death_animation_frames, CRAB_DEATH_ANIMATION_FRAMES);
+                    CRAB_DEATH_ANIMATION_FRAMES
                 });
             let death_animation_frames =
                 armadillo_death_animation.map_or(death_animation_frames, |death_animation| {

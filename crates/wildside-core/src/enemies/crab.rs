@@ -416,17 +416,15 @@ pub(crate) fn crab_hurt_sequence_loc_3b0a6() -> CrabHurtSequenceLoc3B0A6 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabDeathSequenceLoc3B094 {
     pub(crate) animation_script: &'static str,
     pub(crate) waits_until_animation_finished: bool,
     pub(crate) exits_enemy: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_death_sequence_loc_3b094() -> CrabDeathSequenceLoc3B094 {
     // ASM Crab.asm loc_3B094: initialise `stru_3AF82`, hibernate until that
-    // death animation finishes, then branch to the shared enemy exit.
+    // death animation finishes, then branch to the loc_3C46E delete tail.
     CrabDeathSequenceLoc3B094 {
         animation_script: "stru_3AF82",
         waits_until_animation_finished: true,
