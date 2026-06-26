@@ -5,6 +5,7 @@ use crate::enemies::{
     CloudAttackProjectileRouteLoc35E8A, DragonFlyingDescentFireFirstLoopLoc34C26,
     DragonFlyingDescentFireTravelLoopLoc34C3A, DripsLeftBoundsNextLoc335AA,
     DripsRightBoundsNextLoc33588, DripsSurfaceCrawlerMovementPathLoc336D0,
+    DripsSurfaceCrawlerMovementPathLoc337A0, DripsSurfaceCrawlerMovementPathLoc337F2,
     DripsSurfaceCrawlerMovementPathLoc33650, DripsSurfaceCrawlerMovementPathLoc33730,
     DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
     DripsSurfaceCrawlerTurnScriptLoc33AF6, FireDemonFireTrailWaitNextLoc3A6CA,
@@ -21,7 +22,8 @@ use crate::enemies::{
     drips_splash_reset_loc_33488, drips_surface_crawler_animation_tail_loc_33630,
     drips_surface_crawler_delete_tail_loc_3392c, drips_surface_crawler_idle_loop_loc_33a7c,
     drips_surface_crawler_init_loc_335d8, drips_surface_crawler_movement_tail_loc_336aa,
-    drips_surface_crawler_movement_tail_loc_336d0, drips_surface_crawler_movement_tail_loc_33650,
+    drips_surface_crawler_movement_tail_loc_336d0, drips_surface_crawler_movement_tail_loc_337a0,
+    drips_surface_crawler_movement_tail_loc_337f2, drips_surface_crawler_movement_tail_loc_33650,
     drips_surface_crawler_movement_tail_loc_33730, drips_surface_crawler_turn_script_loc_33a0e,
     drips_surface_crawler_turn_script_loc_33a2c, drips_surface_crawler_turn_script_loc_33a04,
     drips_surface_crawler_turn_script_loc_33a5e, drips_surface_crawler_turn_script_loc_33a18,
@@ -1483,30 +1485,57 @@ fn drips_surface_crawler_vertical_step_loc_337a0(
         0,
     );
 
-    if projectile.y_velocity < 0 {
-        if row.left == 0x6000 {
+    match drips_surface_crawler_movement_tail_loc_337a0(
+        false,
+        true,
+        false,
+        projectile.y_velocity < 0,
+        row.left,
+        row.centre,
+    ) {
+        DripsSurfaceCrawlerMovementPathLoc337A0::GuardExit => {
+            DripsSurfaceCrawlerVerticalStepLoc33730::Exit
+        }
+        DripsSurfaceCrawlerMovementPathLoc337A0::NonNegativeYVelocityBranch => {
+            match drips_surface_crawler_movement_tail_loc_337f2(row.left, row.centre) {
+                DripsSurfaceCrawlerMovementPathLoc337F2::SolidD5Turn => {
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                        drips_surface_crawler_turn_script_loc_3398c(),
+                    )
+                }
+                DripsSurfaceCrawlerMovementPathLoc337F2::SolidD5Corner => {
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                        drips_surface_crawler_turn_script_loc_33a5e(),
+                    )
+                }
+                DripsSurfaceCrawlerMovementPathLoc337F2::LoopToEntry => {
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Loop
+                }
+                DripsSurfaceCrawlerMovementPathLoc337F2::FallbackTurn => {
+                    DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
+                        drips_surface_crawler_turn_script_loc_3395a(),
+                    )
+                }
+            }
+        }
+        DripsSurfaceCrawlerMovementPathLoc337A0::SolidD5Turn => {
             DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
                 drips_surface_crawler_turn_script_loc_339be(),
             )
-        } else if row.centre == 0x6000 {
+        }
+        DripsSurfaceCrawlerMovementPathLoc337A0::Loop => {
             DripsSurfaceCrawlerVerticalStepLoc33730::Loop
-        } else if row.centre == 0x4000 {
+        }
+        DripsSurfaceCrawlerMovementPathLoc337A0::SolidD6Corner => {
             DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
                 drips_surface_crawler_turn_script_loc_33a04(),
             )
-        } else {
+        }
+        DripsSurfaceCrawlerMovementPathLoc337A0::FallbackTurn => {
             DripsSurfaceCrawlerVerticalStepLoc33730::Turn(
                 drips_surface_crawler_turn_script_loc_33978(),
             )
         }
-    } else if row.left == 0x6000 {
-        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_3398c())
-    } else if row.left == 0x4000 {
-        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_33a5e())
-    } else if row.centre == 0x6000 {
-        DripsSurfaceCrawlerVerticalStepLoc33730::Loop
-    } else {
-        DripsSurfaceCrawlerVerticalStepLoc33730::Turn(drips_surface_crawler_turn_script_loc_3395a())
     }
 }
 

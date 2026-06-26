@@ -661,7 +661,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33730(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc337A0 {
     GuardExit,
     NonNegativeYVelocityBranch,
@@ -671,7 +670,6 @@ pub(crate) enum DripsSurfaceCrawlerMovementPathLoc337A0 {
     FallbackTurn,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_337a0(
     has_collision: bool,
     probe_is_solid: bool,
@@ -703,7 +701,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_337a0(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc337F2 {
     SolidD5Turn,
     SolidD5Corner,
@@ -711,7 +708,6 @@ pub(crate) enum DripsSurfaceCrawlerMovementPathLoc337F2 {
     FallbackTurn,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_337f2(
     tile_flags_33286_d5: u16,
     tile_flags_33286_d6: u16,
