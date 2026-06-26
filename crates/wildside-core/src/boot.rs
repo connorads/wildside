@@ -1100,7 +1100,6 @@ pub(crate) struct PauseMenuSpriteEntrySub6874 {
 
 /// Result of the pause-menu gate check at sub_6874 / loc_687C.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum PauseMenuGateLoc687C {
     /// Game_Paused == 0 → sub_6874 returns immediately (rts).
     NotPaused,
@@ -1113,7 +1112,6 @@ pub(crate) enum PauseMenuGateLoc687C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_gate_loc_687C(game_paused: u8) -> PauseMenuGateLoc687C {
     // ASM sub_6874 (kid.asm:6575-6578):
     //   tst.b (Game_Paused).w; bne.s loc_687C; rts
@@ -8090,20 +8088,24 @@ impl NativeRuntime {
             return false;
         }
 
-        if self.paused {
-            // ASM loc_687C (kid.asm:6581): pause-active path in sub_6874.
-            //   bsr.w Pause_DarkenPalette    — darken palette each paused frame
-            //   bsr.w Palette_to_VRAM        — upload darkened palette
-            //   jsr   (sub_E1334).l          — run pause menu UI
-            //   cmpi.b #3,(Game_Paused).w    — check unpause condition
-            //   bne.s  loc_6894              — if not 3, continue to sprite hiding
-            //   rts                          — if 3, return (unpausing)
-            // The native port models this as a boolean `paused` gate: when true,
-            // step_lifecycle returns false (suppressing gameplay), and the
-            // rendering layer handles palette darkening separately.  Unpause
-            // is handled by handle_start_press setting `paused = false` on the
-            // next Start press (equivalent to Game_Paused transitioning to 3).
-            return false;
+        match pause_menu_gate_loc_687C(u8::from(self.paused)) {
+            PauseMenuGateLoc687C::NotPaused => {}
+            PauseMenuGateLoc687C::UnpausingReturn
+            | PauseMenuGateLoc687C::PausedContinueToSpriteHide => {
+                // ASM loc_687C (kid.asm:6581): pause-active path in sub_6874.
+                //   bsr.w Pause_DarkenPalette    — darken palette each paused frame
+                //   bsr.w Palette_to_VRAM        — upload darkened palette
+                //   jsr   (sub_E1334).l          — run pause menu UI
+                //   cmpi.b #3,(Game_Paused).w    — check unpause condition
+                //   bne.s  loc_6894              — if not 3, continue to sprite hiding
+                //   rts                          — if 3, return (unpausing)
+                // The native port models this as a boolean `paused` gate: when true,
+                // step_lifecycle returns false (suppressing gameplay), and the
+                // rendering layer handles palette darkening separately.  Unpause
+                // is handled by handle_start_press setting `paused = false` on the
+                // next Start press (equivalent to Game_Paused transitioning to 3).
+                return false;
+            }
         }
 
         true
