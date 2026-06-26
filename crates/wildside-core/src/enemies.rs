@@ -148,11 +148,8 @@ pub(crate) const NINJA_COLID_HURT: u16 = colid::HURT;
 pub(crate) const NINJA_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 pub(crate) const NINJA_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
 pub(crate) const NINJA_COLID_KIDLEFT: u16 = colid::KIDLEFT;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRAGON_COLID_HURT: u16 = colid::HURT;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRAGON_COLID_KIDRIGHT: u16 = colid::KIDRIGHT;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const DRAGON_COLID_KIDLEFT: u16 = colid::KIDLEFT;
 pub(crate) const DRAGON_COLID_KIDABOVE: u16 = colid::KIDABOVE;
 pub(crate) const TANK_COLID_HURT: u16 = colid::HURT;
