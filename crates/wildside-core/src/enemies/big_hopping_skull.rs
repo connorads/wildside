@@ -277,13 +277,11 @@ pub(crate) fn big_hopping_skull_death_wait_loc_36664(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullDeathAnimationGateLoc3667E {
     LoopDeathAnimation,
     FinalizeDeathStatus,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_death_animation_gate_loc_3667e(
     animation_finished: bool,
 ) -> BigHoppingSkullDeathAnimationGateLoc3667E {

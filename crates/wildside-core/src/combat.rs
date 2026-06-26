@@ -10141,9 +10141,21 @@ impl NativeRuntime {
         } else {
             None
         };
+        let big_hopping_skull_death_gate = if matches!(family, EnemyFamily::BigHoppingSkull) {
+            Some(big_hopping_skull_death_animation_gate_loc_3667e(
+                enemy.death_animation_active && enemy.wait_timer == 0,
+            ))
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
+            debug_assert_eq!(
+                big_hopping_skull_death_gate,
+                Some(BigHoppingSkullDeathAnimationGateLoc3667E::FinalizeDeathStatus),
+                "ASM Big_Hopping_Skull.asm loc_3667E should finalise death status only after `stru_367FA` finishes",
+            );
             let marker = big_hopping_skull_respawn_marker_loc_366a4(layout_index as u8);
             if let Some(word) = self.enemy_status_words.get_mut(marker.index) {
                 // ASM Big_Hopping_Skull.asm loc_366A4: after `stru_367FA`
