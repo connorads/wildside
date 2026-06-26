@@ -660,11 +660,7 @@ pub(crate) fn ninja_collision_resume_loc_3d638(
     // ASM Ninja.asm loc_3D638: clear collision, branch by `$5C(a5)` and
     // x_direction to one of `loc_3E7CA/3E6AE/3E560/3E3AC`.
     if wall_pinned {
-        if x_direction_right {
-            NinjaCollisionResumeLoc3D638::Loc3E3AC
-        } else {
-            NinjaCollisionResumeLoc3D638::Loc3E560
-        }
+        ninja_collision_resume_loc_3d64e(x_direction_right)
     } else if x_direction_right {
         NinjaCollisionResumeLoc3D638::Loc3E6AE
     } else {
@@ -1007,7 +1003,6 @@ pub(crate) fn ninja_collision_dispatch_loc_3d606(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_collision_resume_loc_3d64e(
     x_direction_right: bool,
 ) -> NinjaCollisionResumeLoc3D638 {
@@ -1021,12 +1016,10 @@ pub(crate) fn ninja_collision_resume_loc_3d64e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaCollisionStateLoc3D66E {
     pub(crate) next: NinjaCollisionResumeLoc3D638,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_collision_resume_loc_3d66e(
     next: NinjaCollisionResumeLoc3D638,
 ) -> NinjaCollisionStateLoc3D66E {

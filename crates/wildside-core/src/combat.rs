@@ -9117,6 +9117,14 @@ impl NativeRuntime {
                             // blocks hurt/Kid-above contact, plays `$52`, and
                             // resumes through loc_3D638 without decrementing
                             // `$44(a3)`.
+                            let resume = ninja_collision_resume_loc_3d66e(
+                                ninja_collision_resume_loc_3d638(false, x_direction_right),
+                            );
+                            debug_assert!(matches!(
+                                resume.next,
+                                NinjaCollisionResumeLoc3D638::Loc3E7CA
+                                    | NinjaCollisionResumeLoc3D638::Loc3E6AE
+                            ));
                             queued_sound_effects.push(QueuedSoundEffect::NinjaBlocking);
                             changed_enemy_state = true;
                         } else {
