@@ -1,7 +1,6 @@
 use super::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 pub(crate) struct NinjaInitState {
     pub(crate) status_flag_13: bool,
     pub(crate) object_meta: u16,
@@ -12,7 +11,6 @@ pub(crate) struct NinjaInitState {
 
 /// ASM Enemy11_Ninja_Init `loc_3D554` computes `current_hp` from layout level
 /// and seeds shared ninja state used by the stealth pacer speed path.
-#[allow(dead_code)]
 pub(crate) fn ninja_init_state_loc_3d554(enemy_level: u8) -> NinjaInitState {
     let current_hp = spawn_hit_points(EnemyFamily::Ninja, enemy_level);
     NinjaInitState {
@@ -412,14 +410,12 @@ pub(crate) fn ninja_jump_attack_wall_bounce_loc_3da46(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum NinjaJumpAttackLandingResumeLoc3DA56 {
     Loc3E566,
     Loc3E3B2,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NinjaJumpAttackLandingStateLoc3DA56 {
     pub(crate) next_collision_type: u16,
     pub(crate) x_velocity: i32,
@@ -431,7 +427,6 @@ pub(crate) struct NinjaJumpAttackLandingStateLoc3DA56 {
     pub(crate) next: NinjaJumpAttackLandingResumeLoc3DA56,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ninja_jump_attack_landing_loc_3da56(
     x_direction_right: bool,
 ) -> NinjaJumpAttackLandingStateLoc3DA56 {
@@ -1438,11 +1433,27 @@ pub(crate) fn step_ninja(
                 if floor.on_ground {
                     let floor_y_fp = (floor.floor_y_px as u32) << 16;
                     if enemy.y_pos >= floor_y_fp {
+                        let landing = ninja_jump_attack_landing_loc_3da56(matches!(
+                            enemy.facing,
+                            Direction::Right
+                        ));
                         enemy.y_pos = floor_y_fp;
-                        enemy.x_velocity = 0;
-                        enemy.y_velocity = 0;
-                        enemy.on_ground = true;
+                        enemy.x_velocity = landing.x_velocity;
+                        enemy.y_velocity = landing.y_velocity;
+                        enemy.on_ground = !landing.is_moved;
                         enemy.ninja_state = NinjaState::Stealth;
+                        debug_assert_eq!(landing.next_collision_type, 0);
+                        debug_assert_eq!(landing.animation_script, "stru_3D4EA");
+                        debug_assert!(!landing.has_level_collision);
+                        debug_assert!(landing.is_animated);
+                        match landing.next {
+                            NinjaJumpAttackLandingResumeLoc3DA56::Loc3E566 => {
+                                debug_assert_eq!(enemy.facing, Direction::Left);
+                            }
+                            NinjaJumpAttackLandingResumeLoc3DA56::Loc3E3B2 => {
+                                debug_assert_eq!(enemy.facing, Direction::Right);
+                            }
+                        }
                     }
                 }
             }

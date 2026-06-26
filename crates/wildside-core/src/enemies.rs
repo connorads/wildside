@@ -90,7 +90,6 @@ pub(crate) const MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E: u16 = 0x8
 /// - `current_hp == 3`: `loc_3D59A` then `loc_3D5AA` (`+$8000` ×2).
 /// - `current_hp > 3`: base `+$8000` + both branch adds (`+$8000` ×3), so net 3×.
 ///   This is the native selection used by `step_pacer` speed resolution.
-#[allow(dead_code)]
 pub(crate) fn ninja_walk_speed_override_loc_3d59a_and_3d5aa(current_hp: u8) -> i32 {
     if current_hp > 3 {
         0x0002_4000
@@ -3056,6 +3055,11 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
+            let ninja_init = if matches!(family, EnemyFamily::Ninja) {
+                Some(ninja_init_state_loc_3d554(enemy_level))
+            } else {
+                None
+            };
             let base_x = spawn_x_pos(family, object_x);
             let base_y = spawn_y;
             let head_x = if is_multi_head_boss(family) {
@@ -3085,6 +3089,8 @@ fn activate_enemies_with_rng_inner(
                 visible_init.current_hp
             } else if let Some(init) = orca_init {
                 init.current_hp
+            } else if let Some(init) = ninja_init {
+                init.current_hp
             } else if let Some(init) = lion_visible_init {
                 init.current_hp as u8
             } else if let Some(init) = dragon_walking_art_init {
@@ -3096,6 +3102,16 @@ fn activate_enemies_with_rng_inner(
                 debug_assert!(init.status_flag_13);
                 debug_assert_eq!(init.object_meta, u16::from(family.object_type()));
                 debug_assert_eq!(init.priority, 0);
+            }
+            if let Some(init) = ninja_init {
+                debug_assert!(init.status_flag_13);
+                debug_assert_eq!(init.object_meta, u16::from(family.object_type()));
+                debug_assert_eq!(init.priority, 0);
+                debug_assert_eq!(init.current_hp, hit_points);
+                debug_assert_eq!(
+                    init.walk_speed_override,
+                    pacer_walk_speed(family, hit_points)
+                );
             }
             if matches!(family, EnemyFamily::Tank) {
                 let visible_init =
@@ -8406,6 +8422,73 @@ mod tests {
         assert_eq!(
             dragon.hit_points, 3,
             "ASM Dragon.asm loc_3CDB8 stores enemy_level+1 in current_hp(a3), so raw level 2 spawns a 3 HP walking dragon"
+        );
+    }
+
+    #[test]
+    fn ninja_spawn_uses_loc_3d554_hp_seed() {
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![0x0011, 0xFFFF, 0xFFFF],
+            unknown_word: 0x7D00,
+            header_byte: 0x80,
+            object_count: 1,
+            objects: vec![wildside_data::EnemyLayoutObject {
+                object_type: 0x11,
+                flags: 0xFF,
+                hit_points_plus_one: 1,
+                x: 200,
+                y: 144,
+            }],
+            segments: vec![wildside_data::EnemyLayoutSegment {
+                lower_bound: 0,
+                upper_bound: 0x7D00,
+                enemy_type_slots: vec![0x0011, 0xFFFF, 0xFFFF],
+                object_batch_flags: 0x80,
+                object_count: 1,
+                objects: vec![wildside_data::EnemyLayoutObject {
+                    object_type: 0x11,
+                    flags: 0xFF,
+                    hit_points_plus_one: 1,
+                    x: 200,
+                    y: 144,
+                }],
+            }],
+        };
+        let window = ActivationWindow {
+            x_min: 0,
+            x_max: 640,
+            y_min: 0,
+            y_max: 480,
+        };
+        let mut active = Vec::new();
+
+        activate_enemies(
+            &mut active,
+            &layout,
+            window,
+            0,
+            0,
+            physics::LevelBounds {
+                width_pixels: 4096,
+                height_pixels: 512,
+            },
+            0,
+            0,
+            &std::collections::HashSet::new(),
+        );
+
+        let ninja = active.first().expect("ninja should activate");
+        assert_eq!(ninja.family, EnemyFamily::Ninja);
+        assert_eq!(
+            ninja.hit_points, 3,
+            "ASM Ninja.asm loc_3D554 adds 2 to enemy_level before storing current_hp(a3)"
+        );
+        assert_eq!(
+            pacer_walk_speed(ninja.family, ninja.hit_points),
+            0x0001_8000,
+            "ASM Ninja.asm loc_3D59A/loc_3D5AA keep HP 3 on the fallthrough speed tier"
         );
     }
 
