@@ -609,7 +609,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_336d0(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33730 {
     Loc338F8,
     Loc33964,
@@ -621,7 +620,6 @@ pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33730 {
     Loc339A0,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_33730(
     has_collision: bool,
     probe_is_solid: bool,
@@ -653,7 +651,7 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33730(
 
     if tile_flags_33286_d6 == 0x6000 {
         DripsSurfaceCrawlerMovementPathLoc33730::Loc33946
-    } else if tile_flags_33286_d5 == 0x5000 {
+    } else if tile_flags_33286_d6 == 0x5000 {
         DripsSurfaceCrawlerMovementPathLoc33730::Loc33A72
     } else if tile_flags_33286_d5 == 0x6000 {
         DripsSurfaceCrawlerMovementPathLoc33730::Loc33730
@@ -2341,10 +2339,10 @@ mod tests {
         );
         assert_eq!(
             drips_surface_crawler_movement_tail_loc_33730(
-                false, true, false, false, 0x5000, 0x1111,
+                false, true, false, false, 0x1111, 0x5000,
             ),
             DripsSurfaceCrawlerMovementPathLoc33730::Loc33A72,
-            "ASM Drips.asm loc_33730 (y_vel<0 branch) routes `loc_33286`-d5 `$5000` to `loc_33A72`"
+            "ASM Drips.asm loc_33782 routes `loc_33286`-d6 `$5000` to `loc_33A72`"
         );
         assert_eq!(
             drips_surface_crawler_movement_tail_loc_33730(
