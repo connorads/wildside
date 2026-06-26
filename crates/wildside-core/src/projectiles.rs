@@ -7,16 +7,16 @@ use crate::enemies::{
     DripsRightBoundsNextLoc33588, DripsSurfaceCrawlerMovementPathLoc336D0,
     DripsSurfaceCrawlerMovementPathLoc337A0, DripsSurfaceCrawlerMovementPathLoc337F2,
     DripsSurfaceCrawlerMovementPathLoc33650, DripsSurfaceCrawlerMovementPathLoc33730,
-    DripsSurfaceCrawlerMovementPathLoc33810, DripsSurfaceCrawlerTurnFieldLoc33AF6,
-    DripsSurfaceCrawlerTurnNextLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
-    FireDemonFireTrailWaitNextLoc3A6CA, FireballObstacleTrailLoopStepLoc331BA,
-    FireballTrailLoopStepLoc33110, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
-    RobotShotFlightRouteLoc3AC48, TankBulletLoopRouteLoc3B7BA,
-    TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
-    TarMonsterProjectileLoopRouteLoc3263C, archer_angle_to_player, archer_arrow_delete_loc_34336,
-    archer_reaim_loc_3432E, cloud_attack_projectile_delete_tail_loc_35E9C,
-    cloud_attack_projectile_loop_loc_35E8A, dragon_flying_descent_fire_cleanup_loc_34C4A,
-    dragon_flying_descent_fire_first_loop_loc_34C26,
+    DripsSurfaceCrawlerMovementPathLoc33810, DripsSurfaceCrawlerMovementPathLoc33892,
+    DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
+    DripsSurfaceCrawlerTurnScriptLoc33AF6, FireDemonFireTrailWaitNextLoc3A6CA,
+    FireballObstacleTrailLoopStepLoc331BA, FireballTrailLoopStepLoc33110,
+    ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762, RobotShotFlightRouteLoc3AC48,
+    TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
+    TarMonsterProjectileCollisionTargetLoc32682, TarMonsterProjectileLoopRouteLoc3263C,
+    archer_angle_to_player, archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
+    cloud_attack_projectile_delete_tail_loc_35E9C, cloud_attack_projectile_loop_loc_35E8A,
+    dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
     drips_enter_splash_animation_loc_33488, drips_left_bounds_gate_loc_335aa,
     drips_right_bounds_gate_loc_33588, drips_splash_animation_remaining_loc_33488,
@@ -26,29 +26,30 @@ use crate::enemies::{
     drips_surface_crawler_movement_tail_loc_336d0, drips_surface_crawler_movement_tail_loc_337a0,
     drips_surface_crawler_movement_tail_loc_337f2, drips_surface_crawler_movement_tail_loc_33650,
     drips_surface_crawler_movement_tail_loc_33730, drips_surface_crawler_movement_tail_loc_33810,
-    drips_surface_crawler_turn_script_loc_33a0e, drips_surface_crawler_turn_script_loc_33a2c,
-    drips_surface_crawler_turn_script_loc_33a04, drips_surface_crawler_turn_script_loc_33a5e,
-    drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a22,
-    drips_surface_crawler_turn_script_loc_33a36, drips_surface_crawler_turn_script_loc_33a40,
-    drips_surface_crawler_turn_script_loc_33a72, drips_surface_crawler_turn_script_loc_339a0,
-    drips_surface_crawler_turn_script_loc_339aa, drips_surface_crawler_turn_script_loc_339b4,
-    drips_surface_crawler_turn_script_loc_339be, drips_surface_crawler_turn_script_loc_339c8,
-    drips_surface_crawler_turn_script_loc_339d2, drips_surface_crawler_turn_script_loc_339dc,
-    drips_surface_crawler_turn_script_loc_339e6, drips_surface_crawler_turn_script_loc_339f0,
-    drips_surface_crawler_turn_script_loc_339fa, drips_surface_crawler_turn_script_loc_3393c,
-    drips_surface_crawler_turn_script_loc_3395a, drips_surface_crawler_turn_script_loc_3396e,
-    drips_surface_crawler_turn_script_loc_3398c, drips_surface_crawler_turn_script_loc_33946,
-    drips_surface_crawler_turn_script_loc_33950, drips_surface_crawler_turn_script_loc_33964,
-    drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
-    drips_surface_crawler_turn_script_loc_33996, drips_surface_table_reset_loc_33506,
-    drips_velocity_apply_loc_33546, drips_vertical_bounds_contact_flag_loc_335b0,
-    drips_wait_timer_loc_3340e, fire_demon_fire_trail_delete_tail_loc_3a6da,
-    fire_demon_fire_trail_wait_loop_tick_loc_3a6ca, fireball_obstacle_trail_delete_tail_loc_331ca,
-    fireball_obstacle_trail_loop_step_loc_331ba, fireball_trail_delete_tail_loc_33120,
-    fireball_trail_loop_step_loc_33110, robot_shot_flight_loop_loc_3ac48,
-    robot_shot_impact_prep_loc_3ac7e, spawn_tar_monster_retaliation,
-    tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
-    tar_monster_projectile_loop_loc_3263C, tar_monster_projectile_negated_velocity_swap_loc_326C6,
+    drips_surface_crawler_movement_tail_loc_33892, drips_surface_crawler_turn_script_loc_33a0e,
+    drips_surface_crawler_turn_script_loc_33a2c, drips_surface_crawler_turn_script_loc_33a04,
+    drips_surface_crawler_turn_script_loc_33a5e, drips_surface_crawler_turn_script_loc_33a18,
+    drips_surface_crawler_turn_script_loc_33a22, drips_surface_crawler_turn_script_loc_33a36,
+    drips_surface_crawler_turn_script_loc_33a40, drips_surface_crawler_turn_script_loc_33a72,
+    drips_surface_crawler_turn_script_loc_339a0, drips_surface_crawler_turn_script_loc_339aa,
+    drips_surface_crawler_turn_script_loc_339b4, drips_surface_crawler_turn_script_loc_339be,
+    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
+    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339e6,
+    drips_surface_crawler_turn_script_loc_339f0, drips_surface_crawler_turn_script_loc_339fa,
+    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_3395a,
+    drips_surface_crawler_turn_script_loc_3396e, drips_surface_crawler_turn_script_loc_3398c,
+    drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
+    drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
+    drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
+    drips_surface_table_reset_loc_33506, drips_velocity_apply_loc_33546,
+    drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_loc_3340e,
+    fire_demon_fire_trail_delete_tail_loc_3a6da, fire_demon_fire_trail_wait_loop_tick_loc_3a6ca,
+    fireball_obstacle_trail_delete_tail_loc_331ca, fireball_obstacle_trail_loop_step_loc_331ba,
+    fireball_trail_delete_tail_loc_33120, fireball_trail_loop_step_loc_33110,
+    robot_shot_flight_loop_loc_3ac48, robot_shot_impact_prep_loc_3ac7e,
+    spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
+    tar_monster_projectile_collision_loc_32682, tar_monster_projectile_loop_loc_3263C,
+    tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC, ufo_beam_child_gravity_gate_loc_3555a,
 };
@@ -1647,24 +1648,41 @@ fn drips_surface_crawler_diagonal_step_loc_33892(
         y_offset,
     );
 
-    if projectile.y_velocity < 0 {
-        if tile_flags == 0x5000 {
+    match drips_surface_crawler_movement_tail_loc_33892(
+        false,
+        false,
+        projectile.y_velocity < 0,
+        tile_flags,
+    ) {
+        DripsSurfaceCrawlerMovementPathLoc33892::GuardExit => {
+            DripsSurfaceCrawlerDiagonalStepLoc33810::Exit
+        }
+        DripsSurfaceCrawlerMovementPathLoc33892::NegativeYBranch => {
+            if tile_flags == 0x5000 {
+                DripsSurfaceCrawlerDiagonalStepLoc33810::Loop
+            } else if tile_flags == 0x6000 {
+                DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
+                    drips_surface_crawler_turn_script_loc_33a68(),
+                )
+            } else {
+                DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
+                    drips_surface_crawler_turn_script_loc_33a4a(),
+                )
+            }
+        }
+        DripsSurfaceCrawlerMovementPathLoc33892::DiagonalLoop => {
             DripsSurfaceCrawlerDiagonalStepLoc33810::Loop
-        } else if tile_flags == 0x6000 {
+        }
+        DripsSurfaceCrawlerMovementPathLoc33892::SolidTurn => {
             DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
-                drips_surface_crawler_turn_script_loc_33a68(),
-            )
-        } else {
-            DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
-                drips_surface_crawler_turn_script_loc_33a4a(),
+                drips_surface_crawler_turn_script_loc_33a22(),
             )
         }
-    } else if tile_flags == 0x5000 {
-        DripsSurfaceCrawlerDiagonalStepLoc33810::Loop
-    } else if tile_flags == 0x6000 {
-        DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(drips_surface_crawler_turn_script_loc_33a22())
-    } else {
-        DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(drips_surface_crawler_turn_script_loc_339f0())
+        DripsSurfaceCrawlerMovementPathLoc33892::FallbackTurn => {
+            DripsSurfaceCrawlerDiagonalStepLoc33810::Turn(
+                drips_surface_crawler_turn_script_loc_339f0(),
+            )
+        }
     }
 }
 

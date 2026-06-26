@@ -826,7 +826,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33810(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33892 {
     GuardExit,
     NegativeYBranch,
@@ -835,7 +834,6 @@ pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33892 {
     FallbackTurn,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_33892(
     has_collision: bool,
     bounds_contact: bool,
