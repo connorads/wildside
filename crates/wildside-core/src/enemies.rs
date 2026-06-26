@@ -393,9 +393,20 @@ pub(crate) fn pacer_walk_speed(family: EnemyFamily, hit_points: u8) -> i32 {
         // $18000 otherwise. ASM: Lion.asm lines 32-41, `cmpi.b #8`.
         // Using step=0 and handling HP==8 via lion_charge_speed instead.
         EnemyFamily::Lion => return lion_charge_speed(hit_points),
-        // DragonWalking: HP = enemy_level + 1 (min 1). Speed $8000 at HP≤2, $18000 at HP=3.
-        // ASM: Dragon.asm lines 64-74 — only HP==3 sets $10000 base, then always +$8000.
-        EnemyFamily::DragonWalking => (2, 0x0000_8000, 0x0001_0000),
+        EnemyFamily::DragonWalking => {
+            let setup = dragon_walking_setup_loc_3cdfc(u16::from(hit_points));
+            debug_assert_eq!(setup.speed_slot_50, setup.target_speed_slot_5e);
+            debug_assert_eq!(setup.state_word_4a, 0x0010);
+            debug_assert_eq!(setup.timer_48, 9);
+            debug_assert_eq!(setup.patrol_timer_pair_6e, 0x0032_012C);
+            debug_assert_eq!(
+                setup.short_patrol_timer_54,
+                DRAGON_WALKING_PATROL_SHORT_FRAMES
+            );
+            debug_assert_eq!(setup.callback_role, "dragon_breath_callback");
+            debug_assert!(matches!(setup.animation_label, "stru_3CC5E" | "stru_3CC90"));
+            return setup.speed_slot_50;
+        }
         // Diamond.asm loc_3AD16/loc_3AD4C: `addq.w #2,d7` yields HP 2/3+, and
         // the <=3 HP path walks at $10000 then $18000.
         EnemyFamily::Diamond => (2, 0x0001_0000, 0x0000_8000),
@@ -3205,6 +3216,22 @@ fn activate_enemies_with_rng_inner(
                         debug_assert_eq!(facing, Direction::Left);
                     }
                     GoatInitialDispatchRouteLoc3CB02::FlippedXDirection => {
+                        debug_assert_eq!(facing, Direction::Right);
+                    }
+                }
+            }
+            if matches!(family, EnemyFamily::DragonWalking) {
+                let common_init = dragon_walking_common_init_loc_3ce5a(false, facing);
+                debug_assert_eq!(common_init.collision_callback, "loc_3CE90");
+                debug_assert_eq!(
+                    common_init.next,
+                    DragonWalkingInitialDispatchLoc3CE5A::NormalFacingDispatch
+                );
+                match dragon_walking_normal_dispatch_loc_3ce84(facing) {
+                    DragonWalkingNormalDispatchLoc3CE84::Loc3E546 => {
+                        debug_assert_eq!(facing, Direction::Left);
+                    }
+                    DragonWalkingNormalDispatchLoc3CE84::Loc3E392 => {
                         debug_assert_eq!(facing, Direction::Right);
                     }
                 }
@@ -6226,14 +6253,19 @@ const DRAGON_WALKING_PATROL_LONG_FRAMES: u16 = 0x12C;
 const DRAGON_WALKING_PHASE_WALK: u8 = 0;
 pub(crate) fn spawn_shared_walker_state(family: EnemyFamily) -> i16 {
     match family {
-        EnemyFamily::DragonWalking | EnemyFamily::Lion => SHARED_WALKER_STATE_PATROL,
+        EnemyFamily::DragonWalking => {
+            dragon_walking_common_init_loc_3ce5a(false, Direction::Left).shared_walker_state
+        }
+        EnemyFamily::Lion => SHARED_WALKER_STATE_PATROL,
         _ => 0,
     }
 }
 
 pub(crate) fn spawn_shared_walker_patrol_timer(family: EnemyFamily) -> u16 {
     match family {
-        EnemyFamily::DragonWalking => DRAGON_WALKING_PATROL_LONG_FRAMES,
+        EnemyFamily::DragonWalking => {
+            dragon_walking_common_init_loc_3ce5a(false, Direction::Left).patrol_timer
+        }
         EnemyFamily::Lion => LION_CHARGE_TIMER_INIT,
         EnemyFamily::Ninja => NINJA_ATTACK_TIMER_INIT_LOC_3D5AA,
         _ => 0,
@@ -8666,7 +8698,9 @@ pub(crate) fn spawn_wait_timer(
         // executes immediately.
         EnemyFamily::Drips => 0,
         // DragonWalking: first breath after cooldown.
-        EnemyFamily::DragonWalking => DRAGON_WALKING_BREATH_INITIAL,
+        EnemyFamily::DragonWalking => {
+            dragon_walking_common_init_loc_3ce5a(false, Direction::Left).breath_timer
+        }
         // Orca.asm loc_3D194 overwrites `$54(a5)` with `$12C` before the
         // first proximity check can trigger `loc_3D2DE`.
         EnemyFamily::Orca => ORCA_LUNGE_COOLDOWN,

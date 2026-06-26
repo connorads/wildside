@@ -29,7 +29,6 @@ pub(crate) fn dragon_walking_child_init_loc_3cd16(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingSetupLoc3CDFC {
     pub(crate) speed_slot_50: i32,
     pub(crate) target_speed_slot_5e: i32,
@@ -42,13 +41,11 @@ pub(crate) struct DragonWalkingSetupLoc3CDFC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingNormalAnimationLoc3CE48 {
     pub(crate) animation_label: &'static str,
     pub(crate) saved_animation_label: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_normal_animation_loc_3ce48() -> DragonWalkingNormalAnimationLoc3CE48 {
     // ASM Dragon.asm loc_3CE48: initialise `stru_3CC5E`, save the same
     // animation pointer in `$62(a5)`, then fall through to loc_3CE5A.
@@ -59,7 +56,6 @@ pub(crate) fn dragon_walking_normal_animation_loc_3ce48() -> DragonWalkingNormal
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingInitialDispatchLoc3CE5A {
     NormalFacingDispatch,
     SpawnedChildLeftPacing,
@@ -67,7 +63,6 @@ pub(crate) enum DragonWalkingInitialDispatchLoc3CE5A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingCommonInitLoc3CE5A {
     pub(crate) shared_walker_state: i16,
     pub(crate) breath_timer: u16,
@@ -76,7 +71,6 @@ pub(crate) struct DragonWalkingCommonInitLoc3CE5A {
     pub(crate) next: DragonWalkingInitialDispatchLoc3CE5A,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_common_init_loc_3ce5a(
     parent_spawned_child: bool,
     facing: Direction,
@@ -104,13 +98,11 @@ pub(crate) fn dragon_walking_common_init_loc_3ce5a(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingNormalDispatchLoc3CE84 {
     Loc3E546,
     Loc3E392,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_normal_dispatch_loc_3ce84(
     facing: Direction,
 ) -> DragonWalkingNormalDispatchLoc3CE84 {
@@ -514,7 +506,6 @@ pub(crate) fn dragon_walking_breath_done_wait_loc_3cfe4(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_setup_loc_3cdfc(current_hp: u16) -> DragonWalkingSetupLoc3CDFC {
     let hp3_base_speed = if current_hp == 3 { 0x0001_0000 } else { 0 };
     let speed = hp3_base_speed + 0x0000_8000;
