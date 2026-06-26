@@ -596,14 +596,12 @@ pub(crate) fn lion_left_charge_alert_release_gate_loc_3e62a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E4C6Result {
     pub(crate) x_position: u32,
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_right_charge_continue_loc_3e4c6(next_x_position: u32) -> LionLoc3E4C6Result {
     // ASM Lion.asm loc_3E4C6: `move.l d2,x_pos(a3)` commits the right-charge
     // candidate position, then branches to loc_3E3A2 to zero both velocities.
@@ -1672,9 +1670,16 @@ fn step_lion_charge_movement_loc_3e11e(
         }
     }
 
-    enemy.x_pos = next_x;
-    enemy.x_velocity = 0;
-    enemy.y_velocity = 0;
+    if matches!(enemy.facing, Direction::Right) {
+        let commit = lion_right_charge_continue_loc_3e4c6(next_x);
+        enemy.x_pos = commit.x_position;
+        enemy.x_velocity = commit.x_velocity;
+        enemy.y_velocity = commit.y_velocity;
+    } else {
+        enemy.x_pos = next_x;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0;
+    }
     enemy.shared_walker_debug_branch = Some("lion_charge_grounded");
 }
 
