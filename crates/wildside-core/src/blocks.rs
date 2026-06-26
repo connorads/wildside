@@ -1539,7 +1539,42 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn prize_block_wobble_delta_sub_1007A(elapsed: usize) -> Option<i16> {
+        debug_assert_eq!(
+            Self::prize_block_wobble_y_deltas_sub_1007A().len(),
+            Self::prize_block_wobble_pass_frame_count_sub_1007A()
+        );
+        let mut remaining = elapsed;
+        for pass in Self::prize_block_wobble_passes_sub_1007A() {
+            if remaining < pass.len() {
+                return pass.get(remaining).copied();
+            }
+            remaining = remaining.saturating_sub(pass.len());
+        }
+        None
+    }
+
+    #[allow(non_snake_case)]
+    fn prize_block_wobble_pass_frame_count_sub_1007A() -> usize {
+        Self::prize_block_wobble_passes_sub_1007A()
+            .iter()
+            .map(|pass| pass.len())
+            .sum()
+    }
+
+    #[allow(non_snake_case)]
+    fn prize_block_wobble_passes_sub_1007A() -> [&'static [i16]; 6] {
+        [
+            &Self::prize_block_wobble_y_deltas_sub_1007A()[0..6],
+            &Self::prize_block_wobble_y_deltas_sub_1007A()[6..12],
+            Self::prize_block_wobble_fall_loc_100F6(),
+            Self::prize_block_wobble_rise_loc_10104(),
+            Self::prize_block_wobble_fall_loc_10112(),
+            Self::prize_block_wobble_rise_loc_10120(),
+        ]
+    }
+
+    #[allow(non_snake_case)]
     pub(crate) fn prize_block_wobble_fall_loc_100F6() -> &'static [i16] {
         // ASM loc_100F6 (kid.asm:21385): after `moveq #4,d0`, the inclusive
         // `dbf d0,loc_100F6` loop applies five `subq.w #2,y_pos(a3)` steps.
@@ -1547,7 +1582,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_block_wobble_rise_loc_10104() -> &'static [i16] {
         // ASM loc_10104 (kid.asm:21391): after `moveq #4,d1`, the inclusive
         // `dbf d1,loc_10104` loop applies five `addq.w #2,y_pos(a3)` steps.
@@ -1555,7 +1589,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_block_wobble_fall_loc_10112() -> &'static [i16] {
         // ASM loc_10112 (kid.asm:21397): after `moveq #3,d0`, the inclusive
         // `dbf d0,loc_10112` loop applies four `subq.w #2,y_pos(a3)` steps.
@@ -1563,7 +1596,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_block_wobble_rise_loc_10120() -> &'static [i16] {
         // ASM loc_10120 (kid.asm:21403): after `moveq #4,d1`, the inclusive
         // `dbf d1,loc_10120` loop applies five `addq.w #2,y_pos(a3)` steps
@@ -4445,10 +4477,11 @@ impl NativeRuntime {
                 }
             } else if b.kind == BlockBounceKind::Lift {
                 Self::lift_block_bob_delta_sub_FB3E(usize::from(elapsed))
+            } else if b.kind == BlockBounceKind::Prize {
+                Self::prize_block_wobble_delta_sub_1007A(usize::from(elapsed))
             } else {
                 let delta_table: &[i16] = match b.kind {
                     BlockBounceKind::HiddenReveal => &HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0,
-                    BlockBounceKind::Prize => Self::prize_block_wobble_y_deltas_sub_1007A(),
                     BlockBounceKind::Metal => {
                         if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
                             &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A
@@ -4461,6 +4494,9 @@ impl NativeRuntime {
                     }
                     BlockBounceKind::Lift => {
                         unreachable!("lift block bob uses sub_FB3E pass model")
+                    }
+                    BlockBounceKind::Prize => {
+                        unreachable!("prize block wobble uses sub_1007A pass model")
                     }
                 };
                 delta_table.get(usize::from(elapsed)).copied()
