@@ -820,7 +820,6 @@ fn juggernaut_skull_spawn_blocked_loc_87EC(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SkycutterVisualStateSub98F2 {
     pub(crate) flipboard_counter: u8,
     pub(crate) on_board: bool,
@@ -832,7 +831,6 @@ pub(crate) struct SkycutterVisualStateSub98F2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SkycutterVisualStepSub98F2 {
     pub(crate) state: SkycutterVisualStateSub98F2,
     pub(crate) player_sprite_mapping: Option<&'static str>,
@@ -1067,7 +1065,6 @@ pub(crate) struct IronKnightClimbVisualSubA3BC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn skycutter_visual_step_sub_98F2(
     mut state: SkycutterVisualStateSub98F2,
     a_held: bool,
@@ -6192,33 +6189,26 @@ impl NativeRuntime {
             self.helmet.skycutter_flipboard = 1;
         }
 
-        // Step flipboard counter
-        if self.helmet.skycutter_flipboard > 0 {
-            let next = self
-                .helmet
-                .skycutter_flipboard
-                .saturating_add(SKYCUTTER_COUNTER_STEP);
-            if next >= SKYCUTTER_FLIPBOARD_TIMEOUT {
-                // Animation complete: retract
-                self.helmet.skycutter_flipboard = 0;
-            } else {
-                // Mount toggle at midpoint
-                if self.helmet.skycutter_flipboard < SKYCUTTER_MOUNT_FRAME
-                    && next >= SKYCUTTER_MOUNT_FRAME
-                {
-                    // ASM sub_98F2 / loc_991A: midpoint `$11` toggles both
-                    // `$FFFFFA6A` and `x_direction(a3)`, so the mounted board
-                    // reverses Kid's facing on the same frame it flips the
-                    // board latch.
-                    self.helmet.skycutter_on_board = !self.helmet.skycutter_on_board;
-                    slice.player.facing = match slice.player.facing {
-                        Direction::Right => Direction::Left,
-                        Direction::Left => Direction::Right,
-                    };
-                }
-                self.helmet.skycutter_flipboard = next;
-            }
-        }
+        // ASM sub_98F2 / loc_991A: the transient flipboard visual advances
+        // `$FFFFFA69`, toggles `$FFFFFA6A`, and flips `x_direction(a3)` at
+        // the midpoint. Native persists only the gameplay-bearing fields; the
+        // board helper's sprite script output remains visual-only.
+        let visual_step = skycutter_visual_step_sub_98F2(
+            SkycutterVisualStateSub98F2 {
+                flipboard_counter: self.helmet.skycutter_flipboard,
+                on_board: self.helmet.skycutter_on_board,
+                facing: slice.player.facing,
+                motion_phase: 0,
+                motion_timer: 1,
+                motion_script_index: None,
+                roll_accum: 0,
+            },
+            input.a,
+            false,
+        );
+        self.helmet.skycutter_flipboard = visual_step.state.flipboard_counter;
+        self.helmet.skycutter_on_board = visual_step.state.on_board;
+        slice.player.facing = visual_step.state.facing;
 
         // While on board: override gravity with Skycutter flight physics
         // ASM loc_B19C (kid.asm:14040): sub_B168 Skycutter on_board check.
