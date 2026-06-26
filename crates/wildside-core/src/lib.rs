@@ -68,8 +68,11 @@ pub use level::{
     eol_title_return_faded_palette_word_loc_D734, flagpole_scoreboard_reveal_tiles_loc_C21E,
 };
 pub use platforms::{
-    PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C,
-    PlatformSpriteVariantLoc244C, platform_sprite_dispatch_loc_244C,
+    PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEmitLoc2548,
+    PlatformSpriteEntryLoc2548, PlatformSpriteStripLoc24CC, PlatformSpriteStripLoc24F0,
+    PlatformSpriteVariantLoc244C, emit_platform_sprite_loc_2548, platform_single_sprite_loc_24C0,
+    platform_sprite_dispatch_loc_244C, platform_strip_sprites_loc_24CC,
+    platform_strip_sprites_loc_24F0, platform_strip_sprites_loc_251C,
 };
 use std::collections::HashSet;
 use std::sync::Arc;

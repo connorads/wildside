@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use wildside_core::{
     NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
-    PlatformSpriteDispatchInputLoc244C, PlatformSpriteVariantLoc244C, PlayerForm,
-    physics::Direction,
+    PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEntryLoc2548,
+    PlatformSpriteVariantLoc244C, PlayerForm, physics::Direction,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, SpriteFrame, TileRef};
 
@@ -2023,7 +2023,7 @@ pub fn push_platform_tiles(
     let height_cells = dispatch.height_tiles_minus_one.saturating_add(1);
     let tile_sheet = Arc::new(frame.tile_sheet.clone());
     let palette = Arc::new(art.palette);
-    for cell in platform_sprite_cells_loc_24AC(variant, width_cells, height_cells) {
+    for cell in platform_sprite_cells_loc_24AC(variant, dispatch, width_cells, height_cells) {
         commands.push(DrawCommand::Sprite {
             x: screen_x - i32::from(frame.origin_x) + i32::from(cell.column) * 16,
             y: screen_y - i32::from(frame.height_px)
@@ -2048,23 +2048,39 @@ struct PlatformSpriteCellLoc24AC {
 #[allow(non_snake_case)]
 fn platform_sprite_cells_loc_24AC(
     variant: PlatformSpriteVariantLoc244C,
+    dispatch: PlatformSpriteDispatchLoc244C,
     width_cells: u16,
     height_cells: u16,
 ) -> Vec<PlatformSpriteCellLoc24AC> {
     match variant {
-        PlatformSpriteVariantLoc244C::Loc24CC => (0..width_cells)
-            .map(|column| platform_cell(column, 0, -2, 0))
-            .collect(),
+        PlatformSpriteVariantLoc244C::Loc24CC => {
+            wildside_core::platform_strip_sprites_loc_24CC(dispatch, 0)
+                .sprites
+                .into_iter()
+                .map(|sprite| platform_sprite_entry_cell_loc_2548(dispatch, sprite))
+                .collect()
+        }
         PlatformSpriteVariantLoc244C::Loc24F0 => {
-            platform_horizontal_strip_cells_loc_24F0(width_cells)
+            wildside_core::platform_strip_sprites_loc_24F0(dispatch, 0)
+                .sprites
+                .into_iter()
+                .map(|sprite| platform_sprite_entry_cell_loc_2548(dispatch, sprite))
+                .collect()
         }
         PlatformSpriteVariantLoc244C::Loc251C => {
-            platform_vertical_strip_cells_loc_251C(height_cells)
+            wildside_core::platform_strip_sprites_loc_251C(dispatch, 0)
+                .sprites
+                .into_iter()
+                .map(|sprite| platform_sprite_entry_cell_loc_2548(dispatch, sprite))
+                .collect()
         }
         PlatformSpriteVariantLoc244C::Loc24D4 => (0..height_cells)
             .flat_map(|row| (0..width_cells).map(move |column| platform_cell(column, row, 0, 0)))
             .collect(),
-        PlatformSpriteVariantLoc244C::Loc24C0 => vec![platform_cell(0, 0, 0, 0)],
+        PlatformSpriteVariantLoc244C::Loc24C0 => vec![platform_sprite_entry_cell_loc_2548(
+            dispatch,
+            wildside_core::platform_single_sprite_loc_24C0(dispatch, 0).sprite,
+        )],
     }
 }
 
@@ -2083,44 +2099,27 @@ fn platform_cell(
 }
 
 #[allow(non_snake_case)]
-fn platform_horizontal_strip_cells_loc_24F0(width_cells: u16) -> Vec<PlatformSpriteCellLoc24AC> {
-    if width_cells == 0 {
-        return Vec::new();
-    }
-
-    (0..width_cells)
-        .map(|column| {
-            // ASM loc_24F0 advances `a4` by 4 VRAM tiles after the first
-            // sprite and again before the last sprite, selecting cap/middle
-            // cells from the platform art block selected by `$18(a2)`.
-            let mapping_tile_offset = match column {
-                0 => 0,
-                last if last == width_cells - 1 => 8,
-                _ => 4,
-            };
-            platform_cell(column, 0, 0, mapping_tile_offset)
-        })
-        .collect()
-}
-
-#[allow(non_snake_case)]
-fn platform_vertical_strip_cells_loc_251C(height_cells: u16) -> Vec<PlatformSpriteCellLoc24AC> {
-    if height_cells == 0 {
-        return Vec::new();
-    }
-
-    (0..height_cells)
-        .map(|row| {
-            // ASM loc_251C mirrors loc_24F0 on the y axis: top, middle, and
-            // bottom platform cells use `a4`, `a4+4`, and `a4+8`.
-            let mapping_tile_offset = match row {
-                0 => 0,
-                last if last == height_cells - 1 => 8,
-                _ => 4,
-            };
-            platform_cell(0, row, 0, mapping_tile_offset)
-        })
-        .collect()
+fn platform_sprite_entry_cell_loc_2548(
+    dispatch: PlatformSpriteDispatchLoc244C,
+    sprite: PlatformSpriteEntryLoc2548,
+) -> PlatformSpriteCellLoc24AC {
+    // ASM loc_2548 writes sprite table coordinates with the VDP +$80 screen
+    // bias already applied. The frame renderer stores cell offsets relative to
+    // the unbiased platform origin, so undo the dispatch origin here.
+    let dx = (sprite.x_word as i16).wrapping_sub(dispatch.screen_x_word);
+    let dy = (sprite.y_word as i16).wrapping_sub(dispatch.screen_y_word);
+    let column = (dx / 0x10).max(0) as u16;
+    let row = (dy / 0x10).max(0) as u16;
+    let mapping_addr_word = sprite
+        .mapping_word
+        .wrapping_sub(0x8000)
+        .wrapping_sub(dispatch.mapping_addr_word);
+    platform_cell(
+        column,
+        row,
+        i32::from(dy) - i32::from(row) * 0x10,
+        mapping_addr_word,
+    )
 }
 
 #[allow(non_snake_case)]

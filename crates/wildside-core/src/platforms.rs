@@ -2021,24 +2021,21 @@ pub fn platform_sprite_dispatch_loc_244C(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct PlatformSpriteEntryLoc2548 {
-    pub(crate) y_word: u16,
-    pub(crate) tile_word: u16,
-    pub(crate) mapping_word: u16,
-    pub(crate) x_word: u16,
+pub struct PlatformSpriteEntryLoc2548 {
+    pub y_word: u16,
+    pub tile_word: u16,
+    pub mapping_word: u16,
+    pub x_word: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct PlatformSpriteEmitLoc2548 {
-    pub(crate) sprite: PlatformSpriteEntryLoc2548,
-    pub(crate) next_number_sprites: u8,
+pub struct PlatformSpriteEmitLoc2548 {
+    pub sprite: PlatformSpriteEntryLoc2548,
+    pub next_number_sprites: u8,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn emit_platform_sprite_loc_2548(
+pub fn emit_platform_sprite_loc_2548(
     screen_x_word: i16,
     screen_y_word: i16,
     base_tile_word: u16,
@@ -2073,8 +2070,7 @@ pub(crate) fn finish_platform_sprite_list_loc_256E(next_sprite_slot_addr: u32) -
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn platform_single_sprite_loc_24C0(
+pub fn platform_single_sprite_loc_24C0(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
 ) -> PlatformSpriteEmitLoc2548 {
@@ -2090,15 +2086,13 @@ pub(crate) fn platform_single_sprite_loc_24C0(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct PlatformSpriteStripLoc24CC {
-    pub(crate) sprites: Vec<PlatformSpriteEntryLoc2548>,
-    pub(crate) next_number_sprites: u8,
+pub struct PlatformSpriteStripLoc24CC {
+    pub sprites: Vec<PlatformSpriteEntryLoc2548>,
+    pub next_number_sprites: u8,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn platform_strip_sprites_loc_24CC(
+pub fn platform_strip_sprites_loc_24CC(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
 ) -> PlatformSpriteStripLoc24CC {
@@ -2131,15 +2125,13 @@ pub(crate) fn platform_strip_sprites_loc_24CC(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct PlatformSpriteStripLoc24F0 {
-    pub(crate) sprites: Vec<PlatformSpriteEntryLoc2548>,
-    pub(crate) next_number_sprites: u8,
+pub struct PlatformSpriteStripLoc24F0 {
+    pub sprites: Vec<PlatformSpriteEntryLoc2548>,
+    pub next_number_sprites: u8,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn platform_strip_sprites_loc_24F0(
+pub fn platform_strip_sprites_loc_24F0(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
 ) -> PlatformSpriteStripLoc24F0 {
@@ -2201,8 +2193,7 @@ pub(crate) fn platform_strip_sprites_loc_24F0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn platform_strip_sprites_loc_251C(
+pub fn platform_strip_sprites_loc_251C(
     dispatch: PlatformSpriteDispatchLoc244C,
     number_sprites: u8,
 ) -> PlatformSpriteStripLoc24CC {
