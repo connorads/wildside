@@ -1137,6 +1137,7 @@ mod tests {
             block_bounces: Vec::new(),
             block_bounce_details: Vec::new(),
             floating_items: Vec::new(),
+            clock_prize_animation_swaps_loc_10796: Vec::new(),
             block_destroy_effects: Vec::new(),
             block_debris_pieces: Vec::new(),
             prize_block_spawn_flashes: Vec::new(),

@@ -12849,6 +12849,28 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_10796_clock_prize_countdown_records_animation_swap_event() {
+        // ASM loc_10796 (kid.asm:22006-22014): after the hibernated countdown
+        // reaches `$012C`, the clock prize swaps to `stru_10C1E`.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut clock = clock_floating_item();
+        clock.remaining = 0x012D;
+        rt.floating_items.push(clock);
+
+        rt.step_visual_effects();
+
+        assert_eq!(
+            rt.floating_items[0].remaining, 0x012C,
+            "ASM loc_10796 decrements d3 before testing the animation-swap threshold",
+        );
+        assert_eq!(
+            rt.trace_frame().clock_prize_animation_swaps_loc_10796,
+            vec![(3 * 16 + 8, 100)],
+            "ASM loc_10796 exposes the live clock-prize animation swap edge to the trace",
+        );
+    }
+
+    #[test]
     fn loc_10792_first_clock_prize_spawn_emits_startsequence_clock_prize() {
         // ASM PrizeClock_Init loc_10792 (kid.asm:21996-22005): the first active
         // clock plays the looping sfx_Clock_prize; the start fires on the

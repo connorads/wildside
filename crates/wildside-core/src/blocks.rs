@@ -154,7 +154,6 @@ pub(crate) struct PrizeClockSoundRefcountLoc10792 {
     pub(crate) next_refcount: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockCountdownLoc10796 {
     pub(crate) next_remaining: u16,
@@ -581,7 +580,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_clock_countdown_loc_10796(remaining: u16) -> PrizeClockCountdownLoc10796 {
         // ASM loc_10796 (kid.asm:22006-22014): hibernate one frame, subtract 1
         // from `d3`, delete immediately when it reaches zero, and swap to
@@ -4356,6 +4354,7 @@ impl NativeRuntime {
         // object leaves (collected at 4596/the fall-gate retain, fell past
         // Level_height_pixels, or its countdown expired).
         let active_clock_prizes_before = self.active_clock_prize_count();
+        self.clock_prize_animation_swaps_loc_10796.clear();
         self.step_rubber_block_animations_sub_10de4();
         self.step_metal_block_push_workers_sub_1129C();
         let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
@@ -4632,10 +4631,19 @@ impl NativeRuntime {
             // each hibernated frame decrements `d3`, deletes the object when
             // the countdown reaches zero, and swaps animation exactly at the
             // routine-specific threshold (`$00C8` for diamonds, `$012C` for
-            // the ankh). Native floating items do not carry animation-script
-            // state, so this loop models the shared countdown/delete timing
-            // and leaves the visual script swap implicit.
-            f.remaining = f.remaining.saturating_sub(1);
+            // the ankh). Clock prizes expose the loc_10796 visual swap edge
+            // through `clock_prize_animation_swaps_loc_10796`; other floating
+            // prizes still keep the visual script swap implicit.
+            if f.content == terrain::PrizeContent::Clock {
+                let countdown = Self::prize_clock_countdown_loc_10796(f.remaining);
+                f.remaining = countdown.next_remaining;
+                if countdown.should_swap_animation {
+                    self.clock_prize_animation_swaps_loc_10796
+                        .push(((f.x_pos >> 16) as u16, (f.y_pos >> 16) as u16));
+                }
+            } else {
+                f.remaining = f.remaining.saturating_sub(1);
+            }
             let can_fall = self
                 .block_grid
                 .as_ref()
@@ -4685,7 +4693,13 @@ impl NativeRuntime {
             // dedicated delete exit at ASM loc_106CC (kid.asm:21917).
             let gate =
                 Self::prize_clock_fall_gate_loc_107B0(integer_y, level_height_pixels, f.collected);
-            let stays_alive = (f.spawn_delay > 0 || f.remaining > 0) && gate.stays_active;
+            let clock_countdown_delete = f.spawn_delay == 0
+                && f.content == terrain::PrizeContent::Clock
+                && Self::prize_clock_countdown_loc_10796(f.remaining.saturating_add(1))
+                    .should_delete;
+            let stays_alive = (f.spawn_delay > 0 || f.remaining > 0)
+                && !clock_countdown_delete
+                && gate.stays_active;
             if stays_alive {
                 true
             } else if f.content == terrain::PrizeContent::Micromax {

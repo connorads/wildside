@@ -7893,6 +7893,9 @@ impl NativeRuntime {
                     )
                 }))
                 .collect(),
+            clock_prize_animation_swaps_loc_10796: self
+                .clock_prize_animation_swaps_loc_10796
+                .clone(),
             enemy_death_effects: self
                 .enemy_death_effects
                 .iter()

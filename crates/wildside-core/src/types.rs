@@ -1637,6 +1637,9 @@ pub struct NativeTraceFrame {
     pub kid_projectile_hit_sparks: Vec<(u16, u16, u8)>,
     /// Floating prize items rising from blocks: (x_px, y_px, remaining_frames, content_id).
     pub floating_items: Vec<(u16, u16, u16, u8)>,
+    /// ASM PrizeClock_Init loc_10796 animation-swap events: (x_px, y_px).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub clock_prize_animation_swaps_loc_10796: Vec<(u16, u16)>,
     /// Enemy death particle effects: (x_pos_fp, y_pos_fp, remaining_frames).
     pub enemy_death_effects: Vec<(u32, u32, u16)>,
     /// HeadyMetal death split impulses from ASM `sub_378C8 loc_378D6`.
@@ -1877,6 +1880,7 @@ impl Default for NativeTraceFrame {
             prize_block_spawn_flashes: Vec::new(),
             kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),
+            clock_prize_animation_swaps_loc_10796: Vec::new(),
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
             heady_metal_body_pieces_sub_37abc: Vec::new(),
