@@ -342,21 +342,18 @@ pub(crate) fn dragon_walking_breath_object_start_loc_3cf90()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DragonWalkingBreathPollNextLoc3CFAE {
     WaitForPhaseDoneFlag,
     SharedCollisionRoute,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBreathCollisionPollLoc3CFAE {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) sets_parent_phase_done_flag_5b: bool,
     pub(crate) next: DragonWalkingBreathPollNextLoc3CFAE,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_breath_collision_poll_loc_3cfae(
     collision_type: i16,
     berzerker_charging: bool,
@@ -849,6 +846,18 @@ pub(crate) fn step_dragon_walking(
 
     match enemy.dragon_script_cmd {
         DRAGON_WALKING_PHASE_BREATH => {
+            let parent_poll = dragon_walking_breath_collision_poll_loc_3cfae(0, false);
+            debug_assert!(parent_poll.hibernates_one_frame);
+            debug_assert_eq!(
+                parent_poll.next,
+                DragonWalkingBreathPollNextLoc3CFAE::WaitForPhaseDoneFlag,
+                "ASM Dragon.asm loc_3CFAE waits for the breath child done flag while collision_type is clear",
+            );
+            debug_assert!(
+                !parent_poll.sets_parent_phase_done_flag_5b,
+                "ASM Dragon.asm loc_3CFAE leaves `$5B(a1)` clear on a no-collision breath frame",
+            );
+
             let child_poll =
                 dragon_walking_breath_child_poll_loc_3d082(0, enemy.dragon_phase_frames == 0);
             debug_assert!(child_poll.hibernates_one_frame);
@@ -1349,7 +1358,7 @@ mod tests {
     }
 
     #[test]
-    fn dragon_walking_breath_phase_ignores_blocked_terrain_until_child_done_loc_3d082() {
+    fn dragon_walking_breath_phase_runs_parent_poll_then_child_until_done_loc_3cfae_3d082() {
         let grid = dragon_walking_grid(4, 4, &[]);
         let mut dragon = dragon_walking_test_enemy();
         dragon.dragon_script_cmd = DRAGON_WALKING_PHASE_BREATH;
@@ -1361,7 +1370,7 @@ mod tests {
 
         assert_eq!(
             dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_BREATH,
-            "ASM Dragon.asm loc_3D082 should poll the breath child; blocked ground terrain does not run the walking turnaround while breathing"
+            "ASM Dragon.asm loc_3CFAE/loc_3D082 should poll parent collision then the breath child; blocked ground terrain does not run the walking turnaround while breathing"
         );
         assert_eq!(
             dragon.dragon_phase_frames, 0,
