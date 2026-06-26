@@ -395,7 +395,6 @@ pub(crate) struct ShooterCenterWorkerGateLoc1146E {
     pub(crate) should_queue_center_worker: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterCollisionRightBottomBlocksLocF580 {
     pub(crate) right_block: i16,
