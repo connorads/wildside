@@ -177,6 +177,7 @@ pub struct NativeRuntime {
     helmet: HelmetState,
     paused: bool,
     pause_menu_option: u8,
+    pause_menu_arrow_cursor_cmds_loc_6a84: Option<boot::PauseMenuArrowCursorCmdsLoc6A84>,
     pause_toggle_pending: bool,
     pending_pause_restart_round: Option<PauseRestartRoundState>,
     pending_pause_last_life_give_up: bool,
@@ -1060,6 +1061,7 @@ impl NativeRuntime {
             helmet: HelmetState::default(),
             paused: false,
             pause_menu_option: 0,
+            pause_menu_arrow_cursor_cmds_loc_6a84: None,
             pause_toggle_pending: false,
             pending_pause_restart_round: None,
             pending_pause_last_life_give_up: false,
@@ -1367,11 +1369,18 @@ impl NativeRuntime {
     fn apply_pause_menu_frame_loc_6ae0(&mut self, input: FrameInput, start_pressed: bool) {
         // ASM Game_Paused_Loop (kid.asm:6829-6857): Up/Down only move the
         // two-entry cursor when they are fresh Ctrl_Pressed edges.
+        let arrow_cursor_cmds = self.opening_slice.as_ref().map(|slice| {
+            boot::pause_menu_arrow_cursor_cmds_loc_6A84(
+                (slice.camera.x_pos >> 16) as u16,
+                (slice.camera.y_pos >> 16) as u16,
+            )
+        });
         if input.up && !self.previous_input.up {
             if let Some(cursor) =
                 boot::pause_loop_up_handler_game_paused_loop(true, self.pause_menu_option)
             {
                 self.pause_menu_option = cursor.new_pause_option;
+                self.pause_menu_arrow_cursor_cmds_loc_6a84 = arrow_cursor_cmds;
             }
         } else if input.down
             && !self.previous_input.down
@@ -1379,6 +1388,7 @@ impl NativeRuntime {
                 boot::pause_loop_down_handler_loc_6B0E(true, self.pause_menu_option)
         {
             self.pause_menu_option = cursor.new_pause_option;
+            self.pause_menu_arrow_cursor_cmds_loc_6a84 = arrow_cursor_cmds;
         }
 
         match boot::pause_loop_start_handler_chk_start(
@@ -1390,6 +1400,7 @@ impl NativeRuntime {
             boot::PauseMenuStartResult::ContinueGame => {
                 self.paused = false;
                 self.pause_menu_option = 0;
+                self.pause_menu_arrow_cursor_cmds_loc_6a84 = None;
                 self.pause_toggle_pending = false;
                 self.pending_pause_restart_round = None;
                 self.pending_pause_last_life_give_up = false;
@@ -1400,6 +1411,7 @@ impl NativeRuntime {
                 // Extra_hitpoint_slots and Current_Helmet, restores Kid HP,
                 // sets the restart flag, then jumps through loc_6E2.
                 self.pause_toggle_pending = false;
+                self.pause_menu_arrow_cursor_cmds_loc_6a84 = None;
                 self.pending_pause_last_life_give_up = false;
                 self.pending_pause_restart_round = Some(PauseRestartRoundState {
                     remaining_lives,
@@ -1413,6 +1425,7 @@ impl NativeRuntime {
                 // The later loc_6C0A pause-exit tail runs on the next frame.
                 self.progression.number_lives = 0;
                 self.pause_toggle_pending = false;
+                self.pause_menu_arrow_cursor_cmds_loc_6a84 = None;
                 self.pending_pause_restart_round = None;
                 self.pending_pause_last_life_give_up = true;
             }
@@ -1437,6 +1450,7 @@ impl NativeRuntime {
             };
             self.paused = false;
             self.pause_menu_option = 0;
+            self.pause_menu_arrow_cursor_cmds_loc_6a84 = None;
             self.pause_toggle_pending = false;
             self.pending_pause_restart_round = None;
             self.allow_pausing = false;
@@ -1466,6 +1480,7 @@ impl NativeRuntime {
         // finally clears Game_Paused. Oracle WRAM exposes a short blank object
         // window here rather than live gameplay continuing under the menu.
         self.opening_slice = None;
+        self.pause_menu_arrow_cursor_cmds_loc_6a84 = None;
         self.active_enemy_roster.clear();
         self.active_enemies.clear();
         self.pending_dragon_death_children.clear();
@@ -1488,6 +1503,7 @@ impl NativeRuntime {
         // ASM loc_6C3E clears Game_Paused after the loc_6E2 restart shell.
         self.paused = false;
         self.pause_menu_option = 0;
+        self.pause_menu_arrow_cursor_cmds_loc_6a84 = None;
         self.pause_toggle_pending = false;
         self.pending_pause_restart_round = None;
         self.initialise_level_entry_fade_sub_73d0();
@@ -1513,6 +1529,7 @@ impl NativeRuntime {
             // is still blank; the live level state is rebuilt later.
             self.paused = false;
             self.pause_menu_option = 0;
+            self.pause_menu_arrow_cursor_cmds_loc_6a84 = None;
             self.pause_toggle_pending = false;
         }
         if state.elapsed_frames >= PAUSE_RESTART_REBUILD_LEVEL_STATE_FRAME_LOC_6E2 {

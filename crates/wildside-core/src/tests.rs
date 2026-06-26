@@ -29,7 +29,8 @@ use crate::boot::{
     hud_timer_low_time_check_end_decrease_time_left, hud_timer_sprite_layout_sub_BD0A,
     init_hud_animation_frames_sub_44B0, intro_sequence_6_longword_fill_loc_1B170,
     intro_sequence_6_striped_tile_fill_loc_1B194, intro_sequence_6_tilemap_clear_loc_1B182,
-    is_boss_level_loc_C03A, make_hud_hitpoint_layout_sub_BDC0, pause_menu_art_total_bytes_loc_690C,
+    is_boss_level_loc_C03A, make_hud_hitpoint_layout_sub_BDC0,
+    pause_menu_arrow_cursor_cmds_loc_6A84, pause_menu_art_total_bytes_loc_690C,
     pause_menu_gate_loc_687C, pause_menu_plane_column_layout_loc_693A,
     pause_menu_text_selection_restart_text, pause_menu_text_write_plan_loc_69D2,
     pause_menu_text_write_row_vdp_write_cmd_loc_6A1E, pause_menu_tile_restore_plan_loc_6B68,
@@ -333,6 +334,38 @@ fn scenario_boot_to_level_uses_start_path_and_reaches_ingame() {
     assert!(
         runtime.level_start_frame.is_some(),
         "boot_to_level should leave a traceable level-start frame",
+    );
+}
+
+#[test]
+fn live_pause_menu_cursor_move_records_arrow_vdp_commands_loc_6a84() {
+    let mut runtime = NativeRuntime::new(manifest());
+    runtime.boot_to_level(LevelId(0));
+    let slice = runtime.opening_slice.as_mut().expect("level slice");
+    slice.camera.x_pos = 0x0100 << 16;
+    slice.camera.y_pos = 0x00D8 << 16;
+    runtime.paused = true;
+
+    runtime.apply_pause_menu_frame_loc_6ae0(
+        FrameInput {
+            down: true,
+            ..FrameInput::default()
+        },
+        false,
+    );
+
+    assert_eq!(runtime.pause_menu_option, 1);
+    assert_eq!(
+        runtime.pause_menu_arrow_cursor_cmds_loc_6a84,
+        Some(pause_menu_arrow_cursor_cmds_loc_6A84(0x0100, 0x00D8)),
+        "ASM loc_6A84 writes pause arrow VDP commands from Camera_X/Y when the cursor moves"
+    );
+
+    runtime.pause_menu_option = 0;
+    runtime.apply_pause_menu_frame_loc_6ae0(FrameInput::default(), true);
+    assert_eq!(
+        runtime.pause_menu_arrow_cursor_cmds_loc_6a84, None,
+        "ASM Game_Paused_ChkStart exits the menu, so live cursor VDP commands no longer apply"
     );
 }
 

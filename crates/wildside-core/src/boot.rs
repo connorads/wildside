@@ -1601,7 +1601,6 @@ pub(crate) fn pause_menu_tile_restore_plan_loc_6B68(
 ///   ori.w  #$4000,d1; swap d1; move.w #0,d1
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuArrowCursorCmdsLoc6A84 {
     /// VDP write command for the upper arrow position (Camera_Y + $48).
     pub(crate) upper_arrow_cmd: u32,
@@ -1615,7 +1614,6 @@ pub(crate) struct PauseMenuArrowCursorCmdsLoc6A84 {
 /// (`Camera_X_pos + $68` → tile → byte offset) but differ in row:
 /// `$48` for upper, `$58` for lower.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_arrow_cursor_cmds_loc_6A84(
     camera_x_pos: u16,
     camera_y_pos: u16,
