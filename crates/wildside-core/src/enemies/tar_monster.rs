@@ -101,14 +101,12 @@ pub(crate) struct TarMonsterWaitLoopLoc322AA {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterAppearSoundLoc322C0 {
     pub(crate) sound_effect_label: &'static str,
     pub(crate) preserves_script_command_d0: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterAppearAnimationLoc322C8 {
     pub(crate) animation_label: &'static str,
     pub(crate) hibernate_until_animation_finished: bool,
@@ -203,7 +201,6 @@ pub(crate) struct TarMonsterPostSubmergeHoldLoc32454 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotSoundLoc32468 {
     pub(crate) sound_effect_label: &'static str,
     pub(crate) preserves_script_command_d0: bool,
@@ -468,7 +465,6 @@ pub(crate) fn tar_monster_wait_loop_loc_322aa(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_appear_sound_loc_322c0() -> TarMonsterAppearSoundLoc322C0 {
     // ASM loc_322C0: call `j_PlaySound` with `sfx_Tar_Monster_appears`, then
     // restore the script command from the stack before animation setup.
@@ -479,7 +475,6 @@ pub(crate) fn tar_monster_appear_sound_loc_322c0() -> TarMonsterAppearSoundLoc32
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_appear_animation_loc_322c8() -> TarMonsterAppearAnimationLoc322C8 {
     // ASM loc_322C8: load `stru_3272E`, initialise animation, hibernate until
     // it finishes, then branch back to the control-script dispatcher.
@@ -640,7 +635,6 @@ pub(crate) fn tar_monster_post_submerge_hold_loc_32454() -> TarMonsterPostSubmer
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_shot_sound_loc_32468() -> TarMonsterShotSoundLoc32468 {
     // ASM loc_32468: preserve d0 around `j_PlaySound`, play
     // `sfx_Tar_Monster_shoots`, then load a `$3000003` GfxObject slot.
@@ -1160,8 +1154,12 @@ pub(crate) fn step_tar_monster_with_sounds(
         if enemy.tar_monster_state == TarMonsterState::Attacking {
             let elapsed = TAR_MONSTER_ATTACK_FRAMES - enemy.wait_timer;
             if elapsed == TAR_MONSTER_ATTACK_FIRE_FRAME {
-                // ASM Tar_Monster.asm loc_32468 plays
-                // `sfx_Tar_Monster_shoots` before entering loc_3247E.
+                let sound = tar_monster_shot_sound_loc_32468();
+                debug_assert_eq!(sound.sound_effect_label, "sfx_Tar_Monster_shoots");
+                debug_assert!(sound.preserves_script_command_d0);
+                debug_assert_eq!(sound.gfx_object_slot_word, 0x0300_0003);
+                // ASM Tar_Monster.asm loc_32468 plays the shoot cue before
+                // entering loc_3247E.
                 played_sound_effects.push(QueuedSoundEffect::TarMonsterShoots);
                 // ASM loc_3231C/loc_32348: spawn the glob after the first `dbf` loop.
                 // The spawn setup follows loc_3247E, and loc_324D0 applies the
@@ -1198,11 +1196,18 @@ pub(crate) fn step_tar_monster_with_sounds(
     }
     match enemy.tar_monster_state {
         TarMonsterState::Submerged => {
+            let sound = tar_monster_appear_sound_loc_322c0();
+            debug_assert_eq!(sound.sound_effect_label, "sfx_Tar_Monster_appears");
+            debug_assert!(sound.preserves_script_command_d0);
             // ASM Tar_Monster.asm loc_322BC falls through loc_322C0 to play
-            // `sfx_Tar_Monster_appears` at the start of the appear sequence.
+            // the appear cue at the start of the appear sequence.
             played_sound_effects.push(QueuedSoundEffect::TarMonsterAppears);
+            let animation = tar_monster_appear_animation_loc_322c8();
+            debug_assert_eq!(animation.animation_label, "stru_3272E");
+            debug_assert!(animation.hibernate_until_animation_finished);
+            debug_assert!(animation.resumes_control_script);
             enemy.tar_monster_state = TarMonsterState::Emerging;
-            enemy.wait_timer = TAR_MONSTER_EMERGE_FRAMES;
+            enemy.wait_timer = animation.animation_frames;
         }
         TarMonsterState::Emerging => {
             // Flip direction on emerge (ASM Op 3: not.b x_direction)
