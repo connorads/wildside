@@ -9673,6 +9673,8 @@ impl NativeRuntime {
                                 );
                                 enemy.x_velocity = knockback.x_velocity;
                                 enemy.y_velocity = knockback.y_velocity;
+                                enemy.wait_timer =
+                                    DRAGON_WALKING_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CF3A;
                                 enemy.on_ground = false;
                                 enemy.damage_flash_frames = 0;
                                 changed_enemy_state = true;

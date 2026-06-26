@@ -16939,8 +16939,40 @@ mod chunk_03 {
             "ASM Dragon.asm loc_3CF0E seeds upward y_vel before the loc_3CF3A airborne loop"
         );
         assert!(!dragon.on_ground);
+        assert_eq!(
+            dragon.wait_timer, DRAGON_WALKING_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CF3A,
+            "pending side collision should enter the same loc_3CF3A airborne loop as direct Berzerker contact"
+        );
         assert_eq!(dragon.damage_flash_frames, 0);
         assert_eq!(runtime.active_enemies.len(), 1);
+
+        let y_before = runtime.active_enemies[0].y_pos;
+        step_active_enemies(
+            &mut runtime.active_enemies,
+            None,
+            Some(0x009A_0000),
+            Some(0x0110_0000),
+            Some(Direction::Left),
+            Some(0),
+            PlayerForm::Berzerker,
+            None,
+            &mut Vec::new(),
+        );
+
+        let dragon = runtime.active_enemies[0];
+        assert_eq!(
+            dragon.y_pos,
+            (y_before as i64 - 0x0004_8000) as u32,
+            "ASM Dragon.asm loc_3CF3A: knockback loop should apply current y_vel"
+        );
+        assert_eq!(
+            dragon.y_velocity, -0x0004_4000,
+            "ASM Dragon.asm loc_3CF3A: y_vel should add `$4000` each airborne tick"
+        );
+        assert_eq!(
+            dragon.wait_timer, DRAGON_WALKING_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CF3A,
+            "ASM Dragon.asm loc_3CF3A should repeat instead of resuming the walking-dragon patrol"
+        );
     }
 
     #[test]

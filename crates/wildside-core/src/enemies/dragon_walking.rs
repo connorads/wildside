@@ -204,18 +204,16 @@ pub(crate) fn dragon_walking_berzerker_side_gate_loc_3cf0e(
     )
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) const DRAGON_WALKING_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CF3A: u16 = 0x3CF3;
 pub(crate) const DRAGON_WALKING_BERZERKER_KNOCKBACK_GRAVITY_LOC_3CF3A: i32 = 0x0000_4000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingBerzerkerAirborneFrameLoc3CF3A {
     pub(crate) applies_motion_subroutine: bool,
     pub(crate) next_y_velocity: i32,
     pub(crate) repeats_airborne_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_berzerker_airborne_frame_loc_3cf3a(
     y_velocity: i32,
 ) -> DragonWalkingBerzerkerAirborneFrameLoc3CF3A {

@@ -3685,6 +3685,10 @@ pub(crate) fn step_active_enemies_with_rng(
                         step_spinning_twins(enemy, block_grid, player_x_pos, player_y_pos);
                     }
                 } else if matches!(enemy.family, EnemyFamily::DragonWalking) {
+                    if enemy.wait_timer == DRAGON_WALKING_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3CF3A {
+                        step_dragon_walking_berzerker_knockback(enemy);
+                        continue;
+                    }
                     if let Some(ref mut projs) = projectiles {
                         step_dragon_walking(enemy, block_grid, projs, player_x_pos);
                     } else {
@@ -7009,6 +7013,18 @@ fn step_goat_berzerker_knockback(enemy: &mut ActiveEnemy) {
     enemy.x_velocity = 0;
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
     enemy.y_velocity = goat_berzerker_airborne_frame_loc_3cba8(enemy.y_velocity).next_y_velocity;
+    enemy.on_ground = false;
+}
+
+fn step_dragon_walking_berzerker_knockback(enemy: &mut ActiveEnemy) {
+    // ASM Dragon.asm loc_3CF3A: hibernate one frame, run the motion helper,
+    // add `$4000` to y_vel, and repeat the airborne Berzerker loop.
+    enemy.x_velocity = 0;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+    let frame = dragon_walking_berzerker_airborne_frame_loc_3cf3a(enemy.y_velocity);
+    debug_assert!(frame.applies_motion_subroutine);
+    debug_assert!(frame.repeats_airborne_loop);
+    enemy.y_velocity = frame.next_y_velocity;
     enemy.on_ground = false;
 }
 
