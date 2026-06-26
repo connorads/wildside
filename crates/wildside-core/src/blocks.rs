@@ -169,7 +169,6 @@ pub(crate) struct PrizeClockFallGateLoc107B0 {
     pub(crate) collided_with_player: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeCollectedArcHibernateStepLocFEEE {
     pub(crate) next_screen_x_fp: i32,
@@ -478,7 +477,7 @@ impl NativeRuntime {
             .filter(|_| cell.block_type == terrain::BlockType::Shooter)
     }
 
-    fn high_word_from_i32(value: i32) -> u16 {
+    pub(crate) fn high_word_from_i32(value: i32) -> u16 {
         let bytes = value.to_be_bytes();
         u16::from_be_bytes([bytes[0], bytes[1]])
     }
@@ -490,7 +489,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_collected_arc_hibernate_step_loc_FEEE(
         screen_x_fp: i32,
         screen_y_fp: i32,

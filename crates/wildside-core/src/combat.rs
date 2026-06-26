@@ -11372,8 +11372,22 @@ impl NativeRuntime {
         self.pending_prize_diamond_awards.retain(|delay| *delay > 0);
         for flight in &mut self.pending_prize_diamond_hud_flights {
             if flight.remaining_delay > 1 {
-                flight.screen_x_fp = flight.screen_x_fp.saturating_add(flight.x_step_fp);
-                flight.screen_y_fp = flight.screen_y_fp.saturating_add(flight.y_step_fp);
+                let arc_step = Self::prize_collected_arc_hibernate_step_loc_FEEE(
+                    flight.screen_x_fp,
+                    flight.screen_y_fp,
+                    flight.x_step_fp,
+                    flight.y_step_fp,
+                );
+                debug_assert_eq!(
+                    arc_step.screen_x_word,
+                    Self::high_word_from_i32(arc_step.next_screen_x_fp)
+                );
+                debug_assert_eq!(
+                    arc_step.screen_y_word,
+                    Self::high_word_from_i32(arc_step.next_screen_y_fp)
+                );
+                flight.screen_x_fp = arc_step.next_screen_x_fp;
+                flight.screen_y_fp = arc_step.next_screen_y_fp;
             }
             flight.remaining_delay = flight.remaining_delay.saturating_sub(1);
         }
