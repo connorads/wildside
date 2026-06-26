@@ -193,7 +193,6 @@ pub(crate) fn fire_demon_palette_return_copy_loc_3a536() -> FireDemonPaletteCopy
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonFireTrailWaitNextLoc3A6CA {
     ContinueLoop,
     DeleteFlagSet { decrements_fire_trail_count: bool },
@@ -201,7 +200,6 @@ pub(crate) enum FireDemonFireTrailWaitNextLoc3A6CA {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonFireTrailWaitStepLoc3A6CA {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) remaining_timer: u16,
@@ -209,13 +207,11 @@ pub(crate) struct FireDemonFireTrailWaitStepLoc3A6CA {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonFireTrailDeleteTailLoc3A6DA {
     pub(crate) next_fire_trail_count: u16,
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fire_trail_delete_tail_loc_3a6da(
     fire_trail_count: u16,
 ) -> FireDemonFireTrailDeleteTailLoc3A6DA {
@@ -227,7 +223,6 @@ pub(crate) fn fire_demon_fire_trail_delete_tail_loc_3a6da(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(
     status_flag_19_set: bool,
     timer_d3: u16,

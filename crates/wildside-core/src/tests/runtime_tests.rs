@@ -13957,6 +13957,36 @@ mod chunk_09 {
     }
 
     #[test]
+    fn fire_demon_death_trail_lifetime_uses_loc_3a6ca_counter() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.fire_demon_trails.push(FireDemonTrailChild {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            remaining_frames: 1,
+        });
+
+        rt.step_projectiles();
+
+        assert!(
+            rt.fire_demon_trails.is_empty(),
+            "ASM Fire_Demon.asm loc_3A6CA hibernates, decrements d3 to zero, then falls through to loc_3A6DA without a generic zero-lifetime frame"
+        );
+
+        rt.fire_demon_trails.push(FireDemonTrailChild {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            remaining_frames: 0,
+        });
+
+        rt.step_projectiles();
+
+        assert_eq!(
+            rt.fire_demon_trails[0].remaining_frames, 0xFFFF,
+            "ASM Fire_Demon.asm loc_3A6CA uses word subtraction, so an unexpected d3=0 wraps and keeps the trail alive"
+        );
+    }
+
+    #[test]
     fn fire_demon_death_trail_deletes_when_centre_support_has_block_loc_3a63c() {
         let mut rt = NativeRuntime::new(manifest());
         let mut data = vec![0u8; 5 * 5 * 2];

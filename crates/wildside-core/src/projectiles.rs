@@ -6,10 +6,11 @@ use crate::enemies::{
     DragonFlyingDescentFireTravelLoopLoc34C3A, DripsLeftBoundsNextLoc335AA,
     DripsRightBoundsNextLoc33588, DripsSurfaceCrawlerTurnFieldLoc33AF6,
     DripsSurfaceCrawlerTurnNextLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
-    FireballTrailLoopStepLoc33110, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
-    RobotShotFlightRouteLoc3AC48, TankBulletLoopRouteLoc3B7BA,
-    TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
-    archer_angle_to_player, archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
+    FireDemonFireTrailWaitNextLoc3A6CA, FireballTrailLoopStepLoc33110,
+    ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762, RobotShotFlightRouteLoc3AC48,
+    TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
+    TarMonsterProjectileCollisionTargetLoc32682, archer_angle_to_player,
+    archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
     cloud_attack_projectile_delete_tail_loc_35E9C, cloud_attack_projectile_loop_loc_35E8A,
     dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
@@ -33,6 +34,7 @@ use crate::enemies::{
     drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
     drips_surface_crawler_turn_script_loc_33996, drips_velocity_apply_loc_33546,
     drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_loc_3340e,
+    fire_demon_fire_trail_delete_tail_loc_3a6da, fire_demon_fire_trail_wait_loop_tick_loc_3a6ca,
     fireball_trail_delete_tail_loc_33120, fireball_trail_loop_step_loc_33110,
     robot_shot_flight_loop_loc_3ac48, robot_shot_impact_prep_loc_3ac7e,
     spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
@@ -2504,17 +2506,36 @@ impl NativeRuntime {
 
     pub(crate) fn step_fire_demon_trails(&mut self) {
         let grid = self.block_grid.as_ref();
+        let mut fire_trail_count = self.fire_demon_trails.len().min(usize::from(u16::MAX)) as u16;
         self.fire_demon_trails.retain_mut(|trail| {
             if let Some(g) = grid
                 && !fire_demon_trail_has_floor_support_loc_3a63c(g, trail.x_pos, trail.y_pos)
             {
+                let delete = fire_demon_fire_trail_delete_tail_loc_3a6da(fire_trail_count);
+                debug_assert!(delete.deletes_current_object);
+                fire_trail_count = delete.next_fire_trail_count;
                 return false;
             }
-            // ASM Fire_Demon loc_3A6CA: after one hibernated frame,
-            // `subq.w #1,d3; bne.s loc_3A6CA`; falling through deletes only
-            // when the post-decrement word becomes zero.
-            trail.remaining_frames = trail.remaining_frames.wrapping_sub(1);
-            trail.remaining_frames != 0
+            let step =
+                fire_demon_fire_trail_wait_loop_tick_loc_3a6ca(false, trail.remaining_frames);
+            debug_assert!(step.hibernates_one_frame);
+            trail.remaining_frames = step.remaining_timer;
+            match step.next {
+                FireDemonFireTrailWaitNextLoc3A6CA::ContinueLoop => true,
+                FireDemonFireTrailWaitNextLoc3A6CA::DeleteFlagSet {
+                    decrements_fire_trail_count,
+                }
+                | FireDemonFireTrailWaitNextLoc3A6CA::DeleteTimerExpired {
+                    decrements_fire_trail_count,
+                } => {
+                    if decrements_fire_trail_count {
+                        let delete = fire_demon_fire_trail_delete_tail_loc_3a6da(fire_trail_count);
+                        debug_assert!(delete.deletes_current_object);
+                        fire_trail_count = delete.next_fire_trail_count;
+                    }
+                    false
+                }
+            }
         });
     }
 
