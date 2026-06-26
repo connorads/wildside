@@ -30,7 +30,6 @@ pub(crate) struct LiftBlockHeadbuttWorkerLocFAFE {
     pub(crate) gfx_y_pos: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeBlockDeletedTileLoc101D8 {
     pub(crate) written_cell: terrain::Cell,
@@ -1509,7 +1508,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_block_deleted_tile_loc_101D8(
         block_col: u16,
         block_row: u16,

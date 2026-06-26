@@ -6571,12 +6571,21 @@ impl OpeningSliceState {
                         let block_x_px = probe.cell_x * 16;
                         let block_y_px = probe.cell_y * 16;
                         self.prize_block_hit = Some((content, block_x_px, block_y_px));
-                        // ASM sub_1007A: keep cell Solid, clear has_block
-                        grid.set_cell_at(
-                            probe.cell_x,
-                            probe.cell_y,
-                            terrain::Cell::from_be_bytes(0x6F, probe.cell.skin),
-                        );
+                        // ASM sub_1007A/loc_101D8: keep cell Solid, clear
+                        // has_block. The reveal-only loc_101D8 path derives
+                        // the same `$6Fxx` deleted-solid cell before the
+                        // hidden prize later becomes visible `$E102`.
+                        let deleted_cell = if reveal_only {
+                            NativeRuntime::prize_block_deleted_tile_loc_101D8(
+                                probe.cell_x,
+                                probe.cell_y,
+                                probe.cell.skin,
+                            )
+                            .written_cell
+                        } else {
+                            terrain::Cell::from_be_bytes(0x6F, probe.cell.skin)
+                        };
+                        grid.set_cell_at(probe.cell_x, probe.cell_y, deleted_cell);
                         self.ceiling_prize_clear = Some(PrizeCeilingClear {
                             col: probe.cell_x,
                             row: probe.cell_y,
@@ -6654,16 +6663,28 @@ impl OpeningSliceState {
                             let block_x_px = block_dispatch_probe.cell_x * 16;
                             let block_y_px = block_dispatch_probe.cell_y * 16;
                             self.prize_block_hit = Some((content, block_x_px, block_y_px));
-                            // ASM sub_1007A writes $6F to the cell: Solid collision,
-                            // has_block=false, block_type=Deleted. The tile stays solid
-                            // as structural ceiling for ~32 frames (bounce animation),
-                            // then clears. Without this, Cyclone flight near a Prize
-                            // ceiling clears the tile to Empty immediately, letting
-                            // the player fly through.
+                            // ASM sub_1007A/loc_101D8 writes $6F to the cell:
+                            // Solid collision, has_block=false,
+                            // block_type=Deleted. The tile stays solid as
+                            // structural ceiling for ~32 frames (bounce
+                            // animation), then clears. Without this, Cyclone
+                            // flight near a Prize ceiling clears the tile to
+                            // Empty immediately, letting the player fly
+                            // through.
+                            let deleted_cell = if reveal_only {
+                                NativeRuntime::prize_block_deleted_tile_loc_101D8(
+                                    block_dispatch_probe.cell_x,
+                                    block_dispatch_probe.cell_y,
+                                    block_dispatch_probe.cell.skin,
+                                )
+                                .written_cell
+                            } else {
+                                terrain::Cell::from_be_bytes(0x6F, block_dispatch_probe.cell.skin)
+                            };
                             grid.set_cell_at(
                                 block_dispatch_probe.cell_x,
                                 block_dispatch_probe.cell_y,
-                                terrain::Cell::from_be_bytes(0x6F, block_dispatch_probe.cell.skin),
+                                deleted_cell,
                             );
                             self.ceiling_prize_clear = Some(PrizeCeilingClear {
                                 col: block_dispatch_probe.cell_x,
