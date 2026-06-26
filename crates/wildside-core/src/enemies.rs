@@ -7159,13 +7159,16 @@ pub(crate) fn tank_init_drive_sound_loc_3b40a(
     // `j_PlaySound(sfx_Tank_driving)`, increment the shared tank-drive
     // refcount and branch by x_direction. Zero enters loc_3C0D2; nonzero
     // enters loc_3C026.
+    let shared_start =
+        shared_enemy_drive_sound_sub_3C352(EnemyFamily::Tank, false, true, tank_drive_refcount);
+    debug_assert!(!shared_start.next_previous_motion_active);
     TankInitDriveSoundLoc3B40A {
-        next_tank_drive_refcount: tank_drive_refcount.wrapping_add(1),
-        sound_call: (tank_drive_refcount == 0 && !motion_active_flag_19).then_some(
-            SharedEnemyDriveSoundCallSub3C352::StartSequence(
-                SharedEnemyDriveSoundEffectSub3C352::TankDriving,
-            ),
-        ),
+        next_tank_drive_refcount: shared_start.next_refcount,
+        sound_call: if motion_active_flag_19 {
+            None
+        } else {
+            shared_start.sound_call
+        },
         walker_entry: if x_direction == 0 {
             TankInitWalkerEntryLoc3B40A::LeftLoc3C0D2
         } else {
@@ -7439,13 +7442,20 @@ pub(crate) fn tank_shooting_init_drive_sound_loc_3b690(
     // ASM Tank_Shooting.asm loc_3B6AE: the shared refcount increments
     // unconditionally before branching by x_direction: zero enters loc_3C0D2,
     // nonzero enters loc_3C026.
+    let shared_start = shared_enemy_drive_sound_sub_3C352(
+        EnemyFamily::TankShooting,
+        false,
+        true,
+        tank_drive_refcount,
+    );
+    debug_assert!(!shared_start.next_previous_motion_active);
     TankShootingInitDriveSoundLoc3B690 {
-        next_tank_drive_refcount: tank_drive_refcount.wrapping_add(1),
-        sound_call: (tank_drive_refcount == 0 && !motion_active_flag_19).then_some(
-            SharedEnemyDriveSoundCallSub3C352::StartSequence(
-                SharedEnemyDriveSoundEffectSub3C352::TankDriving,
-            ),
-        ),
+        next_tank_drive_refcount: shared_start.next_refcount,
+        sound_call: if motion_active_flag_19 {
+            None
+        } else {
+            shared_start.sound_call
+        },
         walker_entry: if x_direction == 0 {
             TankShootingInitWalkerEntryLoc3B690::LeftLoc3C0D2
         } else {
@@ -9351,7 +9361,6 @@ pub(crate) fn shared_enemy_attachment_sub_3BF72(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shared_enemy_drive_sound_sub_3C352(
     family: EnemyFamily,
     motion_active: bool,
@@ -9427,7 +9436,6 @@ pub(crate) fn shared_enemy_drive_sound_sub_3C352(
 
 /// Result of the deactivation-time drive sound cleanup at loc_3C494.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DeactivationDriveSoundResultLoc3C494 {
     pub(crate) next_refcount: u8,
     pub(crate) sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
@@ -9451,7 +9459,6 @@ pub(crate) struct DeactivationDriveSoundResultLoc3C494 {
 /// In both `$19` states the gate is the same: `$6A != 0` → skip sound.
 /// So the deactivation sound cleanup runs iff `$6A(a5) == 0`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn deactivation_drive_sound_cleanup_loc_3C494(
     family: EnemyFamily,
     motion_active: bool,
@@ -10037,7 +10044,35 @@ impl NativeRuntime {
         &mut self,
         driving_before: usize,
     ) {
-        if driving_before > 0 && self.driving_rock_tank_count() == 0 {
+        let driving_after = self.driving_rock_tank_count();
+        let mut drive_refcount = driving_before.min(usize::from(u8::MAX)) as u8;
+        let mut stop_drive_sound = false;
+
+        for _ in 0..driving_before.saturating_sub(driving_after) {
+            let cleanup = deactivation_drive_sound_cleanup_loc_3C494(
+                EnemyFamily::Tank,
+                false,
+                false,
+                drive_refcount,
+            );
+            drive_refcount = cleanup.next_refcount;
+            if matches!(
+                cleanup.sound_call,
+                Some(SharedEnemyDriveSoundCallSub3C352::StopSequence(
+                    SharedEnemyDriveSoundEffectSub3C352::TankDriving
+                ))
+            ) {
+                stop_drive_sound = true;
+            }
+        }
+
+        if driving_before >= driving_after {
+            debug_assert_eq!(
+                usize::from(drive_refcount),
+                driving_after.min(usize::from(u8::MAX))
+            );
+        }
+        if stop_drive_sound {
             self.queue_stop_sequence(QueuedSoundEffect::TankDriving);
         }
     }

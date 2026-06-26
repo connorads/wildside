@@ -7927,6 +7927,29 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_3c4a8_drive_stop_fires_once_when_two_rock_tanks_leave_together() {
+        let mut rt = NativeRuntime::new(manifest());
+        let mut tank = make_pacer(EnemyFamily::Tank, 3, 0x100, 0x80);
+        tank.shared_walker_patrol_short_next = true;
+        let mut shooting_tank = make_pacer(EnemyFamily::TankShooting, 3, 0x200, 0x80);
+        shooting_tank.shared_walker_patrol_short_next = true;
+        rt.active_enemies.push(tank);
+        rt.active_enemies.push(shooting_tank);
+        let driving_before = rt.driving_rock_tank_count();
+
+        rt.active_enemies.clear();
+        rt.stop_rock_tank_drive_sound_on_last_exit_loc_3c46e(driving_before);
+
+        assert_eq!(
+            rt.played_sound_commands,
+            vec![QueuedSoundCommand::StopSequence(
+                QueuedSoundEffect::TankDriving
+            )],
+            "ASM loc_3C4A8 should decrement the shared RockTank refcount once per exiting object and stop the pooled drive loop only on the final 1->0 decrement"
+        );
+    }
+
+    #[test]
     fn loc_3c46e_drive_stop_silent_when_no_rock_tank_was_driving() {
         // No driving Rock Tank last frame => nothing to decrement, so the
         // deactivation routine never reaches the j_PlaySound2 stop.
