@@ -1172,7 +1172,6 @@ pub(crate) fn pause_menu_art_total_bytes_loc_690C(header_word: u16) -> u32 {
 /// Layout for the pause menu's plane-tile save/restore, describing how many
 /// word-reads per row and whether the menu wraps around the plane edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuPlaneColumnLayout {
     /// Tile column of the menu's left edge within the 64-tile-wide plane A.
     pub(crate) tile_col: u16,
@@ -1209,7 +1208,6 @@ pub(crate) struct PauseMenuPlaneColumnLayout {
 /// `tile_col` and `wrap_split` values — the difference is what happens after:
 /// tile save reads from VDP, text write writes to VDP with `ori.w #$4000`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_plane_column_layout_loc_693A(
     camera_x_pos: u16,
 ) -> PauseMenuPlaneColumnLayout {
