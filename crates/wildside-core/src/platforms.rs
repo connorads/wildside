@@ -314,7 +314,6 @@ pub(crate) struct NegativePlatformCarryLoc26B6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct NegativePlatformCarryCommitLoc26C0 {
     pub(crate) carried_x_velocity_fp: i32,
     pub(crate) touched_left_wall: bool,
@@ -356,7 +355,6 @@ pub(crate) fn negative_platform_carry_loc_26B6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn negative_platform_carry_commit_loc_26C0(
     carried_x_velocity_fp: i32,
     right_wall_already_touched: bool,
@@ -1767,10 +1765,14 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                             platform.x_velocity,
                             touched_right_side,
                         );
-                        slice.player.x_velocity = carry.carried_x_velocity_fp;
+                        let commit = negative_platform_carry_commit_loc_26C0(
+                            carry.carried_x_velocity_fp,
+                            touched_right_side,
+                        );
+                        slice.player.x_velocity = commit.carried_x_velocity_fp;
                         touched_left_side = true;
-                        scratch.touched_left_side_faa2 = carry.touched_left_wall;
-                        if carry.escalates_to_loc_271_a {
+                        scratch.touched_left_side_faa2 = commit.touched_left_wall;
+                        if commit.escalates_to_loc_271_a {
                             return PlatformCollisionResultLoc257E::new(
                                 PlatformCollisionOutcome::CrushDeath,
                                 scratch,
