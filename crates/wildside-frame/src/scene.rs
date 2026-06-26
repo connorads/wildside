@@ -7330,19 +7330,6 @@ fn render_ten_diamonds_worker_effect(
     // ASM Prize10Diamonds_Init loc_108EE uses byte_108AC to spawn ten
     // workers on frames 0..3 and 24..29. Each worker uses unk_E1046:
     // sprite_frame_vram $6ED,$02,$FE,$08,$08 over the HUD diamond DMA page.
-    const SPAWNS: &[(u8, i32, i32)] = &[
-        (0, -20, -36),
-        (1, -20, -27),
-        (2, -20, -18),
-        (3, -20, -9),
-        (24, 6, -36),
-        (25, -4, -28),
-        (26, 16, -28),
-        (27, -4, -16),
-        (28, 16, -16),
-        (29, 6, -8),
-    ];
-
     let frame = wildside_render::SpriteFrame {
         origin_x: 0x02,
         origin_y: -2,
@@ -7352,13 +7339,34 @@ fn render_ten_diamonds_worker_effect(
         tile_sheet: level_visuals.hud.diamond_tiles.clone(),
     };
     let mut drew_worker = false;
-    for &(spawn_frame, x_velocity_word, y_velocity_word) in SPAWNS {
-        if effect_age < spawn_frame {
+    for spawn_frame in 0..=u16::from(effect_age).min(0x001D) {
+        let spawn = wildside_core::NativeRuntime::prize_10_diamonds_spawn_loc_108EE(
+            spawn_frame,
+            screen_x as u16,
+            screen_y as u16,
+        );
+        if !spawn.should_spawn_worker {
             continue;
         }
-        let worker_age = i32::from(effect_age - spawn_frame);
-        let worker_x = screen_x + ((x_velocity_word * worker_age) >> 3);
-        let worker_y = screen_y + ((y_velocity_word * worker_age) >> 3);
+        debug_assert!(spawn.should_hibernate_one_frame);
+        debug_assert!(spawn.should_scan_workers);
+        debug_assert_eq!(spawn.allocation_spec, Some(0x00FE_0000));
+        debug_assert_eq!(spawn.priority, Some(1));
+        debug_assert_eq!(spawn.display_enabled, Some(true));
+        debug_assert_eq!(
+            spawn.animation_script_label,
+            Some("LnkTo_unk_E1046-Data_Index")
+        );
+        debug_assert_eq!(spawn.x_pos, Some(screen_x as u16));
+        debug_assert_eq!(spawn.y_pos, Some(screen_y as u16));
+        debug_assert_eq!(spawn.is_moved, Some(true));
+        debug_assert_eq!(spawn.lifetime_frames, Some(0x0078));
+
+        let worker_age = i64::from(u16::from(effect_age).wrapping_sub(spawn_frame));
+        let worker_x = screen_x
+            + ((i64::from(spawn.x_velocity.unwrap_or_default()) * worker_age) >> 16) as i32;
+        let worker_y = screen_y
+            + ((i64::from(spawn.y_velocity.unwrap_or_default()) * worker_age) >> 16) as i32;
         push_worker_sprite(
             commands,
             &frame,

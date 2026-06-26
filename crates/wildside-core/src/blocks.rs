@@ -273,24 +273,23 @@ pub(crate) struct Prize10DiamondsInitLoc108E8 {
     pub(crate) cleared_worker_slots: [u32; 10],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Prize10DiamondsSpawnLoc108EE {
-    pub(crate) should_hibernate_one_frame: bool,
-    pub(crate) should_scan_workers: bool,
-    pub(crate) should_spawn_worker: bool,
-    pub(crate) burst_table_index: Option<u8>,
-    pub(crate) allocation_spec: Option<u32>,
-    pub(crate) sound_effect_label: Option<&'static str>,
-    pub(crate) priority: Option<u8>,
-    pub(crate) display_enabled: Option<bool>,
-    pub(crate) animation_script_label: Option<&'static str>,
-    pub(crate) x_pos: Option<u16>,
-    pub(crate) y_pos: Option<u16>,
-    pub(crate) x_velocity: Option<i32>,
-    pub(crate) y_velocity: Option<i32>,
-    pub(crate) is_moved: Option<bool>,
-    pub(crate) lifetime_frames: Option<u16>,
+pub struct Prize10DiamondsSpawnLoc108EE {
+    pub should_hibernate_one_frame: bool,
+    pub should_scan_workers: bool,
+    pub should_spawn_worker: bool,
+    pub burst_table_index: Option<u8>,
+    pub allocation_spec: Option<u32>,
+    pub sound_effect_label: Option<&'static str>,
+    pub priority: Option<u8>,
+    pub display_enabled: Option<bool>,
+    pub animation_script_label: Option<&'static str>,
+    pub x_pos: Option<u16>,
+    pub y_pos: Option<u16>,
+    pub x_velocity: Option<i32>,
+    pub y_velocity: Option<i32>,
+    pub is_moved: Option<bool>,
+    pub lifetime_frames: Option<u16>,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -906,8 +905,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn prize_10_diamonds_spawn_loc_108EE(
+    pub fn prize_10_diamonds_spawn_loc_108EE(
         frame_index: u16,
         spawn_x_pos: u16,
         spawn_y_pos: u16,

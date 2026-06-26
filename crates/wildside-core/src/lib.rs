@@ -36,7 +36,9 @@ use wildside_data::{
     resource_level_record,
 };
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
-pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
+pub use blocks::{
+    FloatingPrizeGraphicsSpec, Prize10DiamondsSpawnLoc108EE, floating_prize_graphics_spec,
+};
 pub use boot::{
     HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, PAUSE_MENU_Y_OFFSET_LOC_6948,
     PauseMenuTextSelectionRestartText, PauseMenuTextWriteRow,
