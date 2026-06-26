@@ -456,7 +456,6 @@ pub(crate) fn drips_surface_crawler_animation_tail_loc_33630(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33650 {
     Loc338F8,
     Loc338EA,
@@ -472,7 +471,6 @@ pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33650 {
     Loc339C8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_33650(
     collision_type: u16,
     berzerker_charging: bool,
@@ -513,7 +511,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33650(
     DripsSurfaceCrawlerMovementPathLoc33650::Loc33982
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_336aa(
     tile_flags_331f6_d5: u16,
     tile_flags_331f6_d6: u16,

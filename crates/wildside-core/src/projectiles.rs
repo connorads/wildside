@@ -4,22 +4,23 @@ use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
     CloudAttackProjectileRouteLoc35E8A, DragonFlyingDescentFireFirstLoopLoc34C26,
     DragonFlyingDescentFireTravelLoopLoc34C3A, DripsLeftBoundsNextLoc335AA,
-    DripsRightBoundsNextLoc33588, DripsSurfaceCrawlerTurnFieldLoc33AF6,
-    DripsSurfaceCrawlerTurnNextLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
-    FireDemonFireTrailWaitNextLoc3A6CA, FireballObstacleTrailLoopStepLoc331BA,
-    FireballTrailLoopStepLoc33110, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
-    RobotShotFlightRouteLoc3AC48, TankBulletLoopRouteLoc3B7BA,
-    TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
-    TarMonsterProjectileLoopRouteLoc3263C, archer_angle_to_player, archer_arrow_delete_loc_34336,
-    archer_reaim_loc_3432E, cloud_attack_projectile_delete_tail_loc_35E9C,
-    cloud_attack_projectile_loop_loc_35E8A, dragon_flying_descent_fire_cleanup_loc_34C4A,
-    dragon_flying_descent_fire_first_loop_loc_34C26,
+    DripsRightBoundsNextLoc33588, DripsSurfaceCrawlerMovementPathLoc33650,
+    DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
+    DripsSurfaceCrawlerTurnScriptLoc33AF6, FireDemonFireTrailWaitNextLoc3A6CA,
+    FireballObstacleTrailLoopStepLoc331BA, FireballTrailLoopStepLoc33110,
+    ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762, RobotShotFlightRouteLoc3AC48,
+    TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
+    TarMonsterProjectileCollisionTargetLoc32682, TarMonsterProjectileLoopRouteLoc3263C,
+    archer_angle_to_player, archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
+    cloud_attack_projectile_delete_tail_loc_35E9C, cloud_attack_projectile_loop_loc_35E8A,
+    dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
     drips_enter_splash_animation_loc_33488, drips_left_bounds_gate_loc_335aa,
     drips_right_bounds_gate_loc_33588, drips_splash_animation_remaining_loc_33488,
     drips_splash_reset_loc_33488, drips_surface_crawler_animation_tail_loc_33630,
     drips_surface_crawler_delete_tail_loc_3392c, drips_surface_crawler_idle_loop_loc_33a7c,
-    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a0e,
+    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_movement_tail_loc_336aa,
+    drips_surface_crawler_movement_tail_loc_33650, drips_surface_crawler_turn_script_loc_33a0e,
     drips_surface_crawler_turn_script_loc_33a2c, drips_surface_crawler_turn_script_loc_33a04,
     drips_surface_crawler_turn_script_loc_33a5e, drips_surface_crawler_turn_script_loc_33a18,
     drips_surface_crawler_turn_script_loc_33a22, drips_surface_crawler_turn_script_loc_33a36,
@@ -1596,49 +1597,86 @@ fn drips_surface_crawler_side_column_step_loc_33650(
         0,
     );
 
-    if projectile.x_velocity < 0 {
-        if column.one_row_up == 0x6000 {
-            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-                drips_surface_crawler_turn_script_loc_3393c(),
-            );
-        }
-        if column.one_row_up == 0x5000 {
-            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-                drips_surface_crawler_turn_script_loc_33a40(),
-            );
-        }
-        if column.current_row == 0x4000 {
-            return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-                drips_surface_crawler_turn_script_loc_33a2c(),
-            );
-        }
-        if column.current_row == 0x6000 {
-            return DripsSurfaceCrawlerSideColumnStepLoc33650::Loop;
-        }
-        return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-            drips_surface_crawler_turn_script_loc_33982(),
-        );
-    }
+    // ASM Drips.asm loc_33650/loc_336AA: support, collision, and bounds
+    // guards have already passed in the caller; this route maps the live
+    // `loc_331F6` side-column flags to the selected turn script.
+    let path = drips_surface_crawler_movement_tail_loc_33650(
+        0,
+        false,
+        0x6000,
+        false,
+        projectile.x_velocity >= 0,
+        column.current_row,
+        column.one_row_up,
+    );
 
-    if column.one_row_up == 0x4000 {
-        return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-            drips_surface_crawler_turn_script_loc_339dc(),
-        );
+    match path {
+        DripsSurfaceCrawlerMovementPathLoc33650::Loc338F8
+        | DripsSurfaceCrawlerMovementPathLoc33650::Loc338EA => {
+            DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_33982(),
+            )
+        }
+        DripsSurfaceCrawlerMovementPathLoc33650::Loc336AA => {
+            match drips_surface_crawler_movement_tail_loc_336aa(
+                column.current_row,
+                column.one_row_up,
+            ) {
+                DripsSurfaceCrawlerMovementPathLoc33650::Loc339DC => {
+                    DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                        drips_surface_crawler_turn_script_loc_339dc(),
+                    )
+                }
+                DripsSurfaceCrawlerMovementPathLoc33650::Loc33996 => {
+                    DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                        drips_surface_crawler_turn_script_loc_33996(),
+                    )
+                }
+                DripsSurfaceCrawlerMovementPathLoc33650::Loc33650 => {
+                    DripsSurfaceCrawlerSideColumnStepLoc33650::Loop
+                }
+                DripsSurfaceCrawlerMovementPathLoc33650::Loc33A18 => {
+                    DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                        drips_surface_crawler_turn_script_loc_33a18(),
+                    )
+                }
+                DripsSurfaceCrawlerMovementPathLoc33650::Loc339C8 => {
+                    DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                        drips_surface_crawler_turn_script_loc_339c8(),
+                    )
+                }
+                _ => DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                    drips_surface_crawler_turn_script_loc_339c8(),
+                ),
+            }
+        }
+        DripsSurfaceCrawlerMovementPathLoc33650::Loc3393C => {
+            DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_3393c(),
+            )
+        }
+        DripsSurfaceCrawlerMovementPathLoc33650::Loc33A40 => {
+            DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_33a40(),
+            )
+        }
+        DripsSurfaceCrawlerMovementPathLoc33650::Loc33650 => {
+            DripsSurfaceCrawlerSideColumnStepLoc33650::Loop
+        }
+        DripsSurfaceCrawlerMovementPathLoc33650::Loc33A2C => {
+            DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_33a2c(),
+            )
+        }
+        DripsSurfaceCrawlerMovementPathLoc33650::Loc33982 => {
+            DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+                drips_surface_crawler_turn_script_loc_33982(),
+            )
+        }
+        _ => DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
+            drips_surface_crawler_turn_script_loc_33982(),
+        ),
     }
-    if column.one_row_up == 0x6000 {
-        return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-            drips_surface_crawler_turn_script_loc_33996(),
-        );
-    }
-    if column.current_row == 0x6000 {
-        return DripsSurfaceCrawlerSideColumnStepLoc33650::Loop;
-    }
-    if column.current_row == 0x5000 {
-        return DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(
-            drips_surface_crawler_turn_script_loc_33a18(),
-        );
-    }
-    DripsSurfaceCrawlerSideColumnStepLoc33650::Turn(drips_surface_crawler_turn_script_loc_339c8())
 }
 
 fn drips_surface_crawler_add_word_delta_loc_33af6(pos: u32, delta: i16) -> u32 {
