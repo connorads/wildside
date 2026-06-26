@@ -8065,6 +8065,47 @@ mod chunk_09 {
     }
 
     #[test]
+    fn metal_block_bounce_live_runtime_uses_both_sub_11120_phase_tables() {
+        for (direction, expected_deltas) in [
+            (
+                NativeRuntime::BLOCK_DESTROY_DIRECTION_BELOW,
+                blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A,
+            ),
+            (
+                NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
+                blocks::METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196,
+            ),
+        ] {
+            let mut rt = NativeRuntime::new(manifest());
+            let mut slice = OpeningSliceState::new(default_bounds());
+            slice.metal_block_hit = Some((5, 3, direction));
+
+            rt.process_block_effects(&mut slice);
+
+            let mut expected_offset = 0i16;
+            for (frame_index, delta) in expected_deltas.into_iter().enumerate() {
+                rt.step_visual_effects();
+                expected_offset += delta;
+                if frame_index < 7 {
+                    assert_eq!(
+                        rt.block_bounces[0].y_offset_px, expected_offset,
+                        "ASM sub_11120 live metal bounce frame {frame_index} should follow the `$4C(a5)`-selected loc_1117A/loc_11196 phase table",
+                    );
+                } else {
+                    assert_eq!(
+                        expected_offset, 0,
+                        "ASM sub_11120 final hibernated phase step should settle the metal block back at its origin",
+                    );
+                    assert!(
+                        rt.block_bounces.is_empty(),
+                        "ASM sub_11120 should finish the metal-block bounce after the eighth hibernated phase step",
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn metal_block_effect_cell_words_loc_110d0_keeps_tile_coordinates_unshifted() {
         assert_eq!(
             NativeRuntime::metal_block_effect_cell_words_loc_110D0(5, 3),

@@ -335,10 +335,6 @@ pub(crate) const METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A: [i16; 8] = [2, 2, 2, 2, 
 /// blocks run four `subq.w #2,y_pos(a3)` hibernated frames then four
 /// `addq.w #2,y_pos(a3)` hibernated frames, producing a 0 -> -8 -> 0 arc.
 pub(crate) const METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196: [i16; 8] = [-2, -2, -2, -2, 2, 2, 2, 2];
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A: [i16; 4] = [2, 2, 2, 2];
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const EVANESCENT_BLOCK_REVEAL_ASCENT_Y_DELTAS_LOC_11188: [i16; 4] = [-2, -2, -2, -2];
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct MetalBlockPushWakeStep {
     pub(crate) x_pos: u16,
@@ -1621,7 +1617,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn evanescent_block_reveal_alt_branch_iterations_loc_11196() -> u16 {
         // ASM loc_11196 (kid.asm:23090): when `$4C(a5)` is non-zero, the
         // alternate branch reloads `d0` with `#3` immediately before
@@ -1631,30 +1626,27 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn evanescent_block_reveal_alt_branch_y_deltas_loc_11198() -> &'static [i16; 4] {
+    pub(crate) fn evanescent_block_reveal_alt_branch_y_deltas_loc_11198() -> &'static [i16] {
         // ASM loc_11198 (kid.asm:23093): after `loc_11196` reloads `d0`, the
         // alternate branch spends four hibernated frames on
         // `subq.w #2,y_pos(a3)` before `loc_111A6` mirrors the motion.
-        &EVANESCENT_BLOCK_REVEAL_ASCENT_Y_DELTAS_LOC_11188
+        &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196[..4]
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn evanescent_block_reveal_descent_y_deltas_loc_1117A() -> &'static [i16; 4] {
+    pub(crate) fn evanescent_block_reveal_descent_y_deltas_loc_1117A() -> &'static [i16] {
         // ASM loc_1117A (kid.asm:23077): when `$4C(a5)` is zero, `moveq #3,d0`
         // drives an inclusive `dbf` loop, so the worker spends four hibernated
         // frames on `addq.w #2,y_pos(a3)` before the mirrored rebound.
-        &EVANESCENT_BLOCK_REVEAL_DESCENT_Y_DELTAS_LOC_1117A
+        &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A[..4]
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
-    pub(crate) fn evanescent_block_reveal_ascent_y_deltas_loc_11188() -> &'static [i16; 4] {
+    pub(crate) fn evanescent_block_reveal_ascent_y_deltas_loc_11188() -> &'static [i16] {
         // ASM loc_11188 (kid.asm:23083): after reloading `d0` with `#3`, the
         // worker spends four hibernated frames on `subq.w #2,y_pos(a3)` before
         // `loc_111B2` hands control to `Hibernate_UntilAnimFinished`.
-        &EVANESCENT_BLOCK_REVEAL_ASCENT_Y_DELTAS_LOC_11188
+        &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A[4..]
     }
 
     #[allow(non_snake_case)]
@@ -4509,15 +4501,33 @@ impl NativeRuntime {
                 Self::lift_block_bob_delta_sub_FB3E(usize::from(elapsed))
             } else if b.kind == BlockBounceKind::Prize {
                 Self::prize_block_wobble_delta_sub_1007A(usize::from(elapsed))
+            } else if b.kind == BlockBounceKind::Metal {
+                let first_phase_len =
+                    Self::evanescent_block_reveal_alt_branch_iterations_loc_11196() as u8;
+                if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
+                    if elapsed < first_phase_len {
+                        Self::evanescent_block_reveal_descent_y_deltas_loc_1117A()
+                            .get(usize::from(elapsed))
+                            .copied()
+                    } else {
+                        Self::evanescent_block_reveal_ascent_y_deltas_loc_11188()
+                            .get(usize::from(elapsed.saturating_sub(first_phase_len)))
+                            .copied()
+                    }
+                } else if elapsed < first_phase_len {
+                    Self::evanescent_block_reveal_alt_branch_y_deltas_loc_11198()
+                        .get(usize::from(elapsed))
+                        .copied()
+                } else {
+                    Self::evanescent_block_reveal_descent_y_deltas_loc_1117A()
+                        .get(usize::from(elapsed.saturating_sub(first_phase_len)))
+                        .copied()
+                }
             } else {
                 let delta_table: &[i16] = match b.kind {
                     BlockBounceKind::HiddenReveal => &HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0,
                     BlockBounceKind::Metal => {
-                        if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
-                            &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A
-                        } else {
-                            &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_11196
-                        }
+                        unreachable!("metal block bounce uses sub_11120 phase helpers")
                     }
                     BlockBounceKind::Shifting => {
                         unreachable!("shifting block rise uses loc_113F4 step model")
