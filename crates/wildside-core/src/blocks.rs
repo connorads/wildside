@@ -1528,7 +1528,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_block_wobble_y_deltas_sub_1007A() -> &'static [i16; 31] {
         // ASM loc_100DA (kid.asm:21373) starts the prize-block wobble by
         // repeating `subq.w #2,y_pos(a3)` for the inclusive `dbf d0` count
@@ -4381,7 +4380,7 @@ impl NativeRuntime {
             } else {
                 let delta_table: &[i16] = match b.kind {
                     BlockBounceKind::HiddenReveal => &HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0,
-                    BlockBounceKind::Prize => &PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A,
+                    BlockBounceKind::Prize => Self::prize_block_wobble_y_deltas_sub_1007A(),
                     BlockBounceKind::Lift => Self::lift_block_bob_deltas_sub_FB3E(),
                     BlockBounceKind::Metal => {
                         if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
