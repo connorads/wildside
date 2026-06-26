@@ -421,7 +421,6 @@ pub(crate) fn big_hopping_skull_relaunch_entry_loc_366b6(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullCollisionActionLoc3674E {
     Return,
     WallBounce,
@@ -432,14 +431,12 @@ pub(crate) enum BigHoppingSkullCollisionActionLoc3674E {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullCollisionDispatchLoc3674E {
     pub(crate) captured_collision_type: u16,
     pub(crate) next_collision_type: u16,
     pub(crate) action: BigHoppingSkullCollisionActionLoc3674E,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_collision_dispatch_loc_3674e(
     collision_type: u16,
 ) -> BigHoppingSkullCollisionDispatchLoc3674E {
@@ -591,6 +588,15 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
             moving_right,
         );
         if wall.hit {
+            let collision_type = if moving_right { 0x0004 } else { 0x0008 };
+            let dispatch = big_hopping_skull_collision_dispatch_loc_3674e(collision_type);
+            debug_assert_eq!(dispatch.captured_collision_type, collision_type);
+            debug_assert_eq!(dispatch.next_collision_type, 0);
+            debug_assert_eq!(
+                dispatch.action,
+                BigHoppingSkullCollisionActionLoc3674E::WallBounce,
+                "ASM Big_Hopping_Skull.asm loc_3674E should route wall collision to loc_366EC",
+            );
             // Backup position by 2x x_velocity
             let backup = 2 * i64::from(enemy.x_velocity);
             enemy.x_pos = (enemy.x_pos as i64 - backup).max(0) as u32;
@@ -604,43 +610,66 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
         // y_vel's high word to $FFFE.
         let floor = terrain::probe_floor(grid, cx, cy);
         if floor.on_ground && enemy.y_velocity.is_positive() {
-            let saved_x_velocity = enemy.x_velocity;
-            let floor_y_fp = (floor.floor_y_px as u32) << 16;
-            if enemy.y_pos >= floor_y_fp {
-                enemy.y_pos = floor_y_fp;
-                // ASM Big_Hopping_Skull.asm loc_36580: floor contact saves
-                // d0=x_vel, clears both velocities, disables level collision,
-                // and hibernates through `stru_367AE` before loc_366B6 can
-                // relaunch. Native stores saved d0 in target_x_velocity while
-                // wait_timer carries the two animation waits.
-                enemy.target_x_velocity = saved_x_velocity;
-                enemy.x_velocity = 0;
-                enemy.y_velocity = 0;
-                enemy.on_ground = true;
-                enemy.wait_timer = BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580;
-            }
+            let collision_type = match floor.cell.collision {
+                terrain::CollisionKind::SlopeUp => 0x0014,
+                terrain::CollisionKind::SlopeDown => 0x0018,
+                _ => 0x000C,
+            };
+            let dispatch = big_hopping_skull_collision_dispatch_loc_3674e(collision_type);
+            debug_assert_eq!(dispatch.captured_collision_type, collision_type);
+            debug_assert_eq!(dispatch.next_collision_type, 0);
 
-            // Slope deflection: check if floor cell is a slope
-            if floor.cell.collision == terrain::CollisionKind::SlopeUp {
-                // ASM loc_36706: swap and negate both
-                let old_x = enemy.x_velocity;
-                let old_y = enemy.y_velocity;
-                enemy.y_velocity = -old_x;
-                enemy.x_velocity = -old_y;
-                enemy.facing = opposite_direction(enemy.facing);
-            } else if floor.cell.collision == terrain::CollisionKind::SlopeDown {
-                // ASM loc_36720: swap without negate
-                let old_x = enemy.x_velocity;
-                let old_y = enemy.y_velocity;
-                enemy.y_velocity = old_x;
-                enemy.x_velocity = old_y;
-                enemy.facing = opposite_direction(enemy.facing);
+            match dispatch.action {
+                BigHoppingSkullCollisionActionLoc3674E::FloorContact => {
+                    let saved_x_velocity = enemy.x_velocity;
+                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                    if enemy.y_pos >= floor_y_fp {
+                        enemy.y_pos = floor_y_fp;
+                        // ASM Big_Hopping_Skull.asm loc_36580: floor contact saves
+                        // d0=x_vel, clears both velocities, disables level collision,
+                        // and hibernates through `stru_367AE` before loc_366B6 can
+                        // relaunch. Native stores saved d0 in target_x_velocity while
+                        // wait_timer carries the two animation waits.
+                        enemy.target_x_velocity = saved_x_velocity;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        enemy.on_ground = true;
+                        enemy.wait_timer = BIG_HOPPING_SKULL_FLOOR_CONTACT_WAIT_FRAMES_LOC_36580;
+                    }
+                }
+                BigHoppingSkullCollisionActionLoc3674E::SlopeUpDeflect => {
+                    // ASM loc_36706: swap and negate both
+                    let old_x = enemy.x_velocity;
+                    let old_y = enemy.y_velocity;
+                    enemy.y_velocity = -old_x;
+                    enemy.x_velocity = -old_y;
+                    enemy.facing = opposite_direction(enemy.facing);
+                }
+                BigHoppingSkullCollisionActionLoc3674E::SlopeDownDeflect => {
+                    // ASM loc_36720: swap without negate
+                    let old_x = enemy.x_velocity;
+                    let old_y = enemy.y_velocity;
+                    enemy.y_velocity = old_x;
+                    enemy.x_velocity = old_y;
+                    enemy.facing = opposite_direction(enemy.facing);
+                }
+                BigHoppingSkullCollisionActionLoc3674E::Return
+                | BigHoppingSkullCollisionActionLoc3674E::WallBounce
+                | BigHoppingSkullCollisionActionLoc3674E::CeilingBounce => {}
             }
         }
 
         // Ceiling bounce (ASM loc_366E6: neg.l y_vel)
         let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
         if ceil.hit && enemy.y_velocity.is_negative() {
+            let dispatch = big_hopping_skull_collision_dispatch_loc_3674e(0x0010);
+            debug_assert_eq!(dispatch.captured_collision_type, 0x0010);
+            debug_assert_eq!(dispatch.next_collision_type, 0);
+            debug_assert_eq!(
+                dispatch.action,
+                BigHoppingSkullCollisionActionLoc3674E::CeilingBounce,
+                "ASM Big_Hopping_Skull.asm loc_3674E should route ceiling collision to loc_366E6",
+            );
             enemy.y_velocity = -enemy.y_velocity;
         }
     }
