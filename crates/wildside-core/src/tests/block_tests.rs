@@ -11909,6 +11909,30 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_detection_loc_3284c_uses_kid_y_minus_16_cone_origin() {
+        let grid = grid_with_platform(17, 0, 120);
+        let floor_y = (17 * 16) << 16;
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 1);
+        enemy.hand_state = HandState::Walking;
+        enemy.on_ground = true;
+        enemy.facing = Direction::Right;
+
+        step_hand(
+            &mut enemy,
+            Some(&grid),
+            Some((60 + 0x30) << 16),
+            Some(((17 * 16) - 0x18) << 16),
+            None,
+        );
+
+        assert_eq!(
+            enemy.hand_state,
+            HandState::Jumping,
+            "ASM Hand.asm loc_3284C negates `KidY-16-HandY` before the cone compare, so dx=$30 still accepts a Kid 24px above"
+        );
+    }
+
+    #[test]
     fn hand_walking_loc_32804_integrates_subpixel_motion_before_floor_probe() {
         let grid = grid_with_platform(3, 0, 20);
         let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
@@ -12055,14 +12079,14 @@ mod chunk_04 {
         step_hand(
             &mut left_beyond,
             Some(&grid),
-            Some((100 - 0x41) << 16),
+            Some((100 - 0x42) << 16),
             Some(((17 * 16) - 8) << 16),
             None,
         );
         assert_eq!(
             left_beyond.hand_state,
             HandState::Walking,
-            "ASM Hand.asm loc_32886 rejects one pixel beyond the negative detection range"
+            "ASM Hand.asm loc_32886 rejects one pixel beyond the negative detection range after the hibernated subpixel walk updates x_pos"
         );
 
         let mut vertical_beyond = test_enemy(EnemyFamily::Hand, 60 << 16, floor_y, 1);

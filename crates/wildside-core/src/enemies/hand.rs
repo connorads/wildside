@@ -647,7 +647,6 @@ pub(crate) fn hand_reversal_loc_32840(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_left_detection_loc_32886(
     relative_x_px: i16,
     vertical_delta_minus_16_px: i16,
@@ -667,8 +666,26 @@ pub(crate) fn hand_left_detection_loc_32886(
     vertical_delta_minus_16_px >= relative_x_px
 }
 
+fn hand_right_detection_loc_3284c(
+    relative_x_px: i16,
+    vertical_delta_minus_16_px: i16,
+    detect_range_px: i16,
+) -> bool {
+    // ASM Hand.asm loc_3284C: set x_direction means the Hand faces right.
+    // d6 must be non-negative, within `$44(a5)`, and after `neg.w d7`, the
+    // vertical lead from KidY-16 must not be greater than the horizontal lead.
+    if relative_x_px < 0 {
+        return false;
+    }
+
+    if relative_x_px > detect_range_px {
+        return false;
+    }
+
+    vertical_delta_minus_16_px.wrapping_neg() <= relative_x_px
+}
+
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_detection_reject_loc_328a2() -> i16 {
     // ASM Hand.asm loc_328A2: shared reject return from range/cone checks,
     // `moveq #0,d7; rts`.
@@ -781,28 +798,47 @@ pub(crate) fn step_hand(
                 }
             }
 
-            // Player detection: forward cone + 16px vertical + 45-degree angle
+            // Player detection: forward cone from ASM Hand.asm loc_3284C/loc_32886.
             let (Some(px), Some(py)) = (player_x_pos, player_y_pos) else {
                 return;
             };
-            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
-            let dy = (enemy.y_pos as i64 - py as i64) >> 16;
+            let hand_x_word = fixed_position_integer_word(enemy.x_pos);
+            let hand_y_word = fixed_position_integer_word(enemy.y_pos);
+            let kid_x_word = fixed_position_integer_word(px);
+            let kid_y_word = fixed_position_integer_word(py);
+            let relative_x_px =
+                i16::from_be_bytes(kid_x_word.wrapping_sub(hand_x_word).to_be_bytes());
+            let vertical_delta_minus_16_px = i16::from_be_bytes(
+                kid_y_word
+                    .wrapping_sub(0x0010)
+                    .wrapping_sub(hand_y_word)
+                    .to_be_bytes(),
+            );
 
-            // Player must be 0-16px above Hand
-            if !(0..=16).contains(&dy) {
-                return;
-            }
-
-            let detect_range = i64::from(HAND_DETECT_RANGE[tier]);
-            let in_range = match enemy.facing {
-                Direction::Right => dx > 0 && dx <= detect_range,
-                Direction::Left => dx < 0 && (-dx) <= detect_range,
+            let detection_d7 = if vertical_delta_minus_16_px >= 0 {
+                hand_detection_reject_loc_328a2()
+            } else {
+                let detect_range = HAND_DETECT_RANGE[tier] as i16;
+                let in_cone = match enemy.facing {
+                    Direction::Right => hand_right_detection_loc_3284c(
+                        relative_x_px,
+                        vertical_delta_minus_16_px,
+                        detect_range,
+                    ),
+                    Direction::Left => hand_left_detection_loc_32886(
+                        relative_x_px,
+                        vertical_delta_minus_16_px,
+                        detect_range,
+                    ),
+                };
+                if in_cone {
+                    1
+                } else {
+                    hand_detection_reject_loc_328a2()
+                }
             };
 
-            // 45-degree cone constraint: |dy| <= |dx| (Hand.asm loc_3284C lines 99-114)
-            let in_cone = in_range && dy.abs() <= dx.abs();
-
-            if in_cone {
+            if detection_d7 != 0 {
                 // Jump toward player with randomised velocity (Hand.asm lines 128-147)
                 enemy.hand_state = HandState::Jumping;
                 enemy.on_ground = false;
