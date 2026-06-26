@@ -67,6 +67,10 @@ pub use level::{
     eol_score_counter_transfer_frames_from_trace_loc_D770,
     eol_title_return_faded_palette_word_loc_D734, flagpole_scoreboard_reveal_tiles_loc_C21E,
 };
+pub use platforms::{
+    PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C,
+    PlatformSpriteVariantLoc244C, platform_sprite_dispatch_loc_244C,
+};
 use std::collections::HashSet;
 use std::sync::Arc;
 #[cfg(test)]

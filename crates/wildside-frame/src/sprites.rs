@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use wildside_core::{
-    NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame, PlayerForm,
+    NativeContactPhase, NativeObjectKind, NativeObjectSnapshot, NativeTraceFrame,
+    PlatformSpriteDispatchInputLoc244C, PlatformSpriteVariantLoc244C, PlayerForm,
     physics::Direction,
 };
 use wildside_render::{MdColour, NativeLevelVisuals, Palette, SpriteFrame, TileRef};
@@ -1983,11 +1984,29 @@ pub fn push_platform_tiles(
     level_visuals: &NativeLevelVisuals,
     kind: u8,
 ) {
-    let variant = platform_snapshot_u8(object, "platform_render_flags")
-        .and_then(PlatformRenderVariantLoc244C::from_render_flags);
+    let width_px = platform_snapshot_dimension_px(object, "platform_width_px");
+    let height_px = platform_snapshot_dimension_px(object, "platform_height_px");
+    let Some(dispatch) = platform_snapshot_u8(object, "platform_render_flags")
+        .zip(platform_snapshot_u16(object, "platform_mapping_addr_word"))
+        .and_then(|(render_flags, mapping_addr_word)| {
+            wildside_core::platform_sprite_dispatch_loc_244C(PlatformSpriteDispatchInputLoc244C {
+                world_x_px: (object.x_pos >> 16) as i16,
+                world_y_px: (object.y_pos >> 16) as i16,
+                camera_x_px: (trace.camera_x_pos >> 16) as i16,
+                camera_y_px: (trace.camera_y_pos >> 16) as i16,
+                width_px: width_px as i16,
+                height_px: height_px as i16,
+                mapping_addr_word,
+                render_flags,
+            })
+        })
+    else {
+        return;
+    };
+    let variant = dispatch.variant;
     let art = platform_art_for_mapping_word_loc_2548(object, level_visuals).unwrap_or_else(|| {
         let frame = match variant {
-            Some(PlatformRenderVariantLoc244C::Loc251C) => level_visuals.platforms.vertical.clone(),
+            PlatformSpriteVariantLoc244C::Loc251C => level_visuals.platforms.vertical.clone(),
             _ => match kind {
                 0x00 => level_visuals.platforms.horizontal.clone(),
                 _ => level_visuals.platforms.vertical.clone(),
@@ -2000,13 +2019,8 @@ pub fn push_platform_tiles(
     });
     let frame = &art.frame;
     let (screen_x, screen_y) = player_screen_position(object, trace);
-    let width_px = platform_snapshot_dimension_px(object, "platform_width_px");
-    let height_px = platform_snapshot_dimension_px(object, "platform_height_px");
-    if !platform_visible_loc_244C(screen_x, screen_y, width_px, height_px) {
-        return;
-    }
-    let width_cells = platform_snapshot_dimension_cells(object, "platform_width_px");
-    let height_cells = platform_snapshot_dimension_cells(object, "platform_height_px");
+    let width_cells = dispatch.width_tiles_minus_one.saturating_add(1);
+    let height_cells = dispatch.height_tiles_minus_one.saturating_add(1);
     let tile_sheet = Arc::new(frame.tile_sheet.clone());
     let palette = Arc::new(art.palette);
     for cell in platform_sprite_cells_loc_24AC(variant, width_cells, height_cells) {
@@ -2024,15 +2038,6 @@ pub fn push_platform_tiles(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum PlatformRenderVariantLoc244C {
-    Loc24CC,
-    Loc24F0,
-    Loc251C,
-    Loc24D4,
-    Loc24C0,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct PlatformSpriteCellLoc24AC {
     column: u16,
     row: u16,
@@ -2040,42 +2045,26 @@ struct PlatformSpriteCellLoc24AC {
     mapping_tile_offset: u16,
 }
 
-impl PlatformRenderVariantLoc244C {
-    fn from_render_flags(render_flags: u8) -> Option<Self> {
-        // ASM loc_244C (kid.asm:4357-4364): retail clears bit 7 of `$1F(a2)`,
-        // doubles the remaining dispatch byte, then indexes the long-pointer
-        // `off_24AC` table. Valid shipped entries are even bytes 0, 2, 4, 6, 8.
-        match render_flags & 0x7F {
-            0 => Some(Self::Loc24CC),
-            2 => Some(Self::Loc24F0),
-            4 => Some(Self::Loc251C),
-            6 => Some(Self::Loc24D4),
-            8 => Some(Self::Loc24C0),
-            _ => None,
-        }
-    }
-}
-
 #[allow(non_snake_case)]
 fn platform_sprite_cells_loc_24AC(
-    variant: Option<PlatformRenderVariantLoc244C>,
+    variant: PlatformSpriteVariantLoc244C,
     width_cells: u16,
     height_cells: u16,
 ) -> Vec<PlatformSpriteCellLoc24AC> {
     match variant {
-        Some(PlatformRenderVariantLoc244C::Loc24CC) => (0..width_cells)
+        PlatformSpriteVariantLoc244C::Loc24CC => (0..width_cells)
             .map(|column| platform_cell(column, 0, -2, 0))
             .collect(),
-        Some(PlatformRenderVariantLoc244C::Loc24F0) => {
+        PlatformSpriteVariantLoc244C::Loc24F0 => {
             platform_horizontal_strip_cells_loc_24F0(width_cells)
         }
-        Some(PlatformRenderVariantLoc244C::Loc251C) => {
+        PlatformSpriteVariantLoc244C::Loc251C => {
             platform_vertical_strip_cells_loc_251C(height_cells)
         }
-        Some(PlatformRenderVariantLoc244C::Loc24D4) | None => (0..height_cells)
+        PlatformSpriteVariantLoc244C::Loc24D4 => (0..height_cells)
             .flat_map(|row| (0..width_cells).map(move |column| platform_cell(column, row, 0, 0)))
             .collect(),
-        Some(PlatformRenderVariantLoc244C::Loc24C0) => vec![platform_cell(0, 0, 0, 0)],
+        PlatformSpriteVariantLoc244C::Loc24C0 => vec![platform_cell(0, 0, 0, 0)],
     }
 }
 
@@ -2185,16 +2174,6 @@ fn platform_cell_tiles_loc_2548(frame: &SpriteFrame, mapping_tile_offset: u16) -
     ]
 }
 
-#[allow(non_snake_case)]
-fn platform_visible_loc_244C(screen_x: i32, screen_y: i32, width_px: u16, height_px: u16) -> bool {
-    // ASM loc_244C (kid.asm:4333-4349): cull when the platform origin is beyond
-    // the 320x224 viewport, or when the trailing edge is still negative.
-    screen_x < 0x0140
-        && screen_x + i32::from(width_px) >= 0
-        && screen_y < 0x00E0
-        && screen_y + i32::from(height_px) >= 0
-}
-
 fn platform_snapshot_dimension_px(object: &NativeObjectSnapshot, key: &str) -> u16 {
     object
         .debug_fields
@@ -2203,21 +2182,18 @@ fn platform_snapshot_dimension_px(object: &NativeObjectSnapshot, key: &str) -> u
         .unwrap_or(15)
 }
 
-fn platform_snapshot_dimension_cells(object: &NativeObjectSnapshot, key: &str) -> u16 {
-    object
-        .debug_fields
-        .get(key)
-        .and_then(|value| value.parse::<u16>().ok())
-        .map(|pixels| pixels.saturating_add(1).div_ceil(16))
-        .filter(|cells| *cells > 0)
-        .unwrap_or(1)
-}
-
 fn platform_snapshot_u8(object: &NativeObjectSnapshot, key: &str) -> Option<u8> {
     object
         .debug_fields
         .get(key)
         .and_then(|value| value.parse::<u8>().ok())
+}
+
+fn platform_snapshot_u16(object: &NativeObjectSnapshot, key: &str) -> Option<u16> {
+    object
+        .debug_fields
+        .get(key)
+        .and_then(|value| value.parse::<u16>().ok())
 }
 
 #[allow(non_snake_case)]

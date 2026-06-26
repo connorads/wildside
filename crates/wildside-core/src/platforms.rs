@@ -1943,21 +1943,19 @@ pub(crate) fn crawl_standup_platform_overhead_sub_DAA6(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct PlatformSpriteDispatchInputLoc244C {
-    pub(crate) world_x_px: i16,
-    pub(crate) world_y_px: i16,
-    pub(crate) camera_x_px: i16,
-    pub(crate) camera_y_px: i16,
-    pub(crate) width_px: i16,
-    pub(crate) height_px: i16,
-    pub(crate) mapping_addr_word: u16,
-    pub(crate) render_flags: u8,
+pub struct PlatformSpriteDispatchInputLoc244C {
+    pub world_x_px: i16,
+    pub world_y_px: i16,
+    pub camera_x_px: i16,
+    pub camera_y_px: i16,
+    pub width_px: i16,
+    pub height_px: i16,
+    pub mapping_addr_word: u16,
+    pub render_flags: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) enum PlatformSpriteVariantLoc244C {
+pub enum PlatformSpriteVariantLoc244C {
     Loc24CC,
     Loc24F0,
     Loc251C,
@@ -1966,20 +1964,18 @@ pub(crate) enum PlatformSpriteVariantLoc244C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct PlatformSpriteDispatchLoc244C {
-    pub(crate) screen_x_word: i16,
-    pub(crate) screen_y_word: i16,
-    pub(crate) width_tiles_minus_one: u16,
-    pub(crate) height_tiles_minus_one: u16,
-    pub(crate) base_tile_word: u16,
-    pub(crate) mapping_addr_word: u16,
-    pub(crate) variant: PlatformSpriteVariantLoc244C,
+pub struct PlatformSpriteDispatchLoc244C {
+    pub screen_x_word: i16,
+    pub screen_y_word: i16,
+    pub width_tiles_minus_one: u16,
+    pub height_tiles_minus_one: u16,
+    pub base_tile_word: u16,
+    pub mapping_addr_word: u16,
+    pub variant: PlatformSpriteVariantLoc244C,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn platform_sprite_dispatch_loc_244C(
+pub fn platform_sprite_dispatch_loc_244C(
     input: PlatformSpriteDispatchInputLoc244C,
 ) -> Option<PlatformSpriteDispatchLoc244C> {
     // ASM loc_244C (kid.asm:4329): walk the active platform list, cull against
