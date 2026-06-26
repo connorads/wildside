@@ -8691,7 +8691,6 @@ pub(crate) enum BackgroundPaletteFollowupLoc11DF8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn classify_background_palette_followup_loc_11DF8(
     map_id: u8,
 ) -> BackgroundPaletteFollowupLoc11DF8 {
@@ -18138,16 +18137,20 @@ impl NativeRuntime {
             copy_foreground_palette_loc_11DB0(&foreground_palette, &mut self.palette_buffer);
         }
 
-        let background_palette_path = if classify_late_background_palette_override_loc_11E06(map_id)
-            == LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette
-        {
-            Some(String::from("palette_bg/city_alt.bin"))
-        } else if classify_background_palette_override_loc_11DF4(map_id)
-            == BackgroundPaletteOverrideLoc11DF4::AlternativeCave
-        {
-            Some(String::from("palette_bg/cave_alt.bin"))
-        } else {
-            theme_palette_basename(background_theme).map(|name| format!("palette_bg/{name}"))
+        let background_palette_path = match (
+            classify_background_palette_followup_loc_11DF8(map_id),
+            classify_late_background_palette_override_loc_11E06(map_id),
+            classify_background_palette_override_loc_11DF4(map_id),
+        ) {
+            (
+                BackgroundPaletteFollowupLoc11DF8::LateAlternativePalette,
+                LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette,
+                _,
+            ) => Some(String::from("palette_bg/city_alt.bin")),
+            (_, _, BackgroundPaletteOverrideLoc11DF4::AlternativeCave) => {
+                Some(String::from("palette_bg/cave_alt.bin"))
+            }
+            _ => theme_palette_basename(background_theme).map(|name| format!("palette_bg/{name}")),
         };
 
         if let Some(background_palette) =
