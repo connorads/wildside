@@ -4085,7 +4085,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn metal_block_push_entry_loc_111F4(
         source_col: u16,
         direction: u16,
@@ -4172,6 +4171,11 @@ impl NativeRuntime {
         row: u16,
         direction: u16,
     ) {
+        let Some(_entry_col) =
+            Self::metal_block_push_entry_loc_111F4(source_col, direction, grid.width_cells)
+        else {
+            return;
+        };
         let row_cells = (0..grid.width_cells)
             .map(|col| grid.cell_at(col, row))
             .collect::<Vec<_>>();
