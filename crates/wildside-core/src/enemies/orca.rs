@@ -180,37 +180,33 @@ pub(crate) fn orca_berzerker_airborne_frame_loc_3d2aa(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaResumeBranch {
     Loc3E7CA,
     Loc3E6AE,
     Loc3E560,
     Loc3E3AC,
-    NormalResumeDispatch,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaCollisionClearLoc3D2BC {
     pub(crate) next_collision_type: u16,
     pub(crate) next: OrcaResumeBranch,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_collision_clear_loc_3d2bc(
     wall_pinned: bool,
     facing: Direction,
 ) -> OrcaCollisionClearLoc3D2BC {
     // ASM Orca.asm loc_3D2BC: clear `collision_type(a3)`, then test `$5C(a5)`.
     // A wall-pinned Orca branches directly by `x_direction(a3)`; otherwise it
-    // falls through to the normal patrol resume dispatch.
+    // falls through to loc_3D2D2's normal patrol resume dispatch.
     let next = if wall_pinned {
         match facing {
             Direction::Left => OrcaResumeBranch::Loc3E7CA,
             Direction::Right => OrcaResumeBranch::Loc3E6AE,
         }
     } else {
-        OrcaResumeBranch::NormalResumeDispatch
+        orca_normal_resume_loc_3d2d2(facing)
     };
 
     OrcaCollisionClearLoc3D2BC {
@@ -219,7 +215,6 @@ pub(crate) fn orca_collision_clear_loc_3d2bc(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_normal_resume_loc_3d2d2(facing: Direction) -> OrcaResumeBranch {
     // ASM Orca.asm loc_3D2D2: with `$5C(a5)` clear, test `x_direction(a3)`.
     // Clear selects the left-facing shared walker path; set selects right.
@@ -860,9 +855,17 @@ mod tests {
             orca_collision_clear_loc_3d2bc(false, Direction::Left),
             OrcaCollisionClearLoc3D2BC {
                 next_collision_type: 0,
-                next: OrcaResumeBranch::NormalResumeDispatch,
+                next: OrcaResumeBranch::Loc3E560,
             },
-            "ASM Orca.asm loc_3D2BC should clear collision and fall through when `$5C(a5)` is clear"
+            "ASM Orca.asm loc_3D2BC should clear collision and fall through to loc_3D2D2's clear-x_direction branch"
+        );
+        assert_eq!(
+            orca_collision_clear_loc_3d2bc(false, Direction::Right),
+            OrcaCollisionClearLoc3D2BC {
+                next_collision_type: 0,
+                next: OrcaResumeBranch::Loc3E3AC,
+            },
+            "ASM Orca.asm loc_3D2BC should clear collision and fall through to loc_3D2D2's set-x_direction branch"
         );
         assert_eq!(
             orca_collision_clear_loc_3d2bc(true, Direction::Left),

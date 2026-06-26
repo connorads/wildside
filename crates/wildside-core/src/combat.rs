@@ -7864,6 +7864,20 @@ fn apply_lion_collision_resume_loc_3e318(
     }
 }
 
+fn orca_collision_resume_loc_3d2bc(enemy: &ActiveEnemy) -> OrcaResumeBranch {
+    let resume = orca_collision_clear_loc_3d2bc(enemy.wall_pinned, enemy.facing);
+    debug_assert_eq!(resume.next_collision_type, 0);
+    match resume.next {
+        OrcaResumeBranch::Loc3E7CA | OrcaResumeBranch::Loc3E6AE => {
+            debug_assert!(enemy.wall_pinned);
+        }
+        OrcaResumeBranch::Loc3E560 | OrcaResumeBranch::Loc3E3AC => {
+            debug_assert!(!enemy.wall_pinned);
+        }
+    }
+    resume.next
+}
+
 impl NativeRuntime {
     #[allow(non_snake_case)]
     pub(crate) fn level_complete_scoreboard_reveal_frames_loc_C21E(&self) -> usize {
@@ -9174,21 +9188,18 @@ impl NativeRuntime {
             }
 
             if matches!(enemy.family, EnemyFamily::Orca) {
-                let mut launch_orca = |enemy: &mut ActiveEnemy| {
-                    if let OrcaBerzerkerSideGateLoc3D27E::Knockback(knockback) =
-                        orca_berzerker_side_gate_loc_3d27e(berzerker_charging)
-                    {
+                let mut launch_orca =
+                    |enemy: &mut ActiveEnemy, knockback: OrcaBerzerkerKnockbackStartLoc3D27E| {
                         // ASM Orca.asm loc_3D27E: charging Berzerker side
-                        // contact disables level collision/animation and
-                        // launches the Orca into the loc_3D2AA loop.
+                        // contact disables level collision/animation and launches
+                        // the Orca into the loc_3D2AA loop.
                         enemy.x_velocity = knockback.x_velocity;
                         enemy.y_velocity = knockback.y_velocity;
                         enemy.on_ground = false;
                         enemy.wait_timer = ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA;
                         enemy.damage_flash_frames = 0;
                         changed_enemy_state = true;
-                    }
-                };
+                    };
 
                 if matches!(enemy.orca_state, OrcaState::Lunging) {
                     match orca_lunge_collision_dispatch_loc_3d35a(collision.collision_type as i16) {
@@ -9217,7 +9228,11 @@ impl NativeRuntime {
                             // ASM Orca.asm loc_3D4DE falls back to loc_3D3B4
                             // unless Berzerker_charging routes through the
                             // normal side-contact gate at loc_3D21E/loc_3D27E.
-                            launch_orca(enemy);
+                            if let OrcaBerzerkerSideGateLoc3D27E::Knockback(knockback) =
+                                orca_berzerker_side_gate_loc_3d27e(berzerker_charging)
+                            {
+                                launch_orca(enemy, knockback);
+                            }
                         }
                         OrcaLungeCollisionRouteLoc3D35A::GravityAndAcceleration
                         | OrcaLungeCollisionRouteLoc3D35A::FloorLanding
@@ -9259,14 +9274,33 @@ impl NativeRuntime {
                                 enemy.shared_walker_state = recoil_state_word;
                                 enemy.walk_speed_override = restored_walk_speed;
                                 enemy.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                                // ASM Orca.asm loc_3D23E resumes through
+                                // loc_3D2BC after the nonterminal hurt
+                                // animation restores `$50(a5)`.
+                                let _ = orca_collision_resume_loc_3d2bc(enemy);
                                 changed_enemy_state = true;
                             }
                         }
                     }
                     OrcaCollisionRouteLoc3D21E::BerzerkerSideGate => {
-                        launch_orca(enemy);
+                        match orca_berzerker_side_gate_loc_3d27e(berzerker_charging) {
+                            OrcaBerzerkerSideGateLoc3D27E::ResumePatrol {
+                                next_collision_type,
+                            } => {
+                                debug_assert_eq!(next_collision_type, 0);
+                                let _ = orca_collision_resume_loc_3d2bc(enemy);
+                            }
+                            OrcaBerzerkerSideGateLoc3D27E::Knockback(knockback) => {
+                                launch_orca(enemy, knockback);
+                            }
+                        }
                     }
-                    OrcaCollisionRouteLoc3D21E::Continue { .. } => {}
+                    OrcaCollisionRouteLoc3D21E::Continue {
+                        next_collision_type,
+                    } => {
+                        debug_assert_eq!(next_collision_type, 0);
+                        let _ = orca_collision_resume_loc_3d2bc(enemy);
+                    }
                 }
                 continue;
             }
