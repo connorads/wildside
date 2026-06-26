@@ -741,7 +741,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_337f2(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsSurfaceCrawlerIdleLoopLoc33866 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) loops_forever: bool,
@@ -757,7 +756,6 @@ pub(crate) fn drips_surface_crawler_idle_loop_loc_33866() -> DripsSurfaceCrawler
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_idle_loop_loc_33a7c() -> DripsSurfaceCrawlerIdleLoopLoc33866 {
     // ASM Drips.asm loc_33A7C: call `j_Hibernate_Object_1Frame`, then
     // `bra.s loc_33A7C`; this is the parked surface-crawler loop.
