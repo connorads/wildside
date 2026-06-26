@@ -628,75 +628,6 @@ const COLUMN_MASK_LOOKUP_SUB_1C1A2: [u8; 16] = [
     0x00, 0x12, 0x02, 0x10, 0x09, 0x1B, 0x0B, 0x19, 0x01, 0x13, 0x03, 0x11, 0x08, 0x1A, 0x0A, 0x18,
 ];
 
-#[cfg_attr(not(test), allow(dead_code))]
-const SPRITE_SIZE_TILE_COUNTS_SUB_13C0: [u16; 16] =
-    [0, 1, 2, 3, 1, 3, 5, 7, 2, 5, 8, 11, 3, 7, 11, 15];
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-struct SpriteTableEntrySub13C0 {
-    y: u16,
-    size: u8,
-    link: u8,
-    tile_word: u16,
-    x: u16,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-struct SpriteDmaTransferSub13C0 {
-    tile_count: u16,
-    art_source: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-struct SpriteBuilderStateSub13C0 {
-    number_sprites: u8,
-    tile_word_cursor: u16,
-    dma_tile_word_cursor: u16,
-    next_art_source: u32,
-    dma_transfers: Vec<SpriteDmaTransferSub13C0>,
-}
-
-#[cfg_attr(not(test), allow(dead_code))]
-fn append_sprite_entry_sub_13c0(
-    state: &mut SpriteBuilderStateSub13C0,
-    x: u16,
-    y: u16,
-    size: u8,
-    uses_dynamic_art: bool,
-) -> SpriteTableEntrySub13C0 {
-    // ASM sub_13C0 (kid.asm:2452): append one sprite-table entry, bump
-    // Number_Sprites, then advance the shared tile-word cursor by
-    // NumberTilesPerSpriteSize[size]+1. Dynamic-art entries also mirror that
-    // increment into $FFFFF83C and queue a DMA transfer from a4.
-    let link = state.number_sprites.wrapping_add(1);
-    state.number_sprites = link;
-    let tile_word = state.tile_word_cursor;
-    let tiles_used = SPRITE_SIZE_TILE_COUNTS_SUB_13C0[usize::from(size)].wrapping_add(1);
-    state.tile_word_cursor = state.tile_word_cursor.wrapping_add(tiles_used);
-
-    if uses_dynamic_art {
-        state.dma_tile_word_cursor = state.dma_tile_word_cursor.wrapping_add(tiles_used);
-        state.dma_transfers.push(SpriteDmaTransferSub13C0 {
-            tile_count: tiles_used,
-            art_source: state.next_art_source,
-        });
-        state.next_art_source = state
-            .next_art_source
-            .wrapping_add(u32::from(tiles_used) * 32);
-    }
-
-    SpriteTableEntrySub13C0 {
-        y,
-        size,
-        link,
-        tile_word,
-        x,
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnemyDefinition {
     pub id: u8,
@@ -4355,46 +4286,6 @@ pub fn title_text_chameleon_tilemap_upload_sub_1B532(
     })
 }
 
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-fn compose_indoor_rubber_block_art_sub_144DA(
-    base_art: &[u8],
-    rubber_overlay_art: &[u8],
-) -> Vec<u8> {
-    // ASM sub_144DA (kid.asm:27356) keeps each non-zero nibble from the
-    // indoor base block art at $FFFF78B2 and only fills zero nibbles from the
-    // decompressed rubber overlay art.
-    base_art
-        .iter()
-        .zip(rubber_overlay_art.iter())
-        .map(|(&base, &overlay)| {
-            let high = if base & 0xF0 != 0 {
-                base & 0xF0
-            } else {
-                overlay & 0xF0
-            };
-            let low = if base & 0x0F != 0 {
-                base & 0x0F
-            } else {
-                overlay & 0x0F
-            };
-            high | low
-        })
-        .collect()
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-fn vram_read_control_word_sub_14582(vram_word_address: u16) -> u32 {
-    // ASM sub_14582 (kid.asm:27442): convert the caller's VRAM word address
-    // into a VDP VRAM-read control word, carrying the original address bits
-    // 14-15 into the low control word after the longword rotate and clearing
-    // the command bits to the VRAM-read form.
-    let control_low = (vram_word_address >> 14) & 0x0003;
-    let control_high = u32::from(vram_word_address & 0x3FFF) << 16;
-    control_high | u32::from(control_low)
-}
-
 fn export_decoded_all_levels(manifest: &AssetManifest) -> Result<Vec<DecodedLevelAssets>> {
     let mut results = Vec::new();
     for level in &manifest.levels {
@@ -6523,70 +6414,6 @@ BackgroundLayout_0E:  dc.w    $8000
     }
 
     #[test]
-    fn sub_13c0_appends_a_static_sprite_entry_and_advances_the_tile_cursor() {
-        let mut state = SpriteBuilderStateSub13C0 {
-            number_sprites: 3,
-            tile_word_cursor: 0x8200,
-            dma_tile_word_cursor: 0x9000,
-            next_art_source: 0x0012_3400,
-            dma_transfers: Vec::new(),
-        };
-
-        let entry = append_sprite_entry_sub_13c0(&mut state, 0x0180, 0x0090, 0x0F, false);
-
-        assert_eq!(
-            entry,
-            SpriteTableEntrySub13C0 {
-                y: 0x0090,
-                size: 0x0F,
-                link: 4,
-                tile_word: 0x8200,
-                x: 0x0180,
-            }
-        );
-        assert_eq!(state.number_sprites, 4);
-        assert_eq!(state.tile_word_cursor, 0x8210);
-        assert_eq!(state.dma_tile_word_cursor, 0x9000);
-        assert_eq!(state.next_art_source, 0x0012_3400);
-        assert!(state.dma_transfers.is_empty());
-    }
-
-    #[test]
-    fn sub_13c0_queues_dynamic_art_dma_and_advances_both_cursors() {
-        let mut state = SpriteBuilderStateSub13C0 {
-            number_sprites: 0,
-            tile_word_cursor: 0x6000,
-            dma_tile_word_cursor: 0x6000,
-            next_art_source: 0x00AB_C000,
-            dma_transfers: Vec::new(),
-        };
-
-        let entry = append_sprite_entry_sub_13c0(&mut state, 0x0108, 0x00B8, 0x06, true);
-
-        assert_eq!(
-            entry,
-            SpriteTableEntrySub13C0 {
-                y: 0x00B8,
-                size: 0x06,
-                link: 1,
-                tile_word: 0x6000,
-                x: 0x0108,
-            }
-        );
-        assert_eq!(state.number_sprites, 1);
-        assert_eq!(state.tile_word_cursor, 0x6006);
-        assert_eq!(state.dma_tile_word_cursor, 0x6006);
-        assert_eq!(state.next_art_source, 0x00AB_C0C0);
-        assert_eq!(
-            state.dma_transfers,
-            vec![SpriteDmaTransferSub13C0 {
-                tile_count: 6,
-                art_source: 0x00AB_C000,
-            }]
-        );
-    }
-
-    #[test]
     fn sub_13588_combines_enabled_flag_bits_with_packet_bits() {
         let mut bits = EnigmaBitReader::new(&[0xAC, 0x00, 0x00]);
         bits.refill_word_sub_13618()
@@ -6732,34 +6559,6 @@ BackgroundLayout_0E:  dc.w    $8000
             "ASM EniDec should honour two 16-word common-value runs before the terminator"
         );
         assert!(decoded.iter().all(|&word| word == 0));
-    }
-
-    #[test]
-    fn sub_144da_prefers_non_zero_base_nibbles() {
-        let composed = compose_indoor_rubber_block_art_sub_144DA(
-            &[0xF0, 0x0F, 0xA5, 0x00],
-            &[0x12, 0x34, 0x67, 0x89],
-        );
-
-        assert_eq!(
-            composed,
-            vec![0xF2, 0x3F, 0xA5, 0x89],
-            "ASM sub_144DA should preserve non-zero indoor base nibbles and only fill the empty nibbles from the rubber overlay art"
-        );
-    }
-
-    #[test]
-    fn sub_14582_builds_vram_read_control_word() {
-        assert_eq!(
-            vram_read_control_word_sub_14582(0x026E),
-            0x026E_0000,
-            "ASM sub_14582 should emit the VRAM-read control word for word address $026E"
-        );
-        assert_eq!(
-            vram_read_control_word_sub_14582(0x5F60),
-            0x1F60_0001,
-            "ASM sub_14582 should mask the VRAM word address to 14 bits and carry the original high address bits into the low control word"
-        );
     }
 
     #[test]
