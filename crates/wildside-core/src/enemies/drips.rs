@@ -774,7 +774,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33878(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33810 {
     GuardExit,
     AlignmentLoop,
@@ -786,7 +785,6 @@ pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33810 {
     NonNegativeFallbackTurn,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_33810(
     has_collision: bool,
     bounds_contact: bool,
