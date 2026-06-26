@@ -1,7 +1,6 @@
 use super::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaInitStateLoc3D194 {
     pub(crate) status_flag_13: bool,
     pub(crate) object_meta: u16,
@@ -11,7 +10,6 @@ pub(crate) struct OrcaInitStateLoc3D194 {
     pub(crate) initial_lunge_timer: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_init_state_loc_3d194() -> OrcaInitStateLoc3D194 {
     // ASM Orca.asm loc_3D194: set `$13(a3)`, write object_meta 8,
     // clear priority, seed both speed slots with `$8000`, fix current_hp to 4,

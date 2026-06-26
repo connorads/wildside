@@ -13116,6 +13116,63 @@ mod chunk_04 {
     // --- Orca ---
 
     #[test]
+    fn orca_activation_wires_init_state_loc_3d194() {
+        let init = orca_init_state_loc_3d194();
+        let layout = EnemyLayout {
+            axis_uses_y_position: false,
+            unknown_prefix: 0,
+            enemy_type_slots: vec![],
+            unknown_word: 0,
+            header_byte: 0,
+            object_count: 1,
+            objects: vec![EnemyLayoutObject {
+                object_type: EnemyFamily::Orca.object_type(),
+                flags: 0,
+                hit_points_plus_one: 3,
+                x: 0x0060,
+                y: 0x00E0,
+            }],
+            segments: vec![],
+        };
+        let mut active = Vec::new();
+
+        activate_enemies(
+            &mut active,
+            &layout,
+            ActivationWindow {
+                x_min: 0,
+                x_max: 0x0200,
+                y_min: 0,
+                y_max: 0x0200,
+            },
+            0,
+            0,
+            physics::LevelBounds {
+                width_pixels: 4096,
+                height_pixels: 512,
+            },
+            0x0060_0000,
+            0x00E0_0000,
+            &HashSet::new(),
+        );
+
+        let orca = active.first().expect("Orca should activate from layout");
+        assert_eq!(orca.family, EnemyFamily::Orca);
+        assert_eq!(
+            orca.hit_points, init.current_hp,
+            "ASM Orca.asm loc_3D194 overwrites current_hp to 4 during activation"
+        );
+        assert_eq!(
+            orca.walk_speed_override, init.walk_speed,
+            "ASM Orca.asm loc_3D194 seeds both `$50(a5)` and `$5E(a5)` with `$8000`"
+        );
+        assert_eq!(
+            orca.wait_timer, init.initial_lunge_timer,
+            "ASM Orca.asm loc_3D194 writes `$12C` to `$54(a5)` before the first proximity check"
+        );
+    }
+
+    #[test]
     fn orca_enters_windup_before_lunging_loc_3d320() {
         let grid = grid_with_platform(17, 0, 120);
         let floor_y = (17 * 16) << 16;

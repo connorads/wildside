@@ -3044,13 +3044,25 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
+            let orca_init = if matches!(family, EnemyFamily::Orca) {
+                Some(orca_init_state_loc_3d194())
+            } else {
+                None
+            };
             let hit_points = if is_multi_head_boss(family) {
                 head_hp_table[head_idx as usize]
             } else if let Some(visible_init) = crab_visible_init {
                 visible_init.current_hp
+            } else if let Some(init) = orca_init {
+                init.current_hp
             } else {
                 spawn_hit_points(family, enemy_level)
             };
+            if let Some(init) = orca_init {
+                debug_assert!(init.status_flag_13);
+                debug_assert_eq!(init.object_meta, u16::from(family.object_type()));
+                debug_assert_eq!(init.priority, 0);
+            }
             if matches!(family, EnemyFamily::Tank) {
                 let visible_init =
                     tank_init_visible_state_loc_3b31e(enemy_level, view.enemy_type_slots);
@@ -3185,7 +3197,10 @@ fn activate_enemies_with_rng_inner(
                 tank_mouth_animation_phase: spawn_tank_mouth_animation_phase(family),
                 damage_flash_frames: 0,
                 palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
-                wait_timer: spawn_wait_timer(family, enemy_level, player_x, rng),
+                wait_timer: orca_init.map_or_else(
+                    || spawn_wait_timer(family, enemy_level, player_x, rng),
+                    |init| init.initial_lunge_timer,
+                ),
                 dragon_phase: spawn_dragon_phase(family),
                 dragon_phase_frames: 0,
                 dragon_script_variant: dragon_variant,
@@ -3252,7 +3267,7 @@ fn activate_enemies_with_rng_inner(
                     family,
                     EnemyFamily::UFO | EnemyFamily::Tornado
                 ) && enemy_level >= 2,
-                walk_speed_override: 0,
+                walk_speed_override: orca_init.map_or(0, |init| init.walk_speed),
                 shared_walker_state: spawn_shared_walker_state(family),
                 shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
                 shared_walker_turnaround_counter: 0,
