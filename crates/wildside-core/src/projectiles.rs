@@ -120,6 +120,7 @@ const DRAGON_FLYING_DESCENT_FIRE_COLLISION_HALF_WIDTH_LOC_34C3A: i32 = 0x05;
 const BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8: u16 = 0x05 + 0x05 + 0x0A + 0x01;
 const BOSS_DEATH_BURST_COLLISION_ANIMATION_FRAMES_STRU_37BC6: u16 = 0x0A * 4;
 const BOSS_DEATH_BURST_TIMEOUT_ANIMATION_FRAMES_STRU_37C0E: u16 = 0x64;
+const BOSS_DEATH_BURST_FINISH_ANIMATION_FRAMES_STRU_37BFC: u16 = 0x32 + 0x0A + 0x0A + 0x0A;
 pub(crate) const BOSS_EYE_POP_EFFECT_FINISH_ANIMATION_FRAMES_STRU_37BFC: u16 =
     0x32 + 0x0A + 0x0A + 0x0A;
 
@@ -281,7 +282,13 @@ fn step_boss_death_burst_sub_370d2(
                     ..EnemyProjectile::default()
                 });
             }
-            false
+            let finish = crate::combat::boss_death_burst_finish_sub_3728C();
+            debug_assert_eq!(finish.animation_label, "stru_37BFC");
+            debug_assert!(finish.hibernate_until_anim_finished);
+            projectile.animation_elapsed_frames =
+                BOSS_DEATH_BURST_FINISH_ANIMATION_FRAMES_STRU_37BFC;
+            projectile.boss_death_burst_state = BossDeathBurstState::TimeoutFinishSub3728C;
+            true
         }
         BossDeathBurstState::CollisionFinishLoc371B6 => {
             // ASM loc_371B6: after clearing collision and both velocity
@@ -291,6 +298,19 @@ fn step_boss_death_burst_sub_370d2(
                 projectile.animation_elapsed_frames -= 1;
                 true
             } else {
+                false
+            }
+        }
+        BossDeathBurstState::TimeoutFinishSub3728C => {
+            // ASM sub_3728C: after loc_3724A allocates the sub_37002 helper,
+            // the timed-out sub_370D2 worker plays `stru_37BFC` until the
+            // animation-finished byte is set, then deletes itself.
+            if projectile.animation_elapsed_frames > 1 {
+                projectile.animation_elapsed_frames -= 1;
+                true
+            } else {
+                let finish = crate::combat::boss_death_burst_finish_sub_3728C();
+                debug_assert!(finish.delete_current_object);
                 false
             }
         }

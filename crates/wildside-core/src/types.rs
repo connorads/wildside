@@ -3205,6 +3205,7 @@ pub(crate) enum BossDeathBurstState {
     ChaseLoc37148,
     TimeoutLoc3720A,
     CollisionFinishLoc371B6,
+    TimeoutFinishSub3728C,
     SharedHomingSub37002,
 }
 

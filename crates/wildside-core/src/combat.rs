@@ -2844,7 +2844,6 @@ pub(crate) fn boss_death_burst_timeout_ground_gate_loc_3724A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_death_burst_finish_sub_3728C() -> BossDeathBurstFinishSub3728C {
     // ASM sub_3728C (kid.asm:39131): switch to `stru_37BFC`, hibernate until
     // that animation ends, then delete the current object.

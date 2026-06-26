@@ -3163,10 +3163,27 @@ fn live_boss_death_burst_timeout_spawns_sub_37002_helper_loc_3724a() {
 
     assert_eq!(
         runtime.projectiles.len(),
-        1,
-        "ASM loc_3724A should delete the timed-out sub_370D2 object after spawning one sub_37002 helper"
+        2,
+        "ASM loc_3724A should keep the timed-out sub_370D2 object alive for sub_3728C while spawning one sub_37002 helper"
     );
-    let helper = runtime.projectiles[0];
+    let finishing_burst = runtime
+        .projectiles
+        .iter()
+        .find(|projectile| {
+            projectile.boss_death_burst_state == BossDeathBurstState::TimeoutFinishSub3728C
+        })
+        .expect("ASM loc_3724A should fall through into sub_3728C after spawning the helper");
+    assert_eq!(
+        finishing_burst.animation_elapsed_frames, 0x0050,
+        "ASM sub_3728C should play `stru_37BFC` before deleting the original timed-out burst"
+    );
+    let helper = runtime
+        .projectiles
+        .iter()
+        .find(|projectile| {
+            projectile.boss_death_burst_state == BossDeathBurstState::SharedHomingSub37002
+        })
+        .expect("ASM loc_3724A should install `sub_37002` as the final helper worker");
     assert_eq!(helper.kind, EnemyProjectileKind::BossDeathBurst);
     assert_eq!(
         helper.boss_death_burst_state,
@@ -3185,6 +3202,25 @@ fn live_boss_death_burst_timeout_spawns_sub_37002_helper_loc_3724a() {
     assert_eq!(
         helper.homing_accel, 0x0000_0FA0,
         "ASM sub_37002 homes with `$FA0`, not the slower sub_370D2 `$7D0`"
+    );
+
+    runtime
+        .projectiles
+        .iter_mut()
+        .find(|projectile| {
+            projectile.boss_death_burst_state == BossDeathBurstState::TimeoutFinishSub3728C
+        })
+        .expect("sub_3728C worker should still be present")
+        .animation_elapsed_frames = 1;
+    runtime.step_projectiles();
+
+    assert!(
+        runtime
+            .projectiles
+            .iter()
+            .all(|projectile| projectile.boss_death_burst_state
+                != BossDeathBurstState::TimeoutFinishSub3728C),
+        "ASM sub_3728C should delete the original worker once `stru_37BFC` completes"
     );
 }
 
