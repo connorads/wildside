@@ -118,21 +118,18 @@ pub(crate) fn scorpion_sting_recovery_loc_3de40(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ScorpionResumeRouteLoc3DE6C {
     ClearDirection,
     SetDirection,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ScorpionResumeStateLoc3DE6C {
     pub(crate) cached_kid_x_word: u16,
     pub(crate) next_collision_type: u16,
     pub(crate) next: ScorpionResumeRouteLoc3DE6C,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn scorpion_resume_after_tracking_loc_3de6c(
     kid_x_word_d3: u16,
     facing: Direction,
@@ -147,6 +144,16 @@ pub(crate) fn scorpion_resume_after_tracking_loc_3de6c(
             Direction::Right => ScorpionResumeRouteLoc3DE6C::SetDirection,
         },
     }
+}
+
+fn apply_scorpion_resume_after_tracking_loc_3de6c(enemy: &mut ActiveEnemy, kid_x_word_d3: u16) {
+    let resume = scorpion_resume_after_tracking_loc_3de6c(kid_x_word_d3, enemy.facing);
+    debug_assert_eq!(resume.cached_kid_x_word, kid_x_word_d3);
+    debug_assert_eq!(resume.next_collision_type, 0);
+    enemy.facing = match resume.next {
+        ScorpionResumeRouteLoc3DE6C::ClearDirection => Direction::Left,
+        ScorpionResumeRouteLoc3DE6C::SetDirection => Direction::Right,
+    };
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -403,6 +410,7 @@ pub(crate) fn step_scorpion_tracking(
     player_y_velocity: Option<i32>,
 ) {
     let Some(px) = player_x_pos else { return };
+    let kid_x_word_d3 = (px >> 16) as u16;
     let dx = (i64::from(enemy.x_pos) - i64::from(px)) >> 16; // scorpion_x - player_x
 
     // Within tracking range: face toward player unless tracking-locked.
@@ -427,6 +435,7 @@ pub(crate) fn step_scorpion_tracking(
         if player_y_velocity.is_some_and(|velocity| velocity != 0) {
             enemy.scorpion_tracking_lock = false;
         }
+        apply_scorpion_resume_after_tracking_loc_3de6c(enemy, kid_x_word_d3);
         return;
     }
 
@@ -447,14 +456,25 @@ pub(crate) fn step_scorpion_tracking(
         enemy.facing,
         u16::from(enemy.enemy_level),
     );
-    if close_range_route.locks_tracking() {
-        enemy.scorpion_tracking_lock = true;
-        if let ScorpionCloseRangeRouteLoc3DDC8::StingAnimation {
+    let locks_tracking = close_range_route.locks_tracking();
+    match close_range_route {
+        ScorpionCloseRangeRouteLoc3DDC8::ContinueSharedWalker => {
+            debug_assert!(!locks_tracking);
+            apply_scorpion_resume_after_tracking_loc_3de6c(enemy, kid_x_word_d3);
+        }
+        ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedVerticalMiss
+        | ScorpionCloseRangeRouteLoc3DDC8::TrackingLockedNoStingAnimation => {
+            debug_assert!(locks_tracking);
+            enemy.scorpion_tracking_lock = true;
+            apply_scorpion_resume_after_tracking_loc_3de6c(enemy, kid_x_word_d3);
+        }
+        ScorpionCloseRangeRouteLoc3DDC8::StingAnimation {
             linked_tail_has_kid_collision,
             walk_speed_override,
             ..
-        } = close_range_route
-        {
+        } => {
+            debug_assert!(locks_tracking);
+            enemy.scorpion_tracking_lock = true;
             enemy.walk_speed_override = walk_speed_override;
             enemy.x_velocity = 0;
             enemy.y_velocity = 0;
@@ -687,6 +707,24 @@ mod tests {
         );
         assert_eq!(scorpion.x_velocity, 0x0001_2222);
         assert_eq!(scorpion.y_velocity, 0x0000_3333);
+    }
+
+    #[test]
+    fn scorpion_resume_after_tracking_caches_kid_x_and_routes_loc_3de6c() {
+        assert_eq!(
+            scorpion_resume_after_tracking_loc_3de6c(0x1234, Direction::Left),
+            ScorpionResumeStateLoc3DE6C {
+                cached_kid_x_word: 0x1234,
+                next_collision_type: 0,
+                next: ScorpionResumeRouteLoc3DE6C::ClearDirection,
+            },
+            "ASM Scorpion.asm loc_3DE6C should cache d3/a2, clear collision_type, and branch by clear x_direction"
+        );
+        assert_eq!(
+            scorpion_resume_after_tracking_loc_3de6c(0xFEDC, Direction::Right).next,
+            ScorpionResumeRouteLoc3DE6C::SetDirection,
+            "ASM Scorpion.asm loc_3DE6C should use set x_direction for the rightward shared-walker branch"
+        );
     }
 
     #[test]
