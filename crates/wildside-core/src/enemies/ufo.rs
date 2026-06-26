@@ -714,15 +714,17 @@ pub(crate) fn ufo_collision_dispatch_loc_35056(
     // zero returns directly, otherwise table-dispatch uses `collision_type-4` and
     // `move.l (a4,d7.w),a4`.
     if collision_type < 0 {
+        let clear = ufo_collision_clear_loc_35070(collision_type as u16);
         return UfoCollisionDispatchLoc35056 {
-            collision_type: 0,
+            collision_type: clear.collision_type,
             behavior: None,
         };
     }
 
     if collision_type == 0 {
+        let clear = ufo_collision_clear_loc_35070(0);
         return UfoCollisionDispatchLoc35056 {
-            collision_type: 0,
+            collision_type: clear.collision_type,
             behavior: None,
         };
     }
@@ -737,19 +739,18 @@ pub(crate) fn ufo_collision_dispatch_loc_35056(
         _ => None,
     };
 
+    let clear = ufo_collision_clear_loc_35070(collision_type as u16);
     UfoCollisionDispatchLoc35056 {
-        collision_type: 0,
+        collision_type: clear.collision_type,
         behavior,
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoCollisionClearLoc35070 {
     pub(crate) collision_type: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_collision_clear_loc_35070(collision_type: u16) -> UfoCollisionClearLoc35070 {
     // ASM UFO.asm loc_35070: clear collision type and return.
     let _ = collision_type;
