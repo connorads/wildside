@@ -1040,12 +1040,12 @@ fn push_intro_sequence_3_sliding_sprites_sub_1C572(
     // Both door workers set their visible gfx slot immediately, hibernate for
     // `$3C`, then move one pixel per frame for `#$41+1` iterations.
     // ASM sub_1C572 / loc_1C58C allocates both workers with `$02000004`.
-    // Oracle VRAM at frame 1080 links the later right-hand worker before the
-    // left-hand worker, so mirror the equal-slot chain order explicitly.
-    for sliding in crate::boot::title_menu_sliding_sprites_sub_1C572()
-        .into_iter()
-        .rev()
-    {
+    // The low word `4` routes through loc_FB0/loc_FB8 and pushes each worker
+    // onto the `$FFFFF872` special chain, so the later right-hand worker is
+    // the head when the door halves share the `$0200` priority word.
+    for sliding in intro_sliding_sprites_in_special_chain_order_loc_F9C_FB8(
+        crate::boot::title_menu_sliding_sprites_sub_1C572(),
+    ) {
         // ASM sub_1C572/loc_1C58C pushes `#$3C` before `Hibernate_Object`;
         // oracle sprite tables show the first visible door-position delta two
         // frames later than the raw hibernate count once the VDP table is
@@ -1079,6 +1079,37 @@ fn push_intro_sequence_3_sliding_sprites_sub_1C572(
             },
         });
     }
+}
+
+#[allow(non_snake_case)]
+fn intro_sliding_sprites_in_special_chain_order_loc_F9C_FB8(
+    sprites: [crate::boot::TitleMenuSlidingSpriteSub1C572; 2],
+) -> Vec<crate::boot::TitleMenuSlidingSpriteSub1C572> {
+    let mut next_indices = vec![None; sprites.len()];
+    let mut unknown_f872_head_index = None;
+
+    for (new_index, sliding) in sprites.iter().enumerate() {
+        let allocation_tail =
+            crate::movement::gfx_object_alloc_tail_loc_FBE(sliding.gfx_slot_base, 0, 0);
+        if crate::movement::gfx_object_alloc_special_chain_loc_F9C(allocation_tail.object_kind_word)
+            == crate::movement::GfxObjectAllocationSpecialChainLocF9C::UnknownF872
+        {
+            let splice = crate::movement::gfx_object_alloc_special_chain_splice_loc_FB8(
+                unknown_f872_head_index,
+                new_index,
+            );
+            next_indices[new_index] = splice.new_gfx_special_next_index;
+            unknown_f872_head_index = Some(splice.new_special_chain_head_index);
+        }
+    }
+
+    let mut ordered = Vec::with_capacity(sprites.len());
+    let mut cursor = unknown_f872_head_index;
+    while let Some(index) = cursor {
+        ordered.push(sprites[index]);
+        cursor = next_indices[index];
+    }
+    ordered
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -597,7 +597,6 @@ pub(crate) struct ObjectGfxLinksSubE02 {
     pub(crate) object_to_gfx_link: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GfxObjectAllocationSpecialChainSpliceLocFB8 {
     pub(crate) new_gfx_special_next_index: Option<usize>,
@@ -622,7 +621,6 @@ pub(crate) enum GfxObjectSpecialSlotLoc10C6 {
     UnknownF86E,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GfxObjectAllocationSpecialChainLocF9C {
     None,
@@ -643,7 +641,6 @@ pub(crate) struct GfxObjectDeleteLoc10C6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_alloc_special_chain_splice_loc_FB8(
     current_special_chain_head_index: Option<usize>,
     new_gfx_index: usize,
@@ -710,7 +707,6 @@ pub(crate) fn gfx_object_alloc_insert_loc_FE6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_alloc_special_chain_loc_F9C(
     object_kind_word: u16,
 ) -> GfxObjectAllocationSpecialChainLocF9C {
