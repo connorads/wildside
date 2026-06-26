@@ -10,9 +10,10 @@ use crate::enemies::{
     FireballTrailLoopStepLoc33110, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
     RobotShotFlightRouteLoc3AC48, TankBulletLoopRouteLoc3B7BA,
     TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
-    archer_angle_to_player, archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
-    cloud_attack_projectile_delete_tail_loc_35E9C, cloud_attack_projectile_loop_loc_35E8A,
-    dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
+    TarMonsterProjectileLoopRouteLoc3263C, archer_angle_to_player, archer_arrow_delete_loc_34336,
+    archer_reaim_loc_3432E, cloud_attack_projectile_delete_tail_loc_35E9C,
+    cloud_attack_projectile_loop_loc_35E8A, dragon_flying_descent_fire_cleanup_loc_34C4A,
+    dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
     drips_enter_splash_animation_loc_33488, drips_left_bounds_gate_loc_335aa,
     drips_right_bounds_gate_loc_33588, drips_splash_animation_remaining_loc_33488,
@@ -40,7 +41,7 @@ use crate::enemies::{
     fireball_trail_delete_tail_loc_33120, fireball_trail_loop_step_loc_33110,
     robot_shot_flight_loop_loc_3ac48, robot_shot_impact_prep_loc_3ac7e,
     spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
-    tar_monster_projectile_collision_loc_32682,
+    tar_monster_projectile_collision_loc_32682, tar_monster_projectile_loop_loc_3263C,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC, ufo_beam_child_gravity_gate_loc_3555a,
@@ -502,6 +503,104 @@ fn apply_tar_monster_burst_child_collision_loc_32682(
                 | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => false,
             }
         }
+    }
+}
+
+fn step_tar_monster_burst_child_loop_loc_3263c(
+    projectile: &mut EnemyProjectile,
+    grid: Option<&terrain::BlockGrid>,
+) -> bool {
+    let mut collision_type = 0;
+    if let Some(grid) = grid {
+        let px_i = (projectile.x_pos >> 16) as i32;
+        let py_i = (projectile.y_pos >> 16) as i32;
+        let col = terrain::pixel_to_cell(px_i).max(0) as u16;
+        let row = terrain::pixel_to_cell(py_i).max(0) as u16;
+        let cell = grid.cell_at(col, row);
+        if cell.has_block && cell.collision != terrain::CollisionKind::Empty {
+            // ASM Tar_Monster.asm loc_3263C applies fixed `$1000` gravity
+            // before loc_32682 observes the collision route.
+            let y_velocity_after_gravity = projectile.y_velocity.wrapping_add(0x1000);
+            let prev_px =
+                ((projectile.x_pos as i64 - i64::from(projectile.x_velocity)) as u32 >> 16) as i32;
+            let prev_py = ((projectile.y_pos as i64 - i64::from(y_velocity_after_gravity)) as u32
+                >> 16) as i32;
+
+            let col_h = terrain::pixel_to_cell(px_i).max(0) as u16;
+            let row_h = terrain::pixel_to_cell(prev_py).max(0) as u16;
+            let cell_h = grid.cell_at(col_h, row_h);
+
+            let col_v = terrain::pixel_to_cell(prev_px).max(0) as u16;
+            let row_v = terrain::pixel_to_cell(py_i).max(0) as u16;
+            let cell_v = grid.cell_at(col_v, row_v);
+
+            let h_blocked = cell_h.has_block && cell_h.collision != terrain::CollisionKind::Empty;
+            let v_blocked = cell_v.has_block && cell_v.collision != terrain::CollisionKind::Empty;
+            collision_type = lion_projectile_terrain_collision_id_loc_3e260(
+                h_blocked,
+                v_blocked,
+                projectile.x_velocity,
+                y_velocity_after_gravity,
+                cell,
+            ) as i16;
+        }
+    }
+
+    // ASM Tar_Monster.asm loc_3263C: hibernate/move first, then add `$1000`
+    // gravity and dispatch any collision through loc_32682 before deciding
+    // whether to loop or delete.
+    let step = tar_monster_projectile_loop_loc_3263C(
+        projectile.y_velocity,
+        collision_type,
+        projectile.tar_monster_collision_response_budget,
+        true,
+        false,
+    );
+    debug_assert!(step.hibernates_one_frame);
+    projectile.y_velocity = step.y_velocity;
+
+    match step.route {
+        TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject => false,
+        TarMonsterProjectileLoopRouteLoc3263C::ContinueLoop => match step.collision.route {
+            TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly => true,
+            TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => false,
+            TarMonsterProjectileCollisionRouteLoc32682::Dispatch(dispatch) => {
+                projectile.tar_monster_collision_response_budget =
+                    dispatch.remaining_collision_budget;
+                match dispatch.target {
+                    TarMonsterProjectileCollisionTargetLoc32682::Loc326AA => {
+                        projectile.x_velocity =
+                            tar_monster_projectile_reflect_x_loc_326AA(projectile.x_velocity);
+                        true
+                    }
+                    TarMonsterProjectileCollisionTargetLoc32682::Loc326B8 => {
+                        projectile.y_velocity =
+                            tar_monster_projectile_reflect_y_loc_326B8(projectile.y_velocity);
+                        true
+                    }
+                    TarMonsterProjectileCollisionTargetLoc32682::Loc326C6 => {
+                        let pair = tar_monster_projectile_negated_velocity_swap_loc_326C6(
+                            projectile.x_velocity,
+                            projectile.y_velocity,
+                        );
+                        projectile.x_velocity = pair.x_velocity;
+                        projectile.y_velocity = pair.y_velocity;
+                        true
+                    }
+                    TarMonsterProjectileCollisionTargetLoc32682::Loc326DC => {
+                        let pair = tar_monster_projectile_velocity_swap_loc_326DC(
+                            projectile.x_velocity,
+                            projectile.y_velocity,
+                        );
+                        projectile.x_velocity = pair.x_velocity;
+                        projectile.y_velocity = pair.y_velocity;
+                        true
+                    }
+                    TarMonsterProjectileCollisionTargetLoc32682::Loc32652
+                    | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => false,
+                }
+            }
+        },
     }
 }
 
@@ -2781,9 +2880,7 @@ impl NativeRuntime {
             let is_shooter_block = p.kind == EnemyProjectileKind::ShooterBlock;
             let uses_loc_3263c_post_move_gravity = matches!(
                 p.kind,
-                EnemyProjectileKind::TarMonsterBurstChild
-                    | EnemyProjectileKind::DripsSurfaceCrawlerBurst
-                    | EnemyProjectileKind::UfoFirstHurtDebris
+                EnemyProjectileKind::DripsSurfaceCrawlerBurst | EnemyProjectileKind::UfoFirstHurtDebris
             );
             if is_boss_death_burst {
                 return step_boss_death_burst_sub_370d2(
@@ -3439,11 +3536,14 @@ impl NativeRuntime {
                 return false;
             }
 
-            if matches!(
-                p.kind,
-                EnemyProjectileKind::TarMonsterBurstChild
-                    | EnemyProjectileKind::DripsSurfaceCrawlerBurst
-            ) && let Some(g) = grid
+            if p.kind == EnemyProjectileKind::TarMonsterBurstChild
+                && !step_tar_monster_burst_child_loop_loc_3263c(p, grid)
+            {
+                return false;
+            }
+
+            if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerBurst
+                && let Some(g) = grid
                 && !apply_tar_monster_burst_child_collision_loc_32682(p, g)
             {
                 return false;

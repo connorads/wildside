@@ -343,14 +343,12 @@ pub(crate) struct TarMonsterProjectileVelocityPair {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterProjectileLoopRouteLoc3263C {
     ContinueLoop,
     DeleteCurrentObject,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterProjectileLoopLoc3263C {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) y_velocity: i32,
@@ -908,7 +906,6 @@ pub(crate) fn tar_monster_projectile_collision_loc_32682(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 fn tar_monster_projectile_collision_deletes_current_object_loc_3263C(
     collision: TarMonsterProjectileCollisionLoc32682,
 ) -> bool {
@@ -922,7 +919,6 @@ fn tar_monster_projectile_collision_deletes_current_object_loc_3263C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_loop_loc_3263C(
     y_velocity: i32,
     collision_type: i16,

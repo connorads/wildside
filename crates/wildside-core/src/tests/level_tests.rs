@@ -22863,16 +22863,16 @@ mod chunk_10 {
     }
 
     #[test]
-    fn tar_monster_burst_child_reflects_once_and_spends_budget_loc_32682() {
-        // ASM Tar_Monster.asm loc_32682 spends d3 before dispatching
-        // off_32656. Collision id $04 reaches loc_326AA, halving and negating
-        // x_vel while leaving the child alive with one response left.
+    fn tar_monster_burst_child_reflects_once_and_spends_budget_loc_3263c_loc_32682() {
+        // ASM Tar_Monster.asm loc_3263C adds fixed `$1000` gravity before
+        // loc_32682 spends d3 and dispatches off_32656. Collision id $04
+        // reaches loc_326AA, halving and negating x_vel while leaving the
+        // child alive with one response left.
         let mut rt = NativeRuntime::new(manifest());
         let mut proj = make_projectile(30, 40);
         proj.kind = EnemyProjectileKind::TarMonsterBurstChild;
         proj.x_velocity = 0x2_0000;
         proj.y_velocity = 0;
-        proj.gravity = 0;
         proj.tar_monster_collision_response_budget = 2;
         rt.projectiles.push(proj);
         rt.set_block_grid(bounce_grid(&[(2, 2), (2, 3)]));
@@ -22884,7 +22884,10 @@ mod chunk_10 {
             rt.projectiles[0].x_velocity, -0x1_0000,
             "loc_326AA should arithmetic-shift x_vel right once, then negate it"
         );
-        assert_eq!(rt.projectiles[0].y_velocity, 0);
+        assert_eq!(
+            rt.projectiles[0].y_velocity, 0x1000,
+            "loc_3263C should apply the fixed tar-child gravity before loc_32682 returns"
+        );
         assert_eq!(
             rt.projectiles[0].tar_monster_collision_response_budget, 1,
             "loc_32698 should spend one of the two collision responses"
