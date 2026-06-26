@@ -346,21 +346,18 @@ pub(crate) fn cloud_diagonal_attack_setup_loc_35CD8(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CloudAttackProjectileRouteLoc35E8A {
     ContinueLoop,
     DeleteTail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudAttackProjectileLoopLoc35E8A {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) route: CloudAttackProjectileRouteLoc35E8A,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_attack_projectile_loop_loc_35E8A(
     collision_type: u16,
     animation_flag_19: bool,
@@ -380,13 +377,11 @@ pub(crate) fn cloud_attack_projectile_loop_loc_35E8A(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudAttackProjectileDeleteTailLoc35E9C {
     pub(crate) deletes_current_object: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_attack_projectile_delete_tail_loc_35E9C()
 -> CloudAttackProjectileDeleteTailLoc35E9C {
     // ASM Cloud.asm loc_35E9C: spawned attack projectile tail-calls

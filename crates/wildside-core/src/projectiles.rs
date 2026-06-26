@@ -2,13 +2,15 @@ use super::*;
 #[cfg(test)]
 use crate::combat::CollisionSizeEntrySub21F8;
 use crate::enemies::{
-    DragonFlyingDescentFireFirstLoopLoc34C26, DragonFlyingDescentFireTravelLoopLoc34C3A,
-    DripsLeftBoundsNextLoc335AA, DripsRightBoundsNextLoc33588,
-    DripsSurfaceCrawlerTurnFieldLoc33AF6, DripsSurfaceCrawlerTurnNextLoc33AF6,
-    DripsSurfaceCrawlerTurnScriptLoc33AF6, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
-    RobotShotFlightRouteLoc3AC48, TankBulletLoopRouteLoc3B7BA,
-    TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
-    archer_angle_to_player, archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
+    CloudAttackProjectileRouteLoc35E8A, DragonFlyingDescentFireFirstLoopLoc34C26,
+    DragonFlyingDescentFireTravelLoopLoc34C3A, DripsLeftBoundsNextLoc335AA,
+    DripsRightBoundsNextLoc33588, DripsSurfaceCrawlerTurnFieldLoc33AF6,
+    DripsSurfaceCrawlerTurnNextLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
+    ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762, RobotShotFlightRouteLoc3AC48,
+    TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
+    TarMonsterProjectileCollisionTargetLoc32682, archer_angle_to_player,
+    archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
+    cloud_attack_projectile_delete_tail_loc_35E9C, cloud_attack_projectile_loop_loc_35E8A,
     dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
     drips_enter_splash_animation_loc_33488, drips_left_bounds_gate_loc_335aa,
@@ -3346,6 +3348,16 @@ impl NativeRuntime {
                 && let Some(g) = grid
                 && projectile_terrain_contact_loc_3345c(g, p)
             {
+                if p.kind == EnemyProjectileKind::CloudLightning {
+                    let loop_step = cloud_attack_projectile_loop_loc_35E8A(1, false);
+                    if !loop_step.hibernates_one_frame {
+                        return true;
+                    }
+                    if loop_step.route == CloudAttackProjectileRouteLoc35E8A::DeleteTail {
+                        let delete = cloud_attack_projectile_delete_tail_loc_35E9C();
+                        return !delete.deletes_current_object;
+                    }
+                }
                 if p.kind == EnemyProjectileKind::DripsDrop {
                     // ASM Drips.asm loc_33488 -> loc_335D8: after the
                     // first two falling-child splashes, `off_33520`
