@@ -6,10 +6,10 @@ use crate::enemies::{
     DragonFlyingDescentFireTravelLoopLoc34C3A, DripsLeftBoundsNextLoc335AA,
     DripsRightBoundsNextLoc33588, DripsSurfaceCrawlerTurnFieldLoc33AF6,
     DripsSurfaceCrawlerTurnNextLoc33AF6, DripsSurfaceCrawlerTurnScriptLoc33AF6,
-    ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762, RobotShotFlightRouteLoc3AC48,
-    TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
-    TarMonsterProjectileCollisionTargetLoc32682, archer_angle_to_player,
-    archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
+    FireballTrailLoopStepLoc33110, ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762,
+    RobotShotFlightRouteLoc3AC48, TankBulletLoopRouteLoc3B7BA,
+    TarMonsterProjectileCollisionRouteLoc32682, TarMonsterProjectileCollisionTargetLoc32682,
+    archer_angle_to_player, archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
     cloud_attack_projectile_delete_tail_loc_35E9C, cloud_attack_projectile_loop_loc_35E8A,
     dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
@@ -33,6 +33,7 @@ use crate::enemies::{
     drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
     drips_surface_crawler_turn_script_loc_33996, drips_velocity_apply_loc_33546,
     drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_loc_3340e,
+    fireball_trail_delete_tail_loc_33120, fireball_trail_loop_step_loc_33110,
     robot_shot_flight_loop_loc_3ac48, robot_shot_impact_prep_loc_3ac7e,
     spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
     tar_monster_projectile_collision_loc_32682,
@@ -2687,9 +2688,15 @@ impl NativeRuntime {
             .iter()
             .filter(|projectile| projectile.kind == EnemyProjectileKind::ArcherArrow)
             .count() as u16;
+        let mut fireball_trail_count = self
+            .projectiles
+            .iter()
+            .filter(|projectile| projectile.kind == EnemyProjectileKind::FireballTrail)
+            .count() as u16;
         self.projectiles.retain_mut(|p| {
             let is_tank_bullet = p.kind == EnemyProjectileKind::TankBullet;
             let is_robot_shot = p.kind == EnemyProjectileKind::RobotShot;
+            let is_fireball_trail = p.kind == EnemyProjectileKind::FireballTrail;
             let is_cloud_lightning = p.kind == EnemyProjectileKind::CloudLightning;
             let is_dragon_flying_descent_fire =
                 p.kind == EnemyProjectileKind::DragonFlyingDescentFire;
@@ -2750,6 +2757,7 @@ impl NativeRuntime {
             }
             if !is_tank_bullet
                 && !is_robot_shot
+                && !is_fireball_trail
                 && !is_cloud_lightning
                 && !is_dragon_flying_descent_fire
                 && !is_hail
@@ -2780,6 +2788,7 @@ impl NativeRuntime {
             }
             if !is_tank_bullet
                 && !is_robot_shot
+                && !is_fireball_trail
                 && !is_cloud_lightning
                 && !is_dragon_flying_descent_fire
                 && !is_hail
@@ -3102,6 +3111,22 @@ impl NativeRuntime {
             if !is_lion_projectile {
                 p.x_pos = (p.x_pos as i64 + i64::from(p.x_velocity)) as u32;
                 p.y_pos = (p.y_pos as i64 + i64::from(p.y_velocity)) as u32;
+            }
+            if is_fireball_trail {
+                // ASM Fireball.asm loc_33110 hibernates/moves first, then
+                // decrements d3 and falls through to loc_33120 on a zero
+                // result; there is no extra live frame with d3 already zero.
+                match fireball_trail_loop_step_loc_33110(false, p.lifetime) {
+                    FireballTrailLoopStepLoc33110::Continue { lifetime_frames } => {
+                        p.lifetime = lifetime_frames;
+                    }
+                    FireballTrailLoopStepLoc33110::Delete => {
+                        let delete = fireball_trail_delete_tail_loc_33120(fireball_trail_count);
+                        debug_assert!(delete.deletes_current_object);
+                        fireball_trail_count = delete.next_fire_trail_count;
+                        return false;
+                    }
+                }
             }
             if is_boss_eye_attack {
                 let step = crate::combat::boss_eye_attack_step_sub_37332(

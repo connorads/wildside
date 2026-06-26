@@ -35,13 +35,11 @@ pub(crate) fn fireball_delete_tail_loc_32ed8() -> FireballDeleteTailLoc32ED8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireballTrailLoopStepLoc33110 {
     Continue { lifetime_frames: u16 },
     Delete,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_trail_loop_step_loc_33110(
     flag_19_is_set: bool,
     lifetime_frames: u16,
@@ -93,13 +91,11 @@ pub(crate) fn fireball_obstacle_trail_loop_step_loc_331ba(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireballTrailDeleteTailLoc33120 {
     pub(crate) next_fire_trail_count: u16,
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fireball_trail_delete_tail_loc_33120(
     fire_trail_count: u16,
 ) -> FireballTrailDeleteTailLoc33120 {
