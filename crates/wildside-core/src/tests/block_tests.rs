@@ -13552,19 +13552,37 @@ mod chunk_04 {
     }
 
     #[test]
-    fn orca_lands_and_returns_to_walking_with_cooldown() {
+    fn orca_lands_waits_then_returns_to_walking_loc_3d420_3d44a_3d466() {
         let grid = grid_with_platform(17, 0, 120);
         let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, (17 * 16 - 30) << 16, 4);
         enemy.orca_state = OrcaState::Lunging;
         enemy.x_velocity = ORCA_LUNGE_X_SPEED;
         enemy.y_velocity = ORCA_LUNGE_Y_SPEED;
         enemy.on_ground = false;
+        let mut saw_landing_wait = false;
         for _ in 0..300 {
             step_orca(&mut enemy, Some(&grid), None);
+            if enemy.orca_state == OrcaState::LandingWait {
+                if !saw_landing_wait {
+                    assert_eq!(
+                        enemy.wait_timer,
+                        u16::from(
+                            orca_landing_wait_loc_3d44a(ORCA_LANDING_WAIT_DBF_SEED_LOC_3D44A)
+                                .hibernate_frames
+                        ),
+                        "ASM Orca.asm loc_3D420 should enter loc_3D44A's six-frame landing wait before loc_3D466 resumes patrol"
+                    );
+                }
+                saw_landing_wait = true;
+            }
             if enemy.orca_state == OrcaState::Walking {
                 break;
             }
         }
+        assert!(
+            saw_landing_wait,
+            "ASM Orca.asm loc_3D420 should not return directly to walking before loc_3D44A"
+        );
         assert_eq!(enemy.orca_state, OrcaState::Walking);
         assert_eq!(enemy.wait_timer, ORCA_LUNGE_COOLDOWN);
         assert!(enemy.on_ground);

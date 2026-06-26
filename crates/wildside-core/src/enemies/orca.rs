@@ -352,11 +352,9 @@ pub(crate) fn orca_lunge_collision_dispatch_loc_3d35a(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ORCA_LANDING_WAIT_DBF_SEED_LOC_3D44A: u8 = 5;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaLandingWaitLoc3D44A {
     pub(crate) hibernate_frames: u8,
     pub(crate) is_animated: bool,
@@ -364,7 +362,6 @@ pub(crate) struct OrcaLandingWaitLoc3D44A {
     pub(crate) next_worker: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_landing_wait_loc_3d44a(dbf_seed: u8) -> OrcaLandingWaitLoc3D44A {
     // ASM Orca.asm loc_3D44A: `dbf d1,loc_3D44A` hibernates
     // `d1 + 1` frames, then `st is_animated(a3)`, initialises `stru_3D0A2`,
@@ -378,13 +375,11 @@ pub(crate) fn orca_landing_wait_loc_3d44a(dbf_seed: u8) -> OrcaLandingWaitLoc3D4
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum OrcaLandingResumeLoc3D466 {
     Loc3E566,
     Loc3E3B2,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn orca_landing_resume_loc_3d466(facing: Direction) -> OrcaLandingResumeLoc3D466 {
     // ASM Orca.asm loc_3D466: `tst.b x_direction(a3)` branches clear
     // direction to loc_3E566 and set direction to loc_3E3B2.
@@ -661,16 +656,37 @@ pub(crate) fn step_orca(
                 if floor.on_ground {
                     let floor_y_fp = (floor.floor_y_px as u32) << 16;
                     if enemy.y_pos >= floor_y_fp {
+                        let landing_wait =
+                            orca_landing_wait_loc_3d44a(ORCA_LANDING_WAIT_DBF_SEED_LOC_3D44A);
+                        debug_assert!(landing_wait.is_animated);
+                        debug_assert_eq!(landing_wait.animation_script, "stru_3D0A2");
+                        debug_assert_eq!(landing_wait.next_worker, "loc_3D21E");
                         enemy.y_pos = floor_y_fp;
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         enemy.on_ground = true;
                         enemy.wall_pinned = false;
-                        enemy.orca_state = OrcaState::Walking;
-                        enemy.wait_timer = ORCA_LUNGE_COOLDOWN;
+                        enemy.orca_state = OrcaState::LandingWait;
+                        enemy.wait_timer = u16::from(landing_wait.hibernate_frames);
                     }
                 }
             }
+        }
+        OrcaState::LandingWait => {
+            if enemy.wait_timer > 1 {
+                enemy.wait_timer -= 1;
+                return;
+            }
+
+            let resume = orca_landing_resume_loc_3d466(enemy.facing);
+            debug_assert!(matches!(
+                (resume, enemy.facing),
+                (OrcaLandingResumeLoc3D466::Loc3E566, Direction::Left)
+                    | (OrcaLandingResumeLoc3D466::Loc3E3B2, Direction::Right)
+            ));
+            enemy.wait_timer = ORCA_LUNGE_COOLDOWN;
+            enemy.orca_state = OrcaState::Walking;
+            enemy.on_ground = true;
         }
         OrcaState::FatalFall => {
             // ASM Orca.asm loc_3D496: fatal lunge damage clears the current

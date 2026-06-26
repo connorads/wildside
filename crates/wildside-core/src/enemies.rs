@@ -1025,6 +1025,8 @@ pub(crate) enum OrcaState {
     Windup,
     /// Airborne ballistic lunge toward the player.
     Lunging,
+    /// ASM Orca.asm loc_3D420 -> loc_3D44A: grounded wait before patrol resumes.
+    LandingWait,
     /// ASM Orca.asm loc_3D48A/loc_3D496: HP-depleted lunge falls until floor/slope before death.
     FatalFall,
 }
