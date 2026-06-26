@@ -489,6 +489,12 @@ impl PlatformSlotPoolLoc231C {
         };
 
         let next_free_platform_slot_addr = self.slot_next_addrs[allocated_slot_index];
+        let allocation = allocate_platform_slot_sub_238E(
+            allocated_slot_addr,
+            next_free_platform_slot_addr,
+            self.first_platform_slot_addr,
+            self.number_platforms,
+        );
         // ASM Allocate_PlatformSlot/sub_238E (kid.asm:4217-4219): the popped
         // free slot's leading word becomes the previous active-list head.
         self.slot_next_addrs[allocated_slot_index] = self.first_platform_slot_addr;
@@ -496,12 +502,7 @@ impl PlatformSlotPoolLoc231C {
         self.first_platform_slot_addr = allocated_slot_addr;
         self.number_platforms = self.number_platforms.wrapping_add(1);
 
-        AllocatePlatformSlotResultSub238E::Allocated(AllocatePlatformSlotSub238E {
-            allocated_slot_addr,
-            next_free_platform_slot_addr,
-            first_platform_slot_addr: self.first_platform_slot_addr,
-            number_platforms: self.number_platforms,
-        })
+        allocation
     }
 
     pub(crate) fn deallocate_sub_23B4(
@@ -807,7 +808,6 @@ pub(crate) enum AllocatePlatformSlotResultSub238E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn allocate_platform_slot_sub_238E(
     next_free_platform_slot_addr: u16,
     allocated_slot_next_addr: u16,
