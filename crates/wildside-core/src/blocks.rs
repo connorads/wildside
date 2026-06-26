@@ -319,7 +319,6 @@ pub(crate) struct Prize10DiamondsWorkerStepLoc109C0 {
     pub(crate) next_y_pos: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockSoundCleanupLoc107E0 {
     pub(crate) next_refcount: u8,
@@ -593,7 +592,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_clock_sound_cleanup_loc_107E0(
         active_clock_prize_sounds: u8,
     ) -> PrizeClockSoundCleanupLoc107E0 {
@@ -641,13 +639,15 @@ impl NativeRuntime {
     /// deleted — collected (collision), fell past `Level_height_pixels`, or its
     /// countdown expired — the decremented `$FFFFFB55` reaches zero and
     /// `sfx_Clock_prize` is stopped via `j_PlaySound2` ($12 cmdstopseq). Native
-    /// edge-detects the `>0 -> 0` transition on the derived live-clock count, just
-    /// as loc_3C46E does for the RockTank drone (#339); the per-object
-    /// `prize_clock_sound_cleanup_loc_107E0` stays the documented ASM spec because
-    /// its single `wrapping_sub(1)` cannot express native's batch `retain`.
+    /// edge-detects the `>0 -> 0` transition on the derived live-clock count,
+    /// just as loc_3C46E does for the RockTank drone (#339). A batch `retain`
+    /// can delete multiple clock objects at once, so use the ASM cleanup's
+    /// decremented refcount as the per-object stop gate and confirm the native
+    /// live count reached zero before queuing the stop.
     /// #342: this stop was unported, so the looping clock sequence ran forever.
     pub(crate) fn stop_clock_prize_sound_on_last_exit_loc_107e0(&mut self, active_before: u8) {
-        if active_before > 0 && self.active_clock_prize_count() == 0 {
+        let cleanup = Self::prize_clock_sound_cleanup_loc_107E0(active_before);
+        if cleanup.should_play_stop_sound && self.active_clock_prize_count() == 0 {
             self.queue_stop_sequence(QueuedSoundEffect::ClockPrize);
         }
     }
