@@ -8362,7 +8362,6 @@ pub(crate) fn object_check_in_range_normal_x_loc_320C0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_check_in_range_normal_y_loc_320D8(
     object_y_pos: i16,
     camera_y_pos: i16,
