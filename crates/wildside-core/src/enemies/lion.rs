@@ -367,13 +367,11 @@ pub(crate) fn lion_collision_response_loc_3e318(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionChargeDirectionDispatch {
     LeftCharge,
     RightCharge,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_direction_dispatch_loc_3e11e(
     facing: Direction,
 ) -> LionChargeDirectionDispatch {
@@ -457,13 +455,11 @@ fn lion_projectile_x_offset_from_native_carrier_loc_3e12a(parent_facing: Directi
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionHibernateLoc3E3A2 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_hibernate_tail_loc_3e3a2() -> LionHibernateLoc3E3A2 {
     // ASM Lion.asm loc_3E3A2: clear `x_vel` and `y_vel` when the routine hands
     // off to `sub_3E8BA` after a short movement decision.
@@ -1482,6 +1478,8 @@ fn step_lion_charge_movement_loc_3e11e(
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
 ) {
+    let charge_direction = lion_charge_direction_dispatch_loc_3e11e(enemy.facing);
+
     if !enemy.on_ground {
         if let Some(grid) = block_grid {
             let center_x_px = (enemy.x_pos >> 16) as i32;
@@ -1657,7 +1655,7 @@ fn step_lion_charge_movement_loc_3e11e(
         }
     }
 
-    if matches!(enemy.facing, Direction::Right) {
+    if matches!(charge_direction, LionChargeDirectionDispatch::RightCharge) {
         let commit = lion_right_charge_continue_loc_3e4c6(next_x);
         enemy.x_pos = commit.x_position;
         enemy.x_velocity = commit.x_velocity;
