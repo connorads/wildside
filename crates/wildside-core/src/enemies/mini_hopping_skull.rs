@@ -1119,7 +1119,6 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_setup_loc_3f09e()
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
     collision_type: u16,
     berzerker_charging: bool,
@@ -1142,7 +1141,6 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_facing_matched_pause_side_contact_loc_3f0f0(
     berzerker_charging: bool,
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
@@ -1156,7 +1154,6 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_side_contact_loc_3f0f0(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_facing_matched_pause_damage_sequence_loc_3f0fa(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
@@ -1325,7 +1322,6 @@ pub(crate) fn mini_hopping_skull_delete_tail_loc_3f32e(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_facing_matched_pause_scream_worker_allocation_loc_3f0da(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {

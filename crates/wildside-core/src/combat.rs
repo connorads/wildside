@@ -8815,6 +8815,8 @@ impl NativeRuntime {
             }
 
             if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
+                let mini_skull_matched_pause =
+                    enemy.wait_timer & MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E != 0;
                 let route =
                     if enemy.wait_timer == MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200 {
                         MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
@@ -8822,10 +8824,17 @@ impl NativeRuntime {
                         // ASM Mini_Hopping_Skull.asm loc_3EB0E/loc_3EC48/
                         // loc_3F00A/loc_3F0A8: every grounded wait/pause loop
                         // consumes Kid collision words before its DBF tail.
-                        mini_hopping_skull_stopped_wait_collision_loc_3f00a(
-                            collision.collision_type,
-                            berzerker_charging,
-                        )
+                        if mini_skull_matched_pause {
+                            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+                                collision.collision_type,
+                                berzerker_charging,
+                            )
+                        } else {
+                            mini_hopping_skull_stopped_wait_collision_loc_3f00a(
+                                collision.collision_type,
+                                berzerker_charging,
+                            )
+                        }
                     } else {
                         // ASM Mini_Hopping_Skull.asm loc_3EAB2 -> loc_3F1B8:
                         // airborne Kid collision words split into damage,
@@ -8848,9 +8857,16 @@ impl NativeRuntime {
                     MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait => {}
                     MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull => {
                         if enemy.on_ground {
-                            match mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(
-                                u16::from(enemy.hit_points),
-                            ) {
+                            let damage_sequence = if mini_skull_matched_pause {
+                                mini_hopping_skull_facing_matched_pause_damage_sequence_loc_3f0fa(
+                                    u16::from(enemy.hit_points),
+                                )
+                            } else {
+                                mini_hopping_skull_stopped_wait_damage_sequence_loc_3f05c(
+                                    u16::from(enemy.hit_points),
+                                )
+                            };
+                            match damage_sequence {
                                 MiniHoppingSkullDamageSequence::SkullDestroyed => {
                                     kill_indices.push(active_idx);
                                 }
@@ -8883,11 +8899,16 @@ impl NativeRuntime {
                         // ASM Mini_Hopping_Skull.asm loc_3F03C/loc_3F244:
                         // side/below contact allocates delayed `sub_3F3F0`.
                         if enemy.on_ground {
-                            if let Some(allocation) =
+                            let allocation = if mini_skull_matched_pause {
+                                mini_hopping_skull_facing_matched_pause_scream_worker_allocation_loc_3f0da(
+                                    route,
+                                )
+                            } else {
                                 mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c(
                                     route,
                                 )
-                            {
+                            };
+                            if let Some(allocation) = allocation {
                                 self.queue_mini_hopping_skull_scream_worker(allocation, false);
                             }
                         } else {
