@@ -40,7 +40,6 @@ pub(crate) struct ActivePlatformHandleSub2728 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DuplicatePlatformResolutionLoc286A {
     pub(crate) deallocate_existing_slot: bool,
     pub(crate) mark_special_platform_loaded: bool,
@@ -647,7 +646,14 @@ impl PlatformLoaderSlotModelLoc2744 {
                 self.slot_deactivated_flags[slot_index] = 0;
             }
         } else if let Some(slot_addr) = existing_slot_addr {
-            if platform_placement_is_special_loc_2836(placement) {
+            let duplicate_kind_byte = if platform_placement_is_special_loc_2836(placement) {
+                0x80
+            } else {
+                platform_render_flags_loc_2814(placement.kind, placement.subtype)
+            };
+            let duplicate_resolution =
+                resolve_duplicate_platform_load_loc_286A(duplicate_kind_byte);
+            if duplicate_resolution.mark_special_platform_loaded {
                 if let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr) {
                     // ASM loc_2850 (kid.asm:4772): special platforms stay
                     // linked and receive `st $12(a3)` instead of deallocation.
@@ -655,8 +661,9 @@ impl PlatformLoaderSlotModelLoc2744 {
                 }
                 return;
             }
-            if self.pool.deallocate_sub_23B4(slot_addr)
-                == DeallocatePlatformSlotResultSub23B4::Deallocated
+            if duplicate_resolution.deallocate_existing_slot
+                && self.pool.deallocate_sub_23B4(slot_addr)
+                    == DeallocatePlatformSlotResultSub23B4::Deallocated
                 && let Some(slot_index) = PlatformSlotPoolLoc231C::slot_index_loc_231C(slot_addr)
             {
                 self.slot_layout_offsets[slot_index] = None;
@@ -886,7 +893,6 @@ pub(crate) fn find_active_platform_miss_loc_2740() -> Option<usize> {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn resolve_duplicate_platform_load_loc_286A(
     existing_platform_kind: u8,
 ) -> DuplicatePlatformResolutionLoc286A {
