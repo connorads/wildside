@@ -1938,7 +1938,6 @@ pub(crate) fn decompress_chunk_attempts_loc_11C10(status_words: &[u16]) -> usize
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u16>, String> {
     // ASM LoadBlockLayout/loc_132A6 (kid.asm:25557-25744) saves registers,
     // seeds the MSB-first bit reader via `sub_13618`/`sub_13622` (the same
@@ -4268,7 +4267,6 @@ pub(crate) fn resolve_terrain_to_expected_cells_loc_11C34(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_words_loc_11C7E(block_layout_words: &[u16]) -> Vec<u16> {
     // ASM loc_11C7E (kid.asm:23839-23848) reads one block-layout word through
     // `(a1)+`, stops once that word is `$FFFF`, and otherwise dispatches the
@@ -19404,11 +19402,12 @@ impl NativeRuntime {
                     .map(|relative| std::path::Path::new("level").join(relative))
             })
             && let Ok(block_bytes) = self.assets_source.read(&block_resource)
-            && let Ok(block_words) = wildside_data::decode_block_layout(&block_bytes)
+            && let Ok(block_words) = decode_block_layout_loc_132A6(&block_bytes)
         {
+            let dispatch_words = block_layout_dispatch_words_loc_11C7E(&block_words);
             apply_block_overlay_loc_11C7E(
                 &mut cells,
-                &block_words,
+                &dispatch_words,
                 &terrain_bytes,
                 width_blocks,
                 populated_height_blocks,
