@@ -3022,8 +3022,15 @@ fn activate_enemies_with_rng_inner(
         };
 
         for head_idx in 0..head_count {
+            let crab_visible_init = if matches!(family, EnemyFamily::Crab) {
+                Some(crab_init_visible_state_loc_3afd0(enemy_level))
+            } else {
+                None
+            };
             let hit_points = if is_multi_head_boss(family) {
                 head_hp_table[head_idx as usize]
+            } else if let Some(visible_init) = crab_visible_init {
+                visible_init.current_hp
             } else {
                 spawn_hit_points(family, enemy_level)
             };
@@ -3082,6 +3089,17 @@ fn activate_enemies_with_rng_inner(
                 debug_assert_eq!(visible_init.current_hp, hit_points);
                 debug_assert_eq!(
                     visible_init.walk_speed,
+                    pacer_walk_speed(family, hit_points)
+                );
+            }
+            if let Some(visible_init) = crab_visible_init {
+                debug_assert!(visible_init.status_flag_13);
+                debug_assert!(visible_init.is_animated);
+                debug_assert_eq!(visible_init.object_meta, 0x0009);
+                debug_assert_eq!(visible_init.priority, 0);
+                debug_assert_eq!(visible_init.current_hp, hit_points);
+                debug_assert_eq!(
+                    visible_init.speed_preload.wrapping_add(0x0000_8000),
                     pacer_walk_speed(family, hit_points)
                 );
             }

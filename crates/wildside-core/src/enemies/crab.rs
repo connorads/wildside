@@ -5,7 +5,6 @@ pub(crate) const CRAB_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 pub(crate) const CRAB_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CrabInitVisibleStateLoc3AFD0 {
     pub(crate) status_flag_13: bool,
     pub(crate) is_animated: bool,
@@ -15,7 +14,6 @@ pub(crate) struct CrabInitVisibleStateLoc3AFD0 {
     pub(crate) speed_preload: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn crab_init_visible_state_loc_3afd0(enemy_level: u8) -> CrabInitVisibleStateLoc3AFD0 {
     // ASM Crab.asm loc_3AFD0: set `$13(a3)` and `is_animated(a3)`,
     // write object_meta 9, clear priority, store `enemy_level + 2` HP, then
