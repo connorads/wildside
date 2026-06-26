@@ -242,13 +242,11 @@ pub(crate) fn drips_velocity_apply_loc_33546(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsCollisionDispatchLoc33550 {
     pub(crate) collision_type: u16,
     pub(crate) contact_flag: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_collision_dispatch_loc_33550(
     collision_type: u16,
     berzerker_charging: bool,
@@ -282,14 +280,12 @@ pub(crate) fn drips_collision_dispatch_loc_33550(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_collision_table_first_contact_loc_3356e() -> u16 {
     // ASM Drips.asm loc_3356E: the first dispatch-table branch is the
     // `$1C` collision slot and resolves to a contact result.
     1
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_collision_contact_result_loc_33576() -> DripsCollisionDispatchLoc33550 {
     // ASM Drips.asm loc_33576: clear `collision_type(a3)`, set d5 to 1,
     // and return to the caller.
@@ -299,7 +295,6 @@ pub(crate) fn drips_collision_contact_result_loc_33576() -> DripsCollisionDispat
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_collision_no_contact_result_loc_33584(
     collision_type: u16,
 ) -> DripsCollisionDispatchLoc33550 {
@@ -551,7 +546,6 @@ pub(crate) enum DripsSurfaceCrawlerMovementPathLoc3371A {
     Loc339AA,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_3371a(
     tile_flags_331f6_d5: u16,
     tile_flags_331f6_d6: u16,
@@ -776,14 +770,12 @@ pub(crate) fn drips_surface_crawler_idle_loop_loc_33a7c() -> DripsSurfaceCrawler
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum DripsSurfaceCrawlerMovementPathLoc33878 {
     DiagonalLoop,
     SolidTurn,
     FallbackTurn,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_movement_tail_loc_33878(
     tile_flags_3330e_d7: u16,
 ) -> DripsSurfaceCrawlerMovementPathLoc33878 {
