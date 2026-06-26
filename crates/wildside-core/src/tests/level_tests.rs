@@ -1665,14 +1665,24 @@ mod chunk_02 {
 
     #[test]
     fn support_overlap_detected_sub_1f52_accepts_inclusive_edge_contacts() {
-        let overlapped = support_overlap_detected_sub_1F52(
+        let left_edge_contact = support_overlap_detected_sub_1F52(
             collision_rect_sub_1f52(100, 120, 40, 80),
             &[collision_rect_sub_1f52(120, 136, 55, 70)],
         );
 
         assert!(
-            overlapped,
+            left_edge_contact,
             "ASM sub_1F52 should treat `object_left == Kid_hitbox_right` as overlapping because the scan only skips on signed `bgt` / `blt` misses",
+        );
+
+        let top_edge_contact = support_overlap_detected_sub_1F52(
+            collision_rect_sub_1f52(100, 120, 200, 220),
+            &[collision_rect_sub_1f52(80, 100, 180, 200)],
+        );
+
+        assert!(
+            top_edge_contact,
+            "ASM sub_1F52 should also accept candidate right == Kid left and candidate bottom == Kid top edge contact",
         );
     }
 
@@ -1707,6 +1717,27 @@ mod chunk_02 {
             !overlapped,
             "ASM sub_1F52 should stop immediately when the entry's first word is zero, even if later RAM slots would overlap",
         );
+    }
+
+    #[test]
+    fn support_overlap_detected_sub_1f52_rejects_each_strictly_separated_edge() {
+        let kid_hitbox = collision_rect_sub_1f52(100, 120, 200, 220);
+        let separated = [
+            collision_rect_sub_1f52(121, 140, 200, 220),
+            collision_rect_sub_1f52(80, 99, 200, 220),
+            collision_rect_sub_1f52(100, 120, 221, 240),
+            collision_rect_sub_1f52(100, 120, 180, 199),
+        ];
+
+        for candidate in separated {
+            assert!(
+                !support_overlap_detected_sub_1F52(
+                    kid_hitbox,
+                    &[candidate, collision_rect_sub_1f52(0, 0, 0, 0)]
+                ),
+                "ASM sub_1F52 should reject strictly separated support bounds {candidate:?}",
+            );
+        }
     }
 
     #[test]
