@@ -769,13 +769,11 @@ pub(crate) fn lion_left_charge_landing_resume_loc_3e76e() -> LionLeftChargeLandi
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeYCommitLoc3E77A {
     pub(crate) y_position: u32,
     pub(crate) gravity_tail: LionLeftChargeGravityTailLoc3E77E,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_y_commit_loc_3e77a(
     candidate_y_position: u32,
     y_velocity: i32,
@@ -1754,7 +1752,10 @@ fn step_lion_charge_airborne_vertical_loc_3e6f6_3e812(
                 enemy.y_velocity = 0;
                 enemy.shared_walker_debug_branch = Some("lion_charge_airborne_ceiling_snap");
             } else {
-                enemy.y_pos = candidate_y_position;
+                let commit =
+                    lion_left_charge_y_commit_loc_3e77a(candidate_y_position, enemy.y_velocity);
+                enemy.y_pos = commit.y_position;
+                enemy.y_velocity = commit.gravity_tail.y_velocity;
             }
         }
         LionLeftChargeVerticalEntryLoc3E6F6::DownwardOrStationary {
@@ -1792,13 +1793,17 @@ fn step_lion_charge_airborne_vertical_loc_3e6f6_3e812(
                     return;
                 }
                 LionLeftChargeDownwardCollisionLoc3E732::Airborne { y_position, .. } => {
-                    enemy.y_pos = y_position;
+                    let commit = lion_left_charge_y_commit_loc_3e77a(y_position, enemy.y_velocity);
+                    enemy.y_pos = commit.y_position;
+                    enemy.y_velocity = commit.gravity_tail.y_velocity;
                 }
             }
         }
     }
 
-    enemy.y_velocity = lion_left_charge_gravity_tail_loc_3e77e(enemy.y_velocity).y_velocity;
+    if enemy.shared_walker_debug_branch == Some("lion_charge_airborne_ceiling_snap") {
+        enemy.y_velocity = lion_left_charge_gravity_tail_loc_3e77e(enemy.y_velocity).y_velocity;
+    }
     enemy.on_ground = false;
     if enemy.shared_walker_debug_branch != Some("lion_charge_airborne_ceiling_snap") {
         enemy.shared_walker_debug_branch = Some("lion_charge_airborne_fall");
