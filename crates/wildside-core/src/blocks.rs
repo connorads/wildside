@@ -136,7 +136,6 @@ pub fn floating_prize_graphics_spec(
     Some(spec)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HelmetCleanupAnimationSub10D3E {
     pub(crate) allocation_spec: u32,
@@ -1639,7 +1638,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn helmet_cleanup_animation_sub_10D3E(
         x_pos: u16,
         y_pos: u16,
@@ -1710,13 +1708,23 @@ impl NativeRuntime {
             return None;
         }
 
+        let cleanup = Self::helmet_cleanup_animation_sub_10D3E(
+            (x_pos >> 16) as u16,
+            ((y_pos >> 16) as u16).saturating_sub(8),
+        );
+        debug_assert_eq!(cleanup.allocation_spec, 0x0200_0000);
+        debug_assert_eq!(cleanup.vram_tile, 0);
+        debug_assert!(cleanup.display_enabled);
+        debug_assert_eq!(cleanup.animation_script_addr, 0x0001_02DE);
+        debug_assert!(cleanup.deletes_after_animation);
+
         Some(BlockDestroyEffect {
             // ASM loc_10CF4 -> loc_10D38 (kid.asm:22608-22644): once the scan
             // finds an older helmet owner in the `$6C..$8C` range, sub_10CEC
-            // copies its integer x, subtracts 8px from y, then seeds the
-            // shared eight-frame cleanup animation at that adjusted point.
-            x_px: (x_pos >> 16) as u16,
-            y_px: ((y_pos >> 16) as u16).saturating_sub(8),
+            // copies its integer x, subtracts 8px from y, then seeds
+            // sub_10D3E at that adjusted point.
+            x_px: cleanup.x_pos,
+            y_px: cleanup.y_pos,
             remaining: 8,
             direction: Self::BLOCK_DESTROY_DIRECTION_ABOVE,
             pending_ice_origin_nudge: false,
