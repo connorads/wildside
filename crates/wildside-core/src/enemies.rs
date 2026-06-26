@@ -210,12 +210,9 @@ pub(crate) fn crab_motion_profile_loc_3b00a(current_hp: u8) -> CrabMotionProfile
 
 pub(crate) const ORCA_BERZERKER_KNOCKBACK_WAIT_TIMER_LOC_3D2AA: u16 = 0xD2AA;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_RIGHTWALL: u16 = colid::RIGHTWALL;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_LEFTWALL: u16 = colid::LEFTWALL;
 pub(crate) const MINI_SKULL_COLID_FLOOR: u16 = colid::FLOOR;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const MINI_SKULL_COLID_CEILING: u16 = colid::CEILING;
 pub(crate) const MINI_SKULL_COLID_SLOPEUP: u16 = colid::SLOPEUP;
 pub(crate) const MINI_SKULL_COLID_SLOPEDOWN: u16 = colid::SLOPEDOWN;
@@ -5431,19 +5428,49 @@ pub(crate) fn step_hopper(
         moving_right,
     );
     if wall.hit {
-        // ASM Mini_Hopping_Skull.asm loc_3F1AA flips x_direction and negates
-        // the live X velocity; it does not reset to the base hop speed.
-        reverse_enemy_direction(enemy);
-        let wall_fp = (wall.wall_x_px as u32) << 16;
-        let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
-        if moving_right {
-            if enemy.x_pos + edge_fp > wall_fp {
-                enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+        let should_bounce = if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
+            let collision_type = if moving_right {
+                MINI_SKULL_COLID_RIGHTWALL
+            } else {
+                MINI_SKULL_COLID_LEFTWALL
+            };
+            matches!(
+                mini_hopping_skull_collision_dispatch_loc_3eab2(collision_type),
+                MiniHoppingSkullCollisionDispatch::WallBounce
+            )
+        } else {
+            true
+        };
+        if should_bounce {
+            // ASM Mini_Hopping_Skull.asm loc_3F1AA flips x_direction and negates
+            // the live X velocity; it does not reset to the base hop speed.
+            reverse_enemy_direction(enemy);
+            let wall_fp = (wall.wall_x_px as u32) << 16;
+            let edge_fp = (ENEMY_PROBE_HALF_WIDTH as u32) << 16;
+            if moving_right {
+                if enemy.x_pos + edge_fp > wall_fp {
+                    enemy.x_pos = wall_fp.saturating_sub(edge_fp);
+                }
+            } else if enemy.x_pos < wall_fp + edge_fp {
+                enemy.x_pos = wall_fp + edge_fp;
             }
-        } else if enemy.x_pos < wall_fp + edge_fp {
-            enemy.x_pos = wall_fp + edge_fp;
+            enemy.x_velocity = -enemy.x_velocity;
         }
-        enemy.x_velocity = -enemy.x_velocity;
+    }
+
+    if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && enemy.y_velocity < 0 {
+        let ceiling =
+            terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
+        if ceiling.hit
+            && matches!(
+                mini_hopping_skull_collision_dispatch_loc_3eab2(MINI_SKULL_COLID_CEILING),
+                MiniHoppingSkullCollisionDispatch::CeilingHit
+            )
+        {
+            // ASM Mini_Hopping_Skull.asm loc_3F1A2: `neg.l y_vel(a3)`;
+            // execution then branches back to the airborne loc_3EA88 loop.
+            enemy.y_velocity = -enemy.y_velocity;
+        }
     }
 
     let floor = terrain::probe_floor(grid, cx, cy);
