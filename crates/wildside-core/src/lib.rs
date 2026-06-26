@@ -38,8 +38,12 @@ use wildside_data::{
 pub const BOOT_TO_LEVEL_START_FRAMES: [usize; 7] = constants::BOOT_TO_LEVEL_START_FRAMES;
 pub use blocks::{FloatingPrizeGraphicsSpec, floating_prize_graphics_spec};
 pub use boot::{
-    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A,
+    HudTimerSpriteLayoutSubBD0A, HudTimerSpritePositionSubBD0A, PAUSE_MENU_Y_OFFSET_LOC_6948,
+    PauseMenuTextSelectionRestartText, PauseMenuTextWriteRow,
     hud_timer_low_time_check_end_decrease_time_left, hud_timer_sprite_layout_sub_BD0A,
+    pause_menu_text_selection_restart_text, pause_menu_text_write_plan_loc_69D2,
+    pause_menu_text_write_row_vdp_write_cmd_loc_6A1E,
+    pause_menu_tile_save_wrap_column_reset_loc_69AE,
 };
 pub use combat::{
     HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266, speed_bonus_threshold_loc_d660,

@@ -4717,10 +4717,10 @@ fn push_pause_menu_text_loc_69d2(commands: &mut Vec<DrawCommand>, trace: &Native
     // ASM loc_69D2/restart_text writes a 16x5-tile pause menu block at
     // screen-space Camera_X+$60, Camera_Y+$40. The ROM chooses the lower row
     // text from Number_Lives: >1 means Restart Round, otherwise Give Up.
-    let lower_row = if trace.number_lives > 1 {
-        "RESTART ROUND"
-    } else {
-        "GIVE UP"
+    let lower_row = match wildside_core::pause_menu_text_selection_restart_text(trace.number_lives)
+    {
+        wildside_core::PauseMenuTextSelectionRestartText::RestartRound => "RESTART ROUND",
+        wildside_core::PauseMenuTextSelectionRestartText::GiveUp => "GIVE UP",
     };
 
     // ASM loc_6A84 seeds Pause_Option=0 and writes the upper cursor command at
@@ -4762,24 +4762,43 @@ fn push_pause_menu_tilemap_loc_69d2(
     let Some(pause_menu) = level_visuals.pause_menu.as_ref() else {
         return false;
     };
-    let rows = if trace.number_lives > 1 {
-        &pause_menu.restart_rows
-    } else {
-        &pause_menu.give_up_rows
+    let rows = match wildside_core::pause_menu_text_selection_restart_text(trace.number_lives) {
+        wildside_core::PauseMenuTextSelectionRestartText::RestartRound => &pause_menu.restart_rows,
+        wildside_core::PauseMenuTextSelectionRestartText::GiveUp => &pause_menu.give_up_rows,
     };
+    let text_plan = wildside_core::pause_menu_text_write_plan_loc_69D2(
+        (trace.camera_x_pos >> 16) as u16,
+        (trace.camera_y_pos >> 16) as u16,
+    );
     let tile_sheet = Arc::new(pause_menu.tile_sheet.clone());
     let palette = Arc::new(foreground_palette_for_scene(trace, level_visuals));
-    for (row_index, row) in rows.iter().enumerate() {
-        for (column_index, &tile) in row.iter().enumerate() {
-            let tile =
-                pause_menu_tile_with_live_cursor_loc_6b0e(trace, row_index, column_index, tile);
-            commands.push(DrawCommand::IndexedTile {
-                x: 0x60 + column_index as i32 * 8,
-                y: 0x40 + row_index as i32 * 8,
-                tile_sheet: Arc::clone(&tile_sheet),
-                tile,
-                palette: Arc::clone(&palette),
-            });
+    for (row_index, (row, plan_row)) in rows.iter().zip(text_plan.iter()).enumerate() {
+        debug_assert_eq!(plan_row.vdp_write_cmd & 0x4000_0000, 0x4000_0000);
+        let spans = match plan_row.wrap_segments {
+            None => [(0usize, row.len()), (0, 0)],
+            Some((first_words, second_cmd, second_words)) => {
+                debug_assert_eq!(second_cmd & 0x4000_0000, 0x4000_0000);
+                let first_words = usize::from(first_words);
+                let second_words = usize::from(second_words);
+                debug_assert_eq!(first_words + second_words, row.len());
+                [(0, first_words), (first_words, second_words)]
+            }
+        };
+        for (start, len) in spans {
+            for column_index in start..start.saturating_add(len) {
+                let Some(&tile) = row.get(column_index) else {
+                    continue;
+                };
+                let tile =
+                    pause_menu_tile_with_live_cursor_loc_6b0e(trace, row_index, column_index, tile);
+                commands.push(DrawCommand::IndexedTile {
+                    x: 0x60 + column_index as i32 * 8,
+                    y: 0x40 + row_index as i32 * 8,
+                    tile_sheet: Arc::clone(&tile_sheet),
+                    tile,
+                    palette: Arc::clone(&palette),
+                });
+            }
         }
     }
     true

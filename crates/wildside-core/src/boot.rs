@@ -1244,8 +1244,7 @@ pub(crate) const PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C: u16 = 5;
 /// Y-pixel offset added to Camera_Y_pos before the row loop at loc_6948/loc_695C.
 ///
 /// ASM kid.asm:6656: `addi.w #$40,d7` — menu sits $40 pixels below camera top.
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const PAUSE_MENU_Y_OFFSET_LOC_6948: u16 = 0x40;
+pub const PAUSE_MENU_Y_OFFSET_LOC_6948: u16 = 0x40;
 
 /// Compute the VDP VRAM read command for one row of the pause menu tile save.
 ///
@@ -1300,8 +1299,7 @@ pub(crate) fn pause_menu_tile_save_row_vdp_read_cmd_loc_695C(
 ///   move.l d0,4(a6)       ; set new VDP read address at column 0
 /// ```
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn pause_menu_tile_save_wrap_column_reset_loc_69AE(vdp_read_cmd: u32) -> u32 {
+pub fn pause_menu_tile_save_wrap_column_reset_loc_69AE(vdp_read_cmd: u32) -> u32 {
     // ASM loc_69AE: andi.l #$FF80FFFF,d0
     // High word bits 6-0 are the column byte offset within the 128-byte row.
     // Clearing them resets to column 0 while preserving the row address.
@@ -1375,7 +1373,7 @@ pub(crate) fn pause_menu_tile_save_plan_loc_695C(
 /// + lea    (MapUnc_PauseMenu_Restart).l,a1
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum PauseMenuTextSelectionRestartText {
+pub enum PauseMenuTextSelectionRestartText {
     /// Number_Lives <= 1 — player cannot restart, only give up.
     GiveUp,
     /// Number_Lives > 1 — player can restart the round.
@@ -1386,7 +1384,7 @@ pub(crate) enum PauseMenuTextSelectionRestartText {
 ///
 /// ASM `restart_text` (kid.asm:6741-6745): `cmpi.w #1,(Number_Lives).w;
 /// bgt.s +` — if lives > 1, use "Restart Round" mappings; otherwise "Give Up".
-pub(crate) fn pause_menu_text_selection_restart_text(
+pub fn pause_menu_text_selection_restart_text(
     number_lives: u16,
 ) -> PauseMenuTextSelectionRestartText {
     if number_lives > 1 {
@@ -1416,8 +1414,7 @@ pub(crate) fn pause_menu_text_selection_restart_text(
 ///
 /// Returns the 32-bit VDP write command (`((vram_addr | $4000) << 16) | 0x0000`).
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(
+pub fn pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(
     camera_y_pos: u16,
     tile_col: u16,
     row: u16,
@@ -1448,15 +1445,14 @@ pub(crate) fn pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(
 /// word-write loops (loc_6A5A/loc_6A64 + loc_6A76) when the menu wraps
 /// around the 64-tile plane edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) struct PauseMenuTextWriteRow {
+pub struct PauseMenuTextWriteRow {
     /// VDP write command for the start of this row.
-    pub(crate) vdp_write_cmd: u32,
+    pub vdp_write_cmd: u32,
     /// When `None`: non-wrapped — 8 longword writes (16 words) via `move.l (a1)+,(a6)`.
     /// When `Some((first_words, second_cmd, second_words))`: wrapped write.
     /// `first_words` word-writes from `vdp_write_cmd`, then `second_cmd` (column-reset
     /// with $4000 write bit) for `second_words` word-writes. Total always = 16 words.
-    pub(crate) wrap_segments: Option<(u16, u32, u16)>,
+    pub wrap_segments: Option<(u16, u32, u16)>,
 }
 
 /// Compute the full 5-row text write plan for the pause menu.
@@ -1473,8 +1469,7 @@ pub(crate) struct PauseMenuTextWriteRow {
 /// - `loc_6A64`: first-segment word-write loop + column reset (`andi.l #$FF80FFFF`)
 /// - `loc_6A76`: second-segment word-write loop
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn pause_menu_text_write_plan_loc_69D2(
+pub fn pause_menu_text_write_plan_loc_69D2(
     camera_x_pos: u16,
     camera_y_pos: u16,
 ) -> [PauseMenuTextWriteRow; 5] {
