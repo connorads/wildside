@@ -877,7 +877,6 @@ pub(crate) fn drips_surface_crawler_movement_tail_loc_33892(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsSurfaceCrawlerDeleteTailLoc3392C {
     pub(crate) is_moved: bool,
     pub(crate) waits_for_animation_to_finish: bool,
@@ -885,7 +884,6 @@ pub(crate) struct DripsSurfaceCrawlerDeleteTailLoc3392C {
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_crawler_delete_tail_loc_3392c() -> DripsSurfaceCrawlerDeleteTailLoc3392C
 {
     // ASM Drips.asm loc_3392C: clear `is_moved(a3)`, wait for the current

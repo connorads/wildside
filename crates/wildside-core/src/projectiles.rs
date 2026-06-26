@@ -17,29 +17,29 @@ use crate::enemies::{
     drips_enter_splash_animation_loc_33488, drips_left_bounds_gate_loc_335aa,
     drips_right_bounds_gate_loc_33588, drips_splash_animation_remaining_loc_33488,
     drips_splash_reset_loc_33488, drips_surface_crawler_animation_tail_loc_33630,
-    drips_surface_crawler_idle_loop_loc_33a7c, drips_surface_crawler_init_loc_335d8,
-    drips_surface_crawler_turn_script_loc_33a0e, drips_surface_crawler_turn_script_loc_33a2c,
-    drips_surface_crawler_turn_script_loc_33a04, drips_surface_crawler_turn_script_loc_33a5e,
-    drips_surface_crawler_turn_script_loc_33a18, drips_surface_crawler_turn_script_loc_33a22,
-    drips_surface_crawler_turn_script_loc_33a36, drips_surface_crawler_turn_script_loc_33a40,
-    drips_surface_crawler_turn_script_loc_33a72, drips_surface_crawler_turn_script_loc_339a0,
-    drips_surface_crawler_turn_script_loc_339aa, drips_surface_crawler_turn_script_loc_339b4,
-    drips_surface_crawler_turn_script_loc_339be, drips_surface_crawler_turn_script_loc_339c8,
-    drips_surface_crawler_turn_script_loc_339d2, drips_surface_crawler_turn_script_loc_339dc,
-    drips_surface_crawler_turn_script_loc_339e6, drips_surface_crawler_turn_script_loc_339f0,
-    drips_surface_crawler_turn_script_loc_339fa, drips_surface_crawler_turn_script_loc_3393c,
-    drips_surface_crawler_turn_script_loc_3395a, drips_surface_crawler_turn_script_loc_3396e,
-    drips_surface_crawler_turn_script_loc_3398c, drips_surface_crawler_turn_script_loc_33946,
-    drips_surface_crawler_turn_script_loc_33950, drips_surface_crawler_turn_script_loc_33964,
-    drips_surface_crawler_turn_script_loc_33978, drips_surface_crawler_turn_script_loc_33982,
-    drips_surface_crawler_turn_script_loc_33996, drips_velocity_apply_loc_33546,
-    drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_loc_3340e,
-    fire_demon_fire_trail_delete_tail_loc_3a6da, fire_demon_fire_trail_wait_loop_tick_loc_3a6ca,
-    fireball_obstacle_trail_delete_tail_loc_331ca, fireball_obstacle_trail_loop_step_loc_331ba,
-    fireball_trail_delete_tail_loc_33120, fireball_trail_loop_step_loc_33110,
-    robot_shot_flight_loop_loc_3ac48, robot_shot_impact_prep_loc_3ac7e,
-    spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
-    tar_monster_projectile_collision_loc_32682,
+    drips_surface_crawler_delete_tail_loc_3392c, drips_surface_crawler_idle_loop_loc_33a7c,
+    drips_surface_crawler_init_loc_335d8, drips_surface_crawler_turn_script_loc_33a0e,
+    drips_surface_crawler_turn_script_loc_33a2c, drips_surface_crawler_turn_script_loc_33a04,
+    drips_surface_crawler_turn_script_loc_33a5e, drips_surface_crawler_turn_script_loc_33a18,
+    drips_surface_crawler_turn_script_loc_33a22, drips_surface_crawler_turn_script_loc_33a36,
+    drips_surface_crawler_turn_script_loc_33a40, drips_surface_crawler_turn_script_loc_33a72,
+    drips_surface_crawler_turn_script_loc_339a0, drips_surface_crawler_turn_script_loc_339aa,
+    drips_surface_crawler_turn_script_loc_339b4, drips_surface_crawler_turn_script_loc_339be,
+    drips_surface_crawler_turn_script_loc_339c8, drips_surface_crawler_turn_script_loc_339d2,
+    drips_surface_crawler_turn_script_loc_339dc, drips_surface_crawler_turn_script_loc_339e6,
+    drips_surface_crawler_turn_script_loc_339f0, drips_surface_crawler_turn_script_loc_339fa,
+    drips_surface_crawler_turn_script_loc_3393c, drips_surface_crawler_turn_script_loc_3395a,
+    drips_surface_crawler_turn_script_loc_3396e, drips_surface_crawler_turn_script_loc_3398c,
+    drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
+    drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
+    drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
+    drips_velocity_apply_loc_33546, drips_vertical_bounds_contact_flag_loc_335b0,
+    drips_wait_timer_loc_3340e, fire_demon_fire_trail_delete_tail_loc_3a6da,
+    fire_demon_fire_trail_wait_loop_tick_loc_3a6ca, fireball_obstacle_trail_delete_tail_loc_331ca,
+    fireball_obstacle_trail_loop_step_loc_331ba, fireball_trail_delete_tail_loc_33120,
+    fireball_trail_loop_step_loc_33110, robot_shot_flight_loop_loc_3ac48,
+    robot_shot_impact_prep_loc_3ac7e, spawn_tar_monster_retaliation,
+    tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC,
@@ -2867,6 +2867,11 @@ impl NativeRuntime {
                 && p.lifetime == 0
             {
                 if p.kind == EnemyProjectileKind::DripsSurfaceCrawlerFinish {
+                    let delete = drips_surface_crawler_delete_tail_loc_3392c();
+                    debug_assert!(!delete.is_moved);
+                    debug_assert!(delete.waits_for_animation_to_finish);
+                    debug_assert_eq!(delete.current_drips_delta, -1);
+                    debug_assert!(delete.deletes_current_object);
                     // ASM Drips.asm loc_3392C decrements `$FFFFFB42` after
                     // the original crawler's finish animation completes.
                     expired_drips_surface_crawler_finishes += 1;
