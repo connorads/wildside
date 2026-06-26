@@ -3026,6 +3026,64 @@ fn activate_enemies_with_rng_inner(
             } else {
                 spawn_hit_points(family, enemy_level)
             };
+            if matches!(family, EnemyFamily::Tank) {
+                let visible_init =
+                    tank_init_visible_state_loc_3b31e(enemy_level, view.enemy_type_slots);
+                debug_assert!(visible_init.status_flag_13);
+                debug_assert_eq!(
+                    visible_init.object_meta,
+                    0x80 | u16::from(family.object_type())
+                );
+                debug_assert_eq!(
+                    visible_init.art_slot_word,
+                    tank_shooting_art_slot_loc_3b56c(view.enemy_type_slots).wrapping_mul(2)
+                );
+                debug_assert!(matches!(visible_init.palette_line, 1 | 2));
+                debug_assert!(matches!(visible_init.vram_tile, 0x02FB | 0x0409 | 0x0517));
+                debug_assert_eq!(visible_init.priority, 0);
+                debug_assert_eq!(
+                    visible_init.parent_timer_4a,
+                    pacer_probe_height(family) as u16
+                );
+                debug_assert_eq!(
+                    visible_init.parent_timer_48,
+                    pacer_probe_half_width(family) as u16
+                );
+                debug_assert_eq!(visible_init.current_hp, hit_points);
+                debug_assert_eq!(
+                    visible_init.walk_speed,
+                    pacer_walk_speed(family, hit_points)
+                );
+            }
+            if matches!(family, EnemyFamily::TankShooting) {
+                let visible_init =
+                    tank_shooting_init_visible_state_loc_3b5a6(enemy_level, view.enemy_type_slots);
+                debug_assert!(visible_init.status_flag_13);
+                debug_assert_eq!(
+                    visible_init.object_meta,
+                    0x80 | u16::from(family.object_type())
+                );
+                debug_assert_eq!(
+                    visible_init.art_slot_word,
+                    tank_shooting_art_slot_loc_3b56c(view.enemy_type_slots).wrapping_mul(2)
+                );
+                debug_assert!(matches!(visible_init.palette_line, 1 | 2));
+                debug_assert!(matches!(visible_init.vram_tile, 0x02FB | 0x0409 | 0x0517));
+                debug_assert_eq!(visible_init.priority, 0);
+                debug_assert_eq!(
+                    visible_init.parent_timer_4a,
+                    pacer_probe_height(family) as u16
+                );
+                debug_assert_eq!(
+                    visible_init.parent_timer_48,
+                    pacer_probe_half_width(family) as u16
+                );
+                debug_assert_eq!(visible_init.current_hp, hit_points);
+                debug_assert_eq!(
+                    visible_init.walk_speed,
+                    pacer_walk_speed(family, hit_points)
+                );
+            }
             let goat_init_animation = if matches!(family, EnemyFamily::Goat) {
                 goat_hp4_init_animation_loc_3_caca(hit_points)
                     .or_else(|| goat_high_hp_init_animation_loc_3_cae8(hit_points))

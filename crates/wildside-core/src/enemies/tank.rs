@@ -1,19 +1,12 @@
 use super::*;
 
-#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_OBJECT_ID: u16 = 0x000A;
-#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_SHOOTING_OBJECT_ID: u16 = 0x000B;
-#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_VISIBLE_OBJECT_META: u16 = 0x008A;
-#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_SHOOTING_VISIBLE_OBJECT_META: u16 = 0x008B;
-#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_ART_PALETTE_LINES: [u8; 3] = [1, 2, 2];
-#[cfg_attr(not(test), allow(dead_code))]
 const ROCK_TANK_ART_VRAM_TILE_ADDRESSES: [u16; 3] = [0x02FB, 0x0409, 0x0517];
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_shooting_art_slot_loc_3b56c(enemy_type_slots: &[u16]) -> u16 {
     // ASM Tank_Shooting.asm loc_3B56C: after setting `$13(a3)` and
     // object_meta `$0B`, compare the first two enemy-layout header slots
@@ -34,7 +27,6 @@ pub(crate) fn tank_shooting_art_slot_loc_3b56c(enemy_type_slots: &[u16]) -> u16 
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankInitVisibleStateLoc3B31E {
     pub(crate) status_flag_13: bool,
     pub(crate) object_meta: u16,
@@ -48,7 +40,6 @@ pub(crate) struct TankInitVisibleStateLoc3B31E {
     pub(crate) walk_speed: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_init_visible_state_loc_3b31e(
     enemy_level: u8,
     enemy_type_slots: &[u16],
@@ -76,7 +67,6 @@ pub(crate) fn tank_init_visible_state_loc_3b31e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TankShootingInitVisibleStateLoc3B5A6 {
     pub(crate) status_flag_13: bool,
     pub(crate) object_meta: u16,
@@ -90,7 +80,6 @@ pub(crate) struct TankShootingInitVisibleStateLoc3B5A6 {
     pub(crate) walk_speed: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tank_shooting_init_visible_state_loc_3b5a6(
     enemy_level: u8,
     enemy_type_slots: &[u16],
