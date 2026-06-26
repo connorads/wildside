@@ -193,7 +193,6 @@ pub(crate) struct PrizeClockCollectedWorldStepLocFF92 {
     pub(crate) world_step: PrizeCollectedWorldStepLocFEFE,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeContinueCountdownLoc1080A {
     pub(crate) next_remaining: u16,
@@ -671,7 +670,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_continue_countdown_loc_1080A(
         remaining: u16,
     ) -> PrizeContinueCountdownLoc1080A {
@@ -4355,6 +4353,7 @@ impl NativeRuntime {
         // Level_height_pixels, or its countdown expired).
         let active_clock_prizes_before = self.active_clock_prize_count();
         self.clock_prize_animation_swaps_loc_10796.clear();
+        self.continue_prize_animation_swaps_loc_1080a.clear();
         self.step_rubber_block_animations_sub_10de4();
         self.step_metal_block_push_workers_sub_1129C();
         let level_height_pixels = i64::from(self.level_bounds(self.current_level).height_pixels);
@@ -4631,18 +4630,29 @@ impl NativeRuntime {
             // each hibernated frame decrements `d3`, deletes the object when
             // the countdown reaches zero, and swaps animation exactly at the
             // routine-specific threshold (`$00C8` for diamonds, `$012C` for
-            // the ankh). Clock prizes expose the loc_10796 visual swap edge
-            // through `clock_prize_animation_swaps_loc_10796`; other floating
-            // prizes still keep the visual script swap implicit.
-            if f.content == terrain::PrizeContent::Clock {
-                let countdown = Self::prize_clock_countdown_loc_10796(f.remaining);
-                f.remaining = countdown.next_remaining;
-                if countdown.should_swap_animation {
-                    self.clock_prize_animation_swaps_loc_10796
-                        .push(((f.x_pos >> 16) as u16, (f.y_pos >> 16) as u16));
+            // the ankh). Clock and Continue prizes expose their visual swap
+            // edges through typed trace fields; other floating prizes still
+            // keep the visual script swap implicit.
+            match f.content {
+                terrain::PrizeContent::Clock => {
+                    let countdown = Self::prize_clock_countdown_loc_10796(f.remaining);
+                    f.remaining = countdown.next_remaining;
+                    if countdown.should_swap_animation {
+                        self.clock_prize_animation_swaps_loc_10796
+                            .push(((f.x_pos >> 16) as u16, (f.y_pos >> 16) as u16));
+                    }
                 }
-            } else {
-                f.remaining = f.remaining.saturating_sub(1);
+                terrain::PrizeContent::Continue => {
+                    let countdown = Self::prize_continue_countdown_loc_1080A(f.remaining);
+                    f.remaining = countdown.next_remaining;
+                    if countdown.should_swap_animation {
+                        self.continue_prize_animation_swaps_loc_1080a
+                            .push(((f.x_pos >> 16) as u16, (f.y_pos >> 16) as u16));
+                    }
+                }
+                _ => {
+                    f.remaining = f.remaining.saturating_sub(1);
+                }
             }
             let can_fall = self
                 .block_grid
@@ -4697,8 +4707,13 @@ impl NativeRuntime {
                 && f.content == terrain::PrizeContent::Clock
                 && Self::prize_clock_countdown_loc_10796(f.remaining.saturating_add(1))
                     .should_delete;
+            let continue_countdown_delete = f.spawn_delay == 0
+                && f.content == terrain::PrizeContent::Continue
+                && Self::prize_continue_countdown_loc_1080A(f.remaining.saturating_add(1))
+                    .should_delete;
             let stays_alive = (f.spawn_delay > 0 || f.remaining > 0)
                 && !clock_countdown_delete
+                && !continue_countdown_delete
                 && gate.stays_active;
             if stays_alive {
                 true

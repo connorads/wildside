@@ -336,6 +336,9 @@ pub struct NativeRuntime {
     /// ASM PrizeClock_Init loc_10796 swaps the active clock prize animation
     /// when its countdown reaches `$012C`.
     clock_prize_animation_swaps_loc_10796: Vec<(u16, u16)>,
+    /// ASM PrizeContinue_Init loc_1080A swaps the active continue prize
+    /// animation when its countdown reaches `$012C`.
+    continue_prize_animation_swaps_loc_1080a: Vec<(u16, u16)>,
     /// ASM PrizeHelmet* loc_105D6 deletes after object-side collision, then
     /// Kid remains visible at the loc_A6F8 hibernate point without changing
     /// Current_Helmet.
@@ -1155,6 +1158,7 @@ impl NativeRuntime {
             block_debris_scratch_cursor_sub_292e: 0,
             floating_items: Vec::new(),
             clock_prize_animation_swaps_loc_10796: Vec::new(),
+            continue_prize_animation_swaps_loc_1080a: Vec::new(),
             prize_helmet_collision_hibernate_delay_frames: 0,
             prize_helmet_collision_hibernate_hitpoints_form: None,
             prize_helmet_collision_hibernate_switch_form: None,

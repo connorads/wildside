@@ -12871,6 +12871,29 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_1080a_continue_prize_countdown_records_animation_swap_event() {
+        // ASM loc_1080A (kid.asm:22045-22053): after the hibernated countdown
+        // reaches `$012C`, the continue prize swaps to `stru_10C2E`.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut item = clock_floating_item();
+        item.content = terrain::PrizeContent::Continue;
+        item.remaining = 0x012D;
+        rt.floating_items.push(item);
+
+        rt.step_visual_effects();
+
+        assert_eq!(
+            rt.floating_items[0].remaining, 0x012C,
+            "ASM loc_1080A decrements d3 before testing the animation-swap threshold",
+        );
+        assert_eq!(
+            rt.trace_frame().continue_prize_animation_swaps_loc_1080a,
+            vec![(3 * 16 + 8, 100)],
+            "ASM loc_1080A exposes the live continue-prize animation swap edge to the trace",
+        );
+    }
+
+    #[test]
     fn loc_10792_first_clock_prize_spawn_emits_startsequence_clock_prize() {
         // ASM PrizeClock_Init loc_10792 (kid.asm:21996-22005): the first active
         // clock plays the looping sfx_Clock_prize; the start fires on the

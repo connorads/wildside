@@ -3193,6 +3193,7 @@ mod tests {
             kid_projectile_hit_sparks: Vec::new(),
             floating_items: Vec::new(),
             clock_prize_animation_swaps_loc_10796: Vec::new(),
+            continue_prize_animation_swaps_loc_1080a: Vec::new(),
             enemy_death_effects: Vec::new(),
             heady_metal_death_splits: Vec::new(),
             heady_metal_body_pieces_sub_37abc: Vec::new(),
