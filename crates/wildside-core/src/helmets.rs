@@ -16,7 +16,6 @@ pub(crate) struct EyeclopsBeamScreenOriginLocE4C4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct EyeclopsBeamMirroredAnchorLocE50A {
     pub(crate) anchor_x_word: u16,
     pub(crate) tile_flip_bit: u16,
@@ -102,7 +101,6 @@ pub(crate) fn eyeclops_beam_screen_origin_loc_E4C4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn eyeclops_beam_mirrored_anchor_loc_E50A(
     screen_x_word: u16,
     beam_segment_index: u16,
@@ -430,7 +428,8 @@ fn eyeclops_beam_world_strip_sub_E49A(
         let tip_x = if latched_x_direction == 0 {
             origin.screen_x_word.wrapping_add(span)
         } else {
-            origin.screen_x_word.wrapping_sub(span)
+            eyeclops_beam_mirrored_anchor_loc_E50A(origin.screen_x_word, setup.beam_counter)
+                .anchor_x_word
         };
         let top_y = origin.screen_y_word.wrapping_sub(0x0008);
         let bottom_y = origin.screen_y_word.wrapping_add(0x0010);
@@ -473,12 +472,12 @@ fn eyeclops_beam_collision_probe_loc_E70A(
 ) -> Option<(i16, i16, i16)> {
     if beam_segment_index < 4 {
         let segment_span = 0x0010_u16.wrapping_add(beam_segment_index.wrapping_shl(3));
-        let map_probe_screen_x = if latched_x_direction == 0 {
-            screen_x_word.wrapping_add(segment_span)
+        let (map_probe_screen_x, tile_flip_bit) = if latched_x_direction == 0 {
+            (screen_x_word.wrapping_add(segment_span), 0)
         } else {
-            screen_x_word.wrapping_sub(segment_span)
+            let anchor = eyeclops_beam_mirrored_anchor_loc_E50A(screen_x_word, beam_segment_index);
+            (anchor.anchor_x_word, anchor.tile_flip_bit)
         };
-        let tile_flip_bit = if latched_x_direction == 0 { 0 } else { 0x0800 };
         let dispatch = eyeclops_beam_table_dispatch_loc_E512(beam_segment_index)?;
         let sprites = eyeclops_beam_sprites_loc_E51A(
             dispatch.table_label,
@@ -2951,15 +2950,6 @@ fn diamond_power_collision_rect_loc_1d84(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
-fn wall_of_death_collision_rect_loc_1d84(
-    world_x: i16,
-    world_y: i16,
-    size_index: u16,
-) -> DiamondPowerCollisionRectLoc1D84 {
-    diamond_power_collision_rect_loc_1d84(world_x, world_y, size_index)
-}
-
 fn diamond_power_rects_overlap_loc_1d84(
     target: DiamondPowerCollisionRectLoc1D84,
     candidate: DiamondPowerCollisionRectLoc1D84,
@@ -4309,7 +4299,7 @@ mod tests {
     #[test]
     fn diamond_power_wall_of_death_collision_rect_uses_unk_31dcc_loc_1d84() {
         assert_eq!(
-            wall_of_death_collision_rect_loc_1d84(0x0091, 0x0104, 6),
+            diamond_power_collision_rect_loc_1d84(0x0091, 0x0104, 6),
             DiamondPowerCollisionRectLoc1D84 {
                 left_px: 0x008A,
                 right_px: 0x0098,
