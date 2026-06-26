@@ -97,23 +97,23 @@ pub(crate) fn orca_damage_response_loc_3d23e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct OrcaDeathSequenceLoc3D268 {
     pub(crate) has_kid_collision: bool,
     pub(crate) death_animation: &'static str,
     pub(crate) waits_until_animation_finished: bool,
+    pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
     pub(crate) exits_enemy: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn orca_death_sequence_loc_3d268() -> OrcaDeathSequenceLoc3D268 {
+pub(crate) fn orca_death_sequence_loc_3d268(object_status_slot: u8) -> OrcaDeathSequenceLoc3D268 {
     // ASM Orca.asm loc_3D268: `st has_kid_collision(a3)`, initialise
     // `stru_3D11E`, hibernate until that animation finishes, then branch to
-    // the shared enemy exit tail.
+    // loc_3E956's shared delete tail.
     OrcaDeathSequenceLoc3D268 {
         has_kid_collision: true,
         death_animation: "stru_3D11E",
         waits_until_animation_finished: true,
+        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
         exits_enemy: true,
     }
 }
@@ -419,6 +419,7 @@ pub(crate) enum OrcaFatalFallRouteLoc3D496 {
     DeathAnimation {
         animation_script: &'static str,
         waits_until_animation_finished: bool,
+        status_action: DeactivationStatusActionLoc3C4C0,
         exits_enemy: bool,
     },
 }
@@ -443,10 +444,13 @@ pub(crate) struct OrcaFatalFallDeathAnimationLoc3D4BC {
     pub(crate) has_level_collision: bool,
     pub(crate) animation_script: &'static str,
     pub(crate) waits_until_animation_finished: bool,
+    pub(crate) status_action: DeactivationStatusActionLoc3C4C0,
     pub(crate) exits_enemy: bool,
 }
 
-pub(crate) fn orca_fatal_fall_death_animation_loc_3d4bc() -> OrcaFatalFallDeathAnimationLoc3D4BC {
+pub(crate) fn orca_fatal_fall_death_animation_loc_3d4bc(
+    object_status_slot: u8,
+) -> OrcaFatalFallDeathAnimationLoc3D4BC {
     // ASM Orca.asm loc_3D4BC: after fatal-fall floor/slope contact, stop
     // both velocity components, clear movement/level collision, play
     // `stru_3D11E`, wait for it to finish, then branch to loc_3E956.
@@ -458,6 +462,7 @@ pub(crate) fn orca_fatal_fall_death_animation_loc_3d4bc() -> OrcaFatalFallDeathA
         has_level_collision: false,
         animation_script: "stru_3D11E",
         waits_until_animation_finished: true,
+        status_action: deactivation_status_update_loc_3C4C0(object_status_slot),
         exits_enemy: true,
     }
 }
@@ -466,6 +471,7 @@ pub(crate) fn orca_fatal_fall_frame_loc_3d496(
     collision_type: i16,
     x_velocity: i32,
     y_velocity: i32,
+    object_status_slot: u8,
 ) -> OrcaFatalFallFrameLoc3D496 {
     // ASM Orca.asm loc_3D496: clear collision, hibernate once, add `$1800`
     // to y_vel, and repeat until floor/slope contact stops motion for death.
@@ -476,7 +482,7 @@ pub(crate) fn orca_fatal_fall_frame_loc_3d496(
     );
 
     if landed {
-        let death_animation = orca_fatal_fall_death_animation_loc_3d4bc();
+        let death_animation = orca_fatal_fall_death_animation_loc_3d4bc(object_status_slot);
         OrcaFatalFallFrameLoc3D496 {
             next_collision_type: death_animation.next_collision_type,
             x_velocity: death_animation.x_velocity,
@@ -487,6 +493,7 @@ pub(crate) fn orca_fatal_fall_frame_loc_3d496(
             route: OrcaFatalFallRouteLoc3D496::DeathAnimation {
                 animation_script: death_animation.animation_script,
                 waits_until_animation_finished: death_animation.waits_until_animation_finished,
+                status_action: death_animation.status_action,
                 exits_enemy: death_animation.exits_enemy,
             },
         }
@@ -678,8 +685,12 @@ pub(crate) fn step_orca(
                 let floor = terrain::probe_floor(grid, cx, cy);
                 orca_fatal_fall_collision_type_loc_3d496(floor)
             });
-            let frame =
-                orca_fatal_fall_frame_loc_3d496(collision_type, enemy.x_velocity, enemy.y_velocity);
+            let frame = orca_fatal_fall_frame_loc_3d496(
+                collision_type,
+                enemy.x_velocity,
+                enemy.y_velocity,
+                enemy.layout_index as u8,
+            );
             enemy.x_velocity = frame.x_velocity;
             enemy.y_velocity = frame.y_velocity;
             if matches!(
@@ -774,11 +785,12 @@ mod tests {
     #[test]
     fn orca_death_sequence_matches_loc_3d268() {
         assert_eq!(
-            orca_death_sequence_loc_3d268(),
+            orca_death_sequence_loc_3d268(0x05),
             OrcaDeathSequenceLoc3D268 {
                 has_kid_collision: true,
                 death_animation: "stru_3D11E",
                 waits_until_animation_finished: true,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
                 exits_enemy: true,
             },
             "ASM Orca.asm loc_3D268 should re-enable Kid collision, play the death animation, then exit the enemy"

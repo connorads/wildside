@@ -13387,7 +13387,7 @@ mod chunk_04 {
     #[test]
     fn orca_fatal_fall_death_animation_matches_loc_3d4bc() {
         assert_eq!(
-            orca_fatal_fall_death_animation_loc_3d4bc(),
+            orca_fatal_fall_death_animation_loc_3d4bc(0x05),
             OrcaFatalFallDeathAnimationLoc3D4BC {
                 next_collision_type: 0,
                 x_velocity: 0,
@@ -13396,6 +13396,7 @@ mod chunk_04 {
                 has_level_collision: false,
                 animation_script: "stru_3D11E",
                 waits_until_animation_finished: true,
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
                 exits_enemy: true,
             },
             "ASM Orca.asm loc_3D4BC should stop motion, disable movement/level collision, play `stru_3D11E`, and exit"
@@ -13406,7 +13407,7 @@ mod chunk_04 {
     fn orca_fatal_fall_loop_matches_loc_3d496() {
         assert_eq!(ORCA_FATAL_FALL_GRAVITY_LOC_3D496, 0x0000_1800);
         assert_eq!(
-            orca_fatal_fall_frame_loc_3d496(0, 0x0000_4000, 0x0001_8000),
+            orca_fatal_fall_frame_loc_3d496(0, 0x0000_4000, 0x0001_8000, 0x05),
             OrcaFatalFallFrameLoc3D496 {
                 next_collision_type: 0,
                 x_velocity: 0x0000_4000,
@@ -13421,7 +13422,7 @@ mod chunk_04 {
 
         for collision_type in [ORCA_COLID_FLOOR, ORCA_COLID_SLOPEUP, ORCA_COLID_SLOPEDOWN] {
             assert_eq!(
-                orca_fatal_fall_frame_loc_3d496(collision_type, 0x0000_4000, 0x0001_8000),
+                orca_fatal_fall_frame_loc_3d496(collision_type, 0x0000_4000, 0x0001_8000, 0x05),
                 OrcaFatalFallFrameLoc3D496 {
                     next_collision_type: 0,
                     x_velocity: 0,
@@ -13432,6 +13433,9 @@ mod chunk_04 {
                     route: OrcaFatalFallRouteLoc3D496::DeathAnimation {
                         animation_script: "stru_3D11E",
                         waits_until_animation_finished: true,
+                        status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                            index: 5
+                        },
                         exits_enemy: true,
                     },
                 },

@@ -9722,6 +9722,11 @@ impl NativeRuntime {
             } else {
                 None
             };
+            let orca_death_sequence = if matches!(family, EnemyFamily::Orca) {
+                Some(orca_death_sequence_loc_3d268(layout_index as u8))
+            } else {
+                None
+            };
             let boss_head_death_transition = if is_multi_head_boss(family) {
                 let transition =
                     boss_head_death_transition_loc_39ebe(self.multi_head_boss_death_count_fb4e);
@@ -9869,6 +9874,15 @@ impl NativeRuntime {
                     debug_assert_eq!(death_animation_frames, ARMADILLO_DEATH_ANIMATION_FRAMES);
                     ARMADILLO_DEATH_ANIMATION_FRAMES
                 });
+            let death_animation_frames =
+                orca_death_sequence.map_or(death_animation_frames, |death_sequence| {
+                    debug_assert!(death_sequence.has_kid_collision);
+                    debug_assert_eq!(death_sequence.death_animation, "stru_3D11E");
+                    debug_assert!(death_sequence.waits_until_animation_finished);
+                    debug_assert!(death_sequence.exits_enemy);
+                    debug_assert_eq!(death_animation_frames, ORCA_DEATH_ANIMATION_FRAMES);
+                    ORCA_DEATH_ANIMATION_FRAMES
+                });
             let enemy = &mut self.active_enemies[idx];
             enemy.hit_points = 0;
             enemy.death_animation_active = true;
@@ -9998,6 +10012,18 @@ impl NativeRuntime {
         } else {
             None
         };
+        let orca_status_action = if matches!(family, EnemyFamily::Orca) {
+            let direct_death = orca_death_sequence_loc_3d268(layout_index as u8);
+            let fatal_fall_death = orca_fatal_fall_death_animation_loc_3d4bc(layout_index as u8);
+            debug_assert!(direct_death.waits_until_animation_finished);
+            debug_assert!(direct_death.exits_enemy);
+            debug_assert!(fatal_fall_death.waits_until_animation_finished);
+            debug_assert!(fatal_fall_death.exits_enemy);
+            debug_assert_eq!(direct_death.status_action, fatal_fall_death.status_action);
+            Some(direct_death.status_action)
+        } else {
+            None
+        };
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {
@@ -10087,11 +10113,14 @@ impl NativeRuntime {
         if let Some(status_action) = armadillo_status_action {
             self.apply_deactivation_status_action_loc_3C4C0(status_action);
         }
+        if let Some(status_action) = orca_status_action {
+            self.apply_deactivation_status_action_loc_3C4C0(status_action);
+        }
         // ASM Lion.asm loc_3E956, Mini_Hopping_Skull.asm loc_3F32E, and
         // Dragon.asm loc_3CEFC / Goat.asm loc_3CB64 / Ninja.asm loc_3DB4E
-        // / Armadillo.asm loc_3C886 -> loc_3E956 update EnemyStatus_Table and
-        // delete the object after their death animations; they do not touch
-        // `(Score).w`.
+        // / Armadillo.asm loc_3C886 / Orca.asm loc_3D268 + loc_3D4BC ->
+        // loc_3E956 update EnemyStatus_Table and delete the object after
+        // their death animations; they do not touch `(Score).w`.
         self.rebuild_active_enemy_roster();
     }
 
