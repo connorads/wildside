@@ -14079,6 +14079,32 @@ fn classify_enemy_contact_with_half_width_inner(
     player_contact_half_width: i64,
     defer_edge_side_damage: bool,
 ) -> EnemyContactResult {
+    let Some(relation) = classify_enemy_contact_relation_with_half_width_inner(
+        player,
+        enemy,
+        pre_physics_y_velocity,
+        _pre_physics_y_pos,
+        player_contact_half_width,
+        defer_edge_side_damage,
+    ) else {
+        return EnemyContactResult::None;
+    };
+
+    if matches!(relation, crate::trace::KidObjectRelation::Above) {
+        EnemyContactResult::Stomp
+    } else {
+        EnemyContactResult::Damage
+    }
+}
+
+fn classify_enemy_contact_relation_with_half_width_inner(
+    player: PlayerState,
+    enemy: &NativeObjectSnapshot,
+    pre_physics_y_velocity: i32,
+    _pre_physics_y_pos: u32,
+    player_contact_half_width: i64,
+    defer_edge_side_damage: bool,
+) -> Option<crate::trace::KidObjectRelation> {
     let px = player.x_pos as i64;
     let py = player.y_pos as i64;
     let p_left = px - (player_contact_half_width << 16);
@@ -14095,7 +14121,7 @@ fn classify_enemy_contact_with_half_width_inner(
     let e_bottom = ey + (bounds.bottom_px << 16);
 
     if bounds.left_px > bounds.right_px || bounds.top_px > bounds.bottom_px {
-        return EnemyContactResult::None;
+        return None;
     }
 
     // MiniHoppingSkull immunity while airborne and rising
@@ -14103,7 +14129,7 @@ fn classify_enemy_contact_with_half_width_inner(
         && enemy.on_ground == Some(false)
         && enemy.y_velocity.is_some_and(|vy| vy < 0)
     {
-        return EnemyContactResult::None;
+        return None;
     }
 
     let kid_left = (p_left >> 16) as i32;
@@ -14123,12 +14149,12 @@ fn classify_enemy_contact_with_half_width_inner(
         || object_top > kid_bottom
         || object_bottom < kid_top
     {
-        return EnemyContactResult::None;
+        return None;
     }
 
     let x_overlap_px = object_right.min(kid_right) - object_left.max(kid_left);
     if (i64::from(x_overlap_px) << 16) < enemy_contact_min_overlap_fp(enemy) {
-        return EnemyContactResult::None;
+        return None;
     }
 
     let object_x_delta = enemy.x_velocity.unwrap_or(0) - player.x_velocity;
@@ -14140,21 +14166,14 @@ fn classify_enemy_contact_with_half_width_inner(
     // velocity from the object's velocity, scales the deltas with
     // `lsl.l #8; swap`, then dispatches through the four sign-specific
     // overlap comparisons below to choose the collision side.
-    enum ContactSide {
-        Above,
-        Below,
-        Left,
-        Right,
-    }
-
     let relation = if object_x_delta >= 0 {
         if object_y_delta >= 0 {
             let x_term = i64::from(object_right - kid_left) * i64::from(rel_y);
             let y_term = i64::from(object_bottom - kid_top) * i64::from(rel_x);
             if y_term > x_term {
-                ContactSide::Right
+                crate::trace::KidObjectRelation::Right
             } else {
-                ContactSide::Below
+                crate::trace::KidObjectRelation::Below
             }
         } else {
             // ASM loc_1C76 (kid.asm:3412): object X delta is non-negative
@@ -14164,9 +14183,9 @@ fn classify_enemy_contact_with_half_width_inner(
             let x_term = i64::from(object_right - kid_left) * i64::from(rel_y);
             let y_term = i64::from(object_top - kid_bottom) * i64::from(rel_x);
             if y_term < x_term {
-                ContactSide::Right
+                crate::trace::KidObjectRelation::Right
             } else {
-                ContactSide::Above
+                crate::trace::KidObjectRelation::Above
             }
         }
     } else if object_y_delta >= 0 {
@@ -14176,9 +14195,9 @@ fn classify_enemy_contact_with_half_width_inner(
         let x_term = i64::from(object_left - kid_right) * i64::from(rel_y);
         let y_term = i64::from(object_bottom - kid_top) * i64::from(rel_x);
         if y_term < x_term {
-            ContactSide::Left
+            crate::trace::KidObjectRelation::Left
         } else {
-            ContactSide::Below
+            crate::trace::KidObjectRelation::Below
         }
     } else {
         // ASM loc_1CB8 (kid.asm:3446): both object deltas are negative, so
@@ -14187,23 +14206,19 @@ fn classify_enemy_contact_with_half_width_inner(
         let x_term = i64::from(object_left - kid_right) * i64::from(rel_y);
         let y_term = i64::from(object_top - kid_bottom) * i64::from(rel_x);
         if y_term > x_term {
-            ContactSide::Left
+            crate::trace::KidObjectRelation::Left
         } else {
-            ContactSide::Above
+            crate::trace::KidObjectRelation::Above
         }
     };
-
-    if matches!(relation, ContactSide::Above) {
-        return EnemyContactResult::Stomp;
-    }
 
     if defer_edge_side_damage
         && enemy_edge_side_damage_defers_until_positive_overlap(enemy, x_overlap_px)
     {
-        return EnemyContactResult::None;
+        return None;
     }
 
-    EnemyContactResult::Damage
+    Some(relation)
 }
 
 struct StompContactCandidateDebug {
@@ -14312,17 +14327,21 @@ fn player_latches_enemy_collision_with_half_width_loc_1cf2(
     enemy: &NativeObjectSnapshot,
     player_contact_half_width: i64,
 ) -> bool {
-    !matches!(
-        classify_enemy_contact_with_half_width_inner(
-            player,
-            enemy,
-            player.y_velocity,
-            player.y_pos,
-            player_contact_half_width,
-            false,
-        ),
-        EnemyContactResult::None
-    )
+    let Some(relation) = classify_enemy_contact_relation_with_half_width_inner(
+        player,
+        enemy,
+        player.y_velocity,
+        player.y_pos,
+        player_contact_half_width,
+        false,
+    ) else {
+        return false;
+    };
+    // ASM loc_1CF2 (kid.asm:3480): any classified side/above/below contact
+    // writes the selected `colid_kid*` relation into both Kid and object slots.
+    let writeback = crate::trace::kid_object_collision_writeback_loc_1CF2(relation, 0);
+    writeback.player_collision_label == relation.as_debug_label()
+        && writeback.object_collision_label == relation.as_debug_label()
 }
 
 fn drips_projectile_object_snapshot_loc_3345c(

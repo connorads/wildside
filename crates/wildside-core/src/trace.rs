@@ -5960,7 +5960,6 @@ pub(crate) struct ObjectBoundsPx {
     pub(crate) bottom: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidObjectCollisionWritebackLoc1CF2 {
     pub(crate) player_collision_label: &'static str,
@@ -5999,7 +5998,6 @@ pub(crate) struct KidObjectTypeFourCollisionLoc1D5A {
     pub(crate) branches_to_invulnerability_gate: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_collision_writeback_loc_1CF2(
     relation: KidObjectRelation,
