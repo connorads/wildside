@@ -12894,6 +12894,33 @@ mod chunk_09 {
     }
 
     #[test]
+    fn loc_10838_continue_prize_delete_emits_raw_sequence_6a() {
+        // ASM loc_10838 (kid.asm:22062-22067): every Continue prize delete
+        // exit preserves `d0`, plays raw sequence `$6A`, then deletes the
+        // current object. This exercises the live retain/removal path.
+        let mut rt = NativeRuntime::new(manifest());
+        let mut item = clock_floating_item();
+        item.content = terrain::PrizeContent::Continue;
+        item.remaining = 1;
+        rt.floating_items.push(item);
+
+        rt.step_visual_effects();
+
+        assert!(
+            rt.floating_items.is_empty(),
+            "ASM loc_1080A -> loc_10838: d3 reaching zero deletes the Continue prize object",
+        );
+        assert_eq!(
+            rt.played_sound_commands,
+            vec![QueuedSoundCommand::StartSequence(
+                QueuedSoundEffect::ContinuePrizeDelete
+            )],
+            "ASM loc_10838: Continue cleanup must issue j_PlaySound with raw id $6A",
+        );
+        assert_eq!(QueuedSoundEffect::ContinuePrizeDelete.sound_id(), 0x6A);
+    }
+
+    #[test]
     fn loc_10792_first_clock_prize_spawn_emits_startsequence_clock_prize() {
         // ASM PrizeClock_Init loc_10792 (kid.asm:21996-22005): the first active
         // clock plays the looping sfx_Clock_prize; the start fires on the

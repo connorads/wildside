@@ -200,7 +200,6 @@ pub(crate) struct PrizeContinueCountdownLoc1080A {
     pub(crate) should_swap_animation: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeContinueDeleteLoc10838 {
     pub(crate) sound_effect_id: u8,
@@ -686,7 +685,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_continue_delete_loc_10838() -> PrizeContinueDeleteLoc10838 {
         // ASM loc_10838 (kid.asm:22062): preserve `d0`, call `j_PlaySound`
         // with `#$6A`, restore `d0`, then jump straight to
@@ -4680,6 +4678,7 @@ impl NativeRuntime {
                 f.y_velocity = 0;
             }
         }
+        let mut continue_delete_sound_count = 0usize;
         self.floating_items.retain(|f| {
             let integer_y = f.y_pos >> 16;
             // ASM loc_10430 (kid.asm:21678): after the shared tail at
@@ -4719,10 +4718,28 @@ impl NativeRuntime {
                 true
             } else if f.content == terrain::PrizeContent::Micromax {
                 !Self::floating_micromax_delete_exit_loc_106CC()
+            } else if f.content == terrain::PrizeContent::Continue {
+                let delete = Self::prize_continue_delete_loc_10838();
+                debug_assert!(delete.preserves_d0_across_sound_call);
+                debug_assert_eq!(
+                    delete.sound_effect_id,
+                    QueuedSoundEffect::ContinuePrizeDelete.sound_id()
+                );
+                if delete.should_delete_current_object {
+                    continue_delete_sound_count += 1;
+                    false
+                } else {
+                    true
+                }
             } else {
                 false
             }
         });
+        for _ in 0..continue_delete_sound_count {
+            // ASM loc_10838 (kid.asm:22062-22067): Continue prize object
+            // cleanup plays raw sequence `$6A` before Delete_CurrentObject.
+            self.queue_start_sequence(QueuedSoundEffect::ContinuePrizeDelete);
+        }
         // #342: every clock-deleting `floating_items` removal above routes
         // through loc_107E0; stop the looping sfx_Clock_prize once the last
         // falling clock object is gone.

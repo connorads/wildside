@@ -76,6 +76,7 @@ pub(crate) enum QueuedSoundEffect {
     AnkhPrize,
     ClockPrize,
     CoinPrize,
+    ContinuePrizeDelete,
     Teleport,
     LavaGeyser,
     DripsDripping,
@@ -189,6 +190,10 @@ impl QueuedSoundEffect {
             // `Number_Continues` and plays `sfx_Coin_prize = $2C` when the Kid
             // collects a Continue prize object.
             Self::CoinPrize => 0x2C,
+            // ASM PrizeContinue_Init loc_10838 (kid.asm:22062): every Continue
+            // prize object delete exit calls `j_PlaySound` with raw id `$6A`
+            // before jumping to `Delete_CurrentObject`.
+            Self::ContinuePrizeDelete => 0x6A,
             // ASM Teleport (kid.asm:14775-14779) plays `sfx_Teleport = $76`
             // only when the caller passes d6=-5; teleporter blocks do so at
             // loc_BCF6.
