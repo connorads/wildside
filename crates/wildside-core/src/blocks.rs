@@ -3495,10 +3495,21 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    pub(crate) fn lift_block_bob_deltas_sub_FB3E() -> &'static [i16] {
+    pub(crate) fn lift_block_bob_frame_count_sub_FB3E() -> usize {
         // ASM sub_FB3E (kid.asm:20905): before the lift platform spawns, the
         // block bobs in three hibernating up/down passes: 6, 5, then 4/5
         // frames at 2px per frame.
+        debug_assert_eq!(
+            Self::lift_block_bob_deltas_sub_FB3E().len(),
+            Self::lift_block_bob_pass_frame_count_sub_FB3E()
+        );
+        Self::lift_block_bob_deltas_sub_FB3E().len()
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn lift_block_bob_deltas_sub_FB3E() -> &'static [i16] {
+        // ASM sub_FB3E (kid.asm:20905): concatenation of loc_FB94, loc_FBA2,
+        // loc_FBB0, loc_FBBE, loc_FBCC, and loc_FBDA.
         &[
             -2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, 2, -2, -2, -2, -2, -2, 2, 2, 2, 2, 2, -2, -2,
             -2, -2, 2, 2, 2, 2, 2,
@@ -3506,7 +3517,38 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
+    fn lift_block_bob_pass_frame_count_sub_FB3E() -> usize {
+        Self::lift_block_bob_passes_sub_FB3E()
+            .iter()
+            .map(|pass| pass.len())
+            .sum()
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn lift_block_bob_delta_sub_FB3E(elapsed: usize) -> Option<i16> {
+        let mut remaining = elapsed;
+        for pass in Self::lift_block_bob_passes_sub_FB3E() {
+            if remaining < pass.len() {
+                return pass.get(remaining).copied();
+            }
+            remaining = remaining.saturating_sub(pass.len());
+        }
+        None
+    }
+
+    #[allow(non_snake_case)]
+    fn lift_block_bob_passes_sub_FB3E() -> [&'static [i16]; 6] {
+        [
+            Self::lift_block_bob_up_pass_loc_FB94(),
+            Self::lift_block_bob_down_pass_loc_FBA2(),
+            Self::lift_block_bob_up_pass_loc_FBB0(),
+            Self::lift_block_bob_down_pass_loc_FBBE(),
+            Self::lift_block_bob_up_pass_loc_FBCC(),
+            Self::lift_block_bob_down_pass_loc_FBDA(),
+        ]
+    }
+
+    #[allow(non_snake_case)]
     pub(crate) fn lift_block_bob_up_pass_loc_FB94() -> &'static [i16] {
         // ASM loc_FB94 (kid.asm:20931): `moveq #5,d0` makes the DBF loop run
         // six times, subtracting 2px from the linked gfx object's y position
@@ -3515,7 +3557,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_bob_down_pass_loc_FBA2() -> &'static [i16] {
         // ASM loc_FBA2 (kid.asm:20937): `moveq #5,d1` makes the DBF loop run
         // six times, adding 2px to the linked gfx object's y position before
@@ -3524,7 +3565,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_bob_up_pass_loc_FBB0() -> &'static [i16] {
         // ASM loc_FBB0 (kid.asm:20943): `moveq #4,d0` makes the DBF loop run
         // five times, subtracting 2px from the linked gfx object's y position
@@ -3533,7 +3573,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_bob_down_pass_loc_FBBE() -> &'static [i16] {
         // ASM loc_FBBE (kid.asm:20949): `moveq #4,d1` makes the DBF loop run
         // five times, adding 2px to the linked gfx object's y position before
@@ -3542,7 +3581,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_bob_up_pass_loc_FBCC() -> &'static [i16] {
         // ASM loc_FBCC (kid.asm:20955): `moveq #3,d0` makes the DBF loop run
         // four times, subtracting 2px from the linked gfx object's y position
@@ -3551,7 +3589,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_bob_down_pass_loc_FBDA() -> &'static [i16] {
         // ASM loc_FBDA (kid.asm:20961): `moveq #4,d1` makes the DBF loop run
         // five times, adding 2px to the linked gfx object's y position before
@@ -3770,8 +3807,8 @@ impl NativeRuntime {
             self.block_bounces.push(BlockBounceAnim {
                 cell_x: headbutt_worker.gfx_x_pos >> 4,
                 cell_y: headbutt_worker.gfx_y_pos >> 4,
-                remaining: Self::lift_block_bob_deltas_sub_FB3E().len() as u8,
-                initial_duration: Self::lift_block_bob_deltas_sub_FB3E().len() as u8,
+                remaining: Self::lift_block_bob_frame_count_sub_FB3E() as u8,
+                initial_duration: Self::lift_block_bob_frame_count_sub_FB3E() as u8,
                 kind: BlockBounceKind::Lift,
                 prize_content: None,
                 metal_direction: 0,
@@ -4413,11 +4450,12 @@ impl NativeRuntime {
                 } else {
                     None
                 }
+            } else if b.kind == BlockBounceKind::Lift {
+                Self::lift_block_bob_delta_sub_FB3E(usize::from(elapsed))
             } else {
                 let delta_table: &[i16] = match b.kind {
                     BlockBounceKind::HiddenReveal => &HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0,
                     BlockBounceKind::Prize => Self::prize_block_wobble_y_deltas_sub_1007A(),
-                    BlockBounceKind::Lift => Self::lift_block_bob_deltas_sub_FB3E(),
                     BlockBounceKind::Metal => {
                         if b.metal_direction == Self::BLOCK_DESTROY_DIRECTION_BELOW {
                             &METAL_BLOCK_BOUNCE_Y_DELTAS_LOC_1117A
@@ -4427,6 +4465,9 @@ impl NativeRuntime {
                     }
                     BlockBounceKind::Shifting => {
                         unreachable!("shifting block rise uses loc_113F4 step model")
+                    }
+                    BlockBounceKind::Lift => {
+                        unreachable!("lift block bob uses sub_FB3E pass model")
                     }
                 };
                 delta_table.get(usize::from(elapsed)).copied()
