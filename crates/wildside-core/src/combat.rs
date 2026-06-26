@@ -7524,7 +7524,6 @@ const HEADY_METAL_PALETTE_WAVE_SUB_379E8: [u16; 32] = [
 ];
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_palette_cycle_sub_379E8(
     phase_counter: u16,
 ) -> HeadyMetalPaletteCycleSub379E8 {
