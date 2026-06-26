@@ -5170,6 +5170,13 @@ fn mini_hopping_skull_facing_from_x_direction(x_direction: u8) -> Direction {
     }
 }
 
+fn mini_hopping_skull_x_direction_from_facing(facing: Direction) -> u8 {
+    match facing {
+        Direction::Left => 0x00,
+        Direction::Right => 0xFF,
+    }
+}
+
 pub(crate) fn mini_hopping_skull_air_damage_setup_loc_3f1e6(
     hit_counter: u16,
     x_velocity: i32,
@@ -5356,6 +5363,8 @@ pub(crate) fn step_hopper(
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
     if enemy.on_ground {
+        let mut mini_skull_relaunched = false;
+
         if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
             if enemy.grounded_frames > 0 {
                 enemy.grounded_frames -= 1;
@@ -5366,55 +5375,125 @@ pub(crate) fn step_hopper(
             if enemy.wait_timer & MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E != 0 {
                 let pause_frames =
                     enemy.wait_timer & !MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E;
-                if pause_frames > 0 {
-                    enemy.wait_timer =
-                        MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E | (pause_frames - 1);
-                    enemy.x_velocity = 0;
-                    return;
+                let tail = mini_hopping_skull_facing_matched_pause_tail_loc_3f112(
+                    pause_frames,
+                    mini_hopping_skull_x_direction_from_facing(enemy.facing),
+                    enemy.hit_points > 1,
+                );
+
+                match tail {
+                    MiniHoppingSkullFacingMatchedPauseTail::ContinueWait { next_dbf_counter } => {
+                        // ASM Mini_Hopping_Skull.asm loc_3F112: active DBF
+                        // counts return to the matched-facing pause collision loop.
+                        enemy.wait_timer =
+                            MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E | next_dbf_counter;
+                        enemy.x_velocity = 0;
+                        return;
+                    }
+                    MiniHoppingSkullFacingMatchedPauseTail::BeginRelaunchArc {
+                        y_velocity,
+                        x_velocity,
+                        sprite,
+                        is_moved,
+                        has_level_collision,
+                        next_loop,
+                    } => {
+                        // ASM Mini_Hopping_Skull.asm loc_3F112 -> loc_3F146:
+                        // expired matched-facing pause seeds the airborne
+                        // relaunch and resumes the loc_3EA88 loop.
+                        debug_assert_eq!(sprite, "LnkTo_unk_C8080");
+                        debug_assert!(is_moved);
+                        debug_assert!(has_level_collision);
+                        debug_assert_eq!(next_loop, "loc_3EA88");
+                        enemy.wait_timer = 0;
+                        enemy.x_velocity = x_velocity;
+                        enemy.y_velocity = y_velocity;
+                        enemy.on_ground = false;
+                        mini_skull_relaunched = true;
+                    }
                 }
-                enemy.wait_timer = 0;
-            } else if let Some(facing) = player_relative_direction(enemy.x_pos, player_x_pos) {
-                // ASM Mini_Hopping_Skull.asm loc_3F074/loc_3F090: after the
-                // stopped wait expires, a facing mismatch flips x_direction
-                // and restarts loc_3F000 before the matched-facing pause can
-                // seed loc_3F09E's `$A` counter.
-                if facing != enemy.facing {
-                    enemy.facing = facing;
-                    enemy.grounded_frames = MINI_SKULL_GROUND_DELAY_FRAMES;
-                    enemy.x_velocity = 0;
-                    return;
+            } else if let Some(kid_x_pos) = player_x_pos {
+                let tail = mini_hopping_skull_stopped_wait_tail_loc_3f090(
+                    0,
+                    (kid_x_pos >> 16) as u16,
+                    (enemy.x_pos >> 16) as u16,
+                    mini_hopping_skull_x_direction_from_facing(enemy.facing),
+                );
+
+                match tail {
+                    MiniHoppingSkullStoppedWaitTail::ContinueWait { next_dbf_counter } => {
+                        debug_assert_ne!(next_dbf_counter, 0xFFFF);
+                        enemy.grounded_frames = next_dbf_counter.saturating_add(1) as u8;
+                        enemy.x_velocity = 0;
+                        return;
+                    }
+                    MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingLeft {
+                        x_direction,
+                        dbf_counter,
+                        wait_frames,
+                    }
+                    | MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingRight {
+                        x_direction,
+                        dbf_counter,
+                        wait_frames,
+                    } => {
+                        // ASM Mini_Hopping_Skull.asm loc_3F074/loc_3F090:
+                        // a facing mismatch restarts loc_3F000 with d1=$14.
+                        debug_assert_eq!(dbf_counter, 0x0014);
+                        enemy.facing = mini_hopping_skull_facing_from_x_direction(x_direction);
+                        enemy.grounded_frames = wait_frames;
+                        enemy.wait_timer = 0;
+                        enemy.x_velocity = 0;
+                        return;
+                    }
+                    MiniHoppingSkullStoppedWaitTail::BeginFacingMatchedPause {
+                        sprite,
+                        dbf_counter,
+                        wait_frames,
+                    } => {
+                        // ASM Mini_Hopping_Skull.asm loc_3F09E seeds the
+                        // matched-facing pause loop with d1=$A.
+                        debug_assert_eq!(sprite, "LnkTo_unk_C8078");
+                        debug_assert_eq!(dbf_counter, 0x000A);
+                        debug_assert_eq!(
+                            u16::from(wait_frames),
+                            MINI_SKULL_FACING_MATCHED_PAUSE_FRAMES_LOC_3F09E
+                        );
+                        enemy.wait_timer = MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E
+                            | u16::from(wait_frames);
+                        enemy.x_velocity = 0;
+                        return;
+                    }
                 }
-                enemy.wait_timer = MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E
-                    | MINI_SKULL_FACING_MATCHED_PAUSE_FRAMES_LOC_3F09E;
-                enemy.x_velocity = 0;
-                return;
             }
         }
 
-        let mut facing =
-            player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
-        let reverse_at_platform_edge = !matches!(enemy.family, EnemyFamily::MiniHoppingSkull);
-        if hopper_should_reverse(facing, grid, cx, cy, reverse_at_platform_edge) {
-            facing = opposite_direction(facing);
+        if !mini_skull_relaunched {
+            let mut facing =
+                player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
+            let reverse_at_platform_edge = !matches!(enemy.family, EnemyFamily::MiniHoppingSkull);
+            if hopper_should_reverse(facing, grid, cx, cy, reverse_at_platform_edge) {
+                facing = opposite_direction(facing);
+            }
+            enemy.facing = facing;
+            if enemy.grounded_frames > 0 {
+                enemy.grounded_frames -= 1;
+                enemy.x_velocity = 0;
+                return;
+            }
+            let mut jx = hc.jump_x_speed;
+            let mut jy = hc.jump_y_speed;
+            // ASM Mini_Hopping_Skull.asm loc_3EBFC/loc_3ED36/loc_3EE7C/loc_3EFB6:
+            // enemy_level >= 1 (HP > 1) adds `$4000` to X speed and `$10000` extra
+            // upward Y speed for either facing.
+            if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && enemy.hit_points > 1 {
+                jx += 0x4000;
+                jy -= 0x1_0000;
+            }
+            enemy.x_velocity = horizontal_velocity(enemy.facing, jx);
+            enemy.y_velocity = jy;
+            enemy.on_ground = false;
         }
-        enemy.facing = facing;
-        if enemy.grounded_frames > 0 {
-            enemy.grounded_frames -= 1;
-            enemy.x_velocity = 0;
-            return;
-        }
-        let mut jx = hc.jump_x_speed;
-        let mut jy = hc.jump_y_speed;
-        // ASM Mini_Hopping_Skull.asm loc_3EBFC/loc_3ED36/loc_3EE7C/loc_3EFB6:
-        // enemy_level >= 1 (HP > 1) adds `$4000` to X speed and `$10000` extra
-        // upward Y speed for either facing.
-        if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && enemy.hit_points > 1 {
-            jx += 0x4000;
-            jy -= 0x1_0000;
-        }
-        enemy.x_velocity = horizontal_velocity(enemy.facing, jx);
-        enemy.y_velocity = jy;
-        enemy.on_ground = false;
     }
 
     // ASM Mini_Hopping_Skull.asm loc_3EA88: after the hibernated frame and

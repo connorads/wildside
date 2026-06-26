@@ -77,7 +77,6 @@ pub(crate) struct MiniHoppingSkullStoppedWaitSetup {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullFacingMatchedPauseSetup {
     pub(crate) sprite: &'static str,
     pub(crate) dbf_counter: u16,
@@ -85,7 +84,6 @@ pub(crate) struct MiniHoppingSkullFacingMatchedPauseSetup {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullFacingMatchedPauseTail {
     ContinueWait {
         next_dbf_counter: u16,
@@ -101,7 +99,6 @@ pub(crate) enum MiniHoppingSkullFacingMatchedPauseTail {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullStoppedWaitTail {
     ContinueWait {
         next_dbf_counter: u16,
@@ -1106,7 +1103,6 @@ pub(crate) fn mini_hopping_skull_stopped_wait_scream_worker_allocation_loc_3f03c
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_facing_matched_pause_setup_loc_3f09e()
 -> MiniHoppingSkullFacingMatchedPauseSetup {
     // ASM Mini_Hopping_Skull.asm loc_3F09E: once the stopped-wait tail finds
@@ -1339,7 +1335,6 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_scream_worker_allocation_l
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_facing_matched_pause_tail_loc_3f112(
     dbf_counter: u16,
     x_direction: u8,
@@ -1378,7 +1373,6 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_tail_loc_3f112(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_stopped_wait_tail_loc_3f090(
     dbf_counter: u16,
     kid_x_word: u16,
