@@ -25,13 +25,11 @@ pub(crate) fn big_hopping_skull_startup_loc_3652e() -> BigHoppingSkullStartupLoc
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullLevelHeightRouteLoc3656C {
     ReturnLoc3657C,
     DeleteCurrentObject,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_level_height_gate_loc_3656c(
     y_pos_word: i16,
     level_height_pixels: i16,
@@ -335,7 +333,6 @@ pub(crate) fn big_hopping_skull_delete_tail_loc_366b2() -> BigHoppingSkullDelete
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum BigHoppingSkullRelaunchRouteLoc366B6 {
     DeleteCurrentObject,
     ReturnToContactWait,
@@ -343,7 +340,6 @@ pub(crate) enum BigHoppingSkullRelaunchRouteLoc366B6 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullRelaunchEntryLoc366B6 {
     pub(crate) checks_level_height: bool,
     pub(crate) animation: Option<&'static str>,
@@ -353,7 +349,6 @@ pub(crate) struct BigHoppingSkullRelaunchEntryLoc366B6 {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct BigHoppingSkullRelaunchInputLoc366B6 {
     pub(crate) y_pos_word: i16,
     pub(crate) level_height_pixels: i16,
@@ -366,7 +361,6 @@ pub(crate) struct BigHoppingSkullRelaunchInputLoc366B6 {
     pub(crate) facing: Direction,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn big_hopping_skull_relaunch_entry_loc_366b6(
     input: BigHoppingSkullRelaunchInputLoc366B6,
 ) -> BigHoppingSkullRelaunchEntryLoc366B6 {
@@ -541,19 +535,44 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
     if enemy.wait_timer > 0 {
         enemy.wait_timer = enemy.wait_timer.saturating_sub(1);
         if enemy.wait_timer == 0 {
+            let relaunch =
+                big_hopping_skull_relaunch_entry_loc_366b6(BigHoppingSkullRelaunchInputLoc366B6 {
+                    y_pos_word: (enemy.y_pos >> 16) as i16,
+                    level_height_pixels: i16::MAX,
+                    animation_finished: true,
+                    saved_x_velocity: enemy.target_x_velocity,
+                    current_y_velocity: enemy.y_velocity,
+                    x_pos_word: (enemy.x_pos >> 16) as i16,
+                    left_bound_word,
+                    right_bound_word,
+                    facing: enemy.facing,
+                });
+            debug_assert!(relaunch.checks_level_height);
+            debug_assert_eq!(relaunch.animation, Some("stru_367B4"));
+            debug_assert!(relaunch.hibernates_until_animation_finished);
+            debug_assert!(relaunch.has_level_collision);
+            let corrected = match relaunch.route {
+                BigHoppingSkullRelaunchRouteLoc366B6::Relaunch(corrected) => corrected,
+                BigHoppingSkullRelaunchRouteLoc366B6::DeleteCurrentObject
+                | BigHoppingSkullRelaunchRouteLoc366B6::ReturnToContactWait => {
+                    debug_assert!(
+                        false,
+                        "native Big Hopping Skull wait_timer reaches only ASM loc_366B6's animation-finished relaunch path",
+                    );
+                    let y_velocity = write_velocity_high_word(enemy.y_velocity, -2);
+                    big_hopping_skull_bounds_correction_loc_36770(
+                        (enemy.x_pos >> 16) as i16,
+                        left_bound_word,
+                        right_bound_word,
+                        enemy.target_x_velocity,
+                        y_velocity,
+                        enemy.facing,
+                    )
+                }
+            };
             // ASM Big_Hopping_Skull.asm loc_366D0: after the loc_36580 floor
             // contact and loc_366B6 relaunch animations, restore saved d0 into
-            // x_vel and write only y_vel's high word to $FFFE.
-            enemy.x_velocity = enemy.target_x_velocity;
-            enemy.y_velocity = write_velocity_high_word(enemy.y_velocity, -2);
-            let corrected = big_hopping_skull_bounds_correction_loc_36770(
-                (enemy.x_pos >> 16) as i16,
-                left_bound_word,
-                right_bound_word,
-                enemy.x_velocity,
-                enemy.y_velocity,
-                enemy.facing,
-            );
+            // x_vel and write only y_vel's high word to $FFFE before loc_36770.
             enemy.x_velocity = corrected.x_velocity;
             enemy.y_velocity = corrected.y_velocity;
             enemy.facing = corrected.facing;
