@@ -1937,6 +1937,12 @@ impl ActiveEnemy {
             }
         }
         if matches!(self.family, EnemyFamily::Armadillo) {
+            match armadillo_collision_dispatch_loc_3c824(ARMADILLO_COLID_HURT) {
+                ArmadilloCollisionRouteLoc3C824::Damage => {}
+                ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker
+                | ArmadilloCollisionRouteLoc3C824::BerzerkerSideGate => return false,
+                ArmadilloCollisionRouteLoc3C824::Death => return true,
+            }
             let saved_walk_speed = if self.walk_speed_override != 0 {
                 self.walk_speed_override
             } else {
@@ -2069,6 +2075,12 @@ impl ActiveEnemy {
             return false;
         }
         if matches!(self.family, EnemyFamily::Armadillo) {
+            match armadillo_collision_dispatch_loc_3c824(ARMADILLO_COLID_KIDABOVE) {
+                ArmadilloCollisionRouteLoc3C824::Damage => {}
+                ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker
+                | ArmadilloCollisionRouteLoc3C824::BerzerkerSideGate => return false,
+                ArmadilloCollisionRouteLoc3C824::Death => return true,
+            }
             let saved_walk_speed = if self.walk_speed_override != 0 {
                 self.walk_speed_override
             } else {

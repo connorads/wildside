@@ -1,13 +1,9 @@
 use super::*;
 
 pub(crate) const ARMADILLO_COLID_FLOOR: i16 = colid::FLOOR as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_HURT: i16 = colid::HURT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const ARMADILLO_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,7 +66,6 @@ pub(crate) fn armadillo_object_meta_sync_loc_3c810(object_meta: u16) -> u16 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArmadilloCollisionRouteLoc3C824 {
     ContinueSharedWalker,
     Damage,
@@ -78,7 +73,6 @@ pub(crate) enum ArmadilloCollisionRouteLoc3C824 {
     Death,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_collision_dispatch_loc_3c824(
     collision_type: i16,
 ) -> ArmadilloCollisionRouteLoc3C824 {
