@@ -919,21 +919,31 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         parent.wait_timer,
         0x80,
     );
+    let child_init = dragon_walking_child_init_loc_3cd16(
+        u32::from(sequence.child_x_word) << 16,
+        u32::from(sequence.child_y_word) << 16,
+        sequence.child_facing,
+        sequence.child_state_word_4a,
+    );
+    debug_assert_eq!(
+        child_init.inherited_state_word,
+        sequence.child_state_word_4a
+    );
     let family = EnemyFamily::DragonWalking;
     ActiveEnemy {
         segment_index: parent.segment_index,
         layout_index: parent.layout_index,
         enemy_level: 0,
         family,
-        x_pos: u32::from(sequence.child_x_word) << 16,
-        y_pos: u32::from(sequence.child_y_word) << 16,
+        x_pos: child_init.x_pos,
+        y_pos: child_init.y_pos,
         x_velocity: 0,
         y_velocity: 0,
         target_x_velocity: 0,
         target_y_velocity: 0,
         x_acceleration: 0,
         y_acceleration: 0,
-        facing: sequence.child_facing,
+        facing: child_init.facing,
         on_ground: true,
         hit_points: spawn_hit_points(family, 0),
         death_animation_active: false,
@@ -944,7 +954,11 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         wait_timer: DRAGON_WALKING_BREATH_INITIAL,
         dragon_phase: DragonFlyingState::None,
         dragon_phase_frames: 0,
-        dragon_script_variant: DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG,
+        dragon_script_variant: if child_init.parent_spawned_child {
+            DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG
+        } else {
+            0
+        },
         dragon_script_cmd: 0,
         dragon_anchor_y: 0,
         dragon_descent_index: 0,
@@ -981,7 +995,7 @@ pub(crate) fn dragon_flying_death_child_loc_3492C(parent: &ActiveEnemy) -> Activ
         shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
         shared_walker_turnaround_counter: 0,
         shared_walker_right_turn_extra_step_consumed:
-            spawn_shared_walker_right_turn_extra_step_consumed(family, sequence.child_facing),
+            spawn_shared_walker_right_turn_extra_step_consumed(family, child_init.facing),
         shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
         shared_walker_debug_branch: None,
         shared_walker_dx_to_kid_px: None,

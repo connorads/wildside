@@ -1,7 +1,6 @@
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DragonWalkingChildInitLoc3CD16 {
     pub(crate) x_pos: u32,
     pub(crate) y_pos: u32,
@@ -10,7 +9,6 @@ pub(crate) struct DragonWalkingChildInitLoc3CD16 {
     pub(crate) parent_spawned_child: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn dragon_walking_child_init_loc_3cd16(
     parent_x_pos: u32,
     parent_y_pos: u32,
