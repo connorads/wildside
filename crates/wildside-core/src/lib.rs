@@ -4319,9 +4319,21 @@ impl NativeRuntime {
             // PRIZE_BLOCK_WOBBLE_Y_DELTAS_SUB_1007A. The engine computes the
             // cumulative y_offset each frame and the renderer applies it to
             // the block draw, replacing the earlier 8-frame placeholder arc.
+            let layout_word_addr = self.block_grid.as_ref().map_or(0, |grid| {
+                u32::from(terrain::BlockList::level_layout_low_word_addr(
+                    prize_clear.col,
+                    prize_clear.row,
+                    grid.width_cells,
+                ))
+            });
+            let headbutt_worker = Self::prize_block_headbutt_worker_loc_1002E(
+                prize_clear.col,
+                prize_clear.row,
+                layout_word_addr,
+            );
             self.block_bounces.push(BlockBounceAnim {
-                cell_x: prize_clear.col,
-                cell_y: prize_clear.row,
+                cell_x: headbutt_worker.gfx_x_pos >> 4,
+                cell_y: headbutt_worker.gfx_y_pos >> 4,
                 remaining: 31,
                 initial_duration: 31,
                 kind: BlockBounceKind::Prize,

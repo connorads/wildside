@@ -7,7 +7,6 @@ use crate::combat::{
 pub(crate) const HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0: [i16; 8] =
     [-2, -2, -2, -2, 2, 2, 2, 2];
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeBlockHeadbuttWorkerLoc1002E {
     pub(crate) sound_effect_label: &'static str,
@@ -20,7 +19,6 @@ pub(crate) struct PrizeBlockHeadbuttWorkerLoc1002E {
     pub(crate) gfx_y_pos: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LiftBlockHeadbuttWorkerLocFAFE {
     pub(crate) allocation_spec: u16,
@@ -1429,13 +1427,26 @@ impl NativeRuntime {
             // a prize object from an unmatched block-like tile.
             return None;
         };
+        let headbutt_worker = Self::prize_block_headbutt_worker_loc_1002E(
+            block_col,
+            block_row,
+            u32::from(terrain::BlockList::level_layout_low_word_addr(
+                block_col,
+                block_row,
+                grid.width_cells,
+            )),
+        );
         // ASM loc_1002E/sub_1007A (kid.asm:21317,21345): prize block impacts
         // write only the high byte `$6F`, preserving the original skin byte,
         // then the worker restores the prize cell before writing `$E001`.
-        grid.set_raw_word_at(block_col, block_row, 0x6F00 | u16::from(restore_cell.skin));
+        grid.set_raw_word_at(
+            headbutt_worker.block_col,
+            headbutt_worker.block_row,
+            0x6F00 | u16::from(restore_cell.skin),
+        );
         deferred_ceiling_clears.push(DeferredCeilingClear {
-            col: block_col,
-            row: block_row,
+            col: headbutt_worker.block_col,
+            row: headbutt_worker.block_row,
             content,
             restore_cell,
             reveal_only: false,
@@ -1443,8 +1454,8 @@ impl NativeRuntime {
             phase: DeferredPrizeBlockPhase::Deleted,
         });
         block_bounces.push(BlockBounceAnim {
-            cell_x: block_col,
-            cell_y: block_row,
+            cell_x: headbutt_worker.gfx_x_pos >> 4,
+            cell_y: headbutt_worker.gfx_y_pos >> 4,
             remaining: 31,
             initial_duration: 31,
             kind: BlockBounceKind::Prize,
@@ -1456,7 +1467,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn lift_block_headbutt_worker_loc_FAFE(
         block_col: u16,
         block_row: u16,
@@ -1477,7 +1487,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_block_headbutt_worker_loc_1002E(
         block_col: u16,
         block_row: u16,
@@ -3751,9 +3760,18 @@ impl NativeRuntime {
         if let Some((x_px, y_px)) = slice.lift_block_hit {
             let col = x_px / 16;
             let row = y_px / 16;
+            let layout_word_addr = self.block_grid.as_ref().map_or(0, |grid| {
+                u32::from(terrain::BlockList::level_layout_low_word_addr(
+                    col,
+                    row,
+                    grid.width_cells,
+                ))
+            });
+            let headbutt_worker =
+                Self::lift_block_headbutt_worker_loc_FAFE(col, row, layout_word_addr);
             self.block_bounces.push(BlockBounceAnim {
-                cell_x: col,
-                cell_y: row,
+                cell_x: headbutt_worker.gfx_x_pos >> 4,
+                cell_y: headbutt_worker.gfx_y_pos >> 4,
                 remaining: Self::lift_block_bob_deltas_sub_FB3E().len() as u8,
                 initial_duration: Self::lift_block_bob_deltas_sub_FB3E().len() as u8,
                 kind: BlockBounceKind::Lift,
