@@ -574,7 +574,6 @@ pub(crate) fn hand_release_loc_32970() -> HandReleaseLoc32970 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct HandInitLoc327B6 {
     pub(crate) status_flag_13: bool,
     pub(crate) is_moved: bool,
@@ -586,7 +585,6 @@ pub(crate) struct HandInitLoc327B6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hand_init_loc_327b6() -> HandInitLoc327B6 {
     // ASM Hand.asm loc_327B6: `st $13/is_moved/has_level_collision`,
     // `sf x_direction/$19`, low priority, and object_meta `$17`.

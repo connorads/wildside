@@ -7559,7 +7559,20 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
     match family {
         // ASM Hand.asm loc_327B6 clears x_direction; loc_3284C's clear-flag
         // branch detects Kid only on the left side.
-        EnemyFamily::Hand => Direction::Left,
+        EnemyFamily::Hand => {
+            let init = hand_init_loc_327b6();
+            debug_assert!(init.status_flag_13);
+            debug_assert!(init.is_moved);
+            debug_assert!(!init.motion_flag_19);
+            debug_assert!(init.has_level_collision);
+            debug_assert_eq!(init.priority, 0);
+            debug_assert_eq!(init.object_meta, 0x0017);
+            if init.x_direction_flag {
+                Direction::Right
+            } else {
+                Direction::Left
+            }
+        }
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
         // ASM Armadillo.asm loc_3C718, Goat.asm loc_3CA30, Dragon.asm loc_3CD70,
