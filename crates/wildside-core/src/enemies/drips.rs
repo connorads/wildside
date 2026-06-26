@@ -153,7 +153,6 @@ pub(crate) fn drips_enter_splash_animation_loc_33488(
         drips_splash_animation_timer_loc_33488(DRIPS_SPLASH_ANIMATION_FRAMES_LOC_33488);
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_table_reset_loc_33506() -> (usize, u16) {
     // ASM Drips.asm loc_33506: when `off_33520` reaches its negative sentinel,
     // reload `a0` from the start of the table and clear `d7` before the surface

@@ -33,13 +33,14 @@ use crate::enemies::{
     drips_surface_crawler_turn_script_loc_33946, drips_surface_crawler_turn_script_loc_33950,
     drips_surface_crawler_turn_script_loc_33964, drips_surface_crawler_turn_script_loc_33978,
     drips_surface_crawler_turn_script_loc_33982, drips_surface_crawler_turn_script_loc_33996,
-    drips_velocity_apply_loc_33546, drips_vertical_bounds_contact_flag_loc_335b0,
-    drips_wait_timer_loc_3340e, fire_demon_fire_trail_delete_tail_loc_3a6da,
-    fire_demon_fire_trail_wait_loop_tick_loc_3a6ca, fireball_obstacle_trail_delete_tail_loc_331ca,
-    fireball_obstacle_trail_loop_step_loc_331ba, fireball_trail_delete_tail_loc_33120,
-    fireball_trail_loop_step_loc_33110, robot_shot_flight_loop_loc_3ac48,
-    robot_shot_impact_prep_loc_3ac7e, spawn_tar_monster_retaliation,
-    tank_bullet_loop_route_loc_3b7ba, tar_monster_projectile_collision_loc_32682,
+    drips_surface_table_reset_loc_33506, drips_velocity_apply_loc_33546,
+    drips_vertical_bounds_contact_flag_loc_335b0, drips_wait_timer_loc_3340e,
+    fire_demon_fire_trail_delete_tail_loc_3a6da, fire_demon_fire_trail_wait_loop_tick_loc_3a6ca,
+    fireball_obstacle_trail_delete_tail_loc_331ca, fireball_obstacle_trail_loop_step_loc_331ba,
+    fireball_trail_delete_tail_loc_33120, fireball_trail_loop_step_loc_33110,
+    robot_shot_flight_loop_loc_3ac48, robot_shot_impact_prep_loc_3ac7e,
+    spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
+    tar_monster_projectile_collision_loc_32682,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC, ufo_beam_child_gravity_gate_loc_3555a,
@@ -2467,7 +2468,9 @@ impl NativeRuntime {
                 // ASM Drips.asm loc_33488 reaches the negative `off_33520`
                 // sentinel, then loc_33506 resets the cursor before
                 // returning to loc_3340E.
-                enemy.drips_surface_table_index = 0;
+                let (table_start_index, _selected_sprite_offset) =
+                    drips_surface_table_reset_loc_33506();
+                enemy.drips_surface_table_index = table_start_index as u8;
                 true
             };
             // ASM Drips.asm loc_33488 allocates the loc_335D8 child object,
