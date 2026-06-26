@@ -493,7 +493,6 @@ pub(crate) fn enemy_death_burst_loop_gate_loc_37054(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn enemy_death_burst_cleanup_loc_370C2() -> EnemyDeathBurstCleanupLoc370C2 {
     // ASM loc_370C2 (kid.asm:38961): clear `collision_type(a3)`,
     // `x_vel(a3)`, and `y_vel(a3)`, then jump to `j_Delete_CurrentObject`.

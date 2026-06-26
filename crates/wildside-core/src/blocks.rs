@@ -1,6 +1,7 @@
 use super::*;
 use crate::combat::{
-    CollisionRectSub1F52, heady_metal_cleanup_sub_378C8, support_overlap_detected_sub_1F52,
+    CollisionRectSub1F52, enemy_death_burst_cleanup_loc_370C2, heady_metal_cleanup_sub_378C8,
+    support_overlap_detected_sub_1F52,
 };
 
 pub(crate) const HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0: [i16; 8] =
@@ -4779,7 +4780,20 @@ impl NativeRuntime {
                 e.remaining = e.remaining.saturating_sub(1);
             }
         }
-        self.enemy_death_effects.retain(|e| e.remaining > 0);
+        self.enemy_death_effects.retain(|e| {
+            if e.remaining > 0 {
+                return true;
+            }
+            if e.heady_metal_split.is_some() {
+                return false;
+            }
+
+            let cleanup = enemy_death_burst_cleanup_loc_370C2();
+            debug_assert_eq!(cleanup.collision_type, 0);
+            debug_assert_eq!(cleanup.x_velocity, 0);
+            debug_assert_eq!(cleanup.y_velocity, 0);
+            !cleanup.delete_current_object
+        });
 
         // ASM loc_10434 (kid.asm:21683) is the `bra.s loc_10434` padding trap
         // immediately after the `OneTimePrize_CheckCollected` function chunk.
