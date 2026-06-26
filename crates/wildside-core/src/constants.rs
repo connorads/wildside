@@ -745,10 +745,6 @@ pub(crate) const RED_STEALTH_STARTUP_FRAMES: u8 = 8;
 pub(crate) const RED_STEALTH_ACTIVE_FRAMES: u8 = 4;
 pub(crate) const RED_STEALTH_REACH_X: i32 = 28;
 pub(crate) const RED_STEALTH_OFFSET_Y: i32 = -10;
-/// ASM sub_868E uses `LnkTo1_NULL`; `CollisionSize_Index` maps that to
-/// `unk_31D84`: left=-6, width=12, top=-8, height=16.
-pub(crate) const RED_STEALTH_HIT_HALF_WIDTH: i32 = 6;
-pub(crate) const RED_STEALTH_HIT_HALF_HEIGHT: i32 = 8;
 // === Maniaxe ===
 
 /// Maniaxe thrown axe: travels 12 frames outward at ±5 px/frame then

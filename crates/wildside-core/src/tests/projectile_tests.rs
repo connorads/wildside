@@ -2858,12 +2858,17 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sword_x, sword_y) = red_stealth_swing_anchor_sub_868E(&slice.player);
+        let sword_size = red_stealth_sword_collision_size_sub_868E_loc_31D84();
+        let tank_target = test_enemy(EnemyFamily::Tank, sword_x, sword_y, 2)
+            .child_attachment_snapshot()
+            .expect("Tank sword target should be its mouth child");
+        let tank_bounds = crate::combat::enemy_contact_bounds(&tank_target);
+        let miss_above_dy = i32::from(sword_size.top_offset_px) - tank_bounds.bottom_px as i32 - 1;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Tank,
             sword_x,
-            sword_y
-                - (((RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32) as u32) << 16),
+            sword_y.wrapping_add((miss_above_dy << 16) as u32),
             2,
         ));
 
@@ -2900,9 +2905,23 @@ mod chunk_06 {
         assert_eq!(rt.helmet.red_stealth_sword_timer, 0);
     }
 
+    #[test]
+    fn red_stealth_sword_collision_size_sub_868e_uses_lnkto1_null_unk_31d84() {
+        assert_eq!(
+            red_stealth_sword_collision_size_sub_868E_loc_31D84(),
+            CollisionSizeEntrySub21F8 {
+                left_offset_px: -6,
+                width_px: 12,
+                top_offset_px: -8,
+                height_px: 16,
+            },
+            "ASM sub_868E uses LnkTo1_NULL, whose CollisionSize_Index row is unk_31D84"
+        );
+    }
+
     /// ASM sub_868E uses `LnkTo1_NULL`; `CollisionSize_Index` maps that to
-    /// `unk_31D84` with horizontal bounds -6..+6. Native keeps the horizontal
-    /// overlap inclusive at RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH.
+    /// `unk_31D84` with horizontal bounds -6..+6. Enemy bounds come from the
+    /// same loc_1D84 contact pass, so the Goat test target uses its ROM row.
     #[test]
     fn red_stealth_sword_hits_at_horizontal_extent() {
         let mut rt = NativeRuntime::new(manifest());
@@ -2910,7 +2929,11 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let max_dx = RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32;
+        let target = test_enemy(EnemyFamily::Goat, sx, sy, 2);
+        let sword_size = red_stealth_sword_collision_size_sub_868E_loc_31D84();
+        let sword_right = i32::from(sword_size.left_offset_px + sword_size.width_px);
+        let goat_left = crate::combat::enemy_contact_bounds(&target.snapshot()).left_px as i32;
+        let max_dx = sword_right - goat_left;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
@@ -2936,7 +2959,11 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let miss_dx = RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32 + 1;
+        let target = test_enemy(EnemyFamily::Goat, sx, sy, 2);
+        let sword_size = red_stealth_sword_collision_size_sub_868E_loc_31D84();
+        let sword_right = i32::from(sword_size.left_offset_px + sword_size.width_px);
+        let goat_left = crate::combat::enemy_contact_bounds(&target.snapshot()).left_px as i32;
+        let miss_dx = sword_right - goat_left + 1;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
@@ -2954,8 +2981,8 @@ mod chunk_06 {
     }
 
     /// ASM sub_868E uses `LnkTo1_NULL`; `CollisionSize_Index` maps that to
-    /// `unk_31D84` with vertical bounds -8..+8. Native keeps the vertical
-    /// overlap inclusive at RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT.
+    /// `unk_31D84` with vertical bounds -8..+8. Enemy bounds come from the
+    /// same loc_1D84 contact pass, so the Goat test target uses its ROM row.
     #[test]
     fn red_stealth_sword_hits_at_vertical_extent() {
         let mut rt = NativeRuntime::new(manifest());
@@ -2963,7 +2990,11 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let max_dy = RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32;
+        let target = test_enemy(EnemyFamily::Goat, sx, sy, 2);
+        let sword_size = red_stealth_sword_collision_size_sub_868E_loc_31D84();
+        let sword_bottom = i32::from(sword_size.top_offset_px + sword_size.height_px);
+        let goat_top = crate::combat::enemy_contact_bounds(&target.snapshot()).top_px as i32;
+        let max_dy = sword_bottom - goat_top;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,
@@ -2989,7 +3020,11 @@ mod chunk_06 {
         rt.helmet.red_stealth_sword_timer = RED_STEALTH_ACTIVE_FRAMES;
         let slice = combat_slice();
         let (sx, sy) = red_stealth_swing_anchor_sub_868E(&slice.player);
-        let miss_dy = RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32 + 1;
+        let target = test_enemy(EnemyFamily::Goat, sx, sy, 2);
+        let sword_size = red_stealth_sword_collision_size_sub_868E_loc_31D84();
+        let sword_bottom = i32::from(sword_size.top_offset_px + sword_size.height_px);
+        let goat_top = crate::combat::enemy_contact_bounds(&target.snapshot()).top_px as i32;
+        let miss_dy = sword_bottom - goat_top + 1;
 
         rt.active_enemies.push(test_enemy(
             EnemyFamily::Goat,

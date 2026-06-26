@@ -51,7 +51,8 @@ use crate::helmets::{
     RedStealthFloorImpactKindSubB000, SkycutterVisualStateSub98F2,
     iron_knight_climb_visual_sub_A3BC, juggernaut_companion_step_sub_975C,
     kid_airborne_visual_sub_B270, red_stealth_floor_impact_sub_B000,
-    red_stealth_swing_anchor_sub_868E, skycutter_visual_step_sub_98F2,
+    red_stealth_swing_anchor_sub_868E, red_stealth_sword_collision_size_sub_868E_loc_31D84,
+    skycutter_visual_step_sub_98F2,
 };
 use crate::level::{
     BONUS_DIGIT_CLEAR_BASE_LOC_C328, BONUS_DIGIT_CLEAR_ROW_COUNT_LOC_C328,

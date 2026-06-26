@@ -12597,7 +12597,6 @@ pub(crate) struct CollisionRectSub1F52 {
     pub(crate) bottom_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CollisionSizeEntrySub21F8 {
     pub(crate) left_offset_px: i16,

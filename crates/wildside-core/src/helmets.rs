@@ -1,4 +1,5 @@
 use super::*;
+use crate::combat::CollisionSizeEntrySub21F8;
 use crate::constants::SINE_TABLE_WORD_402B0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -567,6 +568,19 @@ pub(crate) fn red_stealth_swing_anchor_sub_868E(player: &PlayerState) -> (u32, u
     let y_px =
         u32::from(((player.y_pos >> 16) as u16).wrapping_add_signed(RED_STEALTH_OFFSET_Y as i16));
     (x_px << 16, y_px << 16)
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn red_stealth_sword_collision_size_sub_868E_loc_31D84() -> CollisionSizeEntrySub21F8 {
+    // ASM sub_868E (kid.asm:9536): the sword worker uses `LnkTo1_NULL`.
+    // Data_Index row `LnkTo1_NULL` maps through `CollisionSize_Index` to
+    // `unk_31D84` (kid.asm:37275): `dc.w -$6,$C,-$8,$10`.
+    CollisionSizeEntrySub21F8 {
+        left_offset_px: -6,
+        width_px: 12,
+        top_offset_px: -8,
+        height_px: 16,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5235,6 +5249,39 @@ fn friendly_projectile_overlaps_enemy_loc_1d84(
         || enemy_bottom < projectile_top)
 }
 
+fn friendly_collision_size_overlaps_enemy_loc_1d84(
+    projectile_x_px: i32,
+    projectile_y_px: i32,
+    collision_size: CollisionSizeEntrySub21F8,
+    target: &NativeObjectSnapshot,
+) -> bool {
+    let bounds = crate::combat::enemy_contact_bounds(target);
+    if bounds.left_px > bounds.right_px
+        || bounds.top_px > bounds.bottom_px
+        || collision_size.left_offset_px == 0
+    {
+        return false;
+    }
+
+    let enemy_x = (target.x_pos >> 16) as i32;
+    let enemy_y = (target.y_pos >> 16) as i32;
+    let enemy_left = enemy_x + bounds.left_px as i32;
+    let enemy_right = enemy_x + bounds.right_px as i32;
+    let enemy_top = enemy_y + bounds.top_px as i32;
+    let enemy_bottom = enemy_y + bounds.bottom_px as i32;
+
+    let projectile_left = projectile_x_px + i32::from(collision_size.left_offset_px);
+    let projectile_right = projectile_left + i32::from(collision_size.width_px);
+    let projectile_top = projectile_y_px + i32::from(collision_size.top_offset_px);
+    let projectile_bottom = projectile_top + i32::from(collision_size.height_px);
+
+    // ASM kid.asm:3600-3611 inclusive bgt/blt overlap (equality counts as touch).
+    !(enemy_left > projectile_right
+        || enemy_right < projectile_left
+        || enemy_top > projectile_bottom
+        || enemy_bottom < projectile_top)
+}
+
 fn helmet_enemy_damage_target_snapshot(enemy: &ActiveEnemy) -> Option<NativeObjectSnapshot> {
     if enemy.hit_points == 0 {
         return None;
@@ -6794,7 +6841,7 @@ impl NativeRuntime {
     ///   #Red_Stealth; tst.b (Red_Stealth_sword_swing); bne.w loc_8D72`,
     ///   init animation stru_8B3C, allocate sub_868E worker,
     ///   `st (Red_Stealth_sword_swing)`. Same gate as loc_76B0.
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn step_red_stealth_sword(&mut self, input: FrameInput) {
         self.step_red_stealth_sword_with_start_gate(input, true);
     }
@@ -6925,19 +6972,19 @@ impl NativeRuntime {
         // byte and allocates no below-foot enemy hitbox.
         let (sword_x_fp, sword_y_fp) = red_stealth_swing_anchor_sub_868E(&slice.player);
         let (sword_x, sword_y) = ((sword_x_fp >> 16) as i32, (sword_y_fp >> 16) as i32);
+        let sword_collision_size = red_stealth_sword_collision_size_sub_868E_loc_31D84();
 
         let mut kill_indices = Vec::new();
         for i in 0..self.active_enemies.len() {
             let Some(target) = helmet_enemy_damage_target_snapshot(&self.active_enemies[i]) else {
                 continue;
             };
-            let ex = (target.x_pos >> 16) as i32;
-            let ey = (target.y_pos >> 16) as i32;
-            let dx = (sword_x - ex).abs();
-            let dy = (sword_y - ey).abs();
-            if dx <= RED_STEALTH_HIT_HALF_WIDTH + ENEMY_CONTACT_HALF_WIDTH as i32
-                && dy <= RED_STEALTH_HIT_HALF_HEIGHT + ENEMY_CONTACT_HALF_HEIGHT as i32
-            {
+            if friendly_collision_size_overlaps_enemy_loc_1d84(
+                sword_x,
+                sword_y,
+                sword_collision_size,
+                &target,
+            ) {
                 let enemy = &mut self.active_enemies[i];
                 if enemy.take_colid_hurt_or_queue_death_with_effects(
                     &mut self.projectiles,
