@@ -320,6 +320,11 @@ pub struct NativeRuntime {
     /// ROM `FiveWayShotReady` byte, armed by `sub_7428` from Juggernaut
     /// player-state handlers and consumed later by `DiamondPower_Run`.
     five_way_shot_ready: bool,
+    /// ASM sub_975C (kid.asm:11286): visual-only Juggernaut companion state
+    /// for the `$FFFFF862` GFX object. Native records the step until that
+    /// companion exists as a first-class render object.
+    juggernaut_companion_state_sub_975c: helmets::JuggernautCompanionStateSub975C,
+    last_juggernaut_companion_step_sub_975c: Option<helmets::JuggernautCompanionStepSub975C>,
     /// ROM `KidIsInvulnerable` byte (`$FFFFFA2B`), set only by
     /// `DiamondPower_Init_Invulnerability loc_3FC78` and cleared by the shared
     /// Diamond Power reset tails. Damage flash uses `progression.invulnerable_frames`.
@@ -1220,6 +1225,12 @@ impl NativeRuntime {
             diamond_power_object_ram: helmets::DiamondPowerObjectRamSub3F596::default(),
             diamond_power_invuln_haze_timer: 0,
             five_way_shot_ready: false,
+            juggernaut_companion_state_sub_975c: helmets::JuggernautCompanionStateSub975C {
+                byte_15_active: false,
+                byte_18_active: false,
+                blocked_latch: false,
+            },
+            last_juggernaut_companion_step_sub_975c: None,
             kid_is_invulnerable: false,
             diamond_power_snake_head_angle: 0,
             diamond_power_snake_turn_rate: 0,
@@ -2187,6 +2198,7 @@ impl NativeRuntime {
         self.last_kid_frame_jump_gravity_probe = None;
         self.last_kid_frame_grounded_release_probe = None;
         self.last_drips_splash_reseed_probe = None;
+        self.last_juggernaut_companion_step_sub_975c = None;
         self.weather.storm_scroll_transfer_loc_30110 = None;
         self.wall_cling_boundary_trace_y_velocity = self
             .wall_cling_boundary_trace_y_velocity

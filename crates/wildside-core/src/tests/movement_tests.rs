@@ -3173,10 +3173,9 @@ mod chunk_11 {
     /// companion visual (the floating skull). The companion object ($FFFFF862)
     /// is loaded into a4 for sub_975C.
     ///
-    /// Native: `juggernaut_companion_step_sub_975C` is a pure function that
-    /// determines the companion visual state. It runs when
-    /// `Character_Movement == MoveID_Standingstill` and selects the standing
-    /// mapping `LnkTo_unk_BEDF0-Data_Index`.
+    /// Native: `juggernaut_companion_step_sub_975C` determines the companion
+    /// visual state. `refresh_grounded_helmet_state_sub_78E8` records the step
+    /// while the companion GFX object is not yet a first-class render object.
     #[test]
     fn juggernaut_companion_step_standing_mapping_loc_79a2() {
         // ASM loc_79A2 → sub_975C: when standing still and no block/overlap/down,
@@ -3197,6 +3196,32 @@ mod chunk_11 {
             step.visual,
             helmets::JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index"),
             "ASM loc_79A2 → sub_975C: standing Juggernaut companion should use standing mapping",
+        );
+    }
+
+    /// ASM loc_79A2 (kid.asm:8047): the grounded Juggernaut refresh must call
+    /// sub_975C after the default standing-sprite path.
+    #[test]
+    fn juggernaut_sub_78e8_records_companion_step_loc_79a2() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.on_ground = true;
+        slice.player.x_velocity = 0;
+        rt.opening_slice = Some(slice);
+
+        rt.refresh_grounded_helmet_state_sub_78E8();
+
+        let step = rt
+            .last_juggernaut_companion_step_sub_975c
+            .expect("ASM loc_79A2: Juggernaut grounded refresh should record sub_975C");
+        assert_eq!(
+            step.visual,
+            helmets::JuggernautCompanionVisualSub975C::SetMapping("LnkTo_unk_BEDF0-Data_Index"),
+            "ASM loc_79A2 -> sub_975C: grounded standing refresh should select the companion standing mapping",
         );
     }
 

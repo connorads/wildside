@@ -7262,6 +7262,9 @@ impl NativeRuntime {
         if let Some(summary) = self.diamond_power_snake_probe_debug() {
             gameplay_debug_fields.insert("diamond_power_snake_probe".into(), summary);
         }
+        if let Some(summary) = self.juggernaut_companion_step_debug_sub_975c() {
+            gameplay_debug_fields.insert("juggernaut_companion_step_sub_975c".into(), summary);
+        }
         if let Some(summary) = self.highwater_shooter_barrier_probe_debug() {
             gameplay_debug_fields.insert("highwater_shooter_barrier_probe".into(), summary);
         }
@@ -8155,6 +8158,20 @@ impl NativeRuntime {
             projectiles,
             shooter_cells,
             barrier_cells
+        ))
+    }
+
+    fn juggernaut_companion_step_debug_sub_975c(&self) -> Option<String> {
+        let step = self.last_juggernaut_companion_step_sub_975c?;
+        let visual = match step.visual {
+            helmets::JuggernautCompanionVisualSub975C::PreserveCurrent => "preserve_current",
+            helmets::JuggernautCompanionVisualSub975C::InitAnimation(label) => label,
+            helmets::JuggernautCompanionVisualSub975C::SetMapping(label) => label,
+            helmets::JuggernautCompanionVisualSub975C::None => "none",
+        };
+        Some(format!(
+            "visual={visual};byte_15_active={};blocked_latch={}",
+            step.byte_15_active, step.blocked_latch
         ))
     }
 

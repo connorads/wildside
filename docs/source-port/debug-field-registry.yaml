@@ -379,6 +379,15 @@
       "promotion_trigger": "Promote if Snake oracle parity or checked-in regressions start depending on typed DP snake head/target state."
     },
     {
+      "key": "juggernaut_companion_step_sub_975c",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "juggernaut-companion-visual-ratchet",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native ASM sub_975C Juggernaut companion visual step summary: selected mapping/animation plus byte_15 and blocked-latch state for the not-yet-persisted companion GFX object.",
+      "promotion_trigger": "Promote if Juggernaut companion render parity or checked-in oracle assertions start depending on typed companion object state."
+    },
+    {
       "key": "kid_object_support_candidates",
       "scope": "frame",
       "status": "exploratory",

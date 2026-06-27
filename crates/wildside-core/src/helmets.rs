@@ -675,13 +675,10 @@ fn is_juggernaut_skull_projectile(projectile: &EnemyProjectile) -> bool {
         && !projectile.terrain_kill
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 const MOVE_ID_STANDINGSTILL: u16 = 0;
-#[cfg_attr(not(test), allow(dead_code))]
 const MOVE_ID_WALKING: u16 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct JuggernautCompanionStateSub975C {
     pub(crate) byte_15_active: bool,
     pub(crate) byte_18_active: bool,
@@ -689,7 +686,6 @@ pub(crate) struct JuggernautCompanionStateSub975C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum JuggernautCompanionVisualSub975C {
     PreserveCurrent,
     InitAnimation(&'static str),
@@ -698,7 +694,6 @@ pub(crate) enum JuggernautCompanionVisualSub975C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct JuggernautCompanionStepSub975C {
     pub(crate) byte_15_active: bool,
     pub(crate) blocked_latch: bool,
@@ -706,7 +701,6 @@ pub(crate) struct JuggernautCompanionStepSub975C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn juggernaut_companion_step_sub_975C(
     state: JuggernautCompanionStateSub975C,
     wall_scan_blocked: bool,
@@ -1363,6 +1357,43 @@ impl NativeRuntime {
         } else {
             by_id
         }
+    }
+
+    #[allow(non_snake_case)]
+    fn step_juggernaut_companion_visual_sub_975C(&mut self) {
+        if self.progression.current_form != PlayerForm::Juggernaut {
+            return;
+        }
+
+        let Some(slice) = self.opening_slice else {
+            return;
+        };
+
+        // ASM loc_79A2 (kid.asm:8047): grounded Juggernaut visual refresh
+        // loads the companion GFX object from `$FFFFF862` and calls sub_975C.
+        // Native has no persisted companion sprite yet, so this records the
+        // visual step while leaving gameplay state untouched.
+        let character_movement = if slice.player.x_velocity == 0 {
+            MOVE_ID_STANDINGSTILL
+        } else {
+            MOVE_ID_WALKING
+        };
+        // ASM loc_97E8 receives a caller-owned animation table byte offset.
+        // Until the companion GFX object is persisted, keep the first walking
+        // frame instead of deriving a fake phase from unrelated runtime state.
+        let walking_table_byte_offset = 0;
+        let step = juggernaut_companion_step_sub_975C(
+            self.juggernaut_companion_state_sub_975c,
+            false,
+            false,
+            self.trace_input.down,
+            character_movement,
+            walking_table_byte_offset,
+        );
+
+        self.juggernaut_companion_state_sub_975c.byte_15_active = step.byte_15_active;
+        self.juggernaut_companion_state_sub_975c.blocked_latch = step.blocked_latch;
+        self.last_juggernaut_companion_step_sub_975c = Some(step);
     }
 
     pub(crate) fn step_juggernaut_five_way_shot_ready_sub_7428(&mut self, input: FrameInput) {
@@ -6063,9 +6094,9 @@ impl NativeRuntime {
         //     Falls through to loc_79A2 for companion step.
         //   loc_79A2 (kid.asm:8047): Juggernaut companion step — `move.l
         //     ($FFFFF862).w,a4 / bsr.w sub_975C`. Every Juggernaut standing-
-        //     still path converges here. Native: sub_975C modelled as pure fn
-        //     `juggernaut_companion_step_sub_975C`; not called in frame tick
-        //     (visual-only).
+        //     still path converges here. Native: `step_juggernaut_companion_visual_sub_975C`
+        //     runs the ported helper as visual trace state because the companion
+        //     GFX object itself is not yet persisted.
         //   loc_79AC (kid.asm:8053): Skycutter (helmet=1) — `bsr.w sub_98F2 /
         //     rts`. Calls the flipboard visual step directly, bypassing the
         //     loc_794C default-sprite path. Native: flipboard managed by
@@ -6106,7 +6137,8 @@ impl NativeRuntime {
         let previous_red_stealth_sword_timer = self.helmet.red_stealth_sword_timer;
 
         match self.progression.current_form {
-            PlayerForm::Juggernaut | PlayerForm::Micromax | PlayerForm::Skycutter => {}
+            PlayerForm::Juggernaut => self.step_juggernaut_companion_visual_sub_975C(),
+            PlayerForm::Micromax | PlayerForm::Skycutter => {}
             PlayerForm::Maniaxe => {
                 if previous_maniaxe_axe_active && self.helmet.maniaxe_throw_latch_frames > 0 {
                     self.helmet.maniaxe_throw_latch_frames -= 1;
