@@ -185,7 +185,6 @@ pub(crate) struct MiniHoppingSkullRelaunchTail {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullLeftLandingLoopDecision {
     ContinueWait {
         next_dbf_counter: u16,

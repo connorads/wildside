@@ -51,7 +51,6 @@ pub(crate) fn sphere_delete_tail_loc_36096() -> SphereDeleteTailLoc36096 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SphereChildLoopStepLoc360F4 {
     Delete,
     CheckCollision,
@@ -79,7 +78,6 @@ pub(crate) fn sphere_child_loop_step_loc_360F4(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum SphereCollisionGateLoc36106 {
     Delete,
     ContinueLoop,
@@ -97,7 +95,6 @@ pub(crate) fn sphere_collision_gate_loc_36106(collision_type: u16) -> SphereColl
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SphereChildDeleteTailLoc3610E {
     pub(crate) deletes_current_object: bool,
 }

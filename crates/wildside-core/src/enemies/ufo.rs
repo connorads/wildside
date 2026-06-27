@@ -1737,7 +1737,6 @@ pub(crate) fn ufo_beam_finish_loc_35228(parent_y_velocity: i32) -> UfoBeamFinish
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum UfoLinkedObjectRangeGateLoc35280 {
     Return,
     RunCleanupDeleteTail,
