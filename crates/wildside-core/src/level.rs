@@ -5621,7 +5621,6 @@ fn fg_queue_guard_low_word_loc_11_cb6(base_addr: u32, span_words: u16) -> bool {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn prize_block_list_guard_loc_11CB6(
     prize_block_list_addr: u32,
     prize_block_count: u16,
@@ -19473,6 +19472,18 @@ impl NativeRuntime {
             copied_hidden_block_entries_for_runtime_loc_11C96(&block_list.hidden_blocks)
         {
             block_list.hidden_blocks = copied_hidden_blocks;
+        }
+        // ASM loc_11CB6 (kid.asm:23868): prize records occupy the leading
+        // 8-byte block-list section at `$FFFF3B24` and must end before the
+        // custom FG queue work area.
+        let prize_block_count = u16::try_from(block_list.prize_blocks.len()).ok()?;
+        let prize_block_list_addr = if prize_block_count == 0 {
+            0
+        } else {
+            0xFFFF_3B24
+        };
+        if !prize_block_list_guard_loc_11CB6(prize_block_list_addr, prize_block_count) {
+            return None;
         }
         // ASM loc_11CCA (kid.asm:23877): the generated hidden-block list starts
         // at the same `$FFFF3B24` work buffer and must not span into
