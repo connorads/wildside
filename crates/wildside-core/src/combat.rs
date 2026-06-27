@@ -8,6 +8,7 @@ const HUNDRED_K_TRIP_START_LEVEL_ID: LevelId = LevelId(4);
 const HUNDRED_K_TRIP_ARM_FRAMES_LOC_10AC2: u16 = 0x003C;
 const COLID_KIDBELOW_LOC_1D00: u16 = 0x0028;
 const NORMAL_RECENT_DAMAGE_FLAGS_LOC_1D00: u16 = 0;
+const STOMP_CONTACT_DAMAGE_OBJECT_FLAGS_LOC_1D4C: u16 = 0x4000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsInitLoc10Ae0 {
@@ -11146,11 +11147,13 @@ impl NativeRuntime {
             return false;
         }
 
-        let stomp_bounce_causes_contact_damage = stomped_indices.iter().any(|&active_idx| {
+        let stomp_bounce_object_meta_bit14_set = stomped_indices.iter().any(|&active_idx| {
             self.active_enemies
                 .get(active_idx)
                 .is_some_and(ActiveEnemy::stomp_bounce_causes_contact_damage_loc_b6da)
         });
+        let stomp_bounce_causes_contact_damage =
+            stomp_bounce_contact_damage_from_writeback_loc_1d4c(stomp_bounce_object_meta_bit14_set);
 
         let mut stomped_drips_projectile_indices = stomped_drips_surface_crawler_indices
             .into_iter()
@@ -14517,6 +14520,27 @@ fn normal_recent_damage_survives_invulnerability_gate_loc_1d00(
         NORMAL_RECENT_DAMAGE_FLAGS_LOC_1D00,
     );
     gate.next_player_collision_type != 0
+}
+
+fn stomp_bounce_contact_damage_from_writeback_loc_1d4c(object_meta_bit14_set: bool) -> bool {
+    // ASM loc_1D46/loc_1D4C (kid.asm:3512-3519): successful Kid-above
+    // contact first writes `colid_kidbelow` to the object, then copies the
+    // object's raw `$3A` flags to Kid before loc_1D00. Jump_On_Enemy loc_B6DA
+    // later spends HP only when bit 14 survived in that copied word.
+    let object_flags = if object_meta_bit14_set {
+        STOMP_CONTACT_DAMAGE_OBJECT_FLAGS_LOC_1D4C
+    } else {
+        0
+    };
+    let object_writeback = crate::trace::kid_object_stomp_object_writeback_loc_1D46();
+    let player_writeback = crate::trace::kid_object_stomp_player_writeback_loc_1D4C(object_flags);
+    object_writeback.object_collision_label
+        == crate::trace::KidObjectRelation::Below.as_debug_label()
+        && player_writeback.player_collision_label
+            == crate::trace::KidObjectRelation::Below.as_debug_label()
+        && player_writeback.branches_to_invulnerability_gate
+        && (player_writeback.player_collision_flags & STOMP_CONTACT_DAMAGE_OBJECT_FLAGS_LOC_1D4C)
+            != 0
 }
 
 fn drips_projectile_object_snapshot_loc_3345c(

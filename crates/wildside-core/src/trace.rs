@@ -6013,13 +6013,11 @@ pub(crate) struct KidObjectInvulnerabilityGateLoc1D00 {
     pub(crate) next_player_collision_flags: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidObjectStompObjectWritebackLoc1D46 {
     pub(crate) object_collision_label: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidObjectStompPlayerWritebackLoc1D4C {
     pub(crate) player_collision_label: &'static str,
@@ -6056,7 +6054,6 @@ pub(crate) fn kid_object_collision_writeback_loc_1CF2(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_stomp_object_writeback_loc_1D46() -> KidObjectStompObjectWritebackLoc1D46 {
     // ASM loc_1D46 (kid.asm:3512): when `loc_1CE4` sees
@@ -6068,7 +6065,6 @@ pub(crate) fn kid_object_stomp_object_writeback_loc_1D46() -> KidObjectStompObje
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_stomp_player_writeback_loc_1D4C(
     object_collision_flags: u16,
