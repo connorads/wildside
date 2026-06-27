@@ -4567,17 +4567,21 @@ fn run_loop_shooter_1253a(
 }
 
 /// loc_126BA (type 11): single cell per entry, no count loop. loc_122C0-style
-/// X/Y read. (kid.asm:24890-24913)
+/// X/Y read. (kid.asm:24948-24977)
 #[allow(non_snake_case)]
 fn run_loop_single_126ba(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16)) {
     loop {
-        let Some(x) = words.get(*pos).copied() else {
+        let Some(rest) = words.get(*pos..) else {
             return;
         };
-        *pos += 1;
-        if x & 0x8000 != 0 {
+        let Some(read_x) = block_type_11_read_x_pos_loc_126ba(rest) else {
+            if !rest.is_empty() {
+                *pos += 1;
+            }
             return;
-        }
+        };
+        *pos += read_x.bytes_consumed;
+        let x = read_x.x_pos;
         let Some(&y) = words.get(*pos) else {
             return;
         };
@@ -6581,7 +6585,6 @@ pub(crate) struct BlockType11ReadXPosLoc126BA {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_11_read_x_pos_loc_126ba(
     layout_words: &[u16],
 ) -> Option<BlockType11ReadXPosLoc126BA> {
