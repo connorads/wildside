@@ -788,14 +788,25 @@ impl BlockList {
             return self;
         }
 
-        let layout_delta = blank_top_rows.wrapping_mul(level_width_blocks.wrapping_mul(2));
+        let level_width_tiles = level_width_blocks.wrapping_mul(2);
 
-        for entry in &mut self.prize_blocks {
-            // ASM loc_141EE: add Number_blank_top_rows * Level_width_tiles to
-            // the Level_Layout low-word address, and Number_blank_top_rows to
-            // the stored row word.
-            entry.layout_addr = entry.layout_addr.wrapping_add(layout_delta);
-            entry.row = entry.row.wrapping_add(blank_top_rows);
+        if !self.prize_blocks.is_empty() {
+            // ASM loc_141EE adjusts 8-byte prize records before the block list is used.
+            let raw_entries: Vec<[u16; 4]> = self
+                .prize_blocks
+                .iter()
+                .map(|entry| [entry.layout_addr, entry.col, entry.row, 0])
+                .collect();
+            let adjusted =
+                crate::level::adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141EE(
+                    &raw_entries,
+                    blank_top_rows,
+                    level_width_tiles,
+                );
+            for (entry, adjusted_words) in self.prize_blocks.iter_mut().zip(adjusted) {
+                entry.layout_addr = adjusted_words[0];
+                entry.row = adjusted_words[2];
+            }
         }
         for entry in &mut self.ghost_blocks {
             // Ghost rows are stored in the same post-sub_140F6 co-ordinate
@@ -803,16 +814,49 @@ impl BlockList {
             // section's layout word, so only the exposed row needs normalising.
             entry.row = entry.row.wrapping_add(blank_top_rows);
         }
-        for entry in &mut self.teleporters {
-            // ASM loc_1421E handles the 10-byte custom/teleporter records with
-            // the same layout-address and row adjustment as loc_141EE.
-            entry.layout_addr = entry.layout_addr.wrapping_add(layout_delta);
-            entry.row = entry.row.wrapping_add(blank_top_rows);
+        if !self.teleporters.is_empty() {
+            // ASM loc_1421E adjusts 10-byte custom/teleporter records.
+            let raw_entries: Vec<[u16; 5]> = self
+                .teleporters
+                .iter()
+                .map(|entry| {
+                    [
+                        entry.layout_addr,
+                        entry.col,
+                        entry.row,
+                        u16::from(entry.dest_y),
+                        entry.dest_x,
+                    ]
+                })
+                .collect();
+            let adjusted =
+                crate::level::adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_1421E(
+                    &raw_entries,
+                    blank_top_rows,
+                    level_width_tiles,
+                );
+            for (entry, adjusted_words) in self.teleporters.iter_mut().zip(adjusted) {
+                entry.layout_addr = adjusted_words[0];
+                entry.row = adjusted_words[2];
+            }
         }
-        for entry in &mut self.hidden_blocks {
-            // ASM loc_14236 adjusts the 8-byte hidden/background block records.
-            entry.layout_addr = entry.layout_addr.wrapping_add(layout_delta);
-            entry.row = entry.row.wrapping_add(blank_top_rows);
+        if !self.hidden_blocks.is_empty() {
+            // ASM loc_14236 adjusts 8-byte hidden/background block records.
+            let raw_entries: Vec<[u16; 4]> = self
+                .hidden_blocks
+                .iter()
+                .map(|entry| [entry.layout_addr, entry.col, entry.row, 0])
+                .collect();
+            let adjusted =
+                crate::level::adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_14236(
+                    &raw_entries,
+                    blank_top_rows,
+                    level_width_tiles,
+                );
+            for (entry, adjusted_words) in self.hidden_blocks.iter_mut().zip(adjusted) {
+                entry.layout_addr = adjusted_words[0];
+                entry.row = adjusted_words[2];
+            }
         }
 
         self
