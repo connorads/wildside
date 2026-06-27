@@ -6,13 +6,14 @@ use super::{
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
 use crate::combat::{
-    QueuedSoundEffect, boss_death_burst_init_sub_370D2, boss_eye_counter_orbit_placement_sub_39420,
-    boss_eye_orbit_placement_sub_393C8, boss_head_death_anim_sequence_loc_39EE2,
-    boss_head_death_spin_loop_loc_39F7A, boss_head_movement_step_for_family_sub_39846,
-    boss_head_projectile_spawn_sub_397E4, heady_metal_palette_cycle_sub_379E8,
-    heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
-    shishka_bagel_head_1_init_loc_39478, shishka_bagel_head_2_init_loc_39598,
-    shishka_bagel_head_3_init_loc_396BE,
+    QueuedSoundEffect, boomerang_boss_head_1_init_loc_37F30, boomerang_boss_head_2_init_loc_38012,
+    boomerang_boss_head_3_init_loc_380F4, boss_death_burst_init_sub_370D2,
+    boss_eye_counter_orbit_placement_sub_39420, boss_eye_orbit_placement_sub_393C8,
+    boss_head_death_anim_sequence_loc_39EE2, boss_head_death_spin_loop_loc_39F7A,
+    boss_head_movement_step_for_family_sub_39846, boss_head_projectile_spawn_sub_397E4,
+    heady_metal_palette_cycle_sub_379E8, heady_metal_spawn_animation_loc_3761E,
+    heady_metal_tracking_velocity_loc_37582, shishka_bagel_head_1_init_loc_39478,
+    shishka_bagel_head_2_init_loc_39598, shishka_bagel_head_3_init_loc_396BE,
 };
 use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
 
@@ -3199,6 +3200,20 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
+            let boomerang_boss_init = if matches!(family, EnemyFamily::BoomerangBosses) {
+                // ASM Enemy23_BoomerangBosses_Init (kid.asm:40254) allocates
+                // three head controllers, then loc_37F30/loc_38012/loc_380F4
+                // seed the per-head HP after copying the already-offset anchor.
+                let head_x_word = (head_x >> 16) as u16;
+                let head_y_word = (head_y >> 16) as u16;
+                Some(match head_idx {
+                    0 => boomerang_boss_head_1_init_loc_37F30(head_x_word, head_y_word),
+                    1 => boomerang_boss_head_2_init_loc_38012(head_x_word, head_y_word),
+                    _ => boomerang_boss_head_3_init_loc_380F4(head_x_word, head_y_word),
+                })
+            } else {
+                None
+            };
             let hit_points = if matches!(
                 family,
                 EnemyFamily::Shishkaboss | EnemyFamily::BagelBrothers
@@ -3227,6 +3242,8 @@ fn activate_enemies_with_rng_inner(
                             .hit_points as u8
                     }
                 }
+            } else if let Some(init) = boomerang_boss_init {
+                init.hit_points as u8
             } else if is_multi_head_boss(family) {
                 head_hp_table[head_idx as usize]
             } else if let Some(visible_init) = crab_visible_init {
@@ -3367,6 +3384,19 @@ fn activate_enemies_with_rng_inner(
                 debug_assert_eq!(visible_init.object_meta, 0x0092);
                 debug_assert_eq!(visible_init.palette_line, 2);
                 debug_assert_eq!(visible_init.current_hp as u8, hit_points);
+            }
+            if let Some(init) = boomerang_boss_init {
+                debug_assert_eq!(init.gfx_slot_base, 0x0104_0002);
+                debug_assert_eq!(init.object_meta, u16::from(family.object_type()));
+                debug_assert!(init.runs_common_boss_init_loc_32146);
+                debug_assert!(!init.has_kid_collision);
+                debug_assert!(init.display_enabled);
+                debug_assert!(init.is_moved);
+                debug_assert_eq!(init.hit_points as u8, hit_points);
+                debug_assert_eq!(init.x_pos, (head_x >> 16) as u16);
+                debug_assert_eq!(init.y_pos, (head_y >> 16) as u16);
+                debug_assert_eq!(init.delay_counter_d0, 1);
+                debug_assert_eq!(init.script_index_d1, 1);
             }
             if let Some(init) = dragon_walking_art_init {
                 debug_assert!(init.art_slot_index <= 2);

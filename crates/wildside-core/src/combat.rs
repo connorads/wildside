@@ -3229,7 +3229,6 @@ pub(crate) fn boss_head_projectile_spawn_sub_397E4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_init_loc_37F30(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -4060,7 +4059,6 @@ pub(crate) fn boomerang_boss_head_1_post_projectile_animation_gate_loc_38008(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_init_loc_38012(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -4088,7 +4086,6 @@ pub(crate) fn boomerang_boss_head_2_init_loc_38012(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_init_loc_380F4(
     anchor_x_44: u16,
     anchor_y_46: u16,
