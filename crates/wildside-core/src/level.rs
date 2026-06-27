@@ -8480,52 +8480,6 @@ pub(crate) fn background_row_pointers_loc_11B7A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn decode_foreground_theme_flags_loc_11B92(
-    raw_foreground_theme_flags: u8,
-) -> (u16, bool, bool) {
-    // ASM loc_11B92 (kid.asm:23753-23755) only enters the murder-wall path
-    // after `bpl.s loc_11B9A` fails, so the sign bit gates the flag decode.
-    // Bit 6 only means "reversed" once the sign bit already enabled the wall;
-    // otherwise the positive byte flows through to `Foreground_theme` intact.
-    if raw_foreground_theme_flags & 0x80 == 0 {
-        return (u16::from(raw_foreground_theme_flags), false, false);
-    }
-
-    (
-        u16::from(raw_foreground_theme_flags & 0x3F),
-        true,
-        raw_foreground_theme_flags & 0x40 != 0,
-    )
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn decode_background_theme_flags_loc_11B9A(
-    raw_background_theme_flags: u8,
-    background_width: u16,
-) -> (u16, u16, bool, u16) {
-    // ASM loc_11B9A (kid.asm:23757-23775) stores the upper nibble in
-    // `Level_Special_Effects`, the lower nibble in `Background_theme`, then
-    // tests `(1<<Hills)|(1<<Desert)|(1<<Mountain)|(1<<Forest)` to select the
-    // enigma background format and force `Background_width=$40`.
-    let level_special_effects = u16::from(raw_background_theme_flags >> 4);
-    let background_theme = u16::from(raw_background_theme_flags & 0x0F);
-    let uses_enigma_format = matches!(background_theme, 3 | 5 | 7 | 9);
-    let decoded_background_width = if uses_enigma_format {
-        0x0040
-    } else {
-        background_width
-    };
-    (
-        level_special_effects,
-        background_theme,
-        uses_enigma_format,
-        decoded_background_width,
-    )
-}
-
-#[allow(non_snake_case)]
 pub(crate) fn player_start_position_loc_11BE4(header_player_start: (u16, u16)) -> (u16, u16) {
     // ASM loc_11BE4 (kid.asm:23785-23788): when `loc_11BD2` leaves the header
     // pointer at the player-start words, `move.w (a0)+` loads exactly the X

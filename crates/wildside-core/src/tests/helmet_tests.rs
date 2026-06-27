@@ -3677,7 +3677,7 @@ mod chunk_08 {
     #[test]
     fn loc_11b92_leaves_positive_foreground_theme_bytes_untouched() {
         assert_eq!(
-            crate::level::decode_foreground_theme_flags_loc_11B92(0x48),
+            wildside_data::decode_foreground_theme_flags_loc_11B92(0x48),
             (0x0048, false, false),
             "ASM loc_11B92 only runs after `bpl.s loc_11B9A` fails, so a positive byte should keep its full theme value and leave the murder wall disabled"
         );
@@ -3686,12 +3686,12 @@ mod chunk_08 {
     #[test]
     fn loc_11b92_enables_and_optionally_reverses_the_murder_wall_for_negative_theme_bytes() {
         assert_eq!(
-            crate::level::decode_foreground_theme_flags_loc_11B92(0x88),
+            wildside_data::decode_foreground_theme_flags_loc_11B92(0x88),
             (0x0008, true, false),
             "ASM loc_11B92 should mask the foreground theme down to `$3F` and enable a forward murder wall once bit 7 sends execution down the negative-byte path"
         );
         assert_eq!(
-            crate::level::decode_foreground_theme_flags_loc_11B92(0xC8),
+            wildside_data::decode_foreground_theme_flags_loc_11B92(0xC8),
             (0x0008, true, true),
             "ASM loc_11B92 should additionally set the reversed flag when bit 6 is present on the same negative foreground-theme byte"
         );
@@ -3700,7 +3700,7 @@ mod chunk_08 {
     #[test]
     fn loc_11b9a_extracts_weather_and_forces_enigma_backgrounds_to_width_40() {
         assert_eq!(
-            crate::level::decode_background_theme_flags_loc_11B9A(0x23, 0x005A),
+            wildside_data::decode_background_theme_flags_loc_11B9A(0x23, 0x005A),
             (0x0002, 0x0003, true, 0x0040),
             "ASM loc_11B9A should decode the upper nibble into `Level_Special_Effects`, keep the lower nibble as `Background_theme`, and clamp Hills/Desert/Mountain/Forest backgrounds to width `$40`"
         );
@@ -3709,7 +3709,7 @@ mod chunk_08 {
     #[test]
     fn loc_11b9a_leaves_non_enigma_background_widths_unchanged() {
         assert_eq!(
-            crate::level::decode_background_theme_flags_loc_11B9A(0x18, 0x005A),
+            wildside_data::decode_background_theme_flags_loc_11B9A(0x18, 0x005A),
             (0x0001, 0x0008, false, 0x005A),
             "ASM loc_11B9A should leave non-Hills/Desert/Mountain/Forest backgrounds in piece format and preserve the previously derived background width"
         );

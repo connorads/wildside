@@ -1194,27 +1194,71 @@ pub fn parse_level_header(bytes: &[u8]) -> Result<LevelHeader> {
     let raw_height = bytes[1];
     let raw_level_theme = bytes[2];
     let raw_background_theme = bytes[3];
-    let (level_theme, murder_wall_flags) = if raw_level_theme & 0x80 == 0 {
-        // ASM loc_11B92: the foreground-theme byte bypasses the murder-wall
-        // flag decode when `bpl.s loc_11B9A` is taken, so bit 6 stays theme data.
-        (raw_level_theme, 0)
+    let (level_theme, murder_wall_enabled, murder_wall_reversed) =
+        decode_foreground_theme_flags_loc_11B92(raw_level_theme);
+    let murder_wall_flags = if murder_wall_enabled {
+        0x02 | u8::from(murder_wall_reversed)
     } else {
-        (raw_level_theme & 0x3F, raw_level_theme >> 6)
+        0
     };
+    let (weather_flags, background_theme, _uses_enigma_format, _decoded_background_width) =
+        decode_background_theme_flags_loc_11B9A(raw_background_theme, 0);
 
     Ok(LevelHeader {
         width_screens,
         height_screens: raw_height & 0x3F,
         height_flag_bits: raw_height >> 6,
-        level_theme,
+        level_theme: level_theme as u8,
         murder_wall_flags,
-        background_theme: raw_background_theme & 0x0F,
-        weather_flags: raw_background_theme >> 4,
+        background_theme: background_theme as u8,
+        weather_flags: weather_flags as u8,
         player_start_x: read_u16_be(bytes, 4),
         player_start_y: read_u16_be(bytes, 6),
         flag_x: read_u16_be(bytes, 8),
         flag_y: read_u16_be(bytes, 10),
     })
+}
+
+#[allow(non_snake_case)]
+pub fn decode_foreground_theme_flags_loc_11B92(
+    raw_foreground_theme_flags: u8,
+) -> (u16, bool, bool) {
+    // ASM loc_11B92 (kid.asm:23753-23755): the foreground-theme byte bypasses
+    // the murder-wall flag decode when `bpl.s loc_11B9A` is taken, so bit 6
+    // stays theme data unless bit 7 first selects this negative-byte path.
+    if raw_foreground_theme_flags & 0x80 == 0 {
+        return (u16::from(raw_foreground_theme_flags), false, false);
+    }
+
+    (
+        u16::from(raw_foreground_theme_flags & 0x3F),
+        true,
+        raw_foreground_theme_flags & 0x40 != 0,
+    )
+}
+
+#[allow(non_snake_case)]
+pub fn decode_background_theme_flags_loc_11B9A(
+    raw_background_theme_flags: u8,
+    background_width: u16,
+) -> (u16, u16, bool, u16) {
+    // ASM loc_11B9A (kid.asm:23757-23775): the high nibble becomes
+    // Level_Special_Effects, the low nibble becomes Background_theme, and
+    // Hills/Desert/Mountain/Forest backgrounds force enigma width `$40`.
+    let level_special_effects = u16::from(raw_background_theme_flags >> 4);
+    let background_theme = u16::from(raw_background_theme_flags & 0x0F);
+    let uses_enigma_format = matches!(background_theme, 3 | 5 | 7 | 9);
+    let decoded_background_width = if uses_enigma_format {
+        0x0040
+    } else {
+        background_width
+    };
+    (
+        level_special_effects,
+        background_theme,
+        uses_enigma_format,
+        decoded_background_width,
+    )
 }
 
 pub fn parse_enemy_layout(bytes: &[u8]) -> Result<EnemyLayout> {
