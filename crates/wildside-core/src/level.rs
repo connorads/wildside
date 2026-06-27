@@ -8613,7 +8613,6 @@ pub(crate) fn classify_foreground_palette_override_loc_11D8E(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn apply_foreground_palette_override_loc_11D9E(
     selected_theme_palette: u16,
     override_kind: ForegroundPaletteOverrideLoc11D8E,
@@ -8631,7 +8630,6 @@ pub(crate) fn apply_foreground_palette_override_loc_11D9E(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn apply_foreground_palette_override_loc_11DAC(
     selected_theme_palette: u16,
     late_alternative_palette: u16,
@@ -8650,7 +8648,6 @@ pub(crate) fn apply_foreground_palette_override_loc_11DAC(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn copy_foreground_palette_loc_11DB0(
     foreground_palette: &[u16; 15],
     palette_buffer: &mut [u16; 0x40],
@@ -8725,7 +8722,6 @@ pub(crate) fn classify_late_background_palette_override_loc_11E06(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn apply_background_palette_override_loc_11E04(
     selected_theme_palette: u16,
     override_kind: BackgroundPaletteFollowupLoc11DF8,
@@ -8742,7 +8738,6 @@ pub(crate) fn apply_background_palette_override_loc_11E04(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn apply_background_palette_override_loc_11E12(
     selected_theme_palette: u16,
     alternative_alien_palette: u16,
@@ -8757,7 +8752,6 @@ pub(crate) fn apply_background_palette_override_loc_11E12(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn copy_background_palette_loc_11E16(
     background_palette: &[u16; 8],
     palette_buffer: &mut [u16; 0x40],
@@ -18113,20 +18107,41 @@ impl NativeRuntime {
         // copy_foreground_palette_loc_11DB0 never ran, and the lava/water words
         // stayed zero — the loc_1223C rotator then cycled [0,0,0,0] and the
         // Highwater waterfall froze light-blue.
-        let foreground_palette_path = match classify_foreground_palette_override_loc_11D8E(map_id) {
-            ForegroundPaletteOverrideLoc11D8E::PlethoraCave => {
-                Some(String::from("palette_fg/cave_plethora.bin"))
-            }
+        const FG_THEME_PALETTE_LOC_11D8E: u16 = 0;
+        const FG_PLETHORA_CAVE_PALETTE_LOC_11D8E: u16 = 1;
+        const FG_ALTERNATIVE_CAVE_PALETTE_LOC_11D8E: u16 = 2;
+        const FG_LATE_ALTERNATIVE_PALETTE_LOC_11DAC: u16 = 3;
+        let foreground_override = classify_foreground_palette_override_loc_11D8E(map_id);
+        let selected_foreground_palette = match foreground_override {
+            ForegroundPaletteOverrideLoc11D8E::PlethoraCave => FG_PLETHORA_CAVE_PALETTE_LOC_11D8E,
             ForegroundPaletteOverrideLoc11D8E::AlternativeCave => {
-                Some(String::from("palette_fg/cave_alt.bin"))
-            }
-            ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => {
-                Some(String::from("palette_fg/city_alt.bin"))
+                FG_ALTERNATIVE_CAVE_PALETTE_LOC_11D8E
             }
             ForegroundPaletteOverrideLoc11D8E::None
-            | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop => {
+            | ForegroundPaletteOverrideLoc11D8E::RemovedSpecialPaletteNoop
+            | ForegroundPaletteOverrideLoc11D8E::LateAlternativePalette => {
+                FG_THEME_PALETTE_LOC_11D8E
+            }
+        };
+        let selected_foreground_palette = apply_foreground_palette_override_loc_11D9E(
+            selected_foreground_palette,
+            foreground_override,
+        );
+        let selected_foreground_palette = apply_foreground_palette_override_loc_11DAC(
+            selected_foreground_palette,
+            FG_LATE_ALTERNATIVE_PALETTE_LOC_11DAC,
+            foreground_override,
+        );
+        let foreground_palette_path = match selected_foreground_palette {
+            FG_PLETHORA_CAVE_PALETTE_LOC_11D8E => {
+                Some(String::from("palette_fg/cave_plethora.bin"))
+            }
+            FG_ALTERNATIVE_CAVE_PALETTE_LOC_11D8E => Some(String::from("palette_fg/cave_alt.bin")),
+            FG_LATE_ALTERNATIVE_PALETTE_LOC_11DAC => Some(String::from("palette_fg/city_alt.bin")),
+            FG_THEME_PALETTE_LOC_11D8E => {
                 theme_palette_basename(foreground_theme).map(|name| format!("palette_fg/{name}"))
             }
+            _ => None,
         };
 
         if let Some(foreground_palette) =
@@ -18135,20 +18150,32 @@ impl NativeRuntime {
             copy_foreground_palette_loc_11DB0(&foreground_palette, &mut self.palette_buffer);
         }
 
-        let background_palette_path = match (
+        const BG_THEME_PALETTE_LOC_11DF4: u16 = 0;
+        const BG_ALTERNATIVE_CAVE_PALETTE_LOC_11DF4: u16 = 1;
+        const BG_ALTERNATIVE_ALIEN_PALETTE_LOC_11E12: u16 = 2;
+        let selected_background_palette =
+            match classify_background_palette_override_loc_11DF4(map_id) {
+                BackgroundPaletteOverrideLoc11DF4::AlternativeCave => {
+                    BG_ALTERNATIVE_CAVE_PALETTE_LOC_11DF4
+                }
+                BackgroundPaletteOverrideLoc11DF4::None => BG_THEME_PALETTE_LOC_11DF4,
+            };
+        let selected_background_palette = apply_background_palette_override_loc_11E04(
+            selected_background_palette,
             classify_background_palette_followup_loc_11DF8(map_id),
+        );
+        let selected_background_palette = apply_background_palette_override_loc_11E12(
+            selected_background_palette,
+            BG_ALTERNATIVE_ALIEN_PALETTE_LOC_11E12,
             classify_late_background_palette_override_loc_11E06(map_id),
-            classify_background_palette_override_loc_11DF4(map_id),
-        ) {
-            (
-                BackgroundPaletteFollowupLoc11DF8::LateAlternativePalette,
-                LateBackgroundPaletteOverrideLoc11E06::AlternativeAlienPalette,
-                _,
-            ) => Some(String::from("palette_bg/city_alt.bin")),
-            (_, _, BackgroundPaletteOverrideLoc11DF4::AlternativeCave) => {
-                Some(String::from("palette_bg/cave_alt.bin"))
+        );
+        let background_palette_path = match selected_background_palette {
+            BG_ALTERNATIVE_CAVE_PALETTE_LOC_11DF4 => Some(String::from("palette_bg/cave_alt.bin")),
+            BG_ALTERNATIVE_ALIEN_PALETTE_LOC_11E12 => Some(String::from("palette_bg/city_alt.bin")),
+            BG_THEME_PALETTE_LOC_11DF4 => {
+                theme_palette_basename(background_theme).map(|name| format!("palette_bg/{name}"))
             }
-            _ => theme_palette_basename(background_theme).map(|name| format!("palette_bg/{name}")),
+            _ => None,
         };
 
         if let Some(background_palette) =
