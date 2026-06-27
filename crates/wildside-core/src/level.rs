@@ -1786,7 +1786,6 @@ pub(crate) fn empty_collision_row_loc_11B28(level_width_blocks: u16) -> Vec<u16>
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn terrain_layout_row_pointers_loc_11B40(
     level_height_blocks: u16,
     level_width_blocks: u16,
@@ -4122,18 +4121,28 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // skin from the SAME cell index. Hidden → sub_127A8.
             // (kid.asm:24494-24576)
             6 => {
-                run_loop_122c0(
+                run_loop_type6_1233c(
                     block_layout_words,
                     &mut pos,
                     width_blocks,
                     type_word as i16,
-                    |x, y, _i| {
-                        if let Some(idx) = cell_index(x, y) {
-                            if hidden {
+                    |cell_addr, terrain_addr, _y, is_hidden| {
+                        if cell_addr.is_multiple_of(2)
+                            && let Ok(idx) = usize::try_from(cell_addr / 2)
+                            && idx < cells.len()
+                        {
+                            if is_hidden {
                                 write_hidden(cells, idx);
                             } else {
-                                let skin = terrain_bytes.get(idx).copied().unwrap_or(0);
-                                cells[idx] = block_type_6_cell_value_loc_12372(0, skin).cell_word;
+                                let skin = terrain_bytes
+                                    .get(usize::try_from(terrain_addr).unwrap_or(usize::MAX))
+                                    .copied()
+                                    .unwrap_or(0);
+                                let value = block_type_6_cell_value_loc_12372(0, skin).cell_word;
+                                let cell = block_type_7_vertical_write_loc_123b6(cell_addr, skin);
+                                debug_assert_eq!(cell.cell_addr, cell_addr);
+                                debug_assert_eq!(cell.cell_word, value);
+                                cells[idx] = value;
                             }
                         }
                     },
@@ -4262,6 +4271,20 @@ fn level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
 }
 
 #[allow(non_snake_case)]
+fn terrain_layout_row_pointer_offsets_for_overlay_loc_11B40(
+    rows: u16,
+    width_blocks: u16,
+) -> Vec<u16> {
+    // ASM loc_11B40 builds live WRAM row pointers from
+    // `Level_terrain_layout`; native overlay helpers consume offsets into the
+    // current decoded terrain slice.
+    terrain_layout_row_pointers_loc_11B40(rows, width_blocks)
+        .into_iter()
+        .map(|addr| addr.wrapping_sub(LEVEL_TERRAIN_LAYOUT_RAM_BASE_LOC_11B40))
+        .collect()
+}
+
+#[allow(non_snake_case)]
 fn reconcile_prize_block_cells_loc_123DC(
     grid: &mut terrain::BlockGrid,
     block_list: &terrain::BlockList,
@@ -4365,6 +4388,71 @@ fn run_loop_122c0(
                 let i = u16::try_from(i).unwrap_or(u16::MAX);
                 let (cx, cy) = (x.wrapping_add(i), setup.y_row);
                 body(cx, cy, i);
+            }
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+fn run_loop_type6_1233c(
+    words: &[u16],
+    pos: &mut usize,
+    width_blocks: u16,
+    block_type: i16,
+    mut body: impl FnMut(u32, u32, u16, bool),
+) {
+    loop {
+        let Some(&layout_word) = words.get(*pos) else {
+            return;
+        };
+        *pos += 1;
+        let Some(entry) = block_layout_read_entry_loc_1233E(layout_word) else {
+            return;
+        };
+        let x = entry.x_pos;
+        let Some((setup, words_consumed)) = block_layout_read_coords_loc_122DA(&words[*pos..])
+        else {
+            return;
+        };
+        *pos += words_consumed;
+
+        let row_count = setup.y_row.wrapping_add(1);
+        let layout_row_pointers =
+            level_layout_row_pointer_offsets_for_overlay_loc_11AFE(row_count, width_blocks);
+        let terrain_row_pointers =
+            terrain_layout_row_pointer_offsets_for_overlay_loc_11B40(row_count, width_blocks);
+        let Some(&layout_row_start) = layout_row_pointers.get(usize::from(setup.y_row)) else {
+            return;
+        };
+        let Some(&terrain_row_start) = terrain_row_pointers.get(usize::from(setup.y_row)) else {
+            return;
+        };
+        let mut cell_addr = u32::from(layout_row_start).wrapping_add(u32::from(x) * 2);
+        let mut terrain_addr = u32::from(terrain_row_start).wrapping_add(u32::from(x));
+
+        if setup.stride {
+            for i in 0..setup.count {
+                body(
+                    cell_addr,
+                    terrain_addr,
+                    setup.y_row.wrapping_add(i),
+                    block_type < 0,
+                );
+                let advance = block_type_7_vertical_advance_loc_123cc(
+                    cell_addr,
+                    terrain_addr,
+                    width_blocks.wrapping_mul(2),
+                    width_blocks,
+                );
+                cell_addr = advance.next_cell_addr;
+                terrain_addr = advance.next_terrain_addr;
+            }
+        } else {
+            for _ in 0..setup.count {
+                body(cell_addr, terrain_addr, setup.y_row, block_type < 0);
+                let advance = block_type_7_horizontal_advance_loc_1239a(cell_addr, terrain_addr);
+                cell_addr = advance.next_cell_addr;
+                terrain_addr = advance.next_terrain_addr;
             }
         }
     }
@@ -5048,7 +5136,6 @@ pub(crate) struct BlockType7AdvanceLoc1239A {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_7_horizontal_advance_loc_1239a(
     cell_addr: u32,
     terrain_addr: u32,
@@ -5073,7 +5160,6 @@ pub(crate) struct BlockType7VerticalCellLoc123B6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_7_vertical_write_loc_123b6(
     cell_addr: u32,
     terrain_byte: u8,
@@ -5106,7 +5192,6 @@ pub(crate) struct BlockType7AdvanceLoc123CC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_7_vertical_advance_loc_123cc(
     cell_addr: u32,
     terrain_addr: u32,
@@ -5132,7 +5217,6 @@ pub(crate) struct BlockLayoutEntryLoc1233E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_read_entry_loc_1233E(
     layout_word: u16,
 ) -> Option<BlockLayoutEntryLoc1233E> {
