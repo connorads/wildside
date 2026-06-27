@@ -2789,12 +2789,15 @@ impl NativeRuntime {
         };
         let speed = Self::SHOOTER_PROJECTILE_SPEED;
         let first_new_projectile = self.projectiles.len();
-        for (mask, xv, yv) in [
-            (0x08_u16, -speed, 0),
-            (0x04_u16, 0, speed),
-            (0x02_u16, speed, 0),
-            (0x01_u16, 0, -speed),
-        ] {
+        let mut direction_counter = 3_u16;
+        loop {
+            let mask = 1_u16 << direction_counter;
+            let (xv, yv) = match direction_counter {
+                3 => (-speed, 0),
+                2 => (0, speed),
+                1 => (speed, 0),
+                _ => (0, -speed),
+            };
             if candidate.direction_bits & mask != 0 {
                 // ASM loc_EC76 allocates through the same shooter-object free
                 // list as visible shooter blocks, with `(a3)` pointing at this
@@ -2809,6 +2812,13 @@ impl NativeRuntime {
                         yv,
                     ));
             }
+
+            let tail =
+                crate::level::evanescent_bullet_direction_loop_tail_loc_EC9E(direction_counter);
+            if !tail.loops_to_loc_ec76 {
+                break;
+            }
+            direction_counter = tail.next_direction_counter;
         }
         // ASM LoadBulletsFromEvanescentBlock falls straight through to
         // Process_ShooterObjects at loc_EC22, so a just-triggered shooter

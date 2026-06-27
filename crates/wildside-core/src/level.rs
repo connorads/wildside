@@ -11366,7 +11366,6 @@ pub(crate) fn evanescent_bullet_direction_load_loc_EC76(
 /// loaded shooter object, `dbf d4,loc_EC76` decrements the direction counter
 /// and loops while it has not wrapped to `$FFFF`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_direction_loop_tail_loc_EC9E(
     direction_counter: u16,
 ) -> EvanescentBulletDirectionLoopTailLocEC9E {
