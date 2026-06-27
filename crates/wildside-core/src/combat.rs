@@ -13836,14 +13836,12 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
     false
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SolidOverlapAxisSub1FA2 {
     Horizontal,
     Vertical,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SolidOverlapResolutionSub1FA2 {
     pub(crate) axis: SolidOverlapAxisSub1FA2,
@@ -13851,7 +13849,6 @@ pub(crate) struct SolidOverlapResolutionSub1FA2 {
     pub(crate) y_delta_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SolidOverlapTileSub1FA2 {
     pub(crate) rect: CollisionRectSub1F52,
@@ -13862,7 +13859,6 @@ pub(crate) struct SolidOverlapTileSub1FA2 {
     pub(crate) character_movement: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SolidOverlapActionSub1FA2 {
     Resolve(SolidOverlapResolutionSub1FA2),
