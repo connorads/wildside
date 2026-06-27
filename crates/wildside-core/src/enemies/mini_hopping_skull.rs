@@ -477,7 +477,6 @@ pub(crate) fn mini_hopping_skull_left_hop_scream_worker_allocation_loc_3edc0()
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3ee12(
     collision_type: u16,
     berzerker_charging: bool,
@@ -562,6 +561,12 @@ pub(crate) fn mini_hopping_skull_landing_tail_loc_3ee7c(
     // ASM Mini_Hopping_Skull.asm loc_3EE7C: DBCC loop first (`dbf d1`). On fallthrough,
     // seed airborne relaunch velocities and set movement/collision flags, then jump to
     // `loc_3EA88`.
+    let route = mini_hopping_skull_landing_collision_route_loc_3ee12(0, false);
+    debug_assert_eq!(
+        route,
+        MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
+    );
+
     let next_dbf_counter = dbf_counter.wrapping_sub(1);
     if next_dbf_counter != 0xFFFF {
         return MiniHoppingSkullLandingLoopDecision::ContinueWait { next_dbf_counter };
