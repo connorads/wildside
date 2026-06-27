@@ -3365,8 +3365,11 @@ fn sample_layered_background_tile_pixel(
             Some(background_column),
         );
     };
-    if !background_scroll_applies_forest_water_ripple_loc_30598(
-        level_visuals.level.background_theme_id,
+    if matches!(
+        wildside_core::background_scroll_theme_dispatch_loc_30598(u16::from(
+            level_visuals.level.background_theme_id
+        )),
+        wildside_core::BackgroundScrollThemeDispatchLoc30598::Return
     ) {
         return sample_background_tile_pixel(
             tile_sheet,
@@ -3387,8 +3390,9 @@ fn sample_layered_background_tile_pixel(
     }
 
     for row in 0..8 {
-        let offset = forest_water_ripple_offset_for_screen_y_sub_30598(
-            forest_water_ripple_time_frames_for_trace_loc_305e6(trace),
+        let offset = background_ripple_offset_for_screen_y_sub_30598(
+            trace,
+            level_visuals.level.background_theme_id,
             screen_y + row,
             effect_start_row_selector,
             camera_y_px,
@@ -3496,7 +3500,10 @@ fn push_layered_background_tile(
         });
         return;
     };
-    if !background_scroll_applies_forest_water_ripple_loc_30598(background_theme_id) {
+    if matches!(
+        wildside_core::background_scroll_theme_dispatch_loc_30598(u16::from(background_theme_id)),
+        wildside_core::BackgroundScrollThemeDispatchLoc30598::Return
+    ) {
         commands.push(DrawCommand::IndexedTile {
             x: screen_x,
             y: screen_y,
@@ -3509,8 +3516,9 @@ fn push_layered_background_tile(
 
     let row_offsets = (0..8)
         .map(|row| {
-            forest_water_ripple_offset_for_screen_y_sub_30598(
-                forest_water_ripple_time_frames_for_trace_loc_305e6(trace),
+            background_ripple_offset_for_screen_y_sub_30598(
+                trace,
+                background_theme_id,
                 screen_y + row,
                 effect_start_row_selector,
                 camera_y_px,
@@ -4878,17 +4886,16 @@ const FOREST_RIPPLE_LOC_3060A: [u8; 128] = [
     0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4, 3, 2, 2, 2,
     1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 1,
 ];
+// Desert heat ripple table from ASM: BackgroundScroll_DesertHeatRippleData
+// (kid.asm line 34494). loc_306D4 masks Time_Frames with `$30`, and loc_306F4
+// consumes at most 16 bytes, so the 64-byte ROM table covers every phase.
+const DESERT_HEAT_RIPPLE_LOC_306F4: [u8; 64] = [
+    0, 0xFF, 0, 1, 0, 0, 0xFF, 0, 1, 0, 0, 0xFF, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0xFF, 0, 1, 0, 0, 0,
+    0xFF, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0xFF, 0, 1, 0, 0, 0xFF, 0, 1, 0, 0, 0xFF, 0, 0, 0, 0, 0xFF, 0,
+    1, 0, 0, 0xFF, 0, 1, 0, 0, 0xFF, 0,
+];
 const ZERO_HORIZ_SCROLL_BUFFER_LOC_305E6: [u32; FRAME_HEIGHT as usize] = [0; FRAME_HEIGHT as usize];
 const SETTLED_WARP_FOREST_RIPPLE_TIME_FRAMES_OFFSET_LOC_305E6: usize = 52;
-
-fn background_scroll_applies_forest_water_ripple_loc_30598(background_theme_id: u8) -> bool {
-    // ASM loc_30598 dispatches the post-scroll ripple path from
-    // `Background_theme`; the renderer currently has a Forest ripple path only.
-    matches!(
-        wildside_core::background_scroll_theme_dispatch_loc_30598(u16::from(background_theme_id)),
-        wildside_core::BackgroundScrollThemeDispatchLoc30598::ApplyForestWaterRipple
-    )
-}
 
 fn background_time_frames_for_trace_loc_3050a(trace: &NativeTraceFrame) -> usize {
     // ASM BackgroundScroll_ComputeShiftData / loc_305E6 use the global
@@ -4912,6 +4919,35 @@ fn background_time_frames_for_trace_loc_3050a(trace: &NativeTraceFrame) -> usize
 
 pub fn forest_water_ripple_time_frames_for_trace_loc_305e6(trace: &NativeTraceFrame) -> usize {
     background_time_frames_for_trace_loc_3050a(trace)
+}
+
+fn background_ripple_offset_for_screen_y_sub_30598(
+    trace: &NativeTraceFrame,
+    background_theme_id: u8,
+    screen_y: i32,
+    effect_start_row_selector: u8,
+    camera_y_px: i32,
+) -> Option<i32> {
+    match wildside_core::background_scroll_theme_dispatch_loc_30598(u16::from(background_theme_id))
+    {
+        wildside_core::BackgroundScrollThemeDispatchLoc30598::ApplyForestWaterRipple => {
+            forest_water_ripple_offset_for_screen_y_sub_30598(
+                forest_water_ripple_time_frames_for_trace_loc_305e6(trace),
+                screen_y,
+                effect_start_row_selector,
+                camera_y_px,
+            )
+        }
+        wildside_core::BackgroundScrollThemeDispatchLoc30598::ApplyDesertHeatRipple => {
+            desert_heat_ripple_offset_for_screen_y_sub_30598(
+                background_time_frames_for_trace_loc_3050a(trace),
+                screen_y,
+                effect_start_row_selector,
+                camera_y_px,
+            )
+        }
+        wildside_core::BackgroundScrollThemeDispatchLoc30598::Return => None,
+    }
 }
 
 pub fn forest_water_ripple_offset_for_screen_y_sub_30598(
@@ -4958,6 +4994,48 @@ pub fn forest_water_ripple_offset_for_screen_y_sub_30598(
         setup.ripple_dbf_counter,
         setup.base_scroll_word,
         &FOREST_RIPPLE_LOC_3060A,
+        setup.ripple_data_byte_offset,
+    )?;
+    let scroll_word = ripple_buffer.get(screen_y as usize).copied()? as u16;
+    Some(i32::from(scroll_word as i16))
+}
+
+pub fn desert_heat_ripple_offset_for_screen_y_sub_30598(
+    frame_index: usize,
+    screen_y: i32,
+    effect_start_row_selector: u8,
+    camera_y_px: i32,
+) -> Option<i32> {
+    // ASM BackgroundScroll_ApplyDesertHeatRipple loc_306C2-loc_306F4:
+    // start at `(map_header+$14)[0] * 8 - (Camera_Y_pos >> 2)`, affect at
+    // most 16 visible scanlines, then add signed heat-ripple table bytes.
+    if !(0..FRAME_HEIGHT as i32).contains(&screen_y) {
+        return None;
+    }
+    let visible_band = wildside_core::background_scroll_desert_heat_ripple_visible_band_loc_306C2(
+        effect_start_row_selector,
+        camera_y_px as i16,
+    )?;
+    let visible_start = i32::from(visible_band.start_scanline);
+    let line_count = i32::from(visible_band.affected_scanline_count);
+    let visible_end = visible_start + line_count;
+    if screen_y < visible_start || screen_y >= visible_end {
+        return None;
+    }
+
+    let setup = wildside_core::background_scroll_desert_heat_ripple_setup_loc_306D4(
+        &ZERO_HORIZ_SCROLL_BUFFER_LOC_305E6,
+        visible_band.start_scanline,
+        visible_band.affected_scanline_count,
+        visible_band.ripple_data_byte_offset,
+        frame_index as u16,
+    )?;
+    let ripple_buffer = wildside_core::background_scroll_desert_heat_ripple_loop_loc_306F4(
+        &ZERO_HORIZ_SCROLL_BUFFER_LOC_305E6,
+        setup.start_scanline,
+        setup.ripple_dbf_counter,
+        setup.base_scroll_word,
+        &DESERT_HEAT_RIPPLE_LOC_306F4,
         setup.ripple_data_byte_offset,
     )?;
     let scroll_word = ripple_buffer.get(screen_y as usize).copied()? as u16;

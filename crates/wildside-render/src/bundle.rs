@@ -72,7 +72,6 @@ const FOREGROUND_TILE_VRAM_BASE: u16 = 0x00BC;
 const BLOCK_TILE_VRAM_BASE: u16 = 0x0220;
 const BACKGROUND_TILE_VRAM_BASE: u16 = 0x0780;
 const MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4: u16 = 0x07E5;
-const HILL_ALT_TILE_VRAM_BASE_LOC_11EA2: u16 = 0x07C0;
 const FLAG_ART_PATH: &str = "artunc/End_of_level_Flag_(6_frames).bin";
 const FLAG_BOTTOM_ART_PATH: &str = "artunc/Flag_bottom.bin";
 const MURDER_WALL_ART_PATH: &str = "artcomp/Murder_wall.bin";
@@ -1365,10 +1364,12 @@ fn layered_background_enigma_base_word_loc_128ba(
         }
         ("mountain", 4) => wildside_core::background_hail_overlay_loc_1294A().pattern_vram_offset,
         // ASM loc_1295E decodes Hill planes at $2780/$2780/$07C0.
-        ("hill", 0 | 1) => 0x2780,
-        ("hill", 2) => HILL_ALT_TILE_VRAM_BASE_LOC_11EA2,
+        ("hill", 0 | 1) => {
+            wildside_core::background_hills_tileset_loc_1295E().pattern_vram_offset_1_2
+        }
+        ("hill", 2) => wildside_core::background_hills_tileset_loc_1295E().pattern_vram_offset_3,
         // ASM loc_12988 decodes all Desert planes with d0=$2780.
-        ("desert", _) => 0x2780,
+        ("desert", _) => wildside_core::background_desert_tileset_loc_12988().pattern_vram_offset,
         // ASM loc_128BA decodes Forest planes with d0=$0780.
         ("forest", _) => BACKGROUND_TILE_VRAM_BASE,
         _ => 0,

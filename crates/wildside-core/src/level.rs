@@ -7481,17 +7481,16 @@ pub fn background_final_pattern_loc_12952(
 
 #[cfg_attr(test, allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundHillsLoadLoc1295E {
-    pub(crate) pattern_vram_offset_1_2: u16,
-    pub(crate) pattern_vram_offset_3: u16,
-    pub(crate) vram_buffer1_addr: u32,
-    pub(crate) vram_buffer2_addr: u32,
-    pub(crate) vram_buffer3_addr: u32,
+pub struct BackgroundHillsLoadLoc1295E {
+    pub pattern_vram_offset_1_2: u16,
+    pub pattern_vram_offset_3: u16,
+    pub vram_buffer1_addr: u32,
+    pub vram_buffer2_addr: u32,
+    pub vram_buffer3_addr: u32,
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
-pub(crate) fn background_hills_tileset_loc_1295E() -> BackgroundHillsLoadLoc1295E {
+pub fn background_hills_tileset_loc_1295E() -> BackgroundHillsLoadLoc1295E {
     // ASM loc_1295E (kid.asm:25305-25318): Hills theme background tileset load.
     //   loc_1295E:	; hill
     //   move.w  #$2780,d0           ; pattern VRAM offset for first two buffers
@@ -7524,16 +7523,15 @@ pub(crate) fn background_hills_tileset_loc_1295E() -> BackgroundHillsLoadLoc1295
 
 #[cfg_attr(test, allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundDesertLoadLoc12988 {
-    pub(crate) pattern_vram_offset: u16,
-    pub(crate) vram_buffer1_addr: u32,
-    pub(crate) vram_buffer2_addr: u32,
-    pub(crate) vram_buffer3_addr: u32,
+pub struct BackgroundDesertLoadLoc12988 {
+    pub pattern_vram_offset: u16,
+    pub vram_buffer1_addr: u32,
+    pub vram_buffer2_addr: u32,
+    pub vram_buffer3_addr: u32,
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
-pub(crate) fn background_desert_tileset_loc_12988() -> BackgroundDesertLoadLoc12988 {
+pub fn background_desert_tileset_loc_12988() -> BackgroundDesertLoadLoc12988 {
     // ASM loc_12988 (kid.asm:25321-25333): Desert theme background tileset load.
     //   loc_12988:	; desert
     //   move.w  #$2780,d0           ; pattern VRAM offset for all buffers
@@ -13102,19 +13100,19 @@ pub struct BackgroundScrollForestWaterRippleSetupLoc305E6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundScrollDesertHeatRippleVisibleBandLoc306C2 {
-    pub(crate) start_scanline: u16,
-    pub(crate) ripple_data_byte_offset: u16,
-    pub(crate) affected_scanline_count: u16,
+pub struct BackgroundScrollDesertHeatRippleVisibleBandLoc306C2 {
+    pub start_scanline: u16,
+    pub ripple_data_byte_offset: u16,
+    pub affected_scanline_count: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundScrollDesertHeatRippleSetupLoc306D4 {
-    pub(crate) start_scanline: u16,
-    pub(crate) target_word_offset_bytes: usize,
-    pub(crate) base_scroll_word: i16,
-    pub(crate) ripple_dbf_counter: u16,
-    pub(crate) ripple_data_byte_offset: usize,
+pub struct BackgroundScrollDesertHeatRippleSetupLoc306D4 {
+    pub start_scanline: u16,
+    pub target_word_offset_bytes: usize,
+    pub base_scroll_word: i16,
+    pub ripple_dbf_counter: u16,
+    pub ripple_data_byte_offset: usize,
 }
 
 #[allow(non_snake_case)]
@@ -14369,8 +14367,7 @@ pub fn background_scroll_forest_water_ripple_loop_loc_3060A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_desert_heat_ripple_visible_band_loc_306C2(
+pub fn background_scroll_desert_heat_ripple_visible_band_loc_306C2(
     map_header_row_count: u8,
     camera_y_pos: i16,
 ) -> Option<BackgroundScrollDesertHeatRippleVisibleBandLoc306C2> {
@@ -14410,8 +14407,7 @@ pub(crate) fn background_scroll_desert_heat_ripple_visible_band_loc_306C2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_desert_heat_ripple_setup_loc_306D4(
+pub fn background_scroll_desert_heat_ripple_setup_loc_306D4(
     horiz_scroll_buffer: &[u32],
     start_scanline: u16,
     affected_scanline_count: u16,
@@ -14441,8 +14437,7 @@ pub(crate) fn background_scroll_desert_heat_ripple_setup_loc_306D4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_desert_heat_ripple_loop_loc_306F4(
+pub fn background_scroll_desert_heat_ripple_loop_loc_306F4(
     horiz_scroll_buffer: &[u32],
     start_scanline: u16,
     ripple_dbf_counter: u16,
