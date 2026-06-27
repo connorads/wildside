@@ -4173,17 +4173,29 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                     |x, y, is_hidden| {
                         if let Some(idx) = cell_index(x, y) {
                             if is_hidden {
-                                write_hidden(cells, idx);
+                                let Ok(cell_addr) = u32::try_from(idx.saturating_mul(2)) else {
+                                    return;
+                                };
+                                let entry = block_type_4_hidden_entry_loc_12670(
+                                    cell_addr,
+                                    x,
+                                    y,
+                                    block_type_arg,
+                                );
+                                for cell_addr in [entry.cell_addr, entry.cell_addr_plus_2] {
+                                    if cell_addr % 2 == 0
+                                        && let Ok(idx) = usize::try_from(cell_addr / 2)
+                                        && idx < cells.len()
+                                    {
+                                        write_hidden(cells, idx);
+                                    }
+                                }
                             } else {
                                 cells[idx] = 0xE407;
                             }
                         }
-                        if let Some(idx) = cell_index(x.wrapping_add(1), y) {
-                            if is_hidden {
-                                write_hidden(cells, idx);
-                            } else {
-                                cells[idx] = 0xE408;
-                            }
+                        if !is_hidden && let Some(idx) = cell_index(x.wrapping_add(1), y) {
+                            cells[idx] = 0xE408;
                         }
                     },
                 );
@@ -6339,7 +6351,6 @@ pub(crate) struct BlockType4HiddenEntryLoc12670 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_4_hidden_entry_loc_12670(
     cell_addr: u32,
     x_pos: u16,
