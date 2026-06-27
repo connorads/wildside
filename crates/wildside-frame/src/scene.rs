@@ -4871,8 +4871,10 @@ pub fn hide_pause_menu_overwritten_sprite_commands_sub_6874(commands: &mut Vec<D
 }
 
 // Forest water ripple table from ASM: BackgroundScroll_ForestWaterRippleData
-// (kid.asm line 34310). 64 signed byte entries, max amplitude 8px.
-const FOREST_RIPPLE: [i8; 64] = [
+// (kid.asm line 34310). Duplicated so loc_3060A can walk through phase wrap.
+const FOREST_RIPPLE_LOC_3060A: [u8; 128] = [
+    0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4, 3, 2, 2, 2,
+    1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 1,
     0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 5, 6, 7, 7, 7, 8, 8, 8, 8, 7, 7, 7, 6, 5, 4, 3, 2, 2, 2,
     1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 1,
 ];
@@ -4950,8 +4952,16 @@ pub fn forest_water_ripple_offset_for_screen_y_sub_30598(
         return None;
     }
 
-    let table_idx = (setup.ripple_data_byte_offset + (screen_y - visible_start) as usize) & 0x3F;
-    Some(i32::from(FOREST_RIPPLE[table_idx]))
+    let ripple_buffer = wildside_core::background_scroll_forest_water_ripple_loop_loc_3060A(
+        &ZERO_HORIZ_SCROLL_BUFFER_LOC_305E6,
+        setup.start_scanline,
+        setup.ripple_dbf_counter,
+        setup.base_scroll_word,
+        &FOREST_RIPPLE_LOC_3060A,
+        setup.ripple_data_byte_offset,
+    )?;
+    let scroll_word = ripple_buffer.get(screen_y as usize).copied()? as u16;
+    Some(i32::from(scroll_word as i16))
 }
 
 pub fn background_tile_screen_position(

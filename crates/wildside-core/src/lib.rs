@@ -75,6 +75,7 @@ pub use level::{
     TransferScrollDataStormLoc30110, background_art_decompress_loc_11E8A_11EA2,
     background_chunk_row_loop_loc_12884, background_dimensions_loc_11B40,
     background_followup_art_decompress_loc_11EA2_11EF2, background_row_pointers_loc_11B7A,
+    background_scroll_forest_water_ripple_loop_loc_3060A,
     background_scroll_forest_water_ripple_setup_loc_305E6,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_theme_dispatch_loc_30598, eol_score_counter_snapshot_loc_D770,

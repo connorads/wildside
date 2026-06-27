@@ -14344,8 +14344,7 @@ pub fn background_scroll_forest_water_ripple_setup_loc_305E6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_forest_water_ripple_loop_loc_3060A(
+pub fn background_scroll_forest_water_ripple_loop_loc_3060A(
     horiz_scroll_buffer: &[u32],
     start_scanline: u16,
     ripple_dbf_counter: u16,
