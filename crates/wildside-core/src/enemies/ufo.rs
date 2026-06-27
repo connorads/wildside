@@ -154,21 +154,18 @@ pub(crate) struct UfoBeamStartLoc34Eec {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoOnScreenCountLoc34F64 {
     pub(crate) number_ufos_on_screen: u16,
     pub(crate) ufo_on_screen_latch: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoOffScreenGateLoc34F6E {
     pub(crate) number_ufos_on_screen: u16,
     pub(crate) play_hover_stop_sound: bool,
     pub(crate) clear_latch_tail: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_on_screen_count_loc_34f64(
     number_ufos_on_screen: u16,
 ) -> UfoOnScreenCountLoc34F64 {
@@ -180,7 +177,6 @@ pub(crate) fn ufo_on_screen_count_loc_34f64(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_off_screen_gate_loc_34f6e(
     number_ufos_on_screen: u16,
     ufo_on_screen_latch: bool,
@@ -204,10 +200,53 @@ pub(crate) fn ufo_off_screen_gate_loc_34f6e(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_clear_on_screen_latch_loc_34f88() -> bool {
     // ASM UFO.asm loc_34F88: the off-screen tail clears `$50(a5)` with `sf`.
     false
+}
+
+pub(crate) fn ufo_on_screen_gate_loc_35008(
+    ufo_x_pos: u32,
+    ufo_y_pos: u32,
+    kid_x_pos: u32,
+    kid_y_pos: u32,
+    number_ufos_on_screen: u16,
+    ufo_on_screen_latch: bool,
+) -> (u16, bool, Option<QueuedSoundEffect>) {
+    let ufo_x = fixed_integer_word(ufo_x_pos);
+    let ufo_y = fixed_integer_word(ufo_y_pos);
+    let kid_x = fixed_integer_word(kid_x_pos);
+    let kid_y = fixed_integer_word(kid_y_pos);
+    let dx = ufo_x.wrapping_sub(kid_x);
+    let dy = ufo_y.wrapping_sub(kid_y);
+
+    // ASM UFO.asm loc_34F16-loc_34F6E: on-screen means within +/-$A0 X
+    // pixels of Kid, at least $A0 pixels above, and no more than $50 below.
+    let on_screen = (-0x00A0..=0x00A0).contains(&dx) && (-0x00A0..=0x0050).contains(&dy);
+
+    if on_screen {
+        if ufo_on_screen_latch {
+            return (number_ufos_on_screen, ufo_on_screen_latch, None);
+        }
+        let counted = ufo_on_screen_count_loc_34f64(number_ufos_on_screen);
+        let sound = (number_ufos_on_screen == 0).then_some(QueuedSoundEffect::UfoHovering);
+        return (
+            counted.number_ufos_on_screen,
+            counted.ufo_on_screen_latch,
+            sound,
+        );
+    }
+
+    let off_screen = ufo_off_screen_gate_loc_34f6e(number_ufos_on_screen, ufo_on_screen_latch);
+    let latch = if off_screen.clear_latch_tail {
+        ufo_clear_on_screen_latch_loc_34f88()
+    } else {
+        ufo_on_screen_latch
+    };
+    let sound = off_screen
+        .play_hover_stop_sound
+        .then_some(QueuedSoundEffect::UfoHovering);
+    (off_screen.number_ufos_on_screen, latch, sound)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1856,10 +1895,11 @@ mod tests {
 
         assert_eq!(
             sound_effects,
-            vec![QueuedSoundEffect::UfoShoots],
-            "ASM UFO.asm loc_34EDC should play `sfx_UFO_shoots` when Kid is directly below and the targeted beam starts",
+            vec![QueuedSoundEffect::UfoShoots, QueuedSoundEffect::UfoHovering],
+            "ASM UFO.asm loc_34EDC plays `sfx_UFO_shoots` when Kid is directly below, then loc_34F5A starts the hover loop when the unlatched UFO reaches ChkOnScreen",
         );
         assert_eq!(sound_effects[0].sound_id(), 0x3A);
+        assert_eq!(sound_effects[1].sound_id(), 0x19);
         assert_eq!(
             enemies[0].ufo_beam_segments, UFO_BEAM_SEGMENT_COUNT,
             "ASM UFO.asm loc_34EEC should arm the beam segment counter after the start cue",

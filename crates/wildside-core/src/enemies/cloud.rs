@@ -742,6 +742,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            ufo_on_screen_latch: false,
             boss_head_index: BOSS_HEAD_NONE,
             boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,

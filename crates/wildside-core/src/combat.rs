@@ -89,6 +89,7 @@ pub(crate) enum QueuedSoundEffect {
     TankMouthClosed,
     TankShoots,
     RobotShoots,
+    UfoHovering,
     UfoShoots,
     ArcherShoots,
     FireballBouncing,
@@ -230,6 +231,10 @@ impl QueuedSoundEffect {
             // constants.asm: sfx_Robot_shoots = $3A; Robot.asm loc_3AC0C
             // plays this after the shot object's first hibernate.
             Self::RobotShoots => 0x3A,
+            // constants.asm: sfx_UFO_hovering = $19; UFO.asm loc_34F5A starts
+            // the loop for the first on-screen UFO and loc_34F7E stops it when
+            // the last one leaves.
+            Self::UfoHovering => 0x19,
             // constants.asm: sfx_UFO_shoots = $3A; UFO.asm loc_34EDC and
             // loc_34FAE play this when the beam sequence starts.
             Self::UfoShoots => 0x3A,

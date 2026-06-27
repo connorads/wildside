@@ -1207,6 +1207,8 @@ pub(crate) struct ActiveEnemy {
     pub(crate) ufo_beam_segments: u8,
     /// UFO beam: frames until next segment. ASM $4A(a5).
     pub(crate) ufo_beam_interval: u8,
+    /// UFO on-screen latch. ASM UFO.asm loc_34F64/loc_34F88 `$50(a5)`.
+    pub(crate) ufo_on_screen_latch: bool,
     /// Boss head index (0, 1, 2) for multi-head bosses. BOSS_HEAD_NONE if not a boss head.
     pub(crate) boss_head_index: u8,
     /// ASM `loc_3893E`/`loc_389D6` waiting boss-eye workers attached to this
@@ -3629,6 +3631,7 @@ fn activate_enemies_with_rng_inner(
                 } else {
                     lion_runtime_fields.map_or(0, |runtime| runtime.ufo_beam_interval as u8)
                 },
+                ufo_on_screen_latch: false,
                 boss_head_index: if is_multi_head_boss(family) {
                     head_idx
                 } else {
@@ -3798,6 +3801,11 @@ pub(crate) fn step_active_enemies_with_rng(
         })
         .count()
         .min(usize::from(u8::MAX)) as u8;
+    let mut number_ufos_on_screen = active
+        .iter()
+        .filter(|enemy| matches!(enemy.family, EnemyFamily::UFO) && enemy.ufo_on_screen_latch)
+        .count()
+        .min(usize::from(u16::MAX)) as u16;
     for enemy in active.iter_mut() {
         if matches!(enemy.family, EnemyFamily::Driller) && !enemy.shared_walker_patrol_short_next {
             // ASM Driller.asm loc_3BE60: increment the shared DrillMoving
@@ -3998,6 +4006,25 @@ pub(crate) fn step_active_enemies_with_rng(
                             rng,
                             played_sound_effects.as_deref_mut(),
                         );
+                    }
+                    if matches!(enemy.family, EnemyFamily::UFO)
+                        && let (Some(kid_x), Some(kid_y)) = (player_x_pos, player_y_pos)
+                    {
+                        let (next_count, next_latch, sound) = ufo_on_screen_gate_loc_35008(
+                            enemy.x_pos,
+                            enemy.y_pos,
+                            kid_x,
+                            kid_y,
+                            number_ufos_on_screen,
+                            enemy.ufo_on_screen_latch,
+                        );
+                        number_ufos_on_screen = next_count;
+                        enemy.ufo_on_screen_latch = next_latch;
+                        if let (Some(sound), Some(sound_effects)) =
+                            (sound, played_sound_effects.as_deref_mut())
+                        {
+                            sound_effects.push(sound);
+                        }
                     }
                 }
             }
@@ -8691,6 +8718,7 @@ pub(crate) mod test_fixtures {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
+            ufo_on_screen_latch: false,
             boss_head_index: BOSS_HEAD_NONE,
             boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
@@ -8772,6 +8800,91 @@ pub(crate) mod test_fixtures {
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn active_enemy_step_counts_newly_visible_ufo_loc_34f64() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::UFO;
+        enemy.x_pos = 0x0100_0000;
+        enemy.y_pos = 0x0080_0000;
+        enemy.wait_timer = 1;
+        let mut enemies = [enemy];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(0x0100_0000),
+            Some(0x0080_0000),
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert!(
+            enemies[0].ufo_on_screen_latch,
+            "ASM UFO.asm loc_34F64 sets `$50(a5)` when a UFO first enters the Kid-relative on-screen window",
+        );
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::UfoHovering],
+            "ASM UFO.asm loc_34F5A starts sfx_UFO_hovering when Number_UFOs_OnScreen was zero",
+        );
+    }
+
+    #[test]
+    fn active_enemy_step_clears_last_visible_ufo_loc_34f88() {
+        let mut enemy = mini_hopping_skull_test_enemy();
+        enemy.family = EnemyFamily::UFO;
+        enemy.x_pos = 0x0200_0000;
+        enemy.y_pos = 0x0080_0000;
+        enemy.wait_timer = 1;
+        enemy.ufo_on_screen_latch = true;
+        let mut enemies = [enemy];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            Some(0x0100_0000),
+            Some(0x0080_0000),
+            None,
+            None,
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert!(
+            !enemies[0].ufo_on_screen_latch,
+            "ASM UFO.asm loc_34F88 clears `$50(a5)` after an off-screen latched UFO decrements the shared count",
+        );
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::UfoHovering],
+            "ASM UFO.asm loc_34F7E stops sfx_UFO_hovering when the last counted UFO leaves",
+        );
+    }
 
     #[test]
     fn active_enemy_step_respects_samurai_haze_object_gate_loc_e1e() {
