@@ -11239,7 +11239,19 @@ pub(crate) fn evanescent_bullet_scan_rows_loc_EB48(
         for col_delta in 0..=col_dbf_counter {
             let col = left_col.wrapping_add(col_delta);
             let cell = grid.cell_at(col, row);
-            if cell.has_block && cell.block_type == terrain::BlockType::Evanescent {
+            let block_flag = if cell.has_block { 0x8000 } else { 0 };
+            let block_type_bits = if cell.has_block {
+                (cell.block_type as u16) << 8
+            } else {
+                0
+            };
+            let level_layout_word = block_flag
+                | ((cell.collision as u16) << 12)
+                | block_type_bits
+                | u16::from(cell.skin);
+            if evanescent_bullet_cell_scan_loc_EB62(level_layout_word)
+                == EvanescentBulletCellScanLocEB62::TriggerEvanescentBlock
+            {
                 return Some(EvanescentBulletScanHitLocEB48 { col, row });
             }
         }
@@ -11252,7 +11264,6 @@ pub(crate) fn evanescent_bullet_scan_rows_loc_EB48(
 /// flag and block-flagged cells whose masked type is not `$A00` both continue
 /// the inclusive column/row DBF scan instead of triggering an evanescent block.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_cell_scan_loc_EB62(
     level_layout_word: u16,
 ) -> EvanescentBulletCellScanLocEB62 {
