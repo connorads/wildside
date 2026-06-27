@@ -4208,20 +4208,19 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // (top row) and `$B813`/`$B814` (bottom row) per run cell. No hidden
             // path. (kid.asm:24758-24799)
             8 => {
-                run_loop_shooter_1253a(block_layout_words, &mut pos, width_blocks, |x, y| {
-                    if let Some(idx) = cell_index(x, y) {
-                        cells[idx] = 0xB811;
-                    }
-                    if let Some(idx) = cell_index(x.wrapping_add(1), y) {
-                        cells[idx] = 0xB812;
-                    }
-                    if let Some(idx) = cell_index(x, y.wrapping_add(1)) {
-                        cells[idx] = 0xB813;
-                    }
-                    if let Some(idx) = cell_index(x.wrapping_add(1), y.wrapping_add(1)) {
-                        cells[idx] = 0xB814;
-                    }
-                });
+                run_loop_shooter_1253a(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    |cell_addr, tile_word| {
+                        if cell_addr % 2 == 0
+                            && let Ok(idx) = usize::try_from(cell_addr / 2)
+                            && idx < cells.len()
+                        {
+                            cells[idx] = tile_word;
+                        }
+                    },
+                );
             }
             // loc_125A6 (types 10,12): per cell read a property byte `d5`;
             // non-hidden writes `(d5 & 0xFF) - $13D3` (type 12) or `- $15E4`
@@ -4568,8 +4567,8 @@ fn run_loop_pair_1263c(
 fn run_loop_shooter_1253a(
     words: &[u16],
     pos: &mut usize,
-    _width_blocks: u16,
-    mut body: impl FnMut(u16, u16),
+    width_blocks: u16,
+    mut body: impl FnMut(u32, u16),
 ) {
     loop {
         let Some(rest) = words.get(*pos..) else {
@@ -4583,25 +4582,25 @@ fn run_loop_shooter_1253a(
         };
         *pos += read_x.bytes_consumed;
         let x = read_x.x_pos;
-        let Some(&y) = words.get(*pos) else {
+        let Some(&y_row) = words.get(*pos) else {
             return;
         };
-        let Some(&count) = words.get(*pos + 1) else {
+        let row_table_len = usize::from(y_row).saturating_mul(2).saturating_add(1);
+        let mut row_table = vec![0; row_table_len];
+        row_table[usize::from(y_row) * 2] = y_row.wrapping_mul(width_blocks).wrapping_mul(2);
+        let Some(setup) =
+            block_type_8_parse_coords_loc_12540(&words[*pos..], x, &row_table, width_blocks)
+        else {
             return;
         };
-        let Some(&stride) = words.get(*pos + 2) else {
-            return;
+        *pos += setup.bytes_consumed;
+        let placement = if setup.width != 0 {
+            block_type_8_wide_placement_loc_1257e(setup.cell_addr, setup.height, width_blocks)
+        } else {
+            block_type_8_narrow_placement_loc_1255c(setup.cell_addr, setup.height, width_blocks)
         };
-        *pos += 3;
-        for i in 0..count {
-            // loc_1255C advances a4 by 4 bytes (2 cells) horizontally; loc_1257E
-            // advances by 2*Level_width_tiles (2 rows) vertically per iteration.
-            let (cx, cy) = if stride != 0 {
-                (x, y.wrapping_add(i.wrapping_mul(2)))
-            } else {
-                (x.wrapping_add(i.wrapping_mul(2)), y)
-            };
-            body(cx, cy);
+        for tile in placement.tiles {
+            body(tile.cell_addr, tile.tile_word);
         }
     }
 }
@@ -5761,7 +5760,6 @@ pub(crate) fn block_type_8_read_x_pos_loc_1253a(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_8_parse_coords_loc_12540(
     layout_words: &[u16],
     x_pos: u16,
@@ -5803,7 +5801,6 @@ pub(crate) fn block_type_8_parse_coords_loc_12540(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_8_narrow_placement_loc_1255c(
     cell_addr: u32,
     height: u16,
@@ -5854,7 +5851,6 @@ pub(crate) fn block_type_8_narrow_placement_loc_1255c(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_8_wide_placement_loc_1257e(
     cell_addr: u32,
     height: u16,
