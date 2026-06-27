@@ -2149,22 +2149,6 @@ pub(crate) fn block_layout_long_run_repeat_loop_loc_1342E(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BlockLayoutPropertyWordLoc1337C {
-    pub(crate) high_bit_set: bool,
-    pub(crate) low_nibble: u16,
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_store_property_word_loc_13398(property_word: u16) -> u16 {
-    // ASM loc_13398 (kid.asm:25678-25681) is the shared store/loop tail after
-    // either loc_13392 leaves `d1` as the raw 4-bit property word or
-    // loc_1337C sets bit 15 with `ori.w #$8000,d1`; the common tail writes that
-    // final word to `(a1)+` before `dbf d2,loc_1337C`.
-    property_word
-}
-
 #[allow(non_snake_case)]
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_short_pair_repeat_loop_loc_1345E(
@@ -4159,31 +4143,6 @@ pub(crate) fn block_layout_decode_word_run_loc_1354E(
                 .collect(),
         }
     }
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_property_words_loc_1337C(
-    property_words: &[BlockLayoutPropertyWordLoc1337C],
-    dbf_counter: u16,
-) -> Vec<u16> {
-    // ASM loc_1337C (kid.asm:25663-25676) runs exactly `dbf_counter+1`
-    // iterations: read one flag bit, and when that bit is non-zero read the
-    // next 4-bit value and set bit 15 with `ori.w #$8000,d1`; otherwise store
-    // the raw 4-bit value from loc_13392.
-    property_words
-        .iter()
-        .copied()
-        .take(usize::from(dbf_counter) + 1)
-        .map(|entry| {
-            let low_nibble = entry.low_nibble & 0x000F;
-            if entry.high_bit_set {
-                block_layout_store_property_word_loc_13398(low_nibble | 0x8000)
-            } else {
-                block_layout_store_property_word_loc_13398(low_nibble)
-            }
-        })
-        .collect()
 }
 
 #[allow(non_snake_case)]

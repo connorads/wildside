@@ -4676,6 +4676,45 @@ pub fn decode_enigma(data: &[u8], base_tile_word: u16) -> Result<Vec<u16>> {
     Ok(output)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlockLayoutPropertyWordLoc1337C {
+    pub high_bit_set: bool,
+    pub low_nibble: u16,
+}
+
+#[allow(non_snake_case)]
+pub fn block_layout_store_property_word_loc_13398(property_word: u16) -> u16 {
+    // ASM loc_13398 (kid.asm:25678-25681) is the shared store/loop tail after
+    // either loc_13392 leaves `d1` as the raw 4-bit property word or
+    // loc_1337C sets bit 15 with `ori.w #$8000,d1`; the common tail writes that
+    // final word to `(a1)+` before `dbf d2,loc_1337C`.
+    property_word
+}
+
+#[allow(non_snake_case)]
+pub fn block_layout_property_words_loc_1337C(
+    property_words: &[BlockLayoutPropertyWordLoc1337C],
+    dbf_counter: u16,
+) -> Vec<u16> {
+    // ASM loc_1337C (kid.asm:25663-25676) runs exactly `dbf_counter+1`
+    // iterations: read one flag bit, and when that bit is non-zero read the
+    // next 4-bit value and set bit 15 with `ori.w #$8000,d1`; otherwise store
+    // the raw 4-bit value from loc_13392.
+    property_words
+        .iter()
+        .copied()
+        .take(usize::from(dbf_counter) + 1)
+        .map(|entry| {
+            let low_nibble = entry.low_nibble & 0x000F;
+            if entry.high_bit_set {
+                block_layout_store_property_word_loc_13398(low_nibble | 0x8000)
+            } else {
+                block_layout_store_property_word_loc_13398(low_nibble)
+            }
+        })
+        .collect()
+}
+
 /// Decompress a block-layout resource into the `$FFFF`-terminated word stream
 /// consumed by the `loc_11C7E` block-overlay dispatcher.
 ///
@@ -4767,13 +4806,14 @@ pub fn decode_block_layout(layout_bytes: &[u8]) -> Result<Vec<u16>> {
                     let d2 = bits.read_bits_sub_13622(4)?;
                     output.push(d2.wrapping_add(1));
                     output.push(bits.read_bits_sub_13622(1)?);
+                    let mut property_words = Vec::with_capacity(usize::from(d2).saturating_add(1));
                     for _ in 0..=d2 {
-                        if bits.read_bits_sub_13622(1)? != 0 {
-                            output.push(bits.read_bits_sub_13622(4)? | 0x8000);
-                        } else {
-                            output.push(bits.read_bits_sub_13622(4)?);
-                        }
+                        property_words.push(BlockLayoutPropertyWordLoc1337C {
+                            high_bit_set: bits.read_bits_sub_13622(1)? != 0,
+                            low_nibble: bits.read_bits_sub_13622(4)?,
+                        });
                     }
+                    output.extend(block_layout_property_words_loc_1337C(&property_words, d2));
                 }
                 // loc_133A0 (types 10,12): X, Y, count, 1-bit flag, count+1
                 // 4-bit property words (loc_133D0).
