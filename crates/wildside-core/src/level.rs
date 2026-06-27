@@ -10134,7 +10134,6 @@ pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F90A(
     source_cell: u8,
     source_cell_col: u16,
@@ -10386,7 +10385,6 @@ pub(crate) fn animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_loop_tail_loc_F934(
     source_cell_col: u16,
     remaining_count: u16,
