@@ -143,6 +143,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
     runtime.block_bounces.push(BlockBounceAnim {
         cell_x: 3,
         cell_y: 4,
+        x_offset_px: 0,
         remaining: 7,
         initial_duration: 8,
         kind: BlockBounceKind::Metal,
@@ -22557,6 +22558,35 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
         assert_eq!(runtime.projectiles[0].x_velocity, 4 << 16);
         assert_eq!(runtime.projectiles[0].y_velocity, 0);
+        assert_eq!(
+            runtime
+                .block_bounces
+                .iter()
+                .map(|bounce| (
+                    bounce.cell_x,
+                    bounce.cell_y,
+                    bounce.x_offset_px,
+                    bounce.y_offset_px
+                ))
+                .collect::<Vec<_>>(),
+            vec![(2, 2, 0, 0), (2, 2, 8, 0), (2, 2, 0, 8), (2, 2, 8, 8)],
+            "ASM loc_E0C2 (kid.asm:17414) spawns the four quarter-tile reveal workers for type-$0A hidden blocks",
+        );
+        assert_eq!(
+            runtime
+                .trace_frame()
+                .block_bounce_details
+                .iter()
+                .map(|bounce| (bounce.x_offset_px, bounce.y_offset_px, bounce.kind))
+                .collect::<Vec<_>>(),
+            vec![
+                (0, 0, BlockBounceTraceKind::HiddenReveal),
+                (8, 0, BlockBounceTraceKind::HiddenReveal),
+                (0, 8, BlockBounceTraceKind::HiddenReveal),
+                (8, 8, BlockBounceTraceKind::HiddenReveal),
+            ],
+            "typed trace details keep loc_E0C2's split-worker offsets while legacy block_bounces stay compatible",
+        );
     }
 
     #[test]

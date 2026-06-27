@@ -1547,7 +1547,6 @@ pub(crate) fn hidden_block_reveal_worker_sub_E0F8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_workers_loc_E0C2(
     layout_variant: u8,
     block_col: u16,

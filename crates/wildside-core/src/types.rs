@@ -2140,6 +2140,8 @@ pub enum BlockBounceTraceKind {
 pub struct BlockBounceTrace {
     pub cell_x: u16,
     pub cell_y: u16,
+    #[serde(default)]
+    pub x_offset_px: i16,
     pub remaining: u8,
     pub y_offset_px: i16,
     pub kind: BlockBounceTraceKind,
@@ -2156,6 +2158,9 @@ pub enum NativeObjectKind {
 pub(crate) struct BlockBounceAnim {
     pub(crate) cell_x: u16,
     pub(crate) cell_y: u16,
+    /// Current x-pixel offset for split workers such as ASM loc_E0C2 hidden
+    /// block quarter reveals. Whole-tile block bounces keep this at zero.
+    pub(crate) x_offset_px: i16,
     pub(crate) remaining: u8,
     pub(crate) kind: BlockBounceKind,
     /// Total duration when the bounce was spawned. Drives the wobble lookup

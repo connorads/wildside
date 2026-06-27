@@ -5645,6 +5645,29 @@ pub fn push_block_grid_overrides(
             ) else {
                 continue;
             };
+            if is_hidden_reveal_bounce && !trace.block_bounce_details.is_empty() {
+                // ASM loc_E0C2 (kid.asm:17414): type-$0A hidden blocks draw
+                // four quarter-tile reveal workers. Typed trace details carry
+                // the worker offsets; legacy compact traces fall through to the
+                // single whole-tile draw below.
+                for bounce in trace.block_bounce_details.iter().filter(|bounce| {
+                    bounce.cell_x == col
+                        && bounce.cell_y == row
+                        && bounce.remaining > 0
+                        && bounce.kind == BlockBounceTraceKind::HiddenReveal
+                }) {
+                    push_tile_quad(
+                        commands,
+                        level_visuals,
+                        &foreground_palette,
+                        i32::from(col) * 16 - camera_x_px + i32::from(bounce.x_offset_px),
+                        i32::from(row) * 16 - camera_y_px + i32::from(bounce.y_offset_px),
+                        resolved.quad,
+                    );
+                }
+                continue;
+            }
+
             // ASM sub_1007A wobble: if the cell is in `block_bounces`, offset
             // the draw y_pos by the engine-supplied value so the block visibly
             // shakes up/down before settling.

@@ -11543,6 +11543,7 @@ mod chunk_09 {
         rt.block_bounces.push(BlockBounceAnim {
             cell_x: 3,
             cell_y: 5,
+            x_offset_px: 0,
             remaining: 2,
             initial_duration: 8,
             kind: BlockBounceKind::Metal,

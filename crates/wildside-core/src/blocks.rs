@@ -8,7 +8,7 @@ use crate::movement::{
     hidden_block_reveal_bounce_down_loc_E2F0, hidden_block_reveal_bounce_up_loc_E2E2,
     hidden_block_reveal_cleanup_loc_E376, hidden_block_reveal_gfx_init_loc_E2A8,
     hidden_block_reveal_offset_bounce_down_loc_E35A, hidden_block_reveal_offset_bounce_up_loc_E34C,
-    hidden_block_reveal_position_loc_E2D2,
+    hidden_block_reveal_position_loc_E2D2, hidden_block_reveal_workers_loc_E0C2,
 };
 
 #[allow(non_snake_case)]
@@ -1520,6 +1520,7 @@ impl NativeRuntime {
         block_bounces.push(BlockBounceAnim {
             cell_x: headbutt_worker.gfx_x_pos >> 4,
             cell_y: headbutt_worker.gfx_y_pos >> 4,
+            x_offset_px: 0,
             remaining: 31,
             initial_duration: 31,
             kind: BlockBounceKind::Prize,
@@ -3877,6 +3878,7 @@ impl NativeRuntime {
             self.block_bounces.push(BlockBounceAnim {
                 cell_x,
                 cell_y,
+                x_offset_px: 0,
                 remaining: 8,
                 initial_duration: 8,
                 kind: BlockBounceKind::Metal,
@@ -4026,6 +4028,7 @@ impl NativeRuntime {
                     self.block_bounces.push(BlockBounceAnim {
                         cell_x,
                         cell_y: cell_y - 1,
+                        x_offset_px: 0,
                         remaining: 8,
                         initial_duration: 8,
                         kind: BlockBounceKind::Shifting,
@@ -4059,6 +4062,7 @@ impl NativeRuntime {
             self.block_bounces.push(BlockBounceAnim {
                 cell_x: headbutt_worker.gfx_x_pos >> 4,
                 cell_y: headbutt_worker.gfx_y_pos >> 4,
+                x_offset_px: 0,
                 remaining: Self::lift_block_bob_frame_count_sub_FB3E() as u8,
                 initial_duration: Self::lift_block_bob_frame_count_sub_FB3E() as u8,
                 kind: BlockBounceKind::Lift,
@@ -4125,37 +4129,69 @@ impl NativeRuntime {
             // already been rewritten from `$20xx` to the revealed block word.
             let layout_word_addr =
                 terrain::BlockList::level_layout_low_word_addr(cell_x, cell_y, level_width_cells);
-            let reveal_worker = crate::level::hidden_block_reveal_worker_loc_E096(
-                cell_x,
-                cell_y,
-                u32::from(layout_word_addr),
-                0xE101,
-                0x1058,
-            );
-            let reveal_gfx = hidden_block_reveal_gfx_init_loc_E2A8(
-                reveal_worker.block_col,
-                reveal_worker.block_row,
-                reveal_worker.layout_word_addr,
-                reveal_worker.sprite_tile_word,
-                reveal_worker.sprite_mapping,
-                0,
-            );
-            let reveal_position = hidden_block_reveal_position_loc_E2D2(
-                reveal_gfx.x_tile_for_position,
-                reveal_gfx.block_row,
-            );
             self.queue_start_sequence(QueuedSoundEffect::HiddenBlockReveal);
-            self.block_bounces.push(BlockBounceAnim {
-                cell_x: reveal_position.x_pos_px >> 4,
-                cell_y: reveal_position.y_pos_px >> 4,
-                remaining: hidden_block_reveal_y_deltas.len() as u8,
-                initial_duration: hidden_block_reveal_y_deltas.len() as u8,
-                kind: BlockBounceKind::HiddenReveal,
-                prize_content: None,
-                prize_deleted_tile: false,
-                metal_direction: 0,
-                y_offset_px: 0,
+            let layout_offset =
+                ((u32::from(cell_y) * u32::from(level_width_cells)) + u32::from(cell_x)) * 2;
+            let hidden_entry = self.block_list.as_ref().and_then(|list| {
+                list.hidden_block_by_layout_addr_sub_E37A(layout_offset as u16)
+                    .or_else(|| list.hidden_block_by_layout_addr_sub_E37A(layout_word_addr))
             });
+            if let Some(entry) = hidden_entry.filter(|entry| entry.block_type == 0x0A) {
+                // ASM loc_E0C2 (kid.asm:17414): type-$0A hidden blocks spawn
+                // four `loc_E304` reveal gfx workers at quarter-tile offsets,
+                // using byte 7 as the `unk_E11E` mapping-table variant.
+                for worker in hidden_block_reveal_workers_loc_E0C2(
+                    entry.block_setting,
+                    cell_x,
+                    cell_y,
+                    u32::from(layout_word_addr),
+                ) {
+                    self.block_bounces.push(BlockBounceAnim {
+                        cell_x: worker.worker.block_col,
+                        cell_y: worker.worker.block_row,
+                        x_offset_px: worker.x_pos_offset_px as i16,
+                        remaining: hidden_block_reveal_y_deltas.len() as u8,
+                        initial_duration: hidden_block_reveal_y_deltas.len() as u8,
+                        kind: BlockBounceKind::HiddenReveal,
+                        prize_content: None,
+                        prize_deleted_tile: false,
+                        metal_direction: 0,
+                        y_offset_px: worker.y_pos_offset_px as i16,
+                    });
+                }
+            } else {
+                let reveal_worker = crate::level::hidden_block_reveal_worker_loc_E096(
+                    cell_x,
+                    cell_y,
+                    u32::from(layout_word_addr),
+                    0xE101,
+                    0x1058,
+                );
+                let reveal_gfx = hidden_block_reveal_gfx_init_loc_E2A8(
+                    reveal_worker.block_col,
+                    reveal_worker.block_row,
+                    reveal_worker.layout_word_addr,
+                    reveal_worker.sprite_tile_word,
+                    reveal_worker.sprite_mapping,
+                    0,
+                );
+                let reveal_position = hidden_block_reveal_position_loc_E2D2(
+                    reveal_gfx.x_tile_for_position,
+                    reveal_gfx.block_row,
+                );
+                self.block_bounces.push(BlockBounceAnim {
+                    cell_x: reveal_position.x_pos_px >> 4,
+                    cell_y: reveal_position.y_pos_px >> 4,
+                    x_offset_px: 0,
+                    remaining: hidden_block_reveal_y_deltas.len() as u8,
+                    initial_duration: hidden_block_reveal_y_deltas.len() as u8,
+                    kind: BlockBounceKind::HiddenReveal,
+                    prize_content: None,
+                    prize_deleted_tile: false,
+                    metal_direction: 0,
+                    y_offset_px: 0,
+                });
+            }
         }
     }
 
@@ -4893,10 +4929,17 @@ impl NativeRuntime {
                     finished_lift_blocks.push((b.cell_x, b.cell_y));
                 }
                 if b.kind == BlockBounceKind::HiddenReveal {
-                    // ASM loc_E376 (kid.asm:17812): the zero-offset reveal
-                    // worker runs the shared cell cleanup before deleting.
-                    let cleanup = hidden_block_reveal_cleanup_loc_E376(0, b.y_offset_px as u16);
-                    debug_assert!(cleanup.calls_sub_11530);
+                    // ASM loc_E376 (kid.asm:17812): only the zero-offset reveal
+                    // worker runs the shared cell cleanup before deleting; the
+                    // split workers from loc_E0C2 delete directly.
+                    let cleanup = hidden_block_reveal_cleanup_loc_E376(
+                        b.x_offset_px as u16,
+                        b.y_offset_px as u16,
+                    );
+                    debug_assert_eq!(
+                        cleanup.calls_sub_11530,
+                        b.x_offset_px == 0 && b.y_offset_px == 0
+                    );
                     return !cleanup.deletes_current_object;
                 }
                 if b.kind == BlockBounceKind::Shifting {

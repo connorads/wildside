@@ -3246,6 +3246,7 @@ mod tests {
         replay.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 4,
             cell_y: 36,
+            x_offset_px: 0,
             remaining: 31,
             y_offset_px: 0,
             kind: BlockBounceTraceKind::Prize,

@@ -4454,6 +4454,7 @@ impl NativeRuntime {
             self.block_bounces.push(BlockBounceAnim {
                 cell_x: headbutt_worker.gfx_x_pos >> 4,
                 cell_y: headbutt_worker.gfx_y_pos >> 4,
+                x_offset_px: 0,
                 remaining: 31,
                 initial_duration: 31,
                 kind: BlockBounceKind::Prize,

@@ -1124,6 +1124,7 @@ mod tests {
         runtime.block_bounces.push(BlockBounceAnim {
             cell_x: 0x0A,
             cell_y: 0x0C,
+            x_offset_px: 0,
             remaining: 31,
             kind: BlockBounceKind::Prize,
             initial_duration: 31,
@@ -4088,6 +4089,7 @@ mod tests {
             .extend((0..2).map(|cell_x| BlockBounceAnim {
                 cell_x,
                 cell_y: 0,
+                x_offset_px: 0,
                 remaining: 1,
                 initial_duration: 1,
                 kind: BlockBounceKind::Metal,
@@ -7851,6 +7853,7 @@ impl NativeRuntime {
                 .map(|b| BlockBounceTrace {
                     cell_x: b.cell_x,
                     cell_y: b.cell_y,
+                    x_offset_px: b.x_offset_px,
                     remaining: b.remaining,
                     y_offset_px: b.y_offset_px,
                     kind: match b.kind {

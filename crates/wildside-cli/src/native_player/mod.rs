@@ -8522,6 +8522,7 @@ mod tests {
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
+            x_offset_px: 0,
             remaining: 8,
             y_offset_px: -2,
             kind: BlockBounceTraceKind::Prize,
@@ -8632,6 +8633,7 @@ mod tests {
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
+            x_offset_px: 0,
             remaining: 8,
             y_offset_px: -2,
             kind: BlockBounceTraceKind::Prize,
@@ -8680,6 +8682,7 @@ mod tests {
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
+            x_offset_px: 0,
             remaining: 8,
             y_offset_px: -2,
             kind: BlockBounceTraceKind::Prize,
@@ -8855,6 +8858,7 @@ mod tests {
         trace.block_bounce_details = vec![BlockBounceTrace {
             cell_x: 1,
             cell_y: 0,
+            x_offset_px: 0,
             remaining: 7,
             y_offset_px: 14,
             kind: BlockBounceTraceKind::Shifting,
@@ -8903,13 +8907,24 @@ mod tests {
         trace.camera_x_pos = 0;
         trace.camera_y_pos = 0;
         trace.block_bounces = vec![(1, 0, 8, -2)];
-        trace.block_bounce_details = vec![BlockBounceTrace {
-            cell_x: 1,
-            cell_y: 0,
-            remaining: 8,
-            y_offset_px: -2,
-            kind: BlockBounceTraceKind::HiddenReveal,
-        }];
+        trace.block_bounce_details = vec![
+            BlockBounceTrace {
+                cell_x: 1,
+                cell_y: 0,
+                x_offset_px: 0,
+                remaining: 8,
+                y_offset_px: -2,
+                kind: BlockBounceTraceKind::HiddenReveal,
+            },
+            BlockBounceTrace {
+                cell_x: 1,
+                cell_y: 0,
+                x_offset_px: 8,
+                remaining: 8,
+                y_offset_px: 6,
+                kind: BlockBounceTraceKind::HiddenReveal,
+            },
+        ];
         let data = vec![0u8; 20 * 14 * 2];
         let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
         grid.set_cell_at(1, 0, Cell::from_be_bytes(0x60, 0x0B));
@@ -8919,6 +8934,10 @@ mod tests {
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 16, -2, 0x200).is_some(),
             "ASM loc_E096/loc_E2E2 should render the hidden-block reveal object at the bobbed y-position while the cell is the `$60xx` placeholder"
+        );
+        assert!(
+            indexed_tile_at_with_sheet_len(&scene, 24, 6, 0x200).is_some(),
+            "ASM loc_E0C2 should render split hidden-block reveal workers with their quarter-tile x/y offsets"
         );
         assert!(
             indexed_tile_at_with_sheet_len(&scene, 16, 0, 0x200).is_none(),
