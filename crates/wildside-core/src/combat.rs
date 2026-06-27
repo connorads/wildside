@@ -4258,7 +4258,6 @@ pub(crate) fn boomerang_boss_head_3_post_projectile_animation_gate_loc_381CC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_1_init_loc_38494(
     anchor_x: u16,
     anchor_y: u16,
@@ -4284,7 +4283,6 @@ pub(crate) fn boomerang_boss_skewer_piece_1_init_loc_38494(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_1_wait_loop_loc_384D6(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece1WaitLoopLoc384D6 {
@@ -4322,7 +4320,6 @@ pub(crate) fn boomerang_boss_skewer_piece_1_launch_loc_384E8()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_2_init_loc_38512(
     anchor_x: u16,
     anchor_y: u16,
@@ -4349,7 +4346,6 @@ pub(crate) fn boomerang_boss_skewer_piece_2_init_loc_38512(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_2_wait_loop_loc_38554(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece2WaitLoopLoc38554 {
@@ -4388,7 +4384,6 @@ pub(crate) fn boomerang_boss_skewer_piece_2_launch_loc_38566()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_3_init_loc_38590(
     anchor_x: u16,
     anchor_y: u16,
@@ -4415,7 +4410,6 @@ pub(crate) fn boomerang_boss_skewer_piece_3_init_loc_38590(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_3_wait_loop_loc_385D2(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece3WaitLoopLoc385D2 {
@@ -4454,7 +4448,6 @@ pub(crate) fn boomerang_boss_skewer_piece_3_launch_loc_385E4()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_4_init_loc_3860E(
     anchor_x: u16,
     anchor_y: u16,
@@ -4481,7 +4474,6 @@ pub(crate) fn boomerang_boss_skewer_piece_4_init_loc_3860E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_4_wait_loop_loc_38650(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece4WaitLoopLoc38650 {
@@ -4520,7 +4512,6 @@ pub(crate) fn boomerang_boss_skewer_piece_4_launch_loc_38662()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_5_init_loc_3868C(
     anchor_x: u16,
     anchor_y: u16,
@@ -4547,7 +4538,6 @@ pub(crate) fn boomerang_boss_skewer_piece_5_init_loc_3868C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece5WaitLoopLoc386CE {
@@ -4587,7 +4577,6 @@ pub(crate) fn boomerang_boss_skewer_piece_5_launch_loc_386E0()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_6_init_loc_3870A(
     anchor_x: u16,
     anchor_y: u16,
@@ -4614,7 +4603,6 @@ pub(crate) fn boomerang_boss_skewer_piece_6_init_loc_3870A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_6_wait_loop_loc_3874C(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece6WaitLoopLoc3874C {
@@ -4654,7 +4642,6 @@ pub(crate) fn boomerang_boss_skewer_piece_6_launch_loc_3875E()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_7_init_loc_38788(
     anchor_x: u16,
     anchor_y: u16,
@@ -4681,7 +4668,6 @@ pub(crate) fn boomerang_boss_skewer_piece_7_init_loc_38788(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_7_wait_loop_loc_387CA(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece7WaitLoopLoc387CA {
@@ -4721,7 +4707,6 @@ pub(crate) fn boomerang_boss_skewer_piece_7_launch_loc_387DC()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_8_init_loc_38806(
     anchor_x: u16,
     anchor_y: u16,
@@ -4748,7 +4733,6 @@ pub(crate) fn boomerang_boss_skewer_piece_8_init_loc_38806(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_8_wait_loop_loc_38848(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece8WaitLoopLoc38848 {
@@ -4788,7 +4772,6 @@ pub(crate) fn boomerang_boss_skewer_piece_8_launch_loc_3885A()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_9_init_loc_38884(
     anchor_x: u16,
     anchor_y: u16,
@@ -4815,7 +4798,6 @@ pub(crate) fn boomerang_boss_skewer_piece_9_init_loc_38884(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_skewer_piece_9_wait_loop_loc_388C6(
     head_death_counter_fb4e: u8,
 ) -> BoomerangBossSkewerPiece9WaitLoopLoc388C6 {
@@ -9853,12 +9835,45 @@ impl NativeRuntime {
         });
     }
 
-    fn spawn_shishkaboss_skewer_fan_loc_384d6(&mut self, anchor_x: u32, anchor_y: u32) {
+    fn spawn_shishkaboss_skewer_fan_loc_384d6(
+        &mut self,
+        anchor_x: u32,
+        anchor_y: u32,
+        head_death_counter_fb4e: u8,
+    ) {
         // ASM loc_384D6/loc_38554/...: each skewer piece waits until
         // `($FFFFFB4E)==3`, then launches from its cached `$44/$46` anchor.
         // TODO(fidelity): native still lacks the separate boss-body worker
         // that owns those anchors, so use the third dying head as the live
         // anchor until the body-coordination row is wired.
+        let anchor_x_word = (anchor_x >> 16) as u16;
+        let anchor_y_word = (anchor_y >> 16) as u16;
+        let anchor_from_init = |x_pos: u16, y_pos: u16| {
+            (
+                (u32::from(x_pos) << 16) | (anchor_x & 0x0000_FFFF),
+                (u32::from(y_pos) << 16) | (anchor_y & 0x0000_FFFF),
+            )
+        };
+
+        let piece_1_init =
+            boomerang_boss_skewer_piece_1_init_loc_38494(anchor_x_word, anchor_y_word);
+        let piece_2_init =
+            boomerang_boss_skewer_piece_2_init_loc_38512(anchor_x_word, anchor_y_word);
+        let piece_3_init =
+            boomerang_boss_skewer_piece_3_init_loc_38590(anchor_x_word, anchor_y_word);
+        let piece_4_init =
+            boomerang_boss_skewer_piece_4_init_loc_3860E(anchor_x_word, anchor_y_word);
+        let piece_5_init =
+            boomerang_boss_skewer_piece_5_init_loc_3868C(anchor_x_word, anchor_y_word);
+        let piece_6_init =
+            boomerang_boss_skewer_piece_6_init_loc_3870A(anchor_x_word, anchor_y_word);
+        let piece_7_init =
+            boomerang_boss_skewer_piece_7_init_loc_38788(anchor_x_word, anchor_y_word);
+        let piece_8_init =
+            boomerang_boss_skewer_piece_8_init_loc_38806(anchor_x_word, anchor_y_word);
+        let piece_9_init =
+            boomerang_boss_skewer_piece_9_init_loc_38884(anchor_x_word, anchor_y_word);
+
         let piece_1 = boomerang_boss_skewer_piece_1_launch_loc_384E8();
         let piece_2 = boomerang_boss_skewer_piece_2_launch_loc_38566();
         let piece_3 = boomerang_boss_skewer_piece_3_launch_loc_385E4();
@@ -9869,23 +9884,131 @@ impl NativeRuntime {
         let piece_8 = boomerang_boss_skewer_piece_8_launch_loc_3885A();
         let piece_9 = boomerang_boss_skewer_piece_9_launch_loc_388D8();
         let launches = [
-            (piece_1.x_vel, piece_1.y_vel, piece_1.gravity_per_frame),
-            (piece_2.x_vel, piece_2.y_vel, piece_2.gravity_per_frame),
-            (piece_3.x_vel, piece_3.y_vel, piece_3.gravity_per_frame),
-            (piece_4.x_vel, piece_4.y_vel, piece_4.gravity_per_frame),
-            (piece_5.x_vel, piece_5.y_vel, piece_5.gravity_per_frame),
-            (piece_6.x_vel, piece_6.y_vel, piece_6.gravity_per_frame),
-            (piece_7.x_vel, piece_7.y_vel, piece_7.gravity_per_frame),
-            (piece_8.x_vel, piece_8.y_vel, piece_8.gravity_per_frame),
-            (piece_9.x_vel, piece_9.y_vel, piece_9.gravity_per_frame),
+            match boomerang_boss_skewer_piece_1_wait_loop_loc_384D6(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece1WaitNextLoc384D6::LaunchLoc384E8 => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_1_init.x_pos, piece_1_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_1.x_vel,
+                        piece_1.y_vel,
+                        piece_1.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece1WaitNextLoc384D6::WaitLoopLoc384D6 => None,
+            },
+            match boomerang_boss_skewer_piece_2_wait_loop_loc_38554(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece2WaitNextLoc38554::LaunchLoc38566 => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_2_init.x_pos, piece_2_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_2.x_vel,
+                        piece_2.y_vel,
+                        piece_2.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece2WaitNextLoc38554::WaitLoopLoc38554 => None,
+            },
+            match boomerang_boss_skewer_piece_3_wait_loop_loc_385D2(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece3WaitNextLoc385D2::LaunchLoc385E4 => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_3_init.x_pos, piece_3_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_3.x_vel,
+                        piece_3.y_vel,
+                        piece_3.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece3WaitNextLoc385D2::WaitLoopLoc385D2 => None,
+            },
+            match boomerang_boss_skewer_piece_4_wait_loop_loc_38650(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece4WaitNextLoc38650::LaunchLoc38662 => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_4_init.x_pos, piece_4_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_4.x_vel,
+                        piece_4.y_vel,
+                        piece_4.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece4WaitNextLoc38650::WaitLoopLoc38650 => None,
+            },
+            match boomerang_boss_skewer_piece_5_wait_loop_loc_386CE(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece5WaitNextLoc386CE::LaunchLoc386E0 => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_5_init.x_pos, piece_5_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_5.x_vel,
+                        piece_5.y_vel,
+                        piece_5.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece5WaitNextLoc386CE::WaitLoopLoc386CE => None,
+            },
+            match boomerang_boss_skewer_piece_6_wait_loop_loc_3874C(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece6WaitNextLoc3874C::LaunchLoc3875E => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_6_init.x_pos, piece_6_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_6.x_vel,
+                        piece_6.y_vel,
+                        piece_6.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece6WaitNextLoc3874C::WaitLoopLoc3874C => None,
+            },
+            match boomerang_boss_skewer_piece_7_wait_loop_loc_387CA(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece7WaitNextLoc387CA::LaunchLoc387DC => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_7_init.x_pos, piece_7_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_7.x_vel,
+                        piece_7.y_vel,
+                        piece_7.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece7WaitNextLoc387CA::WaitLoopLoc387CA => None,
+            },
+            match boomerang_boss_skewer_piece_8_wait_loop_loc_38848(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece8WaitNextLoc38848::LaunchLoc3885A => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_8_init.x_pos, piece_8_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_8.x_vel,
+                        piece_8.y_vel,
+                        piece_8.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece8WaitNextLoc38848::WaitLoopLoc38848 => None,
+            },
+            match boomerang_boss_skewer_piece_9_wait_loop_loc_388C6(head_death_counter_fb4e).next {
+                BoomerangBossSkewerPiece9WaitNextLoc388C6::LaunchLoc388D8 => {
+                    let (x_pos, y_pos) = anchor_from_init(piece_9_init.x_pos, piece_9_init.y_pos);
+                    Some((
+                        x_pos,
+                        y_pos,
+                        piece_9.x_vel,
+                        piece_9.y_vel,
+                        piece_9.gravity_per_frame,
+                    ))
+                }
+                BoomerangBossSkewerPiece9WaitNextLoc388C6::WaitLoopLoc388C6 => None,
+            },
         ];
-        for (x_velocity, y_velocity, gravity) in launches {
+        for (x_pos, y_pos, x_velocity, y_velocity, gravity) in launches.into_iter().flatten() {
             // ASM loc_38494..loc_38884 allocates nine independent GfxObject
             // workers; this is not limited by native's four-slot helper-shot
             // cap used for ordinary enemy projectiles.
             self.projectiles.push(EnemyProjectile {
-                x_pos: anchor_x,
-                y_pos: anchor_y,
+                x_pos,
+                y_pos,
                 x_velocity,
                 y_velocity: i32::from(y_velocity) << 16,
                 lifetime: u16::MAX,
@@ -10049,7 +10172,11 @@ impl NativeRuntime {
                 false
             };
             if should_launch_shishkaboss_skewers {
-                self.spawn_shishkaboss_skewer_fan_loc_384d6(x_pos, y_pos);
+                self.spawn_shishkaboss_skewer_fan_loc_384d6(
+                    x_pos,
+                    y_pos,
+                    self.multi_head_boss_death_count_fb4e,
+                );
             }
             if matches!(
                 family,
