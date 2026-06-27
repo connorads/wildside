@@ -2397,7 +2397,6 @@ pub(crate) fn decompress_special_palette_row_bytes_loc_1434A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_vram_special_chunk_setup_loc_14366(
     buffer_start_addr: u32,
     buffer_end_addr: u32,
@@ -2463,7 +2462,6 @@ pub(crate) fn decompress_to_vram_special_buffer_rollover_loc_143AA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_vram_special_return_loc_143B2(
     saved_input_addr: u32,
 ) -> DecompressToVramSpecialReturnLoc143B2 {
@@ -2511,7 +2509,6 @@ pub(crate) fn decompress_to_ram_palette_row_bytes_loc_143CE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_ram_chunk_setup_loc_143EA(
     buffer_start_addr: u32,
     buffer_end_addr: u32,

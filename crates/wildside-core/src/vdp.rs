@@ -1960,14 +1960,23 @@ fn remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(
 fn remap_4bpp_art_words_via_table_loc_14382(permutation_table: &[u8; 256], art: &[u8]) -> Vec<u8> {
     let mut remapped = Vec::with_capacity(art.len());
     if art.len() >= 2 {
-        let word_dbf_counter = ((art.len() / 2) - 1) as u16;
+        let even_byte_len = art.len() & !1;
+        let setup = crate::level::decompress_to_vram_special_chunk_setup_loc_14366(
+            0,
+            even_byte_len as u32,
+            0,
+        );
         for word in crate::level::decompress_to_vram_special_word_transfer_loc_14382(
             permutation_table,
             art,
-            word_dbf_counter,
+            setup.word_dbf_counter,
         ) {
             remapped.extend_from_slice(&word.to_be_bytes());
         }
+        let return_state =
+            crate::level::decompress_to_vram_special_return_loc_143B2(setup.restored_output_addr);
+        debug_assert_eq!(return_state.restored_input_addr, setup.restored_output_addr);
+        debug_assert_eq!(return_state.vdp_data_port_addr, 0x00C0_0000);
     }
     if let Some(&last_byte) = art.get(remapped.len()) {
         remapped.push(permutation_table[usize::from(last_byte)]);
@@ -1979,11 +1988,13 @@ fn remap_4bpp_art_words_via_table_loc_14382(permutation_table: &[u8; 256], art: 
 fn remap_4bpp_art_words_via_table_loc_1440A(permutation_table: &[u8; 256], art: &[u8]) -> Vec<u8> {
     let mut remapped = Vec::with_capacity(art.len());
     if art.len() >= 2 {
-        let word_dbf_counter = ((art.len() / 2) - 1) as u16;
+        let even_byte_len = art.len() & !1;
+        let setup =
+            crate::level::decompress_to_ram_chunk_setup_loc_143EA(0, even_byte_len as u32, 0);
         for word in crate::level::decompress_to_ram_word_transfer_loc_1440A(
             permutation_table,
             art,
-            word_dbf_counter,
+            setup.word_dbf_counter,
         ) {
             remapped.extend_from_slice(&word.to_be_bytes());
         }
