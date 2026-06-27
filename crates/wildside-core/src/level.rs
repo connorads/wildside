@@ -708,7 +708,6 @@ pub(crate) struct DeleteAllButCurrentLoopLocF02 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) next_free_evanescent_object_slot_addr: u32,
