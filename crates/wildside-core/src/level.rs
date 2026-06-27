@@ -4418,10 +4418,44 @@ fn run_loop_with_property_123dc(
 fn run_loop_with_property_125a6(
     words: &[u16],
     pos: &mut usize,
-    width_blocks: u16,
-    body: impl FnMut(u16, u16, u16),
+    _width_blocks: u16,
+    mut body: impl FnMut(u16, u16, u16),
 ) {
-    run_loop_with_property_123dc(words, pos, width_blocks, body);
+    loop {
+        let Some(rest) = words.get(*pos..) else {
+            return;
+        };
+        let Some(read_x) = block_type_1012_read_x_pos_loc_125a6(rest) else {
+            if !rest.is_empty() {
+                *pos += 1;
+            }
+            return;
+        };
+        *pos += read_x.bytes_consumed;
+        let x = read_x.x_pos;
+        let Some(&y) = words.get(*pos) else {
+            return;
+        };
+        let Some(&count) = words.get(*pos + 1) else {
+            return;
+        };
+        let Some(&stride) = words.get(*pos + 2) else {
+            return;
+        };
+        *pos += 3;
+        for i in 0..count {
+            let Some(prop) = words.get(*pos).copied() else {
+                return;
+            };
+            *pos += 1;
+            let (cx, cy) = if stride != 0 {
+                (x, y.wrapping_add(i))
+            } else {
+                (x.wrapping_add(i), y)
+            };
+            body(cx, cy, prop);
+        }
+    }
 }
 
 /// loc_124A6 (type 3): each entry is a fixed 8-word record (`$10` bytes). Word 5
@@ -4466,7 +4500,13 @@ fn run_loop_type3_124a6(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16
 #[allow(non_snake_case)]
 fn run_loop_pair_1263c(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16)) {
     loop {
-        let Some(read_x) = block_type_4_read_x_pos_loc_12646(&words[*pos..]) else {
+        let Some(rest) = words.get(*pos..) else {
+            return;
+        };
+        let Some(read_x) = block_type_4_read_x_pos_loc_12646(rest) else {
+            if !rest.is_empty() {
+                *pos += 1;
+            }
             return;
         };
         *pos += read_x.words_consumed;
@@ -5833,7 +5873,6 @@ pub(crate) struct BlockType1012ReadXPosLoc125A6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1012_read_x_pos_loc_125a6(
     layout_words: &[u16],
 ) -> Option<BlockType1012ReadXPosLoc125A6> {
