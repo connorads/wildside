@@ -18216,6 +18216,7 @@ impl NativeRuntime {
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
+        self.pending_prize_clock_hud_flights.clear();
         self.enemy_death_effects.clear();
         self.pending_dragon_death_children.clear();
         self.pending_dragon_death_animations.clear();
@@ -18388,6 +18389,7 @@ impl NativeRuntime {
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
+        self.pending_prize_clock_hud_flights.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(next_level, 0);
         self.init_weather(next_level);
@@ -18605,6 +18607,7 @@ impl NativeRuntime {
         self.diamond_power_sprites.clear();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
+        self.pending_prize_clock_hud_flights.clear();
         self.block_state.lift_platforms.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
@@ -18940,6 +18943,7 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
+        self.pending_prize_clock_hud_flights.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.init_post_load_object_routine_loc_11f96(level_id);
@@ -19061,6 +19065,7 @@ impl NativeRuntime {
         self.block_state.reset_shooter_state_sub_F06A();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
+        self.pending_prize_clock_hud_flights.clear();
         self.init_murder_wall(level_id, 0);
         self.init_weather(level_id);
         self.init_post_load_object_routine_loc_11f96(level_id);

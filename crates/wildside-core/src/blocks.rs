@@ -206,7 +206,6 @@ pub(crate) struct PrizeCollectedWorldStepLocFEFE {
     pub(crate) should_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeClockCollectedWorldStepLocFF92 {
     pub(crate) arc_step: PrizeCollectedArcHibernateStepLocFEEE,
@@ -530,7 +529,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_clock_collected_world_step_loc_FF92(
         screen_x_fp: i32,
         screen_y_fp: i32,
@@ -4141,12 +4139,12 @@ impl NativeRuntime {
             }
 
             if overlap_x && overlap_y {
-                // ASM loc_1000A / loc_1001E (kid.asm:21302-21312) hibernate
-                // the collected clock object and keep recomputing `x_pos/y_pos`
-                // from the cached camera-relative words at `$3E/$42` until the
-                // final delete. Native does not model that lingering sprite, so
-                // collection only flips the removal flag and leaves the cached
-                // coordinates untouched until `step_visual_effects` removes it.
+                // ASM loc_FF92 and loc_1000A / loc_1001E (kid.asm:21260,
+                // 21302-21312) hibernate the collected clock object from its
+                // cached camera-relative `$3E/$42` words before the timer award
+                // and final delete. Native keeps the falling item pinned until
+                // `step_visual_effects` removes it, while the queued HUD flight
+                // below preserves the delayed award timing.
                 item.collected = true;
                 if item.content == terrain::PrizeContent::Diamond {
                     // ASM PrizeDiamondCollected_Init loc_FE3A/Increase_Diamonds
@@ -4187,10 +4185,15 @@ impl NativeRuntime {
             let resolved_content = layout_addr.map_or(content, |layout_addr| {
                 self.one_time_prize_content_or_diamond_loc_10848(content, layout_addr)
             });
-            if resolved_content == terrain::PrizeContent::Diamond {
-                self.queue_prize_diamond_award_at_screen_offset(screen_x_fp, screen_y_fp);
-            } else {
-                self.apply_prize_content_at_world_pos(resolved_content, x_pos, y_pos);
+            match resolved_content {
+                terrain::PrizeContent::Diamond => {
+                    self.queue_prize_diamond_award_at_screen_offset(screen_x_fp, screen_y_fp);
+                }
+                terrain::PrizeContent::Clock => {
+                    self.level_prize_collected = true;
+                    self.queue_prize_clock_award_at_screen_offset(screen_x_fp, screen_y_fp);
+                }
+                _ => self.apply_prize_content_at_world_pos(resolved_content, x_pos, y_pos),
             }
         }
     }

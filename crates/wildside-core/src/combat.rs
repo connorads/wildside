@@ -7941,6 +7941,9 @@ impl NativeRuntime {
     // ASM PrizeDiamondCollected_Init loc_FE3E seeds d2=$1F and DBFs through 32
     // hibernated ticks before incrementing Number_Diamonds.
     pub(crate) const PRIZE_DIAMOND_AWARD_DELAY_FRAMES: u8 = 32;
+    const PRIZE_CLOCK_COLLECT_LOOP_COUNTER_LOC_FF8E: u16 = 0x001F;
+    const PRIZE_CLOCK_HUD_TARGET_X_FP_LOC_FF82: i32 = 0x0038_0000;
+    const PRIZE_CLOCK_HUD_TARGET_Y_FP_LOC_FF82: i32 = 0x001F_0000;
     pub(crate) const PRIZE_DIAMOND_HUD_TARGET_X_FP_LOC_FE3E: i32 = 0x0126_0000;
     pub(crate) const PRIZE_DIAMOND_HUD_TARGET_Y_FP_LOC_FE3E: i32 = 0x0030_0000;
     const MINI_HOPPING_SKULL_SCREAM_DELAY_FRAMES: u8 = 15;
@@ -11978,6 +11981,31 @@ impl NativeRuntime {
             });
     }
 
+    fn apply_clock_bonus_loc_10002(&mut self) {
+        self.level_timer.add_clock_bonus();
+        // ASM loc_10002 (kid.asm:21298) increments `Clocks_collected`
+        // after the timer bonus/sub-second reset path completes.
+        self.clocks_collected += 1;
+    }
+
+    pub(crate) fn queue_prize_clock_award_at_screen_offset(
+        &mut self,
+        screen_x_fp: i32,
+        screen_y_fp: i32,
+    ) {
+        // ASM PrizeClockCollected_Init loc_FF82/loc_FF8E (kid.asm:21252):
+        // cache camera-relative `$3E/$42`, seed deltas toward HUD x=$38/y=$1F,
+        // and run loc_FF92 for d2=$1F before applying the timer bonus.
+        self.pending_prize_clock_hud_flights
+            .push(PrizeClockHudFlight {
+                screen_x_fp,
+                screen_y_fp,
+                x_step_fp: (Self::PRIZE_CLOCK_HUD_TARGET_X_FP_LOC_FF82 - screen_x_fp) >> 5,
+                y_step_fp: (Self::PRIZE_CLOCK_HUD_TARGET_Y_FP_LOC_FF82 - screen_y_fp) >> 5,
+                loop_counter: Self::PRIZE_CLOCK_COLLECT_LOOP_COUNTER_LOC_FF8E,
+            });
+    }
+
     pub(crate) fn step_pending_prize_diamond_awards(&mut self) {
         let mut awards_to_apply = 0usize;
         for delay in &mut self.pending_prize_diamond_awards {
@@ -12028,6 +12056,30 @@ impl NativeRuntime {
             .retain(|flight| flight.remaining_delay > 0);
         for _ in 0..awards_to_apply {
             self.award_prize_diamond();
+        }
+
+        let mut clock_awards_to_apply = 0usize;
+        for flight in &mut self.pending_prize_clock_hud_flights {
+            let step = Self::prize_clock_collected_world_step_loc_FF92(
+                flight.screen_x_fp,
+                flight.screen_y_fp,
+                flight.x_step_fp,
+                flight.y_step_fp,
+                0,
+                0,
+                flight.loop_counter,
+            );
+            flight.screen_x_fp = step.arc_step.next_screen_x_fp;
+            flight.screen_y_fp = step.arc_step.next_screen_y_fp;
+            flight.loop_counter = step.world_step.next_loop_counter;
+            if !step.world_step.should_loop {
+                clock_awards_to_apply += 1;
+            }
+        }
+        self.pending_prize_clock_hud_flights
+            .retain(|flight| flight.loop_counter != u16::MAX);
+        for _ in 0..clock_awards_to_apply {
+            self.apply_clock_bonus_loc_10002();
         }
     }
 
@@ -12118,10 +12170,7 @@ impl NativeRuntime {
                 // clock lifecycle (start_clock_prize_sound_on_first_spawn_loc_10792 /
                 // stop_clock_prize_sound_on_last_exit_loc_107e0). Starting it here
                 // (at collection) left a looping sequence with no matching stop.
-                self.level_timer.add_clock_bonus();
-                // ASM loc_10002 (kid.asm:21298) increments `Clocks_collected`
-                // after the timer bonus/sub-second reset path completes.
-                self.clocks_collected += 1;
+                self.apply_clock_bonus_loc_10002();
             }
             terrain::PrizeContent::Continue => {
                 self.queue_start_sequence(QueuedSoundEffect::CoinPrize);

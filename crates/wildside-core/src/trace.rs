@@ -7946,6 +7946,27 @@ impl NativeRuntime {
                         terrain::PrizeContent::Diamond.to_id(),
                     )
                 }))
+                .chain(self.pending_prize_clock_hud_flights.iter().map(|flight| {
+                    // ASM loc_FF92 (kid.asm:21260) advances the collected
+                    // clock's cached screen-space words before reprojecting
+                    // through the current camera.
+                    let step = Self::prize_clock_collected_world_step_loc_FF92(
+                        flight.screen_x_fp,
+                        flight.screen_y_fp,
+                        0,
+                        0,
+                        Self::high_word_from_i32(camera_state.x_pos as i32),
+                        Self::high_word_from_i32(camera_state.y_pos as i32),
+                        flight.loop_counter,
+                    );
+                    let remaining = flight.loop_counter.saturating_add(1);
+                    (
+                        step.world_step.world_x_word,
+                        step.world_step.world_y_word,
+                        remaining,
+                        terrain::PrizeContent::Clock.to_id(),
+                    )
+                }))
                 .collect(),
             clock_prize_animation_swaps_loc_10796: self
                 .clock_prize_animation_swaps_loc_10796

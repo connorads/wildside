@@ -407,6 +407,9 @@ pub struct NativeRuntime {
     /// Visual mirror of ASM PrizeDiamondCollected_Init `$3E/$42` HUD-flight
     /// objects. The award delay above remains the authoritative count timing.
     pending_prize_diamond_hud_flights: Vec<PrizeDiamondHudFlight>,
+    /// Visual mirror of ASM PrizeClockCollected_Init loc_FF92. The timer bonus
+    /// and clock counter increment happen after this 32-frame HUD flight.
+    pending_prize_clock_hud_flights: Vec<PrizeClockHudFlight>,
     /// ASM Mini_Hopping_Skull.asm sub_3F3F0 spawns a transient worker that
     /// hibernates 15 frames, then optionally plays the scream SFX before
     /// deleting itself.
@@ -1255,6 +1258,7 @@ impl NativeRuntime {
             iron_knight_last_metal_block_hit: None,
             pending_prize_diamond_awards: Vec::new(),
             pending_prize_diamond_hud_flights: Vec::new(),
+            pending_prize_clock_hud_flights: Vec::new(),
             pending_sound_effects: Vec::new(),
             played_sound_effects: Vec::new(),
             played_sound_commands: Vec::new(),
@@ -1605,6 +1609,7 @@ impl NativeRuntime {
         self.enemy_death_effects.clear();
         self.pending_prize_diamond_awards.clear();
         self.pending_prize_diamond_hud_flights.clear();
+        self.pending_prize_clock_hud_flights.clear();
         self.clear_block_object_workers_loc_6e2();
     }
 

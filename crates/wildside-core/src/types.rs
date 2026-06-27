@@ -2153,6 +2153,15 @@ pub(crate) struct PrizeDiamondHudFlight {
     pub(crate) remaining_delay: u8,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct PrizeClockHudFlight {
+    pub(crate) screen_x_fp: i32,
+    pub(crate) screen_y_fp: i32,
+    pub(crate) x_step_fp: i32,
+    pub(crate) y_step_fp: i32,
+    pub(crate) loop_counter: u16,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct EnemyDeathEffect {
     pub(crate) x_pos: u32,

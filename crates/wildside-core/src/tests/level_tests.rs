@@ -21959,6 +21959,74 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn collecting_clock_delays_timer_bonus_until_loc_ff92_flight_finishes() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.level_timer.seconds = 120;
+        runtime.floating_items.push(FloatingItem {
+            x_pos: 72 << 16,
+            y_pos: i64::from(100 << 16),
+            y_velocity: 0,
+            remaining: NativeRuntime::PRIZE_GENERIC_LIFETIME_FRAMES,
+            spawn_delay: 0,
+            level_col: 4,
+            level_row: 6,
+            first_row_grace: true,
+            content: terrain::PrizeContent::Clock,
+            collected: false,
+            collision_latched: false,
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 72 << 16;
+        slice.player.y_pos = 116 << 16;
+
+        runtime.collect_floating_items(&mut slice);
+
+        assert_eq!(
+            runtime.level_timer.seconds, 120,
+            "ASM loc_FF92 hibernates the collected clock before loc_FFDE applies the timer bonus"
+        );
+        assert_eq!(runtime.clocks_collected, 0);
+        assert!(
+            runtime
+                .trace_frame()
+                .floating_items
+                .iter()
+                .any(|(_, _, remaining, content_id)| {
+                    *remaining == 32 && *content_id == terrain::PrizeContent::Clock.to_id()
+                }),
+            "contact frame exposes the queued loc_FF92 clock HUD-flight worker",
+        );
+
+        runtime.step_visual_effects();
+        assert!(
+            runtime
+                .trace_frame()
+                .floating_items
+                .iter()
+                .any(|(_, _, _, content_id)| *content_id == terrain::PrizeContent::Clock.to_id()),
+            "ASM loc_FF92 keeps a collected-clock HUD-flight worker alive after the falling item is removed",
+        );
+
+        for _ in 0..usize::from(NativeRuntime::PRIZE_DIAMOND_AWARD_DELAY_FRAMES - 1) {
+            runtime.step_pending_prize_diamond_awards();
+        }
+        assert_eq!(runtime.level_timer.seconds, 120);
+        assert_eq!(runtime.clocks_collected, 0);
+
+        runtime.step_pending_prize_diamond_awards();
+
+        assert_eq!(
+            runtime.level_timer.seconds,
+            120 + LEVEL_TIMER_CLOCK_COLLECT_SECONDS,
+            "ASM loc_FFDE applies the clock bonus after loc_FF92's d2=$1F DBF loop",
+        );
+        assert_eq!(
+            runtime.clocks_collected, 1,
+            "ASM loc_10002 increments Clocks_collected after the timer bonus path",
+        );
+    }
+
+    #[test]
     fn smash_block_headbutt_does_not_grant_diamond() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_blocks());
