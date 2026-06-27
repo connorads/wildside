@@ -6,4 +6,4 @@
 # marker, so this number may only ever fall. scripts/dead_code_ratchet.py
 # enforces it (own hk pre-commit step); `--update` lowers it, never raises.
 version: 1
-max_count: 501
+max_count: 480

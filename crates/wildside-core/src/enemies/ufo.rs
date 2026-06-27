@@ -1188,13 +1188,11 @@ pub(crate) fn ufo_hurt_driver_fall_loop_loc_3564c(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverSlideSeedLoc3566C {
     pub(crate) x_velocity: i32,
     pub(crate) falls_through_to_slide_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_slide_seed_loc_3566c(
     x_direction: u8,
 ) -> UfoHurtDriverSlideSeedLoc3566C {
@@ -1214,7 +1212,6 @@ pub(crate) fn ufo_hurt_driver_slide_seed_loc_3566c(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverSlideLoopLoc35680 {
     pub(crate) has_kid_collision: bool,
     pub(crate) hibernates_one_frame: bool,
@@ -1225,7 +1222,6 @@ pub(crate) struct UfoHurtDriverSlideLoopLoc35680 {
     pub(crate) loops_forever: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_slide_loop_loc_35680() -> UfoHurtDriverSlideLoopLoc35680 {
     // ASM UFO.asm loc_35680: clear `has_kid_collision(a3)`, hibernate one
     // frame, range-check, dispatch collisions through `off_356B6` with d0=0,
@@ -1242,14 +1238,12 @@ pub(crate) fn ufo_hurt_driver_slide_loop_loc_35680() -> UfoHurtDriverSlideLoopLo
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverSlideTurnaroundLoc356CE {
     pub(crate) x_velocity: i32,
     pub(crate) x_pos: u32,
     pub(crate) x_direction: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_slide_turnaround_loc_356ce(
     x_velocity: i32,
     x_pos: u32,
@@ -1267,7 +1261,6 @@ pub(crate) fn ufo_hurt_driver_slide_turnaround_loc_356ce(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum UfoHurtDriverSlideGroundMissLoc356F2 {
     Turnaround(UfoHurtDriverSlideTurnaroundLoc356CE),
     RelaunchFall {
@@ -1309,7 +1302,6 @@ pub(crate) fn ufo_hurt_driver_slide_ground_miss_loc_356f2(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverSlideCollisionReturnLoc3571E {
     pub(crate) stack_bytes_discarded: u16,
     pub(crate) next_label: &'static str,
@@ -1329,7 +1321,6 @@ pub(crate) fn ufo_hurt_driver_slide_collision_return_loc_3571e()
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverSlideProbeXLoc35724 {
     pub(crate) probe_x_word: u16,
 }
@@ -1351,7 +1342,6 @@ pub(crate) fn ufo_hurt_driver_slide_probe_x_loc_35724(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverSlideGroundTileLoc35738 {
     pub(crate) probe_y_word: u16,
     pub(crate) tile_column: u16,
@@ -1398,7 +1388,6 @@ pub(crate) enum UfoHurtDriverCollisionTableLoc35762 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum UfoHurtDriverCollisionBehaviorLoc35762 {
     FallTurnaround,
     FallFloorLanding,
@@ -1415,14 +1404,12 @@ pub(crate) enum UfoHurtDriverCollisionBehaviorLoc35762 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverCollisionDispatchLoc35762 {
     pub(crate) clears_collision_type: bool,
     pub(crate) behavior: Option<UfoHurtDriverCollisionBehaviorLoc35762>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverBerzerkerChargeFallLoc35788 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -1449,7 +1436,6 @@ pub(crate) fn ufo_hurt_driver_berzerker_charge_fall_loc_35788(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverStopTailLoc357C2 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -1479,7 +1465,6 @@ pub(crate) fn ufo_hurt_driver_stop_tail_loc_357C2(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverDeleteTailLoc357E2 {
     pub(crate) deletes_current_object: bool,
 }
@@ -1495,7 +1480,6 @@ pub(crate) fn ufo_hurt_driver_delete_tail_loc_357E2() -> UfoHurtDriverDeleteTail
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverFallingLoopLoc357E6 {
     pub(crate) y_velocity: i32,
     pub(crate) hibernates_one_frame: bool,
@@ -1524,7 +1508,6 @@ pub(crate) fn ufo_hurt_driver_falling_loop_loc_357E6(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverFallTurnaroundLoc357FA {
     pub(crate) x_velocity: i32,
     pub(crate) x_pos: u32,
@@ -1551,7 +1534,6 @@ pub(crate) fn ufo_hurt_driver_fall_turnaround_loc_357FA(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverVerticalBounceLoc35810 {
     pub(crate) y_velocity: i32,
 }
@@ -1568,7 +1550,6 @@ pub(crate) fn ufo_hurt_driver_vertical_bounce_loc_35810(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverFloorLandingLoc3581E {
     pub(crate) stack_bytes_discarded: u16,
     pub(crate) y_velocity: i32,
@@ -1598,7 +1579,6 @@ pub(crate) fn ufo_hurt_driver_floor_landing_loc_3581E(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverLaunchLoc35838 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
@@ -1615,7 +1595,6 @@ pub(crate) fn ufo_hurt_driver_up_left_launch_loc_35838() -> UfoHurtDriverLaunchL
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverLaunchLoc35864 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
