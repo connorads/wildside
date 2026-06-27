@@ -10187,7 +10187,6 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F9A6(
     source_cells: &[u8],
     source_cells_start: usize,
@@ -10325,7 +10324,6 @@ pub(crate) fn animated_solid_block_horizontal_queue_walk_tail_loc_F994(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_cell: u8) -> u16 {
     // ASM loc_F93E (kid.asm:20646): restore a single layout byte into the
     // layout table slot and return it as the queued shortword.
