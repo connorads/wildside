@@ -13554,7 +13554,6 @@ pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterPointSub219C {
     pub(crate) x_px: i16,
@@ -13650,7 +13649,6 @@ pub(crate) fn next_shooter_point_loc_226E(
         .map(|point| (cursor, point))
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn first_shooter_hit_sub_219C(
     kid_hitbox: CollisionRectSub1F52,

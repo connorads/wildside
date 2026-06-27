@@ -1,6 +1,7 @@
 use super::*;
 #[cfg(test)]
 use crate::combat::CollisionSizeEntrySub21F8;
+use crate::combat::{CollisionRectSub1F52, ShooterPointSub219C, first_shooter_hit_sub_219C};
 use crate::enemies::{
     CloudAttackProjectileRouteLoc35E8A, DragonFlyingDescentFireFirstLoopLoc34C26,
     DragonFlyingDescentFireTravelLoopLoc34C3A, DripsLeftBoundsNextLoc335AA,
@@ -4122,7 +4123,7 @@ impl NativeRuntime {
             }
             if p.kind == EnemyProjectileKind::ShooterBlock {
                 return shooter_block_can_damage_player_loc_edfa((p.y_pos >> 16) as i32 - py)
-                    && projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds);
+                    && shooter_block_overlaps_player_sub_219c(p, player_bounds);
             }
             projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds)
         }) || self.fire_demon_trails.iter().any(|trail| {
@@ -4190,7 +4191,11 @@ impl NativeRuntime {
             }
             let prx = (p.x_pos >> 16) as i32;
             let pry = (p.y_pos >> 16) as i32;
-            let overlaps = projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds);
+            let overlaps = if p.kind == EnemyProjectileKind::ShooterBlock {
+                shooter_block_overlaps_player_sub_219c(p, player_bounds)
+            } else {
+                projectile_overlaps_player_loc_1c18(p, px, py, half, player_bounds)
+            };
             if overlaps {
                 let projectile_contact = if p.kind == EnemyProjectileKind::ShooterBlock {
                     // ASM Process_ShooterObjects loc_EDFA..loc_EF62 is a
@@ -4365,6 +4370,28 @@ fn projectile_overlaps_player_loc_1c18(
         (prx - player_x_px).abs() < half + 8
     };
     x_overlaps && (pry - player_y_px).abs() < half + 16
+}
+
+fn shooter_block_overlaps_player_sub_219c(
+    projectile: &EnemyProjectile,
+    player_bounds: ProjectilePlayerBoundsPx,
+) -> bool {
+    // ASM sub_219C (kid.asm:3997): moving shooter objects test their slot
+    // point strictly inside Kid_hitbox_*; edge-equal contacts branch back to
+    // the linked-list scan instead of writing Kid's collision word.
+    first_shooter_hit_sub_219C(
+        CollisionRectSub1F52 {
+            left_px: player_bounds.left as i16,
+            right_px: player_bounds.right as i16,
+            top_px: player_bounds.top as i16,
+            bottom_px: player_bounds.bottom as i16,
+        },
+        &[ShooterPointSub219C {
+            x_px: (projectile.x_pos >> 16) as i16,
+            y_px: (projectile.y_pos >> 16) as i16,
+        }],
+    )
+    .is_some()
 }
 
 fn projectile_player_contact_kind_loc_b640(

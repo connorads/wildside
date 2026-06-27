@@ -13295,6 +13295,37 @@ mod chunk_09 {
     }
 
     #[test]
+    fn shooter_object_point_collision_uses_strict_kid_hitbox_edges_sub_219c() {
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 101 << 16;
+
+        let mut edge_rt = NativeRuntime::new(manifest());
+        edge_rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::ShooterBlock,
+            x_pos: 105 << 16,
+            y_pos: 98 << 16,
+            ..EnemyProjectile::default()
+        });
+        assert!(
+            !edge_rt.projectile_hits_player(&slice),
+            "ASM sub_219C rejects shooter-slot points on Kid_hitbox_right with `bge`"
+        );
+
+        let mut inside_rt = NativeRuntime::new(manifest());
+        inside_rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::ShooterBlock,
+            x_pos: 104 << 16,
+            y_pos: 98 << 16,
+            ..EnemyProjectile::default()
+        });
+        assert!(
+            inside_rt.projectile_hits_player(&slice),
+            "ASM sub_219C accepts the same shooter-slot point one pixel inside Kid_hitbox_right"
+        );
+    }
+
+    #[test]
     fn shooter_damage_late_sub_1f52_lands_next_frame_issue_277() {
         let mut rt = NativeRuntime::new(manifest());
         rt.set_block_grid(grid_with_cells(120, 24, &[(97, 19, 0xE8, 0x01)]));
