@@ -100,13 +100,11 @@ pub(crate) fn fire_demon_palette_pulse_seed_loc_3a4b4(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonPaletteLoopHeadLoc3A4C2 {
     DeleteCurrentObject,
     ContinueAfterHibernate { hibernate_frames: u16 },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_loop_head_loc_3a4c2(
     fire_demon_count: u8,
 ) -> FireDemonPaletteLoopHeadLoc3A4C2 {
@@ -125,14 +123,12 @@ pub(crate) fn fire_demon_palette_loop_head_loc_3a4c2(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonPaletteCopyStep {
     pub(crate) source_byte_offset: u16,
     pub(crate) copied_words: u8,
     pub(crate) next_hibernate_frames: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_first_copy_loc_3a4d6() -> FireDemonPaletteCopyStep {
     // ASM Fire_Demon.asm loc_3A4D6: after loc_3A4C2 resets a0 to the selected
     // Data_Index palette script, `moveq #6,d0` plus `dbf` copies seven words
@@ -144,7 +140,6 @@ pub(crate) fn fire_demon_palette_first_copy_loc_3a4d6() -> FireDemonPaletteCopyS
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_middle_copy_loc_3a4f6() -> FireDemonPaletteCopyStep {
     // ASM Fire_Demon.asm loc_3A4F6: the preceding `addi.l #$E,a0` selects the
     // middle palette frame; the same `moveq #6,d0`/`dbf` loop copies seven words
@@ -156,7 +151,6 @@ pub(crate) fn fire_demon_palette_middle_copy_loc_3a4f6() -> FireDemonPaletteCopy
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_peak_copy_loc_3a516() -> FireDemonPaletteCopyStep {
     // ASM Fire_Demon.asm loc_3A516: the preceding `addi.l #$1C,a0` selects the
     // peak palette frame; `moveq #6,d0` plus `dbf` copies seven words before
@@ -168,7 +162,6 @@ pub(crate) fn fire_demon_palette_peak_copy_loc_3a516() -> FireDemonPaletteCopySt
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_return_copy_loc_3a536() -> FireDemonPaletteCopyStep {
     // ASM Fire_Demon.asm loc_3A536: after the post-peak hibernate/liveness
     // check, `addi.l #$E,a0` returns to the middle palette frame, copies seven
@@ -177,6 +170,52 @@ pub(crate) fn fire_demon_palette_return_copy_loc_3a536() -> FireDemonPaletteCopy
         source_byte_offset: 0x000E,
         copied_words: 7,
         next_hibernate_frames: 3,
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct FireDemonPalettePulseTickLoc3A4C2 {
+    pub(crate) next_phase_counter: u16,
+    pub(crate) copied_step: Option<FireDemonPaletteCopyStep>,
+    pub(crate) helper_alive: bool,
+}
+
+pub(crate) fn fire_demon_palette_pulse_tick_loc_3a4c2(
+    phase_counter: u16,
+    fire_demon_count: u8,
+) -> FireDemonPalettePulseTickLoc3A4C2 {
+    // ASM Fire_Demon.asm loc_3A4C2-loc_3A53E: the palette worker hibernates
+    // for three ticks between each seven-word palette copy, and deletes itself
+    // once the global Fire_Demon byte is clear.
+    match fire_demon_palette_loop_head_loc_3a4c2(fire_demon_count) {
+        FireDemonPaletteLoopHeadLoc3A4C2::DeleteCurrentObject => {
+            return FireDemonPalettePulseTickLoc3A4C2 {
+                next_phase_counter: 0,
+                copied_step: None,
+                helper_alive: false,
+            };
+        }
+        FireDemonPaletteLoopHeadLoc3A4C2::ContinueAfterHibernate { hibernate_frames } => {
+            debug_assert_eq!(hibernate_frames, 3);
+        }
+    }
+
+    let next_phase_counter = phase_counter.wrapping_add(1) % 12;
+    let copied_step = if next_phase_counter.is_multiple_of(3) {
+        Some(match next_phase_counter / 3 {
+            1 => fire_demon_palette_first_copy_loc_3a4d6(),
+            2 => fire_demon_palette_middle_copy_loc_3a4f6(),
+            3 => fire_demon_palette_peak_copy_loc_3a516(),
+            _ => fire_demon_palette_return_copy_loc_3a536(),
+        })
+    } else {
+        None
+    };
+
+    FireDemonPalettePulseTickLoc3A4C2 {
+        next_phase_counter,
+        copied_step,
+        helper_alive: true,
     }
 }
 

@@ -15357,6 +15357,32 @@ mod chunk_03 {
     }
 
     #[test]
+    fn fire_demon_snapshot_reports_palette_helper_phase_loc_3a4c2() {
+        let mut demon = test_enemy(EnemyFamily::FireDemon, 0x0080_0000, 0x0040_0000, 1);
+        demon.heady_metal_palette_phase_counter = 3;
+        demon.heady_metal_palette_word_5e = 0;
+
+        let snapshot = demon.snapshot();
+
+        assert_eq!(
+            snapshot
+                .debug_fields
+                .get("fire_demon_palette_phase_loc_3a4c2")
+                .map(String::as_str),
+            Some("3"),
+            "ASM Fire_Demon.asm loc_3A4C2 owns the helper hibernate phase"
+        );
+        assert_eq!(
+            snapshot
+                .debug_fields
+                .get("fire_demon_palette_source_offset_loc_3a4d6")
+                .map(String::as_str),
+            Some("0x0000"),
+            "ASM Fire_Demon.asm loc_3A4D6 copies the base palette frame at source offset zero"
+        );
+    }
+
+    #[test]
     fn fire_demon_init_hibernates_before_visible_shared_walker_loc_3a392_3c0f0() {
         let layout = EnemyLayout {
             axis_uses_y_position: false,

@@ -1220,8 +1220,12 @@ pub(crate) struct ActiveEnemy {
     /// eye-pop/thrown-head worker count that freezes `loc_37582` tracking.
     pub(crate) boss_movement_script_index: usize,
     /// HeadyMetal ASM `sub_379E8` `d2`: five-bit palette-wave phase.
+    /// Fire Demon reuses this as the helper phase for
+    /// Fire_Demon.asm loc_3A4C2-loc_3A536.
     pub(crate) heady_metal_palette_phase_counter: u16,
     /// HeadyMetal ASM `sub_379E8`: word written to `Palette_Buffer+$5E`.
+    /// Fire Demon reuses this as the last source byte offset copied by
+    /// Fire_Demon.asm loc_3A4D6/loc_3A4F6/loc_3A516/loc_3A536.
     pub(crate) heady_metal_palette_word_5e: u16,
     /// Tracking-lock flag at `$4E(a5)` for families that use this work slot.
     /// Scorpion suppresses re-facing while locked; Lion uses it as the
@@ -2467,6 +2471,16 @@ impl ActiveEnemy {
             );
             debug_fields.insert(
                 "heady_metal_palette_word_5e_sub_379e8".into(),
+                format!("{:#06x}", self.heady_metal_palette_word_5e),
+            );
+        }
+        if matches!(self.family, EnemyFamily::FireDemon) {
+            debug_fields.insert(
+                "fire_demon_palette_phase_loc_3a4c2".into(),
+                self.heady_metal_palette_phase_counter.to_string(),
+            );
+            debug_fields.insert(
+                "fire_demon_palette_source_offset_loc_3a4d6".into(),
                 format!("{:#06x}", self.heady_metal_palette_word_5e),
             );
         }
@@ -3829,6 +3843,24 @@ pub(crate) fn step_active_enemies_with_rng(
             continue;
         }
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
+        if matches!(enemy.family, EnemyFamily::FireDemon) {
+            // ASM Fire_Demon.asm loc_3A48E allocates a separate palette helper
+            // while the global Fire_Demon byte is non-zero. Native stores the
+            // helper phase on the live demon until the terminal path clears it.
+            let pulse = fire_demon_palette_pulse_tick_loc_3a4c2(
+                enemy.heady_metal_palette_phase_counter,
+                u8::from(!enemy.death_animation_active),
+            );
+            enemy.heady_metal_palette_phase_counter = pulse.next_phase_counter;
+            if !pulse.helper_alive {
+                enemy.heady_metal_palette_word_5e = 0;
+            }
+            if let Some(copy_step) = pulse.copied_step {
+                debug_assert_eq!(copy_step.copied_words, 7);
+                debug_assert_eq!(copy_step.next_hibernate_frames, 3);
+                enemy.heady_metal_palette_word_5e = copy_step.source_byte_offset;
+            }
+        }
         if enemy.death_animation_active && enemy_death_animation_frames(enemy.family).is_some() {
             // ASM family death tails such as Goat.asm loc_3CB64 and
             // Mini_Hopping_Skull.asm loc_3F158 clear movement while the death

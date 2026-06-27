@@ -4257,6 +4257,47 @@ mod chunk_04 {
     }
 
     #[test]
+    fn fire_demon_palette_pulse_loc_3a4c2_runs_the_four_copy_steps() {
+        assert_eq!(
+            fire_demon_palette_pulse_tick_loc_3a4c2(2, 1),
+            FireDemonPalettePulseTickLoc3A4C2 {
+                next_phase_counter: 3,
+                copied_step: Some(fire_demon_palette_first_copy_loc_3a4d6()),
+                helper_alive: true,
+            },
+            "ASM Fire_Demon.asm loc_3A4C2 hibernates three ticks before loc_3A4D6 copies the base palette frame"
+        );
+        assert_eq!(
+            fire_demon_palette_pulse_tick_loc_3a4c2(5, 1).copied_step,
+            Some(fire_demon_palette_middle_copy_loc_3a4f6()),
+            "ASM Fire_Demon.asm loc_3A4F6 copies the middle palette frame after the next hibernate"
+        );
+        assert_eq!(
+            fire_demon_palette_pulse_tick_loc_3a4c2(8, 1).copied_step,
+            Some(fire_demon_palette_peak_copy_loc_3a516()),
+            "ASM Fire_Demon.asm loc_3A516 copies the peak palette frame after the third hibernate"
+        );
+        assert_eq!(
+            fire_demon_palette_pulse_tick_loc_3a4c2(11, 1),
+            FireDemonPalettePulseTickLoc3A4C2 {
+                next_phase_counter: 0,
+                copied_step: Some(fire_demon_palette_return_copy_loc_3a536()),
+                helper_alive: true,
+            },
+            "ASM Fire_Demon.asm loc_3A536 returns to the middle palette frame before branching back to loc_3A4C2"
+        );
+        assert_eq!(
+            fire_demon_palette_pulse_tick_loc_3a4c2(2, 0),
+            FireDemonPalettePulseTickLoc3A4C2 {
+                next_phase_counter: 0,
+                copied_step: None,
+                helper_alive: false,
+            },
+            "ASM Fire_Demon.asm loc_3A53E deletes the helper when the global Fire_Demon byte is clear"
+        );
+    }
+
+    #[test]
     fn fire_demon_collision_loc_3a542_gates_fire_trail_spawn() {
         assert_eq!(
             fire_demon_fire_trail_gate_loc_3a542(true, 0, 6, 6),
