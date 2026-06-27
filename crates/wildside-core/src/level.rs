@@ -11504,7 +11504,6 @@ pub(crate) fn shooter_object_moving_right_collision_gate_loc_EE38(
 /// ASM loc_EE52 (kid.asm:19348): `addq.w #4,2(a0)` advances the moving-right
 /// shooter, then `d1=0`, `d2=-4`, and `d3=$8A96` feed the shared sprite maker.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_right_sprite_tail_loc_EE52(
     x_pos: u16,
 ) -> ShooterObjectSpriteTailLocEE52 {
@@ -11604,7 +11603,6 @@ pub(crate) fn shooter_object_moving_left_collision_gate_loc_EEE4(
 /// ASM loc_EEFE (kid.asm:19420): `subq.w #4,2(a0)` advances the moving-left
 /// shooter, then `d1=-8`, `d2=-4`, and `d3=$8296` feed the shared sprite maker.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_left_sprite_tail_loc_EEFE(
     x_pos: u16,
 ) -> ShooterObjectSpriteTailLocEE52 {
@@ -11663,7 +11661,6 @@ pub(crate) fn shooter_object_moving_down_collision_gate_loc_EF40(
 /// ASM loc_EF56 (kid.asm:19459): `addq.w #4,4(a0)` advances the moving-down
 /// shooter, then `d1=-4`, `d2=0`, and `d3=$9295` feed the shared sprite maker.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_down_sprite_tail_loc_EF56(
     y_pos: u16,
 ) -> ShooterObjectMovingDownSpriteTailLocEF56 {

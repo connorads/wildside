@@ -2514,9 +2514,24 @@ impl NativeRuntime {
 
         match direction {
             0 => projectile.y_pos = projectile.y_pos.wrapping_sub(4 << 16),
-            1 => projectile.x_pos = projectile.x_pos.wrapping_add(4 << 16),
-            2 => projectile.y_pos = projectile.y_pos.wrapping_add(4 << 16),
-            _ => projectile.x_pos = projectile.x_pos.wrapping_sub(4 << 16),
+            1 => {
+                let tail = crate::level::shooter_object_moving_right_sprite_tail_loc_EE52(
+                    (projectile.x_pos >> 16) as u16,
+                );
+                projectile.x_pos = (u32::from(tail.x_pos) << 16) | (projectile.x_pos & 0xFFFF);
+            }
+            2 => {
+                let tail = crate::level::shooter_object_moving_down_sprite_tail_loc_EF56(
+                    (projectile.y_pos >> 16) as u16,
+                );
+                projectile.y_pos = (u32::from(tail.y_pos) << 16) | (projectile.y_pos & 0xFFFF);
+            }
+            _ => {
+                let tail = crate::level::shooter_object_moving_left_sprite_tail_loc_EEFE(
+                    (projectile.x_pos >> 16) as u16,
+                );
+                projectile.x_pos = (u32::from(tail.x_pos) << 16) | (projectile.x_pos & 0xFFFF);
+            }
         }
 
         Ok(())
