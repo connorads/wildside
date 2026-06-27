@@ -298,7 +298,6 @@ pub struct Prize10DiamondsWorkerCountdownGateLoc10984 {
     pub should_clear_display_enabled: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10DiamondsWorkerInitLoc10988 {
     pub(crate) camera_relative_x_pos: i32,
@@ -307,7 +306,6 @@ pub(crate) struct Prize10DiamondsWorkerInitLoc10988 {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10DiamondsWorkerStepLoc109C0 {
     pub(crate) next_camera_relative_x_pos: i32,
@@ -998,7 +996,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_10_diamonds_worker_init_loc_10988(
         x_pos: i32,
         y_pos: i32,
@@ -1013,13 +1010,16 @@ impl NativeRuntime {
         Prize10DiamondsWorkerInitLoc10988 {
             camera_relative_x_pos,
             camera_relative_y_pos,
-            x_velocity: (0x0126_0000_i32.wrapping_sub(camera_relative_x_pos)) >> 5,
-            y_velocity: (0x0030_0000_i32.wrapping_sub(camera_relative_y_pos)) >> 5,
+            x_velocity: (Self::PRIZE_DIAMOND_HUD_TARGET_X_FP_LOC_FE3E
+                .wrapping_sub(camera_relative_x_pos))
+                >> 5,
+            y_velocity: (Self::PRIZE_DIAMOND_HUD_TARGET_Y_FP_LOC_FE3E
+                .wrapping_sub(camera_relative_y_pos))
+                >> 5,
         }
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn prize_10_diamonds_worker_step_loc_109C0(
         camera_relative_x_pos: i32,
         camera_relative_y_pos: i32,

@@ -11405,14 +11405,18 @@ impl NativeRuntime {
         screen_y_fp: i32,
     ) {
         self.queue_prize_diamond_award();
-        let x_step_fp = (Self::PRIZE_DIAMOND_HUD_TARGET_X_FP_LOC_FE3E - screen_x_fp) >> 5;
-        let y_step_fp = (Self::PRIZE_DIAMOND_HUD_TARGET_Y_FP_LOC_FE3E - screen_y_fp) >> 5;
+        // ASM Increase_Diamonds and loc_10988 share the same HUD target arc:
+        // cache camera-relative `$3E/$42`, then seed `$26/$2A` from
+        // (`#$1260000`/`#$300000` - cached position) >> 5.
+        let init = Self::prize_10_diamonds_worker_init_loc_10988(screen_x_fp, screen_y_fp, 0, 0);
+        debug_assert_eq!(init.camera_relative_x_pos, screen_x_fp);
+        debug_assert_eq!(init.camera_relative_y_pos, screen_y_fp);
         self.pending_prize_diamond_hud_flights
             .push(PrizeDiamondHudFlight {
-                screen_x_fp,
-                screen_y_fp,
-                x_step_fp,
-                y_step_fp,
+                screen_x_fp: init.camera_relative_x_pos,
+                screen_y_fp: init.camera_relative_y_pos,
+                x_step_fp: init.x_velocity,
+                y_step_fp: init.y_velocity,
                 remaining_delay: Self::PRIZE_DIAMOND_AWARD_DELAY_FRAMES,
             });
     }
@@ -11428,6 +11432,14 @@ impl NativeRuntime {
         self.pending_prize_diamond_awards.retain(|delay| *delay > 0);
         for flight in &mut self.pending_prize_diamond_hud_flights {
             if flight.remaining_delay > 1 {
+                let worker_step = Self::prize_10_diamonds_worker_step_loc_109C0(
+                    flight.screen_x_fp,
+                    flight.screen_y_fp,
+                    flight.x_step_fp,
+                    flight.y_step_fp,
+                    0,
+                    0,
+                );
                 let arc_step = Self::prize_collected_arc_hibernate_step_loc_FEEE(
                     flight.screen_x_fp,
                     flight.screen_y_fp,
@@ -11435,15 +11447,23 @@ impl NativeRuntime {
                     flight.y_step_fp,
                 );
                 debug_assert_eq!(
-                    arc_step.screen_x_word,
-                    Self::high_word_from_i32(arc_step.next_screen_x_fp)
+                    worker_step.next_camera_relative_x_pos,
+                    arc_step.next_screen_x_fp
                 );
                 debug_assert_eq!(
-                    arc_step.screen_y_word,
-                    Self::high_word_from_i32(arc_step.next_screen_y_fp)
+                    worker_step.next_camera_relative_y_pos,
+                    arc_step.next_screen_y_fp
                 );
-                flight.screen_x_fp = arc_step.next_screen_x_fp;
-                flight.screen_y_fp = arc_step.next_screen_y_fp;
+                debug_assert_eq!(
+                    worker_step.next_x_pos,
+                    Self::high_word_from_i32(worker_step.next_camera_relative_x_pos)
+                );
+                debug_assert_eq!(
+                    worker_step.next_y_pos,
+                    Self::high_word_from_i32(worker_step.next_camera_relative_y_pos)
+                );
+                flight.screen_x_fp = worker_step.next_camera_relative_x_pos;
+                flight.screen_y_fp = worker_step.next_camera_relative_y_pos;
             }
             flight.remaining_delay = flight.remaining_delay.saturating_sub(1);
         }
