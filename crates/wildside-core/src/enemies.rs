@@ -3336,6 +3336,8 @@ fn activate_enemies_with_rng_inner(
             };
             let lion_motion_profile =
                 lion_visible_init.map(|init| lion_init_motion_profile_loc_3dfd8(init.current_hp));
+            let lion_runtime_fields =
+                lion_motion_profile.map(|profile| lion_init_runtime_fields_loc_3dff0(profile, 0));
             if let Some(visible_init) = lion_visible_init {
                 debug_assert!(visible_init.status_flag_13);
                 debug_assert_eq!(visible_init.object_meta, 0x0092);
@@ -3377,6 +3379,24 @@ fn activate_enemies_with_rng_inner(
                         debug_assert_eq!(facing, Direction::Right);
                     }
                 }
+            }
+            if let Some(runtime) = lion_runtime_fields {
+                // ASM Lion.asm loc_3DFF0 writes the common runtime tail after
+                // the HP-specific motion profile. Native has no `$71(a5)`
+                // phase byte, so this assertion uses a non-consuming zero RNG
+                // byte to validate the original `$4B` remap without shifting
+                // the runtime RNG stream.
+                debug_assert_eq!(runtime.ufo_beam_interval, 0x002F);
+                debug_assert_eq!(runtime.ufo_beam_segments, 0x0014);
+                debug_assert_eq!(runtime.tracking_callback, "LionTrackingCallback");
+                debug_assert!(matches!(
+                    runtime.animation_script,
+                    "stru_3DEDA" | "stru_3DEF4"
+                ));
+                debug_assert_eq!(runtime.shared_walker_state, SHARED_WALKER_STATE_PATROL);
+                debug_assert_eq!(runtime.charge_timer, LION_CHARGE_TIMER_INIT);
+                debug_assert_eq!(runtime.collision_routine, "LionCollisionRoutine");
+                debug_assert_eq!(runtime.random_phase_byte, 0x4B);
             }
             if let Some(profile) = goat_init_animation {
                 debug_assert_eq!(profile.initial_animation_script, "stru_3C996");
@@ -3496,7 +3516,12 @@ fn activate_enemies_with_rng_inner(
                 damage_flash_frames: 0,
                 palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
                 wait_timer: orca_init.map_or_else(
-                    || spawn_wait_timer(family, enemy_level, player_x, rng),
+                    || {
+                        lion_runtime_fields.map_or_else(
+                            || spawn_wait_timer(family, enemy_level, player_x, rng),
+                            |runtime| runtime.charge_timer,
+                        )
+                    },
                     |init| init.initial_lunge_timer,
                 ),
                 dragon_phase: spawn_dragon_phase(family),
@@ -3526,8 +3551,10 @@ fn activate_enemies_with_rng_inner(
                 tar_monster_state: TarMonsterState::default(),
                 spinning_twins_phase: SpinningTwinsPhase::default(),
                 spinning_twins_orbit_index: 0,
-                ufo_beam_segments: 0,
-                ufo_beam_interval: 0,
+                ufo_beam_segments: lion_runtime_fields
+                    .map_or(0, |runtime| runtime.ufo_beam_segments as u8),
+                ufo_beam_interval: lion_runtime_fields
+                    .map_or(0, |runtime| runtime.ufo_beam_interval as u8),
                 boss_head_index: if is_multi_head_boss(family) {
                     head_idx
                 } else {
@@ -3569,8 +3596,14 @@ fn activate_enemies_with_rng_inner(
                     || orca_init.map_or(0, |init| init.walk_speed),
                     |init| init.walk_speed,
                 ),
-                shared_walker_state: spawn_shared_walker_state(family),
-                shared_walker_patrol_timer: spawn_shared_walker_patrol_timer(family),
+                shared_walker_state: lion_runtime_fields.map_or_else(
+                    || spawn_shared_walker_state(family),
+                    |runtime| runtime.shared_walker_state,
+                ),
+                shared_walker_patrol_timer: lion_runtime_fields.map_or_else(
+                    || spawn_shared_walker_patrol_timer(family),
+                    |runtime| runtime.charge_timer,
+                ),
                 shared_walker_turnaround_counter: 0,
                 shared_walker_right_turn_extra_step_consumed:
                     spawn_shared_walker_right_turn_extra_step_consumed(family, facing),

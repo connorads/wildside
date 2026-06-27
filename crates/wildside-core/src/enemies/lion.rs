@@ -60,7 +60,6 @@ pub(crate) fn lion_init_motion_profile_loc_3dfd8(current_hp: u16) -> LionInitMot
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionInitRuntimeFields {
     pub(crate) ufo_beam_interval: u16,
     pub(crate) ufo_beam_segments: u16,
@@ -72,7 +71,6 @@ pub(crate) struct LionInitRuntimeFields {
     pub(crate) random_phase_byte: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_init_runtime_fields_loc_3dff0(
     motion_profile: LionInitMotionProfile,
     random_byte: u8,
