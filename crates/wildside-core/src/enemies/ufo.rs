@@ -832,21 +832,21 @@ pub(crate) fn ufo_hurt_tail_loc_35174(
     // allocate a driver with selector `$6000`, install `loc_355E2`, seed `$44` with
     // parent `x_vel`, set a timer word to `-1`, clear child `$13`, set
     // `is_moved(a3)`, force parent `y_vel` to `$30000`, then run `stru_34CA0`.
+    let driver_spawn = ufo_hurt_driver_spawn_loc_35180(parent_x_velocity);
     UfoHurtSpawnTailLoc35174 {
         some_ufo_shooting_cleared: some_ufo_shooting,
-        allocation_selector: 0x6000,
-        driver_routine: "loc_355E2",
-        driver_x_velocity: parent_x_velocity,
-        driver_timer_flag: -1,
-        parent_moved: true,
-        parent_y_velocity: 0x0003_0000,
+        allocation_selector: driver_spawn.allocation_selector,
+        driver_routine: driver_spawn.driver_routine,
+        driver_x_velocity: driver_spawn.driver_x_velocity,
+        driver_timer_flag: driver_spawn.driver_flag_46,
+        parent_moved: driver_spawn.parent_moved,
+        parent_y_velocity: driver_spawn.parent_y_velocity,
         driver_animation: "stru_34CA0",
         parent_animation_flag_13_cleared: true,
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverSpawnLoc35180 {
     pub(crate) allocation_selector: u16,
     pub(crate) driver_routine: &'static str,
@@ -856,7 +856,6 @@ pub(crate) struct UfoHurtDriverSpawnLoc35180 {
     pub(crate) parent_y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_spawn_loc_35180(
     parent_x_velocity: i32,
 ) -> UfoHurtDriverSpawnLoc35180 {
