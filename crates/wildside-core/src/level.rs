@@ -1736,7 +1736,6 @@ pub(crate) fn level_layout_row_pointer_base_loc_11AE4(level_id: LevelId, width_b
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_layout_row_pointers_loc_11AFE(
     level_height_blocks: u16,
     level_width_tiles: u16,
@@ -4249,6 +4248,20 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
 }
 
 #[allow(non_snake_case)]
+fn level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
+    rows: u16,
+    width_blocks: u16,
+) -> Vec<u16> {
+    // ASM loc_11AFE builds live WRAM row pointers from `Level_Layout`. Native
+    // overlay helpers operate on the current `cells` slice, so convert those
+    // live low-word addresses back to zero-based byte offsets.
+    level_layout_row_pointers_loc_11AFE(rows, width_blocks.wrapping_mul(2))
+        .into_iter()
+        .map(|addr| addr.wrapping_sub(LEVEL_LAYOUT_RAM_BASE_LOC_11AFE))
+        .collect()
+}
+
+#[allow(non_snake_case)]
 fn reconcile_prize_block_cells_loc_123DC(
     grid: &mut terrain::BlockGrid,
     block_list: &terrain::BlockList,
@@ -4379,9 +4392,10 @@ fn run_loop_with_property_123dc(
         let Some(&y_row) = words.get(*pos) else {
             return;
         };
-        let row_pointer_table: Vec<u16> = (0..=y_row)
-            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
-            .collect();
+        let row_pointer_table = level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
+            y_row.wrapping_add(1),
+            width_blocks,
+        );
         let Some(setup) = block_type_1_cell_coords_loc_123ec(&words[*pos..], &row_pointer_table, x)
         else {
             return;
@@ -4447,9 +4461,10 @@ fn run_loop_with_property_125a6(
         let Some(&y_row) = words.get(*pos) else {
             return;
         };
-        let row_pointer_table: Vec<u16> = (0..=y_row)
-            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
-            .collect();
+        let row_pointer_table = level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
+            y_row.wrapping_add(1),
+            width_blocks,
+        );
         let Some(setup) =
             block_type_1012_parse_coords_loc_125ac(&words[*pos..], &row_pointer_table, x)
         else {
@@ -4521,9 +4536,10 @@ fn run_loop_type3_124a6(
             return;
         };
         *pos += block_type_3_advance_entry_loc_12520().next_entry_offset / 2;
-        let row_pointer_table: Vec<u16> = (0..=entry.y_row)
-            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
-            .collect();
+        let row_pointer_table = level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
+            entry.y_row.wrapping_add(1),
+            width_blocks,
+        );
         let Some(coords) =
             block_type_3_cell_addr_loc_124be(&row_pointer_table, entry.x_pos, entry.y_row)
         else {
@@ -4584,9 +4600,10 @@ fn run_loop_pair_1263c(
         if words.get(*pos + 2).is_none() {
             return;
         }
-        let row_pointer_table: Vec<u16> = (0..=y_row)
-            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
-            .collect();
+        let row_pointer_table = level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
+            y_row.wrapping_add(1),
+            width_blocks,
+        );
         let Some(setup) =
             block_type_4_parse_coords_loc_1264c(&words[*pos..], &row_pointer_table, x, block_type)
         else {
@@ -4667,9 +4684,10 @@ fn run_loop_single_126ba(
         let Some(&y_row) = words.get(*pos) else {
             return;
         };
-        let row_pointer_table: Vec<u16> = (0..=y_row)
-            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
-            .collect();
+        let row_pointer_table = level_layout_row_pointer_offsets_for_overlay_loc_11AFE(
+            y_row.wrapping_add(1),
+            width_blocks,
+        );
         let Some(setup) =
             block_type_11_parse_coords_loc_126c0(&words[*pos..], &row_pointer_table, x, block_type)
         else {
@@ -4711,9 +4729,8 @@ fn run_loop_corner_126f2(
         let Some(&y) = words.get(*pos) else {
             return;
         };
-        let row_pointer_table: Vec<u16> = (0..=y)
-            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
-            .collect();
+        let row_pointer_table =
+            level_layout_row_pointer_offsets_for_overlay_loc_11AFE(y.wrapping_add(1), width_blocks);
         let Some(coords) =
             block_type_16_parse_coords_loc_126f8(&words[*pos..], &row_pointer_table, x)
         else {
