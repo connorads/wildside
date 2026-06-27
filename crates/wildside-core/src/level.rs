@@ -6605,7 +6605,6 @@ pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn palette_to_vram0_blocks_solid_scan_loc_2198(tile_word: u16) -> u16 {
     // ASM j_Palette_to_VRAM0 / loc_2198 (kid.asm:3978-3989): return zero only
     // when bit 15 was set before `bclr #$F,d0` and the remaining palette nibble

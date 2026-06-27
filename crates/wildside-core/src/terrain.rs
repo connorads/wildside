@@ -1813,7 +1813,9 @@ pub(crate) fn relative_collision_nibble_loc_33280(tile_word: u16) -> u16 {
 }
 
 fn relative_collision_word_mask_shared_disguised_block(tile_word: u16) -> u16 {
-    if (tile_word & 0x8000) != 0 && (tile_word & 0x0F00) == 0x0300 {
+    // ASM j_Palette_to_VRAM0 / loc_2198: the block collision scan and relative
+    // collision helpers share the same disguised solid-ghost block gate.
+    if crate::level::palette_to_vram0_blocks_solid_scan_loc_2198(tile_word) == 0 {
         0
     } else {
         relative_collision_nibble_loc_33280(tile_word)
