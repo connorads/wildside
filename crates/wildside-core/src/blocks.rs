@@ -2702,36 +2702,62 @@ impl NativeRuntime {
 
         let x_px = (slice.player.x_pos >> 16) as i32;
         let foot_y_px = (slice.player.y_pos >> 16) as i32;
-        let top_px = u16::try_from((foot_y_px - PLAYER_HEIGHT).saturating_sub(1).max(0)).ok()?;
-        let bottom_px = crate::level::evanescent_bullet_bottom_clamp_loc_EAF8(
-            u16::try_from(foot_y_px.max(0)).ok()?,
+        let kid_hitbox_top = u16::try_from((foot_y_px - PLAYER_HEIGHT).max(0)).ok()?;
+        let kid_hitbox_bottom = u16::try_from(foot_y_px.max(0)).ok()?;
+        let expanded_top = kid_hitbox_top.saturating_sub(1);
+        let expanded_bottom = crate::level::evanescent_bullet_bottom_clamp_loc_EAF8(
+            kid_hitbox_bottom,
             level_height_pixels,
         )
         .bottom_px;
-        if bottom_px < top_px {
+        if expanded_bottom < expanded_top {
             return None;
         }
-        let vertical_rows =
-            crate::level::evanescent_bullet_vertical_rows_loc_EB0C(top_px, bottom_px);
         // ASM loc_EAE4 scans `Kid_hitbox_left/right`, whose horizontal half-width
         // comes from sub_B41C/unk_B408 for the current helmet form.
-        let left_px = u16::try_from((x_px - collision_half_width).saturating_sub(1).max(0)).ok()?;
-        let right_px = crate::level::evanescent_bullet_right_clamp_loc_EB2A(
-            u16::try_from((x_px + collision_half_width).max(0)).ok()?,
+        let kid_hitbox_left = u16::try_from((x_px - collision_half_width).max(0)).ok()?;
+        let kid_hitbox_right = u16::try_from((x_px + collision_half_width).max(0)).ok()?;
+        let expanded_left = kid_hitbox_left.saturating_sub(1);
+        let expanded_right = crate::level::evanescent_bullet_right_clamp_loc_EB2A(
+            kid_hitbox_right,
             level_width_pixels,
         )
         .right_px;
-        if right_px < left_px {
+        if expanded_right < expanded_left {
             return None;
         }
-        let horizontal_columns =
-            crate::level::evanescent_bullet_horizontal_columns_loc_EB3E(left_px, right_px);
+
+        let scan = crate::level::evanescent_bullet_hitbox_scan_loc_EAE4(
+            crate::level::EvanescentBulletHitboxScanInputLocEAE4 {
+                skip_scan_flag: false,
+                kid_hitbox_top,
+                kid_hitbox_bottom,
+                kid_hitbox_left,
+                kid_hitbox_right,
+                level_height_pixels,
+                level_width_pixels,
+            },
+            grid,
+        );
+        let crate::level::EvanescentBulletHitboxScanLocEAE4::Scan {
+            top_row,
+            row_dbf_counter,
+            left_col,
+            col_dbf_counter,
+            found_evanescent_block: true,
+            ..
+        } = scan
+        else {
+            return None;
+        };
+        // ASM loc_EB72 (kid.asm:18922): recover the matched layout address
+        // after the EAE4 scan triggers so the block coordinates drive reveal.
         let hit = crate::level::evanescent_bullet_scan_rows_loc_EB48(
             grid,
-            vertical_rows.top_row,
-            vertical_rows.row_dbf_counter,
-            horizontal_columns.left_col,
-            horizontal_columns.col_dbf_counter,
+            top_row,
+            row_dbf_counter,
+            left_col,
+            col_dbf_counter,
         )?;
         let skin = grid.cell_at(hit.col, hit.row).skin;
         Some((hit.col, hit.row, skin))

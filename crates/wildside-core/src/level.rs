@@ -11096,7 +11096,6 @@ pub(crate) fn evanescent_sprite_scan_return_loc_EAB2(
 /// whose block type is `$A` before falling through to `loc_EB6E`, the shared
 /// bullet-loader entry.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_hitbox_scan_loc_EAE4(
     input: EvanescentBulletHitboxScanInputLocEAE4,
     grid: &terrain::BlockGrid,
