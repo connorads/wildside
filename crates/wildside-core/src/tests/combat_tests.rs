@@ -14524,6 +14524,60 @@ mod chunk_03 {
             runtime.active_enemies[0].y_velocity, 0x0003_0000,
             "ASM UFO.asm loc_35228 adds `$40000` to parent y_vel after loc_351EE debris allocation"
         );
+        let debris_indices = runtime
+            .projectiles
+            .iter()
+            .enumerate()
+            .filter_map(|(index, projectile)| {
+                (projectile.kind == EnemyProjectileKind::UfoFirstHurtDebris).then_some(index)
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            debris_indices.len(),
+            10,
+            "ASM UFO.asm loc_351EE allocates one debris worker for each non-zero x-word in unk_351C4"
+        );
+        let first_debris_index = debris_indices[0];
+        let first_debris = runtime.projectiles[first_debris_index];
+        assert_eq!(
+            first_debris.x_pos, 0x00F5_0000,
+            "ASM UFO.asm loc_354DA positions default-facing debris at linked UFO X-$B"
+        );
+        assert_eq!(
+            first_debris.y_pos, 0x0068_0000,
+            "ASM UFO.asm loc_354DA positions debris at linked UFO Y-$18"
+        );
+        assert_eq!(
+            first_debris.x_velocity, -0x0001_8000,
+            "ASM UFO.asm loc_351F2 shifts raw x=-5 by 15 and adds half parent x_vel"
+        );
+        assert_eq!(
+            first_debris.y_velocity, -0x0001_8000,
+            "ASM UFO.asm loc_351F2 shifts raw y=-3 by 15"
+        );
+        assert_eq!(first_debris.gravity, 0x0000_3000);
+        assert_eq!(
+            first_debris.ufo_beam_child_x_direction, 0,
+            "ASM UFO.asm loc_35512 keeps default-facing first-hurt debris with clear x_direction"
+        );
+        assert_eq!(
+            first_debris.ufo_beam_child_loop_timer_loc_3554a, 5,
+            "ASM UFO.asm loc_35512 seeds first-hurt debris `$40` loop timer to 5"
+        );
+
+        for _ in 0..5 {
+            runtime.step_projectiles();
+        }
+
+        let first_debris = runtime.projectiles[first_debris_index];
+        assert_eq!(
+            first_debris.ufo_beam_child_loop_timer_loc_3554a, 0x000A,
+            "ASM UFO.asm loc_3554A reloads `$40` to `$A` when the countdown reaches zero"
+        );
+        assert_eq!(
+            first_debris.ufo_beam_child_x_direction, 0xFF,
+            "ASM UFO.asm loc_3554A flips clear x_direction to `$FF` on the first countdown expiry"
+        );
         let debris = runtime
             .projectiles
             .iter()
@@ -14532,25 +14586,8 @@ mod chunk_03 {
         assert_eq!(
             debris.len(),
             10,
-            "ASM UFO.asm loc_351EE allocates one debris worker for each non-zero x-word in unk_351C4"
+            "ASM UFO.asm loc_3555A keeps hibernating first-hurt debris while `$19(a3)` is clear"
         );
-        assert_eq!(
-            debris[0].x_pos, 0x00F5_0000,
-            "ASM UFO.asm loc_354DA positions default-facing debris at linked UFO X-$B"
-        );
-        assert_eq!(
-            debris[0].y_pos, 0x0068_0000,
-            "ASM UFO.asm loc_354DA positions debris at linked UFO Y-$18"
-        );
-        assert_eq!(
-            debris[0].x_velocity, -0x0001_8000,
-            "ASM UFO.asm loc_351F2 shifts raw x=-5 by 15 and adds half parent x_vel"
-        );
-        assert_eq!(
-            debris[0].y_velocity, -0x0001_8000,
-            "ASM UFO.asm loc_351F2 shifts raw y=-3 by 15"
-        );
-        assert_eq!(debris[0].gravity, 0x0000_3000);
     }
 
     #[test]

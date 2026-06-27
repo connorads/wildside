@@ -1009,6 +1009,8 @@ pub(crate) fn spawn_ufo_first_hurt_debris_loc_351ee(
             terrain_kill: true,
             lifetime: u16::MAX,
             kind: EnemyProjectileKind::UfoFirstHurtDebris,
+            ufo_beam_child_x_direction: child_x_direction,
+            ufo_beam_child_loop_timer_loc_3554a: child.loop_timer,
             ..EnemyProjectile::default()
         });
     }
@@ -1063,14 +1065,12 @@ pub(crate) fn ufo_beam_child_init_loc_35512(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamChildTurnaroundLoc3554A {
     pub(crate) loop_timer: u16,
     pub(crate) x_direction: u8,
     pub(crate) flipped_direction: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_child_turnaround_loc_3554a(
     loop_timer: u16,
     x_direction: u8,

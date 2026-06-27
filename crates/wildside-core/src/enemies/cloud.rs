@@ -543,6 +543,8 @@ fn cloud_projectile_spawn_loc_35df0(
         boss_head_boomerang_direction_byte_d0: 0,
         drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
         drips_surface_crawler_x_direction_flipped: false,
+        ufo_beam_child_x_direction: 0,
+        ufo_beam_child_loop_timer_loc_3554a: 0,
         drips_child_byte_44: 0,
         drips_child_byte_45: 0,
         tar_monster_collision_response_budget: 0,

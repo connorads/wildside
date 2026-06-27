@@ -3286,6 +3286,12 @@ pub(crate) struct EnemyProjectile {
     /// with `not.b` on script flip bytes, and labels such as `loc_336D0` branch
     /// on whether the byte is zero.
     pub(crate) drips_surface_crawler_x_direction_flipped: bool,
+    /// UFO first-hurt debris `x_direction(a3)` byte. ASM UFO.asm loc_3554A
+    /// toggles this with `not.b` when the child loop timer reaches zero.
+    pub(crate) ufo_beam_child_x_direction: u8,
+    /// UFO first-hurt debris loop timer. ASM UFO.asm loc_35512 seeds `$40=5`;
+    /// loc_3554A decrements it and reloads `$A` when direction flips.
+    pub(crate) ufo_beam_child_loop_timer_loc_3554a: u16,
     /// Drips.asm loc_335D8 copies parent state byte `$44(a5)` into the surface
     /// crawler; loc_33526 uses it to decide whether the startup tail reapplies
     /// the current velocity.

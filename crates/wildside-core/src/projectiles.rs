@@ -52,6 +52,7 @@ use crate::enemies::{
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC, ufo_beam_child_gravity_gate_loc_3555a,
+    ufo_beam_child_turnaround_loc_3554a,
 };
 use crate::helmets::{
     RainSlotSpriteAction, RainTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -3582,6 +3583,13 @@ impl NativeRuntime {
                 return false;
             }
             if is_ufo_first_hurt_debris {
+                let turn = ufo_beam_child_turnaround_loc_3554a(
+                    p.ufo_beam_child_loop_timer_loc_3554a,
+                    p.ufo_beam_child_x_direction,
+                );
+                p.ufo_beam_child_loop_timer_loc_3554a = turn.loop_timer;
+                p.ufo_beam_child_x_direction = turn.x_direction;
+
                 let flag_19_set =
                     grid.is_some_and(|g| projectile_terrain_contact_loc_3345c(g, p));
                 let gate = ufo_beam_child_gravity_gate_loc_3555a(p.y_velocity, flag_19_set);
