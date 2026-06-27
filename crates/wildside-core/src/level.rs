@@ -4673,33 +4673,43 @@ fn mark_corner_neighbour_sub_12792(
     row: u16,
     tile_class: u8,
 ) {
+    let Some(width_blocks) = u16::try_from(width).ok() else {
+        return;
+    };
+    let Some(height_blocks) = u16::try_from(height).ok() else {
+        return;
+    };
     let mut mark = |c: usize, r: usize| {
-        if c >= width || r >= height {
-            return;
-        }
-        let idx = r * width + c;
-        let Some(cell) = cells.get_mut(idx) else {
+        let Some(x_pos) = u16::try_from(c).ok() else {
             return;
         };
-        let [hi, lo] = cell.to_be_bytes();
-        if hi & 0x80 != 0 {
+        let Some(y_row) = u16::try_from(r).ok() else {
+            return;
+        };
+        let idx = r * width + c;
+        let Some(&cell_value) = cells.get(idx) else {
+            return;
+        };
+        let [hi, _lo] = cell_value.to_be_bytes();
+        let check =
+            bounds_check_mark_loc_12792(x_pos, y_row, width_blocks, height_blocks, hi as i8);
+        if !check.should_mark {
             return;
         }
-        *cell = u16::from_be_bytes([hi | 0x01, lo]);
+        if let Some(cell) = cells.get_mut(idx) {
+            let [hi, lo] = cell.to_be_bytes();
+            *cell = u16::from_be_bytes([hi | 0x01, lo]);
+        }
     };
     let (cu, ru) = (usize::from(col), usize::from(row));
-    match tile_class {
-        0x40 => {
-            mark(cu + 1, ru);
-            mark(cu, ru + 1);
+    if handle_property_code_40_loc_12752(tile_class).marks_diagonal_right {
+        mark(cu + 1, ru);
+        mark(cu, ru + 1);
+    } else if handle_property_code_50_loc_12772(tile_class).marks_diagonal_left {
+        if cu > 0 {
+            mark(cu - 1, ru);
         }
-        0x50 => {
-            if cu > 0 {
-                mark(cu - 1, ru);
-            }
-            mark(cu, ru + 1);
-        }
-        _ => {}
+        mark(cu, ru + 1);
     }
 }
 
@@ -6834,7 +6844,6 @@ pub(crate) struct HandlePropertyCode40Loc12752 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn handle_property_code_40_loc_12752(property_byte: u8) -> HandlePropertyCode40Loc12752 {
     // ASM sub_12752 (kid.asm:25037-25050): handle property code $40.
     //   cmpi.b  #$40,d5
@@ -6863,7 +6872,6 @@ pub(crate) struct HandlePropertyCode50Loc12772 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn handle_property_code_50_loc_12772(property_byte: u8) -> HandlePropertyCode50Loc12772 {
     // ASM loc_12772 (kid.asm:25053-25068): handle property code $50.
     //   cmpi.b  #$50,d5
@@ -6893,7 +6901,6 @@ pub(crate) struct BoundsCheckMarkLoc12792 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn bounds_check_mark_loc_12792(
     x_pos: u16,
     y_row: u16,
