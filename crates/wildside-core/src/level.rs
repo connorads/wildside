@@ -4804,11 +4804,19 @@ fn run_loop_corner_126f2(
         let Some(&y) = words.get(*pos) else {
             return;
         };
+        let row_pointer_table: Vec<u16> = (0..=y)
+            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
+            .collect();
+        let Some(coords) =
+            block_type_16_parse_coords_loc_126f8(&words[*pos..], &row_pointer_table, x)
+        else {
+            return;
+        };
         let Some(setup) = block_type_16_read_count_stride_loc_126fe(&words[*pos + 1..]) else {
             return;
         };
         *pos += 3;
-        let (mut cx, mut cy) = (x, y);
+        let (mut cx, mut cy) = (x, coords.y_row);
         for _ in 0..setup.count {
             let Some(cls) = words.get(*pos).copied() else {
                 return;
@@ -6902,7 +6910,6 @@ pub(crate) struct BlockType16ParseCoordsLoc126F8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_16_parse_coords_loc_126f8(
     layout_words: &[u16],
     row_pointer_table: &[u16],
