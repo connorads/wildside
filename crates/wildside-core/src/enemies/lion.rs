@@ -848,14 +848,12 @@ pub(crate) fn lion_charge_collision_reentry_loc_3e79e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeMotionSeedLoc3E694 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
     pub(crate) y_position: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_motion_seed_loc_3e694(
     saved_x_velocity: i32,
     y_position: u32,
@@ -872,14 +870,12 @@ pub(crate) fn lion_left_charge_motion_seed_loc_3e694(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionChargeCollisionMotionSeedLoc3E7B0 {
     pub(crate) x_velocity: i32,
     pub(crate) y_velocity: i32,
     pub(crate) y_position: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_motion_seed_loc_3e7b0(
     saved_x_velocity: i32,
     y_position: u32,
@@ -1612,10 +1608,20 @@ fn step_lion_charge_movement_loc_3e11e(
             // turn around at ledges. It latches the airborne charge,
             // keeps `$50(a5)` as x_vel, nudges y down one pixel, then
             // falls through loc_3E6AE/loc_3E7CA until terrain catches it.
+            let motion_seed = match enemy.facing {
+                Direction::Left => {
+                    let seed = lion_left_charge_motion_seed_loc_3e694(walk_delta, enemy.y_pos);
+                    (seed.x_velocity, seed.y_velocity, seed.y_position)
+                }
+                Direction::Right => {
+                    let seed = lion_charge_collision_motion_seed_loc_3e7b0(walk_delta, enemy.y_pos);
+                    (seed.x_velocity, seed.y_velocity, seed.y_position)
+                }
+            };
             enemy.on_ground = false;
-            enemy.x_velocity = walk_delta;
-            enemy.y_velocity = 0;
-            enemy.y_pos = enemy.y_pos.saturating_add(1 << 16);
+            enemy.x_velocity = motion_seed.0;
+            enemy.y_velocity = motion_seed.1;
+            enemy.y_pos = motion_seed.2;
             enemy.shared_walker_debug_branch = Some("lion_charge_airborne_start");
             return;
         }
