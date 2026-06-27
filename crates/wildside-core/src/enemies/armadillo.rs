@@ -50,7 +50,6 @@ fn armadillo_object_meta_set_mirror_target_bit_loc_3c810(cleared_object_meta: u1
     cleared_object_meta.wrapping_add(ARMADILLO_OBJECT_META_MIRROR_TARGET_BIT)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_object_meta_sync_loc_3c810(object_meta: u16) -> u16 {
     // ASM Armadillo.asm loc_3C810: clear bit 6, then copy bit 7 into bit 6 so
     // the collision handler sees the current recoil/orientation metadata pair.

@@ -1957,6 +1957,9 @@ impl ActiveEnemy {
             }
         }
         if matches!(self.family, EnemyFamily::Armadillo) {
+            let object_meta =
+                armadillo_object_meta_sync_loc_3c810(u16::from(self.family.object_type()));
+            debug_assert_eq!(object_meta, u16::from(EnemyFamily::Armadillo.object_type()));
             match armadillo_collision_dispatch_loc_3c824(ARMADILLO_COLID_HURT) {
                 ArmadilloCollisionRouteLoc3C824::Damage => {}
                 ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker
@@ -2095,6 +2098,9 @@ impl ActiveEnemy {
             return false;
         }
         if matches!(self.family, EnemyFamily::Armadillo) {
+            let object_meta =
+                armadillo_object_meta_sync_loc_3c810(u16::from(self.family.object_type()));
+            debug_assert_eq!(object_meta, u16::from(EnemyFamily::Armadillo.object_type()));
             match armadillo_collision_dispatch_loc_3c824(ARMADILLO_COLID_KIDABOVE) {
                 ArmadilloCollisionRouteLoc3C824::Damage => {}
                 ArmadilloCollisionRouteLoc3C824::ContinueSharedWalker
