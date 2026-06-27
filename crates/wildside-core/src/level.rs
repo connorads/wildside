@@ -11791,7 +11791,6 @@ pub(crate) fn shooter_object_free_list_push_loc_EFC8(
 /// incoming `a0`) is strictly higher than the current slot's `$E(a1)` word.
 /// Equal caller words stop the scan, so the new slot inserts before equal keys.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn allocate_object_slot_insert_index_loc_DE0(
     active_slots: &[ObjectSlotOrderLocDE0],
     new_caller_order: u16,
@@ -11924,7 +11923,6 @@ pub(crate) fn deallocate_object_slot_not_found_loc_EF0(current_object_addr: u32)
 /// from `Addr_FirstObjectSlot`, preserving `Addr_CurrentObject` only for the
 /// later `cmp.l` in loc_F02.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn delete_all_but_current_start_loc_EFE(
     active_slots: &[LinkedObjectSlotInit],
     current_object_addr: u32,
