@@ -634,7 +634,6 @@ pub(crate) struct LionLeftChargeXCommitLoc3E6F0 {
     pub(crate) enters_vertical_motion: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_x_commit_loc_3e6f0(
     candidate_x_position: u32,
 ) -> LionLeftChargeXCommitLoc3E6F0 {
@@ -902,7 +901,6 @@ pub(crate) struct LionChargeCollisionXCommitLoc3E80C {
     pub(crate) enters_vertical_motion: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_x_commit_loc_3e80c(
     candidate_x_position: u32,
 ) -> LionChargeCollisionXCommitLoc3E80C {
@@ -1557,7 +1555,17 @@ fn step_lion_charge_movement_loc_3e11e(
         // timer keeps ageing, but native defers the stationary
         // loc_3E078 roar/fire transition until floor contact restores
         // the grounded charge route.
-        enemy.x_pos = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+        let candidate_x = enemy.x_pos.wrapping_add_signed(enemy.x_velocity);
+        match enemy.facing {
+            Direction::Left => {
+                let commit = lion_left_charge_x_commit_loc_3e6f0(candidate_x);
+                enemy.x_pos = commit.x_position;
+            }
+            Direction::Right => {
+                let commit = lion_charge_collision_x_commit_loc_3e80c(candidate_x);
+                enemy.x_pos = commit.x_position;
+            }
+        }
         if let Some(grid) = block_grid {
             step_lion_charge_airborne_vertical_loc_3e6f6_3e812(enemy, grid);
         } else {
