@@ -179,7 +179,6 @@ pub(crate) struct TarMonsterDeathStatusUpdateLoc3243A {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterPostSubmergeHoldLoc32454 {
     pub(crate) child_visible_during_animation: bool,
     pub(crate) animation_label: &'static str,
@@ -592,7 +591,6 @@ pub(crate) fn tar_monster_death_status_update_loc_3243A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_post_submerge_hold_loc_32454() -> TarMonsterPostSubmergeHoldLoc32454 {
     // ASM loc_32454: after hiding the child and waiting for `stru_3274C`, d0
     // starts at `$50`; the one-frame hibernate/range/collision loop is DBF
@@ -1238,7 +1236,16 @@ pub(crate) fn step_tar_monster_with_sounds(
             // `sfx_Tar_Monster_disappears` before the submerge animation.
             played_sound_effects.push(QueuedSoundEffect::TarMonsterDisappears);
             enemy.tar_monster_state = TarMonsterState::Submerging;
-            enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES;
+            let post_submerge = tar_monster_post_submerge_hold_loc_32454();
+            debug_assert!(!post_submerge.child_visible_during_animation);
+            debug_assert_eq!(post_submerge.animation_label, "stru_3274C");
+            debug_assert!(post_submerge.hibernate_until_animation_finished);
+            debug_assert_eq!(post_submerge.dbf_seed, 0x50);
+            debug_assert_eq!(post_submerge.hibernate_frames, 0x51);
+            debug_assert!(post_submerge.checks_object_range_each_frame);
+            debug_assert!(post_submerge.polls_collision_each_frame);
+            debug_assert!(post_submerge.restarts_control_script);
+            enemy.wait_timer = TAR_MONSTER_SUBMERGE_FRAMES + post_submerge.hibernate_frames;
         }
         TarMonsterState::Submerging => {
             enemy.tar_monster_state = TarMonsterState::Submerged;

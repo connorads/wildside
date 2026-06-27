@@ -13911,9 +13911,17 @@ mod chunk_04 {
 
         step_tar_monster(&mut enemy, &mut projs);
         assert_eq!(enemy.tar_monster_state, TarMonsterState::Submerging);
+        assert_eq!(
+            enemy.wait_timer,
+            TAR_MONSTER_SUBMERGE_FRAMES
+                + tar_monster_post_submerge_hold_loc_32454().hibernate_frames,
+            "ASM Tar_Monster.asm loc_32454 keeps the parent in the post-submerge hold after stru_3274C finishes"
+        );
 
-        // Wait through submerge animation
-        for _ in 0..TAR_MONSTER_SUBMERGE_FRAMES {
+        // Wait through submerge animation plus loc_32454 post-submerge DBF hold.
+        for _ in 0..TAR_MONSTER_SUBMERGE_FRAMES
+            + tar_monster_post_submerge_hold_loc_32454().hibernate_frames
+        {
             step_tar_monster(&mut enemy, &mut projs);
         }
         step_tar_monster(&mut enemy, &mut projs);
