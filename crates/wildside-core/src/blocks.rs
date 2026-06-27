@@ -2442,7 +2442,7 @@ impl NativeRuntime {
             self.trigger_evanescent_block_loc_EB72(col, row, skin);
         }
 
-        let evanescent_layout_writes = self.evanescent_layout_writes_loc_ED04();
+        let evanescent_layout_writes = self.evanescent_layout_writes_loc_ED04(slice);
         let evanescent_expiry_restores = self
             .block_state
             .evanescent_blocks
@@ -2569,7 +2569,16 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    fn evanescent_layout_writes_loc_ED04(&self) -> Vec<(u16, u16, terrain::Cell)> {
+    fn evanescent_layout_writes_loc_ED04(
+        &self,
+        slice: &OpeningSliceState,
+    ) -> Vec<(u16, u16, terrain::Cell)> {
+        let camera_x_px = (slice.camera.x_pos >> 16) as u16;
+        let camera_y_px = (slice.camera.y_pos >> 16) as u16;
+        let min_visible_col = camera_x_px >> 4;
+        let min_visible_row = camera_y_px >> 4;
+        let max_visible_col = min_visible_col.wrapping_add(0x14);
+        let max_visible_row = min_visible_row.wrapping_add(0x0E);
         self.block_state
             .evanescent_blocks
             .iter()
@@ -2590,26 +2599,54 @@ impl NativeRuntime {
                 else {
                     return None;
                 };
-                let layout_word = if action & 0x80 == 0 {
-                    // ASM loc_EDBC: positive action bytes write
-                    // `$E31C + 6(a0)`, where `6(a0)` is the direction bitfield
-                    // saved by EvanescentBlock_Trigger.
-                    0xE31C_u16.wrapping_add(u16::from(entry.directions))
-                } else if action & 0x01 == 0 {
-                    if Self::evanescent_sprite_only_overlay_enabled_loc_EDB0(entry.timer, action) {
-                        return self
-                            .evanescent_restored_cell_loc_ED52(entry.col, entry.row, true)
-                            .map(|cell| (entry.col, entry.row, cell));
+                // ASM loc_ED16 may emit a fade sprite before loc_ED52. Native's
+                // layout pass consumes the same branch/flag result here; render
+                // sprite-table output remains outside this block-grid update.
+                let action_result = crate::level::evanescent_bullet_action_loc_ED16(
+                    crate::level::EvanescentBulletActionInputLocED16 {
+                        action_byte: action,
+                        block_col: entry.col,
+                        block_row: entry.row,
+                        min_visible_col,
+                        max_visible_col,
+                        min_visible_row,
+                        max_visible_row,
+                        camera_x_px,
+                        camera_y_px,
+                        current_sprite_link: 0,
+                        loc_edbc_layout_offset: u16::from(entry.directions),
+                    },
+                );
+                let layout_word = match action_result {
+                    crate::level::EvanescentBulletActionLocED16::PositiveBranchToLocEDBC {
+                        layout_word,
+                    } => layout_word,
+                    crate::level::EvanescentBulletActionLocED16::NegativeAction {
+                        should_update_layout: false,
+                        ..
+                    } => {
+                        if Self::evanescent_sprite_only_overlay_enabled_loc_EDB0(
+                            entry.timer,
+                            action,
+                        ) {
+                            return self
+                                .evanescent_restored_cell_loc_ED52(entry.col, entry.row, true)
+                                .map(|cell| (entry.col, entry.row, cell));
+                        }
+                        return None;
                     }
-                    return None;
-                } else {
-                    let use_collision_overlay =
-                        Self::evanescent_collision_overlay_enabled_loc_ED52(entry.timer, action);
-                    self.evanescent_restored_layout_word_loc_ED52(
+                    crate::level::EvanescentBulletActionLocED16::NegativeAction {
+                        use_collision_overlay,
+                        ..
+                    } => self.evanescent_restored_layout_word_loc_ED52(
                         entry.col,
                         entry.row,
-                        use_collision_overlay,
-                    )?
+                        use_collision_overlay
+                            && Self::evanescent_collision_overlay_enabled_loc_ED52(
+                                entry.timer,
+                                action,
+                            ),
+                    )?,
                 };
                 let layout_word_addr = self.block_grid.as_ref().map_or(0, |grid| {
                     terrain::BlockList::level_layout_low_word_addr(

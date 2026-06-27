@@ -11489,7 +11489,6 @@ pub(crate) fn evanescent_bullet_action_dispatch_loc_ED04(
 /// the level-layout word and bit 1 to choose the collision-overlay path.
 /// Positive action bytes branch immediately to `loc_EDBC`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_action_loc_ED16(
     input: EvanescentBulletActionInputLocED16,
 ) -> EvanescentBulletActionLocED16 {
