@@ -7115,7 +7115,6 @@ pub(crate) fn boss_collision_palette_sub_3A292(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_death_anim_sequence_loc_39EE2() -> BossHeadDeathAnimSequenceLoc39EE2 {
     // ASM loc_39EE2 (kid.asm:43004): boss head death animation — plays 8
     // animation scripts with `j_Hibernate_UntilAnimFinished` between each.
@@ -7141,7 +7140,6 @@ pub(crate) fn boss_head_death_anim_sequence_loc_39EE2() -> BossHeadDeathAnimSequ
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_death_spin_loop_loc_39F7A(
     loop_counter_d0: u16,
 ) -> BossHeadDeathSpinLoopLoc39F7A {

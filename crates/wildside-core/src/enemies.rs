@@ -7,7 +7,8 @@ use super::{
 };
 use crate::combat::{
     QueuedSoundEffect, boss_death_burst_init_sub_370D2, boss_eye_counter_orbit_placement_sub_39420,
-    boss_eye_orbit_placement_sub_393C8, boss_head_movement_step_for_family_sub_39846,
+    boss_eye_orbit_placement_sub_393C8, boss_head_death_anim_sequence_loc_39EE2,
+    boss_head_death_spin_loop_loc_39F7A, boss_head_movement_step_for_family_sub_39846,
     boss_head_projectile_spawn_sub_397E4, heady_metal_palette_cycle_sub_379E8,
     heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
     shishka_bagel_head_1_init_loc_39478, shishka_bagel_head_2_init_loc_39598,
@@ -1540,6 +1541,21 @@ pub(crate) const BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A: u16 = 10 * 17;
 pub(crate) const BOSS_HEAD_DEATH_ANIMATION_FRAMES: u16 =
     BOSS_HEAD_DEATH_PRE_SOUND_FRAMES_LOC_39EE2 + BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A;
 
+fn boss_head_death_script_frames_loc_39ebe() -> (u16, u16) {
+    let pre_spin = boss_head_death_anim_sequence_loc_39EE2();
+    let spin_loop = boss_head_death_spin_loop_loc_39F7A(pre_spin.death_spin_counter_d0);
+    debug_assert_eq!(pre_spin.played_sound_effect, "sfx_Boss_dies");
+    debug_assert!(spin_loop.delete_current_object);
+
+    // ASM loc_39EE2 (kid.asm:43004) plays eight hibernate-until-finished
+    // scripts for 120 ticks; loc_39F7A (kid.asm:43039) loops four sweep scripts
+    // using d0 from loc_39EE2, 17 ticks per loop.
+    (
+        BOSS_HEAD_DEATH_PRE_SOUND_FRAMES_LOC_39EE2,
+        spin_loop.loop_count_d0.saturating_mul(17),
+    )
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BossHeadDeathTransitionLoc39Ebe {
     pub(crate) next_death_count_fb4e: u8,
@@ -1573,11 +1589,12 @@ pub(crate) fn boss_head_death_transition_loc_39ebe(
     previous_death_count_fb4e: u8,
 ) -> BossHeadDeathTransitionLoc39Ebe {
     let next_death_count_fb4e = previous_death_count_fb4e.saturating_add(1);
+    let (pre_spin_frames, spin_frames) = boss_head_death_script_frames_loc_39ebe();
     // ASM loc_39EBE: `st has_kid_collision(a3); addq.b #1,($FFFFFB4E).w`;
     // only count 3 releases the body/flag object chain before loc_39EE2.
     BossHeadDeathTransitionLoc39Ebe {
         next_death_count_fb4e,
-        starts_death_script_timer: BOSS_HEAD_DEATH_ANIMATION_FRAMES,
+        starts_death_script_timer: pre_spin_frames + spin_frames,
         set_has_kid_collision: true,
         enable_boss_body_and_flag_objects: next_death_count_fb4e == 3,
     }
@@ -1593,10 +1610,11 @@ pub(crate) fn boss_head_death_script_loc_39ebe(
     // ASM loc_39EBE: eight hibernate-until-finished scripts at loc_39EE2 run
     // before `sfx_Boss_dies`; loc_39F7A then loops ten 17-frame spin scripts
     // before j_Delete_CurrentObject.
-    if wait_timer > BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A {
+    let (_, spin_frames) = boss_head_death_script_frames_loc_39ebe();
+    if wait_timer > spin_frames {
         Some(BossHeadDeathScriptLoc39Ebe {
             phase: BossHeadDeathScriptPhaseLoc39Ebe::PreSpinLoc39Ee2,
-            remaining_phase_frames: wait_timer - BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A,
+            remaining_phase_frames: wait_timer - spin_frames,
         })
     } else {
         Some(BossHeadDeathScriptLoc39Ebe {
