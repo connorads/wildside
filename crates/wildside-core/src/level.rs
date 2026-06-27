@@ -11544,7 +11544,6 @@ pub(crate) fn evanescent_bullet_collision_overlay_loc_ED7C(
 /// to `FGPlane_UpdateQueueCell`, then either continue the active evanescent
 /// scan when `$A(a0)` is non-zero or fall through to shooter-object handling.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_layout_write_loc_ED98(
     layout_word_addr: u16,
     block_col: u16,

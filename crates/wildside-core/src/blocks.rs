@@ -2590,11 +2590,11 @@ impl NativeRuntime {
                 else {
                     return None;
                 };
-                let cell = if action & 0x80 == 0 {
+                let layout_word = if action & 0x80 == 0 {
                     // ASM loc_EDBC: positive action bytes write
                     // `$E31C + 6(a0)`, where `6(a0)` is the direction bitfield
                     // saved by EvanescentBlock_Trigger.
-                    terrain::Cell::from_be_bytes(0xE3, 0x1C_u8.wrapping_add(entry.directions))
+                    0xE31C_u16.wrapping_add(u16::from(entry.directions))
                 } else if action & 0x01 == 0 {
                     if Self::evanescent_sprite_only_overlay_enabled_loc_EDB0(entry.timer, action) {
                         return self
@@ -2605,13 +2605,35 @@ impl NativeRuntime {
                 } else {
                     let use_collision_overlay =
                         Self::evanescent_collision_overlay_enabled_loc_ED52(entry.timer, action);
-                    self.evanescent_restored_cell_loc_ED52(
+                    self.evanescent_restored_layout_word_loc_ED52(
                         entry.col,
                         entry.row,
                         use_collision_overlay,
                     )?
                 };
-                Some((entry.col, entry.row, cell))
+                let layout_word_addr = self.block_grid.as_ref().map_or(0, |grid| {
+                    terrain::BlockList::level_layout_low_word_addr(
+                        entry.col,
+                        entry.row,
+                        grid.width_cells,
+                    )
+                });
+                let queue_cell = crate::level::evanescent_bullet_layout_write_loc_ED98(
+                    layout_word_addr,
+                    entry.col,
+                    entry.row,
+                    layout_word,
+                    next_active_slot_addr,
+                )
+                .queued_cell;
+                Some((
+                    queue_cell.block_col,
+                    queue_cell.block_row,
+                    terrain::Cell::from_be_bytes(
+                        (queue_cell.layout_word >> 8) as u8,
+                        queue_cell.layout_word as u8,
+                    ),
+                ))
             })
             .collect()
     }
@@ -2640,6 +2662,21 @@ impl NativeRuntime {
         row: u16,
         use_collision_overlay: bool,
     ) -> Option<terrain::Cell> {
+        let layout_word =
+            self.evanescent_restored_layout_word_loc_ED52(col, row, use_collision_overlay)?;
+        Some(terrain::Cell::from_be_bytes(
+            (layout_word >> 8) as u8,
+            layout_word as u8,
+        ))
+    }
+
+    #[allow(non_snake_case)]
+    fn evanescent_restored_layout_word_loc_ED52(
+        &self,
+        col: u16,
+        row: u16,
+        use_collision_overlay: bool,
+    ) -> Option<u16> {
         let resource_level = resource_level_id(&self.assets, self.current_level.0);
         let decoded = self
             .assets
@@ -2668,10 +2705,7 @@ impl NativeRuntime {
         } else {
             0x6000 | u16::from(terrain_byte)
         };
-        Some(terrain::Cell::from_be_bytes(
-            (layout_word >> 8) as u8,
-            layout_word as u8,
-        ))
+        Some(layout_word)
     }
 
     #[allow(non_snake_case)]
