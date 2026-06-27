@@ -7,14 +7,12 @@ pub(crate) const ARMADILLO_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 pub(crate) const ARMADILLO_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloInitAnimationProfile {
     pub(crate) initial_animation_script: &'static str,
     pub(crate) saved_patrol_animation: &'static str,
     pub(crate) saved_damage_resume_animation: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_hp2_init_animation_loc_3c7c0(
     current_hp: u8,
 ) -> Option<ArmadilloInitAnimationProfile> {
@@ -27,7 +25,6 @@ pub(crate) fn armadillo_hp2_init_animation_loc_3c7c0(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_high_hp_init_animation_loc_3c7de(
     current_hp: u8,
 ) -> Option<ArmadilloInitAnimationProfile> {

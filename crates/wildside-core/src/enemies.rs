@@ -3281,6 +3281,12 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
+            let armadillo_init_animation = if matches!(family, EnemyFamily::Armadillo) {
+                armadillo_hp2_init_animation_loc_3c7c0(hit_points)
+                    .or_else(|| armadillo_high_hp_init_animation_loc_3c7de(hit_points))
+            } else {
+                None
+            };
             let lion_motion_profile =
                 lion_visible_init.map(|init| lion_init_motion_profile_loc_3dfd8(init.current_hp));
             if let Some(visible_init) = lion_visible_init {
@@ -3331,6 +3337,16 @@ fn activate_enemies_with_rng_inner(
                 debug_assert!(matches!(
                     profile.saved_damage_resume_animation,
                     "stru_3C9B0" | "stru_3C9CA"
+                ));
+            }
+            if let Some(profile) = armadillo_init_animation {
+                // ASM Armadillo.asm loc_3C7C0/loc_3C7DE selects the same patrol
+                // script for HP >= 2, but high HP resumes damage with `stru_3C680`.
+                debug_assert_eq!(profile.initial_animation_script, "stru_3C64C");
+                debug_assert_eq!(profile.saved_patrol_animation, "stru_3C64C");
+                debug_assert!(matches!(
+                    profile.saved_damage_resume_animation,
+                    "stru_3C666" | "stru_3C680"
                 ));
             }
             if matches!(family, EnemyFamily::Goat) {
