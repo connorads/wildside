@@ -632,7 +632,7 @@ mod chunk_11 {
         assert_eq!(
             crate::movement::gfx_objects_collision_ceiling_snap_loc_1A6C(false, 100, 12),
             Some(crate::movement::GfxObjectsCollisionCeilingSnapLoc1A6C {
-                collision_type: 0x0002,
+                collision_type: 0x0010,
                 snapped_y_px: 104,
                 y_subpixel: 0,
             }),

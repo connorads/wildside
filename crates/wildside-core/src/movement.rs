@@ -992,7 +992,6 @@ pub(crate) struct GfxObjectsCollisionRightWallSnapLoc197E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_rightwall_snap_loc_197E(
     is_kid_gfx_object: bool,
     direction_flag: u8,
@@ -1031,7 +1030,6 @@ pub(crate) struct GfxObjectsCollisionLeftWallSnapLoc1A00 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_leftwall_snap_loc_1A00(
     is_kid_gfx_object: bool,
     anchor_x_px: u16,
@@ -1066,7 +1064,6 @@ pub(crate) struct GfxObjectsCollisionCeilingSnapLoc1A6C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_ceiling_snap_loc_1A6C(
     is_kid_gfx_object: bool,
     anchor_y_px: u16,
@@ -1081,7 +1078,7 @@ pub(crate) fn gfx_objects_collision_ceiling_snap_loc_1A6C(
     }
 
     Some(GfxObjectsCollisionCeilingSnapLoc1A6C {
-        collision_type: 0x0002,
+        collision_type: 0x0010,
         snapped_y_px: anchor_y_px
             .wrapping_sub(first_extent_px)
             .wrapping_add(0x0010),

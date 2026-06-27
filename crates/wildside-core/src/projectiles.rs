@@ -4662,11 +4662,14 @@ fn lion_projectile_terrain_contact_loc_3e260(
         && lion_projectile_first_solid_cell_in_column_loc_1792(grid, left_col, top_row, bottom_row)
             .is_some()
     {
-        let tile_left_px = i32::from(left_col) * 16;
-        let snapped_x_px = tile_left_px - LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A + 16;
+        let snap = crate::movement::gfx_objects_collision_leftwall_snap_loc_1A00(
+            false,
+            left_col << 4,
+            LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A as i16 as u16,
+        )?;
         return Some(LionProjectileTerrainContactLoc3E260 {
-            collision_type: 0x0008,
-            snapped_x_px,
+            collision_type: snap.collision_type,
+            snapped_x_px: i32::from(snap.snapped_x_px),
             snapped_y_px: y_px,
         });
     }
@@ -4675,14 +4678,16 @@ fn lion_projectile_terrain_contact_loc_3e260(
         && lion_projectile_first_solid_cell_in_column_loc_1792(grid, right_col, top_row, bottom_row)
             .is_some()
     {
-        let tile_left_px = i32::from(right_col) * 16;
-        let snapped_x_px = tile_left_px
-            - LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A
-            - LION_PROJECTILE_COLLISION_WIDTH_LOC_3E12A
-            - 1;
+        let snap = crate::movement::gfx_objects_collision_rightwall_snap_loc_197E(
+            false,
+            0,
+            right_col << 4,
+            LION_PROJECTILE_COLLISION_LEFT_LOC_3E12A as i16 as u16,
+            LION_PROJECTILE_COLLISION_WIDTH_LOC_3E12A as u16,
+        )?;
         return Some(LionProjectileTerrainContactLoc3E260 {
-            collision_type: 0x0004,
-            snapped_x_px,
+            collision_type: snap.collision_type,
+            snapped_x_px: i32::from(snap.snapped_x_px),
             snapped_y_px: y_px,
         });
     }
@@ -4701,12 +4706,15 @@ fn lion_projectile_terrain_contact_loc_3e260(
     }
 
     if projectile.y_velocity < 0 && lion_projectile_solid_cell_blocks_loc_3e260(cell) {
-        let tile_bottom_px = (i32::from(row) + 1) * 16;
-        let snapped_y_px = tile_bottom_px - LION_PROJECTILE_COLLISION_TOP_LOC_3E12A;
+        let snap = crate::movement::gfx_objects_collision_ceiling_snap_loc_1A6C(
+            false,
+            row << 4,
+            LION_PROJECTILE_COLLISION_TOP_LOC_3E12A as i16 as u16,
+        )?;
         return Some(LionProjectileTerrainContactLoc3E260 {
-            collision_type: 0x0010,
+            collision_type: snap.collision_type,
             snapped_x_px: x_px,
-            snapped_y_px,
+            snapped_y_px: i32::from(snap.snapped_y_px),
         });
     }
 
