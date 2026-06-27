@@ -1142,7 +1142,6 @@ pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn execute_objects_under_samurai_haze_loc_E1E(
     time_frames: u16,
     samurai_haze_active: bool,

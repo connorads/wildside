@@ -3902,7 +3902,26 @@ pub(crate) fn step_active_enemies_with_rng(
         .filter(|enemy| matches!(enemy.family, EnemyFamily::UFO) && enemy.ufo_on_screen_latch)
         .count()
         .min(usize::from(u16::MAX)) as u16;
-    for enemy in active.iter_mut() {
+    let active_object_next_indices: Vec<Option<usize>> = (0..active.len())
+        .map(|index| (index + 1 < active.len()).then_some(index + 1))
+        .collect();
+    // ASM loc_E1E: enemies allocated through loc_3691E have `$10(a5)` set, so
+    // Samurai Haze skips their object execution on 3 of every 4 frames. Native
+    // active enemies are already past the hibernation queue; seed one-frame
+    // counters so the ported object walker decides only the haze gate.
+    let haze_throttled_flags = vec![true; active.len()];
+    let mut hibernation_counters = vec![1; active.len()];
+    let mut executable_enemy_indices = crate::movement::execute_objects_under_samurai_haze_loc_E1E(
+        time_frames,
+        samurai_haze_active,
+        (!active.is_empty()).then_some(0),
+        &active_object_next_indices,
+        &haze_throttled_flags,
+        &mut hibernation_counters,
+    )
+    .into_iter()
+    .peekable();
+    for (enemy_index, enemy) in active.iter_mut().enumerate() {
         if matches!(enemy.family, EnemyFamily::Driller) && !enemy.shared_walker_patrol_short_next {
             // ASM Driller.asm loc_3BE60: increment the shared DrillMoving
             // refcount, install loc_3BE78 as the callback, then enter the
@@ -3971,9 +3990,7 @@ pub(crate) fn step_active_enemies_with_rng(
                 sound_effects.push(QueuedSoundEffect::TankDriving);
             }
         }
-        // ASM loc_E1E: enemies allocated through loc_3691E have `$10(a5)` set,
-        // so Samurai Haze skips their object execution on 3 of every 4 frames.
-        if samurai_haze_active && time_frames & 3 != 0 {
+        if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
             continue;
         }
         enemy.damage_flash_frames = enemy.damage_flash_frames.saturating_sub(1);
