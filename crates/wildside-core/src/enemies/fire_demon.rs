@@ -38,13 +38,11 @@ pub(crate) fn fire_demon_non_hp5_animation_loc_3a464(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum FireDemonInitWalkDispatch {
     LeftSharedWalker,
     RightSharedWalker,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_init_walk_dispatch_loc_3a476(
     facing: Direction,
 ) -> FireDemonInitWalkDispatch {

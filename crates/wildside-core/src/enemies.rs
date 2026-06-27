@@ -3251,6 +3251,16 @@ fn activate_enemies_with_rng_inner(
                 || spawn_facing(family, head_x, player_x),
                 |init| init.facing,
             );
+            let facing = if matches!(family, EnemyFamily::FireDemon) {
+                // ASM Fire_Demon.asm loc_3A476: initial x_direction selects the
+                // shared walker entry, preserving the decoded spawn facing.
+                match fire_demon_init_walk_dispatch_loc_3a476(facing) {
+                    FireDemonInitWalkDispatch::LeftSharedWalker => Direction::Left,
+                    FireDemonInitWalkDispatch::RightSharedWalker => Direction::Right,
+                }
+            } else {
+                facing
+            };
             if let Some(profile) = lion_motion_profile {
                 debug_assert_eq!(profile.walk_speed, pacer_walk_speed(family, hit_points));
                 debug_assert_eq!(profile.charge_speed, profile.walk_speed);
