@@ -4233,9 +4233,9 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                             if hidden {
                                 write_hidden(cells, idx);
                             } else {
-                                let base = prop & 0x00FF;
-                                let delta: u16 = if block_type == 12 { 0xEC2D } else { 0xEA1C };
-                                cells[idx] = base.wrapping_add(delta);
+                                let result =
+                                    block_type_1012_tile_value_loc_125c8(prop, block_type as i16);
+                                cells[idx] = result.tile_word;
                             }
                         }
                     },
@@ -5915,7 +5915,6 @@ pub(crate) struct BlockType1012TileResultLoc125C8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1012_tile_value_loc_125c8(
     property_byte: u16,
     block_type: i16,
