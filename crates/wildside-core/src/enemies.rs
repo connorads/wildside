@@ -5494,6 +5494,18 @@ pub(crate) fn enemy_should_remain_active(
     match enemy.family.archetype() {
         // Bosses are always retained — they're confined to their arena.
         EnemyArchetype::Tracker => true,
+        EnemyArchetype::Flyer if matches!(enemy.family, EnemyFamily::UFO) => {
+            // ASM UFO.asm loc_35280 uses the live object count; native active
+            // enemies omit Kid and fixed shell slots, matching sub_3C3CE's
+            // existing object-count adjustment.
+            ufo_should_remain_active_loc_35280(
+                enemy.x_pos,
+                enemy.y_pos,
+                active_enemy_count.saturating_add(3) as u16,
+                camera_x_px,
+                camera_y_px,
+            )
+        }
         EnemyArchetype::Flyer => window.contains_fixed_signed_with_margin(
             enemy.x_pos,
             enemy.y_pos,

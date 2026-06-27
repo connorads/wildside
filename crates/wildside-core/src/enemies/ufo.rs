@@ -1812,7 +1812,6 @@ pub(crate) fn ufo_linked_object_x_loc_3531a(parent_x_pos: u32, parent_facing: Di
     parent_x_word.wrapping_sub(d6)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_object_range_gate_loc_35280(
     range_check_result_nonzero: bool,
 ) -> UfoLinkedObjectRangeGateLoc35280 {
@@ -1823,6 +1822,41 @@ pub(crate) fn ufo_linked_object_range_gate_loc_35280(
     } else {
         UfoLinkedObjectRangeGateLoc35280::Return
     }
+}
+
+pub(crate) fn ufo_should_remain_active_loc_35280(
+    x_pos: u32,
+    y_pos: u32,
+    number_objects: u16,
+    camera_x_px: u32,
+    camera_y_px: u32,
+) -> bool {
+    // ASM UFO.asm loc_35280 calls loc_320E2; d7=0 returns to the UFO loop,
+    // while d7=1 falls through to loc_3528A's cleanup/delete tail.
+    let object_x_pos = (x_pos >> 16) as u16 as i16;
+    let object_y_pos = (y_pos >> 16) as u16 as i16;
+    let camera_x_pos = camera_x_px as u16 as i16;
+    let camera_y_pos = camera_y_px as u16 as i16;
+    let x_gate = crate::level::object_check_in_range_active_count_gate_loc_320E2(
+        number_objects,
+        object_x_pos,
+        camera_x_pos,
+    );
+
+    let in_range = if x_gate.uses_tight_window {
+        x_gate.reaches_loc_32102 && {
+            let relative_y = object_y_pos.wrapping_sub(camera_y_pos);
+            (-0x0104..=0x01E4).contains(&relative_y)
+        }
+    } else {
+        crate::level::object_check_in_range_wide_load_x_loc_32122(object_x_pos, camera_x_pos)
+            && crate::level::object_check_in_range_wide_load_y_loc_32140(object_y_pos, camera_y_pos)
+    };
+
+    matches!(
+        ufo_linked_object_range_gate_loc_35280(!in_range),
+        UfoLinkedObjectRangeGateLoc35280::Return
+    )
 }
 
 #[cfg(test)]
@@ -2831,6 +2865,34 @@ mod tests {
             ufo_linked_object_range_gate_loc_35280(true),
             UfoLinkedObjectRangeGateLoc35280::RunCleanupDeleteTail,
             "ASM UFO.asm loc_35280 enters the cleanup/delete tail when the range check reports a non-zero result"
+        );
+    }
+
+    #[test]
+    fn ufo_should_remain_active_matches_loc_35280_normal_range() {
+        assert!(
+            ufo_should_remain_active_loc_35280(0x0E5C_0000, 0x0E5C_0000, 0x0014, 0x1000, 0x1000),
+            "ASM UFO.asm loc_35280 -> loc_320E2 should keep the relaxed lower x/y edge when Number_Objects <= $14",
+        );
+        assert!(
+            !ufo_should_remain_active_loc_35280(0x0E5B_0000, 0x1000_0000, 0x0014, 0x1000, 0x1000),
+            "ASM UFO.asm loc_35280 should run loc_3528A cleanup when the relaxed x window underflows",
+        );
+    }
+
+    #[test]
+    fn ufo_should_remain_active_matches_loc_35280_tight_range() {
+        assert!(
+            ufo_should_remain_active_loc_35280(0x0EFC_0000, 0x0EFC_0000, 0x0015, 0x1000, 0x1000),
+            "ASM UFO.asm loc_35280 -> loc_320E2 should keep the tight lower x/y edge when Number_Objects > $14",
+        );
+        assert!(
+            !ufo_should_remain_active_loc_35280(0x1245_0000, 0x1000_0000, 0x0015, 0x1000, 0x1000),
+            "ASM UFO.asm loc_35280 should run loc_3528A cleanup when the tight x window overflows",
+        );
+        assert!(
+            !ufo_should_remain_active_loc_35280(0x1000_0000, 0x11E5_0000, 0x0015, 0x1000, 0x1000),
+            "ASM UFO.asm loc_35280 should run loc_3528A cleanup when the tight y window overflows",
         );
     }
 
