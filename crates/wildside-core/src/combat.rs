@@ -6990,7 +6990,6 @@ pub(crate) fn boss_death_timeout_sound_sub_370D2(v_int_counter_fff809: u8) -> &'
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fragment_collision_step_sub_3A172(
     collision_type: i16,
 ) -> FireDemonFragmentCollisionStep {
@@ -7021,7 +7020,6 @@ pub(crate) fn fire_demon_fragment_collision_step_sub_3A172(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_fragment_collision_step_sub_3A1A6(
     collision_type: i16,
 ) -> FireDemonFragmentCollisionStep {

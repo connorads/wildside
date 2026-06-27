@@ -3564,6 +3564,14 @@ impl NativeRuntime {
                     // ASM loc_3A168: during the moving phase, each hibernated
                     // frame decrements `$40(a3)` after the object has moved.
                     p.lifetime = step.next_horizontal_counter_40;
+                    let collision =
+                        crate::combat::fire_demon_fragment_collision_step_sub_3A1A6(
+                            p.collision_type,
+                        );
+                    p.collision_type = collision.next_collision_type;
+                    if collision.delete_current_object {
+                        return false;
+                    }
                 } else {
                     let step = crate::combat::fire_demon_fragment_fade_step_loc_3A14E(
                         p.animation_elapsed_frames,
@@ -3578,6 +3586,14 @@ impl NativeRuntime {
                     // decrements `$42(a3)` until the next loop sees zero and
                     // deletes the object.
                     p.animation_elapsed_frames = step.next_fade_counter_42;
+                    let collision =
+                        crate::combat::fire_demon_fragment_collision_step_sub_3A172(
+                            p.collision_type,
+                        );
+                    p.collision_type = collision.next_collision_type;
+                    if collision.delete_current_object {
+                        return false;
+                    }
                 }
             }
             if is_boss_head_boomerang {
@@ -3590,6 +3606,14 @@ impl NativeRuntime {
                 p.x_velocity = p.x_velocity.wrapping_add(route.x_vel_delta);
                 p.lifetime = route.next_horizontal_counter_40;
                 if route.delete_current_object {
+                    return false;
+                }
+                let collision =
+                    crate::combat::fire_demon_fragment_collision_step_sub_3A1A6(
+                        p.collision_type,
+                    );
+                p.collision_type = collision.next_collision_type;
+                if collision.delete_current_object {
                     return false;
                 }
             }
