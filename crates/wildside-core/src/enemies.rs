@@ -5167,7 +5167,11 @@ pub(crate) fn step_bouncer_with_rng(
                         );
                     }
                 } else {
-                    enemy.y_velocity = -enemy.y_velocity;
+                    let bounce = sphere_child_vertical_bounce_loc_36142(enemy.y_velocity);
+                    // ASM Sphere.asm loc_35FF4 and child loc_36142 both use
+                    // long-word negation before resuming the sphere loop.
+                    debug_assert!(bounce.resumes_child_loop);
+                    enemy.y_velocity = bounce.y_velocity;
                 }
                 // Snap out of floor
                 let floor_y_fp = (floor.floor_y_px as u32) << 16;

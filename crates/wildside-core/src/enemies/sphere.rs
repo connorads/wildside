@@ -131,13 +131,11 @@ pub(crate) fn sphere_collision_table_guard_loc_36128() -> SphereCollisionTableGu
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SphereChildVerticalBounceLoc36142 {
     pub(crate) y_velocity: i32,
     pub(crate) resumes_child_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn sphere_child_vertical_bounce_loc_36142(
     y_velocity: i32,
 ) -> SphereChildVerticalBounceLoc36142 {
