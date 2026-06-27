@@ -606,7 +606,6 @@ pub(crate) fn lion_right_charge_continue_loc_3e4c6(next_x_position: u32) -> Lion
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLoc3E67AResult {
     pub(crate) x_position: u32,
     pub(crate) hibernate_one_frame: bool,
@@ -628,7 +627,6 @@ pub(crate) fn lion_left_charge_continue_loc_3e67a(next_x_position: u32) -> LionL
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeXCommitLoc3E6F0 {
     pub(crate) x_position: u32,
     pub(crate) enters_vertical_motion: bool,
@@ -890,7 +888,6 @@ pub(crate) fn lion_charge_collision_motion_seed_loc_3e7b0(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionChargeCollisionXCommitLoc3E80C {
     pub(crate) x_position: u32,
     pub(crate) reloads_d0_from_x_position: bool,

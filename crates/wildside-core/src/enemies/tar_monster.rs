@@ -255,7 +255,6 @@ pub(crate) struct TarMonsterSeededShotLoc325B6 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterBurstChildEntryLoc325E6 {
     pub(crate) gfx_object_slot_word: u32,
     pub(crate) x_pos: u32,
