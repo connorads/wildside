@@ -7561,10 +7561,21 @@ pub fn background_desert_tileset_loc_12988() -> BackgroundDesertLoadLoc12988 {
 
 #[cfg_attr(test, allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct JuggernautSkullArtDmaLoc129DC {
+pub struct JuggernautSkullArtDmaLoc129DC {
+    vram_word_address: u16,
     pub(crate) vdp_command: u32,
     pub(crate) art_source: u32,
     pub(crate) longword_count: u16,
+}
+
+impl JuggernautSkullArtDmaLoc129DC {
+    pub const fn vram_word_address(&self) -> u16 {
+        self.vram_word_address
+    }
+
+    pub const fn vram_tile_base_index(&self) -> u16 {
+        self.vram_word_address / 0x20
+    }
 }
 
 #[allow(non_snake_case)]
@@ -7579,10 +7590,12 @@ pub(crate) fn juggernaut_skull_art_dma_loop_loc_129DC() -> JuggernautSkullArtDma
     //   - ArtUnc_12A8C (Juggernaut skull frame 2) -> $CDC0 (continuation, 32 more longwords)
     //   - ArtUnc_12B0C (Some kind of star)         -> $DF40
     const VDP_COMMAND: u32 = 0xC000_00CD; // vdpComm($CDC0,VRAM,WRITE)
+    const VRAM_WORD_ADDRESS: u16 = 0xCDC0;
     const ART_SOURCE_OFFSET: u32 = 0x0001_2A08; // ArtUnc_12A08
     const LONGWORD_COUNT: u16 = 32; // $1F + 1
 
     JuggernautSkullArtDmaLoc129DC {
+        vram_word_address: VRAM_WORD_ADDRESS,
         vdp_command: VDP_COMMAND,
         art_source: ART_SOURCE_OFFSET,
         longword_count: LONGWORD_COUNT,
@@ -7596,10 +7609,12 @@ pub(crate) fn juggernaut_skull_art_dma_loop_loc_129E8() -> JuggernautSkullArtDma
     // It keeps the same `$CDC0` VRAM write command and copies another
     // `$1F+1` longwords, but `a1` now points at `ArtUnc_12A8C`.
     const VDP_COMMAND: u32 = 0xC000_00CD; // vdpComm($CDC0,VRAM,WRITE)
+    const VRAM_WORD_ADDRESS: u16 = 0xCDC0;
     const ART_SOURCE_OFFSET: u32 = 0x0001_2A8C; // ArtUnc_12A8C
     const LONGWORD_COUNT: u16 = 32; // $1F + 1
 
     JuggernautSkullArtDmaLoc129DC {
+        vram_word_address: VRAM_WORD_ADDRESS,
         vdp_command: VDP_COMMAND,
         art_source: ART_SOURCE_OFFSET,
         longword_count: LONGWORD_COUNT,
@@ -7613,10 +7628,12 @@ pub(crate) fn juggernaut_star_art_dma_loop_loc_129FC() -> JuggernautSkullArtDmaL
     // This pass switches the VDP destination to `$DF40` and streams
     // `ArtUnc_12B0C` for another `$1F+1` longwords.
     const VDP_COMMAND: u32 = 0x4000_00DF; // vdpComm($DF40,VRAM,WRITE)
+    const VRAM_WORD_ADDRESS: u16 = 0xDF40;
     const ART_SOURCE_OFFSET: u32 = 0x0001_2B0C; // ArtUnc_12B0C
     const LONGWORD_COUNT: u16 = 32; // $1F + 1
 
     JuggernautSkullArtDmaLoc129DC {
+        vram_word_address: VRAM_WORD_ADDRESS,
         vdp_command: VDP_COMMAND,
         art_source: ART_SOURCE_OFFSET,
         longword_count: LONGWORD_COUNT,
@@ -7624,17 +7641,18 @@ pub(crate) fn juggernaut_star_art_dma_loop_loc_129FC() -> JuggernautSkullArtDmaL
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn flag_bottom_art_dma_loop_loc_12B9C() -> JuggernautSkullArtDmaLoc129DC {
+pub fn flag_bottom_art_dma_loop_loc_12B9C() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_12B9C (kid.asm:25398-25400): `Load_FlagBottomArt` writes
     // `vdpComm($D2C0,VRAM,WRITE)` to the VDP control port, points `a1` at
     // `ArtUnc_12BA4`, seeds `d0=#1F`, then streams 32 longwords via
     // `move.l (a1)+,(a6)` / `dbf d0,loc_12B9C`.
     const VDP_COMMAND: u32 = 0xC000_00D2; // vdpComm($D2C0,VRAM,WRITE)
+    const VRAM_WORD_ADDRESS: u16 = 0xD2C0;
     const ART_SOURCE_OFFSET: u32 = 0x0001_2BA4; // ArtUnc_12BA4
     const LONGWORD_COUNT: u16 = 32; // $1F + 1
 
     JuggernautSkullArtDmaLoc129DC {
+        vram_word_address: VRAM_WORD_ADDRESS,
         vdp_command: VDP_COMMAND,
         art_source: ART_SOURCE_OFFSET,
         longword_count: LONGWORD_COUNT,
@@ -7642,17 +7660,18 @@ pub(crate) fn flag_bottom_art_dma_loop_loc_12B9C() -> JuggernautSkullArtDmaLoc12
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn hitpoint_display_art_dma_loop_loc_12C34() -> JuggernautSkullArtDmaLoc129DC {
+pub fn hitpoint_display_art_dma_loop_loc_12C34() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_12C34 (kid.asm:25414-25416): `sub_12C24` writes
     // `vdpComm($45A0,VRAM,WRITE)` to the VDP control port, points `a1` at
     // `ArtUnc_12C3C`, seeds `d0=#1F`, then streams 32 longwords via
     // `move.l (a1)+,(a6)` / `dbf d0,loc_12C34`.
     const VDP_COMMAND: u32 = 0xA000_00C5; // vdpComm($45A0,VRAM,WRITE)
+    const VRAM_WORD_ADDRESS: u16 = 0x45A0;
     const ART_SOURCE_OFFSET: u32 = 0x0001_2C3C; // ArtUnc_12C3C
     const LONGWORD_COUNT: u16 = 32; // $1F + 1
 
     JuggernautSkullArtDmaLoc129DC {
+        vram_word_address: VRAM_WORD_ADDRESS,
         vdp_command: VDP_COMMAND,
         art_source: ART_SOURCE_OFFSET,
         longword_count: LONGWORD_COUNT,

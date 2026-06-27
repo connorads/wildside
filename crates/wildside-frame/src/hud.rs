@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use wildside_core::{GameMode, NativeTraceFrame, PlayerForm};
+use wildside_core::{
+    GameMode, NativeTraceFrame, PlayerForm, hitpoint_display_art_dma_loop_loc_12C34,
+};
 use wildside_render::{NativeLevelVisuals, TileRef};
 
 use crate::dto::*;
@@ -22,6 +24,10 @@ const HUD_DIAMOND_DMA_PAGE_RENDER_LEAD_LOC_45EE: usize = 2;
 const HUD_HITPOINT_START_X: i32 = 0x90 - 128;
 const HUD_HITPOINT_Y: i32 = 0xA4 - 128;
 const HUD_HITPOINT_SPACING_X: i32 = 0x10;
+
+fn hud_hitpoint_vram_base_tile_index_loc_12c34() -> u16 {
+    hitpoint_display_art_dma_loop_loc_12C34().vram_tile_base_index()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum HudHitpointTile {
@@ -142,7 +148,7 @@ fn push_hud_hitpoint_sprite(
     for tile_offset in 0..tile_count {
         let Some(tile_index) = base_tile
             .tile_index
-            .checked_sub(0x022D)
+            .checked_sub(hud_hitpoint_vram_base_tile_index_loc_12c34())
             .and_then(|index| index.checked_add(tile_offset))
         else {
             continue;

@@ -245,6 +245,10 @@ mod tests {
             4,
             "ASM loc_12C34 DMA streams 4 HUD hitpoint tiles from ArtUnc_12C3C"
         );
+        assert_eq!(
+            visuals.hud.hitpoint_tiles[0].tile_index, 0x022D,
+            "ASM loc_12C34 targets VRAM $45A0, so HUD pips start at tile $22D"
+        );
         assert!(visuals.hud.icons.iter().any(|icon| {
             icon.name == "ankh"
                 && icon.position == (0x01A1, 0x008D)
@@ -502,6 +506,10 @@ mod tests {
             visuals.flag.pole_bottom.tile_sheet.tiles.len(),
             4,
             "ASM Load_FlagBottomArt copies $20 longwords from ArtUnc_12BA4"
+        );
+        assert_eq!(
+            visuals.flag.pole_bottom.tile_base_index, 0x0696,
+            "ASM loc_12B9C targets VRAM $D2C0, so Flag_bottom.bin starts at tile $696"
         );
         assert_eq!(visuals.flag.pole_bottom.origin_x, 0x08);
         assert_eq!(visuals.flag.pole_bottom.height_px, 0x10);

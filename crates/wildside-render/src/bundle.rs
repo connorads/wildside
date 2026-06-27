@@ -20,7 +20,8 @@ use wildside_core::{
     BackgroundArtPermutationLoc11E8A, BackgroundFollowupArtPermutationLoc11EC4,
     BackgroundFollowupArtSourceLoc11EC4, ForegroundArtPermutationLoc11E48,
     SharedVramArtSourceLoc11EFA, background_art_decompress_loc_11E8A_11EA2,
-    background_followup_art_decompress_loc_11EA2_11EF2, foreground_art_decompress_loc_11E48_11E60,
+    background_followup_art_decompress_loc_11EA2_11EF2, flag_bottom_art_dma_loop_loc_12B9C,
+    foreground_art_decompress_loc_11E48_11E60, hitpoint_display_art_dma_loop_loc_12C34,
     shared_vram_art_decompresses_loc_11EFA,
 };
 use wildside_data::{
@@ -128,6 +129,15 @@ const IRON_KNIGHT_HELMET_PALETTE_PATH: &str = "palette_kid/Iron_Knight_Helmet.bi
 const BERZERKER_HELMET_PALETTE_PATH: &str = "palette_kid/Berzerker_Helmet.bin";
 const MANIAXE_HELMET_PALETTE_PATH: &str = "palette_kid/Maniaxe_Helmet.bin";
 const MICROMAX_HELMET_PALETTE_PATH: &str = "palette_kid/Micromax_Helmet.bin";
+
+fn hud_hitpoint_vram_base_tile_index_loc_12c34() -> u16 {
+    hitpoint_display_art_dma_loop_loc_12C34().vram_tile_base_index()
+}
+
+fn flag_bottom_vram_base_tile_index_loc_12b9c() -> u16 {
+    flag_bottom_art_dma_loop_loc_12B9C().vram_tile_base_index()
+}
+
 const BLOCK_MAPPING_PATH: &str = "block_mappings.bin";
 const PLAYER_FORM_THE_KID: u16 = 0;
 const PLAYER_FORM_SKYCUTTER: u16 = 1;
@@ -551,9 +561,13 @@ pub fn load_level_visuals_with_source(
                 HudIcon::new("diamond", (0x01A0, 0x00A2), TileRef::from_attr_word(0x86F2)),
             ],
             hitpoint_tiles: [
-                TileRef::from_attr_word(0x822D),
-                TileRef::from_attr_word(0x822E),
-                TileRef::from_attr_word(0x822F),
+                TileRef::from_attr_word(0x8000 | hud_hitpoint_vram_base_tile_index_loc_12c34()),
+                TileRef::from_attr_word(
+                    0x8000 | hud_hitpoint_vram_base_tile_index_loc_12c34().wrapping_add(1),
+                ),
+                TileRef::from_attr_word(
+                    0x8000 | hud_hitpoint_vram_base_tile_index_loc_12c34().wrapping_add(2),
+                ),
             ],
         },
         player,
@@ -4629,7 +4643,7 @@ fn load_flag_visuals(
             origin_y: FLAG_POLE_BOTTOM_FRAME.origin_y,
             width_px: FLAG_POLE_BOTTOM_FRAME.width_px,
             height_px: FLAG_POLE_BOTTOM_FRAME.height_px,
-            tile_base_index: FLAG_POLE_BOTTOM_FRAME.tile_base_index,
+            tile_base_index: flag_bottom_vram_base_tile_index_loc_12b9c(),
             tile_sheet: pole_tile_sheet,
         },
         waving: FLAG_WAVING_FRAMES
