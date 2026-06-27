@@ -30551,12 +30551,12 @@ mod chunk_10 {
     #[test]
     fn loc_1357a_rounds_odd_rewound_addresses_back_up_to_even() {
         assert_eq!(
-            crate::level::block_layout_align_rewound_input_addr_loc_1357A(0x0103),
+            block_layout_align_rewound_input_addr_loc_1357A(0x0103),
             0x0104,
             "ASM loc_1357A should detect the odd `a0` low bit through `lsr.w #1,d0` carry and add one byte so `EniDec` returns on an even boundary"
         );
         assert_eq!(
-            crate::level::block_layout_align_rewound_input_addr_loc_1357A(0x0104),
+            block_layout_align_rewound_input_addr_loc_1357A(0x0104),
             0x0104,
             "ASM loc_1357A should leave already-even rewind addresses untouched because `bcc.s loc_13582` skips the `addq.w #1,a0` fix-up"
         );
@@ -30565,7 +30565,7 @@ mod chunk_10 {
     #[test]
     fn loc_13582_returns_the_aligned_input_pointer_unchanged() {
         assert_eq!(
-            crate::level::block_layout_return_input_addr_loc_13582(0x0104),
+            block_layout_return_input_addr_loc_13582(0x0104),
             0x0104,
             "ASM loc_13582 should only restore registers and `rts`, so the aligned `a0` from `loc_1357A` becomes the caller-visible decode pointer unchanged"
         );
