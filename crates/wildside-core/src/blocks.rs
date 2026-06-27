@@ -505,7 +505,18 @@ impl NativeRuntime {
         // first Highwater Pass 2 right-facing shooters are `$EC2F`, so the
         // stored direction is `$02`.
         if cell.has_block && cell.block_type == terrain::BlockType::Drill && cell.skin >= 0x2D {
-            return Some(cell.skin.wrapping_sub(0x2D));
+            return match crate::level::evanescent_shooter_cell_scan_loc_F1DE(
+                0,
+                0,
+                0,
+                cell.to_word(),
+                1,
+            ) {
+                crate::level::EvanescentShooterCellScanLocF1DE::QueueShooter(candidate) => {
+                    Some(candidate.direction_bits as u8)
+                }
+                crate::level::EvanescentShooterCellScanLocF1DE::Continue => None,
+            };
         }
 
         cell.has_block

@@ -9591,7 +9591,6 @@ pub(crate) fn evanescent_shooter_scan_start_loc_F1C8(
 /// Otherwise the ROM pops that free slot, stores `(a1)`, `d3`, `d4`, and the
 /// low layout byte minus `$2D`, then shifts once to test the upward bit.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_cell_scan_loc_F1DE(
     layout_word_addr: u32,
     block_col: u16,
