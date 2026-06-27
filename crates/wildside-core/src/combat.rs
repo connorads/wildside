@@ -2536,7 +2536,6 @@ pub(crate) struct HeadyMetalSpawnAnimationLoc3761E {
     pub(crate) loops_to_tracking_loc_37582: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct NormalSpriteChunkLoc12B8 {
     pub(crate) x_screen_px: i16,
@@ -12270,7 +12269,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn sprite_priority_bit_loc_1234(
         priority_byte: u8,
         high_priority_hw_flag: bool,
@@ -12299,7 +12297,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn sprite_tile_id_loc_1238(
         base_tile_id: u16,
         sprite_offset_word: u16,
@@ -12377,7 +12374,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn sprite_uses_x_flip_loc_1292(x_direction: u8) -> bool {
         // ASM loc_1292 (kid.asm:2273): `tst.b x_direction(a3)` branches to the
         // x-flipped renderer at `loc_132A` for any non-zero byte and reaches
@@ -12386,7 +12382,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn sprite_normal_orientation_chunks_loc_12B8(
         base_x_screen_px: i16,
         base_y_screen_px: i16,
@@ -12486,7 +12481,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn sprite_x_flipped_chunks_loc_134A(
         base_x_screen_px: i16,
         base_y_screen_px: i16,

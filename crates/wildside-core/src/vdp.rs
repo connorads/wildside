@@ -1373,66 +1373,48 @@ fn append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
     frame: IntroSpriteFrameVram,
 ) {
     let gfx = gfx.into();
-    let pattern_base = ((u16::from(gfx.palette_line) << 13)
-        | if gfx.priority >= 1 { 0x8000 } else { 0 }
-        | if gfx.x_direction != 0 { 0x0800 } else { 0 }
-        | gfx.vram_tile)
-        .wrapping_add(frame.sprite_index);
+    let uses_x_flip = crate::NativeRuntime::sprite_uses_x_flip_loc_1292(gfx.x_direction);
+    let pattern_base = crate::NativeRuntime::sprite_tile_id_loc_1238(
+        (u16::from(gfx.palette_line) << 13)
+            | crate::NativeRuntime::sprite_priority_bit_loc_1234(gfx.priority, true)
+            | if uses_x_flip { 0x0800 } else { 0 },
+        frame.sprite_index,
+        gfx.vram_tile,
+        false,
+    );
+    let base_y_screen_px =
+        i32::from(gfx.y_pos) - i32::from(frame.height) + i32::from(frame.y_center) + 0x80;
+    let chunks = if uses_x_flip {
+        crate::NativeRuntime::sprite_x_flipped_chunks_loc_134A(
+            (i32::from(gfx.x_pos) + i32::from(frame.x_center) + 0x80) as i16,
+            base_y_screen_px as i16,
+            frame.width as i16,
+            frame.height as i16,
+        )
+    } else {
+        crate::NativeRuntime::sprite_normal_orientation_chunks_loc_12B8(
+            (i32::from(gfx.x_pos) - i32::from(frame.x_center) + 0x80) as i16,
+            base_y_screen_px as i16,
+            frame.width as i16,
+            frame.height as i16,
+        )
+    };
     let mut tile_offset = 0u16;
-    for chunk in sprite_chunks(frame.width, frame.height) {
-        let x_pos = if gfx.x_direction == 0 {
-            i32::from(gfx.x_pos) - i32::from(frame.x_center) + i32::from(chunk.x) + 0x80
-        } else {
-            i32::from(gfx.x_pos) + i32::from(frame.x_center) - i32::from(chunk.x + chunk.width)
-                + 0x80
-        };
-        let y_pos = i32::from(gfx.y_pos) - i32::from(frame.height)
-            + i32::from(frame.y_center)
-            + i32::from(chunk.y)
-            + 0x80;
+    for chunk in chunks {
         entries.push(HardwareSpriteEntry {
-            y_pos: y_pos as u16,
-            size_byte: sprite_size_byte(chunk.width, chunk.height),
+            y_pos: chunk.y_screen_px as u16,
+            size_byte: chunk.size_code,
             pattern: pattern_base.wrapping_add(tile_offset),
-            x_pos: x_pos as u16,
+            x_pos: chunk.x_screen_px as u16,
         });
-        tile_offset = tile_offset.wrapping_add(chunk.width.div_ceil(8) * chunk.height.div_ceil(8));
+        tile_offset = tile_offset.wrapping_add(sprite_tile_count_from_size_code(chunk.size_code));
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct SpriteChunk {
-    x: u16,
-    y: u16,
-    width: u16,
-    height: u16,
-}
-
-fn sprite_chunks(width: u16, height: u16) -> Vec<SpriteChunk> {
-    let mut chunks = Vec::new();
-    let mut y = 0;
-    while y < height {
-        let chunk_height = (height - y).min(32);
-        let mut x = 0;
-        while x < width {
-            let chunk_width = (width - x).min(32);
-            chunks.push(SpriteChunk {
-                x,
-                y,
-                width: chunk_width,
-                height: chunk_height,
-            });
-            x += chunk_width;
-        }
-        y += chunk_height;
-    }
-    chunks
-}
-
-fn sprite_size_byte(width: u16, height: u16) -> u8 {
-    let width_tiles = width.div_ceil(8).saturating_sub(1);
-    let height_tiles = height.div_ceil(8).saturating_sub(1);
-    ((width_tiles << 2) | height_tiles) as u8
+fn sprite_tile_count_from_size_code(size_code: u8) -> u16 {
+    let width_tiles = u16::from((size_code >> 2) & 0x03) + 1;
+    let height_tiles = u16::from(size_code & 0x03) + 1;
+    width_tiles * height_tiles
 }
 
 fn write_sprite_table_entries(
