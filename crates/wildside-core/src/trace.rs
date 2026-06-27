@@ -6007,7 +6007,6 @@ pub(crate) struct KidObjectCollisionWritebackLoc1CF2 {
     pub(crate) object_collision_flags: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidObjectInvulnerabilityGateLoc1D00 {
     pub(crate) next_player_collision_type: u16,
@@ -6115,7 +6114,6 @@ pub(crate) fn kid_object_type_four_collision_loc_1D5A(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_invulnerability_gate_loc_1D00(
     kid_is_invulnerable: bool,

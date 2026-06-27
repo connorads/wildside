@@ -6,6 +6,8 @@ use crate::projectiles::{
 
 const HUNDRED_K_TRIP_START_LEVEL_ID: LevelId = LevelId(4);
 const HUNDRED_K_TRIP_ARM_FRAMES_LOC_10AC2: u16 = 0x003C;
+const COLID_KIDBELOW_LOC_1D00: u16 = 0x0028;
+const NORMAL_RECENT_DAMAGE_FLAGS_LOC_1D00: u16 = 0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Prize10000PointsInitLoc10Ae0 {
@@ -8083,8 +8085,9 @@ impl NativeRuntime {
         self.queue_start_sequence(QueuedSoundEffect::JumpOnEnemy);
         self.stomped_this_frame = true;
         if pending.causes_contact_damage
-            && self.progression.invulnerable_frames == 0
-            && !self.kid_is_invulnerable
+            && normal_recent_damage_survives_invulnerability_gate_loc_1d00(
+                self.progression.invulnerable_frames != 0 || self.kid_is_invulnerable,
+            )
             && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {
             self.apply_damage();
@@ -14501,6 +14504,21 @@ fn player_latches_enemy_collision_with_half_width_loc_1cf2(
         && writeback.object_collision_label == relation.as_debug_label()
 }
 
+fn normal_recent_damage_survives_invulnerability_gate_loc_1d00(
+    kid_damage_invulnerable: bool,
+) -> bool {
+    // ASM loc_1D00 (kid.asm:3485): `KidIsInvulnerable` clears ordinary
+    // recent-damage collision ids once the masked `$3A(a0)` payload is below
+    // `$64`. Native's contact/spike/shooter gates model those ordinary
+    // `colid_kidbelow` hits with no high-bit object payload.
+    let gate = crate::trace::kid_object_invulnerability_gate_loc_1D00(
+        kid_damage_invulnerable,
+        COLID_KIDBELOW_LOC_1D00,
+        NORMAL_RECENT_DAMAGE_FLAGS_LOC_1D00,
+    );
+    gate.next_player_collision_type != 0
+}
+
 fn drips_projectile_object_snapshot_loc_3345c(
     projectile: &EnemyProjectile,
 ) -> NativeObjectSnapshot {
@@ -14615,8 +14633,9 @@ impl NativeRuntime {
         // entry 9 through Check_for_recent_damge -> loc_B700, so spikes use the
         // normal HP/helmet damage path rather than an unconditional Death jump.
         if slice.player.on_spikes
-            && self.progression.invulnerable_frames == 0
-            && !self.kid_is_invulnerable
+            && normal_recent_damage_survives_invulnerability_gate_loc_1d00(
+                self.progression.invulnerable_frames != 0 || self.kid_is_invulnerable,
+            )
         {
             self.opening_slice = Some(*slice);
             self.apply_damage();
@@ -14626,8 +14645,10 @@ impl NativeRuntime {
 
         let kid_damage_invulnerable =
             self.progression.invulnerable_frames != 0 || self.kid_is_invulnerable;
+        let normal_recent_damage_live =
+            normal_recent_damage_survives_invulnerability_gate_loc_1d00(kid_damage_invulnerable);
 
-        if self.shooter_barrel_damage_latched_loc_1f52 && !kid_damage_invulnerable {
+        if self.shooter_barrel_damage_latched_loc_1f52 && normal_recent_damage_live {
             // ASM sub_1F52 (kid.asm:3740) writes `colid_kidbelow` ($28) when
             // Kid overlaps a live shooter-barrel rectangle. Character_CheckCollision
             // routes that word through off_B640 entry 9 -> Check_for_recent_damge.
@@ -14874,8 +14895,7 @@ impl NativeRuntime {
         // overlap into Kid's collision slot. The side/below contact is
         // therefore consumed by Check_for_recent_damge on the next frame.
         if let Some(pending) = self.pending_player_contact_damage.take()
-            && self.progression.invulnerable_frames == 0
-            && !self.kid_is_invulnerable
+            && normal_recent_damage_live
             && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
         {
             if matches!(pending.enemy_family, EnemyFamily::MiniHoppingSkull) {
@@ -14946,8 +14966,7 @@ impl NativeRuntime {
                 // instead so the tumble launches on the oracle's frame. Steady
                 // grounded contact has no landing-defer latch and uses the
                 // normal pending queue (#216 prize-audio probe).
-                if self.progression.invulnerable_frames == 0
-                    && !self.kid_is_invulnerable
+                if normal_recent_damage_live
                     && matches!(self.player_lifecycle, PlayerLifecycle::Alive)
                 {
                     self.apply_damage_with_knockback(slice, enemy_x, enemy_family);
