@@ -710,7 +710,6 @@ pub(crate) fn tar_monster_seeded_shot_loc_325B6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_burst_child_entry_loc_325E6(
     source_visual_x_pos: u32,
     source_visual_y_pos: u32,
@@ -1252,11 +1251,12 @@ pub(crate) fn spawn_tar_monster_retaliation(
     debug_assert_eq!(setup.priority, 0);
     debug_assert!(setup.has_level_collision);
     for (xv, yv) in cleanup.child_velocities {
+        let entry = tar_monster_burst_child_entry_loc_325E6(x, y, xv, yv);
         projectiles.push(EnemyProjectile {
-            x_pos: x,
-            y_pos: y,
-            x_velocity: xv,
-            y_velocity: yv,
+            x_pos: entry.x_pos,
+            y_pos: entry.y_pos,
+            x_velocity: entry.x_velocity,
+            y_velocity: entry.y_velocity,
             lifetime: 60,
             gravity: 0x1000,
             friendly: false,
