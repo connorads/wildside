@@ -4612,13 +4612,17 @@ fn run_loop_corner_126f2(
     let width = usize::from(width_blocks);
     let height = usize::from(height_blocks);
     loop {
-        let Some(x) = words.get(*pos).copied() else {
+        let Some(rest) = words.get(*pos..) else {
             return;
         };
-        *pos += 1;
-        if x & 0x8000 != 0 {
+        let Some(read_x) = block_type_16_read_x_pos_loc_126f2(rest) else {
+            if !rest.is_empty() {
+                *pos += 1;
+            }
             return;
-        }
+        };
+        *pos += read_x.bytes_consumed;
+        let x = read_x.x_pos;
         let Some(&y) = words.get(*pos) else {
             return;
         };
@@ -6716,7 +6720,6 @@ pub(crate) struct BlockType16ReadXPosLoc126F2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_16_read_x_pos_loc_126f2(
     layout_words: &[u16],
 ) -> Option<BlockType16ReadXPosLoc126F2> {
