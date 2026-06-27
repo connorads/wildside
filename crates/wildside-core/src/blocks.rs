@@ -2924,30 +2924,46 @@ impl NativeRuntime {
         };
         let speed = Self::SHOOTER_PROJECTILE_SPEED;
         let first_new_projectile = self.projectiles.len();
+        let shooter_slots = crate::level::initialise_shooter_object_slots_loc_DF50();
+        let Some(loaded) = crate::level::evanescent_bullet_direction_load_loc_EC76(
+            candidate,
+            &shooter_slots.shooter_slots,
+            shooter_slots.next_free_shooter_object_slot_addr,
+            shooter_slots.first_shooter_object_slot_addr,
+        ) else {
+            return;
+        };
         let mut direction_counter = 3_u16;
-        loop {
-            let mask = 1_u16 << direction_counter;
-            let (xv, yv) = match direction_counter {
+        for loaded_slot in loaded.loaded_slots {
+            while direction_counter != loaded_slot.direction {
+                let tail =
+                    crate::level::evanescent_bullet_direction_loop_tail_loc_EC9E(direction_counter);
+                if !tail.loops_to_loc_ec76 {
+                    break;
+                }
+                direction_counter = tail.next_direction_counter;
+            }
+            let (xv, yv) = match loaded_slot.direction {
                 3 => (-speed, 0),
                 2 => (0, speed),
                 1 => (speed, 0),
                 _ => (0, -speed),
             };
-            if candidate.direction_bits & mask != 0 {
-                // ASM loc_EC76 allocates through the same shooter-object free
-                // list as visible shooter blocks, with `(a3)` pointing at this
-                // source layout word and `$8(a3)=#$FFFE`.
-                self.projectiles
-                    .push(EnemyProjectile::shooter_block_from_centre_loc_EC76(
-                        col,
-                        row,
-                        u32::from(candidate.block_x_px),
-                        u32::from(candidate.block_y_px),
-                        xv,
-                        yv,
-                    ));
-            }
-
+            debug_assert_eq!(loaded_slot.layout_word_addr, candidate.layout_word_addr);
+            debug_assert_eq!(loaded_slot.block_x_px, candidate.block_x_px);
+            debug_assert_eq!(loaded_slot.block_y_px, candidate.block_y_px);
+            debug_assert_eq!(loaded_slot.state, 0xFFFE);
+            // ASM loc_EC76 allocates through the shooter-object free list, with
+            // `(a3)` pointing at this source layout word and `$8(a3)=#$FFFE`.
+            self.projectiles
+                .push(EnemyProjectile::shooter_block_from_centre_loc_EC76(
+                    col,
+                    row,
+                    u32::from(loaded_slot.block_x_px),
+                    u32::from(loaded_slot.block_y_px),
+                    xv,
+                    yv,
+                ));
             let tail =
                 crate::level::evanescent_bullet_direction_loop_tail_loc_EC9E(direction_counter);
             if !tail.loops_to_loc_ec76 {

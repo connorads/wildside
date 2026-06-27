@@ -11596,7 +11596,6 @@ pub(crate) fn evanescent_bullet_load_candidate_loc_EC52(
 /// copies source layout/x/y/direction words, writes state `$FFFE`, and exits
 /// early when the free-list head is zero.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_direction_load_loc_EC76(
     candidate: EvanescentBulletLoadCandidateLocEC52,
     free_slots: &[LinkedObjectSlotInit],
