@@ -1414,7 +1414,6 @@ pub(crate) fn hidden_block_jump_window_sub_DFB0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_jump_horizontal_scan_loc_DFEE(
     kid_x_pos_px: i16,
     left_reach_px: i16,
@@ -6477,15 +6476,31 @@ impl OpeningSliceState {
                 return;
             }
             let deferred_prize_ceiling_cell = deferred_prize_ceiling_phase.is_some();
+            let hidden_block_in_jump_window = (!deferred_prize_ceiling_cell
+                && probe.cell.collision == terrain::CollisionKind::HiddenBlock)
+                .then(|| {
+                    let hidden_block_window =
+                        hidden_block_jump_window_sub_DFB0(form, self.player.facing);
+                    let hidden_block_horizontal_scan = hidden_block_jump_horizontal_scan_loc_DFEE(
+                        x_px as i16,
+                        hidden_block_window.left_reach_px as i16,
+                        hidden_block_window.right_reach_px as i16,
+                        grid.width_cells as i16,
+                    );
+                    (hidden_block_window, hidden_block_horizontal_scan)
+                })
+                .filter(|(_, scan)| {
+                    // ASM loc_DFEE/loc_E03A (kid.asm:17338,17373): the
+                    // hidden-block reveal loop only considers columns inside
+                    // this computed range.
+                    (probe.cell_x as i16) >= scan.start_col && (probe.cell_x as i16) <= scan.end_col
+                })
+                .map(|(window, _)| window);
             // ASM loc_E03A (kid.asm:17373): hidden-block reveal starts only
             // when the Level_Layout collision nibble is `$2000`; every other
             // ceiling cell branches to `loc_E23A` without consulting the
             // hidden-block metadata list.
-            if !deferred_prize_ceiling_cell
-                && probe.cell.collision == terrain::CollisionKind::HiddenBlock
-            {
-                let hidden_block_window =
-                    hidden_block_jump_window_sub_DFB0(form, self.player.facing);
+            if let Some(hidden_block_window) = hidden_block_in_jump_window {
                 let snap = hidden_block_jump_snap_loc_E1FE(
                     hidden_block_window.vertical_reach_px,
                     probe.cell_y,
