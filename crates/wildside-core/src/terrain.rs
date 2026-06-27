@@ -1245,8 +1245,11 @@ impl BlockList {
         // a `$12C`-frame object plus a foreground plane upload for the same
         // location.
         let mut updates = Vec::new();
-        for offset in 0..=row_count_inclusive {
-            let row = start_row.saturating_add(offset);
+        let mut row = start_row;
+        let mut layout_addr =
+            (((u32::from(row) * u32::from(grid.width_cells)) + u32::from(col)) * 2) as u16;
+        let mut dbf_counter = row_count_inclusive;
+        loop {
             if row >= grid.height_cells {
                 break;
             }
@@ -1254,27 +1257,34 @@ impl BlockList {
                 break;
             }
 
-            let layout_addr =
-                (((u32::from(row) * u32::from(grid.width_cells)) + u32::from(col)) * 2) as u16;
-            if grid.cell_at(col, row).collision != CollisionKind::HiddenBlock {
-                continue;
+            if grid.cell_at(col, row).collision == CollisionKind::HiddenBlock
+                && let Some(entry) = self.hidden_block_by_layout_addr_sub_E37A(layout_addr)
+                && let Some(reveal) = self.hidden_block_reveal_sub_E3C6(entry)
+            {
+                grid.set_cell_at(col, row, reveal.cell);
+                updates.push(HiddenBlockColumnUpdateSubE446 {
+                    layout_addr,
+                    col,
+                    row,
+                    cell: reveal.cell,
+                    sprite_mapping: reveal.sprite_mapping,
+                    duration_frames: 0x012C,
+                });
             }
-            let Some(entry) = self.hidden_block_by_layout_addr_sub_E37A(layout_addr) else {
-                continue;
-            };
-            let Some(reveal) = self.hidden_block_reveal_sub_E3C6(entry) else {
-                continue;
-            };
 
-            grid.set_cell_at(col, row, reveal.cell);
-            updates.push(HiddenBlockColumnUpdateSubE446 {
-                layout_addr,
-                col,
+            let tail = crate::level::hidden_block_prize_reveal_scan_tail_loc_E48E(
                 row,
-                cell: reveal.cell,
-                sprite_mapping: reveal.sprite_mapping,
-                duration_frames: 0x012C,
-            });
+                layout_addr,
+                grid.width_cells.saturating_mul(2),
+                dbf_counter,
+            );
+            if !tail.loops_to_sub_e446 {
+                break;
+            }
+            // ASM loc_E48E names this cursor `d5`; for sub_E446 it is the row.
+            row = tail.next_block_col;
+            layout_addr = tail.next_layout_word_addr;
+            dbf_counter = tail.next_dbf_counter;
         }
         updates
     }

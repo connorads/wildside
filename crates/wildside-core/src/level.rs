@@ -10946,7 +10946,6 @@ pub(crate) fn hidden_block_reveal_worker_loc_E096(
 /// back to `sub_E446` while the DBF post-decrement counter has not reached
 /// `$FFFF`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_prize_reveal_scan_tail_loc_E48E(
     block_col: u16,
     layout_word_addr: u16,
