@@ -4164,22 +4164,29 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // cell to its right (a 1x2 pair). Hidden → two sub_127A8 cells.
             // Single placement per entry (no count loop). (kid.asm:24640-24697)
             4 => {
-                run_loop_pair_1263c(block_layout_words, &mut pos, |x, y| {
-                    if let Some(idx) = cell_index(x, y) {
-                        if hidden {
-                            write_hidden(cells, idx);
-                        } else {
-                            cells[idx] = 0xE407;
+                let block_type_arg = if hidden { -4 } else { 4 };
+                run_loop_pair_1263c(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    block_type_arg,
+                    |x, y, is_hidden| {
+                        if let Some(idx) = cell_index(x, y) {
+                            if is_hidden {
+                                write_hidden(cells, idx);
+                            } else {
+                                cells[idx] = 0xE407;
+                            }
                         }
-                    }
-                    if let Some(idx) = cell_index(x.wrapping_add(1), y) {
-                        if hidden {
-                            write_hidden(cells, idx);
-                        } else {
-                            cells[idx] = 0xE408;
+                        if let Some(idx) = cell_index(x.wrapping_add(1), y) {
+                            if is_hidden {
+                                write_hidden(cells, idx);
+                            } else {
+                                cells[idx] = 0xE408;
+                            }
                         }
-                    }
-                });
+                    },
+                );
             }
             // loc_1233C (type 6): terrain-dependent cell. Non-hidden writes
             // `$E60C` (terrain byte 0) or `$E60E` (terrain byte != 0) reading the
@@ -4513,7 +4520,13 @@ fn run_loop_type3_124a6(
 /// loc_1263C (type 4): one cell pair per entry (no count loop). loc_122C0-style
 /// X/Y read, then directly writes `$E407`/`$E408`. (kid.asm:24640-24697)
 #[allow(non_snake_case)]
-fn run_loop_pair_1263c(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16)) {
+fn run_loop_pair_1263c(
+    words: &[u16],
+    pos: &mut usize,
+    width_blocks: u16,
+    block_type: i16,
+    mut body: impl FnMut(u16, u16, bool),
+) {
     loop {
         let Some(rest) = words.get(*pos..) else {
             return;
@@ -4526,7 +4539,7 @@ fn run_loop_pair_1263c(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16,
         };
         *pos += read_x.words_consumed;
         let x = read_x.x_pos;
-        let Some(&y) = words.get(*pos) else {
+        let Some(&y_row) = words.get(*pos) else {
             return;
         };
         // ASM loc_1264C reads X,Y, writes the `$E407`/`$E408` pair, then loc_1269C
@@ -4535,8 +4548,16 @@ fn run_loop_pair_1263c(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16,
         if words.get(*pos + 2).is_none() {
             return;
         }
+        let row_pointer_table: Vec<u16> = (0..=y_row)
+            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
+            .collect();
+        let Some(setup) =
+            block_type_4_parse_coords_loc_1264c(&words[*pos..], &row_pointer_table, x, block_type)
+        else {
+            return;
+        };
         *pos += 3;
-        body(x, y);
+        body(x, setup.y_row, setup.is_hidden);
     }
 }
 
@@ -6215,7 +6236,6 @@ pub(crate) struct BlockType4ParseCoordsLoc1264C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_4_parse_coords_loc_1264c(
     layout_words: &[u16],
     row_pointer_table: &[u16],
