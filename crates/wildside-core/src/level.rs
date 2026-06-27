@@ -921,7 +921,6 @@ pub(crate) struct AnimatedSolidBlockVerticalRowsLocF85A {
     pub(crate) final_row: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockVerticalRowsInputLocF85A {
     pub(crate) start_layout_addr: u32,
@@ -934,7 +933,6 @@ pub(crate) struct AnimatedSolidBlockVerticalRowsInputLocF85A {
     pub(crate) mapping_longwords: [u32; 2],
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockVerticalRowsLoopTailLocF87A {
     pub(crate) next_row: u16,
@@ -943,7 +941,6 @@ pub(crate) struct AnimatedSolidBlockVerticalRowsLoopTailLocF87A {
     pub(crate) continue_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockHorizontalRowsLocF8CA {
     pub(crate) layout_writes: Vec<(u32, u16)>,
@@ -953,14 +950,12 @@ pub(crate) struct AnimatedSolidBlockHorizontalRowsLocF8CA {
     pub(crate) remaining_count: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockHorizontalQueueCellLocF90A {
     pub(crate) layout_word: u16,
     pub(crate) custom_entry: Option<FgUpdateQueueCustomEntrySub1596>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockHorizontalQueueTailLocF934 {
     pub(crate) next_col: u16,
@@ -968,7 +963,6 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueTailLocF934 {
     pub(crate) continue_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
     pub(crate) layout_writes: Vec<(u32, u16)>,
@@ -977,7 +971,6 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
     pub(crate) continue_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
     pub(crate) next_row: u16,
@@ -987,7 +980,6 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
     pub(crate) continue_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
     pub(crate) layout_writes: Vec<(u32, u16)>,
@@ -997,7 +989,6 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
     pub(crate) continue_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AnimatedSolidBlockScanAdvanceLocF9C0 {
     ContinueScan {
@@ -1010,7 +1001,6 @@ pub(crate) enum AnimatedSolidBlockScanAdvanceLocF9C0 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockNegativeSpriteLocF9CC {
     pub(crate) screen_y: u16,
@@ -1019,7 +1009,6 @@ pub(crate) struct AnimatedSolidBlockNegativeSpriteLocF9CC {
     pub(crate) screen_x: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockNegativeSpritesInputLocF9CC {
     pub(crate) vertical_layout_flag: bool,
@@ -1034,7 +1023,6 @@ pub(crate) struct AnimatedSolidBlockNegativeSpritesInputLocF9CC {
     pub(crate) sprite_link_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum AnimatedSolidBlockNegativeSpritesLocF9CC {
     BranchToVerticalPath,
@@ -1045,7 +1033,6 @@ pub(crate) enum AnimatedSolidBlockNegativeSpritesLocF9CC {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LayoutWordAddressLocFAE2 {
     pub(crate) row_pointer_table_byte_offset: u16,
@@ -1127,7 +1114,6 @@ pub(crate) fn animated_solid_block_vertical_rows_tail_loc_F890(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
     pub(crate) screen_y: u16,
@@ -1136,14 +1122,12 @@ pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
     pub(crate) screen_x: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleUpSpriteLocF41E {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) sprite_words: Option<ShooterVisibleSpriteWordsLocF41E>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleUpSpriteInputLocF41E {
     pub(crate) direction_bits: u16,
@@ -1159,14 +1143,12 @@ pub(crate) struct ShooterVisibleUpSpriteInputLocF41E {
     pub(crate) sprite_link_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleDownSpriteLocF4A4 {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) sprite_words: Option<ShooterVisibleSpriteWordsLocF41E>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleDownSpriteInputLocF4A4 {
     pub(crate) direction_bits: u16,
@@ -1182,14 +1164,12 @@ pub(crate) struct ShooterVisibleDownSpriteInputLocF4A4 {
     pub(crate) sprite_link_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleLeftSpriteLocF4E6 {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) sprite_words: Option<ShooterVisibleSpriteWordsLocF41E>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleLeftSpriteInputLocF4E6 {
     pub(crate) direction_bits: u16,
@@ -1205,14 +1185,12 @@ pub(crate) struct ShooterVisibleLeftSpriteInputLocF4E6 {
     pub(crate) sprite_link_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterVisibleNegativeScanTailLocF528 {
     ContinueScan { next_slot_addr: u32 },
     CommitFrame,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) preincrement_cursor_addr: u32,
@@ -1220,14 +1198,12 @@ pub(crate) struct HiddenBlockEvanescentScanStartLocE07A {
     pub(crate) layout_word_addr: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockMetadataRecordLocE082 {
     pub(crate) layout_word_addr: u16,
     pub(crate) control_word: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockEvanescentScanLocE082 {
     pub(crate) matched_record_addr: u32,
