@@ -3341,7 +3341,9 @@ fn sample_layered_background_tile_pixel(
             Some(background_column),
         );
     };
-    if level_visuals.level.background_theme_id != 9 {
+    if !background_scroll_applies_forest_water_ripple_loc_30598(
+        level_visuals.level.background_theme_id,
+    ) {
         return sample_background_tile_pixel(
             tile_sheet,
             palette,
@@ -3470,7 +3472,7 @@ fn push_layered_background_tile(
         });
         return;
     };
-    if background_theme_id != 9 {
+    if !background_scroll_applies_forest_water_ripple_loc_30598(background_theme_id) {
         commands.push(DrawCommand::IndexedTile {
             x: screen_x,
             y: screen_y,
@@ -4851,6 +4853,15 @@ const FOREST_RIPPLE: [i8; 64] = [
     1, 1, 1, 0, 0, 0, 0, 1, 2, 3, 4, 4, 4, 4, 5, 6, 7, 8, 8, 8, 7, 7, 6, 6, 5, 5, 4, 4, 3, 3, 2, 1,
 ];
 const SETTLED_WARP_FOREST_RIPPLE_TIME_FRAMES_OFFSET_LOC_305E6: usize = 52;
+
+fn background_scroll_applies_forest_water_ripple_loc_30598(background_theme_id: u8) -> bool {
+    // ASM loc_30598 dispatches the post-scroll ripple path from
+    // `Background_theme`; the renderer currently has a Forest ripple path only.
+    matches!(
+        wildside_core::background_scroll_theme_dispatch_loc_30598(u16::from(background_theme_id)),
+        wildside_core::BackgroundScrollThemeDispatchLoc30598::ApplyForestWaterRipple
+    )
+}
 
 fn background_time_frames_for_trace_loc_3050a(trace: &NativeTraceFrame) -> usize {
     // ASM BackgroundScroll_ComputeShiftData / loc_305E6 use the global

@@ -13030,7 +13030,7 @@ pub(crate) struct BackgroundScrollShiftLayersTrailingPartialFillLoc30592 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum BackgroundScrollThemeDispatchLoc30598 {
+pub enum BackgroundScrollThemeDispatchLoc30598 {
     Return,
     ApplyForestWaterRipple,
     ApplyDesertHeatRipple,
@@ -14218,8 +14218,7 @@ pub(crate) fn background_scroll_shift_layers_trailing_partial_fill_loc_30592(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_theme_dispatch_loc_30598(
+pub fn background_scroll_theme_dispatch_loc_30598(
     background_theme: u16,
 ) -> BackgroundScrollThemeDispatchLoc30598 {
     const BACKGROUND_THEME_DESERT_LOC_30598: u16 = 0x0005;
