@@ -4536,13 +4536,17 @@ fn run_loop_shooter_1253a(
     mut body: impl FnMut(u16, u16),
 ) {
     loop {
-        let Some(x) = words.get(*pos).copied() else {
+        let Some(rest) = words.get(*pos..) else {
             return;
         };
-        *pos += 1;
-        if x & 0x8000 != 0 {
+        let Some(read_x) = block_type_8_read_x_pos_loc_1253a(rest) else {
+            if !rest.is_empty() {
+                *pos += 1;
+            }
             return;
-        }
+        };
+        *pos += read_x.bytes_consumed;
+        let x = read_x.x_pos;
         let Some(&y) = words.get(*pos) else {
             return;
         };
@@ -5703,7 +5707,6 @@ pub(crate) struct BlockType8PlacementResult {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_8_read_x_pos_loc_1253a(
     layout_words: &[u16],
 ) -> Option<BlockType8ReadEntryLoc1253a> {
