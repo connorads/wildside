@@ -7383,29 +7383,28 @@ pub fn background_chunk_row_loop_loc_12884(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundMountainLoadLoc12910 {
-    pub(crate) pattern_vram_offset: u16,
-    pub(crate) vram_buffer1_addr: u32,
-    pub(crate) vram_buffer2_addr: u32,
-    pub(crate) vram_buffer3_addr: u32,
-    pub(crate) needs_hail_overlay_at_1294_a: bool,
+pub struct BackgroundMountainLoadLoc12910 {
+    pub pattern_vram_offset: u16,
+    pub vram_buffer1_addr: u32,
+    pub vram_buffer2_addr: u32,
+    pub vram_buffer3_addr: u32,
+    pub needs_hail_overlay_at_1294_a: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundHailOverlayLoc1294A {
-    pub(crate) pattern_vram_offset: u16,
-    pub(crate) vram_buffer4_addr: u32,
+pub struct BackgroundHailOverlayLoc1294A {
+    pub pattern_vram_offset: u16,
+    pub vram_buffer4_addr: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundFinalPatternLoc12952 {
-    pub(crate) pattern_vram_offset: u16,
-    pub(crate) vram_buffer4_addr: u32,
+pub struct BackgroundFinalPatternLoc12952 {
+    pub pattern_vram_offset: u16,
+    pub vram_buffer4_addr: u32,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_mountain_tileset_loc_12910(
+pub fn background_mountain_tileset_loc_12910(
     level_special_effects: u16,
 ) -> BackgroundMountainLoadLoc12910 {
     // ASM loc_12910 (kid.asm:25274-25291): Mountain theme background tileset load.
@@ -7447,8 +7446,7 @@ pub(crate) fn background_mountain_tileset_loc_12910(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_hail_overlay_loc_1294A() -> BackgroundHailOverlayLoc1294A {
+pub fn background_hail_overlay_loc_1294A() -> BackgroundHailOverlayLoc1294A {
     // ASM loc_1294A (kid.asm:25294-25296): Hail overlay pattern for stormy weather.
     //   loc_1294A:	; hailstorm
     //   move.w  #$27E5,d0           ; hail pattern offset
@@ -7464,8 +7462,7 @@ pub(crate) fn background_hail_overlay_loc_1294A() -> BackgroundHailOverlayLoc129
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_final_pattern_loc_12952(
+pub fn background_final_pattern_loc_12952(
     pattern_vram_offset: u16,
 ) -> BackgroundFinalPatternLoc12952 {
     // ASM loc_12952 (kid.asm:25298-25301): Final pattern decompress for mountain bg.

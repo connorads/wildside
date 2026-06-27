@@ -1348,10 +1348,22 @@ fn layered_background_enigma_base_word_loc_128ba(
         // ASM Load_BackgroundMappings_Layered loc_12910 decodes Mountain's
         // base planes with d0=$2780, then decodes the follow-up plane with
         // d0=$07E5 for clear weather or d0=$27E5 for storm/hail.
-        ("mountain", 0..=2) => 0x2780,
-        ("mountain", 3) if matches!(weather_flags, 2 | 3) => 0x27E5,
-        ("mountain", 3) => MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4,
-        ("mountain", 4) => 0x27E5,
+        ("mountain", 0..=2) => {
+            wildside_core::background_mountain_tileset_loc_12910(u16::from(weather_flags))
+                .pattern_vram_offset
+        }
+        ("mountain", 3) => {
+            let mountain =
+                wildside_core::background_mountain_tileset_loc_12910(u16::from(weather_flags));
+            let pattern_vram_offset = if mountain.needs_hail_overlay_at_1294_a {
+                wildside_core::background_hail_overlay_loc_1294A().pattern_vram_offset
+            } else {
+                MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4
+            };
+            wildside_core::background_final_pattern_loc_12952(pattern_vram_offset)
+                .pattern_vram_offset
+        }
+        ("mountain", 4) => wildside_core::background_hail_overlay_loc_1294A().pattern_vram_offset,
         // ASM loc_1295E decodes Hill planes at $2780/$2780/$07C0.
         ("hill", 0 | 1) => 0x2780,
         ("hill", 2) => HILL_ALT_TILE_VRAM_BASE_LOC_11EA2,
