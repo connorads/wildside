@@ -6026,7 +6026,6 @@ pub(crate) struct KidObjectStompPlayerWritebackLoc1D4C {
     pub(crate) branches_to_invulnerability_gate: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidObjectTypeFourCollisionLoc1D5A {
     pub(crate) stalls_forever: bool,
