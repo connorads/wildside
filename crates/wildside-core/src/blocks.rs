@@ -2575,11 +2575,21 @@ impl NativeRuntime {
             .iter()
             .filter_map(|entry| {
                 let age = u16::try_from(entry.timer).ok()?;
-                let action =
-                    *crate::level::EVANESCENT_BULLET_ACTION_TABLE_UNK_ECEC.get(usize::from(age))?;
-                if action == 0 {
+                let next_active_slot_addr = self
+                    .block_state
+                    .evanescent_slot_links
+                    .iter()
+                    .find(|slot| slot.slot_addr == entry.slot_addr)
+                    .map_or(0, |slot| slot.next_slot_addr);
+                let crate::level::EvanescentBulletActionDispatchLocED04::ProcessAction {
+                    action_byte: action,
+                } = crate::level::evanescent_bullet_action_dispatch_loc_ED04(
+                    age,
+                    next_active_slot_addr,
+                )?
+                else {
                     return None;
-                }
+                };
                 let cell = if action & 0x80 == 0 {
                     // ASM loc_EDBC: positive action bytes write
                     // `$E31C + 6(a0)`, where `6(a0)` is the direction bitfield

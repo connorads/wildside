@@ -11465,7 +11465,6 @@ pub(crate) const EVANESCENT_BULLET_ACTION_TABLE_UNK_ECEC: [u8; 24] = [
 /// dispatches to `loc_ED16`; a zero byte skips work and follows `$A(a0)` to
 /// either the next active evanescent object or `Process_ShooterObjects`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_action_dispatch_loc_ED04(
     age_before_increment: u16,
     next_active_slot_addr: u32,
