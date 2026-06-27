@@ -6071,30 +6071,89 @@ pub(crate) fn step_hopper(
                 enemy.x_velocity = 0;
                 return;
             }
-            let mut jx = hc.jump_x_speed;
-            let mut jy = hc.jump_y_speed;
-            // ASM Mini_Hopping_Skull.asm loc_3EBFC/loc_3ED36/loc_3EE7C/loc_3EFB6:
-            // enemy_level >= 1 (HP > 1) adds `$4000` to X speed and `$10000` extra
-            // upward Y speed for either facing.
-            if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && enemy.hit_points > 1 {
-                jx += 0x4000;
-                jy -= 0x1_0000;
-            }
-            enemy.x_velocity = horizontal_velocity(enemy.facing, jx);
-            enemy.y_velocity = jy;
             if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
-                let relaunch_tail = match enemy.facing {
-                    Direction::Left => mini_hopping_skull_left_hop_relaunch_tail_loc_3ed60(),
-                    Direction::Right => mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26(),
+                let boosted = enemy.hit_points > 1;
+                let (x_velocity, y_velocity, relaunch_tail) = match enemy.facing {
+                    Direction::Left => {
+                        let MiniHoppingSkullLandingLoopDecision::BeginRelaunchArc {
+                            y_velocity,
+                            x_velocity,
+                            is_moved,
+                            has_level_collision,
+                            next_loop,
+                        } = mini_hopping_skull_landing_tail_loc_3ee7c(0, boosted)
+                        else {
+                            unreachable!("zero DBF counter must fall through to loc_3EE7C relaunch")
+                        };
+                        (
+                            x_velocity,
+                            y_velocity,
+                            MiniHoppingSkullRelaunchTail {
+                                is_moved,
+                                has_level_collision,
+                                next_loop,
+                            },
+                        )
+                    }
+                    Direction::Right => {
+                        let MiniHoppingSkullLandingTailCollisionOutcome::BeginRelaunchArc {
+                            y_velocity,
+                            x_velocity,
+                            is_moved,
+                            has_level_collision,
+                            next_loop,
+                        } = mini_hopping_skull_landing_tail_collision_loc_3ef4c(
+                            0,
+                            0,
+                            false,
+                            enemy.hit_points.into(),
+                            boosted,
+                        )
+                        else {
+                            unreachable!(
+                                "zero collision and DBF counter must fall through to loc_3EFB6"
+                            )
+                        };
+                        (
+                            x_velocity,
+                            y_velocity,
+                            MiniHoppingSkullRelaunchTail {
+                                is_moved,
+                                has_level_collision,
+                                next_loop,
+                            },
+                        )
+                    }
                 };
-                // ASM Mini_Hopping_Skull.asm loc_3EC26/loc_3ED60: both
-                // grounded relaunch tails re-enable movement/collision and
-                // branch back to the loc_3EA88 airborne loop.
+                enemy.x_velocity = x_velocity;
+                enemy.y_velocity = y_velocity;
+                let relaunch_tail = match enemy.facing {
+                    Direction::Left => {
+                        debug_assert_eq!(
+                            relaunch_tail,
+                            mini_hopping_skull_left_hop_relaunch_tail_loc_3ed60()
+                        );
+                        relaunch_tail
+                    }
+                    Direction::Right => {
+                        debug_assert_eq!(
+                            relaunch_tail,
+                            mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26()
+                        );
+                        relaunch_tail
+                    }
+                };
+                // ASM Mini_Hopping_Skull.asm loc_3ED36/loc_3EE7C and
+                // loc_3EBFC/loc_3EFB6: the relaunch tail seeds direction-specific
+                // velocity, applies the HP-tier boost, reenables movement/collision,
+                // and branches back to the loc_3EA88 airborne loop.
                 debug_assert!(relaunch_tail.is_moved);
                 debug_assert!(relaunch_tail.has_level_collision);
                 debug_assert_eq!(relaunch_tail.next_loop, "loc_3EA88");
                 enemy.on_ground = !relaunch_tail.is_moved;
             } else {
+                enemy.x_velocity = horizontal_velocity(enemy.facing, hc.jump_x_speed);
+                enemy.y_velocity = hc.jump_y_speed;
                 enemy.on_ground = false;
             }
         }

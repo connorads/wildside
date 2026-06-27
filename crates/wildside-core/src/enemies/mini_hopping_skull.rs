@@ -203,7 +203,6 @@ pub(crate) enum MiniHoppingSkullLeftLandingLoopDecision {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullLandingLoopDecision {
     ContinueWait {
         next_dbf_counter: u16,
@@ -218,7 +217,6 @@ pub(crate) enum MiniHoppingSkullLandingLoopDecision {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullLandingTailCollisionOutcome {
     ContinueWait {
         next_dbf_counter: u16,
@@ -553,7 +551,6 @@ pub(crate) fn mini_hopping_skull_landing_scream_worker_allocation_loc_3eefa(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_landing_tail_loc_3ee7c(
     dbf_counter: u16,
     is_boosted: bool,
@@ -709,7 +706,6 @@ pub(crate) fn mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(
     mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_landing_collision_damage_loc_3ef1a(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
@@ -747,7 +743,6 @@ pub(crate) fn mini_hopping_skull_landing_collision_wait_loc_3ef32(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
     dbf_counter: u16,
     collision_type: u16,
