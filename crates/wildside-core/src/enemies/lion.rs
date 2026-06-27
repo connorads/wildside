@@ -1154,13 +1154,11 @@ pub(crate) fn lion_medium_load_cull_loc_3e924(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionTerrainCollisionLoc3E94E {
     pub(crate) next_collision_type: i16,
     pub(crate) resume_via_callback: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_terrain_collision_loc_3e94e() -> LionTerrainCollisionLoc3E94E {
     // ASM Lion.asm loc_3E94E: terrain contact from the charge movement probes
     // stores `$FFFF` in `collision_type(a3)`, then resumes through `jmp (a0)`.
@@ -1524,7 +1522,10 @@ fn step_lion_charge_movement_loc_3e11e(
                 // Native can transiently carry `on_ground=false` while the
                 // feet are already snapped onto the floor row; do not treat
                 // that floor edge as the body-overlap collision.
-                register_enemy_terrain_kill(enemy);
+                let collision = lion_terrain_collision_loc_3e94e();
+                if collision.next_collision_type.is_negative() && collision.resume_via_callback {
+                    register_enemy_terrain_kill(enemy);
+                }
                 enemy.shared_walker_debug_branch = Some("lion_charge_airborne_terrain_kill");
                 return;
             }
