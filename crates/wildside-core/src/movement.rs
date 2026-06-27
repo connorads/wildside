@@ -1347,7 +1347,6 @@ pub(crate) struct HiddenBlockRevealGfxLoadLocE29A {
     pub(crate) gfx_slot_addr: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealGfxInitLocE2A8 {
     pub(crate) flag_13: u8,
@@ -1360,7 +1359,6 @@ pub(crate) struct HiddenBlockRevealGfxInitLocE2A8 {
     pub(crate) x_tile_for_position: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealPositionLocE2D2 {
     pub(crate) x_pos_px: u16,
@@ -1710,7 +1708,6 @@ pub(crate) fn hidden_block_reveal_gfx_load_loc_E29A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_gfx_init_loc_E2A8(
     block_col: u16,
     block_row: u16,
@@ -1741,7 +1738,6 @@ pub(crate) fn hidden_block_reveal_gfx_init_loc_E2A8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_position_loc_E2D2(
     x_tile_for_position: u16,
     block_row: u16,

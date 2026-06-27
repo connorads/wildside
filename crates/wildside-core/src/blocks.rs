@@ -6,6 +6,7 @@ use crate::combat::{
 };
 use crate::movement::{
     hidden_block_reveal_bounce_down_loc_E2F0, hidden_block_reveal_bounce_up_loc_E2E2,
+    hidden_block_reveal_gfx_init_loc_E2A8, hidden_block_reveal_position_loc_E2D2,
 };
 
 #[allow(non_snake_case)]
@@ -3938,10 +3939,22 @@ impl NativeRuntime {
                 0xE101,
                 0x1058,
             );
+            let reveal_gfx = hidden_block_reveal_gfx_init_loc_E2A8(
+                reveal_worker.block_col,
+                reveal_worker.block_row,
+                reveal_worker.layout_word_addr,
+                reveal_worker.sprite_tile_word,
+                reveal_worker.sprite_mapping,
+                0,
+            );
+            let reveal_position = hidden_block_reveal_position_loc_E2D2(
+                reveal_gfx.x_tile_for_position,
+                reveal_gfx.block_row,
+            );
             self.queue_start_sequence(QueuedSoundEffect::HiddenBlockReveal);
             self.block_bounces.push(BlockBounceAnim {
-                cell_x: reveal_worker.block_col,
-                cell_y: reveal_worker.block_row,
+                cell_x: reveal_position.x_pos_px >> 4,
+                cell_y: reveal_position.y_pos_px >> 4,
                 remaining: hidden_block_reveal_y_deltas.len() as u8,
                 initial_duration: hidden_block_reveal_y_deltas.len() as u8,
                 kind: BlockBounceKind::HiddenReveal,
