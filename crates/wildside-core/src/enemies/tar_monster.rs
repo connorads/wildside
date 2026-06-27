@@ -1070,7 +1070,6 @@ pub(crate) fn tar_monster_init_loc_321e4(
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterChildInitLoc32200 {
     pub(crate) sprite_frame_link: u16,
     pub(crate) object_meta: u16,
@@ -1083,7 +1082,6 @@ pub(crate) struct TarMonsterChildInitLoc32200 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_child_init_loc_32200(
     parent_init: TarMonsterInitLoc321E4,
     sprite_frame_link: u16,

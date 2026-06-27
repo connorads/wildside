@@ -3233,6 +3233,14 @@ fn activate_enemies_with_rng_inner(
             if let Some(init) = tar_monster_init {
                 debug_assert_eq!(init.priority, 0);
                 debug_assert_eq!(init.object_meta, u16::from(family.object_type()));
+                let child = tar_monster_child_init_loc_32200(init, 0);
+                debug_assert_eq!(child.object_meta, u16::from(family.object_type()));
+                debug_assert_eq!(child.priority, 0);
+                debug_assert_eq!(child.x_pos, head_x);
+                debug_assert_eq!(child.y_pos, head_y);
+                debug_assert!(child.status_flag_13);
+                debug_assert_eq!(child.animation_phase, 2);
+                debug_assert_eq!(child.vram_tile, 0x0100);
             }
             if let Some(init) = orca_init {
                 debug_assert!(init.status_flag_13);
