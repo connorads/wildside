@@ -11282,7 +11282,6 @@ pub(crate) fn evanescent_bullet_cell_scan_loc_EB62(
 /// `$2/$4(a0)` to centred pixel coordinates via `lsl #4; addq #8`, then hands
 /// `$6(a0)` direction bits to the bullet allocation loop.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_load_candidate_loc_EC52(
     layout_word_addr: u16,
     block_col: u16,

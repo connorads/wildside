@@ -3460,14 +3460,14 @@ pub(crate) struct EnemyProjectile {
 
 impl EnemyProjectile {
     #[allow(non_snake_case)]
-    pub(crate) fn shooter_block_loc_EC76(
+    pub(crate) fn shooter_block_from_centre_loc_EC76(
         source_col: u16,
         source_row: u16,
+        centre_x: u32,
+        centre_y: u32,
         x_velocity: i32,
         y_velocity: i32,
     ) -> Self {
-        let centre_x = u32::from(source_col) * 16 + 8;
-        let centre_y = u32::from(source_row) * 16 + 8;
         Self {
             x_pos: centre_x << 16,
             y_pos: centre_y << 16,

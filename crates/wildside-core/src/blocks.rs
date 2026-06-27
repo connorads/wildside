@@ -2775,20 +2775,39 @@ impl NativeRuntime {
         let skin_offset =
             u8::try_from(EVANESCENT_SKIN_OFFSET).expect("evanescent skin offset fits in u8");
         let directions = skin.wrapping_sub(skin_offset);
+        let layout_word_addr = self.block_grid.as_ref().map_or(0, |grid| {
+            terrain::BlockList::level_layout_low_word_addr(col, row, grid.width_cells)
+        });
+        let Some(candidate) = crate::level::evanescent_bullet_load_candidate_loc_EC52(
+            layout_word_addr,
+            col,
+            row,
+            u16::from(directions),
+            0,
+        ) else {
+            return;
+        };
         let speed = Self::SHOOTER_PROJECTILE_SPEED;
         let first_new_projectile = self.projectiles.len();
         for (mask, xv, yv) in [
-            (0x08, -speed, 0),
-            (0x04, 0, speed),
-            (0x02, speed, 0),
-            (0x01, 0, -speed),
+            (0x08_u16, -speed, 0),
+            (0x04_u16, 0, speed),
+            (0x02_u16, speed, 0),
+            (0x01_u16, 0, -speed),
         ] {
-            if directions & mask != 0 {
+            if candidate.direction_bits & mask != 0 {
                 // ASM loc_EC76 allocates through the same shooter-object free
                 // list as visible shooter blocks, with `(a3)` pointing at this
                 // source layout word and `$8(a3)=#$FFFE`.
                 self.projectiles
-                    .push(EnemyProjectile::shooter_block_loc_EC76(col, row, xv, yv));
+                    .push(EnemyProjectile::shooter_block_from_centre_loc_EC76(
+                        col,
+                        row,
+                        u32::from(candidate.block_x_px),
+                        u32::from(candidate.block_y_px),
+                        xv,
+                        yv,
+                    ));
             }
         }
         // ASM LoadBulletsFromEvanescentBlock falls straight through to

@@ -23200,7 +23200,14 @@ mod chunk_05 {
         runtime.projectiles.clear();
         runtime
             .projectiles
-            .push(EnemyProjectile::shooter_block_loc_EC76(2, 3, 4 << 16, 0));
+            .push(EnemyProjectile::shooter_block_from_centre_loc_EC76(
+                2,
+                3,
+                40,
+                56,
+                4 << 16,
+                0,
+            ));
 
         // Past the old lifetime:120 cap, with no wall in range, the bullet must
         // still be live and advancing toward the distant block.
