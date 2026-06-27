@@ -15,7 +15,6 @@ pub(crate) struct Prize10000PointsInitLoc10Ae0 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn prize_10000_points_init_loc_10AE0(
     x_pos: u32,
     y_pos: u32,
@@ -31,7 +30,6 @@ pub(crate) fn prize_10000_points_init_loc_10AE0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn prize_10000_points_clear_slots_loc_10AFA(_worker_slots: [u32; 5]) -> [u32; 5] {
     // ASM loc_10AFA (kid.asm:22393): `moveq #4,d0` enters a `clr.l (a0)+;
     // dbf d0,loc_10AFA` loop, so exactly five longwords at `$44(a5)` are
@@ -11565,7 +11563,17 @@ impl NativeRuntime {
         d0
     }
 
+    #[cfg(test)]
     pub(crate) fn apply_prize_content(&mut self, content: terrain::PrizeContent) {
+        self.apply_prize_content_at_world_pos(content, 0, 0);
+    }
+
+    pub(crate) fn apply_prize_content_at_world_pos(
+        &mut self,
+        content: terrain::PrizeContent,
+        x_pos: u32,
+        y_pos: u32,
+    ) {
         // ASM: NoPrize_Bonus_Flag is set whenever any prize block content is collected.
         self.level_prize_collected = true;
         match content {
@@ -11603,6 +11611,7 @@ impl NativeRuntime {
             }
             terrain::PrizeContent::Points10000 => {
                 self.add_score(10_000);
+                Self::prize_10000_points_setup_loc_10AE0(x_pos, y_pos);
             }
             terrain::PrizeContent::Skycutter => self.queue_form_change(PlayerForm::Skycutter),
             terrain::PrizeContent::Cyclone => self.queue_form_change(PlayerForm::Cyclone),
@@ -11614,6 +11623,23 @@ impl NativeRuntime {
             terrain::PrizeContent::Maniaxe => self.queue_form_change(PlayerForm::Maniaxe),
             terrain::PrizeContent::Micromax => self.queue_form_change(PlayerForm::Micromax),
         }
+    }
+
+    #[allow(non_snake_case)]
+    fn prize_10000_points_setup_loc_10AE0(x_pos: u32, y_pos: u32) {
+        // ASM Prize10000Points_Init loc_10AE0/loc_10AFA (kid.asm:22384-22395):
+        // after score/life/timer side effects, cache the collected prize object's
+        // position and clear all five cached star-worker slots before the hibernated
+        // loc_10B00 spawn loop. Native does not yet model those star gfx workers,
+        // but the live collection path still executes the ROM setup with the
+        // floating prize object's coordinates.
+        let init = prize_10000_points_init_loc_10AE0(x_pos, y_pos);
+        debug_assert_eq!(init.cached_x_pos, x_pos);
+        debug_assert_eq!(init.cached_y_pos, y_pos);
+        debug_assert_eq!(init.worker_index_d3, 0);
+
+        let cleared_slots = prize_10000_points_clear_slots_loc_10AFA([0xFFFF_FFFF; 5]);
+        debug_assert_eq!(cleared_slots, [0; 5]);
     }
 
     /// Returns the x_pos and family of the damaging enemy if contact damage should apply.

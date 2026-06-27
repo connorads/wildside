@@ -4143,6 +4143,8 @@ impl NativeRuntime {
                         item.content,
                         item.level_col,
                         item.level_row,
+                        item.x_pos,
+                        item.y_pos.clamp(0, i64::from(u32::MAX)) as u32,
                         screen_x_fp.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
                         screen_y_fp.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32,
                     ));
@@ -4153,7 +4155,9 @@ impl NativeRuntime {
             self.queue_prize_diamond_award_at_screen_offset(screen_x_fp, screen_y_fp);
         }
         let layout_width = self.block_grid.as_ref().map(|grid| grid.width_cells);
-        for (content, level_col, level_row, screen_x_fp, screen_y_fp) in collected_contents {
+        for (content, level_col, level_row, x_pos, y_pos, screen_x_fp, screen_y_fp) in
+            collected_contents
+        {
             let layout_addr = layout_width.map(|layout_width| {
                 terrain::BlockList::level_layout_low_word_addr(level_col, level_row, layout_width)
             });
@@ -4163,7 +4167,7 @@ impl NativeRuntime {
             if resolved_content == terrain::PrizeContent::Diamond {
                 self.queue_prize_diamond_award_at_screen_offset(screen_x_fp, screen_y_fp);
             } else {
-                self.apply_prize_content(resolved_content);
+                self.apply_prize_content_at_world_pos(resolved_content, x_pos, y_pos);
             }
         }
     }
