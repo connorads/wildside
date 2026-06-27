@@ -7312,13 +7312,21 @@ pub(crate) fn background_mappings_terminator_loc_12842() -> bool {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundChunkCopyLoc12884 {
-    pub(crate) tiles_copied: usize,
+pub struct BackgroundChunkCopiedTileLoc12884 {
+    pub source_index: usize,
+    pub target_row: usize,
+    pub target_column: usize,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_chunk_row_loop_loc_12884(
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BackgroundChunkCopyLoc12884 {
+    pub tiles_copied: usize,
+    pub copied_tiles: Vec<BackgroundChunkCopiedTileLoc12884>,
+}
+
+#[allow(non_snake_case)]
+pub fn background_chunk_row_loop_loc_12884(
     chunk_width: u16,
     chunk_height: u16,
     start_x: i16,
@@ -7335,7 +7343,7 @@ pub(crate) fn background_chunk_row_loop_loc_12884(
     // Falls through to loc_1288A for inner column loop.
     // `d3` remains the outer row counter loaded from the chunk header at loc_1285C.
     // Each row: copy `chunk_width` tiles with bounds checking, advance to next row.
-    let mut tiles_copied = 0usize;
+    let mut copied_tiles = Vec::new();
     let mut tile_index = 0usize;
     for y_offset in 0..chunk_height {
         let y = start_y + y_offset as i16;
@@ -7361,12 +7369,19 @@ pub(crate) fn background_chunk_row_loop_loc_12884(
             //   dbf     d4,loc_1288A    ; inner loop
             let x = start_x + x_offset as i16;
             if x >= 0 && (x as u16) < background_width && y >= 0 && (y as u16) < background_height {
-                tiles_copied += 1;
+                copied_tiles.push(BackgroundChunkCopiedTileLoc12884 {
+                    source_index: tile_index,
+                    target_row: usize::from(y as u16),
+                    target_column: usize::from(x as u16),
+                });
             }
             tile_index += 1;
         }
     }
-    BackgroundChunkCopyLoc12884 { tiles_copied }
+    BackgroundChunkCopyLoc12884 {
+        tiles_copied: copied_tiles.len(),
+        copied_tiles,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

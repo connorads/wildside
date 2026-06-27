@@ -60,6 +60,7 @@ pub use combat::{
     speed_bonus_threshold_loc_d660, time_bonus_loc_d56e,
 };
 pub use level::{
+    BackgroundChunkCopiedTileLoc12884, BackgroundChunkCopyLoc12884,
     BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollThemeDispatchLoc30598,
     EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE, EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
     EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE,
@@ -68,8 +69,8 @@ pub use level::{
     EOL_SCORE_ROWS_START_FIXED_FRAMES_LOC_D468,
     EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE, EolScoreCounterSnapshotLocD770,
     FlagpoleScoreboardRevealTileLocC21E, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
-    TransferScrollDataStormLoc30110, background_dimensions_loc_11B40,
-    background_row_pointers_loc_11B7A,
+    TransferScrollDataStormLoc30110, background_chunk_row_loop_loc_12884,
+    background_dimensions_loc_11B40, background_row_pointers_loc_11B7A,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_theme_dispatch_loc_30598, eol_score_counter_snapshot_loc_D770,
     eol_score_counter_transfer_frames_from_trace_loc_D770,

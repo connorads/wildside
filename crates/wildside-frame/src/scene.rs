@@ -2558,32 +2558,45 @@ impl ChunkedBackgroundSourceLoc12848 {
             // clips each copied byte against `Background_width/height`.
             let placement_x = i32::from(placement.x_tiles).saturating_sub(x_offset_tiles);
             let placement_y = i32::from(placement.y_tiles).saturating_sub(y_offset_tiles);
-            for row in 0..chunk.height_tiles {
-                let target_row = placement_y.saturating_add(i32::from(row));
-                let Ok(target_row) = usize::try_from(target_row) else {
+            let Ok(placement_x) = i16::try_from(placement_x) else {
+                continue;
+            };
+            let Ok(placement_y) = i16::try_from(placement_y) else {
+                continue;
+            };
+            let Ok(background_width) = u16::try_from(width) else {
+                continue;
+            };
+            let Ok(background_height) = u16::try_from(height) else {
+                continue;
+            };
+            let chunk_bytes = chunk
+                .tiles
+                .iter()
+                .map(|tile| {
+                    u8::try_from(tile.tile_index & 0x007F).unwrap_or(0)
+                        | if tile.flip_x { 0x80 } else { 0 }
+                })
+                .collect::<Vec<_>>();
+            let copy = wildside_core::background_chunk_row_loop_loc_12884(
+                chunk.width_tiles,
+                chunk.height_tiles,
+                placement_x,
+                placement_y,
+                background_width,
+                background_height,
+                &chunk_bytes,
+            );
+            for copied_tile in copy.copied_tiles {
+                let Some(background_tile) = chunk.tiles.get(copied_tile.source_index) else {
                     continue;
                 };
-                if target_row >= height {
-                    continue;
-                }
-                for column in 0..chunk.width_tiles {
-                    let target_column = placement_x.saturating_add(i32::from(column));
-                    let Ok(target_column) = usize::try_from(target_column) else {
-                        continue;
-                    };
-                    if target_column >= width {
-                        continue;
-                    }
-                    let chunk_index =
-                        usize::from(row) * usize::from(chunk.width_tiles) + usize::from(column);
-                    let Some(background_tile) = chunk.tiles.get(chunk_index) else {
-                        continue;
-                    };
-                    // ASM Load_BackgroundChunk loc_12848 copies chunk bytes into
-                    // `$FFFF87B2` after clipping against `Background_width` and
-                    // `Background_height`. Bit 7 of the byte becomes the VDP
-                    // horizontal-flip bit when sub_30744/sub_307D8 add `$2780`.
-                    cells[target_row * width + target_column] = Some(ChunkedPlaneBCellLoc307D8 {
+                // ASM Load_BackgroundChunk loc_12848 copies chunk bytes into
+                // `$FFFF87B2` after clipping against `Background_width` and
+                // `Background_height`. Bit 7 of the byte becomes the VDP
+                // horizontal-flip bit when sub_30744/sub_307D8 add `$2780`.
+                cells[copied_tile.target_row * width + copied_tile.target_column] =
+                    Some(ChunkedPlaneBCellLoc307D8 {
                         tile_ref: TileRef {
                             tile_index: background_tile.tile_index & 0x007F,
                             palette_line,
@@ -2591,10 +2604,9 @@ impl ChunkedBackgroundSourceLoc12848 {
                             flip_x: background_tile.flip_x,
                             flip_y: false,
                         },
-                        background_row_index: target_row,
-                        background_column: target_column,
+                        background_row_index: copied_tile.target_row,
+                        background_column: copied_tile.target_column,
                     });
-                }
             }
         }
 

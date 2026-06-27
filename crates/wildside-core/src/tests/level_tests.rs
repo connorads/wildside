@@ -29147,6 +29147,15 @@ mod chunk_10 {
             partial_left_top.tiles_copied, 1,
             "ASM loc_1288A: only the bottom-right tile should be in bounds"
         );
+        assert_eq!(
+            partial_left_top.copied_tiles,
+            vec![crate::BackgroundChunkCopiedTileLoc12884 {
+                source_index: 3,
+                target_row: 0,
+                target_column: 0,
+            }],
+            "ASM loc_128A0 advances the source pointer for skipped cells before copying the bottom-right tile"
+        );
 
         // 2x2 chunk partially outside right/bottom of background
         let partial_right_bottom = crate::level::background_chunk_row_loop_loc_12884(
@@ -29205,6 +29214,14 @@ mod chunk_10 {
         assert_eq!(
             rectangular.tiles_copied, 6,
             "ASM loc_1285C loads chunk height into d3, so loc_12884 must copy three rows for a 2x3 chunk"
+        );
+        assert_eq!(
+            rectangular
+                .copied_tiles
+                .last()
+                .map(|tile| tile.source_index),
+            Some(5),
+            "ASM loc_1288A copies from the final byte of the rectangular third row"
         );
     }
 
