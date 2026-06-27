@@ -5715,7 +5715,6 @@ pub(crate) struct BlockType3WriteEntryLoc124BE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_3_write_entry_loc_124be(
     priority_raw: u16,
 ) -> BlockType3WriteEntryLoc124BE {
@@ -5769,11 +5768,7 @@ pub(crate) fn block_type_3_hidden_block_entry_loc_124e8(
     //   move.b 7(a1),(a5)+      ; write low byte of stride field
     //   addq.w #1,($FFFFF8D8).w ; increment hidden block count
     // The 16-byte entry layout matches the multiplier in hidden_block_list_guard_loc_11CCA.
-    let priority = if entry.priority == 0 || entry.priority == 3 {
-        entry.priority
-    } else {
-        entry.priority | 0x8000
-    };
+    let priority = block_type_3_write_entry_loc_124be(entry.priority).priority;
     BlockType3HiddenBlockEntryLoc124E8 {
         priority,
         attr2: entry.attr2,
