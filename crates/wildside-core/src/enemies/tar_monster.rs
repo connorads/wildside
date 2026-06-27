@@ -33,7 +33,6 @@ pub(crate) const TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8: [(i32, i32); 5] = 
 /// Raw control script bytes used by `unk_32264` in `loc_32248`.
 /// Bytecode pairs are read with `move.w (a0)+,d0`, so each table entry is a signed
 /// 16-bit step command in the native script interpreter.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const TAR_MONSTER_CONTROL_BYTES_LOC_32248: [u8; 44] = [
     0x00, 0x04, 0x00, 0x10, 0x5A, 0x00, 0x00, 0x10, 0x05, 0x00, 0x00, 0x10, 0x0A, 0x00, 0x00, 0x10,
     0x07, 0x00, 0x00, 0x10, 0x32, 0x00, 0x00, 0x10, 0x00, 0x0A, 0x00, 0x00, 0x08, 0x46, 0x00, 0x00,
@@ -41,7 +40,6 @@ pub(crate) const TAR_MONSTER_CONTROL_BYTES_LOC_32248: [u8; 44] = [
 ];
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterLoc32290Target {
     /// `off_32290[0]`: jump to `loc_322A8`.
     Loc322A8,
@@ -60,7 +58,6 @@ pub(crate) enum TarMonsterLoc32290Target {
 }
 
 /// ASM `off_32290` jump table for `loc_32256`/`loc_3231C` dispatch.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const TAR_MONSTER_LOC_32290_TABLE: [TarMonsterLoc32290Target; 6] = [
     TarMonsterLoc32290Target::Loc322A8,
     TarMonsterLoc32290Target::Loc322BC,
@@ -78,7 +75,6 @@ pub(crate) enum TarMonsterLoc32256Route {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterLoc3224EReturn {
     pub(crate) collision_type: u16,
     pub(crate) jump_table: &'static [TarMonsterLoc32290Target; 6],
@@ -394,14 +390,12 @@ pub(crate) struct TarMonsterCollisionDispatchLoc32386 {
     pub(crate) clears_kid_x_velocity: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_32248() -> &'static [u8] {
     // ASM loc_32248: `lea (unk_32264).l,a0` loads this control script pointer.
     &TAR_MONSTER_CONTROL_BYTES_LOC_32248
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_3224e() -> TarMonsterLoc3224EReturn {
     // ASM loc_3224E: clear `collision_type(a3)` and preload `off_32290` into `a1`.
     TarMonsterLoc3224EReturn {
@@ -1127,6 +1121,12 @@ pub(crate) fn step_tar_monster_with_sounds(
     projectiles: &mut Vec<EnemyProjectile>,
     played_sound_effects: &mut Vec<QueuedSoundEffect>,
 ) {
+    let script = tar_monster_loc_32248();
+    let reset = tar_monster_loc_3224e();
+    debug_assert_eq!(script, TAR_MONSTER_CONTROL_BYTES_LOC_32248.as_slice());
+    debug_assert_eq!(reset.collision_type, 0);
+    debug_assert_eq!(reset.jump_table, &TAR_MONSTER_LOC_32290_TABLE);
+
     if enemy.wait_timer > 0 {
         // Check if we need to fire during attack sequence
         if enemy.tar_monster_state == TarMonsterState::Attacking {
