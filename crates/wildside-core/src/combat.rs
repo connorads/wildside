@@ -10266,6 +10266,14 @@ impl NativeRuntime {
         } else {
             None
         };
+        let ufo_status_action =
+            if matches!(family, EnemyFamily::UFO) && enemy.death_animation_active {
+                // ASM UFO.asm loc_351B6 waits for `stru_34CA0`, then the
+                // linked-object cleanup tail reaches loc_352B2's status update.
+                Some(ufo_linked_cleanup_status_loc_352b2(layout_index as u8))
+            } else {
+                None
+            };
         let mini_hopping_skull_status_action = if matches!(family, EnemyFamily::MiniHoppingSkull) {
             let delete_tail = mini_hopping_skull_delete_tail_loc_3f32e(
                 self.active_enemies.len() as u16,
@@ -10453,6 +10461,9 @@ impl NativeRuntime {
         if let Some(status_action) = lion_status_action {
             self.apply_deactivation_status_action_loc_3C4C0(status_action);
         }
+        if let Some(status_action) = ufo_status_action {
+            self.apply_deactivation_status_action_loc_3C4C0(status_action);
+        }
         if let Some(status_action) = mini_hopping_skull_status_action {
             self.apply_deactivation_status_action_loc_3C4C0(status_action);
         }
@@ -10471,7 +10482,8 @@ impl NativeRuntime {
         if let Some(status_action) = orca_status_action {
             self.apply_deactivation_status_action_loc_3C4C0(status_action);
         }
-        // ASM Lion.asm loc_3E956, Mini_Hopping_Skull.asm loc_3F32E, and
+        // ASM Lion.asm loc_3E956, UFO.asm loc_352B2,
+        // Mini_Hopping_Skull.asm loc_3F32E, and
         // Dragon.asm loc_3CEFC / Goat.asm loc_3CB64 / Ninja.asm loc_3DB4E
         // / Armadillo.asm loc_3C886 / Orca.asm loc_3D268 + loc_3D4BC ->
         // loc_3E956 update EnemyStatus_Table and delete the object after

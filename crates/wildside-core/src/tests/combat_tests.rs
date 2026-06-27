@@ -14475,6 +14475,10 @@ mod chunk_03 {
             "ASM UFO.asm loc_351B6 reaches the delete tail only after the parent animation finishes"
         );
         assert_eq!(
+            runtime.enemy_status_words[15], 0,
+            "ASM UFO.asm loc_352B2 must not update EnemyStatus_Table until the death animation finishes"
+        );
+        assert_eq!(
             runtime.active_enemy_roster[0].wait_timer,
             Some(UFO_DEATH_ANIMATION_FRAMES)
         );
@@ -14491,6 +14495,10 @@ mod chunk_03 {
             !runtime.killed_enemies.contains(&killed_identity),
             "ASM UFO.asm loc_351B6 must not reach the delete tail before `$19(a3)` is set"
         );
+        assert_eq!(
+            runtime.enemy_status_words[15], 0,
+            "ASM UFO.asm loc_351B6 keeps hibernating before the loc_352B2 status tail"
+        );
 
         runtime.active_enemies[0].wait_timer = 0;
         runtime.remove_dead_enemy(0);
@@ -14499,6 +14507,10 @@ mod chunk_03 {
         assert!(
             runtime.killed_enemies.contains(&killed_identity),
             "ASM UFO.asm loc_351B6 delete tail should mark the layout killed after `stru_34CA0` finishes"
+        );
+        assert_eq!(
+            runtime.enemy_status_words[15], 0x2168,
+            "ASM UFO.asm loc_352B2/loc_352D2 writes the respawn marker into EnemyStatus_Table after `stru_34CA0` finishes"
         );
     }
 

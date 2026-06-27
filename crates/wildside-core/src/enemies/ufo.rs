@@ -1778,7 +1778,6 @@ pub(crate) fn ufo_linked_cleanup_shooting_loc_352a6(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_cleanup_status_loc_352b2(
     object_status_slot: u8,
 ) -> DeactivationStatusActionLoc3C4C0 {
