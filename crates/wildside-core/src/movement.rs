@@ -1394,7 +1394,6 @@ pub(crate) struct HiddenBlockJumpSnapLocE1FE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_jump_window_sub_DFB0(
     form: PlayerForm,
     facing: Direction,
@@ -1825,7 +1824,6 @@ pub(crate) fn hidden_block_reveal_cleanup_loc_E376(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_jump_snap_loc_E1FE(
     block_row_base_px: u16,
     d6: u16,
@@ -1850,7 +1848,6 @@ pub(crate) fn hidden_block_jump_snap_loc_E1FE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_jump_hitbox_top_loc_E236(
     top_candidate_px: u16,
     current_helmet_id: u16,
@@ -6466,6 +6463,7 @@ impl OpeningSliceState {
         }
 
         if probe.hit {
+            let mut hidden_block_jump_snap = None;
             if probe.cell.collision == terrain::CollisionKind::Spikes {
                 // ASM loc_91A6: a `$7000` ceiling cell writes
                 // `colid_kidbelow` ($28) before falling through to the normal
@@ -6490,6 +6488,21 @@ impl OpeningSliceState {
             if !deferred_prize_ceiling_cell
                 && probe.cell.collision == terrain::CollisionKind::HiddenBlock
             {
+                let hidden_block_window =
+                    hidden_block_jump_window_sub_DFB0(form, self.player.facing);
+                let snap = hidden_block_jump_snap_loc_E1FE(
+                    hidden_block_window.vertical_reach_px,
+                    probe.cell_y,
+                );
+                let kid_hitbox_top =
+                    hidden_block_jump_hitbox_top_loc_E236(snap.top_candidate_px, form.helmet_id());
+                debug_assert_eq!(
+                    i32::from(snap.kid_hitbox_bottom_px.wrapping_sub(kid_hitbox_top)),
+                    collision_height,
+                    "ASM loc_E1FE/loc_E236 hidden-block jump snap should match the active form height",
+                );
+                hidden_block_jump_snap = Some(snap);
+
                 let layout_addr = ((u32::from(probe.cell_y) * u32::from(grid.width_cells))
                     + u32::from(probe.cell_x))
                     * 2;
@@ -6773,11 +6786,21 @@ impl OpeningSliceState {
             }
 
             // Push feet down so head clears the ceiling: feet = ceiling_bottom + height
-            let new_y = probe.ceiling_y_px + collision_height;
-            self.player.y_pos = (new_y.max(0) as u32) << 16;
+            self.player.y_pos = if let Some(snap) = hidden_block_jump_snap {
+                // ASM sub_DFB0 -> loc_E1FE (kid.asm:17317,17635):
+                // hidden-block jumps use the `unk_E246` vertical reach rather
+                // than the generic ceiling probe's derived height, then clear
+                // the sub-pixel word by writing an integer `y_pos(a3)`.
+                u32::from(snap.y_pos_px) << 16
+            } else {
+                let new_y = probe.ceiling_y_px + collision_height;
+                (new_y.max(0) as u32) << 16
+            };
             // ASM sub_902A ceiling path (loc_908C): clr.l y_vel(a3) then
             // clr.w $20(a3) (zero sub-pixel). y_pos is already pixel-aligned
             // from the << 16 above (sub-pixel zeroed).
+            // ASM sub_DFB0 -> loc_E1FE reaches the same vertical-motion clear
+            // after the hidden-block reveal worker is queued.
             // ASM loc_BB74 (kid.asm:15089): sub_BB54 cleanup also clears
             // y_vel — `movem.w (sp)+,d0-d3; clr.l y_vel(a3); rts`.
             //
