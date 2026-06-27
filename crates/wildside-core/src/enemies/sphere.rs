@@ -51,6 +51,7 @@ pub(crate) fn sphere_delete_tail_loc_36096() -> SphereDeleteTailLoc36096 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum SphereChildLoopStepLoc360F4 {
     Delete,
     CheckCollision,
@@ -58,7 +59,7 @@ pub(crate) enum SphereChildLoopStepLoc360F4 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn sphere_child_loop_step_loc_360F4(
     delete_flag_set: bool,
     frames_until_collision_check: u16,
@@ -78,12 +79,13 @@ pub(crate) fn sphere_child_loop_step_loc_360F4(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum SphereCollisionGateLoc36106 {
     Delete,
     ContinueLoop,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn sphere_collision_gate_loc_36106(collision_type: u16) -> SphereCollisionGateLoc36106 {
     // ASM Sphere.asm loc_36106: after the d0 grace counter expires, a non-zero
     // `collision_type(a3)` exits the child object; zero resumes the wait loop.
@@ -95,12 +97,13 @@ pub(crate) fn sphere_collision_gate_loc_36106(collision_type: u16) -> SphereColl
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct SphereChildDeleteTailLoc3610E {
     pub(crate) deletes_current_object: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn sphere_child_delete_tail_loc_3610E() -> SphereChildDeleteTailLoc3610E {
     // ASM Sphere.asm loc_3610E: both the `$19(a3)` flag route and non-zero
     // collision route end at the direct `j_Delete_CurrentObject` tail.
