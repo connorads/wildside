@@ -6,14 +6,18 @@ use super::{
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
 use crate::combat::{
-    QueuedSoundEffect, boomerang_boss_head_1_init_loc_37F30, boomerang_boss_head_2_init_loc_38012,
+    QueuedSoundEffect, boomerang_boss_head_1_activation_loc_37F94,
+    boomerang_boss_head_1_init_loc_37F30, boomerang_boss_head_2_activation_window_loc_38076,
+    boomerang_boss_head_2_init_loc_38012, boomerang_boss_head_3_activation_window_loc_38158,
     boomerang_boss_head_3_init_loc_380F4, boss_death_burst_init_sub_370D2,
     boss_eye_counter_orbit_placement_sub_39420, boss_eye_orbit_placement_sub_393C8,
     boss_head_death_anim_sequence_loc_39EE2, boss_head_death_spin_loop_loc_39F7A,
     boss_head_movement_step_for_family_sub_39846, boss_head_projectile_spawn_sub_397E4,
     heady_metal_palette_cycle_sub_379E8, heady_metal_spawn_animation_loc_3761E,
-    heady_metal_tracking_velocity_loc_37582, shishka_bagel_head_1_init_loc_39478,
-    shishka_bagel_head_2_init_loc_39598, shishka_bagel_head_3_init_loc_396BE,
+    heady_metal_tracking_velocity_loc_37582, shishka_bagel_head_1_activation_window_loc_39506,
+    shishka_bagel_head_1_init_loc_39478, shishka_bagel_head_2_activation_window_loc_3962C,
+    shishka_bagel_head_2_init_loc_39598, shishka_bagel_head_3_activation_window_loc_39752,
+    shishka_bagel_head_3_init_loc_396BE,
 };
 use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
 
@@ -8441,25 +8445,49 @@ pub(crate) fn step_boss_fire_with_sounds(
         let Some(player_y_pos) = player_y_pos else {
             return;
         };
-        let head_y = ((enemy.y_pos >> 16) as u16) as i16;
-        let kid_y = ((player_y_pos >> 16) as u16) as i16;
-        let lower_y = head_y.wrapping_sub(0x0040_i16);
-        if kid_y < lower_y || kid_y > head_y {
-            // ASM loc_39506/loc_37F94: outside `head_y-$40..=head_y`,
-            // branch back to the wait loop without starting the attack timer.
+        let head_x = (enemy.x_pos >> 16) as u16;
+        let head_y = (enemy.y_pos >> 16) as u16;
+        let kid_x = (player_x_pos.unwrap_or(enemy.x_pos) >> 16) as u16;
+        let kid_y = (player_y_pos >> 16) as u16;
+        let x_direction = match (enemy.family, enemy.boss_head_index) {
+            (EnemyFamily::BoomerangBosses, 0) => {
+                boomerang_boss_head_1_activation_loc_37F94(kid_x, kid_y, head_x, head_y).x_direction
+            }
+            (EnemyFamily::BoomerangBosses, 1) => {
+                boomerang_boss_head_2_activation_window_loc_38076(kid_x, kid_y, head_x, head_y)
+                    .x_direction
+            }
+            (EnemyFamily::BoomerangBosses, _) => {
+                boomerang_boss_head_3_activation_window_loc_38158(kid_x, kid_y, head_x, head_y)
+                    .x_direction
+            }
+            (_, 0) => {
+                shishka_bagel_head_1_activation_window_loc_39506(kid_x, kid_y, head_x, head_y)
+                    .x_direction
+            }
+            (_, 1) => {
+                shishka_bagel_head_2_activation_window_loc_3962C(kid_x, kid_y, head_x, head_y)
+                    .x_direction
+            }
+            _ => {
+                shishka_bagel_head_3_activation_window_loc_39752(kid_x, kid_y, head_x, head_y)
+                    .x_direction
+            }
+        };
+        let Some(x_direction) = x_direction else {
             return;
-        }
+        };
         if !attack_windup_remaining {
-            let head_x = ((enemy.x_pos >> 16) as u16) as i16;
-            let kid_x = ((player_x_pos.unwrap_or(enemy.x_pos) >> 16) as u16) as i16;
-            enemy.facing = if head_x > kid_x {
+            // ASM loc_39534/loc_37FC2: `x_direction=0` faces left for these
+            // boss-head sprites; `$FF` is the flipped/right path.
+            enemy.facing = if x_direction == 0 {
                 Direction::Left
             } else {
                 Direction::Right
             };
-            // ASM loc_39534/loc_37FC2 sets `x_direction(a3)`, then
-            // loc_39538/loc_37FC6 caches it to `$FFFFFB86/87/88` and starts
-            // `stru_39FC6`; native carries that cached byte as `enemy.facing`.
+            // ASM loc_39538/loc_37FC6 caches the selected byte to
+            // `$FFFFFB86/87/88` and starts `stru_39FC6`; native carries that
+            // cached byte as `enemy.facing`.
             enemy.wait_timer = BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538;
             return;
         }

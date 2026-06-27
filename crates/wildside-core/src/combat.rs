@@ -3379,7 +3379,6 @@ pub(crate) fn shishka_bagel_head_2_wait_loop_loc_3960E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_2_activation_window_loc_3962C(
     kid_x: u16,
     kid_y: u16,
@@ -3607,7 +3606,6 @@ pub(crate) fn shishka_bagel_head_3_wait_loop_loc_39734(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_3_activation_window_loc_39752(
     kid_x: u16,
     kid_y: u16,
@@ -3767,7 +3765,6 @@ pub(crate) fn shishka_bagel_head_1_wait_loop_loc_394E8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_1_activation_window_loc_39506(
     kid_x: u16,
     kid_y: u16,
@@ -3940,7 +3937,6 @@ pub(crate) fn boomerang_boss_head_1_wait_loop_loc_37F80(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_activation_loc_37F94(
     kid_x: u16,
     kid_y: u16,
@@ -4138,7 +4134,6 @@ pub(crate) fn boomerang_boss_head_3_wait_loop_loc_38144(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_activation_window_loc_38158(
     kid_x: u16,
     kid_y: u16,
@@ -6121,7 +6116,6 @@ pub(crate) fn boomerang_boss_head_2_wait_loop_loc_38062(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_activation_window_loc_38076(
     kid_x: u16,
     kid_y: u16,
