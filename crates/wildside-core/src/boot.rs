@@ -1154,6 +1154,10 @@ pub(crate) fn hide_pause_menu_overwritten_sprites_sub_6874(
 /// iteration, copying uncompressed tile art to VDP data port.
 pub(crate) const PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C: u32 = 8 * 4;
 
+/// ASM ArtUnc_PauseMenu (kid.asm:6569): uncompressed pause-menu art has `$19`
+/// 32-byte copy iterations before the tile bytes.
+pub(crate) const PAUSE_MENU_ART_HEADER_WORD_LOC_690C: u16 = 0x19;
+
 /// Compute the total byte count for the pause menu uncompressed art DMA.
 ///
 /// ASM kid.asm:6617-6631: reads a word count from the art header
@@ -1161,7 +1165,6 @@ pub(crate) const PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C: u32 = 8 * 4;
 /// `header_word` iterations of 32 bytes each to VRAM starting at `$CEC0`
 /// (tile index `$676 × $20`).
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_art_total_bytes_loc_690C(header_word: u16) -> u32 {
     // loc_690C inner loop: 8 longwords (32 bytes) per iteration, `header_word`
     // iterations total (dbf with initial `subq #1` means count = header_word).

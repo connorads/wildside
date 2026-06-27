@@ -1093,6 +1093,12 @@ mod chunk_01 {
         assert_eq!(pause_menu_art_total_bytes_loc_690C(4), 128);
         // header_word=0 means zero iterations (dbf with d0=-1 exits immediately).
         assert_eq!(pause_menu_art_total_bytes_loc_690C(0), 0);
+        // ASM ArtUnc_PauseMenu (kid.asm:6569): dc.w $19.
+        assert_eq!(PAUSE_MENU_ART_HEADER_WORD_LOC_690C, 0x19);
+        assert_eq!(
+            pause_menu_art_total_bytes_loc_690C(PAUSE_MENU_ART_HEADER_WORD_LOC_690C),
+            800
+        );
     }
 
     #[test]

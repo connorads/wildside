@@ -2488,6 +2488,11 @@ impl NativeRuntime {
             if self.paused
                 && let Some((camera_x_pos, camera_y_pos)) = self.pause_menu_camera_words()
             {
+                // ASM loc_690C (kid.asm:6617): pause entry uploads ArtUnc_PauseMenu
+                // before the text tilemap overwrites the nametable rows.
+                let _ = boot::pause_menu_art_total_bytes_loc_690C(
+                    boot::PAUSE_MENU_ART_HEADER_WORD_LOC_690C,
+                );
                 // ASM loc_695C (kid.asm:6664): pause entry saves the five
                 // nametable rows that the menu text will overwrite.
                 let _ = boot::pause_menu_tile_save_plan_loc_695C(camera_x_pos, camera_y_pos);
