@@ -5989,7 +5989,7 @@ pub(crate) fn step_hopper(
             {
                 let route = match enemy.facing {
                     Direction::Left => {
-                        mini_hopping_skull_left_ground_wait_collision_loc_3ec48(0, false)
+                        mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(0, false)
                     }
                     Direction::Right => {
                         mini_hopping_skull_ground_wait_collision_loc_3eb0e(0, false)
@@ -5999,9 +5999,9 @@ pub(crate) fn step_hopper(
                     route,
                     MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
                 );
-                // ASM Mini_Hopping_Skull.asm loc_3EB0E/loc_3EC48: the
+                // ASM Mini_Hopping_Skull.asm loc_3EB0E/loc_3ED8E: the
                 // slope-ground wait loops poll Kid collision before DBF
-                // countdown reaches loc_3EB78/loc_3ECB2.
+                // countdown reaches loc_3EB78/loc_3EDF8.
                 enemy.grounded_frames -= 1;
                 enemy.x_velocity = 0;
                 return;

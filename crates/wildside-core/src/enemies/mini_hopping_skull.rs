@@ -401,7 +401,6 @@ pub(crate) fn mini_hopping_skull_left_hop_wait_setup_loc_3ed80() -> MiniHoppingS
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
     collision_type: u16,
     berzerker_charging: bool,
