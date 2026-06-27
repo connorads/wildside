@@ -3492,6 +3492,23 @@ fn activate_enemies_with_rng_inner(
                     }
                 }
             }
+            let palette_variant = resolved_enemy_palette(view.enemy_type_slots, object.object_type);
+            if matches!(family, EnemyFamily::FireDemon)
+                && let Some(seed) =
+                    fire_demon_palette_pulse_seed_loc_3a4b4(palette_variant, enemy_level)
+            {
+                // ASM Fire_Demon.asm loc_3A48E-loc_3A4B8: the first live Fire
+                // Demon allocates a palette pulse helper and seeds it from the
+                // enemy VRAM slot plus raw enemy_level.
+                debug_assert!(matches!(
+                    seed.palette_buffer_byte_offset,
+                    0x0022 | 0x0042 | 0x0052
+                ));
+                debug_assert!(matches!(
+                    seed.data_index_byte_offset,
+                    0x0634 | 0x0640 | 0x064C
+                ));
+            }
             let mut enemy = ActiveEnemy {
                 segment_index: view.segment_index,
                 layout_index: index,
@@ -3516,7 +3533,7 @@ fn activate_enemies_with_rng_inner(
                 },
                 tank_mouth_animation_phase: spawn_tank_mouth_animation_phase(family),
                 damage_flash_frames: 0,
-                palette_variant: resolved_enemy_palette(view.enemy_type_slots, object.object_type),
+                palette_variant,
                 wait_timer: orca_init.map_or_else(
                     || {
                         lion_runtime_fields.map_or_else(

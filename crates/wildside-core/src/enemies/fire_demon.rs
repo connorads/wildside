@@ -52,10 +52,8 @@ pub(crate) fn fire_demon_init_walk_dispatch_loc_3a476(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 const FIRE_DEMON_PALETTE_TARGET_BYTE_OFFSETS_LOC_3A48E: [u16; 3] = [0x22, 0x42, 0x52];
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_target_loc_3a48e(vram_slot: u8) -> Option<u16> {
     // ASM Fire_Demon.asm loc_3A48E: `$3E(a4)` indexes dword_3A482,
     // selecting Palette_Buffer+$22/+$42/+$52 as the palette pulse target.
@@ -65,18 +63,14 @@ pub(crate) fn fire_demon_palette_target_loc_3a48e(vram_slot: u8) -> Option<u16> 
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonPalettePulseSeedLoc3A4B8 {
     pub(crate) palette_buffer_byte_offset: u16,
     pub(crate) data_index_byte_offset: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 const FIRE_DEMON_PALETTE_DATA_INDEX_BASE_LOC_3A4B8: u16 = 0x0634;
-#[cfg_attr(not(test), allow(dead_code))]
 const FIRE_DEMON_PALETTE_DATA_INDEX_STEP_LOC_3A4B4: u16 = 0x000C;
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_base_pulse_seed_loc_3a4b8(
     vram_slot: u8,
 ) -> Option<FireDemonPalettePulseSeedLoc3A4B8> {
@@ -89,7 +83,6 @@ pub(crate) fn fire_demon_palette_base_pulse_seed_loc_3a4b8(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_palette_pulse_seed_loc_3a4b4(
     vram_slot: u8,
     enemy_level: u8,
