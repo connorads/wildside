@@ -3349,6 +3349,44 @@ fn activate_enemies_with_rng_inner(
                     "stru_3C666" | "stru_3C680"
                 ));
             }
+            if matches!(family, EnemyFamily::Cloud) {
+                // ASM Cloud.asm loc_35BAC/loc_35BB2 seeds the control stream as:
+                // wait $78, set `$44`, wait $1E, clear `$44`, restart.
+                let script_words = cloud_control_script_words_loc_35BAC();
+                let first_wait = cloud_control_script_dispatch_loc_35BB2(script_words[0]);
+                debug_assert_eq!(
+                    first_wait,
+                    CloudControlDispatchLoc35BB2::Wait { frames: 0x78 }
+                );
+                let wait_loop = cloud_wait_loop_loc_35C56(script_words[0]);
+                debug_assert_eq!(wait_loop.dbf_seed, 0x78);
+                debug_assert_eq!(wait_loop.hibernate_frames, 0x79);
+                debug_assert!(wait_loop.resumes_control_script);
+
+                debug_assert_eq!(
+                    cloud_control_script_dispatch_loc_35BB2(script_words[1]),
+                    CloudControlDispatchLoc35BB2::SetStatus44
+                );
+                let set_latch = cloud_status_latch_loc_35C72();
+                debug_assert_eq!(set_latch.object_44_value, 0xFF);
+                debug_assert!(set_latch.resumes_control_script);
+
+                debug_assert_eq!(
+                    cloud_control_script_dispatch_loc_35BB2(script_words[2]),
+                    CloudControlDispatchLoc35BB2::Wait { frames: 0x1E }
+                );
+                debug_assert_eq!(
+                    cloud_control_script_dispatch_loc_35BB2(script_words[3]),
+                    CloudControlDispatchLoc35BB2::ClearStatus44
+                );
+                let clear_latch = cloud_status_latch_loc_35C7A();
+                debug_assert_eq!(clear_latch.object_44_value, 0x00);
+                debug_assert!(clear_latch.resumes_control_script);
+                debug_assert_eq!(
+                    cloud_control_script_dispatch_loc_35BB2(script_words[4]),
+                    CloudControlDispatchLoc35BB2::RestartScript
+                );
+            }
             if matches!(family, EnemyFamily::Goat) {
                 match goat_initial_dispatch_loc_3_cb02(facing) {
                     GoatInitialDispatchRouteLoc3CB02::ClearXDirection => {

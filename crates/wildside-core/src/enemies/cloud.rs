@@ -4,11 +4,9 @@ use super::*;
 /// ASM `Cloud.asm loc_35BDE -> loc_35C54`: `move.w #$3C,d3` is written after
 /// wall reversal, but the active loop never reads `d3`, so Cloud resumes
 /// flying immediately on the next frame instead of idling.
-#[cfg_attr(not(test), allow(dead_code))]
 const CLOUD_CONTROL_SCRIPT_WORDS_LOC_35BAC: [u16; 5] = [0x7800, 0x0004, 0x1E00, 0x0008, 0xFFFF];
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_control_script_words_loc_35BAC() -> &'static [u16] {
     // ASM Cloud.asm loc_35BAC: `lea (unk_35BC4).l,a0` restarts the command
     // stream before the dispatcher fetches the next big-endian word.
@@ -16,7 +14,6 @@ pub(crate) fn cloud_control_script_words_loc_35BAC() -> &'static [u16] {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum CloudControlDispatchLoc35BB2 {
     Wait { frames: u8 },
     SetStatus44,
@@ -27,7 +24,6 @@ pub(crate) enum CloudControlDispatchLoc35BB2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_control_script_dispatch_loc_35BB2(
     command_word: u16,
 ) -> CloudControlDispatchLoc35BB2 {
@@ -49,7 +45,6 @@ pub(crate) fn cloud_control_script_dispatch_loc_35BB2(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudWaitLoopLoc35C56 {
     pub(crate) dbf_seed: u16,
     pub(crate) hibernate_frames: u32,
@@ -61,7 +56,6 @@ pub(crate) struct CloudWaitLoopLoc35C56 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_wait_loop_loc_35C56(command_word: u16) -> CloudWaitLoopLoc35C56 {
     // ASM Cloud.asm loc_35C54 shifts the command word down by one byte; loc_35C56
     // then hibernates, range-checks, polls collision, idles/attacks, and DBFs.
@@ -78,14 +72,12 @@ pub(crate) fn cloud_wait_loop_loc_35C56(command_word: u16) -> CloudWaitLoopLoc35
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudStatusLatchLoc35C72 {
     pub(crate) object_44_value: u8,
     pub(crate) resumes_control_script: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_status_latch_loc_35C72() -> CloudStatusLatchLoc35C72 {
     // ASM Cloud.asm loc_35C72: `st $44(a5)` writes `$FF`, then branches back
     // to the command dispatcher at loc_35BB2.
@@ -96,14 +88,12 @@ pub(crate) fn cloud_status_latch_loc_35C72() -> CloudStatusLatchLoc35C72 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudStatusLatchLoc35C7A {
     pub(crate) object_44_value: u8,
     pub(crate) resumes_control_script: bool,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_status_latch_loc_35C7A() -> CloudStatusLatchLoc35C7A {
     // ASM Cloud.asm loc_35C7A: `sf $44(a5)` writes `$00`, then branches back
     // to the command dispatcher at loc_35BB2.
