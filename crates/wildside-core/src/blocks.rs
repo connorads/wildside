@@ -236,7 +236,6 @@ pub(crate) struct FloatingPrizeFallStepLoc10C50 {
     pub(crate) next_level_layout_offset: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterHorizontalSpriteCellLocF808 {
     pub(crate) col: i16,
@@ -244,7 +243,6 @@ pub(crate) struct ShooterHorizontalSpriteCellLocF808 {
     pub(crate) fg_queue_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShooterHorizontalSpanLocF808 {
     pub(crate) restored_cols: Vec<i16>,
@@ -2869,7 +2867,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_horizontal_span_columns_loc_F828(
         start_col: i16,
         tile_count: u8,
@@ -2883,7 +2880,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn shooter_horizontal_span_rejected_loc_F830(
         camera_left_col: i16,
         camera_right_col: i16,
