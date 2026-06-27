@@ -4621,10 +4621,17 @@ fn run_loop_type3_124a6(
         let Some(entry) = read_entry.entry else {
             return;
         };
-        if entry.priority == 0 {
-            let cell_addr = (u32::from(entry.y_row) * u32::from(width_blocks))
-                .wrapping_add(u32::from(entry.x_pos))
-                .wrapping_mul(2);
+        let row_pointer_table: Vec<u16> = (0..=entry.y_row)
+            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
+            .collect();
+        let Some(coords) =
+            block_type_3_cell_addr_loc_124be(&row_pointer_table, entry.x_pos, entry.y_row)
+        else {
+            return;
+        };
+        let hidden_entry = block_type_3_hidden_block_entry_loc_124e8(&entry, coords.cell_addr);
+        if hidden_entry.priority == 0 {
+            let cell_addr = hidden_entry.cell_addr;
             if entry.stride != 0 {
                 for cell_addr in block_type_3_vertical_fill_loc_12526(
                     cell_addr,
@@ -5679,7 +5686,6 @@ pub(crate) struct BlockType3CellAddrLoc124BE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_3_cell_addr_loc_124be(
     row_pointer_table: &[u16],
     x_pos: u16,
@@ -5746,7 +5752,6 @@ pub(crate) struct BlockType3HiddenBlockEntryLoc124E8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_3_hidden_block_entry_loc_124e8(
     entry: &BlockType3Entry,
     cell_addr: u32,
