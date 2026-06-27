@@ -5601,7 +5601,6 @@ pub(crate) fn prize_block_list_guard_loc_11CB6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_list_guard_loc_11CCA(
     hidden_block_list_addr: u32,
     hidden_block_count: u16,
@@ -19437,6 +19436,18 @@ impl NativeRuntime {
         // runtime reveal lookup mirrors sub_E37A with binary search, so preserve
         // that sorted invariant after reading generated sidecar data.
         sort_hidden_blocks_by_rom_insertion_loc_127ce(&mut block_list);
+        // ASM loc_11CCA (kid.asm:23877): the generated hidden-block list starts
+        // at the same `$FFFF3B24` work buffer and must not span into
+        // `FGPlane_UpdateQueueCustom`.
+        let hidden_block_count = u16::try_from(block_list.hidden_blocks.len()).ok()?;
+        let hidden_block_list_addr = if hidden_block_count == 0 {
+            0
+        } else {
+            0xFFFF_3B24
+        };
+        if !hidden_block_list_guard_loc_11CCA(hidden_block_list_addr, hidden_block_count) {
+            return None;
+        }
         Some(block_list)
     }
 
