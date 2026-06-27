@@ -2030,7 +2030,7 @@ fn platform_sprite_cells_loc_24AC(
     width_cells: u16,
     height_cells: u16,
 ) -> Vec<PlatformSpriteCellLoc24AC> {
-    match variant {
+    let cells = match variant {
         PlatformSpriteVariantLoc244C::Loc24CC => {
             wildside_core::platform_strip_sprites_loc_24CC(dispatch, 0)
                 .sprites
@@ -2059,7 +2059,19 @@ fn platform_sprite_cells_loc_24AC(
             dispatch,
             wildside_core::platform_single_sprite_loc_24C0(dispatch, 0).sprite,
         )],
-    }
+    };
+
+    // ASM loc_256E (kid.asm:4456): after Make_SpritesFromPlatforms emits all
+    // platform sprites, publish the first free 8-byte sprite slot.
+    let next_sprite_slot_addr = wildside_core::finish_platform_sprite_list_loc_256E(
+        0xFFFF_0000u32.wrapping_add((cells.len() as u32).wrapping_mul(8)),
+    );
+    debug_assert_eq!(
+        next_sprite_slot_addr.wrapping_sub(0xFFFF_0000) / 8,
+        cells.len() as u32,
+    );
+
+    cells
 }
 
 fn platform_cell(
