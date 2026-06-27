@@ -381,7 +381,6 @@ pub(crate) struct TarMonsterBurstCleanupLoc324F8 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterBurstTailLoc32534 {
     pub(crate) child_count: u8,
     pub(crate) child_velocities: [(i32, i32); 3],
@@ -994,7 +993,6 @@ pub(crate) fn tar_monster_burst_cleanup_loc_324F8() -> TarMonsterBurstCleanupLoc
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_burst_tail_loc_32534() -> TarMonsterBurstTailLoc32534 {
     // ASM loc_32534 allocates the final three burst workers with fixed `$44/$48`
     // velocity pairs, hibernates once, then deletes the source glob.
@@ -1241,6 +1239,13 @@ pub(crate) fn spawn_tar_monster_retaliation(
     y: u32,
 ) {
     let cleanup = tar_monster_burst_cleanup_loc_324F8();
+    let tail = tar_monster_burst_tail_loc_32534();
+    debug_assert_eq!(
+        usize::from(cleanup.child_count),
+        2 + usize::from(tail.child_count)
+    );
+    debug_assert!(tail.hibernates_before_delete);
+    debug_assert!(tail.deletes_original_shot);
     let meta = tar_monster_burst_child_meta_loc_32618();
     debug_assert!(meta.proceeds_to_projectile_setup);
     let setup = tar_monster_projectile_setup_loc_3261C(meta.object_meta);
@@ -1250,7 +1255,11 @@ pub(crate) fn spawn_tar_monster_retaliation(
     debug_assert!(setup.has_kid_collision);
     debug_assert_eq!(setup.priority, 0);
     debug_assert!(setup.has_level_collision);
-    for (xv, yv) in cleanup.child_velocities {
+    let child_velocities = cleanup.child_velocities[..2]
+        .iter()
+        .copied()
+        .chain(tail.child_velocities);
+    for (xv, yv) in child_velocities {
         let entry = tar_monster_burst_child_entry_loc_325E6(x, y, xv, yv);
         projectiles.push(EnemyProjectile {
             x_pos: entry.x_pos,
