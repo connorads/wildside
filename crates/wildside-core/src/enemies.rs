@@ -10242,7 +10242,9 @@ pub(crate) fn resolved_enemy_palette(enemy_type_slots: &[u16], object_type: u8) 
     let Some(&raw_slot) = enemy_type_slots.get(slot_index) else {
         return 0;
     };
-    ((raw_slot >> 14) & 3) as u8
+    // ASM loc_36D16 (kid.asm:38603): the object-type slot selects an enemy
+    // layout header word, and the top two bits rotate into the palette variant.
+    enemy_art_palette_entry_loc_36D16(raw_slot).map_or(0, |entry| entry.palette_variant)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10253,7 +10255,6 @@ pub(crate) struct EnemyArtPaletteEntryLoc36D16 {
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn enemy_art_palette_entry_loc_36D16(
     raw_slot: u16,
 ) -> Option<EnemyArtPaletteEntryLoc36D16> {

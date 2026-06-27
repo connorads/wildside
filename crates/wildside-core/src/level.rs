@@ -8526,7 +8526,6 @@ pub(crate) fn decode_background_theme_flags_loc_11B9A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn player_start_position_loc_11BE4(header_player_start: (u16, u16)) -> (u16, u16) {
     // ASM loc_11BE4 (kid.asm:23785-23788): when `loc_11BD2` leaves the header
     // pointer at the player-start words, `move.w (a0)+` loads exactly the X
@@ -8535,7 +8534,6 @@ pub(crate) fn player_start_position_loc_11BE4(header_player_start: (u16, u16)) -
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decode_spawn_positions_loc_11BD2(
     preserve_existing_player_start: bool,
     existing_player_start: (u16, u16),
@@ -8555,7 +8553,6 @@ pub(crate) fn decode_spawn_positions_loc_11BD2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn flag_position_loc_11BEC(flag_position: (u16, u16)) -> (u16, u16) {
     // ASM loc_11BEC (kid.asm:23789-23792): regardless of whether `loc_11BD2`
     // skipped the player-start pair, the next two header words always become
@@ -19789,12 +19786,17 @@ impl NativeRuntime {
                 camera_y_pos: OPENING_GROUNDED_CAMERA_Y_FP,
             };
         };
-        let (player_start_x, player_start_y) = self
-            .pending_player_start_override_loc_11bd2
-            .unwrap_or((header.player_start_x, header.player_start_y));
         // ASM loc_11BD2 (kid.asm:23777-23782): when `$FFFFFC29` is set, skip
         // the header start pair and preserve the PlayerStart_X/Y words written
         // by the caller. loc_DA4A uses that path for Hundred K Trip Teleport.
+        let ((player_start_x, player_start_y), _flag_position, _clears_preserve_latch) =
+            decode_spawn_positions_loc_11BD2(
+                self.pending_player_start_override_loc_11bd2.is_some(),
+                self.pending_player_start_override_loc_11bd2
+                    .unwrap_or((header.player_start_x, header.player_start_y)),
+                (header.player_start_x, header.player_start_y),
+                (header.flag_x, header.flag_y),
+            );
         // ASM loc_7526 (kid.asm:7674–7676): Kid gfx object setup —
         // `move.w (PlayerStart_X_pos).w,x_pos(a3)`.
         let kid_x_pos = u32::from(player_start_x) << 16;
