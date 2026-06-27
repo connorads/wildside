@@ -2034,6 +2034,10 @@ pub(crate) struct BlockBounceAnim {
     /// `sf is_moved(a3)` in `PrizeDiamond_Init`, making their scheduler timing
     /// differ from helmet/shared prize initialisers that set `is_moved`.
     pub(crate) prize_content: Option<terrain::PrizeContent>,
+    /// ASM `sub_1007A -> loc_101D8 -> loc_10200` branch for `$E101`
+    /// reveal-only prize cells: the visible tile uses the deleted-tile bounce
+    /// coroutine instead of spawning a prize object.
+    pub(crate) prize_deleted_tile: bool,
     /// ASM `sub_11120` reads `$4C(a5)` (copied from `d6`) to choose the metal
     /// y-position arc: zero uses loc_1117A, non-zero uses loc_11196.
     pub(crate) metal_direction: u16,

@@ -11547,6 +11547,7 @@ mod chunk_09 {
             initial_duration: 8,
             kind: BlockBounceKind::Metal,
             prize_content: None,
+            prize_deleted_tile: false,
             metal_direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
             y_offset_px: 0,
         });

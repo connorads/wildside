@@ -147,6 +147,7 @@ fn seed_level_restart_leak_state(runtime: &mut NativeRuntime) {
         initial_duration: 8,
         kind: BlockBounceKind::Metal,
         prize_content: None,
+        prize_deleted_tile: false,
         metal_direction: NativeRuntime::BLOCK_DESTROY_DIRECTION_ABOVE,
         y_offset_px: 0,
     });

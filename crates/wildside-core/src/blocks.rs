@@ -1452,6 +1452,7 @@ impl NativeRuntime {
             initial_duration: 31,
             kind: BlockBounceKind::Prize,
             prize_content: Some(content),
+            prize_deleted_tile: false,
             metal_direction: 0,
             y_offset_px: 0,
         });
@@ -1597,7 +1598,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn deleted_tile_wobble_y_deltas_loc_10200() -> &'static [i16; 31] {
         // ASM loc_10236 (kid.asm:21493): after the opening six-frame
         // `loc_10228` rise, `moveq #5,d1` drives an inclusive `dbf` loop of
@@ -3662,6 +3662,7 @@ impl NativeRuntime {
                 initial_duration: 8,
                 kind: BlockBounceKind::Metal,
                 prize_content: None,
+                prize_deleted_tile: false,
                 metal_direction: direction,
                 y_offset_px: 0,
             });
@@ -3810,6 +3811,7 @@ impl NativeRuntime {
                         initial_duration: 8,
                         kind: BlockBounceKind::Shifting,
                         prize_content: None,
+                        prize_deleted_tile: false,
                         metal_direction: 0,
                         y_offset_px: 16,
                     });
@@ -3842,6 +3844,7 @@ impl NativeRuntime {
                 initial_duration: Self::lift_block_bob_frame_count_sub_FB3E() as u8,
                 kind: BlockBounceKind::Lift,
                 prize_content: None,
+                prize_deleted_tile: false,
                 metal_direction: 0,
                 y_offset_px: 0,
             });
@@ -3907,6 +3910,7 @@ impl NativeRuntime {
                 initial_duration: HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0.len() as u8,
                 kind: BlockBounceKind::HiddenReveal,
                 prize_content: None,
+                prize_deleted_tile: false,
                 metal_direction: 0,
                 y_offset_px: 0,
             });
@@ -4498,7 +4502,16 @@ impl NativeRuntime {
             } else if b.kind == BlockBounceKind::Lift {
                 Self::lift_block_bob_delta_sub_FB3E(usize::from(elapsed))
             } else if b.kind == BlockBounceKind::Prize {
-                Self::prize_block_wobble_delta_sub_1007A(usize::from(elapsed))
+                if b.prize_deleted_tile {
+                    // ASM loc_10200 (kid.asm:21475): reveal-only `$E101`
+                    // prize cells use the deleted-tile worker tail, which
+                    // shares the same 31-frame y-delta pattern as `sub_1007A`.
+                    Self::deleted_tile_wobble_y_deltas_loc_10200()
+                        .get(usize::from(elapsed))
+                        .copied()
+                } else {
+                    Self::prize_block_wobble_delta_sub_1007A(usize::from(elapsed))
+                }
             } else if b.kind == BlockBounceKind::Metal {
                 let first_phase_len =
                     Self::evanescent_block_reveal_alt_branch_iterations_loc_11196() as u8;

@@ -4338,6 +4338,7 @@ impl NativeRuntime {
                 initial_duration: 31,
                 kind: BlockBounceKind::Prize,
                 prize_content: Some(content),
+                prize_deleted_tile: prize_clear.reveal_only,
                 metal_direction: 0,
                 y_offset_px: 0,
             });
