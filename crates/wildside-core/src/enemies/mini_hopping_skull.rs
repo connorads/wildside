@@ -153,7 +153,6 @@ pub(crate) enum MiniHoppingSkullLoc3F158Route {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullGroundWaitTail {
     ContinueWait {
         next_dbf_counter: u16,
@@ -831,7 +830,6 @@ pub(crate) fn mini_hopping_skull_damage_sequence_loc_3ede0(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_ground_wait_tail_loc_3eb78(
     dbf_counter: u16,
     kid_x_word: u16,
@@ -856,7 +854,6 @@ pub(crate) fn mini_hopping_skull_ground_wait_tail_loc_3eb78(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(
     dbf_counter: u16,
     kid_x_word: u16,

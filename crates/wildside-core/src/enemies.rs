@@ -87,6 +87,8 @@ pub(crate) const MINI_SKULL_LEVEL_INITIAL_Y_SPEED_BONUS_FP: i32 = 0x0000_1000;
 pub(crate) const MINI_SKULL_GROUND_DELAY_FRAMES: u8 = 21; // ASM Mini_Hopping_Skull.asm:99,141 — dbf #$14 = 21 iterations
 pub(crate) const MINI_SKULL_FACING_MATCHED_PAUSE_FRAMES_LOC_3F09E: u16 = 11;
 pub(crate) const MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E: u16 = 0x8000;
+pub(crate) const MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92: u16 = 0x4000;
+pub(crate) const MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00: u16 = 0x2000;
 
 /// ASM Enemy11_Ninja_Init `loc_3D59A`/`loc_3D5AA` final speed arithmetic in `$50/$5E(a5)`:
 /// - `current_hp < 3`: one unconditional `loc_3D5AA` fallthrough path (`+$8000` ×2).
@@ -5694,7 +5696,7 @@ fn apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
             enemy.y_velocity = setup.y_velocity;
             enemy.on_ground = true;
             enemy.grounded_frames = setup.wait_frames;
-            enemy.wait_timer = 0;
+            enemy.wait_timer = MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00;
             enemy.y_pos = floor_y_fp;
         }
         MiniHoppingSkullTerrainContactRoute::SlopeUpNonPositiveXVelocity => {
@@ -5704,7 +5706,7 @@ fn apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
             enemy.y_velocity = setup.y_velocity;
             enemy.on_ground = true;
             enemy.grounded_frames = setup.wait_frames;
-            enemy.wait_timer = 0;
+            enemy.wait_timer = MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00;
             enemy.y_pos = floor_y_fp;
         }
         MiniHoppingSkullTerrainContactRoute::NotSlopeUp => {
@@ -5715,7 +5717,7 @@ fn apply_mini_hopping_skull_slope_contact_wait_loc_3ead8(
                 enemy.y_velocity = contact.y_velocity;
                 enemy.on_ground = true;
                 enemy.grounded_frames = contact.wait_frames;
-                enemy.wait_timer = 0;
+                enemy.wait_timer = MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00;
                 enemy.y_pos = floor_y_fp;
             }
         }
@@ -5736,15 +5738,28 @@ pub(crate) fn step_hopper(
     let cy = (enemy.y_pos >> 16) as i32;
     if enemy.on_ground {
         let mut mini_skull_relaunched = false;
+        let mut mini_skull_windup_expired = false;
 
         if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
-            if enemy.grounded_frames > 0 {
+            if enemy.wait_timer & MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 != 0 {
+                let windup_frames = enemy.wait_timer & !MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92;
+                if windup_frames > 0 {
+                    // ASM Mini_Hopping_Skull.asm loc_3EB92/loc_3ECCC:
+                    // short hop windup loops consume d1 before seeding the
+                    // relaunch velocity at loc_3EBFC/loc_3ED36.
+                    enemy.wait_timer =
+                        MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | (windup_frames - 1);
+                    enemy.x_velocity = 0;
+                    return;
+                }
+
+                enemy.wait_timer = 0;
+                mini_skull_windup_expired = true;
+            } else if enemy.grounded_frames > 0 {
                 enemy.grounded_frames -= 1;
                 enemy.x_velocity = 0;
                 return;
-            }
-
-            if enemy.wait_timer & MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E != 0 {
+            } else if enemy.wait_timer & MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E != 0 {
                 let pause_frames =
                     enemy.wait_timer & !MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E;
                 let tail = mini_hopping_skull_facing_matched_pause_tail_loc_3f112(
@@ -5782,6 +5797,78 @@ pub(crate) fn step_hopper(
                         enemy.y_velocity = y_velocity;
                         enemy.on_ground = false;
                         mini_skull_relaunched = true;
+                    }
+                }
+            } else if enemy.wait_timer & MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00 != 0
+                && let Some(kid_x_pos) = player_x_pos
+            {
+                let kid_x_word = (kid_x_pos >> 16) as u16;
+                let skull_x_word = (enemy.x_pos >> 16) as u16;
+                let ground_wait_tail = match enemy.facing {
+                    Direction::Left => mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(
+                        0,
+                        kid_x_word,
+                        skull_x_word,
+                    ),
+                    Direction::Right => {
+                        mini_hopping_skull_ground_wait_tail_loc_3eb78(0, kid_x_word, skull_x_word)
+                    }
+                };
+
+                match ground_wait_tail {
+                    MiniHoppingSkullGroundWaitTail::ContinueWait { next_dbf_counter } => {
+                        debug_assert_ne!(next_dbf_counter, 0xFFFF);
+                        enemy.grounded_frames = next_dbf_counter.saturating_add(1) as u8;
+                        enemy.x_velocity = 0;
+                        return;
+                    }
+                    MiniHoppingSkullGroundWaitTail::SwitchToLeftGroundWaitSetup => {
+                        let setup = mini_hopping_skull_left_hop_wait_setup_loc_3ed80();
+                        debug_assert_eq!(setup.dbf_counter, 0x0014);
+                        enemy.facing =
+                            mini_hopping_skull_facing_from_x_direction(setup.x_direction);
+                        enemy.grounded_frames = setup.wait_frames;
+                        enemy.wait_timer = MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        return;
+                    }
+                    MiniHoppingSkullGroundWaitTail::SwitchToRightGroundWaitSetup => {
+                        let setup = mini_hopping_skull_ground_wait_setup_loc_3eb00();
+                        debug_assert_eq!(setup.dbf_counter, 0x0014);
+                        enemy.facing =
+                            mini_hopping_skull_facing_from_x_direction(setup.x_direction);
+                        enemy.grounded_frames = setup.wait_frames;
+                        enemy.wait_timer = MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00;
+                        enemy.x_velocity = 0;
+                        enemy.y_velocity = 0;
+                        return;
+                    }
+                    MiniHoppingSkullGroundWaitTail::BeginRightHopWindup {
+                        sprite,
+                        dbf_counter,
+                        wait_frames,
+                    } => {
+                        debug_assert_eq!(sprite, "LnkTo_unk_C8038");
+                        debug_assert_eq!(dbf_counter, 0x000A);
+                        enemy.facing = Direction::Right;
+                        enemy.wait_timer =
+                            MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | u16::from(wait_frames);
+                        enemy.x_velocity = 0;
+                        return;
+                    }
+                    MiniHoppingSkullGroundWaitTail::BeginLeftHopWindup {
+                        sprite,
+                        dbf_counter,
+                        wait_frames,
+                    } => {
+                        debug_assert_eq!(sprite, "LnkTo_unk_C8018");
+                        debug_assert_eq!(dbf_counter, 0x000A);
+                        enemy.facing = Direction::Left;
+                        enemy.wait_timer =
+                            MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | u16::from(wait_frames);
+                        enemy.x_velocity = 0;
+                        return;
                     }
                 }
             } else if let Some(kid_x_pos) = player_x_pos {
@@ -5841,13 +5928,17 @@ pub(crate) fn step_hopper(
         }
 
         if !mini_skull_relaunched {
-            let mut facing =
-                player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
-            let reverse_at_platform_edge = !matches!(enemy.family, EnemyFamily::MiniHoppingSkull);
-            if hopper_should_reverse(facing, grid, cx, cy, reverse_at_platform_edge) {
-                facing = opposite_direction(facing);
+            if !(matches!(enemy.family, EnemyFamily::MiniHoppingSkull) && mini_skull_windup_expired)
+            {
+                let mut facing =
+                    player_relative_direction(enemy.x_pos, player_x_pos).unwrap_or(enemy.facing);
+                let reverse_at_platform_edge =
+                    !matches!(enemy.family, EnemyFamily::MiniHoppingSkull);
+                if hopper_should_reverse(facing, grid, cx, cy, reverse_at_platform_edge) {
+                    facing = opposite_direction(facing);
+                }
+                enemy.facing = facing;
             }
-            enemy.facing = facing;
             if enemy.grounded_frames > 0 {
                 enemy.grounded_frames -= 1;
                 enemy.x_velocity = 0;
@@ -9180,8 +9271,50 @@ mod tests {
         assert_eq!(enemy.x_velocity, 0);
         assert_eq!(enemy.y_velocity, 0);
         assert_eq!(enemy.grounded_frames, MINI_SKULL_GROUND_DELAY_FRAMES);
-        assert_eq!(enemy.wait_timer, 0);
+        assert_eq!(enemy.wait_timer, MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00);
         assert!(enemy.on_ground);
+    }
+
+    #[test]
+    fn mini_hopping_skull_slope_wait_tail_loc_3eb78_winds_up_then_hops_right() {
+        let grid = mini_hopping_skull_test_grid();
+        let mut enemy = ActiveEnemy {
+            on_ground: true,
+            facing: Direction::Right,
+            x_pos: 32 << 16,
+            y_pos: 32 << 16,
+            grounded_frames: 0,
+            wait_timer: MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_hopper(&mut enemy, Some(&grid), Some(40 << 16));
+
+        assert_eq!(
+            enemy.wait_timer,
+            MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 0x000B,
+            "ASM Mini_Hopping_Skull.asm loc_3EB78 falls through at d1=$FFFF and enters loc_3EB92 with dbf #$A when Kid is right of the skull"
+        );
+        assert_eq!(enemy.facing, Direction::Right);
+        assert!(enemy.on_ground);
+
+        for _ in 0..11 {
+            step_hopper(&mut enemy, Some(&grid), Some(40 << 16));
+            assert!(enemy.on_ground);
+        }
+
+        step_hopper(&mut enemy, Some(&grid), Some(40 << 16));
+
+        assert_eq!(
+            enemy.x_velocity, MINI_SKULL_JUMP_X_SPEED_FP,
+            "ASM Mini_Hopping_Skull.asm loc_3EBFC/loc_3EC26 preserves the right windup direction when seeding hop velocity"
+        );
+        assert_eq!(
+            enemy.y_velocity,
+            MINI_SKULL_JUMP_Y_SPEED_FP + MINI_SKULL_GRAVITY_FP
+        );
+        assert_eq!(enemy.facing, Direction::Right);
+        assert!(!enemy.on_ground);
     }
 
     #[test]
