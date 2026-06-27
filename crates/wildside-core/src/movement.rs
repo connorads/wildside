@@ -1188,7 +1188,6 @@ pub(crate) fn execute_objects_under_samurai_haze_loc_E1E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     next_indices: &[Option<usize>],
     target_index: usize,
