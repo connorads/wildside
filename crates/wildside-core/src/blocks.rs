@@ -3,9 +3,33 @@ use crate::combat::{
     CollisionRectSub1F52, enemy_death_burst_cleanup_loc_370C2, heady_metal_cleanup_sub_378C8,
     support_overlap_detected_sub_1F52,
 };
+use crate::movement::{
+    hidden_block_reveal_bounce_down_loc_E2F0, hidden_block_reveal_bounce_up_loc_E2E2,
+};
 
-pub(crate) const HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0: [i16; 8] =
-    [-2, -2, -2, -2, 2, 2, 2, 2];
+#[allow(non_snake_case)]
+fn hidden_block_reveal_y_deltas_loc_E2E2_E2F0() -> [i16; 8] {
+    // ASM loc_E2E2/loc_E2F0 (kid.asm:17761, 17767): the reveal object moves up
+    // two pixels for four hibernates, then down two pixels for four hibernates.
+    let up = hidden_block_reveal_bounce_up_loc_E2E2(0);
+    let down = hidden_block_reveal_bounce_down_loc_E2F0(up.final_y_pos_px);
+    let mut deltas = [0; 8];
+    let mut previous = 0_u16;
+
+    for (slot, &y_pos) in deltas[..4].iter_mut().zip(up.y_pos_after_hibernates.iter()) {
+        *slot = i16::from_ne_bytes(y_pos.wrapping_sub(previous).to_ne_bytes());
+        previous = y_pos;
+    }
+    for (slot, &y_pos) in deltas[4..]
+        .iter_mut()
+        .zip(down.y_pos_after_hibernates.iter())
+    {
+        *slot = i16::from_ne_bytes(y_pos.wrapping_sub(previous).to_ne_bytes());
+        previous = y_pos;
+    }
+
+    deltas
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct PrizeBlockHeadbuttWorkerLoc1002E {
@@ -3889,6 +3913,7 @@ impl NativeRuntime {
             }
         }
 
+        let hidden_block_reveal_y_deltas = hidden_block_reveal_y_deltas_loc_E2E2_E2F0();
         for (cell_x, cell_y) in revealed_cells {
             if self.block_bounces.iter().any(|bounce| {
                 bounce.cell_x == cell_x
@@ -3906,8 +3931,8 @@ impl NativeRuntime {
             self.block_bounces.push(BlockBounceAnim {
                 cell_x,
                 cell_y,
-                remaining: HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0.len() as u8,
-                initial_duration: HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0.len() as u8,
+                remaining: hidden_block_reveal_y_deltas.len() as u8,
+                initial_duration: hidden_block_reveal_y_deltas.len() as u8,
                 kind: BlockBounceKind::HiddenReveal,
                 prize_content: None,
                 prize_deleted_tile: false,
@@ -4535,8 +4560,9 @@ impl NativeRuntime {
                         .copied()
                 }
             } else {
+                let hidden_block_reveal_y_deltas = hidden_block_reveal_y_deltas_loc_E2E2_E2F0();
                 let delta_table: &[i16] = match b.kind {
-                    BlockBounceKind::HiddenReveal => &HIDDEN_BLOCK_REVEAL_Y_DELTAS_LOC_E2E2_E2F0,
+                    BlockBounceKind::HiddenReveal => &hidden_block_reveal_y_deltas,
                     BlockBounceKind::Metal => {
                         unreachable!("metal block bounce uses sub_11120 phase helpers")
                     }
