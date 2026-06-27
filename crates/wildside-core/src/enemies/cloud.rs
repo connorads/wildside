@@ -104,7 +104,6 @@ pub(crate) fn cloud_status_latch_loc_35C7A() -> CloudStatusLatchLoc35C7A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudTransitionLoc35C82 {
     pub(crate) animation_script: &'static str,
     pub(crate) hibernates_until_animation_finished: bool,
@@ -112,7 +111,6 @@ pub(crate) struct CloudTransitionLoc35C82 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_transition_loc_35C82() -> CloudTransitionLoc35C82 {
     // ASM Cloud.asm loc_35C82: initialise `stru_35EC8`, hibernate until that
     // animation completes, then branch to loc_35BAC to reload the command stream.
@@ -243,10 +241,12 @@ fn cloud_diagonal_attack_start_loc_35cd8(
     y_word: i16,
 ) -> CloudDiagonalAttackSetupLoc35CD8 {
     // ASM Cloud.asm loc_35D9E: every attack vector converges here to initialise
-    // `stru_35EC8` and set `$45(a5)` with `st`.
+    // `stru_35EC8` and set `$45(a5)` with `st`. The same script is loaded by
+    // the command-stream transition at loc_35C82.
+    let transition = cloud_transition_loc_35C82();
     CloudDiagonalAttackSetupLoc35CD8 {
         route: CloudDiagonalAttackRouteLoc35CD8::StartAttack { x_word, y_word },
-        animation_script: Some("stru_35EC8"),
+        animation_script: Some(transition.animation_script),
         object_45_value: Some(0xFF),
     }
 }
