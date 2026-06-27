@@ -418,8 +418,19 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
             if berzerker_charging {
                 MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull
             } else {
+                let allocation = mini_hopping_skull_left_hop_scream_worker_allocation_loc_3edc0();
+                debug_assert_eq!(allocation.allocation_selector, 0xA000);
+                debug_assert_eq!(allocation.routine, "sub_3F3F0");
+                debug_assert_eq!(allocation.delay_frames, 15);
                 MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
             }
+        }
+        MINI_SKULL_COLID_GROUND_KIDBELOW => {
+            let allocation = mini_hopping_skull_left_hop_scream_worker_allocation_loc_3edc0();
+            debug_assert_eq!(allocation.allocation_selector, 0xA000);
+            debug_assert_eq!(allocation.routine, "sub_3F3F0");
+            debug_assert_eq!(allocation.delay_frames, 15);
+            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
         }
         _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
     }
@@ -454,7 +465,6 @@ pub(crate) fn mini_hopping_skull_left_hop_landing_gate_loc_3edf8(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_scream_worker_allocation_loc_3edc0()
 -> MiniHoppingSkullScreamWorkerAllocation {
     // ASM Mini_Hopping_Skull.asm loc_3EDC0: swap object pointers and allocate
