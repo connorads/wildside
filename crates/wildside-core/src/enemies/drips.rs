@@ -160,7 +160,6 @@ pub(crate) fn drips_surface_table_reset_loc_33506() -> (usize, u16) {
     (0, 0)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_surface_sprite_write_loc_3350e(selected_sprite_offset: u16) -> u16 {
     // ASM Drips.asm loc_3350E: write the selected `d7` word to
     // `addroffset_sprite(a2)` for the surface child before returning to the
