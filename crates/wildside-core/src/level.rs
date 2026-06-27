@@ -4115,15 +4115,21 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // word_122C6 to each cell in the run. Hidden → sub_127A8.
             0 | 2 | 5 | 7 | 9 => {
                 let base_cell = block_type_base_cell_loc_122B8(block_type);
-                run_loop_122c0(block_layout_words, &mut pos, width_blocks, |x, y, _i| {
-                    if let Some(idx) = cell_index(x, y) {
-                        if hidden {
-                            write_hidden(cells, idx);
-                        } else {
-                            cells[idx] = base_cell;
+                run_loop_122c0(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    type_word as i16,
+                    |x, y, _i| {
+                        if let Some(idx) = cell_index(x, y) {
+                            if hidden {
+                                write_hidden(cells, idx);
+                            } else {
+                                cells[idx] = base_cell;
+                            }
                         }
-                    }
-                });
+                    },
+                );
             }
             // loc_123DC (type 1, prize blocks): per cell read a property word
             // `d5`; non-hidden writes `$E102` (d5>=0) or `$E101` (d5<0). Each cell
@@ -4205,16 +4211,22 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // skin from the SAME cell index. Hidden → sub_127A8.
             // (kid.asm:24494-24576)
             6 => {
-                run_loop_122c0(block_layout_words, &mut pos, width_blocks, |x, y, _i| {
-                    if let Some(idx) = cell_index(x, y) {
-                        if hidden {
-                            write_hidden(cells, idx);
-                        } else {
-                            let skin = terrain_bytes.get(idx).copied().unwrap_or(0);
-                            cells[idx] = block_type_6_cell_value_loc_12372(0, skin).cell_word;
+                run_loop_122c0(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    type_word as i16,
+                    |x, y, _i| {
+                        if let Some(idx) = cell_index(x, y) {
+                            if hidden {
+                                write_hidden(cells, idx);
+                            } else {
+                                let skin = terrain_bytes.get(idx).copied().unwrap_or(0);
+                                cells[idx] = block_type_6_cell_value_loc_12372(0, skin).cell_word;
+                            }
                         }
-                    }
-                });
+                    },
+                );
             }
             // loc_1253A (type 8, shooter): writes a 2x2 block of `$B811`/`$B812`
             // (top row) and `$B813`/`$B814` (bottom row) per run cell. No hidden
@@ -4298,7 +4310,13 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // crash on them, so real block resources never contain them. Consume
             // the run defensively without writing cells.
             _ => {
-                run_loop_122c0(block_layout_words, &mut pos, width_blocks, |_, _, _| {});
+                run_loop_122c0(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    type_word as i16,
+                    |_, _, _| {},
+                );
             }
         }
     }
@@ -4363,6 +4381,7 @@ fn run_loop_122c0(
     words: &[u16],
     pos: &mut usize,
     width_blocks: u16,
+    block_type: i16,
     mut body: impl FnMut(u16, u16, u16),
 ) {
     loop {
@@ -4385,7 +4404,14 @@ fn run_loop_122c0(
                 .wrapping_add(u32::from(x))
                 .wrapping_mul(2);
             for i in 0..setup.count {
-                body(x, setup.y_row.wrapping_add(i), i);
+                let y_row = setup.y_row.wrapping_add(i);
+                if block_type < 0 {
+                    let hidden_entry =
+                        block_place_row_by_row_hidden_loc_12320(cell_addr, x, y_row, block_type);
+                    body(hidden_entry.x_pos, hidden_entry.y_row, i);
+                } else {
+                    body(x, y_row, i);
+                }
                 cell_addr = block_place_row_by_row_advance_loc_12332(cell_addr, width_blocks)
                     .next_cell_addr;
             }
@@ -4955,7 +4981,6 @@ pub(crate) struct BlockPlaceRowByRowResultLoc12320 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_place_row_by_row_hidden_loc_12320(
     cell_addr: u32,
     x_pos: u16,
