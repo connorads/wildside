@@ -4242,14 +4242,15 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                 );
             }
             // loc_126BA (type 11): write `$EB2C` to a single cell per entry (no
-            // count loop). Hidden → sub_127A8. (kid.asm:24890-24913)
+            // count loop). Hidden → sub_127A8. (kid.asm:24948-24977)
             11 => {
                 run_loop_single_126ba(block_layout_words, &mut pos, |x, y| {
                     if let Some(idx) = cell_index(x, y) {
                         if hidden {
                             write_hidden(cells, idx);
                         } else {
-                            cells[idx] = 0xEB2C;
+                            let result = block_type_11_visible_tile_loc_126c0();
+                            cells[idx] = result.tile_word;
                         }
                     }
                 });
@@ -6621,7 +6622,6 @@ pub(crate) struct BlockType11VisibleTileLoc126C0 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_11_visible_tile_loc_126c0() -> BlockType11VisibleTileLoc126C0 {
     // ASM loc_126C0 (kid.asm:24963-24966): visible tile value for block type 11.
     //   tst.w d0              ; test block_type
