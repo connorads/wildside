@@ -1839,6 +1839,7 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
                 dispatch.header_word
             ));
         }
+        validate_first_block_layout_entry_loc_132A6(first_header & 0x001F, &decoded)?;
     }
     let terminator = block_layout_terminate_loc_134BA();
     if decoded.last().copied() == Some(terminator.end_marker) {
@@ -1849,6 +1850,114 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
             terminator.end_marker
         ))
     }
+}
+
+#[allow(non_snake_case)]
+fn validate_first_block_layout_entry_loc_132A6(
+    block_type: u16,
+    decoded: &[u16],
+) -> Result<(), String> {
+    let word = |index: usize| {
+        decoded.get(index).copied().ok_or_else(|| {
+            format!("block layout type {block_type:#04x} ended before first entry word {index}")
+        })
+    };
+    let count_bits = |count_word: u16| {
+        count_word.checked_sub(1).ok_or_else(|| {
+            format!("block layout type {block_type:#04x} first entry has zero count word")
+        })
+    };
+
+    match block_type {
+        0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
+            let entry = block_layout_entry_words_loc_1332E(
+                word(1)?,
+                word(2)?,
+                count_bits(word(3)?)?,
+                word(4)? != 0,
+            );
+            if [entry.x_pos, entry.y_row, entry.count, entry.stride_word]
+                != [word(1)?, word(2)?, word(3)?, word(4)?]
+            {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first entry disagrees with ASM loc_1332E"
+                ));
+            }
+        }
+        1 => {
+            let entry = block_layout_entry_words_loc_1335E(
+                word(1)?,
+                word(2)?,
+                count_bits(word(3)?)?,
+                word(4)? != 0,
+            );
+            if [entry.x_pos, entry.y_row, entry.count, entry.stride_word]
+                != [word(1)?, word(2)?, word(3)?, word(4)?]
+            {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first entry disagrees with ASM loc_1335E"
+                ));
+            }
+        }
+        10 | 12 => {
+            let entry = block_layout_entry_words_loc_133B2(
+                word(1)?,
+                word(2)?,
+                count_bits(word(3)?)?,
+                word(4)? != 0,
+            );
+            if [entry.x_pos, entry.y_row, entry.count, entry.stride_word]
+                != [word(1)?, word(2)?, word(3)?, word(4)?]
+            {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first entry disagrees with ASM loc_133B2"
+                ));
+            }
+        }
+        3 => {
+            let entry = block_layout_entry_words_loc_133F0(
+                word(1)?,
+                word(2)?,
+                count_bits(word(3)?)?,
+                word(4)? != 0,
+                [word(5)?, word(6)?, word(7)?, word(8)?],
+            );
+            if [entry.x_pos, entry.y_row, entry.count, entry.stride_word]
+                != [word(1)?, word(2)?, word(3)?, word(4)?]
+                || entry.property_words != [word(5)?, word(6)?, word(7)?, word(8)?]
+            {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first entry disagrees with ASM loc_133F0"
+                ));
+            }
+        }
+        11 => {
+            let entry = block_layout_entry_words_loc_13470(word(1)?, word(2)?);
+            if [entry.x_pos, entry.y_row] != [word(1)?, word(2)?] {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first entry disagrees with ASM loc_13470"
+                ));
+            }
+        }
+        16 => {
+            let count = count_bits(word(3)?)?;
+            let stride_word = word(4)?;
+            let property_source = decoded.get(5..).ok_or_else(|| {
+                format!("block layout type {block_type:#04x} ended before first property word")
+            })?;
+            let property_words =
+                block_layout_short_count_property_words_loc_134AC(property_source, count);
+            let expected_len = usize::from(count) + 1;
+            if stride_word > 1 || property_words.len() != expected_len {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first entry disagrees with ASM loc_134AC"
+                ));
+            }
+        }
+        _ => {}
+    }
+
+    Ok(())
 }
 
 #[allow(non_snake_case)]
@@ -1884,7 +1993,6 @@ pub(crate) fn block_layout_repeat_loop_loc_1331E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_entry_words_loc_1332E(
     x_pos: u16,
     y_row: u16,
@@ -1972,7 +2080,6 @@ pub(crate) struct BlockLayoutEntryWordsLoc133B2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_entry_words_loc_1335E(
     x_pos: u16,
     y_row: u16,
@@ -1993,7 +2100,6 @@ pub(crate) fn block_layout_entry_words_loc_1335E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_entry_words_loc_133B2(
     x_pos: u16,
     y_row: u16,
@@ -2014,7 +2120,6 @@ pub(crate) fn block_layout_entry_words_loc_133B2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_entry_words_loc_133F0(
     x_pos: u16,
     y_row: u16,
@@ -2069,7 +2174,6 @@ pub(crate) fn block_layout_short_pair_repeat_loop_loc_1345E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_entry_words_loc_13470(
     x_pos: u16,
     y_row: u16,
@@ -2099,7 +2203,6 @@ pub(crate) fn block_layout_short_count_repeat_loop_loc_1347C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_short_count_property_words_loc_134AC(
     property_words: &[u16],
     dbf_counter: u16,
