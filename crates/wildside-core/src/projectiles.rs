@@ -14,9 +14,10 @@ use crate::enemies::{
     ROBOT_SHOT_IMPACT_ANIMATION_FRAMES_LOC_3A762, RobotShotFlightRouteLoc3AC48,
     TankBulletLoopRouteLoc3B7BA, TarMonsterProjectileCollisionRouteLoc32682,
     TarMonsterProjectileCollisionTargetLoc32682, TarMonsterProjectileLoopRouteLoc3263C,
-    archer_angle_to_player, archer_arrow_delete_loc_34336, archer_reaim_loc_3432E,
-    cloud_attack_projectile_delete_tail_loc_35E9C, cloud_attack_projectile_loop_loc_35E8A,
-    dragon_flying_descent_fire_cleanup_loc_34C4A, dragon_flying_descent_fire_first_loop_loc_34C26,
+    TarMonsterShotWaitRouteLoc324E6, archer_angle_to_player, archer_arrow_delete_loc_34336,
+    archer_reaim_loc_3432E, cloud_attack_projectile_delete_tail_loc_35E9C,
+    cloud_attack_projectile_loop_loc_35E8A, dragon_flying_descent_fire_cleanup_loc_34C4A,
+    dragon_flying_descent_fire_first_loop_loc_34C26,
     dragon_flying_descent_fire_travel_loop_loc_34C3A, drips_child_state_bytes_loc_3333e,
     drips_enter_splash_animation_loc_33488, drips_left_bounds_gate_loc_335aa,
     drips_right_bounds_gate_loc_33588, drips_splash_animation_remaining_loc_33488,
@@ -51,8 +52,8 @@ use crate::enemies::{
     tar_monster_projectile_collision_loc_32682, tar_monster_projectile_delete_loc_32652,
     tar_monster_projectile_loop_loc_3263C, tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
-    tar_monster_projectile_velocity_swap_loc_326DC, ufo_beam_child_gravity_gate_loc_3555a,
-    ufo_beam_child_turnaround_loc_3554a,
+    tar_monster_projectile_velocity_swap_loc_326DC, tar_monster_shot_wait_loc_324E6,
+    ufo_beam_child_gravity_gate_loc_3555a, ufo_beam_child_turnaround_loc_3554a,
 };
 use crate::helmets::{
     RainSlotSpriteAction, RainTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -3698,11 +3699,22 @@ impl NativeRuntime {
                 && let Some(g) = grid
                 && projectile_terrain_contact_loc_3345c(g, p)
             {
-                // ASM Tar_Monster.asm loc_324E6 -> loc_324F8: once the
-                // straight glob's collision word is non-zero, hide/delete the
-                // original shot and allocate the five burst children.
-                spawn_tar_monster_retaliation(&mut pending_tar_monster_bursts, p.x_pos, p.y_pos);
-                return tar_monster_projectile_keep_after_delete_loc_32652();
+                let wait = tar_monster_shot_wait_loc_324E6(1, false);
+                debug_assert!(wait.hibernates_one_frame);
+                match wait.route {
+                    TarMonsterShotWaitRouteLoc324E6::ContinueLoop => return true,
+                    TarMonsterShotWaitRouteLoc324E6::BurstCleanup => {
+                        // ASM Tar_Monster.asm loc_324E6 -> loc_324F8: once the
+                        // straight glob's collision word is non-zero, hide/delete the
+                        // original shot and allocate the five burst children.
+                        spawn_tar_monster_retaliation(
+                            &mut pending_tar_monster_bursts,
+                            p.x_pos,
+                            p.y_pos,
+                        );
+                        return tar_monster_projectile_keep_after_delete_loc_32652();
+                    }
+                }
             }
 
             if p.kind == EnemyProjectileKind::TarMonsterBurstChild

@@ -359,14 +359,12 @@ pub(crate) struct TarMonsterShotMotionLoc324D0 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterShotWaitRouteLoc324E6 {
     ContinueLoop,
     BurstCleanup,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterShotWaitLoc324E6 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) route: TarMonsterShotWaitRouteLoc324E6,
@@ -963,7 +961,6 @@ pub(crate) fn tar_monster_shot_motion_loc_324D0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_shot_wait_loc_324E6(
     collision_type: u16,
     byte_19_nonzero: bool,
