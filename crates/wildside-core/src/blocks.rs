@@ -2981,6 +2981,34 @@ impl NativeRuntime {
             let solid_at_loc_f7aa = old_state == 0x8005 && state == 0;
             if vanished_at_loc_f8a6 || solid_at_loc_f7aa {
                 group.solid = solid_at_loc_f7aa;
+                if solid_at_loc_f7aa && group.vertical && group.count != 0 {
+                    let rows = crate::level::animated_solid_block_vertical_rows_loc_F85A(
+                        crate::level::AnimatedSolidBlockVerticalRowsInputLocF85A {
+                            start_layout_addr: 0,
+                            start_row: group.row,
+                            dbf_row_counter: u16::from(group.count - 1),
+                            level_width_tiles: grid.width_cells,
+                            camera_top_row: 1,
+                            camera_bottom_row: 0,
+                            packed_cell_x_bits: (group.col << 2) & 0x007C,
+                            mapping_longwords: [0; 2],
+                        },
+                    );
+                    for (i, (_layout_addr, cell_word)) in rows.layout_writes.iter().enumerate() {
+                        let row = group.row.saturating_add(
+                            u16::try_from(i).expect("ghost block group length fits in u16"),
+                        );
+                        // ASM loc_F7AA writes `$E304` back to Level_Layout for
+                        // the state `$8005 -> 0` solid hold.
+                        grid.set_cell_at(
+                            group.col,
+                            row,
+                            terrain::Cell::from_be_bytes((cell_word >> 8) as u8, *cell_word as u8),
+                        );
+                    }
+                    continue;
+                }
+
                 for i in 0..group.count {
                     let (col, row) = if group.vertical {
                         (group.col, group.row + u16::from(i))

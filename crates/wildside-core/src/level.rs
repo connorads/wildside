@@ -10224,7 +10224,6 @@ pub(crate) fn animated_solid_block_vertical_setup_loc_F83E(
 /// entry only for rows inside `[camera_y, camera_y+$E]`, then increments `d1`
 /// and advances `a4` by `Level_width_tiles` before DBF repeats.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
     input: AnimatedSolidBlockVerticalRowsInputLocF85A,
 ) -> AnimatedSolidBlockVerticalRowsLocF85A {
