@@ -9451,7 +9451,6 @@ pub(crate) fn initialise_evanesc_object_slots_loc_DF30() -> EvanescShooterObject
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_next_link_loc_F074(slot_addr: u32) -> LinkedObjectSlotInit {
     // ASM loc_F074 (kid.asm:19600): `lea $E(a0),a1; move.w a1,$C(a0)`.
     LinkedObjectSlotInit {
