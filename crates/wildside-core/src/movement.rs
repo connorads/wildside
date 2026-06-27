@@ -874,7 +874,6 @@ pub(crate) enum GfxObjectsCollisionTileDispatchLoc17C6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_tile_dispatch_loc_17C6(
     tile_word: u16,
 ) -> GfxObjectsCollisionTileDispatchLoc17C6 {

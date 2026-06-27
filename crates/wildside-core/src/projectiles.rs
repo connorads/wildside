@@ -4588,12 +4588,13 @@ fn lion_projectile_terrain_cell_blocks_loc_1792(cell: terrain::Cell) -> bool {
     // ASM GfxObjects_Collision loc_1796 masks `$4000`, then loc_17C6 ignores
     // spikes. Block flags are not part of this test; ordinary terrain can set
     // collision bits without bit 15.
-    matches!(
-        cell.collision,
-        terrain::CollisionKind::Solid
-            | terrain::CollisionKind::SlopeUp
-            | terrain::CollisionKind::SlopeDown
-    )
+    let tile_word = cell.to_word();
+    if tile_word & 0x4000 == 0 {
+        return false;
+    }
+
+    crate::movement::gfx_objects_collision_tile_dispatch_loc_17C6(tile_word)
+        != crate::movement::GfxObjectsCollisionTileDispatchLoc17C6::Continue
 }
 
 fn lion_projectile_solid_cell_blocks_loc_3e260(cell: terrain::Cell) -> bool {

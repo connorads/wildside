@@ -134,7 +134,7 @@ impl Cell {
         )
     }
 
-    fn to_word(self) -> u16 {
+    pub(crate) fn to_word(self) -> u16 {
         let block_flag = if self.has_block { 0x8000 } else { 0 };
         let collision_bits = (self.collision as u16) << 12;
         let block_type_bits = if self.has_block {
