@@ -1160,7 +1160,6 @@ pub(crate) fn ufo_beam_child_gravity_gate_loc_3555a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtDriverFallLoopLoc3564C {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) range_check_mode: u8,
