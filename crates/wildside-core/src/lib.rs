@@ -1512,6 +1512,11 @@ impl NativeRuntime {
         ) {
             boot::PauseMenuStartResult::NotPressed => {}
             boot::PauseMenuStartResult::ContinueGame => {
+                if let Some((camera_x_pos, camera_y_pos)) = self.pause_menu_camera_words() {
+                    // ASM loc_6B68 (kid.asm:6880): the Continue path restores
+                    // the saved nametable rows before clearing Game_Paused.
+                    let _ = boot::pause_menu_tile_restore_plan_loc_6B68(camera_x_pos, camera_y_pos);
+                }
                 self.paused = false;
                 self.pause_menu_option = 0;
                 self.pause_menu_arrow_cursor_cmds_loc_6a84 = None;
@@ -1544,6 +1549,15 @@ impl NativeRuntime {
                 self.pending_pause_last_life_give_up = true;
             }
         }
+    }
+
+    fn pause_menu_camera_words(&self) -> Option<(u16, u16)> {
+        self.opening_slice.as_ref().map(|slice| {
+            (
+                (slice.camera.x_pos >> 16) as u16,
+                (slice.camera.y_pos >> 16) as u16,
+            )
+        })
     }
 
     fn step_pause_last_life_give_up_loc_6c0a(&mut self) -> bool {
@@ -2471,6 +2485,13 @@ impl NativeRuntime {
         }
         if apply_pending_pause_toggle {
             self.paused = !self.paused;
+            if self.paused
+                && let Some((camera_x_pos, camera_y_pos)) = self.pause_menu_camera_words()
+            {
+                // ASM loc_695C (kid.asm:6664): pause entry saves the five
+                // nametable rows that the menu text will overwrite.
+                let _ = boot::pause_menu_tile_save_plan_loc_695C(camera_x_pos, camera_y_pos);
+            }
         }
         if self.demo_title_return_after_frame {
             self.demo_title_return_after_frame = false;

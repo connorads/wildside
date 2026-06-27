@@ -1309,7 +1309,6 @@ pub fn pause_menu_tile_save_wrap_column_reset_loc_69AE(vdp_read_cmd: u32) -> u32
 /// word-read loops (loc_69A0/loc_69AE + loc_69C0) when the menu wraps
 /// around the 64-tile plane edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuTileSaveRow {
     /// VDP read command for the start of this row.
     pub(crate) vdp_read_cmd: u32,
@@ -1332,7 +1331,6 @@ pub(crate) struct PauseMenuTileSaveRow {
 /// - `loc_69AE`: first-segment word-read loop + column reset
 /// - `loc_69C0`: second-segment word-read loop
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_tile_save_plan_loc_695C(
     camera_x_pos: u16,
     camera_y_pos: u16,
@@ -1489,7 +1487,6 @@ pub fn pause_menu_text_write_plan_loc_69D2(
 /// Structurally identical to [`PauseMenuTextWriteRow`] — the ROM reuses the
 /// same VDP write address computation and column-reset mask.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct PauseMenuTileRestoreRow {
     /// VDP write command for the start of this row.
     pub(crate) vdp_write_cmd: u32,
@@ -1517,7 +1514,6 @@ pub(crate) struct PauseMenuTileRestoreRow {
 /// - `loc_6BEA`: first-segment word-write loop + column reset (`andi.l #$FF80FFFF`)
 /// - `loc_6BFC`: second-segment word-write loop
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_tile_restore_plan_loc_6B68(
     camera_x_pos: u16,
     camera_y_pos: u16,
