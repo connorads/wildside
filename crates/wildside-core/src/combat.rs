@@ -3256,7 +3256,6 @@ pub(crate) fn boomerang_boss_head_1_init_loc_37F30(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_1_init_loc_39478(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -3300,7 +3299,6 @@ pub(crate) fn shishka_bagel_head_1_init_loc_39478(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_2_init_loc_39598(
     anchor_x_44: u16,
     anchor_y_46: u16,
@@ -3529,7 +3527,6 @@ pub(crate) fn shishka_bagel_head_2_post_projectile_anim_gate_loc_396B4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_3_init_loc_396BE(
     anchor_x_44: u16,
     anchor_y_46: u16,

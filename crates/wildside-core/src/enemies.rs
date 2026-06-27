@@ -10,6 +10,8 @@ use crate::combat::{
     boss_eye_orbit_placement_sub_393C8, boss_head_movement_step_for_family_sub_39846,
     boss_head_projectile_spawn_sub_397E4, heady_metal_palette_cycle_sub_379E8,
     heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
+    shishka_bagel_head_1_init_loc_39478, shishka_bagel_head_2_init_loc_39598,
+    shishka_bagel_head_3_init_loc_396BE,
 };
 use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
 
@@ -3122,7 +3124,35 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
-            let hit_points = if is_multi_head_boss(family) {
+            let hit_points = if matches!(
+                family,
+                EnemyFamily::Shishkaboss | EnemyFamily::BagelBrothers
+            ) {
+                // ASM loc_39478/loc_39598/loc_396BE: each Shishka/Bagel head's
+                // init routine writes the per-family HP after the caller has
+                // already copied that head's `$44/$46` anchor into x/y.
+                let variant_d2 = if matches!(family, EnemyFamily::Shishkaboss) {
+                    0
+                } else {
+                    1
+                };
+                let head_x_word = (head_x >> 16) as u16;
+                let head_y_word = (head_y >> 16) as u16;
+                match head_idx {
+                    0 => {
+                        shishka_bagel_head_1_init_loc_39478(head_x_word, head_y_word, variant_d2)
+                            .hit_points as u8
+                    }
+                    1 => {
+                        shishka_bagel_head_2_init_loc_39598(head_x_word, head_y_word, variant_d2)
+                            .hit_points as u8
+                    }
+                    _ => {
+                        shishka_bagel_head_3_init_loc_396BE(head_x_word, head_y_word, variant_d2)
+                            .hit_points as u8
+                    }
+                }
+            } else if is_multi_head_boss(family) {
                 head_hp_table[head_idx as usize]
             } else if let Some(visible_init) = crab_visible_init {
                 visible_init.current_hp
