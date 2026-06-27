@@ -7398,7 +7398,6 @@ pub(crate) fn heady_metal_sprite_init_sub_376B6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_apply_piece_velocities_sub_376EC(
     mut slots: [Option<HeadyMetalSpriteVelocitySub376EC>; 17],
     x_velocity: i32,

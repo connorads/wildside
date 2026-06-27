@@ -20,7 +20,8 @@ mod weather;
 
 use combat::{
     HeadyMetalBreakupPieceSub37708, HeadyMetalCachedWorkerSub37708, HeadyMetalScatterVelocities,
-    PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect, heady_metal_init_enemy20_loc_39247,
+    HeadyMetalSpriteVelocitySub376EC, PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect,
+    heady_metal_apply_piece_velocities_sub_376EC, heady_metal_init_enemy20_loc_39247,
     heady_metal_sprite_init_sub_376B6, heady_metal_sprite_init_sub_3764A,
     heady_metal_sprite_init_sub_37680,
 };
@@ -1047,9 +1048,43 @@ impl NativeRuntime {
             .wrapping_add_signed(heady_metal.y_velocity.wrapping_neg());
         let delta_x = ((heady_metal.x_pos >> 16) as i32) - ((old_x >> 16) as i32);
         let delta_y = ((heady_metal.y_pos >> 16) as i32) - ((old_y >> 16) as i32);
-        for slot in piece_slots.iter_mut().flatten() {
-            slot.x_velocity = heady_metal.x_velocity;
-            slot.y_velocity = heady_metal.y_velocity;
+
+        let mut velocity_slots: [Option<HeadyMetalSpriteVelocitySub376EC>; 17] = [None; 17];
+        if let Some(cached_workers) = self.heady_metal_cached_workers_sub_37708.as_ref() {
+            for &(slot_index, worker_index) in &[(0, 0), (1, 1), (2, 2), (15, 3), (16, 4)] {
+                let worker = cached_workers[worker_index];
+                velocity_slots[slot_index] = Some(HeadyMetalSpriteVelocitySub376EC {
+                    x_velocity: worker.x_velocity,
+                    y_velocity: worker.y_velocity,
+                });
+            }
+        }
+        for (piece_index, piece) in piece_slots.iter().enumerate() {
+            if let Some(piece) = piece {
+                velocity_slots[piece_index + 2] = Some(HeadyMetalSpriteVelocitySub376EC {
+                    x_velocity: piece.x_velocity,
+                    y_velocity: piece.y_velocity,
+                });
+            }
+        }
+
+        // ASM sub_376EC loc_376F2 walks the 17 `$FFFFFB72..$FFFFFBB2` worker
+        // pointers, skipping null longwords. Native stores `$FFFFFB7A` both as
+        // cached worker 2 and body-piece slot 0, so copy index 2 back to both.
+        let velocity_slots = heady_metal_apply_piece_velocities_sub_376EC(
+            velocity_slots,
+            heady_metal.x_velocity,
+            heady_metal.y_velocity,
+        );
+
+        for (piece_index, slot) in piece_slots.iter_mut().enumerate() {
+            let Some(slot) = slot else {
+                continue;
+            };
+            if let Some(velocity) = velocity_slots[piece_index + 2] {
+                slot.x_velocity = velocity.x_velocity;
+                slot.y_velocity = velocity.y_velocity;
+            }
             if delta_x == 0 && delta_y == 0 {
                 continue;
             }
@@ -1057,9 +1092,12 @@ impl NativeRuntime {
             slot.y_pos = slot.y_pos.wrapping_add_signed(delta_y as i16);
         }
         if let Some(cached_workers) = self.heady_metal_cached_workers_sub_37708.as_mut() {
-            for worker in cached_workers {
-                worker.x_velocity = heady_metal.x_velocity;
-                worker.y_velocity = heady_metal.y_velocity;
+            for &(slot_index, worker_index) in &[(0, 0), (1, 1), (2, 2), (15, 3), (16, 4)] {
+                let worker = &mut cached_workers[worker_index];
+                if let Some(velocity) = velocity_slots[slot_index] {
+                    worker.x_velocity = velocity.x_velocity;
+                    worker.y_velocity = velocity.y_velocity;
+                }
                 if delta_x == 0 && delta_y == 0 {
                     continue;
                 }
