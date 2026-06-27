@@ -10561,7 +10561,6 @@ pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F90A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
     source_cells: &[u8],
     source_cells_start: usize,

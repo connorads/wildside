@@ -3053,6 +3053,44 @@ impl NativeRuntime {
                     continue;
                 }
 
+                if vanished_at_loc_f8a6 && group.vertical && group.count != 0 {
+                    let source_cells = (0..group.count)
+                        .map(|i| {
+                            grid.erase_cell_at_loc_11542(
+                                group.col,
+                                group.row.wrapping_add(u16::from(i)),
+                            )
+                            .skin
+                        })
+                        .collect::<Vec<_>>();
+                    let rows =
+                        crate::level::animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
+                            &source_cells,
+                            0,
+                            u32::from(terrain::BlockList::level_layout_low_word_addr(
+                                group.col,
+                                group.row,
+                                grid.width_cells,
+                            )),
+                            u16::from(group.count - 1),
+                            1,
+                            u32::from(grid.width_cells),
+                        );
+                    for (i, (_layout_addr, cell_word)) in rows.layout_writes.iter().enumerate() {
+                        let row = group.row.saturating_add(
+                            u16::try_from(i).expect("ghost block group length fits in u16"),
+                        );
+                        // ASM loc_F9A4/loc_F9A6 copies the original
+                        // Level_terrain_layout byte back down the column.
+                        grid.set_cell_at(
+                            group.col,
+                            row,
+                            terrain::Cell::from_be_bytes(0, *cell_word as u8),
+                        );
+                    }
+                    continue;
+                }
+
                 for i in 0..group.count {
                     let (col, row) = if group.vertical {
                         (group.col, group.row + u16::from(i))
