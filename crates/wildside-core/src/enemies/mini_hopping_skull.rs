@@ -495,7 +495,6 @@ pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3ee12(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3eec8(
     collision_type: u16,
     berzerker_charging: bool,
@@ -753,8 +752,8 @@ pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
         return MiniHoppingSkullLandingTailCollisionOutcome::ContinueWait { next_dbf_counter };
     }
 
-    match collision_type {
-        MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
+    match mini_hopping_skull_landing_collision_route_loc_3eec8(collision_type, berzerker_charging) {
+        MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull => {
             match mini_hopping_skull_landing_collision_damage_loc_3ef1a(hit_counter) {
                 MiniHoppingSkullDamageSequence::SkullDestroyed => {
                     MiniHoppingSkullLandingTailCollisionOutcome::DamageSkullAndDestroy
@@ -766,26 +765,13 @@ pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
                 }
             }
         }
-        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
-            // ASM Mini_Hopping_Skull.asm loc_3EF10: landing side contact uses
-            // the same Berzerker charge gate in both landing wait loops.
-            match mini_hopping_skull_landing_side_contact_loc_3ef10(berzerker_charging) {
-                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull => {
-                    MiniHoppingSkullLandingTailCollisionOutcome::BerzerkerChargeKillsSkull
-                }
-                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker => {
-                    MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch
-                }
-                MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
-                | MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull => {
-                    unreachable!("loc_3EF10 only returns a side-contact route")
-                }
-            }
+        MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull => {
+            MiniHoppingSkullLandingTailCollisionOutcome::BerzerkerChargeKillsSkull
         }
-        MINI_SKULL_COLID_GROUND_KIDBELOW => {
+        MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker => {
             MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch
         }
-        _ => {
+        MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait => {
             let mut y_velocity = 0xFFFC8000u32 as i32;
             let mut x_velocity = 0x0001_8000u32 as i32;
             if is_boosted {
