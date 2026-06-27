@@ -6,8 +6,9 @@ use crate::combat::{
 };
 use crate::movement::{
     hidden_block_reveal_bounce_down_loc_E2F0, hidden_block_reveal_bounce_up_loc_E2E2,
-    hidden_block_reveal_gfx_init_loc_E2A8, hidden_block_reveal_offset_bounce_down_loc_E35A,
-    hidden_block_reveal_offset_bounce_up_loc_E34C, hidden_block_reveal_position_loc_E2D2,
+    hidden_block_reveal_cleanup_loc_E376, hidden_block_reveal_gfx_init_loc_E2A8,
+    hidden_block_reveal_offset_bounce_down_loc_E35A, hidden_block_reveal_offset_bounce_up_loc_E34C,
+    hidden_block_reveal_position_loc_E2D2,
 };
 
 #[allow(non_snake_case)]
@@ -4717,6 +4718,13 @@ impl NativeRuntime {
                 }
                 if b.kind == BlockBounceKind::Lift {
                     finished_lift_blocks.push((b.cell_x, b.cell_y));
+                }
+                if b.kind == BlockBounceKind::HiddenReveal {
+                    // ASM loc_E376 (kid.asm:17812): the zero-offset reveal
+                    // worker runs the shared cell cleanup before deleting.
+                    let cleanup = hidden_block_reveal_cleanup_loc_E376(0, b.y_offset_px as u16);
+                    debug_assert!(cleanup.calls_sub_11530);
+                    return !cleanup.deletes_current_object;
                 }
                 if b.kind == BlockBounceKind::Shifting {
                     finished_shifting_blocks.push((b.cell_x, b.cell_y));
