@@ -4231,14 +4231,17 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                     block_layout_words,
                     &mut pos,
                     width_blocks,
-                    |x, y, prop| {
-                        if let Some(idx) = cell_index(x, y) {
-                            if hidden {
-                                write_hidden(cells, idx);
+                    block_type as i16,
+                    hidden,
+                    |cell_addr, tile_word| {
+                        if cell_addr % 2 == 0
+                            && let Ok(idx) = usize::try_from(cell_addr / 2)
+                            && idx < cells.len()
+                        {
+                            if let Some(tile_word) = tile_word {
+                                cells[idx] = tile_word;
                             } else {
-                                let result =
-                                    block_type_1012_tile_value_loc_125c8(prop, block_type as i16);
-                                cells[idx] = result.tile_word;
+                                write_hidden(cells, idx);
                             }
                         }
                     },
@@ -4432,8 +4435,10 @@ fn run_loop_with_property_123dc(
 fn run_loop_with_property_125a6(
     words: &[u16],
     pos: &mut usize,
-    _width_blocks: u16,
-    mut body: impl FnMut(u16, u16, u16),
+    width_blocks: u16,
+    block_type: i16,
+    hidden: bool,
+    mut body: impl FnMut(u32, Option<u16>),
 ) {
     loop {
         let Some(rest) = words.get(*pos..) else {
@@ -4447,27 +4452,59 @@ fn run_loop_with_property_125a6(
         };
         *pos += read_x.bytes_consumed;
         let x = read_x.x_pos;
-        let Some(&y) = words.get(*pos) else {
+        let Some(&y_row) = words.get(*pos) else {
             return;
         };
-        let Some(&count) = words.get(*pos + 1) else {
+        let row_pointer_table: Vec<u16> = (0..=y_row)
+            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
+            .collect();
+        let Some(setup) =
+            block_type_1012_parse_coords_loc_125ac(&words[*pos..], &row_pointer_table, x)
+        else {
             return;
         };
-        let Some(&stride) = words.get(*pos + 2) else {
+        *pos += setup.bytes_consumed;
+        let count = usize::from(setup.count);
+        let Some(property_words) = words.get(*pos..pos.saturating_add(count)) else {
             return;
         };
-        *pos += 3;
-        for i in 0..count {
-            let Some(prop) = words.get(*pos).copied() else {
-                return;
-            };
-            *pos += 1;
-            let (cx, cy) = if stride != 0 {
-                (x, y.wrapping_add(i))
-            } else {
-                (x.wrapping_add(i), y)
-            };
-            body(cx, cy, prop);
+        *pos += count;
+
+        if hidden {
+            let row_stride = u32::from(width_blocks).wrapping_mul(2);
+            for i in 0..setup.count {
+                let cell_addr = if setup.stride {
+                    setup
+                        .cell_addr
+                        .wrapping_add(u32::from(i).wrapping_mul(row_stride))
+                } else {
+                    setup.cell_addr.wrapping_add(u32::from(i).wrapping_mul(2))
+                };
+                body(cell_addr, None);
+            }
+        } else if setup.stride {
+            let placement = block_type_1012_vertical_place_loc_12600(
+                setup.cell_addr,
+                setup.count,
+                property_words,
+                block_type,
+                x,
+                setup.y_row,
+                width_blocks,
+            );
+            for (cell_addr, tile_word) in placement.tiles {
+                body(cell_addr, Some(tile_word));
+            }
+        } else {
+            let placement = block_type_1012_horizontal_place_loc_125c8(
+                setup.cell_addr,
+                setup.count,
+                property_words,
+                block_type,
+            );
+            for (cell_addr, tile_word) in placement.tiles {
+                body(cell_addr, Some(tile_word));
+            }
         }
     }
 }
@@ -5940,7 +5977,6 @@ pub(crate) struct BlockType1012ParseCoordsLoc125AC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1012_parse_coords_loc_125ac(
     layout_words: &[u16],
     row_pointer_table: &[u16],
@@ -6038,7 +6074,6 @@ pub(crate) struct BlockType1012HorizontalPlaceLoc125C8 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1012_horizontal_place_loc_125c8(
     cell_addr: u32,
     count: u16,
@@ -6092,7 +6127,6 @@ pub(crate) struct BlockType1012HiddenEntryLoc1261E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1012_vertical_place_loc_12600(
     cell_addr: u32,
     count: u16,
