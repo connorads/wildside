@@ -5744,9 +5744,21 @@ pub(crate) fn step_hopper(
             if enemy.wait_timer & MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 != 0 {
                 let windup_frames = enemy.wait_timer & !MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92;
                 if windup_frames > 0 {
+                    let route = match enemy.facing {
+                        Direction::Left => {
+                            mini_hopping_skull_left_hop_windup_collision_loc_3eccc(0, false)
+                        }
+                        Direction::Right => {
+                            mini_hopping_skull_right_hop_windup_collision_loc_3eb92(0, false)
+                        }
+                    };
+                    debug_assert_eq!(
+                        route,
+                        MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
+                    );
                     // ASM Mini_Hopping_Skull.asm loc_3EB92/loc_3ECCC:
-                    // short hop windup loops consume d1 before seeding the
-                    // relaunch velocity at loc_3EBFC/loc_3ED36.
+                    // each windup frame polls Kid collision before the DBF
+                    // tail consumes d1 and eventually seeds relaunch velocity.
                     enemy.wait_timer =
                         MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | (windup_frames - 1);
                     enemy.x_velocity = 0;
@@ -5755,6 +5767,27 @@ pub(crate) fn step_hopper(
 
                 enemy.wait_timer = 0;
                 mini_skull_windup_expired = true;
+            } else if enemy.wait_timer & MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00 != 0
+                && enemy.grounded_frames > 0
+            {
+                let route = match enemy.facing {
+                    Direction::Left => {
+                        mini_hopping_skull_left_ground_wait_collision_loc_3ec48(0, false)
+                    }
+                    Direction::Right => {
+                        mini_hopping_skull_ground_wait_collision_loc_3eb0e(0, false)
+                    }
+                };
+                debug_assert_eq!(
+                    route,
+                    MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
+                );
+                // ASM Mini_Hopping_Skull.asm loc_3EB0E/loc_3EC48: the
+                // slope-ground wait loops poll Kid collision before DBF
+                // countdown reaches loc_3EB78/loc_3ECB2.
+                enemy.grounded_frames -= 1;
+                enemy.x_velocity = 0;
+                return;
             } else if enemy.grounded_frames > 0 {
                 enemy.grounded_frames -= 1;
                 enemy.x_velocity = 0;

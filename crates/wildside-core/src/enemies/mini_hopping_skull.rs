@@ -597,7 +597,6 @@ pub(crate) fn mini_hopping_skull_ground_wait_setup_loc_3eb00() -> MiniHoppingSku
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_ground_wait_collision_loc_3eb0e(
     collision_type: u16,
     berzerker_charging: bool,
@@ -620,7 +619,6 @@ pub(crate) fn mini_hopping_skull_ground_wait_collision_loc_3eb0e(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_side_contact_loc_3eb56(
     berzerker_charging: bool,
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
@@ -634,7 +632,6 @@ pub(crate) fn mini_hopping_skull_side_contact_loc_3eb56(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_right_hop_side_contact_loc_3ebda(
     berzerker_charging: bool,
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
@@ -648,7 +645,6 @@ pub(crate) fn mini_hopping_skull_right_hop_side_contact_loc_3ebda(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_ground_side_contact_loc_3ec90(
     berzerker_charging: bool,
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
@@ -662,7 +658,6 @@ pub(crate) fn mini_hopping_skull_left_ground_side_contact_loc_3ec90(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_side_contact_loc_3ed14(
     berzerker_charging: bool,
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
@@ -879,7 +874,6 @@ pub(crate) fn mini_hopping_skull_left_ground_wait_tail_loc_3ecb2(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_right_hop_windup_collision_loc_3eb92(
     collision_type: u16,
     berzerker_charging: bool,
@@ -903,7 +897,6 @@ pub(crate) fn mini_hopping_skull_right_hop_windup_collision_loc_3eb92(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_ground_wait_collision_loc_3ec48(
     collision_type: u16,
     berzerker_charging: bool,
@@ -926,7 +919,6 @@ pub(crate) fn mini_hopping_skull_left_ground_wait_collision_loc_3ec48(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
     collision_type: u16,
     berzerker_charging: bool,
