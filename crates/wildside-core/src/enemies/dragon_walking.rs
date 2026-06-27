@@ -1495,7 +1495,10 @@ mod tests {
             DragonWalkingDeathSequenceLoc3CEFC {
                 death_animation: "stru_3CCEC",
                 waits_until_animation_finished: true,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 exits_enemy: true,
             },
             "ASM Dragon.asm loc_3CEFC should play the walking-dragon death animation, wait for it, then exit through loc_3E956"

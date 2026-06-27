@@ -18177,7 +18177,10 @@ mod chunk_03 {
         let mut runtime = NativeRuntime::new(manifest());
 
         runtime.apply_deactivation_status_action_loc_3C4C0(
-            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 3 },
+            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                index: 3,
+                word_value: 0x2168,
+            },
         );
         assert_eq!(
             runtime.enemy_status_words[3], 0x2168,

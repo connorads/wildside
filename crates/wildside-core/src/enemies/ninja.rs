@@ -2456,7 +2456,10 @@ mod tests {
             NinjaDeathSequenceLoc3DB4E {
                 death_animation: "stru_3D50A",
                 waits_until_animation_finished: true,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 exits_enemy: true,
             },
             "ASM Ninja.asm loc_3DB4E should play the death animation, wait for it, then exit through loc_3E956"

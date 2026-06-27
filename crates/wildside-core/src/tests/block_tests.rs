@@ -3275,7 +3275,10 @@ mod chunk_04 {
             GoatDeathSequenceLoc3CB64 {
                 death_animation: "stru_3C9EA",
                 waits_until_animation_finished: true,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 exits_enemy: true,
             },
             "ASM Goat.asm loc_3CB64 should play the death animation to completion before exiting through loc_3E956"
@@ -13579,7 +13582,10 @@ mod chunk_04 {
                 has_level_collision: false,
                 animation_script: "stru_3D11E",
                 waits_until_animation_finished: true,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 exits_enemy: true,
             },
             "ASM Orca.asm loc_3D4BC should stop motion, disable movement/level collision, play `stru_3D11E`, and exit"
@@ -13617,7 +13623,8 @@ mod chunk_04 {
                         animation_script: "stru_3D11E",
                         waits_until_animation_finished: true,
                         status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
-                            index: 5
+                            index: 5,
+                            word_value: 0x2168,
                         },
                         exits_enemy: true,
                     },

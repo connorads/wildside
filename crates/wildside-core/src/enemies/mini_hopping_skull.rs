@@ -3173,7 +3173,10 @@ mod tests {
             mini_hopping_skull_delete_tail_loc_3f32e(4, 0x05),
             MiniHoppingSkullDeleteTailLoc3F32E {
                 next_number_of_enemy: 3,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 deletes_current_object: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F354 doubles positive `$42(a5)` into an EnemyStatus_Table word offset and writes `$2168`"
@@ -3199,7 +3202,10 @@ mod tests {
             mini_hopping_skull_cull_reject_loc_3f300(9, 0x05),
             MiniHoppingSkullDeleteTailLoc3F32E {
                 next_number_of_enemy: 8,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 deletes_current_object: true,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F300 is only `bra.w loc_3F32E`, so every rejected culling check must take the delete-tail status update"

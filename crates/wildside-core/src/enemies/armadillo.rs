@@ -606,7 +606,10 @@ mod tests {
             ArmadilloDeathRouteLoc3C87E::DeathAnimation {
                 animation_script: "stru_3C69A",
                 waits_until_animation_finished: true,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 exits_enemy: true,
             },
             "ASM Armadillo.asm loc_3C87E immediately plays the death animation when `$5C(a5)` is clear"
@@ -630,7 +633,10 @@ mod tests {
             ArmadilloDeathAnimationLoc3C886 {
                 animation_script: "stru_3C69A",
                 waits_until_animation_finished: true,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 exits_enemy: true,
             },
             "ASM Armadillo.asm loc_3C886 plays `stru_3C69A`, waits for it to finish, then exits through loc_3E956"
@@ -675,7 +681,8 @@ mod tests {
                     animation_script: "stru_3C69A",
                     waits_until_animation_finished: true,
                     status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
-                        index: 5
+                        index: 5,
+                        word_value: 0x2168,
                     },
                     exits_enemy: true,
                 },

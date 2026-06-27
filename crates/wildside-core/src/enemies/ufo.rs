@@ -2877,7 +2877,10 @@ mod tests {
     fn ufo_linked_cleanup_status_matches_loc_352b2() {
         assert_eq!(
             ufo_linked_cleanup_status_loc_352b2(0x05),
-            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                index: 5,
+                word_value: 0x2168
+            },
             "ASM UFO.asm loc_352D2 writes `$2168` to the positive `$42(a5)` status slot"
         );
 

@@ -10592,11 +10592,11 @@ impl NativeRuntime {
         status_action: DeactivationStatusActionLoc3C4C0,
     ) {
         match status_action {
-            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index } => {
+            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index, word_value } => {
                 if let Some(word) = self.enemy_status_words.get_mut(index) {
                     // ASM loc_3C4E6 / Lion.asm loc_3E97C: positive `$42(a5)`
                     // writes `$2168` before the common delete-current-object tail.
-                    *word = 0x2168;
+                    *word = word_value;
                 }
             }
             DeactivationStatusActionLoc3C4C0::SubtractSpawnCounter { index } => {

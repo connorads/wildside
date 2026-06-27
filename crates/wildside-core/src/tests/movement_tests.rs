@@ -1740,7 +1740,10 @@ mod chunk_11 {
         let action = deactivation_status_update_loc_3C4C0(0x05);
         assert_eq!(
             action,
-            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+            DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                index: 5,
+                word_value: 0x2168
+            },
             "ASM loc_3C4E6: positive slot $05 must write $2168 at EnemyStatus_Table index 5",
         );
     }

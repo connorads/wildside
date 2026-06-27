@@ -9697,7 +9697,7 @@ pub(crate) fn deactivation_drive_sound_cleanup_loc_3C494(
 pub(crate) enum DeactivationStatusActionLoc3C4C0 {
     /// loc_3C4E6: bit 7 clear (positive slot) — write `$2168` to
     /// `EnemyStatus_Table[d0]`.
-    WriteRespawnMarker { index: usize },
+    WriteRespawnMarker { index: usize, word_value: u16 },
     /// Bit 7 set + bit 6 set — subtract `$400` from `EnemyStatus_Table[d0 & $3F]`.
     SubtractSpawnCounter { index: usize },
     /// Bit 7 set + bit 6 clear — no table update, just delete.
@@ -9724,6 +9724,7 @@ pub(crate) fn deactivation_status_update_loc_3C4C0(
         // ASM loc_3C4E6: add.w d0,d0 → word index; move.w #$2168,(a0,d0.w)
         return DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
             index: usize::from(object_status_slot),
+            word_value: 0x2168,
         };
     }
     // ASM: btst #6,d0; beq.s loc_3C4F4

@@ -1095,13 +1095,11 @@ pub(crate) fn lion_delete_tail_loc_3e98a() -> LionDeleteTailLoc3E98A {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionRespawnMarkerLoc3E97C {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_respawn_marker_loc_3e97c(object_status_slot: u8) -> LionRespawnMarkerLoc3E97C {
     // ASM Lion.asm loc_3E97C: positive `$42(a5)` has already been loaded into
     // d0; `add.w d0,d0` makes it an EnemyStatus_Table word offset, then `$2168`
@@ -1117,6 +1115,14 @@ pub(crate) fn lion_cull_status_update_loc_3e956(
 ) -> DeactivationStatusActionLoc3C4C0 {
     // ASM Lion.asm loc_3E956 duplicates loc_3C4C0's delete-tail status-table
     // update, including the positive-slot respawn marker at loc_3E97C.
+    if object_status_slot & 0x80 == 0 {
+        let marker = lion_respawn_marker_loc_3e97c(object_status_slot);
+        return DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+            index: marker.index,
+            word_value: marker.word_value,
+        };
+    }
+
     deactivation_status_update_loc_3C4C0(object_status_slot)
 }
 
@@ -3491,7 +3497,10 @@ mod tests {
             lion_cull_reject_loc_3e920(3, 0x05),
             LionCullRejectLoc3E920 {
                 next_number_of_enemy: 2,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 deletes_current_object: true,
             },
             "ASM Lion.asm loc_3E920 should branch to the delete tail and write a respawn marker for positive `$42(a5)` slots"
@@ -3555,7 +3564,10 @@ mod tests {
             lion_medium_load_cull_loc_3e924(0x0E5B, 0x1000, 0x1000, 0x1000, 7, 0x05),
             LionMediumLoadCullLoc3E924::DeleteTail(LionCullRejectLoc3E920 {
                 next_number_of_enemy: 6,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 deletes_current_object: true,
             }),
             "ASM Lion.asm loc_3E924 should branch through loc_3E920 once relative x drops below `-$1A4`"

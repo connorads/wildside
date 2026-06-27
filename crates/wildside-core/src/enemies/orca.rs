@@ -799,7 +799,10 @@ mod tests {
                 has_kid_collision: true,
                 death_animation: "stru_3D11E",
                 waits_until_animation_finished: true,
-                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker { index: 5 },
+                status_action: DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
+                    index: 5,
+                    word_value: 0x2168
+                },
                 exits_enemy: true,
             },
             "ASM Orca.asm loc_3D268 should re-enable Kid collision, play the death animation, then exit the enemy"
