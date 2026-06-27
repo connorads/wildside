@@ -8479,8 +8479,7 @@ pub(crate) fn copy_block_mappings_loc_11D46(source_longwords: &[u32], or_mask: u
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_dimensions_loc_11B40(
+pub fn background_dimensions_loc_11B40(
     level_width_tiles: u16,
     level_height_tiles: u16,
 ) -> (u16, u16) {

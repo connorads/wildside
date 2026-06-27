@@ -3297,10 +3297,20 @@ fn chunked_background_upload_scroll_x_px_loc_2ffe8(
 fn chunked_background_dimensions_loc_12848(
     level_visuals: &NativeLevelVisuals,
 ) -> Option<(usize, usize)> {
-    let width_cells = usize::from(level_visuals.level.foreground_layout.width_cells);
-    let height_cells = usize::from(level_visuals.level.foreground_layout.height_cells);
-    let width = (width_cells / 2).checked_add(0x1E)?;
-    let height = (height_cells / 2).checked_add(0x15)?;
+    let level_width_tiles = level_visuals
+        .level
+        .foreground_layout
+        .width_cells
+        .checked_mul(2)?;
+    let level_height_tiles = level_visuals
+        .level
+        .foreground_layout
+        .height_cells
+        .checked_mul(2)?;
+    let (width, height) =
+        wildside_core::background_dimensions_loc_11B40(level_width_tiles, level_height_tiles);
+    let width = usize::from(width);
+    let height = usize::from(height);
     if width == 0 || height == 0 {
         return None;
     }
