@@ -614,7 +614,6 @@ pub(crate) struct LionLoc3E67AResult {
     pub(crate) resume_via_callback: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_continue_loc_3e67a(next_x_position: u32) -> LionLoc3E67AResult {
     // ASM Lion.asm loc_3E67A: `move.l d2,x_pos(a3)` commits the left-charge
     // candidate position, then branches to loc_3E556. Unlike loc_3E4C6, this
@@ -1677,9 +1676,8 @@ fn step_lion_charge_movement_loc_3e11e(
         enemy.x_velocity = commit.x_velocity;
         enemy.y_velocity = commit.y_velocity;
     } else {
-        enemy.x_pos = next_x;
-        enemy.x_velocity = 0;
-        enemy.y_velocity = 0;
+        let commit = lion_left_charge_continue_loc_3e67a(next_x);
+        enemy.x_pos = commit.x_position;
     }
     enemy.shared_walker_debug_branch = Some("lion_charge_grounded");
 }
