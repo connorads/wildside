@@ -3397,14 +3397,22 @@ impl OpeningSliceState {
                 let x_velocity_before_sub_b084 = self.player.x_velocity;
                 let horizontal_step_applied = if self.player.wall_cling_direction.is_some() {
                     false
-                } else {
+                } else if suppress_probe_slope_velocity {
                     self.update_horizontal_velocity_only_with_probe_slope_suppression(
                         input,
                         jump_pressed,
                         form,
                         block_grid.as_deref(),
                         maniaxe_throwing_axe_active,
-                        suppress_probe_slope_velocity,
+                        true,
+                    )
+                } else {
+                    self.update_horizontal_velocity_only(
+                        input,
+                        jump_pressed,
+                        form,
+                        block_grid.as_deref(),
+                        maniaxe_throwing_axe_active,
                     )
                 };
 
@@ -5149,7 +5157,6 @@ impl OpeningSliceState {
     /// Horizontal velocity update only (sub_B084 equivalent).
     /// Updates x_vel and facing but does NOT apply x_pos += x_vel.
     /// Returns (horizontal_step_applied, jump_suppressed_by_buffer).
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn update_horizontal_velocity_only(
         &mut self,
         input: FrameInput,
