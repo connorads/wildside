@@ -4250,16 +4250,23 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // loc_126BA (type 11): write `$EB2C` to a single cell per entry (no
             // count loop). Hidden → sub_127A8. (kid.asm:24948-24977)
             11 => {
-                run_loop_single_126ba(block_layout_words, &mut pos, |x, y| {
-                    if let Some(idx) = cell_index(x, y) {
-                        if hidden {
-                            write_hidden(cells, idx);
-                        } else {
-                            let result = block_type_11_visible_tile_loc_126c0();
-                            cells[idx] = result.tile_word;
+                let block_type_arg = if hidden { -11 } else { 11 };
+                run_loop_single_126ba(
+                    block_layout_words,
+                    &mut pos,
+                    width_blocks,
+                    block_type_arg,
+                    |x, y, is_hidden| {
+                        if let Some(idx) = cell_index(x, y) {
+                            if is_hidden {
+                                write_hidden(cells, idx);
+                            } else {
+                                let result = block_type_11_visible_tile_loc_126c0();
+                                cells[idx] = result.tile_word;
+                            }
                         }
-                    }
-                });
+                    },
+                );
             }
             // loc_126F2 (type 16): per cell map a 2-bit class through byte_1274E
             // {0,5,4,6}, shift left 4, mark corner neighbours (sub_12752), then
@@ -4645,7 +4652,13 @@ fn run_loop_shooter_1253a(
 /// loc_126BA (type 11): single cell per entry, no count loop. loc_122C0-style
 /// X/Y read. (kid.asm:24948-24977)
 #[allow(non_snake_case)]
-fn run_loop_single_126ba(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16)) {
+fn run_loop_single_126ba(
+    words: &[u16],
+    pos: &mut usize,
+    width_blocks: u16,
+    block_type: i16,
+    mut body: impl FnMut(u16, u16, bool),
+) {
     loop {
         let Some(rest) = words.get(*pos..) else {
             return;
@@ -4658,11 +4671,19 @@ fn run_loop_single_126ba(words: &[u16], pos: &mut usize, mut body: impl FnMut(u1
         };
         *pos += read_x.bytes_consumed;
         let x = read_x.x_pos;
-        let Some(&y) = words.get(*pos) else {
+        let Some(&y_row) = words.get(*pos) else {
+            return;
+        };
+        let row_pointer_table: Vec<u16> = (0..=y_row)
+            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
+            .collect();
+        let Some(setup) =
+            block_type_11_parse_coords_loc_126c0(&words[*pos..], &row_pointer_table, x, block_type)
+        else {
             return;
         };
         *pos += 1;
-        body(x, y);
+        body(x, setup.y_row, setup.is_hidden);
     }
 }
 
@@ -6679,7 +6700,6 @@ pub(crate) struct BlockType11ParseCoordsLoc126C0 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_11_parse_coords_loc_126c0(
     layout_words: &[u16],
     row_pointer_table: &[u16],
