@@ -49,6 +49,12 @@ pub(crate) struct HiddenBlockCopySetupLoc11C96 {
     pub(crate) temp_list_addr: u32,
 }
 
+#[derive(Debug, Clone)]
+struct CopiedHiddenBlockEntriesLoc11C96 {
+    copied_list_addr: u32,
+    entries: Vec<terrain::HiddenBlockEntry>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct BlockLayoutEntryLoc122C0 {
     pub(crate) x_pos: u16,
@@ -5579,7 +5585,7 @@ pub(crate) fn copy_hidden_block_entries_loc_11CA8(
 #[allow(non_snake_case)]
 fn copied_hidden_block_entries_for_runtime_loc_11C96(
     hidden_blocks: &[terrain::HiddenBlockEntry],
-) -> Option<Vec<terrain::HiddenBlockEntry>> {
+) -> Option<CopiedHiddenBlockEntriesLoc11C96> {
     // ASM loc_11C96..loc_11CA8 (kid.asm:23851-23860): when the temp hidden
     // list is non-empty, copy each 8-byte record as two longwords into the
     // final `$FFFF3B24` block-list region before later reveal lookups use it.
@@ -5597,8 +5603,9 @@ fn copied_hidden_block_entries_for_runtime_loc_11C96(
         })
         .collect();
     let copied_entries = copy_hidden_block_entries_loc_11CA8(&temp_entries, copy_setup.dbf_counter);
-    Some(
-        copied_entries
+    Some(CopiedHiddenBlockEntriesLoc11C96 {
+        copied_list_addr: copy_setup.copied_list_addr,
+        entries: copied_entries
             .into_iter()
             .map(|entry| terrain::HiddenBlockEntry {
                 layout_addr: (entry[0] >> 16) as u16,
@@ -5608,7 +5615,7 @@ fn copied_hidden_block_entries_for_runtime_loc_11C96(
                 block_setting: entry[1] as u8,
             })
             .collect(),
-    )
+    })
 }
 
 fn fg_queue_guard_low_word_loc_11_cb6(base_addr: u32, span_words: u16) -> bool {
@@ -7850,7 +7857,6 @@ pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn background_tile_guard_loc_11CF6(
     background_tile_addr: u32,
     background_tile_count: u16,
@@ -19467,10 +19473,12 @@ impl NativeRuntime {
         // runtime reveal lookup mirrors sub_E37A with binary search, so preserve
         // that sorted invariant after reading generated sidecar data.
         sort_hidden_blocks_by_rom_insertion_loc_127ce(&mut block_list);
+        let mut copied_background_tile_list_addr = 0;
         if let Some(copied_hidden_blocks) =
             copied_hidden_block_entries_for_runtime_loc_11C96(&block_list.hidden_blocks)
         {
-            block_list.hidden_blocks = copied_hidden_blocks;
+            copied_background_tile_list_addr = copied_hidden_blocks.copied_list_addr;
+            block_list.hidden_blocks = copied_hidden_blocks.entries;
         }
         // ASM loc_11CB6 (kid.asm:23868): prize records occupy the leading
         // 8-byte block-list section at `$FFFF3B24` and must end before the
@@ -19507,6 +19515,14 @@ impl NativeRuntime {
                 .wrapping_add((block_list.ghost_blocks.len() as u32).wrapping_mul(16))
         };
         if !fg_plane_custom_write_guard_loc_11CE0(teleporter_list_addr, teleporter_count) {
+            return None;
+        }
+        // ASM loc_11CF6 (kid.asm:23895): copied hidden/background tile records
+        // rooted at `($FFFFF8EC).w` are eight-byte entries and must also stay
+        // below `FGPlane_UpdateQueueCustom`.
+        let background_tile_count = u16::try_from(block_list.hidden_blocks.len()).ok()?;
+        if !background_tile_guard_loc_11CF6(copied_background_tile_list_addr, background_tile_count)
+        {
             return None;
         }
         Some(block_list)
