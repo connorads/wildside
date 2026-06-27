@@ -3350,7 +3350,6 @@ pub(crate) fn shishka_bagel_head_2_init_loc_39598(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_2_wait_loop_loc_3960E(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3576,7 +3575,6 @@ pub(crate) fn shishka_bagel_head_3_init_loc_396BE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_3_wait_loop_loc_39734(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3735,7 +3733,6 @@ pub(crate) fn shishka_bagel_head_3_post_projectile_anim_gate_loc_397da(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_1_wait_loop_loc_394E8(
     variant_d2: u16,
     movement_status_d7: u16,
@@ -3915,7 +3912,6 @@ pub(crate) fn shishka_bagel_head_1_post_projectile_anim_gate_loc_3958E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_wait_loop_loc_37F80(
     movement_status_d7: u16,
 ) -> BoomerangBossHeadWaitLoopLoc37F80 {
@@ -4111,7 +4107,6 @@ pub(crate) fn boomerang_boss_head_3_init_loc_380F4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_wait_loop_loc_38144(
     movement_status_d7: u16,
 ) -> BoomerangBossHead3WaitLoopLoc38144 {
@@ -6092,7 +6087,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_6_launch_loc_3937A()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_wait_loop_loc_38062(
     movement_status_d7: u16,
 ) -> BoomerangBossHead2WaitLoopLoc38062 {
