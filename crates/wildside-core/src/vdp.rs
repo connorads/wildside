@@ -1022,10 +1022,10 @@ fn intro_gfx_objects_in_alloc_chain_order_loc_FD4_FE6(
     }
 
     let mut ordered = Vec::with_capacity(objects.len());
-    let mut cursor = next_indices[0];
-    while let Some(index) = cursor {
+    for index in
+        crate::level::gfx_object_sprite_build_order_loc_14A4(next_indices[0], &next_indices)
+    {
         ordered.push(objects[index - 1]);
-        cursor = next_indices[index];
     }
     ordered
 }

@@ -9330,7 +9330,6 @@ pub(crate) fn initialise_sprite_frame_state_sub_B52() -> SpriteFrameStateSubB52 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_sprite_build_order_loc_14A4(
     first_gfx_object_index: Option<usize>,
     next_indices: &[Option<usize>],
