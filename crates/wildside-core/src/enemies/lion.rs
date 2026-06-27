@@ -163,7 +163,6 @@ pub(crate) fn lion_clear_tracking_latch_loc_3e066(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_track_kid_nonnegative_delta_facing_loc_3e06a(
     lion_x_word: u16,
     kid_x_word: u16,
@@ -182,7 +181,6 @@ pub(crate) fn lion_track_kid_nonnegative_delta_facing_loc_3e06a(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
     lion_x_word: u16,
     kid_x_word: u16,
@@ -266,7 +264,6 @@ pub(crate) fn lion_roar_wait_dispatch_loc_3e09e(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionPostFireWaitDispatch {
     Damage,
     ContinueWaiting {
@@ -278,7 +275,6 @@ pub(crate) enum LionPostFireWaitDispatch {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_post_fire_wait_dispatch_loc_3e0f4(
     collision_type: u16,
     animation_done_flag_18: bool,
@@ -1334,7 +1330,11 @@ fn step_lion_walking_tracking_loc_3e03c(enemy: &mut ActiveEnemy, player_x_pos: O
             enemy.facing = cleared.facing;
         }
         LionTrackingGate::TrackKid => {
-            enemy.facing = lion_clear_tracking_latch_loc_3e066(lion_x_word, kid_x_word).facing;
+            enemy.facing = if delta < 0 {
+                lion_track_kid_negative_delta_facing_loc_3e074(lion_x_word, kid_x_word)
+            } else {
+                lion_track_kid_nonnegative_delta_facing_loc_3e06a(lion_x_word, kid_x_word)
+            };
         }
     }
 }
@@ -1438,10 +1438,26 @@ pub(crate) fn step_lion(
                 enemy.wait_timer -= 1;
                 return;
             }
-            // ASM Lion.asm loc_3E0F4 restores `$62(a5)` before dispatching to
-            // loc_3E11E's direction-specific charge branch.
-            reset_lion_live_walk_animation_loc_3dff0(enemy);
-            enemy.lion_state = LionState::ResumingCharge;
+            match lion_post_fire_wait_dispatch_loc_3e0f4(0, true) {
+                LionPostFireWaitDispatch::ResumeCharge {
+                    next_collision_type,
+                    animation_script,
+                } => {
+                    // ASM Lion.asm loc_3E0F4 restores `$62(a5)` before dispatching to
+                    // loc_3E11E's direction-specific charge branch.
+                    debug_assert_eq!(next_collision_type, 0);
+                    debug_assert_eq!(animation_script, "saved_lion_charge_animation");
+                    reset_lion_live_walk_animation_loc_3dff0(enemy);
+                    enemy.lion_state = LionState::ResumingCharge;
+                }
+                LionPostFireWaitDispatch::Damage
+                | LionPostFireWaitDispatch::ContinueWaiting { .. } => {
+                    debug_assert!(
+                        false,
+                        "native post-fire completion passes clear collision and done animation"
+                    );
+                }
+            }
         }
         LionState::Charging => {
             if enemy.wait_timer > 0 {
