@@ -11379,7 +11379,6 @@ pub(crate) fn evanescent_bullet_direction_loop_tail_loc_EC9E(
 /// active-list head, walk `$A(a3)` links from `Addr_FirstEvanescObjectSlot`
 /// until the successor equals the current `a0` slot.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_recycle_predecessor_scan_loc_ECC4(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -11410,7 +11409,6 @@ pub(crate) fn evanescent_bullet_recycle_predecessor_scan_loc_ECC4(
 /// `a3`, splice the aged evanescent object out by copying `$A(a0)` into
 /// `$A(a3)`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_recycle_splice_predecessor_loc_ECD2(
     active_slots: &[LinkedObjectSlotInit],
     predecessor_slot_addr: u32,

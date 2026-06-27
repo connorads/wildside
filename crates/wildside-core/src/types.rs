@@ -765,6 +765,7 @@ impl BlockInteractionState {
     #[allow(non_snake_case)]
     pub(crate) fn recycle_evanescent_slots_loc_ECD8(&mut self, recycled_slot_addrs: &[u32]) {
         for &slot_addr in recycled_slot_addrs {
+            let slots_before_recycle = self.evanescent_slot_links.clone();
             let Some(move_to_free) = crate::level::evanescent_object_move_active_to_free_loc_EA72(
                 &self.evanescent_slot_links,
                 slot_addr,
@@ -772,6 +773,31 @@ impl BlockInteractionState {
             ) else {
                 continue;
             };
+            if let Some(predecessor) =
+                crate::level::evanescent_bullet_recycle_predecessor_scan_loc_ECC4(
+                    &slots_before_recycle,
+                    slot_addr,
+                )
+            {
+                debug_assert_eq!(
+                    crate::level::evanescent_bullet_recycle_splice_predecessor_loc_ECD2(
+                        &slots_before_recycle,
+                        predecessor.predecessor_slot_addr,
+                        slot_addr,
+                    )
+                    .map(|mut splice| {
+                        if let Some(target) = splice
+                            .slots
+                            .iter_mut()
+                            .find(|slot| slot.slot_addr == slot_addr)
+                        {
+                            target.next_slot_addr = self.evanescent_next_free_slot_addr;
+                        }
+                        splice.slots
+                    }),
+                    Some(move_to_free.slots.clone())
+                );
+            }
             debug_assert_eq!(
                 crate::level::evanescent_bullet_recycle_free_list_push_loc_ECD8(
                     &move_to_free.slots,
