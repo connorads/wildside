@@ -8231,7 +8231,6 @@ pub(crate) struct ObjectCheckInRangeActiveCountGateLoc320E2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_check_in_range_active_count_gate_loc_320E2(
     number_objects: u16,
     object_x_pos: i16,
@@ -8253,7 +8252,6 @@ pub(crate) fn object_check_in_range_active_count_gate_loc_320E2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_check_in_range_wide_load_x_loc_32122(
     object_x_pos: i16,
     camera_x_pos: i16,
@@ -8267,7 +8265,6 @@ pub(crate) fn object_check_in_range_wide_load_x_loc_32122(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_check_in_range_wide_load_y_loc_32140(
     object_y_pos: i16,
     camera_y_pos: i16,

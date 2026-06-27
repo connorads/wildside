@@ -5585,20 +5585,30 @@ pub(crate) fn shared_enemy_should_remain_active_sub_3C3CE(
         return true;
     }
 
-    let relative_x = x_pos - camera_x_px as i32;
-    let relative_y = y_pos - camera_y_px as i32;
-    let (left_margin, right_margin, top_margin, bottom_margin) = if number_objects <= 0x0014 {
-        // ASM loc_3C43A: medium load uses [-$1A4,+$2E4]x[-$1A4,+$284].
-        (0x1A4, 0x2E4, 0x1A4, 0x284)
-    } else {
-        // ASM sub_3C3CE fallthrough: heavy load tightens to
-        // [-$104,+$244]x[-$104,+$1E4].
-        (0x104, 0x244, 0x104, 0x1E4)
-    };
-    relative_x >= -left_margin
-        && relative_x <= right_margin
-        && relative_y >= -top_margin
-        && relative_y <= bottom_margin
+    let x_word = x_pos as i16;
+    let y_word = y_pos as i16;
+    let camera_x_word = camera_x_px as i16;
+    let camera_y_word = camera_y_px as i16;
+    if number_objects <= 0x0014 {
+        // ASM sub_3C3CE loc_3C43A uses the same relaxed camera window as
+        // Object_CheckInRange loc_32122/loc_32140.
+        return crate::level::object_check_in_range_wide_load_x_loc_32122(x_word, camera_x_word)
+            && crate::level::object_check_in_range_wide_load_y_loc_32140(y_word, camera_y_word);
+    }
+
+    // ASM sub_3C3CE fallthrough shares loc_320E2's tight X gate, then applies
+    // the matching tight Y band [-$104,+$1E4].
+    let x_gate = crate::level::object_check_in_range_active_count_gate_loc_320E2(
+        number_objects,
+        x_word,
+        camera_x_word,
+    );
+    debug_assert!(x_gate.uses_tight_window);
+    if !x_gate.reaches_loc_32102 {
+        return false;
+    }
+    let relative_y = y_word.wrapping_sub(camera_y_word);
+    (-0x0104..=0x01E4).contains(&relative_y)
 }
 
 fn large_pacer_should_remain_active(
