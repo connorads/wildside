@@ -3293,6 +3293,12 @@ fn activate_enemies_with_rng_inner(
             } else {
                 None
             };
+            let fire_demon_init_animation = if matches!(family, EnemyFamily::FireDemon) {
+                fire_demon_hp5_animation_loc_3a444(hit_points)
+                    .or_else(|| fire_demon_non_hp5_animation_loc_3a464(hit_points))
+            } else {
+                None
+            };
             let lion_motion_profile =
                 lion_visible_init.map(|init| lion_init_motion_profile_loc_3dfd8(init.current_hp));
             if let Some(visible_init) = lion_visible_init {
@@ -3354,6 +3360,16 @@ fn activate_enemies_with_rng_inner(
                     profile.saved_damage_resume_animation,
                     "stru_3C666" | "stru_3C680"
                 ));
+            }
+            if let Some(profile) = fire_demon_init_animation {
+                // ASM Fire_Demon.asm loc_3A444/loc_3A464 keeps HP5 on the second
+                // walking animation; lower tiers use the first walking animation.
+                debug_assert_eq!(profile.collision_routine, "fire_demon_collision");
+                debug_assert!(matches!(
+                    profile.animation_script,
+                    "stru_3A334" | "stru_3A31A"
+                ));
+                debug_assert_eq!(profile.saved_animation_script, profile.animation_script);
             }
             if matches!(family, EnemyFamily::Cloud) {
                 // ASM Cloud.asm loc_35BAC/loc_35BB2 seeds the control stream as:

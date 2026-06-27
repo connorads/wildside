@@ -5,14 +5,12 @@ pub(crate) const FIRE_DEMON_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
 pub(crate) const FIRE_DEMON_COLID_KIDLEFT: i16 = colid::KIDLEFT as i16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct FireDemonInitAnimation {
     pub(crate) collision_routine: &'static str,
     pub(crate) animation_script: &'static str,
     pub(crate) saved_animation_script: &'static str,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_hp5_animation_loc_3a444(current_hp: u8) -> Option<FireDemonInitAnimation> {
     // ASM Fire_Demon.asm loc_3A444: set `a0` to the Fire Demon collision routine,
     // and keep HP5 on the `stru_3A334` branch while saving the same script in
@@ -24,7 +22,6 @@ pub(crate) fn fire_demon_hp5_animation_loc_3a444(current_hp: u8) -> Option<FireD
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fire_demon_non_hp5_animation_loc_3a464(
     current_hp: u8,
 ) -> Option<FireDemonInitAnimation> {
