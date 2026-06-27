@@ -763,56 +763,44 @@ impl BlockInteractionState {
     }
 
     #[allow(non_snake_case)]
-    pub(crate) fn rebuild_evanescent_active_links_loc_EA72(&mut self) {
-        self.evanescent_first_active_slot_addr = self
-            .evanescent_blocks
-            .first()
-            .map_or(0, |entry| entry.slot_addr);
-        for pair in self.evanescent_blocks.windows(2) {
-            let slot_addr = pair[0].slot_addr;
-            let next_slot_addr = pair[1].slot_addr;
-            if let Some(slot) = self
-                .evanescent_slot_links
-                .iter_mut()
-                .find(|slot| slot.slot_addr == slot_addr)
-            {
-                slot.next_slot_addr = next_slot_addr;
-            }
-        }
-        if let Some(last_entry) = self.evanescent_blocks.last()
-            && let Some(slot) = self
-                .evanescent_slot_links
-                .iter_mut()
-                .find(|slot| slot.slot_addr == last_entry.slot_addr)
-        {
-            slot.next_slot_addr = 0;
-        }
-    }
-
-    #[allow(non_snake_case)]
     pub(crate) fn recycle_evanescent_slots_loc_ECD8(&mut self, recycled_slot_addrs: &[u32]) {
-        self.rebuild_evanescent_active_links_loc_EA72();
         for &slot_addr in recycled_slot_addrs {
-            let push = crate::level::evanescent_bullet_recycle_free_list_push_loc_ECD8(
+            let Some(move_to_free) = crate::level::evanescent_object_move_active_to_free_loc_EA72(
                 &self.evanescent_slot_links,
                 slot_addr,
-                0,
                 self.evanescent_next_free_slot_addr,
+            ) else {
+                continue;
+            };
+            debug_assert_eq!(
+                crate::level::evanescent_bullet_recycle_free_list_push_loc_ECD8(
+                    &move_to_free.slots,
+                    slot_addr,
+                    move_to_free.next_active_slot_to_process_addr,
+                    self.evanescent_next_free_slot_addr,
+                )
+                .map(|push| (push.first_free_slot_addr, push.slots)),
+                Some((
+                    move_to_free.first_free_slot_addr,
+                    move_to_free.slots.clone(),
+                ))
             );
-            if let Some(push) = push {
-                debug_assert_eq!(
-                    crate::level::evanescent_object_push_free_list_loc_EA98(
-                        &self.evanescent_slot_links,
-                        slot_addr,
-                        self.evanescent_next_free_slot_addr,
-                        0,
-                    )
-                    .map(|push| (push.first_free_slot_addr, push.slots)),
-                    Some((push.first_free_slot_addr, push.slots.clone()))
-                );
-                self.evanescent_next_free_slot_addr = push.first_free_slot_addr;
-                self.evanescent_slot_links = push.slots;
-            }
+            debug_assert_eq!(
+                crate::level::evanescent_object_push_free_list_loc_EA98(
+                    &move_to_free.slots,
+                    slot_addr,
+                    self.evanescent_next_free_slot_addr,
+                    move_to_free.next_active_slot_to_process_addr,
+                )
+                .map(|push| (push.first_free_slot_addr, push.slots)),
+                Some((
+                    move_to_free.first_free_slot_addr,
+                    move_to_free.slots.clone(),
+                ))
+            );
+            self.evanescent_first_active_slot_addr = move_to_free.first_active_slot_addr;
+            self.evanescent_next_free_slot_addr = move_to_free.first_free_slot_addr;
+            self.evanescent_slot_links = move_to_free.slots;
         }
     }
 

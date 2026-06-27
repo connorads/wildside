@@ -10961,7 +10961,6 @@ pub(crate) fn evanescent_block_erase_match_loc_EA5A(
 /// push `a2` onto `Addr_NextFreeEvanescObjectSlot`, and use the saved `d0` as
 /// the next active object to process.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_object_move_active_to_free_loc_EA72(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
