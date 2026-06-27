@@ -7838,7 +7838,6 @@ pub(crate) fn load_title_card_bottom_padding_loc_19C04(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_plane_custom_write_guard_loc_11CE0(
     fg_plane_custom_write_addr: u32,
     fg_plane_custom_write_count: u16,
@@ -19495,6 +19494,19 @@ impl NativeRuntime {
             0xFFFF_3B24
         };
         if !hidden_block_list_guard_loc_11CCA(hidden_block_list_addr, hidden_block_count) {
+            return None;
+        }
+        // ASM loc_11CE0 (kid.asm:23886): teleporter/custom-FG records are
+        // 10-byte entries after the prize and ghost sections.
+        let teleporter_count = u16::try_from(block_list.teleporters.len()).ok()?;
+        let teleporter_list_addr = if teleporter_count == 0 {
+            0
+        } else {
+            0xFFFF_3B24u32
+                .wrapping_add((block_list.prize_blocks.len() as u32).wrapping_mul(8))
+                .wrapping_add((block_list.ghost_blocks.len() as u32).wrapping_mul(16))
+        };
+        if !fg_plane_custom_write_guard_loc_11CE0(teleporter_list_addr, teleporter_count) {
             return None;
         }
         Some(block_list)
