@@ -7005,7 +7005,6 @@ pub(crate) struct HiddenBlockFindInsertionLoc127DA {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_find_insertion_loc_127da(
     cell_addrs: &[u16],
     target_addr: u16,
@@ -7031,7 +7030,6 @@ pub(crate) struct HiddenBlockShiftInsertLoc127E2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_shift_insert_loc_127e2(
     cell_addrs: &[u16],
     insert_index: usize,
@@ -7056,6 +7054,25 @@ pub(crate) fn hidden_block_shift_insert_loc_127e2(
     let mut shifted_addrs = cell_addrs.to_vec();
     shifted_addrs.insert(insert_index, new_addr);
     HiddenBlockShiftInsertLoc127E2 { shifted_addrs }
+}
+
+#[allow(non_snake_case)]
+fn sort_hidden_blocks_by_rom_insertion_loc_127ce(block_list: &mut terrain::BlockList) {
+    if block_list.hidden_blocks.len() <= 1 {
+        return;
+    }
+
+    let mut sorted_blocks = Vec::with_capacity(block_list.hidden_blocks.len());
+    let mut sorted_addrs = Vec::with_capacity(block_list.hidden_blocks.len());
+    for entry in std::mem::take(&mut block_list.hidden_blocks) {
+        let insertion =
+            hidden_block_find_insertion_loc_127da(&sorted_addrs, entry.layout_addr).insertion_index;
+        sorted_addrs =
+            hidden_block_shift_insert_loc_127e2(&sorted_addrs, insertion, entry.layout_addr)
+                .shifted_addrs;
+        sorted_blocks.insert(insertion, entry);
+    }
+    block_list.hidden_blocks = sorted_blocks;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19308,10 +19325,14 @@ impl NativeRuntime {
             layout_dir.join(format!("{resource_level:02X}.blocklist.bin"))
         };
         let data = self.assets_source.read(&path).ok()?;
-        Some(
+        let mut block_list =
             terrain::BlockList::from_raw_with_level_layout(&data, layout_width, grid)
-                .with_blank_top_rows_sub_140F6(blank_top_rows, layout_width),
-        )
+                .with_blank_top_rows_sub_140F6(blank_top_rows, layout_width);
+        // ASM sub_127CE inserts hidden-block entries in layout-address order;
+        // runtime reveal lookup mirrors sub_E37A with binary search, so preserve
+        // that sorted invariant after reading generated sidecar data.
+        sort_hidden_blocks_by_rom_insertion_loc_127ce(&mut block_list);
+        Some(block_list)
     }
 
     pub(crate) fn level_respawn_slice(&self, level_id: LevelId) -> OpeningSliceState {
