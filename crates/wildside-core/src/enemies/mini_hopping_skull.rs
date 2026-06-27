@@ -708,9 +708,9 @@ pub(crate) fn mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
     // ASM Mini_Hopping_Skull.asm loc_3ED1E: the left-hop windup damage path
-    // repeats the `$44(a3)` word decrement; zero branches to the death path,
-    // otherwise `stru_3E9C2` plays before the windup DBF loop resumes.
-    mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
+    // repeats the same `$44(a3)` word decrement and `stru_3E9C2` replay as
+    // loc_3EDE0 before this caller resumes through the windup DBF tail.
+    mini_hopping_skull_damage_sequence_loc_3ede0(hit_counter)
 }
 
 pub(crate) fn mini_hopping_skull_landing_collision_damage_loc_3ef1a(
@@ -811,7 +811,6 @@ pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_damage_sequence_loc_3ede0(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
