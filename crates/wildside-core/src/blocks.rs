@@ -1,6 +1,7 @@
 use super::*;
 use crate::combat::{
-    CollisionRectSub1F52, enemy_death_burst_cleanup_loc_370C2, heady_metal_cleanup_sub_378C8,
+    CollisionRectSub1F52, CollisionSizeEntrySub21F8, enemy_death_burst_cleanup_loc_370C2,
+    heady_metal_cleanup_sub_378C8, kid_hitbox_from_collision_size_sub_21F8,
     support_overlap_detected_sub_1F52,
 };
 use crate::movement::{
@@ -3988,8 +3989,39 @@ impl NativeRuntime {
         let player_y_px = (collision_anchor.1 >> 16) as i32;
         let base_player_left = player_x_px - PLAYER_HALF_WIDTH;
         let base_player_right = player_x_px + PLAYER_HALF_WIDTH;
-        let form_player_left = player_x_px - self.progression.current_form.half_width();
-        let form_player_right = player_x_px + self.progression.current_form.half_width();
+        let form_player_half_width = self.progression.current_form.half_width();
+        let form_player_hitbox = if let (Ok(anchor_x), Ok(anchor_y), Ok(left_offset), Ok(width)) = (
+            i16::try_from(player_x_px),
+            i16::try_from(player_y_px),
+            i16::try_from(-form_player_half_width),
+            i16::try_from(form_player_half_width * 2),
+        ) {
+            // ASM Mode_Level calls sub_21F8 (kid.asm:4036) before
+            // GfxObjects_CollisionKid. Native's floating-item pass consumes the
+            // same current-form rectangle when the item uses object-side
+            // collision against Kid.
+            kid_hitbox_from_collision_size_sub_21F8(
+                CollisionRectSub1F52 {
+                    left_px: anchor_x,
+                    right_px: anchor_x,
+                    top_px: anchor_y,
+                    bottom_px: anchor_y,
+                },
+                anchor_x,
+                anchor_y,
+                false,
+                Some(CollisionSizeEntrySub21F8 {
+                    left_offset_px: left_offset,
+                    width_px: width,
+                    top_offset_px: i16::try_from(-PLAYER_HEIGHT)
+                        .expect("PLAYER_HEIGHT fits in i16"),
+                    height_px: i16::try_from(PLAYER_HEIGHT).expect("PLAYER_HEIGHT fits in i16"),
+                }),
+            )
+            .into()
+        } else {
+            None
+        };
 
         let mut collected_contents = Vec::new();
         let mut collected_prize_diamonds = Vec::new();
@@ -4026,11 +4058,16 @@ impl NativeRuntime {
                 };
 
             let (player_left, player_right) = if item.content == terrain::PrizeContent::Diamond {
-                // ASM Mode_Level calls sub_21F8 (kid.asm:4036) before
-                // GfxObjects_CollisionKid. PrizeDiamond_Init loc_10396 then
-                // tests collision_type(a3), so diamond pickup uses Kid's
-                // current form hitbox, not TheKid's fixed 5px width.
-                (form_player_left, form_player_right)
+                // ASM PrizeDiamond_Init loc_10396 tests collision_type(a3)
+                // after Mode_Level's sub_21F8 handoff, so diamond pickup uses
+                // Kid's current form hitbox, not TheKid's fixed 5px width.
+                form_player_hitbox.map_or(
+                    (
+                        player_x_px - form_player_half_width,
+                        player_x_px + form_player_half_width,
+                    ),
+                    |hitbox| (i32::from(hitbox.left_px), i32::from(hitbox.right_px)),
+                )
             } else {
                 (base_player_left, base_player_right)
             };
@@ -4047,13 +4084,24 @@ impl NativeRuntime {
             };
 
             if item.content != terrain::PrizeContent::Diamond {
-                let form_left = player_x_px - self.progression.current_form.half_width();
-                let form_right = player_x_px + self.progression.current_form.half_width();
-                let form_top = player_y_px - PLAYER_HEIGHT;
                 let asm_left = item_x_px - 7;
                 let asm_right = item_x_px + 7;
                 let asm_top = item_y_px - PLAYER_HEIGHT;
                 let asm_bottom = item_y_px;
+                let (form_left, form_right, form_top) = form_player_hitbox.map_or(
+                    (
+                        player_x_px - form_player_half_width,
+                        player_x_px + form_player_half_width,
+                        player_y_px - PLAYER_HEIGHT,
+                    ),
+                    |hitbox| {
+                        (
+                            i32::from(hitbox.left_px),
+                            i32::from(hitbox.right_px),
+                            i32::from(hitbox.top_px),
+                        )
+                    },
+                );
                 if form_left <= asm_right
                     && form_right >= asm_left
                     && form_top <= asm_bottom

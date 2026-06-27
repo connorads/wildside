@@ -12881,7 +12881,6 @@ pub(crate) struct CollisionSizeEntrySub21F8 {
     pub(crate) height_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
     previous_hitbox: CollisionRectSub1F52,
@@ -12896,12 +12895,7 @@ pub(crate) fn kid_hitbox_from_collision_size_sub_21F8(
     // untouched. Non-mirrored entries use `left + width`, mirrored entries use
     // `-left` then subtract the width back toward the facing side.
     let Some(collision_size) = collision_size else {
-        return CollisionRectSub1F52 {
-            left_px: x_anchor_px,
-            right_px: x_anchor_px,
-            top_px: y_anchor_px,
-            bottom_px: y_anchor_px,
-        };
+        return kid_hitbox_point_loc_2252(x_anchor_px, y_anchor_px);
     };
 
     if collision_size.left_offset_px == 0 {
@@ -12944,7 +12938,6 @@ pub(crate) struct ShooterPointSub219C {
     pub(crate) y_px: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn kid_hitbox_point_loc_2252(
     x_anchor_px: i16,
