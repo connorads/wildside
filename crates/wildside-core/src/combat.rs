@@ -13634,7 +13634,6 @@ pub(crate) fn shooter_projectile_recycle_loc_22FE(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn next_shooter_point_loc_226E(
     shooter_points: &[ShooterPointSub219C],
@@ -13660,12 +13659,21 @@ pub(crate) fn first_shooter_hit_sub_219C(
     // back to `loc_21B8` on `ble` / `bge` rather than accepting equality.
     // ASM loc_21F2 then restores registers and returns once the next-slot word
     // is zero, which maps to `None` here when no strict interior point exists.
-    shooter_points.iter().position(|point| {
-        point.x_px > kid_hitbox.left_px
+    let mut shooter_cursor = 0;
+    while let Some((shooter_index, point)) =
+        next_shooter_point_loc_226E(shooter_points, shooter_cursor)
+    {
+        if point.x_px > kid_hitbox.left_px
             && point.x_px < kid_hitbox.right_px
             && point.y_px > kid_hitbox.top_px
             && point.y_px < kid_hitbox.bottom_px
-    })
+        {
+            return Some(shooter_index);
+        }
+        shooter_cursor = shooter_index + 1;
+    }
+
+    None
 }
 
 fn projectile_hitbox_sub_226a(
