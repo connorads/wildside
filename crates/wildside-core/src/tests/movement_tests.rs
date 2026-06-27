@@ -3225,6 +3225,37 @@ mod chunk_11 {
         );
     }
 
+    /// ASM sub_975C (kid.asm:11292-11318): the companion object calls sub_9832
+    /// before picking a visual; any overlapping live object takes the blocked
+    /// branch and starts the lower animation `stru_981C`.
+    #[test]
+    fn juggernaut_companion_step_uses_live_sub_9832_object_overlap_loc_79a2() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Juggernaut;
+        let mut slice = OpeningSliceState::new(LevelBounds {
+            width_pixels: 320,
+            height_pixels: 224,
+        });
+        slice.player.x_pos = 100 << 16;
+        slice.player.y_pos = 80 << 16;
+        slice.player.on_ground = true;
+        rt.opening_slice = Some(slice);
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Goat, 100 << 16, 80 << 16, 1));
+
+        rt.refresh_grounded_helmet_state_sub_78E8();
+
+        let step = rt
+            .last_juggernaut_companion_step_sub_975c
+            .expect("ASM loc_79A2: Juggernaut grounded refresh should record sub_975C");
+        assert_eq!(
+            step.visual,
+            helmets::JuggernautCompanionVisualSub975C::InitAnimation("stru_981C"),
+            "ASM sub_9832 object overlap should feed sub_975C's blocked lower-animation branch",
+        );
+        assert!(step.blocked_latch);
+    }
+
     /// ASM loc_79A2 (kid.asm:8047): when the Juggernaut animation is still
     /// playing (is_animated=true, $18=0), loc_7988 skips loc_7998 and branches
     /// directly to loc_79A2. The companion step runs regardless of the sprite

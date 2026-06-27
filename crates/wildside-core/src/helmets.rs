@@ -1,7 +1,8 @@
 use super::*;
 use crate::combat::{
     CollisionSizeEntrySub21F8, KidProjectileHitboxCandidateSub226A, ShooterPointSub219C,
-    first_shooter_projectile_overlap_sub_226A,
+    SupportOverlapCandidateSub9832, enemy_contact_bounds,
+    first_shooter_projectile_overlap_sub_226A, juggernaut_support_overlap_sub_9832,
 };
 use crate::constants::SINE_TABLE_WORD_402B0;
 
@@ -772,6 +773,39 @@ pub(crate) fn juggernaut_companion_step_sub_975C(
     }
 }
 
+fn word_px_to_i16(pos: u32) -> i16 {
+    (pos >> 16) as u16 as i16
+}
+
+fn clamp_i64_to_i16(value: i64) -> i16 {
+    value.clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16
+}
+
+fn juggernaut_support_candidate_from_snapshot_sub_9832(
+    snapshot: &NativeObjectSnapshot,
+) -> Option<SupportOverlapCandidateSub9832> {
+    let bounds = enemy_contact_bounds(snapshot);
+    if bounds.left_px > bounds.right_px || bounds.top_px > bounds.bottom_px {
+        return None;
+    }
+
+    // ASM sub_9832 (kid.asm:11367) scans raw CollisionSize rows. Native enemy
+    // contact bounds are already orientation-resolved, so expose them as a
+    // single unmirrored row anchored to the object's current word position.
+    Some(SupportOverlapCandidateSub9832 {
+        x_anchor_px: word_px_to_i16(snapshot.x_pos),
+        y_anchor_px: word_px_to_i16(snapshot.y_pos),
+        mirrored: false,
+        active: true,
+        collision_sizes: vec![CollisionSizeEntrySub21F8 {
+            left_offset_px: clamp_i64_to_i16(bounds.left_px),
+            width_px: clamp_i64_to_i16(bounds.right_px.saturating_sub(bounds.left_px)),
+            top_offset_px: clamp_i64_to_i16(bounds.top_px),
+            height_px: clamp_i64_to_i16(bounds.bottom_px.saturating_sub(bounds.top_px)),
+        }],
+    })
+}
+
 #[allow(non_snake_case)]
 pub(crate) fn juggernaut_skull_spawn_anchor_sub_87B0(player: &PlayerState) -> (u32, u32, i32) {
     // ASM sub_87B0 (kid.asm:9625): the spawned skull starts 8px above Kid and
@@ -1382,10 +1416,16 @@ impl NativeRuntime {
         // Until the companion GFX object is persisted, keep the first walking
         // frame instead of deriving a fake phase from unrelated runtime state.
         let walking_table_byte_offset = 0;
+        let support_candidates = self.juggernaut_support_overlap_candidates_sub_9832();
+        let object_overlap = juggernaut_support_overlap_sub_9832(
+            word_px_to_i16(slice.player.x_pos),
+            word_px_to_i16(slice.player.y_pos),
+            &support_candidates,
+        );
         let step = juggernaut_companion_step_sub_975C(
             self.juggernaut_companion_state_sub_975c,
             false,
-            false,
+            object_overlap,
             self.trace_input.down,
             character_movement,
             walking_table_byte_offset,
@@ -1394,6 +1434,25 @@ impl NativeRuntime {
         self.juggernaut_companion_state_sub_975c.byte_15_active = step.byte_15_active;
         self.juggernaut_companion_state_sub_975c.blocked_latch = step.blocked_latch;
         self.last_juggernaut_companion_step_sub_975c = Some(step);
+    }
+
+    fn juggernaut_support_overlap_candidates_sub_9832(
+        &self,
+    ) -> Vec<SupportOverlapCandidateSub9832> {
+        let mut candidates = Vec::new();
+        for enemy in &self.active_enemies {
+            let snapshot = enemy.snapshot();
+            if let Some(candidate) = juggernaut_support_candidate_from_snapshot_sub_9832(&snapshot)
+            {
+                candidates.push(candidate);
+            }
+            if let Some(child) = enemy.child_attachment_snapshot()
+                && let Some(candidate) = juggernaut_support_candidate_from_snapshot_sub_9832(&child)
+            {
+                candidates.push(candidate);
+            }
+        }
+        candidates
     }
 
     pub(crate) fn step_juggernaut_five_way_shot_ready_sub_7428(&mut self, input: FrameInput) {

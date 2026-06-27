@@ -13584,7 +13584,6 @@ pub(crate) struct KidProjectileHitboxCandidateSub226A {
     pub(crate) collision_size: Option<CollisionSizeEntrySub21F8>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct SupportOverlapCandidateSub9832 {
     pub(crate) x_anchor_px: i16,
@@ -13766,7 +13765,6 @@ pub(crate) fn first_shooter_projectile_overlap_sub_226A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn juggernaut_support_overlap_sub_9832(
     x_px: i16,
     y_px: i16,
