@@ -4092,6 +4092,7 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
 
     let mut pos = 0usize;
     let mut prize_block_list_addr = 0;
+    let mut type4_hidden_block_list_addr = 0;
     let read = |pos: &mut usize| -> Option<u16> {
         let w = block_layout_words.get(*pos).copied()?;
         *pos += 1;
@@ -4180,6 +4181,9 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // Single placement per entry (no count loop). (kid.asm:24640-24697)
             4 => {
                 let block_type_arg = if hidden { -4 } else { 4 };
+                let init =
+                    block_type_4_init_list_loc_1263c(type4_hidden_block_list_addr, 0xFFFF_3B24);
+                type4_hidden_block_list_addr = init.hidden_block_list_addr;
                 run_loop_pair_1263c(
                     block_layout_words,
                     &mut pos,
@@ -6286,7 +6290,6 @@ pub(crate) struct BlockType4InitListLoc1263C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_4_init_list_loc_1263c(
     existing_list_addr: u32,
     prize_list_addr: u32,
