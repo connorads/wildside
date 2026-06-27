@@ -597,6 +597,7 @@ pub(crate) fn step_archer(
         boss_death_burst_state: BossDeathBurstState::None,
         collision_type: 0,
         boss_eye_sprite_mapping_label: "",
+        boss_eye_pop_effect_x_direction: 0,
     });
     debug_assert_eq!(
         projectiles

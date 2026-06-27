@@ -2882,7 +2882,6 @@ pub(crate) fn boss_eye_pop_effect_init_sub_3729E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_eye_pop_effect_face_kid_sub_3729E(effect_x: u16, kid_x: u16) -> u8 {
     // ASM loc_37300..loc_3731A (kid.asm:39170): if the effect is to the right
     // of Kid, ASM loc_37316 clears `x_direction(a3)`; otherwise loc_37300
@@ -8224,7 +8223,12 @@ impl NativeRuntime {
                 }
 
                 if let Some((x_pos, y_pos)) = result.spawned_pop_effect_at {
+                    let kid_x = self
+                        .opening_slice
+                        .as_ref()
+                        .map_or(anchor_x, |slice| (slice.player.x_pos >> 16) as u16);
                     let init = boss_eye_pop_effect_init_sub_3729E(x_pos, y_pos);
+                    let x_direction = boss_eye_pop_effect_face_kid_sub_3729E(init.x_pos, kid_x);
                     // ASM sub_3729E increments `$FFFFFB4F`; loc_375D4 freezes
                     // HeadyMetal while any of these workers are alive.
                     let enemy = &mut self.active_enemies[active_idx];
@@ -8236,6 +8240,7 @@ impl NativeRuntime {
                         lifetime: init.chase_frames,
                         friendly: false,
                         kind: EnemyProjectileKind::BossEyePopEffect,
+                        boss_eye_pop_effect_x_direction: x_direction,
                         ..Default::default()
                     });
                     changed_enemy_state = true;

@@ -553,6 +553,7 @@ fn cloud_projectile_spawn_loc_35df0(
         boss_death_burst_state: BossDeathBurstState::None,
         collision_type: 0,
         boss_eye_sprite_mapping_label: "",
+        boss_eye_pop_effect_x_direction: 0,
     }
 }
 

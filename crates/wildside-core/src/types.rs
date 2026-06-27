@@ -3315,6 +3315,9 @@ pub(crate) struct EnemyProjectile {
     /// HeadyMetal boss-eye `addroffset_sprite(a3)` label selected by ASM
     /// `sub_37332 loc_3739C` and refreshed by parent `sub_37ABC`.
     pub(crate) boss_eye_sprite_mapping_label: &'static str,
+    /// HeadyMetal boss-eye pop-effect `x_direction(a3)` byte. ASM sub_3729E
+    /// loc_37300 sets `$FF` unless the effect is strictly right of Kid.
+    pub(crate) boss_eye_pop_effect_x_direction: u8,
 }
 
 impl EnemyProjectile {

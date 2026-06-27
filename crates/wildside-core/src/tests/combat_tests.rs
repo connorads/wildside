@@ -3349,6 +3349,9 @@ fn live_heady_metal_final_breakup_latch_suppresses_normal_eye_fire_loc_375de() {
 fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
     let mut runtime = NativeRuntime::new(manifest());
     start_level(&mut runtime);
+    let mut slice = combat_slice();
+    slice.player.x_pos = 0x0090_0000;
+    runtime.opening_slice = Some(slice);
     let mut boss = test_enemy(EnemyFamily::HeadyMetal, 0x0080_0000, 0x0080_0000, 13);
     boss.boss_movement_delay_counter = HEADY_METAL_EYE_SPAWN_COUNTER_INIT_LOC_39264;
     runtime.active_enemies = vec![boss];
@@ -3370,12 +3373,14 @@ fn live_heady_metal_breakup_phase_spawns_freeze_worker_sub_37708() {
         runtime.active_enemies[0].boss_movement_script_index, 1,
         "ASM sub_3729E increments `$FFFFFB4F`; loc_375D4 must see a nonzero freeze count after the phase worker spawns"
     );
-    assert!(
-        runtime
-            .projectiles
-            .iter()
-            .any(|projectile| projectile.kind == EnemyProjectileKind::BossEyePopEffect),
-        "ASM sub_37708 loc_37778 allocates sub_3729E for breakup phases `$19..=$24`"
+    let pop_effect = runtime
+        .projectiles
+        .iter()
+        .find(|projectile| projectile.kind == EnemyProjectileKind::BossEyePopEffect)
+        .expect("ASM sub_37708 loc_37778 should allocate sub_3729E for breakup phases `$19..=$24`");
+    assert_eq!(
+        pop_effect.boss_eye_pop_effect_x_direction, 0xFF,
+        "ASM sub_3729E loc_37300 sets x_direction=$FF when the pop effect is not strictly right of Kid"
     );
     assert!(
         runtime
