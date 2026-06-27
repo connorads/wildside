@@ -464,14 +464,12 @@ pub(crate) fn lion_hibernate_tail_loc_3e3a2() -> LionHibernateLoc3E3A2 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLoc3E406Branch {
     ContinueTo3E434,
     EnterLoc3E3A2,
     EnterLoc3E48E,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_terrain_gate_loc_3e406(
     bit0_set: bool,
     object_meta_low_byte_is_0x10: bool,
@@ -1166,7 +1164,6 @@ pub(crate) fn lion_terrain_collision_loc_3e94e() -> LionTerrainCollisionLoc3E94E
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum LionLeftChargeTerrainBranch {
     ContinueToLoc3E5E8,
     EnterLoc3E642,
@@ -1174,7 +1171,6 @@ pub(crate) enum LionLeftChargeTerrainBranch {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeTerrainResult {
     pub(crate) branch: LionLeftChargeTerrainBranch,
     pub(crate) next_shared_state: Option<i16>,
@@ -1182,7 +1178,6 @@ pub(crate) struct LionLeftChargeTerrainResult {
     pub(crate) restored_animation: Option<&'static str>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_terrain_gate_loc_3e5ba(
     bit0_set: bool,
     object_meta_low_byte_is_0x10: bool,
@@ -1589,14 +1584,45 @@ fn step_lion_charge_movement_loc_3e11e(
             right_floor: Some(floor_support.right),
         };
         if wall.hit {
-            enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
-            enemy.x_velocity = 0;
-            enemy.y_velocity = 0;
-            shared_walker_turnaround(enemy);
-            enemy.lion_state = LionState::Walking;
-            enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
-            // ASM Lion.asm loc_3E48E/loc_3E642: charge exits set `$4E(a5)`.
-            enemy.scorpion_tracking_lock = true;
+            // ASM Lion.asm loc_3E406/loc_3E5BA: native Lion object_meta is
+            // seeded as `$92` (`$12` after bit 7 clears), so the `$10` reset
+            // branch is not reachable without modelling a different object
+            // carrier.
+            let object_meta_low_byte_is_0x10 = false;
+            let exits_charge = match enemy.facing {
+                Direction::Right => {
+                    match lion_charge_terrain_gate_loc_3e406(true, object_meta_low_byte_is_0x10) {
+                        LionLoc3E406Branch::ContinueTo3E434 => false,
+                        LionLoc3E406Branch::EnterLoc3E3A2 => {
+                            enemy.shared_walker_state = -0x78;
+                            true
+                        }
+                        LionLoc3E406Branch::EnterLoc3E48E => true,
+                    }
+                }
+                Direction::Left => {
+                    let gate =
+                        lion_left_charge_terrain_gate_loc_3e5ba(true, object_meta_low_byte_is_0x10);
+                    if let Some(next_shared_state) = gate.next_shared_state {
+                        enemy.shared_walker_state = next_shared_state;
+                    }
+                    match gate.branch {
+                        LionLeftChargeTerrainBranch::ContinueToLoc3E5E8 => false,
+                        LionLeftChargeTerrainBranch::EnterLoc3E642
+                        | LionLeftChargeTerrainBranch::ResetAndEnterLoc3E556 => true,
+                    }
+                }
+            };
+            if exits_charge {
+                enemy.x_pos = dragon_walking_wall_snap_x(wall.wall_x_px, moving_right);
+                enemy.x_velocity = 0;
+                enemy.y_velocity = 0;
+                shared_walker_turnaround(enemy);
+                enemy.lion_state = LionState::Walking;
+                enemy.wait_timer = LION_COOLDOWN_AFTER_FIRE;
+                // ASM Lion.asm loc_3E48E/loc_3E642: charge exits set `$4E(a5)`.
+                enemy.scorpion_tracking_lock = true;
+            }
             return;
         }
 
@@ -2664,6 +2690,45 @@ mod tests {
             lion.x_pos,
             41 << 16,
             "ASM shared walker left-wall snap should place the Lion one half-width past the slope cell edge"
+        );
+        assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
+        assert!(lion.scorpion_tracking_lock);
+    }
+
+    #[test]
+    fn lion_grounded_right_charge_wall_hit_exits_via_loc_3e406() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        grid.set_cell_at(2, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut lion = ActiveEnemy {
+            family: EnemyFamily::Lion,
+            lion_state: LionState::Charging,
+            on_ground: true,
+            facing: Direction::Right,
+            hit_points: 6,
+            x_pos: 24 << 16,
+            y_pos: 32 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        step_lion_charge_movement_loc_3e11e(&mut lion, Some(&grid), None);
+
+        let wall = lion
+            .shared_walker_terrain_trace
+            .wall
+            .expect("grounded Lion charge should record the wall probe");
+        assert!(
+            wall.hit,
+            "ASM Lion.asm loc_3E3B2 -> sub_36972 should report terrain bit 0 for the right wall"
+        );
+        assert_eq!(
+            lion.lion_state,
+            LionState::Walking,
+            "ASM Lion.asm loc_3E406 should route the native Lion object_meta `$12/$92` wall hit to loc_3E48E"
+        );
+        assert_eq!(
+            lion.x_pos,
+            24 << 16,
+            "ASM shared walker right-wall snap should place the Lion one half-width before the solid cell edge"
         );
         assert_eq!(lion.wait_timer, LION_COOLDOWN_AFTER_FIRE);
         assert!(lion.scorpion_tracking_lock);
