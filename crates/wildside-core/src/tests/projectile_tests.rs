@@ -4563,6 +4563,48 @@ mod chunk_06 {
     }
 
     #[test]
+    fn maniaxe_axe_recycles_shooter_object_bullet_sub_226a_before_enemy_hits() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.progression.current_form = PlayerForm::Maniaxe;
+
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            lifetime: 0,
+            friendly: true,
+            kind: EnemyProjectileKind::ManiaxeAxe,
+            ..Default::default()
+        });
+        rt.projectiles.push(EnemyProjectile {
+            x_pos: 100 << 16,
+            y_pos: 92 << 16,
+            kind: EnemyProjectileKind::ShooterBlock,
+            ..Default::default()
+        });
+        rt.active_enemies
+            .push(test_enemy(EnemyFamily::Dragon, 100 << 16, 100 << 16, 2));
+
+        rt.process_friendly_projectile_hits();
+
+        assert!(
+            rt.projectiles.is_empty(),
+            "ASM sub_226A loc_22FE marks the Kid projectile hurt and recycles the overlapping shooter slot"
+        );
+        assert_eq!(
+            rt.active_enemies[0].hit_points, 2,
+            "the shooter-object collision consumes the axe before the enemy-damage pass can spend the same projectile"
+        );
+        assert_eq!(
+            rt.kid_projectile_hit_sparks
+                .iter()
+                .map(|spark| (spark.x_px, spark.y_px, spark.remaining))
+                .collect::<Vec<_>>(),
+            vec![(100, 100, 4)],
+            "native keeps the same projectile-hit spark used by the loc_8ABC deletion path"
+        );
+    }
+
+    #[test]
     fn live_maniaxe_axe_lifetime_zero_damages_and_deletes_loc_8abc() {
         let mut rt = NativeRuntime::new(manifest());
         rt.progression.current_form = PlayerForm::Maniaxe;

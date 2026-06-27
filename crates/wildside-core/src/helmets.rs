@@ -1,5 +1,8 @@
 use super::*;
-use crate::combat::CollisionSizeEntrySub21F8;
+use crate::combat::{
+    CollisionSizeEntrySub21F8, KidProjectileHitboxCandidateSub226A, ShooterPointSub219C,
+    first_shooter_projectile_overlap_sub_226A,
+};
 use crate::constants::SINE_TABLE_WORD_402B0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -5187,6 +5190,40 @@ fn friendly_projectile_enemy_hit_extents(projectile: &EnemyProjectile) -> (i32, 
     }
 }
 
+fn friendly_projectile_collision_candidate_sub_226a(
+    projectile: &EnemyProjectile,
+) -> Option<KidProjectileHitboxCandidateSub226A> {
+    if !projectile.friendly
+        || (projectile.lifetime == 0 && projectile.kind != EnemyProjectileKind::ManiaxeAxe)
+    {
+        return None;
+    }
+
+    let collision_size = match projectile.kind {
+        // ASM ManiaxeAxe_Init (kid.asm:9833): active `stru_8B86` frames use
+        // CollisionSize_Index `unk_318B2` (left=-7,width=14,top=-14,height=14).
+        EnemyProjectileKind::ManiaxeAxe => CollisionSizeEntrySub21F8 {
+            left_offset_px: -7,
+            width_px: 14,
+            top_offset_px: -14,
+            height_px: 14,
+        },
+        _ => CollisionSizeEntrySub21F8 {
+            left_offset_px: -(PROJECTILE_HITBOX_HALF as i16),
+            width_px: (PROJECTILE_HITBOX_HALF * 2) as i16,
+            top_offset_px: -(PROJECTILE_HITBOX_HALF as i16),
+            height_px: (PROJECTILE_HITBOX_HALF * 2) as i16,
+        },
+    };
+
+    Some(KidProjectileHitboxCandidateSub226A {
+        x_anchor_px: (projectile.x_pos >> 16) as i16,
+        y_anchor_px: (projectile.y_pos >> 16) as i16,
+        mirrored: false,
+        collision_size: Some(collision_size),
+    })
+}
+
 /// True when a friendly projectile's contact box overlaps an enemy damage
 /// target, sourcing the enemy box from its per-family `CollisionSize_Index`
 /// row rather than an invented fixed extent.
@@ -7005,9 +7042,55 @@ impl NativeRuntime {
         let mut pending_damage_effects = Vec::new();
         let player_x_pos = self.opening_slice.as_ref().map(|slice| slice.player.x_pos);
 
+        let shooter_points = self
+            .projectiles
+            .iter()
+            .enumerate()
+            .filter(|(_, projectile)| projectile.kind == EnemyProjectileKind::ShooterBlock)
+            .map(|(projectile_index, projectile)| {
+                (
+                    projectile_index,
+                    ShooterPointSub219C {
+                        x_px: (projectile.x_pos >> 16) as i16,
+                        y_px: (projectile.y_pos >> 16) as i16,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+        for (pi, proj) in self.projectiles.iter().enumerate() {
+            if projectile_consumed.contains(&pi) {
+                continue;
+            }
+            let Some(projectile_candidate) = friendly_projectile_collision_candidate_sub_226a(proj)
+            else {
+                continue;
+            };
+            let available_shooter_points = shooter_points
+                .iter()
+                .filter(|(projectile_index, _)| !projectile_consumed.contains(projectile_index))
+                .copied()
+                .collect::<Vec<_>>();
+            let shooter_point_values = available_shooter_points
+                .iter()
+                .map(|(_, point)| *point)
+                .collect::<Vec<_>>();
+            if let Some(overlap) = first_shooter_projectile_overlap_sub_226A(
+                &shooter_point_values,
+                &[projectile_candidate],
+            ) {
+                let shooter_projectile_index = available_shooter_points[overlap.shooter_index].0;
+                projectile_consumed.push(pi);
+                projectile_consumed.push(shooter_projectile_index);
+                hit_sparks.push((proj.x_pos, proj.y_pos));
+            }
+        }
+        projectile_consumed.sort_unstable();
+        projectile_consumed.dedup();
+
         for (pi, proj) in self.projectiles.iter().enumerate() {
             if !proj.friendly
                 || (proj.lifetime == 0 && proj.kind != EnemyProjectileKind::ManiaxeAxe)
+                || projectile_consumed.binary_search(&pi).is_ok()
             {
                 continue;
             }

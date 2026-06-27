@@ -13576,7 +13576,6 @@ pub(crate) fn kid_hitbox_point_loc_2252(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct KidProjectileHitboxCandidateSub226A {
     pub(crate) x_anchor_px: i16,
@@ -13595,7 +13594,6 @@ pub(crate) struct SupportOverlapCandidateSub9832 {
     pub(crate) collision_sizes: Vec<CollisionSizeEntrySub21F8>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterProjectileOverlapSub226A {
     pub(crate) shooter_index: usize,
@@ -13713,7 +13711,6 @@ fn projectile_hitbox_sub_226a(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn next_projectile_hitbox_loc_2286(
     projectiles: &[KidProjectileHitboxCandidateSub226A],
@@ -13733,7 +13730,6 @@ pub(crate) fn next_projectile_hitbox_loc_2286(
         })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn first_shooter_projectile_overlap_sub_226A(
     shooter_points: &[ShooterPointSub219C],
