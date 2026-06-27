@@ -20255,6 +20255,33 @@ mod chunk_03 {
     }
 
     #[test]
+    fn ufo_snapshot_reports_linked_object_x_debug_field_loc_3531a() {
+        let mut enemy = test_enemy(EnemyFamily::UFO, 0x0120_8000, 0x0080_4000, 2);
+        enemy.facing = Direction::Left;
+
+        assert_eq!(
+            enemy
+                .snapshot()
+                .debug_fields
+                .get("ufo_linked_object_x_loc_3531a")
+                .map(String::as_str),
+            Some("0x011c"),
+            "ASM UFO.asm loc_3531A subtracts d6=4 from the parent X word when x_direction is clear",
+        );
+
+        enemy.facing = Direction::Right;
+        assert_eq!(
+            enemy
+                .snapshot()
+                .debug_fields
+                .get("ufo_linked_object_x_loc_3531a")
+                .map(String::as_str),
+            Some("0x0124"),
+            "ASM UFO.asm loc_3531A subtracts d6=-4 from the parent X word when x_direction is set",
+        );
+    }
+
+    #[test]
     fn trace_frame_reports_kid_object_support_candidates() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.boot_state = BootState::InGame;

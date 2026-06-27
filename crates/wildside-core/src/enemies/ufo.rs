@@ -1824,7 +1824,6 @@ pub(crate) fn ufo_linked_cleanup_status_loc_352b2(
     deactivation_status_update_loc_3C4C0(object_status_slot)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_object_x_loc_3531a(parent_x_pos: u32, parent_facing: Direction) -> u16 {
     // ASM UFO.asm loc_3531A: after `Enemy0F_UFO_SpeedToPos`, the linked object
     // gets the parent's integer X word minus d6. Clear `x_direction` leaves

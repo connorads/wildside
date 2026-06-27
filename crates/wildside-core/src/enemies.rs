@@ -2556,6 +2556,15 @@ impl ActiveEnemy {
                 format!("{:#06x}", self.heady_metal_palette_word_5e),
             );
         }
+        if matches!(self.family, EnemyFamily::UFO) {
+            debug_fields.insert(
+                "ufo_linked_object_x_loc_3531a".into(),
+                format!(
+                    "{:#06x}",
+                    ufo_linked_object_x_loc_3531a(self.x_pos, self.facing)
+                ),
+            );
+        }
         if is_multi_head_boss(self.family) && self.boss_eye_orbit_workers.active {
             // ASM loc_3893E/loc_389D6 passes the parent `$22(a2)` and `$16(a2)`
             // values into sub_393C8/sub_39420; keep them visible while the

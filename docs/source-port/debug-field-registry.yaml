@@ -388,6 +388,15 @@
       "promotion_trigger": "Promote if Juggernaut companion render parity or checked-in oracle assertions start depending on typed companion object state."
     },
     {
+      "key": "ufo_linked_object_x_loc_3531a",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "ufo-linked-object-ratchet",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native ASM UFO.asm loc_3531A linked-object integer X word derived from the parent UFO position and direction for the not-yet-persisted linked UFO child object.",
+      "promotion_trigger": "Promote if UFO linked-object render or cleanup parity starts depending on typed linked child object state."
+    },
+    {
       "key": "kid_object_support_candidates",
       "scope": "frame",
       "status": "exploratory",
