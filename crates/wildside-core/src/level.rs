@@ -8751,65 +8751,66 @@ pub(crate) fn copy_background_palette_loc_11E16(
     palette_buffer[0x19..=0x1F].copy_from_slice(&background_palette[1..]);
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ForegroundArtPermutationLoc11E48 {
+pub enum ForegroundArtPermutationLoc11E48 {
     Identity,
     City,
     Forest,
     Mountain,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum BackgroundArtPermutationLoc11E8A {
+pub enum BackgroundArtPermutationLoc11E8A {
     Identity,
     Forest,
     Mountain,
+    Hill,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundArtDecompressLoc11EA2 {
-    pub(crate) tile_base: u16,
-    pub(crate) permutation: BackgroundArtPermutationLoc11E8A,
+pub struct BackgroundArtDecompressLoc11EA2 {
+    pub tile_base: u16,
+    pub permutation: BackgroundArtPermutationLoc11E8A,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum BackgroundFollowupArtSourceLoc11EC4 {
+pub enum BackgroundFollowupArtSourceLoc11EC4 {
+    HillAlt,
     CaveAlt,
     MountainLightning,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum BackgroundFollowupArtPermutationLoc11EC4 {
+pub enum BackgroundFollowupArtPermutationLoc11EC4 {
     Identity,
+    BgHillAlt,
     BgMountain,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundFollowupArtDecompressLoc11EC4 {
-    pub(crate) tile_base: u16,
-    pub(crate) permutation: BackgroundFollowupArtPermutationLoc11EC4,
-    pub(crate) art_source: BackgroundFollowupArtSourceLoc11EC4,
+pub struct BackgroundFollowupArtDecompressLoc11EC4 {
+    pub tile_base: u16,
+    pub permutation: BackgroundFollowupArtPermutationLoc11EC4,
+    pub art_source: BackgroundFollowupArtSourceLoc11EC4,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundFollowupArtDecompressLoc11EF2 {
-    pub(crate) tile_base: u16,
-    pub(crate) permutation: BackgroundFollowupArtPermutationLoc11EC4,
-    pub(crate) art_source: BackgroundFollowupArtSourceLoc11EC4,
+pub struct BackgroundFollowupArtDecompressLoc11EF2 {
+    pub tile_base: u16,
+    pub permutation: BackgroundFollowupArtPermutationLoc11EC4,
+    pub art_source: BackgroundFollowupArtSourceLoc11EC4,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SharedVramArtSourceLoc11EFA {
+pub enum SharedVramArtSourceLoc11EFA {
     Blocks,
     IngameNumbers,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct SharedVramArtDecompressLoc11EFA {
-    pub(crate) tile_base: u16,
-    pub(crate) art_source: SharedVramArtSourceLoc11EFA,
+pub struct SharedVramArtDecompressLoc11EFA {
+    pub tile_base: u16,
+    pub art_source: SharedVramArtSourceLoc11EFA,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -8887,8 +8888,63 @@ pub(crate) fn island_shore_art_source_label_loc_1220e(frame_index: u16) -> &'sta
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn select_foreground_art_permutation_loc_11E48(
+pub fn foreground_art_decompress_loc_11E48_11E60(
+    foreground_theme: u16,
+) -> ForegroundArtDecompressLoc11E60 {
+    const FOREGROUND_THEME_CITY_LOC_11E48: u16 = 0x000A;
+
+    // ASM Load_Level tail loc_11E36-loc_11E60: identity is seeded first, City
+    // may override it before the Forest and Mountain branch labels run.
+    let selected = if foreground_theme == FOREGROUND_THEME_CITY_LOC_11E48 {
+        ForegroundArtPermutationLoc11E48::City
+    } else {
+        ForegroundArtPermutationLoc11E48::Identity
+    };
+    let selected = select_foreground_art_permutation_loc_11E48(foreground_theme, selected);
+    let selected = select_foreground_art_permutation_loc_11E54(foreground_theme, selected);
+    prepare_foreground_art_decompress_loc_11E60(selected)
+}
+
+#[allow(non_snake_case)]
+pub fn background_art_decompress_loc_11E8A_11EA2(
+    background_theme: u16,
+) -> BackgroundArtDecompressLoc11EA2 {
+    // ASM Load_Level tail loc_11E78-loc_11EA2: identity is seeded first, then
+    // Forest, Mountain, and Hills can replace the active permutation.
+    let selected = select_background_art_permutation_loc_11E8A(
+        background_theme,
+        BackgroundArtPermutationLoc11E8A::Identity,
+    );
+    let selected = select_background_art_permutation_loc_11E96(background_theme, selected);
+    prepare_background_art_decompress_loc_11EA2(selected)
+}
+
+#[allow(non_snake_case)]
+pub fn background_followup_art_decompress_loc_11EA2_11EF2(
+    background_theme: u16,
+    level_special_effects: u16,
+) -> Option<BackgroundFollowupArtDecompressLoc11EF2> {
+    const BACKGROUND_THEME_HILL_LOC_11EA2: u16 = 0x0003;
+
+    if background_theme == BACKGROUND_THEME_HILL_LOC_11EA2 {
+        // ASM loc_11EA2-loc_11EC0: Hills immediately performs a second
+        // `DecompressToRAM` of `ThemeArtBack_HillAlt` at VRAM `$F800`.
+        return Some(BackgroundFollowupArtDecompressLoc11EF2 {
+            tile_base: 0xF800,
+            permutation: BackgroundFollowupArtPermutationLoc11EC4::BgHillAlt,
+            art_source: BackgroundFollowupArtSourceLoc11EC4::HillAlt,
+        });
+    }
+
+    let mountain = prepare_mountain_background_art_loc_11EC4(background_theme)?;
+    let mountain = apply_mountain_weather_override_loc_11EEA(level_special_effects, mountain);
+    Some(prepare_followup_background_art_decompress_loc_11EF2(
+        mountain,
+    ))
+}
+
+#[allow(non_snake_case)]
+pub fn select_foreground_art_permutation_loc_11E48(
     foreground_theme: u16,
     selected_permutation: ForegroundArtPermutationLoc11E48,
 ) -> ForegroundArtPermutationLoc11E48 {
@@ -8905,8 +8961,7 @@ pub(crate) fn select_foreground_art_permutation_loc_11E48(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn select_foreground_art_permutation_loc_11E54(
+pub fn select_foreground_art_permutation_loc_11E54(
     foreground_theme: u16,
     selected_permutation: ForegroundArtPermutationLoc11E48,
 ) -> ForegroundArtPermutationLoc11E48 {
@@ -8923,8 +8978,7 @@ pub(crate) fn select_foreground_art_permutation_loc_11E54(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn select_background_art_permutation_loc_11E8A(
+pub fn select_background_art_permutation_loc_11E8A(
     background_theme: u16,
     selected_permutation: BackgroundArtPermutationLoc11E8A,
 ) -> BackgroundArtPermutationLoc11E8A {
@@ -8941,27 +8995,27 @@ pub(crate) fn select_background_art_permutation_loc_11E8A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn select_background_art_permutation_loc_11E96(
+pub fn select_background_art_permutation_loc_11E96(
     background_theme: u16,
     selected_permutation: BackgroundArtPermutationLoc11E8A,
 ) -> BackgroundArtPermutationLoc11E8A {
     const BACKGROUND_THEME_MOUNTAIN_LOC_11E96: u16 = 0x0007;
+    const BACKGROUND_THEME_HILL_LOC_11E96: u16 = 0x0003;
 
-    // ASM loc_11E96 (kid.asm:24074): after the earlier Forest compare may
-    // already have swapped `a3` to `Palette_Permutation_BGForest`, only
-    // `Background_theme == Mountain` replaces the current selection with
-    // `Palette_Permutation_BGMountain`.
+    // ASM loc_11E96 (kid.asm:24074-24077): after the earlier Forest compare,
+    // Mountain selects `Palette_Permutation_BGMountain`; otherwise the
+    // immediate Hills compare selects `Palette_Permutation_BGHill`.
     if background_theme == BACKGROUND_THEME_MOUNTAIN_LOC_11E96 {
         BackgroundArtPermutationLoc11E8A::Mountain
+    } else if background_theme == BACKGROUND_THEME_HILL_LOC_11E96 {
+        BackgroundArtPermutationLoc11E8A::Hill
     } else {
         selected_permutation
     }
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn prepare_background_art_decompress_loc_11EA2(
+pub fn prepare_background_art_decompress_loc_11EA2(
     selected_permutation: BackgroundArtPermutationLoc11E8A,
 ) -> BackgroundArtDecompressLoc11EA2 {
     // ASM loc_11EA2 (kid.asm:24079-24080): after the Forest/Mountain checks
@@ -8974,8 +9028,7 @@ pub(crate) fn prepare_background_art_decompress_loc_11EA2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn prepare_mountain_background_art_loc_11EC4(
+pub fn prepare_mountain_background_art_loc_11EC4(
     background_theme: u16,
 ) -> Option<BackgroundFollowupArtDecompressLoc11EC4> {
     const BACKGROUND_THEME_MOUNTAIN_LOC_11EC4: u16 = 0x0007;
@@ -8993,8 +9046,7 @@ pub(crate) fn prepare_mountain_background_art_loc_11EC4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn apply_mountain_weather_override_loc_11EEA(
+pub fn apply_mountain_weather_override_loc_11EEA(
     level_special_effects: u16,
     selected_decompress: BackgroundFollowupArtDecompressLoc11EC4,
 ) -> BackgroundFollowupArtDecompressLoc11EC4 {
@@ -9020,8 +9072,7 @@ pub(crate) fn apply_mountain_weather_override_loc_11EEA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn prepare_followup_background_art_decompress_loc_11EF2(
+pub fn prepare_followup_background_art_decompress_loc_11EF2(
     selected_decompress: BackgroundFollowupArtDecompressLoc11EC4,
 ) -> BackgroundFollowupArtDecompressLoc11EF2 {
     // ASM loc_11EF2 (kid.asm:24104): the shared Mountain follow-up tail
@@ -9036,8 +9087,7 @@ pub(crate) fn prepare_followup_background_art_decompress_loc_11EF2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn shared_vram_art_decompresses_loc_11EFA() -> [SharedVramArtDecompressLoc11EFA; 2] {
+pub fn shared_vram_art_decompresses_loc_11EFA() -> [SharedVramArtDecompressLoc11EFA; 2] {
     // ASM loc_11EFA (kid.asm:24108-24115): after the background setup, the
     // shared tail always decompresses the block art to VRAM `$4400` and the
     // in-game number glyphs to VRAM `$D740` before continuing into the HUD
@@ -9055,14 +9105,13 @@ pub(crate) fn shared_vram_art_decompresses_loc_11EFA() -> [SharedVramArtDecompre
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ForegroundArtDecompressLoc11E60 {
-    pub(crate) tile_base: u16,
-    pub(crate) permutation: ForegroundArtPermutationLoc11E48,
+pub struct ForegroundArtDecompressLoc11E60 {
+    pub tile_base: u16,
+    pub permutation: ForegroundArtPermutationLoc11E48,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn prepare_foreground_art_decompress_loc_11E60(
+pub fn prepare_foreground_art_decompress_loc_11E60(
     selected_permutation: ForegroundArtPermutationLoc11E48,
 ) -> ForegroundArtDecompressLoc11E60 {
     // ASM loc_11E60 (kid.asm:24056): once the earlier City/Forest/Mountain

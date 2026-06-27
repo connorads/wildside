@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 anyhow.workspace = true
+wildside-core = { path = "../wildside-core" }
 wildside-data = { path = "../wildside-data" }
 sha1.workspace = true
 

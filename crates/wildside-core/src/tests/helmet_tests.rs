@@ -3811,6 +3811,14 @@ mod chunk_08 {
             BackgroundArtPermutationLoc11E8A::Forest,
             "ASM loc_11E96 should fall through to `loc_11EA2` without disturbing the earlier Forest permutation when the Mountain compare fails"
         );
+        assert_eq!(
+            select_background_art_permutation_loc_11E96(
+                0x0003,
+                BackgroundArtPermutationLoc11E8A::Identity
+            ),
+            BackgroundArtPermutationLoc11E8A::Hill,
+            "ASM loc_11E96 should select `Palette_Permutation_BGHill` when `Background_theme == Hills`"
+        );
     }
 
     #[test]
@@ -3830,6 +3838,27 @@ mod chunk_08 {
                 permutation: BackgroundArtPermutationLoc11E8A::Forest,
             },
             "ASM loc_11EA2 should also leave the earlier Forest permutation intact before the shared background-art decompress"
+        );
+        assert_eq!(
+            background_art_decompress_loc_11E8A_11EA2(0x0003),
+            BackgroundArtDecompressLoc11EA2 {
+                tile_base: 0xF000,
+                permutation: BackgroundArtPermutationLoc11E8A::Hill,
+            },
+            "ASM loc_11E96 should feed the Hills permutation into the shared loc_11EA2 background-art decompress"
+        );
+    }
+
+    #[test]
+    fn loc_11ea2_prepares_the_hill_followup_background_decompress() {
+        assert_eq!(
+            background_followup_art_decompress_loc_11EA2_11EF2(0x0003, 0x0000),
+            Some(BackgroundFollowupArtDecompressLoc11EF2 {
+                tile_base: 0xF800,
+                permutation: BackgroundFollowupArtPermutationLoc11EC4::BgHillAlt,
+                art_source: BackgroundFollowupArtSourceLoc11EC4::HillAlt,
+            }),
+            "ASM loc_11EA2 should append `ThemeArtBack_HillAlt` with `Palette_Permutation_BGHill_alt` at VRAM `$F800` for Hills backgrounds"
         );
     }
 

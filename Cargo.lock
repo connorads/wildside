@@ -1509,6 +1509,7 @@ dependencies = [
  "anyhow",
  "sha1",
  "tempfile",
+ "wildside-core",
  "wildside-data",
 ]
 

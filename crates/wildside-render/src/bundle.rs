@@ -16,13 +16,19 @@ use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use sha1::{Digest, Sha1};
 use std::path::Path;
+use wildside_core::{
+    BackgroundArtPermutationLoc11E8A, BackgroundFollowupArtPermutationLoc11EC4,
+    BackgroundFollowupArtSourceLoc11EC4, ForegroundArtPermutationLoc11E48,
+    SharedVramArtSourceLoc11EFA, background_art_decompress_loc_11E8A_11EA2,
+    background_followup_art_decompress_loc_11EA2_11EF2, foreground_art_decompress_loc_11E48_11E60,
+    shared_vram_art_decompresses_loc_11EFA,
+};
 use wildside_data::{
     AssetFile, AssetManifest, AssetSource, DecodedAssetFile, EnemyLayout, FsAssetSource,
     decode_enigma, decode_saxman, ensure_generated_bundle_contract,
     load_level_asset_bundle_with_source, resource_level_id, resource_level_record,
 };
 
-const HUD_DIGIT_BASE_TILE_INDEX: u16 = 0x06BA;
 const HUD_DIAMOND_BASE_TILE_INDEX: u16 = 0x06EA;
 const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
@@ -355,6 +361,10 @@ pub fn load_level_visuals_with_source(
             .ok_or_else(|| anyhow!("missing block art asset ingame/{BLOCKS_ART_PATH}"))?,
         "block tile sheet",
     )?;
+    debug_assert_eq!(
+        shared_vram_tile_base_loc_11efa(SharedVramArtSourceLoc11EFA::Blocks),
+        BLOCK_TILE_VRAM_BASE
+    );
     let terrain_quads = parse_tile_quads(&read_root_asset(
         source,
         "theme",
@@ -530,7 +540,9 @@ pub fn load_level_visuals_with_source(
         },
         hud: HudVisuals {
             digits: hud_digits,
-            digit_base_tile_index: HUD_DIGIT_BASE_TILE_INDEX,
+            digit_base_tile_index: shared_vram_tile_base_loc_11efa(
+                SharedVramArtSourceLoc11EFA::IngameNumbers,
+            ),
             diamond_tiles: hud_diamond_tiles,
             diamond_base_tile_index: HUD_DIAMOND_BASE_TILE_INDEX,
             hitpoint_sheet: hud_hitpoint_sheet,
@@ -995,23 +1007,32 @@ fn resolve_theme_name(theme_id: u8) -> Option<&'static str> {
 /// Foreground palette permutation file for a given theme ID.
 /// From ASM: City=city_fg, Forest=forest_fg, Mountain=mountain_fg, else identity.
 fn fg_permutation_file(theme_id: u8) -> &'static str {
-    match theme_id {
-        9 => "palette_permutations/forest_fg.bin",
-        7 => "palette_permutations/mountain_fg.bin",
-        10 => "palette_permutations/city_fg.bin",
-        _ => "palette_permutations/identity.bin",
+    match foreground_art_decompress_loc_11E48_11E60(u16::from(theme_id)).permutation {
+        ForegroundArtPermutationLoc11E48::Forest => "palette_permutations/forest_fg.bin",
+        ForegroundArtPermutationLoc11E48::Mountain => "palette_permutations/mountain_fg.bin",
+        ForegroundArtPermutationLoc11E48::City => "palette_permutations/city_fg.bin",
+        ForegroundArtPermutationLoc11E48::Identity => "palette_permutations/identity.bin",
     }
 }
 
 /// Background palette permutation file for a given theme ID.
 /// From ASM: Forest=forest_bg, Mountain=mountain_bg, Hills=hill_bg, else identity.
 fn bg_permutation_file(theme_id: u8) -> &'static str {
-    match theme_id {
-        9 => "palette_permutations/forest_bg.bin",
-        7 => "palette_permutations/mountain_bg.bin",
-        3 => "palette_permutations/hill_bg.bin",
-        _ => "palette_permutations/identity.bin",
+    match background_art_decompress_loc_11E8A_11EA2(u16::from(theme_id)).permutation {
+        BackgroundArtPermutationLoc11E8A::Forest => "palette_permutations/forest_bg.bin",
+        BackgroundArtPermutationLoc11E8A::Mountain => "palette_permutations/mountain_bg.bin",
+        BackgroundArtPermutationLoc11E8A::Hill => "palette_permutations/hill_bg.bin",
+        BackgroundArtPermutationLoc11E8A::Identity => "palette_permutations/identity.bin",
     }
+}
+
+fn shared_vram_tile_base_loc_11efa(art_source: SharedVramArtSourceLoc11EFA) -> u16 {
+    shared_vram_art_decompresses_loc_11EFA()
+        .into_iter()
+        .find(|decompress| decompress.art_source == art_source)
+        .expect("ASM loc_11EFA shared art source should be present")
+        .tile_base
+        / 0x20
 }
 
 /// Load a 16-byte palette permutation table from the theme assets.
@@ -1126,29 +1147,27 @@ fn background_followup_art_loc_11ea2_11ec4(
     background_theme_id: u8,
     weather_flags: u8,
 ) -> Option<(&'static str, u16, Option<&'static str>)> {
-    match background_theme_id {
-        // ASM loc_11EA2: Hills decompress ThemeArtBack_HillAlt at VRAM $F800
-        // using Palette_Permutation_BGHill_alt.
-        3 => Some((
-            "artcomp_bg/hill_alt.bin",
-            HILL_ALT_TILE_VRAM_BASE_LOC_11EA2,
-            Some("palette_permutations/hill_alt_bg.bin"),
-        )),
-        // ASM loc_11EC4/loc_11EF2: Mountain clear weather appends CaveAlt at
-        // VRAM $FCA0 with identity permutation; storm/hail swaps to
-        // MountainLightning and applies Palette_Permutation_BGMountain.
-        7 if matches!(weather_flags, 2 | 3) => Some((
-            "artcomp_bg/mountain_lightning.bin",
-            MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4,
-            Some("palette_permutations/mountain_bg.bin"),
-        )),
-        7 => Some((
-            "artcomp_bg/cave_alt.bin",
-            MOUNTAIN_FOLLOWUP_TILE_VRAM_BASE_LOC_11EC4,
-            None,
-        )),
-        _ => None,
-    }
+    let followup = background_followup_art_decompress_loc_11EA2_11EF2(
+        u16::from(background_theme_id),
+        u16::from(weather_flags),
+    )?;
+    let relative_path = match followup.art_source {
+        BackgroundFollowupArtSourceLoc11EC4::HillAlt => "artcomp_bg/hill_alt.bin",
+        BackgroundFollowupArtSourceLoc11EC4::CaveAlt => "artcomp_bg/cave_alt.bin",
+        BackgroundFollowupArtSourceLoc11EC4::MountainLightning => {
+            "artcomp_bg/mountain_lightning.bin"
+        }
+    };
+    let permutation_path = match followup.permutation {
+        BackgroundFollowupArtPermutationLoc11EC4::BgHillAlt => {
+            Some("palette_permutations/hill_alt_bg.bin")
+        }
+        BackgroundFollowupArtPermutationLoc11EC4::BgMountain => {
+            Some("palette_permutations/mountain_bg.bin")
+        }
+        BackgroundFollowupArtPermutationLoc11EC4::Identity => None,
+    };
+    Some((relative_path, followup.tile_base / 0x20, permutation_path))
 }
 
 fn load_background_visuals(
