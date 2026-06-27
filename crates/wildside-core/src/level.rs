@@ -10400,7 +10400,6 @@ pub(crate) fn animated_solid_block_horizontal_queue_loop_tail_loc_F934(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F946(
     swapped_d6: u32,
     swapped_d7: u32,
@@ -10425,7 +10424,6 @@ pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F9B6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_scan_advance_loc_F9C0(
     slot_addr: u32,
     dbf_counter: u16,
