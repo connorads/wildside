@@ -8310,7 +8310,6 @@ pub(crate) fn object_out_of_range_positive_slot_loc_320A6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_out_of_range_delete_tail_loc_320B4() -> bool {
     // ASM loc_320B4 (kid.asm:37493) is the shared out-of-range tail used by
     // both the negative-slot and positive-slot paths: it jumps straight to

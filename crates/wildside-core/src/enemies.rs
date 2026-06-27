@@ -10741,6 +10741,10 @@ pub(crate) enum DeactivationStatusActionLoc3C4C0 {
 pub(crate) fn deactivation_status_update_loc_3C4C0(
     object_status_slot: u8,
 ) -> DeactivationStatusActionLoc3C4C0 {
+    // ASM loc_320B4 / loc_3C4F4: every status-table path shares the same
+    // j_Delete_CurrentObject tail after the optional EnemyStatus_Table write.
+    debug_assert!(crate::level::object_out_of_range_delete_tail_loc_320B4());
+
     // ASM: moveq #0,d0; move.b $42(a5),d0; bpl.s loc_3C4E6
     if object_status_slot & 0x80 == 0 {
         // ASM loc_3C4E6: add.w d0,d0 → word index; move.w #$2168,(a0,d0.w)
