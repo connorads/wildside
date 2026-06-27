@@ -529,7 +529,6 @@ pub(crate) fn mini_hopping_skull_landing_side_contact_loc_3ef10(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_landing_scream_worker_allocation_loc_3eefa(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
@@ -769,6 +768,13 @@ pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
             MiniHoppingSkullLandingTailCollisionOutcome::BerzerkerChargeKillsSkull
         }
         MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker => {
+            let allocation = mini_hopping_skull_landing_scream_worker_allocation_loc_3eefa(
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            )
+            .expect("loc_3EEFA allocation route should spawn a worker");
+            debug_assert_eq!(allocation.allocation_selector, 0xA000);
+            debug_assert_eq!(allocation.routine, "sub_3F3F0");
+            debug_assert_eq!(allocation.delay_frames, 15);
             MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch
         }
         MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait => {
