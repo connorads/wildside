@@ -352,7 +352,6 @@ pub(crate) struct EndSequenceCreditsGlyphInitSub1D786 {
     pub(crate) palette_line: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsGlyphPlacementSub1D7A8 {
     pub(crate) x_pos: u16,
@@ -361,7 +360,6 @@ pub(crate) struct EndSequenceCreditsGlyphPlacementSub1D7A8 {
     pub(crate) display_enabled: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceScriptDriverLoc1D1B0 {
     pub(crate) script_table_label: &'static str,
@@ -372,7 +370,6 @@ pub(crate) struct EndSequenceScriptDriverLoc1D1B0 {
     pub(crate) sentinel_branches_to: Option<&'static str>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsDecodeLoc1D97E {
     pub(crate) script_index: u16,
@@ -381,7 +378,6 @@ pub(crate) struct EndSequenceCreditsDecodeLoc1D97E {
     pub(crate) decode_command: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsUploadLoopLoc1D986 {
     pub(crate) dbf_seed: u16,
@@ -389,7 +385,6 @@ pub(crate) struct EndSequenceCreditsUploadLoopLoc1D986 {
     pub(crate) row_indices: Vec<u16>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsRowUploadLoc1D9B6 {
     pub(crate) row_index: u16,
@@ -588,7 +583,6 @@ pub(crate) fn load_end_sequence_credits_glyphs_sub_1D7A8(
     glyphs
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ObjectGfxLinksSubE02 {
     pub(crate) object_slot_address: u32,
@@ -611,7 +605,6 @@ pub(crate) struct GfxObjectAllocTailLocFBE {
     pub(crate) owner_object_addr: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GfxObjectSpecialSlotLoc10C6 {
     None,
@@ -630,7 +623,6 @@ pub(crate) enum GfxObjectAllocationSpecialChainLocF9C {
     UnknownF872,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GfxObjectDeleteLoc10C6 {
     pub(crate) predecessor_next_index: Option<usize>,
@@ -873,7 +865,6 @@ pub(crate) fn gfx_objects_collision_next_index_loc_17BE(
     current_next_index
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GfxObjectsCollisionTileDispatchLoc17C6 {
     Continue,
@@ -1282,7 +1273,6 @@ pub(crate) fn allocate_object_and_gfx_links_sub_E02(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockJumpWindowSubDFB0 {
     pub(crate) left_reach_px: u16,
@@ -1290,7 +1280,6 @@ pub(crate) struct HiddenBlockJumpWindowSubDFB0 {
     pub(crate) vertical_reach_px: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockJumpHorizontalScanLocDFEE {
     pub(crate) start_col: i16,
@@ -1298,7 +1287,6 @@ pub(crate) struct HiddenBlockJumpHorizontalScanLocDFEE {
     pub(crate) end_col: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealWorkerSubE0F8 {
     pub(crate) allocation_spec: u16,
@@ -1309,7 +1297,6 @@ pub(crate) struct HiddenBlockRevealWorkerSubE0F8 {
     pub(crate) sprite_mapping: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealWorkerLocE0C2 {
     pub(crate) revealed_layout_byte: u8,
@@ -1318,7 +1305,6 @@ pub(crate) struct HiddenBlockRevealWorkerLocE0C2 {
     pub(crate) y_pos_offset_px: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealWorkerSubE1D4 {
     pub(crate) revealed_layout_byte: u8,
@@ -1330,7 +1316,6 @@ pub(crate) struct HiddenBlockRevealWorkerSubE1D4 {
     pub(crate) sprite_mapping: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockType4RevealPairLocE19E {
     pub(crate) workers: [HiddenBlockRevealWorkerSubE1D4; 2],
@@ -1340,7 +1325,6 @@ pub(crate) struct HiddenBlockType4RevealPairLocE19E {
     pub(crate) restored_sprite_mapping: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealGfxLoadLocE29A {
     pub(crate) gfx_load_arg: u32,
@@ -1402,7 +1386,6 @@ pub(crate) struct HiddenBlockRevealCleanupLocE376 {
     pub(crate) deletes_current_object: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockJumpSnapLocE1FE {
     pub(crate) y_velocity_fp: i32,
