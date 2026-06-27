@@ -4381,8 +4381,13 @@ fn run_loop_122c0(
         };
         *pos += words_consumed;
         if setup.stride {
+            let mut cell_addr = (u32::from(setup.y_row) * u32::from(width_blocks))
+                .wrapping_add(u32::from(x))
+                .wrapping_mul(2);
             for i in 0..setup.count {
                 body(x, setup.y_row.wrapping_add(i), i);
+                cell_addr = block_place_row_by_row_advance_loc_12332(cell_addr, width_blocks)
+                    .next_cell_addr;
             }
         } else {
             let cell_addr = (u32::from(setup.y_row) * u32::from(width_blocks))
@@ -4982,7 +4987,6 @@ pub(crate) struct BlockPlaceRowByRowAdvanceLoc12332 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_place_row_by_row_advance_loc_12332(
     cell_addr: u32,
     level_width_tiles: u16,
