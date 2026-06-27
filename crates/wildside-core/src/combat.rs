@@ -6597,7 +6597,6 @@ const BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39D80: [(i16, i16, i16); 51] = [
 ];
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_398BC(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6618,7 +6617,6 @@ pub(crate) fn boss_head_movement_wrapper_sub_398BC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_step_sub_398C4(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6642,7 +6640,6 @@ pub(crate) fn boss_head_movement_step_sub_398C4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_39952(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6662,7 +6659,6 @@ pub(crate) fn boss_head_movement_wrapper_sub_39952(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_step_sub_3995C(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6684,7 +6680,6 @@ pub(crate) fn boss_head_movement_step_sub_3995C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_399E4(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6704,7 +6699,6 @@ pub(crate) fn boss_head_movement_wrapper_sub_399E4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_step_sub_399EE(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6727,7 +6721,6 @@ pub(crate) fn boss_head_movement_step_sub_399EE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_39A7C(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6747,7 +6740,6 @@ pub(crate) fn boss_head_movement_wrapper_sub_39A7C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_step_sub_39A86(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6770,7 +6762,6 @@ pub(crate) fn boss_head_movement_step_sub_39A86(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_39BF8(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6790,7 +6781,6 @@ pub(crate) fn boss_head_movement_wrapper_sub_39BF8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_step_sub_39C02(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6812,7 +6802,6 @@ pub(crate) fn boss_head_movement_step_sub_39C02(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_39D4A(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6832,7 +6821,6 @@ pub(crate) fn boss_head_movement_wrapper_sub_39D4A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_step_sub_39D54(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6854,7 +6842,6 @@ pub(crate) fn boss_head_movement_step_sub_39D54(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boss_head_movement_wrapper_sub_39EB4(
     delay_counter_d0: u16,
     current_script_index: usize,
@@ -6880,58 +6867,107 @@ pub(crate) fn boss_head_movement_step_for_family_sub_39846(
     delay_counter_d0: u16,
     current_script_index: usize,
 ) -> BossHeadMovementStepSub39846 {
-    fn step_table(
+    fn next_script_index_for_native_slice(
         delay_counter_d0: u16,
         current_script_index: usize,
-        script: &[(i16, i16, i16)],
-    ) -> BossHeadMovementStepSub39846 {
-        let script_index =
-            if delay_counter_d0.wrapping_sub(1) == 0 && current_script_index >= script.len() {
-                // ASM sub_39846/loc_3984C reads `$FFFF` after the final triple
-                // and rewinds `a2` to that head's fixed movement table.
-                0
-            } else {
-                current_script_index
-            };
-        boss_head_movement_step_sub_39846(delay_counter_d0, script_index, script, script)
+        script_len: usize,
+    ) -> usize {
+        if delay_counter_d0.wrapping_sub(1) == 0 && current_script_index >= script_len {
+            // ASM sub_39846/loc_3984C reads `$FFFF` after the final triple and
+            // the wrapper labels rewind `a2` to that head's fixed movement
+            // table. Native slices omit that sentinel, so enter the wrapper at
+            // the first real entry when the next read would cross the slice.
+            0
+        } else {
+            current_script_index
+        }
     }
 
     match (family, boss_head_index) {
-        (EnemyFamily::Shishkaboss, _) => step_table(
-            delay_counter_d0,
-            current_script_index,
-            &SHISHKA_BOSS_HEAD_MOVEMENT_SUB_39872,
-        ),
-        (EnemyFamily::BoomerangBosses, 0) => step_table(
-            delay_counter_d0,
-            current_script_index,
-            &BOOMERANG_BOSS_HEAD_1_MOVEMENT_SUB_398F0,
-        ),
-        (EnemyFamily::BoomerangBosses, 1) => step_table(
-            delay_counter_d0,
-            current_script_index,
-            &BOOMERANG_BOSS_HEAD_2_MOVEMENT_SUB_39988,
-        ),
-        (EnemyFamily::BoomerangBosses, _) => step_table(
-            delay_counter_d0,
-            current_script_index,
-            &BOOMERANG_BOSS_HEAD_3_MOVEMENT_SUB_39A1A,
-        ),
-        (EnemyFamily::BagelBrothers, 0) => step_table(
-            delay_counter_d0,
-            current_script_index,
-            &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39AB2,
-        ),
-        (EnemyFamily::BagelBrothers, 1) => step_table(
-            delay_counter_d0,
-            current_script_index,
-            &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39C2E,
-        ),
-        (EnemyFamily::BagelBrothers, _) => step_table(
-            delay_counter_d0,
-            current_script_index,
-            &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39D80,
-        ),
+        (EnemyFamily::Shishkaboss, _) => {
+            boss_head_movement_wrapper_sub_398BC(
+                delay_counter_d0,
+                next_script_index_for_native_slice(
+                    delay_counter_d0,
+                    current_script_index,
+                    SHISHKA_BOSS_HEAD_MOVEMENT_SUB_39872.len(),
+                ),
+                &SHISHKA_BOSS_HEAD_MOVEMENT_SUB_39872,
+            )
+            .movement
+        }
+        (EnemyFamily::BoomerangBosses, 0) => {
+            boss_head_movement_wrapper_sub_39952(
+                delay_counter_d0,
+                next_script_index_for_native_slice(
+                    delay_counter_d0,
+                    current_script_index,
+                    BOOMERANG_BOSS_HEAD_1_MOVEMENT_SUB_398F0.len(),
+                ),
+                &BOOMERANG_BOSS_HEAD_1_MOVEMENT_SUB_398F0,
+            )
+            .movement
+        }
+        (EnemyFamily::BoomerangBosses, 1) => {
+            boss_head_movement_wrapper_sub_399E4(
+                delay_counter_d0,
+                next_script_index_for_native_slice(
+                    delay_counter_d0,
+                    current_script_index,
+                    BOOMERANG_BOSS_HEAD_2_MOVEMENT_SUB_39988.len(),
+                ),
+                &BOOMERANG_BOSS_HEAD_2_MOVEMENT_SUB_39988,
+            )
+            .movement
+        }
+        (EnemyFamily::BoomerangBosses, _) => {
+            boss_head_movement_wrapper_sub_39A7C(
+                delay_counter_d0,
+                next_script_index_for_native_slice(
+                    delay_counter_d0,
+                    current_script_index,
+                    BOOMERANG_BOSS_HEAD_3_MOVEMENT_SUB_39A1A.len(),
+                ),
+                &BOOMERANG_BOSS_HEAD_3_MOVEMENT_SUB_39A1A,
+            )
+            .movement
+        }
+        (EnemyFamily::BagelBrothers, 0) => {
+            boss_head_movement_wrapper_sub_39BF8(
+                delay_counter_d0,
+                next_script_index_for_native_slice(
+                    delay_counter_d0,
+                    current_script_index,
+                    BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39AB2.len(),
+                ),
+                &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39AB2,
+            )
+            .movement
+        }
+        (EnemyFamily::BagelBrothers, 1) => {
+            boss_head_movement_wrapper_sub_39D4A(
+                delay_counter_d0,
+                next_script_index_for_native_slice(
+                    delay_counter_d0,
+                    current_script_index,
+                    BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39C2E.len(),
+                ),
+                &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39C2E,
+            )
+            .movement
+        }
+        (EnemyFamily::BagelBrothers, _) => {
+            boss_head_movement_wrapper_sub_39EB4(
+                delay_counter_d0,
+                next_script_index_for_native_slice(
+                    delay_counter_d0,
+                    current_script_index,
+                    BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39D80.len(),
+                ),
+                &BAGEL_BROTHERS_HEAD_MOVEMENT_SUB_39D80,
+            )
+            .movement
+        }
         _ => BossHeadMovementStepSub39846 {
             next_delay_counter: delay_counter_d0,
             next_script_index: current_script_index,
