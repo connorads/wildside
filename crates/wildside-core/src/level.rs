@@ -12489,7 +12489,6 @@ pub(crate) fn step_palette_fade_out_loc_28C6(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn initialise_fullscreen_palette_fade_sub_73D0(
     palette_buffer: [u16; 0x40],
     fill_colour: u16,
@@ -12510,7 +12509,6 @@ pub(crate) fn initialise_fullscreen_palette_fade_sub_73D0(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn step_fullscreen_palette_fade_sub_73D0(
     state: &mut FullscreenPaletteFadeSub73D0,
 ) -> bool {
@@ -12530,7 +12528,6 @@ pub(crate) fn step_fullscreen_palette_fade_sub_73D0(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn blend_palette_entry_loc_1538(
     palette_word_2: u16,
     palette_word_3: u16,
@@ -12573,7 +12570,6 @@ pub(crate) fn blend_palette_entry_loc_1538(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn blend_selected_palette_entries_sub_1536(
     palette_buffer_2: &[u16],
     palette_buffer_3: &[u16],
@@ -12611,7 +12607,6 @@ pub(crate) fn blend_selected_palette_entries_sub_1536(
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn build_palette_fade_curve_sub_14C0(fade_progress: u16) -> [u8; 15] {
     // ASM sub_14C0 / loc_14CE / loc_14EE (kid.asm:2583): build the 15-byte
     // signed fade curve in $FFFFF878 from the shared fade progress word at
@@ -12629,7 +12624,6 @@ pub(crate) fn build_palette_fade_curve_sub_14C0(fade_progress: u16) -> [u8; 15] 
 }
 
 #[allow(non_snake_case)]
-#[allow(dead_code)]
 pub(crate) fn apply_pending_palette_fade_sub_14C0(
     fade_progress: u16,
     pending_palette_0_mask: &mut u32,
@@ -13106,12 +13100,12 @@ pub struct BackgroundScrollForestWaterRippleVisibleBandLoc305D4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundScrollForestWaterRippleSetupLoc305E6 {
-    pub(crate) start_scanline: u16,
-    pub(crate) target_word_offset_bytes: usize,
-    pub(crate) base_scroll_word: i16,
-    pub(crate) ripple_dbf_counter: u16,
-    pub(crate) ripple_data_byte_offset: usize,
+pub struct BackgroundScrollForestWaterRippleSetupLoc305E6 {
+    pub start_scanline: u16,
+    pub target_word_offset_bytes: usize,
+    pub base_scroll_word: i16,
+    pub ripple_dbf_counter: u16,
+    pub ripple_data_byte_offset: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14320,8 +14314,7 @@ pub fn background_scroll_forest_water_ripple_visible_band_loc_305D4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_forest_water_ripple_setup_loc_305E6(
+pub fn background_scroll_forest_water_ripple_setup_loc_305E6(
     horiz_scroll_buffer: &[u32],
     start_scanline: u16,
     affected_scanline_count: u16,

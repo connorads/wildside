@@ -62,9 +62,9 @@ pub use combat::{
 pub use level::{
     BackgroundArtPermutationLoc11E8A, BackgroundChunkCopiedTileLoc12884,
     BackgroundChunkCopyLoc12884, BackgroundFollowupArtPermutationLoc11EC4,
-    BackgroundFollowupArtSourceLoc11EC4, BackgroundScrollForestWaterRippleVisibleBandLoc305D4,
-    BackgroundScrollThemeDispatchLoc30598, EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE,
-    EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
+    BackgroundFollowupArtSourceLoc11EC4, BackgroundScrollForestWaterRippleSetupLoc305E6,
+    BackgroundScrollForestWaterRippleVisibleBandLoc305D4, BackgroundScrollThemeDispatchLoc30598,
+    EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE, EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,
     EOL_FOREGROUND_REVEAL_VISIBLE_DELAY_FRAMES_LOC_C21E_ORACLE,
     EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, EOL_POST_ROWS_PRE_COUNTER_FRAMES_LOC_D770,
     EOL_PRE_SCOREBOARD_FADE_FRAMES_LOC_C0CC, EOL_SCORE_COUNTER_START_LEAD_FRAMES_LOC_D754_ORACLE,
@@ -75,6 +75,7 @@ pub use level::{
     TransferScrollDataStormLoc30110, background_art_decompress_loc_11E8A_11EA2,
     background_chunk_row_loop_loc_12884, background_dimensions_loc_11B40,
     background_followup_art_decompress_loc_11EA2_11EF2, background_row_pointers_loc_11B7A,
+    background_scroll_forest_water_ripple_setup_loc_305E6,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_theme_dispatch_loc_30598, eol_score_counter_snapshot_loc_D770,
     eol_score_counter_transfer_frames_from_trace_loc_D770,
@@ -2975,16 +2976,21 @@ impl NativeRuntime {
             &self.palette_buffer_3,
             &mut self.palette_buffer,
         );
-        // ASM sub_73D0 / loc_7420 (kid.asm:7527-7561): Load_InGame's
-        // fullscreen fade worker adds `$10` to `$FFFFF876` each hibernating
-        // frame and only sets `Allow_Pausing` once the value is greater than
-        // `$0100`, i.e. on the seventeenth refresh.
-        self.level_entry_pending_palette_0_mask_sub_73d0 = u32::MAX;
-        self.level_entry_pending_palette_1_mask_sub_73d0 = u32::MAX;
-        self.level_entry_fade_progress_sub_73d0 =
-            self.level_entry_fade_progress_sub_73d0.wrapping_add(0x10);
+        let mut fade = level::FullscreenPaletteFadeSub73D0 {
+            palette_to_dma_enabled: false,
+            palette_buffer_2: self.palette_buffer_2,
+            palette_buffer_3: self.palette_buffer_3,
+            fade_progress: self.level_entry_fade_progress_sub_73d0,
+            pending_palette_0_mask: self.level_entry_pending_palette_0_mask_sub_73d0,
+            pending_palette_1_mask: self.level_entry_pending_palette_1_mask_sub_73d0,
+            allow_pausing: self.allow_pausing,
+        };
+        let fade_completed = level::step_fullscreen_palette_fade_sub_73D0(&mut fade);
+        self.level_entry_pending_palette_0_mask_sub_73d0 = fade.pending_palette_0_mask;
+        self.level_entry_pending_palette_1_mask_sub_73d0 = fade.pending_palette_1_mask;
+        self.level_entry_fade_progress_sub_73d0 = fade.fade_progress;
         self.allow_pausing_fade_frames = self.allow_pausing_fade_frames.saturating_add(1);
-        if self.allow_pausing_fade_frames >= 17 {
+        if fade_completed {
             self.allow_pausing = true;
             // ASM Load_InGame leaves FBCC as scratch reset by the next load.
             // The title-card / level-skip paths cleared the warp colour at
