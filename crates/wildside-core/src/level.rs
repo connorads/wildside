@@ -10782,7 +10782,6 @@ pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSu
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_shooter_object_slots_loc_DF50() -> ShooterObjectSlotsLocDF50 {
     // ASM loc_DF50 (kid.asm:17269): after `Initialize_EvanescShooterObjectSlots`
     // seeds `a0=ShooterObject_RAM` and `d0=$26`, the inclusive DBF loop writes

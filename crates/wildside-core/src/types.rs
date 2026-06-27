@@ -806,6 +806,12 @@ impl BlockInteractionState {
 
     #[allow(non_snake_case)]
     pub(crate) fn reset_shooter_state_sub_F06A(&mut self) {
+        // ASM Initialize_EvanescShooterObjectSlots: loc_DF50 seeds the shooter
+        // list after loc_DF30 before later sub_F06A resets the scan cache.
+        debug_assert_eq!(
+            crate::level::initialise_shooter_object_slots_loc_DF50().first_shooter_object_slot_addr,
+            0
+        );
         let shooter_slots = crate::level::initialise_shooter_object_slots_sub_F06A();
         self.shooter_blocks.clear();
         self.shooter_headbutt_workers.clear();
