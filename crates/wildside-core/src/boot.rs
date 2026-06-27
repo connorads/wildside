@@ -1236,8 +1236,7 @@ pub(crate) fn pause_menu_plane_column_layout_loc_693A(
 /// Number of rows saved by the pause menu tile-save loop at loc_695C.
 ///
 /// ASM kid.asm:6660: `moveq #4,d5` — `dbf d5,loc_695C` iterates 5 times (0..=4).
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) const PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C: u16 = 5;
+pub(crate) const PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C: usize = 5;
 
 /// Y-pixel offset added to Camera_Y_pos before the row loop at loc_6948/loc_695C.
 ///
@@ -1339,7 +1338,7 @@ pub(crate) struct PauseMenuTileSaveRow {
 pub(crate) fn pause_menu_tile_save_plan_loc_695C(
     camera_x_pos: u16,
     camera_y_pos: u16,
-) -> [PauseMenuTileSaveRow; 5] {
+) -> [PauseMenuTileSaveRow; PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C] {
     let layout = pause_menu_plane_column_layout_loc_693A(camera_x_pos);
 
     core::array::from_fn(|i| {
@@ -1470,7 +1469,7 @@ pub struct PauseMenuTextWriteRow {
 pub fn pause_menu_text_write_plan_loc_69D2(
     camera_x_pos: u16,
     camera_y_pos: u16,
-) -> [PauseMenuTextWriteRow; 5] {
+) -> [PauseMenuTextWriteRow; PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C] {
     // ASM loc_69D2/loc_69EC: identical column layout to loc_693A.
     let layout = pause_menu_plane_column_layout_loc_693A(camera_x_pos);
 
@@ -1537,7 +1536,7 @@ pub(crate) struct PauseMenuTileRestoreRow {
 pub(crate) fn pause_menu_tile_restore_plan_loc_6B68(
     camera_x_pos: u16,
     camera_y_pos: u16,
-) -> [PauseMenuTileRestoreRow; 5] {
+) -> [PauseMenuTileRestoreRow; PAUSE_MENU_TILE_SAVE_ROW_COUNT_LOC_695C] {
     // ASM loc_6B68/loc_6B82: identical column layout to loc_693A.
     let layout = pause_menu_plane_column_layout_loc_693A(camera_x_pos);
 
