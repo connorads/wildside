@@ -800,14 +800,12 @@ pub(crate) fn lion_left_charge_y_velocity_commit_loc_3e796(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionLeftChargeEntryLoc3E682 {
     pub(crate) left_charge_latch_set: bool,
     pub(crate) restored_sprite_offset: Option<u16>,
     pub(crate) is_animated: Option<bool>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_left_charge_entry_loc_3e682(
     saved_sprite_offset: u16,
 ) -> LionLeftChargeEntryLoc3E682 {
@@ -822,14 +820,12 @@ pub(crate) fn lion_left_charge_entry_loc_3e682(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct LionChargeCollisionReentryLoc3E79E {
     pub(crate) left_charge_latch_set: bool,
     pub(crate) restored_sprite_offset: Option<u16>,
     pub(crate) is_animated: Option<bool>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn lion_charge_collision_reentry_loc_3e79e(
     saved_sprite_offset: u16,
 ) -> LionChargeCollisionReentryLoc3E79E {
@@ -1612,10 +1608,18 @@ fn step_lion_charge_movement_loc_3e11e(
             // falls through loc_3E6AE/loc_3E7CA until terrain catches it.
             let motion_seed = match enemy.facing {
                 Direction::Left => {
+                    let entry = lion_left_charge_entry_loc_3e682(0);
+                    debug_assert!(entry.left_charge_latch_set);
+                    debug_assert_eq!(entry.restored_sprite_offset, None);
+                    debug_assert_eq!(entry.is_animated, None);
                     let seed = lion_left_charge_motion_seed_loc_3e694(walk_delta, enemy.y_pos);
                     (seed.x_velocity, seed.y_velocity, seed.y_position)
                 }
                 Direction::Right => {
+                    let entry = lion_charge_collision_reentry_loc_3e79e(0);
+                    debug_assert!(entry.left_charge_latch_set);
+                    debug_assert_eq!(entry.restored_sprite_offset, None);
+                    debug_assert_eq!(entry.is_animated, None);
                     let seed = lion_charge_collision_motion_seed_loc_3e7b0(walk_delta, enemy.y_pos);
                     (seed.x_velocity, seed.y_velocity, seed.y_position)
                 }
