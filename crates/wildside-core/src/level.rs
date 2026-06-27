@@ -4617,10 +4617,11 @@ fn run_loop_type3_124a6(
             return;
         };
         let read_entry = block_type_3_read_entry_loc_124aa(rest);
-        *pos += read_entry.words_consumed;
         let Some(entry) = read_entry.entry else {
+            *pos += read_entry.words_consumed;
             return;
         };
+        *pos += block_type_3_advance_entry_loc_12520().next_entry_offset / 2;
         let row_pointer_table: Vec<u16> = (0..=entry.y_row)
             .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
             .collect();
@@ -5811,7 +5812,6 @@ pub(crate) struct BlockType3AdvanceEntryLoc12520 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_3_advance_entry_loc_12520() -> BlockType3AdvanceEntryLoc12520 {
     // ASM loc_12520 (kid.asm:24745-24747): advance to next hidden block entry.
     // After filling (or skipping fill when priority is non-zero), advance:
