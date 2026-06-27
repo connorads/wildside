@@ -2964,6 +2964,12 @@ impl ActivePlatform {
         if let Some(slot_addr) = self.slot_addr {
             debug_fields.insert("platform_slot_addr".to_string(), slot_addr.to_string());
         }
+        if self.special.is_some() {
+            debug_fields.insert(
+                "platform_deactivated_flag".to_string(),
+                self.deactivated_flag.to_string(),
+            );
+        }
         NativeObjectSnapshot {
             kind: NativeObjectKind::Platform {
                 kind: self.kind,

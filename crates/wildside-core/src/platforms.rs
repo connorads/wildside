@@ -1236,29 +1236,17 @@ impl PlatformLoaderState {
             return slot_model_platforms;
         }
 
-        let mut active_platforms: Vec<_> = layout
-            .placements
-            .iter()
-            .enumerate()
-            .take(self.next_index)
-            .filter(|(placement_index, _)| {
-                *placement_index < u64::BITS as usize
-                    && (self.loaded_mask & (1u64 << placement_index)) != 0
-            })
-            .filter(|(_, placement)| {
-                platform_is_active(placement, window)
-                    || platform_placement_is_special_loc_2836(placement)
-            })
-            .take(PLATFORM_SLOT_CAPACITY_LOC_231C)
-            .map(|(placement_index, placement)| {
-                platform_snapshot_from_placement_loc_2814(placement_index, placement, window)
-            })
-            .collect();
-        // ASM Allocate_PlatformSlot sub_238E inserts each newly allocated
-        // platform at Addr_FirstPlatformSlot, so the active-list scan sees
-        // newest successful allocations first.
-        active_platforms.reverse();
-        active_platforms
+        runtime_active_platforms_loc_2762(
+            layout,
+            self.next_index,
+            self.loaded_mask,
+            window,
+            &[],
+            None,
+        )
+        .into_iter()
+        .map(|platform| platform.snapshot())
+        .collect()
     }
 }
 
@@ -1278,7 +1266,6 @@ pub(crate) fn platform_is_active(platform: &PlatformPlacement, window: Activatio
     window.x_max >= x_min && window.x_min <= x_max && window.y_max >= y_min && window.y_min <= y_max
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn runtime_active_platforms_loc_2762(
     layout: &PlatformLayout,
     next_index: usize,
@@ -1335,7 +1322,9 @@ pub(crate) fn runtime_active_platforms_loc_2762(
         if layout_index >= u64::BITS as usize || (loaded_mask & (1u64 << layout_index)) == 0 {
             continue;
         }
-        if !platform_is_active(placement, window) {
+        let placement_active = platform_is_active(placement, window);
+        let special_platform = platform_placement_is_special_loc_2836(placement);
+        if !placement_active && !special_platform {
             continue;
         }
         let layout_offset_words = platform_loader_offset_for_index_loc_286E(layout_index);
@@ -1347,8 +1336,13 @@ pub(crate) fn runtime_active_platforms_loc_2762(
         if active_platforms.len() >= PLATFORM_SLOT_CAPACITY_LOC_231C {
             continue;
         }
-        let platform =
+        let mut platform =
             ActivePlatform::from_placement_with_index(layout_index, placement, script_table);
+        if special_platform && !placement_active {
+            // ASM loc_2850: already-loaded special platforms stay linked and
+            // receive `st $12(a3)` when the current range check rejects them.
+            platform.deactivated_flag = 0xFF;
+        }
         // ASM Allocate_PlatformSlot sub_238E writes the newly allocated slot
         // to Addr_FirstPlatformSlot, so new records become first in scan order.
         active_platforms.insert(0, platform);
