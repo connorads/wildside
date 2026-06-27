@@ -156,11 +156,9 @@ pub(crate) fn ninja_walk_speed_override_loc_3d59a_and_3d5aa(current_hp: u8) -> i
 /// source of truth makes that consistency structural rather than accidental: a
 /// future edit to one family can no longer silently diverge from the ROM.
 ///
-/// `EMPTY` and `KIDBELOW` have no standard-family consumer (only the
-/// deliberately-remapped `MINI_SKULL_COLID_GROUND_*` set uses `0x28`), hence
-/// `#[allow(dead_code)]` on the module.
-#[allow(dead_code)]
-mod colid {
+/// `MINI_SKULL_COLID_GROUND_*` deliberately keeps its own remapped set; the
+/// shared table is for the standard collision jump-table words.
+pub(crate) mod colid {
     /// ASM `colid_empty` (constants.asm:164).
     pub const EMPTY: u16 = 0x0000;
     /// ASM `colid_rightwall` (constants.asm:165).
@@ -700,9 +698,9 @@ pub(crate) fn diamond_low_hp_collision_dispatch_loc_3aec4(
     // pre-clear. Zero and unknown positives resume the shared walker tail,
     // signed-negative words delete the Diamond, side contacts enter the
     // Berzerker gate, and `colid_hurt` decrements `$44(a3)` before routing.
-    if collision_type == 0 {
+    if collision_type == colid::EMPTY as i16 {
         return DiamondLowHpCollisionRouteLoc3AEC4::ResumeSharedWalker {
-            next_collision_type: 0,
+            next_collision_type: colid::EMPTY,
         };
     }
     if collision_type.is_negative() {

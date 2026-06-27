@@ -6,7 +6,6 @@ use crate::projectiles::{
 
 const HUNDRED_K_TRIP_START_LEVEL_ID: LevelId = LevelId(4);
 const HUNDRED_K_TRIP_ARM_FRAMES_LOC_10AC2: u16 = 0x003C;
-const COLID_KIDBELOW_LOC_1D00: u16 = 0x0028;
 const NORMAL_RECENT_DAMAGE_FLAGS_LOC_1D00: u16 = 0;
 const STOMP_CONTACT_DAMAGE_OBJECT_FLAGS_LOC_1D4C: u16 = 0x4000;
 
@@ -2549,7 +2548,6 @@ pub(crate) struct NormalSpriteChunkLoc12B8 {
     pub(crate) size_code: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SpriteDmaUploadLoc141A {
     pub(crate) sprite_tile_word: u16,
@@ -15022,7 +15020,7 @@ fn normal_recent_damage_survives_invulnerability_gate_loc_1d00(
     // `colid_kidbelow` hits with no high-bit object payload.
     let gate = crate::trace::kid_object_invulnerability_gate_loc_1D00(
         kid_damage_invulnerable,
-        COLID_KIDBELOW_LOC_1D00,
+        crate::enemies::colid::KIDBELOW,
         NORMAL_RECENT_DAMAGE_FLAGS_LOC_1D00,
     );
     gate.next_player_collision_type != 0
