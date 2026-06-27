@@ -658,6 +658,7 @@ pub struct PrizeBlockEntry {
 /// Ghost blocks cycle between solid and vanished states on timers.
 #[derive(Debug, Clone, Copy)]
 pub struct GhostBlockEntry {
+    pub layout_addr: u16,
     pub col: u16,
     pub row: u16,
     /// Number of blocks in the group (1-based).
@@ -808,11 +809,34 @@ impl BlockList {
                 entry.row = adjusted_words[2];
             }
         }
-        for entry in &mut self.ghost_blocks {
-            // Ghost rows are stored in the same post-sub_140F6 co-ordinate
-            // space. The parsed native struct does not retain the ghost
-            // section's layout word, so only the exposed row needs normalising.
-            entry.row = entry.row.wrapping_add(blank_top_rows);
+        if !self.ghost_blocks.is_empty() {
+            // ASM loc_14204 adjusts 16-byte solid-ghost records.
+            let raw_entries: Vec<[u16; 8]> = self
+                .ghost_blocks
+                .iter()
+                .map(|entry| {
+                    [
+                        entry.timer,
+                        entry.state,
+                        entry.solid_time,
+                        entry.vanished_time,
+                        entry.layout_addr,
+                        entry.col,
+                        entry.row,
+                        0,
+                    ]
+                })
+                .collect();
+            let adjusted =
+                crate::level::adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14204(
+                    &raw_entries,
+                    blank_top_rows,
+                    level_width_tiles,
+                );
+            for (entry, adjusted_words) in self.ghost_blocks.iter_mut().zip(adjusted) {
+                entry.layout_addr = adjusted_words[4];
+                entry.row = adjusted_words[6];
+            }
         }
         if !self.teleporters.is_empty() {
             // ASM loc_1421E adjusts 10-byte custom/teleporter records.
@@ -923,6 +947,7 @@ impl BlockList {
             let solid = state == 0;
 
             ghost_blocks.push(GhostBlockEntry {
+                layout_addr,
                 col,
                 row,
                 count,
@@ -6411,11 +6436,10 @@ mod tests {
 
     #[test]
     fn block_list_with_blank_top_rows_sub_140f6_shifts_layout_addr_and_rows() {
-        // ASM loc_141EE/loc_1421E/loc_14236 add Number_blank_top_rows*Level_width_tiles
+        // ASM loc_141EE/loc_14204/loc_1421E/loc_14236 add Number_blank_top_rows*Level_width_tiles
         // to each interactive block's Level_Layout low-word address and
-        // Number_blank_top_rows to its stored row. Ghost rows carry only the row
-        // adjustment (the native struct keeps no ghost layout word). The live
-        // loader calls this on the block list, so pin the exact deltas.
+        // Number_blank_top_rows to its stored row. The live loader calls this on
+        // the block list, so pin the exact deltas.
         let block_list = BlockList {
             prize_blocks: vec![PrizeBlockEntry {
                 layout_addr: 0xA652,
@@ -6425,6 +6449,7 @@ mod tests {
                 disguised: false,
             }],
             ghost_blocks: vec![GhostBlockEntry {
+                layout_addr: 0xA65A,
                 col: 1,
                 row: 7,
                 count: 2,
@@ -6457,11 +6482,8 @@ mod tests {
 
         assert_eq!(shifted.prize_blocks[0].layout_addr, 0xA652 + 12);
         assert_eq!(shifted.prize_blocks[0].row, 5 + 2);
-        assert_eq!(
-            shifted.ghost_blocks[0].row,
-            7 + 2,
-            "ghost rows shift down without a layout-address word"
-        );
+        assert_eq!(shifted.ghost_blocks[0].layout_addr, 0xA65A + 12);
+        assert_eq!(shifted.ghost_blocks[0].row, 7 + 2);
         assert_eq!(shifted.teleporters[0].layout_addr, 0xA660 + 12);
         assert_eq!(shifted.teleporters[0].row, 9 + 2);
         assert_eq!(shifted.hidden_blocks[0].layout_addr, 0xA670 + 12);

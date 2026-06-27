@@ -7874,7 +7874,6 @@ pub(crate) fn adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141F6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14204(
     entries: &[[u16; 8]],
     blank_top_rows: u16,
