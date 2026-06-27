@@ -11461,7 +11461,6 @@ pub(crate) fn evanescent_bullet_layout_write_loc_ED98(
 /// and three interact immediately, while ages zero/one interact only when
 /// bits `$3000` are also present.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_right_gate_loc_EE2A(
     age_after_increment: u16,
     current_layout_word_addr: u16,
@@ -11522,7 +11521,6 @@ pub(crate) fn shooter_object_moving_right_sprite_tail_loc_EE52(
 /// The following collision gate interacts for bit-14 cells while age is below
 /// two; older ages require the moving-up `$2000` directional bit.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_up_gate_loc_EE80(
     age_after_increment: u16,
     current_layout_word_addr: u16,
@@ -11569,7 +11567,6 @@ pub(crate) fn shooter_object_moving_up_collision_gate_loc_EE92(
 /// every fourth positive age and subtract two from the layout pointer before the
 /// following collision gate reads `(a0)`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_left_gate_loc_EED6(
     age_after_increment: u16,
     current_layout_word_addr: u16,
@@ -11624,7 +11621,6 @@ pub(crate) fn shooter_object_moving_left_sprite_tail_loc_EEFE(
 /// The following collision gate interacts for bit-14 cells when age is two or
 /// above, or for younger ages only when the moving-down `$2000` bit remains set.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_down_gate_loc_EF2E(
     age_after_increment: u16,
     current_layout_word_addr: u16,

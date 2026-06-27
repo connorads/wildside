@@ -2348,44 +2348,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    fn shooter_object_collision_gate_loc_EDFA(
-        direction: u16,
-        state_word: u16,
-        layout_word: u16,
-    ) -> bool {
-        match direction {
-            0 => matches!(
-                crate::level::shooter_object_moving_up_collision_gate_loc_EE92(
-                    state_word,
-                    layout_word,
-                ),
-                crate::level::ShooterObjectMovingUpNextLocEE80::InteractLevelLayout
-            ),
-            1 => matches!(
-                crate::level::shooter_object_moving_right_collision_gate_loc_EE38(
-                    state_word,
-                    layout_word,
-                ),
-                crate::level::ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout
-            ),
-            2 => matches!(
-                crate::level::shooter_object_moving_down_collision_gate_loc_EF40(
-                    state_word,
-                    layout_word,
-                ),
-                crate::level::ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout
-            ),
-            _ => matches!(
-                crate::level::shooter_object_moving_left_collision_gate_loc_EEE4(
-                    state_word,
-                    layout_word,
-                ),
-                crate::level::ShooterObjectMovingLeftNextLocEEE4::InteractLevelLayout
-            ),
-        }
-    }
-
-    #[allow(non_snake_case)]
     fn step_tracked_shooter_object_loc_EDFA(
         grid: &terrain::BlockGrid,
         projectile: &mut EnemyProjectile,
@@ -2395,7 +2357,11 @@ impl NativeRuntime {
         let mut state_word = age_after_increment;
         let mut layout_col = projectile.shooter_layout_col;
         let mut layout_row = projectile.shooter_layout_row;
-        let mut check_collision = true;
+        let interacts_with_layout;
+        let layout_stride = grid.width_cells.wrapping_mul(2);
+        let layout_word_addr = layout_row
+            .wrapping_mul(layout_stride)
+            .wrapping_add(layout_col.wrapping_mul(2));
 
         match direction {
             0 => {
@@ -2406,12 +2372,30 @@ impl NativeRuntime {
                 }
                 if age_after_increment == 0 {
                     layout_row = layout_row.saturating_sub(1);
-                    check_collision = false;
+                    interacts_with_layout = false;
                 } else if age_after_increment == 0xFFFF {
-                    check_collision = false;
-                } else if age_after_increment == 4 {
-                    state_word = 0;
-                    layout_row = layout_row.saturating_sub(1);
+                    interacts_with_layout = false;
+                } else {
+                    let selected_layout_row = if age_after_increment == 4 {
+                        layout_row.saturating_sub(1)
+                    } else {
+                        layout_row
+                    };
+                    let layout_word = Self::shooter_layout_word_loc_EE38(
+                        grid.cell_at(layout_col, selected_layout_row),
+                    );
+                    let gate = crate::level::shooter_object_moving_up_gate_loc_EE80(
+                        age_after_increment,
+                        layout_word_addr,
+                        layout_stride,
+                        layout_word,
+                    );
+                    state_word = gate.state_word;
+                    layout_row = selected_layout_row;
+                    interacts_with_layout = matches!(
+                        gate.next_step,
+                        crate::level::ShooterObjectMovingUpNextLocEE80::InteractLevelLayout
+                    );
                 }
             }
             1 => {
@@ -2422,12 +2406,29 @@ impl NativeRuntime {
                 }
                 if age_after_increment == 0 {
                     layout_col = layout_col.saturating_add(1);
-                    check_collision = false;
+                    interacts_with_layout = false;
                 } else if age_after_increment == 0xFFFF {
-                    check_collision = false;
-                } else if age_after_increment == 4 {
-                    state_word = 0;
-                    layout_col = layout_col.saturating_add(1);
+                    interacts_with_layout = false;
+                } else {
+                    let selected_layout_col = if age_after_increment == 4 {
+                        layout_col.saturating_add(1)
+                    } else {
+                        layout_col
+                    };
+                    let layout_word = Self::shooter_layout_word_loc_EE38(
+                        grid.cell_at(selected_layout_col, layout_row),
+                    );
+                    let gate = crate::level::shooter_object_moving_right_gate_loc_EE2A(
+                        age_after_increment,
+                        layout_word_addr,
+                        layout_word,
+                    );
+                    state_word = gate.state_word;
+                    layout_col = selected_layout_col;
+                    interacts_with_layout = matches!(
+                        gate.next_step,
+                        crate::level::ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout
+                    );
                 }
             }
             2 => {
@@ -2438,12 +2439,30 @@ impl NativeRuntime {
                 }
                 if age_after_increment == 0 {
                     layout_row = layout_row.saturating_add(1);
-                    check_collision = false;
+                    interacts_with_layout = false;
                 } else if age_after_increment == 0xFFFF {
-                    check_collision = false;
-                } else if age_after_increment == 4 {
-                    state_word = 0;
-                    layout_row = layout_row.saturating_add(1);
+                    interacts_with_layout = false;
+                } else {
+                    let selected_layout_row = if age_after_increment == 4 {
+                        layout_row.saturating_add(1)
+                    } else {
+                        layout_row
+                    };
+                    let layout_word = Self::shooter_layout_word_loc_EE38(
+                        grid.cell_at(layout_col, selected_layout_row),
+                    );
+                    let gate = crate::level::shooter_object_moving_down_gate_loc_EF2E(
+                        age_after_increment,
+                        layout_word_addr,
+                        layout_stride,
+                        layout_word,
+                    );
+                    state_word = gate.state_word;
+                    layout_row = selected_layout_row;
+                    interacts_with_layout = matches!(
+                        gate.next_step,
+                        crate::level::ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout
+                    );
                 }
             }
             _ => {
@@ -2454,27 +2473,39 @@ impl NativeRuntime {
                 }
                 if age_after_increment == 0 {
                     layout_col = layout_col.saturating_sub(1);
-                    check_collision = false;
+                    interacts_with_layout = false;
                 } else if age_after_increment == 0xFFFF {
-                    check_collision = false;
-                } else if age_after_increment == 4 {
-                    state_word = 0;
-                    layout_col = layout_col.saturating_sub(1);
+                    interacts_with_layout = false;
+                } else {
+                    let gate = crate::level::shooter_object_moving_left_gate_loc_EED6(
+                        age_after_increment,
+                        layout_word_addr,
+                    );
+                    let selected_layout_col = if age_after_increment == 4 {
+                        layout_col.saturating_sub(1)
+                    } else {
+                        layout_col
+                    };
+                    let layout_word = Self::shooter_layout_word_loc_EE38(
+                        grid.cell_at(selected_layout_col, layout_row),
+                    );
+                    state_word = gate.state_word;
+                    layout_col = selected_layout_col;
+                    interacts_with_layout = matches!(
+                        crate::level::shooter_object_moving_left_collision_gate_loc_EEE4(
+                            gate.state_word,
+                            layout_word,
+                        ),
+                        crate::level::ShooterObjectMovingLeftNextLocEEE4::InteractLevelLayout
+                    );
                 }
             }
         }
 
-        if check_collision {
-            let layout_word =
-                Self::shooter_layout_word_loc_EE38(grid.cell_at(layout_col, layout_row));
-            let interacts =
-                Self::shooter_object_collision_gate_loc_EDFA(direction, state_word, layout_word);
-
-            if interacts {
-                return Err(Self::shooter_layout_interaction_at_cell_loc_F00A(
-                    grid, layout_col, layout_row, direction,
-                ));
-            }
+        if interacts_with_layout {
+            return Err(Self::shooter_layout_interaction_at_cell_loc_F00A(
+                grid, layout_col, layout_row, direction,
+            ));
         }
 
         projectile.shooter_state_word = state_word;
