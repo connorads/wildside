@@ -4608,7 +4608,6 @@ fn run_loop_corner_126f2(
     width_blocks: u16,
     height_blocks: u16,
 ) {
-    const BYTE_1274E: [u8; 4] = [0, 5, 4, 6];
     let width = usize::from(width_blocks);
     let height = usize::from(height_blocks);
     loop {
@@ -4626,23 +4625,17 @@ fn run_loop_corner_126f2(
         let Some(&y) = words.get(*pos) else {
             return;
         };
-        let Some(&count) = words.get(*pos + 1) else {
-            return;
-        };
-        let Some(&stride) = words.get(*pos + 2) else {
+        let Some(setup) = block_type_16_read_count_stride_loc_126fe(&words[*pos + 1..]) else {
             return;
         };
         *pos += 3;
         let (mut cx, mut cy) = (x, y);
-        for _ in 0..count {
+        for _ in 0..setup.count {
             let Some(cls) = words.get(*pos).copied() else {
                 return;
             };
             *pos += 1;
-            let class_byte = BYTE_1274E
-                .get(usize::from(cls & 0x0003))
-                .copied()
-                .unwrap_or(0);
+            let class_byte = block_type_16_property_lookup_loc_12714(cls).tile_index;
             let mut d5 = class_byte << 4;
             // sub_12752: tile class $40 marks the right + below neighbours; $50
             // marks the left + below neighbours (sub_12792 sets bit 0 of the
@@ -4657,7 +4650,7 @@ fn run_loop_corner_126f2(
                 // replaces the high byte with the class nibble+1.
                 cells[idx] = u16::from_be_bytes([d5, skin]);
             }
-            if stride != 0 {
+            if setup.is_row_by_row {
                 cy = cy.wrapping_add(1);
             } else {
                 cx = cx.wrapping_add(1);
@@ -6784,7 +6777,6 @@ pub(crate) struct BlockType16SetupLoc126FE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_16_read_count_stride_loc_126fe(
     layout_words: &[u16],
 ) -> Option<BlockType16SetupLoc126FE> {
@@ -6810,7 +6802,6 @@ pub(crate) struct BlockType16PropertyLookupLoc12714 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_16_property_lookup_loc_12714(
     property_word: u16,
 ) -> BlockType16PropertyLookupLoc12714 {
