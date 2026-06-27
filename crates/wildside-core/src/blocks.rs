@@ -3526,7 +3526,9 @@ impl NativeRuntime {
             } as u16;
             // ASM loc_F0D8 (kid.asm:19649): scan rows from `kid_y_block-5`,
             // clamped to zero, through the later `kid_y_block+2` lower bound.
-            let start_row = (kid_block_row - 5).max(0) as u16;
+            let start_row = crate::level::evanescent_shooter_upward_window_top_row_loc_F1A8(
+                kid_block_row as u16,
+            );
             // ASM loc_F0E0 (kid.asm:19655): build the inclusive bottom row as
             // `kid_y_block+2`, clamping to `Level_height_blocks-1`.
             let end_row = (kid_block_row + 2).min(max_row) as u16;
@@ -3547,7 +3549,8 @@ impl NativeRuntime {
             } else {
                 (kid_block_row - 5).max(0)
             } as u16;
-            let start_col = (kid_block_col - 3).max(0) as u16;
+            let start_col =
+                crate::level::evanescent_shooter_window_left_col_loc_F1B0(kid_block_col as u16);
             let end_col = (kid_block_col + 3).min(max_col) as u16;
             for col in start_col..=end_col {
                 let cell = grid.cell_at(col, entering_row);

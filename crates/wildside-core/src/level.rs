@@ -9597,7 +9597,6 @@ pub(crate) fn evanescent_shooter_row_scan_tail_loc_F17C(
 /// the previous row marker, seed the top row from `d1-5`; negative word results
 /// are clamped to zero before entering the shared scan setup at `loc_F1B0`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_upward_window_top_row_loc_F1A8(camera_block_row: u16) -> u16 {
     let candidate = camera_block_row.wrapping_sub(5);
     if (candidate as i16) >= 0 {
@@ -9611,7 +9610,6 @@ pub(crate) fn evanescent_shooter_upward_window_top_row_loc_F1A8(camera_block_row
 /// from `d0-3`; if the signed word result is negative, clamp `d3` to zero
 /// before `loc_F1B8` computes the right edge.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_window_left_col_loc_F1B0(camera_block_col: u16) -> u16 {
     let candidate = camera_block_col.wrapping_sub(3);
     if (candidate as i16) >= 0 {
