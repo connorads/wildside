@@ -12632,9 +12632,10 @@ impl NativeRuntime {
             slice.player.x_velocity = 0;
             slice.player.y_velocity = 0;
         }
-        // Native core keeps only transform timing/state. The ROM sprite and
-        // palette cycling is applied by the renderer/native-player from
-        // form_change_flash_frames and PlayerFormVisuals::transform_steps.
+        // Native core keeps transform timing/state here; renderer/native-player
+        // handles sprite-table presentation from form_change_flash_frames, while
+        // the final sub_80D0 palette restore is mirrored into Palette_Buffer.
+        self.copy_helmet_palette_loc_7508(form.helmet_id());
         //
         // ASM loc_7CFE (kid.asm:8439): `add.w d7,d7; lea off_7EE2(pc),a0;
         // move.w (a0,d7.w),d7; add.w d7,a0` — forward animation table setup.

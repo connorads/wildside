@@ -1918,7 +1918,6 @@ pub fn pause_darken_palette_loc_6C70(palette_buffer: &mut [u16; 0x40]) {
 /// so this function documents the table structure for auditing.
 ///
 /// Returns `(dest_word_offset, word_count)`.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const fn helmet_palette_copy_params_loc_7508() -> (usize, usize) {
     // Palette_Buffer+$62 = byte offset $62 / 2 = word offset $31.
     // 12 words = $B+1 (dbf counter $B = 12 iterations).
@@ -1928,8 +1927,29 @@ pub(crate) const fn helmet_palette_copy_params_loc_7508() -> (usize, usize) {
 /// Number of entries in the ASM `off_80F2` helmet palette offset table
 /// (kid.asm:8850–8859).  One entry per helmet ID (0=TheKid through
 /// 9=Micromax).
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const HELMET_PALETTE_TABLE_ENTRIES_LOC_7508: usize = 10;
+
+pub(crate) fn helmet_palette_asset_path_loc_7508(palette_label: &str) -> Option<&'static str> {
+    // ASM off_80F2 (kid.asm:8850): `loc_7508` and sub_80D0 use the same
+    // helmet-indexed Data_Index palette table. The generated bundle stores
+    // those symbolic labels under semantic palette_kid filenames.
+    const PATHS: [(&str, &str); HELMET_PALETTE_TABLE_ENTRIES_LOC_7508] = [
+        ("Pal_A1C72", "palette_kid/Kid.bin"),
+        ("Pal_A1CE4", "palette_kid/Skycutter_Helmet.bin"),
+        ("Pal_A1E1C", "palette_kid/Cyclone_Helmet.bin"),
+        ("Pal_A1DA4", "palette_kid/Red_Stealth_Helmet.bin"),
+        ("Pal_A1DE0", "palette_kid/Eyeclops_Helmet.bin"),
+        ("Pal_A1E58", "palette_kid/Juggernaut_Helmet.bin"),
+        ("Pal_A1E94", "palette_kid/Iron_Knight_Helmet.bin"),
+        ("Pal_A1D68", "palette_kid/Berzerker_Helmet.bin"),
+        ("Pal_A1C8A", "palette_kid/Maniaxe_Helmet.bin"),
+        ("Pal_A1D26", "palette_kid/Micromax_Helmet.bin"),
+    ];
+
+    PATHS
+        .iter()
+        .find_map(|(label, path)| (*label == palette_label).then_some(*path))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IoPortFlagsSub6E24 {

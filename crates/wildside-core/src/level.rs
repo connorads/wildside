@@ -17989,6 +17989,40 @@ impl NativeRuntime {
         Some(words)
     }
 
+    pub(crate) fn copy_helmet_palette_loc_7508(&mut self, helmet_id: u16) {
+        let Some(load) = wildside_data::damage_flash_helmet_palette_load_sub_80D0(helmet_id) else {
+            return;
+        };
+        let Some(relative_path) = boot::helmet_palette_asset_path_loc_7508(load.palette_label)
+        else {
+            return;
+        };
+        let Ok(asset) = wildside_data::load_ingame_asset_with_source(
+            relative_path,
+            self.assets_source.as_ref(),
+        ) else {
+            return;
+        };
+
+        let (expected_start, expected_count) = boot::helmet_palette_copy_params_loc_7508();
+        let start = usize::from(load.destination_word_offset);
+        let count = usize::from(load.word_count);
+        if start != expected_start || count != expected_count {
+            return;
+        }
+        let end = start.saturating_add(count).min(self.palette_buffer.len());
+        if end <= start || asset.bytes.len() < (end - start) * 2 {
+            return;
+        }
+
+        // ASM loc_7508/sub_80D0: `move.w (a0)+,(a1)+; dbf d0,...` copies the
+        // selected off_80F2 palette words into Palette_Buffer+$62.
+        for (index, target) in self.palette_buffer[start..end].iter_mut().enumerate() {
+            let byte_offset = index * 2;
+            *target = u16::from_be_bytes([asset.bytes[byte_offset], asset.bytes[byte_offset + 1]]);
+        }
+    }
+
     fn load_level_theme_palettes_loc_11db0_11e16(&mut self, level_id: LevelId) {
         let Some((foreground_theme, background_theme)) = self
             .level_header(level_id)
@@ -18085,6 +18119,10 @@ impl NativeRuntime {
         {
             copy_background_palette_loc_11E16(&background_palette, &mut self.palette_buffer);
         }
+
+        // ASM loc_7508 (kid.asm:7652): Kid's level-start object loads the
+        // current helmet's 12-word palette overlay into Palette_Buffer+$62.
+        self.copy_helmet_palette_loc_7508(self.progression.current_form.helmet_id());
     }
 
     pub(crate) fn reset_current_level_runtime_state_for_respawn(&mut self) {

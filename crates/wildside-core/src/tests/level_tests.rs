@@ -3287,8 +3287,10 @@ mod chunk_02 {
             std::process::id()
         ));
         let theme_root = output_root.join("theme");
+        let ingame_root = output_root.join("ingame");
         fs::create_dir_all(theme_root.join("palette_fg")).expect("create fg palette dir");
         fs::create_dir_all(theme_root.join("palette_bg")).expect("create bg palette dir");
+        fs::create_dir_all(ingame_root.join("palette_kid")).expect("create kid palette dir");
 
         let foreground_words: [u16; 15] = [
             0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x1111, 0x2222, 0x3333, 0x4444, 0x000B,
@@ -3296,6 +3298,10 @@ mod chunk_02 {
         ];
         let background_words: [u16; 8] = [
             0x0AAA, 0x0BB1, 0x0BB2, 0x0BB3, 0x0BB4, 0x0BB5, 0x0BB6, 0x0BB7,
+        ];
+        let helmet_words: [u16; 12] = [
+            0x0101, 0x0102, 0x0103, 0x0104, 0x0105, 0x0106, 0x0107, 0x0108, 0x0109, 0x010A, 0x010B,
+            0x010C,
         ];
         let fg_bytes: Vec<u8> = foreground_words
             .iter()
@@ -3305,11 +3311,20 @@ mod chunk_02 {
             .iter()
             .flat_map(|word| word.to_be_bytes())
             .collect();
+        let helmet_bytes: Vec<u8> = helmet_words
+            .iter()
+            .flat_map(|word| word.to_be_bytes())
+            .collect();
         // #325: extraction names theme palettes by theme NAME, not the numeric
         // theme id — theme 7 = mountain, theme 4 = island. A numeric
         // palette_fg/7.bin fixture masked the real-asset miss.
         fs::write(theme_root.join("palette_fg/mountain.bin"), &fg_bytes).expect("write fg palette");
         fs::write(theme_root.join("palette_bg/island.bin"), &bg_bytes).expect("write bg palette");
+        fs::write(
+            ingame_root.join("palette_kid/Cyclone_Helmet.bin"),
+            &helmet_bytes,
+        )
+        .expect("write helmet palette");
 
         let mut assets = manifest();
         assets.output_root = output_root.clone();
@@ -3325,6 +3340,11 @@ mod chunk_02 {
                 sha1: String::from("fixture-bg"),
             },
         ];
+        assets.ingame_assets = vec![wildside_data::AssetFile {
+            relative_path: String::from("palette_kid/Cyclone_Helmet.bin"),
+            size_bytes: helmet_bytes.len() as u64,
+            sha1: String::from("fixture-helmet"),
+        }];
         let header = assets.levels[0]
             .header_metadata
             .as_mut()
@@ -3333,6 +3353,7 @@ mod chunk_02 {
         header.background_theme = 0x04;
 
         let mut runtime = NativeRuntime::new(assets.clone());
+        runtime.progression.current_form = PlayerForm::Cyclone;
         runtime.begin_level_entry(LevelId(0));
 
         assert_eq!(
@@ -3354,8 +3375,14 @@ mod chunk_02 {
             &background_words[1..],
             "ASM loc_11E16 copies background words 1..7 into Palette_Buffer+$32..+$3E"
         );
+        assert_eq!(
+            &runtime.palette_buffer[0x31..0x31 + helmet_words.len()],
+            &helmet_words,
+            "ASM loc_7508 copies the current helmet's off_80F2 palette into Palette_Buffer+$62 during Load_InGame",
+        );
 
         let mut skip_runtime = NativeRuntime::new(assets);
+        skip_runtime.progression.current_form = PlayerForm::Cyclone;
         skip_runtime.enter_level_skip_hold(LevelId(0));
         assert_eq!(
             skip_runtime
@@ -3363,6 +3390,11 @@ mod chunk_02 {
                 .lava_water_palette_words_loc_1223c,
             Some([0x1111, 0x2222, 0x3333, 0x4444]),
             "ASM loc_74E0 debug-skip destination hold still represents a freshly loaded level, so native must not leave stale Palette_Buffer words on that route"
+        );
+        assert_eq!(
+            &skip_runtime.palette_buffer[0x31..0x31 + helmet_words.len()],
+            &helmet_words,
+            "ASM loc_74E0 debug-skip destination hold still reaches Load_InGame's loc_7508 helmet palette copy"
         );
 
         fs::remove_dir_all(output_root).ok();
