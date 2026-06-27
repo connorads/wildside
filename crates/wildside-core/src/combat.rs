@@ -10328,6 +10328,14 @@ impl NativeRuntime {
         } else {
             None
         };
+        if matches!(family, EnemyFamily::UFO) && enemy.death_animation_active {
+            let hibernate_gate = ufo_hurt_hibernate_gate_loc_351b6(enemy.wait_timer == 0);
+            if hibernate_gate.keep_hibernating {
+                debug_assert!(!hibernate_gate.delete_current_object);
+                return;
+            }
+            debug_assert!(hibernate_gate.delete_current_object);
+        }
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
         if matches!(family, EnemyFamily::BigHoppingSkull) {

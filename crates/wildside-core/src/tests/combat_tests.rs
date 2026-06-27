@@ -14474,6 +14474,19 @@ mod chunk_03 {
             Some(UFO_DEATH_ANIMATION_FRAMES)
         );
 
+        runtime.active_enemies[0].wait_timer = 1;
+        runtime.remove_dead_enemy(0);
+
+        assert_eq!(
+            runtime.active_enemies.len(),
+            1,
+            "ASM UFO.asm loc_351B6 keeps hibernating while the animation-finished flag is clear"
+        );
+        assert!(
+            !runtime.killed_enemies.contains(&killed_identity),
+            "ASM UFO.asm loc_351B6 must not reach the delete tail before `$19(a3)` is set"
+        );
+
         runtime.active_enemies[0].wait_timer = 0;
         runtime.remove_dead_enemy(0);
 

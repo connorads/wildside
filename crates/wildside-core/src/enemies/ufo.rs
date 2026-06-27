@@ -874,7 +874,6 @@ pub(crate) fn ufo_hurt_driver_spawn_loc_35180(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoHurtHibernateGateLoc351B6 {
     pub(crate) keep_hibernating: bool,
     pub(crate) delete_current_object: bool,
@@ -903,7 +902,6 @@ pub(crate) fn ufo_first_hurt_survive_loc_35228(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_hibernate_gate_loc_351b6(
     a3_flag_19_set: bool,
 ) -> UfoHurtHibernateGateLoc351B6 {
