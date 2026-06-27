@@ -1280,7 +1280,6 @@ pub(crate) struct HiddenBlockEvanescentScanLocE082 {
     pub(crate) evanescent_sprite_words: Option<(u16, u16)>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockRevealWorkerLocE096 {
     pub(crate) revealed_layout_byte: u8,
