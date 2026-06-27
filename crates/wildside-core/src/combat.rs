@@ -9541,6 +9541,21 @@ impl NativeRuntime {
                                         kill_indices.push(active_idx);
                                     }
                                     TarMonsterHurtRouteLoc323C0::HurtAnimation => {
+                                        let hurt_animation = tar_monster_hurt_animation_loc_323D6(
+                                            hurt.saved_child_visible,
+                                        );
+                                        debug_assert_eq!(
+                                            hurt_animation.animation_label,
+                                            "stru_326EE"
+                                        );
+                                        debug_assert!(
+                                            hurt_animation.hibernate_until_animation_finished
+                                        );
+                                        debug_assert_eq!(
+                                            hurt_animation.restored_child_visible,
+                                            hurt.saved_child_visible
+                                        );
+                                        debug_assert!(hurt_animation.resumes_control_script);
                                         // ASM Tar_Monster.asm loc_323D6:
                                         // nonterminal hurt runs `stru_326EE`
                                         // and resumes the control script

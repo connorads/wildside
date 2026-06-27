@@ -153,7 +153,6 @@ pub(crate) struct TarMonsterHurtCollisionLoc323C0 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterHurtAnimationLoc323D6 {
     pub(crate) animation_label: &'static str,
     pub(crate) hibernate_until_animation_finished: bool,
@@ -544,7 +543,6 @@ pub(crate) fn tar_monster_hurt_collision_loc_323C0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_hurt_animation_loc_323D6(
     saved_child_visible: bool,
 ) -> TarMonsterHurtAnimationLoc323D6 {
