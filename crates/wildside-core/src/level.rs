@@ -8177,7 +8177,6 @@ pub(crate) struct ObjectOutOfRangePositiveSlotLoc320A6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn object_out_of_range_positive_slot_loc_320A6(
     object_status_slot: u8,
 ) -> ObjectOutOfRangePositiveSlotLoc320A6 {

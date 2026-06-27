@@ -10717,9 +10717,11 @@ pub(crate) fn deactivation_status_update_loc_3C4C0(
     // ASM: moveq #0,d0; move.b $42(a5),d0; bpl.s loc_3C4E6
     if object_status_slot & 0x80 == 0 {
         // ASM loc_3C4E6: add.w d0,d0 → word index; move.w #$2168,(a0,d0.w)
+        let marker = crate::level::object_out_of_range_positive_slot_loc_320A6(object_status_slot);
+        debug_assert!(marker.should_delete_current_object);
         return DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
-            index: usize::from(object_status_slot),
-            word_value: 0x2168,
+            index: marker.enemy_status_index,
+            word_value: marker.enemy_status_word,
         };
     }
     // ASM: btst #6,d0; beq.s loc_3C4F4
