@@ -168,14 +168,12 @@ pub(crate) fn drips_surface_sprite_write_loc_3350e(selected_sprite_offset: u16) 
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct DripsIdleLoopLoc33516 {
     pub(crate) hibernates_one_frame: bool,
     pub(crate) checks_in_range: bool,
     pub(crate) loops_forever: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn drips_idle_loop_loc_33516() -> DripsIdleLoopLoc33516 {
     // ASM Drips.asm loc_33516: call one-frame hibernate, run
     // Object_CheckInRange, then branch back to the same idle loop.
@@ -1506,7 +1504,12 @@ pub(crate) fn step_drips(
     }
 
     if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
-        return;
+        // ASM Drips.asm loc_33516: while the preallocated falling child is
+        // active, the parent hibernates one frame, range-checks, and loops.
+        let idle = drips_idle_loop_loc_33516();
+        if idle.hibernates_one_frame && idle.checks_in_range && idle.loops_forever {
+            return;
+        }
     }
     if enemy.wait_timer == DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E {
         enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E;
