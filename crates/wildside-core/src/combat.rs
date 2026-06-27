@@ -7303,7 +7303,6 @@ pub(crate) fn fire_demon_fragment_decel_step_loc_3A24C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_init_enemy20_loc_39247(
     anchor_x: u16,
     anchor_y: u16,
@@ -7339,7 +7338,6 @@ pub(crate) fn heady_metal_init_enemy20_loc_39247(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_sprite_init_sub_3764A(
     x_pos: u16,
     y_pos: u16,
@@ -7360,7 +7358,6 @@ pub(crate) fn heady_metal_sprite_init_sub_3764A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_sprite_init_sub_37680(
     x_pos: u16,
     y_pos: u16,
@@ -7381,7 +7378,6 @@ pub(crate) fn heady_metal_sprite_init_sub_37680(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_sprite_init_sub_376B6(
     x_pos: u16,
     y_pos: u16,

@@ -20,7 +20,9 @@ mod weather;
 
 use combat::{
     HeadyMetalBreakupPieceSub37708, HeadyMetalCachedWorkerSub37708, HeadyMetalScatterVelocities,
-    PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect,
+    PendingSoundEffect, QueuedSoundCommand, QueuedSoundEffect, heady_metal_init_enemy20_loc_39247,
+    heady_metal_sprite_init_sub_376B6, heady_metal_sprite_init_sub_3764A,
+    heady_metal_sprite_init_sub_37680,
 };
 use constants::*;
 use enemies::*;
@@ -98,10 +100,12 @@ fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
     // ASM Enemy20_HeadyMetal_Init loc_39247 seeds `$FFFFFB7A` at y+$1F,
     // then `sub_37680` installs the twelve body-piece workers through loc_39266.
     let mut slots = [None; 13];
+    let anchor_worker = heady_metal_sprite_init_sub_3764A(anchor_x, anchor_y.wrapping_add(0x001F));
+    debug_assert_eq!(anchor_worker.object_meta, 0x0020);
     slots[0] = Some(HeadyMetalBreakupPieceSub37708 {
         sprite_word_y: 0,
-        x_pos: anchor_x,
-        y_pos: anchor_y.wrapping_add(0x001F),
+        x_pos: anchor_worker.x_pos,
+        y_pos: anchor_worker.y_pos,
         x_velocity: 0,
         y_velocity: 0,
     });
@@ -110,10 +114,15 @@ fn heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
         .copied()
         .enumerate()
     {
+        let worker = heady_metal_sprite_init_sub_37680(
+            anchor_x.wrapping_add_signed(x_offset),
+            anchor_y.wrapping_add_signed(y_offset),
+        );
+        debug_assert_eq!(worker.object_meta, 0x0021);
         slots[index + 1] = Some(HeadyMetalBreakupPieceSub37708 {
             sprite_word_y: 0,
-            x_pos: anchor_x.wrapping_add_signed(x_offset),
-            y_pos: anchor_y.wrapping_add_signed(y_offset),
+            x_pos: worker.x_pos,
+            y_pos: worker.y_pos,
             x_velocity: 0,
             y_velocity: 0,
         });
@@ -130,39 +139,55 @@ fn heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
     // worker pointers at `$FFFFFB72/$FB76/$FB7A/$FBAE/$FBB2`. The second head
     // slot starts at the boss anchor, `$FB7A` is shifted down `$1F`, and the
     // two eye workers come from the `sub_376B6` offsets near loc_39326.
+    let head_1 = heady_metal_sprite_init_sub_3764A(anchor_x, anchor_y);
+    let head_2 = heady_metal_sprite_init_sub_3764A(anchor_x, anchor_y);
+    let head_3 = heady_metal_sprite_init_sub_3764A(anchor_x, anchor_y.wrapping_add(0x001F));
+    let eye_left = heady_metal_sprite_init_sub_376B6(
+        anchor_x.wrapping_add_signed(-0x000B),
+        anchor_y.wrapping_add_signed(-0x0003),
+    );
+    let eye_right = heady_metal_sprite_init_sub_376B6(
+        anchor_x.wrapping_add(0x000C),
+        anchor_y.wrapping_add_signed(-0x0003),
+    );
+    debug_assert_eq!(head_1.object_meta, 0x0020);
+    debug_assert_eq!(head_2.object_meta, 0x0020);
+    debug_assert_eq!(head_3.object_meta, 0x0020);
+    debug_assert_eq!(eye_left.object_meta, 0x0020);
+    debug_assert_eq!(eye_right.object_meta, 0x0020);
     [
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFB72,
-            x_pos: anchor_x,
-            y_pos: anchor_y,
+            x_pos: head_1.x_pos,
+            y_pos: head_1.y_pos,
             x_velocity: 0,
             y_velocity: 0,
         },
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFB76,
-            x_pos: anchor_x,
-            y_pos: anchor_y,
+            x_pos: head_2.x_pos,
+            y_pos: head_2.y_pos,
             x_velocity: 0,
             y_velocity: 0,
         },
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFB7A,
-            x_pos: anchor_x,
-            y_pos: anchor_y.wrapping_add(0x001F),
+            x_pos: head_3.x_pos,
+            y_pos: head_3.y_pos,
             x_velocity: 0,
             y_velocity: 0,
         },
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFBAE,
-            x_pos: anchor_x.wrapping_add_signed(-0x000B),
-            y_pos: anchor_y.wrapping_add_signed(-0x0003),
+            x_pos: eye_left.x_pos,
+            y_pos: eye_left.y_pos,
             x_velocity: 0,
             y_velocity: 0,
         },
         HeadyMetalCachedWorkerSub37708 {
             slot_offset: 0xFBB2,
-            x_pos: anchor_x.wrapping_add(0x000C),
-            y_pos: anchor_y.wrapping_add_signed(-0x0003),
+            x_pos: eye_right.x_pos,
+            y_pos: eye_right.y_pos,
             x_velocity: 0,
             y_velocity: 0,
         },
@@ -977,15 +1002,23 @@ impl NativeRuntime {
         // re-projecting body pieces from the tracking anchor.
         let anchor_x = (heady_metal.x_pos >> 16) as u16;
         let anchor_y = (heady_metal.y_pos >> 16) as u16;
+        let init = heady_metal_init_enemy20_loc_39247(anchor_x, anchor_y);
+        debug_assert_eq!(init.total_worker_slot_count, 17);
+        debug_assert_eq!(usize::from(init.body_piece_sprite_count), 12);
+        debug_assert_eq!(init.tracking_loop_entry_label, "loc_37582");
         if self.heady_metal_breakup_slots_sub_37708.is_none() {
-            self.heady_metal_breakup_slots_sub_37708 = Some(
-                heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(anchor_x, anchor_y),
-            );
+            self.heady_metal_breakup_slots_sub_37708 =
+                Some(heady_metal_breakup_slots_sub_37708_from_anchor_loc_39247(
+                    init.anchor_x_pos,
+                    init.anchor_y_pos,
+                ));
         }
         if self.heady_metal_cached_workers_sub_37708.is_none() {
-            self.heady_metal_cached_workers_sub_37708 = Some(
-                heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(anchor_x, anchor_y),
-            );
+            self.heady_metal_cached_workers_sub_37708 =
+                Some(heady_metal_cached_workers_sub_37708_from_anchor_loc_39247(
+                    init.anchor_x_pos,
+                    init.anchor_y_pos,
+                ));
         }
     }
 
