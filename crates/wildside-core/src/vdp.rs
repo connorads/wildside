@@ -2238,6 +2238,7 @@ struct TitleCardThemeData {
 #[derive(Debug, Clone)]
 pub(crate) struct TitleCardData {
     themes: Vec<Option<TitleCardThemeData>>,
+    title_letter_palette_words: Vec<u16>,
 }
 
 const TITLE_CARD_THEME_NAMES: [Option<&str>; 11] = [
@@ -2443,6 +2444,11 @@ fn decode_title_text_chameleon_anim_map(
 pub(crate) fn load_title_card_data(source: &dyn AssetSource) -> Result<TitleCardData> {
     let root = std::path::Path::new("theme/titlecard");
     let mut themes = vec![None; TITLE_CARD_THEME_NAMES.len()];
+    let title_letter_palette_words = load_palette_words(
+        source,
+        std::path::Path::new("scenes/palette/Title_card_letters.bin"),
+    )
+    .context("failed to load title-card letter palette")?;
 
     for (theme_index, maybe_name) in TITLE_CARD_THEME_NAMES.iter().enumerate() {
         let Some(name) = maybe_name else {
@@ -2470,7 +2476,10 @@ pub(crate) fn load_title_card_data(source: &dyn AssetSource) -> Result<TitleCard
         });
     }
 
-    Ok(TitleCardData { themes })
+    Ok(TitleCardData {
+        themes,
+        title_letter_palette_words,
+    })
 }
 
 /// Build VdpState for the title screen / IntroSequence6.
@@ -3112,6 +3121,15 @@ pub(crate) fn build_title_card_vdp(data: &TitleCardData, theme_index: u8) -> Opt
         .get(..palette_word_count)
         .unwrap_or(&theme.palette_words);
     vdp.write_cram_words(0, palette_words);
+    let title_letter_palette_word_count =
+        usize::from(crate::level::level_entry_title_letter_palette_copy_word_count_loc_1AB40());
+    let title_letter_palette_words = data
+        .title_letter_palette_words
+        .get(..title_letter_palette_word_count)
+        .unwrap_or(&data.title_letter_palette_words);
+    // ASM loc_1AB40 (kid.asm:28758): title-card letter colours are copied to
+    // Palette_Buffer+$20, i.e. CRAM word offset $10.
+    vdp.write_cram_words(0x10, title_letter_palette_words);
 
     let width = usize::from(theme.width_tiles);
     let height = usize::from(theme.height_tiles);
@@ -5560,7 +5578,10 @@ mod tests {
             width_tiles: 4,
             height_tiles: 2,
         });
-        let data = TitleCardData { themes };
+        let data = TitleCardData {
+            themes,
+            title_letter_palette_words: vec![0; 16],
+        };
 
         let vdp = build_title_card_vdp(&data, 9).expect("forest title-card VDP");
         let word_at = |addr: usize| u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]);
@@ -5591,12 +5612,20 @@ mod tests {
             width_tiles: 0,
             height_tiles: 0,
         });
-        let data = TitleCardData { themes };
+        let data = TitleCardData {
+            themes,
+            title_letter_palette_words: (0x0100..0x0110).collect(),
+        };
 
         let vdp = build_title_card_vdp(&data, 1).expect("sky title-card VDP");
 
         assert_eq!(&vdp.vram[0x5F60..0x5F64], &[0xAA, 0xBB, 0xCC, 0xDD]);
         assert_eq!(u16::from_be_bytes([vdp.cram[2], vdp.cram[3]]), 0x0222);
+        assert_eq!(
+            u16::from_be_bytes([vdp.cram[0x20], vdp.cram[0x21]]),
+            0x0100,
+            "ASM loc_1AB40 copies the title-card letter palette to Palette_Buffer+$20",
+        );
         assert_eq!(
             vdp.registers[2], 0x00,
             "ASM Load_TitleCard inherits VDPGameInitValues Scroll A base $0000 before writing the card map to VRAM $0000",
