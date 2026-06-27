@@ -10446,7 +10446,6 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn animated_solid_block_horizontal_rows_loc_F8CA(
     source_cells: &[u8],

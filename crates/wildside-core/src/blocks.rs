@@ -3009,6 +3009,50 @@ impl NativeRuntime {
                     continue;
                 }
 
+                if vanished_at_loc_f8a6 && !group.vertical && group.count != 0 {
+                    let source_cells = (0..group.count)
+                        .map(|i| {
+                            grid.erase_cell_at_loc_11542(
+                                group.col.wrapping_add(u16::from(i)),
+                                group.row,
+                            )
+                            .skin
+                        })
+                        .collect::<Vec<_>>();
+                    let theme_mappings = [[0_u32; 2]; 0x100];
+                    let rows = crate::level::animated_solid_block_horizontal_rows_loc_F8CA(
+                        &source_cells,
+                        0,
+                        u16::from(group.count - 1),
+                        0,
+                        group.row,
+                        u32::from(terrain::BlockList::level_layout_low_word_addr(
+                            group.col,
+                            group.row,
+                            grid.width_cells,
+                        )),
+                        0,
+                        0,
+                        1,
+                        0,
+                        &theme_mappings,
+                    );
+                    debug_assert!(rows.custom_queue_entries.is_empty());
+                    for (i, (_layout_addr, cell_word)) in rows.layout_writes.iter().enumerate() {
+                        let col = group.col.saturating_add(
+                            u16::try_from(i).expect("ghost block group length fits in u16"),
+                        );
+                        // ASM loc_F8A6/loc_F90A copies the original
+                        // Level_terrain_layout byte back as a word.
+                        grid.set_cell_at(
+                            col,
+                            group.row,
+                            terrain::Cell::from_be_bytes(0, *cell_word as u8),
+                        );
+                    }
+                    continue;
+                }
+
                 for i in 0..group.count {
                     let (col, row) = if group.vertical {
                         (group.col, group.row + u16::from(i))
