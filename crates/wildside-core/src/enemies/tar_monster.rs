@@ -86,7 +86,6 @@ pub(crate) struct TarMonsterLoc32256Return {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterWaitLoopLoc322AA {
     pub(crate) hibernate_frames: u32,
     pub(crate) checks_object_range_each_frame: bool,
@@ -429,7 +428,6 @@ pub(crate) fn tar_monster_loc_32256(raw_command: i16) -> TarMonsterLoc32256Retur
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_wait_loop_loc_322aa(
     d0_after_loc_322a8: u16,
 ) -> TarMonsterWaitLoopLoc322AA {
@@ -1214,7 +1212,17 @@ pub(crate) fn step_tar_monster_with_sounds(
             // visible phase boundary.
             enemy.facing = opposite_direction(enemy.facing);
             enemy.tar_monster_state = TarMonsterState::Visible;
-            enemy.wait_timer = TAR_MONSTER_VISIBLE_FRAMES;
+            let visible_hold = tar_monster_wait_loop_loc_322aa(TAR_MONSTER_VISIBLE_FRAMES);
+            debug_assert!(visible_hold.checks_object_range_each_frame);
+            debug_assert!(visible_hold.polls_collision_each_frame);
+            debug_assert_eq!(visible_hold.next_collision_type, 0);
+            debug_assert_eq!(
+                visible_hold.hibernate_frames,
+                u32::from(TAR_MONSTER_VISIBLE_FRAMES) + 1
+            );
+            // ASM loc_322AA counts the transition frame as an inclusive DBF
+            // hibernate; native stores the pre-transition countdown only.
+            enemy.wait_timer = visible_hold.hibernate_frames.saturating_sub(1) as u16;
         }
         TarMonsterState::Visible => {
             enemy.tar_monster_state = TarMonsterState::Attacking;
