@@ -2127,6 +2127,8 @@ pub(crate) struct EndSequenceCreditsGlyphCacheLoc1D3D0 {
     pub(crate) glyph_pointer_slot_offsets_in_write_order: [u16; 6],
     pub(crate) glyph_init_subroutine: &'static str,
     pub(crate) platform_layout_label: &'static str,
+    pub(crate) initial_glyph_placements:
+        [Option<movement::EndSequenceCreditsGlyphPlacementSub1D7A8>; 6],
     pub(crate) text_script_label: &'static str,
 }
 
@@ -4129,6 +4131,10 @@ pub(crate) fn end_sequence_credits_glyph_cache_loc_1D3D0() -> EndSequenceCredits
         glyph_pointer_slot_offsets_in_write_order: [0x0014, 0x0010, 0x000C, 0x0008, 0x0004, 0x0000],
         glyph_init_subroutine: "sub_1D786",
         platform_layout_label: "unk_1D75A",
+        initial_glyph_placements: movement::load_end_sequence_credits_glyphs_sub_1D7A8(
+            &[0x00],
+            [None; 6],
+        ),
         text_script_label: "EndText1",
     }
 }

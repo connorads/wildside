@@ -544,7 +544,6 @@ pub(crate) fn end_sequence_credits_row_copy_word_count_loc_1D9CA(d5_seed: u16) -
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn load_end_sequence_credits_glyphs_sub_1D7A8(
     script: &[u8],
     mut glyphs: [Option<EndSequenceCreditsGlyphPlacementSub1D7A8>; 6],

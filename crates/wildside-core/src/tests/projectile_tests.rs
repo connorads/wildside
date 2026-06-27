@@ -12727,6 +12727,10 @@ mod chunk_06 {
             "ASM loc_1D3D0 should seed `(Addr_PlatformLayout).w` from `unk_1D75A` once all six glyph workers are cached",
         );
         assert_eq!(
+            glyph_cache.initial_glyph_placements, [None; 6],
+            "ASM unk_1D75A starts with a zero X sentinel, so the initial `sub_1D7A8` glyph reload should leave all six cached workers hidden until the first page break advances the platform-layout pointer",
+        );
+        assert_eq!(
             glyph_cache.text_script_label, "EndText1",
             "ASM loc_1D3D0 should start the credits text loop from `EndText1` after seeding the glyph layout pointer",
         );
