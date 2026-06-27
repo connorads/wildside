@@ -285,7 +285,6 @@ pub(crate) struct TarMonsterProjectileSetupLoc3261C {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterProjectileDeleteLoc32652 {
     pub(crate) deletes_current_object: bool,
 }
@@ -764,7 +763,6 @@ pub(crate) fn tar_monster_projectile_setup_loc_3261C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_delete_loc_32652() -> TarMonsterProjectileDeleteLoc32652 {
     // ASM loc_32652 is the shared Tar Monster projectile termination label:
     // both the live loop and the collision dispatch table jump to

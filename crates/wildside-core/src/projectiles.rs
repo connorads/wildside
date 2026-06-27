@@ -48,8 +48,8 @@ use crate::enemies::{
     fireball_trail_delete_tail_loc_33120, fireball_trail_loop_step_loc_33110,
     robot_shot_flight_loop_loc_3ac48, robot_shot_impact_prep_loc_3ac7e,
     spawn_tar_monster_retaliation, tank_bullet_loop_route_loc_3b7ba,
-    tar_monster_projectile_collision_loc_32682, tar_monster_projectile_loop_loc_3263C,
-    tar_monster_projectile_negated_velocity_swap_loc_326C6,
+    tar_monster_projectile_collision_loc_32682, tar_monster_projectile_delete_loc_32652,
+    tar_monster_projectile_loop_loc_3263C, tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
     tar_monster_projectile_velocity_swap_loc_326DC, ufo_beam_child_gravity_gate_loc_3555a,
     ufo_beam_child_turnaround_loc_3554a,
@@ -475,7 +475,9 @@ fn apply_tar_monster_burst_child_collision_loc_32682(
 
     match collision.route {
         TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly => true,
-        TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => false,
+        TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => {
+            tar_monster_projectile_keep_after_delete_loc_32652()
+        }
         TarMonsterProjectileCollisionRouteLoc32682::Dispatch(dispatch) => {
             projectile.tar_monster_collision_response_budget = dispatch.remaining_collision_budget;
             match dispatch.target {
@@ -508,10 +510,17 @@ fn apply_tar_monster_burst_child_collision_loc_32682(
                     true
                 }
                 TarMonsterProjectileCollisionTargetLoc32682::Loc32652
-                | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => false,
+                | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => {
+                    tar_monster_projectile_keep_after_delete_loc_32652()
+                }
             }
         }
     }
+}
+
+fn tar_monster_projectile_keep_after_delete_loc_32652() -> bool {
+    let delete = tar_monster_projectile_delete_loc_32652();
+    !delete.deletes_current_object
 }
 
 fn step_tar_monster_burst_child_loop_loc_3263c(
@@ -568,10 +577,14 @@ fn step_tar_monster_burst_child_loop_loc_3263c(
     projectile.y_velocity = step.y_velocity;
 
     match step.route {
-        TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject => false,
+        TarMonsterProjectileLoopRouteLoc3263C::DeleteCurrentObject => {
+            tar_monster_projectile_keep_after_delete_loc_32652()
+        }
         TarMonsterProjectileLoopRouteLoc3263C::ContinueLoop => match step.collision.route {
             TarMonsterProjectileCollisionRouteLoc32682::ReturnOnly => true,
-            TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => false,
+            TarMonsterProjectileCollisionRouteLoc32682::DeleteCurrentObject => {
+                tar_monster_projectile_keep_after_delete_loc_32652()
+            }
             TarMonsterProjectileCollisionRouteLoc32682::Dispatch(dispatch) => {
                 projectile.tar_monster_collision_response_budget =
                     dispatch.remaining_collision_budget;
@@ -605,7 +618,9 @@ fn step_tar_monster_burst_child_loop_loc_3263c(
                         true
                     }
                     TarMonsterProjectileCollisionTargetLoc32682::Loc32652
-                    | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => false,
+                    | TarMonsterProjectileCollisionTargetLoc32682::UnknownOffset(_) => {
+                        tar_monster_projectile_keep_after_delete_loc_32652()
+                    }
                 }
             }
         },
@@ -3687,7 +3702,7 @@ impl NativeRuntime {
                 // straight glob's collision word is non-zero, hide/delete the
                 // original shot and allocate the five burst children.
                 spawn_tar_monster_retaliation(&mut pending_tar_monster_bursts, p.x_pos, p.y_pos);
-                return false;
+                return tar_monster_projectile_keep_after_delete_loc_32652();
             }
 
             if p.kind == EnemyProjectileKind::TarMonsterBurstChild
