@@ -11047,11 +11047,17 @@ pub(crate) fn evanescent_object_move_active_to_free_loc_EA72(
         });
     }
 
-    let predecessor_index = slots
-        .iter()
-        .position(|slot| slot.next_slot_addr == target_slot_addr)?;
-    slots[predecessor_index].next_slot_addr = next_active_slot_to_process_addr;
-    slots[target_index].next_slot_addr = first_free_slot_addr;
+    let predecessor = evanescent_object_predecessor_scan_loc_EA86(active_slots, target_slot_addr)?;
+    let mut slots = evanescent_object_splice_predecessor_loc_EA92(
+        active_slots,
+        predecessor.predecessor_slot_addr,
+        target_slot_addr,
+    )?
+    .slots;
+    let target_slot = slots
+        .iter_mut()
+        .find(|slot| slot.slot_addr == target_slot_addr)?;
+    target_slot.next_slot_addr = first_free_slot_addr;
 
     Some(EvanescentObjectListMoveLocEA72 {
         first_active_slot_addr: active_slots.first().map_or(0, |slot| slot.slot_addr),
@@ -11066,7 +11072,6 @@ pub(crate) fn evanescent_object_move_active_to_free_loc_EA72(
 /// `$A(a0)` next link until it equals `a2`; the current `a0` is the predecessor
 /// whose link is spliced by the next block.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_object_predecessor_scan_loc_EA86(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -11095,7 +11100,6 @@ pub(crate) fn evanescent_object_predecessor_scan_loc_EA86(
 /// ASM loc_EA92 (kid.asm:18809): after the predecessor scan, copy the removed
 /// evanescent object's `$A(a2)` next link into the predecessor's `$A(a0)` link.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_object_splice_predecessor_loc_EA92(
     active_slots: &[LinkedObjectSlotInit],
     predecessor_slot_addr: u32,
