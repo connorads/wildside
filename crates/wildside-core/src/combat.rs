@@ -8790,49 +8790,96 @@ impl NativeRuntime {
             }
 
             if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
+                let mini_skull_hop_windup =
+                    enemy.wait_timer & MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 != 0;
+                let mini_skull_slope_wait =
+                    enemy.wait_timer & MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00 != 0;
                 let mini_skull_matched_pause =
                     enemy.wait_timer & MINI_SKULL_FACING_MATCHED_PAUSE_TIMER_FLAG_LOC_3F09E != 0;
-                let route =
-                    if enemy.wait_timer == MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200 {
-                        MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
-                    } else if enemy.on_ground {
-                        // ASM Mini_Hopping_Skull.asm loc_3EB0E/loc_3EC48/
-                        // loc_3F00A/loc_3F0A8: every grounded wait/pause loop
-                        // consumes Kid collision words before its DBF tail.
-                        if mini_skull_matched_pause {
-                            mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
-                                collision.collision_type,
-                                berzerker_charging,
-                            )
-                        } else {
-                            mini_hopping_skull_stopped_wait_collision_loc_3f00a(
-                                collision.collision_type,
-                                berzerker_charging,
-                            )
+                let route = if enemy.wait_timer
+                    == MINI_HOPPING_SKULL_AIR_DAMAGE_WAIT_TIMER_LOC_3F200
+                {
+                    MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
+                } else if enemy.on_ground {
+                    // ASM Mini_Hopping_Skull.asm loc_3EB0E/loc_3EC48/
+                    // loc_3EB92/loc_3ECCC/loc_3F00A/loc_3F0A8:
+                    // every grounded wait/pause loop consumes Kid
+                    // collision words before its DBF tail.
+                    if mini_skull_hop_windup {
+                        match enemy.facing {
+                            Direction::Left => {
+                                mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
+                                    collision.collision_type,
+                                    berzerker_charging,
+                                )
+                            }
+                            Direction::Right => {
+                                mini_hopping_skull_right_hop_windup_collision_loc_3eb92(
+                                    collision.collision_type,
+                                    berzerker_charging,
+                                )
+                            }
                         }
+                    } else if mini_skull_slope_wait {
+                        match enemy.facing {
+                            Direction::Left => {
+                                mini_hopping_skull_left_ground_wait_collision_loc_3ec48(
+                                    collision.collision_type,
+                                    berzerker_charging,
+                                )
+                            }
+                            Direction::Right => mini_hopping_skull_ground_wait_collision_loc_3eb0e(
+                                collision.collision_type,
+                                berzerker_charging,
+                            ),
+                        }
+                    } else if mini_skull_matched_pause {
+                        mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
+                            collision.collision_type,
+                            berzerker_charging,
+                        )
                     } else {
-                        // ASM Mini_Hopping_Skull.asm loc_3EAB2 -> loc_3F1B8:
-                        // airborne Kid collision words split into damage,
-                        // side-contact Berzerker gate, or scream-worker contact.
-                        match collision.collision_type {
-                            MINI_SKULL_COLID_HURT | MINI_SKULL_COLID_GROUND_HURT => {
-                                MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
-                            }
-                            MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
-                                mini_hopping_skull_air_side_contact_loc_3f244(berzerker_charging)
-                            }
-                            collision_type if collision_type >= MINI_SKULL_COLID_HURT => {
-                                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
-                            }
-                            _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+                        mini_hopping_skull_stopped_wait_collision_loc_3f00a(
+                            collision.collision_type,
+                            berzerker_charging,
+                        )
+                    }
+                } else {
+                    // ASM Mini_Hopping_Skull.asm loc_3EAB2 -> loc_3F1B8:
+                    // airborne Kid collision words split into damage,
+                    // side-contact Berzerker gate, or scream-worker contact.
+                    match collision.collision_type {
+                        MINI_SKULL_COLID_HURT | MINI_SKULL_COLID_GROUND_HURT => {
+                            MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
                         }
-                    };
+                        MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
+                            mini_hopping_skull_air_side_contact_loc_3f244(berzerker_charging)
+                        }
+                        collision_type if collision_type >= MINI_SKULL_COLID_HURT => {
+                            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
+                        }
+                        _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
+                    }
+                };
 
                 match route {
                     MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait => {}
                     MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull => {
                         if enemy.on_ground {
-                            let damage_sequence = if mini_skull_matched_pause {
+                            let damage_sequence = if mini_skull_hop_windup {
+                                match enemy.facing {
+                                    Direction::Left => {
+                                        mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(
+                                            u16::from(enemy.hit_points),
+                                        )
+                                    }
+                                    Direction::Right => {
+                                        mini_hopping_skull_right_hop_damage_sequence_loc_3ebe4(
+                                            u16::from(enemy.hit_points),
+                                        )
+                                    }
+                                }
+                            } else if mini_skull_matched_pause {
                                 mini_hopping_skull_facing_matched_pause_damage_sequence_loc_3f0fa(
                                     u16::from(enemy.hit_points),
                                 )
@@ -8871,10 +8918,30 @@ impl NativeRuntime {
                         }
                     }
                     MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker => {
-                        // ASM Mini_Hopping_Skull.asm loc_3F03C/loc_3F244:
+                        // ASM Mini_Hopping_Skull.asm loc_3EB40/loc_3EBC4/
+                        // loc_3EC7A/loc_3ECFE/loc_3F03C/loc_3F244:
                         // side/below contact allocates delayed `sub_3F3F0`.
                         if enemy.on_ground {
-                            let allocation = if mini_skull_matched_pause {
+                            let allocation = if mini_skull_hop_windup {
+                                match enemy.facing {
+                                    Direction::Left => {
+                                        mini_hopping_skull_left_hop_scream_worker_allocation_loc_3ecfe(
+                                            route,
+                                        )
+                                    }
+                                    Direction::Right => {
+                                        mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
+                                            route,
+                                        )
+                                    }
+                                }
+                            } else if mini_skull_slope_wait
+                                && matches!(enemy.facing, Direction::Left)
+                            {
+                                mini_hopping_skull_left_ground_scream_worker_allocation_loc_3ec7a(
+                                    route,
+                                )
+                            } else if mini_skull_matched_pause {
                                 mini_hopping_skull_facing_matched_pause_scream_worker_allocation_loc_3f0da(
                                     route,
                                 )

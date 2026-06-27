@@ -959,7 +959,6 @@ pub(crate) fn mini_hopping_skull_scream_worker_allocation_loc_3eb40(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
@@ -977,7 +976,6 @@ pub(crate) fn mini_hopping_skull_right_hop_scream_worker_allocation_loc_3ebc4(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_ground_scream_worker_allocation_loc_3ec7a(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {
@@ -995,7 +993,6 @@ pub(crate) fn mini_hopping_skull_left_ground_scream_worker_allocation_loc_3ec7a(
     })
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_scream_worker_allocation_loc_3ecfe(
     route: MiniHoppingSkullGroundWaitCollisionRoute,
 ) -> Option<MiniHoppingSkullScreamWorkerAllocation> {

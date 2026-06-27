@@ -16040,6 +16040,99 @@ mod chunk_03 {
     }
 
     #[test]
+    fn mini_hopping_skull_pending_right_windup_side_collision_queues_loc_3ebc4() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 2);
+        skull.layout_index = 33;
+        skull.on_ground = true;
+        skull.facing = Direction::Right;
+        skull.wait_timer = MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 5;
+        runtime.active_enemies = vec![skull];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: skull.segment_index,
+                layout_index: skull.layout_index,
+                collision_type: MINI_SKULL_COLID_GROUND_KIDLEFT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Mini_Hopping_Skull.asm loc_3EBC4 queues contact sound without consuming HP"
+        );
+        assert_eq!(
+            runtime.pending_sound_effects.len(),
+            1,
+            "ASM Mini_Hopping_Skull.asm loc_3EBC4 allocates the delayed sub_3F3F0 scream worker"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_pending_left_windup_below_collision_queues_loc_3ecfe() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 2);
+        skull.layout_index = 34;
+        skull.on_ground = true;
+        skull.facing = Direction::Left;
+        skull.wait_timer = MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 5;
+        runtime.active_enemies = vec![skull];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: skull.segment_index,
+                layout_index: skull.layout_index,
+                collision_type: MINI_SKULL_COLID_GROUND_KIDBELOW,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Mini_Hopping_Skull.asm loc_3ECFE queues contact sound without consuming HP"
+        );
+        assert_eq!(
+            runtime.pending_sound_effects.len(),
+            1,
+            "ASM Mini_Hopping_Skull.asm loc_3ECFE allocates the delayed sub_3F3F0 scream worker"
+        );
+    }
+
+    #[test]
+    fn mini_hopping_skull_pending_left_ground_side_collision_queues_loc_3ec7a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 2);
+        skull.layout_index = 35;
+        skull.on_ground = true;
+        skull.facing = Direction::Left;
+        skull.wait_timer = MINI_SKULL_SLOPE_WAIT_TIMER_FLAG_LOC_3EB00;
+        runtime.active_enemies = vec![skull];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: skull.segment_index,
+                layout_index: skull.layout_index,
+                collision_type: MINI_SKULL_COLID_GROUND_KIDRIGHT,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        assert_eq!(
+            runtime.active_enemies[0].hit_points, 2,
+            "ASM Mini_Hopping_Skull.asm loc_3EC7A queues contact sound without consuming HP"
+        );
+        assert_eq!(
+            runtime.pending_sound_effects.len(),
+            1,
+            "ASM Mini_Hopping_Skull.asm loc_3EC7A allocates the delayed sub_3F3F0 scream worker"
+        );
+    }
+
+    #[test]
     fn mini_hopping_skull_pending_ground_hurt_collision_uses_ground_hit_path_loc_3f05c() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut skull = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0080_0000, 0x0040_0000, 2);
