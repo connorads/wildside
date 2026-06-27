@@ -4340,14 +4340,15 @@ fn run_loop_122c0(
     mut body: impl FnMut(u16, u16, u16),
 ) {
     loop {
-        let Some(x) = words.get(*pos).copied() else {
+        let Some(x_word) = words.get(*pos).copied() else {
             return;
         };
         *pos += 1;
-        if x & 0x8000 != 0 {
+        let Some(entry) = block_layout_parse_entry_loc_122C0(x_word) else {
             // Negative X = the per-type `$FFFF` run terminator; entry done.
             return;
-        }
+        };
+        let x = entry.x_pos;
         let Some(&y) = words.get(*pos) else {
             return;
         };
@@ -4747,7 +4748,6 @@ pub(crate) fn block_type_base_cell_loc_122B8(block_type: u16) -> u16 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_parse_entry_loc_122C0(
     layout_word: u16,
 ) -> Option<BlockLayoutEntryLoc122C0> {
