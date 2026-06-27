@@ -2970,16 +2970,18 @@ impl ChunkedPlaneBRowsLoc307D8 {
             return false;
         };
 
-        let mut row_offsets = Vec::with_capacity(source_buffer.height);
-        for source_row in 0..source_buffer.height {
-            let Some(row_offset) = source_row.checked_mul(source_buffer.width) else {
-                return false;
-            };
-            let Ok(row_offset) = u16::try_from(row_offset) else {
-                return false;
-            };
-            row_offsets.push(row_offset);
-        }
+        let Ok(background_height) = u16::try_from(source_buffer.height) else {
+            return false;
+        };
+        let row_pointers =
+            wildside_core::background_row_pointers_loc_11B7A(background_height, background_width);
+        let Some(&first_row_pointer) = row_pointers.first() else {
+            return false;
+        };
+        let row_offsets = row_pointers
+            .iter()
+            .map(|row_pointer| row_pointer.wrapping_sub(first_row_pointer))
+            .collect::<Vec<_>>();
 
         let mut bgscroll_profile = vec![
             0xFF;

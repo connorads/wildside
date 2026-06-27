@@ -8493,8 +8493,7 @@ pub fn background_dimensions_loc_11B40(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_row_pointers_loc_11B7A(
+pub fn background_row_pointers_loc_11B7A(
     background_height: u16,
     background_width: u16,
 ) -> Vec<u16> {

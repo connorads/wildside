@@ -69,6 +69,7 @@ pub use level::{
     EOL_SCORE_ROWS_VISIBLE_DELAY_FRAMES_LOC_D468_ORACLE, EolScoreCounterSnapshotLocD770,
     FlagpoleScoreboardRevealTileLocC21E, TOUCH_FLAGPOLE_HIBERNATE_FRAMES_LOC_C070,
     TransferScrollDataStormLoc30110, background_dimensions_loc_11B40,
+    background_row_pointers_loc_11B7A,
     background_scroll_forest_water_ripple_visible_band_loc_305D4,
     background_scroll_theme_dispatch_loc_30598, eol_score_counter_snapshot_loc_D770,
     eol_score_counter_transfer_frames_from_trace_loc_D770,
