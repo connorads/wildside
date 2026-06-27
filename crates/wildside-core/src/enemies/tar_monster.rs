@@ -268,14 +268,12 @@ pub(crate) struct TarMonsterBurstChildEntryLoc325E6 {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterBurstChildMetaLoc32618 {
     pub(crate) object_meta: u16,
     pub(crate) proceeds_to_projectile_setup: bool,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterProjectileSetupLoc3261C {
     pub(crate) object_meta: u16,
     pub(crate) status_flag_13: bool,
@@ -738,7 +736,6 @@ pub(crate) fn tar_monster_burst_child_entry_loc_325E6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_burst_child_meta_loc_32618() -> TarMonsterBurstChildMetaLoc32618 {
     // ASM loc_32618 seeds d0 with object_meta `$0005` for the burst child and
     // falls through to the shared Tar Monster projectile setup.
@@ -749,7 +746,6 @@ pub(crate) fn tar_monster_burst_child_meta_loc_32618() -> TarMonsterBurstChildMe
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_projectile_setup_loc_3261C(
     object_meta: u16,
 ) -> TarMonsterProjectileSetupLoc3261C {
@@ -1178,6 +1174,13 @@ pub(crate) fn step_tar_monster_with_sounds(
                 };
                 let motion =
                     tar_monster_shot_motion_loc_324D0(spawn.x_pos, spawn.copied_x_direction);
+                let setup = tar_monster_projectile_setup_loc_3261C(0x16);
+                debug_assert_eq!(setup.object_meta, 0x16);
+                debug_assert!(setup.status_flag_13);
+                debug_assert!(setup.is_moved);
+                debug_assert!(setup.has_kid_collision);
+                debug_assert_eq!(setup.priority, 0);
+                debug_assert!(setup.has_level_collision);
                 projectiles.push(EnemyProjectile {
                     x_pos: motion.x_pos,
                     y_pos: spawn.y_pos,
@@ -1190,6 +1193,7 @@ pub(crate) fn step_tar_monster_with_sounds(
                     speed_cap: 0,
                     wall_bounce: false,
                     kind: EnemyProjectileKind::TarMonsterStraightGlob,
+                    tar_monster_collision_response_budget: setup.collision_response_budget,
                     ..Default::default()
                 });
             }
@@ -1243,6 +1247,15 @@ pub(crate) fn spawn_tar_monster_retaliation(
     y: u32,
 ) {
     let cleanup = tar_monster_burst_cleanup_loc_324F8();
+    let meta = tar_monster_burst_child_meta_loc_32618();
+    debug_assert!(meta.proceeds_to_projectile_setup);
+    let setup = tar_monster_projectile_setup_loc_3261C(meta.object_meta);
+    debug_assert_eq!(setup.object_meta, 5);
+    debug_assert!(setup.status_flag_13);
+    debug_assert!(setup.is_moved);
+    debug_assert!(setup.has_kid_collision);
+    debug_assert_eq!(setup.priority, 0);
+    debug_assert!(setup.has_level_collision);
     for (xv, yv) in cleanup.child_velocities {
         projectiles.push(EnemyProjectile {
             x_pos: x,
@@ -1256,7 +1269,7 @@ pub(crate) fn spawn_tar_monster_retaliation(
             speed_cap: 0,
             wall_bounce: false,
             kind: EnemyProjectileKind::TarMonsterBurstChild,
-            tar_monster_collision_response_budget: 2,
+            tar_monster_collision_response_budget: setup.collision_response_budget,
             ..Default::default()
         });
     }
