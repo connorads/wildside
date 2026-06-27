@@ -4195,7 +4195,7 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                             write_hidden(cells, idx);
                         } else {
                             let skin = terrain_bytes.get(idx).copied().unwrap_or(0);
-                            cells[idx] = if skin == 0 { 0xE60C } else { 0xE60E };
+                            cells[idx] = block_type_6_cell_value_loc_12372(0, skin).cell_word;
                         }
                     }
                 });
@@ -4898,17 +4898,16 @@ pub(crate) fn block_place_row_by_row_advance_loc_12332(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BlockType7CellResultLoc12372 {
+pub(crate) struct BlockType6CellResultLoc12372 {
     pub(crate) cell_word: u16,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_type_7_cell_value_loc_12372(
+pub(crate) fn block_type_6_cell_value_loc_12372(
     block_type: i16,
     terrain_byte: u8,
-) -> BlockType7CellResultLoc12372 {
-    // ASM loc_12372 (kid.asm:24513-24527): block type 7 handler for horizontal
+) -> BlockType6CellResultLoc12372 {
+    // ASM loc_12372 (kid.asm:24513-24527): block type 6 handler for horizontal
     // placement. After loc_1233C saved a3 (level-terrain data pointer) and
     // loc_12346 set up cell pointers, this runs when stride flag is 0:
     //   tst.w d0                  ; test block type (negative for hidden)
@@ -4928,11 +4927,11 @@ pub(crate) fn block_type_7_cell_value_loc_12372(
     // which calls sub_127A8/sub_127CE to queue hidden-block entries instead.
     if block_type < 0 {
         // Hidden block path - caller should use loc_12388
-        BlockType7CellResultLoc12372 { cell_word: 0 }
+        BlockType6CellResultLoc12372 { cell_word: 0 }
     } else if terrain_byte == 0 {
-        BlockType7CellResultLoc12372 { cell_word: 0xE60C }
+        BlockType6CellResultLoc12372 { cell_word: 0xE60C }
     } else {
-        BlockType7CellResultLoc12372 { cell_word: 0xE60E }
+        BlockType6CellResultLoc12372 { cell_word: 0xE60E }
     }
 }
 

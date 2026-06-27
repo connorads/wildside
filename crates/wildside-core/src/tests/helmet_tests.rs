@@ -3516,34 +3516,34 @@ mod chunk_08 {
     }
 
     #[test]
-    fn loc_12372_uses_default_rubber_cell_for_type_7_with_zero_terrain_byte() {
-        // ASM loc_12372 (kid.asm:24513-24527): block type 7 handler for horizontal
+    fn loc_12372_uses_default_rubber_cell_for_type_6_with_zero_terrain_byte() {
+        // ASM loc_12372 (kid.asm:24513-24527): block type 6 handler for horizontal
         // placement. When block_type is non-negative and terrain_byte is zero,
         // returns the default rubber block cell $E60C.
         assert_eq!(
-            crate::level::block_type_7_cell_value_loc_12372(0, 0).cell_word,
+            crate::level::block_type_6_cell_value_loc_12372(0, 0).cell_word,
             0xE60C,
             "ASM loc_12372 should return $E60C for type 0 (non-negative) with terrain byte 0",
         );
         assert_eq!(
-            crate::level::block_type_7_cell_value_loc_12372(6, 0).cell_word,
+            crate::level::block_type_6_cell_value_loc_12372(6, 0).cell_word,
             0xE60C,
             "ASM loc_12372 should return $E60C for any non-negative block type with terrain byte 0",
         );
     }
 
     #[test]
-    fn loc_12372_uses_alternate_cell_for_type_7_with_nonzero_terrain_byte() {
+    fn loc_12372_uses_alternate_cell_for_type_6_with_nonzero_terrain_byte() {
         // ASM loc_12372 (kid.asm:24516-24523): when terrain_byte is non-zero,
         // the Move.B (a3),D5 instruction loads a non-zero value, triggering the
         // branch to loc_12380 which seeds D5 with $E60E.
         assert_eq!(
-            crate::level::block_type_7_cell_value_loc_12372(0, 1).cell_word,
+            crate::level::block_type_6_cell_value_loc_12372(0, 1).cell_word,
             0xE60E,
             "ASM loc_12372 should return $E60E when terrain byte is non-zero",
         );
         assert_eq!(
-            crate::level::block_type_7_cell_value_loc_12372(0, 0xFF).cell_word,
+            crate::level::block_type_6_cell_value_loc_12372(0, 0xFF).cell_word,
             0xE60E,
             "ASM loc_12372 should return $E60E for any non-zero terrain byte",
         );
@@ -3555,12 +3555,12 @@ mod chunk_08 {
         // the BMI.S loc_12388 branch skips cell writing and calls hidden-block
         // subroutines instead. The caller should use loc_12388 for hidden blocks.
         assert_eq!(
-            crate::level::block_type_7_cell_value_loc_12372(-1, 0).cell_word,
+            crate::level::block_type_6_cell_value_loc_12372(-1, 0).cell_word,
             0,
             "ASM loc_12372: hidden block type -1 should return 0 (caller uses loc_12388)",
         );
         assert_eq!(
-            crate::level::block_type_7_cell_value_loc_12372(-128, 1).cell_word,
+            crate::level::block_type_6_cell_value_loc_12372(-128, 1).cell_word,
             0,
             "ASM loc_12372: hidden block type -128 should return 0 regardless of terrain byte",
         );
