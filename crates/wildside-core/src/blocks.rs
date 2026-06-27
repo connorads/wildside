@@ -6,15 +6,17 @@ use crate::combat::{
 };
 use crate::movement::{
     hidden_block_reveal_bounce_down_loc_E2F0, hidden_block_reveal_bounce_up_loc_E2E2,
-    hidden_block_reveal_gfx_init_loc_E2A8, hidden_block_reveal_position_loc_E2D2,
+    hidden_block_reveal_gfx_init_loc_E2A8, hidden_block_reveal_offset_bounce_down_loc_E35A,
+    hidden_block_reveal_offset_bounce_up_loc_E34C, hidden_block_reveal_position_loc_E2D2,
 };
 
 #[allow(non_snake_case)]
-fn hidden_block_reveal_y_deltas_loc_E2E2_E2F0() -> [i16; 8] {
-    // ASM loc_E2E2/loc_E2F0 (kid.asm:17761, 17767): the reveal object moves up
-    // two pixels for four hibernates, then down two pixels for four hibernates.
-    let up = hidden_block_reveal_bounce_up_loc_E2E2(0);
-    let down = hidden_block_reveal_bounce_down_loc_E2F0(up.final_y_pos_px);
+fn hidden_block_reveal_y_deltas_loc_E304() -> [i16; 8] {
+    // ASM loc_E304/loc_E34C/loc_E35A (kid.asm:17775, 17796, 17802): offset
+    // reveal workers use the same four-frame up/down bob as loc_E29A's
+    // loc_E2E2/loc_E2F0 path; native stores it once as per-frame deltas.
+    let up = hidden_block_reveal_offset_bounce_up_loc_E34C(0);
+    let down = hidden_block_reveal_offset_bounce_down_loc_E35A(up.final_y_pos_px);
     let mut deltas = [0; 8];
     let mut previous = 0_u16;
 
@@ -29,6 +31,14 @@ fn hidden_block_reveal_y_deltas_loc_E2E2_E2F0() -> [i16; 8] {
         *slot = i16::from_ne_bytes(y_pos.wrapping_sub(previous).to_ne_bytes());
         previous = y_pos;
     }
+
+    let base_up = hidden_block_reveal_bounce_up_loc_E2E2(0);
+    let base_down = hidden_block_reveal_bounce_down_loc_E2F0(base_up.final_y_pos_px);
+    debug_assert_eq!(up.y_pos_after_hibernates, base_up.y_pos_after_hibernates);
+    debug_assert_eq!(
+        down.y_pos_after_hibernates,
+        base_down.y_pos_after_hibernates
+    );
 
     deltas
 }
@@ -3925,7 +3935,7 @@ impl NativeRuntime {
             }
         }
 
-        let hidden_block_reveal_y_deltas = hidden_block_reveal_y_deltas_loc_E2E2_E2F0();
+        let hidden_block_reveal_y_deltas = hidden_block_reveal_y_deltas_loc_E304();
         for (cell_x, cell_y) in revealed_cells {
             if self.block_bounces.iter().any(|bounce| {
                 bounce.cell_x == cell_x
@@ -4649,7 +4659,7 @@ impl NativeRuntime {
                         .copied()
                 }
             } else {
-                let hidden_block_reveal_y_deltas = hidden_block_reveal_y_deltas_loc_E2E2_E2F0();
+                let hidden_block_reveal_y_deltas = hidden_block_reveal_y_deltas_loc_E304();
                 let delta_table: &[i16] = match b.kind {
                     BlockBounceKind::HiddenReveal => &hidden_block_reveal_y_deltas,
                     BlockBounceKind::Metal => {

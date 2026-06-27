@@ -1772,7 +1772,6 @@ pub(crate) fn hidden_block_reveal_bounce_down_loc_E2F0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_offset_bounce_up_loc_E34C(
     initial_y_pos_px: u16,
 ) -> HiddenBlockRevealBounceLocE34C {
@@ -1794,7 +1793,6 @@ pub(crate) fn hidden_block_reveal_offset_bounce_up_loc_E34C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_offset_bounce_down_loc_E35A(
     initial_y_pos_px: u16,
 ) -> HiddenBlockRevealBounceLocE35A {
