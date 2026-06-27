@@ -660,14 +660,12 @@ pub(crate) struct LinkedObjectSlotInit {
     pub(crate) next_slot_addr: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ObjectSlotOrderLocDE0 {
     pub(crate) slot_addr: u32,
     pub(crate) caller_order: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AllocatedObjectSlotListLocDF2 {
     pub(crate) inserted_index: usize,
@@ -691,7 +689,6 @@ pub(crate) struct DeallocatedObjectSlotLocEB0 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DeleteAllButCurrentStartLocEFE {
     pub(crate) scan_head_link_addr: u32,
@@ -699,7 +696,6 @@ pub(crate) struct DeleteAllButCurrentStartLocEFE {
     pub(crate) current_object_addr: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DeleteAllButCurrentLoopLocF02 {
     pub(crate) first_active_slot_addr: u32,
@@ -724,7 +720,6 @@ pub(crate) struct ShooterObjectSlotsSubF06A {
     pub(crate) last_shooter_block_row: i16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShooterObjectSlotsLocDF50 {
     pub(crate) next_free_shooter_object_slot_addr: u32,
@@ -732,35 +727,30 @@ pub(crate) struct ShooterObjectSlotsLocDF50 {
     pub(crate) shooter_slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentShooterNeighbourMarkLocF14C {
     pub(crate) stored_local_word: u16,
     pub(crate) shifted_direction_bits: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentShooterNeighbourMarkLocF156 {
     pub(crate) stored_local_word: u16,
     pub(crate) shifted_direction_bits: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentShooterNeighbourMarkLocF166 {
     pub(crate) stored_local_word: u16,
     pub(crate) shifted_direction_bits: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentShooterNeighbourMarkLocF224 {
     pub(crate) stored_local_word: u16,
     pub(crate) shifted_direction_bits: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentShooterRowScanTailLocF17C {
     pub(crate) next_layout_addr: u32,
@@ -769,7 +759,6 @@ pub(crate) struct EvanescentShooterRowScanTailLocF17C {
     pub(crate) should_continue_scan: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentShooterScanStartLocF1C8 {
     pub(crate) col_dbf_counter: u16,
@@ -778,7 +767,6 @@ pub(crate) struct EvanescentShooterScanStartLocF1C8 {
     pub(crate) first_cell_layout_addr: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentShooterCandidateLocF1DE {
     pub(crate) allocated_slot_addr: u32,
@@ -790,14 +778,12 @@ pub(crate) struct EvanescentShooterCandidateLocF1DE {
     pub(crate) up_direction_set: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EvanescentShooterCellScanLocF1DE {
     Continue,
     QueueShooter(EvanescentShooterCandidateLocF1DE),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterFrameScanStartLocF25C {
     pub(crate) left_block_col: u16,
@@ -809,7 +795,6 @@ pub(crate) struct ShooterFrameScanStartLocF25C {
     pub(crate) should_scan_active_slots: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterActiveSlotScanStepLocF28C {
     DispatchExpiredSlot {
@@ -832,7 +817,6 @@ pub(crate) enum ShooterActiveSlotScanStepLocF28C {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterFrameCommitLocF2A2 {
     pub(crate) number_sprites: u8,
@@ -840,13 +824,11 @@ pub(crate) struct ShooterFrameCommitLocF2A2 {
     pub(crate) addr_next_sprite_slot: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterExpiredSlotEraseCellLocF2EE {
     pub(crate) layout_word_after: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterExpiredSlotRangeCountdownLocF302 {
     ContinueFrame {
@@ -858,20 +840,17 @@ pub(crate) enum ShooterExpiredSlotRangeCountdownLocF302 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterExpiredSlotPredecessorScanLocF350 {
     pub(crate) predecessor_slot_addr: u32,
     pub(crate) scanned_links: usize,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShooterExpiredSlotSpliceLocF35E {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShooterExpiredSlotFreeListPushLocF364 {
     pub(crate) first_free_slot_addr: u32,
@@ -880,14 +859,12 @@ pub(crate) struct ShooterExpiredSlotFreeListPushLocF364 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleRightGateLocF3B2 {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) right_direction_set: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleRightCellUpdateLocF3BC {
     pub(crate) right_cell_layout_addr: u32,
@@ -897,14 +874,12 @@ pub(crate) struct ShooterVisibleRightCellUpdateLocF3BC {
     pub(crate) queue_layout_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleDownGateLocF3CC {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) down_direction_set: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterVisibleLeftCellUpdateLocF3F4 {
     pub(crate) left_cell_layout_addr: u32,
@@ -914,7 +889,6 @@ pub(crate) struct ShooterVisibleLeftCellUpdateLocF3F4 {
     pub(crate) queue_layout_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterVisibleScanTailLocF404 {
     ContinueScan { next_slot_addr: u32 },
