@@ -4296,7 +4296,21 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                     |x, y, is_hidden| {
                         if let Some(idx) = cell_index(x, y) {
                             if is_hidden {
-                                write_hidden(cells, idx);
+                                let Ok(cell_addr) = u32::try_from(idx.saturating_mul(2)) else {
+                                    return;
+                                };
+                                let entry = block_type_11_hidden_entry_loc_126de(
+                                    cell_addr,
+                                    x,
+                                    y,
+                                    block_type_arg,
+                                );
+                                if entry.cell_addr.is_multiple_of(2)
+                                    && let Ok(idx) = usize::try_from(entry.cell_addr / 2)
+                                    && idx < cells.len()
+                                {
+                                    write_hidden(cells, idx);
+                                }
                             } else {
                                 let result = block_type_11_visible_tile_loc_126c0();
                                 cells[idx] = result.tile_word;
@@ -6827,7 +6841,6 @@ pub(crate) struct BlockType11HiddenEntryLoc126DE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_11_hidden_entry_loc_126de(
     cell_addr: u32,
     x_pos: u16,
