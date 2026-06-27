@@ -2565,6 +2565,24 @@ impl ActiveEnemy {
                 ),
             );
         }
+        if matches!(self.family, EnemyFamily::MiniHoppingSkull)
+            && !self.on_ground
+            && let Some(sprite) =
+                mini_hopping_skull_air_sprite_after_loc_3ea88(false, self.y_velocity)
+        {
+            // ASM Mini_Hopping_Skull.asm loc_3EA88/loc_3EAAC selects the
+            // rising/falling body art from the signed Y velocity after the
+            // animated-state guard has cleared; native does not persist that
+            // guard yet, so this exposes the steady airborne branch only.
+            let sprite = match sprite {
+                MiniHoppingSkullAirSprite::Rising => "rising",
+                MiniHoppingSkullAirSprite::Falling => "falling",
+            };
+            debug_fields.insert(
+                "mini_hopping_skull_air_sprite_loc_3ea88".into(),
+                sprite.into(),
+            );
+        }
         if is_multi_head_boss(self.family) && self.boss_eye_orbit_workers.active {
             // ASM loc_3893E/loc_389D6 passes the parent `$22(a2)` and `$16(a2)`
             // values into sub_393C8/sub_39420; keep them visible while the

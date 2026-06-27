@@ -20282,6 +20282,34 @@ mod chunk_03 {
     }
 
     #[test]
+    fn mini_hopping_skull_snapshot_reports_air_sprite_debug_field_loc_3ea88() {
+        let mut enemy = test_enemy(EnemyFamily::MiniHoppingSkull, 0x0120_0000, 0x0080_0000, 2);
+        enemy.on_ground = false;
+        enemy.y_velocity = -1;
+
+        assert_eq!(
+            enemy
+                .snapshot()
+                .debug_fields
+                .get("mini_hopping_skull_air_sprite_loc_3ea88")
+                .map(String::as_str),
+            Some("rising"),
+            "ASM Mini_Hopping_Skull.asm loc_3EA88 keeps the rising body art while y_vel is negative",
+        );
+
+        enemy.y_velocity = 0;
+        assert_eq!(
+            enemy
+                .snapshot()
+                .debug_fields
+                .get("mini_hopping_skull_air_sprite_loc_3ea88")
+                .map(String::as_str),
+            Some("falling"),
+            "ASM Mini_Hopping_Skull.asm loc_3EAAC switches to falling body art once y_vel is non-negative",
+        );
+    }
+
+    #[test]
     fn trace_frame_reports_kid_object_support_candidates() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.boot_state = BootState::InGame;

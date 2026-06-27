@@ -1,7 +1,6 @@
 use super::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum MiniHoppingSkullAirSprite {
     Rising,
     Falling,
@@ -297,7 +296,6 @@ pub(crate) enum MiniHoppingSkullMediumLoadGateLoc3F304 {
     DeleteTail(MiniHoppingSkullDeleteTailLoc3F32E),
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_air_sprite_after_loc_3ea88(
     is_animated: bool,
     y_velocity: i32,

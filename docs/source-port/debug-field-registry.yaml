@@ -397,6 +397,15 @@
       "promotion_trigger": "Promote if UFO linked-object render or cleanup parity starts depending on typed linked child object state."
     },
     {
+      "key": "mini_hopping_skull_air_sprite_loc_3ea88",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "mini-hopping-skull-air-ratchet",
+      "first_added_commit": "pending",
+      "intended_meaning": "Native ASM Mini_Hopping_Skull.asm loc_3EA88/loc_3EAAC rising/falling body-art branch derived from live airborne Y velocity after the animation guard has cleared.",
+      "promotion_trigger": "Promote if Mini Hopping Skull render parity starts depending on typed airborne animation state."
+    },
+    {
       "key": "kid_object_support_candidates",
       "scope": "frame",
       "status": "exploratory",
