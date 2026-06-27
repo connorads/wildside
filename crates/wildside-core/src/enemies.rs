@@ -7,17 +7,21 @@ use super::{
 };
 use crate::combat::{
     QueuedSoundEffect, boomerang_boss_head_1_activation_loc_37F94,
-    boomerang_boss_head_1_init_loc_37F30, boomerang_boss_head_2_activation_window_loc_38076,
-    boomerang_boss_head_2_init_loc_38012, boomerang_boss_head_3_activation_window_loc_38158,
-    boomerang_boss_head_3_init_loc_380F4, boss_death_burst_init_sub_370D2,
-    boss_eye_counter_orbit_placement_sub_39420, boss_eye_orbit_placement_sub_393C8,
-    boss_head_death_anim_sequence_loc_39EE2, boss_head_death_spin_loop_loc_39F7A,
-    boss_head_movement_step_for_family_sub_39846, boss_head_projectile_spawn_sub_397E4,
-    heady_metal_palette_cycle_sub_379E8, heady_metal_spawn_animation_loc_3761E,
-    heady_metal_tracking_velocity_loc_37582, shishka_bagel_head_1_activation_window_loc_39506,
-    shishka_bagel_head_1_init_loc_39478, shishka_bagel_head_2_activation_window_loc_3962C,
-    shishka_bagel_head_2_init_loc_39598, shishka_bagel_head_3_activation_window_loc_39752,
-    shishka_bagel_head_3_init_loc_396BE,
+    boomerang_boss_head_1_attack_animation_gate_loc_37FEA, boomerang_boss_head_1_init_loc_37F30,
+    boomerang_boss_head_2_activation_window_loc_38076,
+    boomerang_boss_head_2_attack_animation_gate_loc_380CC, boomerang_boss_head_2_init_loc_38012,
+    boomerang_boss_head_3_activation_window_loc_38158,
+    boomerang_boss_head_3_attack_animation_gate_loc_381AE, boomerang_boss_head_3_init_loc_380F4,
+    boss_death_burst_init_sub_370D2, boss_eye_counter_orbit_placement_sub_39420,
+    boss_eye_orbit_placement_sub_393C8, boss_head_death_anim_sequence_loc_39EE2,
+    boss_head_death_spin_loop_loc_39F7A, boss_head_movement_step_for_family_sub_39846,
+    boss_head_projectile_spawn_sub_397E4, heady_metal_palette_cycle_sub_379E8,
+    heady_metal_spawn_animation_loc_3761E, heady_metal_tracking_velocity_loc_37582,
+    shishka_bagel_head_1_activation_window_loc_39506,
+    shishka_bagel_head_1_attack_anim_gate_loc_39566, shishka_bagel_head_1_init_loc_39478,
+    shishka_bagel_head_2_activation_window_loc_3962C,
+    shishka_bagel_head_2_attack_anim_gate_loc_3968C, shishka_bagel_head_2_init_loc_39598,
+    shishka_bagel_head_3_activation_window_loc_39752, shishka_bagel_head_3_init_loc_396BE,
 };
 use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
 
@@ -8489,6 +8493,39 @@ pub(crate) fn step_boss_fire_with_sounds(
             // `$FFFFFB86/87/88` and starts `stru_39FC6`; native carries that
             // cached byte as `enemy.facing`.
             enemy.wait_timer = BOSS_HEAD_ATTACK_WINDUP_TIMER_LOC_39538;
+            return;
+        }
+    }
+    if multi_head_boss {
+        let animation_done_byte_18 = 1;
+        let runs_projectile_spawn_sub_397e4 = match (enemy.family, enemy.boss_head_index) {
+            (EnemyFamily::BoomerangBosses, 0) => {
+                boomerang_boss_head_1_attack_animation_gate_loc_37FEA(animation_done_byte_18)
+                    .runs_projectile_spawn_sub_397e4
+            }
+            (EnemyFamily::BoomerangBosses, 1) => {
+                boomerang_boss_head_2_attack_animation_gate_loc_380CC(animation_done_byte_18)
+                    .runs_projectile_spawn_sub_397e4
+            }
+            (EnemyFamily::BoomerangBosses, _) => {
+                boomerang_boss_head_3_attack_animation_gate_loc_381AE(animation_done_byte_18)
+                    .runs_projectile_spawn_sub_397e4
+            }
+            (_, 0) => {
+                shishka_bagel_head_1_attack_anim_gate_loc_39566(animation_done_byte_18)
+                    .runs_projectile_spawn_sub_397e4
+            }
+            (_, 1) => {
+                shishka_bagel_head_2_attack_anim_gate_loc_3968C(animation_done_byte_18)
+                    .runs_projectile_spawn_sub_397e4
+            }
+            _ => true,
+        };
+        // ASM loc_39566/loc_37FEA and sibling gates call sub_397E4 only after
+        // the attack animation's `$18(a3)` done byte becomes nonzero. Native
+        // reaches this point only when the synthetic `stru_39FC6` timer has
+        // elapsed, so the gate runs with the done byte set.
+        if !runs_projectile_spawn_sub_397e4 {
             return;
         }
     }

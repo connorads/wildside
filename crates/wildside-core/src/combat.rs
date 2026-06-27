@@ -3456,7 +3456,6 @@ pub(crate) fn shishka_bagel_head_2_attack_wait_loop_loc_3966E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_2_attack_anim_gate_loc_3968C(
     animation_done_byte_18: u8,
 ) -> ShishkaBagelHead2AttackAnimGateLoc3968C {
@@ -3842,7 +3841,6 @@ pub(crate) fn shishka_bagel_head_1_attack_wait_loop_loc_39548(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shishka_bagel_head_1_attack_anim_gate_loc_39566(
     animation_done_byte_18: u8,
 ) -> ShishkaBagelHead1AttackAnimGateLoc39566 {
@@ -4000,7 +3998,6 @@ pub(crate) fn boomerang_boss_head_1_attack_wait_loop_loc_37FD6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_attack_animation_gate_loc_37FEA(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHeadAttackAnimationGateLoc37FEA {
@@ -4199,7 +4196,6 @@ pub(crate) fn boomerang_boss_head_3_attack_wait_loop_loc_3819A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_attack_animation_gate_loc_381AE(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHead3AttackAnimationGateLoc381AE {
@@ -6181,7 +6177,6 @@ pub(crate) fn boomerang_boss_head_2_attack_wait_loop_loc_380B8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_attack_animation_gate_loc_380CC(
     animation_done_byte_18: u8,
 ) -> BoomerangBossHead2AttackAnimationGateLoc380CC {
