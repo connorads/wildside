@@ -13,6 +13,21 @@ use crate::movement::{
 };
 
 #[allow(non_snake_case)]
+fn level_layout_low_word_addr_loc_FAE2(block_col: u16, block_row: u16, width_cells: u16) -> u16 {
+    let row_base_layout_addr = u32::from(terrain::BlockList::level_layout_low_word_addr(
+        0,
+        block_row,
+        width_cells,
+    ));
+    let address = crate::level::level_layout_word_address_loc_FAE2(
+        block_col,
+        block_row,
+        row_base_layout_addr,
+    );
+    address.layout_word_addr as u16
+}
+
+#[allow(non_snake_case)]
 fn hidden_block_reveal_y_deltas_loc_E304() -> [i16; 8] {
     // ASM loc_E304/loc_E34C/loc_E35A (kid.asm:17775, 17796, 17802): offset
     // reveal workers use the same four-frame up/down bob as loc_E29A's
@@ -4129,7 +4144,7 @@ impl NativeRuntime {
             // bobs up four frames then down four frames while the cell has
             // already been rewritten from `$20xx` to the revealed block word.
             let layout_word_addr =
-                terrain::BlockList::level_layout_low_word_addr(cell_x, cell_y, level_width_cells);
+                level_layout_low_word_addr_loc_FAE2(cell_x, cell_y, level_width_cells);
             self.queue_start_sequence(QueuedSoundEffect::HiddenBlockReveal);
             let layout_offset =
                 ((u32::from(cell_y) * u32::from(level_width_cells)) + u32::from(cell_x)) * 2;

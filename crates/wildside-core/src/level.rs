@@ -10799,7 +10799,6 @@ pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn level_layout_word_address_loc_FAE2(
     block_col: u16,
     block_row: u16,
