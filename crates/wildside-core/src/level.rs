@@ -4466,13 +4466,11 @@ fn run_loop_type3_124a6(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16
 #[allow(non_snake_case)]
 fn run_loop_pair_1263c(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16)) {
     loop {
-        let Some(x) = words.get(*pos).copied() else {
+        let Some(read_x) = block_type_4_read_x_pos_loc_12646(&words[*pos..]) else {
             return;
         };
-        *pos += 1;
-        if x & 0x8000 != 0 {
-            return;
-        }
+        *pos += read_x.words_consumed;
+        let x = read_x.x_pos;
         let Some(&y) = words.get(*pos) else {
             return;
         };
@@ -6129,7 +6127,6 @@ pub(crate) struct BlockType4ReadXPosLoc12646 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_4_read_x_pos_loc_12646(
     layout_words: &[u16],
 ) -> Option<BlockType4ReadXPosLoc12646> {
