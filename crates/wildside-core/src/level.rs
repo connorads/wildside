@@ -1828,7 +1828,17 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
     // The decompressor itself lives in wildside-data alongside decode_saxman/
     // decode_enigma; this wrapper exists so the level loader can call it in
     // Kid-domain terms.
-    wildside_data::decode_block_layout(layout_bytes).map_err(|error| error.to_string())
+    let decoded =
+        wildside_data::decode_block_layout(layout_bytes).map_err(|error| error.to_string())?;
+    let terminator = block_layout_terminate_loc_134BA();
+    if decoded.last().copied() == Some(terminator.end_marker) {
+        Ok(decoded)
+    } else {
+        Err(format!(
+            "block layout decode did not end with ASM loc_134BA terminator {:#06x}",
+            terminator.end_marker
+        ))
+    }
 }
 
 #[allow(non_snake_case)]
@@ -2097,7 +2107,6 @@ pub(crate) fn block_layout_short_count_property_words_loc_134AC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_terminate_loc_134BA() -> BlockLayoutTerminateLoc134BA {
     // ASM loc_134BA (kid.asm:25828-25831) writes the `$FFFF` terminator into
     // the current decode stream, then resets `a1` to `Decompression_Buffer`
