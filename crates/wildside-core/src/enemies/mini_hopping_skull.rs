@@ -521,7 +521,6 @@ pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3eec8(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_landing_side_contact_loc_3ef10(
     berzerker_charging: bool,
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
@@ -773,10 +772,19 @@ pub(crate) fn mini_hopping_skull_landing_tail_collision_loc_3ef4c(
             }
         }
         MINI_SKULL_COLID_GROUND_KIDLEFT | MINI_SKULL_COLID_GROUND_KIDRIGHT => {
-            if berzerker_charging {
-                MiniHoppingSkullLandingTailCollisionOutcome::BerzerkerChargeKillsSkull
-            } else {
-                MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch
+            // ASM Mini_Hopping_Skull.asm loc_3EF10: landing side contact uses
+            // the same Berzerker charge gate in both landing wait loops.
+            match mini_hopping_skull_landing_side_contact_loc_3ef10(berzerker_charging) {
+                MiniHoppingSkullGroundWaitCollisionRoute::BerzerkerChargeKillsSkull => {
+                    MiniHoppingSkullLandingTailCollisionOutcome::BerzerkerChargeKillsSkull
+                }
+                MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker => {
+                    MiniHoppingSkullLandingTailCollisionOutcome::SpawnScreamWorkerAndRelaunch
+                }
+                MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
+                | MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull => {
+                    unreachable!("loc_3EF10 only returns a side-contact route")
+                }
             }
         }
         MINI_SKULL_COLID_GROUND_KIDBELOW => {
