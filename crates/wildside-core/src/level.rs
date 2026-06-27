@@ -1830,6 +1830,16 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
     // Kid-domain terms.
     let decoded =
         wildside_data::decode_block_layout(layout_bytes).map_err(|error| error.to_string())?;
+    if let Some(first_header) = decoded.first().copied().filter(|word| *word != 0xFFFF) {
+        let dispatch =
+            block_layout_dispatch_loc_132D6(first_header & 0x8000 != 0, first_header & 0x001F);
+        if dispatch.terminated || dispatch.header_word != first_header {
+            return Err(format!(
+                "block layout first header {first_header:#06x} disagrees with ASM loc_132D6 dispatch {:#06x}",
+                dispatch.header_word
+            ));
+        }
+    }
     let terminator = block_layout_terminate_loc_134BA();
     if decoded.last().copied() == Some(terminator.end_marker) {
         Ok(decoded)
@@ -1842,7 +1852,6 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_132D6(
     high_bit_set: bool,
     block_type: u16,
