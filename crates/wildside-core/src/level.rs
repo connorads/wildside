@@ -4151,13 +4151,11 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // (horizontal or vertical by the stride word 6); otherwise the entry
             // only records an object and writes no cells. (kid.asm:24691-24755)
             3 => {
-                run_loop_type3_124a6(block_layout_words, &mut pos, |x, y, i, stride| {
-                    let (cx, cy) = if stride {
-                        (x, y.wrapping_add(i))
-                    } else {
-                        (x.wrapping_add(i), y)
-                    };
-                    if let Some(idx) = cell_index(cx, cy) {
+                run_loop_type3_124a6(block_layout_words, &mut pos, width_blocks, |cell_addr| {
+                    if cell_addr % 2 == 0
+                        && let Ok(idx) = usize::try_from(cell_addr / 2)
+                        && idx < cells.len()
+                    {
                         cells[idx] = 0xE304;
                     }
                 });
@@ -4463,7 +4461,12 @@ fn run_loop_with_property_125a6(
 /// (`$A(a1)`) gates the `$E304` fill; word 2 (`4(a1)`) is the count; word 3
 /// (`6(a1)`) is the stride flag. (kid.asm:24691-24755)
 #[allow(non_snake_case)]
-fn run_loop_type3_124a6(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16, u16, bool)) {
+fn run_loop_type3_124a6(
+    words: &[u16],
+    pos: &mut usize,
+    width_blocks: u16,
+    mut body: impl FnMut(u32),
+) {
     loop {
         let Some(rest) = words.get(*pos..) else {
             return;
@@ -4474,8 +4477,25 @@ fn run_loop_type3_124a6(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16
             return;
         };
         if entry.priority == 0 {
-            for i in 0..entry.count {
-                body(entry.x_pos, entry.y_row, i, entry.stride != 0);
+            let cell_addr = (u32::from(entry.y_row) * u32::from(width_blocks))
+                .wrapping_add(u32::from(entry.x_pos))
+                .wrapping_mul(2);
+            if entry.stride != 0 {
+                for cell_addr in block_type_3_vertical_fill_loc_12526(
+                    cell_addr,
+                    entry.count,
+                    width_blocks.wrapping_mul(2),
+                )
+                .cell_addrs
+                {
+                    body(cell_addr);
+                }
+            } else {
+                for cell_addr in
+                    block_type_3_horizontal_fill_loc_12516(cell_addr, entry.count).cell_addrs
+                {
+                    body(cell_addr);
+                }
             }
         }
     }
@@ -5597,7 +5617,6 @@ pub(crate) struct BlockType3HorizontalFillLoc12516 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_3_horizontal_fill_loc_12516(
     cell_addr: u32,
     count: u16,
@@ -5641,7 +5660,6 @@ pub(crate) struct BlockType3VerticalFillLoc12526 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_3_vertical_fill_loc_12526(
     cell_addr: u32,
     count: u16,
