@@ -22590,6 +22590,73 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn hidden_block_type4_headbutt_spawns_pair_reveal_workers_loc_e19e_e1bc() {
+        fn run_type4_reveal(block_setting: u8) -> Vec<(u16, u16, i16, i16)> {
+            let mut runtime = NativeRuntime::new(manifest());
+            let w = 6u16;
+            let h = 5u16;
+            let mut data = vec![0u8; usize::from(w) * usize::from(h) * 2];
+            let set_cell = |data: &mut Vec<u8>, col: usize, row: usize, hi: u8, lo: u8| {
+                let offset = (row * usize::from(w) + col) * 2;
+                data[offset] = hi;
+                data[offset + 1] = lo;
+            };
+            set_cell(&mut data, 2, 2, 0xA0, 0x00);
+            for col in 0..6 {
+                set_cell(&mut data, col, 3, 0x60, 0x01);
+            }
+            runtime.set_block_grid(terrain::BlockGrid::from_level_layout(&data, w, h));
+            runtime.block_list = Some(terrain::BlockList {
+                prize_blocks: vec![],
+                ghost_blocks: vec![],
+                teleporters: vec![],
+                hidden_blocks: vec![terrain::HiddenBlockEntry {
+                    layout_addr: 0x001C,
+                    col: 2,
+                    row: 2,
+                    block_type: 0x04,
+                    block_setting,
+                }],
+            });
+            start_level(&mut runtime);
+
+            if let Some(ref mut slice) = runtime.opening_slice {
+                slice.player.x_pos = 40 << 16;
+                slice.player.y_pos = 80 << 16;
+                slice.player.y_velocity = -0x0002_0000;
+                slice.player.on_ground = false;
+                slice.camera.x_pos = 0;
+                slice.camera.y_pos = 0;
+            }
+
+            runtime.step_frame(FrameInput::default());
+            runtime
+                .block_bounces
+                .iter()
+                .map(|bounce| {
+                    (
+                        bounce.cell_x,
+                        bounce.cell_y,
+                        bounce.x_offset_px,
+                        bounce.y_offset_px,
+                    )
+                })
+                .collect()
+        }
+
+        assert_eq!(
+            run_type4_reveal(0),
+            vec![(2, 2, 0, 0), (4, 2, 0, 0)],
+            "ASM loc_E1BC (kid.asm:17603) spawns current then next type-4 reveal workers, with `$50=1` shifting the second loc_E282 draw one tile right",
+        );
+        assert_eq!(
+            run_type4_reveal(1),
+            vec![(1, 2, 0, 0), (3, 2, 0, 0)],
+            "ASM loc_E19E (kid.asm:17588) spawns previous then current type-4 reveal workers when hidden-block byte 7 is set",
+        );
+    }
+
+    #[test]
     #[allow(non_snake_case)]
     fn loc_E03A_hidden_block_headbutt_requires_hidden_collision_nibble() {
         let mut runtime = NativeRuntime::new(manifest());

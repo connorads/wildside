@@ -9,6 +9,7 @@ use crate::movement::{
     hidden_block_reveal_cleanup_loc_E376, hidden_block_reveal_gfx_init_loc_E2A8,
     hidden_block_reveal_offset_bounce_down_loc_E35A, hidden_block_reveal_offset_bounce_up_loc_E34C,
     hidden_block_reveal_position_loc_E2D2, hidden_block_reveal_workers_loc_E0C2,
+    hidden_block_type4_reveal_pair_loc_E1BC, hidden_block_type4_reveal_pair_loc_E19E,
 };
 
 #[allow(non_snake_case)]
@@ -4136,7 +4137,68 @@ impl NativeRuntime {
                 list.hidden_block_by_layout_addr_sub_E37A(layout_offset as u16)
                     .or_else(|| list.hidden_block_by_layout_addr_sub_E37A(layout_word_addr))
             });
-            if let Some(entry) = hidden_entry.filter(|entry| entry.block_type == 0x0A) {
+            if let Some((entry, reveal)) = hidden_entry
+                .filter(|entry| entry.block_type == 0x04)
+                .and_then(|entry| {
+                    self.block_list
+                        .as_ref()
+                        .and_then(|list| list.hidden_block_reveal_sub_E3C6(entry))
+                        .map(|reveal| (entry, reveal))
+                })
+            {
+                // ASM loc_E19E/loc_E1BC (kid.asm:17588,17603): type-$04
+                // hidden blocks spawn a pair of `loc_E282` reveal workers. Byte
+                // 7 chooses whether the pair is previous+current or
+                // current+next, and the second worker gets `$50=1` so loc_E282
+                // sets gfx `x_direction` before the shared loc_E2A8 init.
+                let pair = if entry.block_setting == 0 {
+                    hidden_block_type4_reveal_pair_loc_E1BC(
+                        cell_x,
+                        cell_y,
+                        u32::from(layout_word_addr),
+                        reveal.sprite_mapping,
+                    )
+                } else {
+                    hidden_block_type4_reveal_pair_loc_E19E(
+                        cell_x,
+                        cell_y,
+                        u32::from(layout_word_addr),
+                        reveal.sprite_mapping,
+                    )
+                };
+                let revealed_cell_word = reveal.cell.to_word();
+                for (index, worker) in pair.workers.into_iter().enumerate() {
+                    let x_direction = if index == 1 {
+                        pair.second_worker_x_offset_px as u8
+                    } else {
+                        0
+                    };
+                    let reveal_gfx = hidden_block_reveal_gfx_init_loc_E2A8(
+                        worker.block_col,
+                        worker.block_row,
+                        worker.layout_word_addr,
+                        revealed_cell_word,
+                        worker.sprite_mapping,
+                        x_direction,
+                    );
+                    let reveal_position = hidden_block_reveal_position_loc_E2D2(
+                        reveal_gfx.x_tile_for_position,
+                        reveal_gfx.block_row,
+                    );
+                    self.block_bounces.push(BlockBounceAnim {
+                        cell_x: reveal_position.x_pos_px >> 4,
+                        cell_y: reveal_position.y_pos_px >> 4,
+                        x_offset_px: 0,
+                        remaining: hidden_block_reveal_y_deltas.len() as u8,
+                        initial_duration: hidden_block_reveal_y_deltas.len() as u8,
+                        kind: BlockBounceKind::HiddenReveal,
+                        prize_content: None,
+                        prize_deleted_tile: false,
+                        metal_direction: 0,
+                        y_offset_px: 0,
+                    });
+                }
+            } else if let Some(entry) = hidden_entry.filter(|entry| entry.block_type == 0x0A) {
                 // ASM loc_E0C2 (kid.asm:17414): type-$0A hidden blocks spawn
                 // four `loc_E304` reveal gfx workers at quarter-tile offsets,
                 // using byte 7 as the `unk_E11E` mapping-table variant.

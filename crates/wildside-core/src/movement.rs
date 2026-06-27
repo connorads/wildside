@@ -1609,7 +1609,6 @@ pub(crate) fn hidden_block_reveal_worker_sub_E1D4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_type4_reveal_pair_loc_E19E(
     block_col: u16,
     block_row: u16,
@@ -1638,7 +1637,6 @@ pub(crate) fn hidden_block_type4_reveal_pair_loc_E19E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_type4_reveal_pair_loc_E1BC(
     block_col: u16,
     block_row: u16,
