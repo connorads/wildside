@@ -11100,7 +11100,6 @@ pub(crate) fn initialise_shooter_object_slots_loc_DF50() -> ShooterObjectSlotsLo
 /// subtract 8 from `a0` so the following scan pre-increments onto the
 /// first 8-byte metadata record before comparing `(a0)` with `d4`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_evanescent_scan_start_loc_E07A(
     hidden_block_list_base_addr: u32,
     layout_word_addr: u16,
@@ -11118,7 +11117,6 @@ pub(crate) fn hidden_block_evanescent_scan_start_loc_E07A(
 /// non-negative control word, or replaces them with `$E101/$1058` when that
 /// word is negative.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_evanescent_metadata_scan_loc_E082(
     hidden_block_list_base_addr: u32,
     layout_word_addr: u16,

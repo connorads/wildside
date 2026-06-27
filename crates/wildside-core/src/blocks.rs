@@ -4366,12 +4366,22 @@ impl NativeRuntime {
                     });
                 }
             } else {
+                let (sprite_tile_word, sprite_mapping) = hidden_entry
+                    .and_then(|entry| {
+                        let list = self.block_list.as_ref()?;
+                        list.hidden_block_reveal_sub_E3C6(entry).map(|reveal| {
+                            Self::hidden_block_reveal_sprite_words_loc_E07A_E082(
+                                list, entry, reveal,
+                            )
+                        })
+                    })
+                    .unwrap_or((0xE101, 0x1058));
                 let reveal_worker = crate::level::hidden_block_reveal_worker_loc_E096(
                     cell_x,
                     cell_y,
                     u32::from(layout_word_addr),
-                    0xE101,
-                    0x1058,
+                    sprite_tile_word,
+                    sprite_mapping,
                 );
                 let reveal_gfx = hidden_block_reveal_gfx_init_loc_E2A8(
                     reveal_worker.block_col,
@@ -4399,6 +4409,37 @@ impl NativeRuntime {
                 });
             }
         }
+    }
+
+    #[allow(non_snake_case)]
+    fn hidden_block_reveal_sprite_words_loc_E07A_E082(
+        block_list: &terrain::BlockList,
+        entry: &terrain::HiddenBlockEntry,
+        reveal: terrain::HiddenBlockRevealSubE3C6,
+    ) -> (u16, u16) {
+        if entry.block_type != 0x01 {
+            return (reveal.cell.to_word(), reveal.sprite_mapping);
+        }
+
+        // ASM loc_E07A/loc_E082 (kid.asm:17395-17408): type-1 hidden blocks
+        // rescan the prize metadata list and replace the reveal sprite words
+        // with `$E101/$1058` only when the matched record is negative.
+        let scan = crate::level::hidden_block_evanescent_scan_start_loc_E07A(0, entry.layout_addr);
+        let records = block_list
+            .prize_blocks
+            .iter()
+            .map(|prize| crate::level::HiddenBlockMetadataRecordLocE082 {
+                layout_word_addr: prize.layout_addr,
+                control_word: if prize.disguised { -1 } else { 0 },
+            })
+            .collect::<Vec<_>>();
+        crate::level::hidden_block_evanescent_metadata_scan_loc_E082(
+            scan.first_record_addr,
+            scan.layout_word_addr,
+            &records,
+        )
+        .and_then(|matched| matched.evanescent_sprite_words)
+        .unwrap_or((reveal.cell.to_word(), reveal.sprite_mapping))
     }
 
     #[allow(non_snake_case)]
