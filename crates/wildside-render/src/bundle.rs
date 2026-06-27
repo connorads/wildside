@@ -12,7 +12,7 @@ use crate::player::{
     PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame,
     StormSharedWeatherArtVisuals, WeatherVisuals,
 };
-use crate::tiles::{Tile, TileRef, TileSheet, parse_tile_quads};
+use crate::tiles::{Tile, TileQuad, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
 use sha1::{Digest, Sha1};
 use std::path::Path;
@@ -494,7 +494,7 @@ pub fn load_level_visuals_with_source(
         background: bg_palette,
     };
 
-    let block_quads = parse_tile_quads(&read_root_asset(
+    let block_quads = parse_block_mapping_quads_loc_11d42_11d46(&read_root_asset(
         source,
         "theme",
         find_theme_asset(manifest, BLOCK_MAPPING_PATH)
@@ -591,6 +591,33 @@ pub fn load_level_visuals_with_source(
             None
         }),
     })
+}
+
+fn parse_block_mapping_quads_loc_11d42_11d46(bytes: &[u8]) -> Result<Vec<TileQuad>> {
+    if !bytes.len().is_multiple_of(4) {
+        bail!(
+            "block mapping length {} is not a multiple of 4 bytes",
+            bytes.len()
+        );
+    }
+    let source_longwords = bytes
+        .chunks_exact(4)
+        .map(|chunk| u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect::<Vec<_>>();
+    if source_longwords.len() < 0xA2 {
+        bail!(
+            "block mapping needs at least 162 longwords, got {}",
+            source_longwords.len()
+        );
+    }
+
+    let or_mask = wildside_core::block_mapping_or_mask_loc_11D42(false);
+    let copied = wildside_core::copy_block_mappings_loc_11D46(&source_longwords, or_mask);
+    let copied_bytes = copied
+        .into_iter()
+        .flat_map(u32::to_be_bytes)
+        .collect::<Vec<_>>();
+    parse_tile_quads(&copied_bytes)
 }
 
 fn load_pause_menu_visuals(

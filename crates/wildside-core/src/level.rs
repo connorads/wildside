@@ -8464,8 +8464,7 @@ pub(crate) fn object_check_in_range_wide_load_y_loc_32140(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
+pub fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
     // ASM loc_11D0C -> loc_11D42 (kid.asm:23917-23923) clears `d1`, tests
     // `($FFFFF896).w`, and only loads `$80008000` into `d1` when that byte is
     // non-zero before falling through into the block-mapping copy loop.
@@ -8473,8 +8472,7 @@ pub(crate) fn block_mapping_or_mask_loc_11D42(high_priority_flag: bool) -> u32 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn copy_block_mappings_loc_11D46(source_longwords: &[u32], or_mask: u32) -> Vec<u32> {
+pub fn copy_block_mappings_loc_11D46(source_longwords: &[u32], or_mask: u32) -> Vec<u32> {
     // ASM loc_11D42/loc_11D46 (kid.asm:23923-23928) seeds `d0` with `$A1`, so
     // `dbf d0,loc_11D46` copies exactly `$A2` longwords from `(a1)+` to
     // `Block_Mappings`, OR-ing each longword with the mask prepared in `d1`.
