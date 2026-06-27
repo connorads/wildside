@@ -185,6 +185,7 @@ pub(crate) struct MiniHoppingSkullRelaunchTail {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg(test)]
 pub(crate) enum MiniHoppingSkullLeftLandingLoopDecision {
     ContinueWait {
         next_dbf_counter: u16,
@@ -435,7 +436,7 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn mini_hopping_skull_left_hop_landing_gate_loc_3edf8(
     dbf_counter: u16,
     kid_x_word: u16,
@@ -720,7 +721,7 @@ pub(crate) fn mini_hopping_skull_landing_collision_damage_loc_3ef1a(
     mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn mini_hopping_skull_landing_collision_wait_loc_3ef32(
     dbf_counter: u16,
     kid_x_word: u16,
