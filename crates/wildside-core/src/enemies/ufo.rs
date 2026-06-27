@@ -1418,7 +1418,6 @@ pub(crate) struct UfoHurtDriverBerzerkerChargeFallLoc35788 {
     pub(crate) enters_falling_loop: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_berzerker_charge_fall_loc_35788(
     kid_x_velocity: i32,
 ) -> UfoHurtDriverBerzerkerChargeFallLoc35788 {
