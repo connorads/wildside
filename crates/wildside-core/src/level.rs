@@ -4091,6 +4091,7 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
     };
 
     let mut pos = 0usize;
+    let mut prize_block_list_addr = 0;
     let read = |pos: &mut usize| -> Option<u16> {
         let w = block_layout_words.get(*pos).copied()?;
         *pos += 1;
@@ -4137,6 +4138,8 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // sub_127A8. (kid.asm:24574-24604)
             1 => {
                 let block_type_arg = if hidden { -1 } else { 1 };
+                let init = block_type_1_init_list_loc_123dc(prize_block_list_addr, 0x00FF_3B24);
+                prize_block_list_addr = init.block_list_addr;
                 run_loop_with_property_123dc(
                     block_layout_words,
                     &mut pos,
@@ -5204,7 +5207,6 @@ pub(crate) struct BlockType1InitLoc123DC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1_init_list_loc_123dc(
     existing_list_addr: u32,
     prize_list_addr: u32,
