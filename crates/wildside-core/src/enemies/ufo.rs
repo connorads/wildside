@@ -521,17 +521,19 @@ fn apply_ufo_terrain_collision_loc_35056(enemy: &mut ActiveEnemy, collision_type
         }
         Some(UfoCollisionBehaviorLoc35056::BounceSlopeUp) => {
             // ASM UFO.asm Enemy0F_UFO_BounceUpSlope: loc_350F2 rolls back the
-            // current movement before forcing the up-left launch vector.
+            // current movement before forcing the same up-left launch vector as
+            // hurt-driver loc_35838.
             let restore = ufo_restore_position_loc_350f2(
                 enemy.x_pos as i32,
                 enemy.y_pos as i32,
                 enemy.x_velocity,
                 enemy.y_velocity,
             );
+            let launch = ufo_hurt_driver_up_left_launch_loc_35838();
             enemy.x_pos = restore.x_pos as u32;
             enemy.y_pos = restore.y_pos as u32;
-            enemy.x_velocity = -0x0001_0000;
-            enemy.y_velocity = -0x0001_0000;
+            enemy.x_velocity = launch.x_velocity;
+            enemy.y_velocity = launch.y_velocity;
             enemy.x_acceleration = 0x800;
             enemy.y_acceleration = 0x800;
             enemy.target_x_velocity = 0;
@@ -540,17 +542,19 @@ fn apply_ufo_terrain_collision_loc_35056(enemy: &mut ActiveEnemy, collision_type
         }
         Some(UfoCollisionBehaviorLoc35056::BounceSlopeDown) => {
             // ASM UFO.asm Enemy0F_UFO_BounceDownSlope mirrors the slope-up path
-            // with a rightward launch and negative X acceleration.
+            // with the same up-right launch vector as hurt-driver loc_35864 and
+            // negative X acceleration.
             let restore = ufo_restore_position_loc_350f2(
                 enemy.x_pos as i32,
                 enemy.y_pos as i32,
                 enemy.x_velocity,
                 enemy.y_velocity,
             );
+            let launch = ufo_hurt_driver_up_right_launch_loc_35864();
             enemy.x_pos = restore.x_pos as u32;
             enemy.y_pos = restore.y_pos as u32;
-            enemy.x_velocity = 0x0001_0000;
-            enemy.y_velocity = -0x0001_0000;
+            enemy.x_velocity = launch.x_velocity;
+            enemy.y_velocity = launch.y_velocity;
             enemy.x_acceleration = -0x800;
             enemy.y_acceleration = 0x800;
             enemy.target_x_velocity = 0;
@@ -1582,7 +1586,6 @@ pub(crate) struct UfoHurtDriverLaunchLoc35838 {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_up_left_launch_loc_35838() -> UfoHurtDriverLaunchLoc35838 {
     // ASM UFO.asm loc_35838: write `#-$10000` to both `x_vel(a3)` and
     // `y_vel(a3)`, then return.
@@ -1598,7 +1601,6 @@ pub(crate) struct UfoHurtDriverLaunchLoc35864 {
     pub(crate) y_velocity: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_hurt_driver_up_right_launch_loc_35864() -> UfoHurtDriverLaunchLoc35864 {
     // ASM UFO.asm loc_35864: write `#$10000` to `x_vel(a3)`, write
     // `#-$10000` to `y_vel(a3)`, then return.
