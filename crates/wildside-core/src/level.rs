@@ -4138,10 +4138,9 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
                         if let Some(idx) = cell_index(x, y) {
                             if hidden {
                                 write_hidden(cells, idx);
-                            } else if prop & 0x8000 != 0 {
-                                cells[idx] = 0xE101;
                             } else {
-                                cells[idx] = 0xE102;
+                                cells[idx] = block_type_1_cell_value_loc_12408(idx as u32, prop, 1)
+                                    .cell_word;
                             }
                         }
                     },
@@ -5169,7 +5168,6 @@ pub(crate) struct BlockType1CellValueLoc12408 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1_cell_value_loc_12408(
     cell_addr: u32,
     property_word: u16,
