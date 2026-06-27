@@ -2549,6 +2549,7 @@ pub(crate) struct NormalSpriteChunkLoc12B8 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct SpriteDmaUploadLoc141A {
     pub(crate) sprite_tile_word: u16,
     pub(crate) dma_tile_count: u16,
@@ -12959,7 +12960,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn sprite_dma_upload_loc_141A(
         size_code: u8,
         sprite_tile_word: u16,
@@ -13837,12 +13838,14 @@ pub(crate) fn juggernaut_support_overlap_sub_9832(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum SolidOverlapAxisSub1FA2 {
     Horizontal,
     Vertical,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct SolidOverlapResolutionSub1FA2 {
     pub(crate) axis: SolidOverlapAxisSub1FA2,
     pub(crate) x_delta_px: i16,
@@ -13850,6 +13853,7 @@ pub(crate) struct SolidOverlapResolutionSub1FA2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct SolidOverlapTileSub1FA2 {
     pub(crate) rect: CollisionRectSub1F52,
     pub(crate) tile_word: u16,
@@ -13860,18 +13864,21 @@ pub(crate) struct SolidOverlapTileSub1FA2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum SolidOverlapActionSub1FA2 {
     Resolve(SolidOverlapResolutionSub1FA2),
     HurtCollision,
     SkipSpecialHurt,
 }
 
+#[cfg(test)]
 fn palette_to_vram0_blocks_solid_scan_sub_2198(tile_word: u16) -> bool {
     // ASM j_Palette_to_VRAM0 (kid.asm:3978): returns zero only when bit 15 was
     // set and clearing it leaves palette nibble `$300`.
     (tile_word & 0x8000) != 0 && (tile_word & 0x0F00) == 0x0300
 }
 
+#[cfg(test)]
 fn special_hurt_marker_loc_211c(tile_word: u16) -> bool {
     // ASM loc_211C (kid.asm:3940-3956): neighbouring `$4000`/`$5000`
     // collision-nibble cells route to loc_216A before the hurt writeback.
@@ -13904,6 +13911,7 @@ pub fn speed_bonus_threshold_loc_d660(level_id: LevelId) -> Option<u8> {
         .filter(|threshold| *threshold > 0)
 }
 
+#[cfg(test)]
 fn solid_overlap_resolution_sub_201c(
     kid_hitbox: CollisionRectSub1F52,
     solid: CollisionRectSub1F52,
@@ -13955,7 +13963,7 @@ fn solid_overlap_resolution_sub_201c(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn first_solid_overlap_action_sub_1FA2(
     kid_hitbox: CollisionRectSub1F52,
@@ -13988,7 +13996,7 @@ pub(crate) fn first_solid_overlap_action_sub_1FA2(
     Some(SolidOverlapActionSub1FA2::HurtCollision)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn first_solid_overlap_resolution_sub_1FA2(
     kid_hitbox: CollisionRectSub1F52,
