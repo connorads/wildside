@@ -230,7 +230,6 @@ pub(crate) struct TarMonsterRetaliationEntryLoc325AC {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterSeededShotLoc325B6 {
     pub(crate) gfx_object_slot_word: u32,
     pub(crate) x_pos: u32,
@@ -669,7 +668,6 @@ pub(crate) fn tar_monster_retaliation_entry_loc_325AC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_seeded_shot_loc_325B6(
     source_x_word: u16,
     source_y_word: u16,

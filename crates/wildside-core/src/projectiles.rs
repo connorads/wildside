@@ -53,8 +53,9 @@ use crate::enemies::{
     tar_monster_projectile_delete_loc_32652, tar_monster_projectile_loop_loc_3263C,
     tar_monster_projectile_negated_velocity_swap_loc_326C6,
     tar_monster_projectile_reflect_x_loc_326AA, tar_monster_projectile_reflect_y_loc_326B8,
-    tar_monster_projectile_velocity_swap_loc_326DC, tar_monster_shot_wait_loc_324E6,
-    ufo_beam_child_gravity_gate_loc_3555a, ufo_beam_child_turnaround_loc_3554a,
+    tar_monster_projectile_velocity_swap_loc_326DC, tar_monster_seeded_shot_loc_325B6,
+    tar_monster_shot_wait_loc_324E6, ufo_beam_child_gravity_gate_loc_3555a,
+    ufo_beam_child_turnaround_loc_3554a,
 };
 use crate::helmets::{
     RainSlotSpriteAction, RainTargetCandidate, diamond_power_rain_compute_tracking_velocity,
@@ -766,17 +767,27 @@ pub(crate) fn drips_surface_crawler_burst_helper_loc_338f8(
 ) -> EnemyProjectile {
     let x_word = ((crawler.x_pos >> 16) as u16).wrapping_add(x_offset as u16);
     let y_word = ((crawler.y_pos >> 16) as u16).wrapping_add(y_offset as u16);
+    let shot = tar_monster_seeded_shot_loc_325B6(x_word, y_word, crawler.x_velocity);
+    debug_assert_eq!(shot.gfx_object_slot_word, 0x0300_0003);
+    debug_assert_eq!(shot.sprite_frame_link, "LnkTo_unk_C7BDE");
+    debug_assert_eq!(shot.object_meta, 0x16);
+    debug_assert!(shot.status_flag_13);
+    debug_assert!(shot.is_moved);
+    debug_assert!(shot.has_kid_collision);
+    debug_assert_eq!(shot.priority, 0);
+    debug_assert!(shot.has_level_collision);
+    debug_assert!(!shot.collision_sprite_swap_enabled);
     EnemyProjectile {
         kind: EnemyProjectileKind::DripsSurfaceCrawlerBurst,
-        x_pos: u32::from(x_word) << 16,
-        y_pos: u32::from(y_word) << 16,
-        x_velocity: crawler.x_velocity.wrapping_shl(1),
+        x_pos: shot.x_pos,
+        y_pos: shot.y_pos,
+        x_velocity: shot.x_velocity,
         y_velocity: 0,
         lifetime: 60,
         gravity: 0x1000,
         friendly: false,
         terrain_kill: false,
-        tar_monster_collision_response_budget: 2,
+        tar_monster_collision_response_budget: shot.collision_response_budget,
         ..Default::default()
     }
 }
