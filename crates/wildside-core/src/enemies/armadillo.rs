@@ -267,7 +267,6 @@ pub(crate) fn armadillo_berzerker_recovery_loc_3c8f2(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArmadilloSpawnedChildResumeRouteLoc3C91A {
     SpawnedChildLeft,
     SpawnedChildRight,
@@ -275,13 +274,11 @@ pub(crate) enum ArmadilloSpawnedChildResumeRouteLoc3C91A {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloSpawnedChildResumeLoc3C91A {
     pub(crate) collision_type: u16,
     pub(crate) next: ArmadilloSpawnedChildResumeRouteLoc3C91A,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_spawned_child_resume_loc_3c91a(
     parent_spawned_child: bool,
     facing: Direction,
@@ -305,20 +302,17 @@ pub(crate) fn armadillo_spawned_child_resume_loc_3c91a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ArmadilloOrdinaryResumeRouteLoc3C930 {
     OrdinaryLeft,
     OrdinaryRight,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ArmadilloOrdinaryResumeLoc3C930 {
     pub(crate) collision_type: u16,
     pub(crate) next: ArmadilloOrdinaryResumeRouteLoc3C930,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn armadillo_ordinary_resume_loc_3c930(
     facing: Direction,
 ) -> ArmadilloOrdinaryResumeLoc3C930 {

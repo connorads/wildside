@@ -1870,6 +1870,37 @@ impl ActiveEnemy {
             && self.dragon_script_variant & ARMADILLO_PARENT_SPAWNED_CHILD_FLAG != 0
     }
 
+    fn assert_armadillo_resume_route_loc_3c91a(&self) {
+        // ASM Armadillo.asm loc_3C91A/loc_3C930: every nonterminal damage
+        // resume clears collision and dispatches by spawned-child flag and
+        // `x_direction(a3)` before entering the shared walker route.
+        let resume = armadillo_spawned_child_resume_loc_3c91a(
+            self.is_armadillo_parent_spawned_child(),
+            self.facing,
+        );
+        debug_assert_eq!(resume.collision_type, 0);
+        match resume.next {
+            ArmadilloSpawnedChildResumeRouteLoc3C91A::SpawnedChildLeft => {
+                debug_assert_eq!(self.facing, Direction::Left);
+            }
+            ArmadilloSpawnedChildResumeRouteLoc3C91A::SpawnedChildRight => {
+                debug_assert_eq!(self.facing, Direction::Right);
+            }
+            ArmadilloSpawnedChildResumeRouteLoc3C91A::OrdinaryTail => {
+                let ordinary = armadillo_ordinary_resume_loc_3c930(self.facing);
+                debug_assert_eq!(ordinary.collision_type, 0);
+                match ordinary.next {
+                    ArmadilloOrdinaryResumeRouteLoc3C930::OrdinaryLeft => {
+                        debug_assert_eq!(self.facing, Direction::Left);
+                    }
+                    ArmadilloOrdinaryResumeRouteLoc3C930::OrdinaryRight => {
+                        debug_assert_eq!(self.facing, Direction::Right);
+                    }
+                }
+            }
+        }
+    }
+
     pub(crate) fn is_armadillo_spawned_child_fall_waiting(&self) -> bool {
         matches!(self.family, EnemyFamily::Armadillo)
             && self.wait_timer == ARMADILLO_SPAWNED_CHILD_FALL_WAIT_TIMER_LOC_3C954
@@ -1980,6 +2011,7 @@ impl ActiveEnemy {
                     // ASM Armadillo.asm loc_3C848: positive `$42(a3)` branches
                     // straight to loc_3C91A, so the projectile is consumed but
                     // HP, recoil state, and flash state are left untouched.
+                    self.assert_armadillo_resume_route_loc_3c91a();
                     self.hit_points = current_hp as u8;
                     return false;
                 }
@@ -1993,6 +2025,7 @@ impl ActiveEnemy {
                     // ASM Armadillo.asm loc_3C848: after the hurt animation
                     // finishes, `$42(a3)` is seeded with `$FF88`, `$50(a5)`
                     // is restored from `$5E(a5)`, and patrol resumes.
+                    self.assert_armadillo_resume_route_loc_3c91a();
                     self.hit_points = remaining_hp as u8;
                     self.shared_walker_state = recoil_state_word;
                     self.walk_speed_override = restored_walk_speed;
@@ -2121,6 +2154,7 @@ impl ActiveEnemy {
                     // ASM Armadillo.asm loc_3C848: `colid_kidabove` shares
                     // the hurt path, and positive `$42(a3)` resumes without
                     // decrementing HP.
+                    self.assert_armadillo_resume_route_loc_3c91a();
                     self.hit_points = current_hp as u8;
                     return false;
                 }
@@ -2134,6 +2168,7 @@ impl ActiveEnemy {
                     // ASM Armadillo.asm loc_3C848: nonfatal Kid-above contact
                     // seeds `$42(a3)=$FF88`, restores `$50(a5)` from `$5E(a5)`,
                     // and hibernates on `stru_3C6D0` before patrol resumes.
+                    self.assert_armadillo_resume_route_loc_3c91a();
                     self.hit_points = remaining_hp as u8;
                     self.shared_walker_state = recoil_state_word;
                     self.walk_speed_override = restored_walk_speed;
