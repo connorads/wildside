@@ -6,26 +6,35 @@ use super::{
     EnemyProjectile, FLYER_RETENTION_X_PADDING, FLYER_RETENTION_Y_PADDING, MAX_PROJECTILES,
 };
 use crate::combat::{
-    BoomerangBossHead2WaitNextLoc38062, BoomerangBossHead3WaitNextLoc38144,
-    BoomerangBossHeadWaitNextLoc37F80, QueuedSoundEffect, ShishkaBagelHead1WaitNextLoc394E8,
-    ShishkaBagelHead2WaitNextLoc3960E, ShishkaBagelHead3WaitNextLoc39734,
+    BoomerangBossHead2AttackWaitNextLoc380B8, BoomerangBossHead2WaitNextLoc38062,
+    BoomerangBossHead3AttackWaitNextLoc3819A, BoomerangBossHead3WaitNextLoc38144,
+    BoomerangBossHeadAttackWaitNextLoc37FD6, BoomerangBossHeadWaitNextLoc37F80, QueuedSoundEffect,
+    ShishkaBagelHead1AttackWaitNextLoc39548, ShishkaBagelHead1WaitNextLoc394E8,
+    ShishkaBagelHead2AttackWaitNextLoc3966E, ShishkaBagelHead2WaitNextLoc3960E,
+    ShishkaBagelHead3AttackWaitNextLoc39794, ShishkaBagelHead3WaitNextLoc39734,
     boomerang_boss_head_1_activation_loc_37F94,
-    boomerang_boss_head_1_attack_animation_gate_loc_37FEA, boomerang_boss_head_1_init_loc_37F30,
+    boomerang_boss_head_1_attack_animation_gate_loc_37FEA,
+    boomerang_boss_head_1_attack_wait_loop_loc_37FD6, boomerang_boss_head_1_init_loc_37F30,
     boomerang_boss_head_1_wait_loop_loc_37F80, boomerang_boss_head_2_activation_window_loc_38076,
-    boomerang_boss_head_2_attack_animation_gate_loc_380CC, boomerang_boss_head_2_init_loc_38012,
+    boomerang_boss_head_2_attack_animation_gate_loc_380CC,
+    boomerang_boss_head_2_attack_wait_loop_loc_380B8, boomerang_boss_head_2_init_loc_38012,
     boomerang_boss_head_2_wait_loop_loc_38062, boomerang_boss_head_3_activation_window_loc_38158,
-    boomerang_boss_head_3_attack_animation_gate_loc_381AE, boomerang_boss_head_3_init_loc_380F4,
+    boomerang_boss_head_3_attack_animation_gate_loc_381AE,
+    boomerang_boss_head_3_attack_wait_loop_loc_3819A, boomerang_boss_head_3_init_loc_380F4,
     boomerang_boss_head_3_wait_loop_loc_38144, boss_death_burst_init_sub_370D2,
     boss_eye_counter_orbit_placement_sub_39420, boss_eye_orbit_placement_sub_393C8,
     boss_head_death_anim_sequence_loc_39EE2, boss_head_death_spin_loop_loc_39F7A,
     boss_head_movement_step_for_family_sub_39846, boss_head_projectile_spawn_sub_397E4,
     heady_metal_palette_cycle_sub_379E8, heady_metal_spawn_animation_loc_3761E,
     heady_metal_tracking_velocity_loc_37582, shishka_bagel_head_1_activation_window_loc_39506,
-    shishka_bagel_head_1_attack_anim_gate_loc_39566, shishka_bagel_head_1_init_loc_39478,
+    shishka_bagel_head_1_attack_anim_gate_loc_39566,
+    shishka_bagel_head_1_attack_wait_loop_loc_39548, shishka_bagel_head_1_init_loc_39478,
     shishka_bagel_head_1_wait_loop_loc_394E8, shishka_bagel_head_2_activation_window_loc_3962C,
-    shishka_bagel_head_2_attack_anim_gate_loc_3968C, shishka_bagel_head_2_init_loc_39598,
+    shishka_bagel_head_2_attack_anim_gate_loc_3968C,
+    shishka_bagel_head_2_attack_wait_loop_loc_3966E, shishka_bagel_head_2_init_loc_39598,
     shishka_bagel_head_2_wait_loop_loc_3960E, shishka_bagel_head_3_activation_window_loc_39752,
-    shishka_bagel_head_3_init_loc_396BE, shishka_bagel_head_3_wait_loop_loc_39734,
+    shishka_bagel_head_3_attack_wait_loop_loc_39794, shishka_bagel_head_3_init_loc_396BE,
+    shishka_bagel_head_3_wait_loop_loc_39734,
 };
 use crate::projectiles::fire_demon_trail_has_floor_support_loc_3a63c;
 
@@ -8434,6 +8443,47 @@ fn heady_metal_eye_spawn_animation_frames(selected_animation_label: &str) -> u16
     }
 }
 
+fn boss_head_attack_wait_reaches_animation_gate(
+    family: EnemyFamily,
+    boss_head_index: u8,
+    movement_status_d7: u16,
+) -> bool {
+    let variant_d2 = if matches!(family, EnemyFamily::Shishkaboss) {
+        0
+    } else {
+        1
+    };
+
+    // ASM loc_39548/loc_37FD6 and sibling attack wait loops hibernate, rerun
+    // the head movement wrapper, and only test `$18(a3)` when d7 stays clear.
+    match (family, boss_head_index) {
+        (EnemyFamily::BoomerangBosses, 0) => matches!(
+            boomerang_boss_head_1_attack_wait_loop_loc_37FD6(movement_status_d7).next,
+            BoomerangBossHeadAttackWaitNextLoc37FD6::CheckAttackAnimationDoneLoc37FEA
+        ),
+        (EnemyFamily::BoomerangBosses, 1) => matches!(
+            boomerang_boss_head_2_attack_wait_loop_loc_380B8(movement_status_d7).next,
+            BoomerangBossHead2AttackWaitNextLoc380B8::CheckAttackAnimationDone
+        ),
+        (EnemyFamily::BoomerangBosses, _) => matches!(
+            boomerang_boss_head_3_attack_wait_loop_loc_3819A(movement_status_d7).next,
+            BoomerangBossHead3AttackWaitNextLoc3819A::CheckAttackAnimationDone
+        ),
+        (_, 0) => matches!(
+            shishka_bagel_head_1_attack_wait_loop_loc_39548(variant_d2, movement_status_d7).next,
+            ShishkaBagelHead1AttackWaitNextLoc39548::CheckAttackAnimationDoneLoc39566
+        ),
+        (_, 1) => matches!(
+            shishka_bagel_head_2_attack_wait_loop_loc_3966E(variant_d2, movement_status_d7).next,
+            ShishkaBagelHead2AttackWaitNextLoc3966E::CheckAttackAnimationDoneLoc3968C
+        ),
+        _ => matches!(
+            shishka_bagel_head_3_attack_wait_loop_loc_39794(variant_d2, movement_status_d7).next,
+            ShishkaBagelHead3AttackWaitNextLoc39794::CheckAttackAnimationDoneLoc397B2
+        ),
+    }
+}
+
 /// Bosses periodically fire projectiles at the player.
 #[cfg(test)]
 pub(crate) fn step_boss_fire(
@@ -8588,6 +8638,14 @@ pub(crate) fn step_boss_fire_with_sounds(
         }
     }
     if multi_head_boss {
+        let movement_status_d7 = 0;
+        if !boss_head_attack_wait_reaches_animation_gate(
+            enemy.family,
+            enemy.boss_head_index,
+            movement_status_d7,
+        ) {
+            return;
+        }
         let animation_done_byte_18 = 1;
         let runs_projectile_spawn_sub_397e4 = match (enemy.family, enemy.boss_head_index) {
             (EnemyFamily::BoomerangBosses, 0) => {
