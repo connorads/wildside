@@ -5542,7 +5542,6 @@ pub(crate) fn block_type_1_row_by_row_finalize_loc_12480(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_copy_setup_loc_11C96(
     hidden_block_count: u16,
     copied_list_addr: u32,
@@ -5563,7 +5562,6 @@ pub(crate) fn hidden_block_copy_setup_loc_11C96(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn copy_hidden_block_entries_loc_11CA8(
     temp_entries: &[[u32; 2]],
     dbf_counter: u16,
@@ -5576,6 +5574,41 @@ pub(crate) fn copy_hidden_block_entries_loc_11CA8(
         .copied()
         .take(usize::from(dbf_counter) + 1)
         .collect()
+}
+
+#[allow(non_snake_case)]
+fn copied_hidden_block_entries_for_runtime_loc_11C96(
+    hidden_blocks: &[terrain::HiddenBlockEntry],
+) -> Option<Vec<terrain::HiddenBlockEntry>> {
+    // ASM loc_11C96..loc_11CA8 (kid.asm:23851-23860): when the temp hidden
+    // list is non-empty, copy each 8-byte record as two longwords into the
+    // final `$FFFF3B24` block-list region before later reveal lookups use it.
+    let hidden_block_count = u16::try_from(hidden_blocks.len()).ok()?;
+    let copy_setup = hidden_block_copy_setup_loc_11C96(hidden_block_count, 0xFFFF_3B24)?;
+    let temp_entries: Vec<[u32; 2]> = hidden_blocks
+        .iter()
+        .map(|entry| {
+            [
+                (u32::from(entry.layout_addr) << 16) | u32::from(entry.col),
+                (u32::from(entry.row) << 16)
+                    | (u32::from(entry.block_type) << 8)
+                    | u32::from(entry.block_setting),
+            ]
+        })
+        .collect();
+    let copied_entries = copy_hidden_block_entries_loc_11CA8(&temp_entries, copy_setup.dbf_counter);
+    Some(
+        copied_entries
+            .into_iter()
+            .map(|entry| terrain::HiddenBlockEntry {
+                layout_addr: (entry[0] >> 16) as u16,
+                col: entry[0] as u16,
+                row: (entry[1] >> 16) as u16,
+                block_type: (entry[1] >> 8) as u8,
+                block_setting: entry[1] as u8,
+            })
+            .collect(),
+    )
 }
 
 fn fg_queue_guard_low_word_loc_11_cb6(base_addr: u32, span_words: u16) -> bool {
@@ -19436,6 +19469,11 @@ impl NativeRuntime {
         // runtime reveal lookup mirrors sub_E37A with binary search, so preserve
         // that sorted invariant after reading generated sidecar data.
         sort_hidden_blocks_by_rom_insertion_loc_127ce(&mut block_list);
+        if let Some(copied_hidden_blocks) =
+            copied_hidden_block_entries_for_runtime_loc_11C96(&block_list.hidden_blocks)
+        {
+            block_list.hidden_blocks = copied_hidden_blocks;
+        }
         // ASM loc_11CCA (kid.asm:23877): the generated hidden-block list starts
         // at the same `$FFFF3B24` work buffer and must not span into
         // `FGPlane_UpdateQueueCustom`.
