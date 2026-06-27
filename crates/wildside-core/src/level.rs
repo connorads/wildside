@@ -2456,7 +2456,6 @@ pub(crate) fn indoor_rubber_block_vram_walk_loc_1451E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
     existing_longword: u32,
     buffered_longword: u32,
@@ -2487,7 +2486,6 @@ pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn indoor_rubber_block_pack_selected_nibble_loc_14552(
     shifted_seed_longword: u32,
     existing_rotated: u32,
