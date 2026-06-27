@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use font8x8::{BASIC_FONTS, UnicodeFonts};
-use wildside_core::physics::Direction;
+use wildside_core::{pause_darken_palette_loc_6C70, physics::Direction};
 #[cfg(test)]
 use wildside_render::MdColour;
 use wildside_render::{Palette, TileRef, TileSheet};
@@ -586,7 +586,12 @@ pub fn apply_pause_palette_darken_loc_6c70(rgb: &mut [u8]) {
 
 fn pause_darken_expanded_channel_loc_6c70(channel: u8) -> u8 {
     let md_channel = ((u16::from(channel) * 7 + 127) / 255).min(7);
-    ((md_channel >> 1) * 255 / 7) as u8
+    let raw_word = (md_channel << 9) | (md_channel << 5) | (md_channel << 1);
+    let mut palette_buffer = [0u16; 0x40];
+    palette_buffer[0] = raw_word;
+    pause_darken_palette_loc_6C70(&mut palette_buffer);
+    let darkened_md_channel = (palette_buffer[0] >> 1) & 0x7;
+    (darkened_md_channel * 255 / 7) as u8
 }
 
 pub fn push_panel(

@@ -1870,8 +1870,7 @@ pub(crate) fn pause_menu_unpause_exit_loc_6C0A(game_paused: u8) -> PauseMenuUnpa
 /// Layout: darkens colours 0–14 of the first palette line, skips colour 15,
 /// then darkens all 48 colours of palette lines 1–3.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn pause_darken_palette_loc_6C70(palette_buffer: &mut [u16; 0x40]) {
+pub fn pause_darken_palette_loc_6C70(palette_buffer: &mut [u16; 0x40]) {
     // ASM loc_6C70: inner halving — each 4-bit channel is independently halved
     // via lsr.w #1 + mask.
     fn halve_colour(word: u16) -> u16 {
