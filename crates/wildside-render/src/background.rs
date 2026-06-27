@@ -59,31 +59,52 @@ pub struct BackgroundTile {
 const LAYERED_BACKGROUND_PLANE_WIDTH_TILES: usize = 32;
 
 pub fn parse_chunked_background_layout(bytes: &[u8]) -> Result<Vec<BackgroundPlacement>> {
+    let mut word_chunks = bytes.chunks_exact(2);
+    let layout_words = word_chunks
+        .by_ref()
+        .map(|word| u16::from_be_bytes([word[0], word[1]]))
+        .collect::<Vec<_>>();
+    if !word_chunks.remainder().is_empty() {
+        if let Some(&chunk_id) = layout_words.first()
+            && chunk_id & 0x8000 == 0
+            && layout_words.len() < 3
+        {
+            bail!("background layout entry for chunk 0x{chunk_id:04X} is truncated");
+        }
+        bail!("background layout is missing the 0xFFFF terminator");
+    }
+
     let mut placements = Vec::new();
-    let mut remaining = bytes;
+    let mut remaining = layout_words.as_slice();
 
     loop {
-        if remaining.len() < 2 {
+        let Some(&chunk_id) = remaining.first() else {
             bail!("background layout is missing the 0xFFFF terminator");
-        }
-
-        let chunk_id = u16::from_be_bytes([remaining[0], remaining[1]]);
-        if chunk_id == 0xFFFF {
-            return Ok(placements);
-        }
+        };
         if chunk_id == 0x8000 {
             bail!("shared background layout pointers are not supported");
         }
-        if remaining.len() < 6 {
+        if chunk_id & 0x8000 != 0 && wildside_core::background_mappings_terminator_loc_12842() {
+            return Ok(placements);
+        }
+        if remaining.len() < 3 {
             bail!("background layout entry for chunk 0x{chunk_id:04X} is truncated");
         }
 
+        let Some((chunk, next_remaining)) =
+            wildside_core::background_mappings_read_chunk_loc_12830(remaining, 0, 0)
+        else {
+            if wildside_core::background_mappings_terminator_loc_12842() {
+                return Ok(placements);
+            }
+            unreachable!("ASM loc_12842 terminator helper is total")
+        };
         placements.push(BackgroundPlacement {
-            chunk_id,
-            x_tiles: u16::from_be_bytes([remaining[2], remaining[3]]),
-            y_tiles: u16::from_be_bytes([remaining[4], remaining[5]]),
+            chunk_id: chunk.chunk_index,
+            x_tiles: chunk.x_pos as u16,
+            y_tiles: chunk.y_pos as u16,
         });
-        remaining = &remaining[6..];
+        remaining = next_remaining;
     }
 }
 

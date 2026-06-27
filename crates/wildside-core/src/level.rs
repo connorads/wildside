@@ -7226,10 +7226,10 @@ pub(crate) struct BackgroundMappingsCrossLevelLoc12824 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundMappingsChunkLoc12830 {
-    pub(crate) chunk_index: u16,
-    pub(crate) x_pos: i16,
-    pub(crate) y_pos: i16,
+pub struct BackgroundMappingsChunkLoc12830 {
+    pub chunk_index: u16,
+    pub x_pos: i16,
+    pub y_pos: i16,
 }
 
 #[allow(non_snake_case)]
@@ -7263,8 +7263,7 @@ pub(crate) fn background_mappings_cross_level_loc_12824(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_mappings_read_chunk_loc_12830(
+pub fn background_mappings_read_chunk_loc_12830(
     layout_words: &[u16],
     x_offset: i16,
     y_offset: i16,
@@ -7301,8 +7300,7 @@ pub(crate) fn background_mappings_read_chunk_loc_12830(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_mappings_terminator_loc_12842() -> bool {
+pub fn background_mappings_terminator_loc_12842() -> bool {
     // ASM loc_12842 (kid.asm:25176-25178): loop termination.
     //   movem.l (sp)+,d5-d7    ; restore saved registers
     //   rts                     ; return to caller
