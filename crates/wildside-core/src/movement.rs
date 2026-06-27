@@ -1535,7 +1535,6 @@ pub(crate) fn slope_walk_visual_accumulator_loc_A13A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_worker_sub_E0F8(
     block_col: u16,
     block_row: u16,
@@ -1598,7 +1597,6 @@ pub(crate) fn hidden_block_reveal_workers_loc_E0C2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_worker_sub_E1D4(
     block_col: u16,
     block_row: u16,
