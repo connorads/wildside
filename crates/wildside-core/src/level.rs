@@ -13037,10 +13037,10 @@ pub enum BackgroundScrollThemeDispatchLoc30598 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundScrollForestWaterRippleVisibleBandLoc305D4 {
-    pub(crate) start_scanline: u16,
-    pub(crate) ripple_data_byte_offset: u16,
-    pub(crate) affected_scanline_count: u16,
+pub struct BackgroundScrollForestWaterRippleVisibleBandLoc305D4 {
+    pub start_scanline: u16,
+    pub ripple_data_byte_offset: u16,
+    pub affected_scanline_count: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14238,8 +14238,7 @@ pub fn background_scroll_theme_dispatch_loc_30598(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_forest_water_ripple_visible_band_loc_305D4(
+pub fn background_scroll_forest_water_ripple_visible_band_loc_305D4(
     start_scanline: i16,
 ) -> Option<BackgroundScrollForestWaterRippleVisibleBandLoc305D4> {
     // ASM loc_305D4 (kid.asm:34276): when the prelude's `sub.w d1,d0` stays

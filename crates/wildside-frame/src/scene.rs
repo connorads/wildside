@@ -4900,12 +4900,18 @@ pub fn forest_water_ripple_offset_for_screen_y_sub_30598(
     if !(0..FRAME_HEIGHT as i32).contains(&screen_y) {
         return None;
     }
-    let visible_start = start_y.max(0);
-    let table_start = if start_y < 0 { -start_y } else { 0 };
-    let line_count = if start_y < 0 {
-        (64 + start_y).clamp(0, 64)
+    let (visible_start, table_start, line_count) = if start_y < 0 {
+        (0, -start_y, (64 + start_y).clamp(0, 64))
     } else {
-        (FRAME_HEIGHT as i32 - start_y).clamp(0, 64)
+        let visible_band =
+            wildside_core::background_scroll_forest_water_ripple_visible_band_loc_305D4(
+                start_y as i16,
+            )?;
+        (
+            i32::from(visible_band.start_scanline),
+            i32::from(visible_band.ripple_data_byte_offset),
+            i32::from(visible_band.affected_scanline_count),
+        )
     };
     let visible_end = visible_start + line_count;
     if screen_y < visible_start || screen_y >= visible_end {
