@@ -2348,6 +2348,44 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
+    fn shooter_object_collision_gate_loc_EDFA(
+        direction: u16,
+        state_word: u16,
+        layout_word: u16,
+    ) -> bool {
+        match direction {
+            0 => matches!(
+                crate::level::shooter_object_moving_up_collision_gate_loc_EE92(
+                    state_word,
+                    layout_word,
+                ),
+                crate::level::ShooterObjectMovingUpNextLocEE80::InteractLevelLayout
+            ),
+            1 => matches!(
+                crate::level::shooter_object_moving_right_collision_gate_loc_EE38(
+                    state_word,
+                    layout_word,
+                ),
+                crate::level::ShooterObjectMovingRightNextLocEE2A::InteractLevelLayout
+            ),
+            2 => matches!(
+                crate::level::shooter_object_moving_down_collision_gate_loc_EF40(
+                    state_word,
+                    layout_word,
+                ),
+                crate::level::ShooterObjectMovingDownNextLocEF2E::InteractLevelLayout
+            ),
+            _ => matches!(
+                crate::level::shooter_object_moving_left_collision_gate_loc_EEE4(
+                    state_word,
+                    layout_word,
+                ),
+                crate::level::ShooterObjectMovingLeftNextLocEEE4::InteractLevelLayout
+            ),
+        }
+    }
+
+    #[allow(non_snake_case)]
     fn step_tracked_shooter_object_loc_EDFA(
         grid: &terrain::BlockGrid,
         projectile: &mut EnemyProjectile,
@@ -2429,26 +2467,8 @@ impl NativeRuntime {
         if check_collision {
             let layout_word =
                 Self::shooter_layout_word_loc_EE38(grid.cell_at(layout_col, layout_row));
-            let interacts = match direction {
-                // ASM loc_EE92: moving up interacts with bit-14 cells while
-                // state<2, or at older states when the moving-up `$2000` bit remains.
-                0 => (layout_word & 0x4000) != 0 && (state_word < 2 || (layout_word & 0x2000) != 0),
-                // ASM loc_EE38: moving right ages >=2 interact immediately;
-                // ages 0/1 require bits `$3000`.
-                1 => {
-                    (layout_word & 0x4000) != 0 && (state_word >= 2 || (layout_word & 0x3000) != 0)
-                }
-                // ASM loc_EF40: moving down matches right except the young-age
-                // directional bit is `$2000`.
-                2 => {
-                    (layout_word & 0x4000) != 0 && (state_word >= 2 || (layout_word & 0x2000) != 0)
-                }
-                // ASM loc_EEE4: moving left ages >=2 interact immediately;
-                // ages 0/1 interact when the `$1000` left bit is clear.
-                _ => {
-                    (layout_word & 0x4000) != 0 && (state_word >= 2 || (layout_word & 0x1000) == 0)
-                }
-            };
+            let interacts =
+                Self::shooter_object_collision_gate_loc_EDFA(direction, state_word, layout_word);
 
             if interacts {
                 return Err(Self::shooter_layout_interaction_at_cell_loc_F00A(

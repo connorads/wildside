@@ -11496,7 +11496,6 @@ pub(crate) fn shooter_object_moving_right_gate_loc_EE2A(
 /// 14 is set, age words two and above interact immediately, while younger ages
 /// only interact when `andi.w #$3000,d1` leaves a non-zero value.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_right_collision_gate_loc_EE38(
     state_word: u16,
     current_layout_word: u16,
@@ -11562,7 +11561,6 @@ pub(crate) fn shooter_object_moving_up_gate_loc_EE80(
 /// moving-up shooter by subtracting four from `$4(a0)` before emitting sprite
 /// tile `$8295`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_up_collision_gate_loc_EE92(
     state_word: u16,
     selected_layout_word: u16,
@@ -11602,7 +11600,6 @@ pub(crate) fn shooter_object_moving_left_gate_loc_EED6(
 /// Ages two and above interact immediately; younger ages interact unless the
 /// moving-left `$1000` direction bit is still present.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_left_collision_gate_loc_EEE4(
     state_word: u16,
     selected_layout_word: u16,
@@ -11663,7 +11660,6 @@ pub(crate) fn shooter_object_moving_down_gate_loc_EF2E(
 /// layout word, bit 14 gates collision; age words two and above interact
 /// immediately, while younger ages require the moving-down `$2000` bit.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn shooter_object_moving_down_collision_gate_loc_EF40(
     state_word: u16,
     selected_layout_word: u16,
