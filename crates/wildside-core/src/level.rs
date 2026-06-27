@@ -9436,7 +9436,6 @@ pub(crate) fn shooter_object_next_link_loc_F074(slot_addr: u32) -> LinkedObjectS
 /// shooter direction bit. If carry is set and `tst.b 3(a1)` sees a non-zero
 /// right-neighbour low byte, `loc_F170` subtracts `$8000` from `$6(a3)`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_right_neighbour_mark_loc_F14C(
     stored_local_word: u16,
     direction_bits_after_up_check: u16,
@@ -9460,7 +9459,6 @@ pub(crate) fn evanescent_shooter_right_neighbour_mark_loc_F14C(
 /// `a1`; a non-zero low byte at `1(a1+Level_width_tiles)` falls through to
 /// `loc_F170`, subtracting `$8000` from `$6(a3)`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_below_neighbour_mark_loc_F156(
     stored_local_word: u16,
     direction_bits_after_right_check: u16,
@@ -9486,7 +9484,6 @@ pub(crate) fn evanescent_shooter_below_neighbour_mark_loc_F156(
 /// `loc_F170` marked path then write `$0100` and `0` as the tile tail before
 /// advancing to the next row at `loc_F17C`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_left_neighbour_mark_loc_F166(
     stored_local_word: u16,
     direction_bits_after_below_check: u16,

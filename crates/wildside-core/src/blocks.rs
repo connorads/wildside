@@ -444,31 +444,57 @@ impl NativeRuntime {
     ) -> bool {
         let max_col = grid.width_cells.saturating_sub(1);
         let max_row = grid.height_cells.saturating_sub(1);
-        let left = col
+        let left_low_byte = col
             .checked_sub(1)
-            .is_some_and(|left_col| grid.cell_at(left_col, row).skin != 0);
-        let right = col
+            .map_or(0, |left_col| grid.cell_at(left_col, row).skin);
+        let right_low_byte = col
             .checked_add(1)
             .filter(|right_col| *right_col <= max_col)
-            .is_some_and(|right_col| grid.cell_at(right_col, row).skin != 0);
-        let up = row
+            .map_or(0, |right_col| grid.cell_at(right_col, row).skin);
+        let up_low_byte = row
             .checked_sub(1)
-            .is_some_and(|up_row| grid.cell_at(col, up_row).skin != 0);
-        let down = row
+            .map_or(0, |up_row| grid.cell_at(col, up_row).skin);
+        let down_low_byte = row
             .checked_add(1)
             .filter(|down_row| *down_row <= max_row)
-            .is_some_and(|down_row| grid.cell_at(col, down_row).skin != 0);
+            .map_or(0, |down_row| grid.cell_at(col, down_row).skin);
 
-        (directions & 0x01 != 0 && up)
-            || (directions & 0x02 != 0 && right)
-            // ASM loc_F22E (kid.asm:19806): after shifting to the down
-            // shooter bit, `add.w Level_width_tiles,a4; tst.b 1(a4)` marks
-            // the slot negative when the lower neighbour has skin.
-            || (directions & 0x04 != 0 && down)
-            // ASM loc_F23E (kid.asm:19814): after shifting to the left
-            // shooter bit, `tst.b -1(a1)` marks the slot negative when the
-            // left neighbour's skin byte is non-zero.
-            || (directions & 0x08 != 0 && left)
+        // ASM loc_F106..loc_F176 (kid.asm:19673): after storing the shooter
+        // direction word, each occupied neighbour in an enabled direction
+        // subtracts `$8000` from the slot word. Native stores only the
+        // resulting support flag, so it derives that flag from the same mark
+        // transitions while preserving the ROM's bit-shift order.
+        let mut stored_word = u16::from(directions);
+        let mut marked = false;
+        let direction_bits_after_up_check = u16::from(directions) >> 1;
+        if directions & 0x01 != 0 && up_low_byte != 0 {
+            stored_word = stored_word.wrapping_sub(0x8000);
+            marked = true;
+        }
+
+        let before_right = stored_word;
+        let right_mark = crate::level::evanescent_shooter_right_neighbour_mark_loc_F14C(
+            stored_word,
+            direction_bits_after_up_check,
+            right_low_byte,
+        );
+        marked |= right_mark.stored_local_word != before_right;
+
+        let before_down = right_mark.stored_local_word;
+        let down_mark = crate::level::evanescent_shooter_below_neighbour_mark_loc_F156(
+            right_mark.stored_local_word,
+            right_mark.shifted_direction_bits,
+            down_low_byte,
+        );
+        marked |= down_mark.stored_local_word != before_down;
+
+        let before_left = down_mark.stored_local_word;
+        let left_mark = crate::level::evanescent_shooter_left_neighbour_mark_loc_F166(
+            down_mark.stored_local_word,
+            down_mark.shifted_direction_bits,
+            left_low_byte,
+        );
+        marked || (left_mark.stored_local_word != before_left)
     }
 
     #[allow(non_snake_case)]
