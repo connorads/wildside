@@ -1262,7 +1262,6 @@ pub const PAUSE_MENU_Y_OFFSET_LOC_6948: u16 = 0x40;
 ///
 /// Returns the 32-bit VDP read command (`(vram_addr << 16) | 0x0000`).
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn pause_menu_tile_save_row_vdp_read_cmd_loc_695C(
     camera_y_pos: u16,
     tile_col: u16,
@@ -1416,22 +1415,9 @@ pub fn pause_menu_text_write_row_vdp_write_cmd_loc_6A1E(
     tile_col: u16,
     row: u16,
 ) -> u32 {
-    // ASM restart_text: d7 = Camera_Y_pos + $40
-    // ASM loc_6A1E: d7 advances by 8 each row (addi.w #8,d7 at kid.asm:6771)
-    let y_pixel = camera_y_pos
-        .wrapping_add(PAUSE_MENU_Y_OFFSET_LOC_6948)
-        .wrapping_add(row.wrapping_mul(8));
-
-    // ASM loc_6A1E: lsr.w #3,d3; andi.w #$1F,d3; lsl.w #7,d3
-    let plane_row = (y_pixel >> 3) & 0x1F;
-    let row_byte_offset = plane_row << 7;
-
-    // ASM restart_text: add.w d0,d0 doubles tile_col to byte offset, stored in d6
-    let col_byte_offset = tile_col.wrapping_mul(2);
-
-    // ASM loc_6A1E: add.w d3,d0; ori.w #$4000,d0; swap d0; move.w #0,d0
-    let vram_addr = row_byte_offset.wrapping_add(col_byte_offset);
-    u32::from(vram_addr | 0x4000) << 16
+    // ASM loc_6A1E duplicates loc_695C's row/column address computation, then
+    // sets the VDP write bit with `ori.w #$4000,d0` before `swap d0`.
+    pause_menu_tile_save_row_vdp_read_cmd_loc_695C(camera_y_pos, tile_col, row) | 0x4000_0000
 }
 
 /// Describes one row of the pause menu text write, including VDP addresses
