@@ -3572,8 +3572,11 @@ fn activate_enemies_with_rng_inner(
                 spinning_twins_orbit_index: 0,
                 ufo_beam_segments: lion_runtime_fields
                     .map_or(0, |runtime| runtime.ufo_beam_segments as u8),
-                ufo_beam_interval: lion_runtime_fields
-                    .map_or(0, |runtime| runtime.ufo_beam_interval as u8),
+                ufo_beam_interval: if matches!(family, EnemyFamily::Cloud) {
+                    cloud_idle_sprite_reset_loc_35CD2().d2 as u8
+                } else {
+                    lion_runtime_fields.map_or(0, |runtime| runtime.ufo_beam_interval as u8)
+                },
                 boss_head_index: if is_multi_head_boss(family) {
                     head_idx
                 } else {
@@ -4395,7 +4398,7 @@ pub(crate) fn step_flyer_with_rng(
 ) {
     // Cloud: horizontal flight with wall reversal
     if matches!(enemy.family, EnemyFamily::Cloud) {
-        step_cloud(enemy, block_grid);
+        step_cloud_with_rng(enemy, block_grid, rng);
         return;
     }
 

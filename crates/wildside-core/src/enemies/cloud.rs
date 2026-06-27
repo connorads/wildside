@@ -123,7 +123,6 @@ pub(crate) fn cloud_transition_loc_35C82() -> CloudTransitionLoc35C82 {
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 const CLOUD_IDLE_SPRITES_LOC_35CA2: [&str; 6] = [
     "LnkTo_unk_C787E-Data_Index",
     "LnkTo_unk_C7886-Data_Index",
@@ -134,7 +133,6 @@ const CLOUD_IDLE_SPRITES_LOC_35CA2: [&str; 6] = [
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudIdleSpriteGateLoc35CA2 {
     pub(crate) d2_after_subq: u16,
     pub(crate) sprite_link: Option<&'static str>,
@@ -142,7 +140,6 @@ pub(crate) struct CloudIdleSpriteGateLoc35CA2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_idle_sprite_gate_loc_35CA2(
     object_44: u8,
     object_45: u8,
@@ -185,13 +182,11 @@ pub(crate) fn cloud_idle_sprite_gate_loc_35CA2(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct CloudIdleSpriteResetLoc35CD2 {
     pub(crate) d2: u16,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn cloud_idle_sprite_reset_loc_35CD2() -> CloudIdleSpriteResetLoc35CD2 {
     // ASM Cloud.asm loc_35CD2: every elapsed idle-sprite attempt reloads the
     // d2 countdown with five frames before returning to the wait loop.
@@ -451,9 +446,39 @@ pub(crate) fn cloud_death_sequence_loc_35C0E(object_status_slot: u8) -> CloudDea
     }
 }
 
+#[cfg(test)]
 pub(crate) fn step_cloud(enemy: &mut ActiveEnemy, block_grid: Option<&terrain::BlockGrid>) {
+    let mut rng = RomRandomState::default();
+    step_cloud_with_rng(enemy, block_grid, &mut rng);
+}
+
+pub(crate) fn step_cloud_with_rng(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    rng: &mut RomRandomState,
+) {
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+
+    let object_44 = 0xFF;
+    let object_45 = if enemy.ufo_beam_segments != 0 {
+        0xFF
+    } else {
+        0x00
+    };
+    let idle_sprite = cloud_idle_sprite_gate_loc_35CA2(
+        object_44,
+        object_45,
+        u16::from(enemy.ufo_beam_interval),
+        rng.next_byte(),
+    );
+    enemy.ufo_beam_interval = idle_sprite.d2_after_subq as u8;
+    if idle_sprite.reaches_countdown_reload {
+        // ASM Cloud.asm loc_35CA2 -> loc_35CD2: every elapsed idle-sprite
+        // attempt reloads d2 to five, regardless of whether the random table
+        // selected a visible sprite entry.
+        enemy.ufo_beam_interval = cloud_idle_sprite_reset_loc_35CD2().d2 as u8;
+    }
 
     // Wall probe: reverse on wall contact (Cloud.asm loc_35BDE)
     if let Some(grid) = block_grid {
