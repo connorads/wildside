@@ -68,7 +68,6 @@ pub(crate) const TAR_MONSTER_LOC_32290_TABLE: [TarMonsterLoc32290Target; 6] = [
 ];
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum TarMonsterLoc32256Route {
     Restart,
     Dispatch(TarMonsterLoc32290Target),
@@ -81,7 +80,6 @@ pub(crate) struct TarMonsterLoc3224EReturn {
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct TarMonsterLoc32256Return {
     pub(crate) raw_command: i16,
     pub(crate) route: TarMonsterLoc32256Route,
@@ -405,10 +403,9 @@ pub(crate) fn tar_monster_loc_3224e() -> TarMonsterLoc3224EReturn {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tar_monster_loc_32256(raw_command: i16) -> TarMonsterLoc32256Return {
     // ASM loc_32256: read one signed word; negative -> restart script at loc_32248;
-    // otherwise `move.b d0,d7` indexes `off_32290` by low byte and jumps indirectly.
+    // otherwise `move.b d0,d7` indexes `off_32290` by low-byte byte offset.
     if raw_command < 0 {
         return TarMonsterLoc32256Return {
             raw_command,
@@ -419,11 +416,11 @@ pub(crate) fn tar_monster_loc_32256(raw_command: i16) -> TarMonsterLoc32256Retur
     let index = (raw_command & 0x00FF) as u8;
     let target = match index {
         0 => TarMonsterLoc32290Target::Loc322A8,
-        1 => TarMonsterLoc32290Target::Loc322BC,
-        2 => TarMonsterLoc32290Target::Loc322DA,
-        3 => TarMonsterLoc32290Target::Loc322FC,
-        4 => TarMonsterLoc32290Target::Loc32308,
-        5 => TarMonsterLoc32290Target::Loc32310,
+        4 => TarMonsterLoc32290Target::Loc322BC,
+        8 => TarMonsterLoc32290Target::Loc322DA,
+        12 => TarMonsterLoc32290Target::Loc322FC,
+        16 => TarMonsterLoc32290Target::Loc32308,
+        20 => TarMonsterLoc32290Target::Loc32310,
         _ => TarMonsterLoc32290Target::Invalid(index),
     };
 
@@ -1194,6 +1191,11 @@ pub(crate) fn step_tar_monster_with_sounds(
     }
     match enemy.tar_monster_state {
         TarMonsterState::Submerged => {
+            let dispatch = tar_monster_loc_32256(0x0004);
+            debug_assert_eq!(
+                dispatch.route,
+                TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322BC)
+            );
             let sound = tar_monster_appear_sound_loc_322c0();
             debug_assert_eq!(sound.sound_effect_label, "sfx_Tar_Monster_appears");
             debug_assert!(sound.preserves_script_command_d0);
@@ -1208,7 +1210,14 @@ pub(crate) fn step_tar_monster_with_sounds(
             enemy.wait_timer = animation.animation_frames;
         }
         TarMonsterState::Emerging => {
-            // Flip direction on emerge (ASM Op 3: not.b x_direction)
+            let dispatch = tar_monster_loc_32256(0x000C);
+            debug_assert_eq!(
+                dispatch.route,
+                TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322FC)
+            );
+            // ASM Tar_Monster.asm loc_322FC toggles parent and child
+            // x_direction; native models the parent-facing part of this
+            // visible phase boundary.
             enemy.facing = opposite_direction(enemy.facing);
             enemy.tar_monster_state = TarMonsterState::Visible;
             enemy.wait_timer = TAR_MONSTER_VISIBLE_FRAMES;
@@ -1218,6 +1227,11 @@ pub(crate) fn step_tar_monster_with_sounds(
             enemy.wait_timer = TAR_MONSTER_ATTACK_FRAMES;
         }
         TarMonsterState::Attacking => {
+            let dispatch = tar_monster_loc_32256(0x0008);
+            debug_assert_eq!(
+                dispatch.route,
+                TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322DA)
+            );
             // ASM Tar_Monster.asm loc_322DA plays
             // `sfx_Tar_Monster_disappears` before the submerge animation.
             played_sound_effects.push(QueuedSoundEffect::TarMonsterDisappears);
@@ -1365,7 +1379,7 @@ mod tests {
     }
 
     #[test]
-    fn tar_monster_loc_32256_restarts_on_negative_and_dispatches_by_low_byte() {
+    fn tar_monster_loc_32256_restarts_on_negative_and_dispatches_by_low_byte_offset() {
         let sentinel = tar_monster_loc_32256(-1);
         assert_eq!(
             sentinel,
@@ -1380,10 +1394,16 @@ mod tests {
             tar_monster_loc_32256(command_322_a8).route,
             TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322A8)
         );
-        let command_323_10 = i16::from_be_bytes([0x00, 0x05]);
+        let command_323_10 = i16::from_be_bytes([0x00, 0x14]);
         assert_eq!(
             tar_monster_loc_32256(command_323_10).route,
             TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32310)
+        );
+        let dense_index_five = i16::from_be_bytes([0x00, 0x05]);
+        assert_eq!(
+            tar_monster_loc_32256(dense_index_five).route,
+            TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Invalid(5)),
+            "ASM Tar_Monster.asm loc_32256 uses the command low byte as a byte offset into a longword table, not as a dense target index"
         );
     }
 
