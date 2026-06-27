@@ -4461,7 +4461,7 @@ fn run_loop_with_property_123dc(
         };
         *pos += setup.words_consumed;
         let mut cell_addr = setup.cell_addr;
-        let level_width_tiles = width_blocks.wrapping_mul(2);
+        let mut list_index = 0;
         for i in 0..setup.count {
             let Some(prop) = words.get(*pos).copied() else {
                 return;
@@ -4469,7 +4469,10 @@ fn run_loop_with_property_123dc(
             *pos += 1;
             let (cx, cy, prop) = if setup.stride {
                 let property = block_type_1_row_by_row_read_property_loc_12454(cell_addr, prop, 1);
-                cell_addr = cell_addr.wrapping_add(u32::from(level_width_tiles));
+                let finalized =
+                    block_type_1_row_by_row_finalize_loc_12480(cell_addr, list_index, width_blocks);
+                cell_addr = finalized.next_cell_addr;
+                list_index = finalized.next_list_index;
                 (x, setup.y_row.wrapping_add(i), property.property_word)
             } else {
                 (x.wrapping_add(i), setup.y_row, prop)
@@ -5434,7 +5437,6 @@ pub(crate) struct BlockType1FinalizeLoc12480 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1_row_by_row_finalize_loc_12480(
     cell_addr: u32,
     list_index: u16,
