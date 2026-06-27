@@ -895,14 +895,12 @@ pub(crate) enum ShooterVisibleScanTailLocF404 {
     CommitFrame,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockTailLocF836 {
     pub(crate) restored_d6: u32,
     pub(crate) restored_d7: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AnimatedSolidBlockVerticalSetupLocF83E {
     Visible {
@@ -912,7 +910,6 @@ pub(crate) enum AnimatedSolidBlockVerticalSetupLocF83E {
     CulledLayoutOnly,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct AnimatedSolidBlockVerticalRowsLocF85A {
     pub(crate) layout_writes: Vec<(u32, u16)>,
@@ -1042,7 +1039,6 @@ pub(crate) struct LayoutWordAddressLocFAE2 {
 /// ASM loc_F866 (kid.asm:20536): shift the current block row into the queue-word
 /// upper byte.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_row_hi_bits_loc_F866(block_row: u16) -> u16 {
     block_row << 8
 }
@@ -1050,7 +1046,6 @@ pub(crate) fn animated_solid_block_row_hi_bits_loc_F866(block_row: u16) -> u16 {
 /// ASM loc_F86A (kid.asm:20540): mask the shifted row to `$F00` for the VDP
 /// queue-word high nibble.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_row_hi_bits_masked_loc_F86A(block_row_hi_bits: u16) -> u16 {
     block_row_hi_bits & 0x0F00
 }
@@ -1058,7 +1053,6 @@ pub(crate) fn animated_solid_block_row_hi_bits_masked_loc_F86A(block_row_hi_bits
 /// ASM loc_F86E (kid.asm:20546): combine the masked row bits with packed x bits
 /// before queueing the FG update entry.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_row_queue_word_loc_F86E(
     masked_row_hi_bits: u16,
     packed_cell_x_bits: u16,
@@ -1067,7 +1061,6 @@ pub(crate) fn animated_solid_block_row_queue_word_loc_F86E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_vertical_rows_loc_F872(
     queue_word: u16,
     mapping_longwords: [u32; 2],
@@ -1082,7 +1075,6 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F872(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_vertical_rows_loop_tail_loc_F87A(
     d1: u16,
     layout_addr: u32,
@@ -1223,7 +1215,6 @@ pub(crate) struct HiddenBlockRevealWorkerLocE096 {
     pub(crate) sprite_mapping: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct HiddenBlockPrizeRevealScanTailLocE48E {
     pub(crate) next_block_col: u16,
@@ -1232,14 +1223,12 @@ pub(crate) struct HiddenBlockPrizeRevealScanTailLocE48E {
     pub(crate) loops_to_sub_e446: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBlockRemovalGateLocEA3E {
     pub(crate) next_timer: u16,
     pub(crate) should_try_remove_block: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBlockEraseMatchLocEA5A {
     pub(crate) should_erase_block_from_level_layout: bool,
@@ -1248,7 +1237,6 @@ pub(crate) struct EvanescentBlockEraseMatchLocEA5A {
     pub(crate) final_layout_cell_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescentObjectListMoveLocEA72 {
     pub(crate) first_active_slot_addr: u32,
@@ -1257,20 +1245,17 @@ pub(crate) struct EvanescentObjectListMoveLocEA72 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentObjectPredecessorLocEA86 {
     pub(crate) predecessor_slot_addr: u32,
     pub(crate) scanned_links: usize,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescentObjectSpliceLocEA92 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescentObjectFreeListPushLocEA98 {
     pub(crate) first_free_slot_addr: u32,
@@ -1279,14 +1264,12 @@ pub(crate) struct EvanescentObjectFreeListPushLocEA98 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentSpriteScanReturnLocEAB2 {
     pub(crate) next_sprite_slot_addr: u32,
     pub(crate) number_sprites: u8,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EvanescentBulletHitboxScanLocEAE4 {
     SkipToLoadBullets,
@@ -1301,7 +1284,6 @@ pub(crate) enum EvanescentBulletHitboxScanLocEAE4 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletHitboxScanInputLocEAE4 {
     pub(crate) skip_scan_flag: bool,
