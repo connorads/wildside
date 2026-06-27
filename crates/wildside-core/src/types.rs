@@ -707,10 +707,11 @@ impl Default for BlockInteractionState {
 impl BlockInteractionState {
     #[allow(non_snake_case)]
     pub(crate) fn reset_shooter_state_sub_F06A(&mut self) {
+        let shooter_slots = crate::level::initialise_shooter_object_slots_sub_F06A();
         self.shooter_blocks.clear();
         self.shooter_headbutt_workers.clear();
-        self.shooter_last_scanned_col = -1;
-        self.shooter_last_scanned_row = -1;
+        self.shooter_last_scanned_col = shooter_slots.last_shooter_block_col;
+        self.shooter_last_scanned_row = shooter_slots.last_shooter_block_row;
     }
 }
 

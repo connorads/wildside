@@ -734,7 +734,6 @@ pub(crate) struct EvanescShooterObjectSlotsSubEABC {
     pub(crate) evanescent_slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShooterObjectSlotsSubF06A {
     pub(crate) next_free_shooter_object_slot_addr: u32,
@@ -10842,7 +10841,6 @@ pub(crate) fn level_layout_word_address_loc_FAE2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_shooter_object_slots_sub_F06A() -> ShooterObjectSlotsSubF06A {
     // ASM sub_F06A (kid.asm:19595): seed the shooter-object free list at
     // `$FFFFE7F2`; loc_F074 links 19 contiguous `$0E`-byte slots through
