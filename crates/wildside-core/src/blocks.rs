@@ -3906,6 +3906,7 @@ impl NativeRuntime {
             return;
         };
 
+        let level_width_cells = grid.width_cells;
         let mut revealed_cells = Vec::new();
         for &(col, row) in hidden_cells_before_physics {
             let cell = grid.cell_at(col, row);
@@ -3928,10 +3929,19 @@ impl NativeRuntime {
             // 17775): a hidden-block reveal allocates an 8-frame object that
             // bobs up four frames then down four frames while the cell has
             // already been rewritten from `$20xx` to the revealed block word.
-            self.queue_start_sequence(QueuedSoundEffect::HiddenBlockReveal);
-            self.block_bounces.push(BlockBounceAnim {
+            let layout_word_addr =
+                terrain::BlockList::level_layout_low_word_addr(cell_x, cell_y, level_width_cells);
+            let reveal_worker = crate::level::hidden_block_reveal_worker_loc_E096(
                 cell_x,
                 cell_y,
+                u32::from(layout_word_addr),
+                0xE101,
+                0x1058,
+            );
+            self.queue_start_sequence(QueuedSoundEffect::HiddenBlockReveal);
+            self.block_bounces.push(BlockBounceAnim {
+                cell_x: reveal_worker.block_col,
+                cell_y: reveal_worker.block_row,
                 remaining: hidden_block_reveal_y_deltas.len() as u8,
                 initial_duration: hidden_block_reveal_y_deltas.len() as u8,
                 kind: BlockBounceKind::HiddenReveal,

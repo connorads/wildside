@@ -10939,7 +10939,6 @@ pub(crate) fn hidden_block_evanescent_metadata_scan_loc_E082(
 /// `$E29A`, then copy the block column/row, layout pointer, and selected sprite
 /// words into object fields `$44/$46/$48/$4C/$4E`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn hidden_block_reveal_worker_loc_E096(
     block_col: u16,
     block_row: u16,
