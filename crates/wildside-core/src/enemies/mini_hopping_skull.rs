@@ -685,7 +685,6 @@ pub(crate) fn mini_hopping_skull_damage_sequence_loc_3eb60(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_right_hop_damage_sequence_loc_3ebe4(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {
@@ -695,7 +694,6 @@ pub(crate) fn mini_hopping_skull_right_hop_damage_sequence_loc_3ebe4(
     mini_hopping_skull_damage_sequence_loc_3eb60(hit_counter)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(
     hit_counter: u16,
 ) -> MiniHoppingSkullDamageSequence {

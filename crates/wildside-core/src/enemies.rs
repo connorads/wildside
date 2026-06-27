@@ -2223,6 +2223,35 @@ impl ActiveEnemy {
         if self.hit_points <= 1 {
             return true;
         }
+        if matches!(self.family, EnemyFamily::MiniHoppingSkull)
+            && self.wait_timer & MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 != 0
+        {
+            let sequence = match self.facing {
+                Direction::Left => mini_hopping_skull_left_hop_damage_sequence_loc_3ed1e(
+                    u16::from(self.hit_points),
+                ),
+                Direction::Right => mini_hopping_skull_right_hop_damage_sequence_loc_3ebe4(
+                    u16::from(self.hit_points),
+                ),
+            };
+            match sequence {
+                MiniHoppingSkullDamageSequence::SkullDestroyed => return true,
+                MiniHoppingSkullDamageSequence::PlayHitAnimation {
+                    remaining_hits,
+                    animation,
+                    hibernate_until_finished,
+                } => {
+                    // ASM Mini_Hopping_Skull.asm loc_3EBE4/loc_3ED1E: damage
+                    // during the hop windup decrements `$44(a3)`, plays the
+                    // shared hit animation, then resumes the windup loop.
+                    debug_assert_eq!(animation, "stru_3E9C2");
+                    debug_assert!(hibernate_until_finished);
+                    self.hit_points = remaining_hits as u8;
+                    self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
+                    return false;
+                }
+            }
+        }
         if matches!(self.family, EnemyFamily::BigHoppingSkull) {
             let damage_entry =
                 big_hopping_skull_damage_entry_loc_365d8(u16::from(self.hit_points), 0);
@@ -9668,6 +9697,32 @@ mod tests {
             200 << 16,
             261 << 16
         ));
+    }
+
+    #[test]
+    fn mini_hopping_skull_windup_damage_uses_directional_loc_3ebe4_3ed1e() {
+        for facing in [Direction::Right, Direction::Left] {
+            let mut enemy = ActiveEnemy {
+                facing,
+                hit_points: 3,
+                wait_timer: MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 5,
+                damage_flash_frames: 0,
+                ..mini_hopping_skull_test_enemy()
+            };
+
+            assert!(
+                !enemy.take_damage_or_queue_death(),
+                "ASM Mini_Hopping_Skull.asm loc_3EBE4/loc_3ED1E nonfatal windup damage should resume the hop windup"
+            );
+
+            assert_eq!(enemy.hit_points, 2);
+            assert_eq!(
+                enemy.wait_timer,
+                MINI_SKULL_HOP_WINDUP_TIMER_FLAG_LOC_3EB92 | 5,
+                "ASM loc_3EBE4/loc_3ED1E replays `stru_3E9C2` then returns to the active windup loop",
+            );
+            assert_eq!(enemy.damage_flash_frames, ENEMY_DAMAGE_FLASH_FRAMES);
+        }
     }
 
     #[test]
