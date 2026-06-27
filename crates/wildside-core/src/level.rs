@@ -4164,6 +4164,8 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // (horizontal or vertical by the stride word 6); otherwise the entry
             // only records an object and writes no cells. (kid.asm:24691-24755)
             3 => {
+                let _hidden_block_list_addr =
+                    block_type_3_init_list_loc_124a6(0xFFFF_3B24).hidden_block_list_addr;
                 run_loop_type3_124a6(block_layout_words, &mut pos, width_blocks, |cell_addr| {
                     if cell_addr % 2 == 0
                         && let Ok(idx) = usize::try_from(cell_addr / 2)
@@ -5561,7 +5563,6 @@ pub(crate) struct BlockType3InitLoc124A6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_3_init_list_loc_124a6(list_addr: u32) -> BlockType3InitLoc124A6 {
     // ASM loc_124A6 (kid.asm:24691-24692): block type 3 (solid ghost) entry point.
     // Stores the hidden block list pointer for subsequent entries:
