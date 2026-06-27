@@ -22510,6 +22510,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         assert_eq!(
             runtime.block_state.evanescent_blocks,
             vec![EvanescentEntry {
+                slot_addr: 0xFFFF_E90A,
                 col: 2,
                 row: 2,
                 directions: 2,

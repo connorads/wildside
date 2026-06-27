@@ -662,6 +662,13 @@ pub struct SpawnProbeInspection {
 #[derive(Debug, Clone)]
 pub(crate) struct BlockInteractionState {
     pub(crate) evanescent_blocks: Vec<EvanescentEntry>,
+    /// ASM loc_DF30: `Addr_NextFreeEvanescObjectSlot` starts at `$FFFFE90A`.
+    pub(crate) evanescent_next_free_slot_addr: u32,
+    /// ASM loc_DF30: `Addr_FirstEvanescObjectSlot` is cleared on reset.
+    pub(crate) evanescent_first_active_slot_addr: u32,
+    /// ASM loc_DF30/loc_EA72/loc_ECD8: `$A(slot)` next links for the
+    /// evanescent active/free lists.
+    pub(crate) evanescent_slot_links: Vec<crate::level::LinkedObjectSlotInit>,
     pub(crate) ghost_groups: Vec<GhostGroup>,
     pub(crate) lift_platforms: Vec<LiftPlatform>,
     /// ASM loc_EB72 -> LoadBulletsFromEvanescentBlock: visible shooter blocks
@@ -689,8 +696,12 @@ pub(crate) struct BlockInteractionState {
 
 impl Default for BlockInteractionState {
     fn default() -> Self {
+        let evanescent_slots = crate::level::initialise_evanesc_object_slots_loc_DF30();
         Self {
             evanescent_blocks: Vec::new(),
+            evanescent_next_free_slot_addr: evanescent_slots.next_free_evanescent_object_slot_addr,
+            evanescent_first_active_slot_addr: evanescent_slots.first_evanescent_object_slot_addr,
+            evanescent_slot_links: evanescent_slots.evanescent_slots,
             ghost_groups: Vec::new(),
             lift_platforms: Vec::new(),
             shooter_blocks: Vec::new(),
@@ -705,6 +716,79 @@ impl Default for BlockInteractionState {
 }
 
 impl BlockInteractionState {
+    #[allow(non_snake_case)]
+    pub(crate) fn reset_evanescent_state_loc_DF30(&mut self) {
+        let evanescent_slots = crate::level::initialise_evanesc_object_slots_loc_DF30();
+        self.evanescent_blocks.clear();
+        self.evanescent_next_free_slot_addr =
+            evanescent_slots.next_free_evanescent_object_slot_addr;
+        self.evanescent_first_active_slot_addr = evanescent_slots.first_evanescent_object_slot_addr;
+        self.evanescent_slot_links = evanescent_slots.evanescent_slots;
+    }
+
+    pub(crate) fn has_free_evanescent_slot(&self) -> bool {
+        self.evanescent_next_free_slot_addr != 0
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn allocate_evanescent_slot_loc_DF68(&mut self) -> Option<u32> {
+        let allocated_slot_addr = self.evanescent_next_free_slot_addr;
+        if allocated_slot_addr == 0 {
+            return None;
+        }
+        let old_first_active_slot_addr = self.evanescent_first_active_slot_addr;
+        let allocated_slot = self
+            .evanescent_slot_links
+            .iter_mut()
+            .find(|slot| slot.slot_addr == allocated_slot_addr)?;
+        self.evanescent_next_free_slot_addr = allocated_slot.next_slot_addr;
+        allocated_slot.next_slot_addr = old_first_active_slot_addr;
+        self.evanescent_first_active_slot_addr = allocated_slot_addr;
+        Some(allocated_slot_addr)
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn rebuild_evanescent_active_links_loc_EA72(&mut self) {
+        self.evanescent_first_active_slot_addr = self
+            .evanescent_blocks
+            .first()
+            .map_or(0, |entry| entry.slot_addr);
+        for pair in self.evanescent_blocks.windows(2) {
+            let slot_addr = pair[0].slot_addr;
+            let next_slot_addr = pair[1].slot_addr;
+            if let Some(slot) = self
+                .evanescent_slot_links
+                .iter_mut()
+                .find(|slot| slot.slot_addr == slot_addr)
+            {
+                slot.next_slot_addr = next_slot_addr;
+            }
+        }
+        if let Some(last_entry) = self.evanescent_blocks.last()
+            && let Some(slot) = self
+                .evanescent_slot_links
+                .iter_mut()
+                .find(|slot| slot.slot_addr == last_entry.slot_addr)
+        {
+            slot.next_slot_addr = 0;
+        }
+    }
+
+    #[allow(non_snake_case)]
+    pub(crate) fn recycle_evanescent_slots_loc_ECD8(&mut self, recycled_slot_addrs: &[u32]) {
+        self.rebuild_evanescent_active_links_loc_EA72();
+        for &slot_addr in recycled_slot_addrs {
+            if let Some(slot) = self
+                .evanescent_slot_links
+                .iter_mut()
+                .find(|slot| slot.slot_addr == slot_addr)
+            {
+                slot.next_slot_addr = self.evanescent_next_free_slot_addr;
+                self.evanescent_next_free_slot_addr = slot_addr;
+            }
+        }
+    }
+
     #[allow(non_snake_case)]
     pub(crate) fn reset_shooter_state_sub_F06A(&mut self) {
         let shooter_slots = crate::level::initialise_shooter_object_slots_sub_F06A();
@@ -3069,6 +3153,7 @@ impl LevelTimer {
 /// removal threshold it is cleared from the block grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentEntry {
+    pub(crate) slot_addr: u32,
     pub(crate) col: u16,
     pub(crate) row: u16,
     /// ASM EvanescentBlock_Trigger stores `skin - $1C` at slot word 6.

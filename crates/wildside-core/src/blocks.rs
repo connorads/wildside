@@ -2424,7 +2424,7 @@ impl NativeRuntime {
                     .evanescent_blocks
                     .iter()
                     .any(|entry| entry.col == *col && entry.row == *row)
-                    && self.block_state.evanescent_blocks.len() < EVANESCENT_MAX_ENTRIES
+                    && self.block_state.has_free_evanescent_slot()
             });
 
         if let Some((col, row, skin)) = trigger {
@@ -2442,6 +2442,7 @@ impl NativeRuntime {
                     .map(|cell| (entry.col, entry.row, cell))
             })
             .collect::<Vec<_>>();
+        let mut expired_evanescent_slot_addrs = Vec::new();
         if let Some(grid) = &mut self.block_grid {
             for (col, row, cell) in evanescent_layout_writes {
                 grid.set_cell_at(col, row, cell);
@@ -2460,12 +2461,15 @@ impl NativeRuntime {
                         })
                         .unwrap_or_else(|| terrain::Cell::from_be_bytes(0, 0));
                     grid.set_cell_at(entry.col, entry.row, restored);
+                    expired_evanescent_slot_addrs.push(entry.slot_addr);
                     false
                 } else {
                     true
                 }
             });
         }
+        self.block_state
+            .recycle_evanescent_slots_loc_ECD8(&expired_evanescent_slot_addrs);
     }
 
     #[allow(non_snake_case)]
@@ -2524,23 +2528,30 @@ impl NativeRuntime {
             .evanescent_blocks
             .iter()
             .any(|entry| entry.col == col && entry.row == row)
-            || self.block_state.evanescent_blocks.len() >= EVANESCENT_MAX_ENTRIES
+            || !self.block_state.has_free_evanescent_slot()
         {
             return;
         }
+        let Some(slot_addr) = self.block_state.allocate_evanescent_slot_loc_DF68() else {
+            return;
+        };
         if let Some(grid) = &mut self.block_grid {
             // ASM EvanescentBlock_Trigger writes `#$E3` to the high byte
             // immediately, preserving the low skin byte for loc_ED04 redraws.
             grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(0xE3, skin));
         }
         let initial_timer = i16::from(skin) - EVANESCENT_SKIN_OFFSET;
-        self.block_state.evanescent_blocks.push(EvanescentEntry {
-            col,
-            row,
-            directions: initial_timer as u8,
-            timer: initial_timer,
-            bullets_loaded: load_bullets_now,
-        });
+        self.block_state.evanescent_blocks.insert(
+            0,
+            EvanescentEntry {
+                slot_addr,
+                col,
+                row,
+                directions: initial_timer as u8,
+                timer: initial_timer,
+                bullets_loaded: load_bullets_now,
+            },
+        );
         if load_bullets_now {
             self.fire_evanescent_block_projectiles_loc_EC76(col, row, skin);
         }

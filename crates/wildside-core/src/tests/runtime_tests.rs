@@ -11903,7 +11903,12 @@ mod chunk_09 {
 
         // Pre-fill to capacity
         for i in 0..EVANESCENT_MAX_ENTRIES {
+            let slot_addr = runtime
+                .block_state
+                .allocate_evanescent_slot_loc_DF68()
+                .expect("test prefill should consume the loc_DF30 evanescent free list");
             runtime.block_state.evanescent_blocks.push(EvanescentEntry {
+                slot_addr,
                 col: 10 + i as u16,
                 row: 10,
                 directions: 0,

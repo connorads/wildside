@@ -9329,7 +9329,6 @@ pub(crate) fn initialise_evanesc_object_slots_sub_EABC() -> EvanescShooterObject
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_evanesc_object_slots_loc_DF30() -> EvanescShooterObjectSlotsSubEABC {
     // ASM loc_DF30 (kid.asm:17258): after `Initialize_EvanescShooterObjectSlots`
     // seeds `a0=EvanescObject_RAM` and `d0=$12`, the inclusive DBF loop writes
@@ -18111,7 +18110,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
-        self.block_state.evanescent_blocks.clear();
+        self.block_state.reset_evanescent_state_loc_DF30();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.block_state.lift_platforms.clear();
@@ -18285,7 +18284,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
-        self.block_state.evanescent_blocks.clear();
+        self.block_state.reset_evanescent_state_loc_DF30();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.projectiles.clear();
@@ -18503,7 +18502,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
-        self.block_state.evanescent_blocks.clear();
+        self.block_state.reset_evanescent_state_loc_DF30();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.projectiles.clear();
@@ -18855,7 +18854,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
-        self.block_state.evanescent_blocks.clear();
+        self.block_state.reset_evanescent_state_loc_DF30();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.pending_prize_diamond_awards.clear();
@@ -18977,7 +18976,7 @@ impl NativeRuntime {
         self.active_platform_roster.clear();
         self.active_platform_standing_on = None;
         self.active_lift_platform_standing_on = None;
-        self.block_state.evanescent_blocks.clear();
+        self.block_state.reset_evanescent_state_loc_DF30();
         self.clear_block_object_workers_loc_6e2();
         self.block_state.reset_shooter_state_sub_F06A();
         self.pending_prize_diamond_awards.clear();

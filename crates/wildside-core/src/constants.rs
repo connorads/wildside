@@ -629,6 +629,7 @@ pub(crate) const DRAGON_WALKING_NONLETHAL_STOMP_HIBERNATE_FRAMES: u8 = 24;
 pub(crate) const EVANESCENT_SKIN_OFFSET: i16 = 0x1C; // 28
 pub(crate) const EVANESCENT_REMOVAL_THRESHOLD: i16 = 0x16; // 22
 pub(crate) const EVANESCENT_COLLISION_OVERLAY_TIMER: i16 = 0x10; // 16
+#[cfg(test)]
 pub(crate) const EVANESCENT_MAX_ENTRIES: usize = 19; // ASM limit $13
 
 // === Level timer ===
