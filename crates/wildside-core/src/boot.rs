@@ -2464,7 +2464,6 @@ pub(crate) struct IntroTextGlyphStepLoc1C7E6 {
 }
 
 impl TitleTextWordWritesSub1B7B6 {
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn bottom_word_addresses(self) -> [u16; 2] {
         [self.base_word_address + 0x50, self.base_word_address + 0x52]
     }

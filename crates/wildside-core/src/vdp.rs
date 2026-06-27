@@ -1820,10 +1820,14 @@ fn apply_title_text_word_writes_sub_1b7b6(decoded_words: &mut [u16]) {
             decoded_words[word_index] = write.top_words[0];
             decoded_words[word_index + 1] = write.top_words[1];
         }
-        let bottom_word_index = word_index + 0x28;
-        if bottom_word_index + 1 < decoded_words.len() {
-            decoded_words[bottom_word_index] = write.bottom_words[0];
-            decoded_words[bottom_word_index + 1] = write.bottom_words[1];
+        let [bottom_left_address, bottom_right_address] = write.bottom_word_addresses();
+        let bottom_left_index =
+            usize::from(bottom_left_address.wrapping_sub(DECOMPRESSION_BUFFER_LOW_ADDR)) / 2;
+        let bottom_right_index =
+            usize::from(bottom_right_address.wrapping_sub(DECOMPRESSION_BUFFER_LOW_ADDR)) / 2;
+        if bottom_right_index < decoded_words.len() {
+            decoded_words[bottom_left_index] = write.bottom_words[0];
+            decoded_words[bottom_right_index] = write.bottom_words[1];
         }
     }
 }
@@ -4908,8 +4912,13 @@ mod tests {
             ) / 2;
             expected_writes.insert(word_index, 0x21ABu16);
             expected_writes.insert(word_index + 1, 0x21AC);
-            expected_writes.insert(word_index + 0x28, 0x21AD);
-            expected_writes.insert(word_index + 0x29, 0x21AE);
+            let [bottom_left_address, bottom_right_address] = entry.bottom_word_addresses();
+            let bottom_left_index =
+                usize::from(bottom_left_address.wrapping_sub(DECOMPRESSION_BUFFER_LOW_ADDR)) / 2;
+            let bottom_right_index =
+                usize::from(bottom_right_address.wrapping_sub(DECOMPRESSION_BUFFER_LOW_ADDR)) / 2;
+            expected_writes.insert(bottom_left_index, 0x21AD);
+            expected_writes.insert(bottom_right_index, 0x21AE);
         }
 
         for (idx, expected) in &expected_writes {
