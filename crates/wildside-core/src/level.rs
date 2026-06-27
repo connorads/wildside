@@ -1839,7 +1839,7 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
                 dispatch.header_word
             ));
         }
-        validate_first_block_layout_entry_loc_132A6(first_header & 0x001F, &decoded)?;
+        validate_first_block_layout_entry_loc_132A6(first_header & 0x001F, layout_bytes, &decoded)?;
     }
     let terminator = block_layout_terminate_loc_134BA();
     if decoded.last().copied() == Some(terminator.end_marker) {
@@ -1855,6 +1855,7 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
 #[allow(non_snake_case)]
 fn validate_first_block_layout_entry_loc_132A6(
     block_type: u16,
+    layout_bytes: &[u8],
     decoded: &[u16],
 ) -> Result<(), String> {
     let word = |index: usize| {
@@ -1868,8 +1869,17 @@ fn validate_first_block_layout_entry_loc_132A6(
         })
     };
 
+    let x_sentinel = block_layout_x_sentinel_loc_132A6(layout_bytes)?;
+    let first_x = word(1)?;
+
     match block_type {
         0 | 2 | 5 | 6 | 7 | 8 | 9 | 13 | 14 | 15 => {
+            let loop_branch = block_layout_repeat_loop_loc_1331E(first_x, x_sentinel);
+            if loop_branch != BlockLayoutLoopLoc1331E::ContinueLoc1332E {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first X word unexpectedly matched ASM loc_1331E sentinel"
+                ));
+            }
             let entry = block_layout_entry_words_loc_1332E(
                 word(1)?,
                 word(2)?,
@@ -1885,6 +1895,12 @@ fn validate_first_block_layout_entry_loc_132A6(
             }
         }
         1 => {
+            let loop_branch = block_layout_variable_repeat_loop_loc_1334C(first_x, x_sentinel);
+            if loop_branch != BlockLayoutLoopLoc1331E::ContinueLoc1332E {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first X word unexpectedly matched ASM loc_1334C sentinel"
+                ));
+            }
             let entry = block_layout_entry_words_loc_1335E(
                 word(1)?,
                 word(2)?,
@@ -1900,6 +1916,12 @@ fn validate_first_block_layout_entry_loc_132A6(
             }
         }
         10 | 12 => {
+            let loop_branch = block_layout_variable_repeat_loop_loc_133A0(first_x, x_sentinel);
+            if loop_branch != BlockLayoutLoopLoc133A0::ContinueLoc133B2 {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first X word unexpectedly matched ASM loc_133A0 sentinel"
+                ));
+            }
             let entry = block_layout_entry_words_loc_133B2(
                 word(1)?,
                 word(2)?,
@@ -1915,6 +1937,12 @@ fn validate_first_block_layout_entry_loc_132A6(
             }
         }
         3 => {
+            let loop_branch = block_layout_fixed_pattern_repeat_loop_loc_133DE(first_x, x_sentinel);
+            if loop_branch != BlockLayoutLoopLoc133DE::ContinueLoc133F0 {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first X word unexpectedly matched ASM loc_133DE sentinel"
+                ));
+            }
             let entry = block_layout_entry_words_loc_133F0(
                 word(1)?,
                 word(2)?,
@@ -1931,7 +1959,21 @@ fn validate_first_block_layout_entry_loc_132A6(
                 ));
             }
         }
+        4 => {
+            let loop_branch = block_layout_long_run_repeat_loop_loc_1342E(first_x, x_sentinel);
+            if loop_branch != BlockLayoutLoopLoc1342E::ContinueLoc13440 {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first X word unexpectedly matched ASM loc_1342E sentinel"
+                ));
+            }
+        }
         11 => {
+            let loop_branch = block_layout_short_pair_repeat_loop_loc_1345E(first_x, x_sentinel);
+            if loop_branch != BlockLayoutLoopLoc1345E::ContinueLoc13470 {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first X word unexpectedly matched ASM loc_1345E sentinel"
+                ));
+            }
             let entry = block_layout_entry_words_loc_13470(word(1)?, word(2)?);
             if [entry.x_pos, entry.y_row] != [word(1)?, word(2)?] {
                 return Err(format!(
@@ -1940,6 +1982,12 @@ fn validate_first_block_layout_entry_loc_132A6(
             }
         }
         16 => {
+            let loop_branch = block_layout_short_count_repeat_loop_loc_1347C(first_x, x_sentinel);
+            if loop_branch != BlockLayoutLoopLoc1347C::ContinueLoc1348E {
+                return Err(format!(
+                    "block layout type {block_type:#04x} first X word unexpectedly matched ASM loc_1347C sentinel"
+                ));
+            }
             let count = count_bits(word(3)?)?;
             let stride_word = word(4)?;
             let property_source = decoded.get(5..).ok_or_else(|| {
@@ -1961,6 +2009,22 @@ fn validate_first_block_layout_entry_loc_132A6(
 }
 
 #[allow(non_snake_case)]
+fn block_layout_x_sentinel_loc_132A6(layout_bytes: &[u8]) -> Result<u16, String> {
+    // ASM loc_132A6 (kid.asm:25564-25572): after discarding the first 8 bits,
+    // the next 4 bits become `a2`, and `return_13662[a2]` supplies the all-ones
+    // X sentinel later compared by each repeat-loop arm.
+    let x_width = layout_bytes
+        .get(1)
+        .map(|byte| byte >> 4)
+        .ok_or_else(|| "block layout stream ended before ASM loc_132A6 X width".to_string())?;
+    Ok(if x_width == 0 {
+        0
+    } else {
+        (1u16 << x_width) - 1
+    })
+}
+
+#[allow(non_snake_case)]
 pub(crate) fn block_layout_dispatch_loc_132D6(
     high_bit_set: bool,
     block_type: u16,
@@ -1976,7 +2040,6 @@ pub(crate) fn block_layout_dispatch_loc_132D6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_repeat_loop_loc_1331E(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2011,7 +2074,6 @@ pub(crate) fn block_layout_entry_words_loc_1332E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_variable_repeat_loop_loc_1334C(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2029,7 +2091,6 @@ pub(crate) fn block_layout_variable_repeat_loop_loc_1334C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_variable_repeat_loop_loc_133A0(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2046,7 +2107,6 @@ pub(crate) fn block_layout_variable_repeat_loop_loc_133A0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_fixed_pattern_repeat_loop_loc_133DE(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2141,7 +2201,6 @@ pub(crate) fn block_layout_entry_words_loc_133F0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_long_run_repeat_loop_loc_1342E(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2157,7 +2216,6 @@ pub(crate) fn block_layout_long_run_repeat_loop_loc_1342E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_short_pair_repeat_loop_loc_1345E(
     x_pos: u16,
     end_marker_x_pos: u16,
@@ -2186,7 +2244,6 @@ pub(crate) fn block_layout_entry_words_loc_13470(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_short_count_repeat_loop_loc_1347C(
     x_pos: u16,
     end_marker_x_pos: u16,
