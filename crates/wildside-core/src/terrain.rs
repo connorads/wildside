@@ -792,15 +792,16 @@ impl BlockList {
         let level_width_tiles = level_width_blocks.wrapping_mul(2);
 
         if !self.prize_blocks.is_empty() {
-            // ASM loc_141EE adjusts 8-byte prize records before the block list is used.
+            // ASM loc_141F6 enters the 8-byte prize-record loop with the loaded count.
             let raw_entries: Vec<[u16; 4]> = self
                 .prize_blocks
                 .iter()
                 .map(|entry| [entry.layout_addr, entry.col, entry.row, 0])
                 .collect();
             let adjusted =
-                crate::level::adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141EE(
+                crate::level::adjust_8_byte_block_list_entries_for_blank_top_rows_loc_141F6(
                     &raw_entries,
+                    raw_entries.len().min(usize::from(u16::MAX)) as u16,
                     blank_top_rows,
                     level_width_tiles,
                 );
@@ -810,7 +811,7 @@ impl BlockList {
             }
         }
         if !self.ghost_blocks.is_empty() {
-            // ASM loc_14204 adjusts 16-byte solid-ghost records.
+            // ASM loc_14210 enters the 16-byte solid-ghost loop with the loaded count.
             let raw_entries: Vec<[u16; 8]> = self
                 .ghost_blocks
                 .iter()
@@ -828,8 +829,9 @@ impl BlockList {
                 })
                 .collect();
             let adjusted =
-                crate::level::adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14204(
+                crate::level::adjust_16_byte_hidden_block_entries_for_blank_top_rows_loc_14210(
                     &raw_entries,
+                    raw_entries.len().min(usize::from(u16::MAX)) as u16,
                     blank_top_rows,
                     level_width_tiles,
                 );
@@ -839,7 +841,7 @@ impl BlockList {
             }
         }
         if !self.teleporters.is_empty() {
-            // ASM loc_1421E adjusts 10-byte custom/teleporter records.
+            // ASM loc_14228 enters the 10-byte custom/teleporter loop with the loaded count.
             let raw_entries: Vec<[u16; 5]> = self
                 .teleporters
                 .iter()
@@ -854,8 +856,9 @@ impl BlockList {
                 })
                 .collect();
             let adjusted =
-                crate::level::adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_1421E(
+                crate::level::adjust_10_byte_custom_write_entries_for_blank_top_rows_loc_14228(
                     &raw_entries,
+                    raw_entries.len().min(usize::from(u16::MAX)) as u16,
                     blank_top_rows,
                     level_width_tiles,
                 );
@@ -865,15 +868,16 @@ impl BlockList {
             }
         }
         if !self.hidden_blocks.is_empty() {
-            // ASM loc_14236 adjusts 8-byte hidden/background block records.
+            // ASM loc_1423E enters the 8-byte hidden/background loop with the loaded count.
             let raw_entries: Vec<[u16; 4]> = self
                 .hidden_blocks
                 .iter()
                 .map(|entry| [entry.layout_addr, entry.col, entry.row, 0])
                 .collect();
             let adjusted =
-                crate::level::adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_14236(
+                crate::level::adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_1423E(
                     &raw_entries,
+                    raw_entries.len().min(usize::from(u16::MAX)) as u16,
                     blank_top_rows,
                     level_width_tiles,
                 );
