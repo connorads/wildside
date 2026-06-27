@@ -893,11 +893,20 @@ pub(crate) fn ufo_first_hurt_survive_loc_35228(
     // loc_351EE debris allocation, then loc_35228 sets `$47`, seeds the
     // linked object, adds `$40000` to parent y_vel, and returns with
     // `d2=$FFFFF400`/`d3=0` for the flight acceleration registers.
+    let finish = ufo_beam_finish_loc_35228(parent_y_velocity);
+    debug_assert_eq!(finish.linked_object_meta, 0x000F);
+    debug_assert_eq!(finish.linked_object_animation, "stru_34D02");
+    debug_assert!(finish.linked_object_flag_13);
+    debug_assert!(!finish.linked_object_flag_19);
+    debug_assert!(!finish.linked_object_is_moved);
+    debug_assert!(!finish.linked_object_level_collision);
+    debug_assert_eq!(finish.linked_object_routine, 1);
+    debug_assert_eq!(finish.parent_animation, "stru_34C92");
     UfoFirstHurtSurviveLoc35228 {
-        parent_y_velocity: parent_y_velocity.wrapping_add(0x0004_0000),
-        d2: -0x0C00,
-        d3: 0,
-        hurt_primed: true,
+        parent_y_velocity: finish.parent_y_velocity,
+        d2: finish.d2,
+        d3: finish.d3,
+        hurt_primed: finish.parent_beam_spawned_latch,
     }
 }
 
@@ -1676,7 +1685,6 @@ pub(crate) fn ufo_hurt_driver_collision_dispatch_loc_35762(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) parent_beam_spawned_latch: bool,
     pub(crate) linked_object_meta: u16,
@@ -1692,7 +1700,6 @@ pub(crate) struct UfoBeamFinishLoc35228 {
     pub(crate) d3: i32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_beam_finish_loc_35228(parent_y_velocity: i32) -> UfoBeamFinishLoc35228 {
     // ASM UFO.asm loc_35228: mark `$47(a5)`, link the loc_32188 gfx object,
     // initialise it as UFO object meta `$0F`, reset its state flags, replay the
