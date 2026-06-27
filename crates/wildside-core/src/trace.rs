@@ -125,6 +125,14 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::ManiaxeAxe {
         return ActiveProjectileKind::ManiaxeAxe;
     }
+    if projectile.friendly
+        && projectile.gravity == JUGGERNAUT_SKULL_GRAVITY
+        && projectile.homing_accel == 0
+        && projectile.speed_cap == 0
+        && !projectile.terrain_kill
+    {
+        return ActiveProjectileKind::JuggernautSkull;
+    }
     if projectile.kind == EnemyProjectileKind::BossHeadArrow {
         return ActiveProjectileKind::BossHeadArrow;
     }

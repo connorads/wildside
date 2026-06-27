@@ -7580,7 +7580,7 @@ impl JuggernautSkullArtDmaLoc129DC {
 
 #[allow(non_snake_case)]
 #[allow(dead_code)]
-pub(crate) fn juggernaut_skull_art_dma_loop_loc_129DC() -> JuggernautSkullArtDmaLoc129DC {
+pub fn juggernaut_skull_art_dma_loop_loc_129DC() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_129DC (kid.asm:25359-25361): Juggernaut skull frame 1 DMA loop.
     //   loc_129DC:
     //   move.l  (a1)+,(a6)          ; copy longword from ArtUnc_12A08 to VDP
@@ -7603,13 +7603,13 @@ pub(crate) fn juggernaut_skull_art_dma_loop_loc_129DC() -> JuggernautSkullArtDma
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn juggernaut_skull_art_dma_loop_loc_129E8() -> JuggernautSkullArtDmaLoc129DC {
+pub fn juggernaut_skull_art_dma_loop_loc_129E8() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_129E8 (kid.asm:25365-25367): second `dbf` loop in sub_129CE.
     // It keeps the same `$CDC0` VRAM write command and copies another
-    // `$1F+1` longwords, but `a1` now points at `ArtUnc_12A8C`.
+    // `$1F+1` longwords, but `a1` now points at `ArtUnc_12A8C`. The VDP
+    // auto-increment leaves this loop's effective stream start at `$CE40`.
     const VDP_COMMAND: u32 = 0xC000_00CD; // vdpComm($CDC0,VRAM,WRITE)
-    const VRAM_WORD_ADDRESS: u16 = 0xCDC0;
+    const VRAM_WORD_ADDRESS: u16 = 0xCE40;
     const ART_SOURCE_OFFSET: u32 = 0x0001_2A8C; // ArtUnc_12A8C
     const LONGWORD_COUNT: u16 = 32; // $1F + 1
 
@@ -7622,8 +7622,7 @@ pub(crate) fn juggernaut_skull_art_dma_loop_loc_129E8() -> JuggernautSkullArtDma
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn juggernaut_star_art_dma_loop_loc_129FC() -> JuggernautSkullArtDmaLoc129DC {
+pub fn juggernaut_star_art_dma_loop_loc_129FC() -> JuggernautSkullArtDmaLoc129DC {
     // ASM loc_129FC (kid.asm:25372-25374): final `dbf` loop in sub_129CE.
     // This pass switches the VDP destination to `$DF40` and streams
     // `ArtUnc_12B0C` for another `$1F+1` longwords.

@@ -24,9 +24,9 @@ pub use level::{
 pub use palette::{MdColour, Palette, PaletteSet};
 pub use player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
-    FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame,
-    StormSharedWeatherArtVisuals, WeatherVisuals,
+    FloatingPrizeVisuals, JuggernautSkullVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals,
+    PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals,
+    SpriteFrame, StormSharedWeatherArtVisuals, WeatherVisuals,
 };
 pub use tiles::{Tile, TileQuad, TileRef, TileSheet};
 
@@ -371,6 +371,32 @@ mod tests {
                 .transform_steps
                 .iter()
                 .any(|step| step.frame.is_none())
+        );
+    }
+
+    #[test]
+    fn load_juggernaut_skull_visuals_uses_loc_129ce_dma_bases() {
+        let fixture = TestBundle::new().expect("test bundle");
+
+        let visuals = load_level_visuals(&fixture.manifest, LEVEL_ID).expect("visuals should load");
+        let skull = visuals
+            .juggernaut_skull
+            .as_ref()
+            .expect("Juggernaut skull visuals");
+
+        assert_eq!(skull.skull_vram_base_tile_index, 0x066E);
+        assert_eq!(skull.skull_frame_vram_tile_indices, [0x066E, 0x0672]);
+        assert_eq!(skull.star_vram_base_tile_index, 0x06FA);
+        assert_eq!(skull.frames.len(), 2);
+        assert_eq!(skull.frames[0].origin_x, 0x06);
+        assert_eq!(skull.frames[0].origin_y, 0x04);
+        assert_eq!(skull.frames[0].width_px, 0x0D);
+        assert_eq!(skull.frames[0].height_px, 0x0E);
+        assert_eq!(skull.frames[1].origin_y, 0x07);
+        assert_eq!(
+            skull.star.tile_sheet.tiles.len(),
+            4,
+            "ASM loc_129FC streams 32 longwords from ArtUnc_12B0C"
         );
     }
 
@@ -1177,6 +1203,27 @@ mod tests {
             )?;
             write_file(
                 root.path(),
+                "ingame/artunc/Juggernaut_skull_frame_1.bin",
+                &(0..128)
+                    .map(|value| 0x01 + (value % 15) as u8)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Juggernaut_skull_frame_2.bin",
+                &(0..128)
+                    .map(|value| 0x02 + (value % 14) as u8)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
+                "ingame/artunc/Some_kind_of_star.bin",
+                &(0..128)
+                    .map(|value| 0x03 + (value % 13) as u8)
+                    .collect::<Vec<_>>(),
+            )?;
+            write_file(
+                root.path(),
                 "ingame/artunc/Pause_menu.bin",
                 &(0..(32 * 0x19))
                     .map(|value| (value % 16) as u8)
@@ -1797,6 +1844,9 @@ mod tests {
                     ),
                     asset_file(root.path(), "ingame/artcomp/HUD_numbers.bin"),
                     asset_file(root.path(), "ingame/artunc/Hitpoint_display.bin"),
+                    asset_file(root.path(), "ingame/artunc/Juggernaut_skull_frame_1.bin"),
+                    asset_file(root.path(), "ingame/artunc/Juggernaut_skull_frame_2.bin"),
+                    asset_file(root.path(), "ingame/artunc/Some_kind_of_star.bin"),
                     asset_file(root.path(), "ingame/artunc/Pause_menu.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy01_Diamond.bin"),
                     asset_file(root.path(), "ingame/artcomp/Enemy0C_Dragon.bin"),

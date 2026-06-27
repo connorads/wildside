@@ -90,7 +90,9 @@ pub use level::{
     eol_score_counter_transfer_frames_from_trace_loc_D770,
     eol_title_return_faded_palette_word_loc_D734, flag_bottom_art_dma_loop_loc_12B9C,
     flagpole_scoreboard_reveal_tiles_loc_C21E, foreground_art_decompress_loc_11E48_11E60,
-    hitpoint_display_art_dma_loop_loc_12C34, shared_vram_art_decompresses_loc_11EFA,
+    hitpoint_display_art_dma_loop_loc_12C34, juggernaut_skull_art_dma_loop_loc_129DC,
+    juggernaut_skull_art_dma_loop_loc_129E8, juggernaut_star_art_dma_loop_loc_129FC,
+    shared_vram_art_decompresses_loc_11EFA,
 };
 pub use platforms::{
     PlatformSpriteDispatchInputLoc244C, PlatformSpriteDispatchLoc244C, PlatformSpriteEmitLoc2548,

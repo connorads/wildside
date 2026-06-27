@@ -7575,6 +7575,7 @@ mod tests {
                 ],
             },
             player: sample_player_visuals(),
+            juggernaut_skull: None,
             enemies: sample_enemy_visuals(),
             floating_prizes: sample_floating_prize_visuals(),
             flag: sample_flag_visuals(),

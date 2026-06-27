@@ -6544,6 +6544,40 @@ fn build_game_scene_filtered(
                         });
                     }
                 }
+                ActiveProjectileKind::JuggernautSkull => {
+                    let pushed_sprite = level_visuals
+                        .juggernaut_skull
+                        .as_ref()
+                        .and_then(|visuals| {
+                            let frame_index = usize::from(projectile.animation_elapsed_frames / 7)
+                                % visuals.frames.len().max(1);
+                            let frame = visuals.frames.get(frame_index)?;
+                            let facing = if projectile.x_velocity < 0 {
+                                Direction::Left
+                            } else {
+                                Direction::Right
+                            };
+                            let (draw_x, draw_y) = sprite_draw_position(frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(visuals.palette.clone()),
+                                tiles: build_sprite_tiles(frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 2,
+                            y: sy - 2,
+                            width: 4,
+                            height: 4,
+                            colour: FRIENDLY_PROJECTILE_COLOUR,
+                        });
+                    }
+                }
                 ActiveProjectileKind::BossHeadArrow => {
                     // ASM loc_3A0D2 uses boss projectile sprite `stru_3A1CC`;
                     // until the exact C8510/C8518 child frame is compiled here,

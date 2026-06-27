@@ -69,6 +69,19 @@ pub struct PlayerVisuals {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct JuggernautSkullVisuals {
+    pub skull_vram_base_tile_index: u16,
+    pub skull_frame_vram_tile_indices: [u16; 2],
+    pub star_vram_base_tile_index: u16,
+    /// ASM `sub_87B0` / `stru_8B98`: two 7-frame live skull frames at
+    /// `LnkTo_unk_C1B82` and `LnkTo_unk_C1B8A`.
+    pub frames: Vec<SpriteFrame>,
+    /// ASM `sub_129CE` also uploads `ArtUnc_12B0C` at loc_129FC.
+    pub star: SpriteFrame,
+    pub palette: Palette,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FlagVisuals {
     pub palette: Palette,
     pub pole_bottom: SpriteFrame,

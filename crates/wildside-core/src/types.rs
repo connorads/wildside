@@ -118,6 +118,10 @@ pub enum ActiveProjectileKind {
     /// Maniaxe thrown axe: ASM `ManiaxeAxe_Init` installs animation
     /// `stru_8B86` over the four `maniaxe_axe_1..4` Kid-form frames.
     ManiaxeAxe,
+    /// Juggernaut skull projectile: ASM `sub_87B0` installs `stru_8B98`,
+    /// alternating `LnkTo_unk_C1B82`/`LnkTo_unk_C1B8A` from loc_129DC/129E8
+    /// VRAM art.
+    JuggernautSkull,
     /// Boss-head arrow: ASM `loc_3A0D2` moves horizontally for `$40=$32`
     /// frames, then clears x_vel and waits `$42=$C8` frames stuck in place.
     BossHeadArrow,

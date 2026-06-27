@@ -8,9 +8,9 @@ use crate::level::{BlockVisualMapping, ForegroundLayout, LevelVisuals};
 use crate::palette::{MdColour, Palette, PaletteSet};
 use crate::player::{
     AnimatedSpriteVisual, EnemyVisuals, EolHologramVisuals, EolScoreVisuals, FlagVisuals,
-    FloatingPrizeVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals, PlayerFormVisuals,
-    PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals, SpriteFrame,
-    StormSharedWeatherArtVisuals, WeatherVisuals,
+    FloatingPrizeVisuals, JuggernautSkullVisuals, LavaVisuals, MurderWallVisuals, PlatformVisuals,
+    PlayerFormVisuals, PlayerTransformStep, PlayerVisuals, SpecialEffectUnknownVisuals,
+    SpriteFrame, StormSharedWeatherArtVisuals, WeatherVisuals,
 };
 use crate::tiles::{Tile, TileQuad, TileRef, TileSheet, parse_tile_quads};
 use anyhow::{Context, Result, anyhow, bail};
@@ -22,7 +22,8 @@ use wildside_core::{
     SharedVramArtSourceLoc11EFA, background_art_decompress_loc_11E8A_11EA2,
     background_followup_art_decompress_loc_11EA2_11EF2, flag_bottom_art_dma_loop_loc_12B9C,
     foreground_art_decompress_loc_11E48_11E60, hitpoint_display_art_dma_loop_loc_12C34,
-    shared_vram_art_decompresses_loc_11EFA,
+    juggernaut_skull_art_dma_loop_loc_129DC, juggernaut_skull_art_dma_loop_loc_129E8,
+    juggernaut_star_art_dma_loop_loc_129FC, shared_vram_art_decompresses_loc_11EFA,
 };
 use wildside_data::{
     AssetFile, AssetManifest, AssetSource, DecodedAssetFile, EnemyLayout, FsAssetSource,
@@ -35,6 +36,9 @@ const BLOCKS_ART_PATH: &str = "artcomp/Blocks.bin";
 const HUD_NUMBERS_ART_PATH: &str = "artcomp/HUD_numbers.bin";
 const HUD_DIAMOND_ART_PATH: &str = "artunc/diamond_1.bin";
 const HUD_HITPOINT_ART_PATH: &str = "artunc/Hitpoint_display.bin";
+const JUGGERNAUT_SKULL_FRAME_1_ART_PATH: &str = "artunc/Juggernaut_skull_frame_1.bin";
+const JUGGERNAUT_SKULL_FRAME_2_ART_PATH: &str = "artunc/Juggernaut_skull_frame_2.bin";
+const JUGGERNAUT_STAR_ART_PATH: &str = "artunc/Some_kind_of_star.bin";
 const PAUSE_MENU_ART_PATH: &str = "artunc/Pause_menu.bin";
 const PAUSE_MENU_VRAM_BASE_TILE_INDEX_LOC_690C: u16 = 0x0676;
 const PAUSE_MENU_MAP_WIDTH_LOC_69D2: usize = 16;
@@ -172,6 +176,9 @@ pub struct NativeLevelVisuals {
     pub level: LevelVisuals,
     pub hud: HudVisuals,
     pub player: PlayerVisuals,
+    /// ASM `sub_129CE` loads Juggernaut skull projectile art used by
+    /// `sub_87B0` / `stru_8B98`.
+    pub juggernaut_skull: Option<JuggernautSkullVisuals>,
     pub enemies: EnemyVisuals,
     pub floating_prizes: FloatingPrizeVisuals,
     pub flag: FlagVisuals,
@@ -454,6 +461,13 @@ pub fn load_level_visuals_with_source(
         .context("failed to load Island shore animation art")?;
 
     let player = load_player_visuals(manifest, source)?;
+    let juggernaut_skull =
+        load_juggernaut_skull_visuals(manifest, source, &player).unwrap_or_else(|err| {
+            if !cfg!(test) {
+                eprintln!("warning: Juggernaut skull art unavailable: {err}");
+            }
+            None
+        });
     let enemies = load_enemy_visuals(
         manifest,
         source,
@@ -571,6 +585,7 @@ pub fn load_level_visuals_with_source(
             ],
         },
         player,
+        juggernaut_skull,
         enemies,
         floating_prizes,
         flag,
@@ -4156,6 +4171,71 @@ fn load_player_visuals(
     }
 
     Ok(PlayerVisuals { forms })
+}
+
+fn load_juggernaut_skull_visuals(
+    manifest: &AssetManifest,
+    source: &dyn AssetSource,
+    player: &PlayerVisuals,
+) -> Result<Option<JuggernautSkullVisuals>> {
+    let Some(juggernaut) = player.forms.get(&PLAYER_FORM_JUGGERNAUT) else {
+        return Ok(None);
+    };
+    let Some(frame_1_art) = find_ingame_asset(manifest, JUGGERNAUT_SKULL_FRAME_1_ART_PATH) else {
+        return Ok(None);
+    };
+    let Some(frame_2_art) = find_ingame_asset(manifest, JUGGERNAUT_SKULL_FRAME_2_ART_PATH) else {
+        return Ok(None);
+    };
+    let Some(star_art) = find_ingame_asset(manifest, JUGGERNAUT_STAR_ART_PATH) else {
+        return Ok(None);
+    };
+
+    let frame_1_dma = juggernaut_skull_art_dma_loop_loc_129DC();
+    let frame_2_dma = juggernaut_skull_art_dma_loop_loc_129E8();
+    let star_dma = juggernaut_star_art_dma_loop_loc_129FC();
+    let frame_1_tiles =
+        load_uncompressed_tile_sheet(source, "ingame", frame_1_art, "Juggernaut skull frame 1")?;
+    let frame_2_tiles =
+        load_uncompressed_tile_sheet(source, "ingame", frame_2_art, "Juggernaut skull frame 2")?;
+    let star_tiles =
+        load_uncompressed_tile_sheet(source, "ingame", star_art, "Juggernaut star art")?;
+
+    Ok(Some(JuggernautSkullVisuals {
+        skull_vram_base_tile_index: frame_1_dma.vram_tile_base_index(),
+        skull_frame_vram_tile_indices: [
+            frame_1_dma.vram_tile_base_index(),
+            frame_2_dma.vram_tile_base_index(),
+        ],
+        star_vram_base_tile_index: star_dma.vram_tile_base_index(),
+        frames: vec![
+            SpriteFrame {
+                origin_x: 0x06,
+                origin_y: 0x04,
+                width_px: 0x0D,
+                height_px: 0x0E,
+                tile_base_index: 0,
+                tile_sheet: frame_1_tiles,
+            },
+            SpriteFrame {
+                origin_x: 0x06,
+                origin_y: 0x07,
+                width_px: 0x0D,
+                height_px: 0x10,
+                tile_base_index: 0,
+                tile_sheet: frame_2_tiles,
+            },
+        ],
+        star: SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 0x10,
+            height_px: 0x10,
+            tile_base_index: 0,
+            tile_sheet: star_tiles,
+        },
+        palette: juggernaut.palette.clone(),
+    }))
 }
 
 fn load_player_form_visuals_if_present(
