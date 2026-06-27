@@ -1327,14 +1327,12 @@ pub(crate) struct EvanescentBulletScanHitLocEB48 {
     pub(crate) row: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EvanescentBulletCellScanLocEB62 {
     Continue,
     TriggerEvanescentBlock,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletLoadCandidateLocEC52 {
     pub(crate) layout_word_addr: u16,
@@ -1343,7 +1341,6 @@ pub(crate) struct EvanescentBulletLoadCandidateLocEC52 {
     pub(crate) direction_bits: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LoadedShooterObjectLocEC76 {
     pub(crate) slot_addr: u32,
@@ -1355,7 +1352,6 @@ pub(crate) struct LoadedShooterObjectLocEC76 {
     pub(crate) next_active_slot_addr: u32,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletDirectionLoadLocEC76 {
     pub(crate) next_free_shooter_object_slot_addr: u32,
@@ -1365,27 +1361,23 @@ pub(crate) struct EvanescentBulletDirectionLoadLocEC76 {
     pub(crate) stopped_on_empty_free_list: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletDirectionLoopTailLocEC9E {
     pub(crate) next_direction_counter: u16,
     pub(crate) loops_to_loc_ec76: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletRecyclePredecessorLocECC4 {
     pub(crate) predecessor_slot_addr: u32,
     pub(crate) scanned_links: usize,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletRecycleSpliceLocECD2 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletRecycleFreeListPushLocECD8 {
     pub(crate) first_free_slot_addr: u32,
@@ -1394,7 +1386,6 @@ pub(crate) struct EvanescentBulletRecycleFreeListPushLocECD8 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EvanescentBulletActionDispatchLocED04 {
     ProcessAction { action_byte: u8 },
@@ -1402,7 +1393,6 @@ pub(crate) enum EvanescentBulletActionDispatchLocED04 {
     ProcessShooterObjects,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletSpriteLocED16 {
     pub(crate) y: u16,
@@ -1411,7 +1401,6 @@ pub(crate) struct EvanescentBulletSpriteLocED16 {
     pub(crate) x: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletActionInputLocED16 {
     pub(crate) action_byte: u8,
@@ -1427,7 +1416,6 @@ pub(crate) struct EvanescentBulletActionInputLocED16 {
     pub(crate) loc_edbc_layout_offset: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EvanescentBulletActionLocED16 {
     PositiveBranchToLocEDBC {
@@ -1440,7 +1428,6 @@ pub(crate) enum EvanescentBulletActionLocED16 {
     },
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FgUpdateQueueCellLocED98 {
     pub(crate) block_col: u16,
@@ -1448,14 +1435,12 @@ pub(crate) struct FgUpdateQueueCellLocED98 {
     pub(crate) layout_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EvanescentBulletLayoutWriteNextLocED98 {
     ContinueActiveScan { next_active_slot_addr: u32 },
     ProcessShooterObjects,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EvanescentBulletLayoutWriteLocED98 {
     pub(crate) layout_word_addr: u16,
@@ -1464,14 +1449,12 @@ pub(crate) struct EvanescentBulletLayoutWriteLocED98 {
     pub(crate) next_step: EvanescentBulletLayoutWriteNextLocED98,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterObjectMovingRightNextLocEE2A {
     ContinueMovingRight,
     InteractLevelLayout,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterObjectMovingRightGateLocEE2A {
     pub(crate) state_word: u16,
@@ -1479,7 +1462,6 @@ pub(crate) struct ShooterObjectMovingRightGateLocEE2A {
     pub(crate) next_step: ShooterObjectMovingRightNextLocEE2A,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterObjectSpriteTailLocEE52 {
     pub(crate) x_pos: u16,
@@ -1488,14 +1470,12 @@ pub(crate) struct ShooterObjectSpriteTailLocEE52 {
     pub(crate) tile_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterObjectMovingUpNextLocEE80 {
     ContinueMovingUp,
     InteractLevelLayout,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterObjectMovingUpGateLocEE80 {
     pub(crate) state_word: u16,
@@ -1503,28 +1483,24 @@ pub(crate) struct ShooterObjectMovingUpGateLocEE80 {
     pub(crate) next_step: ShooterObjectMovingUpNextLocEE80,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterObjectMovingLeftGateLocEED6 {
     pub(crate) state_word: u16,
     pub(crate) layout_word_addr: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterObjectMovingLeftNextLocEEE4 {
     ContinueMovingLeft,
     InteractLevelLayout,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterObjectMovingDownNextLocEF2E {
     ContinueMovingDown,
     InteractLevelLayout,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterObjectMovingDownGateLocEF2E {
     pub(crate) state_word: u16,
@@ -1532,7 +1508,6 @@ pub(crate) struct ShooterObjectMovingDownGateLocEF2E {
     pub(crate) next_step: ShooterObjectMovingDownNextLocEF2E,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterObjectMovingDownSpriteTailLocEF56 {
     pub(crate) y_pos: u16,
@@ -1541,27 +1516,23 @@ pub(crate) struct ShooterObjectMovingDownSpriteTailLocEF56 {
     pub(crate) tile_word: u16,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterObjectSpriteTailNextLocEF94 {
     ProcessShooterObjectsLoop { next_active_slot_addr: u32 },
     ContinueAtLocF05A,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ShooterObjectPredecessorLocEFB4 {
     pub(crate) predecessor_slot_addr: u32,
     pub(crate) scanned_links: usize,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShooterObjectSpliceLocEFC2 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShooterObjectInteractBlockLocEFC8 {
     Smash,
@@ -1570,7 +1541,6 @@ pub(crate) enum ShooterObjectInteractBlockLocEFC8 {
     None,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ShooterObjectFreeListPushLocEFC8 {
     pub(crate) first_free_slot_addr: u32,
