@@ -1152,7 +1152,6 @@ pub(crate) fn hide_pause_menu_overwritten_sprites_sub_6874(
 /// Number of bytes per iteration of the pause menu art copy inner loop.
 /// ASM loc_690C (kid.asm:6622-6631): 8 × `move.l (a0)+,(a6)` = 32 bytes per
 /// iteration, copying uncompressed tile art to VDP data port.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const PAUSE_MENU_ART_COPY_BYTES_PER_ITERATION_LOC_690C: u32 = 8 * 4;
 
 /// Compute the total byte count for the pause menu uncompressed art DMA.
