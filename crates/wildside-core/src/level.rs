@@ -4378,7 +4378,7 @@ fn run_loop_122c0(
 fn run_loop_with_property_123dc(
     words: &[u16],
     pos: &mut usize,
-    _width_blocks: u16,
+    width_blocks: u16,
     mut body: impl FnMut(u16, u16, u16),
 ) {
     loop {
@@ -4390,25 +4390,30 @@ fn run_loop_with_property_123dc(
             return;
         };
         let x = read_x.x_pos;
-        let Some(&y) = words.get(*pos) else {
+        let Some(&y_row) = words.get(*pos) else {
             return;
         };
-        let Some(&count) = words.get(*pos + 1) else {
+        let row_pointer_table: Vec<u16> = (0..=y_row)
+            .map(|row| row.wrapping_mul(width_blocks).wrapping_mul(2))
+            .collect();
+        let Some(setup) = block_type_1_cell_coords_loc_123ec(&words[*pos..], &row_pointer_table, x)
+        else {
             return;
         };
-        let Some(&stride) = words.get(*pos + 2) else {
-            return;
-        };
-        *pos += 3;
-        for i in 0..count {
+        *pos += setup.words_consumed;
+        let mut cell_addr = setup.cell_addr;
+        let level_width_tiles = width_blocks.wrapping_mul(2);
+        for i in 0..setup.count {
             let Some(prop) = words.get(*pos).copied() else {
                 return;
             };
             *pos += 1;
-            let (cx, cy) = if stride != 0 {
-                (x, y.wrapping_add(i))
+            let (cx, cy, prop) = if setup.stride {
+                let property = block_type_1_row_by_row_read_property_loc_12454(cell_addr, prop, 1);
+                cell_addr = cell_addr.wrapping_add(u32::from(level_width_tiles));
+                (x, setup.y_row.wrapping_add(i), property.property_word)
             } else {
-                (x.wrapping_add(i), y)
+                (x.wrapping_add(i), setup.y_row, prop)
             };
             body(cx, cy, prop);
         }
@@ -5120,7 +5125,6 @@ pub(crate) struct BlockType1CellSetupLoc123EC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1_cell_coords_loc_123ec(
     layout_words: &[u16],
     row_pointer_table: &[u16],
@@ -5223,7 +5227,6 @@ pub(crate) struct BlockType1RowByRowValueLoc12454 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1_row_by_row_read_property_loc_12454(
     cell_addr: u32,
     property_word: u16,
