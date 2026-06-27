@@ -14707,13 +14707,15 @@ mod chunk_03 {
                 runtime.played_sound_effects,
                 if matches!(
                     family,
-                    EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses
+                    EnemyFamily::Shishkaboss
+                        | EnemyFamily::BoomerangBosses
+                        | EnemyFamily::BagelBrothers
                 ) {
                     vec![QueuedSoundEffect::BossEyePops]
                 } else {
                     Vec::<QueuedSoundEffect>::new()
                 },
-                "ASM loc_39EE2 does not play `sfx_Boss_dies` until the first eight scripts finish; Shishkaboss/Boomerang eye pieces call sub_393B2 when the breakup word becomes nonzero"
+                "ASM loc_39EE2 does not play `sfx_Boss_dies` until the first eight scripts finish; multi-head boss eye pieces call sub_393B2 when the breakup word becomes nonzero"
             );
 
             runtime.active_enemies[0].wait_timer = BOSS_HEAD_DEATH_SPIN_FRAMES_LOC_39F7A + 1;
@@ -14729,7 +14731,9 @@ mod chunk_03 {
                 runtime.played_sound_effects,
                 if matches!(
                     family,
-                    EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses
+                    EnemyFamily::Shishkaboss
+                        | EnemyFamily::BoomerangBosses
+                        | EnemyFamily::BagelBrothers
                 ) {
                     vec![QueuedSoundEffect::BossEyePops, QueuedSoundEffect::BossDies]
                 } else {
@@ -14944,7 +14948,7 @@ mod chunk_03 {
     }
 
     #[test]
-    fn boomerang_boss_eye_detach_spawns_orbit_workers_loc_38962_389fa() {
+    fn boomerang_boss_eye_detach_spawns_family_orbit_workers_loc_38cf2_38d8a() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.active_enemies = vec![test_enemy(
             EnemyFamily::BoomerangBosses,
@@ -14963,7 +14967,7 @@ mod chunk_03 {
         assert_eq!(
             eye_workers.len(),
             2,
-            "ASM loc_38962/loc_389FA should detach the two orbiting boss-eye workers, not only queue their pop sound"
+            "ASM Enemy23_BoomerangBosses_Init allocates head 1's two orbiting boss-eye workers at loc_38C92/loc_38D2A, so detach should launch loc_38CF2/loc_38D8A"
         );
         assert_eq!(
             (
@@ -14972,7 +14976,7 @@ mod chunk_03 {
                 eye_workers[0].gravity
             ),
             (-0x4000, -3 << 16, 0x07D0),
-            "ASM loc_38962 launches the primary orbit eye left/up with `$7D0` gravity"
+            "ASM loc_38CF2 launches the primary Boomerang boss eye left/up with `$7D0` gravity"
         );
         assert_eq!(
             (
@@ -14981,7 +14985,7 @@ mod chunk_03 {
                 eye_workers[1].gravity
             ),
             (0x4000, -3 << 16, 0x07D0),
-            "ASM loc_389FA launches the counter orbit eye right/up with `$7D0` gravity"
+            "ASM loc_38D8A launches the counter Boomerang boss eye right/up with `$7D0` gravity"
         );
     }
 
@@ -15032,6 +15036,56 @@ mod chunk_03 {
                 runtime.played_sound_effects,
                 vec![QueuedSoundEffect::BossEyePops],
                 "ASM {left_label}/{right_label} call sub_393B2 before the Shishkaboss eye workers launch"
+            );
+        }
+    }
+
+    #[test]
+    fn bagel_brothers_eye_detach_spawns_family_orbit_workers_loc_39082_3937a() {
+        for (head_index, left_label, right_label) in [
+            (0, "loc_39082", "loc_3911A"),
+            (1, "loc_391B2", "loc_3924A"),
+            (2, "loc_392E2", "loc_3937A"),
+        ] {
+            let mut runtime = NativeRuntime::new(manifest());
+            let mut boss = test_enemy(EnemyFamily::BagelBrothers, 0x0080_0000, 0x0040_0000, 1);
+            boss.boss_head_index = head_index;
+            runtime.active_enemies = vec![boss];
+
+            runtime.remove_dead_enemy(0);
+
+            let eye_workers: Vec<_> = runtime
+                .projectiles
+                .iter()
+                .filter(|projectile| projectile.kind == EnemyProjectileKind::BossEyeSatellite)
+                .collect();
+            assert_eq!(
+                eye_workers.len(),
+                2,
+                "ASM Enemy24_BagelBrothers_Init allocates Bagel eye workers, so {left_label}/{right_label} should detach both siblings when `$FFFFFB72/$FB74/$FB76` becomes nonzero"
+            );
+            assert_eq!(
+                (
+                    eye_workers[0].x_velocity,
+                    eye_workers[0].y_velocity,
+                    eye_workers[0].gravity
+                ),
+                (-0x4000, -3 << 16, 0x07D0),
+                "ASM {left_label} launches the primary Bagel eye left/up with `$7D0` gravity"
+            );
+            assert_eq!(
+                (
+                    eye_workers[1].x_velocity,
+                    eye_workers[1].y_velocity,
+                    eye_workers[1].gravity
+                ),
+                (0x4000, -3 << 16, 0x07D0),
+                "ASM {right_label} launches the counter Bagel eye right/up with `$7D0` gravity"
+            );
+            assert_eq!(
+                runtime.played_sound_effects,
+                vec![QueuedSoundEffect::BossEyePops],
+                "ASM {left_label}/{right_label} call sub_393B2 before the Bagel eye workers launch"
             );
         }
     }

@@ -5261,7 +5261,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_2_launch_loc_38C5A()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_3_init_loc_38C92(
     anchor_x: u16,
     anchor_y: u16,
@@ -5289,7 +5288,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_3_init_loc_38C92(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_3_tracking_loop_loc_38CCE(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossHead1EyePiece3TrackingLoopLoc38CCE {
@@ -5313,7 +5311,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_3_tracking_loop_loc_38CCE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_3_launch_loc_38CF2()
 -> BoomerangBossHead1EyePiece3LaunchLoc38CF2 {
     // ASM loc_38CF2 (kid.asm:41397): call `sub_393B2` (detach step — sound
@@ -5337,7 +5334,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_3_launch_loc_38CF2()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_4_init_loc_38D2A(
     anchor_x: u16,
     anchor_y: u16,
@@ -5366,7 +5362,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_4_init_loc_38D2A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_4_tracking_loop_loc_38D66(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossHead1EyePiece4TrackingLoopLoc38D66 {
@@ -5391,7 +5386,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_4_tracking_loop_loc_38D66(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_4_launch_loc_38D8A()
 -> BoomerangBossHead1EyePiece4LaunchLoc38D8A {
     // ASM loc_38D8A (kid.asm:41445): call `sub_393B2` (detach step — sound
@@ -5415,7 +5409,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_4_launch_loc_38D8A()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_3_init_loc_38DC2(
     anchor_x: u16,
     anchor_y: u16,
@@ -5443,7 +5436,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_3_init_loc_38DC2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_3_tracking_loop_loc_38DFE(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece3TrackingLoopLoc38DFE {
@@ -5467,7 +5459,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_3_tracking_loop_loc_38DFE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_3_launch_loc_38E22()
 -> BoomerangBossHead2EyePiece3LaunchLoc38E22 {
     // ASM loc_38E22 (kid.asm:41493): call `sub_393B2` (detach step — sound
@@ -5491,7 +5482,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_3_launch_loc_38E22()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_4_init_loc_38E5A(
     anchor_x: u16,
     anchor_y: u16,
@@ -5520,7 +5510,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_4_init_loc_38E5A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_4_tracking_loop_loc_38E96(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece4TrackingLoopLoc38E96 {
@@ -5545,7 +5534,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_4_tracking_loop_loc_38E96(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_4_launch_loc_38EBA()
 -> BoomerangBossHead2EyePiece4LaunchLoc38EBA {
     // ASM loc_38EBA (kid.asm:41541): call `sub_393B2` (detach step — sound
@@ -5569,7 +5557,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_4_launch_loc_38EBA()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_3_init_loc_38EF2(
     anchor_x: u16,
     anchor_y: u16,
@@ -5598,7 +5585,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_3_init_loc_38EF2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38F2E(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece3TrackingLoopLoc38F2E {
@@ -5622,7 +5608,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38F2E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_3_launch_loc_38F52()
 -> BoomerangBossHead3EyePiece3LaunchLoc38F52 {
     // ASM loc_38F52 (kid.asm:41589): call `sub_393B2` (detach step — sound
@@ -5646,7 +5631,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_3_launch_loc_38F52()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_4_tracking_loop_loc_38FC6(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece4TrackingLoopLoc38FC6 {
@@ -5671,7 +5655,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_4_tracking_loop_loc_38FC6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_4_launch_loc_38FEA()
 -> BoomerangBossHead3EyePiece4LaunchLoc38FEA {
     // ASM loc_38FEA (kid.asm:41637): call `sub_393B2` (detach step — sound
@@ -5695,7 +5678,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_4_launch_loc_38FEA()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_5_init_loc_39022(
     anchor_x: u16,
     anchor_y: u16,
@@ -5723,7 +5705,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_5_init_loc_39022(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_5_tracking_loop_loc_3905E(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossHead1EyePiece5TrackingLoopLoc3905E {
@@ -5747,7 +5728,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_5_tracking_loop_loc_3905E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_5_launch_loc_39082()
 -> BoomerangBossHead1EyePiece5LaunchLoc39082 {
     // ASM loc_39082 (kid.asm:41685): call `sub_393B2` (detach step — sound
@@ -5771,7 +5751,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_5_launch_loc_39082()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_6_init_loc_390ba(
     anchor_x: u16,
     anchor_y: u16,
@@ -5799,7 +5778,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_6_init_loc_390ba(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_6_tracking_loop_loc_390f6(
     breakup_trigger_fb72: u16,
 ) -> BoomerangBossHead1EyePiece6TrackingLoopLoc390F6 {
@@ -5823,7 +5801,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_6_tracking_loop_loc_390f6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_1_eye_piece_6_launch_loc_3911a()
 -> BoomerangBossHead1EyePiece6LaunchLoc3911A {
     // ASM loc_3911A (kid.asm:41733): call `sub_393B2` (detach step — sound
@@ -5847,7 +5824,6 @@ pub(crate) fn boomerang_boss_head_1_eye_piece_6_launch_loc_3911a()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_5_init_loc_39152(
     anchor_x: u16,
     anchor_y: u16,
@@ -5876,7 +5852,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_5_init_loc_39152(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_5_tracking_loop_loc_3918E(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece5TrackingLoopLoc3918E {
@@ -5901,7 +5876,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_5_tracking_loop_loc_3918E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_5_launch_loc_391B2()
 -> BoomerangBossHead2EyePiece5LaunchLoc391B2 {
     // ASM loc_391B2 (kid.asm:41781): call `sub_393B2` (detach step — sound
@@ -5925,7 +5899,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_5_launch_loc_391B2()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_6_init_loc_391EA(
     anchor_x: u16,
     anchor_y: u16,
@@ -5954,7 +5927,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_6_init_loc_391EA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_6_tracking_loop_loc_39226(
     breakup_trigger_fb74: u16,
 ) -> BoomerangBossHead2EyePiece6TrackingLoopLoc39226 {
@@ -5979,7 +5951,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_6_tracking_loop_loc_39226(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_2_eye_piece_6_launch_loc_3924A()
 -> BoomerangBossHead2EyePiece6LaunchLoc3924A {
     // ASM loc_3924A (kid.asm:41829): call `sub_393B2` (detach step — sound
@@ -6003,7 +5974,6 @@ pub(crate) fn boomerang_boss_head_2_eye_piece_6_launch_loc_3924A()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_5_init_loc_39282(
     anchor_x: u16,
     anchor_y: u16,
@@ -6032,7 +6002,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_5_init_loc_39282(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_5_tracking_loop_loc_392BE(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece5TrackingLoopLoc392BE {
@@ -6057,7 +6026,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_5_tracking_loop_loc_392BE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_5_launch_loc_392E2()
 -> BoomerangBossHead3EyePiece5LaunchLoc392E2 {
     // ASM loc_392E2 (kid.asm:41877): call `sub_393B2` (detach step — sound
@@ -6081,7 +6049,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_5_launch_loc_392E2()
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_6_tracking_loop_loc_39356(
     breakup_trigger_fb76: u16,
 ) -> BoomerangBossHead3EyePiece6TrackingLoopLoc39356 {
@@ -6106,7 +6073,6 @@ pub(crate) fn boomerang_boss_head_3_eye_piece_6_tracking_loop_loc_39356(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn boomerang_boss_head_3_eye_piece_6_launch_loc_3937A()
 -> BoomerangBossHead3EyePiece6LaunchLoc3937A {
     // ASM loc_3937A (kid.asm:41925): call `sub_393B2` (detach step — sound
@@ -10003,6 +9969,7 @@ impl NativeRuntime {
 
     fn spawn_boss_eye_detach_workers_loc_38962(
         &mut self,
+        family: EnemyFamily,
         anchor_x: u32,
         anchor_y: u32,
         boss_head_index: u8,
@@ -10044,18 +10011,50 @@ impl NativeRuntime {
         let fallback_anchors = || {
             let parent_x = (anchor_x >> 16) as u16;
             let parent_y = (anchor_y >> 16) as u16;
-            match boss_head_index {
-                1 => {
+            match (family, boss_head_index) {
+                (EnemyFamily::Shishkaboss, 1) => {
                     let left = boomerang_boss_head_2_eye_piece_1_init_loc_38A32(parent_x, parent_y);
                     let right =
                         boomerang_boss_head_2_eye_piece_2_init_loc_38ACA(parent_x, parent_y);
                     fallback_orbit_positions(left.x_pos, left.y_pos, right.x_pos, right.y_pos)
                 }
-                2 => {
+                (EnemyFamily::Shishkaboss, 2) => {
                     let left = boomerang_boss_head_3_eye_piece_1_init_loc_38B62(parent_x, parent_y);
                     let right =
                         boomerang_boss_head_3_eye_piece_2_init_loc_38BFA(parent_x, parent_y);
                     fallback_orbit_positions(left.x_pos, left.y_pos, right.x_pos, right.y_pos)
+                }
+                (EnemyFamily::BoomerangBosses, 0) => {
+                    let left = boomerang_boss_head_1_eye_piece_3_init_loc_38C92(parent_x, parent_y);
+                    let right =
+                        boomerang_boss_head_1_eye_piece_4_init_loc_38D2A(parent_x, parent_y);
+                    fallback_orbit_positions(left.x_pos, left.y_pos, right.x_pos, right.y_pos)
+                }
+                (EnemyFamily::BoomerangBosses, 1) => {
+                    let left = boomerang_boss_head_2_eye_piece_3_init_loc_38DC2(parent_x, parent_y);
+                    let right =
+                        boomerang_boss_head_2_eye_piece_4_init_loc_38E5A(parent_x, parent_y);
+                    fallback_orbit_positions(left.x_pos, left.y_pos, right.x_pos, right.y_pos)
+                }
+                (EnemyFamily::BoomerangBosses, _) => {
+                    let left = boomerang_boss_head_3_eye_piece_3_init_loc_38EF2(parent_x, parent_y);
+                    fallback_orbit_positions(left.x_pos, left.y_pos, parent_x, parent_y)
+                }
+                (EnemyFamily::BagelBrothers, 0) => {
+                    let left = boomerang_boss_head_1_eye_piece_5_init_loc_39022(parent_x, parent_y);
+                    let right =
+                        boomerang_boss_head_1_eye_piece_6_init_loc_390ba(parent_x, parent_y);
+                    fallback_orbit_positions(left.x_pos, left.y_pos, right.x_pos, right.y_pos)
+                }
+                (EnemyFamily::BagelBrothers, 1) => {
+                    let left = boomerang_boss_head_2_eye_piece_5_init_loc_39152(parent_x, parent_y);
+                    let right =
+                        boomerang_boss_head_2_eye_piece_6_init_loc_391EA(parent_x, parent_y);
+                    fallback_orbit_positions(left.x_pos, left.y_pos, right.x_pos, right.y_pos)
+                }
+                (EnemyFamily::BagelBrothers, _) => {
+                    let left = boomerang_boss_head_3_eye_piece_5_init_loc_39282(parent_x, parent_y);
+                    fallback_orbit_positions(left.x_pos, left.y_pos, parent_x, parent_y)
                 }
                 _ => {
                     let left = boomerang_boss_eye_piece_1_init_loc_38902(parent_x, parent_y);
@@ -10075,8 +10074,9 @@ impl NativeRuntime {
             fallback_anchors()
         };
 
-        let launches = match boss_head_index {
-            1 => {
+        type BossEyeLaunch = Option<((u16, u16), i32, i16, i32)>;
+        let launches: [BossEyeLaunch; 2] = match (family, boss_head_index) {
+            (EnemyFamily::Shishkaboss, 1) => {
                 let left_tracking =
                     boomerang_boss_head_2_eye_piece_1_tracking_loop_loc_38A6E(breakup_trigger_word);
                 let right_tracking =
@@ -10108,7 +10108,7 @@ impl NativeRuntime {
                     },
                 ]
             }
-            2 => {
+            (EnemyFamily::Shishkaboss, 2) => {
                 let left_tracking =
                     boomerang_boss_head_3_eye_piece_1_tracking_loop_loc_38B9E(breakup_trigger_word);
                 let right_tracking =
@@ -10135,6 +10135,198 @@ impl NativeRuntime {
                             right_launch.gravity_per_frame,
                         )),
                         BoomerangBossHead3EyePiece2TrackingNextLoc38C36::TrackingLoopLoc38C36 => {
+                            None
+                        }
+                    },
+                ]
+            }
+            (EnemyFamily::BoomerangBosses, 0) => {
+                let left_tracking =
+                    boomerang_boss_head_1_eye_piece_3_tracking_loop_loc_38CCE(breakup_trigger_word);
+                let right_tracking =
+                    boomerang_boss_head_1_eye_piece_4_tracking_loop_loc_38D66(breakup_trigger_word);
+                let left_launch = boomerang_boss_head_1_eye_piece_3_launch_loc_38CF2();
+                let right_launch = boomerang_boss_head_1_eye_piece_4_launch_loc_38D8A();
+                [
+                    match left_tracking.next {
+                        BoomerangBossHead1EyePiece3TrackingNextLoc38CCE::LaunchLoc38CF2 => Some((
+                            positions[0],
+                            left_launch.x_vel,
+                            left_launch.y_vel,
+                            left_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead1EyePiece3TrackingNextLoc38CCE::TrackingLoopLoc38CCE => {
+                            None
+                        }
+                    },
+                    match right_tracking.next {
+                        BoomerangBossHead1EyePiece4TrackingNextLoc38D66::LaunchLoc38D8A => Some((
+                            positions[1],
+                            right_launch.x_vel,
+                            right_launch.y_vel,
+                            right_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead1EyePiece4TrackingNextLoc38D66::TrackingLoopLoc38D66 => {
+                            None
+                        }
+                    },
+                ]
+            }
+            (EnemyFamily::BoomerangBosses, 1) => {
+                let left_tracking =
+                    boomerang_boss_head_2_eye_piece_3_tracking_loop_loc_38DFE(breakup_trigger_word);
+                let right_tracking =
+                    boomerang_boss_head_2_eye_piece_4_tracking_loop_loc_38E96(breakup_trigger_word);
+                let left_launch = boomerang_boss_head_2_eye_piece_3_launch_loc_38E22();
+                let right_launch = boomerang_boss_head_2_eye_piece_4_launch_loc_38EBA();
+                [
+                    match left_tracking.next {
+                        BoomerangBossHead2EyePiece3TrackingNextLoc38DFE::LaunchLoc38E22 => Some((
+                            positions[0],
+                            left_launch.x_vel,
+                            left_launch.y_vel,
+                            left_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead2EyePiece3TrackingNextLoc38DFE::TrackingLoopLoc38DFE => {
+                            None
+                        }
+                    },
+                    match right_tracking.next {
+                        BoomerangBossHead2EyePiece4TrackingNextLoc38E96::LaunchLoc38EBA => Some((
+                            positions[1],
+                            right_launch.x_vel,
+                            right_launch.y_vel,
+                            right_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead2EyePiece4TrackingNextLoc38E96::TrackingLoopLoc38E96 => {
+                            None
+                        }
+                    },
+                ]
+            }
+            (EnemyFamily::BoomerangBosses, _) => {
+                let left_tracking =
+                    boomerang_boss_head_3_eye_piece_3_tracking_loop_loc_38F2E(breakup_trigger_word);
+                let right_tracking =
+                    boomerang_boss_head_3_eye_piece_4_tracking_loop_loc_38FC6(breakup_trigger_word);
+                let left_launch = boomerang_boss_head_3_eye_piece_3_launch_loc_38F52();
+                let right_launch = boomerang_boss_head_3_eye_piece_4_launch_loc_38FEA();
+                [
+                    match left_tracking.next {
+                        BoomerangBossHead3EyePiece3TrackingNextLoc38F2E::LaunchLoc38F52 => Some((
+                            positions[0],
+                            left_launch.x_vel,
+                            left_launch.y_vel,
+                            left_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead3EyePiece3TrackingNextLoc38F2E::TrackingLoopLoc38F2E => {
+                            None
+                        }
+                    },
+                    match right_tracking.next {
+                        BoomerangBossHead3EyePiece4TrackingNextLoc38FC6::LaunchLoc38FEA => Some((
+                            positions[1],
+                            right_launch.x_vel,
+                            right_launch.y_vel,
+                            right_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead3EyePiece4TrackingNextLoc38FC6::TrackingLoopLoc38FC6 => {
+                            None
+                        }
+                    },
+                ]
+            }
+            (EnemyFamily::BagelBrothers, 0) => {
+                let left_tracking =
+                    boomerang_boss_head_1_eye_piece_5_tracking_loop_loc_3905E(breakup_trigger_word);
+                let right_tracking =
+                    boomerang_boss_head_1_eye_piece_6_tracking_loop_loc_390f6(breakup_trigger_word);
+                let left_launch = boomerang_boss_head_1_eye_piece_5_launch_loc_39082();
+                let right_launch = boomerang_boss_head_1_eye_piece_6_launch_loc_3911a();
+                [
+                    match left_tracking.next {
+                        BoomerangBossHead1EyePiece5TrackingNextLoc3905E::LaunchLoc39082 => Some((
+                            positions[0],
+                            left_launch.x_vel,
+                            left_launch.y_vel,
+                            left_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead1EyePiece5TrackingNextLoc3905E::TrackingLoopLoc3905E => {
+                            None
+                        }
+                    },
+                    match right_tracking.next {
+                        BoomerangBossHead1EyePiece6TrackingNextLoc390F6::LaunchLoc3911A => Some((
+                            positions[1],
+                            right_launch.x_vel,
+                            right_launch.y_vel,
+                            right_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead1EyePiece6TrackingNextLoc390F6::TrackingLoopLoc390F6 => {
+                            None
+                        }
+                    },
+                ]
+            }
+            (EnemyFamily::BagelBrothers, 1) => {
+                let left_tracking =
+                    boomerang_boss_head_2_eye_piece_5_tracking_loop_loc_3918E(breakup_trigger_word);
+                let right_tracking =
+                    boomerang_boss_head_2_eye_piece_6_tracking_loop_loc_39226(breakup_trigger_word);
+                let left_launch = boomerang_boss_head_2_eye_piece_5_launch_loc_391B2();
+                let right_launch = boomerang_boss_head_2_eye_piece_6_launch_loc_3924A();
+                [
+                    match left_tracking.next {
+                        BoomerangBossHead2EyePiece5TrackingNextLoc3918E::LaunchLoc391B2 => Some((
+                            positions[0],
+                            left_launch.x_vel,
+                            left_launch.y_vel,
+                            left_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead2EyePiece5TrackingNextLoc3918E::TrackingLoopLoc3918E => {
+                            None
+                        }
+                    },
+                    match right_tracking.next {
+                        BoomerangBossHead2EyePiece6TrackingNextLoc39226::LaunchLoc3924A => Some((
+                            positions[1],
+                            right_launch.x_vel,
+                            right_launch.y_vel,
+                            right_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead2EyePiece6TrackingNextLoc39226::TrackingLoopLoc39226 => {
+                            None
+                        }
+                    },
+                ]
+            }
+            (EnemyFamily::BagelBrothers, _) => {
+                let left_tracking =
+                    boomerang_boss_head_3_eye_piece_5_tracking_loop_loc_392BE(breakup_trigger_word);
+                let right_tracking =
+                    boomerang_boss_head_3_eye_piece_6_tracking_loop_loc_39356(breakup_trigger_word);
+                let left_launch = boomerang_boss_head_3_eye_piece_5_launch_loc_392E2();
+                let right_launch = boomerang_boss_head_3_eye_piece_6_launch_loc_3937A();
+                [
+                    match left_tracking.next {
+                        BoomerangBossHead3EyePiece5TrackingNextLoc392BE::LaunchLoc392E2 => Some((
+                            positions[0],
+                            left_launch.x_vel,
+                            left_launch.y_vel,
+                            left_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead3EyePiece5TrackingNextLoc392BE::TrackingLoopLoc392BE => {
+                            None
+                        }
+                    },
+                    match right_tracking.next {
+                        BoomerangBossHead3EyePiece6TrackingNextLoc39356::LaunchLoc3937A => Some((
+                            positions[1],
+                            right_launch.x_vel,
+                            right_launch.y_vel,
+                            right_launch.gravity_per_frame,
+                        )),
+                        BoomerangBossHead3EyePiece6TrackingNextLoc39356::TrackingLoopLoc39356 => {
                             None
                         }
                     },
@@ -10173,11 +10365,10 @@ impl NativeRuntime {
         for ((placement_x, placement_y), x_velocity, y_velocity, gravity) in
             launches.into_iter().flatten()
         {
-            // ASM loc_38962/loc_389FA plus Shishkaboss siblings
-            // loc_38A92/loc_38B2A and loc_38BC2/loc_38C5A: after sub_393B2
-            // the current `$21` loc_3931A object slots launch left/right with
-            // y_vel `$FFFD0000` and add `$7D0` gravity each loop until below
-            // Level_height_pixels.
+            // ASM loc_38962/loc_389FA and family-specific sibling labels:
+            // after sub_393B2 the current `$21` eye object slots launch
+            // left/right with y_vel `$FFFD0000` and add `$7D0` gravity each
+            // loop until below Level_height_pixels.
             self.projectiles.push(EnemyProjectile {
                 x_pos: u32::from(placement_x) << 16,
                 y_pos: u32::from(placement_y) << 16,
@@ -10302,7 +10493,9 @@ impl NativeRuntime {
             }
             if matches!(
                 family,
-                EnemyFamily::Shishkaboss | EnemyFamily::BoomerangBosses
+                EnemyFamily::Shishkaboss
+                    | EnemyFamily::BoomerangBosses
+                    | EnemyFamily::BagelBrothers
             ) {
                 let trigger_index = Self::boss_eye_breakup_trigger_index_loc_3893e(
                     self.active_enemies[idx].boss_head_index,
@@ -10314,6 +10507,7 @@ impl NativeRuntime {
                 self.boss_eye_breakup_trigger_words_fb72_fb74_fb76[trigger_index] = 1;
                 if self.boss_eye_breakup_trigger_words_fb72_fb74_fb76[trigger_index] != 0 {
                     self.spawn_boss_eye_detach_workers_loc_38962(
+                        family,
                         x_pos,
                         y_pos,
                         self.active_enemies[idx].boss_head_index,
