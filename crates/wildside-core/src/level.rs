@@ -4334,7 +4334,7 @@ fn reconcile_prize_block_cells_loc_123DC(
 fn run_loop_122c0(
     words: &[u16],
     pos: &mut usize,
-    _width_blocks: u16,
+    width_blocks: u16,
     mut body: impl FnMut(u16, u16, u16),
 ) {
     loop {
@@ -4347,23 +4347,27 @@ fn run_loop_122c0(
             return;
         };
         let x = entry.x_pos;
-        let Some(&y) = words.get(*pos) else {
+        let Some((setup, words_consumed)) = block_layout_read_coords_loc_122DA(&words[*pos..])
+        else {
             return;
         };
-        let Some(&count) = words.get(*pos + 1) else {
-            return;
-        };
-        let Some(&stride) = words.get(*pos + 2) else {
-            return;
-        };
-        *pos += 3;
-        for i in 0..count {
-            let (cx, cy) = if stride != 0 {
-                (x, y.wrapping_add(i))
-            } else {
-                (x.wrapping_add(i), y)
-            };
-            body(cx, cy, i);
+        *pos += words_consumed;
+        if setup.stride {
+            for i in 0..setup.count {
+                body(x, setup.y_row.wrapping_add(i), i);
+            }
+        } else {
+            let cell_addr = (u32::from(setup.y_row) * u32::from(width_blocks))
+                .wrapping_add(u32::from(x))
+                .wrapping_mul(2);
+            for (i, _write) in block_place_cells_loc_122F6(cell_addr, 0, setup.count, false)
+                .into_iter()
+                .enumerate()
+            {
+                let i = u16::try_from(i).unwrap_or(u16::MAX);
+                let (cx, cy) = (x.wrapping_add(i), setup.y_row);
+                body(cx, cy, i);
+            }
         }
     }
 }
@@ -4771,7 +4775,6 @@ pub(crate) fn block_layout_parse_entry_loc_122C0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_read_coords_loc_122DA(
     layout_words: &[u16],
 ) -> Option<(BlockLayoutSetupLoc122DA, usize)> {
@@ -4806,7 +4809,6 @@ pub(crate) fn block_layout_read_coords_loc_122DA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_place_cells_loc_122F6(
     cell_addr: u32,
     cell_word: u16,
