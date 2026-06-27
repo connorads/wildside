@@ -4379,13 +4379,14 @@ fn run_loop_with_property_123dc(
     mut body: impl FnMut(u16, u16, u16),
 ) {
     loop {
-        let Some(x) = words.get(*pos).copied() else {
+        let Some(x_word) = words.get(*pos).copied() else {
             return;
         };
         *pos += 1;
-        if x & 0x8000 != 0 {
+        let Some(read_x) = block_layout_read_x_pos_loc_123e6(x_word) else {
             return;
-        }
+        };
+        let x = read_x.x_pos;
         let Some(&y) = words.get(*pos) else {
             return;
         };
@@ -5084,7 +5085,6 @@ pub(crate) struct BlockLayoutEntryLoc123E6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_read_x_pos_loc_123e6(
     layout_word: u16,
 ) -> Option<BlockLayoutEntryLoc123E6> {
