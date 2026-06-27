@@ -12989,7 +12989,6 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn sprite_special_y_offset_loc_1286(sprite_offset: u16, y_screen_px: i32) -> i32 {
         const MANIAXE_AXE_FRAME_3_SPRITE_OFFSET_LOC_1286: u16 = 0x00B0;
 

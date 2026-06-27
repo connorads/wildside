@@ -1384,6 +1384,10 @@ fn append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
     );
     let base_y_screen_px =
         i32::from(gfx.y_pos) - i32::from(frame.height) + i32::from(frame.y_center) + 0x80;
+    let base_y_screen_px = crate::NativeRuntime::sprite_special_y_offset_loc_1286(
+        frame.sprite_index,
+        base_y_screen_px,
+    );
     let chunks = if uses_x_flip {
         crate::NativeRuntime::sprite_x_flipped_chunks_loc_134A(
             (i32::from(gfx.x_pos) + i32::from(frame.x_center) + 0x80) as i16,
