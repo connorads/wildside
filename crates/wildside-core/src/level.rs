@@ -11428,7 +11428,6 @@ pub(crate) fn evanescent_bullet_recycle_splice_predecessor_loc_ECD2(
 /// whether the active evanescent scan continues at `loc_EC52` or falls through
 /// to `Process_ShooterObjects`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_bullet_recycle_free_list_push_loc_ECD8(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,

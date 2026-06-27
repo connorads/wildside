@@ -793,12 +793,23 @@ impl BlockInteractionState {
     pub(crate) fn recycle_evanescent_slots_loc_ECD8(&mut self, recycled_slot_addrs: &[u32]) {
         self.rebuild_evanescent_active_links_loc_EA72();
         for &slot_addr in recycled_slot_addrs {
-            if let Some(push) = crate::level::evanescent_object_push_free_list_loc_EA98(
+            let push = crate::level::evanescent_bullet_recycle_free_list_push_loc_ECD8(
                 &self.evanescent_slot_links,
                 slot_addr,
-                self.evanescent_next_free_slot_addr,
                 0,
-            ) {
+                self.evanescent_next_free_slot_addr,
+            );
+            if let Some(push) = push {
+                debug_assert_eq!(
+                    crate::level::evanescent_object_push_free_list_loc_EA98(
+                        &self.evanescent_slot_links,
+                        slot_addr,
+                        self.evanescent_next_free_slot_addr,
+                        0,
+                    )
+                    .map(|push| (push.first_free_slot_addr, push.slots)),
+                    Some((push.first_free_slot_addr, push.slots.clone()))
+                );
                 self.evanescent_next_free_slot_addr = push.first_free_slot_addr;
                 self.evanescent_slot_links = push.slots;
             }
