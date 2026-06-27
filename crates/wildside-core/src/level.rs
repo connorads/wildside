@@ -361,18 +361,6 @@ pub(crate) struct BlockLayoutEntryWordsLoc13470 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BlockLayoutRepeatWordsLoc13514 {
-    pub(crate) words: Vec<u16>,
-    pub(crate) next_word: u16,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct BlockLayoutRepeatWordsLoc1351E {
-    pub(crate) words: Vec<u16>,
-    pub(crate) next_word: u16,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum BlockLayoutDecodeWordsLoc1354E {
     ReturnViaLoc13570 { rewound_input_addr: u16 },
     ContinueLoc13554 { words: Vec<u16> },
@@ -2710,116 +2698,6 @@ pub(crate) fn block_layout_dispatch_loc_13504(
         bits_remaining,
         refilled_input_byte,
     }
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_repeat_words_loc_13514(
-    start_word: u16,
-    dbf_counter: u16,
-) -> BlockLayoutRepeatWordsLoc13514 {
-    // ASM loc_13514 (kid.asm:25878-25881) writes `a2` to `(a1)+`, increments
-    // `a2` by one word after every store, and lets `dbf d2,loc_13514` make the
-    // loop inclusive, so `d2 = 0` still emits exactly one word.
-    let iterations = usize::from(dbf_counter) + 1;
-    let words = (0..iterations)
-        .map(|step| start_word.wrapping_add(u16::try_from(step).unwrap_or(u16::MAX)))
-        .collect();
-
-    BlockLayoutRepeatWordsLoc13514 {
-        words,
-        next_word: start_word.wrapping_add(dbf_counter).wrapping_add(1),
-    }
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_repeat_words_loc_1351E(
-    repeated_word: u16,
-    dbf_counter: u16,
-) -> BlockLayoutRepeatWordsLoc1351E {
-    // ASM loc_1351E (kid.asm:25886-25888) stores `a4` to `(a1)+` for every
-    // iteration but never changes `a4`, so the inclusive `dbf d2,loc_1351E`
-    // loop repeats one constant word exactly `d2 + 1` times.
-    let iterations = usize::from(dbf_counter) + 1;
-
-    BlockLayoutRepeatWordsLoc1351E {
-        words: vec![repeated_word; iterations],
-        next_word: repeated_word,
-    }
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_repeat_current_word_loc_1352A(
-    current_word: u16,
-    dbf_counter: u16,
-) -> BlockLayoutRepeatWordsLoc1351E {
-    // ASM loc_1352A (kid.asm:25895-25898) stores the current `d1` word to
-    // `(a1)+` and never mutates `d1` inside the loop, so `dbf d2,loc_1352A`
-    // repeats the decoded word exactly `d2 + 1` times.
-    let iterations = usize::from(dbf_counter) + 1;
-
-    BlockLayoutRepeatWordsLoc1351E {
-        words: vec![current_word; iterations],
-        next_word: current_word,
-    }
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_repeat_decoded_word_loc_13526(
-    decoded_word: u16,
-    dbf_counter: u16,
-) -> BlockLayoutRepeatWordsLoc1351E {
-    // ASM loc_13526 (kid.asm:25892-25898) calls `sub_13588` once to decode the
-    // seed word into `d1`, then falls through to `loc_1352A` without mutating
-    // that word again, so the emitted run is whatever `sub_13588` produced.
-    block_layout_repeat_current_word_loc_1352A(decoded_word, dbf_counter)
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_increment_decoded_word_loc_13532(
-    decoded_word: u16,
-    dbf_counter: u16,
-) -> BlockLayoutRepeatWordsLoc13514 {
-    // ASM loc_13532 (kid.asm:25901-25906) calls `sub_13588` once, stores the
-    // decoded `d1` word, then `addq.w #1,d1` after each write while
-    // `dbf d2,loc_13536` keeps the loop inclusive.
-    block_layout_repeat_words_loc_13514(decoded_word, dbf_counter)
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_decrement_words_loc_13544(
-    start_word: u16,
-    dbf_counter: u16,
-) -> BlockLayoutRepeatWordsLoc13514 {
-    // ASM loc_13544 (kid.asm:25914-25917) stores `d1` to `(a1)+`, then
-    // `subq.w #1,d1` after each write while `dbf d2,loc_13544` keeps the loop
-    // inclusive, so `d2 = 0` still emits exactly one word.
-    let iterations = usize::from(dbf_counter) + 1;
-    let words = (0..iterations)
-        .map(|step| start_word.wrapping_sub(u16::try_from(step).unwrap_or(u16::MAX)))
-        .collect();
-
-    BlockLayoutRepeatWordsLoc13514 {
-        words,
-        next_word: start_word.wrapping_sub(dbf_counter).wrapping_sub(1),
-    }
-}
-
-#[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn block_layout_decrement_decoded_word_loc_13540(
-    decoded_word: u16,
-    dbf_counter: u16,
-) -> BlockLayoutRepeatWordsLoc13514 {
-    // ASM loc_13540 (kid.asm:25911-25917) calls `sub_13588` once to seed `d1`,
-    // then falls through to `loc_13544`, so the emitted run decrements from
-    // the single decoded word instead of decoding a fresh word per iteration.
-    block_layout_decrement_words_loc_13544(decoded_word, dbf_counter)
 }
 
 fn block_layout_rewind_input_addr_loc_13570(mut next_input_addr: u16, bits_remaining: u16) -> u16 {
