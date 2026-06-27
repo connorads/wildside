@@ -11055,7 +11055,6 @@ pub(crate) fn evanescent_object_splice_predecessor_loc_EA92(
 /// `Addr_NextFreeEvanescObjectSlot` by writing the old free-list head to
 /// `$A(a2)`, then continue active processing only when saved `d0` is non-zero.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_object_push_free_list_loc_EA98(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
