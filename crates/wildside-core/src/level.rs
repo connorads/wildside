@@ -2184,7 +2184,6 @@ pub(crate) fn decompress_to_vram_buffer_rollover_loc_1432C(
 // native implementation is needed.
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_special_palette_row_start_loc_14348(
     row_index: u16,
 ) -> DecompressSpecialPaletteRowStartLoc14348 {
@@ -2199,7 +2198,6 @@ pub(crate) fn decompress_special_palette_row_start_loc_14348(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_special_palette_row_bytes_loc_1434A(
     permutation: &[u8; 16],
     row_index: u16,
@@ -2245,7 +2243,6 @@ pub(crate) fn decompress_to_vram_special_chunk_setup_loc_14366(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_vram_special_word_transfer_loc_14382(
     permutation_table: &[u8; 256],
     buffered_bytes: &[u8],
@@ -2302,7 +2299,6 @@ pub(crate) fn decompress_to_vram_special_return_loc_143B2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_ram_palette_row_start_loc_143CC(
     row_index: u16,
 ) -> DecompressToRamPaletteRowStartLoc143CC {
@@ -2317,7 +2313,6 @@ pub(crate) fn decompress_to_ram_palette_row_start_loc_143CC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_ram_palette_row_bytes_loc_143CE(
     permutation: &[u8; 16],
     row_index: u16,
@@ -2364,7 +2359,6 @@ pub(crate) fn decompress_to_ram_chunk_setup_loc_143EA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_ram_word_transfer_loc_1440A(
     permutation_table: &[u8; 256],
     buffered_bytes: &[u8],

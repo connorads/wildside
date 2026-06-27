@@ -394,11 +394,12 @@ pub(crate) fn load_intro_sub_1b850_data(source: &dyn AssetSource) -> Result<Intr
     let intro_sequence_2_tilemap =
         wildside_data::decode_enigma(&intro_sequence_2_tilemap_raw, 0x00BC)
             .context("failed to decode intro sequence 2 tilemap")?;
+    let intro_sequence_2_sky_castle_art = load_saxman_art(
+        source,
+        &scenes.join("artcomp/Sky_castle_and_night_sky_from_intro_scene.bin"),
+    )?;
     let intro_sequence_2_sky_castle_art =
-        intro_sequence_2_special_sky_art_loc_1B00A(load_saxman_art(
-            source,
-            &scenes.join("artcomp/Sky_castle_and_night_sky_from_intro_scene.bin"),
-        )?);
+        intro_sequence_2_special_sky_art_loc_1B00A(&intro_sequence_2_sky_castle_art);
 
     let intro_sequence_5_common_art_files: [(u16, &str); 3] = [
         (0x1780, "artcomp/Dark_alley_from_intro.bin"),
@@ -1881,7 +1882,7 @@ fn build_intro_sequence_4_vdp(data: &IntroSub1B850Data) -> VdpState {
 }
 
 #[allow(non_snake_case)]
-fn intro_sequence_2_special_sky_art_loc_1B00A(art: Vec<u8>) -> Vec<u8> {
+fn intro_sequence_2_special_sky_art_loc_1B00A(art: &[u8]) -> Vec<u8> {
     // ASM Load_IntroSequence2 loc_1B00A enters DecompressToVRAM_Special with
     // `a3 = unk_1C336`, so loc_1434A maps each packed 4bpp nibble through this
     // permutation before the art is staged in `Level_Layout` and VRAM `$1780`.
@@ -1889,13 +1890,7 @@ fn intro_sequence_2_special_sky_art_loc_1B00A(art: Vec<u8>) -> Vec<u8> {
         0x02, 0x01, 0x03, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
         0x0F,
     ];
-    art.into_iter()
-        .map(|byte| {
-            let high = PERMUTATION[usize::from(byte >> 4)] << 4;
-            let low = PERMUTATION[usize::from(byte & 0x0F)];
-            high | low
-        })
-        .collect()
+    remap_4bpp_art_via_decompress_to_vram_special_loc_14348_14382(&PERMUTATION, art)
 }
 
 #[allow(non_snake_case)]
@@ -1908,14 +1903,7 @@ fn intro_sequence_5_text_art_loc_1B0F4(art: &[u8]) -> Vec<u8> {
         0x00, 0x08, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00,
     ];
-    art.iter()
-        .copied()
-        .map(|byte| {
-            let high = PERMUTATION[usize::from(byte >> 4)] << 4;
-            let low = PERMUTATION[usize::from(byte & 0x0F)];
-            high | low
-        })
-        .collect()
+    remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(&PERMUTATION, art)
 }
 
 #[allow(non_snake_case)]
@@ -1927,14 +1915,83 @@ fn title_text_chameleon_art_loc_1B4F4(art: &[u8]) -> Vec<u8> {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x00,
         0x0F,
     ];
-    art.iter()
-        .copied()
-        .map(|byte| {
-            let high = PERMUTATION[usize::from(byte >> 4)] << 4;
-            let low = PERMUTATION[usize::from(byte & 0x0F)];
-            high | low
-        })
-        .collect()
+    remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(&PERMUTATION, art)
+}
+
+#[allow(non_snake_case)]
+fn remap_4bpp_art_via_decompress_to_vram_special_loc_14348_14382(
+    permutation: &[u8; 16],
+    art: &[u8],
+) -> Vec<u8> {
+    let mut table = [0; 256];
+    for row in 0..16 {
+        let start = crate::level::decompress_special_palette_row_start_loc_14348(row);
+        let row_bytes = crate::level::decompress_special_palette_row_bytes_loc_1434A(
+            permutation,
+            start.row_index,
+            15,
+        );
+        let table_start = usize::from(start.row_index) * 16;
+        table[table_start..table_start + 16].copy_from_slice(&row_bytes);
+    }
+    remap_4bpp_art_words_via_table_loc_14382(&table, art)
+}
+
+#[allow(non_snake_case)]
+fn remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(
+    permutation: &[u8; 16],
+    art: &[u8],
+) -> Vec<u8> {
+    let mut table = [0; 256];
+    for row in 0..16 {
+        let start = crate::level::decompress_to_ram_palette_row_start_loc_143CC(row);
+        let row_bytes = crate::level::decompress_to_ram_palette_row_bytes_loc_143CE(
+            permutation,
+            start.row_index,
+            start.column_index,
+        );
+        let table_start = usize::from(start.row_index) * 16;
+        table[table_start..table_start + 16].copy_from_slice(&row_bytes);
+    }
+    remap_4bpp_art_words_via_table_loc_1440A(&table, art)
+}
+
+#[allow(non_snake_case)]
+fn remap_4bpp_art_words_via_table_loc_14382(permutation_table: &[u8; 256], art: &[u8]) -> Vec<u8> {
+    let mut remapped = Vec::with_capacity(art.len());
+    if art.len() >= 2 {
+        let word_dbf_counter = ((art.len() / 2) - 1) as u16;
+        for word in crate::level::decompress_to_vram_special_word_transfer_loc_14382(
+            permutation_table,
+            art,
+            word_dbf_counter,
+        ) {
+            remapped.extend_from_slice(&word.to_be_bytes());
+        }
+    }
+    if let Some(&last_byte) = art.get(remapped.len()) {
+        remapped.push(permutation_table[usize::from(last_byte)]);
+    }
+    remapped
+}
+
+#[allow(non_snake_case)]
+fn remap_4bpp_art_words_via_table_loc_1440A(permutation_table: &[u8; 256], art: &[u8]) -> Vec<u8> {
+    let mut remapped = Vec::with_capacity(art.len());
+    if art.len() >= 2 {
+        let word_dbf_counter = ((art.len() / 2) - 1) as u16;
+        for word in crate::level::decompress_to_ram_word_transfer_loc_1440A(
+            permutation_table,
+            art,
+            word_dbf_counter,
+        ) {
+            remapped.extend_from_slice(&word.to_be_bytes());
+        }
+    }
+    if let Some(&last_byte) = art.get(remapped.len()) {
+        remapped.push(permutation_table[usize::from(last_byte)]);
+    }
+    remapped
 }
 
 fn build_intro_sequence_5_vdp(data: &IntroSub1B850Data, title_variant: u8) -> VdpState {
@@ -4560,7 +4617,7 @@ mod tests {
     #[allow(non_snake_case)]
     fn intro_sequence_2_loc_1B00A_applies_special_sky_art_nibble_permutation() {
         assert_eq!(
-            intro_sequence_2_special_sky_art_loc_1B00A(vec![0x01, 0x23, 0xF0]),
+            intro_sequence_2_special_sky_art_loc_1B00A(&[0x01, 0x23, 0xF0]),
             vec![0x21, 0x33, 0xF2],
             "ASM Load_IntroSequence2 loc_1B00A passes unk_1C336 into DecompressToVRAM_Special, so each sky/castle art nibble should be remapped before VRAM $1780 receives it",
         );
