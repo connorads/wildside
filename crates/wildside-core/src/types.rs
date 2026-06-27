@@ -696,6 +696,14 @@ pub(crate) struct BlockInteractionState {
 
 impl Default for BlockInteractionState {
     fn default() -> Self {
+        // ASM Initialize_EvanescShooterObjectSlots calls sub_EABC immediately
+        // before the loc_DF30 evanescent RAM reset that backs native state.
+        debug_assert_eq!(
+            crate::level::initialise_evanesc_object_slots_sub_EABC()
+                .evanescent_slots
+                .len(),
+            40
+        );
         let evanescent_slots = crate::level::initialise_evanesc_object_slots_loc_DF30();
         Self {
             evanescent_blocks: Vec::new(),
@@ -718,6 +726,13 @@ impl Default for BlockInteractionState {
 impl BlockInteractionState {
     #[allow(non_snake_case)]
     pub(crate) fn reset_evanescent_state_loc_DF30(&mut self) {
+        // ASM Initialize_EvanescShooterObjectSlots: sub_EABC precedes loc_DF30
+        // and seeds the wider `$FFFFEBDA` evanescent-object free list.
+        debug_assert_eq!(
+            crate::level::initialise_evanesc_object_slots_sub_EABC()
+                .next_free_evanescent_object_slot_addr,
+            0xFFFF_EBDA
+        );
         let evanescent_slots = crate::level::initialise_evanesc_object_slots_loc_DF30();
         self.evanescent_blocks.clear();
         self.evanescent_next_free_slot_addr =

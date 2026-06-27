@@ -9309,7 +9309,6 @@ pub(crate) fn initialise_scratch_queue_sub_28FC() -> ScratchQueueSub28FC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn initialise_evanesc_object_slots_sub_EABC() -> EvanescShooterObjectSlotsSubEABC {
     // ASM sub_EABC (kid.asm:18834): seed the evanescent-object free list at
     // `$FFFFEBDA` as 40 contiguous `$0C`-byte slots whose `$A(a0)` word points
