@@ -746,6 +746,7 @@ pub(crate) struct HiddenBlockColumnUpdateSubE446 {
     pub(crate) row: u16,
     pub(crate) cell: Cell,
     pub(crate) sprite_mapping: u16,
+    pub(crate) fg_update_vram_word_loc_1614: Option<u16>,
     pub(crate) duration_frames: u16,
 }
 
@@ -1268,6 +1269,7 @@ impl BlockList {
                     row,
                     cell: reveal.cell,
                     sprite_mapping: reveal.sprite_mapping,
+                    fg_update_vram_word_loc_1614: None,
                     duration_frames: 0x012C,
                 });
             }
@@ -4426,6 +4428,7 @@ mod tests {
                     row: 1,
                     cell: Cell::from_be_bytes(0xE1, 0x04),
                     sprite_mapping: 0x1060,
+                    fg_update_vram_word_loc_1614: None,
                     duration_frames: 0x012C,
                 },
                 HiddenBlockColumnUpdateSubE446 {
@@ -4434,6 +4437,7 @@ mod tests {
                     row: 2,
                     cell: Cell::from_be_bytes(0xEA, 0x1D),
                     sprite_mapping: 0x10E4,
+                    fg_update_vram_word_loc_1614: None,
                     duration_frames: 0x012C,
                 },
             ],

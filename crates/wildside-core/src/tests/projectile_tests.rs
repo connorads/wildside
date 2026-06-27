@@ -6129,6 +6129,7 @@ mod chunk_06 {
                 row: 15,
                 cell: terrain::Cell::from_be_bytes(0xEA, 0x1D),
                 sprite_mapping: 0x10E4,
+                fg_update_vram_word_loc_1614: None,
                 duration_frames: 0x012C,
             }],
             "ASM sub_E446 should keep the `$12C` reveal worker live after queueing the foreground cell update"
@@ -6143,6 +6144,10 @@ mod chunk_06 {
         assert_eq!(
             rt.hidden_block_fg_update_workers[0].duration_frames, 0x012B,
             "ASM sub_E446's `$12C` worker should hibernate and count down while it remains live"
+        );
+        assert_eq!(
+            rt.hidden_block_fg_update_workers[0].fg_update_vram_word_loc_1614, None,
+            "ASM sub_1596 loc_1614 should cull the sub_E446 queued cell when it is below the current foreground upload window"
         );
     }
 

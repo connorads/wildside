@@ -5090,7 +5090,23 @@ impl NativeRuntime {
         self.kid_projectile_hit_sparks
             .retain(|spark| spark.remaining > 0);
 
+        let (camera_x_pixels, camera_y_pixels) =
+            self.opening_slice.as_ref().map_or((0, 0), |slice| {
+                (
+                    (slice.camera.x_pos >> 16) as u16,
+                    (slice.camera.y_pos >> 16) as u16,
+                )
+            });
         for worker in &mut self.hidden_block_fg_update_workers {
+            // ASM sub_E446 queues the cell descriptor; sub_1596 loc_1614
+            // applies the live camera window before uploading it to VRAM.
+            worker.fg_update_vram_word_loc_1614 =
+                crate::level::fg_update_queue_cell_vram_word_loc_1614(
+                    worker.col,
+                    worker.row,
+                    camera_x_pixels,
+                    camera_y_pixels,
+                );
             worker.duration_frames = worker.duration_frames.saturating_sub(1);
         }
         self.hidden_block_fg_update_workers

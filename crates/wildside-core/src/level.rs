@@ -15033,7 +15033,6 @@ pub(crate) fn background_scroll_stripe_horizontal_row_transfer_loc_302FE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
     cell_x: u16,
     cell_y: u16,
