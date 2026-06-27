@@ -237,6 +237,7 @@ pub(crate) struct FloatingPrizeFallStepLoc10C50 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterHorizontalSpriteCellLocF808 {
     pub(crate) col: i16,
     pub(crate) row: i16,
@@ -244,6 +245,7 @@ pub(crate) struct ShooterHorizontalSpriteCellLocF808 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterHorizontalSpanLocF808 {
     pub(crate) restored_cols: Vec<i16>,
     pub(crate) sprite_cells: Vec<ShooterHorizontalSpriteCellLocF808>,
@@ -1942,7 +1944,7 @@ impl NativeRuntime {
         Self::rubber_block_base_skin_parts_for_sub_10de4(cell.block_type, cell.skin)
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn rubber_block_animation_slot_matches_sub_10de4(
         entry_col: u16,
         entry_row: u16,
@@ -2815,7 +2817,7 @@ impl NativeRuntime {
     const SHOOTER_HEADBUTT_HOLD_FRAMES: u8 = 8;
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn shooter_horizontal_span_loc_F808(
         camera_left_col: i16,
         camera_right_col: i16,
@@ -2867,6 +2869,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
+    #[cfg(test)]
     pub(crate) fn shooter_horizontal_span_columns_loc_F828(
         start_col: i16,
         tile_count: u8,
@@ -2880,6 +2883,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
+    #[cfg(test)]
     pub(crate) fn shooter_horizontal_span_rejected_loc_F830(
         camera_left_col: i16,
         camera_right_col: i16,
@@ -2981,7 +2985,7 @@ impl NativeRuntime {
     }
 
     #[allow(non_snake_case)]
-    #[cfg_attr(not(test), allow(dead_code))]
+    #[cfg(test)]
     pub(crate) fn shooter_slot_sleep_frames_loc_F31C() -> u8 {
         // ASM loc_F31C (kid.asm:19909): the shooter slot's timer byte is
         // loaded with `$32` before returning to the shared redraw tail.
