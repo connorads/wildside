@@ -4465,32 +4465,17 @@ fn run_loop_with_property_125a6(
 #[allow(non_snake_case)]
 fn run_loop_type3_124a6(words: &[u16], pos: &mut usize, mut body: impl FnMut(u16, u16, u16, bool)) {
     loop {
-        // ASM loc_124AA: `d1 = (a1)` (peek); negative X ends the entry list and
-        // skips two bytes (the embedded `dc.w $E304…` table the disassembler
-        // shows is the run terminator + alignment, not read as data).
-        let Some(x) = words.get(*pos).copied() else {
+        let Some(rest) = words.get(*pos..) else {
             return;
         };
-        if x & 0x8000 != 0 {
-            *pos += 1;
+        let read_entry = block_type_3_read_entry_loc_124aa(rest);
+        *pos += read_entry.words_consumed;
+        let Some(entry) = read_entry.entry else {
             return;
-        }
-        // Read the 8-word record (mirrors offsets 0,2,4,6 used for placement;
-        // 8,A,C,E and bytes 5/7 feed the object list only).
-        let record: Vec<u16> = (0..8)
-            .filter_map(|k| words.get(*pos + k).copied())
-            .collect();
-        if record.len() < 8 {
-            return;
-        }
-        *pos += 8;
-        let y = record[1];
-        let count = record[2];
-        let stride = record[3] != 0;
-        let gate = record[5];
-        if gate == 0 {
-            for i in 0..count {
-                body(x, y, i, stride);
+        };
+        if entry.priority == 0 {
+            for i in 0..entry.count {
+                body(entry.x_pos, entry.y_row, i, entry.stride != 0);
             }
         }
     }
@@ -5447,7 +5432,6 @@ pub(crate) struct BlockType3ReadEntryLoc124AA {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_3_read_entry_loc_124aa(
     layout_words: &[u16],
 ) -> BlockType3ReadEntryLoc124AA {
