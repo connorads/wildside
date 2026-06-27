@@ -1800,37 +1800,15 @@ fn push_heady_metal_sub_37abc_body_piece_markers(
         // then refreshes each worker's mapping every `loc_3763A` loop.
         let piece_x = anchor_x.wrapping_add_signed(x_offset);
         let piece_y = anchor_y.wrapping_add_signed(y_offset);
-        let mapping_index = heady_metal_sub_37abc_mapping_index(piece_x, piece_y, kid_x, kid_y);
+        let mapping_index = wildside_core::heady_metal_piece_sprite_index_sub_37A22(
+            false, 0, piece_x, piece_y, kid_x, kid_y,
+        );
         push_boss_eye_attack_marker_sub_37abc(
             commands,
             i32::from(piece_x) - camera_x,
             i32::from(piece_y) - camera_y,
             mapping_index,
         );
-    }
-}
-
-fn heady_metal_sub_37abc_mapping_index(piece_x: u16, piece_y: u16, kid_x: u16, kid_y: u16) -> u8 {
-    if kid_y > piece_y.saturating_add(4) {
-        if kid_x < piece_x.saturating_sub(4) {
-            3
-        } else if kid_x > piece_x.saturating_add(4) {
-            5
-        } else {
-            4
-        }
-    } else if kid_y < piece_y.saturating_sub(4) {
-        if kid_x < piece_x.saturating_sub(4) {
-            1
-        } else if kid_x > piece_x.saturating_add(4) {
-            7
-        } else {
-            0
-        }
-    } else if kid_x < piece_x.saturating_sub(8) {
-        2
-    } else {
-        6
     }
 }
 

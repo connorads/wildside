@@ -53,8 +53,8 @@ pub use boot::{
     prize_10000_points_star_step_loc_10B74,
 };
 pub use combat::{
-    HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266, speed_bonus_threshold_loc_d660,
-    time_bonus_loc_d56e,
+    HEADY_METAL_SUB_37ABC_BODY_PIECE_OFFSETS_LOC_39266, heady_metal_piece_sprite_index_sub_37A22,
+    speed_bonus_threshold_loc_d660, time_bonus_loc_d56e,
 };
 pub use level::{
     EOL_COUNTER_START_FIXED_FRAMES_LOC_D770_ORACLE, EOL_FIXED_PRE_COUNTER_FRAMES_LOC_D770,

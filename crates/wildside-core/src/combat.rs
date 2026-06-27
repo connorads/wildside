@@ -7582,7 +7582,6 @@ pub(crate) fn heady_metal_piece_sprite_mapping_loc_37AAE(table_index: usize) -> 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn heady_metal_piece_sprite_sub_37A22(
     diamond_power_active: bool,
     v_int_counter_fff809: u8,
@@ -7641,6 +7640,37 @@ pub(crate) fn heady_metal_piece_sprite_sub_37A22(
         heady_metal_piece_sprite_mapping_loc_37AAE(2)
     } else {
         heady_metal_piece_sprite_mapping_loc_37AAE(6)
+    }
+}
+
+#[allow(non_snake_case)]
+pub fn heady_metal_piece_sprite_index_sub_37A22(
+    diamond_power_active: bool,
+    v_int_counter_fff809: u8,
+    effect_x: u16,
+    effect_y: u16,
+    kid_x: u16,
+    kid_y: u16,
+) -> u8 {
+    // ASM sub_37A22/loc_37AAE (kid.asm:39896,39979): return the selected
+    // `off_37AE0` entry index for renderers that do not load the raw mapping.
+    match heady_metal_piece_sprite_sub_37A22(
+        diamond_power_active,
+        v_int_counter_fff809,
+        effect_x,
+        effect_y,
+        kid_x,
+        kid_y,
+    ) {
+        "LnkTo_unk_C8488-Data_Index" => 0,
+        "LnkTo_unk_C8490-Data_Index" => 1,
+        "LnkTo_unk_C8498-Data_Index" => 2,
+        "LnkTo_unk_C84A0-Data_Index" => 3,
+        "LnkTo_unk_C84A8-Data_Index" => 4,
+        "LnkTo_unk_C84B0-Data_Index" => 5,
+        "LnkTo_unk_C84B8-Data_Index" => 6,
+        "LnkTo_unk_C84C0-Data_Index" => 7,
+        _ => unreachable!("sub_37A22 only selects off_37AE0 HeadyMetal piece mappings"),
     }
 }
 
