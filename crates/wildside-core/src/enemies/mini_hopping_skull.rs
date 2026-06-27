@@ -180,7 +180,6 @@ pub(crate) struct MiniHoppingSkullScreamWorkerAllocation {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct MiniHoppingSkullRelaunchTail {
     pub(crate) is_moved: bool,
     pub(crate) has_level_collision: bool,
@@ -1416,7 +1415,6 @@ pub(crate) fn mini_hopping_skull_stopped_wait_tail_loc_3f090(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26() -> MiniHoppingSkullRelaunchTail
 {
     // ASM Mini_Hopping_Skull.asm loc_3EC26: after loc_3EBFC has seeded the
@@ -1429,7 +1427,6 @@ pub(crate) fn mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26() -> MiniHopp
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn mini_hopping_skull_left_hop_relaunch_tail_loc_3ed60() -> MiniHoppingSkullRelaunchTail
 {
     // ASM Mini_Hopping_Skull.asm loc_3ED60: after the preceding tail has seeded the

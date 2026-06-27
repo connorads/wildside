@@ -5864,7 +5864,21 @@ pub(crate) fn step_hopper(
             }
             enemy.x_velocity = horizontal_velocity(enemy.facing, jx);
             enemy.y_velocity = jy;
-            enemy.on_ground = false;
+            if matches!(enemy.family, EnemyFamily::MiniHoppingSkull) {
+                let relaunch_tail = match enemy.facing {
+                    Direction::Left => mini_hopping_skull_left_hop_relaunch_tail_loc_3ed60(),
+                    Direction::Right => mini_hopping_skull_right_hop_relaunch_tail_loc_3ec26(),
+                };
+                // ASM Mini_Hopping_Skull.asm loc_3EC26/loc_3ED60: both
+                // grounded relaunch tails re-enable movement/collision and
+                // branch back to the loc_3EA88 airborne loop.
+                debug_assert!(relaunch_tail.is_moved);
+                debug_assert!(relaunch_tail.has_level_collision);
+                debug_assert_eq!(relaunch_tail.next_loop, "loc_3EA88");
+                enemy.on_ground = !relaunch_tail.is_moved;
+            } else {
+                enemy.on_ground = false;
+            }
         }
     }
 
