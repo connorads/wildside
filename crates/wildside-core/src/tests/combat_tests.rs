@@ -14503,6 +14503,8 @@ mod chunk_03 {
         );
 
         runtime.active_enemies[0].wait_timer = 0;
+        runtime.active_enemies[0].ufo_on_screen_latch = true;
+        runtime.played_sound_effects.clear();
         runtime.remove_dead_enemy(0);
 
         assert!(runtime.active_enemies.is_empty());
@@ -14513,6 +14515,11 @@ mod chunk_03 {
         assert_eq!(
             runtime.enemy_status_words[15], 0x2168,
             "ASM UFO.asm loc_352B2/loc_352D2 writes the respawn marker into EnemyStatus_Table after `stru_34CA0` finishes"
+        );
+        assert_eq!(
+            runtime.played_sound_effects,
+            vec![QueuedSoundEffect::UfoHovering],
+            "ASM UFO.asm loc_3528A plays sfx_UFO_hovering when the final latched UFO leaves the screen count"
         );
     }
 

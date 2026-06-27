@@ -1767,13 +1767,11 @@ pub(crate) enum UfoLinkedObjectRangeGateLoc35280 {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoLinkedCleanupCountLoc3528A {
     pub(crate) number_ufos_on_screen: u16,
     pub(crate) play_hover_sound: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_cleanup_count_loc_3528a(
     number_ufos_on_screen: u16,
     ufo_on_screen_latch: bool,
@@ -1796,12 +1794,10 @@ pub(crate) fn ufo_linked_cleanup_count_loc_3528a(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct UfoLinkedCleanupShootingLoc352A6 {
     pub(crate) global_shooting_flag: bool,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn ufo_linked_cleanup_shooting_loc_352a6(
     ufo_shooting_latch: bool,
     global_shooting_flag: bool,

@@ -10879,6 +10879,33 @@ impl NativeRuntime {
                 return;
             }
             debug_assert!(hibernate_gate.delete_current_object);
+            let ufo_on_screen_latch = enemy.ufo_on_screen_latch;
+            let ufo_shooting_latch = enemy.ufo_beam_segments != 0 || enemy.ufo_beam_interval != 0;
+            let number_ufos_on_screen = self
+                .active_enemies
+                .iter()
+                .filter(|active_enemy| {
+                    matches!(active_enemy.family, EnemyFamily::UFO)
+                        && active_enemy.ufo_on_screen_latch
+                })
+                .count()
+                .min(u16::MAX as usize) as u16;
+            let cleanup_count =
+                ufo_linked_cleanup_count_loc_3528a(number_ufos_on_screen, ufo_on_screen_latch);
+            if cleanup_count.play_hover_sound {
+                // ASM UFO.asm loc_3528A: the linked-object delete tail
+                // replays sfx_UFO_hovering when the last latched UFO leaves.
+                self.queue_start_sequence(QueuedSoundEffect::UfoHovering);
+            }
+            let shooting_cleanup =
+                ufo_linked_cleanup_shooting_loc_352a6(ufo_shooting_latch, ufo_shooting_latch);
+            if !shooting_cleanup.global_shooting_flag {
+                // ASM UFO.asm loc_352A6: a linked object carrying `$46(a5)`
+                // clears the shared Some_UFO_Shooting latch before loc_352B2.
+                let enemy = &mut self.active_enemies[idx];
+                enemy.ufo_beam_segments = 0;
+                enemy.ufo_beam_interval = 0;
+            }
         }
         self.killed_enemies.insert((segment_index, layout_index));
         self.spawn_enemy_death_effect(family, x_pos, y_pos);
