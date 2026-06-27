@@ -4136,10 +4136,12 @@ pub(crate) fn apply_block_overlay_loc_11C7E(
             // consumes one extra property word from the stream. Hidden →
             // sub_127A8. (kid.asm:24574-24604)
             1 => {
+                let block_type_arg = if hidden { -1 } else { 1 };
                 run_loop_with_property_123dc(
                     block_layout_words,
                     &mut pos,
                     width_blocks,
+                    block_type_arg,
                     |x, y, prop| {
                         if let Some(idx) = cell_index(x, y) {
                             if hidden {
@@ -4438,6 +4440,7 @@ fn run_loop_with_property_123dc(
     words: &[u16],
     pos: &mut usize,
     width_blocks: u16,
+    block_type: i16,
     mut body: impl FnMut(u16, u16, u16),
 ) {
     loop {
@@ -4468,12 +4471,21 @@ fn run_loop_with_property_123dc(
             };
             *pos += 1;
             let (cx, cy, prop) = if setup.stride {
-                let property = block_type_1_row_by_row_read_property_loc_12454(cell_addr, prop, 1);
+                let property =
+                    block_type_1_row_by_row_read_property_loc_12454(cell_addr, prop, block_type);
+                let y_row = setup.y_row.wrapping_add(i);
+                let (x_pos, y_row) = if block_type < 0 {
+                    let hidden_entry =
+                        block_type_1_row_by_row_hidden_loc_1246E(cell_addr, x, y_row, block_type);
+                    (hidden_entry.x_pos, hidden_entry.y_row)
+                } else {
+                    (x, y_row)
+                };
                 let finalized =
                     block_type_1_row_by_row_finalize_loc_12480(cell_addr, list_index, width_blocks);
                 cell_addr = finalized.next_cell_addr;
                 list_index = finalized.next_list_index;
-                (x, setup.y_row.wrapping_add(i), property.property_word)
+                (x_pos, y_row, property.property_word)
             } else {
                 (x.wrapping_add(i), setup.y_row, prop)
             };
@@ -5404,7 +5416,6 @@ pub(crate) struct BlockType1HiddenLoc1246E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_type_1_row_by_row_hidden_loc_1246E(
     cell_addr: u32,
     x_pos: u16,
