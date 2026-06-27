@@ -1721,7 +1721,6 @@ pub(crate) fn theme_collision_table_loc_11C36(
     Some(table)
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 #[allow(non_snake_case)]
 pub(crate) fn level_layout_row_pointer_base_loc_11AE4(level_id: LevelId, width_blocks: u16) -> u32 {
     // ASM Load_InGame (kid.asm:23679-23688) seeds `a3` with `$FFFFDD02`, but
@@ -1754,7 +1753,6 @@ pub(crate) fn level_layout_row_pointers_loc_11AFE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn solid_collision_row_loc_11B12(level_width_blocks: u16) -> Vec<u16> {
     // ASM loc_11B12 (kid.asm:23704-23706) reloads `d0` with
     // `Level_width_blocks-1`, seeds `d1` with `$6000`, then writes exactly one
@@ -1763,7 +1761,6 @@ pub(crate) fn solid_collision_row_loc_11B12(level_width_blocks: u16) -> Vec<u16>
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn row_buffer_pointer_table_loc_11B1A(
     row_pointer_base: u32,
     level_width_blocks: u16,
@@ -1777,7 +1774,6 @@ pub(crate) fn row_buffer_pointer_table_loc_11B1A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn empty_collision_row_loc_11B28(level_width_blocks: u16) -> Vec<u16> {
     // ASM loc_11B28 (kid.asm:23716-23718) reloads `d0` with
     // `Level_width_blocks-1`, clears `d1`, then writes exactly one zero word
@@ -4282,6 +4278,32 @@ fn terrain_layout_row_pointer_offsets_for_overlay_loc_11B40(
         .into_iter()
         .map(|addr| addr.wrapping_sub(LEVEL_TERRAIN_LAYOUT_RAM_BASE_LOC_11B40))
         .collect()
+}
+
+#[allow(non_snake_case)]
+fn initialise_level_row_buffers_for_load_loc_11AEA(level_id: LevelId, width_blocks: u16) {
+    // ASM loc_11AEA..loc_11B28 (kid.asm:23690-23718): level load stores the
+    // selected row-buffer base twice, fills one solid sentinel row, stores
+    // eight copies of the advanced row-buffer pointer, then clears one empty
+    // sentinel row before terrain row pointers are built.
+    let row_pointer_base = level_layout_row_pointer_base_loc_11AE4(level_id, width_blocks);
+    let solid_row = solid_collision_row_loc_11B12(width_blocks);
+    let row_buffer_table = row_buffer_pointer_table_loc_11B1A(row_pointer_base, width_blocks);
+    let empty_row = empty_collision_row_loc_11B28(width_blocks);
+
+    debug_assert_eq!(solid_row.len(), usize::from(width_blocks));
+    debug_assert!(solid_row.iter().all(|word| *word == 0x6000));
+    debug_assert!(
+        row_buffer_table
+            .iter()
+            .all(|pointer| *pointer == row_buffer_table[0])
+    );
+    debug_assert_eq!(
+        row_buffer_table[0],
+        (row_pointer_base as u16).wrapping_add(width_blocks.wrapping_mul(2))
+    );
+    debug_assert_eq!(empty_row.len(), usize::from(width_blocks));
+    debug_assert!(empty_row.iter().all(|word| *word == 0));
 }
 
 #[allow(non_snake_case)]
@@ -19180,6 +19202,7 @@ impl NativeRuntime {
             .and_then(|bytes| String::from_utf8(bytes).ok())
             .and_then(|json| serde_json::from_str::<LevelLayoutMetadata>(&json).ok())?;
         data.truncate(metadata.data_bytes.min(data.len()));
+        initialise_level_row_buffers_for_load_loc_11AEA(level_id, metadata.width_blocks);
         let erase_words_loc_11542 = self
             .erase_words_for_level_loc_11542(
                 level_id,
@@ -19317,6 +19340,7 @@ impl NativeRuntime {
         if width_blocks == 0 || populated_height_blocks == 0 {
             return None;
         }
+        initialise_level_row_buffers_for_load_loc_11AEA(level_id, width_blocks);
         let expected_cells = usize::from(width_blocks) * usize::from(populated_height_blocks);
         // Mirror the render's ±5 foreground tolerance: leftover/aliased levels'
         // extracted terrain can be a few trailing bytes short of the resource
