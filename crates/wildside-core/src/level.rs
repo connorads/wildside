@@ -2287,7 +2287,6 @@ pub(crate) fn block_layout_terminate_loc_134BA() -> BlockLayoutTerminateLoc134BA
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_vram_chunk_setup_loc_14300(
     buffer_start_addr: u32,
     buffer_end_addr: u32,
@@ -2306,7 +2305,6 @@ pub(crate) fn decompress_to_vram_chunk_setup_loc_14300(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_vram_word_transfer_loc_14314(
     buffered_words: &[u16],
     dbf_counter: u16,

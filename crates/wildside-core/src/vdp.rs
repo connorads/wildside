@@ -1733,7 +1733,7 @@ fn build_intro_sub_1b850_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpSta
 
     // Upload decompressed art to VRAM at specified addresses.
     for (vram_byte_addr, art_bytes) in &data.art_chunks {
-        vdp.write_vram(*vram_byte_addr, art_bytes);
+        write_decompress_to_vram_art_loc_14300_14314(&mut vdp, *vram_byte_addr, art_bytes);
     }
 
     // Write plane A tilemap: 40 words per row, 28 rows, nametable at VRAM $0000.
@@ -1774,6 +1774,39 @@ fn build_intro_sub_1b850_vdp(data: &IntroSub1B850Data, segment: usize) -> VdpSta
     vdp.write_cram_words(0, palette);
 
     vdp
+}
+
+#[allow(non_snake_case)]
+fn write_decompress_to_vram_art_loc_14300_14314(
+    vdp: &mut VdpState,
+    vram_byte_addr: usize,
+    art_bytes: &[u8],
+) {
+    // ASM loc_14300/loc_14314: DecompressToVRAM snapshots the emitted
+    // decompression-buffer span, converts it to an inclusive DBF word count,
+    // then streams big-endian words to the VDP data port. Native keeps the
+    // decoded art as bytes, so preserve any odd trailing byte after the word
+    // transfer.
+    let even_byte_len = art_bytes.len() & !1;
+    if even_byte_len >= 2 {
+        let setup = crate::level::decompress_to_vram_chunk_setup_loc_14300(0, even_byte_len as u32);
+        let buffered_words = art_bytes[..even_byte_len]
+            .chunks_exact(2)
+            .map(|bytes| u16::from_be_bytes([bytes[0], bytes[1]]))
+            .collect::<Vec<_>>();
+        for (word_index, word) in crate::level::decompress_to_vram_word_transfer_loc_14314(
+            &buffered_words,
+            setup.word_dbf_counter,
+        )
+        .into_iter()
+        .enumerate()
+        {
+            vdp.write_vram_word(vram_byte_addr + word_index * 2, word);
+        }
+    }
+    if let Some(&last_byte) = art_bytes.get(even_byte_len) {
+        vdp.write_vram(vram_byte_addr + even_byte_len, &[last_byte]);
+    }
 }
 
 fn write_full_plane_rows(vdp: &mut VdpState, plane_base: usize, rows: &[[u16; 64]; 28]) {
