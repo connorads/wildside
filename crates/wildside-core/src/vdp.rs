@@ -24,6 +24,9 @@ use crate::constants::{
 const VRAM_SIZE: usize = 0x1_0000;
 const CRAM_SIZE: usize = 0x80;
 const VSRAM_SIZE: usize = 0x50;
+const DECOMPRESS_FIRST_CHUNK_BYTES: usize = 0x1000;
+const DECOMPRESS_RESUMED_CHUNK_BYTES: usize = 0x0800;
+const DECOMPRESS_ROLLOVER_LONGWORD_DBF: u16 = 0x01FF;
 
 /// ASM Load_SegaScreen (kid.asm:25444): art destination in VRAM.
 const SEGA_ART_VRAM_BYTE_ADDR: usize = 0x1780;
@@ -1787,10 +1790,19 @@ fn write_decompress_to_vram_art_loc_14300_14314(
     // then streams big-endian words to the VDP data port. Native keeps the
     // decoded art as bytes, so preserve any odd trailing byte after the word
     // transfer.
-    let even_byte_len = art_bytes.len() & !1;
-    if even_byte_len >= 2 {
-        let setup = crate::level::decompress_to_vram_chunk_setup_loc_14300(0, even_byte_len as u32);
-        let buffered_words = art_bytes[..even_byte_len]
+    for DecompressChunkSpan {
+        source_start,
+        byte_len,
+        buffer_start_addr,
+        rollover_source_end,
+    } in decompress_chunk_spans(art_bytes.len())
+    {
+        let setup = crate::level::decompress_to_vram_chunk_setup_loc_14300(
+            buffer_start_addr,
+            buffer_start_addr + byte_len as u32,
+        );
+        let source_end = source_start + byte_len;
+        let buffered_words = art_bytes[source_start..source_end]
             .chunks_exact(2)
             .map(|bytes| u16::from_be_bytes([bytes[0], bytes[1]]))
             .collect::<Vec<_>>();
@@ -1801,12 +1813,62 @@ fn write_decompress_to_vram_art_loc_14300_14314(
         .into_iter()
         .enumerate()
         {
-            vdp.write_vram_word(vram_byte_addr + word_index * 2, word);
+            vdp.write_vram_word(vram_byte_addr + source_start + word_index * 2, word);
+        }
+        if let Some(rollover_source_end) = rollover_source_end {
+            let upper_half_longwords = rollover_source_longwords(art_bytes, rollover_source_end);
+            let rolled = crate::level::decompress_to_vram_buffer_rollover_loc_1432C(
+                &upper_half_longwords,
+                DECOMPRESS_ROLLOVER_LONGWORD_DBF,
+            );
+            debug_assert_eq!(rolled, upper_half_longwords);
         }
     }
+    let even_byte_len = art_bytes.len() & !1;
     if let Some(&last_byte) = art_bytes.get(even_byte_len) {
         vdp.write_vram(vram_byte_addr + even_byte_len, &[last_byte]);
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DecompressChunkSpan {
+    source_start: usize,
+    byte_len: usize,
+    buffer_start_addr: u32,
+    rollover_source_end: Option<usize>,
+}
+
+fn decompress_chunk_spans(byte_len: usize) -> Vec<DecompressChunkSpan> {
+    let even_byte_len = byte_len & !1;
+    let mut source_start = 0usize;
+    let mut chunk_capacity = DECOMPRESS_FIRST_CHUNK_BYTES;
+    let mut spans = Vec::new();
+    while source_start < even_byte_len {
+        let byte_len = (even_byte_len - source_start).min(chunk_capacity);
+        let source_end = source_start + byte_len;
+        let more_chunks_follow = source_end < even_byte_len;
+        spans.push(DecompressChunkSpan {
+            source_start,
+            byte_len,
+            buffer_start_addr: if source_start == 0 {
+                0
+            } else {
+                DECOMPRESS_RESUMED_CHUNK_BYTES as u32
+            },
+            rollover_source_end: more_chunks_follow.then_some(source_end),
+        });
+        source_start = source_end;
+        chunk_capacity = DECOMPRESS_RESUMED_CHUNK_BYTES;
+    }
+    spans
+}
+
+fn rollover_source_longwords(art_bytes: &[u8], source_end: usize) -> Vec<u32> {
+    let source_start = source_end - DECOMPRESS_RESUMED_CHUNK_BYTES;
+    art_bytes[source_start..source_end]
+        .chunks_exact(4)
+        .map(|bytes| u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+        .collect()
 }
 
 fn write_full_plane_rows(vdp: &mut VdpState, plane_base: usize, rows: &[[u16; 64]; 28]) {
@@ -1992,19 +2054,32 @@ fn remap_4bpp_art_via_decompress_to_ram_loc_143CC_1440A(
 #[allow(non_snake_case)]
 fn remap_4bpp_art_words_via_table_loc_14382(permutation_table: &[u8; 256], art: &[u8]) -> Vec<u8> {
     let mut remapped = Vec::with_capacity(art.len());
-    if art.len() >= 2 {
-        let even_byte_len = art.len() & !1;
+    for DecompressChunkSpan {
+        source_start,
+        byte_len,
+        buffer_start_addr,
+        rollover_source_end,
+    } in decompress_chunk_spans(art.len())
+    {
         let setup = crate::level::decompress_to_vram_special_chunk_setup_loc_14366(
-            0,
-            even_byte_len as u32,
+            buffer_start_addr,
+            buffer_start_addr + byte_len as u32,
             0,
         );
         for word in crate::level::decompress_to_vram_special_word_transfer_loc_14382(
             permutation_table,
-            art,
+            &art[source_start..source_start + byte_len],
             setup.word_dbf_counter,
         ) {
             remapped.extend_from_slice(&word.to_be_bytes());
+        }
+        if let Some(rollover_source_end) = rollover_source_end {
+            let upper_half_longwords = rollover_source_longwords(art, rollover_source_end);
+            let rolled = crate::level::decompress_to_vram_special_buffer_rollover_loc_143AA(
+                &upper_half_longwords,
+                DECOMPRESS_ROLLOVER_LONGWORD_DBF,
+            );
+            debug_assert_eq!(rolled, upper_half_longwords);
         }
         let return_state =
             crate::level::decompress_to_vram_special_return_loc_143B2(setup.restored_output_addr);
@@ -2020,16 +2095,32 @@ fn remap_4bpp_art_words_via_table_loc_14382(permutation_table: &[u8; 256], art: 
 #[allow(non_snake_case)]
 fn remap_4bpp_art_words_via_table_loc_1440A(permutation_table: &[u8; 256], art: &[u8]) -> Vec<u8> {
     let mut remapped = Vec::with_capacity(art.len());
-    if art.len() >= 2 {
-        let even_byte_len = art.len() & !1;
-        let setup =
-            crate::level::decompress_to_ram_chunk_setup_loc_143EA(0, even_byte_len as u32, 0);
+    for DecompressChunkSpan {
+        source_start,
+        byte_len,
+        buffer_start_addr,
+        rollover_source_end,
+    } in decompress_chunk_spans(art.len())
+    {
+        let setup = crate::level::decompress_to_ram_chunk_setup_loc_143EA(
+            buffer_start_addr,
+            buffer_start_addr + byte_len as u32,
+            0,
+        );
         for word in crate::level::decompress_to_ram_word_transfer_loc_1440A(
             permutation_table,
-            art,
+            &art[source_start..source_start + byte_len],
             setup.word_dbf_counter,
         ) {
             remapped.extend_from_slice(&word.to_be_bytes());
+        }
+        if let Some(rollover_source_end) = rollover_source_end {
+            let upper_half_longwords = rollover_source_longwords(art, rollover_source_end);
+            let rolled = crate::level::decompress_to_ram_buffer_rollover_loc_14430(
+                &upper_half_longwords,
+                DECOMPRESS_ROLLOVER_LONGWORD_DBF,
+            );
+            debug_assert_eq!(rolled, upper_half_longwords);
         }
     }
     if let Some(&last_byte) = art.get(remapped.len()) {
@@ -4409,6 +4500,44 @@ mod tests {
         // Row 27, col 0 at $E000 + 27*128 = $E000 + $D80 = $ED80.
         let w = u16::from_be_bytes([vdp.vram[0xED80], vdp.vram[0xED81]]);
         assert_eq!(w, 0xBBBB, "plane B row 27 col 0");
+    }
+
+    #[test]
+    fn decompress_to_vram_chunk_spans_follow_rollover_windows() {
+        // ASM DecompressToVRAM loc_14300 uploads the first full
+        // Decompression_Buffer span, loc_1432C rolls the upper $800 bytes down,
+        // then the next loc_14300 pass resumes from Decompression_Buffer+$800.
+        assert_eq!(
+            decompress_chunk_spans(0x2001),
+            vec![
+                DecompressChunkSpan {
+                    source_start: 0x0000,
+                    byte_len: 0x1000,
+                    buffer_start_addr: 0x0000,
+                    rollover_source_end: Some(0x1000),
+                },
+                DecompressChunkSpan {
+                    source_start: 0x1000,
+                    byte_len: 0x0800,
+                    buffer_start_addr: 0x0800,
+                    rollover_source_end: Some(0x1800),
+                },
+                DecompressChunkSpan {
+                    source_start: 0x1800,
+                    byte_len: 0x0800,
+                    buffer_start_addr: 0x0800,
+                    rollover_source_end: None,
+                },
+            ],
+            "ASM loc_1432C/loc_143AA/loc_14430 should make resumed chunks start at the buffer midpoint and preserve odd trailing bytes for the caller",
+        );
+
+        let art = (0..0x1000).map(|i| i as u8).collect::<Vec<_>>();
+        assert_eq!(
+            rollover_source_longwords(&art, 0x1000).len(),
+            0x0200,
+            "ASM loc_1432C seeds d3=$1FF, so the rollover source is exactly $200 longwords from the upper $800 bytes",
+        );
     }
 
     #[test]

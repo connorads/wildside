@@ -2321,7 +2321,6 @@ pub(crate) fn decompress_to_vram_word_transfer_loc_14314(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_vram_buffer_rollover_loc_1432C(
     buffered_longwords: &[u32],
     dbf_counter: u16,
@@ -2442,7 +2441,6 @@ pub(crate) fn decompress_to_vram_special_word_transfer_loc_14382(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_vram_special_buffer_rollover_loc_143AA(
     buffered_longwords: &[u32],
     dbf_counter: u16,
@@ -2556,7 +2554,6 @@ pub(crate) fn decompress_to_ram_word_transfer_loc_1440A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn decompress_to_ram_buffer_rollover_loc_14430(
     buffered_longwords: &[u32],
     dbf_counter: u16,
