@@ -1853,6 +1853,350 @@ pub(crate) fn decode_block_layout_loc_132A6(layout_bytes: &[u8]) -> Result<Vec<u
 }
 
 #[allow(non_snake_case)]
+pub(crate) fn decode_enigma_eni_dec_loc_134D4(
+    enigma_bytes: &[u8],
+    base_tile_word: u16,
+) -> Result<Vec<u16>, String> {
+    // ASM EniDec/loc_134D4 (kid.asm:25835-25947): VDP map loads use the
+    // Enigma command stream directly, with `loc_13504` dispatch and
+    // `sub_13588` inline word decoding controlling which words are emitted.
+    validate_enigma_control_stream_loc_134D4(enigma_bytes, base_tile_word)?;
+    wildside_data::decode_enigma(enigma_bytes, base_tile_word).map_err(|error| error.to_string())
+}
+
+#[allow(non_snake_case)]
+fn validate_enigma_control_stream_loc_134D4(
+    enigma_bytes: &[u8],
+    base_tile_word: u16,
+) -> Result<(), String> {
+    if enigma_bytes.len() < 8 {
+        return Err("Enigma payload is too short".to_owned());
+    }
+    let packet_width_bits = usize::from(enigma_bytes[0]);
+    if packet_width_bits == 0 || packet_width_bits > 16 {
+        return Err("Enigma packet length must be between 1 and 16 bits".to_owned());
+    }
+
+    let mut bitstream = enigma_bytes[6..].to_vec();
+    // ASM loc_13570 can transiently read past extracted asset slices before
+    // rewinding `a0`; the ROM has flat address space, so validation mirrors the
+    // decoder's two-byte read-ahead margin.
+    bitstream.extend_from_slice(&[0, 0]);
+    let mut bits = EnigmaControlStreamLoc134D4::new(&bitstream);
+    bits.refill_word_sub_13618()?;
+    let property_byte_d4 = enigma_bytes[1] << 3;
+
+    loop {
+        let prefix = bits.peek_bits_sub_1363C(7)?;
+        let (dispatch_word, consume_width_bits) = if prefix < 0x40 {
+            (
+                u16::from(prefix & 0xF0) | u16::from((prefix >> 1) & 0x0F),
+                6,
+            )
+        } else {
+            (u16::from(prefix), 7)
+        };
+        let dispatch = block_layout_dispatch_loc_13504(
+            dispatch_word,
+            consume_width_bits,
+            bits.bits_remaining_d6,
+        );
+        bits.consume_command_prefix_loc_13504(dispatch, consume_width_bits)?;
+
+        let command = dispatch.jump_table_word_offset >> 1;
+        let count = dispatch.property_word_dbf_counter;
+        match command {
+            0..=3 => {}
+            4..=6 => {
+                bits.read_inline_value_sub_13588(
+                    base_tile_word,
+                    property_byte_d4,
+                    packet_width_bits,
+                )?;
+            }
+            7 if count == 0x000F => break,
+            7 => {
+                for _ in 0..=count {
+                    bits.read_inline_value_sub_13588(
+                        base_tile_word,
+                        property_byte_d4,
+                        packet_width_bits,
+                    )?;
+                }
+            }
+            _ => return Err(format!("unexpected EniDec command {command}")),
+        }
+    }
+
+    Ok(())
+}
+
+struct EnigmaControlStreamLoc134D4<'a> {
+    bytes: &'a [u8],
+    input_position: usize,
+    current_word_d5: u16,
+    bits_remaining_d6: u16,
+}
+
+impl<'a> EnigmaControlStreamLoc134D4<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self {
+            bytes,
+            input_position: 0,
+            current_word_d5: 0,
+            bits_remaining_d6: 0,
+        }
+    }
+
+    fn refill_word_sub_13618(&mut self) -> Result<(), String> {
+        let high_byte = self.read_input_byte()?;
+        let low_byte = self.read_input_byte()?;
+        self.current_word_d5 = (u16::from(high_byte) << 8) | u16::from(low_byte);
+        self.bits_remaining_d6 = 16;
+        Ok(())
+    }
+
+    #[allow(non_snake_case)]
+    fn peek_bits_sub_1363C(&self, bit_count: u16) -> Result<u8, String> {
+        if bit_count == 0 || bit_count > self.bits_remaining_d6 {
+            return Err("Enigma short read exceeded buffered bits".to_owned());
+        }
+        let shift = self.bits_remaining_d6 - bit_count;
+        let mask = enigma_bit_mask_loc_13662(bit_count);
+        Ok(((self.current_word_d5 >> shift) & mask) as u8)
+    }
+
+    #[allow(non_snake_case)]
+    fn consume_command_prefix_loc_13504(
+        &mut self,
+        dispatch: BlockLayoutDispatchLoc13504,
+        bit_count: u16,
+    ) -> Result<(), String> {
+        let bits_after_subtract = self.bits_remaining_d6.wrapping_sub(bit_count);
+        let expected_refill = bits_after_subtract < 9;
+        if dispatch.refilled_input_byte != expected_refill {
+            return Err("ASM loc_13504 refill decision disagrees with d6".to_owned());
+        }
+        self.bits_remaining_d6 = bits_after_subtract;
+        if dispatch.refilled_input_byte {
+            self.bits_remaining_d6 = self.bits_remaining_d6.wrapping_add(8);
+            self.current_word_d5 = (self.current_word_d5 << 8) & 0xFF00;
+            let next_byte = self.read_input_byte()?;
+            self.current_word_d5 |= u16::from(next_byte);
+        }
+        if self.bits_remaining_d6 != dispatch.bits_remaining {
+            return Err("ASM loc_13504 d6 result disagrees with validator".to_owned());
+        }
+        Ok(())
+    }
+
+    #[allow(non_snake_case)]
+    fn read_inline_value_sub_13588(
+        &mut self,
+        base_tile_word: u16,
+        property_byte_d4: u8,
+        packet_width_bits: usize,
+    ) -> Result<u16, String> {
+        let mut property_byte = property_byte_d4;
+        let first = self.apply_high_bit_loc_1359A(base_tile_word, property_byte)?;
+        let mut decoded_word = first.decoded_word;
+        property_byte = first.shifted_property_byte;
+
+        let second = self.apply_second_high_bit_loc_135A8(decoded_word, property_byte)?;
+        decoded_word = second.decoded_word;
+        property_byte = second.shifted_property_byte;
+
+        let third = self.apply_third_high_bit_loc_135B6(decoded_word, property_byte)?;
+        decoded_word = third.decoded_word;
+        property_byte = third.shifted_property_byte;
+
+        let fourth = self.apply_fourth_high_bit_loc_135C4(decoded_word, property_byte)?;
+        decoded_word = fourth.decoded_word;
+        property_byte = fourth.shifted_property_byte;
+
+        if property_byte & 0x80 != 0 {
+            let flag = self.read_raw_flag_bit_sub_13588()?;
+            if flag != 0 {
+                decoded_word |= 0x0800;
+            }
+        }
+
+        let packet_bits = self.read_inline_packet_sub_13588(packet_width_bits)?;
+        Ok(decoded_word.wrapping_add(packet_bits))
+    }
+
+    #[allow(non_snake_case)]
+    fn apply_high_bit_loc_1359A(
+        &mut self,
+        base_word: u16,
+        property_byte: u8,
+    ) -> Result<BlockLayoutDecodeHighBitLoc1359A, String> {
+        if property_byte & 0x80 != 0 && self.bits_remaining_d6 == 0 {
+            return Err("Enigma flag read exceeded buffered bits".to_owned());
+        }
+        let result = block_layout_apply_high_bit_loc_1359A(
+            base_word,
+            property_byte,
+            self.bits_remaining_d6,
+            self.current_word_d5,
+        );
+        self.bits_remaining_d6 = result.bits_remaining;
+        Ok(result)
+    }
+
+    #[allow(non_snake_case)]
+    fn apply_second_high_bit_loc_135A8(
+        &mut self,
+        base_word: u16,
+        property_byte: u8,
+    ) -> Result<BlockLayoutDecodeBitLoc135A8, String> {
+        if property_byte & 0x80 != 0 && self.bits_remaining_d6 == 0 {
+            return Err("Enigma flag read exceeded buffered bits".to_owned());
+        }
+        let result = block_layout_apply_second_high_bit_loc_135A8(
+            base_word,
+            property_byte,
+            self.bits_remaining_d6,
+            self.current_word_d5,
+        );
+        self.bits_remaining_d6 = result.bits_remaining;
+        Ok(result)
+    }
+
+    #[allow(non_snake_case)]
+    fn apply_third_high_bit_loc_135B6(
+        &mut self,
+        base_word: u16,
+        property_byte: u8,
+    ) -> Result<BlockLayoutDecodeBitLoc135B6, String> {
+        if property_byte & 0x80 != 0 && self.bits_remaining_d6 == 0 {
+            return Err("Enigma flag read exceeded buffered bits".to_owned());
+        }
+        let result = block_layout_apply_third_high_bit_loc_135B6(
+            base_word,
+            property_byte,
+            self.bits_remaining_d6,
+            self.current_word_d5,
+        );
+        self.bits_remaining_d6 = result.bits_remaining;
+        Ok(result)
+    }
+
+    #[allow(non_snake_case)]
+    fn apply_fourth_high_bit_loc_135C4(
+        &mut self,
+        base_word: u16,
+        property_byte: u8,
+    ) -> Result<BlockLayoutDecodeBitLoc135C4, String> {
+        if property_byte & 0x80 != 0 && self.bits_remaining_d6 == 0 {
+            return Err("Enigma flag read exceeded buffered bits".to_owned());
+        }
+        let result = block_layout_apply_fourth_high_bit_loc_135C4(
+            base_word,
+            property_byte,
+            self.bits_remaining_d6,
+            self.current_word_d5,
+        );
+        self.bits_remaining_d6 = result.bits_remaining;
+        Ok(result)
+    }
+
+    fn read_raw_flag_bit_sub_13588(&mut self) -> Result<u8, String> {
+        if self.bits_remaining_d6 == 0 {
+            return Err("Enigma flag read exceeded buffered bits".to_owned());
+        }
+        self.bits_remaining_d6 -= 1;
+        Ok(((self.current_word_d5 >> self.bits_remaining_d6) & 1) as u8)
+    }
+
+    fn read_inline_packet_sub_13588(&mut self, bit_count: usize) -> Result<u16, String> {
+        if bit_count == 0 || bit_count > 16 {
+            return Err("Enigma inline packets must be between 1 and 16 bits".to_owned());
+        }
+        if self.bits_remaining_d6 == 0 {
+            self.refill_word_sub_13618()?;
+        }
+
+        let bits_remaining = usize::from(self.bits_remaining_d6);
+        let mask = enigma_bit_mask_loc_13662(bit_count as u16);
+        if bits_remaining > bit_count {
+            let shift = bits_remaining - bit_count;
+            let value = (self.current_word_d5 >> shift) & mask;
+            self.consume_bits_loc_13650(bit_count as u16)?;
+            return Ok(value);
+        }
+
+        let current_tail_mask = enigma_bit_mask_loc_13662(bits_remaining as u16);
+        let next_word = self.peek_refill_word_sub_13588()?;
+        if bits_remaining == bit_count {
+            let partial_word = self.current_word_d5 & current_tail_mask;
+            let finalized =
+                block_layout_finalize_word_loc_135F0(partial_word, 0, bit_count as u16, next_word);
+            self.current_word_d5 = finalized.bit_buffer;
+            self.bits_remaining_d6 = 16;
+            self.input_position += 2;
+            return Ok(finalized.decoded_word);
+        }
+
+        let missing_bits = bit_count - bits_remaining;
+        let next_mask = enigma_bit_mask_loc_13662(missing_bits as u16);
+        let carried = (self.current_word_d5 & current_tail_mask) << missing_bits;
+        let appended = (next_word >> (16 - missing_bits)) & next_mask;
+        let finalized = block_layout_finalize_word_loc_135F0(
+            carried | appended,
+            0,
+            bit_count as u16,
+            next_word,
+        );
+        self.current_word_d5 = finalized.bit_buffer;
+        self.bits_remaining_d6 = (16 - missing_bits) as u16;
+        self.input_position += 2;
+        Ok(finalized.decoded_word)
+    }
+
+    fn consume_bits_loc_13650(&mut self, bit_count: u16) -> Result<(), String> {
+        self.bits_remaining_d6 -= bit_count;
+        if self.bits_remaining_d6 >= 9 {
+            return Ok(());
+        }
+        self.bits_remaining_d6 += 8;
+        self.current_word_d5 = (self.current_word_d5 << 8) & 0xFF00;
+        let next_byte = self.read_input_byte()?;
+        self.current_word_d5 |= u16::from(next_byte);
+        Ok(())
+    }
+
+    fn peek_refill_word_sub_13588(&self) -> Result<u16, String> {
+        let high_byte = *self
+            .bytes
+            .get(self.input_position)
+            .ok_or_else(|| "compressed payload ended unexpectedly".to_owned())?;
+        let low_byte = *self
+            .bytes
+            .get(self.input_position + 1)
+            .ok_or_else(|| "compressed payload ended unexpectedly".to_owned())?;
+        Ok((u16::from(high_byte) << 8) | u16::from(low_byte))
+    }
+
+    fn read_input_byte(&mut self) -> Result<u8, String> {
+        let byte = *self
+            .bytes
+            .get(self.input_position)
+            .ok_or_else(|| "compressed payload ended unexpectedly".to_owned())?;
+        self.input_position += 1;
+        Ok(byte)
+    }
+}
+
+fn enigma_bit_mask_loc_13662(bit_count: u16) -> u16 {
+    match bit_count {
+        0 => 0,
+        1..=15 => (1u16 << bit_count) - 1,
+        _ => u16::MAX,
+    }
+}
+
+#[allow(non_snake_case)]
 fn validate_first_block_layout_entry_loc_132A6(
     block_type: u16,
     layout_bytes: &[u8],
@@ -2731,7 +3075,6 @@ pub(crate) fn indoor_rubber_block_read_vram_rows_loc_1459A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_dispatch_loc_13504(
     decoded_word: u16,
     decode_width_bits: u16,
@@ -2758,7 +3101,6 @@ pub(crate) fn block_layout_dispatch_loc_13504(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_apply_high_bit_loc_1359A(
     base_word: u16,
     property_byte: u8,
@@ -2789,7 +3131,6 @@ pub(crate) fn block_layout_apply_high_bit_loc_1359A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_apply_second_high_bit_loc_135A8(
     base_word: u16,
     property_byte: u8,
@@ -2820,7 +3161,6 @@ pub(crate) fn block_layout_apply_second_high_bit_loc_135A8(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_apply_third_high_bit_loc_135B6(
     base_word: u16,
     property_byte: u8,
@@ -2849,7 +3189,6 @@ pub(crate) fn block_layout_apply_third_high_bit_loc_135B6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_apply_fourth_high_bit_loc_135C4(
     base_word: u16,
     property_byte: u8,
@@ -2878,7 +3217,6 @@ pub(crate) fn block_layout_apply_fourth_high_bit_loc_135C4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn block_layout_finalize_word_loc_135F0(
     partial_word: u16,
     base_word: u16,

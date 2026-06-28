@@ -30526,6 +30526,35 @@ mod chunk_10 {
     }
 
     #[test]
+    fn eni_dec_loc_134d4_decodes_the_command_stream_before_returning_tile_words() {
+        let enigma_fixture = [
+            0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE, 0x00,
+        ];
+
+        assert_eq!(
+            decode_enigma_eni_dec_loc_134D4(&enigma_fixture, 0x0040)
+                .expect("ASM EniDec should accept the fixture command stream"),
+            vec![0x0041, 0x0042, 0x0043, 0x004A, 0x004A, 0x0050],
+            "ASM EniDec/loc_134D4 should route VDP tilemap loads through loc_13504 dispatch and sub_13588 inline-word decoding before returning the decoded words"
+        );
+    }
+
+    #[test]
+    fn eni_dec_loc_134d4_preserves_inline_packet_cross_word_refill() {
+        let crossing_fixture = [
+            0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, // header
+            0xE1, 0x55, 0x7F, 0x80,
+        ];
+
+        assert_eq!(
+            decode_enigma_eni_dec_loc_134D4(&crossing_fixture, 0)
+                .expect("ASM EniDec should decode an inline packet across the word boundary"),
+            vec![0x02AA],
+            "ASM sub_13588/loc_135F0 should mask the packet bits, reload d5 from the next input word, and preserve the inline value that crosses the current word"
+        );
+    }
+
+    #[test]
     fn loc_13514_emits_an_inclusive_incrementing_word_run_from_a2() {
         assert_eq!(
             block_layout_repeat_words_loc_13514(0x3456, 2),
