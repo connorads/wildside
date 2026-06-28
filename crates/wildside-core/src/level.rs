@@ -2938,7 +2938,7 @@ pub(crate) fn decompress_to_ram_buffer_rollover_loc_14430(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn indoor_rubber_block_source_words_loc_14506(
     mapping_words: &[u16],
     dbf_counter: u16,
@@ -2955,7 +2955,7 @@ pub(crate) fn indoor_rubber_block_source_words_loc_14506(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn indoor_rubber_block_buffer_copy_loc_14512(
     buffered_longwords: &[u32],
     dbf_counter: u16,
@@ -2972,7 +2972,7 @@ pub(crate) fn indoor_rubber_block_buffer_copy_loc_14512(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn indoor_rubber_block_vram_walk_loc_1451E(
     start_vram_tile: u16,
     dbf_counter: u16,
@@ -2988,6 +2988,7 @@ pub(crate) fn indoor_rubber_block_vram_walk_loc_1451E(
 }
 
 #[allow(non_snake_case)]
+#[cfg(test)]
 pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
     existing_longword: u32,
     buffered_longword: u32,
@@ -3018,6 +3019,7 @@ pub(crate) fn indoor_rubber_block_repack_longword_loc_1453E(
 }
 
 #[allow(non_snake_case)]
+#[cfg(test)]
 pub(crate) fn indoor_rubber_block_pack_selected_nibble_loc_14552(
     shifted_seed_longword: u32,
     existing_rotated: u32,
@@ -3037,7 +3039,7 @@ pub(crate) fn indoor_rubber_block_pack_selected_nibble_loc_14552(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn indoor_rubber_block_repack_rows_loc_14538(
     existing_longwords: &[u32],
     buffered_longwords: &[u32],
@@ -3065,7 +3067,7 @@ pub(crate) fn indoor_rubber_block_repack_rows_loc_14538(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn indoor_rubber_block_upload_vram_rows_loc_1456E(
     buffered_longwords: &[u32],
     dbf_counter: u16,
@@ -3082,7 +3084,7 @@ pub(crate) fn indoor_rubber_block_upload_vram_rows_loc_1456E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn indoor_rubber_block_read_vram_rows_loc_1459A(
     vram_longwords: &[u32],
     dbf_counter: u16,
