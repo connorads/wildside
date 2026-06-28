@@ -588,11 +588,11 @@ Kid uses the GEMS sound driver in Z80 RAM for music and SFX.
 
 | ASM routine/area | Rust file | Notes |
 |------------------|-----------|-------|
-| Player physics loop | `crates/kid-core/src/movement.rs` | ASM order preserved |
-| Enemy AI families | `crates/kid-core/src/enemies.rs` | State enums map to ASM jump tables |
-| Collision resolution | `crates/kid-core/src/movement.rs` | Floor, wall, slope, ceiling |
-| Combat/damage | `crates/kid-core/src/combat.rs` | Death, invulnerability, knockback |
-| Block interactions | `crates/kid-core/src/blocks.rs` | Prize, ghost, evanescent, shooter |
-| Boot/title/menus | `crates/kid-core/src/boot.rs` | Game mode state machine |
-| Physics tables | `crates/kid-core/src/physics.rs` | Speed tables, gravity constants |
-| Sprite rendering | `crates/kidcli/src/native_player/sprites.rs` | Direction flip logic |
+| Player physics loop | `crates/wildside-core/src/movement.rs` | ASM order preserved |
+| Enemy AI families | `crates/wildside-core/src/enemies.rs` | State enums map to ASM jump tables |
+| Collision resolution | `crates/wildside-core/src/movement.rs` | Floor, wall, slope, ceiling |
+| Combat/damage | `crates/wildside-core/src/combat.rs` | Death, invulnerability, knockback |
+| Block interactions | `crates/wildside-core/src/blocks.rs` | Prize, ghost, evanescent, shooter |
+| Boot/title/menus | `crates/wildside-core/src/boot.rs` | Game mode state machine |
+| Physics tables | `crates/wildside-core/src/physics.rs` | Speed tables, gravity constants |
+| Sprite rendering | `crates/wildside-frame/src/sprites.rs` | Direction flip logic |
