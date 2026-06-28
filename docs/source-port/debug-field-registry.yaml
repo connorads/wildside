@@ -730,6 +730,24 @@
       "promotion_trigger": "Promote when the renderer consumes this as typed palette/CRAM state instead of a debug diagnostic."
     },
     {
+      "key": "fire_demon_palette_phase_loc_3a4c2",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "issue-301-bosses",
+      "first_added_commit": "8b2bb7996",
+      "intended_meaning": "Native Fire Demon palette-wave phase counter, shared with the Heady-Metal helper; ASM Fire_Demon.asm loc_3A4C2 owns the helper hibernate phase.",
+      "promotion_trigger": "Promote if renderer CRAM parity or checked-in Fire Demon visual assertions depend on the typed phase."
+    },
+    {
+      "key": "fire_demon_palette_source_offset_loc_3a4d6",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "issue-301-bosses",
+      "first_added_commit": "8b2bb7996",
+      "intended_meaning": "Native Fire Demon palette source offset (shared Heady-Metal palette word); ASM Fire_Demon.asm loc_3A4D6 copies the base palette frame at source offset zero.",
+      "promotion_trigger": "Promote when the renderer consumes this as typed palette/CRAM state instead of a debug diagnostic."
+    },
+    {
       "key": "highwater_shooter_barrier_probe",
       "scope": "frame",
       "status": "exploratory",
