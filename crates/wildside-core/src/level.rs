@@ -13243,16 +13243,16 @@ pub(crate) struct BackgroundScrollShiftLayersSetupLoc3050A {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundScrollShiftLayersLeadingPartialFillLoc30562 {
-    pub(crate) repeated_scroll_longword: u32,
-    pub(crate) longword_count: u16,
-    pub(crate) next_block_dbf_counter: u16,
+pub struct BackgroundScrollShiftLayersLeadingPartialFillLoc30562 {
+    pub repeated_scroll_longword: u32,
+    pub longword_count: u16,
+    pub next_block_dbf_counter: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct BackgroundScrollShiftLayersTrailingPartialFillLoc30592 {
-    pub(crate) repeated_scroll_longword: u32,
-    pub(crate) longword_count: u16,
+pub struct BackgroundScrollShiftLayersTrailingPartialFillLoc30592 {
+    pub repeated_scroll_longword: u32,
+    pub longword_count: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -14398,8 +14398,7 @@ pub(crate) fn background_scroll_shift_layers_setup_loc_3050A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_shift_layers_leading_partial_fill_loc_30562(
+pub fn background_scroll_shift_layers_leading_partial_fill_loc_30562(
     negated_camera_x_longword: u32,
     background_scroll_word: i16,
     quarter_row_phase: u16,
@@ -14422,8 +14421,7 @@ pub(crate) fn background_scroll_shift_layers_leading_partial_fill_loc_30562(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
-pub(crate) fn background_scroll_shift_layers_trailing_partial_fill_loc_30592(
+pub fn background_scroll_shift_layers_trailing_partial_fill_loc_30592(
     negated_camera_x_longword: u32,
     background_scroll_word: i16,
     trailing_partial_longword_count: u16,

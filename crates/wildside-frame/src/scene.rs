@@ -2015,8 +2015,15 @@ pub fn push_background_tiles(
                     continue;
                 }
                 let layer_speed = background_layer_speed_loc_3050a(level_visuals, row);
-                let scroll_x_px =
-                    background_display_scroll_x_px_loc_3050a(trace, camera_x_px, layer_speed);
+                let scroll_x_px = background_display_scroll_x_px_for_chunked_row_loc_3050a(
+                    trace,
+                    camera_x_px,
+                    camera_y_px,
+                    row,
+                    first_row,
+                    last_row,
+                    layer_speed,
+                );
                 for (column, cell) in cells.iter().enumerate() {
                     let Some(cell) = cell else {
                         continue;
@@ -2228,7 +2235,18 @@ pub fn background_scroll_pixel_diagnostic_loc_3050a(
     }
     let sample_row = usize::try_from(sample_row).ok()?;
     let layer_speed = background_layer_speed_loc_3050a(level_visuals, sample_row);
-    let scroll_x_px = background_display_scroll_x_px_loc_3050a(trace, camera_x_px, layer_speed);
+    let first_row = background_scroll_y_px.div_euclid(8).max(0) as usize;
+    let last_row =
+        ((background_scroll_y_px + FRAME_HEIGHT as i32 + 7).div_euclid(8)).max(0) as usize;
+    let scroll_x_px = background_display_scroll_x_px_for_chunked_row_loc_3050a(
+        trace,
+        camera_x_px,
+        camera_y_px,
+        sample_row,
+        first_row,
+        last_row,
+        layer_speed,
+    );
     // ASM BackgroundScroll_ComputeShiftLayers loc_3050A supplies the scroll
     // column, while sub_30744/sub_307D8 refresh the exposed Plane-B window.
     let destination_column = scroll_x_px
@@ -2347,8 +2365,19 @@ pub fn sample_background_pixel_loc_c070(
                         plane_b.row_for_trace(trace, level_visuals, camera_x_px, row as usize)
                 {
                     let layer_speed = background_layer_speed_loc_3050a(level_visuals, row as usize);
-                    let scroll_x_px =
-                        background_display_scroll_x_px_loc_3050a(trace, camera_x_px, layer_speed);
+                    let first_row = background_scroll_y_px.div_euclid(8).max(0) as usize;
+                    let last_row = ((background_scroll_y_px + FRAME_HEIGHT as i32 + 7)
+                        .div_euclid(8))
+                    .max(0) as usize;
+                    let scroll_x_px = background_display_scroll_x_px_for_chunked_row_loc_3050a(
+                        trace,
+                        camera_x_px,
+                        camera_y_px,
+                        row as usize,
+                        first_row,
+                        last_row,
+                        layer_speed,
+                    );
                     if let Some((column, screen_x)) =
                         chunked_plane_b_cell_at_sample_x_loc_3050a(sample_x, scroll_x_px)
                         && let Some(cell) = cells[column]
@@ -5161,6 +5190,55 @@ pub fn background_display_scroll_x_px_loc_3050a(
     camera_x_px: i32,
     layer_speed: u8,
 ) -> i32 {
+    i32::from(background_display_scroll_data_word_loc_3050a(trace, camera_x_px, layer_speed) as i16)
+        .rem_euclid(512)
+}
+
+fn background_display_scroll_x_px_for_chunked_row_loc_3050a(
+    trace: &NativeTraceFrame,
+    camera_x_px: i32,
+    camera_y_px: i32,
+    row: usize,
+    first_row: usize,
+    last_row: usize,
+    layer_speed: u8,
+) -> i32 {
+    let scroll_word =
+        background_display_scroll_data_word_loc_3050a(trace, camera_x_px, layer_speed);
+    let quarter_row_phase = ((camera_y_px as u16) >> 2) & 0x0007;
+    let negated_camera_x_longword = u32::from((camera_x_px as i16).wrapping_neg() as u16) << 16;
+
+    let packed_scroll_longword = if quarter_row_phase != 0 && row == first_row {
+        wildside_core::background_scroll_shift_layers_leading_partial_fill_loc_30562(
+            negated_camera_x_longword,
+            scroll_word as i16,
+            quarter_row_phase,
+            0x001B,
+        )
+        .map(|fill| fill.repeated_scroll_longword)
+    } else if quarter_row_phase != 0 && row == last_row {
+        wildside_core::background_scroll_shift_layers_trailing_partial_fill_loc_30592(
+            negated_camera_x_longword,
+            scroll_word as i16,
+            quarter_row_phase,
+        )
+        .map(|fill| fill.repeated_scroll_longword)
+    } else {
+        None
+    };
+
+    let hscroll_word = packed_scroll_longword.map_or_else(
+        || (scroll_word as i16).wrapping_neg() as u16,
+        |longword| longword as u16,
+    );
+    i32::from((hscroll_word as i16).wrapping_neg()).rem_euclid(512)
+}
+
+fn background_display_scroll_data_word_loc_3050a(
+    trace: &NativeTraceFrame,
+    camera_x_px: i32,
+    layer_speed: u8,
+) -> u16 {
     // ASM loc_3050A (kid.asm:34220-34239) copies the packed
     // `Horiz_Scroll_Data+4` word into the per-scanline H-scroll table after
     // negating it. The framebuffer samples show auto-scroll rows render from
@@ -5171,12 +5249,7 @@ pub fn background_display_scroll_x_px_loc_3050a(
         0x00 | 0x08 => time_frames.saturating_sub(1),
         _ => time_frames,
     };
-    i32::from(background_scroll_data_word_loc_30452(
-        display_time_frames,
-        camera_x_px,
-        layer_speed,
-    ))
-    .rem_euclid(512)
+    background_scroll_data_word_loc_30452(display_time_frames, camera_x_px, layer_speed)
 }
 
 fn background_scroll_x_px_for_time_loc_3050a(
