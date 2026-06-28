@@ -20,6 +20,7 @@ pub(crate) struct FgUpdateQueueCullAdvanceLoc167A {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct EnemyLayoutResetAndSeekLoc31F8E {
     pub(crate) enemy_status_words: Vec<u16>,
     pub(crate) loaded_enemy_slot_sentinel: u8,
@@ -33,6 +34,7 @@ pub(crate) struct EnemyLayoutResetAndSeekLoc31F8E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct EnemyLayoutResetAndSeekInputLoc31F8E {
     pub(crate) enemy_layout_header_addr: u32,
     pub(crate) enemy_layout_addr: u32,
@@ -405,6 +407,7 @@ pub(crate) struct BlockLayoutEntryWordsLoc133F0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct LevelLoadPointersLoc11D0C {
     pub(crate) theme_mappings_addr: u32,
     pub(crate) enemy_layout_addr: u32,
@@ -8598,7 +8601,7 @@ pub(crate) fn adjust_8_byte_hidden_block_entries_for_blank_top_rows_loc_1423E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn level_load_pointers_loc_11D0C(
     theme_mapping_index: &[u32],
     theme_mapping_table_offset_bytes: u16,
@@ -8625,7 +8628,7 @@ pub(crate) fn level_load_pointers_loc_11D0C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn enemy_layout_reset_and_seek_loc_31F8E(
     input: EnemyLayoutResetAndSeekInputLoc31F8E,
     header_thresholds: &[u16],
@@ -8688,6 +8691,7 @@ pub(crate) fn enemy_layout_reset_and_seek_loc_31F8E(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ManageEnemyLoadingSetupLoc3682C {
     pub(crate) enemy_count: u16,
     pub(crate) loop_counter: u16,
@@ -8696,7 +8700,7 @@ pub(crate) struct ManageEnemyLoadingSetupLoc3682C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn manage_enemy_loading_setup_loc_3682C(
     enemy_layout_addr: u32,
     enemy_count_word: u16,
@@ -8717,6 +8721,7 @@ pub(crate) fn manage_enemy_loading_setup_loc_3682C(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum ManageEnemyLoadingStatusBranchLoc36840 {
     SpawnFresh,
     SkipAlreadyLoaded,
@@ -8726,7 +8731,7 @@ pub(crate) enum ManageEnemyLoadingStatusBranchLoc36840 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn manage_enemy_loading_status_branch_loc_36840(
     enemy_status_word: u16,
 ) -> ManageEnemyLoadingStatusBranchLoc36840 {
@@ -8751,13 +8756,14 @@ pub(crate) fn manage_enemy_loading_status_branch_loc_36840(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ManageEnemyLoadingCountDownActiveLoc3685E {
     pub(crate) reaches_spawn_window: bool,
     pub(crate) decremented_status_word: Option<u16>,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn manage_enemy_loading_count_down_active_loc_3685E(
     enemy_status_word: u16,
 ) -> ManageEnemyLoadingCountDownActiveLoc3685E {
@@ -8777,7 +8783,7 @@ pub(crate) fn manage_enemy_loading_count_down_active_loc_3685E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn manage_enemy_loading_status_word_loc_36900(
     enemy_status_word: u16,
     d4_state: u8,
@@ -8793,7 +8799,7 @@ pub(crate) fn manage_enemy_loading_status_word_loc_36900(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn manage_enemy_loading_allocate_slot_hint_loc_3690A(enemy_id: u8) -> u16 {
     // ASM loc_3690A (kid.asm:38056-38063) seeds `a0` with `1` before sign-
     // extending the enemy id byte in `d0`; only enemy `$17` overwrites that
@@ -8802,6 +8808,7 @@ pub(crate) fn manage_enemy_loading_allocate_slot_hint_loc_3690A(enemy_id: u8) ->
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ManageEnemyLoadingSpawnObjectLoc3691E {
     pub(crate) enemy_load_index_offset: u16,
     pub(crate) priority_flag: bool,
@@ -8811,7 +8818,7 @@ pub(crate) struct ManageEnemyLoadingSpawnObjectLoc3691E {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
     enemy_id: u8,
     layout_entry_addr: u32,
@@ -8847,6 +8854,7 @@ pub(crate) fn manage_enemy_loading_spawn_object_loc_3691E(
 }
 
 #[allow(non_snake_case)]
+#[cfg(test)]
 pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
     // ASM loc_3200A (kid.asm:37413): clear `d0`, read byte `1(a1)`, and
     // branch to loc_32044 for empty slots, where `clr.w (a2)+` writes the
@@ -8874,7 +8882,7 @@ pub(crate) fn enemy_layout_status_word_loc_3200A(entry_status_byte: u8) -> u16 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn enemy_layout_status_word_with_negative_sentinel_loc_32036(
     entry_status_byte: u8,
 ) -> u16 {
@@ -8889,7 +8897,7 @@ pub(crate) fn enemy_layout_status_word_with_negative_sentinel_loc_32036(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn enemy_layout_finish_loc_3204E() -> bool {
     // ASM loc_3204E (kid.asm:37443-37445) always calls
     // `Load_EnemyArtPaletteToVRAM` before returning from the enemy-layout
