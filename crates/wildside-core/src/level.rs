@@ -10085,7 +10085,6 @@ pub(crate) fn evanescent_shooter_left_neighbour_mark_loc_F166(
 /// `Level_width_tiles` to `a1`, increment the block row in `d4`, then DBF the
 /// row counter back to `loc_F106` until it wraps to `$FFFF`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_row_scan_tail_loc_F17C(
     layout_addr: u32,
     block_row: u16,

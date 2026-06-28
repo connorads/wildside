@@ -3634,10 +3634,32 @@ impl NativeRuntime {
             // ASM loc_F0F0 (kid.asm:19663): subtract the top row from the
             // bottom row for DBF's inclusive count, load `$FFFF4A04[d4*2]`,
             // then add `d3*2` to address the entering column.
-            for row in start_row..=end_row {
-                let cell = grid.cell_at(entering_col, row);
-                if let Some(directions) = Self::shooter_direction_bits_loc_F106(cell) {
-                    queue_scan(entering_col, row, directions);
+            if start_row <= end_row {
+                let mut row = start_row;
+                let mut layout_addr = u32::from(terrain::BlockList::level_layout_low_word_addr(
+                    entering_col,
+                    row,
+                    grid.width_cells,
+                ));
+                let mut dbf_counter = end_row.wrapping_sub(start_row);
+                loop {
+                    let cell = grid.cell_at(entering_col, row);
+                    if let Some(directions) = Self::shooter_direction_bits_loc_F106(cell) {
+                        queue_scan(entering_col, row, directions);
+                    }
+
+                    let scan_tail = crate::level::evanescent_shooter_row_scan_tail_loc_F17C(
+                        layout_addr,
+                        row,
+                        dbf_counter,
+                        grid.width_cells.wrapping_mul(2),
+                    );
+                    if !scan_tail.should_continue_scan {
+                        break;
+                    }
+                    layout_addr = scan_tail.next_layout_addr;
+                    row = scan_tail.next_block_row;
+                    dbf_counter = scan_tail.next_dbf_counter;
                 }
             }
         }
