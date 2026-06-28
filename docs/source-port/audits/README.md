@@ -22,3 +22,4 @@ Dated research artefacts: per-subsystem fidelity audits plus the meta-audits tha
 | [shell-fidelity-audit.md](shell-fidelity-audit.md) | 2026-06-11 | 2026-06-20 | Game Shell & HUD Fidelity Audit |
 | [terrain-fidelity-audit.md](terrain-fidelity-audit.md) | 2026-06-11 | 2026-06-20 | Terrain Collision & Physics Fidelity Audit |
 | [backlog-validation-2026-06-14.md](backlog-validation-2026-06-14.md) | 2026-06-15 | 2026-06-16 | Backlog validation and planning report, 2026-06-14 |
+| [asm-coverage-audit.md](asm-coverage-audit.md) | 2026-06-28 | 2026-06-28 | ASM-Reference Coverage Audit (is 100% real / wired-in, gaps, methodology) |
