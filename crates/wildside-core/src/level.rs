@@ -7063,6 +7063,7 @@ pub(crate) fn block_type_4_hidden_entry_loc_12670(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidHitboxSolidScanSetupLoc1FB2 {
     pub(crate) row_start_addr: u16,
     pub(crate) row_count: u16,
@@ -7070,7 +7071,7 @@ pub(crate) struct KidHitboxSolidScanSetupLoc1FB2 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_setup_loc_1FB2(
     scan_disabled_fa64: bool,
     kid_object_present: bool,
@@ -7104,6 +7105,7 @@ pub(crate) fn kid_hitbox_solid_scan_setup_loc_1FB2(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidHitboxSolidScanHitLoc1FEE {
     pub(crate) tile_word: u16,
     pub(crate) row_index: u16,
@@ -7111,7 +7113,7 @@ pub(crate) struct KidHitboxSolidScanHitLoc1FEE {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_loc_1FEE(
     level_layout_words: &[u16],
     start_index: usize,
@@ -7163,6 +7165,7 @@ pub(crate) fn palette_to_vram0_blocks_solid_scan_loc_2198(tile_word: u16) -> u16
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidHitboxSolidScanRightSeedLoc201C {
     pub(crate) rewind_index: usize,
     pub(crate) tile_column: u16,
@@ -7171,7 +7174,7 @@ pub(crate) struct KidHitboxSolidScanRightSeedLoc201C {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_expand_right_loc_201C(
     solid_scan_locked_faa6: bool,
     start_index_after_initial_hit: usize,
@@ -7200,13 +7203,14 @@ pub(crate) fn kid_hitbox_solid_scan_expand_right_loc_201C(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidHitboxSolidScanLeftSeedLoc2040 {
     pub(crate) blocking_index: usize,
     pub(crate) left_px: u16,
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_expand_left_loc_2040(
     rewind_index: usize,
     initial_left_px: u16,
@@ -7226,6 +7230,7 @@ pub(crate) fn kid_hitbox_solid_scan_expand_left_loc_2040(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidHitboxSolidScanUpSeedLoc2050 {
     pub(crate) restored_index: usize,
     pub(crate) row_index: u16,
@@ -7234,7 +7239,7 @@ pub(crate) struct KidHitboxSolidScanUpSeedLoc2050 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_expand_up_loc_2050(
     start_index_after_left_blocker: usize,
     level_width_tiles: usize,
@@ -7261,6 +7266,7 @@ pub(crate) fn kid_hitbox_solid_scan_expand_up_loc_2050(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidHitboxSolidScanResolveUpLoc20C6 {
     pub(crate) kid_hitbox_top: u16,
     pub(crate) kid_hitbox_bottom: u16,
@@ -7269,7 +7275,7 @@ pub(crate) struct KidHitboxSolidScanResolveUpLoc20C6 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_resolve_up_loc_20C6(
     upward_overlap_px: u16,
     kid_hitbox_top: u16,
@@ -7290,6 +7296,7 @@ pub(crate) fn kid_hitbox_solid_scan_resolve_up_loc_20C6(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidHitboxSolidScanResolveRightLoc20DC {
     pub(crate) kid_hitbox_left: u16,
     pub(crate) kid_hitbox_right: u16,
@@ -7298,7 +7305,7 @@ pub(crate) struct KidHitboxSolidScanResolveRightLoc20DC {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_resolve_right_loc_20DC(
     rightward_overlap_px: u16,
     kid_hitbox_left: u16,
@@ -7319,6 +7326,7 @@ pub(crate) fn kid_hitbox_solid_scan_resolve_right_loc_20DC(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidHitboxSolidScanResolveLeftLoc2106 {
     pub(crate) kid_hitbox_left: u16,
     pub(crate) kid_hitbox_right: u16,
@@ -7327,7 +7335,7 @@ pub(crate) struct KidHitboxSolidScanResolveLeftLoc2106 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn kid_hitbox_solid_scan_resolve_left_loc_2106(
     leftward_overlap_px: u16,
     kid_hitbox_left: u16,

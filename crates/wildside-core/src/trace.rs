@@ -6037,6 +6037,7 @@ pub(crate) struct KidObjectStompPlayerWritebackLoc1D4C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct KidObjectTypeFourCollisionLoc1D5A {
     pub(crate) stalls_forever: bool,
     pub(crate) player_collision_flags: Option<u16>,
@@ -6090,7 +6091,7 @@ pub(crate) fn kid_object_stomp_player_writeback_loc_1D4C(
     }
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn kid_object_type_four_collision_loc_1D5A(
     object_collision_flags: u16,
