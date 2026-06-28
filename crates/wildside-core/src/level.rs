@@ -122,12 +122,14 @@ pub(crate) struct BlockLayoutFinalizeWordLoc135F0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DecompressShortRefTailLoc136D0 {
     pub(crate) copied_bytes: [u8; 2],
     pub(crate) finished: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DecompressBp0ReturnStatus {
     pub(crate) status_word: u16,
     pub(crate) next_copy_mode: Option<u16>,
@@ -173,11 +175,13 @@ pub(crate) struct DecompressToRamChunkSetupLoc143EA {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DecompressDirectCopyLoc137AE {
     pub(crate) copied_byte: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressModeDispatchLoc13736 {
     DirectCopy,
     LongRef {
@@ -190,6 +194,7 @@ pub(crate) enum DecompressModeDispatchLoc13736 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressModeDispatchLoc137B0 {
     DirectCopy,
     LongRef {
@@ -202,6 +207,7 @@ pub(crate) enum DecompressModeDispatchLoc137B0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressModeDispatchLoc1382E {
     DirectCopy,
     LongRef {
@@ -214,6 +220,7 @@ pub(crate) enum DecompressModeDispatchLoc1382E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressModeDispatchLoc138AA {
     DirectCopy {
         copied_byte: u8,
@@ -228,6 +235,7 @@ pub(crate) enum DecompressModeDispatchLoc138AA {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressModeDispatchLoc13928 {
     DirectCopy,
     LongRef {
@@ -240,6 +248,7 @@ pub(crate) enum DecompressModeDispatchLoc13928 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressModeDispatchLoc139A6 {
     DirectCopy {
         copied_byte: u8,
@@ -254,6 +263,7 @@ pub(crate) enum DecompressModeDispatchLoc139A6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressModeDispatchLoc13A24 {
     DirectCopy {
         copied_byte: u8,
@@ -269,6 +279,7 @@ pub(crate) enum DecompressModeDispatchLoc13A24 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressLongRefCopyModeLoc13756 {
     Copy3,
     Copy4,
@@ -277,12 +288,14 @@ pub(crate) enum DecompressLongRefCopyModeLoc13756 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DecompressLongRefHeaderLoc13756 {
     pub(crate) source_back_distance: u16,
     pub(crate) copy_mode: DecompressLongRefCopyModeLoc13756,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum DecompressLongRefExtendedLoc1376A {
     Copy5,
     QuitDecompression,
@@ -294,23 +307,27 @@ pub(crate) enum DecompressLongRefExtendedLoc1376A {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DecompressLongRefLoopLoc13778 {
     pub(crate) copied_bytes: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DecompressLongRefTailLoc1377E {
     pub(crate) copied_bytes: [u8; 5],
     pub(crate) finished: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DecompressLongRefTailLoc1387A {
     pub(crate) copied_bytes: [u8; 4],
     pub(crate) finished: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DecompressShortRefTailLoc137C4 {
     pub(crate) copied_bytes: [u8; 2],
     pub(crate) finished: bool,
@@ -3246,7 +3263,7 @@ pub(crate) fn block_layout_finalize_word_loc_135F0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_short_ref_tail_loc_136D0(
     copied_bytes: [u8; 2],
     output_addr_after_tail: u16,
@@ -3263,7 +3280,7 @@ pub(crate) fn decompress_short_ref_tail_loc_136D0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_prefix_loc_136FE(
     source_bytes: &[u8],
     dbf_counter: u16,
@@ -3280,7 +3297,7 @@ pub(crate) fn decompress_long_ref_prefix_loc_136FE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_zero_length_loc_13716() -> DecompressBp0ReturnStatus {
     // ASM loc_13716 (kid.asm:26226-26227) is the empty-length early return
     // from `Decompress_BP0_LongRef_2or3`: `beq.s loc_13716` zeroes `d0` and
@@ -3292,7 +3309,7 @@ pub(crate) fn decompress_long_ref_zero_length_loc_13716() -> DecompressBp0Return
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_too_short_loc_1371C() -> DecompressBp0ReturnStatus {
     // ASM loc_1371C (kid.asm:26231-26233) is the underflow return from
     // `subq.w #6,d0`: when the requested long-reference byte count cannot pay
@@ -3305,7 +3322,7 @@ pub(crate) fn decompress_long_ref_too_short_loc_1371C() -> DecompressBp0ReturnSt
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_1372C() -> DecompressBp0ReturnStatus {
     // ASM loc_1372C (kid.asm:26243-26245) is the successful long-reference
     // return after `cmp.w a2,d7` / `bls.s loc_1372C`: once the fixed five-byte
@@ -3318,7 +3335,7 @@ pub(crate) fn decompress_long_ref_finished_loc_1372C() -> DecompressBp0ReturnSta
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_direct_copy_loc_137AE(source_byte: u8) -> DecompressDirectCopyLoc137AE {
     // ASM loc_137AE (kid.asm:26339) is the bit-position-0 direct-copy entry:
     // it copies exactly one literal byte from `(a1)+` to `(a2)+` before
@@ -3329,7 +3346,7 @@ pub(crate) fn decompress_direct_copy_loc_137AE(source_byte: u8) -> DecompressDir
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_13736(
     bit_buffer: u8,
     output_addr: u16,
@@ -3358,7 +3375,7 @@ pub(crate) fn decompress_mode_dispatch_loc_13736(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_1374A(
     copied_bytes: [u8; 2],
     output_addr_after_tail: u16,
@@ -3375,7 +3392,7 @@ pub(crate) fn decompress_short_ref_finished_loc_1374A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_137B0(
     bit_buffer: u8,
     output_addr: u16,
@@ -3405,7 +3422,7 @@ pub(crate) fn decompress_mode_dispatch_loc_137B0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_1382E(
     bit_buffer: u8,
     output_addr: u16,
@@ -3434,7 +3451,7 @@ pub(crate) fn decompress_mode_dispatch_loc_1382E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_138AA(
     bit_buffer: u8,
     output_addr: u16,
@@ -3467,7 +3484,7 @@ pub(crate) fn decompress_mode_dispatch_loc_138AA(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_13928(
     bit_buffer: u8,
     output_addr: u16,
@@ -3497,7 +3514,7 @@ pub(crate) fn decompress_mode_dispatch_loc_13928(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_139A6(
     bit_buffer: u8,
     output_addr: u16,
@@ -3536,7 +3553,7 @@ pub(crate) fn decompress_mode_dispatch_loc_139A6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_mode_dispatch_loc_13A24(
     bit_buffer: u8,
     output_addr: u16,
@@ -3570,7 +3587,7 @@ pub(crate) fn decompress_mode_dispatch_loc_13A24(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_header_loc_13756(
     bit_buffer: u8,
     long_ref_mask: u16,
@@ -3599,7 +3616,7 @@ pub(crate) fn decompress_long_ref_header_loc_13756(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_137C4(
     copied_bytes: [u8; 2],
     output_addr_after_tail: u16,
@@ -3616,7 +3633,7 @@ pub(crate) fn decompress_short_ref_finished_loc_137C4(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_13842(
     copied_bytes: [u8; 2],
     output_addr_after_tail: u16,
@@ -3633,7 +3650,7 @@ pub(crate) fn decompress_short_ref_finished_loc_13842(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_1393C(
     copied_bytes: [u8; 2],
     output_addr_after_tail: u16,
@@ -3651,7 +3668,7 @@ pub(crate) fn decompress_short_ref_finished_loc_1393C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_short_ref_finished_loc_139BC(
     copied_bytes: [u8; 2],
     output_addr_after_tail: u16,
@@ -3668,7 +3685,7 @@ pub(crate) fn decompress_short_ref_finished_loc_139BC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_header_loc_1384E(
     bit_buffer: u8,
     control_byte: u8,
@@ -3701,7 +3718,7 @@ pub(crate) fn decompress_long_ref_header_loc_1384E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_header_loc_13948(
     bit_buffer: u8,
     control_byte: u8,
@@ -3737,7 +3754,7 @@ pub(crate) fn decompress_long_ref_header_loc_13948(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_1376A(
     bit_buffer: u8,
     length_byte: u8,
@@ -3766,7 +3783,7 @@ pub(crate) fn decompress_long_ref_extended_loc_1376A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_137E6(
     bit_buffer: u8,
     length_byte: u8,
@@ -3795,7 +3812,7 @@ pub(crate) fn decompress_long_ref_extended_loc_137E6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_138E2(
     bit_buffer: u8,
     length_byte: u8,
@@ -3824,7 +3841,7 @@ pub(crate) fn decompress_long_ref_extended_loc_138E2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_139DE(
     bit_buffer: u8,
     length_byte: u8,
@@ -3853,7 +3870,7 @@ pub(crate) fn decompress_long_ref_extended_loc_139DE(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_extended_loc_13A5A(
     bit_buffer: u8,
     length_byte: u8,
@@ -3882,7 +3899,7 @@ pub(crate) fn decompress_long_ref_extended_loc_13A5A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_13778(
     source_bytes: &[u8],
     dbf_counter: u16,
@@ -3900,7 +3917,7 @@ pub(crate) fn decompress_long_ref_loop_loc_13778(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_13872(
     source_bytes: &[u8],
     dbf_counter: u16,
@@ -3919,7 +3936,7 @@ pub(crate) fn decompress_long_ref_loop_loc_13872(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_137F6(
     source_bytes: &[u8],
     dbf_counter: u16,
@@ -3938,7 +3955,7 @@ pub(crate) fn decompress_long_ref_loop_loc_137F6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_138F0(
     source_bytes: &[u8],
     dbf_counter: u16,
@@ -3957,7 +3974,7 @@ pub(crate) fn decompress_long_ref_loop_loc_138F0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_1396E(
     source_bytes: &[u8],
     dbf_counter: u16,
@@ -3976,7 +3993,7 @@ pub(crate) fn decompress_long_ref_loop_loc_1396E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_139EC(
     source_bytes: &[u8],
     dbf_counter: u16,
@@ -3995,7 +4012,7 @@ pub(crate) fn decompress_long_ref_loop_loc_139EC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_loop_loc_13A68(
     source_bytes: &[u8],
     dbf_counter: u16,
@@ -4014,7 +4031,7 @@ pub(crate) fn decompress_long_ref_loop_loc_13A68(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_1380E() -> DecompressBp0ReturnStatus {
     // ASM loc_1380E (kid.asm:26405-26406) is the `BYTE2 = 0` early return from
     // `loc_137E6`: it clears `d0` and returns immediately without reseeding
@@ -4026,7 +4043,7 @@ pub(crate) fn decompress_long_ref_quit_loc_1380E() -> DecompressBp0ReturnStatus 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_1388A() -> DecompressBp0ReturnStatus {
     // ASM loc_1388A (kid.asm:26493-26494) is the later `BYTE2 = 0` early
     // return from the variable-length branch that feeds `loc_13872`: it clears
@@ -4038,7 +4055,7 @@ pub(crate) fn decompress_long_ref_quit_loc_1388A() -> DecompressBp0ReturnStatus 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13908() -> DecompressBp0ReturnStatus {
     // ASM loc_13908 (kid.asm:26582-26583) is the `BYTE2 = 0` early return from
     // `loc_138E2`: it clears `d0` and returns immediately without writing a
@@ -4050,7 +4067,7 @@ pub(crate) fn decompress_long_ref_quit_loc_13908() -> DecompressBp0ReturnStatus 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13986() -> DecompressBp0ReturnStatus {
     // ASM loc_13986 (kid.asm:26671-26672) is the `BYTE2 = 0` early return from
     // `loc_13960`: it clears `d0` and returns immediately without reseeding
@@ -4062,7 +4079,7 @@ pub(crate) fn decompress_long_ref_quit_loc_13986() -> DecompressBp0ReturnStatus 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13A04() -> DecompressBp0ReturnStatus {
     // ASM loc_13A04 (kid.asm:26760-26761) is the `BYTE2 = 0` early return from
     // `loc_139DE`: it clears `d0` and returns immediately without writing a
@@ -4074,7 +4091,7 @@ pub(crate) fn decompress_long_ref_quit_loc_13A04() -> DecompressBp0ReturnStatus 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13A80() -> DecompressBp0ReturnStatus {
     // ASM loc_13A80 (kid.asm:26848-26849) is the `BYTE2 = 0` early return from
     // `loc_13A5A`: it clears `d0` and returns immediately without writing a
@@ -4086,7 +4103,7 @@ pub(crate) fn decompress_long_ref_quit_loc_13A80() -> DecompressBp0ReturnStatus 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus {
     // ASM loc_13790 (kid.asm:26316-26317) is the `BYTE2 = 0` early return from
     // `loc_1376A`: it clears `d0` and returns immediately without reseeding
@@ -4098,7 +4115,7 @@ pub(crate) fn decompress_long_ref_quit_loc_13790() -> DecompressBp0ReturnStatus 
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_13878(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,
@@ -4115,7 +4132,7 @@ pub(crate) fn decompress_long_ref_tail_loc_13878(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_138F6(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,
@@ -4133,7 +4150,7 @@ pub(crate) fn decompress_long_ref_tail_loc_138F6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_139F2(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,
@@ -4151,7 +4168,7 @@ pub(crate) fn decompress_long_ref_tail_loc_139F2(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_13A6E(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,
@@ -4169,7 +4186,7 @@ pub(crate) fn decompress_long_ref_tail_loc_13A6E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_1387A(
     copied_bytes: [u8; 4],
     output_addr_after_tail: u16,
@@ -4186,7 +4203,7 @@ pub(crate) fn decompress_long_ref_tail_loc_1387A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_137FC(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,
@@ -4203,7 +4220,7 @@ pub(crate) fn decompress_long_ref_tail_loc_137FC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13814() -> DecompressBp0ReturnStatus {
     // ASM loc_13814 (kid.asm:26410-26412) is the `0 < BYTE2 < 6` underflow
     // return from `loc_137E6`: after `subq.w #6,d0` goes negative, the routine
@@ -4216,7 +4233,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13814() -> DecompressBp0ReturnStatus
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13890() -> DecompressBp0ReturnStatus {
     // ASM loc_13890 (kid.asm:26498-26500) is the `0 < BYTE2 < 6` underflow
     // return from the later variable-length branch above `loc_13872`: after
@@ -4229,7 +4246,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13890() -> DecompressBp0ReturnStatus
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_1398C() -> DecompressBp0ReturnStatus {
     // ASM loc_1398C (kid.asm:26676-26678) is the `0 < BYTE2 < 6` underflow
     // return from `loc_13960`: after `subq.w #6,d0` goes negative, the
@@ -4242,7 +4259,7 @@ pub(crate) fn decompress_long_ref_flush_loc_1398C() -> DecompressBp0ReturnStatus
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13A0A() -> DecompressBp0ReturnStatus {
     // ASM loc_13A0A (kid.asm:26765-26767) is the `0 < BYTE2 < 6` underflow
     // return from `loc_139DE`: after `subq.w #6,d0` goes negative, the
@@ -4255,7 +4272,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13A0A() -> DecompressBp0ReturnStatus
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13A86() -> DecompressBp0ReturnStatus {
     // ASM loc_13A86 (kid.asm:26853-26855) is the `0 < BYTE2 < 6` underflow
     // return from `loc_13A5A`: after `subq.w #6,d0` goes negative, the
@@ -4268,7 +4285,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13A86() -> DecompressBp0ReturnStatus
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_1390E() -> DecompressBp0ReturnStatus {
     // ASM loc_1390E (kid.asm:26587-26589) is the `0 < BYTE2 < 6` underflow
     // return from `loc_138E2`: after `subq.w #6,d0` goes negative, the routine
@@ -4281,7 +4298,7 @@ pub(crate) fn decompress_long_ref_flush_loc_1390E() -> DecompressBp0ReturnStatus
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_flush_loc_13796() -> DecompressBp0ReturnStatus {
     // ASM loc_13796 (kid.asm:26321-26323) is the `0 < BYTE2 < 6` underflow
     // return from `loc_1376A`: after `subq.w #6,d0` goes negative, the routine
@@ -4294,7 +4311,7 @@ pub(crate) fn decompress_long_ref_flush_loc_13796() -> DecompressBp0ReturnStatus
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_137A6() -> DecompressBp0ReturnStatus {
     // ASM loc_137A6 (kid.asm:26333-26335) is the successful return after the
     // fixed five-byte tail at `loc_1377E`: once `cmp.w a2,d7` / `bls.s
@@ -4307,7 +4324,7 @@ pub(crate) fn decompress_long_ref_finished_loc_137A6() -> DecompressBp0ReturnSta
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_13916() -> DecompressBp0ReturnStatus {
     // ASM loc_13916 (kid.asm:26593-26595) is the successful return after the
     // fixed five-byte tail at `loc_138F6`: once `cmp.w a2,d7` / `bls.s
@@ -4320,7 +4337,7 @@ pub(crate) fn decompress_long_ref_finished_loc_13916() -> DecompressBp0ReturnSta
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_1399C() -> DecompressBp0ReturnStatus {
     // ASM loc_1399C (kid.asm:26684-26686) is the successful return after the
     // later fixed three-byte tail at `loc_13978`: once `cmp.w a2,d7` / `bls.s
@@ -4333,7 +4350,7 @@ pub(crate) fn decompress_long_ref_finished_loc_1399C() -> DecompressBp0ReturnSta
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_finished_loc_13A8E() -> DecompressBp0ReturnStatus {
     // ASM loc_13A8E (kid.asm:26859-26861) is the successful return after the
     // fixed five-byte tail at `loc_13A6E`: once `cmp.w a2,d7` / `bls.s
@@ -4346,7 +4363,7 @@ pub(crate) fn decompress_long_ref_finished_loc_13A8E() -> DecompressBp0ReturnSta
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_long_ref_tail_loc_1377E(
     copied_bytes: [u8; 5],
     output_addr_after_tail: u16,
