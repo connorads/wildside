@@ -1830,7 +1830,7 @@ pub(crate) fn terrain_layout_row_pointers_loc_11B40(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn decompress_chunk_attempts_loc_11C10(status_words: &[u16]) -> usize {
     // ASM loc_11C10 (kid.asm:23803-23806) calls `Decompress_Chunk`, tests the
     // returned `d0`, and branches back to `loc_11C10` until the word result is
