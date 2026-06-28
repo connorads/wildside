@@ -5249,6 +5249,15 @@ impl NativeRuntime {
                     camera_x_pixels,
                     camera_y_pixels,
                 );
+            worker.fg_update_cull_advance_loc_167a =
+                worker.fg_update_vram_word_loc_1614.is_none().then(|| {
+                    // ASM loc_167A (kid.asm:2786): culled cell descriptors
+                    // still consume the queued cell word before loading the
+                    // next x word or the terminal sentinel.
+                    crate::level::fg_update_queue_culled_entry_advance_loc_167A(&[worker
+                        .cell
+                        .to_word()])
+                });
             worker.duration_frames = worker.duration_frames.saturating_sub(1);
         }
         self.hidden_block_fg_update_workers

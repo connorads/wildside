@@ -6130,6 +6130,7 @@ mod chunk_06 {
                 cell: terrain::Cell::from_be_bytes(0xEA, 0x1D),
                 sprite_mapping: 0x10E4,
                 fg_update_vram_word_loc_1614: None,
+                fg_update_cull_advance_loc_167a: None,
                 duration_frames: 0x012C,
             }],
             "ASM sub_E446 should keep the `$12C` reveal worker live after queueing the foreground cell update"
@@ -6148,6 +6149,14 @@ mod chunk_06 {
         assert_eq!(
             rt.hidden_block_fg_update_workers[0].fg_update_vram_word_loc_1614, None,
             "ASM sub_1596 loc_1614 should cull the sub_E446 queued cell when it is below the current foreground upload window"
+        );
+        assert_eq!(
+            rt.hidden_block_fg_update_workers[0].fg_update_cull_advance_loc_167a,
+            Some(crate::level::FgUpdateQueueCullAdvanceLoc167A {
+                skipped_words: 1,
+                next_x_word: None,
+            }),
+            "ASM sub_1596 loc_167A should still consume the culled sub_E446 cell word before the terminal sentinel"
         );
     }
 

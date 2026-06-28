@@ -15570,7 +15570,6 @@ pub(crate) fn fg_update_queue_cell_mapping_longwords_loc_165E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn fg_update_queue_culled_entry_advance_loc_167A(
     queue_tail_words_from_cell: &[u16],
 ) -> FgUpdateQueueCullAdvanceLoc167A {
