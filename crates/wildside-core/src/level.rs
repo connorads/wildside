@@ -7747,6 +7747,7 @@ fn sort_hidden_blocks_by_rom_insertion_loc_127ce(block_list: &mut terrain::Block
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct BackgroundMappingsCrossLevelLoc12824 {
     pub(crate) x_offset: i16,
     pub(crate) y_offset: i16,
@@ -7761,7 +7762,7 @@ pub struct BackgroundMappingsChunkLoc12830 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn background_mappings_cross_level_loc_12824(
     layout_words: &[u16],
 ) -> Option<BackgroundMappingsCrossLevelLoc12824> {
