@@ -776,6 +776,7 @@ pub(crate) struct EvanescentShooterNeighbourMarkLocF166 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct EvanescentShooterNeighbourMarkLocF224 {
     pub(crate) stored_local_word: u16,
     pub(crate) shifted_direction_bits: u16,
@@ -815,6 +816,7 @@ pub(crate) enum EvanescentShooterCellScanLocF1DE {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterFrameScanStartLocF25C {
     pub(crate) left_block_col: u16,
     pub(crate) right_block_col: u16,
@@ -826,6 +828,7 @@ pub(crate) struct ShooterFrameScanStartLocF25C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum ShooterActiveSlotScanStepLocF28C {
     DispatchExpiredSlot {
         current_slot_addr: u32,
@@ -848,6 +851,7 @@ pub(crate) enum ShooterActiveSlotScanStepLocF28C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterFrameCommitLocF2A2 {
     pub(crate) number_sprites: u8,
     pub(crate) fg_update_queue_cell_next_slot: u32,
@@ -855,11 +859,13 @@ pub(crate) struct ShooterFrameCommitLocF2A2 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterExpiredSlotEraseCellLocF2EE {
     pub(crate) layout_word_after: u16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum ShooterExpiredSlotRangeCountdownLocF302 {
     ContinueFrame {
         next_delay: u8,
@@ -871,17 +877,20 @@ pub(crate) enum ShooterExpiredSlotRangeCountdownLocF302 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterExpiredSlotPredecessorScanLocF350 {
     pub(crate) predecessor_slot_addr: u32,
     pub(crate) scanned_links: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterExpiredSlotSpliceLocF35E {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterExpiredSlotFreeListPushLocF364 {
     pub(crate) first_free_slot_addr: u32,
     pub(crate) should_continue_active_scan: bool,
@@ -890,12 +899,14 @@ pub(crate) struct ShooterExpiredSlotFreeListPushLocF364 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleRightGateLocF3B2 {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) right_direction_set: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleRightCellUpdateLocF3BC {
     pub(crate) right_cell_layout_addr: u32,
     pub(crate) right_cell_layout_word: u16,
@@ -905,12 +916,14 @@ pub(crate) struct ShooterVisibleRightCellUpdateLocF3BC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleDownGateLocF3CC {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) down_direction_set: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleLeftCellUpdateLocF3F4 {
     pub(crate) left_cell_layout_addr: u32,
     pub(crate) left_cell_layout_word: u16,
@@ -920,6 +933,7 @@ pub(crate) struct ShooterVisibleLeftCellUpdateLocF3F4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum ShooterVisibleScanTailLocF404 {
     ContinueScan { next_slot_addr: u32 },
     CommitFrame,
@@ -938,6 +952,7 @@ pub(crate) struct AnimatedSolidBlockSwappedScanRegs {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum AnimatedSolidBlockVerticalSetupLocF83E {
     Visible {
         packed_cell_x_bits: u16,
@@ -998,6 +1013,7 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueTailLocF934 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
     pub(crate) layout_writes: Vec<(u32, u16)>,
     pub(crate) final_layout_addr: u32,
@@ -1006,6 +1022,7 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipRowsLocF93C {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct AnimatedSolidBlockHorizontalQueueWalkTailLocF994 {
     pub(crate) next_row: u16,
     pub(crate) next_source_cells_start: usize,
@@ -1025,6 +1042,7 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum AnimatedSolidBlockScanAdvanceLocF9C0 {
     ContinueScan {
         next_slot_addr: u32,
@@ -1037,6 +1055,7 @@ pub(crate) enum AnimatedSolidBlockScanAdvanceLocF9C0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct AnimatedSolidBlockNegativeSpriteLocF9CC {
     pub(crate) screen_y: u16,
     pub(crate) sprite_link_word: u16,
@@ -1045,6 +1064,7 @@ pub(crate) struct AnimatedSolidBlockNegativeSpriteLocF9CC {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct AnimatedSolidBlockNegativeSpritesInputLocF9CC {
     pub(crate) vertical_layout_flag: bool,
     pub(crate) descriptor_flags: u8,
@@ -1059,6 +1079,7 @@ pub(crate) struct AnimatedSolidBlockNegativeSpritesInputLocF9CC {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum AnimatedSolidBlockNegativeSpritesLocF9CC {
     BranchToVerticalPath,
     AdvanceSlot,
@@ -1144,6 +1165,7 @@ pub(crate) fn animated_solid_block_vertical_rows_tail_loc_F890(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
     pub(crate) screen_y: u16,
     pub(crate) sprite_link_word: u16,
@@ -1152,12 +1174,14 @@ pub(crate) struct ShooterVisibleSpriteWordsLocF41E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleUpSpriteLocF41E {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) sprite_words: Option<ShooterVisibleSpriteWordsLocF41E>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleUpSpriteInputLocF41E {
     pub(crate) direction_bits: u16,
     pub(crate) prepared_state_offset_word: u16,
@@ -1173,12 +1197,14 @@ pub(crate) struct ShooterVisibleUpSpriteInputLocF41E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleDownSpriteLocF4A4 {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) sprite_words: Option<ShooterVisibleSpriteWordsLocF41E>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleDownSpriteInputLocF4A4 {
     pub(crate) direction_bits: u16,
     pub(crate) prepared_state_offset_word: u16,
@@ -1194,12 +1220,14 @@ pub(crate) struct ShooterVisibleDownSpriteInputLocF4A4 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleLeftSpriteLocF4E6 {
     pub(crate) shifted_direction_bits: u16,
     pub(crate) sprite_words: Option<ShooterVisibleSpriteWordsLocF41E>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterVisibleLeftSpriteInputLocF4E6 {
     pub(crate) direction_bits: u16,
     pub(crate) prepared_state_offset_word: u16,
@@ -1215,6 +1243,7 @@ pub(crate) struct ShooterVisibleLeftSpriteInputLocF4E6 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum ShooterVisibleNegativeScanTailLocF528 {
     ContinueScan { next_slot_addr: u32 },
     CommitFrame,
@@ -1261,12 +1290,14 @@ pub(crate) struct HiddenBlockPrizeRevealScanTailLocE48E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct EvanescentBlockRemovalGateLocEA3E {
     pub(crate) next_timer: u16,
     pub(crate) should_try_remove_block: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct EvanescentBlockEraseMatchLocEA5A {
     pub(crate) should_erase_block_from_level_layout: bool,
     pub(crate) erased_block_col: Option<u16>,
@@ -1302,6 +1333,7 @@ pub(crate) struct EvanescentObjectFreeListPushLocEA98 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct EvanescentSpriteScanReturnLocEAB2 {
     pub(crate) next_sprite_slot_addr: u32,
     pub(crate) number_sprites: u8,
@@ -10228,7 +10260,7 @@ pub(crate) fn evanescent_shooter_cell_scan_loc_F1DE(
 /// `tst.b 3(a1)` sees a non-zero right-neighbour low byte, `loc_F248`
 /// subtracts `$8000` from the stored direction word at `$6(a3)`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn evanescent_shooter_second_scan_right_neighbour_mark_loc_F224(
     stored_local_word: u16,
     direction_bits_after_up_check: u16,
@@ -10254,7 +10286,7 @@ pub(crate) fn evanescent_shooter_second_scan_right_neighbour_mark_loc_F224(
 /// ASM loc_F2B0 (kid.asm:19864): that empty-list branch enters `sub_F568`
 /// directly without committing active-scan render pointers first.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_frame_scan_start_loc_F25C(
     camera_x_word: u16,
     camera_y_word: u16,
@@ -10280,7 +10312,7 @@ pub(crate) fn shooter_frame_scan_start_loc_F25C(
 /// update jump table, a negative `$6(a0)` direction word enters sprite
 /// compilation, and a non-zero `$C(a0)` link continues the scan.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_active_slot_scan_step_loc_F28C(
     current_slot_addr: u32,
     timer: u8,
@@ -10325,7 +10357,7 @@ pub(crate) fn shooter_active_slot_scan_step_loc_F28C(
 /// byte of `a5` back to `Number_Sprites`, then persist the advanced cell-update
 /// and sprite-slot pointers before falling through to `sub_F568`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_frame_commit_loc_F2A2(
     sprite_link_word: u16,
     fg_update_queue_cell_next_slot: u32,
@@ -10342,7 +10374,7 @@ pub(crate) fn shooter_frame_commit_loc_F2A2(
 /// table loads the layout-word pointer from `(a0)` and writes byte `$ED` to
 /// `(a3)`, leaving the low byte of that block word untouched before `loc_F386`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_expired_slot_erase_cell_loc_F2EE(
     layout_word_before: u16,
 ) -> ShooterExpiredSlotEraseCellLocF2EE {
@@ -10354,7 +10386,7 @@ pub(crate) fn shooter_expired_slot_erase_cell_loc_F2EE(
 /// ASM loc_F2F8 (kid.asm:19895): state 1 of the expired shooter-slot jump
 /// table seeds byte `$9(a0)` with ten frames before returning to `loc_F386`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_expired_slot_seed_range_delay_loc_F2F8() -> u8 {
     0x0A
 }
@@ -10364,7 +10396,7 @@ pub(crate) fn shooter_expired_slot_seed_range_delay_loc_F2F8() -> u8 {
 /// is decremented; zero also resumes the frame, while non-zero rewinds `$A(a0)`
 /// to state 2 for the next expired-slot dispatch.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_expired_slot_range_countdown_loc_F302(
     player_in_range: bool,
     delay: u8,
@@ -10388,7 +10420,7 @@ pub(crate) fn shooter_expired_slot_range_countdown_loc_F302(
 /// the active-list head, walk `$C(a3)` links until the successor equals `a0`;
 /// the matching `a3` predecessor is then spliced by `loc_F35E`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_expired_slot_predecessor_scan_loc_F350(
     active_slots: &[LinkedObjectSlotInit],
     first_active_slot_addr: u32,
@@ -10420,7 +10452,7 @@ pub(crate) fn shooter_expired_slot_predecessor_scan_loc_F350(
 /// `a3`, unlink the expired visible shooter slot by copying `$C(a0)` into
 /// `$C(a3)`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_expired_slot_splice_predecessor_loc_F35E(
     active_slots: &[LinkedObjectSlotInit],
     predecessor_slot_addr: u32,
@@ -10445,7 +10477,7 @@ pub(crate) fn shooter_expired_slot_splice_predecessor_loc_F35E(
 /// ASM loc_F374 (kid.asm:19949): saved `d0 == 0` falls through to the shared
 /// frame commit at `loc_F2A2`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_expired_slot_push_free_list_loc_F364(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
@@ -10471,7 +10503,7 @@ pub(crate) fn shooter_expired_slot_push_free_list_loc_F364(
 /// to the right-neighbour update at `loc_F3BC`; carry clear skips to
 /// `loc_F3CC`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_right_gate_loc_F3B2(
     direction_bits_after_up_check: u16,
 ) -> ShooterVisibleRightGateLocF3B2 {
@@ -10485,7 +10517,7 @@ pub(crate) fn shooter_visible_right_gate_loc_F3B2(
 /// `d2=d1+1` when the state-table word is non-zero, then write `d2` to
 /// `2(a3)` and enqueue `(2(a0)+1, 4(a0), d2)` in `FGPlane_UpdateQueueCell`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_right_cell_update_loc_F3BC(
     layout_word_addr: u32,
     block_col: u16,
@@ -10511,7 +10543,7 @@ pub(crate) fn shooter_visible_right_cell_update_loc_F3BC(
 /// been consumed, shift the direction word once more. Carry set enters the
 /// down-neighbour update at `loc_F3D6`; carry clear skips to `loc_F3EA`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_down_gate_loc_F3CC(
     direction_bits_after_right_check: u16,
 ) -> ShooterVisibleDownGateLocF3CC {
@@ -10525,7 +10557,7 @@ pub(crate) fn shooter_visible_down_gate_loc_F3CC(
 /// `d2=d1+3` when the state-table word is non-zero, then write `d2` to
 /// `-2(a3)` and enqueue `(2(a0)-1, 4(a0), d2)` in `FGPlane_UpdateQueueCell`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_left_cell_update_loc_F3F4(
     layout_word_addr: u32,
     block_col: u16,
@@ -10551,7 +10583,7 @@ pub(crate) fn shooter_visible_left_cell_update_loc_F3F4(
 /// active slot's `$C(a0)` successor. A non-zero link resumes the active-slot
 /// loop at `loc_F28C`; zero commits the frame through `loc_F2A2`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_scan_tail_loc_F404(
     next_slot_addr: u32,
 ) -> ShooterVisibleScanTailLocF404 {
@@ -10568,7 +10600,7 @@ pub(crate) fn shooter_visible_scan_tail_loc_F404(
 /// source column and `row-1` against the visible block window, then emits
 /// `(y, ++a5, tile, x)` screen words biased by `$80`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_up_sprite_loc_F41E(
     input: ShooterVisibleUpSpriteInputLocF41E,
 ) -> ShooterVisibleUpSpriteLocF41E {
@@ -10617,7 +10649,7 @@ pub(crate) fn shooter_visible_up_sprite_loc_F41E(
 /// the direction word once more. Carry set emits the down-neighbour sprite at
 /// `(col,row+1)` using tile word `d1+$1000`; carry clear skips the emit path.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_down_sprite_loc_F4A4(
     input: ShooterVisibleDownSpriteInputLocF4A4,
 ) -> ShooterVisibleDownSpriteLocF4A4 {
@@ -10664,7 +10696,7 @@ pub(crate) fn shooter_visible_down_sprite_loc_F4A4(
 /// the direction word once more. Carry set emits the left-neighbour sprite at
 /// `(col-1,row)` using tile word `d1+$814`; carry clear skips the emit path.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_left_sprite_loc_F4E6(
     input: ShooterVisibleLeftSpriteInputLocF4E6,
 ) -> ShooterVisibleLeftSpriteLocF4E6 {
@@ -10711,7 +10743,7 @@ pub(crate) fn shooter_visible_left_sprite_loc_F4E6(
 /// checks, load the active slot's `$C(a0)` successor. A non-zero link resumes
 /// the active-slot loop; zero commits the frame through the shared tail.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_visible_negative_scan_tail_loc_F528(
     next_slot_addr: u32,
 ) -> ShooterVisibleNegativeScanTailLocF528 {
@@ -10726,7 +10758,7 @@ pub(crate) fn shooter_visible_negative_scan_tail_loc_F528(
 /// writer finishes, swap `d6/d7` back so `loc_F9BA` sees the active-object
 /// counter and sprite-link word in the low halves again.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_tail_loc_F836(
     swapped_d6: u32,
     swapped_d7: u32,
@@ -10744,7 +10776,7 @@ pub(crate) fn animated_solid_block_horizontal_tail_loc_F836(
 /// ASM loc_F886 (kid.asm:20559): rejected vertical spans still write `$E304`
 /// down the layout rows, but skip the foreground update queue.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_vertical_setup_loc_F83E(
     start_col: u16,
     start_row: u16,
@@ -11026,7 +11058,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_gate_loc_F94E(
     source_cell_col: u16,
     source_cell_row: u16,
@@ -11059,7 +11091,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_gate_loc_F94E(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F96A(
     source_cell: u8,
     source_cell_row: u16,
@@ -11092,7 +11124,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_cell_loc_F96A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_walk_tail_loc_F994(
     source_cell_row: u16,
     source_cells_start: usize,
@@ -11115,6 +11147,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_walk_tail_loc_F994(
 }
 
 #[allow(non_snake_case)]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_cell: u8) -> u16 {
     // ASM loc_F93E (kid.asm:20646): restore a single layout byte into the
     // layout table slot and return it as the queued shortword.
@@ -11122,7 +11155,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_word_loc_F93E(source_
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_horizontal_queue_skip_rows_loc_F93C(
     source_cells: &[u8],
     source_cells_start: usize,
@@ -11210,6 +11243,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F9B6(
 }
 
 #[allow(non_snake_case)]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_scan_advance_loc_F9C0(
     slot_addr: u32,
     dbf_counter: u16,
@@ -11234,7 +11268,7 @@ pub(crate) fn animated_solid_block_scan_advance_loc_F9C0(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_vertical_scan_advance_loc_FA40(
     slot_addr: u32,
     dbf_counter: u16,
@@ -11246,7 +11280,7 @@ pub(crate) fn animated_solid_block_vertical_scan_advance_loc_FA40(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
     input: AnimatedSolidBlockNegativeSpritesInputLocF9CC,
 ) -> AnimatedSolidBlockNegativeSpritesLocF9CC {
@@ -11327,7 +11361,7 @@ pub(crate) fn animated_solid_block_negative_sprites_loc_F9CC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn animated_solid_block_vertical_sprites_loc_FA4C(
     input: AnimatedSolidBlockNegativeSpritesInputLocF9CC,
 ) -> AnimatedSolidBlockNegativeSpritesLocF9CC {
@@ -11578,7 +11612,7 @@ pub(crate) fn hidden_block_prize_reveal_scan_tail_loc_E48E(
 /// inspects the pointed Level_Layout byte; removal continues to `loc_EA5A`
 /// only when that byte is negative and its low nibble is less than `$D`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn evanescent_block_removal_gate_loc_EA3E(
     timer: u16,
     layout_cell_hi_byte: u8,
@@ -11606,7 +11640,7 @@ pub(crate) fn evanescent_block_removal_gate_loc_EA3E(
 /// `EraseBlockFromLevelLayout` with the object's column/row and then writes
 /// byte `$20` back to `(a1)`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn evanescent_block_erase_match_loc_EA5A(
     layout_cell_word: u16,
     saved_cell_word: u16,
@@ -11757,7 +11791,7 @@ pub(crate) fn evanescent_object_push_free_list_loc_EA98(
 /// null active-list link, copy the live sprite cursor in `a3` and count byte in
 /// `d3` back to `Addr_NextSpriteSlot` and `Number_Sprites` before returning.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn evanescent_sprite_scan_return_loc_EAB2(
     sprite_cursor_addr: u32,
     sprite_count: u8,
