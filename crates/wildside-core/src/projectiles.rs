@@ -4622,13 +4622,30 @@ fn lion_projectile_first_blocking_cell_in_span_loc_1792(
     col_end: u16,
     row_start: u16,
     row_end: u16,
+    hitbox_right_px: u16,
+    hitbox_bottom_px: u16,
 ) -> Option<(u16, u16, terrain::Cell)> {
     for row in row_start..=row_end {
         for col in col_start..=col_end {
             let cell = grid.cell_at(col, row);
-            if lion_projectile_terrain_cell_blocks_loc_1792(cell) {
-                return Some((col, row, cell));
+            if !lion_projectile_terrain_cell_blocks_loc_1792(cell) {
+                continue;
             }
+
+            let tile_left_px = col << 4;
+            let tile_top_px = row << 4;
+            if cell.collision == terrain::CollisionKind::SlopeUp
+                && crate::movement::gfx_objects_collision_upslope_continue_loc_180E(
+                    hitbox_right_px,
+                    hitbox_bottom_px,
+                    tile_left_px,
+                    tile_top_px,
+                )
+            {
+                continue;
+            }
+
+            return Some((col, row, cell));
         }
     }
     None
@@ -4654,8 +4671,14 @@ fn lion_projectile_terrain_contact_loc_3e260(
     let right_col = terrain::pixel_to_cell(right_px).max(0) as u16;
     let top_row = terrain::pixel_to_cell(top_px).max(0) as u16;
     let bottom_row = terrain::pixel_to_cell(bottom_px).max(0) as u16;
-    let (_, row, cell) = lion_projectile_first_blocking_cell_in_span_loc_1792(
-        grid, left_col, right_col, top_row, bottom_row,
+    let (col, row, cell) = lion_projectile_first_blocking_cell_in_span_loc_1792(
+        grid,
+        left_col,
+        right_col,
+        top_row,
+        bottom_row,
+        right_px as u16,
+        bottom_px as u16,
     )?;
 
     if projectile.x_velocity < 0
@@ -4693,6 +4716,40 @@ fn lion_projectile_terrain_contact_loc_3e260(
     }
 
     if projectile.y_velocity >= 0 && lion_projectile_solid_cell_blocks_loc_3e260(cell) {
+        if row > 0 {
+            let cached_layout_addr = row
+                .wrapping_mul(grid.width_cells)
+                .wrapping_add(col)
+                .wrapping_mul(2);
+            let level_width_bytes = grid.width_cells.wrapping_mul(2);
+            match crate::movement::gfx_objects_collision_solid_floor_above_tile_loc_1A12(
+                grid.raw_word_at(col, row - 1),
+                cached_layout_addr,
+                level_width_bytes,
+            ) {
+                crate::movement::GfxObjectsCollisionSolidFloorAboveTileLoc1A12::RedirectToUpSlope {
+                    ..
+                } => {
+                    return Some(LionProjectileTerrainContactLoc3E260 {
+                        collision_type: 0x0014,
+                        snapped_x_px: x_px,
+                        snapped_y_px: y_px,
+                    });
+                }
+                crate::movement::GfxObjectsCollisionSolidFloorAboveTileLoc1A12::RedirectToDownSlope {
+                    ..
+                } => {
+                    return Some(LionProjectileTerrainContactLoc3E260 {
+                        collision_type: 0x0018,
+                        snapped_x_px: x_px,
+                        snapped_y_px: y_px,
+                    });
+                }
+                crate::movement::GfxObjectsCollisionSolidFloorAboveTileLoc1A12::ContinueLoc1A44 => {
+                }
+            }
+        }
+
         let tile_top_px = i32::from(row) * 16;
         let snapped_y_px = tile_top_px
             - LION_PROJECTILE_COLLISION_TOP_LOC_3E12A
@@ -5128,6 +5185,56 @@ mod loc_3e266_tests {
         assert!(
             super::lion_projectile_terrain_contact_loc_3e260(&grid, &projectile).is_some(),
             "ASM GfxObjects_Collision loc_1792 scans `unk_31944`'s full box, so bottom-row overlap still reaches Lion.asm loc_3E260"
+        );
+    }
+
+    #[test]
+    fn loc_180e_lion_projectile_upslope_miss_keeps_scanning() {
+        let grid = grid_with_cells(40, 60, &[(24, 44, terrain::CollisionKind::SlopeUp)]);
+        let projectile = EnemyProjectile {
+            kind: EnemyProjectileKind::LionProjectile,
+            x_pos: 398u32 << 16,
+            y_pos: 703u32 << 16,
+            y_velocity: 0x0004_0000,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            super::lion_projectile_terrain_contact_loc_3e260(&grid, &projectile),
+            None,
+            "ASM GfxObjects_Collision loc_180E should keep scanning when the bottom-right sample does not belong to the upslope tile column"
+        );
+    }
+
+    #[test]
+    fn loc_1a12_lion_projectile_floor_contact_redirects_to_upslope_above() {
+        let grid = grid_with_cells(
+            40,
+            60,
+            &[
+                (24, 43, terrain::CollisionKind::SlopeUp),
+                (24, 44, terrain::CollisionKind::Solid),
+            ],
+        );
+        let projectile = EnemyProjectile {
+            kind: EnemyProjectileKind::LionProjectile,
+            x_pos: 398u32 << 16,
+            y_pos: 703u32 << 16,
+            y_velocity: 0x0004_0000,
+            ..Default::default()
+        };
+
+        let contact = super::lion_projectile_terrain_contact_loc_3e260(&grid, &projectile)
+            .expect("solid floor contact should redirect through the slope tile above");
+
+        assert_eq!(
+            contact.collision_type, 0x0014,
+            "ASM loc_1A12 should branch to `GfxObjects_Collision_ChkUpSlope` when the tile above the floor contact carries `$4000` collision bits"
+        );
+        assert_eq!(
+            (contact.snapped_x_px, contact.snapped_y_px),
+            (398, 703),
+            "ASM slope redirect changes the collision id without running the floor snap at loc_1A44"
         );
     }
 

@@ -889,7 +889,6 @@ pub(crate) fn gfx_objects_collision_tile_dispatch_loc_17C6(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_upslope_continue_loc_180E(
     hitbox_right_px: u16,
     hitbox_bottom_px: u16,
@@ -1086,7 +1085,6 @@ pub(crate) fn gfx_objects_collision_ceiling_snap_loc_1A6C(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_solid_floor_above_tile_loc_1A12(
     upper_tile_word: u16,
     cached_layout_addr: u16,
