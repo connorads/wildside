@@ -1554,23 +1554,27 @@ pub(crate) struct ShooterObjectMovingDownSpriteTailLocEF56 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum ShooterObjectSpriteTailNextLocEF94 {
     ProcessShooterObjectsLoop { next_active_slot_addr: u32 },
     ContinueAtLocF05A,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterObjectPredecessorLocEFB4 {
     pub(crate) predecessor_slot_addr: u32,
     pub(crate) scanned_links: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterObjectSpliceLocEFC2 {
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum ShooterObjectInteractBlockLocEFC8 {
     Smash,
     Ice,
@@ -1579,6 +1583,7 @@ pub(crate) enum ShooterObjectInteractBlockLocEFC8 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ShooterObjectFreeListPushLocEFC8 {
     pub(crate) first_free_slot_addr: u32,
     pub(crate) slots: Vec<LinkedObjectSlotInit>,
@@ -12452,7 +12457,7 @@ pub(crate) fn shooter_object_moving_down_sprite_tail_loc_EF56(
 /// slot's `$A(a0)` link; a non-zero link resumes `Process_ShooterObjects_Loop`,
 /// while a zero tail falls through to `loc_F05A`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_object_sprite_tail_next_loc_EF94(
     next_active_slot_addr: u32,
 ) -> ShooterObjectSpriteTailNextLocEF94 {
@@ -12469,7 +12474,7 @@ pub(crate) fn shooter_object_sprite_tail_next_loc_EF94(
 /// links from `Addr_FirstShooterObjectSlot` until the successor equals the
 /// current shooter object in `a0`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_object_predecessor_scan_loc_EFB4(
     active_slots: &[LinkedObjectSlotInit],
     first_active_slot_addr: u32,
@@ -12501,7 +12506,7 @@ pub(crate) fn shooter_object_predecessor_scan_loc_EFB4(
 /// `a3`, splice the current shooter object out by copying `$A(a0)` into
 /// `$A(a3)`.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_object_splice_predecessor_loc_EFC2(
     active_slots: &[LinkedObjectSlotInit],
     predecessor_slot_addr: u32,
@@ -12524,7 +12529,7 @@ pub(crate) fn shooter_object_splice_predecessor_loc_EFC2(
 /// `Addr_NextFreeShooterObjectSlot`, then use the signed high byte of the
 /// current level-layout word to dispatch the shooter block interaction table.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn shooter_object_free_list_push_loc_EFC8(
     active_slots: &[LinkedObjectSlotInit],
     target_slot_addr: u32,
