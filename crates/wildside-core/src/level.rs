@@ -908,6 +908,12 @@ pub(crate) struct AnimatedSolidBlockTailLocF836 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AnimatedSolidBlockSwappedScanRegs {
+    pub(crate) d6: u32,
+    pub(crate) d7: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AnimatedSolidBlockVerticalSetupLocF83E {
     Visible {
         packed_cell_x_bits: u16,
@@ -991,6 +997,7 @@ pub(crate) struct AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
     pub(crate) final_layout_addr: u32,
     pub(crate) final_remaining_count: u16,
     pub(crate) continue_loop: bool,
+    pub(crate) tail: AnimatedSolidBlockTailLocF836,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10905,6 +10912,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
     remaining_count: u16,
     level_width_blocks: usize,
     level_width_tiles: u32,
+    swapped_scan_regs: AnimatedSolidBlockSwappedScanRegs,
 ) -> AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
     // ASM loc_F9A4 (kid.asm:20700): clear temporary accumulator state and
     // fall through into the culled-column write loop.
@@ -10917,6 +10925,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_col_loc_F9A4(
         remaining_count,
         level_width_blocks,
         level_width_tiles,
+        swapped_scan_regs,
     )
 }
 
@@ -10928,6 +10937,7 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F
     remaining_count: u16,
     level_width_blocks: usize,
     level_width_tiles: u32,
+    swapped_scan_regs: AnimatedSolidBlockSwappedScanRegs,
 ) -> AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
     // ASM loc_F9A6 (kid.asm:20703): while DBF is non-$FFFF, restore each
     // source byte to layout and step source/layout cursors by row stride.
@@ -10965,6 +10975,10 @@ pub(crate) fn animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F
         final_layout_addr: layout_addr,
         final_remaining_count: dbf_counter,
         continue_loop: false,
+        tail: animated_solid_block_horizontal_queue_tail_loc_F9B6(
+            swapped_scan_regs.d6,
+            swapped_scan_regs.d7,
+        ),
     }
 }
 
@@ -11143,7 +11157,6 @@ pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F946(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_horizontal_queue_tail_loc_F9B6(
     swapped_d6: u32,
     swapped_d7: u32,

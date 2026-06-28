@@ -16647,6 +16647,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 0x0003,
                 4,
                 2,
+                crate::level::AnimatedSolidBlockSwappedScanRegs {
+                    d6: 0x1234_5678,
+                    d7: 0x9ABC_DEF0,
+                },
             ),
             crate::level::AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
                 layout_writes: vec![
@@ -16659,6 +16663,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 final_layout_addr: 0x0108,
                 final_remaining_count: 0xFFFF,
                 continue_loop: false,
+                tail: crate::level::AnimatedSolidBlockTailLocF836 {
+                    restored_d6: 0x5678_1234,
+                    restored_d7: 0xDEF0_9ABC,
+                },
             },
             "ASM loc_F9A6 should copy each culled row layout byte and step both cursors by row stride"
         );
@@ -16671,6 +16679,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 0x0000,
                 4,
                 2,
+                crate::level::AnimatedSolidBlockSwappedScanRegs {
+                    d6: 0x0012_0034,
+                    d7: 0x0056_0078,
+                },
             ),
             crate::level::AnimatedSolidBlockHorizontalQueueSkipColumnsLocF9A6 {
                 layout_writes: vec![(0x0200, 0x0001)],
@@ -16678,6 +16690,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 final_layout_addr: 0x0202,
                 final_remaining_count: 0xFFFF,
                 continue_loop: false,
+                tail: crate::level::AnimatedSolidBlockTailLocF836 {
+                    restored_d6: 0x0034_0012,
+                    restored_d7: 0x0078_0056,
+                },
             },
             "ASM loc_F9A6 should perform a single write when DBF starts at zero"
         );
@@ -16697,6 +16713,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 0x0002,
                 4,
                 2,
+                crate::level::AnimatedSolidBlockSwappedScanRegs {
+                    d6: 0x1111_2222,
+                    d7: 0x3333_4444,
+                },
             ),
             crate::level::animated_solid_block_horizontal_queue_layout_only_culled_col_loc_F9A6(
                 &source_cells,
@@ -16705,6 +16725,10 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 0x0002,
                 4,
                 2,
+                crate::level::AnimatedSolidBlockSwappedScanRegs {
+                    d6: 0x1111_2222,
+                    d7: 0x3333_4444,
+                },
             ),
             "ASM loc_F9A4 should only prepare scratch and then delegate to loc_F9A6"
         );

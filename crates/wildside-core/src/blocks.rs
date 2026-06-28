@@ -3091,6 +3091,7 @@ impl NativeRuntime {
                             u16::from(group.count - 1),
                             1,
                             u32::from(grid.width_cells),
+                            crate::level::AnimatedSolidBlockSwappedScanRegs { d6: 0, d7: 0 },
                         );
                     for (i, (_layout_addr, cell_word)) in rows.layout_writes.iter().enumerate() {
                         let row = group.row.saturating_add(
