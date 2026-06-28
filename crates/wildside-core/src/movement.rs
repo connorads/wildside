@@ -98,7 +98,7 @@ pub(crate) const LEVEL_ENTRY_TITLE_DEFERRED_NUMBER_VISIBLE_FRAME: usize =
 // global frame 520 after the frame-178 title-card hand-off. Test fixtures keep
 // this hidden bootstrap age so slot-2 stays hidden at frame 200 and only the
 // title shell appears on frame 504.
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) const LEVEL_ENTRY_TITLE_GAMEPLAY_HANDOFF_FRAMES: usize = 342;
 
 #[allow(non_snake_case)]
