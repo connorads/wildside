@@ -586,6 +586,7 @@ pub(crate) fn load_end_sequence_credits_glyphs_sub_1D7A8(
     glyphs
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ObjectGfxLinksSubE02 {
     pub(crate) object_slot_address: u32,
@@ -608,6 +609,7 @@ pub(crate) struct GfxObjectAllocTailLocFBE {
     pub(crate) owner_object_addr: u32,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GfxObjectSpecialSlotLoc10C6 {
     None,
@@ -626,6 +628,7 @@ pub(crate) enum GfxObjectAllocationSpecialChainLocF9C {
     UnknownF872,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct GfxObjectDeleteLoc10C6 {
     pub(crate) predecessor_next_index: Option<usize>,
@@ -721,8 +724,8 @@ pub(crate) fn gfx_object_alloc_special_chain_loc_F9C(
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn clear_owner_gfx_backref_loc_1078(
     owner_addr: u32,
     mut owner_links: [u32; 3],
@@ -757,8 +760,8 @@ pub(crate) fn clear_owner_gfx_backref_loc_1078(
     owner_links
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_delete_predecessor_index_loc_10B6(
     next_indices: &[Option<usize>],
     target_index: usize,
@@ -769,8 +772,8 @@ pub(crate) fn gfx_object_delete_predecessor_index_loc_10B6(
     gfx_object_predecessor_index_sub_FF6(next_indices, target_index)
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_delete_loc_10C6(
     target_next_index: Option<usize>,
     next_free_head_index: Option<usize>,
@@ -811,8 +814,8 @@ pub(crate) fn gfx_object_delete_loc_10C6(
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_delete_special_predecessor_index_loc_111A(
     next_indices: &[Option<usize>],
     target_index: usize,
@@ -824,8 +827,8 @@ pub(crate) fn gfx_object_delete_special_predecessor_index_loc_111A(
     gfx_object_predecessor_index_sub_FF6(next_indices, target_index)
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_head_under_samurai_haze_loc_1462(
     first_gfx_object_index: Option<usize>,
 ) -> Option<usize> {
@@ -835,8 +838,8 @@ pub(crate) fn gfx_object_head_under_samurai_haze_loc_1462(
     first_gfx_object_index
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_loc_144E(
     first_gfx_object_index: Option<usize>,
     next_indices: &[Option<usize>],
@@ -856,8 +859,8 @@ pub(crate) fn gfx_objects_move_and_animate_loc_144E(
     visited_indices
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_next_index_loc_17BE(
     current_next_index: Option<usize>,
 ) -> Option<usize> {
@@ -913,8 +916,8 @@ pub(crate) fn gfx_objects_collision_upslope_continue_loc_180E(
     x_within <= (0x0E - y_within)
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_upslope_tile_addr_loc_1814(
     scanned_tile_layout_addr: u16,
 ) -> u16 {
@@ -924,8 +927,8 @@ pub(crate) fn gfx_objects_collision_upslope_tile_addr_loc_1814(
     scanned_tile_layout_addr.wrapping_sub(2)
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_downslope_tile_addr_loc_1838(
     scanned_tile_layout_addr: u16,
 ) -> u16 {
@@ -1109,8 +1112,8 @@ pub(crate) fn gfx_objects_collision_solid_floor_above_tile_loc_1A12(
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_move_and_animate_under_samurai_haze_loc_1466(
     time_frames: u16,
     first_gfx_object_index: Option<usize>,
@@ -1181,6 +1184,7 @@ pub(crate) fn execute_objects_under_samurai_haze_loc_E1E(
     executed_indices
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
 pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     next_indices: &[Option<usize>],
@@ -1200,8 +1204,8 @@ pub(crate) fn gfx_object_predecessor_index_sub_FF6(
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_unlink_loc_100E(
     next_indices: &mut [Option<usize>],
     predecessor_index: usize,
@@ -1213,8 +1217,8 @@ pub(crate) fn gfx_object_unlink_loc_100E(
     next_indices[predecessor_index] = next_indices[target_index];
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_insertion_predecessor_index_loc_101C(
     next_indices: &[Option<usize>],
     priority_words: &[u16],
@@ -1235,8 +1239,8 @@ pub(crate) fn gfx_object_insertion_predecessor_index_loc_101C(
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_object_insert_loc_102E(
     next_indices: &mut [Option<usize>],
     predecessor_index: usize,
@@ -1249,8 +1253,8 @@ pub(crate) fn gfx_object_insert_loc_102E(
     next_indices[predecessor_index] = Some(target_index);
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn allocate_object_and_gfx_links_sub_E02(
     object_slot_address: u32,
     gfx_slot_address: u32,
