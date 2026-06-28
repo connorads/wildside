@@ -360,6 +360,7 @@ pub(crate) struct EndSequenceCreditsGlyphPlacementSub1D7A8 {
     pub(crate) display_enabled: bool,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceScriptDriverLoc1D1B0 {
     pub(crate) script_table_label: &'static str,
@@ -370,6 +371,7 @@ pub(crate) struct EndSequenceScriptDriverLoc1D1B0 {
     pub(crate) sentinel_branches_to: Option<&'static str>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsDecodeLoc1D97E {
     pub(crate) script_index: u16,
@@ -378,6 +380,7 @@ pub(crate) struct EndSequenceCreditsDecodeLoc1D97E {
     pub(crate) decode_command: u16,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsUploadLoopLoc1D986 {
     pub(crate) dbf_seed: u16,
@@ -385,6 +388,7 @@ pub(crate) struct EndSequenceCreditsUploadLoopLoc1D986 {
     pub(crate) row_indices: Vec<u16>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct EndSequenceCreditsRowUploadLoc1D9B6 {
     pub(crate) row_index: u16,
@@ -409,8 +413,8 @@ pub(crate) fn end_sequence_credits_glyph_init_sub_1D786() -> EndSequenceCreditsG
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn end_sequence_script_driver_loc_1D1B0(
     script: &[u8],
 ) -> EndSequenceScriptDriverLoc1D1B0 {
@@ -458,8 +462,8 @@ pub(crate) fn end_sequence_script_driver_loc_1D1B0(
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn end_sequence_credits_decode_loc_1D97E(
     raw_script_id: u16,
 ) -> EndSequenceCreditsDecodeLoc1D97E {
@@ -484,8 +488,8 @@ pub(crate) fn end_sequence_credits_decode_loc_1D97E(
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn end_sequence_credits_upload_loop_loc_1D986() -> EndSequenceCreditsUploadLoopLoc1D986 {
     // ASM loc_1D986 (kid.asm:33240): after `moveq #$D,d7`, the routine calls
     // `sub_1D990` before `dbf d7,loc_1D986`, so the upload loop executes
@@ -498,8 +502,8 @@ pub(crate) fn end_sequence_credits_upload_loop_loc_1D986() -> EndSequenceCredits
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn end_sequence_credits_row_upload_loc_1D9B6(
     row_index: u16,
     flip_x_flag: bool,
@@ -533,8 +537,8 @@ pub(crate) fn end_sequence_credits_row_upload_loc_1D9B6(
     }
 }
 
+#[cfg(test)]
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn end_sequence_credits_row_copy_word_count_loc_1D9CA(d5_seed: u16) -> u16 {
     // ASM loc_1D9CA (kid.asm:33272): `moveq #$D,d5` seeds the inner row-copy
     // loop, then `move.w (a4)+,(a6)` executes before `dbf d5,loc_1D9CA`, so
