@@ -57,16 +57,29 @@ Dependency-ordered; each is an independently-pickable loop item.
 1. **#364 — tokenizer-grade test-context detector** (fixes audit A5 properly). Foundation.
    Verify: unit tests incl. the `blocks.rs`-style trap (early `#[cfg(test)]` helper +
    char-literal `'{'`) — the detector must classify `blocks.rs:1692/4675` as production and
-   `blocks.rs:5700` as test.
+   `blocks.rs:5700` as test. **Mutation-test it** (load-bearing classifier; the project
+   already mutation-tests parsers) and **build it as a shared utility**, not asm-coverage
+   internal — the E3 fix (#367) and `dead-code-ratchet` want the same "prod or test?" answer.
 2. **#365 — 3-way classification** (reachable / test-only / uncovered) + GEMS "emulated"
-   bucket; surface in the headline, `--json`, and the YAML. Depends on #364.
+   bucket; surface in the headline, `--json`, and the YAML. Depends on #364. **Also remove
+   the dead `oracle_backed`/`OracleBacked` tier here** (post-grill decision below): it is
+   vestigial (0 populated; only source is hand-annotation in the untracked YAML), and a
+   citation≠fidelity violation inside the honesty tool.
 3. **#366 — orphan triage + ratchet** : tag the 5 orphan subroutines now (`// TODO(fidelity):
    wire into <path>` or `// DEAD_ROM: <why>`); snapshot the 289 as a thin grandfathered
-   baseline; add `asm-coverage --check-no-new-test-only`. Depends on #365.
+   baseline; add `asm-coverage --check-no-new-test-only`. Depends on #365. **Triage must
+   cross-check the playtest backlog / capture frames** — an orphan with no production caller
+   may be a ROM behaviour *missing from the shipped game* (e.g. `sub_96E8` juggernaut
+   wall-scan), not just metric noise. **Add a methodology note**: a `#[cfg(test)] pub(crate)
+   fn` that ports a routine and asserts against itself is a tautological test (port == port);
+   prefer porting into production or a differential test against the production path.
 4. **#367 — wire the gate**: add to `verify-slice-fast` deps — the #366 ratchet,
    `audit-debug-fields` (now green, E1 done), and `asm-coverage --check-required` (B2/B3:
    back `--check-required` with a real integration test, not the synthetic `make_label`
-   unit tests).
+   unit tests). **Fold in the E3 fix** (extend the `audit-debug-fields` glob to the
+   `oracle_helper_main.rs.txt` template so the gate has no day-one blind spot) and
+   **registry hygiene**: a registered-but-not-emitted warning (16 dead entries today) +
+   backfill the 41/87 `first_added_commit: pending` hashes so candidate-aging works.
 5. **#368 — one-off tidy** (not gated): fix the 2 genuine stale citations `loc_2510C`
    (`combat.rs:179`) + `loc_23629` (`native_player/mod.rs:2086`, a kid.asm line number
    misused as an address) (C3); reconcile the gate-failure message "wildside-cli" →
@@ -84,6 +97,20 @@ Dependency-ordered; each is an independently-pickable loop item.
   with fixed behaviour; added the canonical **"citation ≠ fidelity ≠ reachability"** caveat
   to `CLAUDE.md` (and a back-reference at the second command block).
 
+## Follow-up decisions (post-grill, 2026-06-28)
+
+- **No CI** — the project gates via pre-commit hooks, by choice; `.github` stays absent. The
+  audit's "red on main, nobody notices" risk is accepted as a hook-discipline trade-off, not
+  papered over with CI. (This is why wiring checks into the *local* gate, #367, is the fix.)
+- **Verified-fidelity metric (A2): rejected, and the dead tier removed.** The existing
+  `oracle_backed` is vestigial hand-attestation from the untracked YAML (0 populated). A
+  genuinely earned per-routine oracle signal would need coverage-during-oracle instrumentation
+  (`cargo-llvm-cov` over the oracle scenarios → executed-fn→label map), since oracle tests
+  live in `wildside-cli` not `wildside-core`. Not worth it: the **sweep + TAS already are the
+  oracle truth and already gate**; per-routine value is only prioritisation, which #366's
+  test-only worklist already provides. So: **kill the dead tier (#365), don't replace it.**
+  Revisit only if the #366 worklist proves insufficient.
+
 ## Deliberately deferred / rejected
 
 - **Reverse-citation lint as a gate** (audit C1/C3/C4) — rejected as a gate: it catches only
@@ -94,13 +121,12 @@ Dependency-ordered; each is an independently-pickable loop item.
   Revisit only if a non-GEMS production port legitimately lives outside core/data.
 - **True call-graph reachability** (vs the decision-2 proxy) — rejected as redundant with the
   `dead_code` lint and not worth the tooling fragility.
-- **Debug-field-audit hardening** (audit E3 oracle-template blind spot; E4/E5 candidate
-  staleness, `candidate_promotions` write side-effect) — out of the "cheap high-value"
-  scope. Note: wiring `audit-debug-fields` into the gate (#367) inherits the E3 blind spot
-  (the `oracle_helper_main.rs.txt` template's keys are invisible to the scanner). Track
-  separately if/when oracle-side instrumentation needs the same guarantee.
-- **Per-system `kid.asm` breakdown, named-label tracking, separate "verified fidelity"
-  metric, case-insensitive matching** (audit A4/A6/C2/P3) — latent/cosmetic; not scheduled.
+- **E3/E5 debug-field-audit hardening** — *now folded into #367* (was deferred): close the
+  `oracle_helper_main.rs.txt` blind spot and add registry hygiene (dead-entry warning +
+  `pending`-hash backfill) so the gate we wire has no day-one hole. The
+  `candidate_promotions` write side-effect (E5) remains parked.
+- **Per-system `kid.asm` breakdown, named-label tracking, case-insensitive matching** (audit
+  A4/A6/C2/P3) — latent/cosmetic; not scheduled.
 
 ## Reproduction (this session's numbers)
 
