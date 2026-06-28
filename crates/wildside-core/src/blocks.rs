@@ -3673,10 +3673,42 @@ impl NativeRuntime {
             let start_col =
                 crate::level::evanescent_shooter_window_left_col_loc_F1B0(kid_block_col as u16);
             let end_col = (kid_block_col + 3).min(max_col) as u16;
-            for col in start_col..=end_col {
-                let cell = grid.cell_at(col, entering_row);
-                if let Some(directions) = Self::shooter_direction_bits_loc_F106(cell) {
-                    queue_scan(col, entering_row, directions);
+            if start_col <= end_col {
+                let row_base_layout_addr =
+                    u32::from(terrain::BlockList::level_layout_low_word_addr(
+                        0,
+                        entering_row,
+                        grid.width_cells,
+                    ));
+                let scan_start = crate::level::evanescent_shooter_scan_start_loc_F1C8(
+                    start_col,
+                    end_col,
+                    entering_row,
+                    row_base_layout_addr,
+                );
+                let mut col = start_col;
+                let mut layout_addr = scan_start.first_cell_layout_addr;
+                let mut dbf_counter = scan_start.col_dbf_counter;
+                loop {
+                    let cell = grid.cell_at(col, entering_row);
+                    if let Some(directions) = Self::shooter_direction_bits_loc_F106(cell) {
+                        queue_scan(col, entering_row, directions);
+                    }
+
+                    dbf_counter = dbf_counter.wrapping_sub(1);
+                    if dbf_counter == 0xFFFF {
+                        break;
+                    }
+                    col = col.wrapping_add(1);
+                    layout_addr = layout_addr.wrapping_add(2);
+                    debug_assert_eq!(
+                        layout_addr,
+                        u32::from(terrain::BlockList::level_layout_low_word_addr(
+                            col,
+                            entering_row,
+                            grid.width_cells,
+                        ))
+                    );
                 }
             }
         }

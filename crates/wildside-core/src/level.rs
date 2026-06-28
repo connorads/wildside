@@ -10132,7 +10132,6 @@ pub(crate) fn evanescent_shooter_window_left_col_loc_F1B0(camera_block_col: u16)
 /// doubles row `d4` into the `$FFFF4A04` row-pointer table, then doubles left
 /// column `d3` before adding it to that row base.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn evanescent_shooter_scan_start_loc_F1C8(
     left_col: u16,
     right_col: u16,
