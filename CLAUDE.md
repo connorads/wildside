@@ -127,6 +127,13 @@ cargo run -p wildside-cli -- asm-coverage --uncovered        # uncovered sub_ la
 cargo run -p wildside-cli -- asm-coverage --update           # regenerate .cache/asm-coverage.yaml (untracked)
 ```
 
+> **Citation ≠ fidelity ≠ reachability.** `asm-coverage` is a discovery aid: a label is
+> "covered" the moment any Rust file cites `loc_XXXX`/`sub_XXXX`, with zero verification. A
+> citation that lives only in `#[cfg(test)]` code is test-only debt, not shipped behaviour.
+> Fidelity is proven by the oracle/TAS gates and checked-in regression tests — never by the
+> coverage number. Use it to find undiscussed ASM, not to claim behaviour is implemented or
+> correct.
+
 ## Level 1 reading order
 
 1. `docs/source-port/level-1-dossier.md`
@@ -215,7 +222,7 @@ diff composites, and per-layer diagnostics.
 - `cargo run -p wildside-cli -- diagnose-frame --level XX --frame N --output .cache/debug/ --save-layers`
 - `cargo run -p wildside-cli -- sweep --levels 0-104 --tier state` (full oracle comparison)
 - `cargo run -p wildside-cli -- diagnose-level XX` (deep single-level analysis)
-- `cargo run -p wildside-cli -- asm-coverage` (ASM label coverage summary)
+- `cargo run -p wildside-cli -- asm-coverage` (ASM label coverage summary — discovery aid; citation ≠ fidelity ≠ reachability, see "First commands")
 - `cargo run -p wildside-cli -- asm-coverage --uncovered` (gap list)
 - `cargo run -p wildside-cli -- asm-coverage --update` (regenerate .cache/asm-coverage.yaml, untracked)
 

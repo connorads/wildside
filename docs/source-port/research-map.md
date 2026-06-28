@@ -124,11 +124,22 @@ Current TAS milestones prove `replay-matched` on their covered routes. They do n
 - **#132** [x] 2-player alternating mode. Strong native scenarios cover game-over-before-swap, continue respawn for the same player, preservation of the other slot, and continue timeout returning to title.
 - **#133** [x] Password/options scope. ASM audit found no stock-ROM password entry path; native options now mirror the ROM four-row options menu.
 
-### Enemy behaviour gaps (via `wildside asm-coverage`)
-Tracked systematically via `wildside-cli asm-coverage --uncovered --subsystem enemy`.
-High impact: ~~Archer arrow lifetime + re-aiming~~ (FIXED), ~~Tornado Cyclone-flying interaction~~ (FIXED), ~~Crab proximity freeze~~ (FIXED), ~~Dragon Flying wall-reversal~~ (FIXED).
-Medium impact: ~~Sphere/Fireball slope deflection~~ (FIXED).
-Low impact: Dragon Flying collision-recovery during Descent and death status-table route fixed.
+### Enemy behaviour gaps (discovery aid: `wildside asm-coverage`)
+`wildside-cli asm-coverage --uncovered --subsystem enemy` is a **discovery aid only**: it
+surfaces ASM labels that no Rust file cites yet. It does **not** prove behaviour is
+implemented, reachable in the shipped game, or verified.
+
+> **Citation ≠ fidelity ≠ reachability.** A `// ASM loc_XXXX` comment marks a label
+> "covered" with zero verification, and a citation that lives only in `#[cfg(test)]` code is
+> test-only debt, not shipped behaviour. Fidelity is proven by the oracle/TAS gates and
+> checked-in regression tests, never by a coverage count. (The tool self-discloses this:
+> `asm_coverage.rs` — "label citation tracks recovered/discussed ASM, not player-visible
+> fidelity".)
+
+The items below were closed by actual fixes + regression tests (not by the coverage
+number): Archer arrow lifetime + re-aiming, Tornado Cyclone-flying interaction, Crab
+proximity freeze, Dragon Flying wall-reversal, Sphere/Fireball slope deflection, and Dragon
+Flying collision-recovery during Descent / death status-table route.
 
 ### Oracle sweep hardening
 - Advisory field promotion: `number_objects`, `number_hitpoints`, `number_lives`, `murder_wall_x` are still masked in sweep. Unmask one at a time, run sweep, fix divergences. `number_objects` may require architectural changes if native object activation/deactivation timing differs from oracle.
