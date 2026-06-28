@@ -15612,7 +15612,7 @@ pub(crate) fn fg_update_queue_cell_vram_word_loc_1614(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn fg_update_queue_cell_mapping_longwords_loc_165E(
     cell_word: u16,
     theme_mappings: &[[u32; 2]],

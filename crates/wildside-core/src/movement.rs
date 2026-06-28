@@ -1323,6 +1323,7 @@ pub(crate) struct HiddenBlockType4RevealPairLocE19E {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct HiddenBlockRevealGfxLoadLocE29A {
     pub(crate) gfx_load_arg: u32,
     pub(crate) gfx_slot_addr: u32,
@@ -1668,7 +1669,7 @@ pub(crate) fn hidden_block_type4_reveal_pair_loc_E1BC(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn hidden_block_reveal_gfx_load_loc_E29A(
     parent_gfx_slot_addr: u32,
 ) -> HiddenBlockRevealGfxLoadLocE29A {
