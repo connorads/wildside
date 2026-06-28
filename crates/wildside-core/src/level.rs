@@ -922,6 +922,7 @@ pub(crate) struct AnimatedSolidBlockVerticalRowsLocF85A {
     pub(crate) custom_queue_entries: Vec<FgUpdateQueueCustomEntrySub1596>,
     pub(crate) final_layout_addr: u32,
     pub(crate) final_row: u16,
+    pub(crate) tail: AnimatedSolidBlockTailLocF836,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1099,7 +1100,6 @@ pub(crate) fn animated_solid_block_vertical_rows_loop_tail_loc_F87A(
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn animated_solid_block_vertical_rows_tail_loc_F890(
     swapped_d6: u32,
     swapped_d7: u32,
@@ -10775,6 +10775,10 @@ pub(crate) fn animated_solid_block_vertical_rows_loc_F85A(
         custom_queue_entries,
         final_layout_addr: layout_addr,
         final_row: row,
+        tail: animated_solid_block_vertical_rows_tail_loc_F890(
+            u32::from(input.camera_top_row) << 16 | u32::from(input.dbf_row_counter),
+            u32::from(input.camera_bottom_row) << 16 | u32::from(input.packed_cell_x_bits),
+        ),
     }
 }
 

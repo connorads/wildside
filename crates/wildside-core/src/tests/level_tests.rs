@@ -17584,6 +17584,14 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
         assert_eq!(rows.final_row, 0x0023);
         assert_eq!(rows.final_layout_addr, 0xFFFF_A792);
+        assert_eq!(
+            rows.tail,
+            crate::level::AnimatedSolidBlockTailLocF836 {
+                restored_d6: 0x0003_0020,
+                restored_d7: 0x0004_0021,
+            },
+            "ASM loc_F85A should fall through loc_F890 and swap d6/d7 back before loc_F9BA"
+        );
     }
 
     /// ASM loc_EAC6 (kid.asm:18839): `sub_EABC` seeds `a0=$FFFFEBDA` and
