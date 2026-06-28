@@ -687,12 +687,14 @@ pub(crate) struct LinkedObjectSlotInit {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct ObjectSlotOrderLocDE0 {
     pub(crate) slot_addr: u32,
     pub(crate) caller_order: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct AllocatedObjectSlotListLocDF2 {
     pub(crate) inserted_index: usize,
     pub(crate) first_slot_addr: u32,
@@ -716,6 +718,7 @@ pub(crate) struct DeallocatedObjectSlotLocEB0 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DeleteAllButCurrentStartLocEFE {
     pub(crate) scan_head_link_addr: u32,
     pub(crate) next_candidate_slot_addr: u32,
@@ -723,6 +726,7 @@ pub(crate) struct DeleteAllButCurrentStartLocEFE {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) struct DeleteAllButCurrentLoopLocF02 {
     pub(crate) first_active_slot_addr: u32,
     pub(crate) kept_current_object: bool,
@@ -12556,6 +12560,7 @@ pub(crate) fn shooter_object_free_list_push_loc_EFC8(
 /// incoming `a0`) is strictly higher than the current slot's `$E(a1)` word.
 /// Equal caller words stop the scan, so the new slot inserts before equal keys.
 #[allow(non_snake_case)]
+#[cfg(test)]
 pub(crate) fn allocate_object_slot_insert_index_loc_DE0(
     active_slots: &[ObjectSlotOrderLocDE0],
     new_caller_order: u16,
@@ -12570,7 +12575,7 @@ pub(crate) fn allocate_object_slot_insert_index_loc_DE0(
 /// predecessor found by `loc_DE0`. The ROM copies the predecessor link into
 /// `0(a0)`, then stores `a0` through the predecessor link slot.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn allocate_object_slot_splice_loc_DF2(
     active_slots: &[ObjectSlotOrderLocDE0],
     new_slot: ObjectSlotOrderLocDE0,
@@ -12679,7 +12684,7 @@ pub(crate) fn deallocate_object_slot_body_loc_EB0(
 /// link before finding `a5`, restore `a5` from `Addr_CurrentObject` and return
 /// without touching object or gfx free lists.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn deallocate_object_slot_not_found_loc_EF0(current_object_addr: u32) -> u32 {
     current_object_addr
 }
@@ -12688,6 +12693,7 @@ pub(crate) fn deallocate_object_slot_not_found_loc_EF0(current_object_addr: u32)
 /// from `Addr_FirstObjectSlot`, preserving `Addr_CurrentObject` only for the
 /// later `cmp.l` in loc_F02.
 #[allow(non_snake_case)]
+#[cfg(test)]
 pub(crate) fn delete_all_but_current_start_loc_EFE(
     active_slots: &[LinkedObjectSlotInit],
     current_object_addr: u32,
@@ -12705,7 +12711,7 @@ pub(crate) fn delete_all_but_current_start_loc_EFE(
 /// ASM loc_F14 (kid.asm:1781): when `0(a5)` is null, restore the saved
 /// registers and return with only the current object left in the active list.
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
+#[cfg(test)]
 pub(crate) fn delete_all_but_current_loop_loc_F02(
     active_slots: &[LinkedObjectSlotInit],
     current_object_addr: u32,
