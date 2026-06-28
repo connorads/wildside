@@ -938,7 +938,6 @@ pub(crate) enum GfxObjectsCollisionSolidLeftWallLoc19BA {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_solid_leftwall_loc_19BA(
     lower_right_tile_word: u16,
     cached_layout_addr: u16,
@@ -964,7 +963,6 @@ pub(crate) enum GfxObjectsCollisionSolidRightWallLoc1966 {
 }
 
 #[allow(non_snake_case)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn gfx_objects_collision_solid_rightwall_loc_1966(
     upper_left_tile_word: u16,
     cached_layout_addr: u16,
