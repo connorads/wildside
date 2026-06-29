@@ -21,6 +21,7 @@ mod project_status;
 mod ram_diff;
 mod recording;
 mod release_gate;
+mod rust_source_context;
 mod scenarios;
 mod sweep;
 mod tas;

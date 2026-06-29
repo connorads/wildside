@@ -1,4 +1,5 @@
 use crate::backlog::read_live_lanes;
+use crate::rust_source_context::{RustCodeContext, RustSourceContexts};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -83,6 +84,19 @@ struct CitationBreakdown {
     support: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct NativeCitationSite {
+    path: String,
+    line_number: usize,
+    context: RustCodeContext,
+}
+
+#[derive(Debug, Clone, Default)]
+struct NativeCitationIndex {
+    files_by_label: BTreeMap<String, BTreeSet<String>>,
+    breakdown_by_label: BTreeMap<String, CitationBreakdown>,
+}
+
 // ── Label extraction ───────────────────────────────────────────────────
 
 /// Extract sub_ and loc_ labels from a single ASM file.
@@ -159,31 +173,30 @@ fn collect_asm_files_recursive(base: &Path, dir: &Path, labels: &mut Vec<AsmLabe
 // ── Citation extraction ────────────────────────────────────────────────
 
 /// Scan native Rust source for ASM label references.
-/// Returns a map: label → set of files citing it.
-fn extract_native_citations(repo_root: &Path) -> Result<BTreeMap<String, BTreeSet<String>>> {
-    let mut citations: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+fn extract_native_citations(repo_root: &Path) -> Result<NativeCitationIndex> {
+    let mut sites_by_label: BTreeMap<String, BTreeSet<NativeCitationSite>> = BTreeMap::new();
     let search_dirs = [
         repo_root.join("crates/wildside-core/src"),
         repo_root.join("crates/wildside-data/src"),
     ];
     for dir in &search_dirs {
         if dir.is_dir() {
-            scan_dir_for_citations(dir, repo_root, &mut citations)?;
+            scan_dir_for_citations(dir, repo_root, &mut sites_by_label)?;
         }
     }
-    Ok(citations)
+    Ok(index_native_citation_sites(sites_by_label))
 }
 
 fn scan_dir_for_citations(
     dir: &Path,
     repo_root: &Path,
-    citations: &mut BTreeMap<String, BTreeSet<String>>,
+    sites_by_label: &mut BTreeMap<String, BTreeSet<NativeCitationSite>>,
 ) -> Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            scan_dir_for_citations(&path, repo_root, citations)?;
+            scan_dir_for_citations(&path, repo_root, sites_by_label)?;
         } else if path.extension().is_some_and(|ext| ext == "rs") {
             let relative = path
                 .strip_prefix(repo_root)
@@ -191,27 +204,125 @@ fn scan_dir_for_citations(
                 .display()
                 .to_string();
             let content = fs::read_to_string(&path)?;
-            // Find all sub_XXXX and loc_XXXX references
-            for line in content.lines() {
-                let mut rest = line;
-                while let Some(idx) = [rest.find("sub_"), rest.find("loc_")]
-                    .into_iter()
-                    .flatten()
-                    .min()
-                {
-                    let prefix = &rest[idx..idx + 4];
-                    let after = &rest[idx + 4..];
-                    let hex_len = after.chars().take_while(char::is_ascii_hexdigit).count();
-                    if hex_len > 0 {
-                        let label = format!("{}{}", prefix, &after[..hex_len]);
-                        citations.entry(label).or_default().insert(relative.clone());
-                    }
-                    rest = &rest[idx + 4 + hex_len..];
-                }
+            for site in scan_rust_file_for_citations(&relative, &content) {
+                sites_by_label
+                    .entry(site.label)
+                    .or_default()
+                    .insert(site.citation);
             }
         }
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LabelCitationSite {
+    label: String,
+    citation: NativeCitationSite,
+}
+
+fn scan_rust_file_for_citations(relative_path: &str, content: &str) -> Vec<LabelCitationSite> {
+    let contexts = RustSourceContexts::analyse(content);
+    let path_is_test = path_is_test_file(relative_path);
+    let mut sites = Vec::new();
+    // Find all sub_XXXX and loc_XXXX references. Citations intentionally include
+    // comments: ASM comments are the auditable source-port link.
+    for (line_index, line) in content.lines().enumerate() {
+        let line_number = line_index + 1;
+        let context = if path_is_test {
+            RustCodeContext::Test
+        } else {
+            contexts.context_for_line(line_number)
+        };
+        let mut rest = line;
+        while let Some(idx) = [rest.find("sub_"), rest.find("loc_")]
+            .into_iter()
+            .flatten()
+            .min()
+        {
+            let prefix = &rest[idx..idx + 4];
+            let after = &rest[idx + 4..];
+            let hex_len = after.chars().take_while(char::is_ascii_hexdigit).count();
+            if hex_len > 0 {
+                sites.push(LabelCitationSite {
+                    label: format!("{}{}", prefix, &after[..hex_len]),
+                    citation: NativeCitationSite {
+                        path: relative_path.to_owned(),
+                        line_number,
+                        context,
+                    },
+                });
+            }
+            rest = &rest[idx + 4 + hex_len..];
+        }
+    }
+    sites
+}
+
+fn index_native_citation_sites(
+    sites_by_label: BTreeMap<String, BTreeSet<NativeCitationSite>>,
+) -> NativeCitationIndex {
+    let mut index = NativeCitationIndex::default();
+    for (label, sites) in sites_by_label {
+        let mut breakdown = CitationBreakdown::default();
+        for site in sites {
+            index
+                .files_by_label
+                .entry(label.clone())
+                .or_default()
+                .insert(site.path.clone());
+            match classify_native_citation_site(&site) {
+                CitationBucket::Implementation => {
+                    push_unique_sorted(&mut breakdown.implementation, site.path);
+                }
+                CitationBucket::Tests => {
+                    push_unique_sorted(&mut breakdown.tests, site.path);
+                }
+                CitationBucket::Docs => {
+                    push_unique_sorted(&mut breakdown.docs, site.path);
+                }
+                CitationBucket::Support => {
+                    push_unique_sorted(&mut breakdown.support, site.path);
+                }
+            }
+        }
+        index.breakdown_by_label.insert(label, breakdown);
+    }
+    index
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CitationBucket {
+    Implementation,
+    Tests,
+    Docs,
+    Support,
+}
+
+fn classify_native_citation_site(site: &NativeCitationSite) -> CitationBucket {
+    if path_is_test_file(&site.path) || site.context == RustCodeContext::Test {
+        CitationBucket::Tests
+    } else if std::path::Path::new(&site.path)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
+    {
+        CitationBucket::Docs
+    } else if site.path.contains("/src/") {
+        CitationBucket::Implementation
+    } else {
+        CitationBucket::Support
+    }
+}
+
+fn path_is_test_file(path: &str) -> bool {
+    path.ends_with("/tests.rs") || path.contains("/tests/")
+}
+
+fn push_unique_sorted(values: &mut Vec<String>, value: String) {
+    match values.binary_search(&value) {
+        Ok(_) => {}
+        Err(index) => values.insert(index, value),
+    }
 }
 
 // ── Subsystem classification ───────────────────────────────────────────
@@ -438,7 +549,11 @@ struct CoverageMapWithAnnotations {
     subsystems: BTreeMap<String, SubsystemCoverageAnnotated>,
 }
 
-fn apply_annotations(map: CoverageMap, overlay: &AnnotationOverlay) -> CoverageMapWithAnnotations {
+fn apply_annotations(
+    map: CoverageMap,
+    overlay: &AnnotationOverlay,
+    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
+) -> CoverageMapWithAnnotations {
     let subsystems = map
         .subsystems
         .into_iter()
@@ -457,11 +572,28 @@ fn apply_annotations(map: CoverageMap, overlay: &AnnotationOverlay) -> CoverageM
                         .get(&l.label)
                         .cloned()
                         .unwrap_or_default(),
-                    coverage_state: coverage_state_for_citations(&l.cited_in, overlay, &l.label),
-                    implementation_cited: Some(has_implementation_citation(&l.cited_in)),
-                    test_cited: Some(has_test_citation(&l.cited_in)),
+                    coverage_state: coverage_state_for_label(
+                        citation_breakdowns,
+                        overlay,
+                        &l.label,
+                        &l.cited_in,
+                    ),
+                    implementation_cited: Some(has_implementation_citation_for_label(
+                        citation_breakdowns,
+                        &l.label,
+                        &l.cited_in,
+                    )),
+                    test_cited: Some(has_test_citation_for_label(
+                        citation_breakdowns,
+                        &l.label,
+                        &l.cited_in,
+                    )),
                     oracle_backed: Some(is_oracle_backed(overlay, &l.label)),
-                    citation_breakdown: Some(classify_citations(&l.cited_in)),
+                    citation_breakdown: Some(citation_breakdown_for_label(
+                        citation_breakdowns,
+                        &l.label,
+                        &l.cited_in,
+                    )),
                     description: overlay.descriptions.get(&l.label).cloned(),
                     priority: overlay.priorities.get(&l.label).cloned(),
                     label: l.label,
@@ -510,12 +642,35 @@ fn classify_citations(cited_in: &[String]) -> CitationBreakdown {
     breakdown
 }
 
-fn has_implementation_citation(cited_in: &[String]) -> bool {
-    !classify_citations(cited_in).implementation.is_empty()
+fn citation_breakdown_for_label(
+    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
+    label: &str,
+    cited_in: &[String],
+) -> CitationBreakdown {
+    citation_breakdowns
+        .get(label)
+        .cloned()
+        .unwrap_or_else(|| classify_citations(cited_in))
 }
 
-fn has_test_citation(cited_in: &[String]) -> bool {
-    !classify_citations(cited_in).tests.is_empty()
+fn has_implementation_citation_for_label(
+    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
+    label: &str,
+    cited_in: &[String],
+) -> bool {
+    !citation_breakdown_for_label(citation_breakdowns, label, cited_in)
+        .implementation
+        .is_empty()
+}
+
+fn has_test_citation_for_label(
+    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
+    label: &str,
+    cited_in: &[String],
+) -> bool {
+    !citation_breakdown_for_label(citation_breakdowns, label, cited_in)
+        .tests
+        .is_empty()
 }
 
 fn is_oracle_backed(overlay: &AnnotationOverlay, label: &str) -> bool {
@@ -525,16 +680,17 @@ fn is_oracle_backed(overlay: &AnnotationOverlay, label: &str) -> bool {
         .is_some_and(|entries| !entries.is_empty())
 }
 
-fn coverage_state_for_citations(
-    cited_in: &[String],
+fn coverage_state_for_label(
+    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
     overlay: &AnnotationOverlay,
     label: &str,
+    cited_in: &[String],
 ) -> Option<CoverageState> {
     if is_oracle_backed(overlay, label) {
         Some(CoverageState::OracleBacked)
-    } else if has_test_citation(cited_in) {
+    } else if has_test_citation_for_label(citation_breakdowns, label, cited_in) {
         Some(CoverageState::Tested)
-    } else if has_implementation_citation(cited_in) {
+    } else if has_implementation_citation_for_label(citation_breakdowns, label, cited_in) {
         Some(CoverageState::Implemented)
     } else if !cited_in.is_empty() {
         Some(CoverageState::Mentioned)
@@ -692,7 +848,7 @@ pub(crate) fn run_asm_coverage(
 
     let asm_labels = extract_all_asm_labels(&upstream_dir)?;
     let citations = extract_native_citations(repo_root)?;
-    let map = build_coverage_map(asm_labels, &citations);
+    let map = build_coverage_map(asm_labels, &citations.files_by_label);
 
     if update {
         // Generated regenerable state lives under .cache (untracked), not in docs:
@@ -700,7 +856,7 @@ pub(crate) fn run_asm_coverage(
         // citation with verified fidelity. (#38)
         let output_path = repo_root.join(".cache/asm-coverage.yaml");
         let overlay = load_existing_annotations(&output_path);
-        let mut annotated = apply_annotations(map.clone(), &overlay);
+        let mut annotated = apply_annotations(map.clone(), &overlay, &citations.breakdown_by_label);
         let header = "# Auto-generated by: wildside asm-coverage --update\n# Re-run to refresh. Hand-annotated description/priority fields are preserved.\n\n";
         // Keep the existing `generated_at` timestamp when no label/citation content changed.
         // Otherwise every `asm-coverage --update` invocation would dirty the tree, pinning the
@@ -956,6 +1112,66 @@ mod tests {
     }
 
     #[test]
+    fn scan_rust_file_classifies_blocks_rs_trap_lines_by_cfg_context() {
+        let source = include_str!("../../wildside-core/src/blocks.rs");
+        let sites = scan_rust_file_for_citations("crates/wildside-core/src/blocks.rs", source);
+        let context_for = |label: &str, line_number: usize| {
+            sites
+                .iter()
+                .find(|site| site.label == label && site.citation.line_number == line_number)
+                .map_or_else(
+                    || panic!("missing {label} citation on line {line_number}"),
+                    |site| site.citation.context,
+                )
+        };
+
+        assert_eq!(context_for("loc_10228", 1692), RustCodeContext::Production);
+        assert_eq!(context_for("loc_FF92", 4675), RustCodeContext::Production);
+        assert_eq!(context_for("loc_100F6", 5698), RustCodeContext::Test);
+    }
+
+    #[test]
+    fn native_citation_index_allows_same_file_to_be_both_prod_and_test() {
+        let sites_by_label = BTreeMap::from([(
+            "loc_100F6".to_owned(),
+            BTreeSet::from([
+                NativeCitationSite {
+                    path: "crates/wildside-core/src/blocks.rs".to_owned(),
+                    line_number: 1692,
+                    context: RustCodeContext::Production,
+                },
+                NativeCitationSite {
+                    path: "crates/wildside-core/src/blocks.rs".to_owned(),
+                    line_number: 5698,
+                    context: RustCodeContext::Test,
+                },
+            ]),
+        )]);
+
+        let index = index_native_citation_sites(sites_by_label);
+        let breakdown = index
+            .breakdown_by_label
+            .get("loc_100F6")
+            .expect("breakdown present");
+
+        assert_eq!(
+            breakdown.implementation,
+            vec!["crates/wildside-core/src/blocks.rs"]
+        );
+        assert_eq!(breakdown.tests, vec!["crates/wildside-core/src/blocks.rs"]);
+        assert_eq!(
+            index
+                .files_by_label
+                .get("loc_100F6")
+                .expect("file list present")
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec!["crates/wildside-core/src/blocks.rs"]
+        );
+    }
+
+    #[test]
     fn coverage_state_prefers_oracle_backed_evidence() {
         let cited_in = vec![
             "crates/wildside-core/src/level.rs".to_owned(),
@@ -968,7 +1184,7 @@ mod tests {
         );
 
         assert_eq!(
-            coverage_state_for_citations(&cited_in, &overlay, "loc_1234"),
+            coverage_state_for_label(&BTreeMap::new(), &overlay, "loc_1234", &cited_in),
             Some(CoverageState::OracleBacked)
         );
     }

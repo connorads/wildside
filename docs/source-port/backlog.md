@@ -26,16 +26,14 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-29 loop handoff:** #363 fatal TheKid death audio is resolved. Native core already
-  queued `sfx_Voice_die` from `Death` (kid.asm:14714), but native-player's legacy HP-drop
-  fallback also inferred generic `sfx_Voice_ouch`, replaying `[0x60, 0x61]` and masking the death
-  voice. Playback now suppresses the fallback when the core trace carries either an explicit
-  loc_B73C ouch take or `VoiceDie`.
-- **Verification:** focused `issue_363`, native-player audio tests, fallback SFX tests, core
-  `voice_die` tests, `cargo fmt --check`, `mise run verify-slice-fast`, and
-  `mise run verify-tas-full` exit 0 completed. Full TAS CRC is exact; the known full-report state
-  divergences still begin at `transition_15_to_00_post`.
-- **Next selector output:** no ready-to-implement rows; `project-status` now leads with #364 in
+- **2026-06-29 loop handoff:** #364 asm-coverage cfg detection is resolved. asm-coverage now uses
+  shared `rust_source_context` tokenisation to classify citation lines under inline `#[cfg(test)]`
+  items, preserving later production citations after early gated helpers.
+- **Verification:** focused `rust_source_context` tests, `asm_coverage` tests, `cargo fmt --check`,
+  `asm-coverage --update`, targeted mutation testing (real lifetime-vs-char bug fixed), and
+  `mise run verify-slice-fast` exit 0 completed. `verify-tas-full` was not required because this is
+  tooling-only coverage classification.
+- **Next selector output:** no ready-to-implement rows; `project-status` now leads with #365 in
   playability/infra risks and #210 in visual risks.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
@@ -65,7 +63,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |
 | 349 | [ ] | P1 | render | 2026-06-26 playtest: post-death respawn card still shows the trees but NOT the level-NAME text; the 2026-06-21 fix (`b55244ad1`) IS in the build, so the candidate FAILED validation. | Re-investigate the respawn-card render path (InGame classification trace.rs:9177; glyph-worker filter; overlay window); add a native-player capture-frame assertion, not just the CRC-neutral render test. See archive #349. |
 | 361 | [ ] | P2 | render/enemy | 2026-06-26 playtest: on the hand level the live Hand (0x17) animation free-runs/flickers ("spazzes") instead of holding body frames. Deferred #243/#333 follow-up, never given its own row. NOT the grab gating #185 (grab+slow works). | Add a `select_live_hand_frame` selector mirroring `select_live_tar_monster_frame`: hold Hand body frames off HandState, early-return None on hp==0 so the death table keeps death frames; capture-frames to confirm no flicker. Cross-ref #243/#333, #185. |
-| 364 | [ ] | P2 | infra/asm-coverage | Tokenizer-grade `#[cfg(test)]` detector for asm-coverage (fixes audit A5). A brace-counter mis-classifies (char-literal `'{'`, early gated helpers swallow production lines). Foundation for the honest reachable/test-only split. | Unit tests incl. the blocks.rs trap: 1692/4675 = production, 5700 = test. See audits/asm-coverage-remediation-plan.md #364. |
 | 365 | [ ] | P2 | infra/asm-coverage | Reclassify coverage into reachable / test-only-debt / uncovered, plus a GEMS "emulated" bucket; surface in headline/`--json`/YAML. Also remove the dead `oracle_backed`/`OracleBacked` tier (0 populated, vestigial). Depends on #364. | Headline reads roughly 3788 reachable / 289 test-only / 40 uncovered (33 GEMS); no OracleBacked state. See plan #365. |
 | 366 | [ ] | P2 | infra/asm-coverage | Triage the 5 orphan subroutines (sub_96E8 et al.) with `// TODO(fidelity)`/`// DEAD_ROM`; snapshot the 289 test-only labels as a thin ratchet baseline; add `asm-coverage --check-no-new-test-only`. Depends on #365. | A new untagged test-only port fails `--check-no-new-test-only`. See plan #366. |
 | 367 | [ ] | P2 | infra/asm-coverage | Wire `verify-slice-fast` deps: #366 ratchet + `audit-debug-fields` (green) + `asm-coverage --check-required` (with real integration test); fold in E3 glob fix + registry hygiene (dead-entry warn + pending-hash backfill). Depends on #366. | verify-slice-fast goes red on a deleted required citation, a new test-only port, or an unregistered debug key. See plan #367. |

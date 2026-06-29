@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#364 asm-coverage cfg detector fixed)
+
+- **#364 moved `[~]` -> `[x]`.** asm-coverage now has a line-aware Rust source-context detector
+  for inline `#[cfg(test)]` citations.
+- Added shared `rust_source_context` tokenisation for comments/literals/raw strings/chars,
+  lifetime preservation, cfg `any`/`all`/`not`, and `cfg_attr` false-positive avoidance.
+- `asm_coverage` keeps `cited_in` paths unchanged but builds generated YAML breakdowns from
+  per-line Production/Test citation sites; the same source file can now appear in both buckets
+  when it has production and test citations.
+- Regressions pin the `blocks.rs` trap at 267 test-only, 1692/4675 production, and 5698 test, plus
+  same-file prod/test bucket split.
+- Mutation testing found and fixed a real lifetime-vs-char bug. Targeted run: 51 mutants, 29
+  caught, 2 unviable, 6 non-progress timeouts, 14 token-index equivalent/valid-input residuals.
+- Verification: `rust_source_context` tests, `asm_coverage` tests, `asm-coverage --update`,
+  `cargo fmt --check`, and `mise run verify-slice-fast`. `verify-tas-full` not required
+  (tooling-only).
+- NEXT: `project-status` shows no ready-to-implement rows; take #365 first under
+  playability/infra risks, with #210 still the top visual risk.
+
 ## 2026-06-29 handoff (#363 fatal death ouch fixed)
 
 - **#363 moved `[~]` -> `[x]`.** Clean fatal TheKid deaths no longer replay an ouch after the

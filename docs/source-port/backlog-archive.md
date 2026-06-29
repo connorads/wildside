@@ -10614,6 +10614,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 359 | [x] | P2 | enemy/level | Cyclone-form sky level Sphere 0x06 spawn now keeps the ROM live collision rows, delayed terrain collision response, and level 0x1B settled-recording age. | ASM `Enemy06_Sphere_Init` / `loc_35F70` / `GfxObjects_Collision loc_171C`; focused Sphere regressions, cache-backed level 0x1B regression, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #359. |
 | 362 | [x] | P2 | audio | RockTank drive SFX `$1F` no longer starts while the tank body is clipped out of the sprite visibility window. | ASM `Tank.asm` loc_3B40A / `Tank_Shooting.asm` loc_3B690 / `Make_SpriteFromGfxObject` loc_11EE / `sub_3C352`; Tank regression, #339 stop/count regressions, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #362. |
 | 363 | [x] | P2 | audio | Clean fatal TheKid deaths no longer replay the legacy HP-drop ouch over the core `sfx_Voice_die` in native playback. | ASM `Death` (kid.asm:14714) / loc_B73C distinction; focused native-player issue_363 regressions, native-player audio tests, core voice-die tests, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #363. |
+| 364 | [x] | P2 | infra/asm-coverage | asm-coverage now uses a tokenizer-grade line-context detector for inline `#[cfg(test)]` citations, preserving production citations after early gated helpers. | Real `blocks.rs` trap pinned (1692/4675 production, 5698 test), asm-coverage update checked, targeted mutation run, and `verify-slice-fast` exit 0. See archive #364. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11676,6 +11677,22 @@ fallback stays silent once the core trace has resolved the voice. Regressions:
 `cargo fmt --check`, `mise run verify-slice-fast`, and `mise run verify-tas-full`; full TAS CRC
 remains exact, with the known state-report divergences still first authoritative at
 `transition_15_to_00_post`.
+
+- **#364 (asm-coverage cfg detector, P2 infra).** Fixed 2026-06-29 (`[~]` -> `[x]`).
+  Added shared `rust_source_context` tokenisation for Rust source structure instead of
+  asm-coverage's path-only/file-level guess. It masks comments, string/raw-string, char, and
+  byte-char literals; preserves lifetimes; tracks `#[cfg(test)]` item ranges; supports cfg
+  `any`/`all`/`not`; and ignores `cfg_attr`. `asm_coverage` now records line-context citation
+  sites and builds YAML `implementation`/`tests` buckets from those contexts while keeping
+  `cited_in` file paths unchanged for the current headline. Regressions pin the `blocks.rs` trap:
+  line 267 test-only, 1692 and 4675 production, 5698 test, plus same-file prod/test bucket split.
+  `asm-coverage --update` confirms the current headline stays 279/293 sub labels and 3798/3824 loc
+  labels, with correct generated buckets. Mutation testing installed `cargo-mutants`; broad runs
+  found a real lifetime-vs-char bug, which was fixed. A targeted public/context run over 51 mutants
+  produced 29 caught, 2 unviable, 6 non-progress timeouts, and 14 token-index
+  equivalent/valid-input residuals. Verification: focused `rust_source_context` and `asm_coverage`
+  tests, `cargo fmt --check`, `asm-coverage --update`, and `verify-slice-fast` exit 0.
+  `verify-tas-full` was not required for tooling-only coverage classification.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 
