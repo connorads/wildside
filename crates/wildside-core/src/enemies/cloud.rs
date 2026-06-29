@@ -875,6 +875,20 @@ mod tests {
     }
 
     #[test]
+    fn cloud_control_script_tick_loc_35c56_continues_active_wait_frame() {
+        assert_eq!(
+            cloud_control_script_tick_loc_35BAC(2, 0x1E, 0xFF),
+            CloudControlScriptTickLoc35BAC {
+                object_44: 0xFF,
+                next_object_44: 0xFF,
+                next_command_index: 2,
+                next_wait_frames: 0x1D,
+            },
+            "ASM Cloud.asm loc_35C56 hibernates one frame and DBFs the active wait counter before loc_35BB2 can fetch the next command"
+        );
+    }
+
+    #[test]
     fn cloud_diagonal_attack_setup_loc_35cd8_keeps_diagonal_bands_strict() {
         assert_eq!(
             cloud_diagonal_attack_setup_loc_35CD8(cloud_attack_input(0, 100, 50, 100, 50)),
