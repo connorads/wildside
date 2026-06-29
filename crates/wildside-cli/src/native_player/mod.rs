@@ -3138,7 +3138,7 @@ fn try_load_generated_level_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scenarios::prize_block_scenario;
+    use crate::scenarios::{GameplayScenario, prize_block_scenario};
     use std::fs;
     use std::path::Path;
     use std::sync::Arc;
@@ -3877,6 +3877,62 @@ mod tests {
         assert!(
             contains_text(&ingame, "A"),
             "the InGame respawn hand-off frame must ALSO draw the level-name glyph workers (the post-death card shows the scene but dropped the name)"
+        );
+    }
+
+    #[test]
+    fn death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let (visuals, _) = load_session_assets(&manifest, 0x00).expect("Level 0x00 visuals");
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+        let script = GameplayScenario::DeathRespawnLevel1.script();
+        let mut previous_trace = runtime.trace_frame();
+
+        for frame_index in 0..=1_919 {
+            let buttons = script.get(frame_index).copied().unwrap_or_default();
+            let trace = runtime.step_frame(FrameInput::from_mask(buttons));
+            let render_trace = render_trace_with_vdp_latched_state(&trace, Some(&previous_trace));
+            previous_trace = trace.clone();
+
+            let has_on_screen_title_worker = render_trace.active_objects.iter().any(|object| {
+                matches!(object.kind, NativeObjectKind::Enemy { object_type: 0 })
+                    && object.debug_fields.contains_key("glyph")
+                    && {
+                        let x = (object.x_pos as i32) >> 16;
+                        let y = (object.y_pos as i32) >> 16;
+                        x > -16 && x < FRAME_WIDTH as i32 && y > -16 && y < FRAME_HEIGHT as i32
+                    }
+            });
+            if frame_index < 1_791 || !has_on_screen_title_worker {
+                continue;
+            }
+
+            let Some(vdp) = runtime.vdp_state() else {
+                continue;
+            };
+            let mut base = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+            render_native_vdp_rgb(vdp, &mut base);
+            let mut overlaid = base.clone();
+            render_vdp_trace_overlay(&render_trace, &visuals, &mut overlaid);
+            let changed_pixels = base
+                .chunks_exact(3)
+                .zip(overlaid.chunks_exact(3))
+                .filter(|(before, after)| before != after)
+                .count();
+            assert!(
+                changed_pixels > 0,
+                "ASM lose_life -> loc_B8DE -> Load_TitleCard should composite loc_1AB26/loc_1AC70 title workers over the VDP shell on real death_respawn_level1 frame {frame_index}; mode={:?} boot_phase={:?} objects={:?}",
+                render_trace.game_mode,
+                render_trace.boot_phase,
+                render_trace.active_objects,
+            );
+            return;
+        }
+
+        panic!(
+            "death_respawn_level1 should expose an on-screen loc_1AB26/loc_1AC70 title worker on a VDP respawn frame"
         );
     }
 

@@ -10621,6 +10621,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 366 | [x] | P2 | infra/asm-coverage | asm-coverage now has a checked-in test-only baseline and `--check-no-new-test-only` ratchet; the five orphan subroutines are triaged with inline fidelity notes. | Baseline records 242 grandfathered test-only labels; new test-only labels fail the CLI ratchet; focused asm/core tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #366. |
 | 367 | [x] | P2 | infra/asm-coverage | `verify-slice-fast` now runs the test-only ratchet, required-label gate, and debug-field audit; the audit scans the oracle helper template and registry hashes are backfilled. | Gate deps report 9 required labels covered, 242 current/242 baseline test-only labels, and 91 emitted/91 registered debug keys; focused tests and `verify-slice-fast` exit 0. See archive #367. |
 | 368 | [x] | P3 | infra/docs | One-off asm-coverage/doc tidy: stale live-source `loc_2510C`/`loc_23629` citations are removed, the required-label failure text points at non-test core/data, audio-trigger refs match the current command model, and CLAUDE.md single-sources asm-coverage commands. | Search checks for stale labels/deleted helper refs; focused asm-coverage/runtime/native-player tests; `cargo fmt`; `asm-coverage --check-required`; `backlog-lint`; `verify-slice-fast`. See archive #368. |
+| 349 | [x] | P1 | render | Post-death respawn title-card name text is visible on the real `death_respawn_level1` VDP path; the 2026-06-26 failed-candidate report no longer reproduces on current `main`. | Current native frames 1791/1855/1919 show `BLUE / LAKE / WOODS / I`; regression `death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de`; focused glyph-worker test. See archive #349. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11634,6 +11635,19 @@ on the route-blocked cluster.
   path — InGame classification during `respawn_live_handoff` (trace.rs:9177), the glyph-worker
   motion filter, and whether the overlay actually runs in the respawn-card window; the row's
   existing test is CRC-neutral/headless, so add a real native-player capture-frame assertion.
+- **#349 (render, `[~]` -> `[x]`)** — RESOLVED 2026-06-29. Rechecked the failed-candidate report
+  against current `main` with the real `death_respawn_level1` route instead of the previous
+  synthetic glyph-worker trace. The current VDP render path already composites the
+  `loc_1AB26`/`loc_1AC70` title workers over the post-death `Load_TitleCard` shell; native captures
+  at frames 1791, 1855, and 1919 show the full `BLUE / LAKE / WOODS / I` text over the two-tree
+  card (`.cache/debug/issue349/current/`). Added
+  `death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de`, which steps the actual
+  `GameplayScenario::DeathRespawnLevel1` script through `NativeRuntime::with_generated_level_layout`,
+  finds an on-screen Title_Letter worker on the respawn VDP frame, and asserts
+  `render_vdp_trace_overlay` changes pixels. The older
+  `death_respawn_title_card_renders_level_name_glyphs_loc_b8de` synthetic LevelTransition/InGame
+  guard remains. No render implementation patch was needed in this session; the actionable gap was
+  the missing real native-player capture-frame assertion requested by the reopened row.
 
 ### New rows opened
 

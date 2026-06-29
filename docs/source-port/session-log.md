@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#349 post-death title-card name resolved)
+
+- **#349 moved `[~]` -> `[x]`.** Re-ran the real `death_respawn_level1` route on current `main`;
+  the post-death title-card VDP path now shows the level name over the two-tree card.
+- Evidence: generated current native frames in `.cache/debug/issue349/current/`; frames 1791, 1855,
+  and 1919 visibly show `BLUE / LAKE / WOODS / I`. The new
+  `death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de` regression steps the actual
+  script through `NativeRuntime::with_generated_level_layout` and asserts the
+  `loc_1AB26`/`loc_1AC70` glyph overlay changes VDP pixels.
+- Verification: focused real-route #349 native-player test, existing synthetic glyph-worker test,
+  PNG inspection, `backlog-lint`, and `mise run verify-slice-fast`.
+- NEXT: `project-status` should select #358 first under visual risks, then #361.
+
 ## 2026-06-29 handoff (#324 prize-wobble priority fixed candidate)
 
 - **#324 moved `[~]` -> `[?]`.** BLW1 row-1 prize wobble now clears stale foreground priority
