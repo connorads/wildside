@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#324 prize-wobble priority fixed candidate)
+
+- **#324 moved `[~]` -> `[?]`.** BLW1 row-1 prize wobble now clears stale foreground priority
+  over the active ASM `sub_1007A` copied-block footprint before drawing the low-priority P/prize
+  sprite.
+- Evidence: canonical route `.cache/recordings/issue324-blw1-row1-left560-current/scenario.json`
+  hits `(57,1)` at frame 574. Before, the isolated `block_overrides` layer had correct P art but
+  the composed frame was masked by high-priority terrain; after, native frame-574 crop
+  `(150,16)..(165,31)` has `0` differing pixels against oracle.
+- Verification: focused `prize_block_wobble` tests, route recapture, crop comparison,
+  `cargo fmt --check`, and `mise run verify-slice-fast`.
+- NEXT: `project-status` should select #349 first under visual risks, then #358 and #361.
+
 ## 2026-06-29 handoff (#254 IntroSequence6 Start-skip fixed candidate)
 
 - **#254 moved `[~]` -> `[?]`.** IntroSequence6 Start-skip no longer uses a probed max-frame

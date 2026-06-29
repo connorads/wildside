@@ -5382,6 +5382,15 @@ fn push_prize_block_wobble_sub_1007a(
             }
         })
         .collect();
+    // ASM sub_1007A/loc_10200 queues a Scroll A cell rewrite, then draws the
+    // low-priority `unk_E0E4E`/`unk_E0E5E` wobble object. Clear stale foreground
+    // priority from the active footprint so prior terrain cells do not mask it.
+    commands.push(DrawCommand::ClearPriorityRect {
+        x,
+        y,
+        width: 16,
+        height: 16,
+    });
     commands.push(DrawCommand::Sprite {
         x,
         y,

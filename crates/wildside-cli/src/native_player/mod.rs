@@ -8746,6 +8746,100 @@ mod tests {
     }
 
     #[test]
+    fn prize_block_wobble_clears_stale_priority_mask_sub_1007a_issue324() {
+        // ASM sub_1007A/loc_10200 queues a Scroll A cell rewrite before drawing
+        // `unk_E0E4E`/`unk_E0E5E`. Native's command renderer must likewise
+        // clear stale terrain priority from the active wobble footprint before
+        // it draws the low-priority copied block sprite.
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.camera_x_pos = 0;
+        trace.camera_y_pos = 0;
+        trace.block_bounces = vec![(1, 0, 31, 0)];
+        trace.block_bounce_details = vec![BlockBounceTrace {
+            cell_x: 1,
+            cell_y: 0,
+            x_offset_px: 0,
+            remaining: 31,
+            y_offset_px: 0,
+            kind: BlockBounceTraceKind::Prize,
+        }];
+        let mut visuals = sample_level_visuals();
+        let terrain_colour = colour(12, 34, 56);
+        let block_colour = colour(220, 240, 96);
+        visuals.palettes.foreground.colours = vec![terrain_colour, block_colour];
+        for tile in &mut visuals.foreground_tiles.tiles[8..12] {
+            tile.pixels = [1; 64];
+        }
+        for tile in &mut visuals.block_tiles.tiles[8..12] {
+            tile.pixels = [2; 64];
+        }
+        let data = vec![0u8; 20 * 14 * 2];
+        let mut grid = BlockGrid::from_level_layout(&data, 20, 14);
+        grid.set_cell_at(1, 0, Cell::from_be_bytes(0x01, 0x02));
+
+        let scene = build_scene_filtered(
+            &trace,
+            false,
+            Some(&visuals),
+            Some(&grid),
+            LayerFilter {
+                background: false,
+                terrain: true,
+                block_overrides: true,
+                platforms: false,
+                enemies: false,
+                player: false,
+                effects: false,
+                eol_score: false,
+                hud: false,
+            },
+        );
+        let clear_index = scene
+            .commands
+            .iter()
+            .position(|command| {
+                matches!(
+                    command,
+                    DrawCommand::ClearPriorityRect {
+                        x: 16,
+                        y: 0,
+                        width: 16,
+                        height: 16
+                    }
+                )
+            })
+            .expect("sub_1007A prize wobble priority clear");
+        let sprite_index = scene
+            .commands
+            .iter()
+            .position(|command| {
+                matches!(
+                    command,
+                    DrawCommand::Sprite {
+                        x: 16,
+                        y: 0,
+                        tile_sheet,
+                        ..
+                    } if tile_sheet.tiles.len() == 0x200
+                )
+            })
+            .expect("sub_1007A prize wobble sprite");
+        assert!(
+            clear_index < sprite_index,
+            "the sub_1007A priority clear must run immediately before the low-priority copied block sprite"
+        );
+
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+
+        assert_eq!(
+            pixel_at(&rgb, 16, 0),
+            [block_colour.red, block_colour.green, block_colour.blue],
+            "active sub_1007A prize wobble pixels should survive stale foreground priority from the previous terrain command"
+        );
+    }
+
+    #[test]
     fn build_scene_draws_live_prize_block_wobble_from_block_skin_not_terrain() {
         // ASM sub_1007A starts by drawing the copied prize-block gfx object
         // while the source cell can still be `$E102`. The renderer must use
