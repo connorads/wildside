@@ -20,7 +20,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "level-entry-title-card",
-      "first_added_commit": "pending",
+      "first_added_commit": "f4734bfcb",
       "intended_meaning": "Native level-entry Title_Letter gfx slot index used to order and render title-card glyph workers allocated by ASM loc_1AC70.",
       "promotion_trigger": "Promote if title-card worker identity or glyph-slot ordering becomes part of typed trace parity or checked-in oracle assertions."
     },
@@ -29,7 +29,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "level-entry-title-card",
-      "first_added_commit": "pending",
+      "first_added_commit": "43737c537",
       "intended_meaning": "Native level-entry Title_Letter glyph byte stored at `$44(a5)` by ASM loc_1AC70 and consumed by the renderer to select the corresponding title-card glyph art.",
       "promotion_trigger": "Promote if title-card glyph identity becomes part of typed trace parity or checked-in oracle assertions."
     },
@@ -38,7 +38,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
-      "first_added_commit": "pending",
+      "first_added_commit": "1ccc382c8",
       "intended_meaning": "Native multi-head boss parent `$22(a2)` animation word consumed by ASM sub_393C8/sub_39420 to choose the waiting boss-eye orbit placement table index.",
       "promotion_trigger": "Promote if true boss-head parent animation parity or checked-in oracle comparisons depend on this field beyond the temporary orbit-worker bridge."
     },
@@ -47,7 +47,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
-      "first_added_commit": "pending",
+      "first_added_commit": "1ccc382c8",
       "intended_meaning": "Compatibility alias for the native multi-head boss parent `$16(a2)` x_direction byte carried through d0 by ASM loc_3893E/loc_389D6 so sub_393C8/sub_39420 can rerank boss-eye gfx objects when the parent direction changes.",
       "promotion_trigger": "Retire this alias once downstream trace consumers have switched to boss_eye_parent_x_direction_byte_16_loc_3893e."
     },
@@ -56,7 +56,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
-      "first_added_commit": "pending",
+      "first_added_commit": "c258a6921",
       "intended_meaning": "Native multi-head boss parent `$16(a2)` x_direction byte carried through d0 by ASM loc_3893E/loc_389D6 so sub_393C8/sub_39420 can rerank boss-eye gfx objects when the parent direction changes.",
       "promotion_trigger": "Promote if true boss-head parent animation parity or checked-in oracle comparisons depend on this field beyond the temporary orbit-worker bridge."
     },
@@ -65,7 +65,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
-      "first_added_commit": "pending",
+      "first_added_commit": "6b3c91bfc",
       "intended_meaning": "Native waiting boss-eye child object meta word written by ASM loc_3931A before the loc_38962/loc_389FA detach routes.",
       "promotion_trigger": "Promote if boss-eye child object-slot parity moves from trace-detail diagnostics into typed lifecycle or object-count comparison."
     },
@@ -74,7 +74,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
-      "first_added_commit": "pending",
+      "first_added_commit": "6b3c91bfc",
       "intended_meaning": "Native waiting boss-eye child collision flag cleared by ASM loc_3931A while the eye hibernates around its boss-head parent.",
       "promotion_trigger": "Promote if waiting boss-eye collision state becomes a typed lifecycle field or a checked oracle assertion."
     },
@@ -83,7 +83,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
-      "first_added_commit": "pending",
+      "first_added_commit": "6b3c91bfc",
       "intended_meaning": "Native waiting boss-eye child movement scheduler flag set by ASM loc_3931A after allocating the eye object slot.",
       "promotion_trigger": "Promote if waiting boss-eye scheduler state becomes a typed lifecycle field or a checked oracle assertion."
     },
@@ -92,7 +92,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
-      "first_added_commit": "pending",
+      "first_added_commit": "6b3c91bfc",
       "intended_meaning": "Native waiting boss-eye child `$A(a3)` sprite-order word adjusted by ASM sub_393C8/sub_39420 before j_sub_FF6 ordering.",
       "promotion_trigger": "Promote if boss-eye sprite-order parity moves from exploratory trace details into first-class gfx object ordering state."
     },
@@ -101,7 +101,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-eye-orbit-workers",
-      "first_added_commit": "pending",
+      "first_added_commit": "d91fbad0d",
       "intended_meaning": "Native waiting boss-eye child sprite mapping index refreshed by ASM sub_37ABC after sub_393C8/sub_39420 placement and before rendering.",
       "promotion_trigger": "Promote if waiting boss-eye rendering moves fully from the projectile bridge to first-class `$21` object snapshots."
     },
@@ -110,7 +110,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-head-death-script",
-      "first_added_commit": "pending",
+      "first_added_commit": "0b18f1626",
       "intended_meaning": "Native multi-head boss death script phase derived from ASM loc_39EBE: loc_39EE2 pre-spin scripts or loc_39F7A final spin loop.",
       "promotion_trigger": "Promote if boss-head death script ownership becomes typed state or parity checks depend on the exact phase."
     },
@@ -119,7 +119,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "boss-head-death-script",
-      "first_added_commit": "pending",
+      "first_added_commit": "0b18f1626",
       "intended_meaning": "Native remaining hibernated frames in the current ASM loc_39EBE boss-head death script phase.",
       "promotion_trigger": "Promote if boss-head death script ownership becomes typed state or parity checks depend on the exact phase countdown."
     },
@@ -128,7 +128,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "platform-render-tiling",
-      "first_added_commit": "pending",
+      "first_added_commit": "73c6a53eb",
       "intended_meaning": "Native active-platform collision width in pixels, copied from the ROM platform size word so render diagnostics can tile platform cells instead of drawing one fixed frame.",
       "promotion_trigger": "Promote if platform dimensions become part of typed render/frontier parity rather than temporary object debug metadata."
     },
@@ -137,7 +137,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "platform-render-tiling",
-      "first_added_commit": "pending",
+      "first_added_commit": "73c6a53eb",
       "intended_meaning": "Native active-platform collision height in pixels, copied from the ROM platform size word so render diagnostics can tile platform cells instead of drawing one fixed frame.",
       "promotion_trigger": "Promote if platform dimensions become part of typed render/frontier parity rather than temporary object debug metadata."
     },
@@ -146,7 +146,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "platform-render-tiling",
-      "first_added_commit": "pending",
+      "first_added_commit": "93e92d591",
       "intended_meaning": "Native active-platform `$1F(a3)` render/type byte after the retail `bclr #7` decode, used to choose the `off_24AC` platform sprite-strip branch.",
       "promotion_trigger": "Promote if platform render dispatch becomes part of typed render/frontier parity rather than temporary object debug metadata."
     },
@@ -155,7 +155,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "platform-render-tiling",
-      "first_added_commit": "pending",
+      "first_added_commit": "93e92d591",
       "intended_meaning": "Native active-platform `$18(a3)` mapping/art word selected from ASM `PlatformArtAddr_Table` after the render/type byte decode.",
       "promotion_trigger": "Promote if exact platform art-table selection is wired into typed render output or checked-in visual parity."
     },
@@ -164,7 +164,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "platform-loader",
-      "first_added_commit": "pending",
+      "first_added_commit": "a23926e2d",
       "intended_meaning": "Native active-platform loader record offset in words, mirroring the ROM `$20(a3)` key used by `sub_2728` to preserve platform slot identity.",
       "promotion_trigger": "Promote if platform-loader parity or checked-in roster matching starts depending on typed slot-offset state."
     },
@@ -173,7 +173,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "platform-loader",
-      "first_added_commit": "pending",
+      "first_added_commit": "7255aa9f4",
       "intended_meaning": "Native active-platform Platform_RAM slot address used to correlate rendered/collision platform snapshots with the ROM slot model.",
       "promotion_trigger": "Promote if platform parity or checked-in roster matching starts depending on typed Platform_RAM slot identity."
     },
@@ -182,7 +182,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "platform-loader",
-      "first_added_commit": "pending",
+      "first_added_commit": "7c67cdfff",
       "intended_meaning": "Native active-platform `$12(a3)` deactivation byte for special platform records retained by ASM `loc_2850` after an out-of-range loader check.",
       "promotion_trigger": "Promote if trap/chain platform parity or checked-in roster matching starts depending on typed special-platform deactivation state."
     },
@@ -191,7 +191,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "platform-collision",
-      "first_added_commit": "pending",
+      "first_added_commit": "dfbe507a2",
       "intended_meaning": "Native mirror of ASM `Platforms_CheckCollision` scratch cells `$FFFFFAA2..$FFFFFAA5` plus `$FFFFFA96`, emitted when a live platform contact sets one of the side/top/bottom/jump-platform latches.",
       "promotion_trigger": "Promote if platform frontier matching or checked-in parity assertions start depending on typed collision scratch state."
     },
@@ -200,7 +200,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-306-platforms",
-      "first_added_commit": "pending",
+      "first_added_commit": "db5f28f4d",
       "intended_meaning": "Native-side active-platform vector-order dump shaped like the oracle Platform_RAM linked-list trace from ASM `Platforms_CheckCollision` loc_257E / `Move_Platforms` sub_23EA, including position, velocity, state/timer, art, size, render byte, and ROM loader-offset key where available.",
       "promotion_trigger": "Promote if platform parity or checked-in regressions start depending on native-vs-oracle platform order or slot identity matching."
     },
@@ -209,7 +209,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-306-platforms",
-      "first_added_commit": "pending",
+      "first_added_commit": "863d29754",
       "intended_meaning": "Native-side platform loader cursor from ASM `Manage_PlatformLoading` loc_2744 / loc_286E, including the `PlatformLoader_Offset` equivalent, high-water materialisation bound, generated layout length, and active native slot count.",
       "promotion_trigger": "Promote if platform-loader parity or checked-in regressions start depending on cursor position or loader/slot identity matching."
     },
@@ -241,6 +241,33 @@
       "promotion_trigger": "Promote if pause-state parity needs to be asserted routinely."
     },
     {
+      "key": "pause_menu_option",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "pause-menu",
+      "first_added_commit": "8040b7488",
+      "intended_meaning": "Oracle pause menu cursor option emitted while the ROM Game_Paused_Loop state is active.",
+      "promotion_trigger": "Promote if pause-menu cursor parity moves from ad hoc oracle debug into typed frame state or checked-in assertions."
+    },
+    {
+      "key": "options_controls_scheme",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "options-menu",
+      "first_added_commit": "5ece267a3",
+      "intended_meaning": "Oracle Options_Suboption_Controls word used when comparing gameplay input remapping from the Options screen.",
+      "promotion_trigger": "Promote if options control-remap parity becomes typed state or a repeated checked-in assertion."
+    },
+    {
+      "key": "options_speed_button_fast",
+      "scope": "frame",
+      "status": "exploratory",
+      "owner": "options-menu",
+      "first_added_commit": "5ece267a3",
+      "intended_meaning": "Oracle Options_Suboption_Speed flag showing whether the fast button-speed option is enabled.",
+      "promotion_trigger": "Promote if options speed-button parity becomes typed state or a repeated checked-in assertion."
+    },
+    {
       "key": "eol_visible_gfx_slots_loc_d468",
       "scope": "frame",
       "status": "exploratory",
@@ -254,7 +281,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-175-eol-overlay",
-      "first_added_commit": "pending",
+      "first_added_commit": "5f18c0c3f",
       "intended_meaning": "Oracle VDP sprite-table linked entries at loc_C070/EOL checkpoints, including transformed hardware x/y, raw words, size/link, pattern, tile, palette, priority, and flip bits after Make_SpriteFromGfxObject/sub_13C0.",
       "promotion_trigger": "Promote if EOL strict-pixel parity or checked-in regression assertions start depending on typed hardware sprite-table state."
     },
@@ -308,7 +335,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-175-eol-overlay",
-      "first_added_commit": "pending",
+      "first_added_commit": "c4de01135",
       "intended_meaning": "Oracle VDP Plane A/B and sprite pixel provenance sampled at the start of the checkpoint frame before JGenesis line-renders it, used to identify VBlank/post-render latch differences around CharacterCollision_TouchFlagpole loc_C070.",
       "promotion_trigger": "Promote if EOL frame parity or checked-in regression assertions start depending on typed pre-frame VDP provenance."
     },
@@ -317,7 +344,7 @@
       "scope": "frame",
       "status": "candidate",
       "owner": "issue-289-level07-background",
-      "first_added_commit": "c61bd34cd",
+      "first_added_commit": "6d174c48b",
       "intended_meaning": "Oracle WRAM snapshot of BackgroundScroll_ComputeShiftData/ComputeShiftLayers state: representative Horiz_Scroll_Data slots and Horiz_Scroll_Buffer scanline words for investigating Level 0x07 Plane-B row phase.",
       "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed per-row scroll/Plane-B state.",
       "stale_candidate_exemption": "Investigation-only oracle snapshot for #289; do not promote until the live Plane-B row model consumes typed per-row scroll state."
@@ -337,7 +364,7 @@
       "scope": "frame",
       "status": "candidate",
       "owner": "issue-289-level07-background",
-      "first_added_commit": "pending",
+      "first_added_commit": "c29f1af70",
       "intended_meaning": "Oracle VDP loc_C070 Plane A/B pixel provenance for selected Level 0x07 #289 cloud and shore/ocean strict-diff coordinates, including nametable word, scrolled world coordinate, decoded tile pixel, full 8-pixel tile row, raw row bytes, palette line/index, priority, and RGB.",
       "promotion_trigger": "Promote if chunked background pixel parity or checked-in regression assertions start depending on typed per-pixel VDP provenance or tile-art row state.",
       "stale_candidate_exemption": "Investigation-only oracle snapshot for #289; keep candidate until the native renderer consumes typed VDP tile-art row provenance."
@@ -374,7 +401,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-206-diamond-power-snake-audit",
-      "first_added_commit": "pending",
+      "first_added_commit": "84b5f5ef9",
       "intended_meaning": "Native MiniSnake/DeathSnake DP-slot head position high/low words, steering angle/speeds, selected target, and first compiled sprite for the #206 Snake audit.",
       "promotion_trigger": "Promote if Snake oracle parity or checked-in regressions start depending on typed DP snake head/target state."
     },
@@ -383,7 +410,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "juggernaut-companion-visual-ratchet",
-      "first_added_commit": "pending",
+      "first_added_commit": "7a398e5b0",
       "intended_meaning": "Native ASM sub_975C Juggernaut companion visual step summary: selected mapping/animation plus byte_15 and blocked-latch state for the not-yet-persisted companion GFX object.",
       "promotion_trigger": "Promote if Juggernaut companion render parity or checked-in oracle assertions start depending on typed companion object state."
     },
@@ -392,7 +419,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "ufo-linked-object-ratchet",
-      "first_added_commit": "pending",
+      "first_added_commit": "754b579de",
       "intended_meaning": "Native ASM UFO.asm loc_3531A linked-object integer X word derived from the parent UFO position and direction for the not-yet-persisted linked UFO child object.",
       "promotion_trigger": "Promote if UFO linked-object render or cleanup parity starts depending on typed linked child object state."
     },
@@ -401,7 +428,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "mini-hopping-skull-air-ratchet",
-      "first_added_commit": "pending",
+      "first_added_commit": "ae10f4a05",
       "intended_meaning": "Native ASM Mini_Hopping_Skull.asm loc_3EA88/loc_3EAAC rising/falling body-art branch derived from live airborne Y velocity after the animation guard has cleared.",
       "promotion_trigger": "Promote if Mini Hopping Skull render parity starts depending on typed airborne animation state."
     },
@@ -482,7 +509,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-213-drips-rocktank-route",
-      "first_added_commit": "pending",
+      "first_added_commit": "3081592c3",
       "intended_meaning": "Nearest native stomp-contact candidates with AABB overlap, rejection gate, classification result, and object-vs-Kid velocity deltas for the issue #213 frame-612 bounce divergence.",
       "promotion_trigger": "Promote if repeated parity work depends on typed stomp candidate rejection reasons or the field starts driving regression assertions."
     },
@@ -491,7 +518,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-260-drips-rocktank-overlap",
-      "first_added_commit": "pending",
+      "first_added_commit": "3aba19d9c",
       "intended_meaning": "Native Kid/enemy collision candidates in the order native scans them, including target kind, AABB gate, classification result, and velocity deltas. Added to compare the issue #260 Drips helper plus RockTank overlap with ASM GfxObjects_CollisionKid list-order writes before changing stomp priority.",
       "promotion_trigger": "Promote if repeated parity work depends on typed native collision-list order or the field starts driving regression assertions."
     },
@@ -500,7 +527,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-213-drips-rocktank-route",
-      "first_added_commit": "pending",
+      "first_added_commit": "688c4a615",
       "intended_meaning": "Native projectile or fire-trail overlap candidate using the same hitbox predicate as projectile_hits_player, used to attribute the issue #213 early projectile-damage divergence after Drips crawler Y correction.",
       "promotion_trigger": "Promote if repeated parity work depends on typed projectile/Kid damage-candidate attribution or the field starts driving regression assertions."
     },
@@ -509,7 +536,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-213-drips-rocktank-route",
-      "first_added_commit": "pending",
+      "first_added_commit": "747590958",
       "intended_meaning": "Native Drips parent wait/drop/table state plus Drips drop/crawler/burst child workers and their current terrain cells for locating missing loc_335D8 crawlers and issue #260 block-contact divergences.",
       "promotion_trigger": "Promote if repeated parity work depends on typed Drips parent or child lifecycle state instead of the free-form debug summary."
     },
@@ -518,7 +545,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-260-drips-metal-block-route",
-      "first_added_commit": "pending",
+      "first_added_commit": "4d284db4b",
       "intended_meaning": "Native Drips loc_33488 -> loc_3340E reseed event: parent layout, table cursor movement, crawler allocation byte, Kid X word, reseed random byte, and resulting wait timer for explaining the issue #260 post-splash timer divergence.",
       "promotion_trigger": "Promote if Drips splash reseed parity starts driving regression assertions or repeated source-port work depends on typed RNG/table-cursor state."
     },
@@ -622,6 +649,15 @@
       "promotion_trigger": "Promote if repeated frontiers depend on decoding or asserting the per-object collision metadata."
     },
     {
+      "key": "object_type_source",
+      "scope": "object",
+      "status": "exploratory",
+      "owner": "oracle-object-collision",
+      "first_added_commit": "c99f7f81d",
+      "intended_meaning": "Oracle object-type fallback source for object slots whose collision source directly provides the effective object type.",
+      "promotion_trigger": "Promote if oracle enemy/object slot attribution starts depending on this fallback as typed state."
+    },
+    {
       "key": "grounded_frames",
       "scope": "object",
       "status": "exploratory",
@@ -698,7 +734,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "issue-262-level07-lion",
-      "first_added_commit": "pending",
+      "first_added_commit": "cbbc074e3",
       "intended_meaning": "Native Lion parent state machine phase for tracing Level 0x07 skip-settle timing against Lion.asm loc_3E078/loc_3E0F4/loc_3E11E.",
       "promotion_trigger": "Promote if Lion parent phase starts driving checked-in parity assertions or multiple Lion frontiers."
     },
@@ -707,7 +743,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "issue-262-level07-lion",
-      "first_added_commit": "pending",
+      "first_added_commit": "0b38b2a16",
       "intended_meaning": "Native Lion `$5B(a5)` equivalent, counting live projectile children that suppress fresh roar/fire cycles.",
       "promotion_trigger": "Promote if projectile-parent coupling is asserted by regression tests rather than used as frontier diagnostics."
     },
@@ -716,7 +752,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "issue-301-bosses",
-      "first_added_commit": "pending",
+      "first_added_commit": "8e7640555",
       "intended_meaning": "Native HeadyMetal five-bit palette-wave phase equivalent to sub_379E8 d2 in the loc_3763A tracker loop.",
       "promotion_trigger": "Promote if renderer CRAM parity or checked-in boss visual assertions depend on the typed phase."
     },
@@ -725,7 +761,7 @@
       "scope": "object",
       "status": "exploratory",
       "owner": "issue-301-bosses",
-      "first_added_commit": "pending",
+      "first_added_commit": "8e7640555",
       "intended_meaning": "Native HeadyMetal palette word selected by sub_379E8 for Palette_Buffer+$5E.",
       "promotion_trigger": "Promote when the renderer consumes this as typed palette/CRAM state instead of a debug diagnostic."
     },
@@ -752,7 +788,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-214-highwater-shooter",
-      "first_added_commit": "pending",
+      "first_added_commit": "78c505cff",
       "intended_meaning": "Native Highwater Pass 1 shooter/barrier route diagnostics: shooter scan cursor, active shooter slots, shooter headbutt workers, typed projectiles, source shooter cells, and first ice-barrier cells.",
       "promotion_trigger": "Promote if #214 parity or checked-in regressions start depending on typed shooter slot/barrier-cell state."
     },
@@ -761,7 +797,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-214-highwater-shooter",
-      "first_added_commit": "pending",
+      "first_added_commit": "649ee918a",
       "intended_meaning": "Oracle-side active ShooterObject_RAM linked-list dump from ASM LoadBulletsFromEvanescentBlock/Process_ShooterObjects loc_EC22: source cell, pixel position, direction, cadence counter, and next pointer for each active shooter slot.",
       "promotion_trigger": "Promote if #214 parity or checked-in regressions start depending on exact ROM shooter scratch-slot timing."
     },
@@ -779,7 +815,7 @@
       "scope": "frame",
       "status": "exploratory",
       "owner": "issue-306-platforms",
-      "first_added_commit": "pending",
+      "first_added_commit": "6060aaf87",
       "intended_meaning": "Oracle-side active Platform_RAM linked-list dump from ASM Platforms_CheckCollision loc_257E / Move_Platforms sub_23EA: slot address, next pointer, position, velocity, state/timer, art, size, render byte, and layout offset.",
       "promotion_trigger": "Promote if platform parity or checked-in regressions start depending on exact ROM platform slot order or slot identity."
     },

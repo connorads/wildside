@@ -1272,6 +1272,42 @@ mod tests {
     }
 
     #[test]
+    fn check_required_labels_are_covered_in_real_repo() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|path| path.parent())
+            .expect("wildside-cli crate should live under crates/");
+        let upstream_dir = repo_root.join(".cache/upstream/kid-chameleon-disasm");
+        assert!(
+            upstream_dir.is_dir(),
+            "disassembly fixture missing at {}; run `mise run bootstrap-upstream`",
+            upstream_dir.display()
+        );
+
+        let asm_labels =
+            extract_all_asm_labels(&upstream_dir).expect("real disassembly labels parse");
+        let citations = extract_native_citations(repo_root).expect("real native citations scan");
+        let map = build_coverage_map(
+            asm_labels,
+            &citations.files_by_label,
+            &citations.breakdown_by_label,
+        );
+        let reports = check_required_labels(&map);
+        let issues = reports
+            .iter()
+            .filter(|report| !matches!(report.status, RequiredLabelStatus::Covered))
+            .map(|report| format!("{}: {:?}", report.required.label, report.status))
+            .collect::<Vec<_>>();
+
+        assert_eq!(reports.len(), REQUIRED_LABELS.len());
+        assert!(
+            issues.is_empty(),
+            "required ASM labels must stay cited in the real repo: {}",
+            issues.join(", ")
+        );
+    }
+
+    #[test]
     fn test_only_ratchet_allows_grandfathered_labels_and_burn_down() {
         let baseline = TestOnlyBaseline {
             version: 1,

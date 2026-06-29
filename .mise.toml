@@ -57,7 +57,15 @@ run = "cargo run -p wildside-cli -- probe-cpu"
 run = "scripts/strict-rust.sh cargo run --release -p wildside-cli -- verify-gameplay --all"
 
 [tasks.verify-slice-fast]
-depends = ["check-hooks", "lint", "verify-tas-frontier", "backlog-lint"]
+depends = [
+  "check-hooks",
+  "lint",
+  "verify-tas-frontier",
+  "backlog-lint",
+  "audit-debug-fields",
+  "asm-coverage-check-required",
+  "asm-coverage-check-no-new-test-only",
+]
 # `check-hooks` makes the gate refuse to pass on a clone/worktree where the
 # pre-commit hook isn't wired (run: mise run setup) — fail-closed, near-instant.
 # `lint` (cargo clippy --workspace --all-targets -- -D warnings) is a direct dep,
@@ -90,6 +98,14 @@ description = "Summarise repo health: 1P-playable first, 1P-accurate second, bac
 [tasks.backlog-lint]
 run = "cargo run -q -p wildside-cli -- backlog-lint"
 description = "Enforce backlog hygiene: NOW size, lean open-queue Verify cells, lane/status consistency (runs in verify-slice-fast)"
+
+[tasks.asm-coverage-check-required]
+run = "cargo run -q -p wildside-cli -- asm-coverage --check-required"
+description = "Fail if required ASM labels lose native citations"
+
+[tasks.asm-coverage-check-no-new-test-only]
+run = "cargo run -q -p wildside-cli -- asm-coverage --check-no-new-test-only"
+description = "Fail if any new ASM label becomes test-only debt outside the reviewed baseline"
 
 [tasks.dead-code-ratchet]
 run = "python3 scripts/dead_code_ratchet.py"

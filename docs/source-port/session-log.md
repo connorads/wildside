@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#367 verify-slice-fast gate wiring fixed)
+
+- **#367 moved `[~]` -> `[x]`.** `verify-slice-fast` now depends on
+  `audit-debug-fields`, `asm-coverage --check-required`, and
+  `asm-coverage --check-no-new-test-only`.
+- The required-label gate reports 9/9 labels covered, the test-only ratchet reports 242 current /
+  242 baseline / 0 burned down, and the debug-field audit reports 91 emitted / 91 registered keys
+  with 0 pending `first_added_commit` hashes.
+- Hardened `audit-debug-fields` to scan `crates/**/*.rs.txt`, accept split-line `.insert(...)`
+  debug-field calls, warn on registered-but-unemitted keys, register the newly visible oracle
+  helper template fields, and backfill all pending registry hashes.
+- Added a real repository integration test for `--check-required`: it parses the local Kid
+  disassembly, scans current native citations, and proves all required ASM labels resolve as
+  covered.
+- Verification: focused `audit-debug-fields`, `asm_coverage`, `asm-coverage-check-required`,
+  `asm-coverage-check-no-new-test-only`, `cargo fmt --check`, registry hash audit, and
+  `mise run verify-slice-fast`. `verify-tas-full` was not required because this is tooling/gate-only.
+- NEXT: `project-status` shows no ready-to-implement rows; take #336 first under
+  playability/infra/intro risks, with #368 next there and #210 still the top visual risk.
+
 ## 2026-06-29 handoff (#366 asm-coverage test-only ratchet fixed)
 
 - **#366 moved `[~]` -> `[x]`.** asm-coverage now has a checked-in

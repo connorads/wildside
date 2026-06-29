@@ -26,20 +26,19 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-29 loop handoff:** #366 asm-coverage test-only ratchet is resolved. The current 242
-  `test_only_debt` labels are snapshotted in `asm-coverage-test-only-baseline.yaml`, and
-  `asm-coverage --check-no-new-test-only` fails on any new test-only ASM label outside that
-  reviewed baseline.
-- **Orphan triage:** `sub_96E8` needs live Juggernaut wall-scan wiring; `sub_1FA2` needs a
-  #205-style global post-object collision scenario before wiring; `sub_144DA`/`sub_14582` are
-  render-backed rubber-block art references still owned by core test-only checks; `sub_3F366` is
-  live-backed but needs a production citation for the exact label.
-- **Verification:** focused `asm_coverage`, `juggernaut_wall_scan_sub_96e8`, `sub_1fa2`, and
-  `mini_hopping_skull_sub_3f366...` tests; `cargo fmt --check`; `asm-coverage
-  --check-no-new-test-only`; `asm-coverage --update`; and `mise run verify-slice-fast` exit 0
-  completed. `verify-tas-full` was not required because this is tooling/docs-only.
-- **Next selector output:** no ready-to-implement rows; `project-status` now leads with #367 in
-  playability/infra risks and #210 in visual risks.
+- **2026-06-29 loop handoff:** #367 verify-slice-fast gate wiring is resolved.
+  `verify-slice-fast` now runs `audit-debug-fields`, `asm-coverage --check-required`, and
+  `asm-coverage --check-no-new-test-only` as first-class deps.
+- **Gate state:** required ASM coverage reports 9/9 labels covered; the test-only ratchet reports
+  242 current / 242 baseline / 0 burned down; debug-field audit reports 91 emitted / 91 registered
+  keys and 0 pending `first_added_commit` hashes. The three old #289 candidate debug fields still
+  warn through explicit exemptions.
+- **Verification:** focused `audit-debug-fields`, `asm_coverage`, `asm-coverage-check-required`,
+  and `asm-coverage-check-no-new-test-only`; `cargo fmt --check`; registry hash audit; and
+  `mise run verify-slice-fast` exit 0 completed. `verify-tas-full` was not required because this is
+  tooling/gate-only.
+- **Next selector output:** no ready-to-implement rows; `project-status` now leads with #336 in
+  playability/infra/intro risks, #368 next in playability/infra, and #210 in visual risks.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -68,5 +67,4 @@ For newly opened items, capture these facts in the investigation notes:
 | 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |
 | 349 | [ ] | P1 | render | 2026-06-26 playtest: post-death respawn card still shows the trees but NOT the level-NAME text; the 2026-06-21 fix (`b55244ad1`) IS in the build, so the candidate FAILED validation. | Re-investigate the respawn-card render path (InGame classification trace.rs:9177; glyph-worker filter; overlay window); add a native-player capture-frame assertion, not just the CRC-neutral render test. See archive #349. |
 | 361 | [ ] | P2 | render/enemy | 2026-06-26 playtest: on the hand level the live Hand (0x17) animation free-runs/flickers ("spazzes") instead of holding body frames. Deferred #243/#333 follow-up, never given its own row. NOT the grab gating #185 (grab+slow works). | Add a `select_live_hand_frame` selector mirroring `select_live_tar_monster_frame`: hold Hand body frames off HandState, early-return None on hp==0 so the death table keeps death frames; capture-frames to confirm no flicker. Cross-ref #243/#333, #185. |
-| 367 | [ ] | P2 | infra/asm-coverage | Wire `verify-slice-fast` deps: #366 ratchet + `audit-debug-fields` (green) + `asm-coverage --check-required` (with real integration test); fold in E3 glob fix + registry hygiene (dead-entry warn + pending-hash backfill). Depends on #366. | verify-slice-fast goes red on a deleted required citation, a new test-only port, or an unregistered debug key. See plan #367. |
 | 368 | [ ] | P3 | infra/docs | One-off tidy (not gated): fix stale citations loc_2510C (combat.rs:179) + loc_23629 (native_player/mod.rs:2086); gate-message → core/data (F6); refresh audio-triggers refs (F5); dedup CLAUDE.md asm-coverage block + document `--check-required` (F4). | Stale citations gone; CLAUDE.md block single-source. See plan #368. |

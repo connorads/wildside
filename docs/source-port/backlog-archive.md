@@ -10617,6 +10617,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 364 | [x] | P2 | infra/asm-coverage | asm-coverage now uses a tokenizer-grade line-context detector for inline `#[cfg(test)]` citations, preserving production citations after early gated helpers. | Real `blocks.rs` trap pinned (1692/4675 production, 5698 test), asm-coverage update checked, targeted mutation run, and `verify-slice-fast` exit 0. See archive #364. |
 | 365 | [x] | P2 | infra/asm-coverage | asm-coverage now reports reachable / test-only-debt / uncovered labels, marks the GEMS M68k<->Z80 interface as emulated, and removes the vestigial oracle-backed tier. | Headline/JSON/YAML report 3835 reachable / 242 test-only debt / 40 uncovered (33 emulated GEMS, 7 ordinary); focused tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #365. |
 | 366 | [x] | P2 | infra/asm-coverage | asm-coverage now has a checked-in test-only baseline and `--check-no-new-test-only` ratchet; the five orphan subroutines are triaged with inline fidelity notes. | Baseline records 242 grandfathered test-only labels; new test-only labels fail the CLI ratchet; focused asm/core tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #366. |
+| 367 | [x] | P2 | infra/asm-coverage | `verify-slice-fast` now runs the test-only ratchet, required-label gate, and debug-field audit; the audit scans the oracle helper template and registry hashes are backfilled. | Gate deps report 9 required labels covered, 242 current/242 baseline test-only labels, and 91 emitted/91 registered debug keys; focused tests and `verify-slice-fast` exit 0. See archive #367. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11729,6 +11730,24 @@ remains exact, with the known state-report divergences still first authoritative
   `mini_hopping_skull_sub_3f366...` tests; `cargo fmt --check`; `asm-coverage
   --check-no-new-test-only`; `asm-coverage --update`; `verify-slice-fast` exit 0.
   `verify-tas-full` was not required for tooling/docs-only coverage work.
+
+- **#367 (asm-coverage local gate wiring, P2 infra).** Fixed 2026-06-29 (`[~]` -> `[x]`).
+  `verify-slice-fast` now depends on `audit-debug-fields`,
+  `asm-coverage-check-required`, and `asm-coverage-check-no-new-test-only`, so the local gate goes
+  red on an unregistered emitted debug key, a deleted required ASM citation, or a new test-only ASM
+  label outside the reviewed baseline. Added a real repository integration test for
+  `--check-required`: it parses `.cache/upstream/kid-chameleon-disasm`, scans current native
+  citations, and asserts all 9 `REQUIRED_LABELS` resolve as covered. Hardened
+  `audit-debug-fields` by scanning `crates/**/*.rs.txt` for the `oracle_helper_main.rs.txt`
+  template, accepting split-line `.insert(...)` calls, and warning on registered keys that are no
+  longer emitted. Registered the newly visible oracle-template keys (`pause_menu_option`,
+  `options_controls_scheme`, `options_speed_button_fast`, `object_type_source`) and backfilled all
+  `first_added_commit: pending` registry hashes plus the bad `oracle_background_scroll_loc_3050a`
+  candidate hash. Current audit state is 91 emitted / 91 registered keys, 0 pending hashes; the
+  three old #289 candidate fields warn only through explicit exemptions. Verification: focused
+  `audit-debug-fields`, `asm_coverage`, `asm-coverage-check-required`, and
+  `asm-coverage-check-no-new-test-only`; `cargo fmt --check`; `verify-slice-fast` exit 0.
+  `verify-tas-full` was not required for tooling/gate-only work.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

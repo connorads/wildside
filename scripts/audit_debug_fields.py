@@ -13,10 +13,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = REPO_ROOT / "docs/source-port/debug-field-registry.yaml"
 SCAN_GLOBS = (
     "crates/**/*.rs",
+    "crates/**/*.rs.txt",
     "scripts/**/*.py",
 )
 KEY_PATTERN = re.compile(
-    r"\b(?:debug_fields|gameplay_debug_fields)\.insert\(\s*\"([^\"]+)\"(?:\.into\(\))?"
+    r"\b(?:debug_fields|gameplay_debug_fields)\s*\.\s*insert\(\s*\"([^\"]+)\"(?:\.into\(\))?"
 )
 
 
@@ -105,6 +106,10 @@ def main() -> int:
     unregistered = sorted(emitted - registered.keys())
     if unregistered:
         problems.extend(f"unregistered emitted debug key: {key}" for key in unregistered)
+
+    registered_but_not_emitted = sorted(registered.keys() - emitted)
+    for key in registered_but_not_emitted:
+        warnings.append(f"registered debug key is not emitted by current sources: {key}")
 
     for key, field in sorted(registered.items()):
         status = field.get("status", "exploratory")
