@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#365 asm-coverage reachability split fixed)
+
+- **#365 moved `[~]` -> `[x]`.** asm-coverage now reports reachable / test-only-debt / uncovered
+  labels with the GEMS interface split as emulated.
+- Reachable = non-test core/data citation; test-only debt = `cfg(test)`-only; uncovered = no
+  production/test citation; `sub_E133C..loc_E15E8` is `emulated_gems`.
+- Removed the vestigial `oracle_backed`/`OracleBacked` output; `parity_evidence` remains evidence
+  text only.
+- Current headline/JSON/YAML: 3835 reachable / 242 test-only debt / 40 uncovered (33 emulated
+  GEMS, 7 ordinary). The rough plan's 3788/289 estimate included 47 labels that now have both
+  production and test citations; decision 2 classifies those as reachable.
+- `--uncovered` tags the 14 current GEMS `sub_` labels as `[emulated GEMS]`.
+- Verification: focused `asm_coverage` and `rust_source_context` tests, `cargo fmt --check`,
+  `asm-coverage --update`, JSON/YAML absence checks for `oracle_backed`, and
+  `mise run verify-slice-fast`. `verify-tas-full` was not required because this is tooling-only.
+- NEXT: `project-status` shows no ready-to-implement rows; take #366 first under playability/infra
+  risks, with #210 still the top visual risk.
+
 ## 2026-06-29 handoff (#364 asm-coverage cfg detector fixed)
 
 - **#364 moved `[~]` -> `[x]`.** asm-coverage now has a line-aware Rust source-context detector

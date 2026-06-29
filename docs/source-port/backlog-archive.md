@@ -10615,6 +10615,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 362 | [x] | P2 | audio | RockTank drive SFX `$1F` no longer starts while the tank body is clipped out of the sprite visibility window. | ASM `Tank.asm` loc_3B40A / `Tank_Shooting.asm` loc_3B690 / `Make_SpriteFromGfxObject` loc_11EE / `sub_3C352`; Tank regression, #339 stop/count regressions, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #362. |
 | 363 | [x] | P2 | audio | Clean fatal TheKid deaths no longer replay the legacy HP-drop ouch over the core `sfx_Voice_die` in native playback. | ASM `Death` (kid.asm:14714) / loc_B73C distinction; focused native-player issue_363 regressions, native-player audio tests, core voice-die tests, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #363. |
 | 364 | [x] | P2 | infra/asm-coverage | asm-coverage now uses a tokenizer-grade line-context detector for inline `#[cfg(test)]` citations, preserving production citations after early gated helpers. | Real `blocks.rs` trap pinned (1692/4675 production, 5698 test), asm-coverage update checked, targeted mutation run, and `verify-slice-fast` exit 0. See archive #364. |
+| 365 | [x] | P2 | infra/asm-coverage | asm-coverage now reports reachable / test-only-debt / uncovered labels, marks the GEMS M68k<->Z80 interface as emulated, and removes the vestigial oracle-backed tier. | Headline/JSON/YAML report 3835 reachable / 242 test-only debt / 40 uncovered (33 emulated GEMS, 7 ordinary); focused tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #365. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11693,6 +11694,23 @@ remains exact, with the known state-report divergences still first authoritative
   equivalent/valid-input residuals. Verification: focused `rust_source_context` and `asm_coverage`
   tests, `cargo fmt --check`, `asm-coverage --update`, and `verify-slice-fast` exit 0.
   `verify-tas-full` was not required for tooling-only coverage classification.
+
+- **#365 (asm-coverage 3-way classification, P2 infra).** Fixed 2026-06-29 (`[~]` -> `[x]`).
+  `asm-coverage` now classifies every label as `reachable`, `test_only_debt`, `uncovered`, or
+  `emulated_gems`. Reachable means at least one non-`cfg(test)` citation in scanned core/data;
+  test-only debt means test citation(s) without production citation; uncovered means no
+  production/test citation, with the audited GEMS subset split out as `emulated_gems`. The GEMS
+  bucket is the audited `sub_E133C..loc_E15E8` M68k<->Z80/GEMS interface rather than a wider
+  scanner scope, matching the remediation decision that `wildside-md` emulates the driver. The old
+  `oracle_backed`/`OracleBacked` tier and YAML field are gone; `parity_evidence` is preserved only
+  as evidence text and no longer affects coverage state. The real headline is 3835 reachable / 242
+  test-only debt / 40 uncovered (33 emulated GEMS, 7 ordinary); this differs from the rough plan
+  estimate because 47 labels have both production and test citations and are correctly reachable
+  under decision 2. JSON and `.cache/asm-coverage.yaml` carry the new summary/state fields, and
+  `--uncovered` tags all 14 current GEMS `sub_` entries as `[emulated GEMS]`. Verification:
+  focused `asm_coverage` and `rust_source_context` tests, `cargo fmt --check`,
+  `asm-coverage --update`, JSON/YAML `oracle_backed` absence checks, and `verify-slice-fast` exit
+  0. `verify-tas-full` was not required for tooling-only coverage classification.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

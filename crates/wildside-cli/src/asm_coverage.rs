@@ -23,6 +23,16 @@ pub(crate) struct AsmLabel {
     pub(crate) line_number: usize,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub(crate) cited_in: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coverage_state: Option<CoverageState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    implementation_cited: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    test_cited: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    emulated_gems: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    citation_breakdown: Option<CitationBreakdown>,
 }
 
 /// Coverage data for a single ASM subsystem.
@@ -52,6 +62,18 @@ pub(crate) struct CoverageSummary {
     pub(crate) sub_coverage_pct: f64,
     pub(crate) loc_cited: usize,
     pub(crate) loc_coverage_pct: f64,
+    #[serde(default)]
+    pub(crate) total_labels: usize,
+    #[serde(default)]
+    pub(crate) reachable_labels: usize,
+    #[serde(default)]
+    pub(crate) test_only_debt_labels: usize,
+    #[serde(default)]
+    pub(crate) uncovered_labels: usize,
+    #[serde(default)]
+    pub(crate) emulated_gems_labels: usize,
+    #[serde(default)]
+    pub(crate) non_emulated_uncovered_labels: usize,
 }
 
 /// Previously hand-annotated data we want to preserve across --update runs.
@@ -70,10 +92,13 @@ struct AnnotationOverlay {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum CoverageState {
-    Mentioned,
-    Implemented,
-    Tested,
-    OracleBacked,
+    #[serde(alias = "implemented")]
+    Reachable,
+    #[serde(alias = "tested")]
+    TestOnlyDebt,
+    #[serde(alias = "mentioned")]
+    Uncovered,
+    EmulatedGems,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -129,6 +154,11 @@ fn extract_labels_from_file(path: &Path, relative: &str) -> Result<Vec<AsmLabel>
             asm_file: relative.to_owned(),
             line_number: i + 1,
             cited_in: Vec::new(),
+            coverage_state: None,
+            implementation_cited: None,
+            test_cited: None,
+            emulated_gems: None,
+            citation_breakdown: None,
         });
     }
     Ok(labels)
@@ -358,9 +388,58 @@ fn classify_subsystem(asm_file: &str) -> String {
 
 // ── Coverage map construction ──────────────────────────────────────────
 
+#[derive(Debug, Clone)]
+struct LabelCoverageClassification {
+    state: CoverageState,
+    breakdown: CitationBreakdown,
+    implementation_cited: bool,
+    test_cited: bool,
+    emulated_gems: bool,
+}
+
+fn classify_label_coverage(
+    label: &str,
+    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
+    cited_in: &[String],
+) -> LabelCoverageClassification {
+    let breakdown = citation_breakdown_for_label(citation_breakdowns, label, cited_in);
+    let implementation_cited = !breakdown.implementation.is_empty();
+    let test_cited = !breakdown.tests.is_empty();
+    let emulated_gems = is_emulated_gems_label(label);
+    let state = if emulated_gems {
+        CoverageState::EmulatedGems
+    } else if implementation_cited {
+        CoverageState::Reachable
+    } else if test_cited {
+        CoverageState::TestOnlyDebt
+    } else {
+        CoverageState::Uncovered
+    };
+
+    LabelCoverageClassification {
+        state,
+        breakdown,
+        implementation_cited,
+        test_cited,
+        emulated_gems,
+    }
+}
+
+fn is_emulated_gems_label(label: &str) -> bool {
+    label_address(label).is_some_and(|address| (0xE133C..=0xE15E8).contains(&address))
+}
+
+fn label_address(label: &str) -> Option<u32> {
+    label
+        .strip_prefix("sub_")
+        .or_else(|| label.strip_prefix("loc_"))
+        .and_then(|hex| u32::from_str_radix(hex, 16).ok())
+}
+
 fn build_coverage_map(
     asm_labels: Vec<AsmLabel>,
     citations: &BTreeMap<String, BTreeSet<String>>,
+    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
 ) -> CoverageMap {
     let mut subsystems: BTreeMap<String, Vec<AsmLabel>> = BTreeMap::new();
 
@@ -368,6 +447,13 @@ fn build_coverage_map(
         if let Some(files) = citations.get(&label.label) {
             label.cited_in = files.iter().cloned().collect();
         }
+        let classification =
+            classify_label_coverage(&label.label, citation_breakdowns, &label.cited_in);
+        label.coverage_state = Some(classification.state);
+        label.implementation_cited = Some(classification.implementation_cited);
+        label.test_cited = Some(classification.test_cited);
+        label.emulated_gems = Some(classification.emulated_gems);
+        label.citation_breakdown = Some(classification.breakdown);
         let subsystem = classify_subsystem(&label.asm_file);
         subsystems.entry(subsystem).or_default().push(label);
     }
@@ -376,6 +462,10 @@ fn build_coverage_map(
     let mut total_loc = 0usize;
     let mut cited_sub = 0usize;
     let mut cited_loc = 0usize;
+    let mut reachable_labels = 0usize;
+    let mut test_only_debt_labels = 0usize;
+    let mut uncovered_labels = 0usize;
+    let mut emulated_gems_labels = 0usize;
 
     let mut subsystem_map: BTreeMap<String, SubsystemCoverage> = BTreeMap::new();
     for (name, labels) in subsystems {
@@ -398,6 +488,18 @@ fn build_coverage_map(
         total_loc += loc_total;
         cited_sub += sub_cited;
         cited_loc += loc_cited;
+        for label in &labels {
+            match label.coverage_state {
+                Some(CoverageState::Reachable) => reachable_labels += 1,
+                Some(CoverageState::TestOnlyDebt) => test_only_debt_labels += 1,
+                Some(CoverageState::Uncovered) => uncovered_labels += 1,
+                Some(CoverageState::EmulatedGems) => {
+                    uncovered_labels += 1;
+                    emulated_gems_labels += 1;
+                }
+                None => uncovered_labels += 1,
+            }
+        }
 
         subsystem_map.insert(
             name,
@@ -432,6 +534,12 @@ fn build_coverage_map(
             sub_coverage_pct: (sub_pct * 10.0).round() / 10.0,
             loc_cited: cited_loc,
             loc_coverage_pct: (loc_pct * 10.0).round() / 10.0,
+            total_labels: total_sub + total_loc,
+            reachable_labels,
+            test_only_debt_labels,
+            uncovered_labels,
+            emulated_gems_labels,
+            non_emulated_uncovered_labels: uncovered_labels.saturating_sub(emulated_gems_labels),
         },
         subsystems: subsystem_map,
     }
@@ -527,7 +635,7 @@ struct AsmLabelAnnotated {
     #[serde(skip_serializing_if = "Option::is_none")]
     test_cited: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    oracle_backed: Option<bool>,
+    emulated_gems: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     citation_breakdown: Option<CitationBreakdown>,
 }
@@ -549,11 +657,7 @@ struct CoverageMapWithAnnotations {
     subsystems: BTreeMap<String, SubsystemCoverageAnnotated>,
 }
 
-fn apply_annotations(
-    map: CoverageMap,
-    overlay: &AnnotationOverlay,
-    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
-) -> CoverageMapWithAnnotations {
+fn apply_annotations(map: CoverageMap, overlay: &AnnotationOverlay) -> CoverageMapWithAnnotations {
     let subsystems = map
         .subsystems
         .into_iter()
@@ -572,28 +676,11 @@ fn apply_annotations(
                         .get(&l.label)
                         .cloned()
                         .unwrap_or_default(),
-                    coverage_state: coverage_state_for_label(
-                        citation_breakdowns,
-                        overlay,
-                        &l.label,
-                        &l.cited_in,
-                    ),
-                    implementation_cited: Some(has_implementation_citation_for_label(
-                        citation_breakdowns,
-                        &l.label,
-                        &l.cited_in,
-                    )),
-                    test_cited: Some(has_test_citation_for_label(
-                        citation_breakdowns,
-                        &l.label,
-                        &l.cited_in,
-                    )),
-                    oracle_backed: Some(is_oracle_backed(overlay, &l.label)),
-                    citation_breakdown: Some(citation_breakdown_for_label(
-                        citation_breakdowns,
-                        &l.label,
-                        &l.cited_in,
-                    )),
+                    coverage_state: l.coverage_state,
+                    implementation_cited: l.implementation_cited,
+                    test_cited: l.test_cited,
+                    emulated_gems: l.emulated_gems,
+                    citation_breakdown: l.citation_breakdown,
                     description: overlay.descriptions.get(&l.label).cloned(),
                     priority: overlay.priorities.get(&l.label).cloned(),
                     label: l.label,
@@ -653,50 +740,14 @@ fn citation_breakdown_for_label(
         .unwrap_or_else(|| classify_citations(cited_in))
 }
 
-fn has_implementation_citation_for_label(
-    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
-    label: &str,
-    cited_in: &[String],
-) -> bool {
-    !citation_breakdown_for_label(citation_breakdowns, label, cited_in)
-        .implementation
-        .is_empty()
-}
-
-fn has_test_citation_for_label(
-    citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
-    label: &str,
-    cited_in: &[String],
-) -> bool {
-    !citation_breakdown_for_label(citation_breakdowns, label, cited_in)
-        .tests
-        .is_empty()
-}
-
-fn is_oracle_backed(overlay: &AnnotationOverlay, label: &str) -> bool {
-    overlay
-        .parity_evidence
-        .get(label)
-        .is_some_and(|entries| !entries.is_empty())
-}
-
+#[cfg(test)]
 fn coverage_state_for_label(
     citation_breakdowns: &BTreeMap<String, CitationBreakdown>,
-    overlay: &AnnotationOverlay,
+    _overlay: &AnnotationOverlay,
     label: &str,
     cited_in: &[String],
-) -> Option<CoverageState> {
-    if is_oracle_backed(overlay, label) {
-        Some(CoverageState::OracleBacked)
-    } else if has_test_citation_for_label(citation_breakdowns, label, cited_in) {
-        Some(CoverageState::Tested)
-    } else if has_implementation_citation_for_label(citation_breakdowns, label, cited_in) {
-        Some(CoverageState::Implemented)
-    } else if !cited_in.is_empty() {
-        Some(CoverageState::Mentioned)
-    } else {
-        None
-    }
+) -> CoverageState {
+    classify_label_coverage(label, citation_breakdowns, cited_in).state
 }
 
 fn load_open_backlog_signal_counts(repo_root: &Path) -> BTreeMap<String, usize> {
@@ -848,7 +899,11 @@ pub(crate) fn run_asm_coverage(
 
     let asm_labels = extract_all_asm_labels(&upstream_dir)?;
     let citations = extract_native_citations(repo_root)?;
-    let map = build_coverage_map(asm_labels, &citations.files_by_label);
+    let map = build_coverage_map(
+        asm_labels,
+        &citations.files_by_label,
+        &citations.breakdown_by_label,
+    );
 
     if update {
         // Generated regenerable state lives under .cache (untracked), not in docs:
@@ -856,7 +911,7 @@ pub(crate) fn run_asm_coverage(
         // citation with verified fidelity. (#38)
         let output_path = repo_root.join(".cache/asm-coverage.yaml");
         let overlay = load_existing_annotations(&output_path);
-        let mut annotated = apply_annotations(map.clone(), &overlay, &citations.breakdown_by_label);
+        let mut annotated = apply_annotations(map.clone(), &overlay);
         let header = "# Auto-generated by: wildside asm-coverage --update\n# Re-run to refresh. Hand-annotated description/priority fields are preserved.\n\n";
         // Keep the existing `generated_at` timestamp when no label/citation content changed.
         // Otherwise every `asm-coverage --update` invocation would dirty the tree, pinning the
@@ -917,15 +972,24 @@ pub(crate) fn run_asm_coverage(
     println!("ASM Coverage Report");
     println!("═══════════════════");
     println!(
-        "sub_ labels: {}/{} cited ({:.1}%)",
-        map.summary.sub_cited, map.summary.total_sub_labels, map.summary.sub_coverage_pct
+        "labels: {} reachable / {} test-only debt / {} uncovered ({} emulated GEMS, {} ordinary)",
+        map.summary.reachable_labels,
+        map.summary.test_only_debt_labels,
+        map.summary.uncovered_labels,
+        map.summary.emulated_gems_labels,
+        map.summary.non_emulated_uncovered_labels
     );
     println!(
-        "loc_ labels: {}/{} cited ({:.1}%)",
-        map.summary.loc_cited, map.summary.total_loc_labels, map.summary.loc_coverage_pct
+        "legacy citation presence: sub_ {}/{} ({:.1}%), loc_ {}/{} ({:.1}%)",
+        map.summary.sub_cited,
+        map.summary.total_sub_labels,
+        map.summary.sub_coverage_pct,
+        map.summary.loc_cited,
+        map.summary.total_loc_labels,
+        map.summary.loc_coverage_pct
     );
     println!(
-        "interpretation: label citation tracks recovered/discussed ASM, not player-visible fidelity"
+        "interpretation: reachable means non-test core/data citation; test-only ports are fidelity debt"
     );
     let backlog_signals = load_open_backlog_signal_counts(repo_root);
     if !backlog_signals.is_empty() {
@@ -959,7 +1023,12 @@ pub(crate) fn run_asm_coverage(
         if uncovered_only {
             for label in &sub.labels {
                 if label.kind == LabelKind::Sub && label.cited_in.is_empty() {
-                    println!("  - {} (line {})", label.label, label.line_number);
+                    let suffix = if label.coverage_state == Some(CoverageState::EmulatedGems) {
+                        " [emulated GEMS]"
+                    } else {
+                        ""
+                    };
+                    println!("  - {} (line {}){}", label.label, label.line_number, suffix);
                 }
             }
         }
@@ -1007,6 +1076,11 @@ mod tests {
             asm_file: "kid.asm".to_owned(),
             line_number: 1,
             cited_in: cited.iter().map(|s| (*s).to_owned()).collect(),
+            coverage_state: None,
+            implementation_cited: None,
+            test_cited: None,
+            emulated_gems: None,
+            citation_breakdown: None,
         }
     }
 
@@ -1039,6 +1113,12 @@ mod tests {
                 sub_coverage_pct: 100.0,
                 loc_cited: 0,
                 loc_coverage_pct: 100.0,
+                total_labels: 0,
+                reachable_labels: 0,
+                test_only_debt_labels: 0,
+                uncovered_labels: 0,
+                emulated_gems_labels: 0,
+                non_emulated_uncovered_labels: 0,
             },
             subsystems,
         }
@@ -1172,7 +1252,7 @@ mod tests {
     }
 
     #[test]
-    fn coverage_state_prefers_oracle_backed_evidence() {
+    fn coverage_state_uses_reachability_not_oracle_backing() {
         let cited_in = vec![
             "crates/wildside-core/src/level.rs".to_owned(),
             "crates/wildside-core/src/tests.rs".to_owned(),
@@ -1185,7 +1265,108 @@ mod tests {
 
         assert_eq!(
             coverage_state_for_label(&BTreeMap::new(), &overlay, "loc_1234", &cited_in),
-            Some(CoverageState::OracleBacked)
+            CoverageState::Reachable
+        );
+    }
+
+    #[test]
+    fn coverage_state_separates_reachable_test_only_uncovered_and_gems() {
+        let citation_breakdowns = BTreeMap::from([
+            (
+                "loc_1111".to_owned(),
+                CitationBreakdown {
+                    implementation: vec!["crates/wildside-core/src/level.rs".to_owned()],
+                    tests: vec!["crates/wildside-core/src/tests.rs".to_owned()],
+                    docs: Vec::new(),
+                    support: Vec::new(),
+                },
+            ),
+            (
+                "loc_2222".to_owned(),
+                CitationBreakdown {
+                    implementation: Vec::new(),
+                    tests: vec!["crates/wildside-core/src/tests.rs".to_owned()],
+                    docs: Vec::new(),
+                    support: Vec::new(),
+                },
+            ),
+        ]);
+        let overlay = AnnotationOverlay::default();
+
+        assert_eq!(
+            coverage_state_for_label(
+                &citation_breakdowns,
+                &overlay,
+                "loc_1111",
+                &["crates/wildside-core/src/level.rs".to_owned()]
+            ),
+            CoverageState::Reachable
+        );
+        assert_eq!(
+            coverage_state_for_label(
+                &citation_breakdowns,
+                &overlay,
+                "loc_2222",
+                &["crates/wildside-core/src/tests.rs".to_owned()]
+            ),
+            CoverageState::TestOnlyDebt
+        );
+        assert_eq!(
+            coverage_state_for_label(&citation_breakdowns, &overlay, "loc_3333", &[]),
+            CoverageState::Uncovered
+        );
+        assert_eq!(
+            coverage_state_for_label(&citation_breakdowns, &overlay, "sub_E13DA", &[]),
+            CoverageState::EmulatedGems
+        );
+    }
+
+    #[test]
+    fn coverage_summary_counts_reachable_test_only_uncovered_and_gems() {
+        let labels = vec![
+            make_label(
+                "loc_1111",
+                LabelKind::Loc,
+                &["crates/wildside-core/src/level.rs"],
+            ),
+            make_label(
+                "loc_2222",
+                LabelKind::Loc,
+                &["crates/wildside-core/src/tests.rs"],
+            ),
+            make_label("loc_3333", LabelKind::Loc, &[]),
+            make_label("sub_E13DA", LabelKind::Sub, &[]),
+        ];
+        let citation_breakdowns = BTreeMap::from([
+            (
+                "loc_1111".to_owned(),
+                CitationBreakdown {
+                    implementation: vec!["crates/wildside-core/src/level.rs".to_owned()],
+                    tests: Vec::new(),
+                    docs: Vec::new(),
+                    support: Vec::new(),
+                },
+            ),
+            (
+                "loc_2222".to_owned(),
+                CitationBreakdown {
+                    implementation: Vec::new(),
+                    tests: vec!["crates/wildside-core/src/tests.rs".to_owned()],
+                    docs: Vec::new(),
+                    support: Vec::new(),
+                },
+            ),
+        ]);
+
+        let map = build_coverage_map(labels, &BTreeMap::new(), &citation_breakdowns);
+
+        assert_eq!(map.summary.reachable_labels, 1);
+        assert_eq!(map.summary.test_only_debt_labels, 1);
+        assert_eq!(map.summary.uncovered_labels, 2);
+        assert_eq!(map.summary.emulated_gems_labels, 1);
+        assert_eq!(
+            map.subsystems["kid_main"].labels[3].coverage_state,
+            Some(CoverageState::EmulatedGems)
         );
     }
 }
