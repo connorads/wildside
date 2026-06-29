@@ -945,6 +945,14 @@ mod tests {
             },
             "ASM Fireball.asm loc_32FC8 should branch to loc_33018 before applying the `$A` offset when the ratio is at least $3F"
         );
+        assert_eq!(
+            fireball_sprite_selection_loc_32f3e(-0x0001_0000, 0),
+            FireballSpriteSelectionLoc32F3E {
+                sprite_index: 0x0A,
+                quadrant_index: 2,
+            },
+            "ASM Fireball.asm loc_32F78 uses `tst.w d7; bpl.w loc_32FC8`, so zero Y is non-negative for negative-X fireballs"
+        );
     }
 
     #[test]
