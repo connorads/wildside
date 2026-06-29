@@ -8482,6 +8482,12 @@ pub(crate) fn crawl_slope_snap_sub_83E6(
     // snaps x_pos and clears x_vel; the integrated slope snap mirrors the
     // same stop tail when sub_83E6 returns NE.
     //
+    // TODO(fidelity): ASM sub_8446 loc_8456/loc_8460/loc_8470 advances the
+    // non-Skycutter `off_84A2` crawling/platform sprite phase from abs(d0),
+    // wraps `$FFFFF8F0` at `$300`, then writes `addroffset_sprite(a3)`.
+    // Native currently preserves the gameplay stop/snap state here but does
+    // not model that visual-only sprite-table refresh.
+    //
     // ASM sub_83E6 (kid.asm:9163): when crawling without a direct wall hit,
     // inspect the motion-side foot cell. Rightward or neutral motion accepts
     // only `$4000` slope-up and nudges left by the low nibble + 1; leftward
