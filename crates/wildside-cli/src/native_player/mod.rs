@@ -690,7 +690,8 @@ pub fn run_native_player(manifest: &AssetManifest, options: &NativePlayOptions) 
                 audio_diagnostics.record_queue_clear();
                 audio_diagnostics.record_queue_prime();
             }
-            suppress_sfx_this_frame = native_bgm_command_suppresses_same_frame_sfx(command, &trace);
+            suppress_sfx_this_frame =
+                native_bgm_command_suppresses_same_frame_sfx(command, &trace, active_bgm_cue);
         }
         active_bgm_cue = next_bgm_cue;
 
@@ -1895,6 +1896,7 @@ mod gems_sfx {
     pub const SHIFTING: u8 = 0x15;
     pub const JUMP: u8 = 0x17;
     pub const LAVA_GEYSER: u8 = 0x1E;
+    pub const TANK_DRIVING: u8 = 0x1F;
     pub const ELEVATOR: u8 = 0x27;
     pub const DIAMOND_POWER_AVAILABLE: u8 = 0x28;
     pub const ANKH_PRIZE: u8 = 0x29;
@@ -1902,6 +1904,7 @@ mod gems_sfx {
     pub const COIN_PRIZE: u8 = 0x2C;
     pub const DIAMOND_PRIZE: u8 = 0x2D;
     pub const NAVIGATE_JINGLE: u8 = 0x2D;
+    pub const TANK_MOUTH_OPEN: u8 = 0x3C;
     pub const MINI_HOPPING_SKULL_SCREAM: u8 = 0x3F;
     pub const JUMP_ON_ENEMY: u8 = 0x4C;
     pub const VOICE_NO_TIME: u8 = 0x51;
@@ -2128,7 +2131,7 @@ fn native_audio_events_for_trace_with_initial_bgm(
         active_bgm_cue = next_bgm_cue;
         if let Some(prev) = prev_trace {
             let suppress_sfx_this_frame = bgm_command.is_some_and(|command| {
-                native_bgm_command_suppresses_same_frame_sfx(command, trace)
+                native_bgm_command_suppresses_same_frame_sfx(command, trace, active_before)
             });
             if !suppress_sfx_this_frame {
                 for command in gems_event_audio_commands(prev, trace) {
@@ -2204,7 +2207,8 @@ fn native_audio_artifacts_for_trace_with_initial_bgm(
         if let Some(command) = bgm_command {
             pending_bgm_start = apply_native_bgm_command(&mut gems, command);
             queued_bgm_start_this_frame = pending_bgm_start.is_some();
-            suppress_sfx_this_frame = native_bgm_command_suppresses_same_frame_sfx(command, trace);
+            suppress_sfx_this_frame =
+                native_bgm_command_suppresses_same_frame_sfx(command, trace, active_bgm_cue);
         }
         active_bgm_cue = next_bgm_cue;
 
@@ -2281,12 +2285,25 @@ fn native_bgm_command_flushes_queued_audio(command: NativeBgmPlaybackCommand) ->
 fn native_bgm_command_suppresses_same_frame_sfx(
     command: NativeBgmPlaybackCommand,
     trace: &NativeTraceFrame,
+    active_before: Option<NativeBgmCue>,
 ) -> bool {
+    if !native_bgm_command_flushes_queued_audio(command) {
+        return false;
+    }
     // ASM loc_D7F4 (kid.asm:16906) replays sfx_Score_counter before Teleport,
     // then Load_InGame (kid.asm:23623-23629) runs StopMusic before the next
     // level's BGM. Native condenses that handoff into one LevelTransition trace
     // frame, so any same-frame SFX must be treated as pre-reset driver state.
-    native_bgm_command_flushes_queued_audio(command) && trace.game_mode == GameMode::LevelTransition
+    if trace.game_mode == GameMode::LevelTransition {
+        return true;
+    }
+    // ASM Load_InGame loc_23629 runs j_StopMusic before loc_11FD2/loc_12004
+    // queues level music. A cold native cue means this frame is also the first
+    // visible level-load boundary, so stale enemy SFX deltas from the previous
+    // route must not be replayed after the reset.
+    matches!(command, NativeBgmPlaybackCommand::StopMusicThenStart(_))
+        && active_before.is_none()
+        && matches!(trace.game_mode, GameMode::InGame | GameMode::DemoPlay)
 }
 
 fn apply_native_sound_command(gems: &mut GemsAudioEngine, command: NativeSoundCommand) {
@@ -20936,6 +20953,45 @@ mod tests {
                 Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE)),
             ),
             "ASM Load_InGame loc_23629 (kid.asm:23629) runs StopMusic before loc_12004 queues the first level BGM; this uses the real GEMS reset, not the old stop-all command"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn play_native_cold_load_ingame_stopmusic_suppresses_stale_tank_sfx_issue339()
+    -> anyhow::Result<()> {
+        let fixture = ManifestFixture::new()?;
+        let previous = sample_trace(GameMode::LevelTransition);
+        let mut level = sample_trace(GameMode::InGame);
+        level.played_sound_commands = vec![
+            NativeSoundCommand::start_sequence(gems_sfx::TANK_DRIVING),
+            NativeSoundCommand::start_sequence(gems_sfx::TANK_MOUTH_OPEN),
+        ];
+        level.played_sound_effect_ids = vec![gems_sfx::TANK_DRIVING, gems_sfx::TANK_MOUTH_OPEN];
+
+        let events = native_audio_events_for_trace(&fixture.manifest, &[previous, level]);
+
+        assert!(
+            events.iter().any(|event| {
+                event.contains("mode=InGame")
+                    && event.contains("active_before=None")
+                    && event.contains("command=StopMusicThenStart")
+            }),
+            "ASM Load_InGame loc_23629 (kid.asm:23629) must reset GEMS before loc_12004 queues level music on cold native level entry"
+        );
+        assert!(
+            !events.iter().any(|event| event.contains(&format!(
+                "command=StartSequence({})",
+                gems_sfx::TANK_DRIVING
+            ))),
+            "native condenses stale Tank.asm loc_3B40A drive state into the same cold Load_InGame trace frame; replaying $1F after StopMusic keeps the #339 drone alive"
+        );
+        assert!(
+            !events.iter().any(|event| event.contains(&format!(
+                "command=StartSequence({})",
+                gems_sfx::TANK_MOUTH_OPEN
+            ))),
+            "same-frame stale Tank.asm loc_3B41C mouth-open $3C must be pre-reset state, not post-load playback"
         );
         Ok(())
     }

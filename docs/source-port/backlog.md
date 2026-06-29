@@ -26,16 +26,17 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-29 loop handoff:** #335 Hills of the Warrior 1 title-card instant/double-death is now
-  a fixed candidate in the awaiting-human lane. Native hibernates gameplay input and `Mode_Level`
-  while `loc_1AE2E` owns the murder-wall title-card shell, then resumes after Start/`loc_6E2`.
-- **Verification:** `mise run verify-slice-fast` is green. `mise run verify-tas-full` exits 0 with
-  full-run CRC exact; the known post-frontier full-report divergences still start at
-  `transition_15_to_00_post`. Local TAS verification required generated layout sidecars for levels
-  `00`, `01`, `02`, `1B`, and `15`.
-- **Gate hygiene:** a pre-existing red unit in the same gate was fixed: Tar Monster burst children
-  now let `Tar_Monster.asm loc_3263C` own the single post-move `$1000` gravity add.
-- **Next selector output:** no ready-to-implement rows; `project-status` currently leads with #339
+- **2026-06-29 loop handoff:** #339 Under-Skull-Mountain washing/rumble drone is now a fixed
+  candidate in the awaiting-human lane. Cold `Load_InGame` playback now treats same-frame stale
+  Tank SFX deltas as pre-`StopMusic` state, suppressing replayed `$1F` TankDriving and `$3C`
+  TankMouthOpen after ASM `Load_InGame loc_23629` resets GEMS.
+- **Verification:** `cargo fmt --check`, focused CLI audio tests, and `mise run verify-slice-fast`
+  are green (clippy, hooks, backlog-lint, TAS frontier, 6470 core tests, 9 CLI slice tests).
+  `verify-tas-full` was not rerun; this is a native-player/audio-event transcript change, not a
+  gameplay-state change.
+- **Human validation:** real audio-device listen still required for clean/death/skip USM 0x04 loads
+  and post-death cards. Do not reopen #339 for the START-side early `$1F`; that is #362.
+- **Next selector output:** no ready-to-implement rows; `project-status` currently leads with #360
   in playability risks and #210 in visual risks.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
@@ -61,7 +62,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 210 | [ ] | P0 | gameflow/render | 2026-06-25 playtest (HEAD): skipping the intro still shows black/garbled graphics instead of the title/Red-Stealth pose; the 2026-06-23 fixed candidate FAILED human validation. | Carry the last composited VDP to `$2C` on ANY intro Start-skip frame; do not latch frame-specific constants (the rejected anti-pattern). Capturing the exact skip frame sharpens it. See archive #210 + 2026-06-25 triage. |
 | 254 | [ ] | P1 | intro/render | 2026-06-25 playtest: same cluster as #210 — IntroSequence6 Start-skip still garbles (black-outline/blue shell); the 2026-06-23 candidate FAILED validation. | Engine-level VDP carry on any skip frame, no frame constants. Pair with #210. See archive #254 + 2026-06-25 triage. |
 | 324 | [ ] | P1 | render/block | 2026-06-25 playtest: a prize block still shows a wrong/"witch" sprite (foreground bleeding through the wobble's transparent slots); the 2026-06-23 candidate FAILED validation. | Get an oracle-comparable BLW1 forest prize-wobble frame-diff before another change; do not blind-revert the scene.rs terrain-suppression guards. See archive #324 + 2026-06-25 triage. |
-| 339 | [ ] | P1 | audio | 2026-06-25 playtest: the looping "washing" drone still plays on the Under-Skull-Mountain load; the 2026-06-23 StopMusic-on-load candidate did not cover the skip/death entry path. | Extend the `$1F` drone stop to death/respawn/debug-skip teardown; verify via audio-events. Real-device listen needed. 2026-06-26: drone + mouth-open squeak (`$3C`) also bleed into the post-death card. See archive #339. |
 | 336 | [ ] | P3 | render/intro | 2026-06-25: human disputes the NOT-A-BUG closure with cross-emulator evidence — the original fades from black and scrolls up from the ground, Kid not seen floating in the sky. | Prior closure proved camera/Kid-Y WRAM parity only, never palette fade-in timing. Probe oracle CRAM/palette fade vs the camera ramp: native may reveal Kid mid-sky during frames the ROM keeps black. See archive #336. |
 | 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |
 | 359 | [ ] | P2 | enemy/level | 2026-06-25 playtest: on the Cyclone-form sky level the bouncing ball (Sphere 0x06) usually at the spawn point is missing. Untracked before now. | 2026-06-26: ball APPEARS then drifts off the LEFT edge (not absent) — favour Sphere X-velocity vs camera-scroll/activation-window over the roster miss. Confirm exact level + entry path (#334). See 2026-06-26 + 2026-06-25 triage. |

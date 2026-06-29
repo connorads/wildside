@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#339 cold Load_InGame stale Tank SFX fixed candidate)
+
+- **#339 moved `[~]` -> `[?]`.** Cold `Load_InGame` audio now treats same-frame Tank SFX
+  deltas as pre-reset state: `StopMusicThenStart` suppresses replayed `$1F` TankDriving and
+  `$3C` TankMouthOpen when `active_before=None` on an `InGame`/demo level-load frame.
+- The fix is scoped to ASM `Load_InGame loc_23629` / `j_StopMusic`; ordinary active-cue BGM
+  replacements still preserve same-frame gameplay SFX, so this does not fold in #362's early
+  TankDriving START-side bug.
+- Regression `play_native_cold_load_ingame_stopmusic_suppresses_stale_tank_sfx_issue339` covers
+  the stale drone + mouth squeak transcript, and
+  `scripted_recording_audio_events_follow_trace_mode_and_sfx_transitions` guards the legitimate
+  options-to-gameplay SFX case.
+- Verification: `cargo fmt --check`, focused CLI audio tests, and `mise run verify-slice-fast`
+  green. Real audio-device listen still required for clean/death/skip USM 0x04 loads.
+- NEXT: `project-status` shows no ready rows; take #360 first under playability risks, with #210
+  still the top visual risk. #339 now needs human audio validation, not another headless
+  stop-sequence patch.
+
 ## 2026-06-29 handoff (#335 Hills title-card murder-wall fixed candidate)
 
 - **#335 moved `[~]` -> `[?]`.** Hills 0x08 title-card wait now hibernates gameplay input and
