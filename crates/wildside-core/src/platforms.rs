@@ -1590,10 +1590,14 @@ pub(crate) fn apply_platform_collision_with_ceiling_probe_trace_loc_257E(
                 .hit
             })
         {
+            // ASM loc_837C (kid.asm:9117): a d7==2 ceiling-crush result from
+            // the stored-platform carry path branches to Death with d7 cleared.
             return PlatformCollisionResultLoc257E::no_contact(
                 PlatformCollisionOutcome::CrushDeath,
             );
         }
+        // ASM loc_8370 (kid.asm:9111): supported stored-platform carry
+        // continues with the preserved `$FFFFFA98` horizontal velocity.
         return PlatformCollisionResultLoc257E::no_contact(PlatformCollisionOutcome::StandingOn(
             platform_addr,
         ));
