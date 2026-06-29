@@ -7914,7 +7914,7 @@ mod chunk_09 {
         // unported, so the drive drone looped forever once the last tank left.
         let mut rt = NativeRuntime::new(manifest());
         let mut tank = make_pacer(EnemyFamily::Tank, 3, 0x100, 0x80);
-        // The drive SFX has already started this life (START latch set).
+        // The drive SFX is currently in the pooled audible refcount.
         tank.shared_walker_patrol_short_next = true;
         rt.active_enemies.push(tank);
         let driving_before = rt.driving_rock_tank_count();
@@ -8006,10 +8006,9 @@ mod chunk_09 {
 
     #[test]
     fn driving_rock_tank_count_excludes_unlatched_tanks_and_other_families() {
-        // The pooled drive refcount mirrors the START in
-        // step_active_enemies_with_rng: only Rock Tanks whose drive SFX has
-        // started (shared_walker_patrol_short_next latch) count, and other
-        // pacer families never touch byte_3C46C[1].
+        // The pooled drive refcount mirrors the live sub_3C352 membership:
+        // only Rock Tanks whose drive SFX is currently audible count, and
+        // other pacer families never touch byte_3C46C[1].
         let mut rt = NativeRuntime::new(manifest());
         // Spawn-default latch is false for Tank (only DragonWalking defaults
         // true), so this tank has not yet started its drive SFX.

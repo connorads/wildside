@@ -10612,6 +10612,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 320 | [x] | P3 | camera | Umbrella: `camera-fidelity-audit.md` has no standalone backlog candidates left after recheck; all six candidate camera rows are already `[x]` and the audit reports 0 confirmed gaps. | Rechecked audit backlog-candidate table, archive #320, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #320. |
 | 316 | [x] | P2 | form | Umbrella: `helmets-fidelity-audit.md` has no standalone Diamond Power shared-object/storage rows left after raw slot payload RAM, active/free/last list, and sprite compiler wiring. | Raw DP payload regressions, `verify-slice-fast`, and `verify-tas-full` completed; see archive #316. |
 | 359 | [x] | P2 | enemy/level | Cyclone-form sky level Sphere 0x06 spawn now keeps the ROM live collision rows, delayed terrain collision response, and level 0x1B settled-recording age. | ASM `Enemy06_Sphere_Init` / `loc_35F70` / `GfxObjects_Collision loc_171C`; focused Sphere regressions, cache-backed level 0x1B regression, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #359. |
+| 362 | [x] | P2 | audio | RockTank drive SFX `$1F` no longer starts while the tank body is clipped out of the sprite visibility window. | ASM `Tank.asm` loc_3B40A / `Tank_Shooting.asm` loc_3B690 / `Make_SpriteFromGfxObject` loc_11EE / `sub_3C352`; Tank regression, #339 stop/count regressions, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #362. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11632,6 +11633,19 @@ on the route-blocked cluster.
   confirm native starts the drone EARLIER than the ROM (vs a ROM-faithful early drone). MEDIUM
   confidence pending that route. Also heard during the #349 post-death card: the rolling drone PLUS
   the one-shot mouth-open squeak (`sfx_Tank_mouth_open $3C`) — noted on #339's death-entry scope.
+
+Fixed 2026-06-29: native Tank/TankShooting init now reads the same clipped-body visibility bit the
+ROM uses before starting `$1F`. `Make_SpriteFromGfxObject` loc_11EE sets `$19(a3)` while the body
+sprite is outside X `$FFC0..$0160` or Y `$FF80..$0160` after subtracting the Tank C7ED0/C7ED8/C7EE0
+vertical extent; `Tank.asm` loc_3B40A and `Tank_Shooting.asm` loc_3B690 skip `j_PlaySound` while
+that flag is nonzero. Native stores the prior clipped flag as the `sub_3C352` `$6A(a5)` equivalent
+and starts the pooled `TankDriving` loop on the later `$19/$6A` clipped-to-visible edge at
+loc_3C39C. Regression `tank_live_step_waits_for_make_sprite_visibility_before_drive_sound_issue_362`
+proves a RockTank at camera-relative x `$01A0` stays silent, then starts `$1F` only after moving
+inside the loc_11EE visible window at x `$0150`. Verification: Tank module tests, #339
+RockTank stop/count regressions, `mise run verify-slice-fast`, and `mise run verify-tas-full` all
+exit 0; full TAS CRC remains exact, with the known baseline report still first diverging at
+`transition_15_to_00_post`.
 
 - **#363 (Kid says "ouch" instead of "die" on death, P2 audio).** Human reports hearing the hurt
   voice ("ouch") rather than the death voice ("die") on some full deaths, and confirms it as a bug.

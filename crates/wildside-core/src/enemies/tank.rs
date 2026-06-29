@@ -323,6 +323,84 @@ mod tests {
     }
 
     #[test]
+    fn tank_live_step_waits_for_make_sprite_visibility_before_drive_sound_issue_362() {
+        let tank = ActiveEnemy {
+            family: EnemyFamily::Tank,
+            facing: Direction::Left,
+            hit_points: 2,
+            x_pos: 0x01A0_0000,
+            y_pos: 0x0080_0000,
+            tank_mouth_animation_phase: spawn_tank_mouth_animation_phase(EnemyFamily::Tank),
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut enemies = [tank];
+        let mut rng = RomRandomState::default();
+        let mut drilled_blocks = Vec::new();
+        let mut sound_effects = Vec::new();
+
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            Some(0),
+            Some(0),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            0,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert!(
+            sound_effects.is_empty(),
+            "ASM Tank.asm loc_3B40A must skip `$1F` while Make_SpriteFromGfxObject loc_11EE leaves `$19(a3)` set for a clipped RockTank body",
+        );
+        assert!(
+            !enemies[0].shared_walker_patrol_short_next,
+            "a clipped RockTank must not enter native's pooled audible drive refcount before the visible edge",
+        );
+        assert!(
+            enemies[0].shared_drive_sound_previous_render_hidden,
+            "native should retain ASM sub_3C352 `$6A(a5)` as the prior clipped `$19(a3)` flag",
+        );
+
+        enemies[0].x_pos = 0x0150_0000;
+        sound_effects.clear();
+        step_active_enemies_with_rng(
+            &mut enemies,
+            None,
+            None,
+            None,
+            Some(0),
+            Some(0),
+            None,
+            None,
+            None,
+            PlayerForm::TheKid,
+            1,
+            false,
+            None,
+            &mut rng,
+            &mut drilled_blocks,
+            Some(&mut sound_effects),
+        );
+
+        assert_eq!(
+            sound_effects,
+            vec![QueuedSoundEffect::TankDriving],
+            "ASM sub_3C352 loc_3C39C should start `$1F` only on the clipped-to-visible `$19/$6A` edge",
+        );
+        assert!(enemies[0].shared_walker_patrol_short_next);
+        assert!(!enemies[0].shared_drive_sound_previous_render_hidden);
+    }
+
+    #[test]
     fn tank_live_step_queues_mouth_creaks_from_stru_3b27e_cadence() {
         let tank = ActiveEnemy {
             family: EnemyFamily::Tank,
@@ -1246,6 +1324,7 @@ mod tests {
             shared_walker_turnaround_counter: 0,
             shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
+            shared_drive_sound_previous_render_hidden: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
@@ -1350,6 +1429,7 @@ mod tests {
             shared_walker_turnaround_counter: 0,
             shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
+            shared_drive_sound_previous_render_hidden: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),

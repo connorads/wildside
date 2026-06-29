@@ -1307,6 +1307,9 @@ pub(crate) struct ActiveEnemy {
     /// Ninja reuses the same two-period phase for `$6E(a5)` attack cadence. Driller and
     /// Rock Tanks reuse the native field as a visible-init drive-refcount latch.
     pub(crate) shared_walker_patrol_short_next: bool,
+    /// Driller/RockTank ASM sub_3C352 `$6A(a5)`: previous `$19(a3)`
+    /// Make_SpriteFromGfxObject clipped flag for drive-loop visibility edges.
+    pub(crate) shared_drive_sound_previous_render_hidden: bool,
     /// Frontier-only trace label for the last shared-walker branch taken.
     pub(crate) shared_walker_debug_branch: Option<&'static str>,
     /// Signed horizontal distance to Kid when the grounded shared walker last evaluated him.
@@ -3781,6 +3784,7 @@ fn activate_enemies_with_rng_inner(
                 shared_walker_right_turn_extra_step_consumed:
                     spawn_shared_walker_right_turn_extra_step_consumed(family, facing),
                 shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(family),
+                shared_drive_sound_previous_render_hidden: false,
                 shared_walker_debug_branch: None,
                 shared_walker_dx_to_kid_px: None,
                 shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
@@ -3944,25 +3948,33 @@ pub(crate) fn step_active_enemies_with_rng(
         }
         if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
             && !enemy.shared_walker_patrol_short_next
+            && !enemy.shared_drive_sound_previous_render_hidden
         {
-            // ASM Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B690: the
-            // visible init tail plays `sfx_Tank_driving` only for the first
-            // Rock Tank sharing the `$FFFFFA34+object_meta` refcount, then
-            // increments that counter before entering loc_3C026/loc_3C0D2.
-            // Native reuses `shared_walker_patrol_short_next` as this
-            // Tank-only init latch; snapshots only expose that byte for
-            // DragonWalking, where it retains its cadence meaning.
+            // ASM Tank.asm loc_3B40A / Tank_Shooting.asm loc_3B690: the init
+            // tail tests `$19(a3)` before the optional `sfx_Tank_driving`.
+            // `$19` is set by Make_SpriteFromGfxObject loc_11EE when the
+            // parent body sprite is clipped out of the render window. Native
+            // keeps `shared_walker_patrol_short_next` as the Tank-only pooled
+            // drive-refcount membership; hidden entrants remember `$19` in
+            // `shared_drive_sound_previous_render_hidden` and wait for the
+            // visible edge handled below.
+            let render_hidden_flag_19 =
+                tank_render_hidden_flag_19_loc_11ee(enemy, camera_x_px, camera_y_px);
             let x_direction = if matches!(enemy.facing, Direction::Right) {
                 0xFF
             } else {
                 0
             };
             let result = if matches!(enemy.family, EnemyFamily::Tank) {
-                tank_init_drive_sound_loc_3b40a(tank_drive_refcount, false, x_direction)
+                tank_init_drive_sound_loc_3b40a(
+                    tank_drive_refcount,
+                    render_hidden_flag_19,
+                    x_direction,
+                )
             } else {
                 let result = tank_shooting_init_drive_sound_loc_3b690(
                     tank_drive_refcount,
-                    false,
+                    render_hidden_flag_19,
                     x_direction,
                 );
                 TankInitDriveSoundLoc3B40A {
@@ -3978,16 +3990,34 @@ pub(crate) fn step_active_enemies_with_rng(
                     },
                 }
             };
-            tank_drive_refcount = result.next_tank_drive_refcount;
-            enemy.shared_walker_patrol_short_next = true;
-            if matches!(
-                result.sound_call,
-                Some(SharedEnemyDriveSoundCallSub3C352::StartSequence(
-                    SharedEnemyDriveSoundEffectSub3C352::TankDriving
-                ))
-            ) && let Some(sound_effects) = played_sound_effects.as_deref_mut()
-            {
-                sound_effects.push(QueuedSoundEffect::TankDriving);
+            enemy.shared_drive_sound_previous_render_hidden = render_hidden_flag_19;
+            if !render_hidden_flag_19 {
+                tank_drive_refcount = result.next_tank_drive_refcount;
+                enemy.shared_walker_patrol_short_next = true;
+                queue_tank_drive_start_from_sub_3c352(result.sound_call, &mut played_sound_effects);
+            }
+        }
+        if matches!(enemy.family, EnemyFamily::Tank | EnemyFamily::TankShooting)
+            && !enemy.shared_walker_patrol_short_next
+            && enemy.shared_drive_sound_previous_render_hidden
+        {
+            // ASM sub_3C352 loc_3C39C: when Make_SpriteFromGfxObject clears
+            // `$19(a3)` after an off-screen RockTank init, `$6A(a5)` still
+            // holds the prior nonzero clipped flag. That visible edge starts
+            // `sfx_Tank_driving` only if the shared refcount was zero.
+            let render_hidden_flag_19 =
+                tank_render_hidden_flag_19_loc_11ee(enemy, camera_x_px, camera_y_px);
+            let edge = shared_enemy_drive_sound_sub_3C352(
+                enemy.family,
+                render_hidden_flag_19,
+                enemy.shared_drive_sound_previous_render_hidden,
+                tank_drive_refcount,
+            );
+            enemy.shared_drive_sound_previous_render_hidden = edge.next_previous_motion_active;
+            if !render_hidden_flag_19 {
+                tank_drive_refcount = edge.next_refcount;
+                enemy.shared_walker_patrol_short_next = true;
+                queue_tank_drive_start_from_sub_3c352(edge.sound_call, &mut played_sound_effects);
             }
         }
         if executable_enemy_indices.next_if_eq(&enemy_index).is_none() {
@@ -8547,6 +8577,45 @@ pub(crate) enum TankInitWalkerEntryLoc3B40A {
     RightLoc3C026,
 }
 
+const TANK_BODY_RENDER_VERTICAL_EXTENT_LOC_11EE: i32 = 0x08;
+
+fn tank_render_hidden_flag_19_loc_11ee(
+    enemy: &ActiveEnemy,
+    camera_x_px: Option<u32>,
+    camera_y_px: Option<u32>,
+) -> bool {
+    let (Some(camera_x_px), Some(camera_y_px)) = (camera_x_px, camera_y_px) else {
+        return false;
+    };
+
+    // ASM Make_SpriteFromGfxObject loc_11EE (kid.asm:2208-2222): `$19(a3)`
+    // stays nonzero when `x_pos-Camera_X_pos` leaves `$FFC0..$0160`, or when
+    // `y_pos-Camera_Y_pos-6(a4)` leaves `$FF80..$0160`. Tank.asm and
+    // Tank_Shooting.asm start their parent body animation on C7ED0/C7ED8/C7EE0,
+    // whose default vertical extent word `6(a4)` is `$0008`.
+    let x_screen_px = ((enemy.x_pos >> 16) as i32) - camera_x_px as i32;
+    let y_screen_px = ((enemy.y_pos >> 16) as i32)
+        - camera_y_px as i32
+        - TANK_BODY_RENDER_VERTICAL_EXTENT_LOC_11EE;
+
+    !(-0x40..=0x160).contains(&x_screen_px) || !(-0x80..=0x160).contains(&y_screen_px)
+}
+
+fn queue_tank_drive_start_from_sub_3c352(
+    sound_call: Option<SharedEnemyDriveSoundCallSub3C352>,
+    played_sound_effects: &mut Option<&mut Vec<QueuedSoundEffect>>,
+) {
+    if matches!(
+        sound_call,
+        Some(SharedEnemyDriveSoundCallSub3C352::StartSequence(
+            SharedEnemyDriveSoundEffectSub3C352::TankDriving
+        ))
+    ) && let Some(sound_effects) = played_sound_effects.as_deref_mut()
+    {
+        sound_effects.push(QueuedSoundEffect::TankDriving);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TankInitDriveSoundLoc3B40A {
     pub(crate) next_tank_drive_refcount: u8,
@@ -9743,6 +9812,7 @@ pub(crate) mod test_fixtures {
             shared_walker_turnaround_counter: 0,
             shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
+            shared_drive_sound_previous_render_hidden: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
@@ -11882,12 +11952,13 @@ impl NativeRuntime {
         }
     }
 
-    /// Pooled count of Rock Tanks (either variant) whose drive SFX has started
-    /// this life. Native recomputes the ROM's `$FFFFFA34` drive-sound refcount
-    /// each frame from `shared_walker_patrol_short_next` (see the START in
-    /// `step_active_enemies_with_rng`); both RockTank variants resolve to the
-    /// same sfx slot (`byte_3C46C[1] = sfx_Tank_driving`), so they pool into one
-    /// count here exactly as they do at the START.
+    /// Pooled count of Rock Tanks (either variant) currently inside the audible
+    /// drive-SFX refcount. Native recomputes the ROM's `$FFFFFA34` drive-sound
+    /// count each frame from the Tank-only `shared_walker_patrol_short_next`
+    /// membership bit; hidden RockTanks that are waiting for sub_3C352's
+    /// `$19/$6A` visible edge do not count yet. Both RockTank variants resolve
+    /// to the same sfx slot (`byte_3C46C[1] = sfx_Tank_driving`), so they pool
+    /// into one count.
     pub(crate) fn driving_rock_tank_count(&self) -> usize {
         self.active_enemies
             .iter()

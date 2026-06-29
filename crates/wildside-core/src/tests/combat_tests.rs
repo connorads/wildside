@@ -12554,6 +12554,7 @@ mod chunk_03 {
             shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
                 EnemyFamily::DragonWalking,
             ),
+            shared_drive_sound_previous_render_hidden: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
@@ -13493,6 +13494,7 @@ mod chunk_03 {
             shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
                 EnemyFamily::DragonWalking,
             ),
+            shared_drive_sound_previous_render_hidden: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),

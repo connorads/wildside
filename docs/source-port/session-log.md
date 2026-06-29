@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#362 RockTank early drive SFX fixed)
+
+- **#362 moved `[~]` -> `[x]`.** RockTank/TankShooting `$1F` no longer starts from the generic
+  off-screen enemy-activation window before the tank body is sprite-visible.
+- The fix follows `Make_SpriteFromGfxObject` loc_11EE, `Tank.asm` loc_3B40A,
+  `Tank_Shooting.asm` loc_3B690, and `sub_3C352` loc_3C39C: native computes the Tank body `$19(a3)`
+  clipped flag from the ROM sprite bounds and stores the prior clipped state as the `$6A(a5)`
+  visibility edge before entering the pooled audible drive refcount.
+- Regression `tank_live_step_waits_for_make_sprite_visibility_before_drive_sound_issue_362` covers
+  the off-screen silent frame and the later clipped-to-visible start edge; #339 stop/count
+  regressions remain green.
+- Verification: Tank module tests, RockTank stop/count tests, `mise run verify-slice-fast`, and
+  `mise run verify-tas-full` (exit 0; full-run CRC exact, baseline full-report divergences still
+  start at `transition_15_to_00_post`).
+- NEXT: `project-status` shows no ready-to-implement rows; take #363 first under playability risks,
+  with #210 still the top visual risk.
+
 ## 2026-06-29 handoff (#359 Sphere settled collision fixed)
 
 - **#359 moved `[~]` -> `[x]`.** Cyclone-form sky level Sphere 0x06 now keeps the opening spawn

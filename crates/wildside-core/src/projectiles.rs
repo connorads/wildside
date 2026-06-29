@@ -927,6 +927,7 @@ mod drips_surface_crawler_tests {
             shared_walker_turnaround_counter: 0,
             shared_walker_right_turn_extra_step_consumed: false,
             shared_walker_patrol_short_next: false,
+            shared_drive_sound_previous_render_hidden: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),

@@ -611,6 +611,7 @@ mod tests {
             shared_walker_patrol_short_next: spawn_shared_walker_patrol_short_next(
                 EnemyFamily::EmoRock,
             ),
+            shared_drive_sound_previous_render_hidden: false,
             shared_walker_debug_branch: None,
             shared_walker_dx_to_kid_px: None,
             shared_walker_terrain_trace: SharedWalkerTerrainTrace::default(),
