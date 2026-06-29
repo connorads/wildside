@@ -3117,6 +3117,8 @@ impl NativeRuntime {
             let is_boss_eye_pop_effect = p.kind == EnemyProjectileKind::BossEyePopEffect;
             let is_boss_skewer = p.kind == EnemyProjectileKind::BossSkewer;
             let is_ufo_first_hurt_debris = p.kind == EnemyProjectileKind::UfoFirstHurtDebris;
+            let is_tar_monster_burst_child =
+                p.kind == EnemyProjectileKind::TarMonsterBurstChild;
             let is_juggernaut_skull = Self::is_juggernaut_skull_projectile(p);
             // ASM Process_ShooterObjects/loc_EDFA (kid.asm:19298/19311) has no
             // frame timer: a launched spike object simulates off-screen until it
@@ -3295,7 +3297,8 @@ impl NativeRuntime {
             {
                 p.animation_elapsed_frames -= 1;
             }
-            if !is_drips_drop && !uses_loc_3263c_post_move_gravity {
+            if !is_drips_drop && !uses_loc_3263c_post_move_gravity && !is_tar_monster_burst_child
+            {
                 p.y_velocity += p.gravity;
             }
 
