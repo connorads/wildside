@@ -310,6 +310,7 @@ pub(crate) fn juggernaut_wall_scan_sub_96E8(
     y_px: i32,
     facing: crate::physics::Direction,
 ) -> bool {
+    // TODO(fidelity): wire sub_96E8 into the live Juggernaut wall-scan path.
     // ASM sub_96E8 (kid.asm:11231): scan the 16x16 tile rectangle bounded by
     // `y_pos-$1F .. y_pos-$10` and the facing-dependent X span
     // (`x_pos-$0B .. x_pos+$04` for clear x-direction, mirrored for set

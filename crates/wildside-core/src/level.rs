@@ -2987,6 +2987,9 @@ pub(crate) fn indoor_rubber_block_source_words_loc_14506(
     mapping_words: &[u16],
     dbf_counter: u16,
 ) -> Vec<u16> {
+    // TODO(fidelity): move the sub_144DA/sub_14582 reference checks behind the
+    // production rubber-block art path in wildside-render, or delete them once
+    // render-backed regressions own this spec.
     // ASM loc_14506 (kid.asm:27371-27374) reads one source word from `(a0)+`,
     // calls `sub_14582` to expand that tile into the scratch buffer, then
     // `dbf d2,loc_14506` repeats inclusively. With the `moveq #3,d2` setup in

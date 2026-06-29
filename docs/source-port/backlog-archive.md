@@ -10616,6 +10616,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 363 | [x] | P2 | audio | Clean fatal TheKid deaths no longer replay the legacy HP-drop ouch over the core `sfx_Voice_die` in native playback. | ASM `Death` (kid.asm:14714) / loc_B73C distinction; focused native-player issue_363 regressions, native-player audio tests, core voice-die tests, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #363. |
 | 364 | [x] | P2 | infra/asm-coverage | asm-coverage now uses a tokenizer-grade line-context detector for inline `#[cfg(test)]` citations, preserving production citations after early gated helpers. | Real `blocks.rs` trap pinned (1692/4675 production, 5698 test), asm-coverage update checked, targeted mutation run, and `verify-slice-fast` exit 0. See archive #364. |
 | 365 | [x] | P2 | infra/asm-coverage | asm-coverage now reports reachable / test-only-debt / uncovered labels, marks the GEMS M68k<->Z80 interface as emulated, and removes the vestigial oracle-backed tier. | Headline/JSON/YAML report 3835 reachable / 242 test-only debt / 40 uncovered (33 emulated GEMS, 7 ordinary); focused tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #365. |
+| 366 | [x] | P2 | infra/asm-coverage | asm-coverage now has a checked-in test-only baseline and `--check-no-new-test-only` ratchet; the five orphan subroutines are triaged with inline fidelity notes. | Baseline records 242 grandfathered test-only labels; new test-only labels fail the CLI ratchet; focused asm/core tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #366. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11711,6 +11712,23 @@ remains exact, with the known state-report divergences still first authoritative
   focused `asm_coverage` and `rust_source_context` tests, `cargo fmt --check`,
   `asm-coverage --update`, JSON/YAML `oracle_backed` absence checks, and `verify-slice-fast` exit
   0. `verify-tas-full` was not required for tooling-only coverage classification.
+
+- **#366 (asm-coverage test-only ratchet, P2 infra).** Fixed 2026-06-29 (`[~]` -> `[x]`).
+  Added checked-in `docs/source-port/asm-coverage-test-only-baseline.yaml` with the current 242
+  `test_only_debt` labels and `asm-coverage --check-no-new-test-only`. The ratchet compares the
+  current `CoverageState::TestOnlyDebt` set to the baseline, allows labels to burn down when they
+  become reachable or removed, and fails on any new label outside the reviewed baseline. Focused
+  unit tests cover grandfathering, burn-down, and new-label failure. The five orphan subroutines
+  are triaged inline: `sub_96E8` needs live Juggernaut companion wall-scan wiring; `sub_1FA2`
+  remains blocked on a #205-style global post-object collision scenario; `sub_144DA`/`sub_14582`
+  are production-covered in `wildside-render` but still have core test-only reference checks to
+  move or delete; `sub_3F366` is live-backed by Mini Hopping Skull `step_hopper` but needs a
+  production citation for the exact label. Added the methodology note that `#[cfg(test)]
+  pub(crate)` reference-port tests are fidelity debt, not shipped-behaviour proof. Verification:
+  focused `asm_coverage`, `juggernaut_wall_scan_sub_96e8`, `sub_1fa2`, and
+  `mini_hopping_skull_sub_3f366...` tests; `cargo fmt --check`; `asm-coverage
+  --check-no-new-test-only`; `asm-coverage --update`; `verify-slice-fast` exit 0.
+  `verify-tas-full` was not required for tooling/docs-only coverage work.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

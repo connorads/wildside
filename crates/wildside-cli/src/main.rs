@@ -1215,6 +1215,10 @@ enum Commands {
         /// regressions on attack/animation/slope routines.
         #[arg(long, default_value_t = false)]
         check_required: bool,
+        /// Fail (exit non-zero) if any ASM label newly becomes test-only debt
+        /// outside the grandfathered baseline.
+        #[arg(long, default_value_t = false)]
+        check_no_new_test_only: bool,
     },
 }
 
@@ -2749,6 +2753,7 @@ fn main() -> Result<()> {
             uncovered,
             json,
             check_required,
+            check_no_new_test_only,
         } => {
             let repo_root = current_dir()?;
             asm_coverage::run_asm_coverage(
@@ -2758,6 +2763,7 @@ fn main() -> Result<()> {
                 uncovered,
                 json,
                 check_required,
+                check_no_new_test_only,
             )?;
         }
     }

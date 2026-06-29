@@ -6,6 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 
+const TEST_ONLY_BASELINE_PATH: &str = "docs/source-port/asm-coverage-test-only-baseline.yaml";
+
 /// Label types extracted from the disassembly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -856,6 +858,20 @@ pub(crate) struct RequiredLabelReport {
     pub(crate) status: RequiredLabelStatus,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct TestOnlyBaseline {
+    version: u32,
+    labels: BTreeSet<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TestOnlyRatchetReport {
+    current_count: usize,
+    baseline_count: usize,
+    new_labels: Vec<String>,
+    burned_down_labels: Vec<String>,
+}
+
 pub(crate) fn check_required_labels(map: &CoverageMap) -> Vec<RequiredLabelReport> {
     REQUIRED_LABELS
         .iter()
@@ -879,6 +895,58 @@ pub(crate) fn check_required_labels(map: &CoverageMap) -> Vec<RequiredLabelRepor
         .collect()
 }
 
+fn test_only_debt_labels(map: &CoverageMap) -> BTreeSet<String> {
+    map.subsystems
+        .values()
+        .flat_map(|subsystem| subsystem.labels.iter())
+        .filter(|label| label.coverage_state == Some(CoverageState::TestOnlyDebt))
+        .map(|label| label.label.clone())
+        .collect()
+}
+
+fn load_test_only_baseline(repo_root: &Path) -> Result<TestOnlyBaseline> {
+    let path = repo_root.join(TEST_ONLY_BASELINE_PATH);
+    let content =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
+    let baseline: TestOnlyBaseline = serde_yaml::from_str(&content)
+        .with_context(|| format!("failed to parse {}", path.display()))?;
+    if baseline.version != 1 {
+        bail!(
+            "{} has unsupported version {}; expected 1",
+            TEST_ONLY_BASELINE_PATH,
+            baseline.version
+        );
+    }
+    Ok(baseline)
+}
+
+fn compare_test_only_baseline(
+    map: &CoverageMap,
+    baseline: &TestOnlyBaseline,
+) -> TestOnlyRatchetReport {
+    let current = test_only_debt_labels(map);
+    let new_labels = current.difference(&baseline.labels).cloned().collect();
+    let burned_down_labels = baseline.labels.difference(&current).cloned().collect();
+    TestOnlyRatchetReport {
+        current_count: current.len(),
+        baseline_count: baseline.labels.len(),
+        new_labels,
+        burned_down_labels,
+    }
+}
+
+fn enforce_no_new_test_only_labels(report: &TestOnlyRatchetReport) -> Result<()> {
+    if report.new_labels.is_empty() {
+        return Ok(());
+    }
+
+    bail!(
+        "{} new ASM label(s) are test-only debt; wire them into production or explicitly update {} after review",
+        report.new_labels.len(),
+        TEST_ONLY_BASELINE_PATH
+    )
+}
+
 // ── Public entry point ─────────────────────────────────────────────────
 
 pub(crate) fn run_asm_coverage(
@@ -888,6 +956,7 @@ pub(crate) fn run_asm_coverage(
     uncovered_only: bool,
     json_output: bool,
     check_required: bool,
+    check_no_new_test_only: bool,
 ) -> Result<()> {
     let upstream_dir = repo_root.join(".cache/upstream/kid-chameleon-disasm");
     if !upstream_dir.is_dir() {
@@ -1062,6 +1131,29 @@ pub(crate) fn run_asm_coverage(
         }
     }
 
+    if check_no_new_test_only {
+        let baseline = load_test_only_baseline(repo_root)?;
+        let report = compare_test_only_baseline(&map, &baseline);
+        if !report.new_labels.is_empty() {
+            println!(
+                "\ntest-only ratchet: FAIL ({} new test-only label(s); current {}, baseline {})",
+                report.new_labels.len(),
+                report.current_count,
+                report.baseline_count
+            );
+            for label in &report.new_labels {
+                println!("  - {label}");
+            }
+        }
+        enforce_no_new_test_only_labels(&report)?;
+        println!(
+            "\ntest-only ratchet: ok ({} current, {} baseline, {} burned down)",
+            report.current_count,
+            report.baseline_count,
+            report.burned_down_labels.len()
+        );
+    }
+
     Ok(())
 }
 
@@ -1082,6 +1174,12 @@ mod tests {
             emulated_gems: None,
             citation_breakdown: None,
         }
+    }
+
+    fn make_label_with_state(label: &str, state: CoverageState) -> AsmLabel {
+        let mut label = make_label(label, LabelKind::Loc, &[]);
+        label.coverage_state = Some(state);
+        label
     }
 
     fn make_subsystem(labels: Vec<AsmLabel>) -> SubsystemCoverage {
@@ -1171,6 +1269,64 @@ mod tests {
         for report in reports {
             assert_eq!(report.status, RequiredLabelStatus::NotFound);
         }
+    }
+
+    #[test]
+    fn test_only_ratchet_allows_grandfathered_labels_and_burn_down() {
+        let baseline = TestOnlyBaseline {
+            version: 1,
+            labels: BTreeSet::from(["loc_1111".to_owned(), "loc_2222".to_owned()]),
+        };
+        let map = coverage_map_with(vec![
+            make_label_with_state("loc_1111", CoverageState::TestOnlyDebt),
+            make_label_with_state("loc_3333", CoverageState::Reachable),
+        ]);
+
+        let report = compare_test_only_baseline(&map, &baseline);
+
+        assert_eq!(report.current_count, 1);
+        assert_eq!(report.baseline_count, 2);
+        assert!(report.new_labels.is_empty());
+        assert_eq!(report.burned_down_labels, vec!["loc_2222"]);
+        enforce_no_new_test_only_labels(&report).expect("burn-down should pass");
+    }
+
+    #[test]
+    fn test_only_ratchet_reports_new_test_only_debt() {
+        let baseline = TestOnlyBaseline {
+            version: 1,
+            labels: BTreeSet::from(["loc_1111".to_owned()]),
+        };
+        let map = coverage_map_with(vec![
+            make_label_with_state("loc_1111", CoverageState::TestOnlyDebt),
+            make_label_with_state("loc_2222", CoverageState::TestOnlyDebt),
+        ]);
+
+        let report = compare_test_only_baseline(&map, &baseline);
+
+        assert_eq!(report.current_count, 2);
+        assert_eq!(report.baseline_count, 1);
+        assert_eq!(report.new_labels, vec!["loc_2222"]);
+        assert!(enforce_no_new_test_only_labels(&report).is_err());
+    }
+
+    #[test]
+    fn test_only_baseline_deserialises_label_set() {
+        let baseline: TestOnlyBaseline = serde_yaml::from_str(
+            "
+version: 1
+labels:
+  - loc_2222
+  - loc_1111
+",
+        )
+        .expect("baseline parses");
+
+        assert_eq!(baseline.version, 1);
+        assert_eq!(
+            baseline.labels,
+            BTreeSet::from(["loc_1111".to_owned(), "loc_2222".to_owned()])
+        );
     }
 
     #[test]

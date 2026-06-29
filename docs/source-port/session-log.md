@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#366 asm-coverage test-only ratchet fixed)
+
+- **#366 moved `[~]` -> `[x]`.** asm-coverage now has a checked-in
+  `docs/source-port/asm-coverage-test-only-baseline.yaml` and
+  `--check-no-new-test-only` fails on any new label that is cited only from test contexts.
+- The baseline records the current 242 `test_only_debt` labels and may shrink as labels become
+  reachable or disappear; additions require explicit review.
+- The five orphan subroutines are triaged inline: `sub_96E8` needs live Juggernaut wall-scan
+  wiring; `sub_1FA2` needs a #205-style global post-object collision scenario; `sub_144DA` and
+  `sub_14582` are rubber-block art checks still sitting in core test-only references;
+  `sub_3F366` is live-backed but missing a production citation for the exact label.
+- Added a methodology pitfall noting that `#[cfg(test)] pub(crate)` ASM reference ports tested
+  only through their own output are fidelity debt, not shipped-behaviour proof.
+- Verification: focused `asm_coverage`, `juggernaut_wall_scan_sub_96e8`, `sub_1fa2`, and
+  `mini_hopping_skull_sub_3f366...` tests, `cargo fmt --check`, `asm-coverage
+  --check-no-new-test-only`, `asm-coverage --update`, and `mise run verify-slice-fast`.
+  `verify-tas-full` was not required because this is tooling/docs-only.
+- NEXT: `project-status` shows no ready-to-implement rows; take #367 first under
+  playability/infra risks, with #210 still the top visual risk.
+
 ## 2026-06-29 handoff (#365 asm-coverage reachability split fixed)
 
 - **#365 moved `[~]` -> `[x]`.** asm-coverage now reports reachable / test-only-debt / uncovered

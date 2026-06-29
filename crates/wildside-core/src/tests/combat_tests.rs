@@ -13048,6 +13048,8 @@ mod chunk_03 {
 
     #[test]
     fn mini_hopping_skull_sub_3f366_snaps_x_to_slopeup_surface() {
+        // TODO(fidelity): keep sub_3F366 on the test-only baseline until the
+        // live Mini Hopping Skull slope branch carries a production citation.
         // ASM Mini_Hopping_Skull.asm sub_3F366 walks forward to the first `$4000`
         // slope-up cell on the current row, then snaps `x_pos` to
         // `cell_right_px - (y_pos & $F)`.

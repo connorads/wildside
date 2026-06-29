@@ -13969,6 +13969,8 @@ pub(crate) fn first_solid_overlap_action_sub_1FA2(
     kid_hitbox: CollisionRectSub1F52,
     solid_tiles: &[SolidOverlapTileSub1FA2],
 ) -> Option<SolidOverlapActionSub1FA2> {
+    // TODO(fidelity): wire sub_1FA2 into the live post-object solid-overlap
+    // pass once a #205-style scenario exercises the global collision phase.
     let solid = solid_tiles.iter().copied().find(|solid| {
         solid.rect.left_px <= kid_hitbox.right_px
             && solid.rect.right_px >= kid_hitbox.left_px
