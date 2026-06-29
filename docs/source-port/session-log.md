@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#254 IntroSequence6 Start-skip fixed candidate)
+
+- **#254 moved `[~]` -> `[?]`.** IntroSequence6 Start-skip no longer uses a probed max-frame
+  natural-carry window. Native carries the `$28` VDP lineage only while `loc_1BAB0` is before
+  `sub_1B43A/loc_1B446` presents its first hidden-shell frame; Start 2431/2432 now takes the normal
+  `Load_TitleScreen` rebuild.
+- Evidence: Start=2431/2432 native-vs-oracle frames are exact at 2480, 2500, and 2520 after the fix
+  (the old path was about 67k changed pixels at 2500/2520). Start=2420/2430 still preserves the
+  intended natural hidden-shell carry, and Start=2400 retains only the existing tiny AE 22/8
+  title-detail residue.
+- Verification: focused cache-backed IntroSequence6 tests, native/oracle captures, ImageMagick AE
+  comparisons, `mise run verify-slice-fast`, and `mise run verify-tas-full` (CRC all 37,759 frames
+  match; baseline full-report state/object divergences remain).
+- NEXT: `project-status` should select #324 first under visual risks, then #349, #358, and #361.
+
 ## 2026-06-29 handoff (#210 IntroSequence5 late Start-skip fixed candidate)
 
 - **#210 moved `[~]` -> `[?]`.** Late IntroSequence5 Start-skip now carries the current

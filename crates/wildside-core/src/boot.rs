@@ -5336,6 +5336,7 @@ impl NativeRuntime {
         self.title_screen_uses_intro_return_hidden_shell = false;
         self.intro_sequence_6_start_skip_cursor_trace_priority = false;
         self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = false;
+        self.intro_sequence_6_start_skip_natural_vdp_carry = None;
         self.intro_sequence_5_title_return_vdp_snapshot = None;
         self.title_screen_ready_frame = if self.frame_index < TITLE_SCREEN_READY_GLOBAL_FRAME {
             self.frame_index
@@ -6943,6 +6944,12 @@ impl NativeRuntime {
                     *pending_title_skip -= 1;
                     if *pending_title_skip == 0 {
                         let carried_vdp_snapshot = self.vdp_state.clone();
+                        let natural_vdp_carry = self
+                            .intro_sequence_6_start_skip_natural_vdp_carry
+                            .map(|mut carry| {
+                                carry.elapsed_at_mode_switch = self.title_screen_elapsed_frames;
+                                carry
+                            });
                         if *pending_title_skip_fast_restore {
                             // ASM loc_1BAB0 (kid.asm:30368) polls
                             // sub_1C246 during its `$B8` wait. When Start is
@@ -6960,6 +6967,17 @@ impl NativeRuntime {
                                 self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = true;
                                 self.intro_sequence_5_title_return_vdp_snapshot =
                                     carried_vdp_snapshot;
+                                if let Some(carry) = natural_vdp_carry {
+                                    // ASM loc_1BA90 has finished its fade hold,
+                                    // but loc_1BAB0's sub_1C246 jump happens
+                                    // before loc_1B446/loc_1B5CE has settled.
+                                    // The old IntroSequence6 workers still own
+                                    // the visible VDP after Game_Mode becomes
+                                    // `$2C`, so preserve the Start-latch
+                                    // local elapsed and hidden-camera lineage.
+                                    self.intro_sequence_6_start_skip_natural_vdp_carry =
+                                        Some(carry);
+                                }
                             }
                             let ready_frame = self.frame_index.saturating_add(
                                 INTRO_SEQUENCE_6_EARLY_START_SKIP_TITLE_READY_FRAMES,
@@ -6983,6 +7001,13 @@ impl NativeRuntime {
                                 self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry = true;
                                 self.intro_sequence_5_title_return_vdp_snapshot =
                                     carried_vdp_snapshot;
+                                if let Some(carry) = natural_vdp_carry {
+                                    // ASM loc_1BAB0/sub_1C246 can switch to
+                                    // `$2C` while the sibling hidden-shell VDP
+                                    // workers remain the image source.
+                                    self.intro_sequence_6_start_skip_natural_vdp_carry =
+                                        Some(carry);
+                                }
                             }
                             self.intro_sequence_6_start_skip_cursor_trace_priority = true;
                             self.title_screen_ready_frame = self
@@ -7049,6 +7074,15 @@ impl NativeRuntime {
                     // one attract-lock window after entry, even if Start was
                     // already being tapped during the intro skip path.
                     if start_pressed && self.frame_index < self.title_screen_ready_frame {
+                        self.intro_sequence_6_start_skip_natural_vdp_carry =
+                            Self::intro_sequence_6_start_skip_preserves_natural_vdp_loc_1bab0_at_elapsed(
+                                self.title_screen_elapsed_frames,
+                            )
+                                .then_some(IntroSequence6StartSkipNaturalVdpCarry {
+                                    elapsed_at_mode_switch: self.title_screen_elapsed_frames,
+                                    carry_timeout_restart_hidden_camera_wrap:
+                                        *carry_timeout_restart_hidden_camera_wrap,
+                                });
                         if self.title_screen_elapsed_frames <= 0xB8 {
                             *pending_title_skip = 2;
                             *pending_title_skip_fast_restore = true;
@@ -7063,10 +7097,7 @@ impl NativeRuntime {
                         }
                     }
                 } else if !self.title_menu_active {
-                    if start_pressed && self.frame_index < self.title_screen_ready_frame {
-                        *pending_title_skip = 2;
-                        *pending_title_skip_fast_restore = false;
-                    } else if start_pressed {
+                    if start_pressed {
                         self.title_idle_frames = 0;
                         self.title_menu_active = true;
                         self.title_menu_cursor_pending = true;

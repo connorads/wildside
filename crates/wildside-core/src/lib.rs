@@ -655,6 +655,9 @@ pub struct NativeRuntime {
     /// branch while stale loc_1BCD0 slot-2 WRAM survives longer than the
     /// direct `$24` intro-sequence-5 title return.
     intro_sequence_6_start_skip_intro_sequence_5_pose_carry: bool,
+    /// Local IntroSequence6 VDP lineage carried across a `$28 -> $2C`
+    /// Start-skip while the sibling hidden-shell workers remain visible.
+    intro_sequence_6_start_skip_natural_vdp_carry: Option<IntroSequence6StartSkipNaturalVdpCarry>,
     /// Direct `$24` IntroSequence5 title returns keep the current VDP image for
     /// a few frames before the hidden title rebuild blacks it out.
     intro_sequence_5_title_return_vdp_snapshot: Option<vdp::VdpState>,
@@ -1019,6 +1022,12 @@ enum PendingEnemyCollisionTarget {
     ChildAttachment,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct IntroSequence6StartSkipNaturalVdpCarry {
+    elapsed_at_mode_switch: usize,
+    carry_timeout_restart_hidden_camera_wrap: bool,
+}
+
 impl NativeRuntime {
     pub(crate) fn ensure_heady_metal_breakup_slots_loc_39247(&mut self) {
         if self.heady_metal_breakup_slots_sub_37708.is_some()
@@ -1354,6 +1363,7 @@ impl NativeRuntime {
             title_screen_uses_intro_return_hidden_shell: false,
             intro_sequence_6_start_skip_cursor_trace_priority: false,
             intro_sequence_6_start_skip_intro_sequence_5_pose_carry: false,
+            intro_sequence_6_start_skip_natural_vdp_carry: None,
             intro_sequence_5_title_return_vdp_snapshot: None,
             // ASM loc_61C seeds `$FFFFFC82` to 2 before the cold-boot intro;
             // Load_IntroSequence5's first sub_1C278 call then wraps it to 0.
@@ -1912,6 +1922,69 @@ impl NativeRuntime {
                 })
             }
             BootState::TitleScreen { .. }
+                if self
+                    .intro_sequence_6_start_skip_natural_vdp_carry
+                    .and_then(|carry| {
+                        let elapsed = self
+                            .title_screen_elapsed_frames
+                            .saturating_add(carry.elapsed_at_mode_switch);
+                        (elapsed < TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_TITLE_POSE_VISIBLE_ELAPSED_FRAMES)
+                            .then_some(elapsed)
+                    })
+                    .is_some() =>
+            {
+                let carry = self
+                    .intro_sequence_6_start_skip_natural_vdp_carry
+                    .expect("guard ensures natural IntroSequence6 VDP elapsed is present");
+                let elapsed = self
+                    .title_screen_elapsed_frames
+                    .saturating_add(carry.elapsed_at_mode_switch);
+                let camera_y_pos = Self::intro_sequence_6_hidden_camera_y_for_elapsed(
+                    elapsed,
+                    carry.carry_timeout_restart_hidden_camera_wrap,
+                    false,
+                )
+                    .unwrap_or_else(|| self.current_camera_state().y_pos);
+                self.title_screen_data.as_ref().map(|data| {
+                    if elapsed >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_READY_FRAMES {
+                        vdp::build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                            data,
+                            7,
+                            self.title_screen_region_byte,
+                            None,
+                            true,
+                            elapsed,
+                            vdp::TitleScreenVdpLineage {
+                                intro_return_hidden_shell: false,
+                                direct_intro_sequence_5_title_return: false,
+                                natural_intro_sequence_6_pre_ready_shell: true,
+                            },
+                        )
+                    } else if elapsed >= INTRO_SEQUENCE_6_NATURAL_TITLE_VDP_REBUILD_FRAMES {
+                        vdp::build_intro_sequence_6_vdp_after_loc_1b45a_title_art(
+                            data,
+                            Self::intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(
+                                elapsed,
+                            ),
+                            self.title_screen_region_byte,
+                            camera_y_pos,
+                        )
+                    } else {
+                        vdp::build_intro_sequence_6_vdp_with_character_frame(
+                            data,
+                            Self::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+                                elapsed,
+                            ),
+                            Self::intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(
+                                elapsed,
+                            ),
+                            self.title_screen_region_byte,
+                            camera_y_pos,
+                        )
+                    }
+                })
+            }
+            BootState::TitleScreen { .. }
                 if self.intro_sequence_6_start_skip_intro_sequence_5_pose_carry
                     && !self.intro_sequence_6_start_skip_cursor_trace_priority
                     && !self.title_screen_vdp_ready() =>
@@ -2026,6 +2099,31 @@ impl NativeRuntime {
     }
 
     fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a(&self) -> Option<u8> {
+        Self::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+            self.title_screen_elapsed_frames,
+        )
+    }
+
+    fn intro_sequence_6_start_skip_preserves_natural_vdp_loc_1bab0_at_elapsed(
+        title_screen_elapsed_frames: usize,
+    ) -> bool {
+        // ASM loc_1BAB0 (kid.asm:30368) polls sub_1C246 while sibling
+        // loc_1B37C/sub_1B43A workers are still running. If Start lands after
+        // loc_1BA90's fade hold but before loc_1B446 presents its first hidden
+        // shell frame, the `$28 -> $2C` jump keeps following that natural VDP
+        // lineage. Once loc_1B446 has presented a frame, Load_TitleScreen owns
+        // the visible rebuild instead.
+        let presented_elapsed = title_screen_elapsed_frames.saturating_add(1);
+        title_screen_elapsed_frames > INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS
+            && Self::intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+                presented_elapsed,
+            )
+            .is_none()
+    }
+
+    fn intro_sequence_6_hidden_shell_frame_index_loc_1b43a_at_elapsed(
+        title_screen_elapsed_frames: usize,
+    ) -> Option<u8> {
         let script = crate::boot::title_screen_hidden_shell_script_loc_1B446();
         const LOC_1B446_NATIVE_PRESENTATION_ADVANCE_FRAMES: usize = 16;
 
@@ -2037,8 +2135,7 @@ impl NativeRuntime {
         // still blank at 2428, 16 native-local frames earlier than the raw
         // object-loop count because the VDP upload is presented before the
         // next traced object snapshot.
-        let elapsed = self
-            .title_screen_elapsed_frames
+        let elapsed = title_screen_elapsed_frames
             .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS)
             .saturating_add(LOC_1B446_NATIVE_PRESENTATION_ADVANCE_FRAMES);
         let initial = usize::from(script.initial_hibernate_frames);
@@ -2069,6 +2166,14 @@ impl NativeRuntime {
     }
 
     fn intro_sequence_6_lightning_flash_frame_loc_1b37c(&self) -> u8 {
+        Self::intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(
+            self.title_screen_elapsed_frames,
+        )
+    }
+
+    fn intro_sequence_6_lightning_flash_frame_loc_1b37c_at_elapsed(
+        title_screen_elapsed_frames: usize,
+    ) -> u8 {
         const LOC_1B37C_FIRST_PRESENTED_UPLOAD_DELAY_FRAMES: usize = 3;
         const LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES: usize = 49;
         const LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES: usize =
@@ -2079,7 +2184,7 @@ impl NativeRuntime {
         let sequence = crate::boot::title_screen_lightning_sequence_loc_1B37C();
         if (LOC_1B3BC_FIRST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES
             ..=LOC_1B3BC_LAST_VISIBLE_LOOP_FLASH_TITLE_ELAPSED_FRAMES)
-            .contains(&self.title_screen_elapsed_frames)
+            .contains(&title_screen_elapsed_frames)
         {
             // ASM loc_1B3BC (kid.asm:29608): after the opening flashes, the
             // DBF loop uploads `(d1 & 3) + 1` for d1=$2C..0. Oracle WRAM at
@@ -2087,7 +2192,7 @@ impl NativeRuntime {
             // title elapsed 49 and keeps d1=0's flash visible while hibernating
             // before the first post-loop zero upload.
             let loop_uploads =
-                (self.title_screen_elapsed_frames - LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES) / 3;
+                (title_screen_elapsed_frames - LOC_1B3BC_LOOP_START_TITLE_ELAPSED_FRAMES) / 3;
             let d1 = 0x002C_u16
                 .saturating_add(1)
                 .saturating_sub(loop_uploads.try_into().unwrap_or(u16::MAX));
@@ -2097,8 +2202,7 @@ impl NativeRuntime {
         // loc_1B37C then begins with `j_Hibernate_Object #3` before its first
         // `sub_1B41C` upload is visible. Native rebuilds the whole VDP image
         // from counters, so model that local presentation delay explicitly.
-        let worker_elapsed = self
-            .title_screen_elapsed_frames
+        let worker_elapsed = title_screen_elapsed_frames
             .saturating_sub(INTRO_SEQUENCE_5_FADE_COUNTER_ITERATIONS)
             .saturating_sub(LOC_1B37C_FIRST_PRESENTED_UPLOAD_DELAY_FRAMES);
         let mut elapsed_at_step = 0usize;

@@ -6687,6 +6687,63 @@ mod chunk_02 {
     }
 
     #[test]
+    fn cold_boot_intro_sequence_6_mid_fade_start_carries_natural_hidden_shell_vdp() {
+        let Some(natural_2480) = cold_boot_vdp_after_optional_start(None, 2_480) else {
+            return;
+        };
+        let Some(start_2420_2480) = cold_boot_vdp_after_optional_start(Some(2_420), 2_480) else {
+            return;
+        };
+        assert_eq!(
+            start_2420_2480, natural_2480,
+            "ASM loc_1BA90 -> loc_1BAB0 -> sub_1C246 reaches `$2C` while loc_1B37C/sub_1B43A still own the visible VDP; the frame-2420 Start route should keep the natural hidden transformation shell at frame 2480",
+        );
+
+        let Some(natural_2490) = cold_boot_vdp_after_optional_start(None, 2_490) else {
+            return;
+        };
+        let Some(start_2430_2490) = cold_boot_vdp_after_optional_start(Some(2_430), 2_490) else {
+            return;
+        };
+        assert_eq!(
+            start_2430_2490, natural_2490,
+            "ASM loc_1B446 has not yielded to the settled title VDP on the frame-2430 Start route; carry the natural IntroSequence6 VDP timeline instead of the early title shell",
+        );
+    }
+
+    #[test]
+    fn cold_boot_intro_sequence_6_start_after_loc_1b446_uses_title_rebuild() {
+        for start_frame in [2_431, 2_432] {
+            let Some(vdp_2500) = cold_boot_vdp_after_optional_start(Some(start_frame), 2_500)
+            else {
+                return;
+            };
+            let word_at = |vdp: &crate::vdp::VdpState, byte_addr: usize| {
+                u16::from_be_bytes([vdp.vram[byte_addr], vdp.vram[byte_addr + 1]])
+            };
+            assert_eq!(
+                word_at(&vdp_2500, 0xE000),
+                0x0331,
+                "ASM sub_1B43A/loc_1B446 has already presented a hidden-shell frame before the frame-{start_frame} Start latch, so sub_1C246 should take the normal Load_TitleScreen rebuild instead of carrying the natural hidden-shell VDP"
+            );
+            assert!(
+                vdp_2500.vram[0x9A60..0xA360].iter().any(|&byte| byte != 0),
+                "ASM Load_TitleArt should restore title text art by frame 2500 after the frame-{start_frame} Start latch"
+            );
+
+            let Some(vdp_2520) = cold_boot_vdp_after_optional_start(Some(start_frame), 2_520)
+            else {
+                return;
+            };
+            assert_eq!(
+                word_at(&vdp_2520, 0xE000),
+                0x0331,
+                "ASM Load_TitleScreen remains the VDP owner after the frame-{start_frame} Start latch; the old blue hidden shell must not reappear at frame 2520"
+            );
+        }
+    }
+
+    #[test]
     fn cold_boot_intro_sequence_6_start_keeps_loc_1b37c_shell_until_loc_1b5ce() {
         let Some(mut runtime) = cached_generated_runtime() else {
             return;
@@ -6826,6 +6883,25 @@ mod chunk_02 {
             !vdp_sprite_table_contains(&vdp_3299, (0x00DB, 0x0F, 1, 0x44D3, 0x00DA)),
             "ASM loc_1B5E4's x=$5A/y=$98 child-popup pose must not be applied to the main KID title sprite"
         );
+    }
+
+    fn cold_boot_vdp_after_optional_start(
+        start_frame: Option<usize>,
+        target_frame: usize,
+    ) -> Option<crate::vdp::VdpState> {
+        let mut runtime = cached_generated_runtime()?;
+        for frame_index in 0..=target_frame {
+            let input = if start_frame == Some(frame_index) {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            runtime.step_frame(input);
+        }
+        runtime.vdp_state().cloned()
     }
 
     #[test]

@@ -7009,18 +7009,12 @@ impl NativeRuntime {
             && !self.demo_timeout_restart_uses_intro_sequence_6_early_intro_sequence_5_handoff
     }
 
-    fn intro_sequence_6_timeout_restart_hidden_camera_y(&self) -> Option<u32> {
-        let BootState::IntroSequence6 {
-            carry_intro_sequence_5_slot_2_pose: true,
-            carry_timeout_restart_hidden_camera_wrap,
-            ..
-        } = self.boot_state
-        else {
-            return None;
-        };
-        let elapsed = self.title_screen_elapsed_frames;
+    pub(crate) fn intro_sequence_6_hidden_camera_y_for_elapsed(
+        elapsed: usize,
+        carry_timeout_restart_hidden_camera_wrap: bool,
+        cold_timeout_restart_shell: bool,
+    ) -> Option<u32> {
         if !carry_timeout_restart_hidden_camera_wrap {
-            let cold_timeout_restart_shell = self.cold_demo_timeout_intro_sequence_6_shell();
             let seeded_elapsed_frame = if cold_timeout_restart_shell {
                 TIMEOUT_RESTART_INTRO_SEQUENCE_6_LATER_SEEDED_CAMERA_ELAPSED_FRAMES
                     .saturating_sub(1)
@@ -7084,6 +7078,23 @@ impl NativeRuntime {
         }
 
         Some(0)
+    }
+
+    fn intro_sequence_6_timeout_restart_hidden_camera_y(&self) -> Option<u32> {
+        let BootState::IntroSequence6 {
+            carry_intro_sequence_5_slot_2_pose: true,
+            carry_timeout_restart_hidden_camera_wrap,
+            ..
+        } = self.boot_state
+        else {
+            return None;
+        };
+        let elapsed = self.title_screen_elapsed_frames;
+        Self::intro_sequence_6_hidden_camera_y_for_elapsed(
+            elapsed,
+            carry_timeout_restart_hidden_camera_wrap,
+            self.cold_demo_timeout_intro_sequence_6_shell(),
+        )
     }
 
     fn title_hides_demo_return_player(&self) -> bool {
