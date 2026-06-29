@@ -72,6 +72,73 @@ pub(crate) fn cloud_wait_loop_loc_35C56(command_word: u16) -> CloudWaitLoopLoc35
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CloudControlScriptTickLoc35BAC {
+    pub(crate) object_44: u8,
+    pub(crate) next_object_44: u8,
+    pub(crate) next_command_index: u8,
+    pub(crate) next_wait_frames: u16,
+}
+
+#[allow(non_snake_case)]
+pub(crate) fn cloud_control_script_tick_loc_35BAC(
+    command_index: u8,
+    wait_frames: u16,
+    object_44: u8,
+) -> CloudControlScriptTickLoc35BAC {
+    // ASM Cloud.asm loc_35BAC/loc_35BB2/loc_35C56: status commands run through
+    // the dispatcher immediately; wait commands then execute one hibernating
+    // frame with the current `$44(a5)` before DBF decides whether to resume.
+    if wait_frames > 0 {
+        return CloudControlScriptTickLoc35BAC {
+            object_44,
+            next_object_44: object_44,
+            next_command_index: command_index,
+            next_wait_frames: wait_frames - 1,
+        };
+    }
+
+    let script = cloud_control_script_words_loc_35BAC();
+    let mut index = usize::from(command_index);
+    let mut status_44 = object_44;
+    loop {
+        if index >= script.len() {
+            index = 0;
+        }
+        let command_word = script[index];
+        index += 1;
+        match cloud_control_script_dispatch_loc_35BB2(command_word) {
+            CloudControlDispatchLoc35BB2::Wait { .. } => {
+                let wait = cloud_wait_loop_loc_35C56(command_word);
+                return CloudControlScriptTickLoc35BAC {
+                    object_44: status_44,
+                    next_object_44: status_44,
+                    next_command_index: (index - 1) as u8,
+                    next_wait_frames: wait.hibernate_frames.saturating_sub(1) as u16,
+                };
+            }
+            CloudControlDispatchLoc35BB2::SetStatus44 => {
+                status_44 = cloud_status_latch_loc_35C72().object_44_value;
+            }
+            CloudControlDispatchLoc35BB2::ClearStatus44 => {
+                status_44 = cloud_status_latch_loc_35C7A().object_44_value;
+            }
+            CloudControlDispatchLoc35BB2::PlayTransitionAnimation
+            | CloudControlDispatchLoc35BB2::RestartScript => {
+                index = 0;
+            }
+            CloudControlDispatchLoc35BB2::Unknown { .. } => {
+                return CloudControlScriptTickLoc35BAC {
+                    object_44: status_44,
+                    next_object_44: status_44,
+                    next_command_index: 0,
+                    next_wait_frames: 0,
+                };
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CloudStatusLatchLoc35C72 {
     pub(crate) object_44_value: u8,
     pub(crate) resumes_control_script: bool,
@@ -460,7 +527,20 @@ pub(crate) fn step_cloud_with_rng(
     // Advance position
     enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
 
-    let object_44 = 0xFF;
+    let control = cloud_control_script_tick_loc_35BAC(
+        enemy.dragon_script_cmd,
+        enemy.wait_timer,
+        if enemy.ufo_on_screen_latch {
+            0xFF
+        } else {
+            0x00
+        },
+    );
+    enemy.dragon_script_cmd = control.next_command_index;
+    enemy.wait_timer = control.next_wait_frames;
+    enemy.ufo_on_screen_latch = control.next_object_44 != 0;
+
+    let object_44 = control.object_44;
     let object_45 = if enemy.ufo_beam_segments != 0 {
         0xFF
     } else {
@@ -623,6 +703,9 @@ pub(crate) fn step_cloud_attack(
     if projectiles.len() >= MAX_PROJECTILES {
         return;
     }
+    if !enemy.ufo_on_screen_latch {
+        return;
+    }
 
     let setup = cloud_diagonal_attack_setup_loc_35CD8(CloudDiagonalAttackInputLoc35CD8 {
         object_45: 0,
@@ -742,7 +825,7 @@ mod tests {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
-            ufo_on_screen_latch: false,
+            ufo_on_screen_latch: true,
             boss_head_index: BOSS_HEAD_NONE,
             boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,
@@ -774,6 +857,20 @@ mod tests {
             cloud_control_script_dispatch_loc_35BB2(0x000C),
             CloudControlDispatchLoc35BB2::PlayTransitionAnimation,
             "ASM Cloud.asm off_35BCE maps table offset $0C to loc_35C82 transition animation"
+        );
+    }
+
+    #[test]
+    fn cloud_control_script_tick_loc_35bac_clears_status_44_before_restart_wait() {
+        assert_eq!(
+            cloud_control_script_tick_loc_35BAC(3, 0, 0xFF),
+            CloudControlScriptTickLoc35BAC {
+                object_44: 0x00,
+                next_object_44: 0x00,
+                next_command_index: 0,
+                next_wait_frames: 0x78,
+            },
+            "ASM Cloud.asm loc_35C7A clears `$44(a5)`, then the $FFFF sentinel restarts loc_35BAC and the first wait runs unarmed"
         );
     }
 
@@ -859,6 +956,28 @@ mod tests {
         assert_eq!(active[0].ufo_beam_segments, 1);
         assert_eq!(active[0].target_x_velocity, 0x3_0000);
         assert_eq!(active[0].target_y_velocity, 0x3_0000);
+    }
+
+    #[test]
+    fn cloud_runtime_loc_35ca2_status_44_clear_blocks_new_lightning_setup() {
+        let mut enemy = cloud_enemy_for_attack();
+        enemy.ufo_on_screen_latch = false;
+        let mut projectiles = Vec::new();
+
+        step_cloud_attack(
+            &mut enemy,
+            &mut projectiles,
+            Some(100 << 16),
+            Some(70 << 16),
+        );
+
+        assert!(
+            projectiles.is_empty(),
+            "ASM Cloud.asm loc_35CD8 is reached from the loc_35CA2 wait body only while `$44(a5)` is set"
+        );
+        assert_eq!(enemy.ufo_beam_segments, 0);
+        assert_eq!(enemy.target_x_velocity, 0);
+        assert_eq!(enemy.target_y_velocity, 0);
     }
 
     #[test]

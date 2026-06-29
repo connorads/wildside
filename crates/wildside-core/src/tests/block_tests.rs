@@ -5562,7 +5562,9 @@ mod chunk_04 {
             spinning_twins_orbit_index: 0,
             ufo_beam_segments: 0,
             ufo_beam_interval: 0,
-            ufo_on_screen_latch: false,
+            // ASM Cloud.asm loc_35B8E: init sets `$44(a5)` before the control
+            // stream can later clear it during loc_35C7A.
+            ufo_on_screen_latch: true,
             boss_head_index: enemies::BOSS_HEAD_NONE,
             boss_eye_orbit_workers: BossEyeOrbitWorkers::default(),
             boss_movement_delay_counter: 0,

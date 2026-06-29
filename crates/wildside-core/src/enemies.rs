@@ -3745,7 +3745,7 @@ fn activate_enemies_with_rng_inner(
                 } else {
                     lion_runtime_fields.map_or(0, |runtime| runtime.ufo_beam_interval as u8)
                 },
-                ufo_on_screen_latch: false,
+                ufo_on_screen_latch: matches!(family, EnemyFamily::Cloud),
                 boss_head_index: if is_multi_head_boss(family) {
                     head_idx
                 } else {
