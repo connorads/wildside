@@ -1171,10 +1171,9 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
         },
     ];
     let mut sprite_entries = Vec::new();
-    let particle_elapsed = elapsed.checked_sub(
-        INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
-            + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0,
-    );
+    let visible_particle_start = INTRO_SEQUENCE_5_PARTICLE_START_ELAPSED_LOC_1BCD0
+        + INTRO_SEQUENCE_5_PARTICLE_VISIBLE_DELAY_LOC_1BCD0;
+    let particle_elapsed = elapsed.checked_sub(visible_particle_start);
     if let Some(particle_elapsed) = particle_elapsed {
         append_intro_sequence_5_particles_loc_1BE3C(&mut sprite_entries, particle_elapsed);
         append_intro_sequence_5_center_particle_loc_1BE88(
@@ -1183,7 +1182,11 @@ fn overlay_intro_sequence_5_sprite_table_loc_1BCD0(
             particle_elapsed,
         );
     }
-    let static_start_index = if particle_elapsed.is_some() { 2 } else { 0 };
+    let static_start_index = if elapsed >= visible_particle_start.saturating_sub(1) {
+        2
+    } else {
+        0
+    };
     for object in objects.iter().skip(static_start_index) {
         append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
             &mut sprite_entries,
@@ -3981,6 +3984,14 @@ mod tests {
             sprite_entry_words(&before, 16),
             (0, 0, 0, 0, 0),
             "ASM loc_1BCD0 should not render loc_1BE3C particles until the cold-boot oracle-visible post-hibernate delay expires",
+        );
+        assert!(
+            sprite_table_index_without_link(&before, (0x00D0, 0x0F, 0x426C, 0x00B0)).is_none(),
+            "ASM loc_1BCD0 removes the first P-block gfx slot one frame before loc_1BE3C particles are visible",
+        );
+        assert!(
+            sprite_table_index_without_link(&before, (0x0130, 0x0F, 0x429E, 0x0080)).is_some(),
+            "ASM loc_1BCD0 keeps the lower static gfx slots during the one-frame pre-particle hand-off",
         );
 
         let after = build_intro_sequence_vdp_with_title_variant_at_elapsed(

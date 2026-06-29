@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#210 IntroSequence5 late Start-skip fixed candidate)
+
+- **#210 moved `[~]` -> `[?]`.** Late IntroSequence5 Start-skip now carries the current
+  `loc_1BE3C` particle VDP into the `sub_1C246`/`loc_1C264` title return instead of the stale
+  P-block frame.
+- Added the missing one-frame `loc_1BCD0` hand-off where the first two static slots are gone but
+  particles are not visible yet; the final deferred title flip rebuilds the current particle VDP
+  before storing `intro_sequence_5_title_return_vdp_snapshot`.
+- Evidence: Start=2350 deterministic probe is exact at frames 2349, 2350, 2351, 2370, 2410, 2411,
+  and 2450. The old stale-frame window dropped from AE 2742..5367 to a tiny red-particle residue
+  only (max AE 135 in frames 2352..2369).
+- Verification: focused cache-backed IntroSequence5 tests, `loc_1BE3C` VDP timing test,
+  native/oracle captures, and ImageMagick comparisons.
+- NEXT: `project-status` should select #254 first under visual risks, then #324, #349, and #358.
+
 ## 2026-06-29 handoff (#368 asm-coverage tidy fixed)
 
 - **#368 moved `[~]` -> `[x]`.** Removed stale current-source `loc_2510C` and `loc_23629`

@@ -26,17 +26,16 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-29 loop handoff:** #368 infra/docs is fixed and moved to `[x]`.
-  Current source/docs no longer present the nonexistent `loc_2510C` or `loc_23629` labels as live
-  ASM citations; the required-label gate message points maintainers at non-test core/data citations;
-  the audio-trigger audit references the current command-byte path; and CLAUDE.md single-sources the
-  asm-coverage command list with `--check-required` documented.
-- **Evidence:** stale-label/deleted-helper `rg` checks are clean across current source/docs touched
-  by #368. `project-status` now reports no ready or playability rows.
-- **Verification:** focused asm-coverage/runtime/native-player tests, `cargo fmt`,
-  `asm-coverage --check-required`, `backlog-lint`, and `mise run verify-slice-fast` completed for
-  this docs/tooling cleanup.
-- **Next selector output:** top open visual risks are #210, then #254, #324, #349, and #358.
+- **2026-06-29 loop handoff:** #210 IntroSequence5 late Start-skip is a fixed candidate and moved
+  to `[?]` for human validation. Native no longer carries the stale P-block/static frame through
+  `sub_1C246`; the deferred title flip snapshots the current `loc_1BE3C` particle VDP.
+- **Evidence:** Start=2350 deterministic probe on
+  `.cache/debug/issue210-current-intro-skip-probe/scenario.json` reduced the reopened visual window
+  from stale-frame errors (AE 2742..5367 in frames 2351..2357) to exact frame 2351 and only a tiny
+  red-particle colour residue from frame 2352 onward (AE 135/135/100/115/115/1, black by 2370).
+- **Verification:** focused cache-backed IntroSequence5 regressions, `loc_1BE3C` VDP timing test,
+  native/oracle frame captures, and ImageMagick AE comparisons completed for this slice.
+- **Next selector output:** take #254 first under visual risks, then #324, #349, and #358.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -58,7 +57,6 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 210 | [ ] | P0 | gameflow/render | 2026-06-25 playtest (HEAD): skipping the intro still shows black/garbled graphics instead of the title/Red-Stealth pose; the 2026-06-23 fixed candidate FAILED human validation. | Carry the last composited VDP to `$2C` on ANY intro Start-skip frame; do not latch frame-specific constants (the rejected anti-pattern). Capturing the exact skip frame sharpens it. See archive #210 + 2026-06-25 triage. |
 | 254 | [ ] | P1 | intro/render | 2026-06-25 playtest: same cluster as #210 — IntroSequence6 Start-skip still garbles (black-outline/blue shell); the 2026-06-23 candidate FAILED validation. | Engine-level VDP carry on any skip frame, no frame constants. Pair with #210. See archive #254 + 2026-06-25 triage. |
 | 324 | [ ] | P1 | render/block | 2026-06-25 playtest: a prize block still shows a wrong/"witch" sprite (foreground bleeding through the wobble's transparent slots); the 2026-06-23 candidate FAILED validation. | Get an oracle-comparable BLW1 forest prize-wobble frame-diff before another change; do not blind-revert the scene.rs terrain-suppression guards. See archive #324 + 2026-06-25 triage. |
 | 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |

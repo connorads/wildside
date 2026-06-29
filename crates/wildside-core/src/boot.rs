@@ -6628,6 +6628,31 @@ impl NativeRuntime {
                 // edge is consumed there on the following outer frame, so the
                 // visible mode flip is deferred by one traced frame, not two.
                 if *pending_title_skip > 0 {
+                    let direct_intro_sequence_5_title_snapshot = if *segment == 4
+                        && !self.timeout_restart_title_intro_sequence_5_return_pending
+                    {
+                        if *pending_title_skip == 1 {
+                            // ASM loc_1BA60 hibernates before polling sub_1C246.
+                            // On the final deferred frame, loc_1C264 carries
+                            // the current loc_1BCD0/loc_1BE3C VDP into title
+                            // mode rather than the stale frame where Start
+                            // was first pressed.
+                            *elapsed += 2;
+                            self.intro_sub_1b850_data.as_ref().map(|data| {
+                                vdp::build_intro_sequence_vdp_with_title_variant_at_elapsed(
+                                    data,
+                                    *segment,
+                                    self.title_screen_region_byte,
+                                    *elapsed,
+                                    self.active_intro_sequence_3_roster_index,
+                                )
+                            })
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
                     *pending_title_skip -= 1;
                     if *pending_title_skip == 0 {
                         if self.timeout_restart_title_intro_sequence_3_return_pending {
@@ -6640,9 +6665,14 @@ impl NativeRuntime {
                             let intro_sequence_1_uses_early_title_restore = *segment == 0
                                 && self.timeout_restart_intro_sequence_1_uses_early_title_restore;
                             let intro_sequence_5_title_pose = *segment == 4;
-                            let intro_sequence_5_title_vdp_snapshot = intro_sequence_5_title_pose
-                                .then(|| self.vdp_state.clone())
-                                .flatten();
+                            let intro_sequence_5_title_vdp_snapshot = if intro_sequence_5_title_pose
+                            {
+                                direct_intro_sequence_5_title_snapshot
+                                    .clone()
+                                    .or_else(|| self.vdp_state.clone())
+                            } else {
+                                None
+                            };
                             if intro_sequence_1_uses_early_title_restore {
                                 self.enter_title_screen_from_intro_return(true);
                                 self.next_demo_uses_start_skip_intro_return_camera_wrap = true;

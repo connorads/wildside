@@ -7461,6 +7461,56 @@ mod chunk_02 {
         );
     }
 
+    #[test]
+    fn cold_intro_sequence_5_late_start_carries_loc_1be3c_particle_phase() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        let mut frame_2350 = None;
+        let mut frame_2351 = None;
+        let mut frame_2352 = None;
+
+        for frame_index in 0..=2_352 {
+            let input = if frame_index == 2_350 {
+                FrameInput {
+                    start: true,
+                    ..FrameInput::default()
+                }
+            } else {
+                FrameInput::default()
+            };
+            runtime.step_frame(input);
+            if frame_index == 2_350 {
+                frame_2350 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_351 {
+                frame_2351 = runtime.vdp_state().cloned();
+            } else if frame_index == 2_352 {
+                frame_2352 = runtime.vdp_state().cloned();
+            }
+        }
+
+        let static_slot = (0x00D0, 0x0F, 0x426C, 0x00B0);
+        let before = frame_2350.expect("IntroSequence5 pre-Start frame should have VDP");
+        assert!(
+            vdp_sprite_table_contains_without_link(&before, static_slot),
+            "ASM loc_1BCD0 should still draw the first static gfx slot on the accepted Start frame",
+        );
+        let clear = frame_2351.expect("post-Start IntroSequence5 frame should have VDP");
+        assert!(
+            !vdp_sprite_table_contains_without_link(&clear, static_slot),
+            "ASM loc_1BCD0 deletes the static gfx slots before loc_1BE3C particles appear; sub_1C246 must not carry the stale block sprite",
+        );
+        let particle = frame_2352.expect("settled title-return frame should have VDP");
+        assert!(
+            !vdp_sprite_table_contains_without_link(&particle, static_slot),
+            "ASM loc_1BE3C particle phase replaces loc_1BCD0's static block composite before sub_1C246 reaches the title-return shell",
+        );
+        assert!(
+            vdp_sprite_table_contains_without_link(&particle, (0x00BF, 0x0F, 0x42D2, 0x008E)),
+            "ASM loc_1BA60 -> sub_1C246 should carry the loc_1BE3C particle phase, not the stale Start-press frame",
+        );
+    }
+
     fn cram_words(vdp: &crate::vdp::VdpState) -> [u16; 0x40] {
         core::array::from_fn(|word_offset| {
             let byte_offset = word_offset * 2;
