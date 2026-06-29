@@ -14025,10 +14025,10 @@ pub(crate) fn support_overlap_detected_sub_1F52(
     kid_hitbox: CollisionRectSub1F52,
     overlap_candidates: &[CollisionRectSub1F52],
 ) -> bool {
-    // ASM sub_1F52 (kid.asm:3740): walk the `$FFFFF20A` rectangle list in
-    // 8-byte steps until a zero left-edge word terminates the scan. Treat the
-    // four comparisons as inclusive signed bounds; any overlap marks Kid as
-    // `colid_kidbelow`.
+    // ASM sub_1F52/loc_1F56 (kid.asm:3740): walk the `$FFFFF20A`
+    // rectangle list in 8-byte steps until a zero left-edge word terminates
+    // the scan. Treat the four comparisons as inclusive signed bounds; any
+    // overlap marks Kid as `colid_kidbelow`.
     for candidate in overlap_candidates {
         if candidate.left_px == 0 {
             return false;
