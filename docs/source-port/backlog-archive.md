@@ -10622,6 +10622,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 367 | [x] | P2 | infra/asm-coverage | `verify-slice-fast` now runs the test-only ratchet, required-label gate, and debug-field audit; the audit scans the oracle helper template and registry hashes are backfilled. | Gate deps report 9 required labels covered, 242 current/242 baseline test-only labels, and 91 emitted/91 registered debug keys; focused tests and `verify-slice-fast` exit 0. See archive #367. |
 | 368 | [x] | P3 | infra/docs | One-off asm-coverage/doc tidy: stale live-source `loc_2510C`/`loc_23629` citations are removed, the required-label failure text points at non-test core/data, audio-trigger refs match the current command model, and CLAUDE.md single-sources asm-coverage commands. | Search checks for stale labels/deleted helper refs; focused asm-coverage/runtime/native-player tests; `cargo fmt`; `asm-coverage --check-required`; `backlog-lint`; `verify-slice-fast`. See archive #368. |
 | 349 | [x] | P1 | render | Post-death respawn title-card name text is visible on the real `death_respawn_level1` VDP path; the 2026-06-26 failed-candidate report no longer reproduces on current `main`. | Current native frames 1791/1855/1919 show `BLUE / LAKE / WOODS / I`; regression `death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de`; focused glyph-worker test. See archive #349. |
+| 358 | [x] | P2 | render/enemy | Cloud lightning projectiles now render ROM bolt sprite art instead of the generic red enemy-projectile dot. | ASM `Cloud.asm loc_35DF0` `unk_C7866`/`C786E`/`C7876`; focused trace/render tests; native/oracle issue358 probe captures. See archive #358. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11505,6 +11506,18 @@ and must not vanish/die immediately.
   add the variant (types.rs:75), the trace.rs mapping arm (active_projectile_kind, ~line 78/160),
   and a scene.rs draw arm reading the Cloud tile sheet. capture-frames diff on a lightning-cloud
   level to close.
+  Fixed 2026-06-29: public trace now exposes `ActiveProjectileKind::CloudLightning` instead of
+  collapsing internal `EnemyProjectileKind::CloudLightning` to `Generic`; scene.rs selects the ROM
+  child sprite frames from `Cloud.asm loc_35DF0` (`unk_C7866` horizontal, `unk_C786E` vertical,
+  `unk_C7876` diagonal) using the Cloud tile sheet and a distinct non-red missing-asset fallback.
+  Regression coverage: `trace_reports_cloud_lightning_kind_loc_35df0` and
+  `cloud_lightning_uses_rom_bolt_sprite_frame_loc_35df0_unk_c7866`. Visual evidence:
+  `.cache/debug/issue358/cloud_level18_probe.json` places Kid under the level `0x18` Cloud at
+  x/y 152/79; native captures in `.cache/debug/issue358/current/` frames 2 and 5 show the vertical
+  lightning bolt, with matching oracle captures in `.cache/debug/issue358/oracle/`. Focused checks:
+  `cargo test -q -p wildside-core cloud_lightning -- --nocapture`,
+  `cargo test -q -p wildside-cli cloud_lightning -- --nocapture`, `cargo fmt --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast`.
 
 - **#359 (Cyclone-level Sphere missing at spawn, P2 enemy/level).** On the Cyclone-form sky level
   the bouncing ball (Sphere, Enemy06/0x06) that normally sits at the spawn point is absent

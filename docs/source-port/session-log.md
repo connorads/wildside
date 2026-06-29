@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#358 Cloud lightning render fixed)
+
+- **#358 moved `[~]` -> `[x]`.** Cloud lightning now uses typed ROM bolt art instead of the
+  generic red enemy projectile dot.
+- Added `ActiveProjectileKind::CloudLightning`, mapped internal `EnemyProjectileKind::CloudLightning`
+  through trace, and drew the `Cloud.asm loc_35DF0` child frames (`unk_C7866`/`C786E`/`C7876`) from
+  the Cloud sheet in scene.rs.
+- Evidence: `.cache/debug/issue358/cloud_level18_probe.json` direct-starts level `0x18` under a
+  Cloud; native captures in `.cache/debug/issue358/current/` frames 2/5 show the vertical bolt, and
+  oracle captures in `.cache/debug/issue358/oracle/` show the same projectile class.
+- Verification: focused core/CLI `cloud_lightning` tests, `cargo fmt --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+- NEXT: `project-status` should select #361 first under visual risks.
+
 ## 2026-06-29 handoff (#349 post-death title-card name resolved)
 
 - **#349 moved `[~]` -> `[x]`.** Re-ran the real `death_respawn_level1` route on current `main`;

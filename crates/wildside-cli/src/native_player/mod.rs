@@ -4441,6 +4441,72 @@ mod tests {
     }
 
     #[test]
+    fn cloud_lightning_uses_rom_bolt_sprite_frame_loc_35df0_unk_c7866() {
+        let mut visuals = sample_level_visuals();
+        let cloud_visuals = visuals
+            .enemies
+            .families
+            .get_mut(&0x0E)
+            .expect("sample Cloud visuals");
+        let mut tile_sheet = blank_tile_sheet(8);
+        for tile in &mut tile_sheet.tiles[0..6] {
+            tile.pixels = [2; 64];
+        }
+        cloud_visuals.frames[0].tile_sheet = tile_sheet;
+
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.active_projectile_details = vec![ActiveProjectileSnapshot {
+            x_pos: 0x0030_0000,
+            y_pos: 0x0020_0000,
+            x_velocity: 0x0004_0000,
+            y_velocity: 0,
+            friendly: false,
+            remaining_frames: 0,
+            animation_elapsed_frames: 0,
+            kind: ActiveProjectileKind::CloudLightning,
+            palette_variant: 0,
+            boss_eye_sprite_mapping_index: 0,
+            boss_eye_sprite_order_word_a: 0,
+            dragon_flying_descent_fire_state: DragonFlyingDescentFireState::None,
+            dragon_flying_descent_fire_counter: 0,
+        }];
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        let lightning_sprite = scene.commands.iter().find_map(|command| match command {
+            DrawCommand::Sprite { x, y, tiles, .. }
+                if tiles.len() == 6
+                    && tiles
+                        .first()
+                        .is_some_and(|tile| tile.tile.tile_index == 0x000) =>
+            {
+                Some((*x, *y, tiles))
+            }
+            _ => None,
+        });
+        let (draw_x, draw_y, tiles) = lightning_sprite
+            .expect("ASM Cloud.asm loc_35DF0 should render the horizontal lightning bolt sprite");
+        assert_eq!(
+            tiles[0].tile.tile_index, 0x000,
+            "ASM `unk_C7866` uses `sprite_frame_vram $000,$00,$04,$30,$07` for horizontal Cloud bolts",
+        );
+        let mut rgb = vec![0; (NATIVE_FRAME_WIDTH * NATIVE_FRAME_HEIGHT * 3) as usize];
+        render_scene(&scene, &mut rgb);
+        assert_eq!(
+            pixel_at(&rgb, draw_x as u32, draw_y as u32),
+            [190, 220, 250],
+            "ASM Cloud.asm loc_35DF0 bolt art should render from the Cloud enemy palette",
+        );
+        assert!(
+            !scene.commands.iter().any(|command| matches!(
+                command,
+                DrawCommand::Rect { width: 4, height: 4, colour, .. } if *colour == [255, 80, 40]
+            )),
+            "Cloud lightning should not collapse to the generic red enemy projectile dot",
+        );
+    }
+
+    #[test]
     fn tar_monster_glob_uses_rom_child_sprite_frame_loc_3247e_unk_c781e() {
         // Backlog #243: the Highwater Tar Monster ($05) shoots a dark tar glob,
         // not a red dot. ASM Tar_Monster.asm loc_3247E writes `LnkTo_unk_C781E`

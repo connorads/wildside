@@ -92,6 +92,9 @@ fn active_projectile_kind(projectile: &EnemyProjectile) -> ActiveProjectileKind 
     if projectile.kind == EnemyProjectileKind::UfoFirstHurtDebris {
         return ActiveProjectileKind::UfoFirstHurtDebris;
     }
+    if projectile.kind == EnemyProjectileKind::CloudLightning {
+        return ActiveProjectileKind::CloudLightning;
+    }
     if projectile.kind == EnemyProjectileKind::DripsDrop {
         return ActiveProjectileKind::DripsDrop;
     }
@@ -536,6 +539,20 @@ mod tests {
             active_projectile_kind(&impact),
             ActiveProjectileKind::RobotShotImpact,
             "ASM Robot.asm loc_3AC92 initialises `stru_3A762`; trace must preserve that render state"
+        );
+    }
+
+    #[test]
+    fn trace_reports_cloud_lightning_kind_loc_35df0() {
+        let lightning = EnemyProjectile {
+            kind: EnemyProjectileKind::CloudLightning,
+            ..EnemyProjectile::default()
+        };
+
+        assert_eq!(
+            active_projectile_kind(&lightning),
+            ActiveProjectileKind::CloudLightning,
+            "ASM Cloud.asm loc_35DF0 initialises a bolt child worker; trace must not collapse it to Generic"
         );
     }
 

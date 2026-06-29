@@ -26,14 +26,15 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-29 loop handoff:** #349 post-death respawn title-card name text no longer reproduces on
-  current `main`; moved to `[x]` with a real VDP-path regression.
-- **Evidence:** current native `death_respawn_level1` captures show `BLUE / LAKE / WOODS / I` on
-  frames 1791, 1855, and 1919 (`.cache/debug/issue349/current/`), and the new test steps the same
-  script through the VDP renderer and proves the `loc_1AB26`/`loc_1AC70` glyph overlay changes pixels.
-- **Verification:** focused real-route #349 native-player test, existing synthetic glyph-worker test,
-  PNG inspection, `backlog-lint`, and `mise run verify-slice-fast` completed.
-- **Next selector output:** take #358 first under visual risks, then #361.
+- **2026-06-29 loop handoff:** #358 Cloud lightning now renders typed ROM bolt art instead of the
+  generic red projectile dot; moved to `[x]`.
+- **Evidence:** `ActiveProjectileKind::CloudLightning` is exposed through trace mapping, scene.rs
+  selects the `Cloud.asm loc_35DF0` `unk_C7866/C786E/C7876` child frames from the Cloud sheet, and
+  `.cache/debug/issue358/cloud_level18_probe.json` captures show the level `0x18` vertical bolt in
+  native frames 2/5 with oracle frames for the same probe.
+- **Verification:** focused core/CLI `cloud_lightning` tests, PNG inspection, `cargo fmt --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+- **Next selector output:** take #361 next under visual risks.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -55,5 +56,4 @@ For newly opened items, capture these facts in the investigation notes:
 
 | # | Status | Pri | System | Summary | Verify |
 |-----|--------|-----|--------|---------|--------|
-| 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |
 | 361 | [ ] | P2 | render/enemy | 2026-06-26 playtest: on the hand level the live Hand (0x17) animation free-runs/flickers ("spazzes") instead of holding body frames. Deferred #243/#333 follow-up, never given its own row. NOT the grab gating #185 (grab+slow works). | Add a `select_live_hand_frame` selector mirroring `select_live_tar_monster_frame`: hold Hand body frames off HandState, early-return None on hp==0 so the death table keeps death frames; capture-frames to confirm no flicker. Cross-ref #243/#333, #185. |

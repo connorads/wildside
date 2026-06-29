@@ -70,6 +70,7 @@ const FIRE_DEMON_OBJECT_TYPE: u8 = 0x00;
 const ROBOT_OBJECT_TYPE: u8 = 0x03;
 const FLYING_DRAGON_OBJECT_TYPE: u8 = 0x0C;
 const WALKING_DRAGON_OBJECT_TYPE: u8 = 0x0D;
+const CLOUD_OBJECT_TYPE: u8 = 0x0E;
 const LION_OBJECT_TYPE: u8 = 0x12;
 const DRIPS_OBJECT_TYPE: u8 = 0x16;
 const BOSS_EYE_OBJECT_TYPE: u8 = 0x21;
@@ -364,6 +365,35 @@ fn robot_shot_child_frame(
             _ => (0x01E, 0x03, 0x00, 0x17, 0x06),
         }
     };
+    Some(wildside_render::SpriteFrame {
+        origin_x,
+        origin_y,
+        width_px,
+        height_px,
+        tile_base_index,
+        tile_sheet,
+    })
+}
+
+fn cloud_lightning_child_frame_loc_35df0(
+    visuals: &wildside_render::AnimatedSpriteVisual,
+    projectile: &ActiveProjectileSnapshot,
+) -> Option<wildside_render::SpriteFrame> {
+    let tile_sheet = visuals.frames.first()?.tile_sheet.clone();
+    let (tile_base_index, origin_x, origin_y, width_px, height_px) =
+        if projectile.x_velocity != 0 && projectile.y_velocity != 0 {
+            // ASM Cloud.asm loc_35DF0 selects `LnkTo_unk_C7876` for diagonal
+            // bolts: `sprite_frame_vram $00C,$00,$23,$23,$23`.
+            (0x00C, 0x00, 0x23, 0x23, 0x23)
+        } else if projectile.x_velocity != 0 {
+            // ASM Cloud.asm loc_35DF0 selects `LnkTo_unk_C7866` for horizontal
+            // bolts: `sprite_frame_vram $000,$00,$04,$30,$07`.
+            (0x000, 0x00, 0x04, 0x30, 0x07)
+        } else {
+            // ASM Cloud.asm loc_35DF0 defaults to `LnkTo_unk_C786E` for vertical
+            // bolts: `sprite_frame_vram $006,$04,$2F,$07,$30`.
+            (0x006, 0x04, 0x2F, 0x07, 0x30)
+        };
     Some(wildside_render::SpriteFrame {
         origin_x,
         origin_y,
@@ -6861,6 +6891,51 @@ fn build_game_scene_filtered(
                             width: 8,
                             height: 8,
                             colour: FIRE_TRAIL_PLACEHOLDER_COLOUR,
+                        });
+                    }
+                }
+                ActiveProjectileKind::CloudLightning => {
+                    let pushed_sprite = level_visuals
+                        .enemies
+                        .families
+                        .get(&CLOUD_OBJECT_TYPE)
+                        .and_then(|cloud_visuals| {
+                            let frame =
+                                cloud_lightning_child_frame_loc_35df0(cloud_visuals, &projectile)?;
+                            let facing = if projectile.x_velocity < 0 {
+                                Direction::Left
+                            } else {
+                                Direction::Right
+                            };
+                            let sx = if projectile.x_velocity != 0 && projectile.y_velocity != 0 {
+                                // ASM Cloud.asm loc_35DF0 nudges the diagonal
+                                // bolt by +4/-4 px after selecting C7876.
+                                sx + if matches!(facing, Direction::Left) {
+                                    -4
+                                } else {
+                                    4
+                                }
+                            } else {
+                                sx
+                            };
+                            let (draw_x, draw_y) = sprite_draw_position(&frame, sx, sy, facing);
+                            commands.push(DrawCommand::Sprite {
+                                x: draw_x,
+                                y: draw_y,
+                                tile_sheet: Arc::new(frame.tile_sheet.clone()),
+                                palette: Arc::new(cloud_visuals.palette.clone()),
+                                tiles: build_sprite_tiles(&frame, facing, 0),
+                            });
+                            Some(())
+                        })
+                        .is_some();
+                    if !pushed_sprite {
+                        commands.push(DrawCommand::Rect {
+                            x: sx - 4,
+                            y: sy - 4,
+                            width: 8,
+                            height: 8,
+                            colour: [190, 220, 250],
                         });
                     }
                 }

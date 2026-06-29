@@ -85,6 +85,9 @@ pub enum ActiveProjectileKind {
     /// UFO first-hurt debris child: ASM `UFO.asm loc_351EE` allocates
     /// `loc_354DA` pieces before the saucer survives through `loc_35228`.
     UfoFirstHurtDebris,
+    /// Lightning Cloud bolt child: ASM `Cloud.asm loc_35DF0` selects one of
+    /// `unk_C7866`/`unk_C786E`/`unk_C7876` before the child hibernation loop.
+    CloudLightning,
     /// Drips slime drop: ASM `Drips.asm loc_33424`/`loc_3345C` spawn a falling
     /// child object that accelerates under `$2000` gravity.
     DripsDrop,
