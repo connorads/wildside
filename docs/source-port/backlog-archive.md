@@ -10613,6 +10613,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 316 | [x] | P2 | form | Umbrella: `helmets-fidelity-audit.md` has no standalone Diamond Power shared-object/storage rows left after raw slot payload RAM, active/free/last list, and sprite compiler wiring. | Raw DP payload regressions, `verify-slice-fast`, and `verify-tas-full` completed; see archive #316. |
 | 359 | [x] | P2 | enemy/level | Cyclone-form sky level Sphere 0x06 spawn now keeps the ROM live collision rows, delayed terrain collision response, and level 0x1B settled-recording age. | ASM `Enemy06_Sphere_Init` / `loc_35F70` / `GfxObjects_Collision loc_171C`; focused Sphere regressions, cache-backed level 0x1B regression, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #359. |
 | 362 | [x] | P2 | audio | RockTank drive SFX `$1F` no longer starts while the tank body is clipped out of the sprite visibility window. | ASM `Tank.asm` loc_3B40A / `Tank_Shooting.asm` loc_3B690 / `Make_SpriteFromGfxObject` loc_11EE / `sub_3C352`; Tank regression, #339 stop/count regressions, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #362. |
+| 363 | [x] | P2 | audio | Clean fatal TheKid deaths no longer replay the legacy HP-drop ouch over the core `sfx_Voice_die` in native playback. | ASM `Death` (kid.asm:14714) / loc_B73C distinction; focused native-player issue_363 regressions, native-player audio tests, core voice-die tests, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #363. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11658,6 +11659,23 @@ exit 0; full TAS CRC remains exact, with the known baseline report still first d
   failed validation per session-log. Action: capture the exact death cause, helmet state,
   hit-count, and audio transcript; if "ouch" fires on a clean single fatal CONTACT with no helmet,
   that is the regression. Cross-ref #308 (combat audit umbrella, currently `[b]`).
+
+Fixed 2026-06-29 (`[~]` -> `[x]`): root cause was the native-player playback fallback, not the core
+damage path. Core already queues `sfx_Voice_die` from `Death` (kid.asm:14714) and the direct core
+regressions `fatal_thekid_contact_damage_queues_voice_die_without_ouch` /
+`direct_damage_fatal_thekid_queues_voice_die_without_default_ouch` stayed green. However
+`gems_event_sound_commands` and the no-GEMS `detect_sfx_events` fallback still inferred the legacy
+generic `sfx_Voice_ouch` from `number_hitpoints` dropping 1 -> 0 unless an explicit ouch take was
+present. A clean fatal trace with core `VoiceDie` therefore replayed `[0x60, 0x61]`, letting the later
+ouch mask the death voice in native playback. Fix: `is_damage_resolution_voice_sound_id` now treats
+either an explicit loc_B73C ouch take or `VoiceDie` as authoritative damage audio, so the HP-drop
+fallback stays silent once the core trace has resolved the voice. Regressions:
+`play_native_does_not_infer_ouch_over_fatal_death_voice_issue_363` and
+`fallback_sfx_does_not_add_ouch_over_fatal_death_voice_issue_363`. Verification: focused
+`issue_363`, `native_player::tests::play_native`, `fallback_sfx`, core `voice_die`,
+`cargo fmt --check`, `mise run verify-slice-fast`, and `mise run verify-tas-full`; full TAS CRC
+remains exact, with the known state-report divergences still first authoritative at
+`transition_15_to_00_post`.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

@@ -2518,6 +2518,13 @@ fn is_ouch_sound_id(sound_id: u8) -> bool {
     )
 }
 
+fn is_damage_resolution_voice_sound_id(sound_id: u8) -> bool {
+    // ASM loc_B73C/Death (kid.asm:14661,14714): once the core trace carries
+    // either the selected ouch take or the direct death voice, the legacy
+    // HP-drop fallback must stay silent.
+    is_ouch_sound_id(sound_id) || sound_id == gems_sfx::VOICE_DIE
+}
+
 fn is_explicit_block_sound_id(sound_id: u8) -> bool {
     matches!(
         sound_id,
@@ -2705,7 +2712,10 @@ fn gems_event_sound_commands(
     // Damage taken (HP decreased). ASM loc_B73C/loc_B750/loc_B764/loc_B778
     // can queue enemy-family-specific ouch takes; keep the heuristic only for
     // paths that have not yet promoted their exact core SFX into the trace.
-    if !queued_sound_ids.iter().copied().any(is_ouch_sound_id)
+    if !queued_sound_ids
+        .iter()
+        .copied()
+        .any(is_damage_resolution_voice_sound_id)
         && curr.number_hitpoints < prev.number_hitpoints
         && prev.number_hitpoints > 0
     {
@@ -2925,7 +2935,10 @@ fn detect_sfx_events(prev: &NativeTraceFrame, curr: &NativeTraceFrame, sfx: &mut
         sfx.play(659.0, 80, 0.12);
     }
     // Took damage (HP decreased)
-    if !queued_sound_ids.iter().copied().any(is_ouch_sound_id)
+    if !queued_sound_ids
+        .iter()
+        .copied()
+        .any(is_damage_resolution_voice_sound_id)
         && curr.number_hitpoints < prev.number_hitpoints
         && prev.number_hitpoints > 0
     {
@@ -21439,6 +21452,39 @@ mod tests {
             gems_event_sound_ids(&prev, &curr),
             vec![gems_sfx::VOICE_OUCH_2],
             "ASM loc_B73C/loc_B750/loc_B764 selects special VoiceOuch takes for specific enemy families, so the damage heuristic must not add the generic $61 take"
+        );
+    }
+
+    #[test]
+    fn play_native_does_not_infer_ouch_over_fatal_death_voice_issue_363() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        prev.number_hitpoints = 1;
+        curr.number_hitpoints = 0;
+        curr.played_sound_effect_ids = vec![gems_sfx::VOICE_DIE];
+
+        assert_eq!(
+            gems_event_sound_ids(&prev, &curr),
+            vec![gems_sfx::VOICE_DIE],
+            "ASM Death (kid.asm:14714) queues sfx_Voice_die directly; the legacy HP-drop heuristic must not layer loc_B778's generic ouch over a clean fatal hit"
+        );
+    }
+
+    #[test]
+    fn fallback_sfx_does_not_add_ouch_over_fatal_death_voice_issue_363() {
+        let mut prev = sample_trace(GameMode::InGame);
+        let mut curr = sample_trace(GameMode::InGame);
+        prev.number_hitpoints = 1;
+        curr.number_hitpoints = 0;
+        curr.played_sound_effect_ids = vec![gems_sfx::VOICE_DIE];
+        let mut sfx = SfxEngine::new(AUDIO_SAMPLE_RATE);
+
+        detect_sfx_events(&prev, &curr, &mut sfx);
+
+        assert_eq!(
+            sfx.active_tones.len(),
+            1,
+            "fallback audio should play only the core Death voice, not a second HP-drop ouch tone"
         );
     }
 

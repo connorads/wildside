@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#363 fatal death ouch fixed)
+
+- **#363 moved `[~]` -> `[x]`.** Clean fatal TheKid deaths no longer replay an ouch after the
+  death voice in native playback.
+- Root cause was playback-side: the core trace correctly queued `sfx_Voice_die` from `Death`
+  (kid.asm:14714), but native-player's legacy HP-drop heuristic inferred generic `sfx_Voice_ouch`
+  from HP 1 -> 0 because it only suppressed itself for explicit ouch takes. The resulting audio
+  transcript was `[0x60, 0x61]`, so the later ouch could mask die.
+- Fix: `is_damage_resolution_voice_sound_id` treats either a loc_B73C ouch take or `VoiceDie` as
+  authoritative damage audio for both the GEMS command path and no-GEMS fallback tones.
+- Regressions:
+  `play_native_does_not_infer_ouch_over_fatal_death_voice_issue_363` and
+  `fallback_sfx_does_not_add_ouch_over_fatal_death_voice_issue_363`.
+- Verification: focused `issue_363`, `native_player::tests::play_native`, `fallback_sfx`, core
+  `voice_die`, `cargo fmt --check`, `mise run verify-slice-fast`, and `mise run verify-tas-full`
+  (exit 0; full-run CRC exact, baseline full-report divergences still start at
+  `transition_15_to_00_post`).
+- NEXT: `project-status` shows no ready-to-implement rows; take #364 first under
+  playability/infra risks, with #210 still the top visual risk.
+
 ## 2026-06-29 handoff (#362 RockTank early drive SFX fixed)
 
 - **#362 moved `[~]` -> `[x]`.** RockTank/TankShooting `$1F` no longer starts from the generic
