@@ -433,6 +433,24 @@ pub(crate) fn arrow_velocity_from_angle(angle: usize) -> (i32, i32) {
     ((x_byte as i32) * 0x1000, (y_byte as i32) * 0x1000)
 }
 
+fn archer_live_facing_loc_3408c(
+    enemy_x: u32,
+    enemy_y: u32,
+    player_x: Option<u32>,
+    player_y: Option<u32>,
+) -> Option<Direction> {
+    let (Some(px), Some(py)) = (player_x, player_y) else {
+        return None;
+    };
+
+    // ASM Archer.asm loc_3408C temporarily subtracts `$1E` from y_pos(a3)
+    // before calling loc_34458, then uses loc_340C0's sector branch to set
+    // x_direction for the whole shooting table cycle.
+    let aim_origin_y = enemy_y.wrapping_sub(0x001E_0000);
+    let target_angle = archer_angle_to_player(enemy_x, aim_origin_y, px, py);
+    Some(archer_shot_selection_loc_340C0(target_angle).facing)
+}
+
 /// Step Archer: stationary enemy that faces player and fires arrows at intervals.
 /// ASM: arrows persist until terrain/object collision, re-aiming every `arrow_accuracy`
 /// frames by ±1 angle step toward the player (loc_342D6 loop).
@@ -443,8 +461,9 @@ pub(crate) fn step_archer(
     player_y_pos: Option<u32>,
     played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
-    // Face towards player.
-    if let Some(dir) = player_relative_direction(enemy.x_pos, player_x_pos) {
+    if let Some(dir) =
+        archer_live_facing_loc_3408c(enemy.x_pos, enemy.y_pos, player_x_pos, player_y_pos)
+    {
         enemy.facing = dir;
     }
 
@@ -479,8 +498,6 @@ pub(crate) fn step_archer(
     }
 
     // Compute initial angle and velocity.
-    // ASM Archer.asm loc_3408C temporarily subtracts `$1E` from y_pos(a3)
-    // before calling loc_34458 for the opening shot-sector decision.
     let aim_origin_y = enemy.y_pos.wrapping_sub(0x001E_0000);
     let target_angle = archer_angle_to_player(enemy.x_pos, aim_origin_y, px, py);
     let shot_selection = archer_shot_selection_loc_340C0(target_angle);
@@ -769,6 +786,39 @@ mod tests {
         assert!(
             projectiles.is_empty(),
             "ASM Archer.asm loc_34248 should not reach the fire sentinel while the countdown remains non-zero"
+        );
+    }
+
+    #[test]
+    fn archer_live_step_countdown_uses_shot_sector_facing_for_same_x_player() {
+        let mut archer = ActiveEnemy {
+            family: EnemyFamily::Archer,
+            wait_timer: 2,
+            facing: Direction::Left,
+            hit_points: 1,
+            x_pos: 100 << 16,
+            y_pos: 100 << 16,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_archer(
+            &mut archer,
+            &mut projectiles,
+            Some(100 << 16),
+            Some(146 << 16),
+            None,
+        );
+
+        assert_eq!(
+            archer.facing,
+            Direction::Right,
+            "ASM Archer.asm loc_34458 returns angle 21 when dx is zero; loc_340C0 sets x_direction for the right-horizontal shooting table during countdown"
+        );
+        assert_eq!(archer.wait_timer, 1);
+        assert!(
+            projectiles.is_empty(),
+            "ASM Archer.asm loc_34248 still only decrements the active shooting-table countdown"
         );
     }
 
