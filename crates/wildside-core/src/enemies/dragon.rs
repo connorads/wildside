@@ -820,6 +820,8 @@ pub(crate) struct DragonFlyingDeleteTailLoc349A6 {
 pub(crate) fn dragon_flying_delete_tail_loc_349A6() -> DragonFlyingDeleteTailLoc349A6 {
     // ASM Dragon_Flying.asm loc_349A6: all death-status routes converge on the
     // `j_Delete_CurrentObject` tail after the explosion animation finishes.
+    // The following disassembly fragment, labelled loc_349C0, is orphaned
+    // after this unconditional jump; return-to-anchor uses loc_34B4C instead.
     DragonFlyingDeleteTailLoc349A6 {
         deletes_current_object: true,
     }
