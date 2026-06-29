@@ -11501,6 +11501,21 @@ and must not vanish/die immediately.
   Lion 0x07 (#345), Hills 0x08 entry (#335). The recorded routes so far drift from oracle before the
   target (e.g. #259 BLW2 shooting-tank route diverges at frame 99), so the flow must surface where a
   route first leaves oracle parity.
+  2026-06-29 fixed candidate: `play-native --record` now accepts route-target metadata
+  (`--record-target-label`, `--record-target-level`, `--record-target-point`,
+  `--record-target-cell`, `--record-target-cell-hitbox`, `--record-target-enemy`) and a
+  `--record-frontier-kind` for the generated oracle-frontier command. Saved bundles include
+  `route_target` and `tas_frontier_command` in `manifest.json`, plus the same target summary and
+  `verify-tas --scenario .cache/recordings/<slug>/scenario.json --bisect --frontier-kind ...` in
+  README. Regression coverage: `play_native_record_route_target_collects_named_route_metadata`,
+  `play_native_record_route_target_rejects_shell_awkward_labels`,
+  `save_recording_writes_route_target_summary`,
+  `save_native_recording_bundle_persists_scripted_route_metadata_and_sfx_events`,
+  `save_recording_writes_human_readable_bundle_summary`, and
+  `frontier_kind_arg_matches_clap_value_names`. `mise run verify-slice-fast` green (clippy, hooks,
+  backlog-lint, TAS frontier, 6470 core tests, 9 CLI slice tests). Human follow-up: use the new
+  flags to record USM3 0x06 slope first, then run the bundle's `verify-recording` and
+  `tas_frontier_command` to confirm parity or the first drift frame.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro coordinates logged)
 

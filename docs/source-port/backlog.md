@@ -26,18 +26,20 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-29 loop handoff:** #339 Under-Skull-Mountain washing/rumble drone is now a fixed
-  candidate in the awaiting-human lane. Cold `Load_InGame` playback now treats same-frame stale
-  Tank SFX deltas as pre-`StopMusic` state, suppressing replayed `$1F` TankDriving and `$3C`
-  TankMouthOpen after ASM `Load_InGame loc_23629` resets GEMS.
-- **Verification:** `cargo fmt --check`, focused CLI audio tests, and `mise run verify-slice-fast`
-  are green (clippy, hooks, backlog-lint, TAS frontier, 6470 core tests, 9 CLI slice tests).
-  `verify-tas-full` was not rerun; this is a native-player/audio-event transcript change, not a
-  gameplay-state change.
-- **Human validation:** real audio-device listen still required for clean/death/skip USM 0x04 loads
-  and post-death cards. Do not reopen #339 for the START-side early `$1F`; that is #362.
-- **Next selector output:** no ready-to-implement rows; `project-status` currently leads with #360
-  in playability risks and #210 in visual risks.
+- **2026-06-29 loop handoff:** #360 record-inputs capture flow is now a fixed candidate in the
+  awaiting-human lane. `play-native --record` can persist a named route target
+  (`--record-target-label/level/point/cell/cell-hitbox/enemy`) in `manifest.json`/README and emits
+  a `verify-tas --bisect --frontier-kind ...` command for the saved `scenario.json`.
+- **Verification:** focused CLI recording/target tests, `cargo fmt --check`, and
+  `mise run verify-slice-fast` are green (clippy, hooks, backlog-lint, TAS frontier, 6470 core
+  tests, 9 CLI slice tests). `verify-tas-full` was not rerun; this is recording metadata/CLI
+  infrastructure, not gameplay-state logic.
+- **Human validation:** record a real route to the first target, e.g. USM3 0x06 slope with
+  `--record-target-label usm3-0x06-slope --record-target-level 06 --record-target-cell ...`, then
+  run the bundle's `verify-recording` and `tas_frontier_command` to confirm where oracle parity
+  first leaves the route.
+- **Next selector output:** no ready-to-implement rows; `project-status` now leads with #359 in
+  playability risks and #210 in visual risks.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -65,7 +67,6 @@ For newly opened items, capture these facts in the investigation notes:
 | 336 | [ ] | P3 | render/intro | 2026-06-25: human disputes the NOT-A-BUG closure with cross-emulator evidence — the original fades from black and scrolls up from the ground, Kid not seen floating in the sky. | Prior closure proved camera/Kid-Y WRAM parity only, never palette fade-in timing. Probe oracle CRAM/palette fade vs the camera ramp: native may reveal Kid mid-sky during frames the ROM keeps black. See archive #336. |
 | 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |
 | 359 | [ ] | P2 | enemy/level | 2026-06-25 playtest: on the Cyclone-form sky level the bouncing ball (Sphere 0x06) usually at the spawn point is missing. Untracked before now. | 2026-06-26: ball APPEARS then drifts off the LEFT edge (not absent) — favour Sphere X-velocity vs camera-scroll/activation-window over the roster miss. Confirm exact level + entry path (#334). See 2026-06-26 + 2026-06-25 triage. |
-| 360 | [ ] | P1 | infra | 2026-06-25 requested enabler: a record-inputs flow turning a natural live playtest into an oracle-comparable route. Existing `--settled --record` is warp-only and rejects debug skips, so live routes to named tanks/slopes can't be captured. | Record natural inputs from a settled start to a named coordinate/enemy; emit a bundle staying native/oracle CRC-comparable to the target window. Unblock-key for #271/#259/#249/#270/#345/#335; first target USM3 0x06 slope. See archive #360. |
 | 349 | [ ] | P1 | render | 2026-06-26 playtest: post-death respawn card still shows the trees but NOT the level-NAME text; the 2026-06-21 fix (`b55244ad1`) IS in the build, so the candidate FAILED validation. | Re-investigate the respawn-card render path (InGame classification trace.rs:9177; glyph-worker filter; overlay window); add a native-player capture-frame assertion, not just the CRC-neutral render test. See archive #349. |
 | 361 | [ ] | P2 | render/enemy | 2026-06-26 playtest: on the hand level the live Hand (0x17) animation free-runs/flickers ("spazzes") instead of holding body frames. Deferred #243/#333 follow-up, never given its own row. NOT the grab gating #185 (grab+slow works). | Add a `select_live_hand_frame` selector mirroring `select_live_tar_monster_frame`: hold Hand body frames off HandState, early-return None on hp==0 so the death table keeps death frames; capture-frames to confirm no flicker. Cross-ref #243/#333, #185. |
 | 362 | [ ] | P2 | audio | 2026-06-26 playtest: RockTank drive SFX (`$1F` TankDriving) STARTS too early — audible from far off-screen before the tank is reached/visible. START side, distinct from #339 (STOP/persistence side). | The pooled drive refcount fires on first Tank activation, gated only by the off-screen enemy-activation window; compare native activation distance + `$1F` start-gate vs ROM `Tank.asm` Init on-screen gate. Needs #360. See archive #362. |

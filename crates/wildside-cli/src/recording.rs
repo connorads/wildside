@@ -25,7 +25,7 @@ use wildside_render::NativeLevelVisuals;
 
 const RECORDING_CHECKPOINT_INTERVAL: usize = 60;
 const RECORDING_LEVEL_CARD_HOLD_FRAMES: usize = 60;
-const RECORDING_BUNDLE_VERSION: u32 = 4;
+const RECORDING_BUNDLE_VERSION: u32 = 5;
 
 const RECORDING_NOTES_FILENAME: &str = "notes.txt";
 const RECORDING_TRANSCRIPT_FILENAME: &str = "transcript.txt";
@@ -84,6 +84,45 @@ pub(crate) struct RecordingStart {
     pub(crate) record_frames: Option<usize>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct RecordingRouteTarget {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) level: Option<u8>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) points: Vec<RecordingTargetPoint>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) cells: Vec<RecordingTargetCell>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) cell_hitboxes: Vec<RecordingTargetCell>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) enemies: Vec<u8>,
+}
+
+impl RecordingRouteTarget {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.label.is_none()
+            && self.level.is_none()
+            && self.points.is_empty()
+            && self.cells.is_empty()
+            && self.cell_hitboxes.is_empty()
+            && self.enemies.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct RecordingTargetPoint {
+    pub(crate) x_px: i64,
+    pub(crate) y_px: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct RecordingTargetCell {
+    pub(crate) col: i64,
+    pub(crate) row: i64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct NativeRecordingManifest {
     #[serde(default)]
@@ -109,6 +148,10 @@ pub(crate) struct NativeRecordingManifest {
     pub(crate) record_command: String,
     #[serde(default)]
     pub(crate) verify_command: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub(crate) tas_frontier_command: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) route_target: Option<RecordingRouteTarget>,
     #[serde(default)]
     pub(crate) artifacts: Vec<RecordingArtifactManifest>,
     pub(crate) scenario: DynamicScenario,
@@ -359,6 +402,8 @@ pub(crate) fn build_recording(
             git_dirty: git_status.as_ref().map(|status| status.dirty),
             record_command,
             verify_command,
+            tas_frontier_command: recording_tas_frontier_command(slug, "enemy"),
+            route_target: None,
             artifacts: Vec::new(),
             scenario: DynamicScenario {
                 slug: slug.to_owned(),
@@ -2397,6 +2442,10 @@ fn normalise_loaded_recording(recording: &mut NativeRecording) -> Result<()> {
             recording.manifest.slug
         );
     }
+    if recording.manifest.tas_frontier_command.is_empty() {
+        recording.manifest.tas_frontier_command =
+            recording_tas_frontier_command(&recording.manifest.slug, "enemy");
+    }
     rebase_settled_trace_frame_indices(recording);
     Ok(())
 }
@@ -2686,6 +2735,12 @@ fn recording_command(slug: &str, start: RecordingStart) -> String {
     command
 }
 
+pub(crate) fn recording_tas_frontier_command(slug: &str, frontier_kind: &str) -> String {
+    format!(
+        "cargo run -p wildside-cli -- verify-tas --scenario .cache/recordings/{slug}/scenario.json --bisect --frontier-kind {frontier_kind}"
+    )
+}
+
 fn recording_bundle_summary(manifest: &NativeRecordingManifest, trace_len: usize) -> String {
     let mut lines = vec![
         format!(
@@ -2716,6 +2771,20 @@ fn recording_bundle_summary(manifest: &NativeRecordingManifest, trace_len: usize
     lines.push(String::from("verify_command:"));
     lines.push(manifest.verify_command.clone());
     lines.push(String::new());
+    lines.push(String::from("tas_frontier_command:"));
+    lines.push(manifest.tas_frontier_command.clone());
+    lines.push(String::new());
+    if let Some(target) = &manifest.route_target
+        && !target.is_empty()
+    {
+        lines.push(String::from("route_target:"));
+        lines.extend(
+            recording_route_target_summary_lines(target)
+                .into_iter()
+                .map(|line| format!("- {line}")),
+        );
+        lines.push(String::new());
+    }
     lines.push(String::from("bundle_files:"));
     lines.push(String::from("- manifest.json"));
     lines.push(String::from("- scenario.json"));
@@ -2725,6 +2794,41 @@ fn recording_bundle_summary(manifest: &NativeRecordingManifest, trace_len: usize
         lines.push(format!("- {} ({})", artifact.path, artifact.kind));
     }
     lines.join("\n")
+}
+
+fn recording_route_target_summary_lines(target: &RecordingRouteTarget) -> Vec<String> {
+    let mut lines = Vec::new();
+    if let Some(label) = &target.label {
+        lines.push(format!("label: {label}"));
+    }
+    if let Some(level) = target.level {
+        lines.push(format!("level: 0x{level:02X}"));
+    }
+    lines.extend(
+        target
+            .points
+            .iter()
+            .map(|point| format!("point: {},{} px", point.x_px, point.y_px)),
+    );
+    lines.extend(
+        target
+            .cells
+            .iter()
+            .map(|cell| format!("cell: {},{}", cell.col, cell.row)),
+    );
+    lines.extend(
+        target
+            .cell_hitboxes
+            .iter()
+            .map(|cell| format!("cell_hitbox: {},{}", cell.col, cell.row)),
+    );
+    lines.extend(
+        target
+            .enemies
+            .iter()
+            .map(|enemy| format!("enemy: 0x{enemy:02X}")),
+    );
+    lines
 }
 
 #[cfg(test)]
@@ -4056,13 +4160,73 @@ mod tests {
         .expect("save recording");
 
         let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
-        assert!(readme.contains("Kid Chameleon native recording bundle v4"));
+        assert!(readme.contains("Kid Chameleon native recording bundle v5"));
         assert!(readme.contains("rom_sha1: fixture-rom"));
         assert!(readme.contains("--warp-level 01 --settled --record level1-tree-bug"));
         assert!(
             readme.contains("cargo run -p wildside-cli -- verify-recording --slug level1-tree-bug")
         );
+        assert!(
+            readme.contains(
+                "cargo run -p wildside-cli -- verify-tas --scenario .cache/recordings/level1-tree-bug/scenario.json --bisect --frontier-kind enemy"
+            )
+        );
         assert!(readme.contains("- transcript.txt (trace-transcript)"));
+    }
+
+    #[test]
+    fn save_recording_writes_route_target_summary() {
+        let temp = TempDir::new().expect("temp dir");
+        let mut recording = build_recording(
+            &fixture_manifest(),
+            "usm3-slope-route",
+            RecordingStart {
+                warp_level: Some(0x06),
+                settled: true,
+                record_frames: Some(1200),
+            },
+            vec![8; 3],
+            vec![
+                sample_trace_frame(0),
+                sample_trace_frame(1),
+                sample_trace_frame(2),
+            ],
+        )
+        .expect("recording");
+        recording.manifest.route_target = Some(RecordingRouteTarget {
+            label: Some(String::from("usm3-0x06-slope")),
+            level: Some(0x06),
+            points: vec![RecordingTargetPoint {
+                x_px: 2848,
+                y_px: 512,
+            }],
+            cells: vec![RecordingTargetCell { col: 178, row: 32 }],
+            cell_hitboxes: vec![RecordingTargetCell { col: 179, row: 32 }],
+            enemies: vec![0x0A],
+        });
+        recording.manifest.tas_frontier_command =
+            recording_tas_frontier_command("usm3-slope-route", "gameplay");
+
+        save_recording_with_artifacts(
+            temp.path(),
+            &recording,
+            &RecordingBundleArtifacts::default(),
+        )
+        .expect("save recording");
+
+        let manifest =
+            fs::read_to_string(temp.path().join("manifest.json")).expect("manifest text");
+        assert!(manifest.contains("\"route_target\""));
+        assert!(manifest.contains("\"label\": \"usm3-0x06-slope\""));
+        let readme = fs::read_to_string(temp.path().join("README.txt")).expect("recording readme");
+        assert!(readme.contains("route_target:"));
+        assert!(readme.contains("- label: usm3-0x06-slope"));
+        assert!(readme.contains("- level: 0x06"));
+        assert!(readme.contains("- point: 2848,512 px"));
+        assert!(readme.contains("- cell: 178,32"));
+        assert!(readme.contains("- cell_hitbox: 179,32"));
+        assert!(readme.contains("- enemy: 0x0A"));
+        assert!(readme.contains("--frontier-kind gameplay"));
     }
 
     #[test]
@@ -4122,7 +4286,7 @@ mod tests {
             &fs::read(temp.path().join("manifest.json")).expect("manifest json"),
         )
         .expect("manifest");
-        assert_eq!(manifest.bundle_version, 4);
+        assert_eq!(manifest.bundle_version, 5);
         assert_eq!(
             manifest.artifacts,
             vec![

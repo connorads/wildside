@@ -3017,6 +3017,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("level1-tree-break"),
@@ -3072,6 +3074,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("level1-tree-break"),
@@ -3127,6 +3131,8 @@ mod tests {
                 git_dirty: Some(true),
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("level3-flag-stale-camera"),
@@ -3189,6 +3195,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("level3-flag-current-camera"),
@@ -3246,6 +3254,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("blw2-direct-probe-effective-camera"),
@@ -3309,6 +3319,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("knights-isle-probe"),
@@ -3365,6 +3377,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("level2-walk-right"),
@@ -3422,6 +3436,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("level12-walk-right"),
@@ -3484,6 +3500,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("level18-walk-right"),
@@ -3553,6 +3571,8 @@ mod tests {
                 git_dirty: None,
                 record_command: String::new(),
                 verify_command: String::new(),
+                tas_frontier_command: String::new(),
+                route_target: None,
                 artifacts: Vec::new(),
                 scenario: DynamicScenario {
                     slug: String::from("level3-touch-shoot"),

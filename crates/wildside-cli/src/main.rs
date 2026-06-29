@@ -49,7 +49,10 @@ use oracle::{
 };
 use player::{PlayOptions, run_player};
 use project_status::{ProjectStatusFormat, run_project_status};
-use recording::{resolve_recording_bundle_input, validate_recording_slug, verify_recording};
+use recording::{
+    RecordingRouteTarget, RecordingTargetCell, RecordingTargetPoint,
+    resolve_recording_bundle_input, validate_recording_slug, verify_recording,
+};
 use release_gate::{ReleaseGateTarget, run_release_gate};
 use scenarios::{
     DynamicCheckpoint, DynamicScenario, GameplayScenario, NativeDynamicRunOptions, Scenario,
@@ -502,6 +505,27 @@ enum Commands {
         record_frames: Option<usize>,
         #[arg(long)]
         record_notes: Option<PathBuf>,
+        /// Stable label for the route target in the saved recording bundle.
+        #[arg(long)]
+        record_target_label: Option<String>,
+        /// Target level for the route being recorded.
+        #[arg(long, value_parser = parse_level_id)]
+        record_target_level: Option<u8>,
+        /// Route target point in level pixels, formatted x,y.
+        #[arg(long, value_parser = parse_target_point)]
+        record_target_point: Vec<TargetPoint>,
+        /// Route target 16x16 level cell, formatted col,row.
+        #[arg(long, value_parser = parse_target_cell)]
+        record_target_cell: Vec<TargetCell>,
+        /// Route target 16x16 level cell for Kid-hitbox approach checks.
+        #[arg(long, value_parser = parse_target_cell)]
+        record_target_cell_hitbox: Vec<TargetCell>,
+        /// Route target enemy object type.
+        #[arg(long, value_parser = parse_level_id)]
+        record_target_enemy: Vec<u8>,
+        /// Frontier class to use in the generated TAS bisect command.
+        #[arg(long, value_enum, default_value_t = sweep::FrontierKind::Enemy)]
+        record_frontier_kind: sweep::FrontierKind,
         /// Replay a DynamicScenario JSON through the live SDL player loop.
         #[arg(long)]
         scenario: Option<PathBuf>,
@@ -1489,6 +1513,13 @@ fn main() -> Result<()> {
             record,
             record_frames,
             record_notes,
+            record_target_label,
+            record_target_level,
+            record_target_point,
+            record_target_cell,
+            record_target_cell_hitbox,
+            record_target_enemy,
+            record_frontier_kind,
             scenario,
         } => {
             let repo_root = current_dir()?;
@@ -1531,6 +1562,17 @@ fn main() -> Result<()> {
                 (Some(_), None, Some(dynamic)) => Some(dynamic.frame_count),
                 _ => record_frames,
             };
+            let record_route_target = play_native_record_route_target(
+                record_target_label,
+                record_target_level,
+                &record_target_point,
+                &record_target_cell,
+                &record_target_cell_hitbox,
+                &record_target_enemy,
+            )?;
+            if record_to.is_none() && record_route_target.is_some() {
+                bail!("--record-target-* options require --record <slug>");
+            }
             run_native_player(
                 &manifest,
                 &NativePlayOptions {
@@ -1542,6 +1584,8 @@ fn main() -> Result<()> {
                     record_to,
                     record_frames,
                     record_notes,
+                    record_route_target,
+                    record_frontier_kind: Some(frontier_kind_arg(record_frontier_kind).to_owned()),
                     scripted_route: scripted_scenario.map(NativeScriptedRoute::from),
                 },
             )?;
@@ -3871,6 +3915,62 @@ fn recording_start_for_dynamic_scenario(scenario: &DynamicScenario) -> recording
     }
 }
 
+fn play_native_record_route_target(
+    label: Option<String>,
+    level: Option<u8>,
+    points: &[TargetPoint],
+    cells: &[TargetCell],
+    cell_hitboxes: &[TargetCell],
+    enemies: &[u8],
+) -> Result<Option<RecordingRouteTarget>> {
+    let has_target = label.is_some()
+        || level.is_some()
+        || !points.is_empty()
+        || !cells.is_empty()
+        || !cell_hitboxes.is_empty()
+        || !enemies.is_empty();
+    if !has_target {
+        return Ok(None);
+    }
+    if let Some(label) = &label {
+        validate_recording_slug(label)
+            .with_context(|| "--record-target-label uses the same safe characters as slugs")?;
+    }
+    Ok(Some(RecordingRouteTarget {
+        label,
+        level,
+        points: points
+            .iter()
+            .map(|point| RecordingTargetPoint {
+                x_px: point.x_px,
+                y_px: point.y_px,
+            })
+            .collect(),
+        cells: cells
+            .iter()
+            .map(|cell| RecordingTargetCell {
+                col: cell.col,
+                row: cell.row,
+            })
+            .collect(),
+        cell_hitboxes: cell_hitboxes
+            .iter()
+            .map(|cell| RecordingTargetCell {
+                col: cell.col,
+                row: cell.row,
+            })
+            .collect(),
+        enemies: enemies.to_vec(),
+    }))
+}
+
+fn frontier_kind_arg(kind: sweep::FrontierKind) -> &'static str {
+    match kind {
+        sweep::FrontierKind::Gameplay => "gameplay",
+        sweep::FrontierKind::Enemy => "enemy",
+    }
+}
+
 fn record_scenario_command(
     slug: &str,
     kind: RecordScenarioKind,
@@ -4634,22 +4734,23 @@ mod tests {
         AudioChipActivity, BatchProbeResult, BatchTargetBlockEvent, BatchTargetProjectileCell,
         BatchTargetProjectileDirection, DynamicCheckpoint, DynamicScenario, GameplayCapture,
         GameplayScenario, GameplayState, PlayerForm, RecordScenarioKind, ReferenceName,
-        TargetBlockEventKind, TargetCell, TargetProjectileDirection, analyse_audio_samples,
-        apply_dynamic_scenario_input_overlays, audio_envelope_similarity, batch_probe_sound_ids,
-        batch_probe_window_specs, build_controller_script, build_record_scenario,
-        capture_native_gameplay_run, capture_native_gameplay_scenario, classify_audio_writes,
-        compare_native_gameplay_with, compare_native_states_against_oracle,
+        TargetBlockEventKind, TargetCell, TargetPoint, TargetProjectileDirection,
+        analyse_audio_samples, apply_dynamic_scenario_input_overlays, audio_envelope_similarity,
+        batch_probe_sound_ids, batch_probe_window_specs, build_controller_script,
+        build_record_scenario, capture_native_gameplay_run, capture_native_gameplay_scenario,
+        classify_audio_writes, compare_native_gameplay_with, compare_native_states_against_oracle,
         dynamic_scenario_with_frame_checkpoints, ensure_gameplay_level_layouts_with,
         ensure_level_layouts_with, ensure_play_native_level_layouts_with,
-        find_gameplay_live_drifts, format_sound_id_list, gameplay_checkpoint_window,
-        generated_batch_probe_candidates, native_trace_to_oracle_state,
+        find_gameplay_live_drifts, format_sound_id_list, frontier_kind_arg,
+        gameplay_checkpoint_window, generated_batch_probe_candidates, native_trace_to_oracle_state,
         oracle_probe_watch_row_in_range, parse_batch_probe_candidate, parse_batch_probe_window,
         parse_batch_target_block_event, parse_batch_target_projectile_cell,
         parse_batch_target_projectile_direction, parse_button_mask, parse_input_spec,
-        parse_level_id, parse_sfx_constants, prepare_generated_assets_with,
-        record_scenario_command, record_scenario_file_command, recording_scenario_manifest,
-        recording_start_for_dynamic_scenario, selected_reference_repos, sorted_batch_probe_results,
-        summarise_chip_activity, target_block_event_from_frame,
+        parse_level_id, parse_sfx_constants, play_native_record_route_target,
+        prepare_generated_assets_with, record_scenario_command, record_scenario_file_command,
+        recording_scenario_manifest, recording_start_for_dynamic_scenario,
+        selected_reference_repos, sorted_batch_probe_results, summarise_chip_activity,
+        target_block_event_from_frame,
     };
     use crate::native_player::validate_native_session_assets;
     use crate::oracle::{EnemyFacing, OracleEnemyState, OracleState};
@@ -7684,6 +7785,60 @@ AddrTbl_LevelNames:
         assert!(
             manifest_scenario.settle_oracle_warp,
             "record-scenario exports scenario.json for direct verify-tas use, so warped settled recordings must carry their oracle bootstrap"
+        );
+    }
+
+    #[test]
+    fn play_native_record_route_target_collects_named_route_metadata() {
+        let target = play_native_record_route_target(
+            Some(String::from("usm3-0x06-slope")),
+            Some(0x06),
+            &[TargetPoint {
+                x_px: 2848,
+                y_px: 512,
+            }],
+            &[TargetCell { col: 178, row: 32 }],
+            &[TargetCell { col: 179, row: 32 }],
+            &[0x0A],
+        )
+        .expect("record target")
+        .expect("target metadata");
+
+        assert_eq!(target.label.as_deref(), Some("usm3-0x06-slope"));
+        assert_eq!(target.level, Some(0x06));
+        assert_eq!(target.points[0].x_px, 2848);
+        assert_eq!(target.cells[0].col, 178);
+        assert_eq!(target.cell_hitboxes[0].col, 179);
+        assert_eq!(target.enemies, vec![0x0A]);
+    }
+
+    #[test]
+    fn play_native_record_route_target_rejects_shell_awkward_labels() {
+        let error = play_native_record_route_target(
+            Some(String::from("USM3 slope")),
+            None,
+            &[],
+            &[],
+            &[],
+            &[],
+        )
+        .expect_err("labels with spaces should be rejected");
+
+        assert!(
+            format!("{error:#}").contains("--record-target-label"),
+            "target labels are echoed into record_command, so they need slug-like characters"
+        );
+    }
+
+    #[test]
+    fn frontier_kind_arg_matches_clap_value_names() {
+        assert_eq!(
+            frontier_kind_arg(crate::sweep::FrontierKind::Enemy),
+            "enemy"
+        );
+        assert_eq!(
+            frontier_kind_arg(crate::sweep::FrontierKind::Gameplay),
+            "gameplay"
         );
     }
 

@@ -1,6 +1,6 @@
 use crate::recording::{
-    RecordingBundleArtifacts, build_recording, recording_start_from_options,
-    save_recording_with_artifacts,
+    RecordingBundleArtifacts, RecordingRouteTarget, build_recording, recording_start_from_options,
+    recording_tas_frontier_command, save_recording_with_artifacts,
 };
 use crate::scenarios::{
     DynamicCheckpoint, DynamicScenario, DynamicStartPosition, GameplayCheckpoint,
@@ -68,6 +68,8 @@ pub struct NativePlayOptions {
     pub record_to: Option<PathBuf>,
     pub record_frames: Option<usize>,
     pub record_notes: Option<String>,
+    pub record_route_target: Option<RecordingRouteTarget>,
+    pub record_frontier_kind: Option<String>,
     pub scripted_route: Option<NativeScriptedRoute>,
 }
 
@@ -1134,6 +1136,15 @@ fn save_native_recording_bundle(
         recorded_script,
         recorded_trace,
     )?;
+    recording.manifest.record_command = native_recording_command(slug, options);
+    recording.manifest.tas_frontier_command = recording_tas_frontier_command(
+        slug,
+        options.record_frontier_kind.as_deref().unwrap_or("enemy"),
+    );
+    recording
+        .manifest
+        .route_target
+        .clone_from(&options.record_route_target);
     if let Some(route) = &options.scripted_route {
         recording.manifest.scenario.start_position = route.start_position;
         recording.manifest.scenario.start_velocity = route.start_velocity;
@@ -1158,6 +1169,60 @@ fn save_native_recording_bundle(
         slug
     );
     Ok(())
+}
+
+fn native_recording_command(slug: &str, options: &NativePlayOptions) -> String {
+    use std::fmt::Write;
+
+    let mut command = String::from("cargo run --release -p wildside-cli -- play-native");
+    if let Some(level) = options.warp_level {
+        let _ = write!(command, " --warp-level {level:02X}");
+    }
+    if options.settled {
+        command.push_str(" --settled");
+    }
+    let _ = write!(command, " --record {slug}");
+    if let Some(frame_limit) = options.record_frames {
+        let _ = write!(command, " --record-frames {frame_limit}");
+    }
+    if let Some(target) = &options.record_route_target {
+        append_record_route_target_args(&mut command, target);
+    }
+    if let Some(frontier_kind) = &options.record_frontier_kind {
+        let _ = write!(command, " --record-frontier-kind {frontier_kind}");
+    }
+    command
+}
+
+fn append_record_route_target_args(command: &mut String, target: &RecordingRouteTarget) {
+    use std::fmt::Write;
+
+    if let Some(label) = &target.label {
+        let _ = write!(command, " --record-target-label {label}");
+    }
+    if let Some(level) = target.level {
+        let _ = write!(command, " --record-target-level {level:02X}");
+    }
+    for point in &target.points {
+        let _ = write!(
+            command,
+            " --record-target-point {},{}",
+            point.x_px, point.y_px
+        );
+    }
+    for cell in &target.cells {
+        let _ = write!(command, " --record-target-cell {},{}", cell.col, cell.row);
+    }
+    for cell in &target.cell_hitboxes {
+        let _ = write!(
+            command,
+            " --record-target-cell-hitbox {},{}",
+            cell.col, cell.row
+        );
+    }
+    for enemy in &target.enemies {
+        let _ = write!(command, " --record-target-enemy {enemy:02X}");
+    }
 }
 
 fn load_native_session_assets(
@@ -14072,6 +14137,8 @@ mod tests {
                 record_to: None,
                 record_frames: None,
                 record_notes: None,
+                record_route_target: None,
+                record_frontier_kind: None,
                 scripted_route: None,
             },
         );
@@ -14109,6 +14176,8 @@ mod tests {
                 record_to: None,
                 record_frames: None,
                 record_notes: None,
+                record_route_target: None,
+                record_frontier_kind: None,
                 scripted_route: None,
             },
         );
@@ -15747,6 +15816,15 @@ mod tests {
                 record_to: Some(record_dir.clone()),
                 record_frames: Some(900),
                 record_notes: Some(String::from("stuck on level card")),
+                record_route_target: Some(RecordingRouteTarget {
+                    label: Some(String::from("usm3-slope")),
+                    level: Some(0x06),
+                    points: Vec::new(),
+                    cells: vec![crate::recording::RecordingTargetCell { col: 28, row: 32 }],
+                    cell_hitboxes: Vec::new(),
+                    enemies: vec![0x0A],
+                }),
+                record_frontier_kind: Some(String::from("gameplay")),
                 scripted_route: Some(NativeScriptedRoute {
                     script: vec![16, 0],
                     delay_recording_input: false,
@@ -15794,7 +15872,18 @@ mod tests {
         assert!(audio_events.contains("frame=1"));
         assert!(audio_events.contains("StartSequence(13)"));
         assert!(manifest_text.contains("\"record_frames\": 900"));
-        assert!(manifest_text.contains("--record freeze-repro --record-frames 900"));
+        assert!(
+            manifest_text.contains(
+                "--record freeze-repro --record-frames 900 --record-target-label usm3-slope --record-target-level 06 --record-target-cell 28,32 --record-target-enemy 0A --record-frontier-kind gameplay"
+            )
+        );
+        assert!(manifest_text.contains("\"route_target\""));
+        assert!(manifest_text.contains("\"label\": \"usm3-slope\""));
+        assert!(
+            manifest_text.contains(
+                "verify-tas --scenario .cache/recordings/freeze-repro/scenario.json --bisect --frontier-kind gameplay"
+            )
+        );
     }
 
     #[test]
@@ -15808,6 +15897,8 @@ mod tests {
             record_to: Some(PathBuf::from("recordings/level2-death")),
             record_frames: Some(3),
             record_notes: None,
+            record_route_target: None,
+            record_frontier_kind: None,
             scripted_route: None,
         };
 

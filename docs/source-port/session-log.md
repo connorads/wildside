@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#360 record-inputs route targets fixed candidate)
+
+- **#360 moved `[~]` -> `[?]`.** `play-native --record` now persists named route-target metadata
+  (`label`, level, point, cell, cell-hitbox, enemy type) in native recording bundles and README.
+- Bundles now include `tas_frontier_command`, pointing at their saved `scenario.json` with
+  `verify-tas --bisect --frontier-kind ...`, so a natural live route can immediately show whether
+  it stays native/oracle comparable or where it first drifts.
+- Regression coverage: `play_native_record_route_target_*`,
+  `save_recording_writes_route_target_summary`,
+  `save_native_recording_bundle_persists_scripted_route_metadata_and_sfx_events`, and README/frontier
+  command tests.
+- Verification: focused CLI recording/target tests, `cargo fmt --check`, and
+  `mise run verify-slice-fast` green. `verify-tas-full` was not required; this is recording
+  metadata/CLI infrastructure, not gameplay-state logic.
+- NEXT: run `mise run project-status` and take the top open item. Human validation for #360 is to
+  record a real USM3 0x06 slope route, then run the generated `verify-recording` and
+  `tas_frontier_command`.
+
 ## 2026-06-29 handoff (#339 cold Load_InGame stale Tank SFX fixed candidate)
 
 - **#339 moved `[~]` -> `[?]`.** Cold `Load_InGame` audio now treats same-frame Tank SFX
