@@ -176,7 +176,7 @@ impl QueuedSoundEffect {
             // ASM Jump_On_Enemy (kid.asm:14607) plays
             // `sfx_Jump_on_enemy = $4C` before the loc_B6DA bounce tail.
             Self::JumpOnEnemy => 0x4C,
-            // ASM PrizeDiamondCollected_Init loc_2510C (kid.asm:21103): the
+            // ASM PrizeDiamondCollected_Init (kid.asm:21100): the
             // diamond-prize pickup plays `sfx_Diamond_prize = $2D` on the
             // contact frame, *before* the 32-step fly-to-counter loop that
             // later increments Number_Diamonds.

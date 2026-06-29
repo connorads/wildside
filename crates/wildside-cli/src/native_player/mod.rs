@@ -2151,7 +2151,7 @@ fn native_bgm_state_after_trace(
     let command = if active_bgm_cue.is_none()
         && matches!(cue, NativeBgmCue::Level(_) | NativeBgmCue::CoreQueued(_))
     {
-        // ASM Load_InGame loc_23629 (kid.asm:23629) runs StopMusic even when
+        // ASM Load_InGame (kid.asm:23623) runs StopMusic even when
         // native's cue tracker has no previous BGM. This hard reset is the
         // incoming-level off switch for stale looping GEMS sequences (#339).
         NativeBgmPlaybackCommand::StopMusicThenStart(bgm)
@@ -2362,7 +2362,7 @@ fn native_bgm_command_suppresses_same_frame_sfx(
     if trace.game_mode == GameMode::LevelTransition {
         return true;
     }
-    // ASM Load_InGame loc_23629 runs j_StopMusic before loc_11FD2/loc_12004
+    // ASM Load_InGame runs j_StopMusic before loc_11FD2/loc_12004
     // queues level music. A cold native cue means this frame is also the first
     // visible level-load boundary, so stale enemy SFX deltas from the previous
     // route must not be replayed after the reset.
@@ -20729,7 +20729,7 @@ mod tests {
             Some(
                 "frame=0 mode=InGame level=00 active_before=None active_after=Some(Level(LevelId(0))) command=StopMusicThenStart(7)"
             ),
-            "cold play-native recordings must mirror ASM Load_InGame loc_23629 StopMusic before ASM loc_12004 queues level music"
+            "cold play-native recordings must mirror ASM Load_InGame StopMusic before ASM loc_12004 queues level music"
         );
         assert!(
             settled_events
@@ -20833,7 +20833,7 @@ mod tests {
                     gems_bgm::MURDERWALL
                 )),
             ),
-            "ASM Load_InGame loc_23629 (kid.asm:23629) runs StopMusic before loc_11FD2/loc_12004 queues the level BGM, even when native has no active cue to replace"
+            "ASM Load_InGame (kid.asm:23623) runs StopMusic before loc_11FD2/loc_12004 queues the level BGM, even when native has no active cue to replace"
         );
         Ok(())
     }
@@ -21085,7 +21085,7 @@ mod tests {
                 Some(NativeBgmCue::Level(LevelId(0))),
                 Some(NativeBgmPlaybackCommand::StopMusicThenStart(gems_bgm::CAVE)),
             ),
-            "ASM Load_InGame loc_23629 (kid.asm:23629) runs StopMusic before loc_12004 queues the first level BGM; this uses the real GEMS reset, not the old stop-all command"
+            "ASM Load_InGame (kid.asm:23623) runs StopMusic before loc_12004 queues the first level BGM; this uses the real GEMS reset, not the old stop-all command"
         );
         Ok(())
     }
@@ -21110,7 +21110,7 @@ mod tests {
                     && event.contains("active_before=None")
                     && event.contains("command=StopMusicThenStart")
             }),
-            "ASM Load_InGame loc_23629 (kid.asm:23629) must reset GEMS before loc_12004 queues level music on cold native level entry"
+            "ASM Load_InGame (kid.asm:23623) must reset GEMS before loc_12004 queues level music on cold native level entry"
         );
         assert!(
             !events.iter().any(|event| event.contains(&format!(
@@ -21301,7 +21301,7 @@ mod tests {
         assert_eq!(
             sfx.active_tones.len(),
             1,
-            "ASM loc_2510C queues sfx_Diamond_prize on contact; the fallback mixer must not wait for Number_Diamonds"
+            "ASM PrizeDiamondCollected_Init queues sfx_Diamond_prize on contact; the fallback mixer must not wait for Number_Diamonds"
         );
 
         let mut count_increment = sample_trace(GameMode::InGame);
@@ -21861,7 +21861,7 @@ mod tests {
         assert_eq!(
             gems_event_sound_ids(&prev, &contact),
             vec![gems_sfx::DIAMOND_PRIZE],
-            "ASM loc_2510C plays sfx_Diamond_prize on the diamond-prize contact frame"
+            "ASM PrizeDiamondCollected_Init plays sfx_Diamond_prize on the diamond-prize contact frame"
         );
 
         // 33 frames later the visible count rises, but the SFX already played at

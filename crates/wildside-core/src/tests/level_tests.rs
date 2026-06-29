@@ -12622,13 +12622,13 @@ PlatformScript_361C:   ; relative offset: 001A\n\
         );
     }
 
-    /// ASM Load_InGame loc_23629 (kid.asm:23629) j_StopMusic resets the GEMS
+    /// ASM Load_InGame (kid.asm:23623) j_StopMusic resets the GEMS
     /// driver on the death-respawn re-entry. #339 REOPEN: the per-exit Rock Tank
     /// drive-stop edge is bypassed by this bulk clear, so the drone looped
     /// forever after a Kid death. The respawn reset must mirror j_StopMusic and
     /// stop the still-driving drone.
     #[test]
-    fn loc_23629_kid_death_respawn_stops_live_rock_tank_drive_drone() {
+    fn load_ingame_kid_death_respawn_stops_live_rock_tank_drive_drone() {
         let mut runtime = NativeRuntime::new(manifest_with_levels_and_playable_spawn(3));
         runtime.set_block_grid(grid_with_floor_at_row(48));
         start_level(&mut runtime);
@@ -12645,7 +12645,7 @@ PlatformScript_361C:   ; relative offset: 001A\n\
                 .contains(&QueuedSoundCommand::StopSequence(
                     QueuedSoundEffect::TankDriving
                 )),
-            "ASM Load_InGame loc_23629 j_StopMusic must silence the still-driving Rock Tank drone on the death-respawn re-entry"
+            "ASM Load_InGame j_StopMusic must silence the still-driving Rock Tank drone on the death-respawn re-entry"
         );
     }
 

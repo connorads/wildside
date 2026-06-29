@@ -1125,7 +1125,7 @@ pub(crate) fn run_asm_coverage(
                 );
             }
             bail!(
-                "{} required ASM label(s) missing native citations — restore them in wildside-core or wildside-cli",
+                "{} required ASM label(s) missing non-test core/data citations — restore them in scanned production source",
                 issues.len()
             );
         }

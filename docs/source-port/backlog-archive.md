@@ -10618,6 +10618,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 365 | [x] | P2 | infra/asm-coverage | asm-coverage now reports reachable / test-only-debt / uncovered labels, marks the GEMS M68k<->Z80 interface as emulated, and removes the vestigial oracle-backed tier. | Headline/JSON/YAML report 3835 reachable / 242 test-only debt / 40 uncovered (33 emulated GEMS, 7 ordinary); focused tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #365. |
 | 366 | [x] | P2 | infra/asm-coverage | asm-coverage now has a checked-in test-only baseline and `--check-no-new-test-only` ratchet; the five orphan subroutines are triaged with inline fidelity notes. | Baseline records 242 grandfathered test-only labels; new test-only labels fail the CLI ratchet; focused asm/core tests, `asm-coverage --update`, and `verify-slice-fast` exit 0. See archive #366. |
 | 367 | [x] | P2 | infra/asm-coverage | `verify-slice-fast` now runs the test-only ratchet, required-label gate, and debug-field audit; the audit scans the oracle helper template and registry hashes are backfilled. | Gate deps report 9 required labels covered, 242 current/242 baseline test-only labels, and 91 emitted/91 registered debug keys; focused tests and `verify-slice-fast` exit 0. See archive #367. |
+| 368 | [x] | P3 | infra/docs | One-off asm-coverage/doc tidy: stale live-source `loc_2510C`/`loc_23629` citations are removed, the required-label failure text points at non-test core/data, audio-trigger refs match the current command model, and CLAUDE.md single-sources asm-coverage commands. | Search checks for stale labels/deleted helper refs; focused asm-coverage/runtime/native-player tests; `cargo fmt`; `asm-coverage --check-required`; `backlog-lint`; `verify-slice-fast`. See archive #368. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11761,6 +11762,20 @@ remains exact, with the known state-report divergences still first authoritative
   `audit-debug-fields`, `asm_coverage`, `asm-coverage-check-required`, and
   `asm-coverage-check-no-new-test-only`; `cargo fmt --check`; `verify-slice-fast` exit 0.
   `verify-tas-full` was not required for tooling/gate-only work.
+
+- **#368 (asm-coverage/doc tidy, P3 infra).** Fixed 2026-06-29 (`[~]` -> `[x]`).
+  Removed the two stale live-source reverse citations from the #368 plan: the diamond contact cue
+  now cites `PrizeDiamondCollected_Init` (kid.asm:21100), and the level-load GEMS reset cites
+  `Load_InGame` (kid.asm:23623) instead of the line-number-like `loc_23629`. Renamed the
+  #339 drone-stop helper/tests opportunistically from the stale suffix to
+  `stop_level_looping_drones_on_load_ingame`. Updated `asm-coverage --check-required` help/failure
+  text to say non-test core/data citations, refreshed the audio-trigger audit's stale deleted-helper
+  refs to the current `QueuedSoundCommand` / `NativeSoundCommand` / `GemsAudioEngine` path, and
+  de-duplicated CLAUDE.md's asm-coverage commands while documenting `--json`, `--check-required`,
+  and `--check-no-new-test-only`. Verification: stale-label/helper `rg` checks, focused
+  asm-coverage/runtime/native-player tests, `cargo fmt`, `asm-coverage --check-required`,
+  `backlog-lint`, and `verify-slice-fast`. `verify-tas-full` was not required for docs/tooling
+  cleanup with no gameplay changes.
 
 ### Route-blocked, reconfirmed LIVE on HEAD (stay `[b]`; sharper repro logged)
 

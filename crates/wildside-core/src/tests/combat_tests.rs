@@ -13142,7 +13142,7 @@ mod chunk_03 {
         assert_eq!(
             runtime.played_sound_effects,
             vec![QueuedSoundEffect::DiamondPrize],
-            "ASM loc_2510C plays sfx_Diamond_prize ($2D) on the contact frame",
+            "ASM PrizeDiamondCollected_Init plays sfx_Diamond_prize ($2D) on the contact frame",
         );
         assert_eq!(
             QueuedSoundEffect::DiamondPrize.sound_id(),

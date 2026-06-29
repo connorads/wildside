@@ -1211,8 +1211,8 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         json: bool,
         /// Fail (exit non-zero) if any label in REQUIRED_LABELS lacks a
-        /// native source citation. Use in CI/pre-commit to prevent
-        /// regressions on attack/animation/slope routines.
+        /// non-test core/data source citation. verify-slice-fast uses this to
+        /// prevent regressions on attack/animation/slope routines.
         #[arg(long, default_value_t = false)]
         check_required: bool,
         /// Fail (exit non-zero) if any ASM label newly becomes test-only debt

@@ -26,19 +26,17 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-29 loop handoff:** #336 render/intro is fixed and moved to `[x]`.
-  Native now keeps the BLW1 title-card -> live-gameplay handoff black through the ROM load window,
-  then applies the oracle `sub_73D0`/`sub_14C0` palette fade while preserving the verified
-  Kid/camera ramp.
-- **Evidence:** route `.cache/debug/issue336-cold-boot-live/scenario-card-start.json` is
-  CRC/checkpoint-clean for frames 880..1041. Captures match oracle black exactly at frames 960/970;
-  fade brightness tracks oracle at frames 974/980/984, with residual AE from existing scene/HUD/tile
-  differences rather than fade timing.
-- **Verification:** focused core fade trace test, frame palette-fade tests, CLI scene-command test,
-  `cargo check -q -p wildside-frame -p wildside-cli --tests`, route `verify-tas`, captures, and
-  `mise run verify-slice-fast` exit 0 completed.
-- **Next selector output:** no ready-to-implement rows; `project-status` now leads with #368 in
-  playability/infra/docs. Top visual risks remain #210, #254, #324, #349, then #358.
+- **2026-06-29 loop handoff:** #368 infra/docs is fixed and moved to `[x]`.
+  Current source/docs no longer present the nonexistent `loc_2510C` or `loc_23629` labels as live
+  ASM citations; the required-label gate message points maintainers at non-test core/data citations;
+  the audio-trigger audit references the current command-byte path; and CLAUDE.md single-sources the
+  asm-coverage command list with `--check-required` documented.
+- **Evidence:** stale-label/deleted-helper `rg` checks are clean across current source/docs touched
+  by #368. `project-status` now reports no ready or playability rows.
+- **Verification:** focused asm-coverage/runtime/native-player tests, `cargo fmt`,
+  `asm-coverage --check-required`, `backlog-lint`, and `mise run verify-slice-fast` completed for
+  this docs/tooling cleanup.
+- **Next selector output:** top open visual risks are #210, then #254, #324, #349, and #358.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).
@@ -66,4 +64,3 @@ For newly opened items, capture these facts in the investigation notes:
 | 358 | [ ] | P2 | render/enemy | 2026-06-25 playtest: lightning clouds fire plain red dots; the ROM Cloud projectile (Cloud.asm loc_35DF0) renders a lightning-bolt sprite. Gameplay/lifetime is correct (#198); only the sprite is wrong. | Add `ActiveProjectileKind::CloudLightning` (types.rs), map it in trace.rs, draw the Cloud bolt art in scene.rs — same 3-file pattern as Tank/Tar/Lion bullets. capture-frames diff on a lightning-cloud level. |
 | 349 | [ ] | P1 | render | 2026-06-26 playtest: post-death respawn card still shows the trees but NOT the level-NAME text; the 2026-06-21 fix (`b55244ad1`) IS in the build, so the candidate FAILED validation. | Re-investigate the respawn-card render path (InGame classification trace.rs:9177; glyph-worker filter; overlay window); add a native-player capture-frame assertion, not just the CRC-neutral render test. See archive #349. |
 | 361 | [ ] | P2 | render/enemy | 2026-06-26 playtest: on the hand level the live Hand (0x17) animation free-runs/flickers ("spazzes") instead of holding body frames. Deferred #243/#333 follow-up, never given its own row. NOT the grab gating #185 (grab+slow works). | Add a `select_live_hand_frame` selector mirroring `select_live_tar_monster_frame`: hold Hand body frames off HandState, early-return None on hp==0 so the death table keeps death frames; capture-frames to confirm no flicker. Cross-ref #243/#333, #185. |
-| 368 | [ ] | P3 | infra/docs | One-off tidy (not gated): fix stale citations loc_2510C (combat.rs:179) + loc_23629 (native_player/mod.rs:2086); gate-message → core/data (F6); refresh audio-triggers refs (F5); dedup CLAUDE.md asm-coverage block + document `--check-required` (F4). | Stale citations gone; CLAUDE.md block single-source. See plan #368. |

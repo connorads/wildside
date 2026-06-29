@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#368 asm-coverage tidy fixed)
+
+- **#368 moved `[~]` -> `[x]`.** Removed stale current-source `loc_2510C` and `loc_23629`
+  citations, using `PrizeDiamondCollected_Init` and `Load_InGame` with real kid.asm line refs.
+- Renamed the #339 drone-stop helper/tests away from the stale `loc_23629` suffix; updated
+  `asm-coverage --check-required` help/failure text to point at non-test core/data citations.
+- Refreshed `audio-triggers-fidelity-audit.md` to describe the current `QueuedSoundCommand` /
+  `NativeSoundCommand` / `GemsAudioEngine` command-byte path, and de-duplicated CLAUDE.md's
+  asm-coverage command block while documenting `--json`, `--check-required`, and
+  `--check-no-new-test-only`.
+- Verification: stale-label/deleted-helper `rg` checks, focused asm-coverage/runtime/native-player
+  tests, `cargo fmt`, `asm-coverage --check-required`, `backlog-lint`, and
+  `mise run verify-slice-fast`.
+- NEXT: `project-status` shows no ready or playability rows; take #210 first under visual risks,
+  then #254, #324, #349, and #358.
+
 ## 2026-06-29 handoff (#336 title-card fade fixed)
 
 - **#336 moved `[~]` -> `[x]`.** BLW1 title-card -> live-gameplay handoff now stays black through

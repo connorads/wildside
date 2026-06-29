@@ -124,6 +124,9 @@ cargo run -p wildside-cli -- inspect-enemy --enemy 01
 cargo run -p wildside-cli -- compare-native-oracle --scenario boot-title-start-level1
 cargo run -p wildside-cli -- asm-coverage                    # coverage summary
 cargo run -p wildside-cli -- asm-coverage --uncovered        # uncovered sub_ labels
+cargo run -p wildside-cli -- asm-coverage --json             # machine-readable summary
+cargo run -p wildside-cli -- asm-coverage --check-required   # fast-gate required-label citations
+cargo run -p wildside-cli -- asm-coverage --check-no-new-test-only  # ratchet new test-only debt
 cargo run -p wildside-cli -- asm-coverage --update           # regenerate .cache/asm-coverage.yaml (untracked)
 ```
 
@@ -131,8 +134,9 @@ cargo run -p wildside-cli -- asm-coverage --update           # regenerate .cache
 > "covered" the moment any Rust file cites `loc_XXXX`/`sub_XXXX`, with zero verification. A
 > citation that lives only in `#[cfg(test)]` code is test-only debt, not shipped behaviour.
 > Fidelity is proven by the oracle/TAS gates and checked-in regression tests — never by the
-> coverage number. Use it to find undiscussed ASM, not to claim behaviour is implemented or
-> correct.
+> coverage number. `verify-slice-fast` runs `--check-required` and
+> `--check-no-new-test-only`, but those are reachability/regression guards, not fidelity proof.
+> Use coverage to find undiscussed ASM, not to claim behaviour is implemented or correct.
 
 ## Level 1 reading order
 
@@ -222,9 +226,7 @@ diff composites, and per-layer diagnostics.
 - `cargo run -p wildside-cli -- diagnose-frame --level XX --frame N --output .cache/debug/ --save-layers`
 - `cargo run -p wildside-cli -- sweep --levels 0-104 --tier state` (full oracle comparison)
 - `cargo run -p wildside-cli -- diagnose-level XX` (deep single-level analysis)
-- `cargo run -p wildside-cli -- asm-coverage` (ASM label coverage summary — discovery aid; citation ≠ fidelity ≠ reachability, see "First commands")
-- `cargo run -p wildside-cli -- asm-coverage --uncovered` (gap list)
-- `cargo run -p wildside-cli -- asm-coverage --update` (regenerate .cache/asm-coverage.yaml, untracked)
+- See "First commands" for `asm-coverage` discovery, JSON, ratchet, and update commands.
 
 ### Verification loop
 1. CAPTURE BEFORE: `capture-frames` to `.cache/debug/before/`
