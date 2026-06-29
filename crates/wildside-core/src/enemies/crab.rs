@@ -437,6 +437,14 @@ pub(crate) fn crab_facing_toward_kid_loc_3b0e0(crab_x_minus_kid_x: i16) -> Direc
     }
 }
 
+fn crab_x_minus_kid_x_word_delta_loc_3b0be(crab_x: u32, kid_x: u32) -> i16 {
+    // ASM Crab.asm loc_3B0BE: `move.w x_pos(a3),d7; sub.w x_pos(a4),d7`
+    // keeps only the signed 16-bit pixel coordinate delta.
+    let crab_x_word = (crab_x >> 16) as u16;
+    let kid_x_word = (kid_x >> 16) as u16;
+    crab_x_word.wrapping_sub(kid_x_word) as i16
+}
+
 pub(crate) fn crab_freeze_direction_gate_loc_3b0fe(
     kid_facing: Direction,
     crab_facing: Direction,
@@ -469,12 +477,12 @@ pub(crate) fn step_crab_freeze(
     let Some(px) = player_x_pos else { return };
     let Some(pfacing) = player_facing else { return };
 
-    let dx = (enemy.x_pos as i64 - px as i64) >> 16; // crab_x - player_x
-    let abs_dx = dx.abs();
+    let dx = crab_x_minus_kid_x_word_delta_loc_3b0be(enemy.x_pos, px);
+    let abs_dx = i64::from(dx).abs();
 
     let was_frozen = enemy.crab_frozen;
     if !was_frozen {
-        enemy.facing = crab_facing_toward_kid_loc_3b0e0(dx as i16);
+        enemy.facing = crab_facing_toward_kid_loc_3b0e0(dx);
     }
 
     // ASM loc_3B142-loc_3B170: unfreeze when distance > 224px
@@ -1193,6 +1201,28 @@ mod tests {
         assert_eq!(
             enemy.x_velocity, 0,
             "ASM Crab.asm loc_3B104 should zero `$50(a5)` while frozen"
+        );
+    }
+
+    #[test]
+    fn crab_freeze_callback_loc_3b0be_uses_wrapping_word_delta() {
+        let mut enemy = crab_test_enemy(5, false, Direction::Right);
+
+        step_crab_freeze(
+            &mut enemy,
+            Some(0xFFF0_0000),
+            Some(Direction::Right),
+            Some(0),
+        );
+
+        assert!(
+            enemy.crab_frozen,
+            "ASM Crab.asm loc_3B0BE subtracts 16-bit x_pos words, so `5 - $FFF0` is the close-range delta `$0015`, not a full-width far-left distance"
+        );
+        assert_eq!(
+            enemy.facing,
+            Direction::Left,
+            "ASM Crab.asm loc_3B0E0 should keep the clear-x_direction branch for the wrapped positive delta"
         );
     }
 
