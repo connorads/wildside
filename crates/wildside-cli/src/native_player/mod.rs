@@ -7975,10 +7975,11 @@ mod tests {
     }
 
     #[test]
-    fn live_tar_sphere_emorock_hold_body_frames_not_death_tail_off_32290_stru_36174_stru_363fe() {
+    fn live_tar_sphere_emorock_hand_hold_body_frames_not_death_tail() {
         // ASM Tar_Monster.asm off_32290 / Sphere.asm stru_36174 / Emo_Rock.asm
-        // loc_3621A: a LIVE enemy must hold its body/phase frame, never free-run
-        // the extracted sheet's DEATH-tail frames (#243/#333 render free-run).
+        // loc_3621A / Hand.asm loc_327F2/loc_328E0/loc_32906: a LIVE enemy
+        // must hold its body/phase frame, never free-run the extracted sheet's
+        // DEATH-tail frames (#243/#333/#361 render free-run).
         // Before the select_live_* helpers, the generic free-run cycled the whole
         // sheet off trace.frame_index, exposing the submerge/disappear/shatter
         // death frames on a live enemy.
@@ -8065,6 +8066,43 @@ mod tests {
         assert!(
             matches!(emo_sig, 241..=243),
             "ASM Emo_Rock.asm loc_3621A/loc_362A4: live emo rock shows a body frame, not the stru_36468 shatter tail (got sig {emo_sig})"
+        );
+
+        // Hand 0x17: walking installs `stru_32B6A` (frame 0), jump attack
+        // installs `stru_32B56` (frames 1/2, frame 1 at script entry), and grab
+        // installs `stru_32B50` (frame 3). None may free-run into the `loc_32AA2`
+        // death tail frames 4..7 while hit_points is nonzero. frame_index 6 makes
+        // the pre-fix free-run pick frame (6/1)%8 = 6, a death sliver.
+        trace.frame_index = 6;
+        let hand = visuals.enemies.families.get(&0x17).expect("hand visuals");
+        let hand_walking = base(0x17);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, hand, &hand_walking)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            141,
+            "ASM Hand.asm loc_327F2 installs `stru_32B6A`; live walking Hand holds the body frame, not the death tail"
+        );
+        let mut hand_jumping = base(0x17);
+        hand_jumping.contact_phase = Some(NativeContactPhase::HandJumping);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, hand, &hand_jumping)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            142,
+            "ASM Hand.asm loc_328E0 installs `stru_32B56`; live jumping Hand starts on the attack frame, not the death tail"
+        );
+        let mut hand_grabbing = base(0x17);
+        hand_grabbing.contact_phase = Some(NativeContactPhase::HandGrabbing);
+        assert_eq!(
+            sprites::select_enemy_frame(&trace, hand, &hand_grabbing)
+                .tile_sheet
+                .tiles[0]
+                .pixels[0],
+            144,
+            "ASM Hand.asm loc_32906 installs `stru_32B50`; live grabbing Hand holds the grab frame"
         );
     }
 

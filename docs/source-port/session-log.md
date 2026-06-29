@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#361 Hand live render fixed)
+
+- **#361 moved `[~]` -> `[x]`.** Live Hand (0x17) sprites now hold their ROM live
+  body/attack/grab frames instead of cycling into the death-tail atlas frames.
+- Added trace phases for `HandState::Jumping`/`Grabbing` and a `select_live_hand_frame` renderer
+  selector for `Hand.asm loc_327F2` (`stru_32B6A`), `loc_328E0` (`stru_32B56`), and `loc_32906`
+  (`stru_32B50`); HP-zero `loc_32AA2` deaths still use the existing death table.
+- Evidence: `.cache/debug/issue361/hand_level03_probe.json` direct-starts Highwater Pass 2 near the
+  first Hand pair; native enemy-layer frame 6 shows full Hand body sprites instead of the old
+  free-run death sliver.
+- Verification: focused core/CLI `hand` tests, PNG inspection, `cargo fmt --check`,
+  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+- NEXT: run `project-status`; if no open risks remain, follow `loop.md` proactive verification.
+
 ## 2026-06-29 handoff (#358 Cloud lightning render fixed)
 
 - **#358 moved `[~]` -> `[x]`.** Cloud lightning now uses typed ROM bolt art instead of the

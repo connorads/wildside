@@ -10623,6 +10623,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 368 | [x] | P3 | infra/docs | One-off asm-coverage/doc tidy: stale live-source `loc_2510C`/`loc_23629` citations are removed, the required-label failure text points at non-test core/data, audio-trigger refs match the current command model, and CLAUDE.md single-sources asm-coverage commands. | Search checks for stale labels/deleted helper refs; focused asm-coverage/runtime/native-player tests; `cargo fmt`; `asm-coverage --check-required`; `backlog-lint`; `verify-slice-fast`. See archive #368. |
 | 349 | [x] | P1 | render | Post-death respawn title-card name text is visible on the real `death_respawn_level1` VDP path; the 2026-06-26 failed-candidate report no longer reproduces on current `main`. | Current native frames 1791/1855/1919 show `BLUE / LAKE / WOODS / I`; regression `death_respawn_vdp_path_overlays_real_title_name_workers_loc_b8de`; focused glyph-worker test. See archive #349. |
 | 358 | [x] | P2 | render/enemy | Cloud lightning projectiles now render ROM bolt sprite art instead of the generic red enemy-projectile dot. | ASM `Cloud.asm loc_35DF0` `unk_C7866`/`C786E`/`C7876`; focused trace/render tests; native/oracle issue358 probe captures. See archive #358. |
+| 361 | [x] | P2 | render/enemy | Live Hand (0x17) sprites now hold ROM live body/attack/grab frames instead of free-running into the death-tail atlas frames. | ASM `Hand.asm loc_327F2`/`loc_328E0`/`loc_32906`/`loc_32AA2`; focused trace/render tests; native issue361 Highwater Hand captures. See archive #361. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11671,6 +11672,19 @@ on the route-blocked cluster.
   (grab+slow was confirmed working). Fix: add `select_live_hand_frame` mirroring
   `select_live_tar_monster_frame` (hold body frames off HandState; early-return None on hp==0 so
   the death table owns death frames); capture-frames on the hand level to confirm no flicker.
+  Fixed 2026-06-29: `ActiveEnemy::snapshot` now projects live `HandState::Jumping` and
+  `HandState::Grabbing` into trace contact phases while leaving walking as the default body phase
+  and HP-zero deaths to `loc_32AA2`'s death table. `select_live_hand_frame` selects `stru_32B6A`
+  frame 0 for `Hand.asm loc_327F2` walking, `stru_32B56` frame 1 for `loc_328E0` jump attack, and
+  `stru_32B50` frame 3 for `loc_32906` grab, so live Hands cannot free-run into death-tail frames
+  4..7. Regression coverage: `hand_snapshot_exports_live_render_phase_loc_327f2_328e0_32906` and
+  `live_tar_sphere_emorock_hand_hold_body_frames_not_death_tail`; existing Hand death-frame table
+  coverage still guards `loc_32AA2` / `stru_32B78`. Visual evidence:
+  `.cache/debug/issue361/hand_level03_probe.json` direct-starts Highwater Pass 2 (`0x03`) near the
+  first Hand pair; native enemy-layer captures in `.cache/debug/issue361/native-enemies/` frame 6
+  show full Hand body sprites instead of the old death sliver. Focused checks: `cargo test -q -p
+  wildside-core hand -- --nocapture`, `cargo test -q -p wildside-cli hand -- --nocapture`,
+  `cargo fmt --check`, `mise run backlog-lint`, and `mise run verify-slice-fast`.
 
 - **#362 (RockTank `$1F` drive SFX starts too early, P2 audio).** Tanks are audible from far
   off-screen ("miles" away) before they are reached or visible. This is the START side of the tank

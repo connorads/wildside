@@ -2666,6 +2666,21 @@ impl ActiveEnemy {
             // hidden/emerge/submerge frames whose sprite links map through
             // GfxObjects_CollisionKid loc_1BCE to zero row `unk_314CE`.
             Some(NativeContactPhase::TarMonsterHidden)
+        } else if matches!(self.family, EnemyFamily::Hand)
+            && !self.death_animation_active
+            && matches!(self.hand_state, HandState::Jumping)
+        {
+            // ASM Hand.asm loc_328E0 installs `stru_32B56` for the live
+            // jump-attack worker; expose the state so native-player does not
+            // free-run into the `loc_32AA2` death-tail atlas frames.
+            Some(NativeContactPhase::HandJumping)
+        } else if matches!(self.family, EnemyFamily::Hand)
+            && !self.death_animation_active
+            && matches!(self.hand_state, HandState::Grabbing)
+        {
+            // ASM Hand.asm loc_32906 installs `stru_32B50` while the live Hand
+            // follows Kid during the grab coroutine.
+            Some(NativeContactPhase::HandGrabbing)
         } else if matches!(self.family, EnemyFamily::SpinningTwins)
             && (matches!(self.spinning_twins_phase, SpinningTwinsPhase::FallingVisual)
                 || self.damage_flash_frames > 0
@@ -9876,6 +9891,45 @@ pub(crate) mod test_fixtures {
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    #[test]
+    fn hand_snapshot_exports_live_render_phase_loc_327f2_328e0_32906() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Hand,
+            hit_points: 1,
+            death_animation_active: false,
+            hand_state: HandState::Walking,
+            ..mini_hopping_skull_test_enemy()
+        };
+
+        assert_eq!(
+            enemy.snapshot().contact_phase,
+            None,
+            "ASM Hand.asm loc_327F2 walking `stru_32B6A` is the default live Hand body phase"
+        );
+
+        enemy.hand_state = HandState::Jumping;
+        assert_eq!(
+            enemy.snapshot().contact_phase,
+            Some(NativeContactPhase::HandJumping),
+            "ASM Hand.asm loc_328E0 jump attack `stru_32B56` must reach native-player"
+        );
+
+        enemy.hand_state = HandState::Grabbing;
+        assert_eq!(
+            enemy.snapshot().contact_phase,
+            Some(NativeContactPhase::HandGrabbing),
+            "ASM Hand.asm loc_32906 grab `stru_32B50` must reach native-player"
+        );
+
+        enemy.hit_points = 0;
+        enemy.death_animation_active = true;
+        assert_eq!(
+            enemy.snapshot().contact_phase,
+            None,
+            "ASM Hand.asm loc_32AA2 death `stru_32B78` stays owned by the death-frame table"
+        );
+    }
 
     #[test]
     fn active_enemy_step_counts_newly_visible_ufo_loc_34f64() {

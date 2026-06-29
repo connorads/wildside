@@ -1169,6 +1169,30 @@ fn select_live_emo_rock_frame<'a>(
     Some(&enemy_visuals.frames[phase])
 }
 
+fn select_live_hand_frame<'a>(
+    enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
+    object: &NativeObjectSnapshot,
+) -> Option<&'a wildside_render::SpriteFrame> {
+    if !matches!(object.kind, NativeObjectKind::Enemy { object_type: 0x17 })
+        || object.hit_points == Some(0)
+        || enemy_visuals.frames.len() < 4
+    {
+        return None;
+    }
+
+    // ASM Hand.asm installs live scripts by state: `loc_327F2` walking
+    // `stru_32B6A` starts on C79AE (frame 0), `loc_328E0` jump attack
+    // `stru_32B56` starts on C79C6 (frame 1), and `loc_32906` grab
+    // `stru_32B50` holds C79DE (frame 3). Frames 4..7 are the `loc_32AA2`
+    // death tail and must not appear while the Hand is alive.
+    let frame = match object.contact_phase {
+        Some(NativeContactPhase::HandJumping) => 1,
+        Some(NativeContactPhase::HandGrabbing) => 3,
+        _ => 0,
+    };
+    enemy_visuals.frames.get(frame)
+}
+
 fn select_live_lion_frame<'a>(
     trace: &NativeTraceFrame,
     enemy_visuals: &'a wildside_render::AnimatedSpriteVisual,
@@ -1635,6 +1659,9 @@ pub fn select_enemy_frame<'a>(
         return frame;
     }
     if let Some(frame) = select_live_emo_rock_frame(trace, enemy_visuals, object) {
+        return frame;
+    }
+    if let Some(frame) = select_live_hand_frame(enemy_visuals, object) {
         return frame;
     }
     if let Some(frame) = select_live_lion_frame(trace, enemy_visuals, object) {
