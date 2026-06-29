@@ -6224,6 +6224,25 @@ impl NativeRuntime {
         })
     }
 
+    fn title_card_live_handoff_palette_fade_progress_sub_73d0(&self) -> Option<u16> {
+        // ASM loc_1AE2E -> loc_6E2 -> Load_InGame -> sub_73D0: the normal
+        // title-card hand-off keeps CRAM black through the hidden load window,
+        // then advances `$FFFFF876` by `$10` per visible fade frame.
+        let elapsed = self.title_card_live_handoff_elapsed_frames_loc_1ae2e()?;
+        if elapsed < TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E {
+            return Some(0);
+        }
+        let visible_elapsed =
+            elapsed.saturating_sub(TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E);
+        // Oracle frame 980 CRAM word `$0731` anchors this lag: sub_14C0
+        // consumes the current fade counter before loc_741E increments it.
+        let applied_elapsed = visible_elapsed.saturating_sub(3);
+        let fade_progress = u16::try_from(applied_elapsed)
+            .unwrap_or(u16::MAX)
+            .saturating_mul(0x10);
+        (fade_progress <= 0x0100).then_some(fade_progress)
+    }
+
     fn early_start_title_menu_cursor_pose_carry_active(&self) -> bool {
         self.early_start_title_shell_elapsed_frames()
             .is_some_and(|elapsed| elapsed < EARLY_START_TITLE_MENU_CURSOR_POSE_CARRY_FRAMES)
@@ -7628,6 +7647,12 @@ impl NativeRuntime {
             } else {
                 0
             },
+            level_entry_fade_progress_sub_73d0: self
+                .title_card_live_handoff_palette_fade_progress_sub_73d0()
+                .or_else(|| {
+                    (matches!(self.boot_state, BootState::InGame) && !self.allow_pausing)
+                        .then_some(self.level_entry_fade_progress_sub_73d0)
+                }),
             two_player: self.two_player,
             options_two_player_two_controllers: self.options_two_player_two_controllers,
             options_controls_scheme: self.options_controls_scheme,

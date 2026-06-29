@@ -2,9 +2,7 @@ use std::collections::BTreeSet;
 
 use font8x8::{BASIC_FONTS, UnicodeFonts};
 use wildside_core::{pause_darken_palette_loc_6C70, physics::Direction};
-#[cfg(test)]
-use wildside_render::MdColour;
-use wildside_render::{Palette, TileRef, TileSheet};
+use wildside_render::{MdColour, Palette, TileRef, TileSheet};
 
 use crate::dto::*;
 use crate::sprites;
@@ -74,6 +72,10 @@ pub fn render_scene_overlay(scene: &Scene, rgb: &mut [u8]) {
                 *colour,
             ),
             DrawCommand::Tint { colour, alpha } => tint_frame(rgb, *colour, *alpha),
+            DrawCommand::PaletteFadeSub73D0 {
+                target_word,
+                fade_progress,
+            } => palette_fade_frame_sub_73d0(rgb, *target_word, *fade_progress),
             DrawCommand::ClearPriorityRect {
                 x,
                 y,
@@ -179,6 +181,31 @@ fn tint_frame(rgb: &mut [u8], colour: [u8; 3], alpha: u8) {
     }
 }
 
+fn palette_fade_frame_sub_73d0(rgb: &mut [u8], target_word: u16, fade_progress: u16) {
+    // ASM sub_73D0 / sub_14C0 (kid.asm:7527,2583): the level-entry worker
+    // fades the complete CRAM palette. The scene renderer has already expanded
+    // MD palette entries to RGB, so quantise each channel back to its 3-bit MD
+    // value, run the ROM word blend, then expand again.
+    for pixel in rgb.chunks_exact_mut(3) {
+        let source_word = md_word_from_rgb(pixel[0], pixel[1], pixel[2]);
+        let faded_word =
+            wildside_core::blend_palette_word_sub_14C0(fade_progress, source_word, target_word);
+        let colour = MdColour::from_word(faded_word);
+        pixel.copy_from_slice(&[colour.red, colour.green, colour.blue]);
+    }
+}
+
+fn md_word_from_rgb(red: u8, green: u8, blue: u8) -> u16 {
+    let red = md_channel_from_expanded_rgb(red);
+    let green = md_channel_from_expanded_rgb(green);
+    let blue = md_channel_from_expanded_rgb(blue);
+    (u16::from(blue) << 9) | (u16::from(green) << 5) | (u16::from(red) << 1)
+}
+
+fn md_channel_from_expanded_rgb(value: u8) -> u8 {
+    ((u16::from(value) * 7 + 127) / 255) as u8
+}
+
 pub fn sample_scene_pixel_provenance(
     scene: &Scene,
     pixels: &BTreeSet<(usize, usize)>,
@@ -264,6 +291,25 @@ fn command_pixel_write(
             source_x: None,
             source_y: None,
             rgb: Some(*colour),
+            priority: None,
+            prior_high_priority: false,
+            accepted: false,
+        }),
+        DrawCommand::PaletteFadeSub73D0 { .. } => ((0..FRAME_WIDTH as i32).contains(&x)
+            && (0..FRAME_HEIGHT as i32).contains(&y))
+        .then(|| FinalScenePixelWrite {
+            command_index,
+            kind: "palette_fade_sub_73d0".to_owned(),
+            origin_x: Some(0),
+            origin_y: Some(0),
+            width: Some(FRAME_WIDTH as i32),
+            height: Some(FRAME_HEIGHT as i32),
+            tile_index: None,
+            palette_line: None,
+            palette_index: None,
+            source_x: None,
+            source_y: None,
+            rgb: None,
             priority: None,
             prior_high_priority: false,
             accepted: false,
@@ -998,6 +1044,44 @@ mod tests {
             rgb,
             vec![96, 96, 0, 255, 255, 159],
             "ASM loc_BCF6 seeds `$FFFFFBCC=$00EE`; native-player blends that fade colour over the transition frame",
+        );
+    }
+
+    #[test]
+    fn palette_fade_command_blends_frame_through_sub_14c0() {
+        let source = MdColour::from_word(0x0EEE);
+        let mut rgb = vec![source.red, source.green, source.blue];
+
+        palette_fade_frame_sub_73d0(&mut rgb, 0x0000, 0x0080);
+
+        let expected = MdColour::from_word(wildside_core::blend_palette_word_sub_14C0(
+            0x0080, 0x0EEE, 0x0000,
+        ));
+        assert_eq!(
+            rgb,
+            vec![expected.red, expected.green, expected.blue],
+            "ASM sub_73D0 calls sub_14C0 for the full CRAM fade; the renderer should post-process already-expanded MD pixels through the same palette-word blend"
+        );
+    }
+
+    #[test]
+    fn palette_fade_command_starts_black_and_ends_bright_sub_73d0() {
+        let source = MdColour::from_word(0x0ACE);
+        let mut first = vec![source.red, source.green, source.blue];
+        palette_fade_frame_sub_73d0(&mut first, 0x0000, 0x0000);
+
+        let mut final_frame = vec![source.red, source.green, source.blue];
+        palette_fade_frame_sub_73d0(&mut final_frame, 0x0000, 0x0100);
+
+        assert_eq!(
+            first,
+            vec![0, 0, 0],
+            "ASM sub_73D0 clears `$FFFFF876` before the first sub_14C0 fade step"
+        );
+        assert_eq!(
+            final_frame,
+            vec![source.red, source.green, source.blue],
+            "ASM loc_741E stops the fade only after progress passes `$0100`, so `$0100` is the full-bright frame"
         );
     }
 }

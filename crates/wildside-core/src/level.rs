@@ -13226,6 +13226,15 @@ pub(crate) fn build_palette_fade_curve_sub_14C0(fade_progress: u16) -> [u8; 15] 
 }
 
 #[allow(non_snake_case)]
+pub fn blend_palette_word_sub_14C0(fade_progress: u16, source_word: u16, target_word: u16) -> u16 {
+    // ASM sub_14C0 -> sub_1536 -> loc_1538 (kid.asm:2583,2636,2639):
+    // render-only callers need the same per-word blend as the live CRAM fade
+    // worker without mutating a complete Palette_Buffer.
+    let fade_curve = build_palette_fade_curve_sub_14C0(fade_progress);
+    blend_palette_entry_loc_1538(source_word, target_word, &fade_curve)
+}
+
+#[allow(non_snake_case)]
 pub(crate) fn apply_pending_palette_fade_sub_14C0(
     fade_progress: u16,
     pending_palette_0_mask: &mut u32,

@@ -1637,6 +1637,11 @@ pub struct NativeTraceFrame {
     /// writes `$00EE` before entering the shared `Teleport` fade shell.
     #[serde(default, skip_serializing_if = "is_zero_u16")]
     pub teleport_warp_colour: u16,
+    /// ROM `$FFFFF876` during the shared level-entry fade worker.
+    /// ASM sub_73D0 calls sub_14C0 each frame to blend the whole palette
+    /// toward `$FFFFFBCC` before gameplay pausing is re-enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level_entry_fade_progress_sub_73d0: Option<u16>,
     pub two_player: bool,
     pub options_two_player_two_controllers: bool,
     pub options_controls_scheme: u8,
@@ -1973,6 +1978,7 @@ impl Default for NativeTraceFrame {
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             teleport_warp_colour: 0,
+            level_entry_fade_progress_sub_73d0: None,
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,

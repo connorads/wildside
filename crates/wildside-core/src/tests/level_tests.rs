@@ -4832,6 +4832,60 @@ mod chunk_02 {
     }
 
     #[test]
+    fn title_card_live_handoff_exports_palette_fade_progress_sub_73d0() {
+        let mut runtime = NativeRuntime::new(manifest_with_levels(1));
+        runtime.boot_state = BootState::InGame;
+        runtime.current_level = LevelId(0);
+        runtime.allow_pausing = true;
+        runtime.teleport_warp_colour_fbcc = 0;
+
+        let set_handoff_elapsed = |runtime: &mut NativeRuntime, elapsed: usize| {
+            runtime.title_card_live_handoff_frames =
+                TITLE_CARD_LIVE_HANDOFF_FRAMES_LOC_1AE2E.saturating_sub(elapsed as u8);
+        };
+
+        set_handoff_elapsed(
+            &mut runtime,
+            TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E - 1,
+        );
+        assert_eq!(
+            runtime.trace_frame().level_entry_fade_progress_sub_73d0,
+            Some(0),
+            "ASM loc_1AE2E -> loc_6E2 should keep the visible title-card hand-off black until Load_InGame exposes Kid"
+        );
+
+        set_handoff_elapsed(
+            &mut runtime,
+            TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E,
+        );
+        assert_eq!(
+            runtime.trace_frame().level_entry_fade_progress_sub_73d0,
+            Some(0),
+            "ASM sub_73D0 clears `$FFFFF876` before the first visible Load_InGame fade frame"
+        );
+
+        set_handoff_elapsed(
+            &mut runtime,
+            TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E + 11,
+        );
+        assert_eq!(
+            runtime.trace_frame().level_entry_fade_progress_sub_73d0,
+            Some(0x0080),
+            "ASM sub_14C0 applies the current `$FFFFF876` value before loc_741E increments it for the next visible frame; oracle frame 980 CRAM word `$0731` is the `$0080` blend of full `$0E62`"
+        );
+
+        set_handoff_elapsed(
+            &mut runtime,
+            TITLE_CARD_LIVE_HANDOFF_LOAD_INGAME_VISIBLE_FRAME_LOC_1AE2E + 21,
+        );
+        assert_eq!(
+            runtime.trace_frame().level_entry_fade_progress_sub_73d0,
+            None,
+            "ASM loc_741E deletes the fade worker once `$FFFFF876` has passed `$0100`"
+        );
+    }
+
+    #[test]
     fn title_card_metadata_waits_one_frame_after_start_even_without_visible_workers() {
         let mut assets = manifest_with_levels(1);
         assets.levels[0].title_card = Some(wildside_data::LevelTitleCard {

@@ -1072,6 +1072,7 @@ mod tests {
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             teleport_warp_colour: 0,
+            level_entry_fade_progress_sub_73d0: None,
             sound_test_track: None,
             two_player: false,
             options_two_player_two_controllers: false,

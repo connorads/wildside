@@ -63,6 +63,10 @@ pub enum DrawCommand {
         colour: [u8; 3],
         alpha: u8,
     },
+    PaletteFadeSub73D0 {
+        target_word: u16,
+        fade_progress: u16,
+    },
     ClearPriorityRect {
         x: i32,
         y: i32,

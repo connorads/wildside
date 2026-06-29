@@ -10849,7 +10849,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 282 | [x] | P3 | infra/debug | Level-skip (Next) should show the level intro/name card so the level name is visible for debugging | archived |
 | 285 | [x] | P2 | render/enemy | 2026-06-10 playtest: DripsSurfaceCrawler renders as a tiny blob instead of the proper floor-slime crawl animation | Fixed 2026-06-10: native now distinguishes ASM `Drips.asm loc_338F8`'s spawned `Tar_Monster.asm loc_325B6` helper from the original crawler's `loc_3392C` finish shell. The helper still renders the Tar `$0C1` fragment, while the crawler finish renders Drips `stru_33F06` (`$0C5/$0C9/$0D2`) and the existing startup/moving crawler render paths remain `stru_33FA6`/`stru_33F14`. Verified with focused core lifecycle tests, renderer regression, `cargo fmt --check`, and `cargo check -q -p wildside-cli`. |
 | 328 | [-] | P3 | helmet/physics | NOT A BUG (ORIGINAL_QUIRK): Cyclone helmet "flies straight up / no tornado spin / too powerful" matches the ROM — flight (sub_B168 loc_B214) mutates only y_vel, the tornado spin is sprite animation only (sub_B270 loc_B2A0, no x_vel), and there is no altitude/fuel/duration cap, only a 3px/frame rise clamp (loc_B25E). Native (helmets.rs:5354-5459, constants.rs:774-786) matches the ROM literals. | One cheap human check: confirm Kid does NOT keep rising on a single HELD C (ROM is rising-edge `bclr`; native uses input.c && !prev.c). If held-C keeps rising that IS a divergence -> reopen; otherwise stays [-]. Mark native with // ORIGINAL_QUIRK. See #328 archive. |
-| 336 | [-] | P1 | level/entry | SUPERSEDED 2026-06-25 — REOPENED `[ ]` in backlog.md (human cross-emulator dispute; see "## 2026-06-25 playtest triage"). Historical verdict was NOT A BUG (ORIGINAL_QUIRK): BLW1 cold-boot title-card Start handoff ramp matches the ROM; camera Y falls 216→115 while Kid Y settles 255→271, producing the reported treetop-to-floor presentation. | `verify-tas` on `.cache/debug/issue336-cold-boot-live/scenario-card-start.json` is CRC/checkpoint-clean for frames 880..1040; direct `oracle-probe` watches `Camera_Y_pos`, `Addr_GfxObject_Kid`, and Kid x/y match native's `loc_1AE2E -> loc_6E2 -> Load_InGame` tables. Reopen only with native-vs-oracle divergence; input latency remains #348. |
+| 336 | [x] | P3 | render/intro | Fixed 2026-06-29: BLW1 title-card Start handoff now stays black through the `Load_InGame` window and fades live gameplay in with oracle-applied `sub_73D0`/`sub_14C0` palette progress. The camera/Kid-Y ramp remains the ROM's treetop-to-floor carry; native no longer reveals the bright scene during frames the ROM keeps black/dim. | `verify-tas` route `.cache/debug/issue336-cold-boot-live/scenario-card-start.json` is CRC/checkpoint-clean for frames 880..1041; capture frames 960/970 are exact black, and 974/980/984 mean brightness tracks oracle. Focused fade tests, frame renderer tests, CLI scene test, and `mise run verify-slice-fast` pass. |
 | 340 | [-] | P3 | audio | NOT-A-BUG 2026-06-19: `sfx_Voice_diamond` ($62) is an ORPHAN ROM asset — defined at constants.asm:45 but with ZERO trigger sites anywhere in the disassembly. The ROM plays only `sfx_Diamond_prize` ($2D) on diamond collect (kid.asm:21103/22184), which native already queues (`DiamondPrize`→0x2D, combat.rs:9635). Native is faithful; there is nothing to wire | n/a — closed NOT-A-BUG. See archive #340 |
 
 
@@ -11445,6 +11445,19 @@ the WRAM probe did not cover, so the reopen is methodology-clean (not "trust the
 oracle" — the fade dimension is itself oracle-probeable via CRAM/palette dumps). P3: brief
 visual-confusion, not game-breaking. DO NOT edit the `LEVEL_ONE_LOAD_INGAME_*_RAMP_Y` tables (the
 camera/Kid-Y values are oracle-faithful per `c65df2500`); investigate the fade timing instead.
+
+Fixed 2026-06-29: the reopened dimension was palette visibility, not WRAM state. Oracle CRAM probes
+show `$FFFFF876` stays `$0000` through the black/load window, then the render-visible fade lags the
+live Kid/camera ramp by three local frames: frame 974 applies `$0020`, frame 980 applies `$0080`
+(`$0E62` blended to CRAM word `$0731`), and frame 984 applies `$00C0`. Native now exports
+`level_entry_fade_progress_sub_73d0` for the title-card live handoff and the scene renderer applies
+a final `PaletteFadeSub73D0` pass which quantises expanded MD RGB back to CRAM words and calls
+`blend_palette_word_sub_14C0`. The dynamic route
+`.cache/debug/issue336-cold-boot-live/scenario-card-start.json` stays CRC/checkpoint-clean for
+frames 880..1041. Visual captures: frames 960/970 now have native/oracle AE=0; frame 974 means
+0.004482/0.004403, frame 980 means 0.121883/0.123377, frame 984 means 0.187143/0.188333. Residual
+AE after the fade starts is the pre-existing scene/HUD/tile difference, not fade timing. Verification:
+focused core fade trace test, frame palette-fade tests, CLI scene-command test, `cargo check -q -p wildside-frame -p wildside-cli --tests`, route `verify-tas`, captures, and `mise run verify-slice-fast`.
 
 ### New rows opened
 

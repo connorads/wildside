@@ -1161,6 +1161,7 @@ pub fn build_transition_scene(
 
     commands.extend(build_title_card_worker_overlay_scene(trace, level_visuals).commands);
     push_teleport_warp_tint_loc_bcf6(&mut commands, trace);
+    push_level_entry_palette_fade_sub_73d0(&mut commands, trace);
 
     Scene {
         background: [0, 0, 0],
@@ -7440,6 +7441,7 @@ fn build_game_scene_filtered(
     commands.extend(build_title_card_worker_overlay_scene(trace, Some(level_visuals)).commands);
 
     push_teleport_warp_tint_loc_bcf6(&mut commands, trace);
+    push_level_entry_palette_fade_sub_73d0(&mut commands, trace);
 
     Scene {
         background,
@@ -7504,7 +7506,7 @@ fn order_boss_eye_satellites_sub_ff6(projectile_details: &mut [ActiveProjectileS
 }
 
 fn push_teleport_warp_tint_loc_bcf6(commands: &mut Vec<DrawCommand>, trace: &NativeTraceFrame) {
-    if trace.teleport_warp_colour == 0 {
+    if trace.teleport_warp_colour == 0 || trace.level_entry_fade_progress_sub_73d0.is_some() {
         return;
     }
     let colour = MdColour::from_word(trace.teleport_warp_colour);
@@ -7512,6 +7514,18 @@ fn push_teleport_warp_tint_loc_bcf6(commands: &mut Vec<DrawCommand>, trace: &Nat
         colour: [colour.red, colour.green, colour.blue],
         alpha: 96,
     });
+}
+
+fn push_level_entry_palette_fade_sub_73d0(
+    commands: &mut Vec<DrawCommand>,
+    trace: &NativeTraceFrame,
+) {
+    if let Some(fade_progress) = trace.level_entry_fade_progress_sub_73d0 {
+        commands.push(DrawCommand::PaletteFadeSub73D0 {
+            target_word: trace.teleport_warp_colour,
+            fade_progress,
+        });
+    }
 }
 
 fn floating_prize_sprite_visible_loc_103b2(

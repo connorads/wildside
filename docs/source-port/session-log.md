@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#336 title-card fade fixed)
+
+- **#336 moved `[~]` -> `[x]`.** BLW1 title-card -> live-gameplay handoff now stays black through
+  the ROM `Load_InGame` window and fades in with oracle `sub_73D0`/`sub_14C0` palette progress.
+- Preserved the verified camera/Kid-Y ramp; the fix is render-only. The trace now exports
+  `level_entry_fade_progress_sub_73d0`, and native-player applies a final `PaletteFadeSub73D0`
+  scene pass that blends through the core palette fade helper.
+- Evidence: dynamic route `.cache/debug/issue336-cold-boot-live/scenario-card-start.json` is
+  CRC/checkpoint-clean for frames 880..1041. Native/oracle captures are exact black at 960/970, and
+  fade brightness tracks oracle at 974/980/984.
+- Verification: focused core fade trace test, frame palette-fade tests, CLI scene-command test,
+  `cargo check -q -p wildside-frame -p wildside-cli --tests`, route `verify-tas`, captures, and
+  `mise run verify-slice-fast`.
+- NEXT: `project-status` shows no ready-to-implement rows; take #368 first under
+  playability/infra/docs. The top visual risks remain #210, #254, #324, #349, then #358.
+
 ## 2026-06-29 handoff (#367 verify-slice-fast gate wiring fixed)
 
 - **#367 moved `[~]` -> `[x]`.** `verify-slice-fast` now depends on

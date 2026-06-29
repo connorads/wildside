@@ -5551,6 +5551,7 @@ AddrTbl_LevelNames:
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             teleport_warp_colour: 0,
+            level_entry_fade_progress_sub_73d0: None,
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,

@@ -3240,6 +3240,7 @@ mod tests {
             played_bgm_ids: Vec::new(),
             played_music_speed_updates: Vec::new(),
             teleport_warp_colour: 0,
+            level_entry_fade_progress_sub_73d0: None,
             two_player: false,
             options_two_player_two_controllers: false,
             options_controls_scheme: 0,
@@ -4075,6 +4076,34 @@ mod tests {
                 MdColour::from_word(0x0014),
             ],
             "ASM loc_1223C writes Palette_Buffer+$E/$10/$12/$14; renderer should prefer typed live trace words over route-specific frame-index inference"
+        );
+    }
+
+    #[test]
+    fn level_entry_fade_adds_full_scene_palette_fade_sub_73d0() {
+        let visuals = sample_level_visuals();
+        let mut trace = sample_trace(GameMode::InGame);
+        trace.teleport_warp_colour = 0;
+        trace.level_entry_fade_progress_sub_73d0 = Some(0x0000);
+
+        let scene = build_scene(&trace, false, Some(&visuals), None);
+
+        assert!(
+            matches!(
+                scene.commands.last(),
+                Some(DrawCommand::PaletteFadeSub73D0 {
+                    target_word: 0,
+                    fade_progress: 0
+                })
+            ),
+            "ASM sub_73D0 drives sub_14C0 over the whole CRAM palette; native-player must fade sprites and HUD, not only terrain palettes"
+        );
+        assert!(
+            !scene
+                .commands
+                .iter()
+                .any(|command| matches!(command, DrawCommand::Tint { .. })),
+            "the rough teleport tint should not stack on top of the real sub_73D0 palette fade"
         );
     }
 
