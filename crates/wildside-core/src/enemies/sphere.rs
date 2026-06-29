@@ -273,7 +273,7 @@ mod tests {
         let mut enemy = sphere_test_enemy();
         enemy.on_ground = false;
         enemy.facing = Direction::Right;
-        enemy.x_pos = 23 << 16;
+        enemy.x_pos = 24 << 16;
         enemy.y_pos = 24 << 16;
         enemy.x_velocity = 0x0001_0000;
         enemy.y_velocity = 0;
@@ -283,9 +283,258 @@ mod tests {
         assert_eq!(
             enemy.facing,
             Direction::Right,
+            "ASM GfxObjects_Collision loc_171C records the wall contact after motion without rewriting x_direction"
+        );
+        assert_eq!(enemy.x_velocity, 0x0001_0000);
+        assert_eq!(
+            sphere_pending_collision_type_loc_171c(&enemy),
+            colid::RIGHTWALL
+        );
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.facing,
+            Direction::Right,
             "ASM Sphere.asm loc_36148 only negates `x_vel(a3)`, so wall hits must not rewrite x_direction"
         );
         assert_eq!(enemy.x_velocity, -0x0001_0000);
+    }
+
+    #[test]
+    fn sphere_live_collision_row_reports_level_collision_loc_171c() {
+        let data = vec![0u8; 10 * 12 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 10, 12);
+        for col in 0..10 {
+            grid.set_cell_at(col, 10, terrain::Cell::from_be_bytes(0x60, 0x00));
+        }
+
+        let mut enemy = sphere_test_enemy();
+        enemy.x_pos = 80 << 16;
+        enemy.y_pos = 152 << 16;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_velocity,
+            0x0001_0000 + SPHERE_GRAVITY,
+            "ASM Mode_Level writes Sphere collision_type after Enemy06_Sphere already ran, so the first live frame only records the floor hit"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            152 << 16,
+            "ASM GfxObjects_Collision loc_1A44 still snaps the live `stru_36174` active row on the collision pass"
+        );
+        assert_eq!(
+            sphere_pending_collision_type_loc_171c(&enemy),
+            colid::FLOOR,
+            "ASM Sphere.asm `stru_36174` LnkTo_unk_C8120 maps to active CollisionSize_Index row `unk_31AB0`, not the preceding death zero row"
+        );
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_velocity,
+            -(0x0001_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY),
+            "ASM Sphere.asm loc_36142 consumes the previous GfxObjects_Collision floor type on the next object tick after applying gravity"
+        );
+        assert!(
+            enemy.y_pos < 152 << 16,
+            "the consumed floor response should send the Sphere upward on the next motion pass"
+        );
+    }
+
+    #[test]
+    fn sphere_snapshot_exposes_unwritten_current_hp_loc_35ef2() {
+        let mut enemy = sphere_test_enemy();
+        enemy.hit_points = 2;
+
+        assert_eq!(
+            enemy.snapshot().hit_points,
+            Some(0),
+            "ASM Sphere.asm Enemy06_Sphere_Init never writes GfxObject current_hp `$44`, so ROM-visible snapshots should expose zero"
+        );
+    }
+
+    #[test]
+    fn sphere_right_wall_bounce_snaps_active_collision_row_loc_19a8() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        grid.set_cell_at(4, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = sphere_test_enemy();
+        enemy.x_pos = 57 << 16;
+        enemy.y_pos = 24 << 16;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, 0x0001_0000,
+            "ASM GfxObjects_Collision loc_171C records collision_type after Enemy06_Sphere's current-frame logic has already run"
+        );
+        assert_eq!(
+            enemy.x_pos,
+            56 << 16,
+            "ASM GfxObjects_Collision loc_19A8 snaps row (-7,14,-7,14) to wall_left - (-7) - 14 - 1"
+        );
+        assert_eq!(
+            sphere_pending_collision_type_loc_171c(&enemy),
+            colid::RIGHTWALL
+        );
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, -0x0001_0000,
+            "ASM Sphere.asm loc_36148 negates x_vel when the next object tick consumes the right-wall collision"
+        );
+    }
+
+    #[test]
+    fn sphere_right_wall_probe_hits_active_snap_edge_loc_173e() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        grid.set_cell_at(4, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = sphere_test_enemy();
+        enemy.x_pos = 55 << 16;
+        enemy.y_pos = 24 << 16;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, 0x0001_0000,
+            "ASM GfxObjects_Collision loc_173E/1796 records the right-wall event after Enemy06_Sphere has already run"
+        );
+        assert_eq!(enemy.x_pos, 56 << 16);
+        assert_eq!(
+            sphere_pending_collision_type_loc_171c(&enemy),
+            colid::RIGHTWALL,
+            "ASM loc_19A8 snaps the Sphere centre to tile_left - 8 when the active row reaches the right-wall boundary"
+        );
+    }
+
+    #[test]
+    fn sphere_wall_collision_consumes_floor_response_loc_197e() {
+        let data = vec![0u8; 8 * 4 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 8, 4);
+        grid.set_cell_at(4, 1, terrain::Cell::from_be_bytes(0x60, 0x00));
+        grid.set_cell_at(4, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+
+        let mut enemy = sphere_test_enemy();
+        enemy.x_pos = 56 << 16;
+        enemy.y_pos = 24 << 16;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, 0x0001_0000,
+            "ASM GfxObjects_Collision loc_197E/19A8 reports the right-wall collision after Enemy06_Sphere has already run"
+        );
+        assert_eq!(
+            enemy.y_velocity,
+            0x0001_0000 + SPHERE_GRAVITY,
+            "ASM GfxObjects_Collision jumps back to the object loop after loc_19A8, so loc_1A44 floor handling must not also run in the same frame"
+        );
+        assert_eq!(enemy.x_pos, 56 << 16);
+        assert_eq!(
+            enemy.y_pos,
+            (24 << 16) + 0x0001_0000 + SPHERE_GRAVITY as u32
+        );
+        assert_eq!(
+            sphere_pending_collision_type_loc_171c(&enemy),
+            colid::RIGHTWALL
+        );
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, -0x0001_0000,
+            "ASM Sphere.asm loc_36148 consumes only the wall event recorded by the prior collision pass"
+        );
+        assert!(
+            enemy.y_velocity > 0,
+            "the prior wall collision must not be double-consumed as a floor bounce"
+        );
+    }
+
+    #[test]
+    fn sphere_left_boundary_snaps_active_collision_row_loc_1aea() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+
+        let mut enemy = sphere_test_enemy();
+        enemy.x_pos = 0;
+        enemy.y_pos = 24 << 16;
+        enemy.x_velocity = -0x0001_0000;
+        enemy.y_velocity = 0;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, -0x0001_0000,
+            "ASM GfxObjects_Collision_LeftBoundary loc_1AEA only records the collision during the post-object collision pass"
+        );
+        assert_eq!(
+            enemy.x_pos,
+            7 << 16,
+            "ASM GfxObjects_Collision_LeftBoundary loc_1AEA subtracts the negative left edge, snapping Sphere's x=-7 row back to centre x=7"
+        );
+        assert_eq!(
+            sphere_pending_collision_type_loc_171c(&enemy),
+            colid::LEFTWALL
+        );
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.x_velocity, 0x0001_0000,
+            "ASM Sphere.asm loc_36148 negates x_vel when the next object tick consumes the left-boundary collision"
+        );
+    }
+
+    #[test]
+    fn sphere_floor_bounce_uses_active_collision_row_loc_1a44() {
+        let data = vec![0u8; 10 * 12 * 2];
+        let mut grid = terrain::BlockGrid::from_level_layout(&data, 10, 12);
+        for col in 0..10 {
+            grid.set_cell_at(col, 10, terrain::Cell::from_be_bytes(0x60, 0x00));
+        }
+
+        let mut enemy = sphere_test_enemy();
+        enemy.x_pos = 80 << 16;
+        enemy.y_pos = 152 << 16;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_velocity,
+            0x0001_0000 + SPHERE_GRAVITY,
+            "ASM GfxObjects_Collision reports colid_floor after Enemy06_Sphere's current-frame dispatch"
+        );
+        assert_eq!(
+            enemy.y_pos,
+            152 << 16,
+            "ASM GfxObjects_Collision loc_1A44 snaps row (-7,14,-7,14) to tile_top - (-7) - 14 - 1"
+        );
+        assert_eq!(sphere_pending_collision_type_loc_171c(&enemy), colid::FLOOR);
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
+            enemy.y_velocity,
+            -(0x0001_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY),
+            "ASM Sphere.asm loc_36142 negates the post-gravity y_vel on the next object tick"
+        );
     }
 
     #[test]
@@ -304,17 +553,27 @@ mod tests {
         step_bouncer(&mut enemy, Some(&grid));
 
         assert_eq!(
+            sphere_pending_collision_type_loc_171c(&enemy),
+            colid::SLOPEUP
+        );
+        assert_eq!(enemy.x_pos, (5 * 16 + 10) << 16);
+        assert_eq!(enemy.y_velocity, 0x0002_0000 + SPHERE_GRAVITY);
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
             enemy.x_pos,
-            (5 * 16 + 8) << 16,
-            "ASM Sphere.asm loc_3614E subtracts the pre-collision x motion before swapping velocities"
+            ((5 * 16 + 8) << 16) - (0x0002_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY) as u32,
+            "ASM Sphere.asm loc_3614E subtracts the previous post-gravity vector before the next global motion pass applies the swapped vector"
         );
         assert_eq!(
-            enemy.y_pos,
-            85 << 16,
-            "ASM Sphere.asm loc_3614E also subtracts the pre-collision y motion after gravity is applied"
+            enemy.y_velocity, -0x0002_0000,
+            "ASM Sphere.asm loc_3614E sets y_vel to -old_x_vel"
         );
-        assert_eq!(enemy.x_velocity, -(0x0002_0000 + SPHERE_GRAVITY));
-        assert_eq!(enemy.y_velocity, -0x0002_0000);
+        assert_eq!(
+            enemy.x_velocity,
+            -(0x0002_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY)
+        );
         assert_eq!(enemy.facing, Direction::Right);
     }
 
@@ -334,16 +593,23 @@ mod tests {
         step_bouncer(&mut enemy, Some(&grid));
 
         assert_eq!(
+            sphere_pending_collision_type_loc_171c(&enemy),
+            colid::SLOPEDOWN
+        );
+        assert_eq!(enemy.x_pos, (5 * 16 + 10) << 16);
+        assert_eq!(enemy.y_velocity, 0x0001_0000 + SPHERE_GRAVITY);
+
+        step_bouncer(&mut enemy, Some(&grid));
+
+        assert_eq!(
             enemy.x_pos,
-            (5 * 16 + 8) << 16,
-            "ASM Sphere.asm loc_36164 backs the sphere out by the original x motion before keeping the swapped vector"
+            ((5 * 16 + 8) << 16) + (0x0001_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY) as u32,
+            "ASM Sphere.asm loc_36164 backs out by the previous vector before the next global motion pass applies the swapped vector"
         );
         assert_eq!(
-            enemy.y_pos,
-            89 << 16,
-            "ASM Sphere.asm loc_36164 also backs out the gravity-adjusted y step before resuming"
+            enemy.x_velocity,
+            0x0001_0000 + SPHERE_GRAVITY + SPHERE_GRAVITY
         );
-        assert_eq!(enemy.x_velocity, 0x0001_0000 + SPHERE_GRAVITY);
         assert_eq!(enemy.y_velocity, 0x0002_0000);
         assert_eq!(enemy.facing, Direction::Right);
     }

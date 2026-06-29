@@ -14403,20 +14403,11 @@ fn sphere_contact_bounds(enemy: &NativeObjectSnapshot) -> EnemyContactBounds {
         return empty_enemy_contact_bounds();
     }
 
-    if matches!(
-        enemy.contact_phase,
-        Some(NativeContactPhase::SphereLiveZero)
-    ) {
-        // ASM Sphere.asm `stru_36174` starts with `LnkTo_unk_C8120`; through
-        // GfxObjects_CollisionKid loc_1BCE this maps to zero row `unk_31AAE`.
-        return empty_enemy_contact_bounds();
-    }
-
     // ASM Sphere.asm live loop animation `stru_36174` uses
     // `LnkTo_unk_C8120..C8130`, which map through GfxObjects_CollisionKid
-    // loc_1BCE to `unk_31AAE` (zero row) and `unk_31AB0`/`unk_31ABA`:
-    // `dc.w -$7,$E,-$7,$E`. `SphereLiveZero` covers the leading zero row;
-    // the remaining live phases use the shared active body row.
+    // loc_1BCE to `unk_31AB0`/`unk_31ABA`/`unk_31AC4`:
+    // `dc.w -$7,$E,-$7,$E`. The zero rows immediately before these entries
+    // belong to the disappearing death script, not the live loop.
     //
     // GfxObjects_CollisionKid_SubBoxLoop builds the box as right = left +
     // width(`2(a3)`) and bottom = top + height(`6(a3)`) (kid.asm:3342/3350),

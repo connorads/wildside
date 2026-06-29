@@ -6634,6 +6634,49 @@ mod chunk_09 {
     }
 
     #[test]
+    fn settled_recording_warp_level_1b_keeps_opening_sphere_short_age_loc_36148() {
+        let Some(manifest) = cached_generated_manifest() else {
+            return;
+        };
+        let mut runtime = NativeRuntime::with_generated_level_layout(manifest);
+
+        runtime.boot_to_level(LevelId(0x1B));
+        runtime.settle_recording_oracle_warp_live_window(LevelId(0x1B));
+
+        let first_recorded_frame = runtime.step_frame(FrameInput::default());
+        let sphere = first_recorded_frame
+            .active_objects
+            .iter()
+            .find(|object| {
+                object.kind == NativeObjectKind::Enemy { object_type: 0x06 }
+                    && object.layout_index == Some(0)
+            })
+            .expect("Level 0x1B settled recording should expose the opening Sphere");
+
+        assert_eq!(
+            (
+                first_recorded_frame.number_hitpoints,
+                first_recorded_frame.just_received_damage,
+                sphere.x_pos,
+                sphere.y_pos,
+                sphere.x_velocity,
+                sphere.y_velocity,
+                sphere.hit_points,
+            ),
+            (
+                2,
+                false,
+                0x0010_0000,
+                0x025E_5800,
+                Some(-0x0001_0000),
+                Some(0x0000_4800),
+                Some(0),
+            ),
+            "ASM Sphere.asm Enemy06_Sphere_Init/loc_36148 plus GfxObjects_Collision loc_171C: oracle issue #359 frame 0 has only the short settled-recording live age, not a pre-damaged Kid from over-aged hidden enemy scheduling",
+        );
+    }
+
+    #[test]
     fn settled_recording_warp_level_one_matches_first_rock_tank_body_turret_phase() {
         let Some(manifest) = cached_generated_manifest() else {
             return;

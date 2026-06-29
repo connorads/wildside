@@ -2125,7 +2125,6 @@ pub enum NativeContactPhase {
     DragonFlyingMainZero,
     RobotHeadHitZero,
     ScorpionStingTail,
-    SphereLiveZero,
     TarMonsterHidden,
     TornadoLiveZero,
     SpinningTwinsZero,

@@ -9,6 +9,7 @@ use crate::level::{
 // that tail, so settled full-frame traces need the oracle-observed live age.
 const ORACLE_SETTLED_WARP_LIVE_FRAMES: usize = 108;
 const RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 60;
+const LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES: usize = 103;
 const RECORDING_SETTLED_WARP_TIMER_SECONDS_LOC_BDC0: u16 = 179;
 const RECORDING_SETTLED_WARP_TIMER_SUBFRAMES_LOC_BDC0: u16 = 0x08;
 const LEVEL_SIX_RECORDING_GHOST_BLOCK_EXTRA_TICKS: usize = 0x08;
@@ -196,6 +197,8 @@ impl NativeRuntime {
             // frames for object scheduling; the final eight ticks belong only
             // to the ghost-block timer below.
             RECORDING_SETTLED_WARP_LIVE_FRAMES + 0x18
+        } else if level_id == LevelId(0x1B) {
+            LEVEL_1B_RECORDING_SETTLED_WARP_LIVE_FRAMES
         } else {
             RECORDING_SETTLED_WARP_LIVE_FRAMES
         };

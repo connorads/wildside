@@ -7206,7 +7206,7 @@ mod chunk_04 {
             tank_mouth_animation_phase: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
-            wait_timer: 0,
+            wait_timer: 0x09,
             dragon_phase: DragonFlyingState::None,
             dragon_phase_frames: 0,
             dragon_script_variant: 0,
@@ -7254,15 +7254,27 @@ mod chunk_04 {
         };
         // After gravity: y_velocity = 0x20000 + 0x800 = 0x20800
         // After position: y = 85 + ~2 = ~87px (on slope floor_y=87)
-        // After collision: slope deflects
+        // After collision: GfxObjects_Collision records the slope; Enemy06_Sphere
+        // consumes it on the next object tick.
         let expected_y_vel_after_gravity = 0x20000 + 0x800; // gravity applied first
         let old_x_vel = enemy.x_velocity; // 0x20000
-        // y_velocity after gravity but before slope deflection:
         let old_y_vel = expected_y_vel_after_gravity;
         step_bouncer(&mut enemy, Some(&grid));
-        // ASM: swap and negate both velocities
+        assert_eq!(
+            enemy.y_velocity, old_y_vel,
+            "SlopeUp: first pass records collision after Sphere logic"
+        );
+        assert_eq!(enemy.x_velocity, old_x_vel);
+        assert_eq!(enemy.dragon_phase_frames, 0x0014);
+
+        step_bouncer(&mut enemy, Some(&grid));
+        // ASM: swap and negate both velocities on the next object tick.
         assert_eq!(enemy.y_velocity, -old_x_vel, "SlopeUp: y_vel = -old_x_vel");
-        assert_eq!(enemy.x_velocity, -old_y_vel, "SlopeUp: x_vel = -old_y_vel");
+        assert_eq!(
+            enemy.x_velocity,
+            -(old_y_vel + SPHERE_GRAVITY),
+            "SlopeUp: x_vel = -post-gravity y_vel from the consuming tick"
+        );
         assert_eq!(
             enemy.facing,
             Direction::Right,
@@ -7306,7 +7318,7 @@ mod chunk_04 {
             tank_mouth_animation_phase: 0,
             damage_flash_frames: 0,
             palette_variant: 0,
-            wait_timer: 0,
+            wait_timer: 0x09,
             dragon_phase: DragonFlyingState::None,
             dragon_phase_frames: 0,
             dragon_script_variant: 0,
@@ -7359,9 +7371,21 @@ mod chunk_04 {
         let old_x_vel = enemy.x_velocity;
         let old_y_vel = expected_y_vel_after_gravity;
         step_bouncer(&mut enemy, Some(&grid));
-        // ASM: swap without negation
+        assert_eq!(
+            enemy.y_velocity, old_y_vel,
+            "SlopeDown: first pass records collision after Sphere logic"
+        );
+        assert_eq!(enemy.x_velocity, old_x_vel);
+        assert_eq!(enemy.dragon_phase_frames, 0x0018);
+
+        step_bouncer(&mut enemy, Some(&grid));
+        // ASM: swap without negation on the next object tick.
         assert_eq!(enemy.y_velocity, old_x_vel, "SlopeDown: y_vel = old_x_vel");
-        assert_eq!(enemy.x_velocity, old_y_vel, "SlopeDown: x_vel = old_y_vel");
+        assert_eq!(
+            enemy.x_velocity,
+            old_y_vel + SPHERE_GRAVITY,
+            "SlopeDown: x_vel = post-gravity y_vel from the consuming tick"
+        );
         assert_eq!(
             enemy.facing,
             Direction::Right,

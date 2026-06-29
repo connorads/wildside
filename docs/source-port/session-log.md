@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#359 Sphere settled collision fixed)
+
+- **#359 moved `[~]` -> `[x]`.** Cyclone-form sky level Sphere 0x06 now keeps the opening spawn
+  visible instead of over-ageing/drifting left during the settled recording window.
+- The fix follows `Enemy06_Sphere_Init` / `stru_36174`, `loc_35F70`, and `GfxObjects_Collision
+  loc_171C`: live Sphere uses the active ±7 collision rows, consumes the previous pending terrain
+  collision before movement, then probes the next row for the following tick. The right-edge scan
+  preserves the ROM's `loc_173E`/`loc_19A8` one-pixel active edge.
+- Level 0x1B recording settle now uses a 103-frame live window so the first recorded Sphere matches
+  the oracle short-age tuple: x/y `0x00100000/0x025E5800`, velocities `-0x10000/0x4800`, pending
+  collision 0, HP 0.
+- Verification: focused Sphere/combat/block tests, cache-backed level 0x1B regression,
+  `mise run verify-slice-fast`, and `mise run verify-tas-full` (exit 0; full-run CRC exact, baseline
+  full-report divergences still start at `transition_15_to_00_post`).
+- NEXT: `project-status` shows no ready-to-implement rows; take #362 first under playability risks,
+  with #210 still the top visual risk.
+
 ## 2026-06-29 handoff (#360 record-inputs route targets fixed candidate)
 
 - **#360 moved `[~]` -> `[?]`.** `play-native --record` now persists named route-target metadata

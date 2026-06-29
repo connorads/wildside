@@ -10611,6 +10611,7 @@ backlog. Full investigation evidence, where it exists, is in this file keyed by 
 | 319 | [x] | P3 | audio | Umbrella: `audio-triggers-fidelity-audit.md` has no standalone backlog candidates left after recheck; concrete trigger gaps are resolved, blocked under human/audio-device rows, or owned by broader #160/GEMS-driver architecture. | Rechecked audit backlog-candidate table, archive #319, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #319. |
 | 320 | [x] | P3 | camera | Umbrella: `camera-fidelity-audit.md` has no standalone backlog candidates left after recheck; all six candidate camera rows are already `[x]` and the audit reports 0 confirmed gaps. | Rechecked audit backlog-candidate table, archive #320, and `backlog-validation-2026-06-14`; no code patch warranted. See archive #320. |
 | 316 | [x] | P2 | form | Umbrella: `helmets-fidelity-audit.md` has no standalone Diamond Power shared-object/storage rows left after raw slot payload RAM, active/free/last list, and sprite compiler wiring. | Raw DP payload regressions, `verify-slice-fast`, and `verify-tas-full` completed; see archive #316. |
+| 359 | [x] | P2 | enemy/level | Cyclone-form sky level Sphere 0x06 spawn now keeps the ROM live collision rows, delayed terrain collision response, and level 0x1B settled-recording age. | ASM `Enemy06_Sphere_Init` / `loc_35F70` / `GfxObjects_Collision loc_171C`; focused Sphere regressions, cache-backed level 0x1B regression, `verify-slice-fast`, and `verify-tas-full` exit 0. See archive #359. |
 | 343 | [x] | P1 | combat | Maniaxe/Iron Knight thrown axes now connect with & kill walking dragons (0x0D) — per-family `enemy_contact_bounds`/`loc_1d84` box replaced the invented ±4×±8. Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("now killing dragons with thrown axes"). #308 follow-up (RedStealth sword/berzerker charge still use the fixed box) stays separate. See archive #343. |
 | 346 | [x] | P1 | gameplay | Launched spike (ShooterObject) now reaches a distant wall and re-fires the return-spike chain — ShooterBlock lifetime-cap removed (projectiles.rs:2678/2722/2755). Human-validated 2026-06-22 playtest. | Validated by human playtest 2026-06-22 ("spike fires off and activates another spike wall — works"). Regression `shooter_object_survives_past_invented_lifetime_to_reach_distant_wall_loc_edfa`; verify-tas-full CRC-clean. See archive #346. |
 | 318 | [x] | P3 | player | Umbrella: audits/movement-fidelity-audit.md has no standalone open rows after recheck; `sub_DB22` is live-wired and stale platform/climb/`$14`/`$18` rows are fixed or reclassified. | Focused regressions, `verify-slice-fast`, and `verify-tas-full` pass; see archive #318. |
@@ -11488,6 +11489,23 @@ and must not vanish/die immediately.
   (`constants.rs:560-564`) at entry, OR it legitimately spawns just off-screen (player may
   misremember). Needs the exact level id + entry path (skip vs natural) before coding. Do NOT
   remap `merge_level_catalogues` wholesale (#334 dead end).
+  2026-06-29 resolved (`[~]` -> `[x]`): root cause was Sphere runtime collision/settle drift, not
+  enemy roster loading. Re-reading `Enemy06_Sphere_Init` / `stru_36174`, `loc_35F70`, and
+  `GfxObjects_Collision loc_171C` showed live Sphere frames use `CollisionSize_Index` rows
+  `unk_31AB0`/`unk_31ABA`/`unk_31AC4` (±7 active box); the zero row belongs to the death/stationary
+  frames before the live table. Native had exposed live zero contact, moved with the generic
+  bouncer, and settled level 0x1B too long, so the opening Sphere over-aged/drifted left before the
+  recorded spawn view. Native now treats live Sphere HP as the ROM's untouched zero `$44`, applies
+  the delayed `collision_type(a3)` terrain response before movement, probes the next collision row
+  for the following tick, handles the right-edge scan's `+1` active edge from `loc_173E`/`loc_19A8`,
+  and uses a 103-frame live settled-recording window for level 0x1B. Oracle watch for slot 4 at
+  frame 0: display FF, x/y `0x00100000/0x025E5800`, velocities `-0x10000/0x4800`, anim_timer 4,
+  collision_type 0, hp 0. Regression coverage includes Sphere active collision size, delayed
+  wall/floor/ceiling/slope collision responses, and
+  `settled_recording_warp_level_1b_keeps_opening_sphere_short_age_loc_36148`. Verification:
+  focused `sphere_` tests, cache-backed level 0x1B regression, `mise run verify-slice-fast`, and
+  `mise run verify-tas-full` exit 0 (CRC exact; known full-report divergences still start at
+  `transition_15_to_00_post`).
 
 - **#360 (record-inputs capture flow, P1 infra).** Requested by the human as the enabler for the
   route-blocked items rather than something to build inline. Gap: `play-native --settled --record

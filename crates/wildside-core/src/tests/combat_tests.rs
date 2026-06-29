@@ -1353,14 +1353,20 @@ fn sphere_contact_uses_rom_collision_size_rows_loc_1bce() {
 }
 
 #[test]
-fn sphere_live_lead_frame_uses_zero_collision_size_row_loc_1bce() {
+fn sphere_live_lead_frame_uses_active_collision_size_row_loc_1bce() {
     let mut sphere = test_enemy(EnemyFamily::Sphere, 101 << 16, 100 << 16, 1);
     sphere.wait_timer = 0;
 
     let bounds = enemy_contact_bounds(&sphere.snapshot());
-    assert!(
-        bounds.left_px > bounds.right_px && bounds.top_px > bounds.bottom_px,
-        "ASM Sphere.asm stru_36174 starts with LnkTo_unk_C8120 for 9 ticks; GfxObjects_CollisionKid loc_1BCE indexes zero row unk_31AAE"
+    assert_eq!(
+        (
+            bounds.left_px,
+            bounds.right_px,
+            bounds.top_px,
+            bounds.bottom_px
+        ),
+        (-7, 7, -7, 7),
+        "ASM Sphere.asm stru_36174 starts with LnkTo_unk_C8120; GfxObjects_CollisionKid loc_1BCE indexes active row unk_31AB0, not the preceding death zero row"
     );
 
     let mut slice = combat_slice();
@@ -1378,8 +1384,8 @@ fn sphere_live_lead_frame_uses_zero_collision_size_row_loc_1bce() {
             slice.player.y_pos,
             PlayerForm::TheKid.half_width() as i64,
         ),
-        EnemyContactResult::None,
-        "the first live Sphere animation frame uses the ROM's empty contact row"
+        EnemyContactResult::Damage,
+        "the first live Sphere animation frame uses the ROM's active contact row"
     );
 }
 

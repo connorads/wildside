@@ -1197,6 +1197,8 @@ pub(crate) struct ActiveEnemy {
     /// Generic countdown timer for phased enemies (EmoRock hover wait, etc.)
     pub(crate) wait_timer: u16,
     pub(crate) dragon_phase: DragonFlyingState,
+    /// Dragon Flying: frames in the current phase. Sphere reuses this u16 as
+    /// the GfxObjects_Collision `collision_type(a3)` consumed next AI pass.
     pub(crate) dragon_phase_frames: u16,
     /// Dragon Flying: script variant (0, 1, 2) from layout skin byte.
     /// Dragon Walking reuses bit 7 for the ASM Dragon.asm loc_3CD16 `$5C(a5)`
@@ -1535,7 +1537,6 @@ pub(crate) const UFO_DEATH_ANIMATION_FRAMES: u16 = 7 + 7 + 7;
 /// ASM Sphere.asm Enemy06_Sphere_Kill plays `stru_36182`: three $0A-tick
 /// frames before the loc_36096 delete tail.
 pub(crate) const SPHERE_DEATH_ANIMATION_FRAMES: u16 = 0x0A + 0x0A + 0x0A;
-const SPHERE_LIVE_ZERO_FRAMES: u16 = 0x09;
 const SPHERE_LIVE_ANIMATION_FRAMES: u16 = 0x09 + 0x09 + 0x09;
 /// ASM Goat.asm loc_3CB64 plays `stru_3C9EA`: $1E, $0A, then $37 ticks
 /// before the shared delete tail at loc_3E956.
@@ -2631,16 +2632,7 @@ impl ActiveEnemy {
         } else {
             self.x_velocity
         };
-        let contact_phase = if matches!(self.family, EnemyFamily::Sphere)
-            && !self.death_animation_active
-            && self.wait_timer % SPHERE_LIVE_ANIMATION_FRAMES < SPHERE_LIVE_ZERO_FRAMES
-        {
-            // ASM Sphere.asm `stru_36174` starts with `LnkTo_unk_C8120` for
-            // 9 hibernated ticks before the two active body frames. That link
-            // resolves through GfxObjects_CollisionKid loc_1BCE to zero row
-            // `unk_31AAE`, so the live parent has no Kid contact in this phase.
-            Some(NativeContactPhase::SphereLiveZero)
-        } else if matches!(self.family, EnemyFamily::Dragon)
+        let contact_phase = if matches!(self.family, EnemyFamily::Dragon)
             && matches!(self.dragon_phase, DragonFlyingState::Descending)
             && dragon_flying_dive_zero_contact_row_loc_348ce(self.x_velocity, self.y_velocity)
         {
@@ -2692,6 +2684,14 @@ impl ActiveEnemy {
         } else {
             None
         };
+        let visible_hit_points = if matches!(self.family, EnemyFamily::Sphere) {
+            // ASM Sphere.asm Enemy06_Sphere_Init never writes current_hp `$44`;
+            // the visible GfxObject word remains zero even though native keeps
+            // an internal durability value for generic enemy bookkeeping.
+            0
+        } else {
+            self.hit_points
+        };
 
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy {
@@ -2704,7 +2704,7 @@ impl ActiveEnemy {
             y_velocity: Some(self.y_velocity),
             facing: Some(self.facing),
             on_ground: Some(self.on_ground),
-            hit_points: Some(self.hit_points),
+            hit_points: Some(visible_hit_points),
             damage_flash: self.damage_flash_frames > 0,
             palette_variant: self.palette_variant,
             stationary: self.dragon_phase.is_stationary()
@@ -4889,6 +4889,13 @@ pub(crate) fn reload_tornado_pattern_script(enemy: &mut ActiveEnemy) {
 /// Sphere.asm: gravity +$800/frame, wall→negate x_vel, floor→negate y_vel,
 /// ceiling→negate y_vel and halve.
 pub(crate) const SPHERE_GRAVITY: i32 = 0x800;
+const SPHERE_ACTIVE_COLLISION_HALF_WIDTH: i32 = 7;
+const SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET: i32 = 7;
+const SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET: i32 = 8;
+
+fn sphere_collision_center_px(pos: u32) -> i32 {
+    i32::from((pos >> 16) as u16 as i16)
+}
 
 /// Fireball max upward velocity indexed by live HP
 /// (Fireball.asm `Enemy19_Fireball_Init`: `move.w 2(a0),d7; asl.w #3,d7` into `unk_32BA6`).
@@ -5137,6 +5144,214 @@ pub(crate) fn bouncer_gravity(enemy: &ActiveEnemy) -> i32 {
     }
 }
 
+fn bouncer_floor_probe_loc_1a44(
+    enemy: &ActiveEnemy,
+    grid: &terrain::BlockGrid,
+    center_x_px: i32,
+    center_y_px: i32,
+) -> terrain::FloorProbe {
+    if matches!(enemy.family, EnemyFamily::Sphere) {
+        // ASM GfxObjects_Collision loc_1A44 with Sphere.asm `stru_36174`
+        // active rows (`unk_31AB0`/`unk_31ABA`/`unk_31AC4`): the floor scan
+        // uses collision row x=-7,w=14,y=-7,h=14, so its foot is y+7 and
+        // every overlapped column is eligible for solid/slope contact.
+        return sphere_floor_probe_loc_1a44(grid, center_x_px, center_y_px);
+    }
+
+    terrain::probe_floor(grid, center_x_px, center_y_px)
+}
+
+fn sphere_floor_probe_loc_1a44(
+    grid: &terrain::BlockGrid,
+    center_x_px: i32,
+    center_y_px: i32,
+) -> terrain::FloorProbe {
+    let left_x_px = center_x_px - SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
+    let right_x_px = center_x_px + SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
+    let top_y_px = center_y_px - SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET;
+    let bottom_y_px = center_y_px + SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET;
+
+    let left_col = (left_x_px.div_euclid(16)).max(0) as u16;
+    let right_col = (right_x_px.div_euclid(16)).max(0) as u16;
+    let top_row = (top_y_px.div_euclid(16)).max(0) as u16;
+    let bottom_row = (bottom_y_px.div_euclid(16)).max(0) as u16;
+    let max_col = grid.width_cells.saturating_sub(1);
+    let max_row = grid.height_cells.saturating_sub(1);
+    let mut best: Option<terrain::FloorProbe> = None;
+
+    for row in top_row.min(max_row)..=bottom_row.min(max_row) {
+        let cell_top = i32::from(row) * 16;
+        for col in left_col.min(max_col)..=right_col.min(max_col) {
+            let cell = grid.cell_at(col, row);
+            if !cell.is_solid_floor() {
+                continue;
+            }
+            let probe_x = center_x_px.clamp(i32::from(col) * 16, i32::from(col) * 16 + 15);
+            let floor_y_px = terrain::slope_floor_y_pub(cell.collision, cell_top, probe_x);
+            if bottom_y_px < floor_y_px {
+                continue;
+            }
+            let probe = terrain::FloorProbe {
+                on_ground: true,
+                floor_y_px,
+                cell,
+                cell_x: col,
+                cell_y: row,
+            };
+            best = Some(match best {
+                Some(current) if current.floor_y_px <= probe.floor_y_px => current,
+                _ => probe,
+            });
+        }
+    }
+
+    best.unwrap_or_else(|| {
+        terrain::probe_floor_hitbox(
+            grid,
+            center_x_px,
+            bottom_y_px,
+            SPHERE_ACTIVE_COLLISION_HALF_WIDTH,
+        )
+    })
+}
+
+fn bouncer_floor_snap_y_pos_loc_1a44(enemy: &ActiveEnemy, floor_y_px: i32) -> u32 {
+    if matches!(enemy.family, EnemyFamily::Sphere) {
+        // ASM GfxObjects_Collision loc_1A44: y = tile_top - y_off - height - 1.
+        // For Sphere's active row this is `tile_top - (-7) - 14 - 1`.
+        (floor_y_px - SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET).max(0) as u32
+    } else {
+        floor_y_px.max(0) as u32
+    }
+}
+
+fn bouncer_wall_probe_loc_19a8(
+    enemy: &ActiveEnemy,
+    grid: &terrain::BlockGrid,
+    center_x_px: i32,
+    center_y_px: i32,
+    moving_right: bool,
+) -> terrain::WallProbe {
+    if !matches!(enemy.family, EnemyFamily::Sphere) {
+        return terrain::probe_wall(
+            grid,
+            center_x_px,
+            center_y_px,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            moving_right,
+        );
+    }
+
+    // ASM GfxObjects_Collision loc_173E/1796 scans the active hitbox
+    // rectangle. For Sphere's active row, the horizontal edges are x-7..x+7.
+    let edge_x_px = if moving_right {
+        center_x_px + SPHERE_ACTIVE_COLLISION_HALF_WIDTH
+    } else {
+        center_x_px - SPHERE_ACTIVE_COLLISION_HALF_WIDTH
+    };
+    if !moving_right && edge_x_px < 0 {
+        // ASM GfxObjects_Collision_LeftBoundary loc_1AEA runs before tile
+        // scans and reports the same left-wall collision event.
+        return terrain::WallProbe {
+            hit: true,
+            wall_x_px: 0,
+            cell: terrain::Cell::from_be_bytes(0, 0),
+            cell_x: 0,
+            cell_y: 0,
+        };
+    }
+    if moving_right && edge_x_px >= grid.width_pixels() {
+        // ASM GfxObjects_Collision_RightBoundary loc_1B0A mirrors the normal
+        // right-wall snap against the level width.
+        return terrain::WallProbe {
+            hit: true,
+            wall_x_px: grid.width_pixels(),
+            cell: terrain::Cell::from_be_bytes(0, 0),
+            cell_x: grid.width_cells.saturating_sub(1),
+            cell_y: 0,
+        };
+    }
+    if edge_x_px < 0 || edge_x_px >= grid.width_pixels() {
+        return terrain::WallProbe {
+            hit: false,
+            wall_x_px: 0,
+            cell: terrain::Cell::from_be_bytes(0, 0),
+            cell_x: 0,
+            cell_y: 0,
+        };
+    }
+
+    let col = edge_x_px.div_euclid(16).max(0) as u16;
+    let top_row = (center_y_px - SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET)
+        .div_euclid(16)
+        .max(0) as u16;
+    let bottom_row = (center_y_px + SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET)
+        .div_euclid(16)
+        .max(0) as u16;
+    let max_row = grid.height_cells.saturating_sub(1);
+    for row in top_row.min(max_row)..=bottom_row.min(max_row) {
+        let cell = grid.cell_at(col, row);
+        if cell.collision == terrain::CollisionKind::Solid {
+            let behind_col = if moving_right {
+                col.saturating_sub(1)
+            } else {
+                col.saturating_add(1)
+                    .min(grid.width_cells.saturating_sub(1))
+            };
+            if behind_col != col
+                && grid.cell_at(behind_col, row).collision == terrain::CollisionKind::Solid
+            {
+                // ASM GfxObjects_Collision_Solid routes a solid neighbour
+                // behind the lead edge to loc_1A12/1A6C (floor/ceiling), not
+                // loc_197E/19D2 wall handling.
+                continue;
+            }
+            let wall_x_px = if moving_right {
+                i32::from(col) * 16
+            } else {
+                (i32::from(col) + 1) * 16
+            };
+            return terrain::WallProbe {
+                hit: true,
+                wall_x_px,
+                cell,
+                cell_x: col,
+                cell_y: row,
+            };
+        }
+    }
+
+    terrain::WallProbe {
+        hit: false,
+        wall_x_px: 0,
+        cell: terrain::Cell::from_be_bytes(0, 0),
+        cell_x: 0,
+        cell_y: 0,
+    }
+}
+
+fn bouncer_wall_snap_x_pos_loc_19a8(
+    enemy: &ActiveEnemy,
+    wall: terrain::WallProbe,
+    moving_right: bool,
+) -> Option<u32> {
+    if !matches!(enemy.family, EnemyFamily::Sphere) {
+        return None;
+    }
+
+    let snapped_x_px = if moving_right {
+        // ASM GfxObjects_Collision loc_19A8: x = wall_left - x_off - width - 1.
+        // For Sphere's active row this is `wall_left - (-7) - 14 - 1`.
+        wall.wall_x_px - SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET
+    } else {
+        // ASM GfxObjects_Collision loc_1A00: x = wall_left - x_off + $10,
+        // i.e. one tile to the right plus the 7 px left-edge offset.
+        wall.wall_x_px + SPHERE_ACTIVE_COLLISION_HALF_WIDTH
+    };
+    Some(snapped_x_px.max(0) as u32)
+}
+
 pub(crate) fn fireball_main_loop_y_velocity_loc_32c1a(enemy: &ActiveEnemy) -> i32 {
     // ASM Fireball.asm loc_32C1A: after the one-frame hibernate and
     // `Object_CheckInRange`, add d0 gravity into `y_vel(a3)` before `loc_32C60`.
@@ -5186,6 +5401,382 @@ fn queue_fireball_bounce_sound_loc_32c60(
     *already_queued = true;
 }
 
+fn sphere_pending_collision_type_loc_171c(enemy: &ActiveEnemy) -> u16 {
+    debug_assert!(matches!(enemy.family, EnemyFamily::Sphere));
+    enemy.dragon_phase_frames
+}
+
+fn set_sphere_pending_collision_type_loc_171c(enemy: &mut ActiveEnemy, collision_type: u16) {
+    debug_assert!(matches!(enemy.family, EnemyFamily::Sphere));
+    enemy.dragon_phase_frames = collision_type;
+}
+
+fn sphere_apply_pending_collision_loc_35f9e(
+    enemy: &mut ActiveEnemy,
+    collision_type: u16,
+    played_sound_effects: &mut Option<&mut Vec<QueuedSoundEffect>>,
+    bounce_sound_queued: &mut bool,
+) {
+    if collision_type == colid::EMPTY {
+        return;
+    }
+
+    queue_fireball_bounce_sound_loc_32c60(enemy.family, played_sound_effects, bounce_sound_queued);
+    match collision_type {
+        colid::RIGHTWALL | colid::LEFTWALL => {
+            // ASM Sphere.asm loc_36148: wall entries only negate `x_vel(a3)`;
+            // `x_direction(a3)` keeps the value left by Enemy06_Sphere_Init.
+            enemy.x_velocity = enemy.x_velocity.wrapping_neg();
+        }
+        colid::FLOOR => {
+            let bounce = sphere_child_vertical_bounce_loc_36142(enemy.y_velocity);
+            debug_assert!(bounce.resumes_child_loop);
+            enemy.y_velocity = bounce.y_velocity;
+        }
+        colid::CEILING => {
+            // ASM Sphere.asm loc_36144: `asr.l #1,y_vel(a3)` then `neg.l`.
+            enemy.y_velocity = (enemy.y_velocity >> 1).wrapping_neg();
+        }
+        colid::SLOPEUP => {
+            let old_x = enemy.x_velocity;
+            let old_y = enemy.y_velocity;
+            // ASM Sphere.asm loc_3614E backs the object out by the current
+            // post-gravity vector before swapping/negating it.
+            enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
+            enemy.y_velocity = old_x.wrapping_neg();
+            enemy.x_velocity = old_y.wrapping_neg();
+        }
+        colid::SLOPEDOWN => {
+            let old_x = enemy.x_velocity;
+            let old_y = enemy.y_velocity;
+            // ASM Sphere.asm loc_36164 backs out by the current vector, then
+            // swaps velocities without changing facing.
+            enemy.x_pos = (enemy.x_pos as i64 - i64::from(old_x)).max(0) as u32;
+            enemy.y_pos = (enemy.y_pos as i64 - i64::from(old_y)).max(0) as u32;
+            enemy.y_velocity = old_x;
+            enemy.x_velocity = old_y;
+        }
+        _ => {}
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SphereGfxCollisionLoc171c {
+    Empty,
+    Terrain { collision_type: u16 },
+}
+
+fn sphere_solid_neighbor_loc_17c6(grid: &terrain::BlockGrid, col: u16, row: u16) -> bool {
+    grid.cell_at(col, row).collision == terrain::CollisionKind::Solid
+}
+
+fn sphere_snap_wall_loc_19a8(enemy: &mut ActiveEnemy, tile_col: u16, moving_right: bool) {
+    let snapped_x_px = if moving_right {
+        // ASM GfxObjects_Collision loc_19A8:
+        // x = tile_left - x_off - width - 1 for row (-7,14,-7,14).
+        i32::from(tile_col) * 16 - SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET
+    } else {
+        // ASM GfxObjects_Collision loc_1A00: x = tile_right - x_off.
+        (i32::from(tile_col) + 1) * 16 + SPHERE_ACTIVE_COLLISION_HALF_WIDTH
+    };
+    enemy.x_pos = (snapped_x_px.max(0) as u32) << 16;
+}
+
+fn sphere_snap_floor_loc_1a44(enemy: &mut ActiveEnemy, tile_row: u16) {
+    // ASM GfxObjects_Collision loc_1A44:
+    // y = tile_top - y_off - height - 1 for row (-7,14,-7,14).
+    let snapped_y_px = i32::from(tile_row) * 16 - SPHERE_ACTIVE_COLLISION_FLOOR_SNAP_OFFSET;
+    enemy.y_pos = (snapped_y_px.max(0) as u32) << 16;
+}
+
+fn sphere_snap_ceiling_loc_1a6c(enemy: &mut ActiveEnemy, tile_row: u16) {
+    // ASM GfxObjects_Collision loc_1A6C:
+    // y = tile_top - y_off + 16 for row (-7,14,-7,14).
+    let snapped_y_px = (i32::from(tile_row) + 1) * 16 + SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
+    enemy.y_pos = (snapped_y_px.max(0) as u32) << 16;
+}
+
+fn sphere_wall_vs_floor_loc_185e(
+    horizontal_overlap_px: i32,
+    vertical_overlap_px: i32,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> bool {
+    // ASM GfxObjects_Collision_Solid moving-down branches compare
+    // vertical_overlap * |x_vel| against horizontal_overlap * y_vel after
+    // shifting both velocities right by 8. X-dominant impacts are walls;
+    // Y-dominant impacts are floors.
+    let x_speed = (x_velocity.unsigned_abs() >> 8) as i64;
+    let y_speed = (y_velocity.unsigned_abs() >> 8) as i64;
+    i64::from(vertical_overlap_px.max(0)) * x_speed
+        > i64::from(horizontal_overlap_px.max(0)) * y_speed
+}
+
+fn sphere_wall_vs_ceiling_loc_18aa(
+    horizontal_overlap_px: i32,
+    vertical_overlap_px: i32,
+    x_velocity: i32,
+    y_velocity: i32,
+) -> bool {
+    // Same slope-of-impact test as the floor path, mirrored for upward motion.
+    let x_speed = (x_velocity.unsigned_abs() >> 8) as i64;
+    let y_speed = (y_velocity.unsigned_abs() >> 8) as i64;
+    i64::from(vertical_overlap_px.max(0)) * x_speed
+        > i64::from(horizontal_overlap_px.max(0)) * y_speed
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SphereCollisionEdgesLoc171c {
+    left_px: i32,
+    right_px: i32,
+    top_px: i32,
+    bottom_px: i32,
+}
+
+fn sphere_resolve_solid_collision_loc_17c6(
+    enemy: &mut ActiveEnemy,
+    grid: &terrain::BlockGrid,
+    col: u16,
+    row: u16,
+    edges: SphereCollisionEdgesLoc171c,
+) -> SphereGfxCollisionLoc171c {
+    let moving_right = enemy.x_velocity >= 0;
+    let moving_down = enemy.y_velocity >= 0;
+    let tile_left_px = i32::from(col) * 16;
+    let tile_right_px = tile_left_px + 16;
+    let tile_top_px = i32::from(row) * 16;
+    let tile_bottom_px = tile_top_px + 16;
+
+    let collision_type = match (moving_right, moving_down) {
+        (true, true) => {
+            if col > 0 && sphere_solid_neighbor_loc_17c6(grid, col - 1, row) {
+                sphere_snap_floor_loc_1a44(enemy, row);
+                colid::FLOOR
+            } else {
+                let wall_hit = (row > 0 && sphere_solid_neighbor_loc_17c6(grid, col, row - 1))
+                    || sphere_wall_vs_floor_loc_185e(
+                        edges.right_px - tile_left_px,
+                        edges.bottom_px - tile_top_px,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                    );
+                if wall_hit {
+                    sphere_snap_wall_loc_19a8(enemy, col, true);
+                    colid::RIGHTWALL
+                } else {
+                    sphere_snap_floor_loc_1a44(enemy, row);
+                    colid::FLOOR
+                }
+            }
+        }
+        (true, false) => {
+            if col > 0 && sphere_solid_neighbor_loc_17c6(grid, col - 1, row) {
+                sphere_snap_ceiling_loc_1a6c(enemy, row);
+                colid::CEILING
+            } else {
+                let wall_hit = (row + 1 < grid.height_cells
+                    && sphere_solid_neighbor_loc_17c6(grid, col, row + 1))
+                    || sphere_wall_vs_ceiling_loc_18aa(
+                        edges.right_px - tile_left_px,
+                        tile_bottom_px - edges.top_px,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                    );
+                if wall_hit {
+                    sphere_snap_wall_loc_19a8(enemy, col, true);
+                    colid::RIGHTWALL
+                } else {
+                    sphere_snap_ceiling_loc_1a6c(enemy, row);
+                    colid::CEILING
+                }
+            }
+        }
+        (false, true) => {
+            if col + 1 < grid.width_cells && sphere_solid_neighbor_loc_17c6(grid, col + 1, row) {
+                sphere_snap_floor_loc_1a44(enemy, row);
+                colid::FLOOR
+            } else {
+                let wall_hit = (row > 0 && sphere_solid_neighbor_loc_17c6(grid, col, row - 1))
+                    || sphere_wall_vs_floor_loc_185e(
+                        tile_right_px - edges.left_px,
+                        edges.bottom_px - tile_top_px,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                    );
+                if wall_hit {
+                    sphere_snap_wall_loc_19a8(enemy, col, false);
+                    colid::LEFTWALL
+                } else {
+                    sphere_snap_floor_loc_1a44(enemy, row);
+                    colid::FLOOR
+                }
+            }
+        }
+        (false, false) => {
+            if col + 1 < grid.width_cells && sphere_solid_neighbor_loc_17c6(grid, col + 1, row) {
+                sphere_snap_ceiling_loc_1a6c(enemy, row);
+                colid::CEILING
+            } else {
+                let wall_hit = (row + 1 < grid.height_cells
+                    && sphere_solid_neighbor_loc_17c6(grid, col, row + 1))
+                    || sphere_wall_vs_ceiling_loc_18aa(
+                        tile_right_px - edges.left_px,
+                        tile_bottom_px - edges.top_px,
+                        enemy.x_velocity,
+                        enemy.y_velocity,
+                    );
+                if wall_hit {
+                    sphere_snap_wall_loc_19a8(enemy, col, false);
+                    colid::LEFTWALL
+                } else {
+                    sphere_snap_ceiling_loc_1a6c(enemy, row);
+                    colid::CEILING
+                }
+            }
+        }
+    };
+
+    SphereGfxCollisionLoc171c::Terrain { collision_type }
+}
+
+fn sphere_scan_active_collision_row_loc_171c(
+    enemy: &mut ActiveEnemy,
+    grid: &terrain::BlockGrid,
+) -> SphereGfxCollisionLoc171c {
+    let cx = sphere_collision_center_px(enemy.x_pos);
+    let cy = sphere_collision_center_px(enemy.y_pos);
+    let left_edge_px = cx - SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
+    let right_edge_px = cx + SPHERE_ACTIVE_COLLISION_HALF_WIDTH;
+    let scan_right_edge_px = if enemy.x_velocity >= 0 {
+        // ASM GfxObjects_Collision loc_173E uses the row's computed right edge
+        // for both tile selection and loc_19A8's snap. For Sphere's
+        // (-7,14,-7,14) row, oracle #359 proves the right-wall event is
+        // recorded at the snapped centre (`tile_left - 8`), so the tile scan
+        // includes the next column when the active row is flush with it.
+        right_edge_px + 1
+    } else {
+        right_edge_px
+    };
+    let top_edge_px = cy - SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET;
+    let bottom_edge_px = cy + SPHERE_ACTIVE_COLLISION_FLOOR_Y_OFFSET;
+
+    if left_edge_px < 0 {
+        // ASM GfxObjects_Collision_LeftBoundary loc_1AEA snaps by subtracting
+        // the negative hitbox edge from the object centre.
+        enemy.x_pos = ((cx - left_edge_px) as u32) << 16;
+        return SphereGfxCollisionLoc171c::Terrain {
+            collision_type: colid::LEFTWALL,
+        };
+    }
+    if scan_right_edge_px >= grid.width_pixels() {
+        let edge_from_center = scan_right_edge_px - cx;
+        enemy.x_pos = ((grid.width_pixels() - edge_from_center - 1).max(0) as u32) << 16;
+        return SphereGfxCollisionLoc171c::Terrain {
+            collision_type: colid::RIGHTWALL,
+        };
+    }
+    if top_edge_px < 0 {
+        enemy.y_pos = ((cy - top_edge_px) as u32) << 16;
+        return SphereGfxCollisionLoc171c::Terrain {
+            collision_type: colid::CEILING,
+        };
+    }
+    if bottom_edge_px >= grid.height_pixels() {
+        let edge_from_center = bottom_edge_px - cy;
+        enemy.y_pos = ((grid.height_pixels() - edge_from_center - 1).max(0) as u32) << 16;
+        return SphereGfxCollisionLoc171c::Terrain {
+            collision_type: colid::FLOOR,
+        };
+    }
+
+    let left_col = (left_edge_px >> 4).max(0) as u16;
+    let right_col = (scan_right_edge_px >> 4).max(0) as u16;
+    let top_row = (top_edge_px >> 4).max(0) as u16;
+    let bottom_row = (bottom_edge_px >> 4).max(0) as u16;
+    let max_col = grid.width_cells.saturating_sub(1);
+    let max_row = grid.height_cells.saturating_sub(1);
+
+    for row in top_row.min(max_row)..=bottom_row.min(max_row) {
+        for col in left_col.min(max_col)..=right_col.min(max_col) {
+            let cell = grid.cell_at(col, row);
+            match cell.collision {
+                terrain::CollisionKind::Solid => {
+                    return sphere_resolve_solid_collision_loc_17c6(
+                        enemy,
+                        grid,
+                        col,
+                        row,
+                        SphereCollisionEdgesLoc171c {
+                            left_px: left_edge_px,
+                            right_px: right_edge_px,
+                            top_px: top_edge_px,
+                            bottom_px: bottom_edge_px,
+                        },
+                    );
+                }
+                terrain::CollisionKind::SlopeUp if enemy.y_velocity >= 0 => {
+                    return SphereGfxCollisionLoc171c::Terrain {
+                        collision_type: colid::SLOPEUP,
+                    };
+                }
+                terrain::CollisionKind::SlopeDown if enemy.y_velocity >= 0 => {
+                    return SphereGfxCollisionLoc171c::Terrain {
+                        collision_type: colid::SLOPEDOWN,
+                    };
+                }
+                _ => {}
+            }
+        }
+    }
+
+    SphereGfxCollisionLoc171c::Empty
+}
+
+fn sphere_gfx_collision_probe_loc_171c(enemy: &mut ActiveEnemy, grid: &terrain::BlockGrid) -> u16 {
+    match sphere_scan_active_collision_row_loc_171c(enemy, grid) {
+        SphereGfxCollisionLoc171c::Empty => colid::EMPTY,
+        SphereGfxCollisionLoc171c::Terrain { collision_type } => collision_type,
+    }
+}
+
+fn step_sphere_bouncer_loc_35f70(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
+) {
+    debug_assert!(matches!(enemy.family, EnemyFamily::Sphere));
+
+    // ASM Mode_Level runs Execute_Objects before GfxObjects_MoveAndAnimate and
+    // GfxObjects_Collision. Enemy06_Sphere therefore reacts to the collision
+    // type written by the previous global collision pass.
+    let pending_collision_type = sphere_pending_collision_type_loc_171c(enemy);
+    set_sphere_pending_collision_type_loc_171c(enemy, colid::EMPTY);
+    let mut bounce_sound_queued = false;
+
+    enemy.y_velocity = enemy.y_velocity.saturating_add(SPHERE_GRAVITY);
+    sphere_apply_pending_collision_loc_35f9e(
+        enemy,
+        pending_collision_type,
+        &mut played_sound_effects,
+        &mut bounce_sound_queued,
+    );
+
+    enemy.x_pos = (enemy.x_pos as i64 + i64::from(enemy.x_velocity)) as u32;
+    enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
+
+    // ASM GfxObjects_MoveAndAnimate advances `stru_36174` before
+    // GfxObjects_Collision loc_171C reads the current collision row.
+    // `LnkTo_unk_C8120..C8130` all map through CollisionSize_Index to active
+    // rows `unk_31AB0..31AC4`; the zero rows immediately before them belong
+    // to the Sphere death frames, not the live loop.
+    enemy.wait_timer = (enemy.wait_timer + 1) % SPHERE_LIVE_ANIMATION_FRAMES;
+    if let Some(grid) = block_grid {
+        let collision_type = sphere_gfx_collision_probe_loc_171c(enemy, grid);
+        set_sphere_pending_collision_type_loc_171c(enemy, collision_type);
+    }
+}
+
 fn update_fireball_sprite_state_loc_32f3e_3304a(enemy: &mut ActiveEnemy) {
     // ASM Fireball.asm loc_32C1A calls loc_32F3E then loc_3304A every frame:
     // the selected sprite writes `x_direction(a3)`, which the slope-trail
@@ -5220,10 +5811,8 @@ pub(crate) fn step_bouncer_with_rng(
     mut played_sound_effects: Option<&mut Vec<QueuedSoundEffect>>,
 ) {
     if matches!(enemy.family, EnemyFamily::Sphere) && !enemy.death_animation_active {
-        // ASM Sphere.asm `stru_36174`: C8120/C8128/C8130 each hibernate for
-        // 9 ticks before the animation loops. Native keeps only the phase
-        // counter needed by contact and rendering-facing snapshots.
-        enemy.wait_timer = (enemy.wait_timer + 1) % SPHERE_LIVE_ANIMATION_FRAMES;
+        step_sphere_bouncer_loc_35f70(enemy, block_grid, played_sound_effects);
+        return;
     }
 
     // Apply gravity
@@ -5238,21 +5827,24 @@ pub(crate) fn step_bouncer_with_rng(
     enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
 
     if let Some(grid) = block_grid {
-        let cx = (enemy.x_pos >> 16) as i32;
-        let cy = (enemy.y_pos >> 16) as i32;
+        let (cx, cy) = if matches!(enemy.family, EnemyFamily::Sphere) {
+            (
+                sphere_collision_center_px(enemy.x_pos),
+                sphere_collision_center_px(enemy.y_pos),
+            )
+        } else {
+            ((enemy.x_pos >> 16) as i32, (enemy.y_pos >> 16) as i32)
+        };
         let mut fireball_bounce_sound_queued = false;
 
         // Wall bounce
         let moving_right = enemy.x_velocity >= 0;
-        let wall = terrain::probe_wall(
-            grid,
-            cx,
-            cy,
-            ENEMY_PROBE_HALF_WIDTH,
-            ENEMY_PROBE_HEIGHT,
-            moving_right,
-        );
+        let wall = bouncer_wall_probe_loc_19a8(enemy, grid, cx, cy, moving_right);
         if wall.hit {
+            if let Some(snapped_x_px) = bouncer_wall_snap_x_pos_loc_19a8(enemy, wall, moving_right)
+            {
+                enemy.x_pos = snapped_x_px << 16;
+            }
             queue_fireball_bounce_sound_loc_32c60(
                 enemy.family,
                 &mut played_sound_effects,
@@ -5266,10 +5858,22 @@ pub(crate) fn step_bouncer_with_rng(
                 enemy.facing = opposite_direction(enemy.facing);
             }
         }
+        let sphere_wall_consumed_collision =
+            matches!(enemy.family, EnemyFamily::Sphere) && wall.hit;
 
         // Floor bounce
-        let floor = terrain::probe_floor(grid, cx, cy);
-        if floor.on_ground && enemy.y_velocity > 0 {
+        let floor = if sphere_wall_consumed_collision {
+            terrain::FloorProbe {
+                on_ground: false,
+                floor_y_px: grid.height_pixels(),
+                cell: terrain::Cell::from_be_bytes(0, 0),
+                cell_x: 0,
+                cell_y: 0,
+            }
+        } else {
+            bouncer_floor_probe_loc_1a44(enemy, grid, cx, cy)
+        };
+        if !sphere_wall_consumed_collision && floor.on_ground && enemy.y_velocity > 0 {
             // Check for slope deflection first (ASM Sphere.asm loc_36012/loc_36032,
             // Fireball.asm loc_32D06/loc_32D46, Big_Hopping_Skull.asm loc_36706/loc_36720).
             // Slopes take precedence over floor bounce.
@@ -5387,7 +5991,7 @@ pub(crate) fn step_bouncer_with_rng(
                     enemy.y_velocity = bounce.y_velocity;
                 }
                 // Snap out of floor
-                let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                let floor_y_fp = bouncer_floor_snap_y_pos_loc_1a44(enemy, floor.floor_y_px) << 16;
                 if enemy.y_pos > floor_y_fp {
                     enemy.y_pos = floor_y_fp;
                 }
@@ -5396,7 +6000,7 @@ pub(crate) fn step_bouncer_with_rng(
 
         // Ceiling bounce
         let ceil = terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
-        if ceil.hit && enemy.y_velocity < 0 {
+        if !sphere_wall_consumed_collision && ceil.hit && enemy.y_velocity < 0 {
             queue_fireball_bounce_sound_loc_32c60(
                 enemy.family,
                 &mut played_sound_effects,
@@ -9047,6 +9651,9 @@ pub(crate) fn spawn_facing(family: EnemyFamily, enemy_x: u32, player_x: u32) -> 
         }
         // Drips always start facing right (Drip.asm init)
         EnemyFamily::Drips => Direction::Right,
+        // ASM Sphere.asm Enemy06_Sphere_Init writes x/y/velocities but never
+        // writes `x_direction(a3)`, so the GfxObject keeps enemy-art default left.
+        EnemyFamily::Sphere => Direction::Left,
         // ASM Armadillo.asm loc_3C718, Goat.asm loc_3CA30, Dragon.asm loc_3CD70,
         // Tank.asm loc_3B2E4, Robot.asm loc_3A7AC, Driller.asm loc_3BD2A,
         // and Scorpion.asm loc_3DBD8:
@@ -9420,6 +10027,20 @@ mod tests {
             pacer_walk_speed(EnemyFamily::TarMonster, 2),
             0x0001_8000,
             "ASM Tar_Monster emerging walker uses fixed `$18000` walk speed",
+        );
+    }
+
+    #[test]
+    fn sphere_spawn_keeps_default_left_x_direction_loc_35ef2() {
+        assert_eq!(
+            spawn_facing(EnemyFamily::Sphere, 200 << 16, 400 << 16),
+            Direction::Left,
+            "ASM Sphere.asm Enemy06_Sphere_Init never writes `x_direction(a3)`, so default enemy art faces left even when Kid is to the right"
+        );
+        assert_eq!(
+            spawn_facing(EnemyFamily::Sphere, 200 << 16, 100 << 16),
+            Direction::Left,
+            "Sphere spawn facing should not track Kid position because init leaves x_direction clear"
         );
     }
 
@@ -11128,6 +11749,7 @@ impl NativeRuntime {
         // atomically, so replay the load windows here.
         let settle_frames = self.inspect_respawn_settle(level_id, 180);
         let final_camera_x_pos = settle_frames.last().map_or(0, |frame| frame.camera_x_pos);
+        let final_camera_y_pos = settle_frames.last().map_or(0, |frame| frame.camera_y_pos);
         for frame in settle_frames {
             let camera = CameraState {
                 x_pos: frame.camera_x_pos,
@@ -11150,16 +11772,20 @@ impl NativeRuntime {
             );
             self.ensure_heady_metal_breakup_slots_loc_39247();
             if frame.camera_x_pos == final_camera_x_pos
+                && frame.camera_y_pos == final_camera_y_pos
                 && level_id != LevelId(0)
                 && level_id != LevelId(1)
             {
                 // ASM Mode_Level's hidden respawn settle keeps executing the
-                // object scheduler after the horizontal camera axis has reached
-                // its settled target. Level 0x07's Lion first exposed this via
-                // Lion.asm loc_3E7CA's off-ledge charge fall; Level 0x06's
-                // Flying Dragon proves the same tail must age active families
-                // through Dragon_Flying.asm loc_34710 -> loc_348A0 -> loc_34BAC
-                // before the recording helper's 60 visible live frames begin.
+                // object scheduler after the camera has reached its settled
+                // target. Level 0x07's Lion first exposed this via Lion.asm
+                // loc_3E7CA's off-ledge charge fall; Level 0x06's Flying Dragon
+                // proves the same tail must age active families through
+                // Dragon_Flying.asm loc_34710 -> loc_348A0 -> loc_34BAC before
+                // the recording helper's 60 visible live frames begin. Use
+                // both axes here: vertical sky starts such as Level 0x1B keep
+                // `Camera_X_pos` stable from step 0 while `Camera_Y_pos` is
+                // still converging.
                 step_active_enemies_with_rng(
                     &mut self.active_enemies,
                     self.block_grid.as_ref(),
