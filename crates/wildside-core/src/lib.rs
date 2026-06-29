@@ -2372,11 +2372,11 @@ impl NativeRuntime {
             self.begin_demo_gameplay(NativeRuntime::demo_level_id(use_demo_2));
         }
 
-        let gameplay_slice_active = matches!(
+        let gameplay_slice_active = (matches!(
             self.boot_state,
             BootState::StartingLevel { .. } | BootState::InGame
-        ) || (self.demo_gameplay_active()
-            && self.opening_slice.is_some());
+        ) && !level_entry_hibernated_gameplay_input)
+            || (self.demo_gameplay_active() && self.opening_slice.is_some());
         if gameplay_slice_active {
             // ASM Mode_Level loc_7E2/Transfer_ScrollDataToVRAM loc_30110 runs
             // before Execute_Objects and the later `sub_6034` weather worker.
@@ -2435,9 +2435,9 @@ impl NativeRuntime {
                 // but before the next frame consumes FiveWayShotReady. Use raw
                 // Ctrl_Held here; `gameplay_input` delays A for movement.
                 self.step_juggernaut_five_way_shot_ready_sub_7428(input);
-                // ASM loc_1AE2E only gates the later `Game_Mode=$000C`
-                // transition; the hidden mode-$0008 level-entry shell still
-                // runs the gameplay/object slice before that visible Start.
+                // ASM loc_1AE2E owns Game_Mode=$0008 until Start writes
+                // Game_Mode=$000C and jumps through loc_6E2. Gameplay input and
+                // Mode_Level execution both stay hibernated during that shell.
                 let title_card_hibernates_gameplay_input =
                     self.starting_level_title_card_bootstrap_active_loc_1ae2e();
                 let demo_live_input = matches!(self.boot_state, BootState::DemoPlay { .. })
@@ -3048,7 +3048,15 @@ impl NativeRuntime {
     }
 
     fn starting_level_title_card_bootstrap_active_loc_1ae2e(&self) -> bool {
-        matches!(self.boot_state, BootState::StartingLevel { .. })
+        matches!(
+            self.boot_state,
+            BootState::StartingLevel {
+                uses_load_ingame_bootstrap: false,
+                ..
+            }
+        ) && self
+            .level_header(self.current_level)
+            .is_some_and(|header| header.murder_wall_flags != 0)
     }
 
     #[allow(non_snake_case)]

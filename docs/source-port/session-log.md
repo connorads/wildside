@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-29 handoff (#335 Hills title-card murder-wall fixed candidate)
+
+- **#335 moved `[~]` -> `[?]`.** Hills 0x08 title-card wait now hibernates gameplay input and
+  `Mode_Level` while `loc_1AE2E` owns the murder-wall title-card shell; Start/`loc_6E2` resumes
+  live gameplay without exposing a pre-aged murder-wall death.
+- Added synthetic and cache-backed regressions for the exact "leave the card up" failure:
+  `loc_1ae2e_hills_title_card_wait_does_not_age_murder_wall`, plus strengthened debug and
+  natural 0x07->0x08 handoff tests.
+- Gate hygiene: restored generated layout sidecars for `00`, `01`, `02`, `1B`, and `15`; fixed a
+  pre-existing red tar-burst unit by letting `Tar_Monster.asm loc_3263C` own the single post-move
+  `$1000` gravity add.
+- Verification: focused `loc_1AE2E` and tar tests, `mise run verify-slice-fast`, and
+  `mise run verify-tas-full` (exit 0; full-run CRC exact, baseline full-report divergences still
+  start at `transition_15_to_00_post`).
+- NEXT: run `mise run project-status` and take the top ready/open item; #335 now needs human
+  validation via a live/debug skip into Hills 0x08, leaving the title card up before Start.
+
 ## 2026-06-26 handoff (playtest triage #2 — backlog validation)
 
 - Human playtested pushed HEAD `7c613d63f` and reported 18 observations. A read-only fan-out

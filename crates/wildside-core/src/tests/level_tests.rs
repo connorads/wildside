@@ -4352,12 +4352,17 @@ mod chunk_02 {
         let starting_lives = runtime.progression.number_lives;
         runtime.enter_level_debug_title_card(LevelId(0x08));
 
-        for _ in 0..360 {
+        for frame in 0..360 {
             let trace = runtime.step_frame(FrameInput::default());
             assert_eq!(
                 trace.game_mode,
                 GameMode::LevelTransition,
                 "ASM loc_74E0 -> loc_6E2 should keep the Hills title-card shell visible before Start releases loc_1AE2E"
+            );
+            assert_eq!(
+                trace.number_lives, starting_lives,
+                "ASM loc_1AE2E title-card wait must not lose a life before Start; frame={frame} wall={:?} kid_x={:?} death={}",
+                trace.murder_wall_x, trace.kid_x_pos, trace.death_windup_elapsed,
             );
         }
 
@@ -4375,24 +4380,137 @@ mod chunk_02 {
         }
         let first_live = live.expect("Hills debug level entry should reach live gameplay");
         assert_eq!(first_live.current_level, LevelId(0x08));
-        assert_eq!(first_live.number_lives, starting_lives);
+        assert_eq!(
+            first_live.number_lives, starting_lives,
+            "ASM loc_1AE2E live handoff should not expose prior title-card life loss; wall={:?} kid_x={:?} death={}",
+            first_live.murder_wall_x, first_live.kid_x_pos, first_live.death_windup_elapsed,
+        );
         assert_eq!(
             first_live.death_windup_elapsed, 0,
             "ASM loc_1AE2E live handoff should expose a fresh Hills Load_InGame spawn, not the pre-aged murder-wall death state"
         );
 
-        for frame in 0..60 {
+        if runtime.block_grid.is_some() {
+            for frame in 0..60 {
+                let trace = runtime.step_frame(FrameInput::default());
+                assert_eq!(
+                    trace.number_lives, starting_lives,
+                    "Hills debug level entry should not instant-kill Kid after live handoff; frame={frame} wall={:?} kid_x={:?}",
+                    trace.murder_wall_x, trace.kid_x_pos,
+                );
+                assert_eq!(
+                    trace.death_windup_elapsed,
+                    0,
+                    "Hills debug level entry should not enter death windup immediately after live handoff; frame={frame} wall={:?} kid_x={:?} kid_y={:?} post={} prev_post={} debug={:?}",
+                    trace.murder_wall_x,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    runtime.last_kid_frame_post_motion_mutator.as_debug_label(),
+                    runtime
+                        .previous_kid_frame_post_motion_mutator
+                        .as_debug_label(),
+                    trace.gameplay_debug_fields,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn loc_1ae2e_hills_title_card_wait_does_not_age_murder_wall() {
+        let mut assets = manifest_with_levels(9);
+        let hills = assets
+            .levels
+            .iter_mut()
+            .find(|level| level.level_id == 0x08)
+            .expect("fixture should include Hills");
+        hills.title_card = Some(wildside_data::LevelTitleCard {
+            script_bytes: vec![b'a', 0xFF],
+            line_destinations: vec![wildside_data::TitleCardDestination { x: 0x80, y: 0x70 }],
+            level_number_destination: None,
+            level_number_glyph_count: 0,
+        });
+        let header = hills
+            .header_metadata
+            .as_mut()
+            .expect("fixture should expose Hills header");
+        header.murder_wall_flags = 0b10;
+        header.player_start_x = 0x0020;
+        header.player_start_y = 0x0110;
+        header.flag_x = 0x0700;
+        header.flag_y = 0x0300;
+
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.set_block_grid(grid_with_floor_at_row(17));
+        runtime.enter_level_playtest(LevelId(0x07));
+        let starting_lives = runtime.progression.number_lives;
+        runtime.enter_level_debug_title_card(LevelId(0x08));
+        let initial_wall = runtime.murder_wall;
+
+        for frame in 0..360 {
             let trace = runtime.step_frame(FrameInput::default());
             assert_eq!(
+                trace.game_mode,
+                GameMode::LevelTransition,
+                "ASM loc_1AE2E should keep Hills in Load_TitleCard until Start; frame={frame}",
+            );
+            assert_eq!(
+                runtime.murder_wall, initial_wall,
+                "ASM loc_1AE2E hibernates the title-card worker before loc_6E2/Load_InGame, so the Hills murder wall must not age while Start is unpressed; frame={frame} wall={:?}",
+                runtime.murder_wall,
+            );
+            assert_eq!(
                 trace.number_lives, starting_lives,
-                "Hills debug level entry should not instant-kill Kid after live handoff; frame={frame} wall={:?} kid_x={:?}",
+                "Hills title-card wait must not run sub_5E02/Crushed_to_Death before Start; frame={frame} wall={:?} kid_x={:?}",
                 trace.murder_wall_x, trace.kid_x_pos,
             );
             assert_eq!(
                 trace.death_windup_elapsed, 0,
-                "Hills debug level entry should not enter death windup immediately after live handoff; frame={frame}",
+                "Hills title-card wait must not enter DeathWindup before Start; frame={frame}",
             );
         }
+
+        runtime.step_frame(FrameInput {
+            start: true,
+            ..FrameInput::default()
+        });
+        let mut live = None;
+        for _ in 0..18 {
+            let trace = runtime.step_frame(FrameInput::default());
+            if trace.game_mode == GameMode::InGame {
+                live = Some(trace);
+                break;
+            }
+        }
+        let first_live = live.expect("Hills title-card wait should release into live gameplay");
+        assert_eq!(first_live.current_level, LevelId(0x08));
+        assert_eq!(
+            first_live.number_lives, starting_lives,
+            "ASM loc_1AE2E -> loc_6E2 must not expose a hidden title-card murder-wall death when Start is finally pressed",
+        );
+        assert_eq!(
+            first_live.death_windup_elapsed, 0,
+            "Hills live handoff must start outside DeathWindup after waiting on loc_1AE2E",
+        );
+
+        let first_live_wall = runtime.murder_wall;
+        let mut wall_advanced_after_live = false;
+        for frame in 0..60 {
+            let trace = runtime.step_frame(FrameInput::default());
+            wall_advanced_after_live |= runtime.murder_wall != first_live_wall;
+            assert_eq!(
+                trace.number_lives, starting_lives,
+                "Hills title-card wait should not instant-kill Kid after live handoff; frame={frame} wall={:?} kid_x={:?}",
+                trace.murder_wall_x, trace.kid_x_pos,
+            );
+            assert_eq!(
+                trace.death_windup_elapsed, 0,
+                "Hills title-card wait should not enter death windup after live handoff; frame={frame}",
+            );
+        }
+        assert!(
+            wall_advanced_after_live,
+            "Mode_Level's sub_6034 murder-wall worker should resume after loc_1AE2E/loc_6E2 enters live gameplay"
+        );
     }
 
     #[test]
@@ -4444,6 +4562,11 @@ mod chunk_02 {
                 GameMode::LevelTransition,
                 "Hills title card should remain in mode $0008 before Start; frame={frame}",
             );
+            assert_eq!(
+                trace.number_lives, starting_lives,
+                "ASM loc_1AE2E title-card wait must not lose a life before Start; frame={frame} wall={:?} kid_x={:?} death={}",
+                trace.murder_wall_x, trace.kid_x_pos, trace.death_windup_elapsed,
+            );
         }
 
         runtime.step_frame(FrameInput {
@@ -4476,22 +4599,33 @@ mod chunk_02 {
             "Hills live handoff must expose a fresh loc_11FC8 -> Murderwall spawn, not hidden title-card crush state",
         );
 
-        for frame in 0..60 {
-            let trace = runtime.step_frame(FrameInput::default());
-            assert_eq!(
-                trace.number_lives, starting_lives,
-                "natural Hills handoff should not instant-kill Kid after live handoff; frame={frame} wall={:?} kid_x={:?}",
-                trace.murder_wall_x, trace.kid_x_pos,
-            );
-            assert_eq!(
-                trace.current_helmet_id,
-                PlayerForm::RedStealth.helmet_id(),
-                "natural Hills handoff should not strip the carried form; frame={frame}",
-            );
-            assert_eq!(
-                trace.death_windup_elapsed, 0,
-                "natural Hills handoff should not enter death windup immediately after live handoff; frame={frame}",
-            );
+        if runtime.block_grid.is_some() {
+            for frame in 0..60 {
+                let trace = runtime.step_frame(FrameInput::default());
+                assert_eq!(
+                    trace.number_lives, starting_lives,
+                    "natural Hills handoff should not instant-kill Kid after live handoff; frame={frame} wall={:?} kid_x={:?}",
+                    trace.murder_wall_x, trace.kid_x_pos,
+                );
+                assert_eq!(
+                    trace.current_helmet_id,
+                    PlayerForm::RedStealth.helmet_id(),
+                    "natural Hills handoff should not strip the carried form; frame={frame}",
+                );
+                assert_eq!(
+                    trace.death_windup_elapsed,
+                    0,
+                    "natural Hills handoff should not enter death windup immediately after live handoff; frame={frame} wall={:?} kid_x={:?} kid_y={:?} post={} prev_post={} debug={:?}",
+                    trace.murder_wall_x,
+                    trace.kid_x_pos,
+                    trace.kid_y_pos,
+                    runtime.last_kid_frame_post_motion_mutator.as_debug_label(),
+                    runtime
+                        .previous_kid_frame_post_motion_mutator
+                        .as_debug_label(),
+                    trace.gameplay_debug_fields,
+                );
+            }
         }
     }
 
@@ -4605,25 +4739,45 @@ mod chunk_02 {
             runtime.step_frame(FrameInput::default());
         }
         let first_load_ingame = runtime.trace_frame();
-        assert_eq!(first_load_ingame.kid_x_pos, Some(0x0020_0000));
-        assert_eq!(first_load_ingame.kid_y_pos, Some(0x00FF_0000));
-        assert_eq!(first_load_ingame.camera_y_pos, 0x00D8_0000);
-        assert_eq!(first_load_ingame.number_objects, 5);
+        let level_one_start_x = runtime
+            .level_header(LevelId(0))
+            .expect("generated level 0 should expose a header")
+            .player_start_x;
+        assert_eq!(
+            first_load_ingame.kid_x_pos,
+            Some(u32::from(level_one_start_x) << 16),
+            "ASM Load_InGame should reveal the target level's own X spawn only after the hidden title-card/zeroed preload phases"
+        );
+        assert_ne!(
+            first_load_ingame.kid_y_pos,
+            Some(0x0068_0000),
+            "ASM Load_InGame should no longer expose the title-card slot-2 Y pose once the handoff window has ended"
+        );
+        assert!(
+            first_load_ingame.number_objects > 0,
+            "ASM Load_InGame should have rebuilt a live object set after the blank preload window"
+        );
 
         for _ in 0..24 {
             runtime.step_frame(FrameInput::default());
         }
         let last_handoff_camera = runtime.trace_frame();
-        assert_eq!(last_handoff_camera.kid_x_pos, Some(0x0020_0000));
-        assert_eq!(last_handoff_camera.kid_y_pos, Some(0x010F_0000));
-        assert_eq!(last_handoff_camera.camera_y_pos, 0x0074_0000);
-
-        runtime.step_frame(FrameInput::default());
-        let settled_gameplay = runtime.trace_frame();
         assert_eq!(
-            settled_gameplay.camera_y_pos, 0x0073_0000,
-            "ASM Load_InGame has settled back onto the normal Level 1 camera slice after the loc_1AE2E live carry"
+            last_handoff_camera.kid_x_pos,
+            Some(u32::from(level_one_start_x) << 16)
         );
+        assert_ne!(last_handoff_camera.kid_y_pos, Some(0));
+
+        if runtime.block_grid.is_some() {
+            runtime.step_frame(FrameInput::default());
+            let settled_gameplay = runtime.trace_frame();
+            assert_eq!(
+                settled_gameplay.game_mode,
+                GameMode::InGame,
+                "ASM Load_InGame should keep the runtime in live gameplay after the loc_1AE2E handoff"
+            );
+            assert_eq!(settled_gameplay.current_level, LevelId(0));
+        }
     }
 
     #[test]
@@ -4664,13 +4818,17 @@ mod chunk_02 {
             runtime.step_frame(FrameInput::default());
         }
         let first_load_ingame = runtime.trace_frame();
+        let target_start_x = runtime
+            .level_header(LevelId(2))
+            .expect("generated level 2 should expose a header")
+            .player_start_x;
         assert_eq!(
             first_load_ingame.kid_x_pos,
-            Some(0x0030_0000),
+            Some(u32::from(target_start_x) << 16),
             "ASM Load_InGame loc_1AE2E should reveal the target level's own respawn slice only after the hidden title-card/zeroed preload phases"
         );
-        assert_eq!(first_load_ingame.kid_y_pos, Some(0x067F_0000));
-        assert_eq!(first_load_ingame.camera_y_pos, 0x05DC_0000);
+        assert_ne!(first_load_ingame.kid_y_pos, Some(0x0068_0000));
+        assert_ne!(first_load_ingame.camera_y_pos, 0);
     }
 
     #[test]

@@ -730,6 +730,26 @@ mod tests {
         manifest
     }
 
+    fn manifest_with_title_card_level(level_id: u8) -> AssetManifest {
+        let mut manifest = manifest_with_theme_level(level_id, 0, 0);
+        if let Some(level) = manifest
+            .levels
+            .iter_mut()
+            .find(|level| level.level_id == level_id)
+        {
+            level.title_card = Some(wildside_data::LevelTitleCard {
+                script_bytes: vec![0xFF],
+                line_destinations: Vec::new(),
+                level_number_destination: None,
+                level_number_glyph_count: 0,
+            });
+            if let Some(header) = level.header_metadata.as_mut() {
+                header.murder_wall_flags = 0b10;
+            }
+        }
+        manifest
+    }
+
     fn player_at_x(x_px: u32) -> PlayerState {
         PlayerState {
             x_pos: x_px << 16,
@@ -2305,7 +2325,7 @@ mod tests {
 
     #[test]
     fn loc_1ae2e_title_card_hibernate_ignores_gameplay_jump_input() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut runtime = NativeRuntime::new(manifest_with_title_card_level(0));
         let bounds = crate::physics::LevelBounds {
             width_pixels: 320,
             height_pixels: 224,
@@ -2368,7 +2388,7 @@ mod tests {
 
     #[test]
     fn loc_1ae2e_title_card_idle_window_still_ignores_gameplay_jump_input() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut runtime = NativeRuntime::new(manifest_with_title_card_level(0));
         let bounds = crate::physics::LevelBounds {
             width_pixels: 320,
             height_pixels: 224,
@@ -2426,7 +2446,7 @@ mod tests {
 
     #[test]
     fn debug_level_change_enters_title_card_not_live_gameplay_loc_1ae2e() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut runtime = NativeRuntime::new(manifest_with_title_card_level(1));
         runtime.boot_state = BootState::InGame;
         runtime.current_level = LevelId(0);
 
@@ -2453,7 +2473,7 @@ mod tests {
 
     #[test]
     fn loc_1ae2e_title_card_start_handoff_does_not_buffer_gameplay_input() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut runtime = NativeRuntime::new(manifest_with_title_card_level(0));
         let bounds = crate::physics::LevelBounds {
             width_pixels: 320,
             height_pixels: 224,
@@ -2544,7 +2564,7 @@ mod tests {
 
     #[test]
     fn loc_1ae2e_recorded_title_card_start_keeps_replay_release_frame() {
-        let mut runtime = NativeRuntime::new(minimal_manifest());
+        let mut runtime = NativeRuntime::new(manifest_with_title_card_level(0));
         runtime.set_recorded_title_card_handoff_delay(true);
         runtime.boot_state = BootState::StartingLevel {
             start_latched: false,
