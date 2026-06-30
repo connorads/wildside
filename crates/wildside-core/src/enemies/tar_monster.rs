@@ -1163,13 +1163,8 @@ pub(crate) fn step_tar_monster_with_sounds(
                     x_pos: motion.x_pos,
                     y_pos: spawn.y_pos,
                     x_velocity: motion.x_velocity,
-                    y_velocity: 0,
                     lifetime: 120,
                     gravity: TAR_MONSTER_GLOB_GRAVITY,
-                    friendly: false,
-                    homing_accel: 0,
-                    speed_cap: 0,
-                    wall_bounce: false,
                     kind: EnemyProjectileKind::TarMonsterStraightGlob,
                     tar_monster_collision_response_budget: setup.collision_response_budget,
                     ..Default::default()
@@ -1290,10 +1285,6 @@ pub(crate) fn spawn_tar_monster_retaliation(
             y_velocity: entry.y_velocity,
             lifetime: 60,
             gravity: 0x1000,
-            friendly: false,
-            homing_accel: 0,
-            speed_cap: 0,
-            wall_bounce: false,
             kind: EnemyProjectileKind::TarMonsterBurstChild,
             tar_monster_collision_response_budget: setup.collision_response_budget,
             ..Default::default()
@@ -1398,16 +1389,20 @@ mod tests {
             }
         );
 
-        let command_322_a8 = i16::from_be_bytes([0x00, 0x00]);
-        assert_eq!(
-            tar_monster_loc_32256(command_322_a8).route,
-            TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc322A8)
-        );
-        let command_323_10 = i16::from_be_bytes([0x00, 0x14]);
-        assert_eq!(
-            tar_monster_loc_32256(command_323_10).route,
-            TarMonsterLoc32256Route::Dispatch(TarMonsterLoc32290Target::Loc32310)
-        );
+        for (command, target) in [
+            (0x0000, TarMonsterLoc32290Target::Loc322A8),
+            (0x0004, TarMonsterLoc32290Target::Loc322BC),
+            (0x0008, TarMonsterLoc32290Target::Loc322DA),
+            (0x000C, TarMonsterLoc32290Target::Loc322FC),
+            (0x0010, TarMonsterLoc32290Target::Loc32308),
+            (0x0014, TarMonsterLoc32290Target::Loc32310),
+        ] {
+            assert_eq!(
+                tar_monster_loc_32256(command).route,
+                TarMonsterLoc32256Route::Dispatch(target),
+                "ASM Tar_Monster.asm loc_32256 uses byte offset ${command:04X} to index off_32290"
+            );
+        }
         let dense_index_five = i16::from_be_bytes([0x00, 0x05]);
         assert_eq!(
             tar_monster_loc_32256(dense_index_five).route,
@@ -1991,6 +1986,48 @@ mod tests {
             },
             "ASM Tar_Monster.asm loc_32682 subtracts 4 before indexing off_32656, so collision id $2C reaches the table's loc_32652 delete entry"
         );
+
+        for (collision_type, target) in [
+            (
+                0x000C,
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326B8,
+            ),
+            (
+                0x0010,
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326B8,
+            ),
+            (
+                0x0028,
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326B8,
+            ),
+            (
+                0x0014,
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326C6,
+            ),
+            (
+                0x0018,
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326DC,
+            ),
+            (
+                0x001C,
+                TarMonsterProjectileCollisionTargetLoc32682::Loc326DC,
+            ),
+        ] {
+            assert_eq!(
+                tar_monster_projectile_collision_loc_32682(collision_type, 2, false),
+                TarMonsterProjectileCollisionLoc32682 {
+                    route: TarMonsterProjectileCollisionRouteLoc32682::Dispatch(
+                        TarMonsterProjectileCollisionDispatchLoc32682 {
+                            sprite_frame_link: None,
+                            remaining_collision_budget: 1,
+                            clears_collision_type: true,
+                            target,
+                        }
+                    ),
+                },
+                "ASM Tar_Monster.asm loc_32682 maps collision id ${collision_type:04X} through off_32656 after subtracting 4"
+            );
+        }
     }
 
     #[test]
@@ -2104,6 +2141,30 @@ mod tests {
             TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8.to_vec(),
             "ASM Tar_Monster.asm loc_324F8 velocity table should drive the native retaliation burst"
         );
+        for (projectile, (x_velocity, y_velocity)) in projectiles
+            .iter()
+            .zip(TAR_MONSTER_BURST_BLOB_VELOCITIES_LOC_324F8)
+        {
+            assert_eq!(
+                *projectile,
+                EnemyProjectile {
+                    x_pos: 0x0120_0000,
+                    y_pos: 0x0070_0000,
+                    x_velocity,
+                    y_velocity,
+                    lifetime: 60,
+                    gravity: 0x1000,
+                    friendly: false,
+                    homing_accel: 0,
+                    speed_cap: 0,
+                    wall_bounce: false,
+                    kind: EnemyProjectileKind::TarMonsterBurstChild,
+                    tar_monster_collision_response_budget: 2,
+                    ..Default::default()
+                },
+                "ASM Tar_Monster.asm loc_325E6/loc_3261C should initialise every burst child field from the caller-prepared source position"
+            );
+        }
     }
 
     #[test]
@@ -2240,6 +2301,25 @@ mod tests {
         );
         assert_eq!(projectiles[0].y_pos, 0x006E_0000);
         assert_eq!(projectiles[0].x_velocity, TAR_MONSTER_GLOB_SPEED_X);
+        assert_eq!(
+            projectiles[0],
+            EnemyProjectile {
+                x_pos: 0x0139_0000,
+                y_pos: 0x006E_0000,
+                x_velocity: TAR_MONSTER_GLOB_SPEED_X,
+                y_velocity: 0,
+                lifetime: 120,
+                gravity: TAR_MONSTER_GLOB_GRAVITY,
+                friendly: false,
+                homing_accel: 0,
+                speed_cap: 0,
+                wall_bounce: false,
+                kind: EnemyProjectileKind::TarMonsterStraightGlob,
+                tar_monster_collision_response_budget: 2,
+                ..Default::default()
+            },
+            "ASM Tar_Monster.asm loc_3247E/loc_3261C should initialise every straight glob field"
+        );
 
         let mut left_facing = tar_monster_test_enemy();
         left_facing.x_pos = 0x0120_0000;
