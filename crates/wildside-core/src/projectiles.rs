@@ -917,6 +917,7 @@ mod drips_surface_crawler_tests {
             heady_metal_palette_word_5e: 0x0200,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
+            scorpion_cached_kid_x_word: 0,
             flight_double_acceleration: false,
             flight_double_terminal_speed: false,
             walk_speed_override: 0,

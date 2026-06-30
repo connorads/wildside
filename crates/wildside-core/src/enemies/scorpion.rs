@@ -151,6 +151,7 @@ fn apply_scorpion_resume_after_tracking_loc_3de6c(enemy: &mut ActiveEnemy, kid_x
     let resume = scorpion_resume_after_tracking_loc_3de6c(kid_x_word_d3, enemy.facing);
     debug_assert_eq!(resume.cached_kid_x_word, kid_x_word_d3);
     debug_assert_eq!(resume.next_collision_type, 0);
+    enemy.scorpion_cached_kid_x_word = resume.cached_kid_x_word;
     enemy.facing = match resume.next {
         ScorpionResumeRouteLoc3DE6C::ClearDirection => Direction::Left,
         ScorpionResumeRouteLoc3DE6C::SetDirection => Direction::Right,
@@ -755,6 +756,18 @@ mod tests {
             scorpion_resume_after_tracking_loc_3de6c(0xFEDC, Direction::Right).next,
             ScorpionResumeRouteLoc3DE6C::SetDirection,
             "ASM Scorpion.asm loc_3DE6C should use set x_direction for the rightward shared-walker branch"
+        );
+    }
+
+    #[test]
+    fn step_scorpion_tracking_caches_kid_x_high_word_loc_3de6c() {
+        let mut scorpion = scorpion_tracking_enemy(0, 64, Direction::Left);
+
+        step_scorpion_tracking(&mut scorpion, Some(0x1234_5678), None, Some(0));
+
+        assert_eq!(
+            scorpion.scorpion_cached_kid_x_word, 0x1234,
+            "ASM Scorpion.asm loc_3DD7E loads `move.w x_pos(a4),d3`; loc_3DE6C caches that high position word in `a2`"
         );
     }
 

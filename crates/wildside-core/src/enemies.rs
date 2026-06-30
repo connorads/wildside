@@ -1279,6 +1279,8 @@ pub(crate) struct ActiveEnemy {
     /// Scorpion.asm loc_3DDEE: frames remaining in `stru_3DB8E` while the
     /// linked tail object has Kid collision enabled.
     pub(crate) scorpion_sting_frames: u8,
+    /// Scorpion.asm loc_3DE6C: cached Kid x_pos word stored in `a2` from `d3`.
+    pub(crate) scorpion_cached_kid_x_word: u16,
     /// ASM UFO.asm `$4E(a5)`; for Tornado, `$46(a5)` gates loc_3592E X-term doubling.
     pub(crate) flight_double_acceleration: bool,
     /// ASM UFO.asm `$4F(a5)`; for Tornado, `$47(a5)` gates loc_3593A Y-term doubling.
@@ -3769,6 +3771,7 @@ fn activate_enemies_with_rng_inner(
                 heady_metal_palette_word_5e: 0x0200,
                 scorpion_tracking_lock: false,
                 scorpion_sting_frames: 0,
+                scorpion_cached_kid_x_word: 0,
                 crab_frozen: false,
                 crab_berzerker_knockback: false,
                 flight_double_acceleration: matches!(
@@ -9835,6 +9838,7 @@ pub(crate) mod test_fixtures {
             heady_metal_palette_word_5e: 0x0200,
             scorpion_tracking_lock: false,
             scorpion_sting_frames: 0,
+            scorpion_cached_kid_x_word: 0,
             flight_double_acceleration: false,
             flight_double_terminal_speed: false,
             walk_speed_override: 0,
