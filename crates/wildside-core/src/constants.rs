@@ -925,3 +925,84 @@ pub(crate) const SINE_TABLE_WORD_402B0: [u16; 65] = [
     0x3B20, 0x3BB8, 0x3C42, 0x3CC6, 0x3D40, 0x3DAE, 0x3E16, 0x3E72, 0x3EC4, 0x3F0E, 0x3F4E, 0x3F84,
     0x3FB0, 0x3FD2, 0x3FEC, 0x3FFA, 0x3FFE,
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intro_and_continue_timing_constants_pin_inclusive_asm_counts() {
+        assert_eq!(
+            TITLE_IDLE_DBF_FRAMES_LOC_1BAEA, 0x0281,
+            "ASM Obj_TitleMenu loc_1BAEA seeds d0=$280; dbf is inclusive"
+        );
+        assert_eq!(
+            INTRO_SEQUENCE_6_LIGHTNING_LOOP_FRAMES_LOC_1B3BC, 0x002D,
+            "ASM loc_1B3BC seeds d1=$2C; dbf is inclusive"
+        );
+        assert_eq!(
+            DEMO_AUTO_TIMEOUT_INTRO_FOURTH_SEGMENT_FRAMES, 594,
+            "timeout-restart IntroSequence4 combines camera handoff, sub_1C204 fade, and loc_1B9B6 loop"
+        );
+        assert_eq!(
+            DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_FRAMES, 521,
+            "ASM loc_1BA5C hibernates through 0x1BC+1 iterations plus lineage padding"
+        );
+        assert_eq!(
+            DEMO_AUTO_TIMEOUT_INTRO_FIFTH_SEGMENT_START_SKIP_PARTICLE_COUNT_FRAME, 479,
+            "ASM loc_1BCD0 particle workers remain visible until the start-skip handoff count"
+        );
+        assert_eq!(
+            CONTINUE_FIRST_PHASE_FRAMES, 319,
+            "ASM Continue path combines loc_D31E initial hold and loc_D350 first Start window"
+        );
+        assert_eq!(
+            CONTINUE_COUNTDOWN_FRAMES, 558,
+            "ASM Continue path includes the loc_D3AA post-fade Start window"
+        );
+        assert_eq!(
+            CREDITS_SCREEN_TOTAL, 312,
+            "credits screens keep the 112-frame scroll plus 200-frame display cadence"
+        );
+        assert_eq!(
+            LEVEL_SKIP_RESUME_TOTAL_FRAMES, 80,
+            "ASM level-skip resume keeps the title-to-level shell plus the 20-frame entry arc"
+        );
+    }
+
+    #[test]
+    fn respawn_and_form_motion_constants_pin_direction_signs() {
+        assert_eq!(
+            PLAYER_DEATH_RESPAWN_LEVEL_ONE_BOOTSTRAP_X_STEP_FP, -0x0004_8000,
+            "oracle-backed Level 1 death bootstrap slides left toward the hold pose"
+        );
+        assert_eq!(
+            EARLY_START_LEVEL_ONE_BOOTSTRAP_X_STEP_FP, -0x0003_A000,
+            "ASM loc_1AE2E early title-start bootstrap slides left"
+        );
+        assert_eq!(
+            EARLY_START_LEVEL_ONE_BOOTSTRAP_Y_STEP_FP, -0x0002_6000,
+            "ASM loc_1AE2E early title-start bootstrap rises toward the hold pose"
+        );
+        assert_eq!(
+            KID_SLOPE_RUN_DOWNHILL_CAP_FP, -0x0003_0000,
+            "Kid right-facing downhill run cap is negative in the slope table model"
+        );
+        assert_eq!(
+            MICROMAX_SLOPE_NEUTRAL_TARGET_FP, -0x0000_4000,
+            "Micromax neutral slope drift targets the downhill negative velocity"
+        );
+        assert_eq!(
+            MICROMAX_SLOPE_WALK_DOWNHILL_CAP_FP, -0x0000_C000,
+            "Micromax walk-downhill cap remains negative"
+        );
+        assert_eq!(
+            MICROMAX_SLOPE_RUN_DOWNHILL_CAP_FP, -0x0001_8000,
+            "Micromax run-downhill cap remains negative"
+        );
+        assert_eq!(
+            SKYCUTTER_LANDING_BOUNCE, -0x0003_0000,
+            "ASM Skycutter landing bounce launches upward"
+        );
+    }
+}
