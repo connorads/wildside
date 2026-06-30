@@ -13878,6 +13878,37 @@ mod chunk_04 {
     }
 
     #[test]
+    fn orca_landing_wait_live_countdown_resumes_only_after_final_hibernate_loc_3d44a_3d466() {
+        let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, 240 << 16, 4);
+        enemy.orca_state = OrcaState::LandingWait;
+        enemy.wait_timer = 2;
+
+        step_orca(&mut enemy, None, None);
+
+        assert_eq!(
+            enemy.orca_state,
+            OrcaState::LandingWait,
+            "ASM Orca.asm loc_3D44A DBF should keep hibernating while one frame remains before loc_3D466"
+        );
+        assert_eq!(
+            enemy.wait_timer, 1,
+            "ASM Orca.asm loc_3D44A should consume exactly one live landing-wait frame per scheduler tick"
+        );
+
+        step_orca(&mut enemy, None, None);
+
+        assert_eq!(
+            enemy.orca_state,
+            OrcaState::Walking,
+            "ASM Orca.asm loc_3D466 should resume patrol only after the final loc_3D44A hibernate"
+        );
+        assert_eq!(
+            enemy.wait_timer, ORCA_LUNGE_COOLDOWN,
+            "ASM Orca.asm loc_3D466 returns to loc_3D21E pacing with the native lunge cooldown restored"
+        );
+    }
+
+    #[test]
     fn orca_lunge_accelerates_x_per_frame() {
         let grid = grid_with_platform(17, 0, 120);
         let mut enemy = test_enemy(EnemyFamily::Orca, 60 << 16, (17 * 16 - 30) << 16, 4);
