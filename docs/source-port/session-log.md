@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-30 handoff (proactive Tar Monster mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/tar_monster.rs` via `mise run mutants-file`.
+- Evidence: `OUTPUT=.cache/mutants/tar-monster-current2 FILE=crates/wildside-core/src/enemies/tar_monster.rs mise run mutants-file`
+  reports `141 mutants tested in 13m: 107 caught, 34 unviable`, with zero missed
+  mutants and zero timeouts.
+- Native behaviour is unchanged. Existing ASM-cited Tar Monster coverage already
+  pins live movement, floor contact, tar drop, hurt/death, collision dispatch, and
+  cleanup paths tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-30 handoff (proactive Ninja mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

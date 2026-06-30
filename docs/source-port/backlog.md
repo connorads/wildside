@@ -28,10 +28,11 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-06-30 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** `crates/wildside-core/src/enemies/ninja.rs` mutation
-  shard is clean after commit `48e183992`: `.cache/mutants/ninja-clean2` reports
-  `189 mutants tested in 18m: 156 caught, 33 unviable`, with zero missed mutants
-  and zero timeouts.
+- **Fallback verification:** `crates/wildside-core/src/enemies/tar_monster.rs`
+  mutation shard is clean after commit `48e183992`: `OUTPUT=.cache/mutants/tar-monster-current2
+  FILE=crates/wildside-core/src/enemies/tar_monster.rs mise run mutants-file`
+  reports `141 mutants tested in 13m: 107 caught, 34 unviable`, with zero
+  missed mutants and zero timeouts.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 
