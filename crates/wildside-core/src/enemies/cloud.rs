@@ -100,7 +100,7 @@ pub(crate) fn cloud_control_script_tick_loc_35BAC(
     let script = cloud_control_script_words_loc_35BAC();
     let mut index = usize::from(command_index);
     let mut status_44 = object_44;
-    loop {
+    for _ in 0..=script.len() {
         if index >= script.len() {
             index = 0;
         }
@@ -135,6 +135,12 @@ pub(crate) fn cloud_control_script_tick_loc_35BAC(
                 };
             }
         }
+    }
+    CloudControlScriptTickLoc35BAC {
+        object_44: status_44,
+        next_object_44: status_44,
+        next_command_index: 0,
+        next_wait_frames: 0,
     }
 }
 
