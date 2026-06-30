@@ -123,7 +123,6 @@ pub(crate) fn robot_collision_clear_loc_3a958(facing: Direction) -> RobotCollisi
     }
 }
 
-#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct RobotChargeEntryLoc3A96C {
     pub(crate) tracking_latch_cleared: bool,
@@ -138,7 +137,6 @@ pub(crate) struct RobotChargeEntryLoc3A96C {
     pub(crate) resume_walk_direction: Direction,
 }
 
-#[cfg(test)]
 pub(crate) fn robot_charge_entry_loc_3a96c(facing: Direction) -> RobotChargeEntryLoc3A96C {
     // ASM Robot.asm loc_3A96C: clear `$4E(a5)`, hide the child during the
     // windup, mark both body/head as Kid-collidable, then seed charge speed,

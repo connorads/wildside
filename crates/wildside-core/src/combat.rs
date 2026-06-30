@@ -9210,13 +9210,6 @@ impl NativeRuntime {
                     PendingEnemyCollisionTarget::Parent => 0,
                     PendingEnemyCollisionTarget::ChildAttachment => collision.collision_type as i16,
                 };
-                let enter_charge = |enemy: &mut ActiveEnemy| {
-                    enemy.robot_state = RobotState::Charging;
-                    enemy.wait_timer = ROBOT_CHARGE_FLIP_BASE;
-                    enemy.x_velocity = horizontal_velocity(enemy.facing, ROBOT_CHARGE_SPEED);
-                    enemy.y_velocity = 0;
-                };
-
                 if matches!(enemy.robot_state, RobotState::Aiming) {
                     let route = robot_shoot_collision_dispatch_loc_3aad4(
                         child_collision as u16,
@@ -9270,7 +9263,7 @@ impl NativeRuntime {
                         // ASM Robot.asm loc_3A8AE/loc_3A96C: child negative
                         // or `$800` collision enters/continues the charge path
                         // without the loc_3A8FC HP decrement route.
-                        enter_charge(enemy);
+                        enter_robot_charge_loc_3a96c(enemy);
                         changed_enemy_state = true;
                     }
                     RobotCollisionRouteLoc3A8Ae::HitReaction => {

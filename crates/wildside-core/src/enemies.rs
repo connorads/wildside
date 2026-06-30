@@ -2169,12 +2169,8 @@ impl ActiveEnemy {
             self.damage_flash_frames = ENEMY_DAMAGE_FLASH_FRAMES;
             if matches!(reaction.route, RobotHitReactionRouteLoc3A8Fc::EnterCharge) {
                 // ASM Robot.asm loc_3A8FC -> loc_3A96C: a final hit does not
-                // delete the Robot; it seeds the `$800` collision charge state
-                // and resumes via the current x_direction.
-                self.robot_state = RobotState::Charging;
-                self.wait_timer = ROBOT_CHARGE_FLIP_BASE;
-                self.x_velocity = horizontal_velocity(self.facing, ROBOT_CHARGE_SPEED);
-                self.y_velocity = 0;
+                // delete the Robot; it enters the `$800` collision charge state.
+                enter_robot_charge_loc_3a96c(self);
             } else if matches!(self.robot_state, RobotState::Aiming) {
                 // ASM Robot.asm loc_3AAD4 -> loc_3AB04 -> loc_3AAC4:
                 // a nonfatal collision during the shooting coroutine restores
@@ -7773,6 +7769,21 @@ pub(crate) fn finish_robot_shoot_sequence(enemy: &mut ActiveEnemy) {
     // reached by collision/hit routes, not by ordinary shooting.
     enemy.robot_state = RobotState::Walking;
     enemy.wait_timer = ROBOT_SHOOT_INTERVAL;
+}
+
+pub(crate) fn enter_robot_charge_loc_3a96c(enemy: &mut ActiveEnemy) {
+    let charge = robot_charge_entry_loc_3a96c(enemy.facing);
+    // ASM Robot.asm loc_3A96C seeds parent/child `$800` collision words and
+    // marks both as Kid-collidable before resuming via x_direction.
+    debug_assert!(charge.parent_has_kid_collision);
+    debug_assert!(charge.child_has_kid_collision);
+    debug_assert_eq!(charge.next_parent_collision_type, 0x0800);
+    debug_assert_eq!(charge.next_child_collision_type, 0x0800);
+    enemy.robot_state = RobotState::Charging;
+    enemy.facing = charge.resume_walk_direction;
+    enemy.wait_timer = charge.flip_timer;
+    enemy.x_velocity = horizontal_velocity(charge.resume_walk_direction, charge.charge_speed);
+    enemy.y_velocity = 0;
 }
 
 /// Orca lunge cooldown (Orca.asm: $12C = 300 frames between lunges).
