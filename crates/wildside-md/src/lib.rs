@@ -2954,7 +2954,8 @@ impl GemsAudioEngine {
         for _ in 0..4 {
             self.step_z80_frame();
         }
-        // Queue init command: FF 0B <patch_ptr> <env_ptr> <seq_ptr> <sample_ptr>
+        // ASM StopMusic calls sub_E13DA to load the driver, then sub_E149C and
+        // sub_E14AC queue: FF 0B <patch_ptr> <env_ptr> <seq_ptr> <sample_ptr>.
         self.queue_byte(0xFF);
         self.queue_byte(0x0B);
         self.queue_24bit_addr(GEMS_PATCH_ADDR);
@@ -2995,6 +2996,8 @@ impl GemsAudioEngine {
 
     /// Queue a single byte to the GEMS command circular buffer.
     fn queue_byte(&mut self, value: u8) {
+        // ASM sub_E143A opens the Z80 bus, then sub_E148E writes one byte and
+        // advances the `$3F`-masked FIFO pointer.
         let ptr = self.z80.io.ram[usize::from(GEMS_QUEUE_PTR_ADDR)];
         self.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + usize::from(ptr)] = value;
         let next = (ptr.wrapping_add(1)) & (GEMS_QUEUE_SIZE - 1);
@@ -3020,7 +3023,7 @@ impl GemsAudioEngine {
 
     /// Stop sequence N (GEMS command $12 = cmdstopseq). This is the GEMS
     /// driver's per-sequence stop (matches CCBSNUM in GemsPlay_2-0.c case 18),
-    /// not a second "play" — the misleading `j_PlaySound2` ASM label aside.
+    /// not a second "play" -- ASM j_PlaySound2/sub_E153E queues this byte.
     pub fn stop_sequence(&mut self, sound_id: u8) {
         if !self.initialised {
             self.init();

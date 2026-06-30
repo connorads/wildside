@@ -210,6 +210,7 @@ fn extract_native_citations(repo_root: &Path) -> Result<NativeCitationIndex> {
     let search_dirs = [
         repo_root.join("crates/wildside-core/src"),
         repo_root.join("crates/wildside-data/src"),
+        repo_root.join("crates/wildside-md/src"),
     ];
     for dir in &search_dirs {
         if dir.is_dir() {
@@ -408,12 +409,12 @@ fn classify_label_coverage(
     let implementation_cited = !breakdown.implementation.is_empty();
     let test_cited = !breakdown.tests.is_empty();
     let emulated_gems = is_emulated_gems_label(label);
-    let state = if emulated_gems {
-        CoverageState::EmulatedGems
-    } else if implementation_cited {
+    let state = if implementation_cited {
         CoverageState::Reachable
     } else if test_cited {
         CoverageState::TestOnlyDebt
+    } else if emulated_gems {
+        CoverageState::EmulatedGems
     } else {
         CoverageState::Uncovered
     };
@@ -1058,7 +1059,7 @@ pub(crate) fn run_asm_coverage(
         map.summary.loc_coverage_pct
     );
     println!(
-        "interpretation: reachable means non-test core/data citation; test-only ports are fidelity debt"
+        "interpretation: reachable means scanned non-test implementation citation; test-only ports are fidelity debt"
     );
     let backlog_signals = load_open_backlog_signal_counts(repo_root);
     if !backlog_signals.is_empty() {
@@ -1125,7 +1126,7 @@ pub(crate) fn run_asm_coverage(
                 );
             }
             bail!(
-                "{} required ASM label(s) missing non-test core/data citations — restore them in scanned production source",
+                "{} required ASM label(s) missing scanned non-test implementation citations — restore them in production source",
                 issues.len()
             );
         }
@@ -1482,6 +1483,15 @@ labels:
                     support: Vec::new(),
                 },
             ),
+            (
+                "sub_E13DA".to_owned(),
+                CitationBreakdown {
+                    implementation: vec!["crates/wildside-md/src/lib.rs".to_owned()],
+                    tests: Vec::new(),
+                    docs: Vec::new(),
+                    support: Vec::new(),
+                },
+            ),
         ]);
         let overlay = AnnotationOverlay::default();
 
@@ -1508,7 +1518,16 @@ labels:
             CoverageState::Uncovered
         );
         assert_eq!(
-            coverage_state_for_label(&citation_breakdowns, &overlay, "sub_E13DA", &[]),
+            coverage_state_for_label(
+                &citation_breakdowns,
+                &overlay,
+                "sub_E13DA",
+                &["crates/wildside-md/src/lib.rs".to_owned()]
+            ),
+            CoverageState::Reachable
+        );
+        assert_eq!(
+            coverage_state_for_label(&citation_breakdowns, &overlay, "sub_E1416", &[]),
             CoverageState::EmulatedGems
         );
     }
@@ -1527,7 +1546,12 @@ labels:
                 &["crates/wildside-core/src/tests.rs"],
             ),
             make_label("loc_3333", LabelKind::Loc, &[]),
-            make_label("sub_E13DA", LabelKind::Sub, &[]),
+            make_label(
+                "sub_E13DA",
+                LabelKind::Sub,
+                &["crates/wildside-md/src/lib.rs"],
+            ),
+            make_label("sub_E1416", LabelKind::Sub, &[]),
         ];
         let citation_breakdowns = BTreeMap::from([
             (
@@ -1548,16 +1572,29 @@ labels:
                     support: Vec::new(),
                 },
             ),
+            (
+                "sub_E13DA".to_owned(),
+                CitationBreakdown {
+                    implementation: vec!["crates/wildside-md/src/lib.rs".to_owned()],
+                    tests: Vec::new(),
+                    docs: Vec::new(),
+                    support: Vec::new(),
+                },
+            ),
         ]);
 
         let map = build_coverage_map(labels, &BTreeMap::new(), &citation_breakdowns);
 
-        assert_eq!(map.summary.reachable_labels, 1);
+        assert_eq!(map.summary.reachable_labels, 2);
         assert_eq!(map.summary.test_only_debt_labels, 1);
         assert_eq!(map.summary.uncovered_labels, 2);
         assert_eq!(map.summary.emulated_gems_labels, 1);
         assert_eq!(
             map.subsystems["kid_main"].labels[3].coverage_state,
+            Some(CoverageState::Reachable)
+        );
+        assert_eq!(
+            map.subsystems["kid_main"].labels[4].coverage_state,
             Some(CoverageState::EmulatedGems)
         );
     }
