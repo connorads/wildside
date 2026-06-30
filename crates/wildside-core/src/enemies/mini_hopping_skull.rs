@@ -407,10 +407,9 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
 ) -> MiniHoppingSkullGroundWaitCollisionRoute {
     // ASM Mini_Hopping_Skull.asm loc_3ED8E: clear `collision_type(a3)`, hibernate
     // one frame, poll `sub_3F29A`, then dispatch by ordered Kid/hurt
-    // comparisons. Side collisions branch through `loc_3EDD6`, below collisions
-    // flow back to the same wait loop.
+    // comparisons. Side collisions branch through `loc_3EDD6`; below
+    // collisions allocate the scream worker at `loc_3EDC0` before the wait tail.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -426,11 +425,7 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
             }
         }
         MINI_SKULL_COLID_GROUND_KIDBELOW => {
-            let allocation = mini_hopping_skull_left_hop_scream_worker_allocation_loc_3edc0();
-            debug_assert_eq!(allocation.allocation_selector, 0xA000);
-            debug_assert_eq!(allocation.routine, "sub_3F3F0");
-            debug_assert_eq!(allocation.delay_frames, 15);
-            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker
         }
         _ => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
     }
@@ -486,7 +481,6 @@ pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3ee12(
     // kid-above and `colid_hurt` go through the same damage branch as `loc_3EE64`,
     // side contact routes via `loc_3EE5A`, below contact queues the scream worker.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -512,7 +506,6 @@ pub(crate) fn mini_hopping_skull_landing_collision_route_loc_3eec8(
     // loc_3EE12, but `loc_3EF10` handles left/right contact with a Berzerker
     // branch and below-contact goes through the contact worker path.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -611,7 +604,6 @@ pub(crate) fn mini_hopping_skull_ground_wait_collision_loc_3eb0e(
     // `collision_type(a3)`, hibernates one frame, polls `sub_3F29A`, then
     // dispatches by ordered comparisons against Kid/hurt collision IDs.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -887,7 +879,6 @@ pub(crate) fn mini_hopping_skull_right_hop_windup_collision_loc_3eb92(
     // dispatches by the same ordered Kid/hurt collision comparisons as the
     // grounded wait path.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -909,7 +900,6 @@ pub(crate) fn mini_hopping_skull_left_ground_wait_collision_loc_3ec48(
     // clears `collision_type(a3)`, hibernates one frame, polls `sub_3F29A`,
     // then dispatches by ordered Kid/hurt collision comparisons.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -931,7 +921,6 @@ pub(crate) fn mini_hopping_skull_left_hop_windup_collision_loc_3eccc(
     // `collision_type(a3)`, hibernates one frame, polls `sub_3F29A`, then
     // dispatches by ordered Kid/hurt collision comparisons before the DBF tail.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -1060,7 +1049,6 @@ pub(crate) fn mini_hopping_skull_stopped_wait_collision_loc_3f00a(
     // `collision_type(a3)`, hibernates, runs `sub_3F29A`, then compares Kid
     // and hurt collision IDs in order before the DBF tail at loc_3F074.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -1111,7 +1099,6 @@ pub(crate) fn mini_hopping_skull_facing_matched_pause_collision_loc_3f0a8(
     // clears `collision_type(a3)`, hibernates one frame, polls `sub_3F29A`,
     // then checks no-collision, above, hurt, side, and below contact in order.
     match collision_type {
-        0 => MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
         MINI_SKULL_COLID_GROUND_KIDABOVE | MINI_SKULL_COLID_GROUND_HURT => {
             MiniHoppingSkullGroundWaitCollisionRoute::DamageSkull
         }
@@ -1709,8 +1696,8 @@ mod tests {
                 MINI_SKULL_COLID_GROUND_KIDBELOW,
                 false
             ),
-            MiniHoppingSkullGroundWaitCollisionRoute::ContinueWait,
-            "ASM Mini_Hopping_Skull.asm loc_3ED8E falls through for `colid_kidbelow` contact"
+            MiniHoppingSkullGroundWaitCollisionRoute::QueueScreamWorker,
+            "ASM Mini_Hopping_Skull.asm loc_3ED8E sends `colid_kidbelow` through loc_3EDC0 before the DBF tail"
         );
         assert_eq!(
             mini_hopping_skull_left_hop_windup_collision_loc_3ed8e(
@@ -3362,6 +3349,15 @@ mod tests {
                 wait_frames: 21,
             },
             "ASM Mini_Hopping_Skull.asm loc_3F090 is skipped when Kid is left, so the opposite direction branch clears `x_direction(a3)`"
+        );
+        assert_eq!(
+            mini_hopping_skull_stopped_wait_tail_loc_3f090(0x0000, 32, 32, 0xFF),
+            MiniHoppingSkullStoppedWaitTail::RestartStoppedWaitFacingLeft {
+                x_direction: 0x00,
+                dbf_counter: 0x0014,
+                wait_frames: 21,
+            },
+            "ASM Mini_Hopping_Skull.asm loc_3F074 uses `cmp.w x_pos(a3),d4; bgt.s loc_3F090`, so equal X stays on the not-greater branch"
         );
         assert_eq!(
             mini_hopping_skull_stopped_wait_tail_loc_3f090(0x0000, 0x8000, 0x7FFF, 0xFF),
