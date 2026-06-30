@@ -6391,6 +6391,27 @@ mod chunk_09 {
     }
 
     #[test]
+    fn script_runner_run_with_vdp_returns_frame_aligned_trace_and_vdp_states_without_cache() {
+        let manifest = manifest_with_levels(1);
+        let (trace, snapshots) = ScriptRunner::new(manifest).run_with_vdp(&[0, 0, 0], 3);
+
+        assert_eq!(
+            trace.len(),
+            3,
+            "ScriptRunner::run_with_vdp must preserve the requested trace frame count"
+        );
+        assert_eq!(
+            snapshots.len(),
+            3,
+            "ScriptRunner::run_with_vdp must keep VDP snapshots frame-aligned with the trace"
+        );
+        assert!(
+            trace.iter().any(|frame| frame.frame_index != 0),
+            "the returned trace must come from live runtime stepping, not a default-frame replacement"
+        );
+    }
+
+    #[test]
     fn settled_warp_runner_starts_after_stable_ingame_window() {
         let Some(manifest) = cached_generated_manifest() else {
             return;
