@@ -892,19 +892,27 @@ pub(crate) fn step_dragon_walking(
                             match dragon_walking_breath_normal_dispatch_loc_3d01e(enemy.facing) {
                                 DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E560 => {
                                     debug_assert_eq!(enemy.facing, Direction::Left);
+                                    enemy.shared_walker_debug_branch =
+                                        Some("breath_ordinary_left_loc_3d01e");
                                 }
                                 DragonWalkingBreathNormalDispatchLoc3D01E::Loc3E3AC => {
                                     debug_assert_eq!(enemy.facing, Direction::Right);
+                                    enemy.shared_walker_debug_branch =
+                                        Some("breath_ordinary_right_loc_3d01e");
                                 }
                             }
                         }
                         DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildLeftPacing => {
                             debug_assert!(parent_spawned_child);
                             debug_assert_eq!(enemy.facing, Direction::Left);
+                            enemy.shared_walker_debug_branch =
+                                Some("breath_spawned_left_loc_3d00c");
                         }
                         DragonWalkingBreathSpawnedDispatchLoc3D00C::SpawnedChildRightPacing => {
                             debug_assert!(parent_spawned_child);
                             debug_assert_eq!(enemy.facing, Direction::Right);
+                            enemy.shared_walker_debug_branch =
+                                Some("breath_spawned_right_loc_3d00c");
                         }
                     }
                     enemy.dragon_script_cmd = DRAGON_WALKING_PHASE_WALK;
@@ -1406,6 +1414,11 @@ mod tests {
             dragon.dragon_script_cmd, DRAGON_WALKING_PHASE_WALK,
             "ASM Dragon.asm loc_3D01E should resume the ordinary walking dispatch after recovery finishes"
         );
+        assert_eq!(
+            dragon.shared_walker_debug_branch,
+            Some("breath_ordinary_right_loc_3d01e"),
+            "ASM Dragon.asm loc_3D00C should continue to loc_3D01E when `$5C(a5)` is clear"
+        );
     }
 
     #[test]
@@ -1427,6 +1440,11 @@ mod tests {
         assert_eq!(
             dragon.dragon_script_variant & DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG,
             DRAGON_WALKING_PARENT_SPAWNED_CHILD_FLAG
+        );
+        assert_eq!(
+            dragon.shared_walker_debug_branch,
+            Some("breath_spawned_right_loc_3d00c"),
+            "ASM Dragon.asm loc_3D00C should route set `$5C(a5)` recovery directly to the spawned-child pacing label"
         );
     }
 
