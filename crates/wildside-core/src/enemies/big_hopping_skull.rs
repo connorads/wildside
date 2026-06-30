@@ -529,7 +529,7 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
             );
             let relaunch =
                 big_hopping_skull_relaunch_entry_loc_366b6(BigHoppingSkullRelaunchInputLoc366B6 {
-                    y_pos_word: (enemy.y_pos >> 16) as i16,
+                    y_pos_word: 0,
                     level_height_pixels: i16::MAX,
                     animation_finished: true,
                     saved_x_velocity: enemy.target_x_velocity,
@@ -547,18 +547,8 @@ pub(crate) fn step_big_hopping_skull_with_bounds(
                 BigHoppingSkullRelaunchRouteLoc366B6::Relaunch(corrected) => corrected,
                 BigHoppingSkullRelaunchRouteLoc366B6::DeleteCurrentObject
                 | BigHoppingSkullRelaunchRouteLoc366B6::ReturnToContactWait => {
-                    debug_assert!(
-                        false,
-                        "native Big Hopping Skull wait_timer reaches only ASM loc_366B6's animation-finished relaunch path",
-                    );
-                    let y_velocity = write_velocity_high_word(enemy.y_velocity, -2);
-                    big_hopping_skull_bounds_correction_loc_36770(
-                        (enemy.x_pos >> 16) as i16,
-                        left_bound_word,
-                        right_bound_word,
-                        enemy.target_x_velocity,
-                        y_velocity,
-                        enemy.facing,
+                    unreachable!(
+                        "native Big Hopping Skull wait_timer reaches only ASM loc_366B6's animation-finished relaunch path"
                     )
                 }
             };
