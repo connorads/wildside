@@ -157,7 +157,7 @@ gaps.**
 | F2 | Info | **Resolved/stale** — `research-map.md` now frames enemy coverage as a discovery aid only and states that listed fixes were closed by fixes and regressions, not by the coverage number. | `research-map.md:127-143`. |
 | F3 | Info | **Resolved/stale** — the citation-not-fidelity caveat now appears in `AGENTS.md` and `research-map.md`, and `loop.md` already downgrades coverage to a discovery aid. | `AGENTS.md:133-140`; `research-map.md:127-143`; `loop.md:57-59`. |
 | F4 | Low | The source-port docs should describe the current `--check-required` / `--check-no-new-test-only` gate and the untracked yaml explicitly; CLAUDE.md duplicates the asm-coverage command block (125-127 and 218-220), both historically lagged the real flag set. | CLAUDE.md; `main.rs:1175-1193`. |
-| F5 | Low | Stale helper refs in `audits/audio-triggers-fidelity-audit.md:97` (`sound_driver_write_command_sub_E1482` etc., `wildside-core/src/lib.rs:1019-1057`) — those symbols no longer exist anywhere; the cited line ranges now hold unrelated code. GEMS plumbing moved to `wildside-md::GemsAudioEngine`. | grep returns 0; ranges repurposed. |
+| F5 | Info | **Resolved/stale** — `audio-triggers-fidelity-audit.md` now points StopMusic and GEMS command playback at `wildside-md::GemsAudioEngine` and native-player replay, not the removed `wildside-core` helper names. | `audio-triggers-fidelity-audit.md`; `wildside-md/src/lib.rs`. |
 | F6 | Info | **Resolved/stale** — the failure message now refers to scanned non-test implementation citations, and the scanner includes `wildside-md`. | `asm_coverage.rs`; 2026-06-30 gate output. |
 
 ---
@@ -194,7 +194,6 @@ gate follow-ups. Effort: S/M/L.
 | Per-region test classification for inline `#[cfg(test)]` citations | M | A5 |
 | Per-system breakdown of `kid.asm` (VDP/DMA/sound/level) via an address-range map | L | A6 |
 | Fix the 2 genuine stale citations `loc_2510C` (combat.rs:179) and `loc_23629` (native_player/mod.rs:2086) | S | C3 |
-| Refresh stale `audio-triggers-fidelity-audit.md:97` helper refs | S | F5 |
 | Decide `candidate_promotions` usage (populate or remove, incl. the audit's write side-effect) and add a registered-minus-emitted report | S | E5 |
 | Add `loop.md` + `whole-game-index.md` to the `methodology.md` cross-reference map; note `audit-debug-fields` red state at CLAUDE.md:205 | S | docs map drift |
 
