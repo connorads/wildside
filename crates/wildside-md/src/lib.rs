@@ -2978,10 +2978,10 @@ impl GemsAudioEngine {
         self.mixer.ym_samples_emitted = 0;
     }
 
-    /// Match ASM `StopMusic` (kid.asm:49727): reload/reset the GEMS driver,
-    /// then queue the `$0B` sound-data pointer command. This is the ROM path
-    /// used before changing music contexts; `$16` stop-all is not what Kid's
-    /// 68k wrapper emits.
+    /// Match ASM `StopMusic` (kid.asm:49727): reload the driver, run
+    /// sub_E1416's Z80 reset, then queue the `$0B` sound-data pointer command.
+    /// This is the ROM path used before changing music contexts; `$16`
+    /// stop-all is not what Kid's 68k wrapper emits.
     pub fn stop_music(&mut self) {
         let levels = self.mixer.levels;
         self.z80.io.reload_driver(&self.driver);
@@ -2996,8 +2996,9 @@ impl GemsAudioEngine {
 
     /// Queue a single byte to the GEMS command circular buffer.
     fn queue_byte(&mut self, value: u8) {
-        // ASM sub_E143A opens the Z80 bus, then sub_E148E writes one byte and
-        // advances the `$3F`-masked FIFO pointer.
+        // ASM sub_E143A opens the Z80 bus; sub_E1482 writes the `$FF` marker,
+        // and sub_E148E writes ordinary bytes while advancing the `$3F`-masked
+        // FIFO pointer.
         let ptr = self.z80.io.ram[usize::from(GEMS_QUEUE_PTR_ADDR)];
         self.z80.io.ram[usize::from(GEMS_QUEUE_ADDR) + usize::from(ptr)] = value;
         let next = (ptr.wrapping_add(1)) & (GEMS_QUEUE_SIZE - 1);
@@ -3039,8 +3040,8 @@ impl GemsAudioEngine {
             self.init();
         }
         // ASM loc_7E26 (kid.asm:8564-8566): `jsr (sub_E1330).l; jsr
-        // (sub_E1338).l`. sub_E1330 queues `FF 05 <speed>` and sub_E1338
-        // queues `FF 0D`.
+        // (sub_E1338).l`. sub_E1330 -> sub_E1546 -> sub_E1552 queues
+        // `FF 05 <speed>`, then sub_E1338 -> sub_E1568 queues `FF 0D`.
         self.queue_byte(0xFF);
         self.queue_byte(0x05);
         self.queue_byte(speed);
@@ -3053,6 +3054,8 @@ impl GemsAudioEngine {
         if !self.initialised {
             self.init();
         }
+        // The GEMS interpreter's `$16 <id>` command stops sequence `id`; `$FF`
+        // stops all sequences.
         self.queue_byte(0xFF);
         self.queue_byte(0x16);
         self.queue_byte(0xFF);
