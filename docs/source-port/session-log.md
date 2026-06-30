@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive GFX animation mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/gfx_animation.rs` via `mise run mutants-file`.
+- Evidence: `OUTPUT=.cache/mutants/gfx-animation-current2 FILE=crates/wildside-core/src/gfx_animation.rs mise run mutants-file`
+  reports `18 mutants tested in 2m: 16 caught, 2 unviable`, with zero missed
+  mutants and zero timeouts.
+- Native behaviour is unchanged. Existing animation coverage already catches the
+  frame-advance and looping/pause paths tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-01 handoff (proactive Dragon mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
