@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-30 handoff (proactive UFO mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/ufo.rs` via `mise run mutants-file`.
+- Evidence: initial `.cache/mutants/ufo-current` reported `236 mutants tested in
+  22m: 59 missed, 139 caught, 38 unviable`; commit `544d661aa` hardens the ASM-cited
+  coverage and the final `.cache/mutants/ufo-final` reports `232 mutants tested in
+  22m: 194 caught, 38 unviable`, with zero missed mutants and zero timeouts.
+- Native behaviour is unchanged except for equivalent refactors around `loc_34FFE`
+  and `loc_35056`; new tests pin UFO motion/debris tables, tracking and beam gates,
+  terrain collision boundaries, wall bounce, and first-hurt debris initialisation.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-core ufo -- --nocapture`,
+  final `mise run mutants-file`, and `mise run verify-slice-fast` all pass.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-30 handoff (proactive Dragon Walking mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
