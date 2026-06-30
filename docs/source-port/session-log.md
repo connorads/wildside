@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-30 handoff (proactive Drips mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/drips.rs` via `mise run mutants-file`.
+- Evidence: `OUTPUT=.cache/mutants/drips-current2 FILE=crates/wildside-core/src/enemies/drips.rs mise run mutants-file`
+  reports `299 mutants tested in 28m: 234 caught, 65 unviable`, with zero missed
+  mutants and zero timeouts.
+- Native behaviour is unchanged. Existing ASM-cited Drips coverage already pins
+  placement/type selection, live drop/spawn timing, slope/floor contact, death,
+  collision dispatch, and projectile cleanup paths tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-30 handoff (proactive Tar Monster mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
