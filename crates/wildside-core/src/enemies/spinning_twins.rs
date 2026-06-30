@@ -79,7 +79,8 @@ fn spinning_twins_orbit_player_point_contact_loc_1bce(
     let left = enemy_x_px + SPINNING_TWINS_LIVE_CONTACT_LEFT_LOC_1BCE;
     let right = enemy_x_px + SPINNING_TWINS_LIVE_CONTACT_RIGHT_LOC_1BCE;
     let top = enemy_y_px + SPINNING_TWINS_LIVE_CONTACT_TOP_LOC_1BCE;
-    let bottom = enemy_y_px + SPINNING_TWINS_LIVE_CONTACT_BOTTOM_LOC_1BCE;
+    debug_assert_eq!(SPINNING_TWINS_LIVE_CONTACT_BOTTOM_LOC_1BCE, 0);
+    let bottom = enemy_y_px;
     (left..=right).contains(&player_x_px) && (top..=bottom).contains(&player_y_px)
 }
 
