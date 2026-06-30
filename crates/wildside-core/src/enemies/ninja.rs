@@ -38,6 +38,39 @@ fn ninja_detects_player_while_stealthed(dx_px: i64, dy_px: i64) -> bool {
         && dx_px < NINJA_DETECT_X_RANGE as i64
 }
 
+fn ninja_position_word_delta_px_loc_3d706(lhs_pos: u32, rhs_pos: u32) -> i16 {
+    // ASM Ninja.asm loc_3D706/loc_3D734/loc_3D7FA: positions are compared as
+    // integer words (`move.w x_pos(a4),d4; sub.w x_pos(a3),d4`), so ignore
+    // fractional halves before subtracting.
+    let lhs_bytes = lhs_pos.to_be_bytes();
+    let rhs_bytes = rhs_pos.to_be_bytes();
+    let lhs_word = i32::from(u16::from_be_bytes([lhs_bytes[0], lhs_bytes[1]]));
+    let rhs_word = i32::from(u16::from_be_bytes([rhs_bytes[0], rhs_bytes[1]]));
+    (lhs_word - rhs_word).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
+}
+
+fn ninja_position_integer_px_loc_3d878(pos: u32) -> i32 {
+    let bytes = pos.to_be_bytes();
+    i32::from(u16::from_be_bytes([bytes[0], bytes[1]]))
+}
+
+fn ninja_floor_y_fp_loc_3d8e6(floor_y_px: i32) -> u32 {
+    let floor_word = u16::try_from(floor_y_px).unwrap_or(0).to_be_bytes();
+    u32::from_be_bytes([floor_word[0], floor_word[1], 0, 0])
+}
+
+fn ninja_floor_collision_word_loc_3d8e6(floor: terrain::FloorProbe, enemy_y_pos: u32) -> u16 {
+    if floor.on_ground && enemy_y_pos >= ninja_floor_y_fp_loc_3d8e6(floor.floor_y_px) {
+        NINJA_COLID_FLOOR
+    } else {
+        0
+    }
+}
+
+fn ninja_jump_attack_moving_right_loc_3da46(x_velocity: i32) -> bool {
+    x_velocity >= 0
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum NinjaKidThreatRouteLoc3D734 {
     /// No close Kid-driven guard/contact response.
@@ -694,8 +727,7 @@ pub(crate) fn ninja_airborne_collision_dispatch_loc_3d878(
         next: ninja_collision_resume_loc_3d638(false, x_direction_right),
     };
     let route = match collision_type {
-        0 => resume,
-        v if v < 0 => NinjaAirborneCollisionRouteLoc3D878::To3DB4E,
+        v if v.is_negative() => NinjaAirborneCollisionRouteLoc3D878::To3DB4E,
         v if v == NINJA_COLID_KIDABOVE as i16 => NinjaAirborneCollisionRouteLoc3D878::To3D8BC,
         v if v == NINJA_COLID_KIDRIGHT as i16 || v == NINJA_COLID_KIDLEFT as i16 => {
             if player_form == PlayerForm::Berzerker && kid_sprite_allows_berzerker_knockdown {
@@ -981,7 +1013,7 @@ pub(crate) fn ninja_collision_dispatch_loc_3d606(
     // - branch on zero/negative/hurt/side/other collision IDs
     let route = match collision_type {
         0 => NinjaCollisionLoc3D606::To3D6DA,
-        v if v < 0 => NinjaCollisionLoc3D606::To3DB4E,
+        v if v.is_negative() => NinjaCollisionLoc3D606::To3DB4E,
         v if v == NINJA_COLID_HURT as i16 || v == NINJA_COLID_KIDABOVE as i16 => {
             NinjaCollisionLoc3D606::To3D65A
         }
@@ -1118,12 +1150,12 @@ fn step_ninja_stealth_cadence_loc_3d942(enemy: &mut ActiveEnemy) -> bool {
             false
         }
         NinjaThrowFrameGateRouteLoc3D958::RotateAttackPeriod => {
+            let short_bytes = NINJA_ATTACK_PERIOD_SHORT_LOC_3D960.to_be_bytes();
+            let long_bytes = NINJA_ATTACK_PERIOD_LONG_LOC_3D960.to_be_bytes();
             let attack_period_pair = if enemy.shared_walker_patrol_short_next {
-                (u32::from(NINJA_ATTACK_PERIOD_SHORT_LOC_3D960) << 16)
-                    | u32::from(NINJA_ATTACK_PERIOD_LONG_LOC_3D960)
+                u32::from_be_bytes([short_bytes[0], short_bytes[1], long_bytes[0], long_bytes[1]])
             } else {
-                (u32::from(NINJA_ATTACK_PERIOD_LONG_LOC_3D960) << 16)
-                    | u32::from(NINJA_ATTACK_PERIOD_SHORT_LOC_3D960)
+                u32::from_be_bytes([long_bytes[0], long_bytes[1], short_bytes[0], short_bytes[1]])
             };
             let rotation = ninja_attack_period_rotate_loc_3d960(
                 attack_period_pair,
@@ -1163,12 +1195,10 @@ pub(crate) fn step_ninja(
                 step_pacer(enemy, block_grid);
                 return;
             };
-            let dx = (px as i64 - enemy.x_pos as i64) >> 16;
-            let dy = (enemy.y_pos as i64 - py as i64) >> 16;
-            let kid_minus_ninja_x = dx.clamp(i64::from(i16::MIN), i64::from(i16::MAX)) as i16;
-            let kid_minus_ninja_y = ((py as i64 - enemy.y_pos as i64) >> 16)
-                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
-                as i16;
+            let kid_minus_ninja_x = ninja_position_word_delta_px_loc_3d706(px, enemy.x_pos);
+            let kid_minus_ninja_y = ninja_position_word_delta_px_loc_3d706(py, enemy.y_pos);
+            let dx = i64::from(kid_minus_ninja_x);
+            let dy = i64::from(-kid_minus_ninja_y);
 
             // ASM Ninja.asm loc_3D706 checks the overhead threat window before
             // loc_3D734's later Red Stealth guard-pose branch, then enters the
@@ -1259,9 +1289,7 @@ pub(crate) fn step_ninja(
                 enemy.shared_walker_state = 0;
                 return;
             };
-            let kid_minus_ninja_x = ((px as i64 - enemy.x_pos as i64) >> 16)
-                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
-                as i16;
+            let kid_minus_ninja_x = ninja_position_word_delta_px_loc_3d706(px, enemy.x_pos);
             match ninja_post_threat_route_loc_3d79c(-1, false, kid_minus_ninja_x, player_form) {
                 NinjaPostThreatRouteLoc3D79C::ResumePacing => {
                     enemy.x_velocity = 0;
@@ -1291,12 +1319,8 @@ pub(crate) fn step_ninja(
                 return;
             };
 
-            let kid_minus_ninja_x = ((px as i64 - enemy.x_pos as i64) >> 16)
-                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
-                as i16;
-            let kid_minus_ninja_y = ((py as i64 - enemy.y_pos as i64) >> 16)
-                .clamp(i64::from(i16::MIN), i64::from(i16::MAX))
-                as i16;
+            let kid_minus_ninja_x = ninja_position_word_delta_px_loc_3d706(px, enemy.x_pos);
+            let kid_minus_ninja_y = ninja_position_word_delta_px_loc_3d706(py, enemy.y_pos);
             match ninja_positive_state_route_loc_3d7fa(
                 kid_minus_ninja_x,
                 kid_minus_ninja_y,
@@ -1334,15 +1358,10 @@ pub(crate) fn step_ninja(
             };
 
             enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
-            let cx = (enemy.x_pos >> 16) as i32;
-            let cy = (enemy.y_pos >> 16) as i32;
+            let cx = ninja_position_integer_px_loc_3d878(enemy.x_pos);
+            let cy = ninja_position_integer_px_loc_3d878(enemy.y_pos);
             let floor = terrain::probe_floor(grid, cx, cy);
-            let collision_type =
-                if floor.on_ground && enemy.y_pos >= ((floor.floor_y_px as u32) << 16) {
-                    NINJA_COLID_FLOOR
-                } else {
-                    0
-                };
+            let collision_type = ninja_floor_collision_word_loc_3d8e6(floor, enemy.y_pos);
             let fall = ninja_knockdown_landing_loop_loc_3d8e6(
                 collision_type,
                 enemy.x_velocity,
@@ -1381,15 +1400,10 @@ pub(crate) fn step_ninja(
             };
 
             enemy.y_pos = (enemy.y_pos as i64 + i64::from(enemy.y_velocity)) as u32;
-            let cx = (enemy.x_pos >> 16) as i32;
-            let cy = (enemy.y_pos >> 16) as i32;
+            let cx = ninja_position_integer_px_loc_3d878(enemy.x_pos);
+            let cy = ninja_position_integer_px_loc_3d878(enemy.y_pos);
             let floor = terrain::probe_floor(grid, cx, cy);
-            let collision_type =
-                if floor.on_ground && enemy.y_pos >= ((floor.floor_y_px as u32) << 16) {
-                    NINJA_COLID_FLOOR
-                } else {
-                    0
-                };
+            let collision_type = ninja_floor_collision_word_loc_3d8e6(floor, enemy.y_pos);
             let fall = ninja_kid_above_landing_loop_loc_3dabc(
                 collision_type,
                 enemy.x_velocity,
@@ -1426,11 +1440,11 @@ pub(crate) fn step_ninja(
             let Some(grid) = block_grid else {
                 return;
             };
-            let cx = (enemy.x_pos >> 16) as i32;
-            let cy = (enemy.y_pos >> 16) as i32;
+            let cx = ninja_position_integer_px_loc_3d878(enemy.x_pos);
+            let cy = ninja_position_integer_px_loc_3d878(enemy.y_pos);
 
             // Wall bounce: reverse x on wall hit
-            let moving_right = enemy.x_velocity >= 0;
+            let moving_right = ninja_jump_attack_moving_right_loc_3da46(enemy.x_velocity);
             let wall = terrain::probe_wall(
                 grid,
                 cx,
@@ -1454,7 +1468,7 @@ pub(crate) fn step_ninja(
 
             let ceiling =
                 terrain::probe_ceiling(grid, cx, cy, ENEMY_PROBE_HALF_WIDTH, ENEMY_PROBE_HEIGHT);
-            if ceiling.hit && enemy.y_velocity < 0 {
+            if ceiling.hit && enemy.y_velocity.is_negative() {
                 // ASM Ninja.asm loc_3DA0C dispatches `colid_ceiling` to
                 // loc_3DAB0, which clears the collision word, negates y_vel,
                 // and returns to the airborne loop.
@@ -1465,7 +1479,7 @@ pub(crate) fn step_ninja(
             if enemy.y_velocity > 0 {
                 let floor = terrain::probe_floor(grid, cx, cy);
                 if floor.on_ground {
-                    let floor_y_fp = (floor.floor_y_px as u32) << 16;
+                    let floor_y_fp = ninja_floor_y_fp_loc_3d8e6(floor.floor_y_px);
                     if enemy.y_pos >= floor_y_fp {
                         let landing = ninja_jump_attack_landing_loc_3da56(matches!(
                             enemy.facing,
@@ -1499,6 +1513,22 @@ pub(crate) fn step_ninja(
 mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
+
+    fn ninja_test_grid(
+        width: u16,
+        height: u16,
+        cells: &[(u16, u16, u8, u8)],
+    ) -> terrain::BlockGrid {
+        let mut grid = terrain::BlockGrid::from_level_layout(
+            &vec![0; width as usize * height as usize * 2],
+            width,
+            height,
+        );
+        for &(col, row, high, low) in cells {
+            grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(high, low));
+        }
+        grid
+    }
 
     #[test]
     fn ninja_init_state_matches_loc_3d554() {
@@ -1545,6 +1575,76 @@ mod tests {
     }
 
     #[test]
+    fn ninja_position_word_delta_ignores_fractional_halves_loc_3d706() {
+        assert_eq!(
+            ninja_position_word_delta_px_loc_3d706(0x006F_F000, 0x0060_1000),
+            0x000F,
+            "ASM Ninja.asm loc_3D706 compares the high position words, so fractional halves do not round the delta up"
+        );
+        assert_eq!(
+            ninja_position_word_delta_px_loc_3d706(0x0050_1000, 0x0060_F000),
+            -0x0010,
+            "ASM Ninja.asm loc_3D706 subtracts ninja_x from Kid/projectile x after integer-word extraction"
+        );
+    }
+
+    #[test]
+    fn ninja_position_integer_px_uses_high_word_loc_3d878() {
+        assert_eq!(
+            ninja_position_integer_px_loc_3d878(0x0030_F000),
+            0x0030,
+            "ASM Ninja.asm terrain probes use the integer position word, so fractional halves do not affect probe coordinates"
+        );
+    }
+
+    #[test]
+    fn ninja_floor_collision_word_requires_ground_and_reached_floor_loc_3d8e6() {
+        let floor = terrain::FloorProbe {
+            on_ground: true,
+            floor_y_px: 0x30,
+            cell: terrain::Cell::from_be_bytes(0x60, 0x00),
+            cell_x: 2,
+            cell_y: 3,
+        };
+        assert_eq!(
+            ninja_floor_y_fp_loc_3d8e6(0x30),
+            0x0030_0000,
+            "ASM Ninja.asm loc_3D8E6/loc_3DABC floor checks compare against the floor integer word in FP16.16 form"
+        );
+        assert_eq!(
+            ninja_floor_collision_word_loc_3d8e6(floor, 0x0030_0000),
+            NINJA_COLID_FLOOR,
+            "ASM Ninja.asm loc_3D8E6 should emit colid_floor once the moved y_pos reaches the solid floor"
+        );
+        assert_eq!(
+            ninja_floor_collision_word_loc_3d8e6(
+                terrain::FloorProbe {
+                    on_ground: false,
+                    ..floor
+                },
+                0x0030_0000,
+            ),
+            0,
+            "ASM Ninja.asm loc_3D8E6 needs an actual floor probe hit; y_pos alone cannot synthesize colid_floor"
+        );
+        assert_eq!(
+            ninja_floor_collision_word_loc_3d8e6(floor, 0x002F_FFFF),
+            0,
+            "ASM Ninja.asm loc_3D8E6 should keep looping until y_pos reaches the floor word"
+        );
+    }
+
+    #[test]
+    fn ninja_jump_attack_moving_right_includes_zero_loc_3da46() {
+        assert!(ninja_jump_attack_moving_right_loc_3da46(0));
+        assert!(ninja_jump_attack_moving_right_loc_3da46(1));
+        assert!(
+            !ninja_jump_attack_moving_right_loc_3da46(-1),
+            "ASM Ninja.asm loc_3DA46 wall dispatch treats zero x velocity as non-negative for the right-side probe"
+        );
+    }
+
+    #[test]
     fn ninja_stealth_detection_excludes_positive_0x10_edge_per_loc_3d706() {
         let mut enemy = ninja_test_enemy();
         let player_x = (enemy.x_pos as i64 + ((NINJA_DETECT_X_RANGE as i64) << 16)) as u32;
@@ -1563,6 +1663,360 @@ mod tests {
         assert_eq!(
             enemy.x_velocity, 0,
             "ASM Ninja.asm loc_3D706 only enters the jump branch when kid_x - ninja_x < $10; the +$10 edge must stay in stealth"
+        );
+    }
+
+    #[test]
+    fn ninja_live_stealth_detection_includes_negative_edge_per_loc_3d706() {
+        let mut enemy = ninja_test_enemy();
+        let player_x = (enemy.x_pos as i64 - ((NINJA_DETECT_X_RANGE as i64) << 16)) as u32;
+        let player_y = (enemy.y_pos as i64 - ((NINJA_DETECT_Y_MIN as i64) << 16)) as u32;
+
+        step_ninja(
+            &mut enemy,
+            None,
+            Some(player_x),
+            Some(player_y),
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            (enemy.ninja_state, enemy.shared_walker_state, enemy.facing),
+            (NinjaState::JumpThreat, 1, Direction::Left),
+            "ASM Ninja.asm loc_3D706 includes kid_x - ninja_x == -$10 and loc_3D84E keeps x_direction clear for negative d4"
+        );
+    }
+
+    #[test]
+    fn ninja_live_red_stealth_guard_uses_word_deltas_loc_3d734_3d826() {
+        let mut enemy = ninja_test_enemy();
+        let player_x = enemy.x_pos + (0x30 << 16);
+        let player_y = enemy.y_pos - (4 << 16);
+
+        step_ninja(
+            &mut enemy,
+            None,
+            Some(player_x),
+            Some(player_y),
+            PlayerForm::RedStealth,
+            None,
+        );
+
+        assert_eq!(
+            (enemy.ninja_state, enemy.shared_walker_state, enemy.facing),
+            (NinjaState::Guard, -1, Direction::Right),
+            "ASM Ninja.asm loc_3D734 uses kid_x - ninja_x and kid_y - ninja_y words; the +$30/-4 Red Stealth edge enters loc_3D826 facing right"
+        );
+    }
+
+    #[test]
+    fn ninja_live_maniaxe_projectile_guard_uses_projectile_dx_loc_3d776_3d826() {
+        let mut enemy = ninja_test_enemy();
+        let player_x = enemy.x_pos;
+        let player_y = enemy.y_pos;
+
+        step_ninja(
+            &mut enemy,
+            None,
+            Some(player_x),
+            Some(player_y),
+            PlayerForm::Maniaxe,
+            Some(0x59),
+        );
+
+        assert_eq!(
+            (enemy.ninja_state, enemy.shared_walker_state, enemy.facing),
+            (NinjaState::Guard, -1, Direction::Right),
+            "ASM Ninja.asm loc_3D776 uses projectile_x - ninja_x; +$59 is inside the half-open Maniaxe guard band and loc_3D826 faces right"
+        );
+    }
+
+    #[test]
+    fn ninja_live_guard_state_resets_when_red_stealth_leaves_loc_3d79c() {
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::Guard;
+        enemy.shared_walker_state = -1;
+        enemy.facing = Direction::Right;
+        let player_x = enemy.x_pos + (0x31 << 16);
+        let player_y = enemy.y_pos;
+
+        step_ninja(
+            &mut enemy,
+            None,
+            Some(player_x),
+            Some(player_y),
+            PlayerForm::RedStealth,
+            None,
+        );
+
+        assert_eq!(
+            (
+                enemy.ninja_state,
+                enemy.shared_walker_state,
+                enemy.walk_speed_override
+            ),
+            (
+                NinjaState::Stealth,
+                0,
+                pacer_walk_speed(enemy.family, enemy.hit_points)
+            ),
+            "ASM Ninja.asm loc_3D79C branches to loc_3D7CA once Red Stealth moves beyond the inclusive +$30 guard persistence band"
+        );
+    }
+
+    #[test]
+    fn ninja_live_jump_threat_state_resets_when_kid_drops_below_loc_3d7fa() {
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::JumpThreat;
+        enemy.shared_walker_state = 1;
+        enemy.facing = Direction::Left;
+        let player_x = enemy.x_pos;
+        let player_y = enemy.y_pos;
+
+        step_ninja(
+            &mut enemy,
+            None,
+            Some(player_x),
+            Some(player_y),
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            (
+                enemy.ninja_state,
+                enemy.shared_walker_state,
+                enemy.walk_speed_override
+            ),
+            (
+                NinjaState::Stealth,
+                0,
+                pacer_walk_speed(enemy.family, enemy.hit_points)
+            ),
+            "ASM Ninja.asm loc_3D7FA branches to loc_3D7CA when kid_y - ninja_y is zero instead of negative"
+        );
+    }
+
+    #[test]
+    fn ninja_live_airborne_knockdown_no_grid_moves_before_loc_3d8e6_loop() {
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::AirborneKnockdown;
+        enemy.y_pos = 0x0020_0000;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_ninja(&mut enemy, None, None, None, PlayerForm::TheKid, None);
+
+        assert_eq!(
+            (enemy.y_pos, enemy.y_velocity, enemy.hit_points),
+            (0x0021_0000, 0x0001_1800, 2),
+            "ASM Ninja.asm loc_3D8E6 moves by current y_vel before the non-floor loop adds `$1800`; without a floor collision it must not enter loc_3DB4E"
+        );
+    }
+
+    #[test]
+    fn ninja_live_kid_above_knockdown_no_grid_moves_before_loc_3dabc_loop() {
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::KidAboveKnockdown;
+        enemy.y_pos = 0x0028_0000;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_ninja(&mut enemy, None, None, None, PlayerForm::TheKid, None);
+
+        assert_eq!(
+            (enemy.y_pos, enemy.y_velocity, enemy.hit_points),
+            (0x0029_0000, 0x0001_1800, 2),
+            "ASM Ninja.asm loc_3DABC moves by current y_vel before the non-floor loop adds `$1800`; without a floor collision it must not enter loc_3DB4E"
+        );
+    }
+
+    #[test]
+    fn ninja_live_airborne_knockdown_floor_contact_enters_death_loc_3d8e6() {
+        let grid = ninja_test_grid(8, 8, &[(2, 3, 0x60, 0x00)]);
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::AirborneKnockdown;
+        enemy.x_pos = 0x0020_0000;
+        enemy.y_pos = 0x002F_0000;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            (
+                enemy.on_ground,
+                enemy.hit_points,
+                enemy.death_animation_active,
+                enemy.wait_timer
+            ),
+            (true, 0, true, NINJA_DEATH_ANIMATION_FRAMES),
+            "ASM Ninja.asm loc_3D8E6 reaches loc_3DB4E only when the moved position has an actual floor collision"
+        );
+    }
+
+    #[test]
+    fn ninja_live_airborne_knockdown_empty_grid_does_not_fake_floor_loc_3d8e6() {
+        let grid = ninja_test_grid(8, 8, &[]);
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::AirborneKnockdown;
+        enemy.x_pos = 0x0020_0000;
+        enemy.y_pos = 0x002F_0000;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            (enemy.on_ground, enemy.hit_points, enemy.y_velocity),
+            (false, 2, 0x0001_1800),
+            "ASM Ninja.asm loc_3D8E6 needs the floor collision word; being at or past a would-be floor Y without a solid cell must keep looping"
+        );
+    }
+
+    #[test]
+    fn ninja_live_kid_above_knockdown_floor_contact_enters_death_loc_3dabc() {
+        let grid = ninja_test_grid(8, 8, &[(2, 3, 0x60, 0x00)]);
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::KidAboveKnockdown;
+        enemy.x_pos = 0x0020_0000;
+        enemy.y_pos = 0x002F_0000;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            (
+                enemy.on_ground,
+                enemy.hit_points,
+                enemy.death_animation_active,
+                enemy.wait_timer
+            ),
+            (true, 0, true, NINJA_DEATH_ANIMATION_FRAMES),
+            "ASM Ninja.asm loc_3DABC reaches loc_3DB4E only when the moved position has an actual floor collision"
+        );
+    }
+
+    #[test]
+    fn ninja_live_kid_above_knockdown_empty_grid_does_not_fake_floor_loc_3dabc() {
+        let grid = ninja_test_grid(8, 8, &[]);
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::KidAboveKnockdown;
+        enemy.x_pos = 0x0020_0000;
+        enemy.y_pos = 0x002F_0000;
+        enemy.y_velocity = 0x0001_0000;
+
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            (enemy.on_ground, enemy.hit_points, enemy.y_velocity),
+            (false, 2, 0x0001_1800),
+            "ASM Ninja.asm loc_3DABC needs the floor collision word; being at or past a would-be floor Y without a solid cell must keep looping"
+        );
+    }
+
+    #[test]
+    fn ninja_live_jump_attack_no_grid_moves_after_gravity_loc_3d9da() {
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::JumpAttack;
+        enemy.x_pos = 0x0020_0000;
+        enemy.y_pos = 0x0020_0000;
+        enemy.x_velocity = 0x0001_0000;
+        enemy.y_velocity = 0;
+
+        step_ninja(&mut enemy, None, None, None, PlayerForm::TheKid, None);
+
+        assert_eq!(
+            (
+                enemy.x_pos,
+                enemy.y_pos,
+                enemy.y_velocity,
+                enemy.ninja_state
+            ),
+            (
+                0x0021_0000,
+                0x0020_2800,
+                0x0000_2800,
+                NinjaState::JumpAttack
+            ),
+            "ASM Ninja.asm loc_3D9DA applies `$2800` gravity before the live jump-attack movement step and loops without terrain"
+        );
+    }
+
+    #[test]
+    fn ninja_live_jump_attack_empty_grid_does_not_reflect_ceiling_loc_3dab0() {
+        let grid = ninja_test_grid(8, 8, &[]);
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::JumpAttack;
+        enemy.x_pos = 0x0020_0000;
+        enemy.y_pos = 0x0030_0000;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = -0x0001_0000;
+
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            (enemy.y_velocity, enemy.ninja_state),
+            (-0x0000_D800, NinjaState::JumpAttack),
+            "ASM Ninja.asm loc_3DAB0 only reflects y_vel when the ceiling collision word is present; upward motion alone keeps the airborne loop"
+        );
+    }
+
+    #[test]
+    fn ninja_live_jump_attack_zero_y_velocity_does_not_land_loc_3da56() {
+        let grid = ninja_test_grid(8, 8, &[(2, 3, 0x60, 0x00)]);
+        let mut enemy = ninja_test_enemy();
+        enemy.ninja_state = NinjaState::JumpAttack;
+        enemy.x_pos = 0x0020_0000;
+        enemy.y_pos = 0x0030_0000;
+        enemy.x_velocity = 0;
+        enemy.y_velocity = -0x0000_2800;
+
+        step_ninja(
+            &mut enemy,
+            Some(&grid),
+            None,
+            None,
+            PlayerForm::TheKid,
+            None,
+        );
+
+        assert_eq!(
+            (enemy.y_velocity, enemy.ninja_state),
+            (0, NinjaState::JumpAttack),
+            "ASM Ninja.asm loc_3DA0C should not enter the floor landing path unless y_vel is positive after gravity"
         );
     }
 
@@ -1892,6 +2346,17 @@ mod tests {
             },
             "ASM Ninja.asm loc_3D878 should allow Berzerker side contact through to loc_3D8BC when the Kid sprite threshold passes"
         );
+
+        assert_eq!(
+            ninja_airborne_collision_dispatch_loc_3d878(0x00FF, true, PlayerForm::Berzerker, true),
+            NinjaAirborneCollisionStateLoc3D878 {
+                next_collision_type: 0,
+                route: NinjaAirborneCollisionRouteLoc3D878::Resume {
+                    next: NinjaCollisionResumeLoc3D638::Loc3E6AE,
+                },
+            },
+            "ASM Ninja.asm loc_3D878 should send unhandled positive collision IDs through loc_3D89C, not the Kid-side loc_3D8A8 gate"
+        );
     }
 
     #[test]
@@ -2076,6 +2541,42 @@ mod tests {
             ninja_advance_walk_phase_loc_3d4ea(39),
             0,
             "ASM ingame/anim/enemy/Ninja.asm stru_3D4EA has a 40-frame walk cycle"
+        );
+        assert_eq!(
+            ninja_advance_walk_phase_loc_3d4ea(0),
+            1,
+            "ASM ingame/anim/enemy/Ninja.asm stru_3D4EA advances ordinary walk phases, not only the wraparound edge"
+        );
+    }
+
+    #[test]
+    fn ninja_stealth_cadence_rotates_rom_attack_period_pair_loc_3d942_3d960() {
+        let mut enemy = ninja_test_enemy();
+        enemy.shared_walker_patrol_timer = 1;
+        enemy.wait_timer = NINJA_THROW_FRAME_PHASE_LOC_3D958;
+        enemy.shared_walker_patrol_short_next = true;
+        enemy.shared_walker_state = 0;
+
+        assert!(
+            step_ninja_stealth_cadence_loc_3d942(&mut enemy),
+            "ASM Ninja.asm loc_3D942/loc_3D960 should start the jump attack when the timer expires on the exact throw frame with `$4C(a5)` clear"
+        );
+        assert_eq!(
+            (
+                enemy.shared_walker_patrol_timer,
+                enemy.shared_walker_patrol_short_next,
+                enemy.ninja_state,
+                enemy.x_velocity,
+                enemy.y_velocity,
+            ),
+            (
+                NINJA_ATTACK_PERIOD_SHORT_LOC_3D960,
+                false,
+                NinjaState::JumpAttack,
+                -0x0001_8000,
+                -0x0004_8000,
+            ),
+            "ASM Ninja.asm loc_3D960 stores `$0032/$012C` as a word pair, swaps it, copies the new low word into `$54(a5)`, and then launches left when x_direction is clear"
         );
     }
 
