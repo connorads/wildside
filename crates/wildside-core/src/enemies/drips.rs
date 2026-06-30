@@ -1643,6 +1643,35 @@ mod tests {
     }
 
     #[test]
+    fn drips_initial_seed_bridge_uses_exact_two_frame_sentinels_loc_333f6_loc_3340e() {
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            drips_attached: true,
+            wait_timer: 0xFFFD,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_drips(&mut enemy, &mut projectiles, None);
+
+        assert_eq!(
+            enemy.wait_timer, 0xFFFC,
+            "ASM Drips.asm loc_333F6 reaches loc_3340E after the oracle #260 two-frame coroutine bridge; the first native sentinel is `$FFFD` and must advance to `$FFFC`"
+        );
+
+        step_drips(&mut enemy, &mut projectiles, None);
+
+        assert_eq!(
+            enemy.wait_timer, DRIPS_INITIAL_SEED_PENDING_TIMER_LOC_3340E,
+            "ASM Drips.asm loc_3340E RNG seeding is deferred only after the literal `$FFFD -> $FFFC` bridge, not after an arbitrary positive countdown"
+        );
+        assert!(
+            projectiles.is_empty(),
+            "the loc_333F6/loc_3340E bridge must not enter loc_33424's falling-child spawn path"
+        );
+    }
+
+    #[test]
     fn drips_child_state_bytes_match_init_table_loc_3333e() {
         assert_eq!(
             drips_child_state_bytes_loc_3333e(0),
