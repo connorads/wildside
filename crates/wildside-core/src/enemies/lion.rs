@@ -179,6 +179,7 @@ pub(crate) fn lion_track_kid_nonnegative_delta_facing_loc_3e06a(
     }
 }
 
+#[cfg(test)]
 pub(crate) fn lion_track_kid_negative_delta_facing_loc_3e074(
     lion_x_word: u16,
     kid_x_word: u16,
@@ -1086,12 +1087,14 @@ pub(crate) fn lion_delete_tail_loc_3e98a() -> LionDeleteTailLoc3E98A {
     }
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct LionRespawnMarkerLoc3E97C {
     pub(crate) index: usize,
     pub(crate) word_value: u16,
 }
 
+#[cfg(test)]
 pub(crate) fn lion_respawn_marker_loc_3e97c(object_status_slot: u8) -> LionRespawnMarkerLoc3E97C {
     // ASM Lion.asm loc_3E97C: positive `$42(a5)` has already been loaded into
     // d0; `add.w d0,d0` makes it an EnemyStatus_Table word offset, then `$2168`
@@ -1105,16 +1108,9 @@ pub(crate) fn lion_respawn_marker_loc_3e97c(object_status_slot: u8) -> LionRespa
 pub(crate) fn lion_cull_status_update_loc_3e956(
     object_status_slot: u8,
 ) -> DeactivationStatusActionLoc3C4C0 {
-    // ASM Lion.asm loc_3E956 duplicates loc_3C4C0's delete-tail status-table
-    // update, including the positive-slot respawn marker at loc_3E97C.
-    if object_status_slot & 0x80 == 0 {
-        let marker = lion_respawn_marker_loc_3e97c(object_status_slot);
-        return DeactivationStatusActionLoc3C4C0::WriteRespawnMarker {
-            index: marker.index,
-            word_value: marker.word_value,
-        };
-    }
-
+    // ASM Lion.asm loc_3E956 is byte-local code, but its status-table branches
+    // duplicate the shared loc_3C4C0 semantics, including loc_3E97C's positive
+    // `$42(a5)` respawn marker.
     deactivation_status_update_loc_3C4C0(object_status_slot)
 }
 
@@ -1313,11 +1309,10 @@ fn step_lion_walking_tracking_loc_3e03c(enemy: &mut ActiveEnemy, player_x_pos: O
             enemy.facing = cleared.facing;
         }
         LionTrackingGate::TrackKid => {
-            enemy.facing = if delta < 0 {
-                lion_track_kid_negative_delta_facing_loc_3e074(lion_x_word, kid_x_word)
-            } else {
-                lion_track_kid_nonnegative_delta_facing_loc_3e06a(lion_x_word, kid_x_word)
-            };
+            // ASM Lion.asm loc_3E06A/loc_3E074: the fallthrough helper performs
+            // the same `tst.w d4` signed branch and selects the Lion's facing.
+            enemy.facing =
+                lion_track_kid_nonnegative_delta_facing_loc_3e06a(lion_x_word, kid_x_word);
         }
     }
 }
@@ -1514,10 +1509,8 @@ fn step_lion_charge_movement_loc_3e11e(
                 // Native can transiently carry `on_ground=false` while the
                 // feet are already snapped onto the floor row; do not treat
                 // that floor edge as the body-overlap collision.
-                let collision = lion_terrain_collision_loc_3e94e();
-                if collision.next_collision_type.is_negative() && collision.resume_via_callback {
-                    register_enemy_terrain_kill(enemy);
-                }
+                let _collision = lion_terrain_collision_loc_3e94e();
+                register_enemy_terrain_kill(enemy);
                 enemy.shared_walker_debug_branch = Some("lion_charge_airborne_terrain_kill");
                 return;
             }
@@ -1591,14 +1584,11 @@ fn step_lion_charge_movement_loc_3e11e(
             let object_meta_low_byte_is_0x10 = false;
             let exits_charge = match enemy.facing {
                 Direction::Right => {
-                    match lion_charge_terrain_gate_loc_3e406(true, object_meta_low_byte_is_0x10) {
-                        LionLoc3E406Branch::ContinueTo3E434 => false,
-                        LionLoc3E406Branch::EnterLoc3E3A2 => {
-                            enemy.shared_walker_state = -0x78;
-                            true
-                        }
-                        LionLoc3E406Branch::EnterLoc3E48E => true,
-                    }
+                    debug_assert!(!object_meta_low_byte_is_0x10);
+                    !matches!(
+                        lion_charge_terrain_gate_loc_3e406(true, object_meta_low_byte_is_0x10),
+                        LionLoc3E406Branch::ContinueTo3E434
+                    )
                 }
                 Direction::Left => {
                     let gate =
