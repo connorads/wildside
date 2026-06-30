@@ -123,7 +123,16 @@ pub(crate) fn fire_demon_palette_loop_head_loc_3a4c2(
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum FireDemonPaletteCopyStageLoc3A4C2 {
+    FirstLoc3A4D6,
+    MiddleLoc3A4F6,
+    PeakLoc3A516,
+    ReturnLoc3A536,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct FireDemonPaletteCopyStep {
+    pub(crate) stage: FireDemonPaletteCopyStageLoc3A4C2,
     pub(crate) source_byte_offset: u16,
     pub(crate) copied_words: u8,
     pub(crate) next_hibernate_frames: u16,
@@ -134,6 +143,7 @@ pub(crate) fn fire_demon_palette_first_copy_loc_3a4d6() -> FireDemonPaletteCopyS
     // Data_Index palette script, `moveq #6,d0` plus `dbf` copies seven words
     // into the target palette, then sleeps another three frames.
     FireDemonPaletteCopyStep {
+        stage: FireDemonPaletteCopyStageLoc3A4C2::FirstLoc3A4D6,
         source_byte_offset: 0,
         copied_words: 7,
         next_hibernate_frames: 3,
@@ -145,6 +155,7 @@ pub(crate) fn fire_demon_palette_middle_copy_loc_3a4f6() -> FireDemonPaletteCopy
     // middle palette frame; the same `moveq #6,d0`/`dbf` loop copies seven words
     // before the helper hibernates for another three frames.
     FireDemonPaletteCopyStep {
+        stage: FireDemonPaletteCopyStageLoc3A4C2::MiddleLoc3A4F6,
         source_byte_offset: 0x000E,
         copied_words: 7,
         next_hibernate_frames: 3,
@@ -156,6 +167,7 @@ pub(crate) fn fire_demon_palette_peak_copy_loc_3a516() -> FireDemonPaletteCopySt
     // peak palette frame; `moveq #6,d0` plus `dbf` copies seven words before
     // the next three-frame hibernate.
     FireDemonPaletteCopyStep {
+        stage: FireDemonPaletteCopyStageLoc3A4C2::PeakLoc3A516,
         source_byte_offset: 0x001C,
         copied_words: 7,
         next_hibernate_frames: 3,
@@ -167,6 +179,7 @@ pub(crate) fn fire_demon_palette_return_copy_loc_3a536() -> FireDemonPaletteCopy
     // check, `addi.l #$E,a0` returns to the middle palette frame, copies seven
     // words, then branches to loc_3A4C2 for the next hibernate.
     FireDemonPaletteCopyStep {
+        stage: FireDemonPaletteCopyStageLoc3A4C2::ReturnLoc3A536,
         source_byte_offset: 0x000E,
         copied_words: 7,
         next_hibernate_frames: 3,

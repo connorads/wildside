@@ -4219,6 +4219,7 @@ mod chunk_04 {
         assert_eq!(
             fire_demon_palette_first_copy_loc_3a4d6(),
             FireDemonPaletteCopyStep {
+                stage: FireDemonPaletteCopyStageLoc3A4C2::FirstLoc3A4D6,
                 source_byte_offset: 0,
                 copied_words: 7,
                 next_hibernate_frames: 3,
@@ -4232,6 +4233,7 @@ mod chunk_04 {
         assert_eq!(
             fire_demon_palette_middle_copy_loc_3a4f6(),
             FireDemonPaletteCopyStep {
+                stage: FireDemonPaletteCopyStageLoc3A4C2::MiddleLoc3A4F6,
                 source_byte_offset: 0x000E,
                 copied_words: 7,
                 next_hibernate_frames: 3,
@@ -4245,6 +4247,7 @@ mod chunk_04 {
         assert_eq!(
             fire_demon_palette_peak_copy_loc_3a516(),
             FireDemonPaletteCopyStep {
+                stage: FireDemonPaletteCopyStageLoc3A4C2::PeakLoc3A516,
                 source_byte_offset: 0x001C,
                 copied_words: 7,
                 next_hibernate_frames: 3,
@@ -4258,6 +4261,7 @@ mod chunk_04 {
         assert_eq!(
             fire_demon_palette_return_copy_loc_3a536(),
             FireDemonPaletteCopyStep {
+                stage: FireDemonPaletteCopyStageLoc3A4C2::ReturnLoc3A536,
                 source_byte_offset: 0x000E,
                 copied_words: 7,
                 next_hibernate_frames: 3,
