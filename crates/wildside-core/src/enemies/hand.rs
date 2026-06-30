@@ -299,13 +299,7 @@ fn hand_terrain_scan_from_grid_loc_32afe(
     let end_col = asr4_word(x_pos_word.wrapping_add(0x000E));
     let sampled_row_words = if start_col <= end_col {
         (start_col..=end_col)
-            .map(|col| {
-                if row_index < 0 || col < 0 {
-                    0
-                } else {
-                    grid.raw_word_at(col as u16, row_index as u16)
-                }
-            })
+            .map(|col| grid.raw_word_at(col as u16, row_index as u16))
             .collect::<Vec<_>>()
     } else {
         Vec::new()
@@ -1133,6 +1127,30 @@ mod tests {
     }
 
     #[test]
+    fn hand_right_detection_loc_3284c_accepts_signed_boundary_edges() {
+        assert!(
+            hand_right_detection_loc_3284c(0, 0, 0x40),
+            "ASM Hand.asm loc_3284C should accept d6=0 because only `bmi.w loc_328A2` rejects Kid behind the right-facing Hand"
+        );
+        assert!(
+            hand_right_detection_loc_3284c(0x40, -0x40, 0x40),
+            "ASM Hand.asm loc_3284C should accept d6=$44(a5) and -d7=d6 because both checks reject only `bgt.w loc_328A2`"
+        );
+        assert!(
+            !hand_right_detection_loc_3284c(-1, -1, 0x40),
+            "ASM Hand.asm loc_3284C should reject negative d6 as Kid behind the right-facing Hand"
+        );
+        assert!(
+            !hand_right_detection_loc_3284c(0x41, -0x40, 0x40),
+            "ASM Hand.asm loc_3284C should reject only once d6 is greater than `$44(a5)`"
+        );
+        assert!(
+            !hand_right_detection_loc_3284c(0x40, -0x41, 0x40),
+            "ASM Hand.asm loc_3284C should reject only once the negated vertical lead is greater than d6"
+        );
+    }
+
+    #[test]
     fn hand_grab_timer_loc_3292e_packs_direction_bits_and_counter() {
         let first_left = hand_grab_timer_step_loc_3292e(HAND_GRAB_DURATION, Some(Direction::Left));
         assert_eq!(
@@ -1226,6 +1244,28 @@ mod tests {
         assert!(
             !scan.any_collision_4000,
             "ASM Hand.asm loc_32AFE leaves d4 zero when no sampled word has `$4000`, so the following `beq.w loc_32AA2` death path is taken"
+        );
+    }
+
+    #[test]
+    fn hand_terrain_scan_from_grid_loc_32afe_reads_row_zero_column_zero() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 3 * 2 * 2], 3, 2);
+        grid.set_cell_at(0, 0, terrain::Cell::from_be_bytes(0x40, 0x00));
+
+        let scan = hand_terrain_scan_from_grid_loc_32afe(&grid, 0x000E, 0x0000);
+
+        assert_eq!(
+            scan.row_index, 0,
+            "ASM Hand.asm loc_32AFE should allow row zero after `(y+1)>>4`"
+        );
+        assert_eq!(
+            scan.start_col, 0,
+            "ASM Hand.asm loc_32AFE should allow column zero after `(x-$E)>>4`"
+        );
+        assert_eq!(scan.first_collision_4000, 0x4000);
+        assert!(
+            scan.any_collision_4000,
+            "ASM Hand.asm loc_32AFE should include the row-zero/column-zero cell in the inclusive DBF terrain scan"
         );
     }
 }
