@@ -519,36 +519,25 @@ pub(crate) fn step_archer(
     } else {
         ARCHER_ARROW_X_OFFSET
     };
-    let (
-        hold_frame_timer,
-        held_arrow_reset_sprite_offset,
-        arrow_count_increment,
-        held_arrow_position_nudge_px,
-    ) = match archer_shooting_entry_loc_341BE(0) {
-        ArcherShootingEntryLoc341BE::FireArrow {
-            hold_frame_timer,
-            held_arrow_reset_sprite_offset,
-            arrow_count_increment,
-            held_arrow_position_nudge_px,
-        } => (
-            hold_frame_timer,
-            held_arrow_reset_sprite_offset,
-            arrow_count_increment,
-            held_arrow_position_nudge_px,
-        ),
-        ArcherShootingEntryLoc341BE::RestartCycle
-        | ArcherShootingEntryLoc341BE::PoseFrame { .. } => {
-            unreachable!("ASM Archer.asm loc_341BE zero delay is the fire sentinel")
-        }
-    };
+    let (hold_frame_timer, held_arrow_reset_sprite_offset, arrow_count_increment) =
+        match archer_shooting_entry_loc_341BE(0) {
+            ArcherShootingEntryLoc341BE::FireArrow {
+                hold_frame_timer,
+                held_arrow_reset_sprite_offset,
+                arrow_count_increment,
+                held_arrow_position_nudge_px: _,
+            } => (
+                hold_frame_timer,
+                held_arrow_reset_sprite_offset,
+                arrow_count_increment,
+            ),
+            ArcherShootingEntryLoc341BE::RestartCycle
+            | ArcherShootingEntryLoc341BE::PoseFrame { .. } => {
+                unreachable!("ASM Archer.asm loc_341BE zero delay is the fire sentinel")
+            }
+        };
     debug_assert_eq!(hold_frame_timer, 0x14);
     debug_assert_eq!(arrow_count_increment, 1);
-    let held_arrow_position_nudge_px = if enemy.facing == Direction::Right {
-        held_arrow_position_nudge_px.wrapping_neg()
-    } else {
-        held_arrow_position_nudge_px
-    };
-    debug_assert!(matches!(held_arrow_position_nudge_px, -3 | 3));
 
     // Native collapses the visible held-arrow pose table into the final spawn
     // boundary, but the same ASM loc_34222/loc_34234 word-offset contract still
