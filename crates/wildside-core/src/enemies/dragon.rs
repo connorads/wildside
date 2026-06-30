@@ -265,7 +265,7 @@ pub(crate) fn dragon_right_slide_start_loc_34a00(
     // The word write targets the high word of the FP16.16 long, preserving the
     // previous low fractional word before the following deceleration loop.
     DragonRightSlideStartLoc34A00 {
-        x_velocity: 0x0002_0000 | (previous_x_velocity & 0x0000_FFFF),
+        x_velocity: dragon_velocity_with_high_word(previous_x_velocity, 2),
         y_velocity: 0,
     }
 }
@@ -323,7 +323,7 @@ pub(crate) fn dragon_left_slide_start_loc_34a24(
     // Like the mirrored right-slide setup, the word write changes only the
     // high word of the FP16.16 long and preserves the previous fractional word.
     DragonLeftSlideStartLoc34A24 {
-        x_velocity: -0x0002_0000 + (previous_x_velocity & 0x0000_FFFF),
+        x_velocity: dragon_velocity_with_high_word(previous_x_velocity, -2),
         y_velocity: 0,
     }
 }
@@ -379,7 +379,7 @@ pub(crate) fn dragon_up_slide_start_loc_34a48(
     // ASM Dragon_Flying.asm loc_34A48: move.w #$FFFD,y_vel writes only the
     // high word of the FP16.16 long, preserving the previous fractional word.
     DragonUpSlideStartLoc34A48 {
-        y_velocity: -0x0003_0000 + (previous_y_velocity & 0x0000_FFFF),
+        y_velocity: dragon_velocity_with_high_word(previous_y_velocity, -3),
     }
 }
 
@@ -434,8 +434,12 @@ pub(crate) fn dragon_down_slide_start_loc_34a68(
     // ASM Dragon_Flying.asm loc_34A68: move.w #3,y_vel writes only the
     // high word of the FP16.16 long, preserving the previous fractional word.
     DragonDownSlideStartLoc34A68 {
-        y_velocity: 0x0003_0000 | (previous_y_velocity & 0x0000_FFFF),
+        y_velocity: dragon_velocity_with_high_word(previous_y_velocity, 3),
     }
+}
+
+fn dragon_velocity_with_high_word(previous_velocity: i32, high_word: i16) -> i32 {
+    (i32::from(high_word) << 16).wrapping_add(previous_velocity & 0x0000_FFFF)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1323,22 +1327,29 @@ fn dragon_flying_terrain_collision_type(
     let cx = (enemy.x_pos >> 16) as i32;
     let cy = (enemy.y_pos >> 16) as i32;
 
-    if enemy.x_velocity != 0 {
-        let moving_right = enemy.x_velocity > 0;
+    if enemy.x_velocity > 0 {
         let wall = terrain::probe_wall(
             grid,
             cx,
             cy,
             ENEMY_PROBE_HALF_WIDTH,
             ENEMY_PROBE_HEIGHT,
-            moving_right,
+            true,
         );
         if wall.hit {
-            return Some(if moving_right {
-                DRAGON_FLYING_COLID_RIGHTWALL
-            } else {
-                DRAGON_FLYING_COLID_LEFTWALL
-            });
+            return Some(DRAGON_FLYING_COLID_RIGHTWALL);
+        }
+    } else if enemy.x_velocity < 0 {
+        let wall = terrain::probe_wall(
+            grid,
+            cx,
+            cy,
+            ENEMY_PROBE_HALF_WIDTH,
+            ENEMY_PROBE_HEIGHT,
+            false,
+        );
+        if wall.hit {
+            return Some(DRAGON_FLYING_COLID_LEFTWALL);
         }
     }
 
@@ -1664,7 +1675,15 @@ fn step_dragon_descent(
     player_x_pos: Option<u32>,
     projectiles: &mut Option<&mut Vec<EnemyProjectile>>,
 ) {
+    let mut immediate_steps = 0usize;
     loop {
+        debug_assert!(
+            immediate_steps <= DRAGON_DIVE_SCRIPT.len(),
+            "ASM Dragon_Flying.asm loc_3488A immediate descent sentinels must advance through unk_34554"
+        );
+        immediate_steps = immediate_steps.checked_add(1).expect(
+            "ASM Dragon_Flying.asm loc_3488A descent sentinel loop bound stays within script length",
+        );
         // ASM Dragon_Flying.asm loc_3488A reads the next `unk_34554` word:
         // restart, flip, and fire sentinels are immediate; movement entries
         // consume frames after velocity setup.
@@ -1728,12 +1747,6 @@ fn step_dragon_descent(
                         // ASM Dragon_Flying.asm loc_34C26/loc_34C3A has no
                         // generic DBF lifetime; the child advances through its
                         // own startup, travel, and cleanup coroutine.
-                        lifetime: 0,
-                        gravity: 0,
-                        friendly: false,
-                        homing_accel: 0,
-                        speed_cap: 0,
-                        wall_bounce: false,
                         terrain_kill: true,
                         kind: EnemyProjectileKind::DragonFlyingDescentFire,
                         dragon_flying_descent_fire_state:
@@ -1959,6 +1972,33 @@ mod tests {
     }
 
     #[test]
+    fn dragon_flying_terrain_collision_type_walls_follow_signed_x_velocity() {
+        let grid = dragon_test_grid(8, 8, &[(5, 1, 0x60, 0x01), (5, 2, 0x60, 0x01)]);
+
+        assert_eq!(
+            dragon_flying_terrain_collision_type(
+                &dragon_flying_test_enemy(88, 31, -(1 << 16), 0),
+                &grid,
+            ),
+            Some(DRAGON_FLYING_COLID_LEFTWALL),
+            "ASM Dragon_Flying.asm loc_349DE routes the moving-left wall collision `$08` through off_349C6"
+        );
+        assert_eq!(
+            dragon_flying_terrain_collision_type(
+                &dragon_flying_test_enemy(74, 31, 1 << 16, 0),
+                &grid,
+            ),
+            Some(DRAGON_FLYING_COLID_RIGHTWALL),
+            "ASM Dragon_Flying.asm loc_349DE routes the moving-right wall collision `$04` through off_349C6"
+        );
+        assert_eq!(
+            dragon_flying_terrain_collision_type(&dragon_flying_test_enemy(88, 31, 0, 0), &grid),
+            None,
+            "ASM Dragon_Flying.asm loc_349DE should not see a wall collision without horizontal movement"
+        );
+    }
+
+    #[test]
     fn dragon_enter_terrain_response_collision_10_enters_loc_34a68_down_slide() {
         let mut enemy = dragon_flying_test_enemy(82, 64, 0, 0x0000_1234);
 
@@ -2163,17 +2203,22 @@ mod tests {
         );
         assert_eq!(enemy.dragon_descent_frames, 5);
         assert_eq!(projectiles.len(), 1);
-        let fire = projectiles[0];
-        assert_eq!(fire.x_pos, 110 << 16);
-        assert_eq!(fire.y_pos, 90 << 16);
-        assert_eq!(fire.x_velocity, 0x0001_0000);
-        assert_eq!(fire.y_velocity, 0x0003_0000);
-        assert_eq!(fire.kind, EnemyProjectileKind::DragonFlyingDescentFire);
         assert_eq!(
-            fire.dragon_flying_descent_fire_state,
-            DragonFlyingDescentFireState::FirstAnimationLoc34C26
+            projectiles[0],
+            EnemyProjectile {
+                x_pos: 110 << 16,
+                y_pos: 90 << 16,
+                x_velocity: 0x0001_0000,
+                y_velocity: 0x0003_0000,
+                terrain_kill: true,
+                kind: EnemyProjectileKind::DragonFlyingDescentFire,
+                dragon_flying_descent_fire_state:
+                    DragonFlyingDescentFireState::FirstAnimationLoc34C26,
+                dragon_flying_descent_fire_counter: 6,
+                ..Default::default()
+            },
+            "ASM Dragon_Flying.asm loc_348A0/loc_34BE6 seeds the descent fire projectile without a generic DBF lifetime"
         );
-        assert_eq!(fire.dragon_flying_descent_fire_counter, 6);
     }
 
     #[test]
