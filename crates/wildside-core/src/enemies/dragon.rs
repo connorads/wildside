@@ -92,6 +92,17 @@ pub(crate) fn dragon_drift_store_loc_347c8(
     }
 }
 
+pub(crate) fn dragon_return_y_velocity_loc_34b4c(y_velocity: i32) -> i32 {
+    // ASM Dragon_Flying.asm loc_34B4C: subtract `$400`, keep values at or above
+    // `$FFFF1000`, otherwise store the hard `$FFFF8000` upward cap at loc_34B70.
+    let y_velocity = y_velocity - DRAGON_RETURN_DECEL;
+    if y_velocity < DRAGON_RETURN_VEL_CAP_SOFT {
+        DRAGON_RETURN_VEL_CAP_HARD
+    } else {
+        y_velocity
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct DragonDriftDbfTailLoc347FC {
     pub(crate) next_d0: u16,
@@ -1291,12 +1302,7 @@ pub(crate) fn step_dragon(
                 // Reached anchor: restart script. ASM bra loc_346C4.
                 dragon_restart_script(enemy);
             } else {
-                // Decelerate upward: subtract $400 per frame from y_vel.
-                enemy.y_velocity -= DRAGON_RETURN_DECEL;
-                if enemy.y_velocity < DRAGON_RETURN_VEL_CAP_SOFT {
-                    // Soft cap exceeded: use hard cap. ASM loc_34B70.
-                    enemy.y_velocity = DRAGON_RETURN_VEL_CAP_HARD;
-                }
+                enemy.y_velocity = dragon_return_y_velocity_loc_34b4c(enemy.y_velocity);
             }
             dragon_apply_velocity(enemy);
         }
@@ -1807,6 +1813,40 @@ fn dragon_fire_breath_cone(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::enemies::test_fixtures::mini_hopping_skull_test_enemy;
+
+    fn dragon_flying_test_enemy(
+        x_px: u32,
+        y_px: u32,
+        x_velocity: i32,
+        y_velocity: i32,
+    ) -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::Dragon,
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            x_velocity,
+            y_velocity,
+            dragon_phase: DragonFlyingState::Descending,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    fn dragon_test_grid(
+        width: u16,
+        height: u16,
+        cells: &[(u16, u16, u8, u8)],
+    ) -> terrain::BlockGrid {
+        let mut grid = terrain::BlockGrid::from_level_layout(
+            &vec![0; width as usize * height as usize * 2],
+            width,
+            height,
+        );
+        for &(col, row, high, low) in cells {
+            grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(high, low));
+        }
+        grid
+    }
 
     #[test]
     fn dragon_negative_drift_acceleration_matches_loc_347b2() {
@@ -1844,6 +1884,368 @@ mod tests {
                 checks_fire_breath_cone: true,
             },
             "ASM Dragon_Flying.asm loc_347C8 stores the signed d7 velocity before the non-zero d1 fire-cone branch"
+        );
+    }
+
+    #[test]
+    fn dragon_return_y_velocity_caps_match_loc_34b4c_34b70() {
+        assert_eq!(
+            dragon_return_y_velocity_loc_34b4c(-0xEC00),
+            -0xF000,
+            "ASM Dragon_Flying.asm loc_34B4C keeps the signed `$FFFF1000` threshold when subtracting `$400` lands exactly on it"
+        );
+        assert_eq!(
+            dragon_return_y_velocity_loc_34b4c(-0xED00),
+            -0x8000,
+            "ASM Dragon_Flying.asm loc_34B4C/loc_34B70 replaces values below `$FFFF1000` with the signed hard cap `$FFFF8000`"
+        );
+    }
+
+    #[test]
+    fn dragon_flying_terrain_collision_type_floor_requires_positive_y_velocity_and_slope_ids() {
+        let slope_up_grid = dragon_test_grid(20, 15, &[(6, 6, 0x40, 0x00)]);
+        let slope_down_grid = dragon_test_grid(20, 15, &[(6, 6, 0x50, 0x00)]);
+        let stationary = dragon_flying_test_enemy(100, 107, 0, 0);
+
+        assert_eq!(
+            dragon_flying_terrain_collision_type(
+                &dragon_flying_test_enemy(100, 107, 0, 1 << 16),
+                &slope_up_grid,
+            ),
+            Some(DRAGON_FLYING_COLID_SLOPEUP),
+            "ASM Dragon_Flying.asm loc_349DE routes the positive downward floor collision `$14` through off_349C6"
+        );
+        assert_eq!(
+            dragon_flying_terrain_collision_type(
+                &dragon_flying_test_enemy(100, 107, 0, 1 << 16),
+                &slope_down_grid,
+            ),
+            Some(DRAGON_FLYING_COLID_SLOPEDOWN),
+            "ASM Dragon_Flying.asm loc_349DE routes the positive downward floor collision `$18` through off_349C6"
+        );
+        assert_eq!(
+            dragon_flying_terrain_collision_type(&stationary, &slope_up_grid),
+            None,
+            "ASM Dragon_Flying.asm loc_349DE only consumes the floor/slope collision that descending movement produced"
+        );
+    }
+
+    #[test]
+    fn dragon_flying_terrain_collision_type_ceiling_requires_negative_y_velocity() {
+        let grid = dragon_test_grid(8, 8, &[(5, 3, 0x60, 0x01)]);
+
+        assert_eq!(
+            dragon_flying_terrain_collision_type(
+                &dragon_flying_test_enemy(82, 64, 0, -(1 << 16)),
+                &grid,
+            ),
+            Some(DRAGON_FLYING_COLID_CEILING),
+            "ASM Dragon_Flying.asm loc_349DE routes the upward ceiling collision `$10` through off_349C6"
+        );
+        assert_eq!(
+            dragon_flying_terrain_collision_type(&dragon_flying_test_enemy(82, 64, 0, 0), &grid),
+            None,
+            "ASM Dragon_Flying.asm loc_349DE should not see a ceiling collision without upward movement"
+        );
+        assert_eq!(
+            dragon_flying_terrain_collision_type(
+                &dragon_flying_test_enemy(82, 64, 0, 1 << 16),
+                &grid,
+            ),
+            None,
+            "ASM Dragon_Flying.asm loc_349DE should not treat downward movement as a ceiling response"
+        );
+    }
+
+    #[test]
+    fn dragon_enter_terrain_response_collision_10_enters_loc_34a68_down_slide() {
+        let mut enemy = dragon_flying_test_enemy(82, 64, 0, 0x0000_1234);
+
+        dragon_enter_terrain_response(&mut enemy, DRAGON_FLYING_COLID_CEILING);
+
+        assert_eq!(
+            enemy.dragon_phase,
+            DragonFlyingState::TerrainSlideDown,
+            "ASM Dragon_Flying.asm off_349C6 dispatches collision `$10` byte offset `$0C` to loc_34A68"
+        );
+        assert_eq!(
+            enemy.y_velocity, 0x0003_1234,
+            "ASM Dragon_Flying.asm loc_34A68 writes word `$0003` into y_vel and preserves its low word"
+        );
+    }
+
+    #[test]
+    fn dragon_enter_terrain_response_routes_remaining_off_349c6_entries() {
+        let mut right_slide = dragon_flying_test_enemy(82, 64, 0x0000_1234, 0x0000_5678);
+        dragon_enter_terrain_response(&mut right_slide, DRAGON_FLYING_COLID_LEFTWALL);
+        assert_eq!(
+            right_slide.dragon_phase,
+            DragonFlyingState::TerrainSlideRight,
+            "ASM Dragon_Flying.asm off_349C6 dispatches collision `$08` byte offset `$04` to loc_34A00"
+        );
+        assert_eq!(right_slide.x_velocity, 0x0002_1234);
+        assert_eq!(right_slide.y_velocity, 0);
+
+        let mut rebound_left = dragon_flying_test_enemy(100, 80, 0x0001_0000, 0x0002_0000);
+        dragon_enter_terrain_response(&mut rebound_left, DRAGON_FLYING_COLID_SLOPEUP);
+        assert_eq!(
+            rebound_left.dragon_phase,
+            DragonFlyingState::TerrainReboundLeft,
+            "ASM Dragon_Flying.asm off_349C6 dispatches collision `$14` byte offset `$10` to loc_34A88"
+        );
+        assert_eq!(rebound_left.x_pos, 99 << 16);
+        assert_eq!(rebound_left.y_pos, 78 << 16);
+        assert_eq!(rebound_left.x_velocity, 0);
+        assert_eq!(rebound_left.y_velocity, 0);
+        assert_eq!(
+            rebound_left.dragon_phase_frames,
+            DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES
+        );
+
+        let mut rebound_right = dragon_flying_test_enemy(100, 80, -0x0001_0000, 0x0002_0000);
+        dragon_enter_terrain_response(&mut rebound_right, DRAGON_FLYING_COLID_SLOPEDOWN);
+        assert_eq!(
+            rebound_right.dragon_phase,
+            DragonFlyingState::TerrainReboundRight,
+            "ASM Dragon_Flying.asm off_349C6 dispatches collision `$18` byte offset `$14` to loc_34ADC"
+        );
+        assert_eq!(rebound_right.x_pos, 101 << 16);
+        assert_eq!(rebound_right.y_pos, 78 << 16);
+        assert_eq!(rebound_right.x_velocity, 0);
+        assert_eq!(rebound_right.y_velocity, 0);
+        assert_eq!(
+            rebound_right.dragon_phase_frames,
+            DRAGON_TERRAIN_REBOUND_START_WAIT_FRAMES
+        );
+    }
+
+    #[test]
+    fn dragon_terrain_rebound_wait_frames_gate_velocity_until_counter_reaches_zero() {
+        let mut left = dragon_flying_test_enemy(100, 80, 0, 0);
+        left.dragon_phase = DragonFlyingState::TerrainReboundLeft;
+        left.dragon_phase_frames = 2;
+
+        step_dragon_terrain_response(&mut left, None);
+        assert_eq!(left.dragon_phase_frames, 1);
+        assert_eq!(left.x_velocity, 0);
+        assert_eq!(left.y_velocity, 0);
+
+        step_dragon_terrain_response(&mut left, None);
+        assert_eq!(left.dragon_phase_frames, 0);
+        assert_eq!(
+            (left.x_velocity, left.y_velocity),
+            (-0x0002_0000, -0x0002_0000),
+            "ASM Dragon_Flying.asm loc_34A88 waits two hibernated frames before writing rebound velocity"
+        );
+    }
+
+    #[test]
+    fn dragon_terrain_rebound_right_wait_tail_uses_loc_34adc_velocity() {
+        let mut right = dragon_flying_test_enemy(100, 80, 0, 0);
+        right.dragon_phase = DragonFlyingState::TerrainReboundRight;
+        right.dragon_phase_frames = 1;
+
+        step_dragon_terrain_response(&mut right, None);
+
+        assert_eq!(right.dragon_phase_frames, 0);
+        assert_eq!(
+            (right.x_velocity, right.y_velocity),
+            (0x0002_0000, -0x0002_0000),
+            "ASM Dragon_Flying.asm loc_34ADC mirrors loc_34A88 but starts with positive x_vel"
+        );
+    }
+
+    #[test]
+    fn dragon_terrain_response_steps_each_recovery_phase_once() {
+        let cases = [
+            (
+                DragonFlyingState::TerrainSlideRight,
+                0x0002_0000,
+                0,
+                DragonFlyingState::TerrainSlideRight,
+                0x0001_F000,
+                0,
+                "ASM Dragon_Flying.asm loc_34A0A subtracts `$1000` from right-slide x_vel",
+            ),
+            (
+                DragonFlyingState::TerrainSlideLeft,
+                -0x0002_0000,
+                0,
+                DragonFlyingState::TerrainSlideLeft,
+                -0x0001_F000,
+                0,
+                "ASM Dragon_Flying.asm loc_34A2E adds `$1000` to left-slide x_vel",
+            ),
+            (
+                DragonFlyingState::TerrainSlideUp,
+                0,
+                -0x0003_0000,
+                DragonFlyingState::TerrainSlideUp,
+                0,
+                -0x0002_B000,
+                "ASM Dragon_Flying.asm loc_34A4E adds `$5000` to upward-slide y_vel",
+            ),
+            (
+                DragonFlyingState::TerrainSlideDown,
+                0,
+                0x0003_0000,
+                DragonFlyingState::TerrainSlideDown,
+                0,
+                0x0002_E000,
+                "ASM Dragon_Flying.asm loc_34A6E subtracts `$2000` from downward-slide y_vel",
+            ),
+            (
+                DragonFlyingState::TerrainReboundLeft,
+                -0x0002_0000,
+                -0x0002_0000,
+                DragonFlyingState::TerrainReboundLeft,
+                -0x0002_0000,
+                -0x0001_E000,
+                "ASM Dragon_Flying.asm loc_34AC2 adds `$2000` to rebound y_vel",
+            ),
+            (
+                DragonFlyingState::TerrainReboundRight,
+                0x0002_0000,
+                -0x0002_0000,
+                DragonFlyingState::TerrainReboundRight,
+                0x0002_0000,
+                -0x0001_E000,
+                "ASM Dragon_Flying.asm loc_34B16 shares the loc_34AC2 rebound y_vel update",
+            ),
+        ];
+
+        for (phase, x_velocity, y_velocity, expected_phase, expected_x, expected_y, message) in
+            cases
+        {
+            let mut enemy = dragon_flying_test_enemy(100, 80, x_velocity, y_velocity);
+            enemy.dragon_phase = phase;
+            enemy.dragon_phase_frames = 0;
+
+            step_dragon_terrain_response(&mut enemy, None);
+
+            assert_eq!(enemy.dragon_phase, expected_phase, "{message}");
+            assert_eq!(enemy.x_velocity, expected_x, "{message}");
+            assert_eq!(enemy.y_velocity, expected_y, "{message}");
+        }
+    }
+
+    #[test]
+    fn dragon_descent_move_tail_advances_to_next_script_entry_loc_34924() {
+        let mut enemy = dragon_flying_test_enemy(100, 80, 0, 0);
+        enemy.facing = Direction::Left;
+        enemy.dragon_descent_index = 0;
+        enemy.dragon_descent_frames = 1;
+
+        step_dragon_descent(&mut enemy, None, &mut None);
+
+        assert_eq!(
+            enemy.dragon_descent_index, 1,
+            "ASM Dragon_Flying.asm loc_34924 advances the descent script only after the DBF tail underflows"
+        );
+        assert_eq!(enemy.dragon_descent_frames, 0);
+    }
+
+    #[test]
+    fn dragon_descent_spawn_fire_initialises_projectile_then_consumes_next_move() {
+        let mut enemy = dragon_flying_test_enemy(100, 80, 0x0001_8000, 0);
+        enemy.facing = Direction::Right;
+        enemy.dragon_descent_index = 3;
+        enemy.dragon_descent_frames = 0;
+        let mut projectiles = Vec::new();
+        let mut projectiles_ref = Some(&mut projectiles);
+
+        step_dragon_descent(&mut enemy, None, &mut projectiles_ref);
+
+        assert_eq!(
+            enemy.dragon_descent_index, 4,
+            "ASM Dragon_Flying.asm loc_348A0 spawn-fire sentinel advances to the following movement entry"
+        );
+        assert_eq!(enemy.dragon_descent_frames, 5);
+        assert_eq!(projectiles.len(), 1);
+        let fire = projectiles[0];
+        assert_eq!(fire.x_pos, 110 << 16);
+        assert_eq!(fire.y_pos, 90 << 16);
+        assert_eq!(fire.x_velocity, 0x0001_0000);
+        assert_eq!(fire.y_velocity, 0x0003_0000);
+        assert_eq!(fire.kind, EnemyProjectileKind::DragonFlyingDescentFire);
+        assert_eq!(
+            fire.dragon_flying_descent_fire_state,
+            DragonFlyingDescentFireState::FirstAnimationLoc34C26
+        );
+        assert_eq!(fire.dragon_flying_descent_fire_counter, 6);
+    }
+
+    #[test]
+    fn dragon_fire_breath_cone_boundaries_match_loc_34836_34860() {
+        let mut dragon = dragon_flying_test_enemy(100, 80, 0, 0);
+        dragon.facing = Direction::Left;
+
+        assert!(
+            dragon_fire_breath_cone(&dragon, Some(100 << 16), Some(80 << 16)),
+            "ASM Dragon_Flying.asm loc_34836 accepts a player exactly level with the dragon before loc_34860 cone bounds"
+        );
+        assert!(
+            !dragon_fire_breath_cone(&dragon, Some(100 << 16), Some(79 << 16)),
+            "ASM Dragon_Flying.asm loc_34836 rejects player y below dragon y with signed `blt`"
+        );
+        assert!(
+            !dragon_fire_breath_cone(&dragon, Some(96 << 16), Some(83 << 16)),
+            "ASM Dragon_Flying.asm loc_34860 rejects positions above the cone's `d7 + y - 8` lower bound"
+        );
+        assert!(
+            dragon_fire_breath_cone(&dragon, Some(98 << 16), Some(86 << 16)),
+            "ASM Dragon_Flying.asm loc_34836 uses `3 * dx` for left-facing cone depth"
+        );
+
+        dragon.facing = Direction::Right;
+        assert!(
+            dragon_fire_breath_cone(&dragon, Some(102 << 16), Some(84 << 16)),
+            "ASM Dragon_Flying.asm loc_34836 negates `2 * dx` for the right-facing cone"
+        );
+    }
+
+    #[test]
+    fn dragon_dive_script_signed_moves_match_unk_34554() {
+        let mut moves = Vec::new();
+        let mut sentinels = Vec::new();
+        for (index, action) in DRAGON_DIVE_SCRIPT.iter().copied().enumerate() {
+            match action {
+                DragonDiveAction::Move {
+                    x_vel,
+                    y_vel,
+                    frames,
+                } => moves.push((index, x_vel, y_vel, frames)),
+                DragonDiveAction::SpawnFire => sentinels.push((index, "E19F")),
+                DragonDiveAction::FlipDirection => sentinels.push((index, "DD48")),
+                DragonDiveAction::RestartScript => sentinels.push((index, "D8F1")),
+            }
+        }
+
+        assert_eq!(
+            moves,
+            vec![
+                (0, -1, 1, 12),
+                (1, -1, 2, 9),
+                (2, -1, 3, 6),
+                (4, -1, 4, 6),
+                (5, -2, 3, 3),
+                (6, -2, 2, 3),
+                (7, -2, 1, 3),
+                (8, -2, 0, 3),
+                (9, -2, -1, 3),
+                (10, -2, -2, 3),
+                (11, -2, -3, 3),
+                (12, -1, -4, 6),
+                (14, -1, -3, 6),
+                (15, -1, -2, 9),
+                (16, -1, -1, 12),
+            ],
+            "ASM kid.asm unk_34554 movement words use signed x/y bytes; loc_348CE sign-extends them before storing x_vel/y_vel"
+        );
+        assert_eq!(
+            sentinels,
+            vec![(3, "E19F"), (13, "DD48"), (17, "D8F1")],
+            "ASM kid.asm unk_34554 sentinels spawn fire, flip direction, then restart the main Dragon Flying script"
         );
     }
 

@@ -486,6 +486,35 @@ fn dragon_flying_normal_animation_tick_advances_during_hover_loc_3480a() {
 }
 
 #[test]
+fn dragon_flying_normal_animation_tick_skips_inactive_and_death_states_loc_346c4() {
+    let mut inactive = test_dragon(0, 101 << 16, 100 << 16);
+    inactive.dragon_phase = DragonFlyingState::None;
+    inactive.wait_timer = 13;
+    let mut projectiles = Vec::new();
+    let mut projectile_shell = Some(&mut projectiles);
+
+    step_dragon(&mut inactive, None, None, None, &mut projectile_shell);
+
+    assert_eq!(
+        inactive.wait_timer, 13,
+        "ASM Dragon_Flying.asm loc_346C4 normal animation ticks only while the flying-dragon script is active"
+    );
+
+    let mut death = test_dragon(0, 101 << 16, 100 << 16);
+    death.death_animation_active = true;
+    death.wait_timer = 13;
+    let mut projectiles = Vec::new();
+    let mut projectile_shell = Some(&mut projectiles);
+
+    step_dragon(&mut death, None, None, None, &mut projectile_shell);
+
+    assert_eq!(
+        death.wait_timer, 13,
+        "ASM Dragon_Flying.asm loc_3492C death animation owns wait_timer; the live normal-animation tick must not advance during death"
+    );
+}
+
+#[test]
 fn cloud_parent_contact_uses_rom_collision_size_union_loc_1bce() {
     let mut slice = combat_slice();
     slice.player.x_pos = 101 << 16;
@@ -12108,6 +12137,48 @@ mod chunk_03 {
     }
 
     #[test]
+    fn dragon_flying_drift_zero_x_velocity_does_not_choose_a_sign_loc_3478c() {
+        let mut enemy = test_dragon(0, 200 << 16, 100 << 16);
+        enemy.dragon_phase = DragonFlyingState::Drifting;
+        enemy.dragon_phase_frames = 2;
+        enemy.x_velocity = 0;
+        let mut projectiles = Vec::new();
+        let mut projectile_shell = Some(&mut projectiles);
+
+        step_dragon(&mut enemy, None, None, None, &mut projectile_shell);
+
+        assert_eq!(
+            enemy.x_velocity, 0,
+            "ASM Dragon_Flying.asm loc_3478C branches by signed x_vel: zero is neither positive acceleration nor loc_347B2 negative acceleration"
+        );
+    }
+
+    #[test]
+    fn dragon_flying_plain_drift_skips_fire_cone_gate_loc_347c8() {
+        let mut enemy = test_dragon(0, 200 << 16, 100 << 16);
+        enemy.dragon_phase = DragonFlyingState::Drifting;
+        enemy.dragon_phase_frames = 2;
+        enemy.facing = Direction::Left;
+        enemy.x_velocity = -0x800;
+        let mut projectiles = Vec::new();
+        let mut projectile_shell = Some(&mut projectiles);
+
+        step_dragon(
+            &mut enemy,
+            None,
+            Some(198u32 << 16),
+            Some(105u32 << 16),
+            &mut projectile_shell,
+        );
+
+        assert_eq!(
+            enemy.dragon_phase,
+            DragonFlyingState::Drifting,
+            "ASM Dragon_Flying.asm loc_347C8 calls loc_34836 only when the d1 fire gate was set by DriftWithFire"
+        );
+    }
+
+    #[test]
     fn dragon_flyer_final_drift_frame_moves_before_next_command_loc_347fc() {
         let mut enemy = test_dragon(0, 0x006D_3000, 0x001F_0000);
         enemy.dragon_script_cmd = 2;
@@ -13610,9 +13681,10 @@ mod chunk_03 {
         enemy.facing = Direction::Left;
         enemy.x_velocity = -0x800;
 
-        // Place player directly below and in front of dragon (within cone).
-        let player_x = Some(210u32 << 16); // slightly to the right (dragon faces left)
-        let player_y = Some(105u32 << 16); // below dragon (y=100)
+        // Place player in the left-facing cone. ASM loc_34836 uses
+        // dragon_x-player_x=2, so the cone Y band is 98..106.
+        let player_x = Some(198u32 << 16);
+        let player_y = Some(105u32 << 16);
 
         step_active_enemies(
             std::slice::from_mut(&mut enemy),
@@ -13626,15 +13698,10 @@ mod chunk_03 {
             &mut Vec::new(),
         );
 
-        // The cone check geometry is tight — may or may not trigger depending on
-        // exact pixel distances. Verify that the mechanism exists and doesn't crash.
-        // (Detailed cone geometry is ASM-verified separately.)
-        assert!(
-            matches!(
-                enemy.dragon_phase,
-                DragonFlyingState::Descending | DragonFlyingState::DriftingWithFire
-            ),
-            "should either enter descent or continue drifting"
+        assert_eq!(
+            enemy.dragon_phase,
+            DragonFlyingState::Descending,
+            "ASM Dragon_Flying.asm loc_347C8 calls loc_34836 for DriftWithFire and loc_34860 enters descent when the player is inside the cone"
         );
     }
 
@@ -13719,6 +13786,18 @@ mod chunk_03 {
             .x_pos,
             0x00F6_0000,
             "ASM Dragon_Flying.asm loc_34BE6 keeps the `$FFF6` left-facing mouth offset"
+        );
+        assert_eq!(
+            dragon_flying_descent_fire_setup_loc_34BE6(
+                0x0100_0000,
+                0x0200_0000,
+                0x0001_C000,
+                3,
+                Direction::Left,
+            )
+            .initial_x_velocity,
+            -0x0001_0000,
+            "ASM Dragon_Flying.asm loc_34BAC seeds d1=`$FFFF` for left-facing descent fire before loc_34BE6 overwrites x_vel from the parent word"
         );
     }
 
