@@ -995,6 +995,22 @@ mod tests {
     }
 
     #[test]
+    fn cloud_runtime_loc_35ca2_status_45_blocks_idle_countdown() {
+        let mut enemy = cloud_enemy_for_attack();
+        enemy.ufo_on_screen_latch = true;
+        enemy.ufo_beam_segments = 1;
+        enemy.ufo_beam_interval = 1;
+        enemy.wait_timer = 5;
+
+        step_cloud(&mut enemy, None);
+
+        assert_eq!(
+            enemy.ufo_beam_interval, 1,
+            "ASM Cloud.asm loc_35CA2 returns before decrementing d2 while `$45(a5)` is non-zero"
+        );
+    }
+
+    #[test]
     fn cloud_projectile_spawn_loc_35df0_positions_vectors_and_offsets() {
         let enemy = cloud_enemy_for_attack();
 
