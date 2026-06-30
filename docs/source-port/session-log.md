@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-30 handoff (proactive Ninja mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/ninja.rs` via `mise run mutants-file`.
+- Evidence: initial `.cache/mutants/ninja-current` reported `219 mutants tested in
+  21m: 36 missed, 150 caught, 33 unviable`; commit `48e183992` hardens the ASM-cited
+  coverage and the final `.cache/mutants/ninja-clean2` reports `189 mutants tested in
+  18m: 156 caught, 33 unviable`, with zero missed mutants and zero timeouts.
+- Native behaviour is intentionally aligned more closely with ASM word comparisons:
+  live Ninja player/probe deltas now use high-word position helpers, and tests pin
+  guard/threat, airborne knockdown, jump-attack terrain, collision dispatch, and attack-cadence
+  period-pair boundaries.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-core ninja -- --nocapture`,
+  final `mise run mutants-file`, and `mise run verify-slice-fast` all pass.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-30 handoff (proactive Mini Hopping Skull mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
