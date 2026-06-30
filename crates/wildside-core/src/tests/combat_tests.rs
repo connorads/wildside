@@ -19073,6 +19073,39 @@ mod chunk_03 {
     }
 
     #[test]
+    fn hand_pending_airborne_kid_contact_enters_grab_loc_32a86() {
+        let mut runtime = NativeRuntime::new(manifest());
+        let mut hand = test_enemy(EnemyFamily::Hand, 0x0080_0000, 0x0040_0000, 2);
+        hand.layout_index = 29;
+        hand.hand_state = HandState::Jumping;
+        hand.x_velocity = 0x0001_0000;
+        hand.y_velocity = -0x0001_8000;
+        runtime.active_enemies = vec![hand];
+        runtime
+            .pending_enemy_collisions
+            .push(PendingEnemyCollision {
+                segment_index: hand.segment_index,
+                layout_index: hand.layout_index,
+                collision_type: 0x0020,
+                target: PendingEnemyCollisionTarget::Parent,
+            });
+
+        runtime.apply_pending_enemy_collisions();
+
+        let hand = runtime.active_enemies[0];
+        assert_eq!(
+            (
+                hand.hand_state,
+                hand.wait_timer,
+                hand.x_velocity,
+                hand.y_velocity
+            ),
+            (HandState::Grabbing, HAND_GRAB_DURATION, 0, 0),
+            "ASM Hand.asm loc_329F8/off_32A12 routes airborne Kid-contact `$20/$24/$28` through loc_32A86 into loc_32906"
+        );
+    }
+
+    #[test]
     fn tar_monster_death_waits_for_stru_32700_animation_before_delete() {
         let mut runtime = NativeRuntime::new(manifest());
         let mut tar = test_enemy(EnemyFamily::TarMonster, 0x0080_0000, 0x0040_0000, 1);

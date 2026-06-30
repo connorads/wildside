@@ -933,7 +933,8 @@ pub(crate) fn step_hand(
                 enemy.x_velocity = 0;
             }
 
-            // Floor landing: check for grab, then return to walking
+            // ASM Hand.asm loc_329F8/off_32A12: airborne Kid contacts enter
+            // the grab through collision IDs; floor contact only resets patrol.
             if enemy.y_velocity > 0 {
                 let floor = terrain::probe_floor(grid, cx, cy);
                 if floor.on_ground {
@@ -943,24 +944,7 @@ pub(crate) fn step_hand(
                         enemy.x_velocity = 0;
                         enemy.y_velocity = 0;
                         enemy.on_ground = true;
-
-                        // On landing, check if player is within grab range
-                        // (Hand.asm loc_3284C — same range check as jump trigger)
-                        let grab = if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
-                            let dx = ((px as i64 - enemy.x_pos as i64) >> 16).abs();
-                            let dy = ((enemy.y_pos as i64 - py as i64) >> 16).abs();
-                            dx <= i64::from(HAND_DETECT_RANGE[tier]) && dy <= 16
-                        } else {
-                            false
-                        };
-
-                        if grab {
-                            // Enter grab: follow player for 10 frames (Hand.asm loc_32906)
-                            enemy.hand_state = HandState::Grabbing;
-                            enemy.wait_timer = HAND_GRAB_DURATION;
-                        } else {
-                            enemy.hand_state = HandState::Walking;
-                        }
+                        enemy.hand_state = HandState::Walking;
                     }
                 }
             }

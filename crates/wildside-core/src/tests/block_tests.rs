@@ -12414,52 +12414,22 @@ mod chunk_04 {
     }
 
     #[test]
-    fn hand_jumping_landing_grab_window_uses_exact_range_and_height() {
+    fn hand_jumping_landing_returns_to_patrol_without_proximity_grab_loc_329f8() {
         let grid = grid_with_platform(3, 0, 12);
 
-        let mut inside = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
-        inside.hand_state = HandState::Jumping;
+        let mut enemy = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
+        enemy.hand_state = HandState::Jumping;
         step_hand(
-            &mut inside,
+            &mut enemy,
             Some(&grid),
             Some((60 + 0x40) << 16),
             Some((48 - 16) << 16),
             None,
         );
         assert_eq!(
-            (inside.hand_state, inside.wait_timer),
-            (HandState::Grabbing, HAND_GRAB_DURATION),
-            "ASM Hand.asm loc_32906 grab setup is reachable at the exact range and 16px vertical landing boundary"
-        );
-
-        let mut x_beyond = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
-        x_beyond.hand_state = HandState::Jumping;
-        step_hand(
-            &mut x_beyond,
-            Some(&grid),
-            Some((60 + 0x41) << 16),
-            Some((48 - 16) << 16),
-            None,
-        );
-        assert_eq!(
-            x_beyond.hand_state,
-            HandState::Walking,
-            "ASM Hand.asm loc_3284C-style landing grab rejects one pixel beyond `$44(a5)` range"
-        );
-
-        let mut y_beyond = test_enemy(EnemyFamily::Hand, 60 << 16, 48 << 16, 1);
-        y_beyond.hand_state = HandState::Jumping;
-        step_hand(
-            &mut y_beyond,
-            Some(&grid),
-            Some((60 + 0x40) << 16),
-            Some((48 - 17) << 16),
-            None,
-        );
-        assert_eq!(
-            y_beyond.hand_state,
-            HandState::Walking,
-            "ASM Hand.asm loc_32906 grab setup requires the landing target to stay within the 16px vertical window"
+            (enemy.hand_state, enemy.on_ground, enemy.wait_timer),
+            (HandState::Walking, true, 0),
+            "ASM Hand.asm loc_329F8/off_32A12 routes airborne Kid-contact collision IDs to loc_32A86; landing proximity alone returns to patrol"
         );
     }
 
