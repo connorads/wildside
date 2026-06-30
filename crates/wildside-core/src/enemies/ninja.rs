@@ -121,12 +121,12 @@ pub(crate) fn ninja_post_threat_route_loc_3d79c(
     // normal branch, positive delegates to the airborne proximity check, and
     // negative guard state persists while a Kid projectile exists or Red
     // Stealth remains inside the inclusive +/-$30 Kid X band.
-    if threat_state_4c == 0 {
-        return NinjaPostThreatRouteLoc3D79C::ResumePacing;
-    }
-
-    if threat_state_4c > 0 {
-        return NinjaPostThreatRouteLoc3D79C::PositiveStateCheck;
+    match threat_state_4c.cmp(&0) {
+        std::cmp::Ordering::Equal => return NinjaPostThreatRouteLoc3D79C::ResumePacing,
+        std::cmp::Ordering::Greater => {
+            return NinjaPostThreatRouteLoc3D79C::PositiveStateCheck;
+        }
+        std::cmp::Ordering::Less => {}
     }
 
     if kid_projectile_present {
@@ -1657,9 +1657,19 @@ mod tests {
             "ASM Ninja.asm loc_3D79C should keep Red Stealth guard state at the inclusive +$30 Kid X edge"
         );
         assert_eq!(
+            ninja_post_threat_route_loc_3d79c(-1, false, -0x30, PlayerForm::RedStealth),
+            NinjaPostThreatRouteLoc3D79C::ResumePacing,
+            "ASM Ninja.asm loc_3D79C should keep Red Stealth guard state at the inclusive -$30 Kid X edge"
+        );
+        assert_eq!(
             ninja_post_threat_route_loc_3d79c(-1, false, 0x31, PlayerForm::RedStealth),
             NinjaPostThreatRouteLoc3D79C::ResetStealthPacing,
             "ASM Ninja.asm loc_3D79C should reset guard state when Red Stealth moves beyond +$30"
+        );
+        assert_eq!(
+            ninja_post_threat_route_loc_3d79c(-1, false, -0x31, PlayerForm::RedStealth),
+            NinjaPostThreatRouteLoc3D79C::ResetStealthPacing,
+            "ASM Ninja.asm loc_3D79C should reset guard state when Red Stealth moves beyond -$30"
         );
         assert_eq!(
             ninja_post_threat_route_loc_3d79c(-1, false, 0, PlayerForm::TheKid),
