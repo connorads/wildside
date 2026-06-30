@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-30 handoff (proactive Mini Hopping Skull mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/mini_hopping_skull.rs` via `mise run mutants-file`.
+- Evidence: `.cache/mutants/mini-hopping-skull-current` reports
+  `146 mutants tested in 12m: 90 caught, 56 unviable`, with zero missed mutants
+  and zero timeouts.
+- Native behaviour is unchanged. Existing ASM-cited Mini Hopping Skull coverage already
+  pins the air sprite, collision dispatch, slope contacts, wait/windup branches,
+  scream worker allocation, damage/death paths, and live route enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-30 handoff (proactive UFO mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
