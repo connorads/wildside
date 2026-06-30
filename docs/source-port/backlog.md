@@ -26,14 +26,12 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-29 loop handoff:** #361 live Hand rendering now holds ASM live body/attack/grab frames
-  instead of free-running into the death tail; moved to `[x]`.
-- **Evidence:** `HandState::Jumping/Grabbing` projects into trace contact phases, scene frame
-  selection mirrors `Hand.asm loc_327F2`/`loc_328E0`/`loc_32906`, and
-  `.cache/debug/issue361/hand_level03_probe.json` native enemy-layer frame 6 shows two full Hand
-  body sprites where the old free-run selected a death sliver.
-- **Verification:** focused core/CLI `hand` tests, PNG inspection, `cargo fmt --check`,
-  `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+- **2026-06-30 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
+  human validation/repro blockers are listed by `mise run project-status`.
+- **Fallback verification:** `crates/wildside-core/src/enemies/dragon_walking.rs`
+  mutation shard is clean: `.cache/mutants/dragon-walking-current` reports
+  `136 mutants tested in 13m: 112 caught, 24 unviable`, with zero missed mutants
+  and zero timeouts.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

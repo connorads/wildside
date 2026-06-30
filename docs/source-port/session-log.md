@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-30 handoff (proactive Dragon Walking mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/dragon_walking.rs` via `mise run mutants-file`.
+- Evidence: `.cache/mutants/dragon-walking-current` reports
+  `136 mutants tested in 13m: 112 caught, 24 unviable`, with zero missed mutants
+  and zero timeouts.
+- Native behaviour is unchanged. Existing ASM-cited Dragon Walking coverage already pins the
+  patrol, wall/ledge turn, breath, death/hurt, stomp/knockback, and slope-foot routes tightly enough
+  for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-29 handoff (#361 Hand live render fixed)
 
 - **#361 moved `[~]` -> `[x]`.** Live Hand (0x17) sprites now hold their ROM live
