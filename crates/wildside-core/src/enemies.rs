@@ -4229,7 +4229,14 @@ pub(crate) fn step_active_enemies_with_rng(
                         );
                     }
                 } else if matches!(enemy.family, EnemyFamily::Hand) {
-                    step_hand(enemy, block_grid, player_x_pos, player_y_pos, player_facing);
+                    step_hand_with_form(
+                        enemy,
+                        block_grid,
+                        player_x_pos,
+                        player_y_pos,
+                        player_facing,
+                        player_form,
+                    );
                 } else if matches!(enemy.family, EnemyFamily::Lion) {
                     if enemy.damage_flash_frames > 0 {
                         // ASM Lion.asm loc_3E32C hibernates through

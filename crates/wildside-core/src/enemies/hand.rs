@@ -781,16 +781,78 @@ fn start_hand_jump_attack_loc_328a6(enemy: &mut ActiveEnemy, player_x_pos: u32, 
     enemy.y_velocity = jump.y_velocity;
 }
 
+fn release_hand_grab_loc_32970(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+) {
+    let release = hand_release_loc_32970();
+    if let Some(grid) = block_grid {
+        // ASM Hand.asm loc_32970: `d6 = 9`, `d7 = $E`, then shared
+        // loc_3639E blocks the release jump by branching to loc_32AA2.
+        let clear = emo_rock_clearance_probe_loc_3639e(
+            grid,
+            i32::from(fixed_position_integer_word(enemy.x_pos)),
+            i32::from(fixed_position_integer_word(enemy.y_pos)),
+            release.collision_probe_height_px as u16,
+            release.collision_probe_half_width_px as u16,
+        );
+        if !clear {
+            enemy.hit_points = 0;
+            enemy.death_animation_active = true;
+            enemy.wait_timer = HAND_DEATH_ANIMATION_FRAMES;
+            return;
+        }
+    }
+    enemy.hand_state = release.hand_state;
+    enemy.on_ground = release.on_ground;
+    if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
+        let jump = hand_jump_components_loc_328aa(
+            release.jump_speed_seed,
+            hand_x_direction_flag(enemy.facing),
+            u32::from(enemy.wait_timer).wrapping_mul(7).to_le_bytes()[0],
+            fixed_position_integer_word(py),
+            u32::from(enemy.wait_timer)
+                .wrapping_mul(13)
+                .wrapping_add(5)
+                .to_le_bytes()[0],
+            fixed_position_integer_word(px),
+        );
+        enemy.x_velocity = hand_x_velocity_loc_328e0(jump.x_velocity_word);
+        enemy.y_velocity = jump.y_velocity;
+    }
+}
+
 /// Step a Hand enemy through its walk/detect/jump state machine.
 /// Walking: paces with edge/wall detection. Detects player in 45-degree cone.
 /// Jumping: randomised arc toward player with gravity, lands and resumes walking.
 /// ASM: Hand.asm — full state machine with cone detection, random jump, gravity cap.
+#[cfg(test)]
 pub(crate) fn step_hand(
     enemy: &mut ActiveEnemy,
     block_grid: Option<&terrain::BlockGrid>,
     player_x_pos: Option<u32>,
     player_y_pos: Option<u32>,
     player_facing: Option<Direction>,
+) {
+    step_hand_with_form(
+        enemy,
+        block_grid,
+        player_x_pos,
+        player_y_pos,
+        player_facing,
+        PlayerForm::TheKid,
+    );
+}
+
+pub(crate) fn step_hand_with_form(
+    enemy: &mut ActiveEnemy,
+    block_grid: Option<&terrain::BlockGrid>,
+    player_x_pos: Option<u32>,
+    player_y_pos: Option<u32>,
+    player_facing: Option<Direction>,
+    player_form: PlayerForm,
 ) {
     let tier = (enemy.hit_points.saturating_sub(1) as usize).min(2);
 
@@ -950,6 +1012,13 @@ pub(crate) fn step_hand(
             }
         }
         HandState::Grabbing => {
+            if player_form == PlayerForm::Juggernaut {
+                // ASM Hand.asm loc_3292E checks Current_Helmet immediately after
+                // hibernation and branches to loc_32970 before the snap/timer body.
+                release_hand_grab_loc_32970(enemy, block_grid, player_x_pos, player_y_pos);
+                return;
+            }
+
             // Hand follows player position for HAND_GRAB_DURATION frames.
             // Hand.asm loc_3294C: hand snaps to Kid's integer X±2, Y-4 each frame.
             if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
@@ -963,41 +1032,7 @@ pub(crate) fn step_hand(
             if hand_grab_timer_remaining(enemy.wait_timer) > 0 {
                 enemy.wait_timer = hand_grab_timer_step_loc_3292e(enemy.wait_timer, player_facing);
             } else {
-                let release = hand_release_loc_32970();
-                if let Some(grid) = block_grid {
-                    // ASM Hand.asm loc_32970: `d6 = 9`, `d7 = $E`, then
-                    // shared loc_3639E blocks the release jump by branching to loc_32AA2.
-                    let clear = emo_rock_clearance_probe_loc_3639e(
-                        grid,
-                        i32::from(fixed_position_integer_word(enemy.x_pos)),
-                        i32::from(fixed_position_integer_word(enemy.y_pos)),
-                        release.collision_probe_height_px as u16,
-                        release.collision_probe_half_width_px as u16,
-                    );
-                    if !clear {
-                        enemy.hit_points = 0;
-                        enemy.death_animation_active = true;
-                        enemy.wait_timer = HAND_DEATH_ANIMATION_FRAMES;
-                        return;
-                    }
-                }
-                enemy.hand_state = release.hand_state;
-                enemy.on_ground = release.on_ground;
-                if let (Some(px), Some(py)) = (player_x_pos, player_y_pos) {
-                    let jump = hand_jump_components_loc_328aa(
-                        release.jump_speed_seed,
-                        hand_x_direction_flag(enemy.facing),
-                        u32::from(enemy.wait_timer).wrapping_mul(7).to_le_bytes()[0],
-                        fixed_position_integer_word(py),
-                        u32::from(enemy.wait_timer)
-                            .wrapping_mul(13)
-                            .wrapping_add(5)
-                            .to_le_bytes()[0],
-                        fixed_position_integer_word(px),
-                    );
-                    enemy.x_velocity = hand_x_velocity_loc_328e0(jump.x_velocity_word);
-                    enemy.y_velocity = jump.y_velocity;
-                }
+                release_hand_grab_loc_32970(enemy, block_grid, player_x_pos, player_y_pos);
             }
         }
     }

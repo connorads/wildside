@@ -12016,6 +12016,34 @@ mod chunk_04 {
     }
 
     #[test]
+    fn hand_grabbing_juggernaut_releases_before_snap_loc_3292e() {
+        let mut enemy = test_enemy(EnemyFamily::Hand, 0x0020_0000, 0x0030_0000, 1);
+        enemy.hand_state = HandState::Grabbing;
+        enemy.facing = Direction::Left;
+        enemy.wait_timer = HAND_GRAB_DURATION;
+
+        step_hand_with_form(
+            &mut enemy,
+            None,
+            Some(0x0064_8000),
+            Some(0x00C8_4000),
+            Some(Direction::Right),
+            PlayerForm::Juggernaut,
+        );
+
+        assert_eq!(
+            (enemy.hand_state, enemy.on_ground, enemy.x_pos, enemy.y_pos),
+            (HandState::Jumping, false, 0x0020_0000, 0x0030_0000),
+            "ASM Hand.asm loc_3292E checks Current_Helmet == Juggernaut before loc_3294C, so release does not snap to Kid first"
+        );
+        assert_ne!(
+            (enemy.x_velocity, enemy.y_velocity),
+            (0, 0),
+            "ASM Hand.asm loc_32970 falls through to loc_328AA jump setup after the Juggernaut release"
+        );
+    }
+
+    #[test]
     fn hand_grab_timer_loc_3292e_decrements_only_on_kid_facing_change() {
         let mut enemy = test_enemy(EnemyFamily::Hand, 0, 0, 1);
         enemy.hand_state = HandState::Grabbing;
