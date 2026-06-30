@@ -1503,10 +1503,8 @@ pub(crate) fn step_drips(
     if enemy.wait_timer == DRIPS_DROP_IN_FLIGHT_TIMER {
         // ASM Drips.asm loc_33516: while the preallocated falling child is
         // active, the parent hibernates one frame, range-checks, and loops.
-        let idle = drips_idle_loop_loc_33516();
-        if idle.hibernates_one_frame && idle.checks_in_range && idle.loops_forever {
-            return;
-        }
+        let _idle = drips_idle_loop_loc_33516();
+        return;
     }
     if enemy.wait_timer == DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E {
         enemy.wait_timer = DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E;
@@ -1548,20 +1546,13 @@ pub(crate) fn step_drips(
     // under `$2000` gravity until it reaches the floor.
     let (drips_child_byte_44, drips_child_byte_45) =
         drips_child_state_bytes_loc_3333e(enemy.enemy_level);
-    projectiles.push(EnemyProjectile {
+    let mut drop = EnemyProjectile {
         kind: EnemyProjectileKind::DripsDrop,
         x_pos: enemy.x_pos,
         y_pos: enemy.y_pos,
-        x_velocity: 0,
-        y_velocity: DRIPS_DROP_INITIAL_Y_SPEED,
         lifetime: DRIPS_DROP_LIFETIME,
         gravity: DRIPS_DROP_GRAVITY,
-        friendly: false,
-        homing_accel: 0,
-        speed_cap: 0,
-        wall_bounce: false,
         terrain_kill: true,
-        drips_spawn_crawler_on_splash: false,
         drips_child_byte_44,
         drips_child_byte_45,
         palette_variant: enemy.palette_variant,
@@ -1571,7 +1562,9 @@ pub(crate) fn step_drips(
             token: 0,
         }),
         ..Default::default()
-    });
+    };
+    drop.y_velocity = DRIPS_DROP_INITIAL_Y_SPEED;
+    projectiles.push(drop);
     // ASM loc_3350E branches back to loc_3340E only after the child reaches
     // loc_33488; keep the parent dormant until `step_projectiles` observes
     // the terrain splash and reseeds the timer.
@@ -1643,6 +1636,48 @@ mod tests {
     }
 
     #[test]
+    fn drips_animation_timer_flags_are_stable_loc_33424_loc_33488() {
+        assert_eq!(
+            DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E, 0xFFFD,
+            "ASM Drips.asm loc_333F6/loc_3340E bridge uses the literal first native sentinel `$FFFD`",
+        );
+        assert_eq!(
+            DRIPS_INITIAL_SEED_DELAY_1_TIMER_LOC_3340E, 0xFFFC,
+            "ASM Drips.asm loc_333F6/loc_3340E bridge uses the literal second native sentinel `$FFFC`",
+        );
+        assert_eq!(
+            drips_pre_drop_animation_timer_loc_33424(0x001F),
+            0x801F,
+            "ASM Drips.asm loc_33424 pre-drop hibernate state is tagged with the native high-bit coroutine flag",
+        );
+        assert_eq!(
+            drips_pre_drop_animation_timer_loc_33424(0x8001),
+            0x8001,
+            "tagging an already-tagged loc_33424 timer must be idempotent",
+        );
+        assert_eq!(
+            drips_pre_drop_animation_remaining_loc_33424(0x801F),
+            Some(0x001F),
+            "the loc_33424 helper masks only the native coroutine flag when reading the remaining animation frames",
+        );
+        assert_eq!(
+            drips_splash_animation_timer_loc_33488(0x0027),
+            0x4027,
+            "ASM Drips.asm loc_33488 splash hibernate state is tagged with the native splash coroutine flag",
+        );
+        assert_eq!(
+            drips_splash_animation_timer_loc_33488(0x4001),
+            0x4001,
+            "tagging an already-tagged loc_33488 timer must be idempotent",
+        );
+        assert_eq!(
+            drips_splash_animation_remaining_loc_33488(0x4027),
+            Some(0x0027),
+            "the loc_33488 helper masks only the native coroutine flag when reading the remaining splash frames",
+        );
+    }
+
+    #[test]
     fn drips_initial_seed_bridge_uses_exact_two_frame_sentinels_loc_333f6_loc_3340e() {
         let mut enemy = ActiveEnemy {
             family: EnemyFamily::Drips,
@@ -1701,28 +1736,77 @@ mod tests {
             family: EnemyFamily::Drips,
             enemy_level: 2,
             palette_variant: 2,
+            x_pos: 0x0123_4000,
+            y_pos: 0x00F6_8000,
+            segment_index: 3,
+            layout_index: 7,
             drips_attached: true,
-            wait_timer: 0,
+            wait_timer: drips_pre_drop_animation_timer_loc_33424(1),
             ..mini_hopping_skull_test_enemy()
         };
         let mut projectiles = Vec::new();
 
-        for _ in 0..=DRIPS_PRE_DROP_ANIMATION_FRAMES_LOC_33424 {
-            step_drips(&mut enemy, &mut projectiles, None);
-        }
+        step_drips(&mut enemy, &mut projectiles, None);
 
         assert_eq!(projectiles.len(), 1);
         assert_eq!(
-            projectiles[0].drips_child_byte_44, 0xFF,
-            "ASM Enemy16_Drip_Init loc_3333E copies `$44(a5)` from `unk_33338`; loc_335D8 later forwards it to the crawler"
+            projectiles[0],
+            EnemyProjectile {
+                kind: EnemyProjectileKind::DripsDrop,
+                x_pos: 0x0123_4000,
+                y_pos: 0x00F6_8000,
+                x_velocity: 0,
+                y_velocity: DRIPS_DROP_INITIAL_Y_SPEED,
+                lifetime: DRIPS_DROP_LIFETIME,
+                gravity: DRIPS_DROP_GRAVITY,
+                friendly: false,
+                homing_accel: 0,
+                speed_cap: 0,
+                wall_bounce: false,
+                terrain_kill: true,
+                drips_spawn_crawler_on_splash: false,
+                drips_child_byte_44: 0xFF,
+                drips_child_byte_45: 0xFF,
+                palette_variant: 2,
+                owner: Some(EnemyProjectileOwner {
+                    segment_index: 3,
+                    layout_index: 7,
+                    token: 0,
+                }),
+                ..Default::default()
+            },
+            "ASM Drips.asm loc_33424 exposes the preallocated child object from the parent's x/y, object meta, and loc_3333E child-state bytes",
+        );
+    }
+
+    #[test]
+    fn drips_pre_drop_remaining_one_spawns_and_two_hibernates_loc_33424() {
+        let mut waiting = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            drips_attached: true,
+            wait_timer: drips_pre_drop_animation_timer_loc_33424(2),
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_drips(&mut waiting, &mut projectiles, None);
+
+        assert!(
+            projectiles.is_empty(),
+            "ASM Drips.asm loc_33424 keeps hibernating while the pre-drop animation has more than one native frame remaining",
         );
         assert_eq!(
-            projectiles[0].drips_child_byte_45, 0xFF,
-            "ASM Enemy16_Drip_Init loc_3333E copies `$45(a5)` from `unk_33338`; loc_33526 uses it for the doubled startup delta"
+            drips_pre_drop_animation_remaining_loc_33424(waiting.wait_timer),
+            Some(1),
+            "the loc_33424 countdown must preserve the final frame for the following spawn step",
         );
+
+        step_drips(&mut waiting, &mut projectiles, None);
+
         assert_eq!(
-            projectiles[0].palette_variant, 2,
-            "ASM Drips.asm loc_33424 exposes the preallocated child object; its object_meta `$16` inherits the Drip art slot/palette selected by loc_32146"
+            projectiles.len(),
+            1,
+            "ASM Drips.asm loc_33424 exposes the falling child when the animation countdown reaches its final native frame",
         );
     }
 
@@ -1819,6 +1903,178 @@ mod tests {
             },
             "ASM Drips.asm loc_33516 hibernates for one frame, checks object range, then branches back to itself"
         );
+    }
+
+    #[test]
+    fn drips_ceiling_attach_top_boundary_matches_loc_333f6_loc_1b30() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0002_0000,
+            y_velocity: DRIPS_CEILING_ATTACH_RISE_VELOCITY,
+            drips_attached: false,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_drips(&mut enemy, &mut projectiles, Some(&grid));
+
+        assert!(
+            enemy.drips_attached,
+            "ASM GfxObjects_Collision_TopBoundary loc_1B30 reports ceiling contact once Drips' top box crosses above row 0",
+        );
+        assert_eq!(
+            enemy.y_pos, 0x0002_0000,
+            "ASM loc_1B30 clamps the object so its 2px top box rests at the level top",
+        );
+        assert_eq!(
+            enemy.y_velocity, 0,
+            "ASM Drips.asm loc_333F6 clears y_vel after the top-boundary ceiling contact",
+        );
+        assert_eq!(
+            enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E,
+            "the loc_333F6/loc_3340E bridge starts after top-boundary ceiling contact",
+        );
+        assert!(projectiles.is_empty());
+    }
+
+    #[test]
+    fn drips_ceiling_attach_top_edge_does_not_contact_loc_1b30() {
+        let grid = terrain::BlockGrid::from_level_layout(&[0; 4 * 4 * 2], 4, 4);
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            x_pos: 0x0020_0000,
+            y_pos: 0x0003_0000,
+            y_velocity: DRIPS_CEILING_ATTACH_RISE_VELOCITY,
+            drips_attached: false,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_drips(&mut enemy, &mut projectiles, Some(&grid));
+
+        assert!(
+            !enemy.drips_attached,
+            "ASM loc_1B30 only fires when the box top is signed-negative; exactly row 0 keeps waiting for ceiling terrain",
+        );
+        assert_eq!(enemy.y_pos, 0x0002_0000);
+        assert_eq!(enemy.wait_timer, 0);
+        assert!(projectiles.is_empty());
+    }
+
+    #[test]
+    fn drips_ceiling_attach_scans_left_probe_column_loc_333f6_loc_1a6c() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        grid.set_cell_at(2, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            x_pos: 0x0030_0000,
+            y_pos: 0x0023_0000,
+            y_velocity: DRIPS_CEILING_ATTACH_RISE_VELOCITY,
+            drips_attached: false,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_drips(&mut enemy, &mut projectiles, Some(&grid));
+
+        assert!(
+            enemy.drips_attached,
+            "ASM loc_333F6/loc_1A6C scans the Drips ceiling box from center_x-5 through center_x+5",
+        );
+        assert_eq!(
+            enemy.y_pos, 0x0032_0000,
+            "ASM loc_1A6C snaps to contact tile top plus `$12` after ceiling terrain contact",
+        );
+        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E);
+        assert!(projectiles.is_empty());
+    }
+
+    #[test]
+    fn drips_ceiling_attach_scans_right_probe_column_loc_333f6_loc_1a6c() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        grid.set_cell_at(3, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            x_pos: 0x0030_0000,
+            y_pos: 0x0023_0000,
+            y_velocity: DRIPS_CEILING_ATTACH_RISE_VELOCITY,
+            drips_attached: false,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_drips(&mut enemy, &mut projectiles, Some(&grid));
+
+        assert!(
+            enemy.drips_attached,
+            "ASM loc_333F6/loc_1A6C includes the right `center_x+5` ceiling probe column",
+        );
+        assert_eq!(enemy.y_pos, 0x0032_0000);
+        assert_eq!(enemy.y_velocity, 0);
+        assert_eq!(enemy.wait_timer, DRIPS_INITIAL_SEED_DELAY_2_TIMER_LOC_3340E);
+        assert!(projectiles.is_empty());
+    }
+
+    #[test]
+    fn drips_ceiling_attach_rejects_outside_left_probe_column_loc_333f6_loc_1a6c() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 8 * 4 * 2], 8, 4);
+        grid.set_cell_at(0, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            x_pos: 0x0030_0000,
+            y_pos: 0x0023_0000,
+            y_velocity: DRIPS_CEILING_ATTACH_RISE_VELOCITY,
+            drips_attached: false,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_drips(&mut enemy, &mut projectiles, Some(&grid));
+
+        assert!(
+            !enemy.drips_attached,
+            "ASM loc_333F6/loc_1A6C does not scan terrain left of `center_x-5`",
+        );
+        assert_eq!(
+            enemy.y_pos, 0x0022_0000,
+            "Drips should only apply the one-frame rise when no ceiling probe cell contacts",
+        );
+        assert_eq!(enemy.wait_timer, 0);
+        assert!(projectiles.is_empty());
+    }
+
+    #[test]
+    fn drips_ceiling_attach_rejects_outside_right_probe_column_loc_333f6_loc_1a6c() {
+        let mut grid = terrain::BlockGrid::from_level_layout(&[0; 16 * 4 * 2], 16, 4);
+        grid.set_cell_at(15, 2, terrain::Cell::from_be_bytes(0x60, 0x00));
+        let mut enemy = ActiveEnemy {
+            family: EnemyFamily::Drips,
+            x_pos: 0x0030_0000,
+            y_pos: 0x0023_0000,
+            y_velocity: DRIPS_CEILING_ATTACH_RISE_VELOCITY,
+            drips_attached: false,
+            wait_timer: 0,
+            ..mini_hopping_skull_test_enemy()
+        };
+        let mut projectiles = Vec::new();
+
+        step_drips(&mut enemy, &mut projectiles, Some(&grid));
+
+        assert!(
+            !enemy.drips_attached,
+            "ASM loc_333F6/loc_1A6C does not scan terrain right of `center_x+5`",
+        );
+        assert_eq!(enemy.y_pos, 0x0022_0000);
+        assert_eq!(enemy.wait_timer, 0);
+        assert!(projectiles.is_empty());
     }
 
     #[test]
@@ -2001,6 +2257,11 @@ mod tests {
             DripsRightBoundsNextLoc33588::CheckVerticalLoc335B0,
             "ASM Drips.asm loc_33588 continues to loc_335B0 while the right probe is still inside the level"
         );
+        assert_eq!(
+            drips_right_bounds_gate_loc_33588(false, 0x00F8, 0, 0x0100),
+            DripsRightBoundsNextLoc33588::ContactLoc335D4,
+            "ASM Drips.asm loc_33588 only branches left on `bmi`; zero x_vel uses the right-bound probe",
+        );
     }
 
     #[test]
@@ -2043,6 +2304,11 @@ mod tests {
             drips_vertical_bounds_contact_flag_loc_335b0(0x0008, -0x0000_3000, 0x0100),
             0,
             "ASM Drips.asm loc_335B0 returns d5=0 when the upward probe lands exactly on the top edge"
+        );
+        assert_eq!(
+            drips_vertical_bounds_contact_flag_loc_335b0(0x00F8, 0, 0x0100),
+            1,
+            "ASM Drips.asm loc_335B0 branches upward only on `bmi`; zero y_vel uses the downward `y_pos+8 >= Level_height_pixels` probe",
         );
     }
 
@@ -2142,6 +2408,35 @@ mod tests {
                 },
             },
             "ASM Drips.asm loc_33630 tails through loc_33526 with double-delta child gating"
+        );
+    }
+
+    #[test]
+    fn drips_turn_script_tables_match_loc_33af6_direct_offsets() {
+        assert_eq!(
+            drips_turn_script_animation_loc_33af6(0x0C),
+            DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33E3A,
+            "ASM Drips.asm loc_33AF6 animation table offset `$0C` points to stru_33E3A",
+        );
+        assert_eq!(
+            drips_turn_script_animation_loc_33af6(0x20),
+            DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33E48,
+            "ASM Drips.asm loc_33AF6 animation table offset `$20` points to stru_33E48",
+        );
+        assert_eq!(
+            drips_turn_script_animation_loc_33af6(0x40),
+            DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33DAE,
+            "ASM Drips.asm loc_33AF6 animation table offset `$40` points to stru_33DAE",
+        );
+        assert_eq!(
+            drips_turn_script_animation_loc_33af6(0x50),
+            DripsSurfaceCrawlerTurnAnimationLoc33AF6::Stru33DE6,
+            "ASM Drips.asm loc_33AF6 animation table offset `$50` points to stru_33DE6",
+        );
+        assert_eq!(
+            drips_turn_script_next_loc_33af6(0x10),
+            DripsSurfaceCrawlerTurnNextLoc33AF6::Loc33A7C,
+            "ASM Drips.asm loc_33AF6 next-routine table offset `$10` points to loc_33A7C",
         );
     }
 
