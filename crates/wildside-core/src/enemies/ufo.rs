@@ -681,10 +681,9 @@ pub(crate) fn step_ufo_beam_with_rng(
         enemy.ufo_beam_interval = tick.next_beam_interval;
         if tick.clear_ufo_shooting_state {
             let clear = ufo_beam_clear_shooting_state_loc_34ffe();
-            if !clear.ufo_shooting_latch {
-                enemy.ufo_beam_segments = 0;
-            }
-            let _ = clear.global_shooting_flag;
+            // `tick.next_beam_segments` already mirrors `$48(a5)=0`; keep the
+            // clear result consumed so loc_34FFE's two latch clears stay explicit.
+            let _ = (clear.ufo_shooting_latch, clear.global_shooting_flag);
         }
 
         if tick.spawn_beam_segment {
@@ -756,7 +755,7 @@ pub(crate) fn ufo_collision_dispatch_loc_35056(
     // ASM UFO.asm loc_35056: negative values skip to `loc_35070` (clear only),
     // zero returns directly, otherwise table-dispatch uses `collision_type-4` and
     // `move.l (a4,d7.w),a4`.
-    if collision_type < 0 {
+    if collision_type.is_negative() {
         let clear = ufo_collision_clear_loc_35070(collision_type as u16);
         return UfoCollisionDispatchLoc35056 {
             collision_type: clear.collision_type,
@@ -1887,6 +1886,35 @@ mod tests {
     use super::*;
     use crate::enemies::test_fixtures::*;
 
+    fn ufo_test_enemy(x_px: u32, y_px: u32) -> ActiveEnemy {
+        ActiveEnemy {
+            family: EnemyFamily::UFO,
+            hit_points: 2,
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            wait_timer: 1,
+            ..mini_hopping_skull_test_enemy()
+        }
+    }
+
+    fn ufo_test_grid(width: u16, height: u16, cells: &[(u16, u16, u8, u8)]) -> terrain::BlockGrid {
+        let mut grid = terrain::BlockGrid::from_level_layout(
+            &vec![0; width as usize * height as usize * 2],
+            width,
+            height,
+        );
+        for &(col, row, high, low) in cells {
+            grid.set_cell_at(col, row, terrain::Cell::from_be_bytes(high, low));
+        }
+        grid
+    }
+
+    fn rng_with_next_byte(byte: u8) -> RomRandomState {
+        let mut ram = [0; 55];
+        ram[1] = byte;
+        RomRandomState::from_raw_parts(ram, 0xFFC9)
+    }
+
     #[test]
     fn ufo_live_step_queues_shoot_sound_when_targeted_beam_starts() {
         let ufo = ActiveEnemy {
@@ -1987,6 +2015,113 @@ mod tests {
     }
 
     #[test]
+    fn ufo_motion_script_table_matches_unk_35344() {
+        let expected = [
+            UfoMotionCommand {
+                target_x_velocity: 0,
+                target_y_velocity: -0x20000,
+                x_acceleration: 0,
+                y_acceleration: -0x1000,
+            },
+            UfoMotionCommand {
+                target_x_velocity: 0x10000,
+                target_y_velocity: -0x20000,
+                x_acceleration: 0x0800,
+                y_acceleration: -0x1000,
+            },
+            UfoMotionCommand {
+                target_x_velocity: 0x18000,
+                target_y_velocity: -0x18000,
+                x_acceleration: 0x0C00,
+                y_acceleration: -0x0C00,
+            },
+            UfoMotionCommand {
+                target_x_velocity: 0x20000,
+                target_y_velocity: -0x10000,
+                x_acceleration: 0x1000,
+                y_acceleration: -0x0800,
+            },
+            UfoMotionCommand {
+                target_x_velocity: 0x20000,
+                target_y_velocity: 0,
+                x_acceleration: 0x1000,
+                y_acceleration: 0,
+            },
+            UfoMotionCommand {
+                target_x_velocity: 0x20000,
+                target_y_velocity: 0x10000,
+                x_acceleration: 0x1000,
+                y_acceleration: 0x0800,
+            },
+            UfoMotionCommand {
+                target_x_velocity: 0x18000,
+                target_y_velocity: 0x18000,
+                x_acceleration: 0x0C00,
+                y_acceleration: 0x0C00,
+            },
+            UfoMotionCommand {
+                target_x_velocity: 0x10000,
+                target_y_velocity: 0x20000,
+                x_acceleration: 0x0800,
+                y_acceleration: 0x1000,
+            },
+            UfoMotionCommand {
+                target_x_velocity: 0,
+                target_y_velocity: 0x20000,
+                x_acceleration: 0,
+                y_acceleration: 0x1000,
+            },
+            UfoMotionCommand {
+                target_x_velocity: -0x10000,
+                target_y_velocity: 0x20000,
+                x_acceleration: -0x0800,
+                y_acceleration: 0x1000,
+            },
+            UfoMotionCommand {
+                target_x_velocity: -0x18000,
+                target_y_velocity: 0x18000,
+                x_acceleration: -0x0C00,
+                y_acceleration: 0x0C00,
+            },
+            UfoMotionCommand {
+                target_x_velocity: -0x20000,
+                target_y_velocity: 0x10000,
+                x_acceleration: -0x1000,
+                y_acceleration: 0x0800,
+            },
+            UfoMotionCommand {
+                target_x_velocity: -0x20000,
+                target_y_velocity: 0,
+                x_acceleration: -0x1000,
+                y_acceleration: 0,
+            },
+            UfoMotionCommand {
+                target_x_velocity: -0x20000,
+                target_y_velocity: -0x10000,
+                x_acceleration: -0x1000,
+                y_acceleration: -0x0800,
+            },
+            UfoMotionCommand {
+                target_x_velocity: -0x18000,
+                target_y_velocity: -0x18000,
+                x_acceleration: -0x0C00,
+                y_acceleration: -0x0C00,
+            },
+            UfoMotionCommand {
+                target_x_velocity: -0x10000,
+                target_y_velocity: -0x20000,
+                x_acceleration: -0x0800,
+                y_acceleration: -0x1000,
+            },
+        ];
+
+        assert_eq!(
+            UFO_PATTERN_SCRIPT_LOC_35344, expected,
+            "ASM UFO.asm unk_35344 is the full 16-entry signed motion table consumed by loc_35326/loc_35444"
+        );
+    }
+
+    #[test]
     fn ufo_tracking_matches_loc_34e2a_below_near_kid_branch() {
         assert_eq!(
             ufo_tracking_command_loc_34e2a(
@@ -2035,6 +2170,38 @@ mod tests {
             }),
             "ASM UFO.asm loc_34E2A includes the Kid X - $30 edge and steers right when UFO X is less than Kid X"
         );
+
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x0130_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0090_0000,
+                true,
+                false,
+                false,
+                false,
+            )
+            .map(|command| (command.facing, command.motion.target_x_velocity)),
+            Some((Direction::Left, -0x20000)),
+            "ASM UFO.asm loc_34E2A includes the Kid X + $30 edge before steering left"
+        );
+
+        assert_eq!(
+            ufo_tracking_command_loc_34e2a(
+                0x0100_0000,
+                0x0080_0000,
+                0x0100_0000,
+                0x0090_0000,
+                true,
+                false,
+                false,
+                false,
+            )
+            .map(|command| (command.facing, command.motion.target_x_velocity)),
+            Some((Direction::Left, -0x20000)),
+            "ASM UFO.asm loc_34E2A uses `blt loc_34E86`, so equal X takes the left-tracking branch"
+        );
     }
 
     #[test]
@@ -2056,6 +2223,72 @@ mod tests {
             facing,
             Direction::Right,
             "ASM UFO.asm loc_35444 leaves `x_direction` set when the selected X target speed is non-negative"
+        );
+
+        let (motion, facing) = ufo_motion_picker_loc_35326(0x00, 0x010F_0000, 0, 0, false, false);
+        assert_eq!(
+            (motion.target_x_velocity, motion.target_y_velocity, facing),
+            (-0x10000, -0x20000, Direction::Left),
+            "ASM UFO.asm loc_35326 xors the random byte with the integer x_pos low byte before masking the 16-entry table index"
+        );
+
+        let (motion, _) = ufo_motion_picker_loc_35326(0x05, 0x010F_0000, 0, 0, false, false);
+        assert_eq!(
+            (motion.target_x_velocity, motion.target_y_velocity),
+            (-0x18000, 0x18000),
+            "ASM UFO.asm loc_35326 uses XOR, not OR, when mixing random byte and x_pos low byte"
+        );
+    }
+
+    #[test]
+    fn ufo_motion_from_script_zero_x_target_faces_right_loc_35444() {
+        let (_, facing) = ufo_motion_from_script_loc_35444(
+            UfoMotionCommand {
+                target_x_velocity: 0,
+                target_y_velocity: -0x20000,
+                x_acceleration: 0,
+                y_acceleration: -0x1000,
+            },
+            0,
+            0,
+            false,
+            false,
+        );
+
+        assert_eq!(
+            facing,
+            Direction::Right,
+            "ASM UFO.asm loc_35444 starts with `st x_direction(a3)` and clears it only when d1 is negative"
+        );
+    }
+
+    #[test]
+    fn ufo_live_tracking_gate_uses_level_or_double_accel_loc_34e2a() {
+        let mut ufo = ufo_test_enemy(100, 80);
+        ufo.enemy_level = 0;
+        ufo.flight_double_acceleration = false;
+        ufo.x_velocity = 0;
+        ufo.y_velocity = 0x0002_0000;
+        ufo.target_y_velocity = 0x0002_0000;
+
+        let mut rng = RomRandomState::default();
+        step_ufo_with_player(&mut ufo, None, Some(100 << 16), Some(96 << 16), &mut rng);
+
+        assert_eq!(
+            ufo.y_velocity, 0x0002_0000,
+            "ASM UFO.asm loc_34E2A is gated by `$4D(a5)`; level-0 UFOs without the double-accel flag must not clear y_vel for tracking"
+        );
+
+        ufo.flight_double_acceleration = true;
+        ufo.y_velocity = 0x0002_0000;
+        ufo.target_y_velocity = 0x0002_0000;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, None, Some(100 << 16), Some(96 << 16), &mut rng);
+
+        assert_eq!(
+            ufo.y_velocity, 0,
+            "Native `$4D(a5)` equivalent is true when the double-acceleration flag is set, so loc_34E2A clears y_vel while tracking"
         );
     }
 
@@ -2179,6 +2412,58 @@ mod tests {
     }
 
     #[test]
+    fn ufo_live_beam_start_matches_loc_34e9c_position_gate() {
+        let mut ufo = ufo_test_enemy(100, 80);
+        let mut projectiles = Vec::new();
+        let mut rng = RomRandomState::default();
+
+        step_ufo_beam_with_rng(
+            &mut ufo,
+            &mut projectiles,
+            Some(100 << 16),
+            Some(81 << 16),
+            &mut rng,
+            None,
+        );
+
+        assert_eq!(
+            (ufo.ufo_beam_segments, ufo.ufo_beam_interval, ufo.wait_timer),
+            (4, 5, 0x32),
+            "ASM UFO.asm Enemy0F_UFO_ChkShoot uses integer x/y words to start the beam when Kid is below and within the ±2px window"
+        );
+
+        let mut same_y = ufo_test_enemy(100, 80);
+        let mut rng = rng_with_next_byte(0x10);
+        step_ufo_beam_with_rng(
+            &mut same_y,
+            &mut projectiles,
+            Some(100 << 16),
+            Some(80 << 16),
+            &mut rng,
+            None,
+        );
+        assert_eq!(
+            same_y.ufo_beam_segments, 0,
+            "ASM UFO.asm Enemy0F_UFO_ChkShoot rejects Kid on the same Y word with `ble return_34F16`"
+        );
+
+        let mut outside_x = ufo_test_enemy(100, 80);
+        let mut rng = rng_with_next_byte(0x10);
+        step_ufo_beam_with_rng(
+            &mut outside_x,
+            &mut projectiles,
+            Some(103 << 16),
+            Some(81 << 16),
+            &mut rng,
+            None,
+        );
+        assert_eq!(
+            outside_x.ufo_beam_segments, 0,
+            "ASM UFO.asm Enemy0F_UFO_ChkShoot rejects Kid beyond the inclusive ±2px X window"
+        );
+    }
+
+    #[test]
     fn ufo_apply_acceleration_axis_matches_loc_3501e() {
         assert_eq!(
             ufo_apply_acceleration_axis_loc_3501e(0x0800, 0x0300, -0x0100),
@@ -2272,6 +2557,97 @@ mod tests {
                 behavior: Some(UfoCollisionBehaviorLoc35056::ReturnOnly),
             },
             "ASM UFO.asm loc_35056 maps `$20` to a return-only jump"
+        );
+    }
+
+    #[test]
+    fn ufo_collision_dispatch_boundary_values_match_loc_35056_table() {
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0x0008).behavior,
+            Some(UfoCollisionBehaviorLoc35056::BounceWall),
+            "ASM UFO.asm off_3507C maps both wall collision words `$04/$08` to Enemy0F_UFO_BounceWall"
+        );
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0x002C).behavior,
+            Some(UfoCollisionBehaviorLoc35056::Hurt),
+            "ASM UFO.asm off_3507C maps Kid-above collision `$2C` to Enemy0F_UFO_Hurt"
+        );
+        assert_eq!(
+            ufo_collision_dispatch_loc_35056(0x0030).behavior,
+            None,
+            "ASM UFO.asm loc_35056 has no native dispatch table entry beyond the `$2C` Kid-above hurt slot"
+        );
+    }
+
+    #[test]
+    fn apply_ufo_terrain_collision_bounces_wall_loc_35056_35120() {
+        let mut ufo = ufo_test_enemy(80, 40);
+        ufo.x_velocity = 0x0001_0000;
+        ufo.x_acceleration = 0x0000_1000;
+        ufo.target_x_velocity = 0x0002_0000;
+        ufo.facing = Direction::Right;
+
+        apply_ufo_terrain_collision_loc_35056(&mut ufo, 0x0004);
+
+        assert_eq!(
+            (
+                ufo.x_velocity,
+                ufo.x_acceleration,
+                ufo.target_x_velocity,
+                ufo.facing
+            ),
+            (-0x0001_0000, -0x0000_1000, 0, Direction::Left),
+            "ASM UFO.asm loc_35056 wall dispatch enters Enemy0F_UFO_BounceWall/loc_35120 and reverses velocity, acceleration, target, and facing"
+        );
+    }
+
+    #[test]
+    fn ufo_live_flat_floor_collision_requires_downward_y_velocity() {
+        let grid = ufo_test_grid(8, 8, &[(5, 5, 0x60, 0x00)]);
+        let mut ufo = ufo_test_enemy(80, 80);
+        ufo.y_velocity = 0;
+        ufo.y_acceleration = 0x0000_1000;
+        ufo.target_y_velocity = 0;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.y_velocity, ufo.y_acceleration, ufo.target_y_velocity),
+            (0, 0x0000_1000, 0),
+            "ASM UFO.asm loc_35056 should only see flat-floor `$0C` when movement produced a positive downward collision word"
+        );
+    }
+
+    #[test]
+    fn ufo_live_ceiling_collision_requires_upward_y_velocity_and_hit() {
+        let ceiling_grid = ufo_test_grid(8, 8, &[(4, 3, 0x60, 0x00)]);
+        let mut ufo = ufo_test_enemy(82, 64);
+        ufo.y_velocity = 0;
+        ufo.y_acceleration = 0x0000_1000;
+        ufo.target_y_velocity = 0;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&ceiling_grid), None, None, &mut rng);
+
+        assert_eq!(
+            (ufo.y_velocity, ufo.y_acceleration, ufo.target_y_velocity),
+            (0, 0x0000_1000, 0),
+            "ASM UFO.asm loc_35056 should only see ceiling `$10` from an upward collision word, not stationary ceiling overlap"
+        );
+
+        let empty_grid = ufo_test_grid(8, 8, &[]);
+        ufo.y_velocity = -0x0001_0000;
+        ufo.y_acceleration = 0;
+        ufo.target_y_velocity = -0x0001_0000;
+        ufo.wait_timer = 1;
+        let mut rng = RomRandomState::default();
+
+        step_ufo_with_player(&mut ufo, Some(&empty_grid), None, None, &mut rng);
+
+        assert_eq!(
+            ufo.y_velocity, -0x0001_0000,
+            "ASM UFO.asm loc_35056 should not run the ceiling bounce without an actual ceiling hit"
         );
     }
 
@@ -2468,6 +2844,68 @@ mod tests {
             ufo_beam_spawn_loc_351ee(0x0010_0000, &[(0, -5), (5, 5)]),
             Vec::<UfoBeamSpawnLoc351EE>::new(),
             "ASM UFO.asm loc_351EE exits immediately when sentinel x-word is zero"
+        );
+    }
+
+    #[test]
+    fn ufo_first_hurt_debris_velocity_table_matches_unk_351c4() {
+        assert_eq!(
+            UFO_FIRST_HURT_DEBRIS_VELOCITIES_LOC_351C4,
+            [
+                (-5, -3),
+                (-3, -4),
+                (-6, -5),
+                (-4, -7),
+                (-2, -6),
+                (1, -6),
+                (1, -2),
+                (3, -4),
+                (4, -6),
+                (5, -3),
+                (0, 0),
+            ],
+            "ASM UFO.asm unk_351C4 is the signed first-hurt debris velocity table consumed by loc_351EE"
+        );
+    }
+
+    #[test]
+    fn spawn_ufo_first_hurt_debris_initialises_projectiles_from_loc_351ee_35512() {
+        let mut projectiles = Vec::new();
+
+        spawn_ufo_first_hurt_debris_loc_351ee(
+            &mut projectiles,
+            0x0200_0000,
+            0x0100_0000,
+            0x0002_0000,
+            Direction::Right,
+        );
+
+        assert_eq!(
+            projectiles.len(),
+            10,
+            "ASM UFO.asm loc_351EE stops spawning on the zero x-word sentinel after ten debris children"
+        );
+        assert_eq!(
+            projectiles[0],
+            EnemyProjectile {
+                x_pos: 0x020B_0000,
+                y_pos: 0x00E8_0000,
+                x_velocity: -0x0001_8000,
+                y_velocity: -0x0001_8000,
+                gravity: 0x0000_3000,
+                terrain_kill: true,
+                lifetime: u16::MAX,
+                kind: EnemyProjectileKind::UfoFirstHurtDebris,
+                ufo_beam_child_x_direction: 0xFF,
+                ufo_beam_child_loop_timer_loc_3554a: 5,
+                ..Default::default()
+            },
+            "ASM UFO.asm loc_351EE/loc_35512 applies parent half x_vel, mirrored x_direction offset, terrain kill, and child loop timer to the first debris child"
+        );
+        assert!(
+            projectiles.iter().all(|projectile| projectile.terrain_kill
+                && projectile.ufo_beam_child_x_direction == 0xFF),
+            "ASM UFO.asm loc_35512 gives every first-hurt debris child the parent's raw x_direction and terrain-kill lifecycle"
         );
     }
 
