@@ -1589,6 +1589,16 @@ mod tests {
             "ASM Ninja.asm loc_3D734 should continue to the projectile-threat check outside the tighter +/-$30 Red Stealth guard band"
         );
         assert_eq!(
+            ninja_kid_threat_route_loc_3d734(-0x30, -4, PlayerForm::RedStealth, false),
+            NinjaKidThreatRouteLoc3D734::GuardPose,
+            "ASM Ninja.asm loc_3D734 keeps the negative -$30 Red Stealth edge inside the guard band"
+        );
+        assert_eq!(
+            ninja_kid_threat_route_loc_3d734(-0x31, -4, PlayerForm::RedStealth, false),
+            NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck,
+            "ASM Ninja.asm loc_3D734 branches to loc_3D776 when kid_x - ninja_x is less than -$30"
+        );
+        assert_eq!(
             ninja_kid_threat_route_loc_3d734(0, -5, PlayerForm::RedStealth, false),
             NinjaKidThreatRouteLoc3D734::ProjectileThreatCheck,
             "ASM Ninja.asm loc_3D734 should require kid_y - ninja_y >= -4 before entering the guard pose"
