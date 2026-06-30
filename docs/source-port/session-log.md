@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-06-30 handoff (proactive Lion mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/lion.rs` via `mise run mutants-file`.
+- Evidence: `OUTPUT=.cache/mutants/lion-current2 FILE=crates/wildside-core/src/enemies/lion.rs mise run mutants-file`
+  reports `251 mutants tested in 24m: 206 caught, 45 unviable`, with zero missed
+  mutants and zero timeouts.
+- Native behaviour is unchanged. Existing ASM-cited Lion coverage already pins
+  live walk/roar/leap phases, kid-distance gates, floor/ledge contact, damage,
+  death, collision dispatch, and cleanup paths tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-30 handoff (proactive Drips mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
