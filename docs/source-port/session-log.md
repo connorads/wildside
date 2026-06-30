@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Dragon mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/enemies/dragon.rs` via `mise run mutants-file`.
+- Evidence: `OUTPUT=.cache/mutants/dragon-current2 FILE=crates/wildside-core/src/enemies/dragon.rs mise run mutants-file`
+  reports `264 mutants tested in 25m: 222 caught, 42 unviable`, with zero missed
+  mutants and zero timeouts.
+- Native behaviour is unchanged. Existing ASM-cited Dragon coverage already pins
+  live breath, turn/direction, contact, hurt/death, projectile, collision
+  dispatch, and cleanup paths tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-06-30 handoff (proactive Lion mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
