@@ -7,9 +7,12 @@ pub(crate) const SPINNING_TWINS_ORBIT_OFFSETS: [i32; 8] =
 pub(crate) const SPINNING_TWINS_ORBIT_FRAME_DURATION_LOC_3B904: u16 = 6;
 /// Orbit-to-walk transition: collision-triggered. ASM loc_3B904 checks
 /// collision_type each frame — negative, $2C, or $1C all trigger the drop.
-/// In native, we check player hitbox overlap with the orbiting enemy.
-/// Hitbox half-width for orbit collision check (approximate from sprite size).
-const SPINNING_TWINS_ORBIT_HITBOX_HALF: i32 = 16;
+/// In native, this direct fallback checks the player anchor against the same
+/// live CollisionSize row used by the ordinary collision pipeline.
+const SPINNING_TWINS_LIVE_CONTACT_LEFT_LOC_1BCE: i32 = -5;
+const SPINNING_TWINS_LIVE_CONTACT_RIGHT_LOC_1BCE: i32 = 5;
+const SPINNING_TWINS_LIVE_CONTACT_TOP_LOC_1BCE: i32 = -31;
+const SPINNING_TWINS_LIVE_CONTACT_BOTTOM_LOC_1BCE: i32 = 0;
 // Gravity applied each frame once the twins drop. ASM: $2800 FP.
 pub(crate) const SPINNING_TWINS_GRAVITY: i32 = 0x2800;
 // Launch Y velocity when transitioning from orbit. ASM loc_3BB24: -$10000.
@@ -61,6 +64,23 @@ pub(crate) fn spinning_twins_orbit_collision_route_loc_3b904(
     } else {
         SpinningTwinsOrbitCollisionRouteLoc3B904::ContinueOrbit
     }
+}
+
+fn spinning_twins_orbit_player_point_contact_loc_1bce(
+    enemy_x_px: i32,
+    enemy_y_px: i32,
+    player_x_px: i32,
+    player_y_px: i32,
+) -> bool {
+    // ASM Spinning_Twins.asm live orbit frames `LnkTo_unk_C7D26..C7D4E`
+    // route through GfxObjects_CollisionKid loc_1BCE to `unk_314D0`
+    // (`dc.w -$5,$A,-$1F,$1F`). Native only has the player anchor here, so
+    // use the enemy-side row inclusively instead of the old sprite-size guess.
+    let left = enemy_x_px + SPINNING_TWINS_LIVE_CONTACT_LEFT_LOC_1BCE;
+    let right = enemy_x_px + SPINNING_TWINS_LIVE_CONTACT_RIGHT_LOC_1BCE;
+    let top = enemy_y_px + SPINNING_TWINS_LIVE_CONTACT_TOP_LOC_1BCE;
+    let bottom = enemy_y_px + SPINNING_TWINS_LIVE_CONTACT_BOTTOM_LOC_1BCE;
+    (left..=right).contains(&player_x_px) && (top..=bottom).contains(&player_y_px)
 }
 
 pub(crate) fn spinning_twins_orbit_tick_loc_3b904(
@@ -737,8 +757,7 @@ pub(crate) fn step_spinning_twins(
                 let ey = (enemy.y_pos >> 16) as i32;
                 let px_i = (px >> 16) as i32;
                 let py_i = (py >> 16) as i32;
-                (ex - px_i).abs() < SPINNING_TWINS_ORBIT_HITBOX_HALF
-                    && (ey - py_i).abs() < SPINNING_TWINS_ORBIT_HITBOX_HALF + 8
+                spinning_twins_orbit_player_point_contact_loc_1bce(ex, ey, px_i, py_i)
             } else {
                 false
             };

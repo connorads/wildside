@@ -14446,36 +14446,31 @@ mod chunk_04 {
     }
 
     #[test]
-    fn spinning_twins_live_contact_box_uses_strict_native_edges() {
+    fn spinning_twins_orbit_player_anchor_uses_live_collision_row_loc_1bce() {
         let cases = [
-            (84, 50, SpinningTwinsPhase::Orbiting, "x exactly 16px away"),
-            (85, 50, SpinningTwinsPhase::Walking, "x 15px away"),
-            (100, 26, SpinningTwinsPhase::Orbiting, "y exactly 24px away"),
-            (100, 27, SpinningTwinsPhase::Walking, "y 23px away"),
             (
-                85,
-                150,
-                SpinningTwinsPhase::Orbiting,
-                "x inside but y far outside",
-            ),
-            (
-                0,
+                94,
                 50,
                 SpinningTwinsPhase::Orbiting,
-                "y inside but x far outside",
+                "one pixel left of unk_314D0",
             ),
+            (95, 50, SpinningTwinsPhase::Walking, "left edge inclusive"),
+            (105, 50, SpinningTwinsPhase::Walking, "right edge inclusive"),
             (
-                100,
-                30,
-                SpinningTwinsPhase::Walking,
-                "y inside the +8 vertical extension",
-            ),
-            (
-                100,
-                150,
+                106,
+                50,
                 SpinningTwinsPhase::Orbiting,
-                "y outside the non-scaled vertical extension",
+                "one pixel right of unk_314D0",
             ),
+            (100, 18, SpinningTwinsPhase::Orbiting, "above top edge"),
+            (100, 19, SpinningTwinsPhase::Walking, "top edge inclusive"),
+            (
+                100,
+                50,
+                SpinningTwinsPhase::Walking,
+                "bottom edge inclusive",
+            ),
+            (100, 51, SpinningTwinsPhase::Orbiting, "below bottom edge"),
         ];
 
         for (player_x_px, player_y_px, expected_phase, label) in cases {
@@ -14490,7 +14485,7 @@ mod chunk_04 {
 
             assert_eq!(
                 enemy.spinning_twins_phase, expected_phase,
-                "ASM Spinning_Twins.asm loc_3B904 native contact approximation should classify {label}"
+                "ASM Spinning_Twins.asm live orbit frames route through GfxObjects_CollisionKid loc_1BCE to `unk_314D0`; player anchor should classify {label}"
             );
         }
     }
