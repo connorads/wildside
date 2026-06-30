@@ -1,4 +1,5 @@
 use super::*;
+use std::cmp::Ordering;
 
 pub(crate) const SCORPION_COLID_HURT: i16 = colid::HURT as i16;
 pub(crate) const SCORPION_COLID_KIDRIGHT: i16 = colid::KIDRIGHT as i16;
@@ -7,7 +8,7 @@ pub(crate) const SCORPION_COLID_KIDABOVE: i16 = colid::KIDABOVE as i16;
 
 /// Scorpion tracking range in pixels (Scorpion.asm line 158: $AA = 170).
 /// Outside this range, speed resets to base $18000.
-const SCORPION_TRACK_RANGE: i64 = 0xAA;
+const SCORPION_TRACK_RANGE: i16 = 0xAA;
 /// Scorpion boosted speed when within tracking range and enemy_level > 1 (HP > 3).
 /// From Scorpion.asm line 164: $38000.
 const SCORPION_BOOST_SPEED: i32 = 0x3_8000;
@@ -154,6 +155,14 @@ fn apply_scorpion_resume_after_tracking_loc_3de6c(enemy: &mut ActiveEnemy, kid_x
         ScorpionResumeRouteLoc3DE6C::ClearDirection => Direction::Left,
         ScorpionResumeRouteLoc3DE6C::SetDirection => Direction::Right,
     };
+}
+
+fn scorpion_word_delta_loc_3dd7e(scorpion_pos: u32, kid_pos: u32) -> i16 {
+    // ASM Scorpion.asm loc_3DD7E: `move.w x/y_pos(a3),dN; sub.w x/y_pos(a4),dN`
+    // keeps only the signed 16-bit pixel-coordinate delta.
+    let scorpion_word = (scorpion_pos >> 16) as u16;
+    let kid_word = (kid_pos >> 16) as u16;
+    scorpion_word.wrapping_sub(kid_word) as i16
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -411,24 +420,26 @@ pub(crate) fn step_scorpion_tracking(
 ) {
     let Some(px) = player_x_pos else { return };
     let kid_x_word_d3 = (px >> 16) as u16;
-    let dx = (i64::from(enemy.x_pos) - i64::from(px)) >> 16; // scorpion_x - player_x
+    let dx = scorpion_word_delta_loc_3dd7e(enemy.x_pos, px);
 
     // Within tracking range: face toward player unless tracking-locked.
     // ASM loc_3DD7E lines 146-155: if $4E clear, set x_direction toward player
     // before the loc_3DDA8 range gate runs.
     if !enemy.scorpion_tracking_lock {
-        if dx > 0 {
-            enemy.facing = Direction::Left; // player is to the left
-        } else if dx < 0 {
+        enemy.facing = match dx.cmp(&0) {
+            Ordering::Greater => Direction::Left,
             // ASM Scorpion.asm loc_3DDA4: negative d4 (`scorpion_x - Kid_x`)
             // sets `x_direction(a3)`, the native right-facing scorpion state.
-            enemy.facing = Direction::Right; // player is to the right
-        }
+            Ordering::Less => Direction::Right,
+            // ASM Scorpion.asm loc_3DD7E: d4 == 0 is not negative, so it takes
+            // the `sf x_direction(a3)` branch.
+            Ordering::Equal => Direction::Left,
+        };
     }
 
     // ASM Scorpion.asm loc_3DDA8: after the optional re-facing branch, compare
     // d4 against +/-$AA; outside the window exits to loc_3DE7E for base speed.
-    if dx.abs() > SCORPION_TRACK_RANGE {
+    if i32::from(dx).abs() > i32::from(SCORPION_TRACK_RANGE) {
         enemy.walk_speed_override = SCORPION_BASE_SPEED;
         // ASM Scorpion.asm loc_3DE7E: out of range resets `$50(a5)`, then
         // checks Kid `y_vel(a4)` and clears `$4E(a5)` only when it is non-zero.
@@ -444,14 +455,9 @@ pub(crate) fn step_scorpion_tracking(
         enemy.walk_speed_override = SCORPION_BOOST_SPEED;
     }
 
-    let Ok(dx_word) = i16::try_from(dx) else {
-        return;
-    };
-    let dy_word = player_y_pos
-        .and_then(|py| i16::try_from((i64::from(enemy.y_pos) - i64::from(py)) >> 16).ok())
-        .unwrap_or(0);
+    let dy_word = player_y_pos.map_or(0, |py| scorpion_word_delta_loc_3dd7e(enemy.y_pos, py));
     let close_range_route = scorpion_close_range_route_loc_3ddc8(
-        dx_word,
+        dx,
         dy_word,
         enemy.facing,
         u16::from(enemy.enemy_level),
@@ -628,17 +634,17 @@ mod tests {
     }
 
     #[test]
-    fn step_scorpion_tracking_equal_x_preserves_facing_loc_3dd7e() {
+    fn step_scorpion_tracking_equal_x_clears_facing_loc_3dd7e() {
         let mut right = scorpion_tracking_enemy(100, 64, Direction::Right);
         step_scorpion_tracking(&mut right, Some(100 << 16), Some(64 << 16), Some(0));
         assert_eq!(
             right.facing,
-            Direction::Right,
-            "ASM Scorpion.asm loc_3DD7E leaves x_direction unchanged when d4 == 0",
+            Direction::Left,
+            "ASM Scorpion.asm loc_3DD7E treats d4 == 0 as the non-negative branch and clears x_direction",
         );
         assert!(
-            !right.scorpion_tracking_lock,
-            "ASM Scorpion.asm loc_3DDC8 rejects d4 == 0 when the scorpion is still facing right",
+            right.scorpion_tracking_lock,
+            "ASM Scorpion.asm loc_3DDC8 accepts d4 == 0 after loc_3DD7E clears x_direction",
         );
 
         let mut left = scorpion_tracking_enemy(100, 64, Direction::Left);
@@ -646,11 +652,36 @@ mod tests {
         assert_eq!(
             left.facing,
             Direction::Left,
-            "ASM Scorpion.asm loc_3DD7E also leaves clear x_direction unchanged when d4 == 0",
+            "ASM Scorpion.asm loc_3DD7E keeps clear x_direction on the d4 == 0 branch",
         );
         assert!(
             left.scorpion_tracking_lock,
             "ASM Scorpion.asm loc_3DDC8 accepts d4 == 0 only while x_direction is clear",
+        );
+    }
+
+    #[test]
+    fn step_scorpion_tracking_uses_wrapping_word_delta_loc_3dd7e() {
+        let mut scorpion = scorpion_tracking_enemy(5, 64, Direction::Right);
+
+        step_scorpion_tracking(&mut scorpion, Some(0xFFF0_0000), Some(64 << 16), Some(0));
+
+        assert_eq!(
+            scorpion.facing,
+            Direction::Left,
+            "ASM Scorpion.asm loc_3DD7E subtracts 16-bit x_pos words, so `5 - $FFF0` is positive `$0015` and clears x_direction",
+        );
+        assert!(
+            scorpion.scorpion_tracking_lock,
+            "ASM Scorpion.asm loc_3DDEE should still run the close-range sting gate after the wrapped word delta",
+        );
+        assert_eq!(
+            scorpion.scorpion_sting_frames, SCORPION_STING_ANIMATION_FRAMES_LOC_3DDEE,
+            "ASM Scorpion.asm loc_3DDA8 keeps the wrapped `$0015` delta inside range, then loc_3DDEE starts `stru_3DB8E`",
+        );
+        assert_eq!(
+            scorpion.walk_speed_override, 0,
+            "ASM Scorpion.asm loc_3DDEE clears `$50(a5)` for the sting animation after the range gate",
         );
     }
 
