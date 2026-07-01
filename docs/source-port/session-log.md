@@ -7,6 +7,19 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive constants mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/constants.rs` via `mise run mutants-file`.
+- Evidence: `OUTPUT=.cache/mutants/constants-current2 FILE=crates/wildside-core/src/constants.rs mise run mutants-file`
+  reports `59 mutants tested in 6m: 50 caught, 9 unviable`, with zero missed
+  mutants and zero timeouts.
+- Native behaviour is unchanged. Existing coverage already catches constant
+  values and masks used by the current scenarios tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-01 handoff (proactive GFX animation mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
