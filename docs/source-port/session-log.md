@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Dragon enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/dragon.rs`.
+- The slice covers the ASM-cited Dragon drift/hover DBF tails, face-player
+  motion, descent script movement and sentinels, terrain collision dispatch,
+  slide/rebound/return-to-anchor recovery paths, descent fire projectile setup,
+  fire-breath cone geometry, death sequence, and delete/respawn tails.
+- Evidence: `/tmp/mutants-dragon-proactive-1` reports `264 mutants tested in
+  26m: 222 caught, 42 unviable`.
+- Verification: the Dragon mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive UFO enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
