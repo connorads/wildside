@@ -28,13 +28,12 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive Robot enemy mutation slice. The
-  single-file wrapper on `crates/wildside-core/src/enemies/robot.rs` reports
-  `/tmp/mutants-robot-proactive-1`: `105 mutants tested in 11m: 93 caught,
-  12 unviable`. No source edit was warranted; the existing ASM-cited Robot walk
-  speed, collision/charge routing, shooting windup/hold/recovery, projectile
-  spawn/flight/impact, Berzerker side-contact, and live-step tests killed every
-  viable mutant.
+- **Current verification:** proactive Diamond enemy mutation slice. The
+  single-file wrapper on `crates/wildside-core/src/enemies/diamond.rs` reports
+  `/tmp/mutants-diamond-proactive-1`: `67 mutants tested in 7m: 57 caught,
+  10 unviable`. No source edit was warranted; the existing ASM-cited Diamond
+  high/low HP collision, damage/death, slope, Berzerker launch, shared-walker,
+  and live-step tests killed every viable mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 

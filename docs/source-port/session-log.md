@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Diamond enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/diamond.rs`.
+- The slice covers the ASM-cited Diamond high-HP init/collision/damage paths,
+  low-HP death/hurt/shared-walker paths, slope velocity mapping, Berzerker
+  side-contact launch/tick routing, and live-step branches.
+- Evidence: `/tmp/mutants-diamond-proactive-1` reports `67 mutants tested in
+  7m: 57 caught, 10 unviable`.
+- Verification: the Diamond mutation run completed with no survivors; no
+  source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Robot enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
