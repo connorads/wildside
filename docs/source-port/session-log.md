@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Archer enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/archer.rs`.
+- The slice covers the ASM-cited Archer shot-selection tables, opening-angle and
+  held-arrow setup, pose-frame positioning, arrow delete accounting,
+  death/respawn routing, and live-step branches.
+- Evidence: `/tmp/mutants-archer-proactive-2` reports `135 mutants tested in
+  14m: 124 caught, 11 unviable`.
+- Verification: the Archer mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Fire Demon enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
