@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-02 handoff (proactive CLI project-status mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-cli/src/project_status.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/project_status.rs -j 1
+  --gitignore=true --output /tmp/mutants-cli-project-status-4 --
+  project_status::tests::` reports `68 mutants tested in 4m: 62 caught, 6
+  unviable`, with zero missed mutants and zero timeouts.
+- Strengthened project-status selector tests for markdown row filtering,
+  priority ordering, ready/root-cause detection, visual classification,
+  human-blocker gating, and rendered status text.
+- No native gameplay behaviour changes.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive CLI release-gate mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused

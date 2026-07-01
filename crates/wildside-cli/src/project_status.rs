@@ -2,6 +2,7 @@ use crate::backlog::read_live_lanes;
 use anyhow::{Result, bail};
 use clap::ValueEnum;
 use serde::Serialize;
+use std::fmt::Write as _;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
@@ -77,7 +78,9 @@ pub(crate) fn run_project_status(
 ) -> Result<()> {
     let report = build_project_status_report(repo_root)?;
     match format {
-        ProjectStatusFormat::Text => print_project_status(&report),
+        ProjectStatusFormat::Text => {
+            print_project_status(&report);
+        }
         ProjectStatusFormat::Json => println!("{}", serde_json::to_string_pretty(&report)?),
     }
     if fail_on_human_blockers && !report.human_validation_blockers.is_empty() {
@@ -211,7 +214,7 @@ fn load_top_open_items(
     let contents = read_live_lanes(repo_root)?;
     let mut items = Vec::new();
     for line in contents.lines() {
-        if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
+        if !line.starts_with('|') {
             continue;
         }
         let columns = line
@@ -262,7 +265,7 @@ fn load_ready_to_implement_items(repo_root: &Path, limit: usize) -> Result<Vec<B
     let contents = read_live_lanes(repo_root)?;
     let mut items = Vec::new();
     for line in contents.lines() {
-        if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
+        if !line.starts_with('|') {
             continue;
         }
         let columns = line
@@ -309,7 +312,7 @@ fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidatio
     let contents = read_live_lanes(repo_root)?;
     let mut items = Vec::new();
     for line in contents.lines() {
-        if !line.starts_with('|') || line.contains("| Status |") || line.contains("|-----") {
+        if !line.starts_with('|') {
             continue;
         }
         let columns = line
@@ -338,8 +341,7 @@ fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidatio
             match priority {
                 "P0" => 0,
                 "P1" => 1,
-                "P2" => 2,
-                _ => 3,
+                _ => 2,
             }
         }
         priority_rank(&left.priority)
@@ -349,9 +351,17 @@ fn load_human_validation_blockers(repo_root: &Path) -> Result<Vec<HumanValidatio
     Ok(items)
 }
 
-fn print_project_status(report: &ProjectStatusReport) {
-    println!("Project Status");
-    println!(
+fn print_project_status(report: &ProjectStatusReport) -> String {
+    let output = render_project_status(report);
+    print!("{output}");
+    output
+}
+
+fn render_project_status(report: &ProjectStatusReport) -> String {
+    let mut output = String::new();
+    let _ = writeln!(output, "Project Status");
+    let _ = writeln!(
+        output,
         "  headline: {} ({})",
         report.headline_gate,
         if report.headline_passed {
@@ -360,9 +370,10 @@ fn print_project_status(report: &ProjectStatusReport) {
             "missing/failing"
         }
     );
-    println!("  supporting gates:");
+    let _ = writeln!(output, "  supporting gates:");
     for gate in &report.secondary_gates {
-        println!(
+        let _ = writeln!(
+            output,
             "    - {}: {}",
             gate.name,
             if gate.passed {
@@ -372,67 +383,76 @@ fn print_project_status(report: &ProjectStatusReport) {
             }
         );
     }
-    println!("  ready to implement now:");
+    let _ = writeln!(output, "  ready to implement now:");
     if report.ready_to_implement_items.is_empty() {
-        println!("    - none");
+        let _ = writeln!(output, "    - none");
     } else {
         for item in &report.ready_to_implement_items {
-            println!(
+            let _ = writeln!(
+                output,
                 "    - #{} {} {}: {}",
                 item.id, item.priority, item.system, item.summary
             );
         }
     }
-    println!("  top open playability risks:");
+    let _ = writeln!(output, "  top open playability risks:");
     if report.top_open_playability_items.is_empty() {
-        println!("    - none");
+        let _ = writeln!(output, "    - none");
     } else {
         for item in &report.top_open_playability_items {
-            println!(
+            let _ = writeln!(
+                output,
                 "    - #{} {} {}: {}",
                 item.id, item.priority, item.system, item.summary
             );
         }
     }
-    println!("  top open visual risks:");
+    let _ = writeln!(output, "  top open visual risks:");
     if report.top_open_visual_items.is_empty() {
-        println!("    - none");
+        let _ = writeln!(output, "    - none");
     } else {
         for item in &report.top_open_visual_items {
-            println!(
+            let _ = writeln!(
+                output,
                 "    - #{} {} {}: {}",
                 item.id, item.priority, item.system, item.summary
             );
         }
     }
-    println!("  human validation/repro blockers:");
+    let _ = writeln!(output, "  human validation/repro blockers:");
     if report.human_validation_blockers.is_empty() {
-        println!("    - none");
+        let _ = writeln!(output, "    - none");
     } else {
         for item in &report.human_validation_blockers {
-            println!(
+            let _ = writeln!(
+                output,
                 "    - #{} {} {} {}: {}",
                 item.id, item.status, item.priority, item.system, item.summary
             );
         }
-        println!("    - review: human playtest required to close [?]/[b] rows");
+        let _ = writeln!(
+            output,
+            "    - review: human playtest required to close [?]/[b] rows"
+        );
     }
-    println!("  warnings:");
+    let _ = writeln!(output, "  warnings:");
     if report.warnings.is_empty() {
-        println!("    - none");
+        let _ = writeln!(output, "    - none");
     } else {
         for warning in &report.warnings {
-            println!("    - {warning}");
+            let _ = writeln!(output, "    - {warning}");
         }
     }
+    output
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        BacklogFocus, ProjectStatusFormat, build_project_status_report,
+        BacklogFocus, BacklogItem, GateSignal, HumanValidationBlocker, ProjectStatusFormat,
+        ProjectStatusReport, build_project_status_report, classify_backlog_focus,
         load_human_validation_blockers, load_ready_to_implement_items, load_top_open_items,
-        run_project_status,
+        print_project_status, render_project_status, run_project_status,
     };
     use std::fs;
     use tempfile::TempDir;
@@ -466,6 +486,79 @@ mod tests {
             load_top_open_items(temp_dir.path(), 5, BacklogFocus::VisualParity).expect("items");
         assert_eq!(visual_items.len(), 1);
         assert_eq!(visual_items[0].id, "005");
+    }
+
+    #[test]
+    fn visual_focus_classifier_covers_system_and_summary_markers() {
+        for (system, summary) in [
+            ("render", "ordinary row"),
+            ("menu", "ordinary row"),
+            ("level", "graphic corruption"),
+            ("level", "animation phase drift"),
+            ("enemy", "sprite frame wrong"),
+            ("level", "background seam"),
+            ("player", "render ordering"),
+            ("level", "intro boot story"),
+        ] {
+            assert_eq!(
+                classify_backlog_focus(system, summary),
+                BacklogFocus::VisualParity,
+                "{system}/{summary} should be visual"
+            );
+        }
+        assert_eq!(
+            classify_backlog_focus("player", "collision route root-caused"),
+            BacklogFocus::Playability
+        );
+    }
+
+    #[test]
+    fn open_item_parser_skips_non_rows_headers_and_malformed_rows() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+not a table row
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 001 | [ ] | P0 | player |
+| 002 | [ ] | P0 | player | selectable row |
+",
+        )
+        .expect("backlog");
+
+        let items =
+            load_top_open_items(temp_dir.path(), 5, BacklogFocus::Playability).expect("items");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "002");
+    }
+
+    #[test]
+    fn open_item_priority_ranking_keeps_p2_ahead_of_p3() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 020 | [ ] | P3 | player | p3 row sorts last | verify |
+| 030 | [ ] | P2 | player | p2 row sorts before p3 | verify |
+| 010 | [ ] | P1 | player | p1 row sorts first | verify |
+",
+        )
+        .expect("backlog");
+
+        let items =
+            load_top_open_items(temp_dir.path(), 5, BacklogFocus::Playability).expect("items");
+        assert_eq!(
+            items
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["010", "030", "020"]
+        );
     }
 
     #[test]
@@ -515,6 +608,37 @@ mod tests {
     }
 
     #[test]
+    fn ready_items_require_open_status_supported_priority_and_root_cause_marker() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 010 | [x] | P0 | enemy | closed root cause identified | verify |
+| 011 | [ ] | PX | enemy | invalid priority root cause identified | verify |
+| 012 | [ ] | P2 | enemy | no cause marker | verify |
+| 013 | [ ] | P2 | enemy |
+| 020 | [~] | P3 | enemy | p3 ready | root-caused in verify |
+| 021 | [ ] | P2 | enemy | p2 ready root cause identified | verify |
+| 022 | [ ] | P1 | enemy | p1 ready | root-caused |
+| 023 | [ ] | P0 | enemy | p0 ready root cause identified | verify |
+",
+        )
+        .expect("backlog");
+
+        let items = load_ready_to_implement_items(temp_dir.path(), 10).expect("items");
+        assert_eq!(
+            items
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["023", "022", "021", "020"]
+        );
+    }
+
+    #[test]
     fn project_status_extracts_human_validation_blockers() {
         let temp_dir = TempDir::new().expect("temp dir");
         fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
@@ -537,6 +661,35 @@ mod tests {
         assert_eq!(items[0].status, "[?]");
         assert_eq!(items[1].id, "146");
         assert_eq!(items[1].status, "[b]");
+    }
+
+    #[test]
+    fn human_blocker_parser_skips_malformed_rows_and_ranks_p0_to_p2() {
+        let temp_dir = TempDir::new().expect("temp dir");
+        fs::create_dir_all(temp_dir.path().join("docs/source-port")).expect("docs dir");
+        fs::write(
+            temp_dir.path().join("docs/source-port/backlog.md"),
+            "\
+not a table row
+| # | Status | Pri | System | Summary | Verify |
+|-----|--------|-----|--------|---------|--------|
+| 010 | [?] | P1 | render |
+| 011 | [?] | P3 | render | unsupported blocker priority | review |
+| 010 | [b] | P2 | level | p2 blocker | review |
+| 020 | [?] | P1 | render | p1 blocker | review |
+| 030 | [b] | P0 | audio | p0 blocker |
+",
+        )
+        .expect("backlog");
+
+        let items = load_human_validation_blockers(temp_dir.path()).expect("items");
+        assert_eq!(
+            items
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            ["030", "020", "010"]
+        );
     }
 
     #[test]
@@ -616,11 +769,73 @@ mod tests {
                 .any(|warning| warning.contains("1p-playable"))
         );
         assert!(
+            !report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("1p-accurate")),
+            "passing supporting gate should not warn: {:?}",
+            report.warnings
+        );
+        assert!(
             report
                 .warnings
                 .iter()
                 .any(|warning| warning.contains("human validation/repro blocker"))
         );
+    }
+
+    #[test]
+    fn render_project_status_includes_all_sections_and_review_hint() {
+        let report = ProjectStatusReport {
+            headline_gate: "1p-playable".to_owned(),
+            headline_passed: true,
+            secondary_gates: vec![GateSignal {
+                name: "1p-accurate".to_owned(),
+                passed: false,
+                detail: "state_sweep failed".to_owned(),
+                path: "/tmp/report.json".to_owned(),
+                failing_step: Some("state_sweep: failed".to_owned()),
+            }],
+            ready_to_implement_items: vec![BacklogItem {
+                id: "010".to_owned(),
+                priority: "P0".to_owned(),
+                system: "enemy".to_owned(),
+                summary: "ready row".to_owned(),
+            }],
+            top_open_playability_items: vec![BacklogItem {
+                id: "011".to_owned(),
+                priority: "P1".to_owned(),
+                system: "player".to_owned(),
+                summary: "play row".to_owned(),
+            }],
+            top_open_visual_items: vec![BacklogItem {
+                id: "012".to_owned(),
+                priority: "P1".to_owned(),
+                system: "render".to_owned(),
+                summary: "visual row".to_owned(),
+            }],
+            human_validation_blockers: vec![HumanValidationBlocker {
+                id: "013".to_owned(),
+                status: "[?]".to_owned(),
+                priority: "P0".to_owned(),
+                system: "audio".to_owned(),
+                summary: "human row".to_owned(),
+            }],
+            warnings: vec!["warning row".to_owned()],
+        };
+
+        let text = render_project_status(&report);
+
+        assert!(text.contains("Project Status"));
+        assert!(text.contains("headline: 1p-playable (passed)"));
+        assert!(text.contains("1p-accurate: missing/failing"));
+        assert!(text.contains("#010 P0 enemy: ready row"));
+        assert!(text.contains("#011 P1 player: play row"));
+        assert!(text.contains("#012 P1 render: visual row"));
+        assert!(text.contains("#013 [?] P0 audio: human row"));
+        assert!(text.contains("review: human playtest required to close [?]/[b] rows"));
+        assert!(text.contains("warning row"));
+        assert_eq!(print_project_status(&report), text);
     }
 
     #[test]
@@ -695,5 +910,8 @@ mod tests {
         let error = run_project_status(temp_dir.path(), ProjectStatusFormat::Text, true)
             .expect_err("human blockers fail completion audit");
         assert!(error.to_string().contains("human validation/repro blocker"));
+
+        run_project_status(temp_dir.path(), ProjectStatusFormat::Text, false)
+            .expect("human blockers should not fail unless explicitly requested");
     }
 }

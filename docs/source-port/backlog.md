@@ -26,14 +26,14 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
+- **2026-07-02 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive CLI release-gate mutation shard. Direct
-  `cargo mutants` against `crates/wildside-cli/src/release_gate.rs` reported
-  `30 mutants tested in 2m: 30 caught`. This added tests for gate target
-  missing-ROM failures, release-step pass/fail recording, cargo-step diagnostics,
-  timestamp shape, and the shared sweep-failure predicate. No native gameplay
-  behaviour changes.
+- **Current verification:** proactive CLI project-status mutation shard. Direct
+  `cargo mutants` against `crates/wildside-cli/src/project_status.rs` reported
+  `68 mutants tested in 4m: 62 caught, 6 unviable`. This strengthened selector
+  tests for row filtering, priority ordering, ready/root-cause detection,
+  visual classification, human-blocker gating, and rendered status text. No
+  native gameplay behaviour changes.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
