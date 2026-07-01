@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP clean mutation shards)
+
+- **Fallback verification continued.** With no ready/open rows,
+  checked current focused mutation coverage in `crates/wildside-core/src/vdp.rs`
+  without source changes.
+- Clean focused shards: `/tmp/mutants-vdp-special-decompress-1` (`13 mutants
+  tested in 2m: 13 caught`), `/tmp/mutants-vdp-intro5-particles-1` (`36 mutants
+  tested in 3m: 36 caught`), `/tmp/mutants-vdp-enigma-decode-1` (`3 mutants
+  tested in 61s: 3 caught`), `/tmp/mutants-vdp-cram-words-1` (`6 mutants tested
+  in 73s: 6 caught`), `/tmp/mutants-vdp-intro5-fade-1` (`10 mutants tested in
+  81s: 9 caught, 1 unviable`), and `/tmp/mutants-vdp-intro-text-script-1` (`36
+  mutants tested in 3m: 32 caught, 1 unviable, 3 timeouts`).
+- The text-script timeouts are malformed cursor-progress mutations; no fresh
+  shard had missed mutants.
+- Verification: `cargo fmt --check`,
+  `cargo test -q -p wildside-core vdp::tests -- --nocapture`, and
+  `mise run verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused VDP survivor family or a
+  new file shard.
+
 ## 2026-07-01 handoff (proactive VDP decompression mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,

@@ -41,6 +41,17 @@ and stop — never commit churn.
   timeouts`. The missed mutant is equivalent in this wrapper: an oversized DBF
   count on resumed chunks is capped by the actual buffered words, so the same
   bytes are written. The timeouts are malformed chunk-span progress mutations.
+- **Current clean VDP shards:** fresh focused reruns found no missed mutants in
+  special art remapping (`/tmp/mutants-vdp-special-decompress-1`: `13 mutants
+  tested in 2m: 13 caught`), IntroSequence5 particles
+  (`/tmp/mutants-vdp-intro5-particles-1`: `36 mutants tested in 3m: 36 caught`),
+  the Enigma decode wrapper (`/tmp/mutants-vdp-enigma-decode-1`: `3 mutants
+  tested in 61s: 3 caught`), CRAM word extraction (`/tmp/mutants-vdp-cram-words-1`:
+  `6 mutants tested in 73s: 6 caught`), IntroSequence5 fade timing
+  (`/tmp/mutants-vdp-intro5-fade-1`: `10 mutants tested in 81s: 9 caught, 1
+  unviable`), and IntroText script replay (`/tmp/mutants-vdp-intro-text-script-1`:
+  `36 mutants tested in 3m: 32 caught, 1 unviable, 3 timeouts`). The text-script
+  timeouts are malformed parser-progress mutations.
   `cargo fmt --check` and
   `cargo test -q -p wildside-core vdp::tests -- --nocapture` are green;
   `mise run verify-slice-fast` passes.
