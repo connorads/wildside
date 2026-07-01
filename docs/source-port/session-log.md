@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Dragon Walking enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/dragon_walking.rs`.
+- The slice covers the ASM-cited Dragon Walking child init, HP setup and
+  animation selection, collision routing, Berzerker knockback, breath
+  trigger/object/child poll/recovery paths, shared-walker pacing and terrain
+  blocking, live breath projectile spawn, damage/death routes, and spawned-child
+  resume dispatch.
+- Evidence: `/tmp/mutants-dragon-walking-proactive-2` reports `136 mutants
+  tested in 13m: 112 caught, 24 unviable`.
+- Verification: the Dragon Walking mutation run completed with no survivors; no
+  source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Dragon enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
