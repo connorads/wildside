@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Big Hopping Skull enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/big_hopping_skull.rs`.
+- The slice covers the ASM-cited Big Hopping Skull startup and level-height
+  delete gate, contact wait probe, damage entry, hit groan/voice gates,
+  hit-animation wait, death/respawn/delete-tail routing, relaunch, bounds
+  correction, and live-step branches.
+- Evidence: `/tmp/mutants-big-hopping-skull-proactive-1` reports `71 mutants
+  tested in 7m: 56 caught, 15 unviable`.
+- Verification: the Big Hopping Skull mutation run completed with no survivors;
+  no source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Spinning Twins enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the

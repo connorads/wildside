@@ -28,13 +28,14 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive Spinning Twins enemy mutation slice. The
-  single-file wrapper on `crates/wildside-core/src/enemies/spinning_twins.rs`
-  reports `/tmp/mutants-spinning-twins-proactive-1`: `126 mutants tested in
-  12m: 105 caught, 21 unviable`. No source edit was warranted; the existing
-  ASM-cited Spinning Twins orbit/drop, walking collision dispatch, settle,
-  Berzerker launch, damage/death routing, and falling visual-step tests killed
-  every viable mutant.
+- **Current verification:** proactive Big Hopping Skull enemy mutation slice.
+  The single-file wrapper on
+  `crates/wildside-core/src/enemies/big_hopping_skull.rs` reports
+  `/tmp/mutants-big-hopping-skull-proactive-1`: `71 mutants tested in 7m:
+  56 caught, 15 unviable`. No source edit was warranted; the existing ASM-cited
+  Big Hopping Skull startup, contact wait, damage/hit voice gates,
+  death/respawn/delete-tail routing, relaunch, bounds correction, and live-step
+  tests killed every viable mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
