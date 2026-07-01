@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Ninja enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/ninja.rs`.
+- The slice covers the ASM-cited Ninja init, Kid/projectile threat routing,
+  guard and jump-threat poses, stealth pacing reset/resume routes,
+  jump-attack launch/airborne/collision paths, wall bounce, landing,
+  Kid-above contact, and death/delete routing.
+- Evidence: `/tmp/mutants-ninja-proactive-1` reports `189 mutants tested in
+  18m: 156 caught, 33 unviable`.
+- Verification: the Ninja mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Hand enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
