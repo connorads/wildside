@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive CLI oracle-cache mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-cli/src/cache.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/cache.rs -j 1 --gitignore=true
+  --output /tmp/mutants-cli-cache-3 -- cache::tests::` reports `9 mutants
+  tested in 74s: 7 caught, 2 unviable`, with zero missed mutants and zero
+  timeouts.
+- Strengthened oracle-cache tests with real temp files for persisted frame/audio
+  copying, cached manifest path rewrites, stale cached-frame rejection, and
+  idempotent storage when a manifest already points at cached frame files.
+- No native gameplay behaviour changes.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive CLI diff diagnostic mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused

@@ -127,6 +127,26 @@ pub(crate) fn store_oracle_cache(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::oracle::OracleFrame;
+    use tempfile::TempDir;
+
+    fn test_manifest(frame_path: PathBuf, audio_path: PathBuf) -> OracleManifest {
+        OracleManifest {
+            sample_rate: 44_100,
+            audio_path,
+            frames: vec![OracleFrame {
+                label: "frame_0".to_string(),
+                frame_index: 0,
+                png_path: frame_path,
+                sha1: "fake-frame-sha1".to_string(),
+            }],
+            states: Vec::new(),
+            frame_crcs: vec![0x1234_5678],
+            memory_watches: Vec::new(),
+            vdp_pixel_samples: Vec::new(),
+            settle_trace: Vec::new(),
+        }
+    }
 
     #[test]
     fn cache_key_deterministic_for_same_inputs() {
@@ -186,5 +206,80 @@ mod tests {
         let key = OracleCacheKey::new(b"nonexistent", b"nonexistent");
         let result = load_cached_oracle(&key, Path::new("/tmp/not-a-real-dir"));
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn store_oracle_cache_copies_frames_audio_and_rewrites_manifest_paths() {
+        let dir = TempDir::new().expect("temp");
+        let source_dir = dir.path().join("source");
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_frame = source_dir.join("frame_0000.png");
+        let source_audio = source_dir.join("audio-source.wav");
+        fs::write(&source_frame, b"fake png bytes").expect("frame");
+        fs::write(&source_audio, b"fake wav bytes").expect("audio");
+
+        let key = OracleCacheKey::new(b"rom", b"script");
+        let manifest = test_manifest(source_frame.clone(), source_audio.clone());
+        store_oracle_cache(&key, dir.path(), &manifest, &source_dir).expect("store");
+
+        let cached = load_cached_oracle(&key, dir.path()).expect("cached manifest");
+        let expected_dir = key.cache_dir(dir.path());
+        let expected_frame = expected_dir.join("frames/frame_0000.png");
+        let expected_audio = expected_dir.join("audio.wav");
+        assert_eq!(cached.frames[0].png_path, expected_frame);
+        assert_eq!(cached.audio_path, expected_audio);
+        assert_eq!(
+            fs::read(&cached.frames[0].png_path).expect("cached frame"),
+            b"fake png bytes"
+        );
+        assert_eq!(
+            fs::read(&cached.audio_path).expect("cached audio"),
+            b"fake wav bytes"
+        );
+        assert_eq!(cached.sample_rate, 44_100);
+        assert_eq!(cached.frame_crcs, vec![0x1234_5678]);
+    }
+
+    #[test]
+    fn store_oracle_cache_accepts_manifest_that_already_points_at_cached_frame() {
+        let dir = TempDir::new().expect("temp");
+        let source_dir = dir.path().join("source");
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_frame = source_dir.join("frame_0000.png");
+        let source_audio = source_dir.join("audio-source.wav");
+        fs::write(&source_frame, b"fake png bytes").expect("frame");
+        fs::write(&source_audio, b"fake wav bytes").expect("audio");
+
+        let key = OracleCacheKey::new(b"rom", b"script");
+        let manifest = test_manifest(source_frame, source_audio);
+        store_oracle_cache(&key, dir.path(), &manifest, &source_dir).expect("store");
+        let cached = load_cached_oracle(&key, dir.path()).expect("cached manifest");
+
+        store_oracle_cache(&key, dir.path(), &cached, &source_dir).expect("store cached manifest");
+        assert_eq!(
+            fs::read(key.cache_dir(dir.path()).join("frames/frame_0000.png"))
+                .expect("cached frame"),
+            b"fake png bytes"
+        );
+    }
+
+    #[test]
+    fn load_cached_oracle_rejects_manifest_when_cached_frame_is_missing() {
+        let dir = TempDir::new().expect("temp");
+        let source_dir = dir.path().join("source");
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_frame = source_dir.join("frame_0000.png");
+        let source_audio = source_dir.join("audio-source.wav");
+        fs::write(&source_frame, b"fake png bytes").expect("frame");
+        fs::write(&source_audio, b"fake wav bytes").expect("audio");
+
+        let key = OracleCacheKey::new(b"rom", b"script");
+        let manifest = test_manifest(source_frame, source_audio);
+        store_oracle_cache(&key, dir.path(), &manifest, &source_dir).expect("store");
+
+        let cached_frame = key.cache_dir(dir.path()).join("frames/frame_0000.png");
+        fs::remove_file(cached_frame).expect("remove cached frame");
+
+        assert!(load_cached_oracle(&key, dir.path()).is_none());
     }
 }
