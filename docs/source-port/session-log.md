@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP decompression mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  continued mutation hardening in `crates/wildside-core/src/vdp.rs`, targeting
+  `DecompressToVRAM loc_14300/loc_14314` and chunk-span survivors left by the
+  wider VDP shard.
+- This pass adds ASM-cited regressions proving that
+  `write_decompress_to_vram_art_loc_14300_14314` preserves a non-zero VRAM base
+  across rollover chunks and odd trailing bytes, and that
+  `decompress_chunk_spans` emits no empty tail span at the exact first-buffer
+  boundary.
+- Evidence: focused rerun `/tmp/mutants-vdp-decompress-2` reports `37 mutants
+  tested in 4m: 1 missed, 30 caught, 1 unviable, 5 timeouts`. The missed mutant
+  is equivalent in this native wrapper because an oversized DBF count is capped
+  by the actual buffered words; the timeout mutants corrupt chunk-span progress.
+- Verification: `cargo fmt --check`,
+  `cargo test -q -p wildside-core vdp::tests -- --nocapture`, and
+  `mise run verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused VDP survivor family or a
+  new file shard.
+
 ## 2026-07-01 handoff (proactive VDP intro-text mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,

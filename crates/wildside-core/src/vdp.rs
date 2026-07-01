@@ -5070,6 +5070,42 @@ mod tests {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn write_decompress_to_vram_loc_14300_preserves_base_offset_chunks_and_odd_tail() {
+        let mut vdp = VdpState::new();
+        let art = (0..0x1005).map(|byte| byte as u8).collect::<Vec<_>>();
+
+        write_decompress_to_vram_art_loc_14300_14314(&mut vdp, 0x0200, &art);
+
+        for &source_index in &[0usize, 1, 0x0FFE, 0x0FFF, 0x1000, 0x1001, 0x1004] {
+            assert_eq!(
+                vdp.vram[0x0200 + source_index],
+                art[source_index],
+                "ASM loc_14300/loc_14314 should stream decompressed byte ${source_index:04X} to VRAM base+source_index across rollover chunks and odd tails",
+            );
+        }
+        assert_eq!(
+            vdp.vram[0x0200 + art.len()],
+            0,
+            "ASM loc_14314 writes exactly the emitted byte count; the odd-tail preservation must not overrun into the following VRAM byte",
+        );
+    }
+
+    #[test]
+    fn decompress_chunk_spans_stop_at_even_byte_length_without_empty_tail_span() {
+        assert_eq!(
+            decompress_chunk_spans(DECOMPRESS_FIRST_CHUNK_BYTES),
+            vec![DecompressChunkSpan {
+                source_start: 0,
+                byte_len: DECOMPRESS_FIRST_CHUNK_BYTES,
+                buffer_start_addr: 0,
+                rollover_source_end: None,
+            }],
+            "ASM loc_14300 only emits the exact full first chunk when the decompressed byte count ends on the buffer boundary",
+        );
+    }
+
+    #[test]
     fn write_full_plane_rows_pins_byte_address_per_row_and_col() {
         // ASM sub_1CD88 (kid.asm:31931-31948): writes 28 plane rows starting
         // at the VRAM target seeded by the caller, advancing by `addi.l

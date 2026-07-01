@@ -33,12 +33,15 @@ and stop — never commit churn.
   `OUTPUT=.cache/mutants/vdp-current FILE=crates/wildside-core/src/vdp.rs
   mise run mutants-file`, which reported `800 mutants tested in 48m: 98
   missed, 286 caught, 408 unviable, 8 timeouts`.
-- **VDP follow-up evidence:** added direct regressions for `loc_1C7A0`
-  IntroText script rows and cleanup control bytes (`$FF` terminator, `$FE`
-  delay marker). Focused rerun `/tmp/mutants-vdp-intro-text-2` reports `39
-  mutants tested in 3m: 35 caught, 1 unviable, 3 timeouts`; no mutants were
-  missed. The three remaining timeouts are loop-progress mutations that prevent
-  the parser from advancing. `cargo fmt` and
+- **VDP follow-up evidence:** added direct regressions for
+  `DecompressToVRAM loc_14300/loc_14314` byte placement across non-zero VRAM
+  bases, rollover chunks, and odd tails, plus the exact first-chunk boundary in
+  `decompress_chunk_spans`. Focused rerun `/tmp/mutants-vdp-decompress-2`
+  reports `37 mutants tested in 4m: 1 missed, 30 caught, 1 unviable, 5
+  timeouts`. The missed mutant is equivalent in this wrapper: an oversized DBF
+  count on resumed chunks is capped by the actual buffered words, so the same
+  bytes are written. The timeouts are malformed chunk-span progress mutations.
+  `cargo fmt --check` and
   `cargo test -q -p wildside-core vdp::tests -- --nocapture` are green;
   `mise run verify-slice-fast` passes.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
