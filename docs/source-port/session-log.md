@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP intro-text mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  continued mutation hardening in `crates/wildside-core/src/vdp.rs`, targeting
+  the IntroText `loc_1C7A0` script/cleanup survivor family left by the wider
+  VDP shard.
+- This pass adds ASM-cited regressions for IntroText2 and IntroText3 script
+  table rows, plus `clear_intro_text_script_cells_loc_1c7a0` handling of the
+  `$FF` terminator and `$FE,<duration>` delay marker.
+- Evidence: focused rerun `/tmp/mutants-vdp-intro-text-2` reports `39 mutants
+  tested in 3m: 35 caught, 1 unviable, 3 timeouts`; no mutants were missed.
+  The three remaining timeouts are loop-progress mutations that stop the parser
+  advancing.
+- Verification: `cargo fmt`,
+  `cargo test -q -p wildside-core vdp::tests -- --nocapture`, and
+  `mise run verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused VDP survivor family or a
+  new file shard.
+
 ## 2026-07-01 handoff (proactive VDP intro-5 particle mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,

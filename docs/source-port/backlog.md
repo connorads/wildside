@@ -33,15 +33,12 @@ and stop — never commit churn.
   `OUTPUT=.cache/mutants/vdp-current FILE=crates/wildside-core/src/vdp.rs
   mise run mutants-file`, which reported `800 mutants tested in 48m: 98
   missed, 286 caught, 408 unviable, 8 timeouts`.
-- **VDP follow-up evidence:** added direct regressions for IntroSequence5
-  `loc_1BE3C/loc_1BE74` particle movement and DBF deletion boundaries. Focused
-  mutation rerun `/tmp/mutants-vdp-intro5-particles-1` reports `19 mutants
-  tested in 2m: 19 caught`. Earlier intro-boundary evidence remains in
-  `session-log.md`: `/tmp/mutants-vdp-intro-boundaries-2` reported `65 mutants
-  tested in 4m: 7 missed, 54 caught, 4 unviable`, and
-  `/tmp/mutants-vdp-coldboot-3` reported `13 mutants tested in 88s: 2 missed,
-  10 caught, 1 unviable`, with remaining misses equivalent/unreachable.
-  `cargo fmt --check` and
+- **VDP follow-up evidence:** added direct regressions for `loc_1C7A0`
+  IntroText script rows and cleanup control bytes (`$FF` terminator, `$FE`
+  delay marker). Focused rerun `/tmp/mutants-vdp-intro-text-2` reports `39
+  mutants tested in 3m: 35 caught, 1 unviable, 3 timeouts`; no mutants were
+  missed. The three remaining timeouts are loop-progress mutations that prevent
+  the parser from advancing. `cargo fmt` and
   `cargo test -q -p wildside-core vdp::tests -- --nocapture` are green;
   `mise run verify-slice-fast` passes.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,

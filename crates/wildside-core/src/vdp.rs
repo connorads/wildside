@@ -4602,6 +4602,37 @@ mod tests {
     }
 
     #[test]
+    fn intro_text_script_table_keeps_introtext2_and_introtext3_headers_loc_1c7a0() {
+        let introtext2 = intro_text_script_loc_1c7a0(1)
+            .expect("ASM IntroText2 table row should exist for Load_IntroSequence2");
+        assert_eq!(
+            (
+                introtext2.base_vram_byte_address,
+                introtext2.base_tile_word,
+                introtext2.x_pos,
+                introtext2.y_pos,
+                introtext2.text_bytes,
+            ),
+            (0xE000, 0xC7D3, 7, 3, INTRO_TEXT_2_BYTES),
+            "ASM IntroText2 (kid.asm:31384) targets the plane-B hologram nametable and must not fall through to another script row",
+        );
+
+        let introtext3 = intro_text_script_loc_1c7a0(2)
+            .expect("ASM IntroText3 table row should exist for Load_IntroSequence3");
+        assert_eq!(
+            (
+                introtext3.base_vram_byte_address,
+                introtext3.base_tile_word,
+                introtext3.x_pos,
+                introtext3.y_pos,
+                introtext3.text_bytes,
+            ),
+            (0x0000, 0x67D3, 0x0A, 4, INTRO_TEXT_3_BYTES),
+            "ASM IntroText3 (kid.asm:31386) has its own plane-A row and must not disappear from loc_1C7A0's script table",
+        );
+    }
+
+    #[test]
     fn intro_sequence_text_cleanup_uses_blank_pattern_not_tile_zero() {
         let mut baked_text_tilemap = vec![0u16; 40 * 28];
         baked_text_tilemap[2 * 40 + 8] = 0x67E6;
@@ -4622,6 +4653,42 @@ mod tests {
             vram_word(&vdp, 0x0110),
             INTRO_TEXT_CLEAR_TILE_WORD_LOC_1C7A0,
             "ASM loc_1C7A0/sub_1C7F6 writes runtime glyphs later; native's baked-map cleanup must use a zeroed pattern tile instead of tile 0, because plane-A nametable bytes occupy tile 0's pattern slot",
+        );
+    }
+
+    #[test]
+    fn intro_text_cleanup_honours_ff_terminator_and_fe_delay_marker_loc_1c7a0() {
+        static TERMINATED: &[u8] = b"A\xFFB";
+        let terminated = IntroTextScriptLoc1C7A0 {
+            base_vram_byte_address: 0,
+            base_tile_word: 0x67D3,
+            delay_frames: 2,
+            x_pos: 1,
+            y_pos: 1,
+            text_bytes: TERMINATED,
+        };
+        let mut vdp = VdpState::new();
+        clear_intro_text_script_cells_loc_1c7a0(&mut vdp, &terminated);
+        let after_terminator = wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 2, 1, 0);
+        assert_eq!(
+            vram_word(&vdp, usize::from(after_terminator.vram_word_address)),
+            0,
+            "ASM loc_1C7A0 stops cleanup at `$FF`; bytes after the terminator are data-dead and must not clear later cells",
+        );
+
+        static DELAYED: &[u8] = b"\xFE\x02A\xFF";
+        let delayed = IntroTextScriptLoc1C7A0 {
+            text_bytes: DELAYED,
+            ..terminated
+        };
+        let mut vdp = VdpState::new();
+        clear_intro_text_script_cells_loc_1c7a0(&mut vdp, &delayed);
+        let skipped_delay_byte =
+            wildside_data::title_intro_glyph_write_sub_1C7F6(0, 0x67D3, 2, 1, 0);
+        assert_eq!(
+            vram_word(&vdp, usize::from(skipped_delay_byte.vram_word_address)),
+            0,
+            "ASM loc_1C7D2 treats `$FE,<duration>` as a delay marker; the duration byte is not a glyph cell to clear",
         );
     }
 
