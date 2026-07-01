@@ -6564,6 +6564,11 @@ mod tests {
         assert_eq!(word_at(first_art_word + 64 * 2), 0x8100);
         // ASM loc_19C04 pads the bottom rows after the copied art.
         assert_eq!(word_at((15 * 64) * 2), 0x02FB);
+        assert_eq!(
+            word_at((27 * 64 + 63) * 2),
+            0x02FB,
+            "ASM loc_19C04 advances through every bottom-padding word until the final title-card nametable cell"
+        );
     }
 
     #[test]
@@ -6603,6 +6608,21 @@ mod tests {
             0x0094,
             "ASM loc_19B58 fills title-card tilemap work area with $0094",
         );
+        for &(addr, expected, label) in &[
+            (0xE000, 0x0094, "loc_19B58 first tilemap clear word"),
+            (0xE002, 0x0094, "loc_19B58 second tilemap clear word"),
+            (
+                0xE000 + (0x0800 * 2 - 2),
+                0x0094,
+                "loc_19B58 final tilemap clear word",
+            ),
+        ] {
+            assert_eq!(
+                u16::from_be_bytes([vdp.vram[addr], vdp.vram[addr + 1]]),
+                expected,
+                "ASM {label} should land at VRAM byte ${addr:04X}",
+            );
+        }
     }
 
     #[test]

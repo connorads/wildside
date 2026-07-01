@@ -28,56 +28,24 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** `crates/wildside-core/src/vdp.rs`
-  mutation-hardening pass started from
-  `OUTPUT=.cache/mutants/vdp-current FILE=crates/wildside-core/src/vdp.rs
-  mise run mutants-file`, which reported `800 mutants tested in 48m: 98
-  missed, 286 caught, 408 unviable, 8 timeouts`.
-- **VDP follow-up evidence:** added direct regressions for
-  `DecompressToVRAM loc_14300/loc_14314` byte placement across non-zero VRAM
-  bases, rollover chunks, and odd tails, plus the exact first-chunk boundary in
-  `decompress_chunk_spans`. Focused rerun `/tmp/mutants-vdp-decompress-2`
-  reports `37 mutants tested in 4m: 1 missed, 30 caught, 1 unviable, 5
-  timeouts`. The missed mutant is equivalent in this wrapper: an oversized DBF
-  count on resumed chunks is capped by the actual buffered words, so the same
-  bytes are written. The timeouts are malformed chunk-span progress mutations.
-- **Current clean VDP shards:** fresh focused reruns found no missed mutants in
-  special art remapping (`/tmp/mutants-vdp-special-decompress-1`: `13 mutants
-  tested in 2m: 13 caught`), IntroSequence5 particles
-  (`/tmp/mutants-vdp-intro5-particles-1`: `36 mutants tested in 3m: 36 caught`),
-  the Enigma decode wrapper (`/tmp/mutants-vdp-enigma-decode-1`: `3 mutants
-  tested in 61s: 3 caught`), CRAM word extraction (`/tmp/mutants-vdp-cram-words-1`:
-  `6 mutants tested in 73s: 6 caught`), IntroSequence5 fade timing
-  (`/tmp/mutants-vdp-intro5-fade-1`: `10 mutants tested in 81s: 9 caught, 1
-  unviable`), and IntroText script replay (`/tmp/mutants-vdp-intro-text-script-1`:
-  `36 mutants tested in 3m: 32 caught, 1 unviable, 3 timeouts`). The text-script
-  timeouts are malformed parser-progress mutations.
-- **VDP intro handoff hardening:** focused shard
-  `/tmp/mutants-vdp-intro-handoff-1` first reported `59 mutants tested in 3m: 6
-  missed, 50 caught, 3 unviable` across cold-boot/IntroSequence2 handoff
-  timing. Cleaned the unreachable post-dispatch segment-1 overlay, made the
-  palette fade windows explicit half-open ranges, rewrote the `loc_1BA02` reveal
-  clamp without the equivalent `min(frames - 1) + 1` form, and added a
-  `loc_12EDE` cold-boot Sega handoff regression. Rerun
-  `/tmp/mutants-vdp-intro-handoff-2` reports `50 mutants tested in 3m: 1 missed,
-  46 caught, 3 unviable`; the remaining `handoff + elapsed` -> `handoff -
-  elapsed` survivor is equivalent for this slice because the Sega VDP state is
-  already stable by the handoff window.
-- **VDP title-screen sprite hardening:** focused shard
-  `/tmp/mutants-vdp-title-screen-1` reported `42 mutants tested in 3m: 6
-  missed, 34 caught, 2 unviable` across direct title-return sprite timing, the
-  KID title sprite, and menu cursor rows. Added ASM-cited regressions for
-  `loc_1BA60`/`loc_1BB10` first-frame suppression, `loc_1B5E4` KID title sprite
-  presence, and `loc_1BB52` cursor rows 0/1. Rerun
-  `/tmp/mutants-vdp-title-screen-2` reports `42 mutants tested in 3m: 40 caught,
-  2 unviable`. Checked `/tmp/mutants-vdp-intro3-sprite-frame-1` (`17 mutants
-  tested in 2m: 15 caught, 2 unviable`) and `/tmp/mutants-vdp-sprite-table-1`
-  (`41 mutants tested in 3m: 2 missed, 39 caught`); the sprite-table misses are
-  equivalent for valid hardware attributes because palette, priority, and
-  x-flip bits are disjoint in the game domain.
-  `cargo fmt --check` and
-  `cargo test -q -p wildside-core vdp::tests -- --nocapture` are green;
-  `mise run verify-slice-fast` passes.
+- **Fallback verification:** continuing `crates/wildside-core/src/vdp.rs`
+  mutation hardening from the current session-log trail. The latest focused
+  shard was title-card VDP:
+  `/tmp/mutants-vdp-title-card-1` reported `39 mutants tested in 3m: 10
+  missed, 28 caught, 1 unviable` around `Load_TitleCard` clear/fill and
+  padding loops. Added ASM-cited assertions for `loc_19B58` first/second/final
+  `$0094` tilemap clear words and `loc_19C04` final bottom-padding word. Final
+  rerun `/tmp/mutants-vdp-title-card-3` reports `39 mutants tested in 3m: 8 missed,
+  30 caught, 1 unviable`; the remaining misses are equivalent for the current
+  stateless builder because `loc_19ABE` and `loc_19B6A` write zero into a fresh
+  zeroed VDP. Checked `/tmp/mutants-vdp-intro-fade-1` (`52 mutants tested in
+  3m: 1 missed, 48 caught, 3 unviable`) and
+  `/tmp/mutants-vdp-vsram-writer-1` (`9 mutants tested in 79s: 9 caught`); the
+  intro-fade survivor is equivalent because `SEGA_SCREEN_INTRO_HANDOFF_ELAPSED
+  ± elapsed` is already in the stable Sega VDP range for the cold-boot
+  `elapsed 0..16` window.
+  `cargo fmt --check`, `cargo test -q -p wildside-core title_card_vdp --
+  --nocapture`, `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

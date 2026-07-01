@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP title-card mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued VDP
+  mutation hardening in `crates/wildside-core/src/vdp.rs`, targeting
+  `Load_TitleCard` clear/fill and padding behaviour.
+- Initial focused shard `/tmp/mutants-vdp-title-card-1` reported `39 mutants
+  tested in 3m: 10 missed, 28 caught, 1 unviable`.
+- This pass adds ASM-cited assertions for `loc_19B58` first/second/final
+  `$0094` tilemap clear words and `loc_19C04` final bottom-padding word.
+- Evidence: final focused rerun `/tmp/mutants-vdp-title-card-3` reports `39 mutants
+  tested in 3m: 8 missed, 30 caught, 1 unviable`. The remaining eight misses
+  are equivalent for the current stateless builder because `loc_19ABE` and
+  `loc_19B6A` write zero into a fresh zeroed VDP.
+- Additional checks: `/tmp/mutants-vdp-intro-fade-1` reported `52 mutants tested
+  in 3m: 1 missed, 48 caught, 3 unviable`; that survivor is equivalent because
+  `SEGA_SCREEN_INTRO_HANDOFF_ELAPSED ± elapsed` is already in the stable Sega
+  VDP range for the cold-boot `elapsed 0..16` window.
+  `/tmp/mutants-vdp-vsram-writer-1` reported `9 mutants tested in 79s: 9
+  caught`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-core
+  title_card_vdp -- --nocapture`, `mise run backlog-lint`, and
+  `mise run verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused VDP shard or a new file.
+
 ## 2026-07-01 handoff (proactive VDP title-screen sprite mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,
