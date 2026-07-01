@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive render background mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, checked
+  `crates/wildside-frame/src/lib.rs` first; it has no non-test mutation
+  surface, so continued to `crates/wildside-render/src/background.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-render -f crates/wildside-render/src/background.rs -j 1
+  --gitignore=true --output /tmp/mutants-render-background-proactive-1 --
+  --lib` reports `69 mutants tested in 2m: 62 caught, 7 unviable`, with zero
+  missed mutants and zero timeouts.
+- Native/render background behaviour is unchanged. Existing background tests
+  catch this shard's viable mutations.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive frame DTO mutation hardening)
 
 - **Fallback verification hardened a test gap.** With no ready/open rows, ran a
