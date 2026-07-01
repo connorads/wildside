@@ -28,17 +28,22 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** mutation-tested `crates/wildside-render/src/lib.rs`
-  first; it has zero non-test mutants, so moved to the next rotation file,
-  `crates/wildside-render/src/background.rs`. Initial
-  `/tmp/mutants-render-background-1` reported `69 mutants tested in 67s: 1
-  missed, 61 caught, 7 unviable`; added an ASM-cited `loc_12830` regression
-  for a complete chunk,x,y entry followed by an odd stray byte, which is a
-  missing negative terminator rather than a truncated placement. Final
-  `/tmp/mutants-render-background-2` reports `69 mutants tested in 68s: 62
-  caught, 7 unviable`. `cargo fmt --check` and `cargo test -q -p
-  wildside-render background -- --nocapture`, `mise run backlog-lint`, and
-  `mise run verify-slice-fast` pass.
+- **Fallback verification:** after the render-background hardening, continued
+  the rotation through clean/no-code-change shards: render `level.rs` (`41
+  mutants tested in 50s: 36 caught, 5 unviable`), render `player.rs` (zero
+  candidates), render `palette.rs` (`35 mutants tested in 47s: 33 caught, 2
+  unviable`), render `tiles.rs` (`38 mutants tested in 48s: 34 caught, 4
+  unviable`), render `hud.rs` (zero candidates), data `level_layout.rs` (`30
+  mutants tested in 29s: 30 caught`), ROM `lib.rs` (`26 mutants tested in 11s:
+  24 caught, 2 unviable`), and MD audio/register shard (`154 mutants tested in
+  51s: 149 caught, 5 unviable`).
+- **Current fix:** MD bus/VDP mutation shard
+  `/tmp/mutants-md-bus-vdp-1` found `312 mutants tested in 2m: 3 missed, 305
+  caught, 4 unviable`. Added a regression proving `AddressBus::copy_from`
+  replays traced YM2612 ports through `port & 3`, and changed long-read
+  assembly from an equivalent `|` to `+` to avoid an untestable disjoint-bit
+  survivor. Final `/tmp/mutants-md-bus-vdp-2` reports `312 mutants tested in
+  2m: 308 caught, 4 unviable`.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

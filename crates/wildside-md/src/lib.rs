@@ -2700,7 +2700,7 @@ impl AddressBus for MdBus {
         let address = address & ADDRESS_MASK;
         let msw = self.read_word_internal(address);
         let lsw = self.read_word_internal(address.wrapping_add(2));
-        let value = (u32::from(msw) << 16) | u32::from(lsw);
+        let value = (u32::from(msw) << 16) + u32::from(lsw);
         self.record_access(BusAccessKind::ReadWord, address, u32::from(msw));
         self.record_access(
             BusAccessKind::ReadWord,
@@ -3544,6 +3544,26 @@ mod tests {
         );
         assert_eq!(target.vdp.registers[1], 0x24);
         assert_eq!(target.z80_reset_count(), 1);
+    }
+
+    #[test]
+    fn address_bus_copy_from_masks_replayed_ym2612_ports_to_two_bits() {
+        let source = MdBus::with_fresh_z80(&[]);
+        let mut target = MdBus::with_fresh_z80(&[]);
+        source
+            .z80_shared
+            .borrow_mut()
+            .ym2612_writes
+            .extend([(0x0100, 0x30), (0x0101, 0xFF)]);
+
+        target.copy_from(&source);
+
+        let status = target.ym2612_shadow.borrow_mut().read_port(0);
+        assert_ne!(
+            status & 0x80,
+            0,
+            "cloned YM writes must replay through port & 3 so high-bit trace addresses still restore the busy status"
+        );
     }
 
     #[test]

@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive MD bus/VDP mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued the
+  mutation rotation through clean/no-code-change shards: render `level.rs`
+  (`41 mutants tested in 50s: 36 caught, 5 unviable`), render `player.rs`
+  (zero candidates), render `palette.rs` (`35 mutants tested in 47s: 33
+  caught, 2 unviable`), render `tiles.rs` (`38 mutants tested in 48s: 34
+  caught, 4 unviable`), render `hud.rs` (zero candidates), data
+  `level_layout.rs` (`30 mutants tested in 29s: 30 caught`), ROM `lib.rs`
+  (`26 mutants tested in 11s: 24 caught, 2 unviable`), and the MD
+  audio/register shard (`154 mutants tested in 51s: 149 caught, 5 unviable`).
+- Initial MD bus/VDP shard `/tmp/mutants-md-bus-vdp-1` reported `312 mutants
+  tested in 2m: 3 missed, 305 caught, 4 unviable`.
+- This pass adds a regression proving `AddressBus::copy_from` replays traced
+  YM2612 ports through `port & 3` when restoring the shadow chip, and rewrites
+  `read_long` composition from equivalent disjoint-bit `|` to `+` to remove the
+  untestable survivor.
+- Evidence: focused rerun `/tmp/mutants-md-bus-vdp-2` reports `312 mutants
+  tested in 2m: 308 caught, 4 unviable`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-md
+  address_bus -- --nocapture`, `mise run backlog-lint`, and `mise run
+  verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification by sharding the remaining `wildside-md`
+  helpers (controller/Z80/GEMS/audio/rendering) before switching lanes.
+
 ## 2026-07-01 handoff (proactive render background mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, checked the next
