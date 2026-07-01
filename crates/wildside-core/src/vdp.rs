@@ -6003,6 +6003,37 @@ mod tests {
     }
 
     #[test]
+    #[allow(non_snake_case)]
+    fn title_menu_cursor_loc_1bb52_uses_all_three_rom_rows() {
+        let mut entries = Vec::new();
+
+        append_title_menu_cursor_sprite_loc_1bb52(&mut entries, 0);
+        assert_eq!(
+            entries[0],
+            HardwareSpriteEntry {
+                y_pos: 0x00A8,
+                size_byte: 0x00,
+                pattern: 0x454B,
+                x_pos: 0x00A8,
+            },
+            "ASM Obj_TitleMenu loc_1BB52 reads word_1BC20 row 0 for the Start Game cursor"
+        );
+
+        entries.clear();
+        append_title_menu_cursor_sprite_loc_1bb52(&mut entries, 1);
+        assert_eq!(
+            entries[0],
+            HardwareSpriteEntry {
+                y_pos: 0x00B2,
+                size_byte: 0x00,
+                pattern: 0x454B,
+                x_pos: 0x00A8,
+            },
+            "ASM Obj_TitleMenu loc_1BB52 reads word_1BC20 row 1 for the Options cursor"
+        );
+    }
+
+    #[test]
     fn title_menu_tilemap_loc_1bb52_pads_short_decode_with_menu_blank() {
         let menu_words = (0x4500u16..0x4500 + 60).collect::<Vec<_>>();
 
@@ -6286,6 +6317,91 @@ mod tests {
             vram_word(&direct_intro_sequence_5_return, 0x090A),
             0x1000,
             "ASM loc_1BA60 -> sub_1C246 -> Load_TitleScreen allocates fresh Obj_TitleTextChameleon; oracle pixels show direct IntroSequence5 title return presents that worker seven sub_1B71A ticks ahead"
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn title_screen_vdp_direct_return_only_suppresses_loc_1bb10_on_first_object_frame() {
+        let data = TitleScreenData {
+            art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            title_art_chunks: [(0, vec![]), (0, vec![]), (0, vec![]), (0, vec![])],
+            plane_a_tilemap: vec![],
+            title_text_chameleon_rows: [[0; 64]; 28],
+            title_text_chameleon_anim_maps: [vec![0; 7 * 29], vec![], vec![]],
+            title_menu_tilemap_words: vec![],
+            character_frames: Vec::new(),
+            lightning_art_bytes: vec![],
+            tile_patch_words: [0; 32],
+            palette_words: vec![],
+        };
+
+        let direct_first =
+            build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                &data,
+                0,
+                0,
+                None,
+                true,
+                TITLE_ATTRACT_LOCK_FRAMES,
+                TitleScreenVdpLineage {
+                    intro_return_hidden_shell: true,
+                    direct_intro_sequence_5_title_return: true,
+                    natural_intro_sequence_6_pre_ready_shell: false,
+                },
+            );
+        assert!(
+            sprite_table_index_without_link(&direct_first, (0x00E8, 0x0F, 0x44D3, 0x00AE))
+                .is_some(),
+            "ASM Obj_TitleTextKid loc_1B5E4 still draws the KID title sprite on the first direct IntroSequence5 title-return object frame",
+        );
+        assert!(
+            sprite_table_index_without_link(&direct_first, (0x0114, 0x04, 0x4780, 0x018C))
+                .is_none(),
+            "ASM Obj_TitleMenu reaches loc_1BB10 one frame after the direct IntroSequence5 title-return handoff, not on the first object frame",
+        );
+
+        let direct_second =
+            build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                &data,
+                0,
+                0,
+                None,
+                true,
+                TITLE_ATTRACT_LOCK_FRAMES + 1,
+                TitleScreenVdpLineage {
+                    intro_return_hidden_shell: true,
+                    direct_intro_sequence_5_title_return: true,
+                    natural_intro_sequence_6_pre_ready_shell: false,
+                },
+            );
+        assert!(
+            sprite_table_index_without_link(&direct_second, (0x0114, 0x04, 0x4780, 0x018C))
+                .is_some(),
+            "ASM loc_1BA60 -> Load_TitleScreen links loc_1BB10 on the frame after the first direct-return object frame",
+        );
+
+        let normal_at_same_elapsed =
+            build_title_screen_vdp_with_character_frame_menu_title_objects_and_lineage(
+                &data,
+                0,
+                0,
+                None,
+                true,
+                TITLE_ATTRACT_LOCK_FRAMES,
+                TitleScreenVdpLineage {
+                    intro_return_hidden_shell: true,
+                    direct_intro_sequence_5_title_return: false,
+                    natural_intro_sequence_6_pre_ready_shell: false,
+                },
+            );
+        assert!(
+            sprite_table_index_without_link(
+                &normal_at_same_elapsed,
+                (0x0114, 0x04, 0x4780, 0x018C)
+            )
+            .is_some(),
+            "the one-frame loc_1BB10 suppression is specific to the direct IntroSequence5 title-return path",
         );
     }
 

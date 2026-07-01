@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP title-screen sprite mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  continued mutation hardening in `crates/wildside-core/src/vdp.rs`, targeting
+  title-screen sprite composition and timing.
+- Initial focused shard `/tmp/mutants-vdp-title-screen-1` reported `42 mutants
+  tested in 3m: 6 missed, 34 caught, 2 unviable`.
+- This pass adds ASM-cited regressions for `loc_1BA60`/`loc_1BB10` direct
+  title-return first-frame suppression, `loc_1B5E4` KID title sprite presence,
+  and `loc_1BB52` cursor rows 0/1.
+- Evidence: focused rerun `/tmp/mutants-vdp-title-screen-2` reports `42 mutants
+  tested in 3m: 40 caught, 2 unviable`. Additional current checks:
+  `/tmp/mutants-vdp-intro3-sprite-frame-1` (`17 mutants tested in 2m: 15
+  caught, 2 unviable`) and `/tmp/mutants-vdp-sprite-table-1` (`41 mutants tested
+  in 3m: 2 missed, 39 caught`). The sprite-table misses are equivalent for valid
+  hardware attributes because palette, priority, and x-flip bits are disjoint in
+  the game domain.
+- Verification: `cargo fmt --check`,
+  `cargo test -q -p wildside-core vdp::tests -- --nocapture`, and
+  `mise run verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused VDP survivor family or a
+  new file shard.
+
 ## 2026-07-01 handoff (proactive VDP intro-handoff mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,

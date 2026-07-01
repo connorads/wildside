@@ -63,6 +63,18 @@ and stop — never commit churn.
   46 caught, 3 unviable`; the remaining `handoff + elapsed` -> `handoff -
   elapsed` survivor is equivalent for this slice because the Sega VDP state is
   already stable by the handoff window.
+- **VDP title-screen sprite hardening:** focused shard
+  `/tmp/mutants-vdp-title-screen-1` reported `42 mutants tested in 3m: 6
+  missed, 34 caught, 2 unviable` across direct title-return sprite timing, the
+  KID title sprite, and menu cursor rows. Added ASM-cited regressions for
+  `loc_1BA60`/`loc_1BB10` first-frame suppression, `loc_1B5E4` KID title sprite
+  presence, and `loc_1BB52` cursor rows 0/1. Rerun
+  `/tmp/mutants-vdp-title-screen-2` reports `42 mutants tested in 3m: 40 caught,
+  2 unviable`. Checked `/tmp/mutants-vdp-intro3-sprite-frame-1` (`17 mutants
+  tested in 2m: 15 caught, 2 unviable`) and `/tmp/mutants-vdp-sprite-table-1`
+  (`41 mutants tested in 3m: 2 missed, 39 caught`); the sprite-table misses are
+  equivalent for valid hardware attributes because palette, priority, and
+  x-flip bits are disjoint in the game domain.
   `cargo fmt --check` and
   `cargo test -q -p wildside-core vdp::tests -- --nocapture` are green;
   `mise run verify-slice-fast` passes.
