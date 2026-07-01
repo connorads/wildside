@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive data level-layout mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, finished the
+  small render rotation probe on `crates/wildside-render/src/hud.rs`; it has no
+  non-test mutants, so continued to `crates/wildside-data/src/level_layout.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-render -f crates/wildside-render/src/hud.rs -j 1 --gitignore=true
+  --output /tmp/mutants-render-hud-proactive-1 -- --lib` reports `Found 0
+  mutants to test`; `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-data -f crates/wildside-data/src/level_layout.rs -j 1
+  --gitignore=true --output /tmp/mutants-data-level-layout-proactive-1 --
+  --lib` reports `30 mutants tested in 53s: 30 caught`, with zero missed
+  mutants and zero timeouts.
+- Native/data extraction behaviour is unchanged. Existing level-layout tests
+  catch this shard's viable mutations.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused data/ROM/MD shard.
+
 ## 2026-07-01 handoff (proactive render tiles mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, continued the
