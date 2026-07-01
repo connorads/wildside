@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Spinning Twins enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/spinning_twins.rs`.
+- The slice covers the ASM-cited Spinning Twins orbit/drop transition, walking
+  velocity gate, airborne collision dispatch, floor/wall settle paths, settled
+  collision routing, Berzerker launch loop, damage/death routing, and falling
+  visual-step helper.
+- Evidence: `/tmp/mutants-spinning-twins-proactive-1` reports `126 mutants
+  tested in 12m: 105 caught, 21 unviable`.
+- Verification: the Spinning Twins mutation run completed with no survivors; no
+  source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Archer enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
