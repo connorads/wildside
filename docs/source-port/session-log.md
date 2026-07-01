@@ -7,6 +7,32 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP intro-boundary mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  continued mutation hardening in `crates/wildside-core/src/vdp.rs`, targeting
+  intro sequence cold-boot, handoff, fade-hold, and sky-reveal survivor families
+  left by the wider VDP shard.
+- This pass adds ASM-cited regressions for cold-boot Sega handoff and fade
+  boundaries (`loc_12EDE`, `sub_1B8F4`, `sub_1C204`), IntroSequence2 handoff
+  fade boundaries (`loc_1B9D0`, `sub_1C204`), IntroSequence5 `loc_1BA90`
+  worker elapsed and fade-to-`$AAA` CRAM state, and the `loc_1BA02`
+  sky-reveal terminal clamp.
+- Evidence: targeted rerun `/tmp/mutants-vdp-intro-boundaries-2` reports
+  `65 mutants tested in 4m: 7 missed, 54 caught, 4 unviable`; follow-up
+  `/tmp/mutants-vdp-coldboot-3` reports `13 mutants tested in 88s: 2 missed,
+  10 caught, 1 unviable`.
+  Remaining misses are equivalent/unreachable: a post-return `segment == 1`
+  branch, saturated Sega handoff `+` -> `-`, full-palette `<=` fade clamps, and
+  sky-reveal loop-bound mutations that leave the tested terminal upload slice
+  unchanged.
+- Verification: `cargo fmt --check`,
+  `cargo test -q -p wildside-core vdp::tests -- --nocapture`, and
+  `mise run verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused VDP survivor family or a
+  new file shard.
+
 ## 2026-07-01 handoff (proactive VDP mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,

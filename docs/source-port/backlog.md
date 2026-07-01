@@ -33,18 +33,19 @@ and stop — never commit churn.
   `OUTPUT=.cache/mutants/vdp-current FILE=crates/wildside-core/src/vdp.rs
   mise run mutants-file`, which reported `800 mutants tested in 48m: 98
   missed, 286 caught, 408 unviable, 8 timeouts`.
-- **VDP follow-up evidence:** added direct regressions for the Enigma tilemap
-  wrapper, VSRAM word writes, CRAM word decoding, sub_1C204 palette fade
-  progress, title-return fade phases, IntroSequence3 frame metadata,
-  Make_SpriteFromGfxObject normal/flipped packing, and sprite-table register
-  masking. Targeted rerun `/tmp/mutants-vdp-focused-2` reports `82 mutants
-  tested in 4m: 2 missed, 79 caught, 1 unviable`. The two remaining focused
-  misses are equivalent `|`→`^` pattern-attribute packers over disjoint
-  palette/priority/x-flip bits. The wider `vdp.rs` shard still has uncovered
-  intro/decompression/text-script survivor families for future focused passes.
-  `cargo fmt --check` and
-  `cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas
-  --skip snapshot` are green.
+- **VDP follow-up evidence:** added direct regressions for intro cold-boot and
+  handoff boundary frames (`loc_12EDE`, `sub_1B8F4`, `loc_1B9D0`,
+  `sub_1C204`), IntroSequence5 `loc_1BA90` fade-hold worker/palette state,
+  and the IntroSequence2 `loc_1BA02` sky-reveal terminal clamp. Targeted rerun
+  `/tmp/mutants-vdp-intro-boundaries-2` reports `65 mutants tested in 4m: 7
+  missed, 54 caught, 4 unviable`; follow-up
+  `/tmp/mutants-vdp-coldboot-3` reports `13 mutants tested in 88s: 2 missed,
+  10 caught, 1 unviable`. Remaining focused misses are equivalent/unreachable:
+  a post-return `segment == 1` branch, saturated Sega handoff `+`→`-`, full
+  palette fade `<=` clamps, and sky-reveal loop-bound mutants that produce the
+  same upload slice in the tested terminal window. `cargo fmt --check` and
+  `cargo test -q -p wildside-core vdp::tests -- --nocapture` are green;
+  `mise run verify-slice-fast` passes.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

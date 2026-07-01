@@ -3490,7 +3490,7 @@ mod tests {
     }
 
     fn minimal_sega_data() -> SegaScreenData {
-        let mut palette_words = vec![0; 33];
+        let mut palette_words = (0..40).map(|word| 0x0100 | word as u16).collect::<Vec<_>>();
         palette_words[1] = 0x0EEE;
         palette_words[2] = 0x08EE;
         SegaScreenData {
@@ -3499,10 +3499,32 @@ mod tests {
         }
     }
 
+    fn intro_sequence_5_frame_tilemaps_fixture() -> Vec<Vec<u16>> {
+        (0..8u16)
+            .map(|frame_index| {
+                let plan = wildside_data::intro_sequence_5_frame_load_plan_sub_1C034(frame_index)
+                    .expect("ASM sub_1C034 should accept all eight frame indices");
+                let word = 0x1100 | frame_index;
+                vec![
+                    word;
+                    usize::from(plan.tilemap_load.width_words)
+                        * usize::from(plan.tilemap_load.height_words)
+                ]
+            })
+            .collect::<Vec<_>>()
+    }
+
     #[test]
     fn intro_sequence_1_cold_boot_keeps_sega_vdp_until_fade_window_loc_12ede_1c204() {
         let intro = empty_intro_data();
         let sega = minimal_sega_data();
+
+        let initial = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 0);
+        assert_eq!(
+            initial.vram,
+            build_sega_screen_vdp(&sega, SEGA_SCREEN_INTRO_HANDOFF_ELAPSED).vram,
+            "ASM loc_12EDE hands Load_IntroSequence1 the already-visible Sega VDP state at the first cold-boot intro frame",
+        );
 
         let vdp = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 2);
 
@@ -3510,6 +3532,25 @@ mod tests {
             cram_word(&vdp, 1),
             0x0EEE,
             "ASM Load_SegaScreen loc_12EDE hands to Load_IntroSequence1 before sub_1C204 has faded the Sega palette off-screen",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_1_cold_boot_starts_sega_fade_on_elapsed_3_loc_12ede_1c204() {
+        let intro = empty_intro_data();
+        let sega = minimal_sega_data();
+
+        let vdp = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 3);
+        let expected = expected_palette_fade(
+            0x00F0,
+            &vdp_cram_words(&build_sega_screen_vdp(&sega, 176)),
+            &[0; 0x40],
+        );
+
+        assert_eq!(
+            vdp_cram_words(&vdp),
+            expected,
+            "ASM Load_SegaScreen loc_12EDE enters sub_1C204 on cold-boot elapsed 3, so the Sega CRAM must have taken the first fade-out step",
         );
     }
 
@@ -3527,6 +3568,46 @@ mod tests {
     }
 
     #[test]
+    fn intro_sequence_1_cold_boot_starts_wild_side_fade_on_elapsed_46_loc_1c204() {
+        let mut intro = empty_intro_data();
+        intro.palette_segment_0 = vec![0x0EEE, 0x0444];
+        let sega = minimal_sega_data();
+
+        let black_tail = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 45);
+        assert!(
+            black_tail.cram.iter().all(|byte| *byte == 0),
+            "ASM sub_1B8F4/sub_1C204 keeps CRAM black through the frame before Pal_1C28A begins fading in",
+        );
+
+        let first_fade = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 46);
+        let mut target = [0u16; 0x40];
+        target[0] = 0x0EEE;
+        target[1] = 0x0444;
+        let expected = expected_palette_fade(0x0010, &target, &[0; 0x40]);
+        assert_eq!(
+            vdp_cram_words(&first_fade),
+            expected,
+            "ASM sub_1C204 starts fading Pal_1C28A into CRAM at cold-boot elapsed 46",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_1_cold_boot_keeps_fading_until_elapsed_60_loc_1c204() {
+        let mut intro = empty_intro_data();
+        intro.palette_segment_0 = vec![0x0EEE, 0x0444];
+        let sega = minimal_sega_data();
+
+        let fading = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, 60);
+        let normal = build_intro_sequence_vdp_with_title_variant_at_elapsed(&intro, 0, 1, 60, 0);
+
+        assert_ne!(
+            vdp_cram_words(&fading),
+            vdp_cram_words(&normal),
+            "ASM sub_1C204 still owns the Pal_1C28A fade on elapsed 60; the normal palette is restored on the next frame",
+        );
+    }
+
+    #[test]
     fn intro_sequence_1_cold_boot_rejoins_normal_intro_vdp_after_fade_loc_1c204() {
         let mut intro = empty_intro_data();
         intro.palette_segment_0 = vec![0x0000, 0x0EEE, 0x0444];
@@ -3538,6 +3619,74 @@ mod tests {
         assert_eq!(
             cold_boot.cram, normal.cram,
             "ASM sub_1B8F4 resumes loc_1B924 after sub_1C204, so the cold-boot-only palette transition must rejoin the normal IntroSequence1 VDP path",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_2_handoff_boundary_frames_follow_loc_1b9d0_1c204() {
+        let mut data = empty_intro_data();
+        data.palette_segment_0 = vec![0x0EEE, 0x0444];
+        data.palette_segment_1 = vec![0x0A00, 0x00A0];
+
+        let elapsed_0 = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 1, 1, 0, 0);
+        assert_eq!(
+            vdp_cram_words(&elapsed_0)[..2],
+            [0x0EEE, 0x0444],
+            "ASM loc_1B9D0 displays the completed IntroSequence1 CRAM unchanged before the first fade-out step",
+        );
+
+        let elapsed_1 = build_intro_sequence_vdp_with_title_variant_at_elapsed(&data, 1, 1, 1, 0);
+        let mut previous = [0u16; 0x40];
+        previous[0] = 0x0EEE;
+        previous[1] = 0x0444;
+        let expected_fade_out = expected_palette_fade(0x0110, &previous, &[0; 0x40]);
+        assert_eq!(
+            vdp_cram_words(&elapsed_1),
+            expected_fade_out,
+            "ASM sub_1C204 starts fading the previous intro scene after the one-frame loc_1B9D0 handoff hold",
+        );
+
+        let black_tail = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED - 1,
+            0,
+        );
+        assert!(
+            black_tail.cram.iter().all(|byte| *byte == 0),
+            "ASM loc_1B9D0/sub_1C204 keeps CRAM black until the frame before Pal_1C2F0 fades in",
+        );
+
+        let first_fade_in = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED,
+            0,
+        );
+        let mut target = [0u16; 0x40];
+        target[0] = 0x0A00;
+        target[1] = 0x00A0;
+        let expected_fade_in = expected_palette_fade(0x0010, &target, &[0; 0x40]);
+        assert_eq!(
+            vdp_cram_words(&first_fade_in),
+            expected_fade_in,
+            "ASM sub_1C204 starts fading Pal_1C2F0 into CRAM at intro-2 elapsed 44",
+        );
+
+        let second_fade_in = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED + 1,
+            0,
+        );
+        let expected_second_fade_in = expected_palette_fade(0x0020, &target, &[0; 0x40]);
+        assert_eq!(
+            vdp_cram_words(&second_fade_in),
+            expected_second_fade_in,
+            "ASM sub_1C204 continues the Pal_1C2F0 fade on the frame after the first visible step",
         );
     }
 
@@ -3683,6 +3832,42 @@ mod tests {
             &mut fading,
             18
         ));
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_5_fade_hold_uses_loc_1ba90_worker_elapsed_and_palette_fade() {
+        let mut source = [0u16; 0x40];
+        source[0] = 0x0EEE;
+        source[1] = 0x0444;
+        let data = IntroSub1B850Data {
+            palette_segment_2: source.to_vec(),
+            intro_sequence_5_frame_tilemaps: intro_sequence_5_frame_tilemaps_fixture(),
+            ..empty_intro_data()
+        };
+
+        let first_hold = build_intro_sequence_5_fade_hold_vdp_at_elapsed(&data, 0, 0, 0);
+        assert_eq!(
+            vram_word(&first_hold, 0x019A),
+            0x1105,
+            "ASM loc_1BA90 displays the IntroSequence5 worker at INTRO_FIFTH_SEGMENT_FRAMES before the first fade counter update",
+        );
+
+        let later_hold = build_intro_sequence_5_fade_hold_vdp_at_elapsed(&data, 0, 40, 0);
+        assert_eq!(
+            vram_word(&later_hold, 0x019A),
+            0x1105,
+            "ASM loc_1BA90 advances the worker elapsed from INTRO_FIFTH_SEGMENT_FRAMES; subtracting the fade elapsed would regress to the frame-6 boundary",
+        );
+
+        let faded = build_intro_sequence_5_fade_hold_vdp_at_elapsed(&data, 0, 2, 0);
+        let target = [0x0AAA; 0x40];
+        let expected = expected_palette_fade(0x00E0, &source, &target);
+        assert_eq!(
+            vdp_cram_words(&faded),
+            expected,
+            "ASM loc_1BA90 fills Palette_Buffer_3 with `$AAA` and runs sub_1C246 after the one-frame latch",
+        );
     }
 
     #[test]
@@ -5029,6 +5214,40 @@ mod tests {
             vram_word(&first_visible, 0x1780),
             0,
             "ASM sub_1C1A2 pre-increments d1 twice per loc_1BA02 frame; after the ROM-observed hidden handoff delay, elapsed 151 is the first visible sky/castle upload",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_2_loc_1BA02_clamps_sky_reveal_after_rom_loop_length() {
+        let data = IntroSub1B850Data {
+            intro_sequence_2_sky_castle_art: (0..0x0B00).map(|byte| byte as u8).collect(),
+            ..empty_intro_data()
+        };
+
+        let final_rom_loop_frame = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02
+                + INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02
+                - 1,
+            0,
+        );
+        let much_later = build_intro_sequence_vdp_with_title_variant_at_elapsed(
+            &data,
+            1,
+            1,
+            INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_START_ELAPSED_LOC_1BA02
+                + INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02
+                + 32,
+            0,
+        );
+
+        assert_eq!(
+            &much_later.vram[0x1780..0x1A00],
+            &final_rom_loop_frame.vram[0x1780..0x1A00],
+            "ASM loc_1BA02 runs a fixed $014A-frame sky reveal loop; later elapsed values must not keep advancing sub_1C1A2 selectors",
         );
     }
 
