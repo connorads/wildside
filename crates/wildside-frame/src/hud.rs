@@ -553,8 +553,15 @@ pub fn push_game_hud(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
     use wildside_core::{
         EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, HudTimerSpritePositionSubBD0A,
+    };
+    use wildside_render::{
+        AnimatedSpriteVisual, BackgroundVisuals, BlockVisualMapping, ChunkedBackgroundVisuals,
+        EnemyVisuals, FlagVisuals, FloatingPrizeVisuals, ForegroundLayout, HudIcon, HudVisuals,
+        MdColour, Palette, PaletteSet, PlatformVisuals, PlayerFormVisuals, PlayerTransformStep,
+        PlayerVisuals, SpriteFrame, Tile, TileQuad, TileRef, TileSheet,
     };
 
     #[test]
@@ -801,5 +808,376 @@ mod tests {
             }),
             (16, 8)
         );
+    }
+
+    #[test]
+    fn hud_hitpoints_visible_loc_bdc0_hides_only_during_active_transform_flash() {
+        let mut visuals = sample_level_visuals();
+        visuals
+            .player
+            .forms
+            .get_mut(&0)
+            .expect("kid form")
+            .transform_steps = vec![
+            PlayerTransformStep {
+                duration_frames: 2,
+                frame: None,
+            },
+            PlayerTransformStep {
+                duration_frames: 3,
+                frame: None,
+            },
+        ];
+
+        // ASM Make_SpriteAttr_HUD loc_BDC0 keeps the previous HP table visible
+        // for the first transform hand-off frame, then suppresses pips until
+        // the summed transform hibernate has elapsed.
+        assert!(hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 0,
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+        assert!(!hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 4,
+                current_helmet_id: 0,
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+        assert!(hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 5,
+                current_helmet_id: 0,
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+        assert!(hud_hitpoints_visible_loc_bdc0(
+            &NativeTraceFrame {
+                form_change_flash_frames: 4,
+                current_helmet_id: 99,
+                ..NativeTraceFrame::default()
+            },
+            &visuals
+        ));
+    }
+
+    #[test]
+    fn hud_diamond_palette_loc_1223c_reconstructs_foreground_rotation() {
+        let visuals = sample_level_visuals();
+        let rotated = hud_diamond_palette_loc_1223c(
+            &NativeTraceFrame {
+                rotate_palette_lava_water_state_loc_1223c: Some((0, 0, 0)),
+                lava_water_palette_words_loc_1223c: Some([0; 4]),
+                ..NativeTraceFrame::default()
+            },
+            &visuals,
+        );
+
+        // ASM Rotate_Palette_Lava_Water loc_1223C rotates slots 6..9 by
+        // 3*(completed+1) steps when no live lava/water CRAM words override it.
+        let raw_words: Vec<u16> = rotated.colours[6..10]
+            .iter()
+            .map(|colour| colour.raw_word)
+            .collect();
+        assert_eq!(raw_words, vec![9, 6, 7, 8]);
+
+        let blocked = hud_diamond_palette_loc_1223c(
+            &NativeTraceFrame {
+                rotate_palette_lava_water_state_loc_1223c: Some((0, 0, 0)),
+                lava_water_palette_words_loc_1223c: Some([0, 0, 1, 0]),
+                ..NativeTraceFrame::default()
+            },
+            &visuals,
+        );
+        let blocked_words: Vec<u16> = blocked.colours[6..10]
+            .iter()
+            .map(|colour| colour.raw_word)
+            .collect();
+        assert_eq!(blocked_words, vec![6, 7, 8, 9]);
+    }
+
+    #[test]
+    fn push_hud_two_digit_counter_matches_loc_bf2a_single_and_clamped_digits() {
+        let visuals = sample_level_visuals();
+        let mut commands = Vec::new();
+
+        // ASM life_display/diamond_display loc_BF2A: single-digit values write
+        // the digit first, then HUD number tile 11 in the following "x" slot.
+        push_hud_two_digit_counter(&mut commands, &visuals, 7, 20, 30);
+        assert_eq!(
+            indexed_tile_commands(&commands),
+            vec![(20, 30, 7), (28, 30, 11)]
+        );
+
+        commands.clear();
+        push_hud_two_digit_counter(&mut commands, &visuals, 123, 20, 30);
+        assert_eq!(
+            indexed_tile_commands(&commands),
+            vec![(20, 30, 9), (28, 30, 9)]
+        );
+    }
+
+    #[test]
+    fn push_hud_fixed_digit_clamps_to_loaded_digit_tile() {
+        let visuals = sample_level_visuals();
+        let mut commands = Vec::new();
+
+        push_hud_fixed_digit(&mut commands, &visuals, 42, 12, 14);
+
+        assert_eq!(indexed_tile_commands(&commands), vec![(12, 14, 9)]);
+    }
+
+    #[test]
+    fn push_hud_hitpoint_sprite_emits_wide_and_narrow_loc_be20_tiles() {
+        let visuals = sample_level_visuals();
+        let full_pip = visuals.hud.hitpoint_tiles[0];
+        let mut commands = Vec::new();
+
+        // ASM Make_SpriteAttr_HUD loc_BE20/BE34/BE5C uses size #4 for a 2x1
+        // sprite; loc_BE4C/BE74 uses size #0 for the odd trailing 1x1 pip.
+        push_hud_hitpoint_sprite(&mut commands, &visuals, full_pip, 16, 36, false);
+        assert_eq!(
+            indexed_tile_commands(&commands),
+            vec![(16, 36, 0), (24, 36, 1)]
+        );
+
+        commands.clear();
+        push_hud_hitpoint_sprite(&mut commands, &visuals, full_pip, 16, 36, true);
+        assert_eq!(indexed_tile_commands(&commands), vec![(16, 36, 0)]);
+    }
+
+    #[test]
+    fn push_hud_icon_emits_ankh_diamond_and_fallback_hud_tiles() {
+        let visuals = sample_level_visuals();
+        let mut commands = Vec::new();
+
+        push_hud_icon(
+            &mut commands,
+            &visuals,
+            "ankh",
+            &NativeTraceFrame {
+                hud_life_frame_offset: Some(0),
+                ..NativeTraceFrame::default()
+            },
+            33,
+            44,
+        );
+        assert_eq!(sprite_commands(&commands), vec![(33, 44, 8)]);
+
+        commands.clear();
+        push_hud_icon(
+            &mut commands,
+            &visuals,
+            "diamond",
+            &NativeTraceFrame {
+                hud_diamond_frame_offset: Some(0),
+                ..NativeTraceFrame::default()
+            },
+            40,
+            50,
+        );
+        assert_eq!(sprite_commands(&commands), vec![(40, 50, 8)]);
+
+        commands.clear();
+        push_hud_icon(
+            &mut commands,
+            &visuals,
+            "custom",
+            &NativeTraceFrame::default(),
+            11,
+            12,
+        );
+        assert_eq!(indexed_tile_commands(&commands), vec![(11, 12, 3)]);
+    }
+
+    fn indexed_tile_commands(commands: &[DrawCommand]) -> Vec<(i32, i32, u16)> {
+        commands
+            .iter()
+            .map(|command| match command {
+                DrawCommand::IndexedTile { x, y, tile, .. } => (*x, *y, tile.tile_index),
+                other => panic!("expected indexed tile command, got {other:?}"),
+            })
+            .collect()
+    }
+
+    fn sprite_commands(commands: &[DrawCommand]) -> Vec<(i32, i32, u16)> {
+        commands
+            .iter()
+            .map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. } => {
+                    (*x, *y, tiles.first().expect("sprite tile").tile.tile_index)
+                }
+                other => panic!("expected sprite command, got {other:?}"),
+            })
+            .collect()
+    }
+
+    fn sample_level_visuals() -> NativeLevelVisuals {
+        let foreground_layout_bytes = vec![0; 20 * 14];
+        let foreground_layout =
+            ForegroundLayout::parse(&foreground_layout_bytes, 1, 1).expect("foreground layout");
+        let empty_quad = TileQuad {
+            tiles: [sample_tile_ref(0); 4],
+        };
+        NativeLevelVisuals {
+            foreground_tiles: blank_tile_sheet(1),
+            background_tiles: blank_tile_sheet(1),
+            island_shore_tiles_loc_1202a: None,
+            block_tiles: blank_tile_sheet(1),
+            palettes: PaletteSet {
+                foreground: sample_palette(),
+                background: sample_palette(),
+            },
+            background: BackgroundVisuals::Chunked(ChunkedBackgroundVisuals {
+                placements: Vec::new(),
+                chunks: Vec::new(),
+            }),
+            level: wildside_render::LevelVisuals {
+                level_id: 0,
+                foreground_theme_id: 0,
+                background_theme_id: 0,
+                murder_wall_flags: 0,
+                background_scroll: None,
+                foreground_layout,
+                foreground_layout_bytes,
+                block_layout_bytes: Vec::new(),
+                background_layout_bytes: Vec::new(),
+                background_layout_alias: None,
+                block_mapping: BlockVisualMapping::new(
+                    vec![empty_quad.clone()],
+                    vec![empty_quad; 81],
+                )
+                .expect("block mapping"),
+            },
+            hud: HudVisuals {
+                digits: blank_tile_sheet(12),
+                digit_base_tile_index: HUD_TILE_VRAM_BASE,
+                diamond_tiles: blank_tile_sheet(16),
+                diamond_base_tile_index: HUD_DIAMOND_TILE_VRAM_BASE,
+                hitpoint_sheet: blank_tile_sheet(4),
+                icons: vec![
+                    HudIcon::new("ankh", (0x01A1, 0x008D), TileRef::from_attr_word(0x8231)),
+                    HudIcon::new("diamond", (0x01A0, 0x00A2), TileRef::from_attr_word(0x86F2)),
+                    HudIcon::new("custom", (0, 0), sample_tile_ref(HUD_TILE_VRAM_BASE + 3)),
+                ],
+                hitpoint_tiles: [
+                    sample_tile_ref(0x022D),
+                    sample_tile_ref(0x022E),
+                    sample_tile_ref(0x022F),
+                ],
+            },
+            player: PlayerVisuals {
+                forms: HashMap::from([(0, sample_player_form_visuals())]),
+            },
+            juggernaut_skull: None,
+            enemies: EnemyVisuals {
+                families: HashMap::new(),
+            },
+            floating_prizes: sample_floating_prize_visuals(),
+            flag: FlagVisuals {
+                palette: sample_palette(),
+                pole_bottom: sample_sprite_frame(1),
+                waving: Vec::new(),
+                frame_duration: 1,
+            },
+            murder_wall: None,
+            lava: None,
+            weather: None,
+            special_effect_unknown: None,
+            platforms: PlatformVisuals {
+                palette: sample_palette(),
+                horizontal: sample_sprite_frame(2),
+                vertical: sample_sprite_frame(3),
+            },
+            eol_score: None,
+            eol_hologram: None,
+            pause_menu: None,
+            title_card_letters: None,
+        }
+    }
+
+    fn sample_player_form_visuals() -> PlayerFormVisuals {
+        let frame = sample_sprite_frame(10);
+        PlayerFormVisuals {
+            palette: sample_palette(),
+            idle: frame.clone(),
+            walk: Vec::new(),
+            flight_spin: Vec::new(),
+            charge: Vec::new(),
+            climb: Vec::new(),
+            axe: Vec::new(),
+            slope_walk: Vec::new(),
+            slope_walk_left: Vec::new(),
+            jump_rise: frame.clone(),
+            jump_fall: frame,
+            death: None,
+            pull_up: Vec::new(),
+            slash_ground: Vec::new(),
+            slash_air: Vec::new(),
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        }
+    }
+
+    fn sample_floating_prize_visuals() -> FloatingPrizeVisuals {
+        FloatingPrizeVisuals {
+            diamond: AnimatedSpriteVisual {
+                palette: sample_palette(),
+                extra_palettes: Vec::new(),
+                frames: vec![sample_sprite_frame(20); 4],
+                frame_duration: 1,
+            },
+            helmets: HashMap::new(),
+            icons: HashMap::from([(
+                0x0B,
+                AnimatedSpriteVisual {
+                    palette: sample_palette(),
+                    extra_palettes: Vec::new(),
+                    frames: vec![sample_sprite_frame(21)],
+                    frame_duration: 1,
+                },
+            )]),
+        }
+    }
+
+    fn sample_sprite_frame(pixel: u8) -> SpriteFrame {
+        SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 8,
+            height_px: 8,
+            tile_base_index: 0,
+            tile_sheet: TileSheet {
+                tiles: vec![Tile {
+                    pixels: [pixel; 64],
+                }],
+            },
+        }
+    }
+
+    fn blank_tile_sheet(tile_count: usize) -> TileSheet {
+        TileSheet {
+            tiles: vec![Tile { pixels: [0; 64] }; tile_count],
+        }
+    }
+
+    fn sample_tile_ref(tile_index: u16) -> TileRef {
+        TileRef {
+            tile_index,
+            palette_line: 0,
+            priority: false,
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+
+    fn sample_palette() -> Palette {
+        Palette {
+            colours: (0..16).map(MdColour::from_word).collect(),
+        }
     }
 }

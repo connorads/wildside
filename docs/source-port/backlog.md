@@ -73,9 +73,12 @@ and stop — never commit churn.
   `150 mutants tested in 60s: 141 missed, 9 unviable`. Added focused HUD
   helper coverage for loc_BE0C hitpoint slot/tail pips, loc_45EE diamond page
   lead, loc_4546/loc_4586 life icon pages, loc_C070 visible timer seconds, and
-  loc_BD0A timer coordinate/layout decisions. Final `/tmp/mutants-frame-hud-3`
-  reports `150 mutants tested in 59s: 77 caught, 64 missed, 9 unviable`; the
-  remaining misses are command-emission/asset-backed HUD rendering paths.
+  loc_BD0A timer coordinate/layout decisions. Follow-up command coverage added
+  HUD digit counters, wide/narrow hitpoint sprite emission, transform-flash HP
+  visibility, loc_1223C diamond palette rotation, and ankh/diamond/fallback HUD
+  icon commands. Final `/tmp/mutants-frame-hud-5` reports `150 mutants tested
+  in 61s: 116 caught, 25 missed, 9 unviable`; the remaining misses are mostly
+  aggregate `push_game_hud` arithmetic plus equivalent boundary mutants.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 
