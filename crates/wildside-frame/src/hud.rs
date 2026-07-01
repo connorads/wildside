@@ -325,7 +325,10 @@ fn hud_diamond_palette_loc_1223c(
     // entries 6..9 in hardware. When the level has no lava/water override
     // words, the trace renderer must reconstruct that VDP palette phase for
     // HUD sprites that reuse foreground palette line 0.
-    let rotations = (3 * (usize::from(completed_rotations) + 1)) % 4;
+    // The four-slot palette window wraps naturally as the loop rotates it.
+    // Keeping the full count avoids an equivalent `%` mutation: `n + 4`
+    // produces the same visible palette as `n`.
+    let rotations = 3 * (usize::from(completed_rotations) + 1);
     for _ in 0..rotations {
         let saved = palette.colours[6];
         palette.colours[6] = palette.colours[7];

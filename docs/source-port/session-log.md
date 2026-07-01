@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame HUD equivalent-mutant cleanup)
+
+- **Fallback verification cleaned up an equivalent mutant.** With no
+  ready/open rows, ran a focused mutation shard on
+  `crates/wildside-frame/src/hud.rs`.
+- Evidence: initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-frame -f crates/wildside-frame/src/hud.rs -j 1 --gitignore=true
+  --output /tmp/mutants-frame-hud-proactive-1 -- --lib` reported `170 mutants
+  tested in 3m: 1 missed, 160 caught, 9 unviable`; the missed mutant replaced
+  `%` with `+` in `hud_diamond_palette_loc_1223c`.
+- Fix: the survivor was equivalent because rotating the four-colour foreground
+  palette window by `n + 4` produces the same visible palette as `n`; removed
+  the redundant modulo and documented the natural wrap.
+- Result: rerun at `/tmp/mutants-frame-hud-proactive-2` reports `168 mutants
+  tested in 3m: 159 caught, 9 unviable`, with zero missed mutants.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive render background mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, checked

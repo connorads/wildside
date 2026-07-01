@@ -28,13 +28,14 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive render background mutation shard. After
-  confirming `crates/wildside-frame/src/lib.rs` has no non-test mutation
-  surface, ran a direct `cargo mutants` shard against
-  `crates/wildside-render/src/background.rs`.
-  `/tmp/mutants-render-background-proactive-1` reports `69 mutants tested in
-  2m: 62 caught, 7 unviable`, with zero missed mutants and zero timeouts. No
-  source regression was warranted.
+- **Current verification:** proactive frame HUD mutation shard. The first
+  direct `cargo mutants` run against `crates/wildside-frame/src/hud.rs`
+  reported `170 mutants tested in 3m: 1 missed, 160 caught, 9 unviable`; the
+  survivor was an equivalent `% -> +` mutant in
+  `hud_diamond_palette_loc_1223c`, because a four-colour palette rotation by
+  `n + 4` is visibly identical to `n`. Removed the redundant modulo and kept
+  the full rotation count. `/tmp/mutants-frame-hud-proactive-2` now reports
+  `168 mutants tested in 3m: 159 caught, 9 unviable`.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
