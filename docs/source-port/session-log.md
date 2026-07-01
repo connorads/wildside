@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Cloud enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/cloud.rs`.
+- The slice covers the ASM-cited Cloud command-script dispatch, wait/status
+  commands, idle sprite gate, diagonal attack setup, projectile lifecycle,
+  death/respawn routing, wall reversal, and live-step branches.
+- Evidence: `/tmp/mutants-cloud-proactive-1` reports `134 mutants tested in
+  13m: 118 caught, 16 unviable`.
+- Verification: the Cloud mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Diamond enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
