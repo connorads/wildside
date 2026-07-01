@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Driller enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/driller.rs`.
+- The slice covers the ASM-cited Driller init tail, Smash/Prize/Ice block
+  drilling dispatch, child-space drill probe, collision dispatch, and live-step
+  grid mutation paths.
+- Evidence: `/tmp/mutants-driller-proactive-2` reports `24 mutants tested in
+  3m: 19 caught, 5 unviable`.
+- Verification: the Driller mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Goat enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the

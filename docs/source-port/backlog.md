@@ -28,12 +28,12 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive Goat enemy mutation slice. The
-  single-file wrapper on `crates/wildside-core/src/enemies/goat.rs` reports
-  `/tmp/mutants-goat-proactive-2`: `23 mutants tested in 3m: 15 caught,
-  8 unviable`. No source edit was warranted; the existing ASM-cited Goat init
-  animation, collision dispatch, Berzerker launch/shove, and resume tests
-  killed every viable mutant.
+- **Current verification:** proactive Driller enemy mutation slice. The
+  single-file wrapper on `crates/wildside-core/src/enemies/driller.rs` reports
+  `/tmp/mutants-driller-proactive-2`: `24 mutants tested in 3m: 19 caught,
+  5 unviable`. No source edit was warranted; the existing ASM-cited Driller
+  init-tail, block-drilling, child-space probe, collision dispatch, and live-step
+  tests killed every viable mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
