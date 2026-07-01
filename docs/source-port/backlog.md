@@ -75,12 +75,11 @@ and stop — never commit churn.
   remaining `% 4` -> `+ 4` palette mutant is equivalent for four-entry
   rotations.
 - **Current fix:** frame sprite selector shard. Added pure tests for live enemy
-  selector guards and ASM body phases: walking/flying dragons, rock tanks,
-  Diamonds, Tar Monsters, Spheres, Emo Rocks, Hands, and Lions. Focused
-  `/tmp/mutants-frame-sprites-selectors-3` reports `521 mutants tested in 3m:
-  389 missed, 102 caught, 30 unviable`; remaining misses are dominated by
-  `select_enemy_frame` death-sequence branches plus boundary-equivalent live
-  selector guards.
+  selector guards, ASM body phases, `select_enemy_frame` death scripts, and the
+  generic fallback animation path. Focused
+  `/tmp/mutants-frame-sprites-selectors-5` reports `521 mutants tested in 3m:
+  56 missed, 435 caught, 30 unviable`; remaining misses are mostly
+  boundary-equivalent live guards and forced-true sheet-length guards.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

@@ -2423,6 +2423,14 @@ mod tests {
         }
     }
 
+    fn dead_enemy_object(object_type: u8, wait_timer: u16) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            hit_points: Some(0),
+            wait_timer: Some(wait_timer),
+            ..live_enemy_object(object_type)
+        }
+    }
+
     fn selected_enemy_tile_base(
         trace: &NativeTraceFrame,
         visuals: &wildside_render::AnimatedSpriteVisual,
@@ -2857,6 +2865,304 @@ mod tests {
             selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
             0x0101
         );
+    }
+
+    #[test]
+    fn enemy_death_threshold_scripts_select_asm_frames() {
+        let trace = NativeTraceFrame::default();
+
+        for (object_type, frame_count, cases, asm_label) in [
+            (
+                0x00,
+                12,
+                &[(21, 6), (18, 7), (15, 8), (12, 9), (8, 10), (4, 11)][..],
+                "ASM Fire_Demon.asm loc_3A5A6 `stru_3A378`",
+            ),
+            (
+                0x01,
+                10,
+                &[(22, 5), (14, 6), (8, 7), (5, 8), (2, 9)],
+                "ASM Diamond.asm loc_3AE28/loc_3AEE6 `stru_3ACC4`",
+            ),
+            (
+                0x03,
+                8,
+                &[(18, 6), (9, 7)],
+                "ASM Robot.asm loc_3A9D2 `stru_3A74A`",
+            ),
+            (
+                0x06,
+                6,
+                &[(30, 3), (20, 4), (10, 5)],
+                "ASM Sphere.asm Enemy06_Sphere_Kill `stru_36182`",
+            ),
+            (
+                0x07,
+                10,
+                &[(50, 6), (45, 7), (40, 8), (35, 9)],
+                "ASM Archer.asm loc_3414A `stru_33FC2`",
+            ),
+            (
+                0x09,
+                9,
+                &[(60, 6), (31, 7), (30, 8)],
+                "ASM Crab.asm loc_3B094 `stru_3AF82`",
+            ),
+            (
+                0x0A,
+                6,
+                &[(84, 3), (68, 4), (60, 5)],
+                "ASM Tank.asm loc_3B480 `stru_3B29A`",
+            ),
+            (
+                0x0B,
+                6,
+                &[(84, 3), (68, 4), (60, 5)],
+                "ASM Tank_Shooting.asm loc_3B6E6 `stru_3B518`",
+            ),
+            (
+                0x0E,
+                9,
+                &[(21, 6), (14, 7), (7, 8)],
+                "ASM Cloud.asm loc_35C0E `stru_35EBA`",
+            ),
+            (
+                0x10,
+                9,
+                &[(95, 6), (65, 7), (55, 8)],
+                "ASM Goat.asm loc_3CB64 `stru_3C9EA`",
+            ),
+            (
+                0x11,
+                9,
+                &[(75, 6), (55, 7), (45, 8)],
+                "ASM Ninja.asm loc_3DB4E `stru_3D50A`",
+            ),
+            (
+                0x12,
+                9,
+                &[(30, 6), (20, 7), (10, 8)],
+                "ASM Lion.asm loc_3E378 `stru_3DF48`",
+            ),
+            (
+                0x13,
+                9,
+                &[(75, 6), (65, 7), (45, 8)],
+                "ASM Scorpion.asm loc_3DDEE `stru_3DB80`",
+            ),
+            (
+                0x14,
+                7,
+                &[(60, 4), (35, 5), (20, 6)],
+                "ASM Spinning_Twins.asm loc_3BC56 `stru_3B83C`",
+            ),
+            (
+                0x16,
+                6,
+                &[(12, 3), (8, 4), (4, 5)],
+                "ASM Drips.asm loc_3392C `stru_33F06`",
+            ),
+            (
+                0x17,
+                8,
+                &[
+                    (66, 1),
+                    (60, 2),
+                    (54, 1),
+                    (48, 2),
+                    (42, 1),
+                    (36, 2),
+                    (30, 3),
+                    (24, 4),
+                    (18, 5),
+                    (12, 6),
+                    (6, 7),
+                ],
+                "ASM Hand.asm loc_32AA2 `stru_32B78`",
+            ),
+            (
+                0x18,
+                5,
+                &[(26, 3), (25, 3), (20, 4), (17, 3), (13, 4), (9, 3), (6, 4)],
+                "ASM Tornado.asm loc_359B2 `stru_35B1E`",
+            ),
+            (
+                0x1A,
+                5,
+                &[(70, 2), (60, 3), (40, 4)],
+                "ASM Driller.asm loc_3BF1C `stru_3BCD4`",
+            ),
+            (
+                0x1B,
+                8,
+                &[(30, 3), (24, 4), (18, 5), (12, 6), (6, 7)],
+                "ASM Emo_Rock.asm loc_36346 `stru_36468`",
+            ),
+            (
+                0x1D,
+                5,
+                &[(146, 1), (122, 2), (110, 3), (100, 4)],
+                "ASM Big_Hopping_Skull.asm loc_3664E `stru_367FA`",
+            ),
+        ] {
+            let visuals = labelled_enemy_visuals(frame_count, 3);
+            for &(remaining, frame_index) in cases {
+                let object = dead_enemy_object(object_type, remaining);
+                assert_eq!(
+                    selected_enemy_tile_base(&trace, &visuals, &object),
+                    0x0100 + frame_index,
+                    "{asm_label} should select frame {frame_index} when wait_timer={remaining}"
+                );
+            }
+        }
+
+        for object_type in [0x0C, 0x19] {
+            let visuals = labelled_enemy_visuals(4, 3);
+            for (remaining, frame_index) in [(8, 0), (6, 1), (4, 2), (2, 3)] {
+                let object = dead_enemy_object(object_type, remaining);
+                assert_eq!(
+                    selected_enemy_tile_base(&trace, &visuals, &object),
+                    0x0100 + frame_index,
+                    "ASM shared `stru_345E4` death script should select frame {frame_index} for object {object_type:#04X}"
+                );
+            }
+        }
+
+        let ufo_visuals = labelled_enemy_visuals(3, 3);
+        for (remaining, frame_index) in [(21, 0), (14, 1), (7, 2)] {
+            let object = dead_enemy_object(0x0F, remaining);
+            assert_eq!(
+                selected_enemy_tile_base(&trace, &ufo_visuals, &object),
+                0x0100 + frame_index,
+                "ASM UFO.asm loc_35174/loc_35180 should select parent death frame {frame_index}"
+            );
+        }
+
+        let mini_skull_visuals = labelled_enemy_visuals(8, 3);
+        for (remaining, frame_index) in [(40, 6), (30, 7)] {
+            let object = dead_enemy_object(0x1C, remaining);
+            assert_eq!(
+                selected_enemy_tile_base(&trace, &mini_skull_visuals, &object),
+                0x0100 + frame_index,
+                "ASM Mini_Hopping_Skull.asm loc_3F158 should select frame {frame_index}"
+            );
+        }
+    }
+
+    #[test]
+    fn generic_enemy_fallback_animation_uses_layout_offset_and_stationary_hold() {
+        let visuals = labelled_enemy_visuals(7, 4);
+        let trace = NativeTraceFrame {
+            frame_index: 11,
+            ..NativeTraceFrame::default()
+        };
+        let mut object = live_enemy_object(0x02);
+        object.layout_index = Some(2);
+
+        // Generic fallback path: ASM uses per-object animation counters; native
+        // approximates this with a layout offset so repeated enemies desync.
+        assert_eq!(selected_enemy_tile_base(&trace, &visuals, &object), 0x0104);
+
+        object.layout_index = None;
+        assert_eq!(selected_enemy_tile_base(&trace, &visuals, &object), 0x0102);
+
+        object.layout_index = Some(2);
+        object.stationary = true;
+        assert_eq!(selected_enemy_tile_base(&trace, &visuals, &object), 0x0100);
+    }
+
+    #[test]
+    fn enemy_death_waited_sequences_select_asm_frames() {
+        let trace = NativeTraceFrame::default();
+
+        for (object_type, frame_count, cases, asm_label) in [
+            (
+                0x04,
+                9,
+                &[
+                    (48, 6),
+                    (26, 7),
+                    (22, 6),
+                    (18, 7),
+                    (15, 6),
+                    (12, 7),
+                    (10, 6),
+                    (8, 7),
+                    (7, 6),
+                    (6, 7),
+                    (5, 6),
+                    (4, 7),
+                    (3, 8),
+                ][..],
+                "ASM Armadillo.asm loc_3C886 `stru_3C69A`",
+            ),
+            (
+                0x05,
+                7,
+                &[
+                    (63, 2),
+                    (54, 3),
+                    (45, 4),
+                    (42, 3),
+                    (39, 4),
+                    (30, 5),
+                    (27, 4),
+                    (24, 5),
+                    (15, 6),
+                    (12, 5),
+                    (9, 6),
+                ],
+                "ASM Tar_Monster.asm loc_323E6 `stru_32700`",
+            ),
+            (
+                0x08,
+                11,
+                &[
+                    (156, 6),
+                    (147, 7),
+                    (143, 6),
+                    (140, 8),
+                    (123, 9),
+                    (119, 8),
+                    (115, 9),
+                    (112, 8),
+                    (109, 9),
+                    (107, 8),
+                    (105, 9),
+                    (103, 8),
+                    (101, 9),
+                    (99, 10),
+                ],
+                "ASM Orca.asm loc_3D268/loc_3D4BC `stru_3D11E`",
+            ),
+            (
+                0x0D,
+                10,
+                &[
+                    (167, 6),
+                    (160, 7),
+                    (154, 6),
+                    (151, 8),
+                    (129, 9),
+                    (124, 8),
+                    (120, 9),
+                    (116, 8),
+                    (104, 9),
+                    (99, 8),
+                ],
+                "ASM Dragon.asm loc_3CEFC `stru_3CCEC`",
+            ),
+        ] {
+            let visuals = labelled_enemy_visuals(frame_count, 3);
+            for &(remaining, frame_index) in cases {
+                let object = dead_enemy_object(object_type, remaining);
+                assert_eq!(
+                    selected_enemy_tile_base(&trace, &visuals, &object),
+                    0x0100 + frame_index,
+                    "{asm_label} should select frame {frame_index} when wait_timer={remaining}"
+                );
+            }
+        }
     }
 
     #[test]

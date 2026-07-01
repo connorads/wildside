@@ -10,23 +10,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 ## 2026-07-01 handoff (proactive frame sprite selector hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the
-  `wildside-frame` sprite mutation pass into live enemy selector families.
+  `wildside-frame` sprite mutation pass into enemy selector families.
 - Prior full `sprites.rs` mutation sampling `/tmp/mutants-frame-sprites-5`
   reported `969 mutants tested in 6m: 667 missed, 243 caught, 59 unviable`;
   remaining misses were concentrated in enemy/platform selectors and render
   push integration helpers.
-- This pass adds frame-local synthetic enemy visuals and ASM-cited live
-  selector tests for guard paths and body phases: walking/flying dragons, rock
-  tanks, Diamonds, Tar Monsters, Spheres, Emo Rocks, Hands, and Lions.
-- Evidence: focused selector rerun `/tmp/mutants-frame-sprites-selectors-3`
-  reports `521 mutants tested in 3m: 389 missed, 102 caught, 30 unviable`.
-  Remaining misses are dominated by the public `select_enemy_frame`
-  death-sequence switch plus boundary-equivalent live selector guards.
+- This pass adds frame-local synthetic enemy visuals and ASM-cited selector
+  tests for live guard paths/body phases, `select_enemy_frame` death scripts,
+  waited death sequences, and the generic fallback animation path.
+- Evidence: focused selector rerun `/tmp/mutants-frame-sprites-selectors-5`
+  reports `521 mutants tested in 3m: 56 missed, 435 caught, 30 unviable`.
+  Remaining misses are mostly boundary-equivalent live guards and forced-true
+  sheet-length guards.
 - Verification: `cargo fmt --check`, `cargo test -q -p wildside-frame
   sprites::tests -- --nocapture`, and the focused mutation rerun completed.
 - NEXT: run `mise run project-status`; if no ready/open item appears, continue
-  `loop.md` proactive verification on `sprites.rs` death selectors, platform
-  rendering helpers, or another focused frame/core shard.
+  `loop.md` proactive verification on `sprites.rs` platform rendering helpers
+  or another focused frame/core shard.
 
 ## 2026-07-01 handoff (proactive frame sprite helper hardening)
 
