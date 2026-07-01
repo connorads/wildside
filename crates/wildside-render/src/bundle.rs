@@ -4976,7 +4976,8 @@ mod tests {
         append_indoor_rubber_block_tiles_sub_144da, apply_enemy_art_permutation,
         apply_layered_background_palette_fallback, background_followup_art_loc_11ea2_11ec4,
         bg_permutation_file, canvas_to_tiles, combine_eol_hologram_tile_sheet,
-        compose_player_frame, enemy_palette_with_cleared_slot_eight, fg_permutation_file,
+        compose_player_frame, crop_eol_score_frame_to_declared_bounds,
+        enemy_palette_with_cleared_slot_eight, fd, fg_permutation_file,
         forest_enemy_art_permutation, forest_enemy_palette_with_borrowed_slots, frame_to_pixels,
         layered_background_enigma_base_word_loc_128ba, load_palette_permutation,
         load_special_effect_unknown_visuals, normalise_layered_background_tile_base_loc_128ba,
@@ -5006,6 +5007,61 @@ mod tests {
     }
 
     #[test]
+    fn eol_score_crop_keeps_column_major_vram_slots_and_declared_pixel_bounds() {
+        let source_sheet = TileSheet {
+            tiles: (0..8).map(|index| solid_tile(0x10 + index)).collect(),
+        };
+
+        let frame = crop_eol_score_frame_to_declared_bounds(&source_sheet, fd(2, 0, 0, 9, 9));
+
+        assert_eq!(
+            frame.tile_sheet.tiles.len(),
+            6,
+            "ASM End_level_stats_text score sprites reserve the declared 16x16 rounded tile grid at the source VRAM slot"
+        );
+        assert!(
+            frame.tile_sheet.tiles[0]
+                .pixels
+                .iter()
+                .all(|&pixel| pixel == 0)
+        );
+        assert!(
+            frame.tile_sheet.tiles[1]
+                .pixels
+                .iter()
+                .all(|&pixel| pixel == 0)
+        );
+        assert!(
+            frame.tile_sheet.tiles[2]
+                .pixels
+                .iter()
+                .all(|&pixel| pixel == 0x12),
+            "top-left score tile should copy from the descriptor's base tile"
+        );
+        assert_eq!(&frame.tile_sheet.tiles[3].pixels[0..8], &[0x13; 8]);
+        assert!(
+            frame.tile_sheet.tiles[3].pixels[8..]
+                .iter()
+                .all(|&pixel| pixel == 0),
+            "bottom-left tile should keep only the ninth visible row"
+        );
+        assert!(
+            (0..8).all(|row| frame.tile_sheet.tiles[4].pixels[row * 8] == 0x14
+                && frame.tile_sheet.tiles[4].pixels[row * 8 + 1..row * 8 + 8]
+                    .iter()
+                    .all(|&pixel| pixel == 0)),
+            "top-right tile should keep only the ninth visible column"
+        );
+        assert_eq!(frame.tile_sheet.tiles[5].pixels[0], 0x15);
+        assert!(
+            frame.tile_sheet.tiles[5].pixels[1..]
+                .iter()
+                .all(|&pixel| pixel == 0),
+            "bottom-right tile should keep only the single visible corner pixel"
+        );
+    }
+
+    #[test]
     fn eol_hologram_sheet_keeps_holobg_tiles_beyond_holoblocks_upload() {
         let background_tiles = TileSheet {
             tiles: (0..0x0120)
@@ -5019,8 +5075,29 @@ mod tests {
         let sheet = combine_eol_hologram_tile_sheet(background_tiles, block_tiles);
 
         assert_eq!(
+            sheet.tiles.len(),
+            0x041B,
+            "ASM loc_C0CC/C140 uploads HoloBG at tile $2FB and keeps its full longer art span after the shorter HoloBlocks overlay"
+        );
+        assert_eq!(
+            sheet.tiles[0x02FB].pixels[0], 0x00,
+            "ASM loc_C0CC starts HoloBG at VRAM tile $2FB"
+        );
+        assert_eq!(
+            sheet.tiles[0x0408].pixels[0], 0x0D,
+            "the HoloBG tile immediately before HoloBlocks must stay at $408"
+        );
+        assert_eq!(
             sheet.tiles[0x0409].pixels[0], 0xA0,
             "ASM loc_C10A uploads ArtComp_CAB2_HoloBlocks at VRAM tile $409, overlaying HoloBG there"
+        );
+        assert_eq!(
+            sheet.tiles[0x040A].pixels[0], 0xA1,
+            "the second HoloBlocks tile should land at $40A, not be shifted into HoloBG"
+        );
+        assert_eq!(
+            sheet.tiles[0x040B].pixels[0], 0x10,
+            "HoloBG should resume immediately after the two overlaid HoloBlocks tiles"
         );
         assert_eq!(
             sheet.tiles[0x0417].pixels[0], 0x1C,

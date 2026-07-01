@@ -28,17 +28,18 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** mutation-hardened the trace helper shard in
-  `crates/wildside-core/src/trace.rs` covering floating-diamond horizontal
-  bands, trace-cell formatting, collected helmet visibility, and helmet prize
-  mapping. Initial `/tmp/mutants-trace-helpers-1` reported `56 mutants tested
-  in 3m: 11 missed, 44 caught, 1 unviable`; added ASM-cited regressions for
-  `PrizeHelmet* loc_10464..loc_106B4` / `Kid_Transform loc_7CD0/loc_7D22`.
-  Final `/tmp/mutants-trace-helpers-2` reports `56 mutants tested in 3m: 2
-  missed, 53 caught, 1 unviable`. The remaining two `trace_cell_word` `|`→`^`
-  misses are equivalent because the packed cell fields are disjoint after
-  masking. `cargo fmt --check`, `cargo test -q -p wildside-core
-  trace_frame_keeps -- --nocapture`, `mise run backlog-lint`, and `mise run
+- **Fallback verification:** mutation-hardened the `wildside-render`
+  `bundle.rs` helper shard covering pause rows, EOL score crops, EOL hologram
+  sheet composition, shared VRAM bases, and palette permutation lookups.
+  Initial `/tmp/mutants-render-bundle-helpers-1` reported `51 mutants tested
+  in 60s: 13 missed, 35 caught, 3 unviable`; added ASM-cited synthetic
+  regressions for `End_level_stats_text` crop grid bounds and EOL hologram
+  `$2FB`/`$409` VRAM overlay placement. Final
+  `/tmp/mutants-render-bundle-helpers-2` reports `51 mutants tested in 59s: 1
+  missed, 47 caught, 3 unviable`. The remaining `dest < tiles.len()`→`<=`
+  miss is equivalent because the HoloBG copy loop's maximum destination is
+  `base + len - 1`. `cargo fmt --check`, `cargo test -q -p wildside-render
+  eol_ -- --nocapture`, `mise run backlog-lint`, and `mise run
   verify-slice-fast` pass.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.

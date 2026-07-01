@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive render bundle mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, mutation-tested
+  a focused `crates/wildside-render/src/bundle.rs` helper shard covering pause
+  rows, EOL score crops, EOL hologram sheet composition, shared VRAM bases, and
+  palette permutation lookups.
+- Initial shard `/tmp/mutants-render-bundle-helpers-1` reported `51 mutants
+  tested in 60s: 13 missed, 35 caught, 3 unviable`.
+- This pass adds ASM-cited synthetic regressions for `End_level_stats_text`
+  score sprite crop grid bounds and EOL hologram `$2FB` HoloBG / `$409`
+  HoloBlocks overlay placement.
+- Evidence: focused rerun `/tmp/mutants-render-bundle-helpers-2` reports `51
+  mutants tested in 59s: 1 missed, 47 caught, 3 unviable`. The remaining
+  survivor is equivalent: `dest < tiles.len()` to `<=` in the HoloBG copy
+  cannot observe `dest == len` because `tile_count` is `base + background_len`
+  or larger, and the loop's last destination is `base + background_len - 1`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-render eol_ --
+  --nocapture`, `mise run backlog-lint`, and `mise run verify-slice-fast`
+  passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on the next rotation file.
+
 ## 2026-07-01 handoff (proactive trace helper mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, mutation-tested
