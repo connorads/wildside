@@ -3470,6 +3470,25 @@ mod tests {
         u16::from_be_bytes([vdp.cram[byte_addr], vdp.cram[byte_addr + 1]])
     }
 
+    fn expected_palette_fade(
+        fade_progress: u16,
+        palette_buffer_2: &[u16],
+        palette_buffer_3: &[u16],
+    ) -> [u16; 0x40] {
+        let mut expected = [0u16; 0x40];
+        let mut pending_palette_0_mask = u32::MAX;
+        let mut pending_palette_1_mask = u32::MAX;
+        crate::level::apply_pending_palette_fade_sub_14C0(
+            fade_progress,
+            &mut pending_palette_0_mask,
+            &mut pending_palette_1_mask,
+            palette_buffer_2,
+            palette_buffer_3,
+            &mut expected,
+        );
+        expected
+    }
+
     fn minimal_sega_data() -> SegaScreenData {
         let mut palette_words = vec![0; 33];
         palette_words[1] = 0x0EEE;
@@ -3558,6 +3577,217 @@ mod tests {
         vdp.write_vram_word(0x100, 0x80BC);
         assert_eq!(vdp.vram[0x100], 0x80);
         assert_eq!(vdp.vram[0x101], 0xBC);
+    }
+
+    #[test]
+    fn decode_enigma_tilemap_loc_134d4_returns_decoded_tile_words() {
+        let enigma_fixture = [
+            0x05, 0x00, 0x00, 0x01, 0x00, 0x0A, 0x09, 0x18, 0x10, 0xFE, 0x00,
+        ];
+
+        let decoded = decode_enigma_tilemap_loc_134D4(&enigma_fixture, 0x0040)
+            .expect("ASM EniDec fixture should decode");
+
+        assert_eq!(
+            decoded,
+            vec![0x0041, 0x0042, 0x0043, 0x004A, 0x004A, 0x0050]
+        );
+    }
+
+    #[test]
+    fn write_vsram_word_stores_big_endian_and_clips_at_end() {
+        let mut vdp = VdpState::new();
+
+        vdp.write_vsram_word(0x10, 0x1234);
+        assert_eq!(&vdp.vsram[0x10..0x12], &[0x12, 0x34]);
+
+        let before = vdp.vsram.clone();
+        vdp.write_vsram_word(VSRAM_SIZE - 1, 0xBEEF);
+        assert_eq!(
+            vdp.vsram, before,
+            "single trailing VSRAM byte is not enough for ASM-style word writes"
+        );
+    }
+
+    #[test]
+    fn vdp_cram_words_reads_big_endian_words_from_all_palette_slots() {
+        let mut vdp = VdpState::new();
+        vdp.write_cram_words(0, &[0x0123, 0x0456]);
+        vdp.write_cram_words(0x3F, &[0x0EEE]);
+
+        let words = vdp_cram_words(&vdp);
+
+        assert_eq!(words[0], 0x0123);
+        assert_eq!(words[1], 0x0456);
+        assert_eq!(words[0x3F], 0x0EEE);
+    }
+
+    #[test]
+    fn intro_sequence_palette_fade_helpers_use_sub_1c204_progression() {
+        let mut vdp = VdpState::new();
+        let mut target = [0u16; 0x40];
+        target[0] = 0x0EEE;
+        target[1] = 0x0444;
+
+        apply_intro_sequence_palette_fade_in_loc_1c204(&mut vdp, &target, 46, 46);
+        let expected_in = expected_palette_fade(0x0010, &target, &[0; 0x40]);
+        assert_eq!(vdp_cram_words(&vdp), expected_in);
+
+        let mut second_step = VdpState::new();
+        apply_intro_sequence_palette_fade_in_loc_1c204(&mut second_step, &target, 47, 46);
+        let expected_second_step = expected_palette_fade(0x0020, &target, &[0; 0x40]);
+        assert_eq!(vdp_cram_words(&second_step), expected_second_step);
+
+        let mut fade_out = VdpState::new();
+        fade_out.write_cram_words(0, &target);
+        apply_intro_sequence_fade_out_to_black_loc_1c204(&mut fade_out, 3, 17);
+        let expected_out = expected_palette_fade(0x00F0, &target, &[0; 0x40]);
+        assert_eq!(vdp_cram_words(&fade_out), expected_out);
+    }
+
+    #[test]
+    fn intro_sequence_5_title_return_fade_to_black_honours_hold_and_fade_windows() {
+        let mut hold = VdpState::new();
+        hold.write_cram_words(0, &[0x0EEE, 0x0444]);
+        assert!(apply_intro_sequence_5_title_return_fade_to_black(
+            &mut hold, 3
+        ));
+        assert_eq!(
+            vdp_cram_words(&hold)[..2],
+            [0x0EEE, 0x0444],
+            "ASM loc_1BA60 holds the previous CRAM for the first four title-return frames"
+        );
+
+        let mut fading = VdpState::new();
+        let mut source = [0u16; 0x40];
+        source[0] = 0x0EEE;
+        source[1] = 0x0444;
+        fading.write_cram_words(0, &source);
+        assert!(apply_intro_sequence_5_title_return_fade_to_black(
+            &mut fading,
+            4
+        ));
+        let expected = expected_palette_fade(0x00F0, &source, &[0; 0x40]);
+        assert_eq!(vdp_cram_words(&fading), expected);
+
+        let mut second_step = VdpState::new();
+        second_step.write_cram_words(0, &source);
+        assert!(apply_intro_sequence_5_title_return_fade_to_black(
+            &mut second_step,
+            5
+        ));
+        let expected_second_step = expected_palette_fade(0x00E0, &source, &[0; 0x40]);
+        assert_eq!(vdp_cram_words(&second_step), expected_second_step);
+
+        assert!(!apply_intro_sequence_5_title_return_fade_to_black(
+            &mut fading,
+            18
+        ));
+    }
+
+    #[test]
+    fn intro_sequence_3_sprite_frame_vram_maps_all_data_index_entries() {
+        let expected = [
+            (0x1208, 0x000, 0x18, 0x24),
+            (0x120C, 0x00F, 0x15, 0x23),
+            (0x1210, 0x01E, 0x12, 0x28),
+            (0x1214, 0x02D, 0x12, 0x25),
+            (0x1218, 0x03C, 0x12, 0x23),
+            (0x121C, 0x04B, 0x13, 0x1F),
+            (0x1220, 0x057, 0x1D, 0x2C),
+            (0x1224, 0x06F, 0x20, 0x24),
+            (0x1228, 0x083, 0x13, 0x1D),
+            (0x122C, 0x08F, 0x15, 0x2D),
+            (0x1230, 0x0A1, 0x0F, 0x23),
+            (0x1234, 0x0AB, 0x0F, 0x23),
+            (0x1238, 0x0B5, 0x1D, 0x32),
+            (0x123C, 0x0D1, 0x18, 0x23),
+        ];
+
+        for (addroffset, sprite_index, width, height) in expected {
+            let frame = intro_sequence_3_sprite_frame_vram(addroffset)
+                .expect("known Load_IntroSequence3 frame");
+            assert_eq!(frame.sprite_index, sprite_index);
+            assert_eq!(frame.width, width);
+            assert_eq!(frame.height, height);
+        }
+        assert_eq!(intro_sequence_3_sprite_frame_vram(0x1240), None);
+    }
+
+    #[test]
+    fn make_sprite_from_gfx_object_loc_129e_packs_pattern_and_offsets_exactly() {
+        let mut entries = Vec::new();
+
+        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+            &mut entries,
+            IntroGfxObjectForSpriteTable {
+                x_pos: 0x0040,
+                y_pos: 0x0080,
+                palette_line: 2,
+                vram_tile: 0x0123,
+                priority: 1,
+                x_direction: 0,
+            },
+            IntroSpriteFrameVram {
+                sprite_index: 0x0007,
+                x_center: 3,
+                y_center: 5,
+                width: 0x10,
+                height: 0x10,
+            },
+        );
+
+        assert_eq!(
+            entries[0],
+            HardwareSpriteEntry {
+                y_pos: 0x00F5,
+                size_byte: 0x05,
+                pattern: 0xC12A,
+                x_pos: 0x00BD,
+            }
+        );
+
+        entries.clear();
+        append_intro_sprite_entries_make_sprite_from_gfx_object_loc_129E(
+            &mut entries,
+            IntroGfxObjectForSpriteTable {
+                x_pos: 0x0040,
+                y_pos: 0x0080,
+                palette_line: 2,
+                vram_tile: 0x0123,
+                priority: 1,
+                x_direction: 0xFF,
+            },
+            IntroSpriteFrameVram {
+                sprite_index: 0x0007,
+                x_center: 3,
+                y_center: 5,
+                width: 0x10,
+                height: 0x10,
+            },
+        );
+
+        assert_eq!(
+            entries[0],
+            HardwareSpriteEntry {
+                y_pos: 0x00F5,
+                size_byte: 0x05,
+                pattern: 0xC92A,
+                x_pos: 0x00B3,
+            },
+            "ASM loc_134A uses x_pos + x_center for the flipped right edge before subtracting the emitted chunk width"
+        );
+    }
+
+    #[test]
+    fn sprite_table_base_byte_addr_masks_register_5_by_h40_mode() {
+        let mut registers = [0u8; 0x20];
+        registers[5] = 0xFF;
+        registers[0x0C] = 0;
+        assert_eq!(sprite_table_base_byte_addr(&registers), 0xFE00);
+
+        registers[0x0C] = 0x81;
+        assert_eq!(sprite_table_base_byte_addr(&registers), 0xFC00);
     }
 
     #[test]

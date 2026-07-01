@@ -7,6 +7,31 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  mutation-tested `crates/wildside-core/src/vdp.rs` via
+  `OUTPUT=.cache/mutants/vdp-current FILE=crates/wildside-core/src/vdp.rs mise run mutants-file`.
+- Initial evidence: full VDP shard reported `800 mutants tested in 48m:
+  98 missed, 286 caught, 408 unviable, 8 timeouts`.
+- This pass adds direct VDP helper regressions for `decode_enigma_tilemap_loc_134D4`,
+  VSRAM big-endian word writes and end clipping, CRAM word decoding, `sub_1C204`
+  palette fade-in/out progression, `loc_1BA60` title-return fade windows,
+  IntroSequence3 sprite-frame metadata, `Make_SpriteFromGfxObject` normal and
+  flipped sprite-entry packing, and VDP register-5 sprite-table masking.
+- Follow-up evidence: targeted rerun `/tmp/mutants-vdp-focused-2` reports
+  `82 mutants tested in 4m: 2 missed, 79 caught, 1 unviable`.
+  The remaining two focused misses are equivalent `|` -> `^` substitutions in
+  sprite pattern-attribute packing because palette, priority, and x-flip bits
+  are disjoint. The full `vdp.rs` shard still has wider intro/decompression/text
+  survivor families for future focused passes.
+- Verification: `cargo fmt --check` and
+  `cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas
+  --skip snapshot` passed.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-01 handoff (proactive types mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,

@@ -28,20 +28,21 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** `crates/wildside-core/src/types.rs`
+- **Fallback verification:** `crates/wildside-core/src/vdp.rs`
   mutation-hardening pass started from
-  `OUTPUT=.cache/mutants/types-current FILE=crates/wildside-core/src/types.rs
-  mise run mutants-file`, which reported `227 mutants tested in 25m: 51
-  missed, 166 caught, 7 unviable, 3 timeouts`.
-- **Types follow-up evidence:** added type-level regressions for block-state
-  resets/recycling, Island shore DMA defaults, helmet-id mapping, controller
-  bit layout, sound command names, serde skip predicates, authoritative CRC
-  scope, ROM RNG ring offsets, level timer expiry, and shooter-block projectile
-  construction. Targeted rerun `/tmp/mutants-types-target-1` reports `137
-  mutants tested in 7m: 3 missed, 133 caught, 1 unviable`; follow-up
-  `/tmp/mutants-types-followup-1` reports `86 mutants tested in 5m: 2 missed,
-  84 caught`. The two remaining misses are equivalent `1 << 0` → `1 >> 0`
-  mutants in `FrameInput` bit-zero masks. `cargo fmt --check` and
+  `OUTPUT=.cache/mutants/vdp-current FILE=crates/wildside-core/src/vdp.rs
+  mise run mutants-file`, which reported `800 mutants tested in 48m: 98
+  missed, 286 caught, 408 unviable, 8 timeouts`.
+- **VDP follow-up evidence:** added direct regressions for the Enigma tilemap
+  wrapper, VSRAM word writes, CRAM word decoding, sub_1C204 palette fade
+  progress, title-return fade phases, IntroSequence3 frame metadata,
+  Make_SpriteFromGfxObject normal/flipped packing, and sprite-table register
+  masking. Targeted rerun `/tmp/mutants-vdp-focused-2` reports `82 mutants
+  tested in 4m: 2 missed, 79 caught, 1 unviable`. The two remaining focused
+  misses are equivalent `|`→`^` pattern-attribute packers over disjoint
+  palette/priority/x-flip bits. The wider `vdp.rs` shard still has uncovered
+  intro/decompression/text-script survivor families for future focused passes.
+  `cargo fmt --check` and
   `cargo test -q -p wildside-core --lib -- --skip demo_ --skip published_tas
   --skip snapshot` are green.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
