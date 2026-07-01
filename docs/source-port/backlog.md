@@ -28,14 +28,12 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive projectile mutation hardening. The
-  single-file wrapper on `crates/wildside-core/src/projectiles.rs` was stopped
-  after `/tmp/mutants-projectiles-proactive-1` exposed two survivors:
-  `DRIPS_SURFACE_CRAWLER_KID_CONTACT_HALF_WIDTH_LOC_33550` `+` -> `*`, and
-  `BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8` `+` -> `-`. Added
-  ASM-cited regressions for the loc_33550 |dx|=16 miss boundary and the
-  `stru_37BD8` exact 21-frame entry duration; both injected survivor mutations
-  fail their targeted tests.
+- **Current verification:** proactive render level mutation shard. With the
+  core wrapper rotation exhausted for ready agent work, ran a direct
+  `cargo mutants` shard against `crates/wildside-render/src/level.rs`.
+  `/tmp/mutants-render-level-proactive-1` reports `41 mutants tested in 75s:
+  36 caught, 5 unviable`, with zero missed mutants and zero timeouts. No
+  source regression was warranted.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
