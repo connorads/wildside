@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive weather mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  mutation-tested `crates/wildside-core/src/weather.rs` via
+  `OUTPUT=.cache/mutants/weather-current2 FILE=crates/wildside-core/src/weather.rs mise run mutants-file`.
+- Initial evidence: full weather shard reported `868 mutants tested in 2h: 37
+  missed, 777 caught, 54 unviable`.
+- Fix commit `f900a6d98` adds weather-local tests for storm palette masks, lava
+  geyser script/render/runtime boundaries, storm scroll camera word extraction,
+  ingame palette loading, murder wall word preservation, hail worker RNG gates,
+  stale hail projectile replacement, and Mountain thunder reseeding.
+- Follow-up evidence: targeted survivor rerun `/tmp/mutants-weather-target-3`
+  reports `205 mutants tested in 10m: 8 missed, 192 caught, 5 unviable`.
+  Remaining misses are equivalent/non-observable in current runtime state:
+  non-overlapping word OR/XOR merges, startup `*1` vs `/1`, zero-row rise reset,
+  and lava hold row target values not stored in runtime state.
+- Verification: `cargo test -q -p wildside-core weather -- --nocapture` and
+  `mise run verify-slice-fast` passed.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-01 handoff (proactive scenario mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested

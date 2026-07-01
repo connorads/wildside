@@ -26,13 +26,18 @@ and stop — never commit churn.
 ## NOW
 
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
-- **2026-06-30 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
+- **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** `crates/wildside-core/src/scenario.rs`
-  mutation shard is clean after commit `d517bde8a`: `OUTPUT=.cache/mutants/scenario-current3
-  FILE=crates/wildside-core/src/scenario.rs mise run mutants-file`
-  reports `88 mutants tested in 9m: 72 caught, 16 unviable`, with zero
-  missed mutants and zero timeouts.
+- **Fallback verification:** `crates/wildside-core/src/weather.rs`
+  mutation-hardening commit `f900a6d98` adds weather-local coverage after
+  `OUTPUT=.cache/mutants/weather-current2 FILE=crates/wildside-core/src/weather.rs
+  mise run mutants-file` reported `868 mutants tested in 2h: 37 missed, 777
+  caught, 54 unviable`.
+- **Weather follow-up evidence:** targeted survivor rerun
+  `/tmp/mutants-weather-target-3` reports `205 mutants tested in 10m: 8 missed,
+  192 caught, 5 unviable`; remaining misses are equivalent/non-observable word
+  merges or zero-row/timer targets. `cargo test -q -p wildside-core weather --
+  --nocapture` and `mise run verify-slice-fast` are green.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 
