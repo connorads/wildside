@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive trace helper mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, mutation-tested
+  a focused helper shard in `crates/wildside-core/src/trace.rs` covering
+  floating-diamond horizontal bands, trace-cell formatting, collected helmet
+  visibility, and helmet prize mapping.
+- Initial shard `/tmp/mutants-trace-helpers-1` reported `56 mutants tested in
+  3m: 11 missed, 44 caught, 1 unviable`.
+- This pass expands the collected-helmet first-forward-transform regression
+  across all nine helmet prize forms and adds a collision-latched collected
+  helmet visibility regression, citing `PrizeHelmet* loc_10464..loc_106B4` and
+  `Kid_Transform loc_7CD0/loc_7D22`.
+- Evidence: focused rerun `/tmp/mutants-trace-helpers-2` reports `56 mutants
+  tested in 3m: 2 missed, 53 caught, 1 unviable`. The remaining two misses are
+  equivalent `trace_cell_word` `|`→`^` mutations because the block flag,
+  collision, and block-type fields are disjoint after masking.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-core
+  trace_frame_keeps -- --nocapture`, `mise run backlog-lint`, and `mise run
+  verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on the next rotation file.
+
 ## 2026-07-01 handoff (proactive VDP title-card mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued VDP

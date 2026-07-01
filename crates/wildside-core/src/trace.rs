@@ -4187,38 +4187,75 @@ mod tests {
 
     #[test]
     fn trace_frame_keeps_collected_helmet_visible_on_first_forward_transform_frame() {
+        for (content, form) in [
+            (terrain::PrizeContent::Skycutter, PlayerForm::Skycutter),
+            (terrain::PrizeContent::Cyclone, PlayerForm::Cyclone),
+            (terrain::PrizeContent::RedStealth, PlayerForm::RedStealth),
+            (terrain::PrizeContent::Eyeclops, PlayerForm::Eyeclops),
+            (terrain::PrizeContent::Juggernaut, PlayerForm::Juggernaut),
+            (terrain::PrizeContent::IronKnight, PlayerForm::IronKnight),
+            (terrain::PrizeContent::Berzerker, PlayerForm::Berzerker),
+            (terrain::PrizeContent::Maniaxe, PlayerForm::Maniaxe),
+            (terrain::PrizeContent::Micromax, PlayerForm::Micromax),
+        ] {
+            let mut runtime = NativeRuntime::new(minimal_manifest());
+            runtime.boot_state = BootState::InGame;
+            runtime.progression.current_form = form;
+            runtime.progression.form_change_flash_frames =
+                (crate::combat::transform_anim_frames(form) + 1) as u8;
+            runtime.floating_items.push(FloatingItem {
+                x_pos: 72 << 16,
+                y_pos: 766 << 16,
+                y_velocity: 0,
+                remaining: 0x0300,
+                spawn_delay: 0,
+                level_col: 4,
+                level_row: 36,
+                first_row_grace: false,
+                content,
+                collected: true,
+                collision_latched: false,
+            });
+
+            let trace = runtime.trace_frame();
+
+            assert_eq!(
+                trace.floating_items,
+                vec![(72, 766, 0x0300, content.to_id())],
+                "ASM PrizeHelmet* loc_10464..loc_106B4 and Kid_Transform loc_7CD0 overlap for one forward-transform frame, so the picked-up mask remains drawable when {form:?}'s transform starts"
+            );
+
+            runtime.progression.form_change_flash_frames =
+                crate::combat::transform_anim_frames(form) as u8;
+            assert!(
+                runtime.trace_frame().floating_items.is_empty(),
+                "ASM Kid_Transform loc_7D22 should advance past the one-frame picked-up mask hold after the first forward frame for {form:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn trace_frame_keeps_collision_latched_collected_helmet_visible_before_cleanup() {
         let mut runtime = NativeRuntime::new(minimal_manifest());
         runtime.boot_state = BootState::InGame;
-        runtime.progression.current_form = PlayerForm::Cyclone;
-        runtime.progression.form_change_flash_frames =
-            (crate::combat::transform_anim_frames(PlayerForm::Cyclone) + 1) as u8;
         runtime.floating_items.push(FloatingItem {
-            x_pos: 72 << 16,
-            y_pos: 766 << 16,
+            x_pos: 88 << 16,
+            y_pos: 144 << 16,
             y_velocity: 0,
-            remaining: 0x0300,
+            remaining: 0x0310,
             spawn_delay: 0,
-            level_col: 4,
-            level_row: 36,
+            level_col: 5,
+            level_row: 8,
             first_row_grace: false,
-            content: terrain::PrizeContent::Cyclone,
+            content: terrain::PrizeContent::Skycutter,
             collected: true,
-            collision_latched: false,
+            collision_latched: true,
         });
 
-        let trace = runtime.trace_frame();
-
         assert_eq!(
-            trace.floating_items,
-            vec![(72, 766, 0x0300, terrain::PrizeContent::Cyclone.to_id())],
-            "ASM PrizeHelmetCyclone_Init loc_104AE and Kid_Transform loc_7CD0 overlap for one forward-transform frame, so the picked-up mask remains drawable when Cyclone's stru_7F30 starts"
-        );
-
-        runtime.progression.form_change_flash_frames =
-            crate::combat::transform_anim_frames(PlayerForm::Cyclone) as u8;
-        assert!(
-            runtime.trace_frame().floating_items.is_empty(),
-            "ASM Kid_Transform loc_7D22 should advance past the one-frame picked-up mask hold after the first forward frame"
+            runtime.trace_frame().floating_items,
+            vec![(88, 144, 0x0310, terrain::PrizeContent::Skycutter.to_id())],
+            "ASM PrizeHelmetSkycutter_Init loc_10464 hibernates after collision, so trace should keep the latched collected mask visible until the cleanup frame"
         );
     }
 

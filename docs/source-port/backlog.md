@@ -28,24 +28,18 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** continuing `crates/wildside-core/src/vdp.rs`
-  mutation hardening from the current session-log trail. The latest focused
-  shard was title-card VDP:
-  `/tmp/mutants-vdp-title-card-1` reported `39 mutants tested in 3m: 10
-  missed, 28 caught, 1 unviable` around `Load_TitleCard` clear/fill and
-  padding loops. Added ASM-cited assertions for `loc_19B58` first/second/final
-  `$0094` tilemap clear words and `loc_19C04` final bottom-padding word. Final
-  rerun `/tmp/mutants-vdp-title-card-3` reports `39 mutants tested in 3m: 8 missed,
-  30 caught, 1 unviable`; the remaining misses are equivalent for the current
-  stateless builder because `loc_19ABE` and `loc_19B6A` write zero into a fresh
-  zeroed VDP. Checked `/tmp/mutants-vdp-intro-fade-1` (`52 mutants tested in
-  3m: 1 missed, 48 caught, 3 unviable`) and
-  `/tmp/mutants-vdp-vsram-writer-1` (`9 mutants tested in 79s: 9 caught`); the
-  intro-fade survivor is equivalent because `SEGA_SCREEN_INTRO_HANDOFF_ELAPSED
-  ± elapsed` is already in the stable Sega VDP range for the cold-boot
-  `elapsed 0..16` window.
-  `cargo fmt --check`, `cargo test -q -p wildside-core title_card_vdp --
-  --nocapture`, `mise run backlog-lint`, and `mise run verify-slice-fast` pass.
+- **Fallback verification:** mutation-hardened the trace helper shard in
+  `crates/wildside-core/src/trace.rs` covering floating-diamond horizontal
+  bands, trace-cell formatting, collected helmet visibility, and helmet prize
+  mapping. Initial `/tmp/mutants-trace-helpers-1` reported `56 mutants tested
+  in 3m: 11 missed, 44 caught, 1 unviable`; added ASM-cited regressions for
+  `PrizeHelmet* loc_10464..loc_106B4` / `Kid_Transform loc_7CD0/loc_7D22`.
+  Final `/tmp/mutants-trace-helpers-2` reports `56 mutants tested in 3m: 2
+  missed, 53 caught, 1 unviable`. The remaining two `trace_cell_word` `|`→`^`
+  misses are equivalent because the packed cell fields are disjoint after
+  masking. `cargo fmt --check`, `cargo test -q -p wildside-core
+  trace_frame_keeps -- --nocapture`, `mise run backlog-lint`, and `mise run
+  verify-slice-fast` pass.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 
