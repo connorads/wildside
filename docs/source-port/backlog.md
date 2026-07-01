@@ -69,16 +69,19 @@ and stop — never commit churn.
   acceptance, plus removed equivalent disjoint-bit/guard forms. Final
   `/tmp/mutants-frame-render-primitives-5` reports `237 mutants tested in 83s:
   231 caught, 6 unviable`.
-- **Current fix:** frame HUD helper shard `/tmp/mutants-frame-hud-1` found
+- **Current fix:** frame HUD helper/command shard `/tmp/mutants-frame-hud-1` found
   `150 mutants tested in 60s: 141 missed, 9 unviable`. Added focused HUD
   helper coverage for loc_BE0C hitpoint slot/tail pips, loc_45EE diamond page
   lead, loc_4546/loc_4586 life icon pages, loc_C070 visible timer seconds, and
   loc_BD0A timer coordinate/layout decisions. Follow-up command coverage added
   HUD digit counters, wide/narrow hitpoint sprite emission, transform-flash HP
   visibility, loc_1223C diamond palette rotation, and ankh/diamond/fallback HUD
-  icon commands. Final `/tmp/mutants-frame-hud-5` reports `150 mutants tested
-  in 61s: 116 caught, 25 missed, 9 unviable`; the remaining misses are mostly
-  aggregate `push_game_hud` arithmetic plus equivalent boundary mutants.
+  icon commands. The final aggregate pass added full `push_game_hud`
+  command-stream coverage for HP pips, timer digits, counters, and animated HUD
+  sprites, plus boundary coverage for value 10, short HP sheets, and 10-colour
+  palette rotation. Final `/tmp/mutants-frame-hud-8` reports `170 mutants
+  tested in 67s: 160 caught, 1 missed, 9 unviable`; the remaining `% 4` -> `+
+  4` palette mutant is equivalent for four-entry rotations.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

@@ -898,6 +898,22 @@ mod tests {
             .map(|colour| colour.raw_word)
             .collect();
         assert_eq!(blocked_words, vec![6, 7, 8, 9]);
+
+        let mut ten_colour_visuals = sample_level_visuals();
+        ten_colour_visuals.palettes.foreground.colours.truncate(10);
+        let second_rotation = hud_diamond_palette_loc_1223c(
+            &NativeTraceFrame {
+                rotate_palette_lava_water_state_loc_1223c: Some((0, 0, 1)),
+                lava_water_palette_words_loc_1223c: Some([0; 4]),
+                ..NativeTraceFrame::default()
+            },
+            &ten_colour_visuals,
+        );
+        let second_rotation_words: Vec<u16> = second_rotation.colours[6..10]
+            .iter()
+            .map(|colour| colour.raw_word)
+            .collect();
+        assert_eq!(second_rotation_words, vec![8, 9, 6, 7]);
     }
 
     #[test]
@@ -911,6 +927,13 @@ mod tests {
         assert_eq!(
             indexed_tile_commands(&commands),
             vec![(20, 30, 7), (28, 30, 11)]
+        );
+
+        commands.clear();
+        push_hud_two_digit_counter(&mut commands, &visuals, 10, 20, 30);
+        assert_eq!(
+            indexed_tile_commands(&commands),
+            vec![(20, 30, 1), (28, 30, 0)]
         );
 
         commands.clear();
@@ -948,6 +971,19 @@ mod tests {
         commands.clear();
         push_hud_hitpoint_sprite(&mut commands, &visuals, full_pip, 16, 36, true);
         assert_eq!(indexed_tile_commands(&commands), vec![(16, 36, 0)]);
+
+        commands.clear();
+        let mut short_hitpoint_sheet = visuals.clone();
+        short_hitpoint_sheet.hud.hitpoint_sheet.tiles.truncate(3);
+        push_hud_hitpoint_sprite(
+            &mut commands,
+            &short_hitpoint_sheet,
+            short_hitpoint_sheet.hud.hitpoint_tiles[2],
+            16,
+            36,
+            false,
+        );
+        assert_eq!(indexed_tile_commands(&commands), vec![(16, 36, 2)]);
     }
 
     #[test]
@@ -994,12 +1030,70 @@ mod tests {
         assert_eq!(indexed_tile_commands(&commands), vec![(11, 12, 3)]);
     }
 
+    #[test]
+    fn push_game_hud_emits_full_loc_bdc0_command_stream() {
+        let visuals = sample_level_visuals();
+        let trace = NativeTraceFrame {
+            game_mode: GameMode::InGame,
+            level_timer_seconds: 125,
+            number_lives: 7,
+            diamond_count: 42,
+            current_helmet_id: PlayerForm::IronKnight.helmet_id(),
+            number_hitpoints: 4,
+            extra_hitpoint_slots: 1,
+            hud_life_frame_offset: Some(0),
+            hud_diamond_frame_offset: Some(0),
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        push_game_hud(&mut commands, &trace, &visuals);
+
+        // ASM Make_SpriteAttr_HUD loc_BDC0..loc_BF78 writes HP pips, timer,
+        // lives, ankh, diamond count, and diamond icon in that order. Timer
+        // seed coordinates come from sub_BD0A fixed row positions.
+        assert_eq!(
+            indexed_tile_commands_in(&commands),
+            vec![
+                (16, 36, 0),
+                (24, 36, 1),
+                (32, 36, 0),
+                (40, 36, 1),
+                (48, 36, 2),
+                (56, 36, 3),
+                (16, 16, 2),
+                (24, 16, 10),
+                (29, 16, 0),
+                (37, 16, 5),
+                (272, 16, 7),
+                (280, 16, 11),
+                (272, 36, 4),
+                (280, 36, 2),
+            ]
+        );
+        assert_eq!(
+            sprite_commands_in(&commands),
+            vec![(289, 13, 8), (288, 34, 8)]
+        );
+        assert_eq!(commands.len(), 16);
+    }
+
     fn indexed_tile_commands(commands: &[DrawCommand]) -> Vec<(i32, i32, u16)> {
         commands
             .iter()
             .map(|command| match command {
                 DrawCommand::IndexedTile { x, y, tile, .. } => (*x, *y, tile.tile_index),
                 other => panic!("expected indexed tile command, got {other:?}"),
+            })
+            .collect()
+    }
+
+    fn indexed_tile_commands_in(commands: &[DrawCommand]) -> Vec<(i32, i32, u16)> {
+        commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::IndexedTile { x, y, tile, .. } => Some((*x, *y, tile.tile_index)),
+                _ => None,
             })
             .collect()
     }
@@ -1012,6 +1106,18 @@ mod tests {
                     (*x, *y, tiles.first().expect("sprite tile").tile.tile_index)
                 }
                 other => panic!("expected sprite command, got {other:?}"),
+            })
+            .collect()
+    }
+
+    fn sprite_commands_in(commands: &[DrawCommand]) -> Vec<(i32, i32, u16)> {
+        commands
+            .iter()
+            .filter_map(|command| match command {
+                DrawCommand::Sprite { x, y, tiles, .. } => {
+                    Some((*x, *y, tiles.first().expect("sprite tile").tile.tile_index))
+                }
+                _ => None,
             })
             .collect()
     }

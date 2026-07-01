@@ -7,6 +7,26 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame HUD aggregate hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued the
+  `wildside-frame` HUD mutation pass into full aggregate `push_game_hud`
+  command emission.
+- Prior HUD command shard `/tmp/mutants-frame-hud-5` reported `150 mutants
+  tested in 61s: 116 caught, 25 missed, 9 unviable`.
+- This pass adds full HUD command-stream coverage for HP pips, timer digits,
+  lives/diamond counters, and animated ankh/diamond sprites. It also adds
+  boundary coverage for counter value 10, truncated HP sheets, and 10-colour
+  loc_1223C palette rotation.
+- Evidence: focused rerun `/tmp/mutants-frame-hud-8` reports `170 mutants
+  tested in 67s: 160 caught, 1 missed, 9 unviable`. The remaining `% 4` -> `+
+  4` palette mutant is equivalent because rotating four palette slots by an
+  extra four iterations gives the same ordering.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-frame
+  hud::tests -- --nocapture`, and the focused mutation rerun passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused frame/core shard.
+
 ## 2026-07-01 handoff (proactive frame HUD command hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the
