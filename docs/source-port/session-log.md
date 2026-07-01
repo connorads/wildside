@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive render background mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, checked the next
+  rotation file `crates/wildside-render/src/lib.rs`; it has zero non-test
+  mutants, so continued to `crates/wildside-render/src/background.rs`.
+- Initial background run `/tmp/mutants-render-background-1` reported `69
+  mutants tested in 67s: 1 missed, 61 caught, 7 unviable`.
+- This pass adds an ASM-cited `loc_12830` regression for a complete chunk,x,y
+  background layout entry followed by an odd stray byte: native should report a
+  missing negative terminator, not a truncated placement.
+- Evidence: focused rerun `/tmp/mutants-render-background-2` reports `69
+  mutants tested in 68s: 62 caught, 7 unviable`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-render
+  background -- --nocapture`, `mise run backlog-lint`, and `mise run
+  verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on the next rotation file.
+
 ## 2026-07-01 handoff (proactive render bundle mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, mutation-tested

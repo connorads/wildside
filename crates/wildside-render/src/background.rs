@@ -319,6 +319,16 @@ mod tests {
             .expect_err("entry needs chunk, x, and y words");
         assert!(truncated.to_string().contains("is truncated"));
 
+        let complete_entry_with_stray_byte =
+            parse_chunked_background_layout(&[0x00, 0x04, 0x00, 0x10, 0x00, 0x20, 0x7F])
+                .expect_err("ASM loc_12830 consumes complete 3-word entries before the terminator");
+        assert!(
+            complete_entry_with_stray_byte
+                .to_string()
+                .contains("0xFFFF terminator"),
+            "a complete chunk,x,y entry followed by an odd byte is missing the negative terminator, not missing y"
+        );
+
         let unterminated = parse_chunked_background_layout(&[0x00])
             .expect_err("layout needs a full terminator word");
         assert!(unterminated.to_string().contains("0xFFFF terminator"));
