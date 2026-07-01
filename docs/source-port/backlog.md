@@ -28,12 +28,12 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive Armadillo enemy mutation slice. The
-  single-file wrapper on `crates/wildside-core/src/enemies/armadillo.rs` reports
-  `/tmp/mutants-armadillo-proactive-1`: `46 mutants tested in 5m: 34 caught,
-  12 unviable`. No source edit was warranted; the existing ASM-cited Armadillo
-  damage, Berzerker launch/recovery, status-update, and spawned-child death
-  tests killed every viable mutant.
+- **Current verification:** proactive Scorpion enemy mutation slice. The
+  single-file wrapper on `crates/wildside-core/src/enemies/scorpion.rs` reports
+  `/tmp/mutants-scorpion-proactive-1`: `57 mutants tested in 6m: 46 caught,
+  11 unviable`. No source edit was warranted; the existing ASM-cited Scorpion
+  tracking, sting, tail-sync, collision dispatch, and recovery tests killed
+  every viable mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 

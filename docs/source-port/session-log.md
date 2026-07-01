@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Scorpion enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/scorpion.rs`.
+- The slice covers the ASM-cited Scorpion tracking, close-range sting/tail
+  arming, linked tail sync, collision dispatch, Berzerker side-contact, and
+  recovery/resume branches.
+- Evidence: `/tmp/mutants-scorpion-proactive-1` reports `57 mutants tested in
+  6m: 46 caught, 11 unviable`.
+- Verification: the Scorpion mutation run completed with no survivors; no
+  source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Armadillo enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
