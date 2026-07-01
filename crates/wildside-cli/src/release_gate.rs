@@ -384,7 +384,7 @@ fn run_one_player_playable_gate(
             sweep::SweepTier::Gameplay,
             &sweep::SweepOptions::default(),
         )?;
-        if gameplay_report.failed > 0 || gameplay_report.errors > 0 {
+        if sweep_report_has_failures(gameplay_report.failed, gameplay_report.errors) {
             bail!(
                 "gameplay sweep reported {} failed levels and {} errors",
                 gameplay_report.failed,
@@ -513,7 +513,7 @@ fn run_one_player_accurate_gate(
                         // would render identically in both cases.
                         checkpoints: Some(entry.checkpoints.len()),
                     });
-            if sweep_report.failed > 0 || sweep_report.errors > 0 {
+            if sweep_report_has_failures(sweep_report.failed, sweep_report.errors) {
                 let detail = state_sweep_failed_detail(repo_root, &sweep_report);
                 report.steps.push(ReleaseGateStep {
                     name: "state_sweep:0-104".to_string(),
@@ -569,6 +569,10 @@ fn state_sweep_report_path(repo_root: &Path, sweep_report: &sweep::SweepReport) 
         .join("report.json")
 }
 
+fn sweep_report_has_failures(failed: usize, errors: usize) -> bool {
+    failed > 0 || errors > 0
+}
+
 fn run_cargo_step(repo_root: &Path, args: &[&str]) -> Result<String> {
     let output = Command::new("cargo")
         .args(args)
@@ -580,13 +584,17 @@ fn run_cargo_step(repo_root: &Path, args: &[&str]) -> Result<String> {
     }
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let detail = stderr
+    let detail =
+        last_nonempty_output_line(&stdout, &stderr).unwrap_or("command failed without output");
+    bail!("`cargo {}` failed: {detail}", args.join(" "));
+}
+
+fn last_nonempty_output_line<'a>(stdout: &'a str, stderr: &'a str) -> Option<&'a str> {
+    stderr
         .lines()
         .rev()
         .find(|line| !line.trim().is_empty())
         .or_else(|| stdout.lines().rev().find(|line| !line.trim().is_empty()))
-        .unwrap_or("command failed without output");
-    bail!("`cargo {}` failed: {detail}", args.join(" "));
 }
 
 fn run_release_step<F>(report: &mut ReleaseGateReport, name: &str, step_fn: F) -> Result<()>
@@ -637,6 +645,8 @@ fn release_gate_report_paths(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
+    use wildside_data::AssetManifest;
 
     fn sweep_report(timestamp: &str, failed: usize, errors: usize) -> sweep::SweepReport {
         sweep::SweepReport {
@@ -650,6 +660,27 @@ mod tests {
             divergence_summary: sweep::DivergenceSummary::default(),
             field_summary: Vec::new(),
             release_gate_focus: Vec::new(),
+        }
+    }
+
+    fn empty_manifest(root: &Path) -> AssetManifest {
+        AssetManifest {
+            generated_bundle_version: 0,
+            rom_sha1: String::new(),
+            upstream_commit: String::new(),
+            source_root: root.to_path_buf(),
+            output_root: root.to_path_buf(),
+            map_order: Vec::new(),
+            levels: Vec::new(),
+            constants: Vec::new(),
+            ram_variables: Vec::new(),
+            enemy_sources: Vec::new(),
+            theme_assets: Vec::new(),
+            scene_assets: Vec::new(),
+            animation_assets: Vec::new(),
+            sound_assets: Vec::new(),
+            ingame_assets: Vec::new(),
+            decoded_levels: Vec::new(),
         }
     }
 
@@ -668,6 +699,122 @@ mod tests {
             state_sweep_failed_detail(repo_root, &report),
             "state sweep reported 2 failed levels and 1 errors (report=/tmp/kc/.cache/sweep-runs/1776794000/report.json)"
         );
+    }
+
+    #[test]
+    fn sweep_report_has_failures_when_failed_or_error_counts_are_nonzero() {
+        assert!(!sweep_report_has_failures(0, 0));
+        assert!(sweep_report_has_failures(1, 0));
+        assert!(sweep_report_has_failures(0, 1));
+        assert!(sweep_report_has_failures(1, 1));
+    }
+
+    #[test]
+    fn run_release_step_records_pass_and_failure_details() {
+        let mut report = ReleaseGateReport {
+            timestamp: "1776793954".to_string(),
+            target: ReleaseGateTarget::OnePlayerPlayable.slug().to_string(),
+            passed: false,
+            steps: Vec::new(),
+            sweep_summary: None,
+            kid_core_hash: None,
+            levels_requested: None,
+            top_divergence_field: None,
+        };
+
+        run_release_step(&mut report, "pass-step", || Ok("step passed".to_string()))
+            .expect("passing step should succeed");
+        let error = run_release_step(&mut report, "fail-step", || anyhow::bail!("inner failure"))
+            .expect_err("failing step should propagate the error");
+
+        assert_eq!(error.to_string(), "inner failure");
+        assert_eq!(report.steps.len(), 2);
+        assert_eq!(report.steps[0].name, "pass-step");
+        assert!(matches!(
+            report.steps[0].status,
+            ReleaseGateStepStatus::Passed
+        ));
+        assert_eq!(report.steps[0].detail, "step passed");
+        assert_eq!(report.steps[1].name, "fail-step");
+        assert!(matches!(
+            report.steps[1].status,
+            ReleaseGateStepStatus::Failed
+        ));
+        assert_eq!(report.steps[1].detail, "inner failure");
+    }
+
+    #[test]
+    fn run_cargo_step_reports_success_and_last_error_line() {
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+        assert_eq!(
+            run_cargo_step(repo_root, &["--version"]).expect("cargo --version should pass"),
+            "`cargo --version` passed"
+        );
+
+        let error = run_cargo_step(repo_root, &["__wildside_missing_subcommand__"])
+            .expect_err("unknown cargo subcommand should fail")
+            .to_string();
+        assert!(error.starts_with("`cargo __wildside_missing_subcommand__` failed:"));
+        assert!(
+            error.len() > "`cargo __wildside_missing_subcommand__` failed:".len(),
+            "unexpected cargo error detail: {error}"
+        );
+    }
+
+    #[test]
+    fn last_nonempty_output_line_prefers_stderr_and_skips_blank_lines() {
+        assert_eq!(
+            last_nonempty_output_line("stdout detail\n\n", "\nstderr detail\n\n"),
+            Some("stderr detail")
+        );
+        assert_eq!(
+            last_nonempty_output_line("stdout detail\n\n", "\n \t\n"),
+            Some("stdout detail")
+        );
+        assert_eq!(last_nonempty_output_line("\n", " \n\t"), None);
+    }
+
+    #[test]
+    fn unix_timestamp_is_decimal_epoch_seconds() {
+        let timestamp = unix_timestamp();
+
+        assert!(!timestamp.is_empty());
+        assert!(timestamp.bytes().all(|byte| byte.is_ascii_digit()));
+        assert!(
+            timestamp.parse::<u64>().expect("timestamp should parse") > 1_700_000_000,
+            "timestamp should be a modern Unix epoch second"
+        );
+    }
+
+    #[test]
+    fn run_release_gate_writes_failed_latest_report_when_rom_is_missing() {
+        let temp = TempDir::new().expect("tempdir");
+        let manifest = empty_manifest(temp.path());
+        let missing_rom = temp.path().join("missing.bin");
+
+        for target in [
+            ReleaseGateTarget::OnePlayerPlayable,
+            ReleaseGateTarget::OnePlayerAccurate,
+        ] {
+            let error = run_release_gate(temp.path(), &missing_rom, &manifest, target, 1)
+                .expect_err("missing ROM should fail the release gate")
+                .to_string();
+
+            assert!(error.contains(&format!("release gate failed for {}", target.slug())));
+            assert!(error.contains("failed to read ROM"));
+            let latest_path = temp
+                .path()
+                .join(".cache/release-gate")
+                .join(target.slug())
+                .join("latest.json");
+            let latest = fs::read_to_string(&latest_path).expect("latest report should be written");
+            let report: ReleaseGateReport =
+                serde_json::from_str(&latest).expect("latest report should deserialize");
+            assert_eq!(report.target, target.slug());
+            assert!(!report.passed);
+            assert!(report.steps.is_empty());
+        }
     }
 
     #[test]

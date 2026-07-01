@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive CLI release-gate mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-cli/src/release_gate.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/release_gate.rs -j 1
+  --gitignore=true --output /tmp/mutants-cli-release-gate-3 --
+  release_gate::tests::` reports `30 mutants tested in 2m: 30 caught`, with
+  zero missed mutants and zero timeouts.
+- Strengthened release-gate tests for target-specific missing-ROM failures,
+  release-step pass/fail report entries, cargo-step diagnostics, timestamp
+  shape, and the shared sweep-failure predicate.
+- No native gameplay behaviour changes.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive CLI RAM-diff mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused
