@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Crab enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/crab.rs`.
+- The slice covers the ASM-cited Crab init, collision dispatch, Berzerker
+  knockback, airborne deceleration/collision/gravity/slope response, damage and
+  death routing, proximity freeze/unfreeze gates, and live-step branches.
+- Evidence: `/tmp/mutants-crab-proactive-1` reports `87 mutants tested in 9m:
+  71 caught, 16 unviable`.
+- Verification: the Crab mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Cloud enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
