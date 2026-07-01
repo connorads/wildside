@@ -28,10 +28,11 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive core gfx-animation mutation shard. Direct
-  `cargo mutants` against `crates/wildside-core/src/gfx_animation.rs` reported
-  `18 mutants tested in 2m: 16 caught, 2 unviable`; no surviving mutants and no
-  native gameplay behaviour changes.
+- **Current verification:** proactive CLI diff diagnostic mutation shard. Direct
+  `cargo mutants` against `crates/wildside-cli/src/diff.rs` reported `91
+  mutants tested in 5m: 91 caught`. This added focused byte/pixel assertions and
+  fixed `draw_text` horizontal clipping so out-of-bounds glyph pixels no longer
+  wrap into the next row. No native gameplay behaviour changes.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 

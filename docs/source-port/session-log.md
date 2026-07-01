@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive CLI diff diagnostic mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-cli/src/diff.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/diff.rs -j 1 --gitignore=true
+  --output /tmp/mutants-cli-diff-4 -- diff::tests::` reports `91 mutants
+  tested in 5m: 91 caught`, with zero missed mutants and zero timeouts.
+- Strengthened diagnostic-render tests for composite panel row layout, exact
+  glyph pixels, clipping boundaries, and annotation panel placement. Fixed
+  `draw_text` so horizontally out-of-bounds glyph pixels are skipped instead of
+  wrapping into the next row.
+- No native gameplay behaviour changes.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive core gfx-animation mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused
