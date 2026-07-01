@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Goat enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/goat.rs`.
+- The slice covers the ASM-cited Goat HP-based init animation, collision
+  dispatch, death sequence, Berzerker side-contact launch/shove paths, and
+  collision-clear resume routing.
+- Evidence: `/tmp/mutants-goat-proactive-2` reports `23 mutants tested in 3m:
+  15 caught, 8 unviable`.
+- Verification: the Goat mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Scorpion enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
