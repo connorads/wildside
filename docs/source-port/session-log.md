@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive UFO enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/ufo.rs`.
+- The slice covers the ASM-cited UFO motion-table/scaling helpers, on-screen
+  count/latch gates, tracking command selection, beam start/load/clear timing,
+  random and targeted beam routes, collision dispatch/clear, terrain rollback
+  and bounce tails, hurt driver/debris spawning, and beam-child init/turnaround
+  paths.
+- Evidence: `/tmp/mutants-ufo-proactive-1` reports `232 mutants tested in 23m:
+  194 caught, 38 unviable`.
+- Verification: the UFO mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Tar Monster enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
