@@ -28,14 +28,13 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive data asset-source mutation shard. The
-  first direct `cargo mutants` run against
-  `crates/wildside-data/src/asset_source.rs` reported `15 mutants tested in
-  37s: 2 missed, 13 caught`; both misses were `InMemoryAssetSource::len` /
-  `is_empty` accessor blind spots. Extended the public in-memory source test to
-  assert non-empty state, two stored paths, and replacement preserving length.
-  `/tmp/mutants-data-asset-source-proactive-2` now reports `15 mutants tested
-  in 35s: 15 caught`.
+- **Current verification:** proactive frame DTO mutation shard. The first
+  direct `cargo mutants` run against `crates/wildside-frame/src/dto.rs`
+  reported `2 mutants tested in 24s: 2 missed`; both misses replaced
+  `enemy_family_colour` with constant `[0; 3]` / `[1; 3]` output. Added a
+  regression for the documented single degraded-asset fallback colour across
+  representative object types. `/tmp/mutants-frame-dto-proactive-2` now reports
+  `2 mutants tested in 23s: 2 caught`.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 

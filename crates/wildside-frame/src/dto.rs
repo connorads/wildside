@@ -43,6 +43,18 @@ pub fn enemy_family_colour(_object_type: u8) -> [u8; 3] {
     ENEMY_COLOUR
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enemy_family_colour_uses_single_degraded_asset_fallback() {
+        for object_type in [0x00, 0x0C, 0x20, 0xFF] {
+            assert_eq!(enemy_family_colour(object_type), ENEMY_COLOUR);
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scene {
     pub background: [u8; 3],

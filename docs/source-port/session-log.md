@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame DTO mutation hardening)
+
+- **Fallback verification hardened a test gap.** With no ready/open rows, ran a
+  focused mutation shard on `crates/wildside-frame/src/dto.rs`.
+- Evidence: initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-frame -f crates/wildside-frame/src/dto.rs -j 1 --gitignore=true
+  --output /tmp/mutants-frame-dto-proactive-1 -- --lib` reported `2 mutants
+  tested in 24s: 2 missed`; both missed mutants replaced
+  `enemy_family_colour` with constant `[0; 3]` / `[1; 3]` output.
+- Fix: added a DTO regression for the documented single degraded-asset fallback
+  colour across representative object types.
+- Result: rerun at `/tmp/mutants-frame-dto-proactive-2` reports `2 mutants
+  tested in 23s: 2 caught`.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive data asset-source mutation hardening)
 
 - **Fallback verification hardened a test gap.** With no ready/open rows, first
