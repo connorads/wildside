@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive scenario mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, mutation-tested
+  `crates/wildside-core/src/scenario.rs` via `mise run mutants-file`.
+- Evidence: `OUTPUT=.cache/mutants/scenario-current3 FILE=crates/wildside-core/src/scenario.rs mise run mutants-file`
+  reports `88 mutants tested in 9m: 72 caught, 16 unviable`, with zero missed
+  mutants and zero timeouts.
+- Native behaviour is unchanged. Existing coverage already catches scenario
+  construction, serialised input masks, checkpoint timing, and replay stepping
+  tightly enough for this shard.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-01 handoff (proactive demo mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, mutation-tested
