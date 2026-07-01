@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame sprite platform hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued the
+  `wildside-frame` sprite mutation pass into platform rendering helpers.
+- Initial focused platform sampling `/tmp/mutants-frame-sprites-platforms-1`
+  reported `52 mutants tested in 40s: 47 missed, 5 unviable`; the helpers had
+  no direct command-emission coverage.
+- This pass adds synthetic `NativeLevelVisuals` coverage for
+  `push_platform_tiles`, loc_24AC/loc_2548 cell translation, loc_2822 art
+  mapping words, fallback art selection, camera-relative culling, tile offsets,
+  palettes, and missing debug fields.
+- Evidence: focused platform rerun `/tmp/mutants-frame-sprites-platforms-3`
+  reports `52 mutants tested in 39s: 47 caught, 5 unviable`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-frame
+  sprites::tests -- --nocapture`, and the focused mutation rerun completed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another `sprites.rs` render push helper
+  or a focused frame/core shard.
+
 ## 2026-07-01 handoff (proactive frame sprite selector hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the

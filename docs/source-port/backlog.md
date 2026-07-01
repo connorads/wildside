@@ -28,60 +28,14 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** after the render-background hardening, continued
-  the rotation through clean/no-code-change shards: render `level.rs` (`41
-  mutants tested in 50s: 36 caught, 5 unviable`), render `player.rs` (zero
-  candidates), render `palette.rs` (`35 mutants tested in 47s: 33 caught, 2
-  unviable`), render `tiles.rs` (`38 mutants tested in 48s: 34 caught, 4
-  unviable`), render `hud.rs` (zero candidates), data `level_layout.rs` (`30
-  mutants tested in 29s: 30 caught`), ROM `lib.rs` (`26 mutants tested in 11s:
-  24 caught, 2 unviable`), and MD audio/register shard (`154 mutants tested in
-  51s: 149 caught, 5 unviable`).
-- **Current fix:** MD bus/VDP mutation shard
-  `/tmp/mutants-md-bus-vdp-1` found `312 mutants tested in 2m: 3 missed, 305
-  caught, 4 unviable`. Added a regression proving `AddressBus::copy_from`
-  replays traced YM2612 ports through `port & 3`, and changed long-read
-  assembly from an equivalent `|` to `+` to avoid an untestable disjoint-bit
-  survivor. Final `/tmp/mutants-md-bus-vdp-2` reports `312 mutants tested in
-  2m: 308 caught, 4 unviable`.
-- **Current fix:** MD GEMS mutation shard followed clean controller
-  (`/tmp/mutants-md-controller-1`: `78 mutants tested in 30s: 78 caught`) and
-  Z80 bus (`/tmp/mutants-md-z80bus-1`: `61 mutants tested in 26s: 61 caught`)
-  shards. Initial `/tmp/mutants-md-gems-1` found `91 mutants tested in 50s: 2
-  missed, 86 caught, 2 unviable, 1 timeouts`. Matched GEMS bank-register
-  composition to `Z80Bus`'s additive form and rewrote the frame-cycle loop to
-  consume `remaining` directly with `saturating_sub`. Final
-  `/tmp/mutants-md-gems-3` reports `86 mutants tested in 32s: 84 caught, 2
-  unviable`.
-- **Current fix:** MD VDP diagnostic render shard followed clean audio mixer
-  coverage (`/tmp/mutants-md-audio-mixer-1`: `157 mutants tested in 53s: 157
-  caught`). Initial `/tmp/mutants-md-vdp-render-1` found `433 mutants tested in
-  2m: 20 missed, 399 caught, 14 unviable`. Added VDP sample diagnostics for
-  scrolled plane provenance, exclusive window edges, low-priority window
-  samples, and flipped tile source coordinates. Final
-  `/tmp/mutants-md-vdp-render-2` reports `433 mutants tested in 2m: 419 caught,
-  14 unviable`.
-- **Current fix:** frame render primitive shard
-  `/tmp/mutants-frame-render-primitives-1` found `244 mutants tested in 82s:
-  188 missed, 50 caught, 6 unviable`. Added render primitive/provenance tests
-  for command bounds, text glyph source mapping, tile row/slice/source
-  coordinates, priority clearing, palette resolution, and scene-pixel
-  acceptance, plus removed equivalent disjoint-bit/guard forms. Final
-  `/tmp/mutants-frame-render-primitives-5` reports `237 mutants tested in 83s:
-  231 caught, 6 unviable`.
-- **Current fix:** frame HUD helper/command shard now has full aggregate
-  `push_game_hud` command-stream coverage. Final `/tmp/mutants-frame-hud-8`
-  reports `170 mutants tested in 67s: 160 caught, 1 missed, 9 unviable`; the
-  remaining `% 4` -> `+ 4` palette mutant is equivalent for four-entry
-  rotations.
-- **Current fix:** frame sprite selector shard. Added pure tests for live enemy
-  selector guards, ASM body phases, `select_enemy_frame` death scripts, and the
-  generic fallback animation path. Focused
-  `/tmp/mutants-frame-sprites-selectors-5` reports `521 mutants tested in 3m:
-  56 missed, 435 caught, 30 unviable`; remaining misses are mostly
-  boundary-equivalent live guards and forced-true sheet-length guards.
-- **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
-  use the proactive-verification fallback in `loop.md`.
+- **Current fix:** frame sprite platform-renderer shard. Added synthetic
+  `NativeLevelVisuals` coverage for `push_platform_tiles`, loc_24AC/loc_2548
+  cell translation, loc_2822 art mapping words, fallback art selection,
+  camera-relative culling, tile offsets, palettes, and missing debug fields.
+  Focused `/tmp/mutants-frame-sprites-platforms-3` reports `52 mutants tested
+  in 39s: 47 caught, 5 unviable`.
+- **Next output:** run `mise run project-status` after commit; if no ready/open
+  risks remain, use the proactive-verification fallback in `loop.md`.
 
 NOW is the current-state handoff: rewrite it at the end of every loop session, never
 append. Old handoffs go to [`session-log.md`](./session-log.md).

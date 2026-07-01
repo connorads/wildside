@@ -2288,6 +2288,42 @@ mod tests {
         }
     }
 
+    fn marked_tile_sheet(tile_count: usize, marker: u8) -> wildside_render::TileSheet {
+        wildside_render::TileSheet {
+            tiles: vec![
+                wildside_render::Tile {
+                    pixels: [marker; 64]
+                };
+                tile_count
+            ],
+        }
+    }
+
+    fn marked_frame(
+        tile_base_index: u16,
+        origin_x: i16,
+        origin_y: i16,
+        height_px: u16,
+        marker: u8,
+    ) -> wildside_render::SpriteFrame {
+        wildside_render::SpriteFrame {
+            origin_x,
+            origin_y,
+            width_px: 16,
+            height_px,
+            tile_base_index,
+            tile_sheet: marked_tile_sheet(64, marker),
+        }
+    }
+
+    fn marked_palette(marker: u16) -> wildside_render::Palette {
+        wildside_render::Palette {
+            colours: (0..16)
+                .map(|offset| MdColour::from_word(marker + offset))
+                .collect(),
+        }
+    }
+
     fn labelled_player_visuals() -> wildside_render::PlayerFormVisuals {
         wildside_render::PlayerFormVisuals {
             palette: wildside_render::Palette {
@@ -2338,6 +2374,97 @@ mod tests {
         }
     }
 
+    fn minimal_level_visuals_for_platforms() -> wildside_render::NativeLevelVisuals {
+        let foreground_layout_bytes = vec![0; 20 * 14];
+        let foreground_layout =
+            wildside_render::ForegroundLayout::parse(&foreground_layout_bytes, 1, 1)
+                .expect("foreground layout");
+        let empty_quad = wildside_render::TileQuad {
+            tiles: [sample_tile_ref(0); 4],
+        };
+        let empty_frame = marked_frame(0, 0, 0, 8, 0);
+        let prize_visual = wildside_render::AnimatedSpriteVisual {
+            palette: marked_palette(0x0100),
+            extra_palettes: Vec::new(),
+            frames: vec![empty_frame.clone()],
+            frame_duration: 1,
+        };
+
+        wildside_render::NativeLevelVisuals {
+            foreground_tiles: marked_tile_sheet(1, 1),
+            background_tiles: marked_tile_sheet(1, 2),
+            island_shore_tiles_loc_1202a: None,
+            block_tiles: marked_tile_sheet(128, 3),
+            palettes: wildside_render::PaletteSet {
+                foreground: marked_palette(0x0200),
+                background: marked_palette(0x0300),
+            },
+            background: wildside_render::BackgroundVisuals::Chunked(
+                wildside_render::ChunkedBackgroundVisuals {
+                    placements: Vec::new(),
+                    chunks: Vec::new(),
+                },
+            ),
+            level: wildside_render::LevelVisuals {
+                level_id: 0,
+                foreground_theme_id: 0,
+                background_theme_id: 0,
+                murder_wall_flags: 0,
+                background_scroll: None,
+                foreground_layout,
+                foreground_layout_bytes,
+                block_layout_bytes: Vec::new(),
+                background_layout_bytes: Vec::new(),
+                background_layout_alias: None,
+                block_mapping: wildside_render::BlockVisualMapping::new(
+                    vec![empty_quad.clone()],
+                    vec![empty_quad; 81],
+                )
+                .expect("block mapping"),
+            },
+            hud: wildside_render::HudVisuals {
+                digits: marked_tile_sheet(1, 4),
+                digit_base_tile_index: 0,
+                diamond_tiles: marked_tile_sheet(1, 5),
+                diamond_base_tile_index: 0,
+                hitpoint_sheet: marked_tile_sheet(1, 6),
+                icons: Vec::new(),
+                hitpoint_tiles: [sample_tile_ref(0), sample_tile_ref(1), sample_tile_ref(2)],
+            },
+            player: wildside_render::PlayerVisuals {
+                forms: std::collections::HashMap::from([(0, labelled_player_visuals())]),
+            },
+            juggernaut_skull: None,
+            enemies: wildside_render::EnemyVisuals {
+                families: std::collections::HashMap::new(),
+            },
+            floating_prizes: wildside_render::FloatingPrizeVisuals {
+                diamond: prize_visual,
+                helmets: std::collections::HashMap::new(),
+                icons: std::collections::HashMap::new(),
+            },
+            flag: wildside_render::FlagVisuals {
+                palette: marked_palette(0x0400),
+                pole_bottom: empty_frame.clone(),
+                waving: Vec::new(),
+                frame_duration: 1,
+            },
+            murder_wall: None,
+            lava: None,
+            weather: None,
+            special_effect_unknown: None,
+            platforms: wildside_render::PlatformVisuals {
+                palette: marked_palette(0x0500),
+                horizontal: marked_frame(0x0100, 4, 14, 20, 7),
+                vertical: marked_frame(0x0200, 6, 18, 24, 8),
+            },
+            eol_score: None,
+            eol_hologram: None,
+            pause_menu: None,
+            title_card_letters: None,
+        }
+    }
+
     fn labelled_enemy_visuals(
         frame_count: u16,
         frame_duration: usize,
@@ -2375,6 +2502,56 @@ mod tests {
             walk_phase: None,
             wait_timer: None,
             debug_fields: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn platform_object_at(
+        x_px: u32,
+        y_px: u32,
+        render_flags: u8,
+        mapping_addr_word: u16,
+    ) -> NativeObjectSnapshot {
+        let mut debug_fields = std::collections::BTreeMap::new();
+        debug_fields.insert("platform_width_px".to_owned(), "47".to_owned());
+        debug_fields.insert("platform_height_px".to_owned(), "31".to_owned());
+        debug_fields.insert("platform_render_flags".to_owned(), render_flags.to_string());
+        debug_fields.insert(
+            "platform_mapping_addr_word".to_owned(),
+            mapping_addr_word.to_string(),
+        );
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Platform {
+                kind: 0,
+                subtype: 0,
+            },
+            x_pos: x_px << 16,
+            y_pos: y_px << 16,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields,
+        }
+    }
+
+    fn sample_tile_ref(tile_index: u16) -> wildside_render::TileRef {
+        wildside_render::TileRef {
+            tile_index,
+            palette_line: 0,
+            priority: false,
+            flip_x: false,
+            flip_y: false,
         }
     }
 
@@ -2601,6 +2778,270 @@ mod tests {
             player_tiles
                 .iter()
                 .all(|tile| tile.tile.priority && tile.tile.palette_line == 0)
+        );
+    }
+
+    #[test]
+    fn platform_art_mapping_words_select_asm_sources_loc_2548() {
+        let visuals = minimal_level_visuals_for_platforms();
+
+        for (mapping_word, expected_base, expected_marker, expected_palette, asm_label) in [
+            (
+                0x0094,
+                0x0100,
+                7,
+                0x0500,
+                "ASM PlatformArtAddr_Table loc_2822 horizontal",
+            ),
+            (
+                0x06AE,
+                0x0200,
+                8,
+                0x0500,
+                "ASM PlatformArtAddr_Table loc_2822 vertical",
+            ),
+            (
+                0x025A,
+                0x003A,
+                3,
+                0x0200,
+                "ASM loc_2548 block-art range `unk_E0E4E`",
+            ),
+        ] {
+            let object = platform_object_at(0x0120, 0x0090, 8, mapping_word);
+            let art = platform_art_for_mapping_word_loc_2548(&object, &visuals)
+                .expect("mapping word should resolve to platform art");
+
+            assert_eq!(
+                art.frame.tile_base_index, expected_base,
+                "{asm_label} tile base"
+            );
+            assert_eq!(
+                art.frame.tile_sheet.tiles[0].pixels[0], expected_marker,
+                "{asm_label} tile sheet"
+            );
+            assert_eq!(
+                art.palette.colours[0].raw_word, expected_palette,
+                "{asm_label} palette"
+            );
+        }
+
+        let object = platform_object_at(0x0120, 0x0090, 8, 0x1234);
+        assert!(
+            platform_art_for_mapping_word_loc_2548(&object, &visuals).is_none(),
+            "unknown loc_2822 mapping words fall back to the render variant/kind heuristic"
+        );
+    }
+
+    #[test]
+    fn platform_sprite_cells_translate_asm_entries_loc_24ac_2548() {
+        let dispatch = PlatformSpriteDispatchLoc244C {
+            screen_x_word: 0x00A0,
+            screen_y_word: 0x0090,
+            width_tiles_minus_one: 2,
+            height_tiles_minus_one: 1,
+            base_tile_word: 0x0500,
+            mapping_addr_word: 0x2468,
+            variant: PlatformSpriteVariantLoc244C::Loc24D4,
+        };
+
+        assert_eq!(
+            platform_sprite_cells_loc_24AC(PlatformSpriteVariantLoc244C::Loc24D4, dispatch, 3, 2),
+            vec![
+                platform_cell(0, 0, 0, 0),
+                platform_cell(1, 0, 0, 0),
+                platform_cell(2, 0, 0, 0),
+                platform_cell(0, 1, 0, 0),
+                platform_cell(1, 1, 0, 0),
+                platform_cell(2, 1, 0, 0),
+            ],
+            "ASM loc_24D4 emits a full width-by-height cell grid"
+        );
+
+        let translated = platform_sprite_entry_cell_loc_2548(
+            dispatch,
+            PlatformSpriteEntryLoc2548 {
+                y_word: 0x00B5,
+                tile_word: 0x0512,
+                mapping_word: 0xA47A,
+                x_word: 0x00C0,
+            },
+        );
+        assert_eq!(
+            translated,
+            platform_cell(2, 2, 5, 0x0012),
+            "ASM loc_2548 stores biased x/y/mapping words; frame code must recover cell coordinates and the intra-art tile offset"
+        );
+
+        let frame = marked_frame(0x0300, 0, 0, 16, 9);
+        assert_eq!(
+            platform_cell_tiles_loc_2548(&frame, 0x0012)
+                .iter()
+                .map(|tile| (tile.offset_x, tile.offset_y, tile.tile.tile_index))
+                .collect::<Vec<_>>(),
+            vec![
+                (0, 0, 0x0312),
+                (0, 8, 0x0313),
+                (8, 0, 0x0314),
+                (8, 8, 0x0315)
+            ],
+            "ASM loc_2548 maps one 16x16 platform sprite to four consecutive 8x8 tiles"
+        );
+    }
+
+    #[test]
+    fn push_platform_tiles_emits_loc_244c_commands_and_art_sources() {
+        let visuals = minimal_level_visuals_for_platforms();
+        let trace = NativeTraceFrame {
+            camera_x_pos: 0x0100_0000,
+            camera_y_pos: 0x0080_0000,
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+
+        // ASM loc_244C -> loc_24D4 -> loc_2548: horizontal `$94` art, six
+        // 16px grid cells, and frame-origin-adjusted screen coordinates.
+        push_platform_tiles(
+            &mut commands,
+            &platform_object_at(0x0120, 0x0090, 6, 0x0094),
+            &trace,
+            &visuals,
+            0x00,
+        );
+        assert_eq!(commands.len(), 6);
+        let summary = commands
+            .iter()
+            .map(|command| match command {
+                DrawCommand::Sprite {
+                    x,
+                    y,
+                    tile_sheet,
+                    palette,
+                    tiles,
+                } => (
+                    *x,
+                    *y,
+                    tile_sheet.tiles[0].pixels[0],
+                    palette.colours[0].raw_word,
+                    tiles
+                        .iter()
+                        .map(|tile| tile.tile.tile_index)
+                        .collect::<Vec<_>>(),
+                ),
+                _ => panic!("platforms should emit sprite commands"),
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            summary,
+            vec![
+                (28, 10, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (44, 10, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (60, 10, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (28, 26, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (44, 26, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+                (60, 26, 7, 0x0500, vec![0x0100, 0x0101, 0x0102, 0x0103]),
+            ],
+        );
+
+        // ASM loc_2822 `$25A`: shifting-block/common block art uses block
+        // tiles and the foreground palette instead of the platform sheet.
+        commands.clear();
+        push_platform_tiles(
+            &mut commands,
+            &platform_object_at(0x0120, 0x0090, 8, 0x025A),
+            &trace,
+            &visuals,
+            0x00,
+        );
+        let [
+            DrawCommand::Sprite {
+                x,
+                y,
+                tile_sheet,
+                palette,
+                tiles,
+            },
+        ] = commands.as_slice()
+        else {
+            panic!("loc_24C0 platform should emit one sprite command");
+        };
+        assert_eq!((*x, *y), (32, 16));
+        assert_eq!(tile_sheet.tiles[0].pixels[0], 3);
+        assert_eq!(palette.colours[0].raw_word, 0x0200);
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| tile.tile.tile_index)
+                .collect::<Vec<_>>(),
+            vec![0x003A, 0x003B, 0x003C, 0x003D]
+        );
+
+        // Unknown mapping words fall back to render-variant/kind selection.
+        // Loc24CC includes ASM's `subq.w #2,d6` y-bias, which must survive the
+        // frame-origin conversion.
+        commands.clear();
+        push_platform_tiles(
+            &mut commands,
+            &platform_object_at(0x0120, 0x0090, 0, 0x1234),
+            &trace,
+            &visuals,
+            0x00,
+        );
+        let DrawCommand::Sprite {
+            x, y, tile_sheet, ..
+        } = &commands[0]
+        else {
+            panic!("loc_24CC fallback platform should emit sprite commands");
+        };
+        assert_eq!((*x, *y), (28, 8));
+        assert_eq!(tile_sheet.tiles[0].pixels[0], 7);
+
+        commands.clear();
+        push_platform_tiles(
+            &mut commands,
+            &platform_object_at(0x0120, 0x0090, 4, 0x1234),
+            &trace,
+            &visuals,
+            0x00,
+        );
+        let DrawCommand::Sprite { tile_sheet, .. } = &commands[0] else {
+            panic!("loc_251C fallback platform should emit sprite commands");
+        };
+        assert_eq!(
+            tile_sheet.tiles[0].pixels[0], 8,
+            "ASM off_24AC loc_251C renders with vertical platform art even when kind is horizontal"
+        );
+
+        // Non-zero camera high words are part of loc_244C visibility culling,
+        // not just final draw-command placement.
+        commands.clear();
+        let far_trace = NativeTraceFrame {
+            camera_x_pos: 0x0200_0000,
+            camera_y_pos: 0x0300_0000,
+            ..NativeTraceFrame::default()
+        };
+        push_platform_tiles(
+            &mut commands,
+            &platform_object_at(0x0210, 0x0310, 8, 0x0094),
+            &far_trace,
+            &visuals,
+            0x00,
+        );
+        assert_eq!(
+            commands.len(),
+            1,
+            "ASM loc_244C should keep a platform visible when both camera-relative high words are near the viewport origin"
+        );
+
+        commands.clear();
+        let mut missing_mapping = platform_object_at(0x0120, 0x0090, 8, 0x025A);
+        missing_mapping
+            .debug_fields
+            .remove("platform_mapping_addr_word");
+        push_platform_tiles(&mut commands, &missing_mapping, &trace, &visuals, 0x00);
+        assert!(
+            commands.is_empty(),
+            "ASM loc_244C cannot dispatch without the Platform_RAM mapping word"
         );
     }
 
