@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Armadillo enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/armadillo.rs`.
+- The slice covers the ASM-cited Armadillo damage routing, Berzerker side-contact
+  launch/recovery paths, status-table update helpers, and spawned-child
+  death/fall branches.
+- Evidence: `/tmp/mutants-armadillo-proactive-1` reports `46 mutants tested in
+  5m: 34 caught, 12 unviable`.
+- Verification: the Armadillo mutation run completed with no survivors; no
+  source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Tornado enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
