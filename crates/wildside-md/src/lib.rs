@@ -2837,7 +2837,7 @@ impl Z80_io for GemsBus {
             0x6000..=0x60FF => {
                 // Bank register write
                 let current_bank = self.bank_address >> 15;
-                let next_bank = ((current_bank >> 1) | (u32::from(value & 1) << 8)) & 0x01FF;
+                let next_bank = ((current_bank >> 1) + (u32::from(value & 1) << 8)) & 0x01FF;
                 self.bank_address = next_bank << 15;
             }
             0x7F11 => self.record_psg_write(value),
@@ -3087,8 +3087,7 @@ impl GemsAudioEngine {
         // Fire VBlank IRQ at start of frame
         self.vblank_irq_cycles_remaining = Z80_VBLANK_IRQ_CYCLES;
 
-        while remaining > 0 {
-            self.z80.io.z80_cycles = self.z80.io.z80_cycles.wrapping_add(0);
+        while remaining != 0 {
             if self.vblank_irq_cycles_remaining > 0 {
                 self.z80.assert_irq(0xFF);
             } else {
@@ -3102,10 +3101,7 @@ impl GemsAudioEngine {
             self.z80.io.z80_cycles = self.z80.io.z80_cycles.wrapping_add(u64::from(budget));
             self.vblank_irq_cycles_remaining =
                 self.vblank_irq_cycles_remaining.saturating_sub(budget);
-            if budget >= remaining {
-                break;
-            }
-            remaining -= budget;
+            remaining = remaining.saturating_sub(budget);
         }
     }
 

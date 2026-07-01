@@ -44,6 +44,15 @@ and stop — never commit churn.
   assembly from an equivalent `|` to `+` to avoid an untestable disjoint-bit
   survivor. Final `/tmp/mutants-md-bus-vdp-2` reports `312 mutants tested in
   2m: 308 caught, 4 unviable`.
+- **Current fix:** MD GEMS mutation shard followed clean controller
+  (`/tmp/mutants-md-controller-1`: `78 mutants tested in 30s: 78 caught`) and
+  Z80 bus (`/tmp/mutants-md-z80bus-1`: `61 mutants tested in 26s: 61 caught`)
+  shards. Initial `/tmp/mutants-md-gems-1` found `91 mutants tested in 50s: 2
+  missed, 86 caught, 2 unviable, 1 timeouts`. Matched GEMS bank-register
+  composition to `Z80Bus`'s additive form and rewrote the frame-cycle loop to
+  consume `remaining` directly with `saturating_sub`. Final
+  `/tmp/mutants-md-gems-3` reports `86 mutants tested in 32s: 84 caught, 2
+  unviable`.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

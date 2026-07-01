@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive MD GEMS mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued the
+  `wildside-md` helper rotation after the bus/VDP pass.
+- Clean/no-code-change shards: controller `/tmp/mutants-md-controller-1`
+  reported `78 mutants tested in 30s: 78 caught`; Z80 bus
+  `/tmp/mutants-md-z80bus-1` reported `61 mutants tested in 26s: 61 caught`.
+- Initial standalone GEMS shard `/tmp/mutants-md-gems-1` reported `91 mutants
+  tested in 50s: 2 missed, 86 caught, 2 unviable, 1 timeouts`.
+- This pass matches standalone GEMS bank-register composition to `Z80Bus`'s
+  additive form and rewrites the frame-cycle loop to consume `remaining`
+  directly with `saturating_sub`, removing the unobservable disjoint-bit
+  survivor and timeout-only loop mutant.
+- Evidence: focused rerun `/tmp/mutants-md-gems-3` reports `86 mutants tested
+  in 32s: 84 caught, 2 unviable`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-md
+  standalone_gems -- --nocapture`, and the focused mutation rerun passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on the remaining `wildside-md` audio mixer
+  or VDP render helper shards.
+
 ## 2026-07-01 handoff (proactive MD bus/VDP mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the
