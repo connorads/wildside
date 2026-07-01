@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Tornado enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/tornado.rs`.
+- The slice covers the ASM-cited Tornado collision dispatch, UFO-shared terrain
+  bounce application, hit/status-table sequence, and Cyclone side-bounce helper
+  paths.
+- Evidence: `/tmp/mutants-tornado-proactive-1` reports `70 mutants tested in
+  7m: 62 caught, 8 unviable`.
+- Verification: the Tornado mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Fireball enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, sampled

@@ -28,12 +28,12 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive Fireball enemy mutation slice. Sphere was
-  sampled first but yielded only unviable mutants (`/tmp/mutants-sphere-proactive-1`:
-  `3 mutants tested in 50s: 3 unviable`). Fireball then ran clean under the
-  single-file wrapper (`/tmp/mutants-fireball-proactive-1`: `60 mutants tested
-  in 6m: 47 caught, 13 unviable`). No source edit was warranted; the existing
-  ASM-cited fireball sprite/trail/bounce tests killed every viable mutant.
+- **Current verification:** proactive Tornado enemy mutation slice. The
+  single-file wrapper on `crates/wildside-core/src/enemies/tornado.rs` reports
+  `/tmp/mutants-tornado-proactive-1`: `70 mutants tested in 7m: 62 caught, 8
+  unviable`. No source edit was warranted; the existing ASM-cited tornado
+  collision dispatch, terrain bounce, hit-sequence, and Cyclone interaction
+  tests killed every viable mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
