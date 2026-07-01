@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Mini Hopping Skull enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/mini_hopping_skull.rs`.
+- The slice covers the ASM-cited Mini Hopping Skull air-sprite selection,
+  collision dispatch, slope/terrain contacts, grounded wait and windup routes,
+  scream-worker allocation, Berzerker side-contact gates, damage/death paths,
+  landing tails, and relaunch loops.
+- Evidence: `/tmp/mutants-mini-hopping-skull-proactive-1` reports `146 mutants
+  tested in 13m: 90 caught, 56 unviable`.
+- Verification: the Mini Hopping Skull mutation run completed with no survivors;
+  no source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Ninja enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
