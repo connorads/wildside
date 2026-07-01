@@ -255,6 +255,90 @@ mod tests {
         run_backlog_lint(dir.path()).expect("clean lanes lint clean");
     }
 
+    #[test]
+    fn parse_rows_keeps_minimal_numeric_status_rows_and_skips_nonnumeric_rows() {
+        let rows = parse_rows(
+            "| # | Status |\n\
+             |-----|--------|\n\
+             | abc | [ ] |\n\
+             | 200 | [ ] |\n",
+        );
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "200");
+        assert_eq!(rows[0].status, "[ ]");
+    }
+
+    #[test]
+    fn parse_rows_requires_markdown_table_rows_and_skips_header_text() {
+        let rows = parse_rows(
+            "200 | [ ] | P1 | player | missing leading pipe | verify\n\
+             | 201 | [ ] | P1 | player | contains | Status | text |\n\
+             | 202 | [ ] | P1 | player | valid | verify |\n",
+        );
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "202");
+    }
+
+    #[test]
+    fn collect_malformed_rows_ignores_template_rows_without_numeric_ids() {
+        let mut problems = Vec::new();
+        collect_malformed_rows(
+            "| | [ ] | P1 | player | template | verify |\n\
+             | abc | [ ] | P1 | player | template | verify |\n",
+            "backlog.md",
+            &mut problems,
+        );
+
+        assert!(problems.is_empty());
+    }
+
+    #[test]
+    fn now_block_len_stops_at_table_header_or_next_section() {
+        assert_eq!(
+            now_block_len(
+                "intro\n\
+                 ## NOW\n\
+                 \n\
+                 - Focus\n\
+                 | # | Status | Pri | System | Summary | Verify |\n\
+                 |-----|--------|-----|--------|---------|--------|\n"
+            ),
+            Some(3)
+        );
+        assert_eq!(
+            now_block_len(
+                "intro\n\
+                 ## NOW\n\
+                 \n\
+                 - Focus\n\
+                 ## Later\n\
+                 body\n"
+            ),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn lint_allows_exact_now_and_verify_limits() {
+        let dir = TempDir::new().expect("temp");
+        let now_filler = "- note\n".repeat(MAX_NOW_LINES - 2);
+        let verify = "x".repeat(MAX_OPEN_VERIFY_CHARS);
+        let backlog = format!(
+            "## NOW\n\
+             \n\
+             {now_filler}\
+             | # | Status | Pri | System | Summary | Verify |\n\
+             |-----|--------|-----|--------|---------|--------|\n\
+             | 200 | [ ] | P1 | player | a bug | {verify} |\n"
+        );
+
+        assert_eq!(now_block_len(&backlog), Some(MAX_NOW_LINES));
+        write(&dir, BACKLOG_PATH, &backlog);
+        run_backlog_lint(dir.path()).expect("exact limits are allowed");
+    }
+
     /// Each negative test asserts the SPECIFIC problem message, so a test cannot pass on
     /// an unrelated rule firing.
     fn lint_err(dir: &TempDir) -> String {

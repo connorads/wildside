@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive CLI backlog-lint mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-cli/src/backlog.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/backlog.rs -j 1 --gitignore=true
+  --output /tmp/mutants-cli-backlog-3 -- backlog::tests::` reports `36
+  mutants tested in 3m: 35 caught, 1 unviable`, with zero missed mutants and
+  zero timeouts.
+- Strengthened backlog-lint tests for markdown row filtering, malformed/template
+  rows, NOW block termination, and exact NOW/Verify threshold boundaries.
+- No native gameplay behaviour changes.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive CLI oracle-cache mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused
