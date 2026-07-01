@@ -3199,6 +3199,15 @@ mod proptests {
     }
 
     #[test]
+    fn loc_728c_bottom_look_adjust_decrements_at_threshold_on_equal_max_y() {
+        assert_eq!(
+            camera_y_bottom_look_adjust_loc_728c(288, 288, 0x1E),
+            -1,
+            "ASM loc_728C: `$FFFFFB58 == $1E` does not take `blt.s loc_72A8`; equal shifted target reaches the strict `bcs` clamp test"
+        );
+    }
+
+    #[test]
     fn loc_728c_bottom_look_adjust_keeps_offset_below_max_y() {
         assert_eq!(
             camera_y_bottom_look_adjust_loc_728c(280, 288, 0x25),

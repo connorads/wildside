@@ -7,6 +7,30 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive physics mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  mutation-tested `crates/wildside-core/src/physics.rs` via
+  `OUTPUT=.cache/mutants/physics-current FILE=crates/wildside-core/src/physics.rs mise run mutants-file`.
+- Initial evidence: full physics shard reported `293 mutants tested in 30m:
+  3 missed, 278 caught, 12 unviable`.
+- This pass adds an ASM-cited `loc_728C` regression for the exact `$FFFFFB58 ==
+  $1E` threshold when the shifted camera target equals `max_y`; the ROM does
+  not take `blt.s loc_72A8` at equality and then decrements the look offset
+  because the later `bcs` max-Y check is strict.
+- Follow-up evidence: targeted camera/murder-wall rerun
+  `/tmp/mutants-physics-camera-target` reports `34 mutants tested in 3m:
+  1 missed, 33 caught`.
+  The remaining `forward_murder_wall_camera_push_loc_7346` `<` -> `<=` mutant
+  is equivalent at the exact permitted gap: `d0 == d1` already means
+  `wall_px == camera_px - d1`, so the clamp path and no-adjust path preserve
+  identical high/fractional words.
+- Verification: `cargo test -q -p wildside-core loc_728c_bottom_look_adjust --
+  --nocapture` and `mise run verify-slice-fast` passed.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-01 handoff (proactive platform mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,

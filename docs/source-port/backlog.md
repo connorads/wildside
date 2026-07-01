@@ -28,18 +28,18 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** `crates/wildside-core/src/platforms.rs`
+- **Fallback verification:** `crates/wildside-core/src/physics.rs`
   mutation-hardening pass started from
-  `OUTPUT=.cache/mutants/platforms-current FILE=crates/wildside-core/src/platforms.rs
-  mise run mutants-file`, which reported `536 mutants tested in 57m: 82
-  missed, 398 caught, 51 unviable, 5 timeouts`.
-- **Platform follow-up evidence:** targeted helper/model rerun
-  `/tmp/mutants-platforms-target-2` reports `96 mutants tested in 5m: 4
-  missed, 86 caught, 3 unviable, 3 timeouts`; remaining misses are
-  equivalent/non-observable loaded-mask/render bit merges or stale model
-  side-array cleanup after unlink, while slot-index alias mutants time out.
-  `cargo test -q -p wildside-core platform_ -- --nocapture` and
-  `mise run verify-slice-fast` are green.
+  `OUTPUT=.cache/mutants/physics-current FILE=crates/wildside-core/src/physics.rs
+  mise run mutants-file`, which reported `293 mutants tested in 30m: 3
+  missed, 278 caught, 12 unviable`.
+- **Physics follow-up evidence:** added the missing `loc_728C` exact-threshold
+  bottom-camera assertion; targeted rerun `/tmp/mutants-physics-camera-target`
+  reports `34 mutants tested in 3m: 1 missed, 33 caught`. The remaining
+  `loc_7346` exact-gap `<`→`<=` survivor is equivalent because the clamp writes
+  the same high word already implied by `camera_px - wall_px == d1`.
+  `cargo test -q -p wildside-core loc_728c_bottom_look_adjust -- --nocapture`
+  and `mise run verify-slice-fast` are green.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 
