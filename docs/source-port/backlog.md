@@ -69,19 +69,19 @@ and stop — never commit churn.
   acceptance, plus removed equivalent disjoint-bit/guard forms. Final
   `/tmp/mutants-frame-render-primitives-5` reports `237 mutants tested in 83s:
   231 caught, 6 unviable`.
-- **Current fix:** frame HUD helper/command shard `/tmp/mutants-frame-hud-1` found
-  `150 mutants tested in 60s: 141 missed, 9 unviable`. Added focused HUD
-  helper coverage for loc_BE0C hitpoint slot/tail pips, loc_45EE diamond page
-  lead, loc_4546/loc_4586 life icon pages, loc_C070 visible timer seconds, and
-  loc_BD0A timer coordinate/layout decisions. Follow-up command coverage added
-  HUD digit counters, wide/narrow hitpoint sprite emission, transform-flash HP
-  visibility, loc_1223C diamond palette rotation, and ankh/diamond/fallback HUD
-  icon commands. The final aggregate pass added full `push_game_hud`
-  command-stream coverage for HP pips, timer digits, counters, and animated HUD
-  sprites, plus boundary coverage for value 10, short HP sheets, and 10-colour
-  palette rotation. Final `/tmp/mutants-frame-hud-8` reports `170 mutants
-  tested in 67s: 160 caught, 1 missed, 9 unviable`; the remaining `% 4` -> `+
-  4` palette mutant is equivalent for four-entry rotations.
+- **Current fix:** frame HUD helper/command shard now has full aggregate
+  `push_game_hud` command-stream coverage. Final `/tmp/mutants-frame-hud-8`
+  reports `170 mutants tested in 67s: 160 caught, 1 missed, 9 unviable`; the
+  remaining `% 4` -> `+ 4` palette mutant is equivalent for four-entry
+  rotations.
+- **Current fix:** frame sprite helper shard. Added pure tests for loc_39EBE
+  boss-head death frames/facing, sprite tile chunk/band splitting and x-flip
+  offsets, selected `select_player_frame` ASM branches, transform-step
+  selection, loc_7CD0 Kid-palette predicate, player fixed-point screen
+  position, and sub_37ABC boss-eye marker offsets. Full
+  `/tmp/mutants-frame-sprites-5` reports `969 mutants tested in 6m: 667
+  missed, 243 caught, 59 unviable`; remaining misses are dominated by
+  enemy/platform sprite selector families and render-push integration helpers.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

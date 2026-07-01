@@ -2281,11 +2281,690 @@ mod tests {
         }
     }
 
+    fn labelled_frame(tile_base_index: u16) -> wildside_render::SpriteFrame {
+        wildside_render::SpriteFrame {
+            tile_base_index,
+            ..synthetic_player_frame()
+        }
+    }
+
+    fn labelled_player_visuals() -> wildside_render::PlayerFormVisuals {
+        wildside_render::PlayerFormVisuals {
+            palette: wildside_render::Palette {
+                colours: Vec::new(),
+            },
+            idle: labelled_frame(0x0100),
+            walk: vec![
+                labelled_frame(0x0200),
+                labelled_frame(0x0201),
+                labelled_frame(0x0202),
+            ],
+            flight_spin: vec![
+                labelled_frame(0x0300),
+                labelled_frame(0x0301),
+                labelled_frame(0x0302),
+            ],
+            charge: vec![labelled_frame(0x0400), labelled_frame(0x0401)],
+            climb: vec![
+                labelled_frame(0x0500),
+                labelled_frame(0x0501),
+                labelled_frame(0x0502),
+            ],
+            axe: Vec::new(),
+            slope_walk: vec![labelled_frame(0x0600), labelled_frame(0x0601)],
+            slope_walk_left: vec![labelled_frame(0x0700), labelled_frame(0x0701)],
+            jump_rise: labelled_frame(0x0800),
+            jump_fall: labelled_frame(0x0801),
+            death: None,
+            pull_up: vec![
+                labelled_frame(0x0900),
+                labelled_frame(0x0901),
+                labelled_frame(0x0902),
+            ],
+            slash_ground: vec![
+                labelled_frame(0x0A00),
+                labelled_frame(0x0A01),
+                labelled_frame(0x0A02),
+                labelled_frame(0x0A03),
+            ],
+            slash_air: vec![
+                labelled_frame(0x0B00),
+                labelled_frame(0x0B01),
+                labelled_frame(0x0B02),
+                labelled_frame(0x0B03),
+            ],
+            transform_palette: None,
+            transform_steps: Vec::new(),
+        }
+    }
+
+    fn native_object_at(x_pos: u32, y_pos: u32) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Player,
+            x_pos,
+            y_pos,
+            layout_index: None,
+            x_velocity: None,
+            y_velocity: None,
+            facing: None,
+            on_ground: None,
+            hit_points: None,
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn selected_tile_base(
+        trace: &NativeTraceFrame,
+        visuals: &wildside_render::PlayerFormVisuals,
+    ) -> u16 {
+        select_player_frame(trace, visuals).tile_base_index
+    }
+
+    fn sprite_tile_summary(tiles: &[SpriteTile]) -> Vec<(i32, i32, u16, bool)> {
+        tiles
+            .iter()
+            .map(|tile| {
+                (
+                    tile.offset_x,
+                    tile.offset_y,
+                    tile.tile.tile_index,
+                    tile.tile.flip_x,
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn boss_head_death_helpers_follow_loc_39ebe_script_boundaries() {
+        // ASM loc_39EBE/loc_39F7A: intro scripts consume 120 frames, then a
+        // 17-frame spin script repeats while toggling facing for frames 5..12.
+        let total = BOSS_HEAD_DEATH_ANIMATION_FRAMES_LOC_39EBE;
+        assert_eq!(total, 290);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total), 4);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 5), 4);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 6), 3);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 29), 0);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 30), 1);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 119), 4);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 120), 4);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 124), 0);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 125), 1);
+        assert_eq!(boss_head_death_frame_loc_39ebe(total - 137), 4);
+
+        assert_eq!(
+            boss_head_death_facing_loc_39ebe(Direction::Right, total - 29),
+            Direction::Right
+        );
+        assert_eq!(
+            boss_head_death_facing_loc_39ebe(Direction::Right, total - 30),
+            Direction::Left
+        );
+        assert_eq!(
+            boss_head_death_facing_loc_39ebe(Direction::Right, total - 70),
+            Direction::Right
+        );
+        assert_eq!(
+            boss_head_death_facing_loc_39ebe(Direction::Right, total - 96),
+            Direction::Left
+        );
+        assert_eq!(
+            boss_head_death_facing_loc_39ebe(Direction::Right, total - 112),
+            Direction::Right
+        );
+        assert_eq!(
+            boss_head_death_facing_loc_39ebe(Direction::Right, total - 124),
+            Direction::Right
+        );
+        assert_eq!(
+            boss_head_death_facing_loc_39ebe(Direction::Right, total - 125),
+            Direction::Left
+        );
+        assert_eq!(
+            boss_head_death_facing_loc_39ebe(Direction::Left, total - 125),
+            Direction::Right
+        );
+    }
+
+    #[test]
+    fn sprite_draw_position_uses_aligned_width_for_left_facing() {
+        let frame = wildside_render::SpriteFrame {
+            origin_x: 7,
+            origin_y: 3,
+            width_px: 17,
+            height_px: 18,
+            tile_base_index: 0,
+            tile_sheet: wildside_render::TileSheet { tiles: Vec::new() },
+        };
+
+        assert_eq!(align_sprite_dimension(0), 0);
+        assert_eq!(align_sprite_dimension(1), 8);
+        assert_eq!(align_sprite_dimension(8), 8);
+        assert_eq!(align_sprite_dimension(9), 16);
+        assert_eq!(align_sprite_dimension(33), 40);
+        assert_eq!(
+            sprite_draw_position(&frame, 100, 50, Direction::Right),
+            (93, 35)
+        );
+        assert_eq!(
+            sprite_draw_position(&frame, 100, 50, Direction::Left),
+            (83, 35)
+        );
+    }
+
+    #[test]
+    fn build_sprite_tiles_splits_bands_chunks_and_flips_x_offsets() {
+        let frame = wildside_render::SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 33,
+            height_px: 40,
+            tile_base_index: 0x20,
+            tile_sheet: wildside_render::TileSheet { tiles: Vec::new() },
+        };
+
+        assert_eq!(
+            sprite_tile_summary(&build_sprite_tiles_with_flip(&frame, false, 2)),
+            vec![
+                (0, 0, 0x20, false),
+                (0, 8, 0x21, false),
+                (0, 16, 0x22, false),
+                (0, 24, 0x23, false),
+                (8, 0, 0x24, false),
+                (8, 8, 0x25, false),
+                (8, 16, 0x26, false),
+                (8, 24, 0x27, false),
+                (16, 0, 0x28, false),
+                (16, 8, 0x29, false),
+                (16, 16, 0x2A, false),
+                (16, 24, 0x2B, false),
+                (24, 0, 0x2C, false),
+                (24, 8, 0x2D, false),
+                (24, 16, 0x2E, false),
+                (24, 24, 0x2F, false),
+                (32, 0, 0x30, false),
+                (32, 8, 0x31, false),
+                (32, 16, 0x32, false),
+                (32, 24, 0x33, false),
+                (0, 32, 0x34, false),
+                (8, 32, 0x35, false),
+                (16, 32, 0x36, false),
+                (24, 32, 0x37, false),
+                (32, 32, 0x38, false),
+            ]
+        );
+
+        assert_eq!(
+            sprite_tile_summary(&build_sprite_tiles_with_flip(&frame, true, 3)),
+            vec![
+                (32, 0, 0x20, true),
+                (32, 8, 0x21, true),
+                (32, 16, 0x22, true),
+                (32, 24, 0x23, true),
+                (24, 0, 0x24, true),
+                (24, 8, 0x25, true),
+                (24, 16, 0x26, true),
+                (24, 24, 0x27, true),
+                (16, 0, 0x28, true),
+                (16, 8, 0x29, true),
+                (16, 16, 0x2A, true),
+                (16, 24, 0x2B, true),
+                (8, 0, 0x2C, true),
+                (8, 8, 0x2D, true),
+                (8, 16, 0x2E, true),
+                (8, 24, 0x2F, true),
+                (0, 0, 0x30, true),
+                (0, 8, 0x31, true),
+                (0, 16, 0x32, true),
+                (0, 24, 0x33, true),
+                (32, 32, 0x34, true),
+                (24, 32, 0x35, true),
+                (16, 32, 0x36, true),
+                (8, 32, 0x37, true),
+                (0, 32, 0x38, true),
+            ]
+        );
+
+        let player_tiles = build_player_sprite_tiles_with_flip(&frame, true, Some(true));
+        assert_eq!(player_tiles.len(), 25);
+        assert!(
+            player_tiles
+                .iter()
+                .all(|tile| tile.tile.priority && tile.tile.palette_line == 0)
+        );
+    }
+
+    #[test]
+    fn select_player_frame_prefers_asm_specific_pose_branches() {
+        let visuals = labelled_player_visuals();
+
+        // ASM loc_ABF0: pull-up hibernate advances every three frames and
+        // takes precedence over ordinary motion.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    ledge_snap_cooldown: 6,
+                    kid_x_velocity: Some(0x1000),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0901
+        );
+
+        // ASM sub_B270 loc_B2A0: Cyclone flight uses phase >> 8, clamped to
+        // the loaded spin frames.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Cyclone.helmet_id(),
+                    cyclone_flying: true,
+                    walk_visual_accumulator: 0x0200,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0302
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Cyclone.helmet_id(),
+                    cyclone_flying: true,
+                    walk_visual_accumulator: 0x0500,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0302
+        );
+
+        // ASM sub_B270 loc_B350/loc_B380: airborne down slash wins over the
+        // normal sword timer and indexes by counter >> 5.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(false),
+                    red_stealth_airborne_slash_counter: 0x40,
+                    red_stealth_sword_timer: 9,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0B02
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(false),
+                    red_stealth_airborne_slash_counter: 0xE0,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0B03
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(true),
+                    red_stealth_sword_timer: 6,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0A02
+        );
+        let mut short_slash_visuals = labelled_player_visuals();
+        short_slash_visuals.slash_ground.truncate(2);
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(true),
+                    red_stealth_sword_timer: 1,
+                    ..NativeTraceFrame::default()
+                },
+                &short_slash_visuals
+            ),
+            0x0A01
+        );
+
+        // ASM loc_A276 hibernate attach falls through to idle; subsequent
+        // sub_A3BC climb frames bucket d3 >> 2 through off_A420.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::IronKnight.helmet_id(),
+                    iron_knight_climbing: true,
+                    iron_knight_climb_pose_accum: 0,
+                    kid_y_velocity: Some(-0x4000),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0100
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::IronKnight.helmet_id(),
+                    iron_knight_climbing: true,
+                    iron_knight_climb_pose_accum: 0,
+                    kid_y_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0500
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::IronKnight.helmet_id(),
+                    iron_knight_climbing: true,
+                    iron_knight_climb_pose_accum: 0x40,
+                    kid_y_velocity: Some(-0x4000),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0501
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::IronKnight.helmet_id(),
+                    iron_knight_climbing: true,
+                    iron_knight_climb_pose_accum: 0x80,
+                    kid_y_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0502
+        );
+    }
+
+    #[test]
+    fn select_player_frame_uses_accumulator_for_ground_slope_and_walk_poses() {
+        let visuals = labelled_player_visuals();
+
+        // ASM loc_9564/off_9688: Berzerker charge pose survives zero velocity.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Berzerker.helmet_id(),
+                    berzerker_charge_pose: true,
+                    walk_visual_accumulator: 0x0100,
+                    kid_x_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0401
+        );
+
+        // ASM loc_A13A/off_A190: slope direction canonicalisation chooses
+        // opposite tables for reverse/uphill-facing cases, with phase >> 8.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_slope: 1,
+                    kid_facing: Some(Direction::Right),
+                    walk_visual_accumulator: 0x0100,
+                    kid_x_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0701
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Berzerker.helmet_id(),
+                    kid_on_slope: -1,
+                    kid_facing: Some(Direction::Right),
+                    walk_visual_accumulator: 0x0100,
+                    kid_x_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0601
+        );
+
+        // ASM loc_9580/loc_9600: Berzerker latched walk pose wins even when
+        // sampled velocity is zero; ordinary walk still uses the same phase.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::Berzerker.helmet_id(),
+                    berzerker_walk_pose: true,
+                    walk_visual_accumulator: 0x0200,
+                    kid_x_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0202
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    walk_visual_accumulator: 0x0200,
+                    kid_x_velocity: Some(0x1000),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0202
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(false),
+                    kid_y_velocity: Some(-1),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0800
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(false),
+                    kid_y_velocity: Some(1),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0801
+        );
+    }
+
+    #[test]
+    fn select_player_transform_frame_follows_step_durations() {
+        let mut visuals = labelled_player_visuals();
+        visuals.transform_steps = vec![
+            wildside_render::PlayerTransformStep {
+                duration_frames: 2,
+                frame: Some(labelled_frame(0x0C00)),
+            },
+            wildside_render::PlayerTransformStep {
+                duration_frames: 3,
+                frame: None,
+            },
+            wildside_render::PlayerTransformStep {
+                duration_frames: 4,
+                frame: Some(labelled_frame(0x0C01)),
+            },
+        ];
+
+        assert!(
+            select_player_transform_frame(
+                &NativeTraceFrame {
+                    form_change_flash_frames: 0,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            )
+            .is_none()
+        );
+        assert_eq!(
+            select_player_transform_frame(
+                &NativeTraceFrame {
+                    form_change_flash_frames: 9,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            )
+            .map(|frame| frame.tile_base_index),
+            Some(0x0C00)
+        );
+        assert_eq!(
+            select_player_transform_frame(
+                &NativeTraceFrame {
+                    form_change_flash_frames: 7,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            )
+            .map(|frame| frame.tile_base_index),
+            None
+        );
+        assert_eq!(
+            select_player_transform_frame(
+                &NativeTraceFrame {
+                    form_change_flash_frames: 4,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            )
+            .map(|frame| frame.tile_base_index),
+            Some(0x0C01)
+        );
+        assert_eq!(
+            select_player_transform_frame(
+                &NativeTraceFrame {
+                    form_change_flash_frames: 1,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            )
+            .map(|frame| frame.tile_base_index),
+            Some(0x0C01)
+        );
+        assert_eq!(
+            select_player_transform_frame(
+                &NativeTraceFrame {
+                    form_change_flash_frames: 1,
+                    ..NativeTraceFrame::default()
+                },
+                &labelled_player_visuals()
+            )
+            .map(|frame| frame.tile_base_index),
+            None
+        );
+    }
+
+    #[test]
+    fn transform_palette_kid_predicate_matches_loc_7cd0_old_form_frames() {
+        let mut kid_visuals = labelled_player_visuals();
+        kid_visuals.death = Some(labelled_frame(0x0D00));
+
+        assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(
+            &kid_visuals.idle,
+            &kid_visuals
+        ));
+        assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(
+            &kid_visuals.walk[1],
+            &kid_visuals
+        ));
+        assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(
+            &kid_visuals.jump_rise,
+            &kid_visuals
+        ));
+        assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(
+            &kid_visuals.jump_fall,
+            &kid_visuals
+        ));
+        assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(
+            kid_visuals.death.as_ref().expect("death frame"),
+            &kid_visuals
+        ));
+        assert!(kid_transform_frame_uses_kid_palette_loc_7cd0(
+            &kid_visuals.pull_up[1],
+            &kid_visuals
+        ));
+        assert!(!kid_transform_frame_uses_kid_palette_loc_7cd0(
+            &labelled_frame(0x0E00),
+            &kid_visuals
+        ));
+    }
+
+    #[test]
+    fn player_screen_and_boss_eye_marker_use_md_sprite_coordinates() {
+        assert_eq!(
+            player_screen_position(
+                &native_object_at(0x0123_8000, 0x0045_4000),
+                &NativeTraceFrame {
+                    camera_x_pos: 0x0020_0000,
+                    camera_y_pos: 0x0010_0000,
+                    ..NativeTraceFrame::default()
+                }
+            ),
+            (0x0103, 0x0035)
+        );
+
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(0), (-4, -4));
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(1), (0, -5));
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(2), (4, -4));
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(3), (-5, 0));
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(4), (5, 0));
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(5), (-4, 4));
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(6), (0, 5));
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(7), (4, 4));
+        assert_eq!(boss_eye_attack_highlight_offset_sub_37abc(15), (4, 4));
+
+        let mut commands = Vec::new();
+        push_boss_eye_attack_marker_sub_37abc(&mut commands, 100, 80, 2);
+        assert_eq!(
+            commands,
+            vec![
+                DrawCommand::Rect {
+                    x: 92,
+                    y: 72,
+                    width: 16,
+                    height: 16,
+                    colour: [120, 200, 255],
+                },
+                DrawCommand::Rect {
+                    x: 102,
+                    y: 74,
+                    width: 4,
+                    height: 4,
+                    colour: [255, 255, 255],
+                },
+            ]
+        );
+    }
+
     #[test]
     fn player_sprite_priority_stays_low_except_flagpole_override_loc_c070() {
         let frame = synthetic_player_frame();
 
         let ordinary_tiles = build_player_sprite_tiles_with_flip(&frame, false, None);
+        assert_eq!(ordinary_tiles.len(), 4);
         assert!(
             ordinary_tiles.iter().all(|tile| !tile.tile.priority),
             "ASM player sprite descriptors do not encode a global high-priority bit; normal Kid priority stays low"

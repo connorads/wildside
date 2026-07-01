@@ -7,6 +7,29 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame sprite helper hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, moved from HUD
+  to `wildside-frame` sprite helpers.
+- Broad initial `sprites.rs` mutation sampling showed immediate misses in
+  loc_39EBE boss-head death animation helpers, generic sprite tile splitting,
+  `select_player_frame`, transform palette/step helpers, player screen
+  coordinates, and boss-eye marker offsets.
+- This pass adds focused pure tests for those helper surfaces: boss-head
+  death frame/facing boundaries, tile chunk/band splitting and x-flip offsets,
+  selected ASM-cited player-frame branches, transform-step selection,
+  loc_7CD0 Kid-palette detection, fixed-point player screen position, and
+  sub_37ABC boss-eye marker commands.
+- Evidence: full rerun `/tmp/mutants-frame-sprites-5` reports `969 mutants
+  tested in 6m: 667 missed, 243 caught, 59 unviable`. Remaining misses are
+  dominated by enemy/platform sprite selector families and render-push
+  integration helpers, not the first pure helper cluster.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-frame
+  sprites::tests -- --nocapture`, and the focused mutation rerun completed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on `sprites.rs` enemy/platform selector
+  families or another focused frame/core shard.
+
 ## 2026-07-01 handoff (proactive frame HUD aggregate hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the
