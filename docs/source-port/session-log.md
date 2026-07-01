@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive MD VDP diagnostic render hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued the
+  `wildside-md` helper rotation after the GEMS pass.
+- Clean/no-code-change shard: audio mixer `/tmp/mutants-md-audio-mixer-1`
+  reported `157 mutants tested in 53s: 157 caught`.
+- Initial VDP render helper shard `/tmp/mutants-md-vdp-render-1` reported `433
+  mutants tested in 2m: 20 missed, 399 caught, 14 unviable`.
+- This pass adds diagnostic VDP sample coverage for scrolled plane provenance,
+  exclusive window edges, low-priority window samples, and flipped tile source
+  coordinates. The main RGB render paths were already covered; the gap was the
+  trace/debug sample surface.
+- Evidence: focused rerun `/tmp/mutants-md-vdp-render-2` reports `433 mutants
+  tested in 2m: 419 caught, 14 unviable`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-md sample_ --
+  --nocapture`, `cargo test -q -p wildside-md tile_pixel -- --nocapture`, and
+  the focused mutation rerun passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on remaining helper shards or switch lanes
+  to another focused mutation/audit slice.
+
 ## 2026-07-01 handoff (proactive MD GEMS mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the

@@ -53,6 +53,14 @@ and stop — never commit churn.
   consume `remaining` directly with `saturating_sub`. Final
   `/tmp/mutants-md-gems-3` reports `86 mutants tested in 32s: 84 caught, 2
   unviable`.
+- **Current fix:** MD VDP diagnostic render shard followed clean audio mixer
+  coverage (`/tmp/mutants-md-audio-mixer-1`: `157 mutants tested in 53s: 157
+  caught`). Initial `/tmp/mutants-md-vdp-render-1` found `433 mutants tested in
+  2m: 20 missed, 399 caught, 14 unviable`. Added VDP sample diagnostics for
+  scrolled plane provenance, exclusive window edges, low-priority window
+  samples, and flipped tile source coordinates. Final
+  `/tmp/mutants-md-vdp-render-2` reports `433 mutants tested in 2m: 419 caught,
+  14 unviable`.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

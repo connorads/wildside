@@ -5274,6 +5274,36 @@ mod tests {
     }
 
     #[test]
+    fn sample_plane_pixel_reports_scrolled_wrapped_source() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 4, 1, 3, 3);
+        write_cram_colour(&mut vdp.cram, 0x10 + 3, 0x00E);
+        write_tile_entry(&mut vdp.vram, 0x2000, 15, 0x8000 | 0x2000 | 4);
+        let plane = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 9,
+            vscroll: 7,
+        };
+
+        let sample = super::sample_plane_pixel(&vdp, "plane_b", &plane, 2, 20, true)
+            .expect("scrolled high-priority plane sample should be visible");
+
+        assert_eq!(sample.layer, "plane_b");
+        assert_eq!(sample.cell_x, 3);
+        assert_eq!(sample.cell_y, 3);
+        assert_eq!(sample.cell_index, 15);
+        assert_eq!(sample.entry, 0x8000 | 0x2000 | 4);
+        assert_eq!(sample.tile_index, 4);
+        assert_eq!(sample.palette_line, 1);
+        assert_eq!(sample.source_x, 1);
+        assert_eq!(sample.source_y, 3);
+        assert_eq!(sample.colour_index, 3);
+        assert_eq!(sample.rgb, Some([0xFF, 0x00, 0x00]));
+    }
+
+    #[test]
     fn sample_vdp_pixel_reports_window_source_when_window_covers_pixel() {
         let mut vdp = blank_vdp_snapshot();
         vdp.registers[0x0C] = 0x81;
@@ -5309,6 +5339,68 @@ mod tests {
         assert_eq!(sample.tile_index, 6);
         assert_eq!(sample.palette_line, 2);
         assert_eq!(sample.colour_index, 5);
+        assert_eq!(sample.rgb, Some([0xFF, 0xFF, 0xFF]));
+    }
+
+    #[test]
+    fn sample_plane_a_or_window_pixel_reports_plane_on_exclusive_window_edges() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 2, 0, 0, 2);
+        set_tile_pixel(&mut vdp.vram, 5, 0, 0, 4);
+        write_cram_colour(&mut vdp.cram, 2, 0x0E0);
+        write_cram_colour(&mut vdp.cram, 4, 0xE00);
+        write_tile_entry(&mut vdp.vram, 0x2000, 4, 2);
+        write_tile_entry(&mut vdp.vram, 0x2000, 14, 2);
+        write_tile_entry(&mut vdp.vram, 0x3000, 33, 5);
+        let plane_a = ScrollPlane {
+            base: 0x2000,
+            width_cells: 4,
+            height_cells: 4,
+            hscroll: 0,
+            vscroll: 0,
+        };
+        let window = WindowPlane {
+            base: 0x3000,
+            region: Some(WindowRegion {
+                left: 16,
+                top: 8,
+                width: 16,
+                height: 16,
+            }),
+        };
+
+        let right_edge =
+            super::sample_plane_a_or_window_pixel(&vdp, &plane_a, &window, 32, 8, false)
+                .expect("right-edge sample should fall through to plane A");
+        let bottom_edge =
+            super::sample_plane_a_or_window_pixel(&vdp, &plane_a, &window, 16, 24, false)
+                .expect("bottom-edge sample should fall through to plane A");
+
+        assert_eq!(right_edge.layer, "plane_a");
+        assert_eq!(right_edge.cell_index, 4);
+        assert_eq!(right_edge.rgb, Some([0x00, 0xFF, 0x00]));
+        assert_eq!(bottom_edge.layer, "plane_a");
+        assert_eq!(bottom_edge.cell_index, 14);
+        assert_eq!(bottom_edge.rgb, Some([0x00, 0xFF, 0x00]));
+    }
+
+    #[test]
+    fn sample_window_pixel_accepts_low_priority_entries() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 6, 0, 0, 5);
+        write_cram_colour(&mut vdp.cram, 0x20 + 5, 0xEEE);
+        write_tile_entry(&mut vdp.vram, 0x3400, 1, 0x4000 | 6);
+
+        let sample = super::sample_window_pixel(&vdp, 0x3400, 8, 0, false)
+            .expect("low-priority window sample should be visible in the low-priority pass");
+
+        assert_eq!(sample.layer, "window");
+        assert!(!sample.priority);
+        assert_eq!(sample.cell_index, 1);
+        assert_eq!(sample.tile_index, 6);
+        assert_eq!(sample.palette_line, 2);
+        assert_eq!(sample.source_x, 0);
+        assert_eq!(sample.source_y, 0);
         assert_eq!(sample.rgb, Some([0xFF, 0xFF, 0xFF]));
     }
 
@@ -5525,6 +5617,33 @@ mod tests {
             Some([0x00, 0x00, 0xFF]),
             "VDP tile vflip mirrors y within the 8x8 tile"
         );
+    }
+
+    #[test]
+    fn tile_pixel_sample_reports_flipped_source_coordinates() {
+        let mut vdp = blank_vdp_snapshot();
+        set_tile_pixel(&mut vdp.vram, 8, 6, 5, 4);
+        write_cram_colour(&mut vdp.cram, 0x20 + 4, 0xE00);
+
+        let sample = super::tile_pixel_sample(
+            &vdp,
+            "plane_a",
+            false,
+            0x2000,
+            0,
+            0,
+            0,
+            0x4000 | 0x1800 | 8,
+            1,
+            2,
+        );
+
+        assert_eq!(sample.tile_index, 8);
+        assert_eq!(sample.palette_line, 2);
+        assert_eq!(sample.source_x, 6);
+        assert_eq!(sample.source_y, 5);
+        assert_eq!(sample.colour_index, 4);
+        assert_eq!(sample.rgb, Some([0x00, 0x00, 0xFF]));
     }
 
     #[test]
