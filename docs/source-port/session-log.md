@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Tar Monster enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/tar_monster.rs`.
+- The slice covers the ASM-cited Tar Monster control-script dispatch, wait and
+  appear/sound sequencing, collision gates, Berzerker side-contact routing,
+  hurt/death/status updates, straight and retaliation shot spawning, burst child
+  setup, projectile metadata, collision dispatch, and loop/delete tails.
+- Evidence: `/tmp/mutants-tar-monster-proactive-1` reports `141 mutants tested
+  in 13m: 107 caught, 34 unviable`.
+- Verification: the Tar Monster mutation run completed with no survivors; no
+  source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Mini Hopping Skull enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the

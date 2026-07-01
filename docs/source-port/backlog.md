@@ -28,13 +28,13 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive Mini Hopping Skull enemy mutation slice.
-  The single-file wrapper on
-  `crates/wildside-core/src/enemies/mini_hopping_skull.rs` reports
-  `/tmp/mutants-mini-hopping-skull-proactive-1`: `146 mutants tested in 13m:
-  90 caught, 56 unviable`. No source edit was warranted; the existing ASM-cited
-  air-sprite, collision-dispatch, terrain-contact, grounded-wait, scream-worker,
-  damage/death, landing, and relaunch tests killed every viable mutant.
+- **Current verification:** proactive Tar Monster enemy mutation slice. The
+  single-file wrapper on `crates/wildside-core/src/enemies/tar_monster.rs`
+  reports `/tmp/mutants-tar-monster-proactive-1`: `141 mutants tested in 13m:
+  107 caught, 34 unviable`. No source edit was warranted; the existing ASM-cited
+  script-dispatch, collision-gate, hurt/death, status-update, shot-spawn,
+  burst-child, projectile-setup, and projectile-loop tests killed every viable
+  mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
