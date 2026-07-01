@@ -7,6 +7,28 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP intro-handoff mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  continued mutation hardening in `crates/wildside-core/src/vdp.rs`, targeting
+  cold-boot and IntroSequence2 handoff timing.
+- Initial focused shard `/tmp/mutants-vdp-intro-handoff-1` reported `59 mutants
+  tested in 3m: 6 missed, 50 caught, 3 unviable`.
+- This pass removes an unreachable post-dispatch segment-1 overlay, expresses
+  the intro fade windows as explicit half-open ranges, rewrites the
+  `loc_1BA02` sky-reveal loop clamp without the equivalent `min(frames - 1) +
+  1` form, and adds a `loc_12EDE` cold-boot Sega handoff regression.
+- Evidence: focused rerun `/tmp/mutants-vdp-intro-handoff-2` reports `50
+  mutants tested in 3m: 1 missed, 46 caught, 3 unviable`. The remaining
+  `handoff + elapsed` -> `handoff - elapsed` survivor is equivalent for this
+  slice because the Sega VDP state is already stable by the handoff window.
+- Verification: `cargo fmt --check`,
+  `cargo test -q -p wildside-core vdp::tests -- --nocapture`, and
+  `mise run verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused VDP survivor family or a
+  new file shard.
+
 ## 2026-07-01 handoff (proactive VDP clean mutation shards)
 
 - **Fallback verification continued.** With no ready/open rows,

@@ -52,6 +52,17 @@ and stop — never commit churn.
   unviable`), and IntroText script replay (`/tmp/mutants-vdp-intro-text-script-1`:
   `36 mutants tested in 3m: 32 caught, 1 unviable, 3 timeouts`). The text-script
   timeouts are malformed parser-progress mutations.
+- **VDP intro handoff hardening:** focused shard
+  `/tmp/mutants-vdp-intro-handoff-1` first reported `59 mutants tested in 3m: 6
+  missed, 50 caught, 3 unviable` across cold-boot/IntroSequence2 handoff
+  timing. Cleaned the unreachable post-dispatch segment-1 overlay, made the
+  palette fade windows explicit half-open ranges, rewrote the `loc_1BA02` reveal
+  clamp without the equivalent `min(frames - 1) + 1` form, and added a
+  `loc_12EDE` cold-boot Sega handoff regression. Rerun
+  `/tmp/mutants-vdp-intro-handoff-2` reports `50 mutants tested in 3m: 1 missed,
+  46 caught, 3 unviable`; the remaining `handoff + elapsed` -> `handoff -
+  elapsed` survivor is equivalent for this slice because the Sega VDP state is
+  already stable by the handoff window.
   `cargo fmt --check` and
   `cargo test -q -p wildside-core vdp::tests -- --nocapture` are green;
   `mise run verify-slice-fast` passes.

@@ -542,9 +542,6 @@ pub(crate) fn build_intro_sequence_vdp_with_title_variant_at_elapsed(
     if segment == 0 && elapsed >= INTRO_SEQUENCE_1_PROMPT_VISIBLE_ELAPSED_SUB_1C54A {
         overlay_intro_sequence_1_prompt_sprite_sub_1C54A(&mut vdp, elapsed);
     }
-    if segment == 1 {
-        overlay_intro_sequence_2_sky_reveal_loc_1BA02(&mut vdp, data, elapsed);
-    }
     if segment == 2 && elapsed < INTRO_SEQUENCE_3_KID_VISIBLE_ELAPSED_FRAMES {
         // ASM Load_IntroSequence3 -> sub_1B93E enters the shared sub_1C204
         // fade shell before loc_1AEEC's roster objects are visible. The VRAM
@@ -673,7 +670,9 @@ pub(crate) fn build_intro_sequence_1_cold_boot_vdp_at_elapsed(
         return vdp;
     }
 
-    if elapsed < INTRO_SEQUENCE_1_FULL_PALETTE_ELAPSED {
+    if (INTRO_SEQUENCE_1_FADE_IN_START_ELAPSED..INTRO_SEQUENCE_1_FULL_PALETTE_ELAPSED)
+        .contains(&elapsed)
+    {
         apply_intro_sequence_1_sub_1c204_palette_fade(&mut vdp, data, elapsed);
     }
     vdp
@@ -721,7 +720,9 @@ fn build_intro_sequence_2_handoff_vdp_at_elapsed(
         vdp.cram.fill(0);
         return vdp;
     }
-    if elapsed < INTRO_SEQUENCE_2_FULL_PALETTE_ELAPSED {
+    if (INTRO_SEQUENCE_2_FADE_IN_START_ELAPSED..INTRO_SEQUENCE_2_FULL_PALETTE_ELAPSED)
+        .contains(&elapsed)
+    {
         apply_intro_sequence_palette_fade_in_loc_1c204(
             &mut vdp,
             &data.palette_segment_1,
@@ -890,7 +891,7 @@ fn overlay_intro_sequence_2_sky_reveal_loc_1BA02(
         return;
     }
 
-    let loop_frames = loop_elapsed.min(INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02 - 1) + 1;
+    let loop_frames = (loop_elapsed + 1).min(INTRO_SEQUENCE_2_SKY_REVEAL_LOOP_FRAMES_LOC_1BA02);
     let mut level_layout = data.intro_sequence_2_sky_castle_art.clone();
     let shadow_layout = level_layout.clone();
     let mut selector = -0x40i16;
@@ -3551,6 +3552,24 @@ mod tests {
             vdp_cram_words(&vdp),
             expected,
             "ASM Load_SegaScreen loc_12EDE enters sub_1C204 on cold-boot elapsed 3, so the Sega CRAM must have taken the first fade-out step",
+        );
+    }
+
+    #[test]
+    fn intro_sequence_1_cold_boot_uses_forward_sega_elapsed_during_fade_loc_12ede_1c204() {
+        let intro = empty_intro_data();
+        let sega = minimal_sega_data();
+        let elapsed = INTRO_SEQUENCE_1_SEGA_FADE_OUT_ELAPSED - 1;
+
+        let vdp = build_intro_sequence_1_cold_boot_vdp_at_elapsed(&intro, &sega, 1, elapsed);
+        let mut expected =
+            build_sega_screen_vdp(&sega, SEGA_SCREEN_INTRO_HANDOFF_ELAPSED + elapsed);
+        apply_intro_sequence_1_sega_fade_out_loc_1c204(&mut expected, elapsed);
+
+        assert_eq!(
+            vdp_cram_words(&vdp),
+            vdp_cram_words(&expected),
+            "ASM loc_12EDE advances the existing Load_SegaScreen VDP state forward while sub_1C204 fades it out; cold-boot elapsed must be added to the handoff frame",
         );
     }
 
