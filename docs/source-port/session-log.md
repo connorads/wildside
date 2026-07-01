@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame renderer mutation hardening)
+
+- **Fallback verification hardened renderer test gaps.** With no ready/open
+  rows, ran a focused mutation shard on `crates/wildside-frame/src/render.rs`.
+- Evidence: initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-frame -f crates/wildside-frame/src/render.rs -j 1 --gitignore=true
+  --output /tmp/mutants-frame-render-proactive-1 -- --lib` reported `288
+  mutants tested in 5m: 50 missed, 231 caught, 7 unviable`; missed mutants were
+  concentrated in public frame composition, panel/text drawing, and
+  sprite-offset blits.
+- Fix: added focused renderer unit tests for full-frame blank-canvas output,
+  scene clear-vs-overlay behaviour, panel border rects, scaled text/newlines,
+  and sprite tile offsets.
+- Result: final rerun at `/tmp/mutants-frame-render-proactive-3` reports `288
+  mutants tested in 5m: 281 caught, 7 unviable`, with zero missed mutants.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive frame HUD equivalent-mutant cleanup)
 
 - **Fallback verification cleaned up an equivalent mutant.** With no

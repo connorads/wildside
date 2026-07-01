@@ -1025,9 +1025,44 @@ mod tests {
         }
     }
 
+    fn test_sprite_frame() -> wildside_render::SpriteFrame {
+        wildside_render::SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 8,
+            height_px: 8,
+            tile_base_index: 0,
+            tile_sheet: (*test_tile_sheet()).clone(),
+        }
+    }
+
     fn pixel_rgb(rgb: &[u8], x: i32, y: i32) -> [u8; 3] {
         let index = ((y as u32 * FRAME_WIDTH + x as u32) as usize) * 3;
         [rgb[index], rgb[index + 1], rgb[index + 2]]
+    }
+
+    fn first_visible_glyph_pixel(ch: char) -> (i32, i32) {
+        let bitmap = BASIC_FONTS.get(ch).expect("font has glyph");
+        for (source_y, bits) in bitmap.iter().enumerate() {
+            for source_x in 0..8 {
+                if bits & (1 << source_x) != 0 {
+                    return (source_x, source_y as i32);
+                }
+            }
+        }
+        panic!("glyph should have a visible pixel");
+    }
+
+    fn visible_glyph_pixel_at_or_below(ch: char, min_source_y: usize) -> (i32, i32) {
+        let bitmap = BASIC_FONTS.get(ch).expect("font has glyph");
+        for (source_y, bits) in bitmap.iter().enumerate().skip(min_source_y) {
+            for source_x in 0..8 {
+                if bits & (1 << source_x) != 0 {
+                    return (source_x, source_y as i32);
+                }
+            }
+        }
+        panic!("glyph should have a visible lower-row pixel");
     }
 
     #[test]
@@ -1136,6 +1171,180 @@ mod tests {
             vec![source.red, source.green, source.blue],
             "ASM loc_741E stops the fade only after progress passes `$0100`, so `$0100` is the full-bright frame"
         );
+    }
+
+    #[test]
+    fn render_frame_on_blank_canvas_returns_full_rgb_frame_with_magenta_backdrop() {
+        let palette = test_palette(16);
+        let frame = test_sprite_frame();
+
+        let rgb = render_frame_on_blank_canvas(&frame, &palette, 13, 17);
+
+        assert_eq!(rgb.len(), (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize);
+        assert_eq!(pixel_rgb(&rgb, 0, 0), [255, 0, 255]);
+        assert_eq!(pixel_rgb(&rgb, 12, 17), [255, 0, 255]);
+        assert_eq!(pixel_rgb(&rgb, 13, 17), [1, 2, 3]);
+        assert_eq!(pixel_rgb(&rgb, 20, 24), [15, 30, 45]);
+    }
+
+    #[test]
+    fn render_scene_clears_background_and_overlay_only_composites_commands() {
+        let scene = Scene {
+            background: [3, 4, 5],
+            commands: vec![DrawCommand::Rect {
+                x: 4,
+                y: 6,
+                width: 2,
+                height: 3,
+                colour: [9, 8, 7],
+            }],
+            pause_palette_darken: false,
+        };
+        let mut rgb = vec![1; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+
+        render_scene_overlay(&scene, &mut rgb);
+        assert_eq!(pixel_rgb(&rgb, 0, 0), [1, 1, 1]);
+        assert_eq!(pixel_rgb(&rgb, 4, 6), [9, 8, 7]);
+        assert_eq!(pixel_rgb(&rgb, 5, 8), [9, 8, 7]);
+
+        render_scene(&scene, &mut rgb);
+        assert_eq!(pixel_rgb(&rgb, 0, 0), [3, 4, 5]);
+        assert_eq!(pixel_rgb(&rgb, 4, 6), [9, 8, 7]);
+        assert_eq!(pixel_rgb(&rgb, 6, 8), [3, 4, 5]);
+    }
+
+    #[test]
+    fn push_panel_emits_fill_and_two_pixel_border_rects() {
+        let mut commands = Vec::new();
+
+        push_panel(&mut commands, 10, 20, 30, 40, [1, 2, 3], [4, 5, 6]);
+
+        assert_eq!(
+            commands,
+            vec![
+                DrawCommand::Rect {
+                    x: 10,
+                    y: 20,
+                    width: 30,
+                    height: 40,
+                    colour: [1, 2, 3],
+                },
+                DrawCommand::Rect {
+                    x: 10,
+                    y: 20,
+                    width: 30,
+                    height: 2,
+                    colour: [4, 5, 6],
+                },
+                DrawCommand::Rect {
+                    x: 10,
+                    y: 58,
+                    width: 30,
+                    height: 2,
+                    colour: [4, 5, 6],
+                },
+                DrawCommand::Rect {
+                    x: 10,
+                    y: 20,
+                    width: 2,
+                    height: 40,
+                    colour: [4, 5, 6],
+                },
+                DrawCommand::Rect {
+                    x: 38,
+                    y: 20,
+                    width: 2,
+                    height: 40,
+                    colour: [4, 5, 6],
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn draw_text_rasterises_scaled_glyphs_and_newlines() {
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
+        let colour = [7, 8, 9];
+        let (a_x, a_y) = first_visible_glyph_pixel('A');
+        let (b_x, b_y) = first_visible_glyph_pixel('B');
+        let (lower_8_x, lower_8_y) = visible_glyph_pixel_at_or_below('8', 5);
+        let blank_a_row = BASIC_FONTS
+            .get('A')
+            .expect("font has A")
+            .iter()
+            .position(|bits| *bits == 0)
+            .expect("A has a blank source row");
+
+        draw_text(
+            &mut rgb,
+            &mut high_priority_pixels,
+            30,
+            40,
+            "A\nB",
+            colour,
+            2,
+        );
+
+        assert_eq!(pixel_rgb(&rgb, 30 + a_x * 2, 40 + a_y * 2), colour);
+        assert_eq!(
+            pixel_rgb(&rgb, 30, 40 + blank_a_row as i32 * 2),
+            [0, 0, 0],
+            "transparent glyph rows stay transparent"
+        );
+        assert_eq!(
+            pixel_rgb(&rgb, 30 + 16 + b_x * 2, 40 + b_y * 2),
+            [0, 0, 0],
+            "newline resets the cursor instead of drawing B on A's row"
+        );
+        assert_eq!(pixel_rgb(&rgb, 30 + b_x * 2, 60 + b_y * 2), colour);
+
+        clear_frame(&mut rgb, [0, 0, 0]);
+        draw_text(&mut rgb, &mut high_priority_pixels, 30, 90, "AB", colour, 2);
+        assert_eq!(
+            pixel_rgb(&rgb, 30 + 16 + b_x * 2, 90 + b_y * 2),
+            colour,
+            "same-line glyphs advance by 8 scaled source columns"
+        );
+        assert_eq!(
+            pixel_rgb(&rgb, 30 + 10 + b_x * 2, 90 + b_y * 2),
+            [0, 0, 0],
+            "same-line glyphs do not use an unscaled or under-scaled advance"
+        );
+
+        clear_frame(&mut rgb, [0, 0, 0]);
+        draw_text(&mut rgb, &mut high_priority_pixels, 30, 120, "8", colour, 2);
+        assert_eq!(
+            pixel_rgb(&rgb, 30 + lower_8_x * 2, 120 + lower_8_y * 2),
+            colour,
+            "scaled glyph rows are offset from the glyph origin"
+        );
+    }
+
+    #[test]
+    fn draw_sprite_applies_tile_offsets_before_blitting() {
+        let tile_sheet = test_tile_sheet();
+        let palette = test_palette(16);
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
+
+        draw_sprite(
+            &mut rgb,
+            &mut high_priority_pixels,
+            7,
+            9,
+            &tile_sheet,
+            &palette,
+            &[SpriteTile {
+                offset_x: 3,
+                offset_y: 4,
+                tile: test_tile_ref(false),
+            }],
+        );
+
+        assert_eq!(pixel_rgb(&rgb, 7, 9), [0, 0, 0]);
+        assert_eq!(pixel_rgb(&rgb, 10, 13), [1, 2, 3]);
+        assert_eq!(pixel_rgb(&rgb, 17, 20), [15, 30, 45]);
     }
 
     #[test]
