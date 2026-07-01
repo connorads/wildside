@@ -2338,6 +2338,22 @@ mod tests {
         }
     }
 
+    fn labelled_enemy_visuals(
+        frame_count: u16,
+        frame_duration: usize,
+    ) -> wildside_render::AnimatedSpriteVisual {
+        wildside_render::AnimatedSpriteVisual {
+            palette: wildside_render::Palette {
+                colours: Vec::new(),
+            },
+            extra_palettes: Vec::new(),
+            frames: (0..frame_count)
+                .map(|index| labelled_frame(0x0100 + index))
+                .collect(),
+            frame_duration,
+        }
+    }
+
     fn native_object_at(x_pos: u32, y_pos: u32) -> NativeObjectSnapshot {
         NativeObjectSnapshot {
             kind: NativeObjectKind::Player,
@@ -2381,6 +2397,44 @@ mod tests {
                 )
             })
             .collect()
+    }
+
+    fn live_enemy_object(object_type: u8) -> NativeObjectSnapshot {
+        NativeObjectSnapshot {
+            kind: NativeObjectKind::Enemy { object_type },
+            x_pos: 0,
+            y_pos: 0,
+            layout_index: Some(0),
+            x_velocity: Some(0),
+            y_velocity: Some(0),
+            facing: Some(Direction::Right),
+            on_ground: Some(true),
+            hit_points: Some(1),
+            damage_flash: false,
+            palette_variant: 0,
+            stationary: false,
+            contact_phase: None,
+            shared_walker_state: None,
+            shared_walker_patrol_timer: None,
+            shared_walker_patrol_short_next: None,
+            walk_phase: None,
+            wait_timer: None,
+            debug_fields: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn selected_enemy_tile_base(
+        trace: &NativeTraceFrame,
+        visuals: &wildside_render::AnimatedSpriteVisual,
+        object: &NativeObjectSnapshot,
+    ) -> u16 {
+        select_enemy_frame(trace, visuals, object).tile_base_index
+    }
+
+    fn selected_live_tile_base(frame: Option<&wildside_render::SpriteFrame>) -> u16 {
+        frame
+            .expect("live selector should return a frame")
+            .tile_base_index
     }
 
     #[test]
@@ -2539,6 +2593,269 @@ mod tests {
             player_tiles
                 .iter()
                 .all(|tile| tile.tile.priority && tile.tile.palette_line == 0)
+        );
+    }
+
+    #[test]
+    fn live_enemy_selectors_reject_wrong_family_dead_and_short_sheets() {
+        let trace = NativeTraceFrame::default();
+        let full = labelled_enemy_visuals(12, 3);
+        let short = labelled_enemy_visuals(2, 3);
+
+        // ASM Dragon.asm loc_3CE48/loc_3CEFC: live walking-dragon selector is
+        // family-specific; dead snapshots route to the death script instead.
+        let dragon = live_enemy_object(0x0D);
+        assert!(select_live_walking_dragon_frame(&trace, &full, &dragon).is_some());
+        let mut wrong_family = dragon.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x0E };
+        assert!(select_live_walking_dragon_frame(&trace, &full, &wrong_family).is_none());
+        let mut dead = dragon.clone();
+        dead.hit_points = Some(0);
+        assert!(select_live_walking_dragon_frame(&trace, &full, &dead).is_none());
+        assert!(select_live_walking_dragon_frame(&trace, &short, &dragon).is_none());
+
+        // ASM Hand.asm loc_327F2/loc_328E0/loc_32906: live Hand requires its
+        // first four body frames; the death tail must be unreachable here.
+        let hand = live_enemy_object(0x17);
+        assert!(select_live_hand_frame(&full, &hand).is_some());
+        assert!(select_live_hand_frame(&short, &hand).is_none());
+        let mut wrong_family = hand.clone();
+        wrong_family.kind = NativeObjectKind::Enemy { object_type: 0x16 };
+        assert!(select_live_hand_frame(&full, &wrong_family).is_none());
+        let mut dead = hand;
+        dead.hit_points = Some(0);
+        assert!(select_live_hand_frame(&full, &dead).is_none());
+
+        for (object_type, accepts) in [
+            (
+                0x0A,
+                select_live_rock_tank_body_frame(&trace, &full, &live_enemy_object(0x0A)).is_some(),
+            ),
+            (
+                0x01,
+                select_live_diamond_frame(&trace, &full, &live_enemy_object(0x01)).is_some(),
+            ),
+            (
+                0x0C,
+                select_live_flying_dragon_frame(&trace, &full, &live_enemy_object(0x0C)).is_some(),
+            ),
+            (
+                0x06,
+                select_live_sphere_frame(&trace, &full, &live_enemy_object(0x06)).is_some(),
+            ),
+            (
+                0x1B,
+                select_live_emo_rock_frame(&trace, &full, &live_enemy_object(0x1B)).is_some(),
+            ),
+            (
+                0x12,
+                select_live_lion_frame(&trace, &full, &live_enemy_object(0x12)).is_some(),
+            ),
+        ] {
+            assert!(
+                accepts,
+                "live selector should accept ASM enemy family {object_type:#04X}"
+            );
+        }
+
+        let mut rejected = live_enemy_object(0x0A);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x0C };
+        assert!(select_live_rock_tank_body_frame(&trace, &full, &rejected).is_none());
+        rejected = live_enemy_object(0x0A);
+        rejected.hit_points = Some(0);
+        assert!(select_live_rock_tank_body_frame(&trace, &full, &rejected).is_none());
+        assert!(
+            select_live_rock_tank_body_frame(&trace, &short, &live_enemy_object(0x0A)).is_none()
+        );
+
+        let mut rejected = live_enemy_object(0x01);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x0D };
+        assert!(select_live_diamond_frame(&trace, &full, &rejected).is_none());
+        rejected = live_enemy_object(0x01);
+        rejected.hit_points = Some(0);
+        assert!(select_live_diamond_frame(&trace, &full, &rejected).is_none());
+        assert!(select_live_diamond_frame(&trace, &short, &live_enemy_object(0x01)).is_none());
+
+        let mut rejected = live_enemy_object(0x0C);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x0D };
+        assert!(select_live_flying_dragon_frame(&trace, &full, &rejected).is_none());
+        rejected = live_enemy_object(0x0C);
+        rejected.hit_points = Some(0);
+        assert!(select_live_flying_dragon_frame(&trace, &full, &rejected).is_none());
+        assert!(
+            select_live_flying_dragon_frame(&trace, &short, &live_enemy_object(0x0C)).is_none()
+        );
+
+        let mut rejected = live_enemy_object(0x06);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x05 };
+        assert!(select_live_sphere_frame(&trace, &full, &rejected).is_none());
+        rejected = live_enemy_object(0x06);
+        rejected.hit_points = Some(0);
+        assert!(select_live_sphere_frame(&trace, &full, &rejected).is_none());
+        assert!(select_live_sphere_frame(&trace, &short, &live_enemy_object(0x06)).is_none());
+
+        let mut rejected = live_enemy_object(0x1B);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x1A };
+        assert!(select_live_emo_rock_frame(&trace, &full, &rejected).is_none());
+        rejected = live_enemy_object(0x1B);
+        rejected.hit_points = Some(0);
+        assert!(select_live_emo_rock_frame(&trace, &full, &rejected).is_none());
+        assert!(select_live_emo_rock_frame(&trace, &short, &live_enemy_object(0x1B)).is_none());
+
+        let mut rejected = live_enemy_object(0x12);
+        rejected.kind = NativeObjectKind::Enemy { object_type: 0x13 };
+        assert!(select_live_lion_frame(&trace, &full, &rejected).is_none());
+        rejected = live_enemy_object(0x12);
+        rejected.hit_points = Some(0);
+        assert!(select_live_lion_frame(&trace, &full, &rejected).is_none());
+        assert!(select_live_lion_frame(&trace, &short, &live_enemy_object(0x12)).is_none());
+    }
+
+    #[test]
+    fn live_enemy_selectors_follow_asm_body_sequences() {
+        let visuals = labelled_enemy_visuals(12, 3);
+        let mut trace = NativeTraceFrame {
+            frame_index: 90,
+            ..NativeTraceFrame::default()
+        };
+        let mut dragon = live_enemy_object(0x0D);
+
+        // ASM Dragon.asm loc_3CE48/loc_3CDFC/loc_3CEBE/loc_3CF90: normal,
+        // HP-3, hurt, and breath phases each pick a specific live frame.
+        assert_eq!(selected_enemy_tile_base(&trace, &visuals, &dragon), 0x0107);
+        dragon.hit_points = Some(3);
+        trace.frame_index = 60;
+        assert_eq!(selected_enemy_tile_base(&trace, &visuals, &dragon), 0x0107);
+        dragon.hit_points = Some(1);
+        dragon.damage_flash = true;
+        assert_eq!(selected_enemy_tile_base(&trace, &visuals, &dragon), 0x0106);
+        dragon.damage_flash = false;
+        dragon.walk_phase = Some(1);
+        assert_eq!(selected_enemy_tile_base(&trace, &visuals, &dragon), 0x010A);
+
+        // ASM Diamond.asm stru_3ACA8 and Sphere.asm stru_36174 cycle only the
+        // live frame windows, not the appended hurt/death descriptors.
+        let diamond_visuals = labelled_enemy_visuals(10, 99);
+        trace.frame_index = 13;
+        assert_eq!(
+            selected_live_tile_base(select_live_diamond_frame(
+                &trace,
+                &diamond_visuals,
+                &live_enemy_object(0x01)
+            )),
+            0x0102
+        );
+        let sphere_visuals = labelled_enemy_visuals(6, 9);
+        trace.frame_index = 19;
+        assert_eq!(
+            selected_live_tile_base(select_live_sphere_frame(
+                &trace,
+                &sphere_visuals,
+                &live_enemy_object(0x06)
+            )),
+            0x0102
+        );
+
+        // ASM Tank.asm stru_3B270 and Emo_Rock.asm loc_3621A/loc_362A4
+        // similarly stay in the body triplet while alive.
+        let rock_tank_visuals = labelled_enemy_visuals(6, 4);
+        trace.frame_index = 5;
+        assert_eq!(
+            selected_live_tile_base(select_live_rock_tank_body_frame(
+                &trace,
+                &rock_tank_visuals,
+                &live_enemy_object(0x0A)
+            )),
+            0x0101
+        );
+        let emo_visuals = labelled_enemy_visuals(8, 20);
+        trace.frame_index = 41;
+        assert_eq!(
+            selected_live_tile_base(select_live_emo_rock_frame(
+                &trace,
+                &emo_visuals,
+                &live_enemy_object(0x1B)
+            )),
+            0x0102
+        );
+
+        // ASM Dragon_Flying.asm loc_346DA/loc_348CE: the normal wing sequence
+        // and dive velocity table are both distinct from the generic loop.
+        let flying_visuals = labelled_enemy_visuals(9, 7);
+        trace.frame_index = 84;
+        let mut flying_dragon = live_enemy_object(0x0C);
+        assert_eq!(
+            selected_live_tile_base(select_live_flying_dragon_frame(
+                &trace,
+                &flying_visuals,
+                &flying_dragon
+            )),
+            0x0104
+        );
+        flying_dragon.x_velocity = Some(-0x0002_0000);
+        flying_dragon.y_velocity = Some(-0x0003_0000);
+        flying_dragon.facing = Some(Direction::Left);
+        assert_eq!(
+            selected_live_tile_base(select_live_flying_dragon_frame(
+                &trace,
+                &flying_visuals,
+                &flying_dragon
+            )),
+            0x0107
+        );
+    }
+
+    #[test]
+    fn live_enemy_phase_selectors_use_contact_and_walk_phase() {
+        let visuals = labelled_enemy_visuals(8, 7);
+        let trace = NativeTraceFrame::default();
+
+        // ASM Tar_Monster.asm off_32290: hidden and visible live states hold
+        // distinct body frames.
+        let mut tar = live_enemy_object(0x05);
+        tar.contact_phase = Some(NativeContactPhase::TarMonsterHidden);
+        assert_eq!(
+            selected_live_tile_base(select_live_tar_monster_frame(&trace, &visuals, &tar)),
+            0x0100
+        );
+        tar.contact_phase = None;
+        assert_eq!(
+            selected_live_tile_base(select_live_tar_monster_frame(&trace, &visuals, &tar)),
+            0x0101
+        );
+
+        // ASM Hand.asm live scripts: walk, jump attack, and grab start from
+        // separate body descriptors, all before the death tail.
+        let mut hand = live_enemy_object(0x17);
+        assert_eq!(
+            selected_live_tile_base(select_live_hand_frame(&visuals, &hand)),
+            0x0100
+        );
+        hand.contact_phase = Some(NativeContactPhase::HandJumping);
+        assert_eq!(
+            selected_live_tile_base(select_live_hand_frame(&visuals, &hand)),
+            0x0101
+        );
+        hand.contact_phase = Some(NativeContactPhase::HandGrabbing);
+        assert_eq!(
+            selected_live_tile_base(select_live_hand_frame(&visuals, &hand)),
+            0x0103
+        );
+
+        // ASM Lion.asm loc_3DFD8/loc_3E0F4: walk_phase indexes the HP-specific
+        // duration table instead of using the generic layout-offset loop.
+        let mut lion = live_enemy_object(0x12);
+        lion.hit_points = Some(6);
+        lion.walk_phase = Some(13);
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
+            0x0102
+        );
+        lion.hit_points = Some(8);
+        lion.walk_phase = Some(5);
+        assert_eq!(
+            selected_live_tile_base(select_live_lion_frame(&trace, &visuals, &lion)),
+            0x0101
         );
     }
 

@@ -74,14 +74,13 @@ and stop — never commit churn.
   reports `170 mutants tested in 67s: 160 caught, 1 missed, 9 unviable`; the
   remaining `% 4` -> `+ 4` palette mutant is equivalent for four-entry
   rotations.
-- **Current fix:** frame sprite helper shard. Added pure tests for loc_39EBE
-  boss-head death frames/facing, sprite tile chunk/band splitting and x-flip
-  offsets, selected `select_player_frame` ASM branches, transform-step
-  selection, loc_7CD0 Kid-palette predicate, player fixed-point screen
-  position, and sub_37ABC boss-eye marker offsets. Full
-  `/tmp/mutants-frame-sprites-5` reports `969 mutants tested in 6m: 667
-  missed, 243 caught, 59 unviable`; remaining misses are dominated by
-  enemy/platform sprite selector families and render-push integration helpers.
+- **Current fix:** frame sprite selector shard. Added pure tests for live enemy
+  selector guards and ASM body phases: walking/flying dragons, rock tanks,
+  Diamonds, Tar Monsters, Spheres, Emo Rocks, Hands, and Lions. Focused
+  `/tmp/mutants-frame-sprites-selectors-3` reports `521 mutants tested in 3m:
+  389 missed, 102 caught, 30 unviable`; remaining misses are dominated by
+  `select_enemy_frame` death-sequence branches plus boundary-equivalent live
+  selector guards.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 
