@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Fireball enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, sampled
+  `enemies/sphere.rs` first; it produced only unviable mutants, so it did not
+  expose a useful test blind spot.
+- The useful slice was `enemies/fireball.rs`, covering the ASM-cited fireball
+  trail lifetime, sprite branch/ratio selection, commit, marker, and delete-tail
+  helpers already present in the module tests.
+- Evidence: `/tmp/mutants-sphere-proactive-1` reports `3 mutants tested in
+  50s: 3 unviable`; `/tmp/mutants-fireball-proactive-1` reports `60 mutants
+  tested in 6m: 47 caught, 13 unviable`.
+- Verification: the Fireball mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive frame sprite tiling/player-frame hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the

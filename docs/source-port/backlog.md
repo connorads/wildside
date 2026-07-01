@@ -28,13 +28,12 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current fix:** frame sprite tiling/player-frame shard. Added exact coverage
-  for 96x96 multi-band/multi-chunk sprite mapping plus ASM-cited player-frame
-  guard paths for loc_ABF0 pull-up saturation, Cyclone flight gating,
-  sub_B270 airborne slash fallback, Iron Knight climb clamping, loc_A13A slope
-  fallback tables, and the airborne zero-velocity fall pose. Focused
-  `/tmp/mutants-frame-sprites-tiling-player-frame-1` reports `124 mutants
-  tested in 47s: 122 caught, 2 unviable`.
+- **Current verification:** proactive Fireball enemy mutation slice. Sphere was
+  sampled first but yielded only unviable mutants (`/tmp/mutants-sphere-proactive-1`:
+  `3 mutants tested in 50s: 3 unviable`). Fireball then ran clean under the
+  single-file wrapper (`/tmp/mutants-fireball-proactive-1`: `60 mutants tested
+  in 6m: 47 caught, 13 unviable`). No source edit was warranted; the existing
+  ASM-cited fireball sprite/trail/bounce tests killed every viable mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
