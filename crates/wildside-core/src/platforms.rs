@@ -1404,7 +1404,7 @@ pub(crate) fn runtime_active_platforms_from_loader_loc_257E(
     active_platforms
 }
 
-fn platform_is_nothing_sentinel(platform: &PlatformPlacement) -> bool {
+pub(crate) fn platform_is_nothing_sentinel(platform: &PlatformPlacement) -> bool {
     // ASM loc_2744/loc_2762 loads platform records through the normal activation
     // window, but the generated `platform/00.asm` contains an all-zero
     // `PlatformScript_Nothing` placeholder before the `$FFFF` terminator.
@@ -1422,7 +1422,7 @@ fn platform_is_nothing_sentinel(platform: &PlatformPlacement) -> bool {
         && platform.script.relative_offset.is_none()
 }
 
-fn platform_placement_is_special_loc_2836(platform: &PlatformPlacement) -> bool {
+pub(crate) fn platform_placement_is_special_loc_2836(platform: &PlatformPlacement) -> bool {
     // ASM loc_2836: negative platform records branch to loc_2876 instead of
     // storing a script pointer. The generated typed layouts encode the shipped
     // special families as kind 8 plus raw script selector 0/4/8/12.

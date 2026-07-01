@@ -28,16 +28,18 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Fallback verification:** `crates/wildside-core/src/weather.rs`
-  mutation-hardening commit `f900a6d98` adds weather-local coverage after
-  `OUTPUT=.cache/mutants/weather-current2 FILE=crates/wildside-core/src/weather.rs
-  mise run mutants-file` reported `868 mutants tested in 2h: 37 missed, 777
-  caught, 54 unviable`.
-- **Weather follow-up evidence:** targeted survivor rerun
-  `/tmp/mutants-weather-target-3` reports `205 mutants tested in 10m: 8 missed,
-  192 caught, 5 unviable`; remaining misses are equivalent/non-observable word
-  merges or zero-row/timer targets. `cargo test -q -p wildside-core weather --
-  --nocapture` and `mise run verify-slice-fast` are green.
+- **Fallback verification:** `crates/wildside-core/src/platforms.rs`
+  mutation-hardening pass started from
+  `OUTPUT=.cache/mutants/platforms-current FILE=crates/wildside-core/src/platforms.rs
+  mise run mutants-file`, which reported `536 mutants tested in 57m: 82
+  missed, 398 caught, 51 unviable, 5 timeouts`.
+- **Platform follow-up evidence:** targeted helper/model rerun
+  `/tmp/mutants-platforms-target-2` reports `96 mutants tested in 5m: 4
+  missed, 86 caught, 3 unviable, 3 timeouts`; remaining misses are
+  equivalent/non-observable loaded-mask/render bit merges or stale model
+  side-array cleanup after unlink, while slot-index alias mutants time out.
+  `cargo test -q -p wildside-core platform_ -- --nocapture` and
+  `mise run verify-slice-fast` are green.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

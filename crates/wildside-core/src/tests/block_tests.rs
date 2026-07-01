@@ -6,6 +6,34 @@ fn active_platform_handle_sub_2728(layout_offset_words: u16) -> ActivePlatformHa
     }
 }
 
+fn platform_loader_test_window() -> ActivationWindow {
+    ActivationWindow {
+        x_min: 320,
+        x_max: 320,
+        y_min: 320,
+        y_max: 320,
+    }
+}
+
+fn normal_platform_placement_for_loader_tests() -> PlatformPlacement {
+    PlatformPlacement {
+        x: 20,
+        y: 20,
+        buffer_left: 10,
+        buffer_right: 10,
+        buffer_top: 10,
+        buffer_bottom: 10,
+        kind: 0,
+        subtype: 0,
+        h_variant: 1,
+        v_variant: 0,
+        script: PlatformScriptRef {
+            raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+            relative_offset: None,
+        },
+    }
+}
+
 fn manifest_with_static_tornado() -> AssetManifest {
     let mut m = manifest();
     if let Some(enemy) = m.levels[0].enemy_layout_metadata.as_mut() {
@@ -16182,16 +16210,27 @@ mod chunk_04 {
             (63, 13),
             "ASM loc_2814/loc_2822 decodes `(h << 4) | v` into size words and applies the type-zero `subq.w #2,$1C(a3)` height quirk",
         );
-
-        let render_flags = platform_render_flags_loc_2814(8, 6);
         assert_eq!(
-            render_flags, 6,
+            platform_size_words_loc_2814(1, 3, 2),
+            (63, 47),
+            "ASM loc_2814 multiplies both h/v size nibbles by 16 before adding the inclusive edge pixel",
+        );
+
+        let render_flags = platform_render_flags_loc_2814(9, 0x8F);
+        assert_eq!(
+            render_flags, 0x1F,
             "ASM loc_2822/loc_244C clears only bit 7 of the packed `$1F(a3)` byte in the retail `platforms_newtype = 0` build",
         );
         assert_eq!(
-            platform_mapping_addr_word_loc_2822(render_flags),
-            0x025A,
-            "ASM PlatformArtAddr_Table indexes by the post-`bclr #7` byte offset, so shipped `t8 s6` special platforms use the fourth art word",
+            [
+                platform_mapping_addr_word_loc_2822(0x00),
+                platform_mapping_addr_word_loc_2822(0x02),
+                platform_mapping_addr_word_loc_2822(0x04),
+                platform_mapping_addr_word_loc_2822(0x06),
+                platform_mapping_addr_word_loc_2822(0x80),
+            ],
+            [0x06AE, 0x0094, 0x06AE, 0x025A, 0x06AE],
+            "ASM PlatformArtAddr_Table selects from `(render_flags & 6)` after the retail `bclr #7` masking path",
         );
     }
 
@@ -17052,6 +17091,112 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_is_active_loc_2744_rejects_only_the_all_zero_nothing_record() {
+        let sentinel = PlatformPlacement {
+            x: 0,
+            y: 0,
+            buffer_left: 0,
+            buffer_right: 0,
+            buffer_top: 0,
+            buffer_bottom: 0,
+            kind: 0,
+            subtype: 0,
+            h_variant: 0,
+            v_variant: 0,
+            script: PlatformScriptRef {
+                raw: String::from("PlatformScript_Nothing-PlatformScript_BaseAddress"),
+                relative_offset: None,
+            },
+        };
+
+        assert!(
+            platform_is_nothing_sentinel(&sentinel),
+            "ASM loc_2744/loc_2762 skips the generated all-zero PlatformScript_Nothing placeholder before the `$FFFF` terminator",
+        );
+        for placement in [
+            PlatformPlacement {
+                x: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                y: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                buffer_left: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                buffer_right: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                buffer_top: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                buffer_bottom: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                kind: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                subtype: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                h_variant: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                v_variant: 1,
+                ..sentinel.clone()
+            },
+            PlatformPlacement {
+                script: PlatformScriptRef {
+                    raw: sentinel.script.raw.clone(),
+                    relative_offset: Some(0),
+                },
+                ..sentinel.clone()
+            },
+        ] {
+            assert!(
+                !platform_is_nothing_sentinel(&placement),
+                "ASM loc_2744 should only suppress the exact all-zero placeholder, not a real record that differs by one field",
+            );
+        }
+    }
+
+    #[test]
+    fn platform_placement_is_special_loc_2836_requires_kind_8_and_shipped_selector() {
+        let mut placement = normal_platform_placement_for_loader_tests();
+        placement.kind = 8;
+        placement.script = PlatformScriptRef {
+            raw: String::from("12"),
+            relative_offset: None,
+        };
+        assert!(
+            platform_placement_is_special_loc_2836(&placement),
+            "ASM loc_2836 treats shipped negative records as special platform selectors when kind 8 uses raw script selector 0/4/8/12",
+        );
+
+        placement.script.raw = String::from("16");
+        assert!(
+            !platform_placement_is_special_loc_2836(&placement),
+            "ASM loc_2836 should not treat an arbitrary kind-8 script selector as a shipped special platform",
+        );
+
+        placement.kind = 0;
+        placement.script.raw = String::from("12");
+        assert!(
+            !platform_placement_is_special_loc_2836(&placement),
+            "ASM loc_2836 requires the negative platform kind as well as the raw selector",
+        );
+    }
+
+    #[test]
     fn platform_loader_active_roster_loc_23ae_caps_at_17_slots() {
         let window = ActivationWindow {
             x_min: 320,
@@ -17130,6 +17275,19 @@ mod chunk_04 {
     }
 
     #[test]
+    fn platform_slot_pool_loc_231c_rejects_one_past_last_slot_addr() {
+        let pool = PlatformSlotPoolLoc231C::initialize_sub_231C();
+        let one_past_last_slot = PLATFORM_RAM_FIRST_SLOT_ADDR_LOC_231C
+            + PLATFORM_RAM_SLOT_STRIDE_LOC_231C * PLATFORM_SLOT_CAPACITY_LOC_231C as u16;
+
+        assert_eq!(
+            pool.slot_next_addr_sub_231C(one_past_last_slot),
+            None,
+            "ASM sub_231C builds exactly 17 Platform_RAM slots; the first aligned address past that pool must not alias a live slot",
+        );
+    }
+
+    #[test]
     fn platform_loader_active_roster_orders_new_allocations_at_front_loc_238e() {
         let window = ActivationWindow {
             x_min: 320,
@@ -17173,6 +17331,63 @@ mod chunk_04 {
             layout_indices,
             vec![Some(1), Some(0)],
             "ASM Allocate_PlatformSlot sub_238E links each new platform at Addr_FirstPlatformSlot, so snapshots should expose newest allocations first",
+        );
+    }
+
+    #[test]
+    fn platform_loader_slot_model_loc_2744_tracks_offsets_mask_and_links_for_four_records() {
+        let window = platform_loader_test_window();
+        let placement = normal_platform_placement_for_loader_tests();
+        let layout = PlatformLayout {
+            placements: vec![placement; 4],
+        };
+        let mut state = PlatformLoaderState::default();
+
+        for _ in 0..4 {
+            state.advance_to_window(&layout, window);
+        }
+
+        assert_eq!(
+            state.offset_words, 0x0030,
+            "ASM loc_286E advances PlatformLoader_Offset by one `$C`-byte platform record after every processed placement",
+        );
+        assert_eq!(
+            state.loaded_mask, 0b1111,
+            "ASM loc_2762 should set one loaded bit per `$C`-spaced layout record, including record three at bit 3",
+        );
+        assert_eq!(
+            state.active_slot_next_links_loc_231C(),
+            vec![
+                (0xEE20, 0xEDFE),
+                (0xEDFE, 0xEDDC),
+                (0xEDDC, 0xEDBA),
+                (0xEDBA, 0),
+            ],
+            "ASM sub_238E pushes each allocated Platform_RAM slot to Addr_FirstPlatformSlot, preserving the `$22` next-link chain",
+        );
+    }
+
+    #[test]
+    fn platform_loader_slot_model_sub_23b4_reports_missing_after_deallocation() {
+        let window = platform_loader_test_window();
+        let placement = normal_platform_placement_for_loader_tests();
+        let layout = PlatformLayout {
+            placements: vec![placement],
+        };
+        let mut model = PlatformLoaderSlotModelLoc2744::initialize_sub_231C();
+
+        model.advance_to_window(&layout, window);
+        assert_eq!(
+            model.deallocate_layout_offset_sub_23B4(0),
+            DeallocatePlatformSlotResultSub23B4::Deallocated,
+            "ASM TrapPlatformDown_Delete loc_41EE reaches Deallocate_PlatformSlot/sub_23B4 for the slot stamped with the matching `$20(a3)` layout offset",
+        );
+        assert_eq!(
+            model.deallocate_layout_offset_sub_23B4(0),
+            DeallocatePlatformSlotResultSub23B4::MissingSlot {
+                failure_label: "loc_6E2",
+            },
+            "ASM loc_23E4 jumps to loc_6E2 once the active-list walk reaches zero without seeing the requested platform slot",
         );
     }
 
@@ -17637,6 +17852,11 @@ mod chunk_04 {
             state.slot_model.active_slot_records_loc_2728().is_empty(),
             "Deallocate_PlatformSlot/sub_23B4 must unlink the deleted special platform from Addr_FirstPlatformSlot",
         );
+        assert_eq!(
+            (state.loaded_mask, state.active_slot_next_links_loc_231C()),
+            (0, Vec::new()),
+            "PlatformLoaderState must resynchronise its loc_2744 facade after Deallocate_PlatformSlot/sub_23B4 unlinks the live slot",
+        );
 
         state.advance_to_window(&layout, active_window);
         assert_eq!(
@@ -18087,6 +18307,41 @@ mod chunk_04 {
             },
             "ASM loc_257E (kid.asm:4471) should clear `$FFFFFAA2`, point `a2` at `(Addr_FirstPlatformSlot).w`, and reload `(Addr_GfxObject_Kid).w` into `a0` before the platform scan begins",
         );
+    }
+
+    #[test]
+    fn platform_collision_scratch_loc_257e_reports_each_contact_source() {
+        assert!(
+            !PlatformCollisionScratchLoc257E::default().has_contact(),
+            "ASM loc_257E clears `$FFFFFAA2-$FFFFFAA5` and `$FFFFFA96`, so a fresh platform collision scan starts with no contact",
+        );
+        for scratch in [
+            PlatformCollisionScratchLoc257E {
+                touched_left_side_faa2: true,
+                ..PlatformCollisionScratchLoc257E::default()
+            },
+            PlatformCollisionScratchLoc257E {
+                touched_right_side_faa3: true,
+                ..PlatformCollisionScratchLoc257E::default()
+            },
+            PlatformCollisionScratchLoc257E {
+                touched_top_face_faa4: true,
+                ..PlatformCollisionScratchLoc257E::default()
+            },
+            PlatformCollisionScratchLoc257E {
+                touched_bottom_face_faa5: true,
+                ..PlatformCollisionScratchLoc257E::default()
+            },
+            PlatformCollisionScratchLoc257E {
+                jump_platform_ref_fa96: Some(0xEDBA),
+                ..PlatformCollisionScratchLoc257E::default()
+            },
+        ] {
+            assert!(
+                scratch.has_contact(),
+                "ASM loc_257E/loc_2720 treats any platform collision byte or jump-platform ref as observed platform contact",
+            );
+        }
     }
 
     #[test]

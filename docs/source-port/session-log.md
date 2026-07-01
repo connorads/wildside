@@ -7,6 +7,34 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive platform mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  mutation-tested `crates/wildside-core/src/platforms.rs` via
+  `OUTPUT=.cache/mutants/platforms-current FILE=crates/wildside-core/src/platforms.rs mise run mutants-file`.
+- Initial evidence: full platform shard reported `536 mutants tested in 57m:
+  82 missed, 398 caught, 51 unviable, 5 timeouts`.
+- This pass adds ASM-cited tests for platform collision scratch contact,
+  Platform_RAM slot bounds, `$C` loader offsets, loaded-mask bits, active slot
+  next-link order, state facade resync after `sub_23B4`, render metadata,
+  all-zero `PlatformScript_Nothing` sentinel detection, and special selector
+  classification.
+- Follow-up evidence: targeted helper/model rerun
+  `/tmp/mutants-platforms-target-2` reports `96 mutants tested in 5m: 4
+  missed, 86 caught, 3 unviable, 3 timeouts`.
+  Remaining misses are equivalent/non-observable in current runtime state:
+  loaded-mask `<` vs `<=` at bit 64, loaded-mask OR/XOR with unique slot
+  offsets, stale model side-array cleanup after the slot is already unlinked,
+  and render flag OR/XOR over disjoint nibbles. The three slot-index alias
+  mutants time out by corrupting the slot pool walk.
+- Verification: `cargo test -q -p wildside-core platform_ -- --nocapture`,
+  targeted `PlatformLoaderState::deallocate_layout_offset_sub_23B4` mutation
+  rerun `/tmp/mutants-platforms-state-dealloc`, and `mise run verify-slice-fast`
+  passed.
+- NEXT: continue with `mise run project-status`; if no ready/open item appears,
+  keep using `loop.md` proactive verification rather than selecting `[?]`/`[b]`
+  human-blocked rows.
+
 ## 2026-07-01 handoff (proactive weather mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,
