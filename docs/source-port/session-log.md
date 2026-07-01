@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Fire Demon enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/fire_demon.rs`.
+- The slice covers the ASM-cited Fire Demon HP-based init animation, palette
+  pulse worker, fire-trail wait/delete loop, collision dispatch, hurt/death
+  routing, and Berzerker side-contact launch paths.
+- Evidence: `/tmp/mutants-fire-demon-proactive-2` reports `48 mutants tested in
+  5m: 30 caught, 18 unviable`.
+- Verification: the Fire Demon mutation run completed with no survivors; no
+  source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Driller enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
