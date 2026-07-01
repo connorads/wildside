@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive CLI RAM-diff mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-cli/src/ram_diff.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-cli -f crates/wildside-cli/src/ram_diff.rs -j 1 --gitignore=true
+  --output /tmp/mutants-cli-ram-diff-3 -- ram_diff::tests::` reports `12
+  mutants tested in 86s: 12 caught`, with zero missed mutants and zero timeouts.
+- Split RAM-diff formatting into a pure helper behind the existing file-reading
+  CLI wrapper, then covered changed-byte output, annotation gating, size
+  mismatch errors, and wrapper error propagation.
+- No native gameplay behaviour changes.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive CLI backlog-lint mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused

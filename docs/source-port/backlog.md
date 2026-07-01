@@ -28,11 +28,12 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive CLI backlog-lint mutation shard. Direct
-  `cargo mutants` against `crates/wildside-cli/src/backlog.rs` reported `36
-  mutants tested in 3m: 35 caught, 1 unviable`. This added parser and boundary
-  tests for markdown row filtering, malformed/template rows, NOW block
-  termination, and exact lint thresholds. No native gameplay behaviour changes.
+- **Current verification:** proactive CLI RAM-diff mutation shard. Direct
+  `cargo mutants` against `crates/wildside-cli/src/ram_diff.rs` reported `12
+  mutants tested in 86s: 12 caught`. This split RAM-diff formatting into a pure
+  helper and added tests for changed-byte output, annotation gating, size
+  mismatch errors, and file-wrapper error propagation. No native gameplay
+  behaviour changes.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
