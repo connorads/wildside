@@ -7050,11 +7050,11 @@ impl NativeRuntime {
                     match selection {
                         0 => {
                             self.two_player = false;
-                            self.begin_level_entry(self.current_level);
+                            self.begin_level_entry_after_title_start_loc_1bbde(self.current_level);
                         }
                         1 => {
                             self.two_player = true;
-                            self.begin_level_entry(self.current_level);
+                            self.begin_level_entry_after_title_start_loc_1bbde(self.current_level);
                         }
                         _ => {
                             // ASM Load_OptionMenu -> sub_1C896 loc_1C8A2
@@ -7246,11 +7246,11 @@ impl NativeRuntime {
                     match selection {
                         0 => {
                             self.two_player = false;
-                            self.begin_level_entry(self.current_level);
+                            self.begin_level_entry_after_title_start_loc_1bbde(self.current_level);
                         }
                         1 => {
                             self.two_player = true;
-                            self.begin_level_entry(self.current_level);
+                            self.begin_level_entry_after_title_start_loc_1bbde(self.current_level);
                         }
                         _ => {
                             self.boot_state = BootState::OptionsMenu { cursor: 0 };
@@ -7541,8 +7541,6 @@ impl NativeRuntime {
                         } else {
                             false
                         }
-                    } else if title_card_bootstrap_active {
-                        start_pressed
                     } else {
                         *start_latched || start_pressed
                     };

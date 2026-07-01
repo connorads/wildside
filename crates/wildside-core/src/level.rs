@@ -19468,6 +19468,18 @@ impl NativeRuntime {
     }
 
     pub(crate) fn begin_level_entry(&mut self, level_id: LevelId) {
+        self.begin_level_entry_with_title_start_latch_loc_1bbde(level_id, false);
+    }
+
+    pub(crate) fn begin_level_entry_after_title_start_loc_1bbde(&mut self, level_id: LevelId) {
+        self.begin_level_entry_with_title_start_latch_loc_1bbde(level_id, true);
+    }
+
+    fn begin_level_entry_with_title_start_latch_loc_1bbde(
+        &mut self,
+        level_id: LevelId,
+        carry_title_start: bool,
+    ) {
         let entered_from_live_gameplay = matches!(self.boot_state, BootState::InGame);
         let level_has_title_card = self.level_has_title_card(level_id);
         let uses_load_ingame_bootstrap = matches!(self.boot_state, BootState::TitleScreen { .. })
@@ -19481,15 +19493,20 @@ impl NativeRuntime {
             BootState::TitleScreen { .. } | BootState::IntroSequence6 { .. }
         ) && self.title_screen_ready()
             && !uses_load_ingame_bootstrap;
-        let start_latched = !uses_load_ingame_bootstrap
-            && !level_has_title_card
-            && !matches!(self.boot_state, BootState::TitleScreen { .. });
+        let start_latched = (carry_title_start
+            && !self.recorded_title_card_handoff_delay
+            && level_has_title_card
+            && !uses_load_ingame_bootstrap)
+            || (!uses_load_ingame_bootstrap
+                && !level_has_title_card
+                && !matches!(self.boot_state, BootState::TitleScreen { .. }));
         self.boot_state = BootState::StartingLevel {
             // ASM loc_1AE2E: Load_TitleCard hibernates, clears the current
-            // Ctrl_Pressed Start bit, and waits for a later Start edge before
-            // writing Game_Mode=$000C. A title-menu selection Start, or a
-            // level-complete transition with no Start edge, must not carry
-            // through as the title-card release edge.
+            // Ctrl_Pressed Start bit, and waits for a Start edge before
+            // writing Game_Mode=$000C. The title menu checks Ctrl_1_Pressed at
+            // Title_InputLoop/loc_1BBDE, so live/direct play can still carry
+            // that same menu edge into the later Ctrl_Pressed poll; recorded
+            // replay keeps the historical delay for deterministic TAS timing.
             start_latched,
             // ASM Obj_TitleMenu `Title_InputLoop` writes `Game_Mode=$0008`
             // before it jumps to `loc_6E2`, so the cold-boot title-card

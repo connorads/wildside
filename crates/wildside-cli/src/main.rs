@@ -6328,6 +6328,34 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn gameplay_regression_pause_resume_native_capture_carries_title_start_loc_1bbde_1ae2e() {
+        let (_source_root, _bundle_root, manifest) = exported_test_manifest();
+        let capture =
+            capture_native_gameplay_scenario(&manifest, GameplayScenario::PauseResumeLevel1)
+                .expect("capture");
+        let level_settle = capture
+            .checkpoints
+            .iter()
+            .find(|state| state.label == "level_settle")
+            .expect("level_settle checkpoint");
+        let pre_pause = capture
+            .checkpoints
+            .iter()
+            .find(|state| state.label == "pre_pause")
+            .expect("pre_pause checkpoint");
+        let paused_tail = capture
+            .checkpoints
+            .iter()
+            .find(|state| state.label == "paused_tail")
+            .expect("paused_tail checkpoint");
+
+        assert_eq!(level_settle.game_mode, 0x000C);
+        assert_eq!(pre_pause.game_mode, 0x000C);
+        assert!(!pre_pause.game_paused);
+        assert_eq!(paused_tail.game_mode, 0x000C);
+    }
+
+    #[test]
     fn gameplay_regression_finds_first_live_drift_from_requested_frame() {
         let native = GameplayCapture {
             scenario: String::from("pause_resume_level1"),

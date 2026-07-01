@@ -311,6 +311,7 @@ pub struct ScriptRunner {
     settle_warp: Option<SettleWarpMode>,
     physics_order: Option<PhysicsOrder>,
     trace_physics: bool,
+    recorded_title_card_handoff_delay: bool,
     probe_start_position: Option<(u16, u16)>,
     probe_start_velocity: Option<(i32, i32)>,
     probe_camera_position: Option<(u16, u16)>,
@@ -328,6 +329,7 @@ impl ScriptRunner {
             settle_warp: None,
             physics_order: None,
             trace_physics: false,
+            recorded_title_card_handoff_delay: true,
             probe_start_position: None,
             probe_start_velocity: None,
             probe_camera_position: None,
@@ -374,6 +376,12 @@ impl ScriptRunner {
     #[must_use]
     pub fn trace_physics(mut self) -> Self {
         self.trace_physics = true;
+        self
+    }
+
+    #[must_use]
+    pub fn direct_title_card_handoff(mut self) -> Self {
+        self.recorded_title_card_handoff_delay = false;
         self
     }
 
@@ -441,7 +449,7 @@ impl ScriptRunner {
             }
             None => NativeRuntime::with_generated_level_layout(self.assets),
         };
-        runtime.set_recorded_title_card_handoff_delay(true);
+        runtime.set_recorded_title_card_handoff_delay(self.recorded_title_card_handoff_delay);
         if let Some(order) = self.physics_order {
             runtime.set_physics_order(order);
         }
@@ -521,6 +529,16 @@ pub fn run_script(
     frame_count: usize,
 ) -> Vec<NativeTraceFrame> {
     ScriptRunner::new(assets).run(script, frame_count)
+}
+
+pub fn run_script_with_direct_title_card_handoff(
+    assets: AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+) -> Vec<NativeTraceFrame> {
+    ScriptRunner::new(assets)
+        .direct_title_card_handoff()
+        .run(script, frame_count)
 }
 
 pub fn run_script_with_warp(

@@ -410,9 +410,15 @@ pub(crate) fn capture_native_gameplay_scenario(
         );
     }
 
-    Ok(capture_native_dynamic_gameplay_scenario(
+    let direct_title_card_handoff = matches!(
+        scenario,
+        GameplayScenario::PauseResumeLevel1 | GameplayScenario::ProgressTwoTransitions
+    );
+
+    Ok(capture_native_dynamic_gameplay_scenario_with_handoff(
         manifest,
         &scenario.to_dynamic(),
+        direct_title_card_handoff,
     ))
 }
 
@@ -420,8 +426,24 @@ pub(crate) fn capture_native_dynamic_gameplay_scenario(
     manifest: &AssetManifest,
     scenario: &DynamicScenario,
 ) -> GameplayCapture {
+    capture_native_dynamic_gameplay_scenario_with_handoff(manifest, scenario, false)
+}
+
+fn capture_native_dynamic_gameplay_scenario_with_handoff(
+    manifest: &AssetManifest,
+    scenario: &DynamicScenario,
+    direct_title_card_handoff: bool,
+) -> GameplayCapture {
     let checkpoints = &scenario.checkpoints;
-    let trace = run_native_script_dynamic(manifest, &scenario.script, scenario.frame_count);
+    let trace = if direct_title_card_handoff {
+        run_native_script_dynamic_direct_title_card(
+            manifest,
+            &scenario.script,
+            scenario.frame_count,
+        )
+    } else {
+        run_native_script_dynamic(manifest, &scenario.script, scenario.frame_count)
+    };
     let mut checkpoint_index = 0usize;
     let mut states = Vec::with_capacity(trace.len());
     let mut captured_checkpoints = Vec::with_capacity(checkpoints.len());
@@ -746,6 +768,14 @@ pub(crate) fn run_native_script_dynamic(
     frame_count: usize,
 ) -> Vec<NativeTraceFrame> {
     run_script(manifest.clone(), script, frame_count)
+}
+
+pub(crate) fn run_native_script_dynamic_direct_title_card(
+    manifest: &AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+) -> Vec<NativeTraceFrame> {
+    wildside_core::run_script_with_direct_title_card_handoff(manifest.clone(), script, frame_count)
 }
 
 pub(crate) fn run_native_script_dynamic_with_trace(
