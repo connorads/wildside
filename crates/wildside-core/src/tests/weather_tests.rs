@@ -6062,3 +6062,691 @@ mod chunk_08_inactive_slot_constructors {
         );
     }
 }
+
+mod chunk_09_weather_mutation_coverage {
+    use super::*;
+
+    #[test]
+    fn storm_pending_palette_0_mask_sub_6048_preserves_negative_high_word_and_speed() {
+        assert_eq!(
+            crate::weather::storm_pending_palette_0_mask_sub_6048(-1, 0x03),
+            0xFFFF_0003,
+            "ASM loc_60C0 writes #-1 to the high word and loc_6058 leaves the palette speed visible in the low byte",
+        );
+        assert_eq!(
+            crate::weather::storm_pending_palette_0_mask_sub_6048(0x0080, 0x05),
+            0x8000_0005,
+            "ASM loc_605E writes only the pending-mask top byte for non-negative masks, then ORs in the palette speed byte",
+        );
+        assert_eq!(
+            crate::weather::storm_pending_palette_0_mask_sub_6048(0, 0x03),
+            0x0000_0003,
+            "ASM loc_605E treats a zero pending mask as non-negative and leaves the high word clear",
+        );
+    }
+
+    #[test]
+    fn lava_geyser_script_template_label_loc_147ba_rejects_out_of_range_timer() {
+        assert_eq!(
+            crate::weather::lava_geyser_script_template_label_loc_147BA(
+                LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+                LAVA_GEYSER_REPEAT_SCRIPT_VISIBLE_STEPS_LOC_146A0 + 1,
+            ),
+            None,
+            "ASM loc_147BA has no live template once the repeat timer is past the visible script window",
+        );
+    }
+
+    #[test]
+    fn lava_geyser_full_height_render_state_loc_14940_distinguishes_hold_and_collapse_rows() {
+        let peak_rows = 5;
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
+                LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE,
+                peak_rows * LAVA_GEYSER_ROW_HEIGHT_PX,
+                peak_rows * LAVA_GEYSER_ROW_HEIGHT_PX,
+            ),
+            Some(crate::weather::LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index: peak_rows - 2,
+                top_sprite_frame_within_row: 1,
+            }),
+            "ASM loc_14940 should contract the full-height top by two rows during the first `$4C(a5)=1` hold frame",
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
+                LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
+                    - LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE,
+                peak_rows * LAVA_GEYSER_ROW_HEIGHT_PX,
+                peak_rows * LAVA_GEYSER_ROW_HEIGHT_PX,
+            ),
+            Some(crate::weather::LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index: peak_rows,
+                top_sprite_frame_within_row: 0,
+            }),
+            "ASM loc_14966 should expand the top row target by two when `$4C(a5)` toggles back to zero",
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                LAVA_GEYSER_PHASE_COLLAPSING_LOC_1498C,
+                0,
+                3 * LAVA_GEYSER_ROW_HEIGHT_PX,
+                peak_rows * LAVA_GEYSER_ROW_HEIGHT_PX,
+            ),
+            Some(crate::weather::LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index: 2,
+                top_sprite_frame_within_row: 0,
+            }),
+            "ASM loc_1498C collapse rendering still uses the current visible row minus one, not the held peak row",
+        );
+        assert_eq!(
+            crate::weather::lava_geyser_full_height_render_state_loc_14940(
+                LAVA_GEYSER_PHASE_HOLDING_LOC_1496C,
+                LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE
+                    - LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE,
+                LAVA_GEYSER_ROW_HEIGHT_PX,
+                LAVA_GEYSER_ROW_HEIGHT_PX,
+            ),
+            Some(crate::weather::LavaGeyserFullHeightRenderStateLoc14940 {
+                sprite_row_index: 1,
+                top_sprite_frame_within_row: 0,
+            }),
+            "ASM loc_14966 must not expand a one-row peak by two rows on the second hold sprite frame",
+        );
+    }
+
+    #[test]
+    fn lava_geyser_full_height_rows_for_sprite_row_loc_14874_builds_visible_rows() {
+        let rows = crate::weather::lava_geyser_full_height_rows_for_sprite_row_loc_14874(
+            0x0180, 0x0150, 2, 0x0100, 0x0100, 0,
+        );
+
+        assert!(
+            !rows.is_empty(),
+            "ASM loc_14874 should build rows when the full-height geyser column is inside the camera window",
+        );
+        assert_eq!(
+            rows[0],
+            crate::weather::LavaGeyserFullHeightRowLoc14874 {
+                row_y_px: 0x0110,
+                source_label: "unk_14624",
+            },
+            "ASM loc_148D4 stores the top row Y for sprite_row_index=2 and selects the live top-template script",
+        );
+    }
+
+    #[test]
+    fn start_lava_geyser_rise_loc_1484e_seeds_zero_height_and_two_frame_timer() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 3 * LAVA_GEYSER_ROW_HEIGHT_PX,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+            timer: 1,
+            current_height: LAVA_GEYSER_ROW_HEIGHT_PX,
+        });
+
+        runtime.step_lava_geysers(&airborne_slice());
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_RISING_LOC_1484E);
+        assert_eq!(
+            geyser.timer, 2,
+            "ASM loc_1484E seeds `$48(a5)=2` for the full-height rise loop",
+        );
+        assert_eq!(
+            geyser.current_height, 0,
+            "ASM loc_1484E clears the row cursor before the first shared loop iteration",
+        );
+    }
+
+    #[test]
+    fn step_murder_wall_forward_clamps_integer_word_and_preserves_fraction() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.current_level = LevelId(0);
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: 0x02FF_00AA,
+            speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+        let mut camera_x = 0x0200_0000;
+
+        runtime.step_murder_wall(&mut camera_x);
+
+        let wall = runtime.murder_wall.as_ref().unwrap();
+        assert_eq!(
+            wall.x_pos & 0xFFFF,
+            0x00AA,
+            "ASM loc_7334 only replaces the high word when clamping to Camera_max_X_pos, preserving the fractional low word",
+        );
+        assert!(
+            wall.x_pos >> 16 <= 0x0640,
+            "ASM loc_7334 must clamp the forward wall integer word to the level camera max",
+        );
+    }
+
+    #[test]
+    fn step_lava_geysers_palette_delay_counts_down_before_rotation_loc_14b2a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: LAVA_GEYSER_ROW_HEIGHT_PX,
+            first_eruption_pending: true,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_DORMANT_LOC_14772,
+            timer: 10,
+            current_height: 0,
+        });
+        runtime.lava_geyser_palette_delay_loc_14b2a = 2;
+        runtime.palette_buffer[0x14] = 0x1111;
+        runtime.palette_buffer[0x15] = 0x2222;
+        runtime.palette_buffer[0x16] = 0x3333;
+        runtime.palette_buffer[0x17] = 0x4444;
+
+        runtime.step_lava_geysers(&airborne_slice());
+
+        assert_eq!(
+            runtime.lava_geyser_palette_delay_loc_14b2a, 1,
+            "ASM Animation_Geyser loc_14B2A should decrement the five-frame counter until it reaches the reload frame",
+        );
+        assert_eq!(
+            &runtime.palette_buffer[0x14..0x18],
+            &[0x1111, 0x2222, 0x3333, 0x4444],
+            "ASM loc_14B2A should not rotate palette words on countdown-only frames",
+        );
+    }
+
+    #[test]
+    fn init_lava_geysers_reads_big_endian_palette_words_loc_14c86() {
+        let output_root = unique_temp_path("wildside-weather-lava-palette");
+        let palette_dir = output_root.join("ingame/palette");
+        std::fs::create_dir_all(&palette_dir).expect("create lava palette fixture dir");
+        let palette_words = [
+            0x0C01, 0x0203, 0x0405, 0x0607, 0x0809, 0x0A0B, 0x0C0D, 0x0E0F,
+        ];
+        let palette_bytes: Vec<u8> = palette_words
+            .iter()
+            .flat_map(|word: &u16| word.to_be_bytes())
+            .collect();
+        std::fs::write(palette_dir.join("lava.bin"), &palette_bytes)
+            .expect("write lava palette fixture");
+
+        let mut assets = manifest();
+        assets.output_root = output_root;
+        assets.ingame_assets = vec![wildside_data::AssetFile {
+            relative_path: String::from("palette/lava.bin"),
+            size_bytes: palette_bytes.len() as u64,
+            sha1: String::from("fixture-weather-lava-palette"),
+        }];
+        let mut runtime = NativeRuntime::new(assets);
+
+        runtime.init_lava_geysers(LevelId(0));
+
+        assert_eq!(
+            &runtime.palette_buffer[0x10..0x18],
+            &palette_words,
+            "ASM loc_14C86 copies eight big-endian Pal_7B8AC words from consecutive byte pairs into Palette_Buffer+$20",
+        );
+    }
+
+    #[test]
+    fn init_lava_geysers_ignores_short_palette_asset_loc_14c86() {
+        let output_root = unique_temp_path("wildside-weather-short-lava-palette");
+        let palette_dir = output_root.join("ingame/palette");
+        std::fs::create_dir_all(&palette_dir).expect("create short lava palette fixture dir");
+        let palette_bytes = [
+            0x0C, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A,
+        ];
+        std::fs::write(palette_dir.join("lava.bin"), palette_bytes)
+            .expect("write short lava palette fixture");
+
+        let mut assets = manifest();
+        assets.output_root = output_root;
+        assets.ingame_assets = vec![wildside_data::AssetFile {
+            relative_path: String::from("palette/lava.bin"),
+            size_bytes: palette_bytes.len() as u64,
+            sha1: String::from("fixture-weather-short-lava-palette"),
+        }];
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.palette_buffer[0x10..0x18].fill(0x0BAD);
+
+        runtime.init_lava_geysers(LevelId(0));
+
+        assert_eq!(
+            &runtime.palette_buffer[0x10..0x18],
+            &[0x0BAD; 8],
+            "ASM loc_14C86 requires all eight Pal_7B8AC words; native must not copy a truncated decoded asset",
+        );
+    }
+
+    #[test]
+    fn step_lava_geysers_rise_adds_one_row_then_enters_hold_at_peak() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: 2 * LAVA_GEYSER_ROW_HEIGHT_PX,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_RISING_LOC_1484E,
+            timer: 1,
+            current_height: LAVA_GEYSER_ROW_HEIGHT_PX,
+        });
+
+        runtime.step_lava_geysers(&airborne_slice());
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_HOLDING_LOC_1496C);
+        assert_eq!(
+            geyser.current_height,
+            2 * LAVA_GEYSER_ROW_HEIGHT_PX,
+            "ASM loc_1484E should add exactly one 16px row before clamping at `$4A(a5)`",
+        );
+        assert_eq!(
+            geyser.timer,
+            LAVA_GEYSER_HOLD_CYCLES * LAVA_GEYSER_HOLD_FRAMES_PER_CYCLE,
+            "ASM loc_1496C should seed the full peak hold countdown in 6-frame sprite cycles",
+        );
+    }
+
+    #[test]
+    fn step_lava_geysers_startup_and_disabled_scripts_count_down_by_one() {
+        let mut startup = NativeRuntime::new(manifest());
+        startup.weather.weather_type = 1;
+        startup.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: LAVA_GEYSER_ROW_HEIGHT_PX,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788,
+            timer: 3,
+            current_height: 0,
+        });
+
+        startup.step_lava_geysers(&airborne_slice());
+        assert_eq!(
+            startup.weather.lava_geysers[0].phase,
+            LAVA_GEYSER_PHASE_STARTUP_SCRIPT_LOC_14788
+        );
+        assert_eq!(
+            startup.weather.lava_geysers[0].timer, 2,
+            "ASM loc_147BA startup script hibernates one frame per visible row entry",
+        );
+        assert_eq!(
+            startup.weather.lava_geysers[0].current_height,
+            LAVA_GEYSER_ROW_HEIGHT_PX
+        );
+
+        let mut disabled = NativeRuntime::new(manifest());
+        disabled.weather.weather_type = 1;
+        disabled.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: LAVA_GEYSER_ROW_HEIGHT_PX,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_DISABLED_LOC_1483A,
+            timer: 3,
+            current_height: LAVA_GEYSER_ROW_HEIGHT_PX,
+        });
+
+        disabled.step_lava_geysers(&airborne_slice());
+        assert_eq!(
+            disabled.weather.lava_geysers[0].phase,
+            LAVA_GEYSER_PHASE_DISABLED_LOC_1483A
+        );
+        assert_eq!(
+            disabled.weather.lava_geysers[0].timer, 2,
+            "ASM loc_1483A should subtract one hibernation frame while the disabled timer remains positive",
+        );
+        assert_eq!(disabled.weather.lava_geysers[0].current_height, 0);
+    }
+
+    #[test]
+    fn step_lava_geysers_repeat_script_counts_down_before_rise() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: LAVA_GEYSER_ROW_HEIGHT_PX,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C,
+            timer: 3,
+            current_height: 0,
+        });
+
+        runtime.step_lava_geysers(&airborne_slice());
+
+        assert_eq!(
+            runtime.weather.lava_geysers[0].phase,
+            LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C
+        );
+        assert_eq!(
+            runtime.weather.lava_geysers[0].timer, 2,
+            "ASM loc_147BA repeat script should decrement by one and stay in-script until the `$FFFF` sentinel",
+        );
+        assert_eq!(
+            runtime.weather.lava_geysers[0].current_height,
+            LAVA_GEYSER_ROW_HEIGHT_PX
+        );
+    }
+
+    #[test]
+    fn transfer_scroll_data_storm_loc_30110_uses_integer_camera_words() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 2;
+        runtime.weather.storm_weather_mode_byte = 1;
+        runtime.weather.storm_scroll_offset_loc_30110 = 0x0100;
+        let mut slice = airborne_slice();
+        slice.camera = CameraState {
+            x_pos: 0x0123_0000,
+            y_pos: 0x0045_0000,
+        };
+        runtime.opening_slice = Some(slice);
+
+        runtime.transfer_scroll_data_storm_loc_30110();
+
+        assert_eq!(
+            runtime.weather.storm_scroll_transfer_loc_30110,
+            Some(crate::level::TransferScrollDataStormLoc30110 {
+                plane_address_word: 0x8403,
+                h_scroll_word_pairs: 0x00E0,
+                first_h_scroll_word: -0x0123,
+                second_h_scroll_word: 0x0100,
+                first_vsram_word: 0x0045,
+                second_vsram_word: 0x0100,
+                weather_mode_byte: 4,
+                next_storm_scroll_offset: 0x00F8,
+            }),
+            "ASM loc_30110 consumes Camera_X_pos/Camera_Y_pos integer words before building the storm HScroll/VSRAM transfer",
+        );
+    }
+
+    #[test]
+    fn step_lava_geysers_dormant_repeat_script_seeds_all_template_frames() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 1;
+        runtime.weather.lava_geysers.push(LavaGeyser {
+            x_px: 100,
+            y_px: 200,
+            height_px: LAVA_GEYSER_ROW_HEIGHT_PX,
+            first_eruption_pending: false,
+            sound_suppressed: false,
+            phase: LAVA_GEYSER_PHASE_DORMANT_LOC_14772,
+            timer: 0,
+            current_height: 0,
+        });
+
+        runtime.step_lava_geysers(&airborne_slice());
+
+        let geyser = &runtime.weather.lava_geysers[0];
+        assert_eq!(geyser.phase, LAVA_GEYSER_PHASE_REPEAT_SCRIPT_LOC_1479C);
+        assert_eq!(
+            geyser.timer, 15,
+            "ASM loc_147BA repeat path walks five `d2=2` template entries, so loc_1479C seeds 15 visible script frames",
+        );
+        assert_eq!(geyser.current_height, LAVA_GEYSER_ROW_HEIGHT_PX);
+    }
+
+    #[test]
+    fn step_weather_hail_shell_spawns_after_frame_gate_loc_6172_61ca() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 3;
+        runtime.frame_index = 0x0896;
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_spawn_cooldown = 1;
+        runtime.weather.hail_spawn_timer = 1;
+        runtime.weather.storm_free_falling_slots = 5;
+        let mut slice = airborne_slice();
+        slice.camera.x_pos = 0x0040_0000;
+        slice.camera.y_pos = 0x0030_0000;
+
+        let mut expected_rng = runtime.rom_random.clone();
+        let cooldown_random = expected_rng.next_byte();
+        let spawn_random = expected_rng.next_byte();
+        let expected_cooldown = 0x25u8.wrapping_sub(cooldown_random & 0x0F);
+
+        runtime.step_weather(&slice);
+
+        assert_eq!(runtime.projectiles.len(), 1);
+        let projectile = &runtime.projectiles[0];
+        assert_eq!(
+            projectile.kind,
+            EnemyProjectileKind::Hail,
+            "ASM sub_61CA loc_62C2 should expose one hail projectile from the spawned falling-weather slot",
+        );
+        assert_eq!(
+            projectile.x_pos,
+            (0x0040u32 + u32::from(spawn_random) + 0x0028u32) << 16,
+        );
+        assert_eq!(projectile.y_pos, 0x0030_0000);
+        assert_eq!(projectile.x_velocity, -0x0001_0000);
+        assert_eq!(projectile.y_velocity, 0x0004_0000);
+        assert_eq!(runtime.weather.storm_spawn_cooldown, expected_cooldown);
+        assert_eq!(
+            runtime.weather.storm_free_falling_slots, 4,
+            "ASM loc_62C2 decrements `$FFFFFB3D` after consuming one inactive falling-weather slot",
+        );
+    }
+
+    #[test]
+    fn step_weather_hail_shell_returns_at_frame_threshold_loc_6172() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 3;
+        runtime.frame_index = 0x0873;
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_spawn_cooldown = 1;
+        runtime.weather.storm_free_falling_slots = 5;
+
+        runtime.step_weather(&airborne_slice());
+
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM loc_6172 takes the `bls` return branch while Frame_Counter <= $873",
+        );
+        assert_eq!(
+            runtime.weather.storm_spawn_cooldown, 1,
+            "ASM loc_6172 should return before sub_61CA decrements the spawn cooldown",
+        );
+    }
+
+    #[test]
+    fn step_weather_hail_shell_skips_inactive_full_slot_period_loc_61a8() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 3;
+        runtime.frame_index = 0x0896;
+        runtime.weather.hail_active = false;
+        runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_spawn_cooldown = 1;
+        runtime.weather.storm_free_falling_slots = 0;
+        runtime.weather.storm_falling_slots_sub_61ca =
+            [FallingWeatherSlotSub61CA::inactive(6, 0); 5];
+
+        runtime.step_weather(&airborne_slice());
+
+        assert!(
+            runtime.projectiles.is_empty(),
+            "ASM loc_61A8 returns when inactive hail has all five falling-weather slots free",
+        );
+        assert_eq!(
+            runtime.weather.storm_spawn_cooldown, 1,
+            "ASM loc_61A8 should not call sub_61CA in the inactive full-slot branch",
+        );
+    }
+
+    #[test]
+    fn step_weather_replaces_previous_hail_projectiles_only_loc_61ca() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 3;
+        runtime.frame_index = 0x0896;
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_spawn_cooldown = 3;
+        runtime.weather.hail_spawn_timer = 3;
+        runtime.weather.storm_free_falling_slots = 0;
+        runtime.weather.storm_falling_slots_sub_61ca[0] = FallingWeatherSlotSub61CA {
+            y_px: 0x0030,
+            x_px: 0x0040,
+            animation_cooldown: 6,
+            animation_frame: 0,
+        };
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::Hail,
+            x_pos: 0xAAAA_0000,
+            ..EnemyProjectile::default()
+        });
+        runtime.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::Generic,
+            x_pos: 0xBBBB_0000,
+            ..EnemyProjectile::default()
+        });
+
+        runtime.step_weather(&airborne_slice());
+
+        assert!(
+            runtime
+                .projectiles
+                .iter()
+                .all(|projectile| projectile.x_pos != 0xAAAA_0000),
+            "ASM sub_61CA exports hail from falling-weather RAM each frame; stale hail projectiles must be replaced",
+        );
+        assert!(
+            runtime
+                .projectiles
+                .iter()
+                .any(|projectile| projectile.kind == EnemyProjectileKind::Generic),
+            "non-hail projectiles are outside the ASM sub_61CA export path",
+        );
+        assert!(
+            runtime
+                .projectiles
+                .iter()
+                .any(|projectile| projectile.kind == EnemyProjectileKind::Hail),
+            "the live falling-weather slot should be re-exported as a fresh hail projectile",
+        );
+    }
+
+    #[test]
+    fn step_weather_hail_spawn_rng_waits_for_inactive_slot_loc_625e() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 3;
+        runtime.frame_index = 0x0896;
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_spawn_cooldown = 1;
+        runtime.weather.hail_spawn_timer = 1;
+        runtime.weather.storm_free_falling_slots = 5;
+        for index in 0..5 {
+            runtime.weather.storm_falling_slots_sub_61ca[index] = FallingWeatherSlotSub61CA {
+                y_px: 0x0030,
+                x_px: 0x0040 + index as i16 * 0x10,
+                animation_cooldown: 6,
+                animation_frame: 0,
+            };
+        }
+        let mut expected_rng = runtime.rom_random.clone();
+        let _cooldown_random = expected_rng.next_byte();
+        let expected_next_random = expected_rng.next_byte();
+
+        runtime.step_weather(&airborne_slice());
+
+        assert_eq!(
+            runtime.rom_random.next_byte(),
+            expected_next_random,
+            "ASM loc_626C must not call Get_RandomNumber_byte when loc_625E finds no inactive falling-weather slot",
+        );
+    }
+
+    #[test]
+    fn step_weather_hail_spawn_rng_waits_for_cooldown_zero_loc_623a() {
+        let mut runtime = NativeRuntime::new(manifest());
+        runtime.weather.weather_type = 3;
+        runtime.frame_index = 0x0896;
+        runtime.weather.hail_active = true;
+        runtime.weather.hail_period_timer = 100;
+        runtime.weather.storm_spawn_cooldown = 3;
+        runtime.weather.hail_spawn_timer = 3;
+        runtime.weather.storm_free_falling_slots = 5;
+        runtime.weather.storm_falling_slots_sub_61ca =
+            [FallingWeatherSlotSub61CA::inactive(6, 0); 5];
+        let mut expected_rng = runtime.rom_random.clone();
+        let expected_next_random = expected_rng.next_byte();
+
+        runtime.step_weather(&airborne_slice());
+
+        assert_eq!(
+            runtime.weather.storm_spawn_cooldown, 2,
+            "ASM loc_623A should only decrement the cooldown while it remains non-zero",
+        );
+        assert_eq!(
+            runtime.rom_random.next_byte(),
+            expected_next_random,
+            "ASM loc_623A must not call Get_RandomNumber_byte until the spawn cooldown reaches zero",
+        );
+    }
+
+    #[test]
+    fn step_weather_mountain_thunder_reseed_uses_low_frame_byte_loc_613e() {
+        let mut assets = manifest_with_levels(1);
+        let header = assets.levels[0].header_metadata.as_mut().unwrap();
+        header.weather_flags = 2;
+        header.background_theme = 7; // ASM constant `Mountain`.
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.current_level = LevelId(0);
+        runtime.weather.weather_type = 2;
+        runtime.weather.storm_fade_countdown = 0;
+        runtime.weather.storm_thunder_timer = -26;
+        runtime.frame_index = 0x08A5;
+
+        runtime.step_weather(&airborne_slice());
+
+        assert_eq!(
+            runtime.weather.storm_thunder_timer,
+            0x00F7 - 0x00A5,
+            "ASM loc_613E subtracts the low frame byte masked by `$F5` when reseeding thunder",
+        );
+    }
+
+    #[test]
+    fn init_murder_wall_preserves_previous_fraction_on_new_wall_loc_140d2() {
+        let mut assets = manifest();
+        assets.levels[0]
+            .header_metadata
+            .as_mut()
+            .expect("fixture level header")
+            .murder_wall_flags = 0b10;
+        let mut runtime = NativeRuntime::new(assets);
+        runtime.current_level = LevelId(0);
+        runtime.murder_wall = Some(MurderWallState {
+            x_pos: 0x0000_00A5,
+            speed: 0x1234,
+            max_speed: MURDER_WALL_DEFAULT_MAX_SPEED,
+            reversed: false,
+        });
+
+        runtime.init_murder_wall(LevelId(0), 0);
+
+        let wall = runtime
+            .murder_wall
+            .expect("fixture level has murder wall flags enabled");
+        assert_eq!(
+            wall.x_pos & 0xFFFF,
+            0x00A5,
+            "ASM loc_140D2 writes only the integer word of MurderWall_X_pos; the low word is left as existing RAM",
+        );
+    }
+}

@@ -1563,7 +1563,10 @@ pub(crate) fn step_level_special_effects_sub_6048(
     state
 }
 
-fn storm_pending_palette_0_mask_sub_6048(pending_palette_mask_0: i16, palette_speed: u8) -> u32 {
+pub(crate) fn storm_pending_palette_0_mask_sub_6048(
+    pending_palette_mask_0: i16,
+    palette_speed: u8,
+) -> u32 {
     let high_mask = if pending_palette_mask_0 < 0 {
         // ASM loc_60C0: `move.w #-1,($FFFFF888).w` writes the high word of
         // the long consumed by sub_14C0.
