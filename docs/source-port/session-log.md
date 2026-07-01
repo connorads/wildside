@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Emo Rock enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/emo_rock.rs`.
+- The slice covers the ASM-cited Emo Rock wait/hover target, drop velocity and
+  landing setup, settled contact dispatch, Berzerker side-hit/airborne branches,
+  disappear worker, death start, respawn/status routing, and live-step branches.
+- Evidence: `/tmp/mutants-emo-rock-proactive-1` reports `72 mutants tested in
+  7m: 61 caught, 11 unviable`.
+- Verification: the Emo Rock mutation run completed with no survivors; no
+  source regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Big Hopping Skull enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
