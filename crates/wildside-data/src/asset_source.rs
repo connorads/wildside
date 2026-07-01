@@ -145,11 +145,26 @@ mod tests {
             b"data".to_vec(),
         );
         assert_eq!(source.len(), 1);
+        assert!(!source.is_empty());
 
         let rel = Path::new("level/platform_scripts.asm");
         assert!(source.exists(rel));
         assert_eq!(source.read(rel).expect("read asset"), b"data");
         assert!(!source.exists(Path::new("level/other.asm")));
         assert!(source.read(Path::new("level/other.asm")).is_err());
+
+        source.insert(PathBuf::from("level/other.asm"), b"other".to_vec());
+        assert_eq!(source.len(), 2);
+        assert!(source.exists(Path::new("level/other.asm")));
+
+        source.insert(
+            PathBuf::from("level/platform_scripts.asm"),
+            b"replacement".to_vec(),
+        );
+        assert_eq!(source.len(), 2);
+        assert_eq!(
+            source.read(rel).expect("read replaced asset"),
+            b"replacement"
+        );
     }
 }

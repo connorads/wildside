@@ -7,6 +7,27 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive data asset-source mutation hardening)
+
+- **Fallback verification hardened a test gap.** With no ready/open rows, first
+  attempted `crates/wildside-md/src/lib.rs`, but stopped it as too broad for a
+  loop shard after it enumerated 1352 mutants and produced no useful progress
+  output after the baseline. Switched to
+  `crates/wildside-data/src/asset_source.rs`.
+- Evidence: initial `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-data -f crates/wildside-data/src/asset_source.rs -j 1
+  --gitignore=true --output /tmp/mutants-data-asset-source-proactive-1 --
+  --lib` reported `15 mutants tested in 37s: 2 missed, 13 caught`; the missed
+  mutants replaced `InMemoryAssetSource::len` with `1` and
+  `InMemoryAssetSource::is_empty` with `true`.
+- Fix: extended the public in-memory asset-source regression to prove
+  non-empty state after insertion, two distinct stored paths, and replacement
+  preserving length.
+- Result: rerun at `/tmp/mutants-data-asset-source-proactive-2` reports `15
+  mutants tested in 35s: 15 caught`.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive ROM library mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, continued the
