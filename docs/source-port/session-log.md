@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Orca enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/orca.rs`.
+- The slice covers the ASM-cited Orca init, patrol collision dispatch, damage
+  and death routing, lunge decision/windup/launch, lunge collision and landing
+  resume paths, Berzerker side-contact/airborne routing, and live-step branches.
+- Evidence: `/tmp/mutants-orca-proactive-1` reports `91 mutants tested in 9m:
+  74 caught, 17 unviable`.
+- Verification: the Orca mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Emo Rock enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
