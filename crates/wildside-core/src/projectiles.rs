@@ -842,6 +842,14 @@ mod drips_surface_crawler_tests {
     use super::*;
     use std::path::PathBuf;
 
+    #[test]
+    fn boss_death_burst_entry_animation_duration_matches_stru_37bd8() {
+        assert_eq!(
+            BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8, 0x15,
+            "ASM kid.asm stru_37BD8 has frame durations 5, 5, $A, and 1 before loc_3712E can enter loc_37148"
+        );
+    }
+
     fn minimal_manifest() -> wildside_data::AssetManifest {
         wildside_data::AssetManifest {
             generated_bundle_version: wildside_data::GENERATED_BUNDLE_VERSION,

@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive projectile mutation hardening)
+
+- **Fallback verification found gaps.** With no ready/open rows, started the
+  single-file mutation wrapper against `projectiles.rs`; stopped it after the
+  early survivor report rather than spending the whole large file run.
+- Evidence: `/tmp/mutants-projectiles-proactive-1` reported survivors at
+  `DRIPS_SURFACE_CRAWLER_KID_CONTACT_HALF_WIDTH_LOC_33550` (`+` -> `*`) and
+  `BOSS_DEATH_BURST_ENTRY_ANIMATION_FRAMES_STRU_37BD8` (`+` -> `-`).
+- Added ASM-cited regressions for Drips `loc_33550` rejecting the live crawler
+  at |dx|=16 while keeping the existing |dx|=15 issue-260 hit, and for
+  `stru_37BD8`'s exact 5+5+$A+1 frame sum.
+- Verification: both targeted tests pass cleanly, manually injecting each
+  original survivor mutation makes its new test fail, and `mise run
+  verify-slice-fast` passes.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Dragon Walking enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the

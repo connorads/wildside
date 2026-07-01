@@ -16001,6 +16001,36 @@ mod chunk_09 {
     }
 
     #[test]
+    fn drips_surface_crawler_live_contact_rejects_outside_loc_33550_boundary() {
+        let mut rt = NativeRuntime::new(manifest());
+        rt.projectiles.push(EnemyProjectile {
+            kind: EnemyProjectileKind::DripsSurfaceCrawler,
+            x_pos: 584 << 16,
+            y_pos: 101 << 16,
+            x_velocity: 0x0000_3000,
+            y_velocity: 0,
+            lifetime: u16::MAX,
+            friendly: false,
+            drips_surface_crawler_state: DripsSurfaceCrawlerState::HorizontalLoc33650,
+            ..Default::default()
+        });
+        let mut slice = OpeningSliceState::new(default_bounds());
+        slice.player.x_pos = 600 << 16;
+        slice.player.y_pos = 100 << 16;
+        rt.opening_slice = Some(slice);
+
+        assert!(
+            !rt.projectile_hits_player(&slice),
+            "ASM Drips.asm loc_33650/loc_33550 keeps the issue-260 crawler contact at |dx|=15 inclusive, but |dx|=16 is outside the GfxObjects_CollisionKid contact"
+        );
+        assert_eq!(
+            rt.projectiles.len(),
+            1,
+            "a non-contacting loc_33550 crawler should stay live for the terrain/support checks"
+        );
+    }
+
+    #[test]
     fn drips_surface_crawler_burst_helper_does_not_hit_player_loc_338f8() {
         let mut rt = NativeRuntime::new(manifest());
         rt.projectiles.push(EnemyProjectile {
