@@ -10053,6 +10053,35 @@ PlatformScript_361C:   ; relative offset: 001A\n\
     }
 
     #[test]
+    fn pause_resume_level1_resume_frame_uses_fresh_start_only_latch_loc_6ae0_6b68() {
+        let Some(mut runtime) = cached_generated_runtime() else {
+            return;
+        };
+        runtime.set_recorded_title_card_handoff_delay(false);
+        let mut frame_920 = None;
+
+        for frame in 0..=920 {
+            let trace = runtime.step_frame(pause_resume_level1_script_input(frame));
+            if frame == 920 {
+                frame_920 = Some(trace);
+            }
+        }
+
+        let frame_920 = frame_920.expect("frame 920 should be captured");
+        // ASM Game_Paused_Loop (kid.asm:6829) calls ReadJoypad before
+        // Game_Paused_ChkStart branches through loc_6B68, so the resumed
+        // Mode_Level pass consumes the fresh Start-only Ctrl_Held latch rather
+        // than the pre-pause Right-held latch.
+        assert!(!frame_920.paused);
+        assert_eq!(
+            frame_920.kid_x_velocity,
+            Some(0x0001_B000),
+            "frame 920 should match the oracle Start-only deceleration from 0x0001_D800",
+        );
+        assert_eq!(frame_920.character_movement, Some(2));
+    }
+
+    #[test]
     fn timing_regression_level_one_opening_fatal_hit_enters_death_windup() {
         let mut runtime = NativeRuntime::new(manifest());
         runtime.set_block_grid(grid_with_floor_at_row(17));

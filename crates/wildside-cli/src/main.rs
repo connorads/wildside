@@ -6387,6 +6387,48 @@ AddrTbl_LevelNames:
     }
 
     #[test]
+    fn gameplay_regression_live_drift_skips_shared_level_transition_shells() {
+        let mut native_shell = gameplay_state("frame_00922", 922);
+        native_shell.game_mode = GameMode::LevelTransition.as_disassembly_value();
+        native_shell.camera_y_pos = 0x0073_0000;
+        native_shell.character_movement = Some(0);
+        let mut oracle_shell = native_shell.clone();
+        oracle_shell.camera_y_pos = 0;
+        oracle_shell.character_movement = Some(2);
+
+        let mut native_live = gameplay_state("frame_00933", 933);
+        native_live.game_mode = GameMode::InGame.as_disassembly_value();
+        let mut oracle_still_shell = native_live.clone();
+        oracle_still_shell.game_mode = GameMode::LevelTransition.as_disassembly_value();
+
+        let native = GameplayCapture {
+            scenario: String::from("progress_two_transitions"),
+            frame_count: 934,
+            missed_vblank_frames: 0,
+            states: vec![native_shell, native_live],
+            checkpoints: Vec::new(),
+        };
+        let oracle = GameplayCapture {
+            scenario: String::from("progress_two_transitions"),
+            frame_count: 934,
+            missed_vblank_frames: 0,
+            states: vec![oracle_shell, oracle_still_shell],
+            checkpoints: Vec::new(),
+        };
+
+        let reports = find_gameplay_live_drifts(
+            &native,
+            &oracle,
+            GameplayScenario::ProgressTwoTransitions,
+            900,
+        );
+
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].frame_index, 933);
+        assert_eq!(reports[0].differing_fields, vec!["game_mode"]);
+    }
+
+    #[test]
     fn gameplay_regression_capture_native_gameplay_run_writes_summaries_without_compare() {
         let repo_root = TempDir::new().expect("repo root");
         let capture = GameplayCapture {

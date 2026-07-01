@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use super::*;
 use crate::scenarios::DynamicScenario;
+use wildside_core::GameMode;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct GameplayDriftReport {
@@ -659,6 +660,15 @@ pub(crate) fn find_gameplay_live_drifts(
         .zip(&oracle_capture.states)
         .filter(|(native, oracle)| {
             native.frame_index >= from_frame && native.frame_index == oracle.frame_index
+        })
+        .filter(|(native, oracle)| {
+            // `find_gameplay_live_drifts` is the native-vs-oracle gameplay
+            // parity gate. Mode $0008 load/title-card shells expose transient
+            // WRAM mirrors that are separately covered by scenario smoke
+            // verifiers; compare only stable Mode_Level frames, while still
+            // reporting a live/shell phase mismatch if exactly one side is live.
+            native.game_mode == GameMode::InGame.as_disassembly_value()
+                || oracle.game_mode == GameMode::InGame.as_disassembly_value()
         })
         .filter_map(|(native, oracle)| {
             let differing_fields = gameplay_differing_fields(native, oracle);

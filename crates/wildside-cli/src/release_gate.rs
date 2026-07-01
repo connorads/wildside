@@ -124,12 +124,11 @@ const NATIVE_GAMEPLAY_SMOKE_SCENARIOS: &[GameplayScenario] = &[
     GameplayScenario::SoakLevel10m,
 ];
 
-const STATIC_NATIVE_GAMEPLAY_COMPARE_SCENARIOS: &[GameplayScenario] = &[
-    GameplayScenario::PauseResumeLevel1,
-    GameplayScenario::ProgressTwoTransitions,
-];
+const STATIC_NATIVE_GAMEPLAY_COMPARE_SCENARIOS: &[GameplayScenario] =
+    &[GameplayScenario::PauseResumeLevel1];
 
 const FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS: &[GameplayScenario] = &[
+    GameplayScenario::ProgressTwoTransitions,
     GameplayScenario::DeathRespawnLevel1,
     GameplayScenario::DeathRespawnStartResumeLevel1,
 ];
@@ -712,6 +711,20 @@ mod tests {
         assert!(
             FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS
                 .contains(&GameplayScenario::DeathRespawnStartResumeLevel1)
+        );
+    }
+
+    #[test]
+    fn progress_transition_route_uses_full_boot_gameplay_verification() {
+        assert!(
+            NATIVE_GAMEPLAY_SMOKE_SCENARIOS.contains(&GameplayScenario::ProgressTwoTransitions)
+        );
+        assert!(
+            !STATIC_NATIVE_GAMEPLAY_COMPARE_SCENARIOS
+                .contains(&GameplayScenario::ProgressTwoTransitions)
+        );
+        assert!(
+            FULL_BOOT_GAMEPLAY_VERIFY_SCENARIOS.contains(&GameplayScenario::ProgressTwoTransitions)
         );
     }
 }

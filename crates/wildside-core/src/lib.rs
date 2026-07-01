@@ -30,9 +30,9 @@ use enemies::*;
 use physics::{Direction, HorizontalInput, LevelBounds};
 use platforms::*;
 pub use scenario::{
-    ScriptRunner, run_script, run_script_with_direct_title_card_handoff,
-    run_script_with_physics_order, run_script_with_settled_warp, run_script_with_trace,
-    run_script_with_warp,
+    ScriptRunner, run_script, run_script_with_direct_initial_title_card_handoff,
+    run_script_with_direct_title_card_handoff, run_script_with_physics_order,
+    run_script_with_settled_warp, run_script_with_trace, run_script_with_warp,
 };
 use wildside_data::{
     AssetManifest, AssetSource, EnemyLayout, EnemyLayoutObject, FsAssetSource, PlatformLayout,
@@ -1517,7 +1517,7 @@ impl NativeRuntime {
         self.progression.number_lives = count;
     }
 
-    fn apply_pause_menu_frame_loc_6ae0(&mut self, input: FrameInput, start_pressed: bool) {
+    fn apply_pause_menu_frame_loc_6ae0(&mut self, input: FrameInput, start_pressed: bool) -> bool {
         // ASM restart_text (kid.asm:6741): live pause menu text uses
         // Number_Lives to choose "Give Up" vs "Restart Round" before the loop
         // handles cursor movement or Start.
@@ -1573,6 +1573,7 @@ impl NativeRuntime {
                 self.pause_toggle_pending = false;
                 self.pending_pause_restart_round = None;
                 self.pending_pause_last_life_give_up = false;
+                return true;
             }
             boot::PauseMenuStartResult::RestartLevel { remaining_lives } => {
                 // ASM Game_Paused_ChkStart (kid.asm:6865-6876): after
@@ -1599,6 +1600,7 @@ impl NativeRuntime {
                 self.pending_pause_last_life_give_up = true;
             }
         }
+        false
     }
 
     fn pause_menu_camera_words(&self) -> Option<(u16, u16)> {
@@ -2382,15 +2384,18 @@ impl NativeRuntime {
         // last-life give-up) both suppress the toggle; kept as separate arms to
         // document that each ROM mechanism independently gates it.
         #[allow(clippy::if_same_then_else)]
-        if self.pending_pause_restart_round.is_some() {
+        let normal_pause_continue_frame = if self.pending_pause_restart_round.is_some() {
             self.pause_toggle_pending = false;
+            false
         } else if self.pending_pause_last_life_give_up {
             self.pause_toggle_pending = false;
+            false
         } else if self.paused {
-            self.apply_pause_menu_frame_loc_6ae0(input, start_pressed);
+            self.apply_pause_menu_frame_loc_6ae0(input, start_pressed)
         } else {
             self.handle_start_press(input, start_pressed);
-        }
+            false
+        };
         let frame_started_in_sega_screen = matches!(self.boot_state, BootState::SegaScreen { .. });
         let frame_started_in_title_screen =
             matches!(self.boot_state, BootState::TitleScreen { .. });
@@ -2553,6 +2558,11 @@ impl NativeRuntime {
                     FrameInput::default()
                 } else if demo_live_input {
                     input
+                } else if normal_pause_continue_frame {
+                    // ASM Game_Paused_Loop (kid.asm:6829) calls ReadJoypad
+                    // before loc_6B68 clears Game_Paused, so the resumed
+                    // Mode_Level pass consumes the Start-only Ctrl_Held latch.
+                    self.gameplay_input_from_latch(input, input)
                 } else {
                     self.gameplay_input(input)
                 };
@@ -3042,11 +3052,15 @@ impl NativeRuntime {
     }
 
     fn gameplay_input(&self, input: FrameInput) -> FrameInput {
-        let held = self.previous_input.with_left_right_conflict_resolved();
+        self.gameplay_input_from_latch(input, self.previous_input)
+    }
+
+    fn gameplay_input_from_latch(&self, input: FrameInput, held_latch: FrameInput) -> FrameInput {
+        let held = held_latch.with_left_right_conflict_resolved();
         let mut a_held = if self.progression.current_form == PlayerForm::Skycutter {
             self.prior_input.a
         } else {
-            self.previous_input.a
+            held_latch.a
         };
         if self.options_speed_button_fast {
             // ASM loc_749C (kid.asm:7616): after loc_7464 unpacks `Ctrl_A_Held`
@@ -3067,7 +3081,7 @@ impl NativeRuntime {
             // on the existing oracle-locked held latch.
             a: a_held,
             // Gameplay motion consumes the previous controller state, including jump hold.
-            b: self.previous_input.b,
+            b: held_latch.b,
             c: input.c,
             start: input.start,
         }

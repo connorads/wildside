@@ -319,6 +319,7 @@ pub struct ScriptRunner {
     initial_diamond_count: Option<u16>,
     initial_lives: Option<u16>,
     asset_source: Option<Arc<dyn AssetSource>>,
+    restore_recorded_title_card_after_first_live: bool,
 }
 
 impl ScriptRunner {
@@ -337,6 +338,7 @@ impl ScriptRunner {
             initial_diamond_count: None,
             initial_lives: None,
             asset_source: None,
+            restore_recorded_title_card_after_first_live: false,
         }
     }
 
@@ -382,6 +384,13 @@ impl ScriptRunner {
     #[must_use]
     pub fn direct_title_card_handoff(mut self) -> Self {
         self.recorded_title_card_handoff_delay = false;
+        self
+    }
+
+    #[must_use]
+    pub fn direct_initial_title_card_handoff(mut self) -> Self {
+        self.recorded_title_card_handoff_delay = false;
+        self.restore_recorded_title_card_after_first_live = true;
         self
     }
 
@@ -494,6 +503,8 @@ impl ScriptRunner {
         } else {
             Vec::new()
         };
+        let mut restore_recorded_title_card_after_first_live =
+            self.restore_recorded_title_card_after_first_live;
         for frame_index in 0..frame_count {
             // ASM Mode_Level (kid.asm:877-917) executes objects/player logic
             // before ReadJoypad, so the settled recording oracle's script byte
@@ -508,7 +519,14 @@ impl ScriptRunner {
                 .copied()
                 .map(FrameInput::from_mask)
                 .unwrap_or_default();
-            trace.push(runtime.step_frame(input));
+            let snapshot = runtime.step_frame(input);
+            if restore_recorded_title_card_after_first_live
+                && snapshot.game_mode == GameMode::InGame
+            {
+                runtime.set_recorded_title_card_handoff_delay(true);
+                restore_recorded_title_card_after_first_live = false;
+            }
+            trace.push(snapshot);
             if capture_vdp {
                 // step_frame can early-return before update_vdp_state (lib.rs:2546,
                 // the DemoPlay no-input path), so the captured snapshot then
@@ -538,6 +556,16 @@ pub fn run_script_with_direct_title_card_handoff(
 ) -> Vec<NativeTraceFrame> {
     ScriptRunner::new(assets)
         .direct_title_card_handoff()
+        .run(script, frame_count)
+}
+
+pub fn run_script_with_direct_initial_title_card_handoff(
+    assets: AssetManifest,
+    script: &[u8],
+    frame_count: usize,
+) -> Vec<NativeTraceFrame> {
+    ScriptRunner::new(assets)
+        .direct_initial_title_card_handoff()
         .run(script, frame_count)
 }
 

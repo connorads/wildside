@@ -2293,7 +2293,7 @@ impl GameplayScenario {
                 );
             }
             Self::SoakLevel10m => {
-                for frame in (900..self.frame_count().saturating_sub(600)).step_by(700) {
+                for frame in (720..self.frame_count().saturating_sub(600)).step_by(700) {
                     apply_single_frames(&mut script, &[frame], (1 << 5) | (1 << 6) | 0x80);
                 }
             }
@@ -3419,13 +3419,13 @@ mod tests {
     }
 
     #[test]
-    fn gameplay_soak_scenario_idles_between_level_skip_inputs() {
+    fn gameplay_soak_scenario_skips_from_first_settled_live_frame() {
         let script = GameplayScenario::SoakLevel10m.script();
 
-        assert_eq!(script[720], 0);
-        assert_eq!(script[900], (1 << 5) | (1 << 6) | 0x80);
-        assert_eq!(script[1_600], (1 << 5) | (1 << 6) | 0x80);
-        assert_eq!(script[1_601], 0);
+        assert_eq!(script[720], (1 << 5) | (1 << 6) | 0x80);
+        assert_eq!(script[900], 0);
+        assert_eq!(script[1_420], (1 << 5) | (1 << 6) | 0x80);
+        assert_eq!(script[1_421], 0);
     }
 
     #[test]
