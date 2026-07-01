@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive core gfx-animation mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-core/src/gfx_animation.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-core -f crates/wildside-core/src/gfx_animation.rs -j 1
+  --gitignore=true --output /tmp/mutants-core-gfx-animation-proactive-2 --
+  --lib -- --skip demo_ --skip published_tas --skip snapshot` reports `18
+  mutants tested in 2m: 16 caught, 2 unviable`, with zero missed mutants and
+  zero timeouts. The skip filters are the documented core mutation-test filters
+  for pre-existing demo/TAS/snapshot exclusions.
+- Native gfx animation helper behaviour is unchanged. Existing ASM-cited
+  gfx-animation tests catch this shard's viable mutations.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive data asset-source mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused
