@@ -7,6 +7,23 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame sprite push hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued the
+  `wildside-frame` sprite mutation pass into render push/palette helpers.
+- Initial focused push/palette sampling `/tmp/mutants-frame-sprites-push-1`
+  reported `25 mutants tested in 32s: 8 missed, 12 caught, 5 unviable`.
+- This pass adds command-stream coverage for
+  `push_player_sprite_with_priority_override`, death windup art, flagpole
+  priority override, boss-eye marker placement, player/enemy damage flash
+  palettes, and Heady Metal sub_379E8 palette slot writes.
+- Evidence: focused rerun `/tmp/mutants-frame-sprites-push-2` reports `25
+  mutants tested in 32s: 20 caught, 5 unviable`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-frame
+  sprites::tests -- --nocapture`, and the focused mutation rerun completed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused frame/core shard.
+
 ## 2026-07-01 handoff (proactive frame sprite platform hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the

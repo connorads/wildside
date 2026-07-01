@@ -2576,6 +2576,24 @@ mod tests {
             .collect()
     }
 
+    fn only_sprite_command(
+        commands: &[DrawCommand],
+    ) -> (&i32, &i32, &Arc<Palette>, &Vec<SpriteTile>) {
+        let [
+            DrawCommand::Sprite {
+                x,
+                y,
+                palette,
+                tiles,
+                ..
+            },
+        ] = commands
+        else {
+            panic!("expected exactly one sprite command");
+        };
+        (x, y, palette, tiles)
+    }
+
     fn live_enemy_object(object_type: u8) -> NativeObjectSnapshot {
         NativeObjectSnapshot {
             kind: NativeObjectKind::Enemy { object_type },
@@ -3977,6 +3995,167 @@ mod tests {
     }
 
     #[test]
+    fn player_and_enemy_damage_palettes_follow_asm_flash_scope() {
+        let palette = marked_palette(0x0600);
+
+        assert_eq!(
+            player_palette_for_damage_phase(&palette, false)
+                .colours
+                .iter()
+                .map(|colour| colour.raw_word)
+                .collect::<Vec<_>>(),
+            palette
+                .colours
+                .iter()
+                .map(|colour| colour.raw_word)
+                .collect::<Vec<_>>(),
+            "ASM sub_80BC only whitens the player palette during the flash phase"
+        );
+        let player_flash = player_palette_for_damage_phase(&palette, true);
+        assert!(
+            player_flash.colours[..12]
+                .iter()
+                .all(|colour| colour.raw_word == 0x0FFF),
+            "ASM sub_80BC writes twelve visible player colours"
+        );
+        assert_eq!(
+            player_flash.colours[12].raw_word, 0x060C,
+            "player flash must not overwrite palette slots beyond the twelve-colour ASM copy"
+        );
+
+        assert_eq!(
+            enemy_palette_for_damage_flash(&palette, false)
+                .colours
+                .iter()
+                .map(|colour| colour.raw_word)
+                .collect::<Vec<_>>(),
+            palette
+                .colours
+                .iter()
+                .map(|colour| colour.raw_word)
+                .collect::<Vec<_>>(),
+            "enemy non-flash frames keep their family palette"
+        );
+        assert!(
+            enemy_palette_for_damage_flash(&palette, true)
+                .colours
+                .iter()
+                .all(|colour| colour.raw_word == 0x0FFF),
+            "native enemy damage flash whitens every stored visible colour"
+        );
+    }
+
+    #[test]
+    fn heady_metal_palette_word_only_replaces_slot_15_sub_379e8() {
+        let palette = marked_palette(0x0700);
+        let mut object = live_enemy_object(0x20);
+        object.debug_fields.insert(
+            "heady_metal_palette_word_5e_sub_379e8".to_owned(),
+            "0x0ACE".to_owned(),
+        );
+
+        let non_heady = enemy_palette_for_heady_metal_sub_379e8(&palette, &object, 0x1F);
+        assert_eq!(
+            non_heady
+                .colours
+                .iter()
+                .map(|colour| colour.raw_word)
+                .collect::<Vec<_>>(),
+            palette
+                .colours
+                .iter()
+                .map(|colour| colour.raw_word)
+                .collect::<Vec<_>>(),
+            "ASM sub_379E8 palette pulse belongs to Heady Metal object type $20 only"
+        );
+
+        let heady = enemy_palette_for_heady_metal_sub_379e8(&palette, &object, 0x20);
+        assert_eq!(heady.colours[14].raw_word, 0x070E);
+        assert_eq!(
+            heady.colours[15].raw_word, 0x0ACE,
+            "ASM sub_379E8 writes Palette_Buffer+$5E, palette slot 15"
+        );
+    }
+
+    #[test]
+    fn push_player_sprite_emits_selected_frame_palette_and_priority() {
+        let mut visuals = minimal_level_visuals_for_platforms();
+        let kid_visuals = visuals.player.forms.get_mut(&0).expect("Kid visuals");
+        kid_visuals.palette = marked_palette(0x0800);
+        kid_visuals.death = Some(marked_frame(0x0D00, 5, 2, 18, 9));
+
+        let object = native_object_at(0x0120_0000, 0x0090_0000);
+        let trace = NativeTraceFrame {
+            camera_x_pos: 0x0100_0000,
+            camera_y_pos: 0x0080_0000,
+            kid_facing: Some(Direction::Right),
+            ..NativeTraceFrame::default()
+        };
+        let mut commands = Vec::new();
+        push_player_sprite_with_priority_override(
+            &mut commands,
+            &object,
+            &trace,
+            &visuals,
+            false,
+            Some(true),
+        );
+        let (x, y, palette, tiles) = only_sprite_command(&commands);
+        assert_eq!((*x, *y), (24, 0));
+        assert_eq!(palette.colours[0].raw_word, 0x0800);
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| tile.tile.tile_index)
+                .collect::<Vec<_>>(),
+            vec![0x0100, 0x0101, 0x0102, 0x0103]
+        );
+        assert!(
+            tiles.iter().all(|tile| tile.tile.priority),
+            "ASM CharacterCollision_TouchFlagpole loc_C070 may promote the current player sprite"
+        );
+
+        commands.clear();
+        let death_trace = NativeTraceFrame {
+            death_windup_elapsed: 1,
+            kid_facing: Some(Direction::Left),
+            ..trace
+        };
+        push_player_sprite_with_priority_override(
+            &mut commands,
+            &object,
+            &death_trace,
+            &visuals,
+            true,
+            None,
+        );
+        let (x, y, palette, tiles) = only_sprite_command(&commands);
+        assert_eq!(
+            (*x, *y),
+            (21, 0),
+            "ASM Death loc_B7FA renders Kid death art even while the trace still carries the pre-death form"
+        );
+        assert!(
+            palette.colours[..12]
+                .iter()
+                .all(|colour| colour.raw_word == 0x0FFF)
+        );
+        assert_eq!(
+            tiles
+                .iter()
+                .map(|tile| tile.tile.tile_index)
+                .collect::<Vec<_>>(),
+            vec![0x0D00, 0x0D01, 0x0D02, 0x0D03, 0x0D04, 0x0D05]
+        );
+        assert!(
+            tiles
+                .iter()
+                .all(|tile| tile.tile.flip_x && !tile.tile.priority),
+            "death tumble uses facing flip but no flagpole priority override"
+        );
+    }
+
+    #[test]
     fn player_screen_and_boss_eye_marker_use_md_sprite_coordinates() {
         assert_eq!(
             player_screen_position(
@@ -4020,6 +4199,20 @@ mod tests {
                     colour: [255, 255, 255],
                 },
             ]
+        );
+
+        commands.clear();
+        push_boss_eye_attack_marker_sub_37abc(&mut commands, 100, 80, 5);
+        assert_eq!(
+            commands[1],
+            DrawCommand::Rect {
+                x: 94,
+                y: 82,
+                width: 4,
+                height: 4,
+                colour: [255, 255, 255],
+            },
+            "ASM sub_37ABC lower-left body-piece marker keeps subtraction on both highlight axes"
         );
     }
 
