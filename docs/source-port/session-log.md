@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Tank enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/tank.rs`.
+- The slice covers the ASM-cited Tank and Tank_Shooting art-slot selection,
+  visible init, shared drive sound/refcount, mouth animation sound cadence,
+  child-collision damage/death routes, shooting-tank collision/damage/death
+  routes, bullet lifecycle, and live-step audio edges.
+- Evidence: `/tmp/mutants-tank-proactive-1` reports `28 mutants tested in 3m:
+  21 caught, 7 unviable`.
+- Verification: the Tank mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Crab enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
