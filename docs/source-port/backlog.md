@@ -69,6 +69,13 @@ and stop — never commit churn.
   acceptance, plus removed equivalent disjoint-bit/guard forms. Final
   `/tmp/mutants-frame-render-primitives-5` reports `237 mutants tested in 83s:
   231 caught, 6 unviable`.
+- **Current fix:** frame HUD helper shard `/tmp/mutants-frame-hud-1` found
+  `150 mutants tested in 60s: 141 missed, 9 unviable`. Added focused HUD
+  helper coverage for loc_BE0C hitpoint slot/tail pips, loc_45EE diamond page
+  lead, loc_4546/loc_4586 life icon pages, loc_C070 visible timer seconds, and
+  loc_BD0A timer coordinate/layout decisions. Final `/tmp/mutants-frame-hud-3`
+  reports `150 mutants tested in 59s: 77 caught, 64 missed, 9 unviable`; the
+  remaining misses are command-emission/asset-backed HUD rendering paths.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

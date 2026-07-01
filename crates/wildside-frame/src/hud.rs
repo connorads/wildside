@@ -549,3 +549,257 @@ pub fn push_game_hud(
         HUD_DIAMOND_Y,
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wildside_core::{
+        EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE, HudTimerSpritePositionSubBD0A,
+    };
+
+    #[test]
+    fn hud_hitpoint_tiles_follow_loc_be0c_two_hp_slots_and_odd_tail() {
+        // ASM Make_SpriteAttr_HUD loc_BE0C..loc_BE74: capacity/current HP
+        // decrement by two per slot; odd capacity leaves one narrow visible pip.
+        assert_eq!(
+            hud_hitpoint_tiles(5, 5),
+            vec![
+                (HudHitpointTile::Full, false),
+                (HudHitpointTile::Full, false),
+                (HudHitpointTile::Full, true),
+            ]
+        );
+        assert_eq!(
+            hud_hitpoint_tiles(4, 5),
+            vec![
+                (HudHitpointTile::Full, false),
+                (HudHitpointTile::Full, false),
+                (HudHitpointTile::Empty, true),
+            ]
+        );
+        assert_eq!(
+            hud_hitpoint_tiles(1, 3),
+            vec![
+                (HudHitpointTile::Half, false),
+                (HudHitpointTile::Empty, true),
+            ]
+        );
+        assert_eq!(
+            hud_hitpoint_tiles(0, 2),
+            vec![(HudHitpointTile::Empty, false)]
+        );
+    }
+
+    #[test]
+    fn hud_diamond_animation_frame_index_uses_loc_45ee_upload_lead() {
+        // ASM sub_44DC loc_45EE: sampled offset pages render one DMA page ahead
+        // in normal gameplay, while settled level-skip recordings expose the
+        // already-visible page.
+        let normal_trace = NativeTraceFrame {
+            hud_diamond_frame_offset: Some(4),
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(hud_diamond_animation_frame_index(&normal_trace, 4), 3);
+
+        let settled_trace = NativeTraceFrame {
+            hud_diamond_frame_offset: Some(4),
+            level_skip_cheat_enabled: 1,
+            level_completion_time: 1,
+            level_complete: false,
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(hud_diamond_animation_frame_index(&settled_trace, 4), 2);
+
+        let skip_without_settled_completion_time = NativeTraceFrame {
+            hud_diamond_frame_offset: Some(4),
+            level_skip_cheat_enabled: 1,
+            level_completion_time: 0,
+            level_complete: false,
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(
+            hud_diamond_animation_frame_index(&skip_without_settled_completion_time, 4),
+            3
+        );
+
+        let replay_local_trace = NativeTraceFrame {
+            frame_index: 6,
+            hud_diamond_frame_offset: None,
+            ..NativeTraceFrame::default()
+        };
+        assert_eq!(hud_diamond_animation_frame_index(&replay_local_trace, 4), 3);
+        assert_eq!(hud_diamond_animation_frame_index(&replay_local_trace, 0), 0);
+    }
+
+    #[test]
+    fn hud_life_icon_tile_base_index_follows_loc_4546_and_settled_loc_4586() {
+        // ASM sub_44DC loc_4546/loc_4586: the normal offset-zero sample presents
+        // page 8; settled level-skip recordings only expose offset-6 page 4.
+        assert_eq!(
+            hud_life_icon_tile_base_index_loc_4546(&NativeTraceFrame {
+                level_complete: true,
+                level_complete_elapsed_frames: 0,
+                ..NativeTraceFrame::default()
+            }),
+            4
+        );
+        assert_eq!(
+            hud_life_icon_tile_base_index_loc_4546(&NativeTraceFrame {
+                hud_life_frame_offset: Some(0),
+                ..NativeTraceFrame::default()
+            }),
+            8
+        );
+        assert_eq!(
+            hud_life_icon_tile_base_index_loc_4546(&NativeTraceFrame {
+                hud_life_frame_offset: Some(6),
+                level_skip_cheat_enabled: 1,
+                level_completion_time: 1,
+                level_complete: false,
+                ..NativeTraceFrame::default()
+            }),
+            4
+        );
+        assert_eq!(
+            hud_life_icon_settled_recording_tile_base_index_loc_4586(Some(4)),
+            None
+        );
+    }
+
+    #[test]
+    fn hud_timer_seconds_preserves_visible_loc_c070_boundary_values() {
+        // ASM CharacterCollision_TouchFlagpole loc_C070: frozen HUD keeps the
+        // previous second until the hologram becomes visible.
+        assert_eq!(
+            hud_timer_seconds_loc_c070(&NativeTraceFrame {
+                level_complete: true,
+                level_complete_elapsed_frames: 0,
+                level_timer_seconds: 41,
+                ..NativeTraceFrame::default()
+            }),
+            41
+        );
+        assert_eq!(
+            hud_timer_seconds_loc_c070(&NativeTraceFrame {
+                level_complete: true,
+                level_complete_elapsed_frames: 1,
+                level_timer_seconds: 41,
+                ..NativeTraceFrame::default()
+            }),
+            42
+        );
+        assert_eq!(
+            hud_timer_seconds_loc_c070(&NativeTraceFrame {
+                level_complete: true,
+                level_complete_elapsed_frames: EOL_HOLOGRAM_VISIBLE_FRAME_LOC_C1D0_ORACLE,
+                level_timer_seconds: 41,
+                ..NativeTraceFrame::default()
+            }),
+            41
+        );
+
+        // ASM Make_SpriteAttr_HUD loc_BE82..loc_BEE8: at sub-frame 1, the
+        // visible sprite table has already rolled the whole-second digit down.
+        assert_eq!(
+            hud_timer_seconds_loc_c070(&NativeTraceFrame {
+                game_mode: GameMode::InGame,
+                level_timer_sub_frames: 1,
+                level_timer_seconds: 60,
+                ..NativeTraceFrame::default()
+            }),
+            59
+        );
+        assert_eq!(
+            hud_timer_seconds_loc_c070(&NativeTraceFrame {
+                game_mode: GameMode::SegaScreen,
+                level_timer_sub_frames: 1,
+                level_timer_seconds: 60,
+                ..NativeTraceFrame::default()
+            }),
+            60
+        );
+        assert_eq!(
+            hud_timer_seconds_loc_c070(&NativeTraceFrame {
+                game_mode: GameMode::InGame,
+                level_complete: true,
+                level_timer_sub_frames: 1,
+                level_timer_seconds: 60,
+                ..NativeTraceFrame::default()
+            }),
+            60
+        );
+        assert_eq!(
+            hud_timer_seconds_loc_c070(&NativeTraceFrame {
+                game_mode: GameMode::DemoPlay,
+                level_timer_sub_frames: 1,
+                level_timer_seconds: 0,
+                ..NativeTraceFrame::default()
+            }),
+            0
+        );
+    }
+
+    #[test]
+    fn hud_timer_layout_loc_bd0a_tracks_kid_only_for_low_time_live_frames() {
+        // ASM End_Decrease_Time_Left enables tracking only for <=0:29, then
+        // sub_BD0A uses pixel positions from fixed-point trace fields.
+        let seeded = hud_timer_layout_loc_bd0a(&NativeTraceFrame::default(), 0, 2);
+        let tracked = hud_timer_layout_loc_bd0a(
+            &NativeTraceFrame {
+                kid_x_pos: Some(0x0130_0000),
+                kid_y_pos: Some(0x0180_0000),
+                camera_x_pos: 0x0100_0000,
+                camera_y_pos: 0x0120_0000,
+                ..NativeTraceFrame::default()
+            },
+            0,
+            2,
+        );
+        assert_ne!(tracked, seeded);
+        assert_eq!(
+            tracked,
+            wildside_core::hud_timer_sprite_layout_sub_BD0A(
+                seeded, true, false, 0x0130, 0x0180, 0x0100, 0x0120,
+            )
+        );
+
+        let high_time = hud_timer_layout_loc_bd0a(
+            &NativeTraceFrame {
+                kid_x_pos: Some(0x0130_0000),
+                kid_y_pos: Some(0x0180_0000),
+                camera_x_pos: 0x0100_0000,
+                camera_y_pos: 0x0120_0000,
+                ..NativeTraceFrame::default()
+            },
+            1,
+            0,
+        );
+        assert_eq!(high_time, seeded);
+
+        let level_complete = hud_timer_layout_loc_bd0a(
+            &NativeTraceFrame {
+                kid_x_pos: Some(0x0130_0000),
+                kid_y_pos: Some(0x0180_0000),
+                camera_x_pos: 0x0100_0000,
+                camera_y_pos: 0x0120_0000,
+                level_complete: true,
+                ..NativeTraceFrame::default()
+            },
+            0,
+            2,
+        );
+        assert_eq!(level_complete, seeded);
+    }
+
+    #[test]
+    fn hud_timer_coord_loc_bd0a_unbiases_md_sprite_positions() {
+        // ASM HUD sprite coordinates are MD-biased by 128 before rendering.
+        assert_eq!(
+            hud_timer_coord_loc_bd0a(HudTimerSpritePositionSubBD0A {
+                x_pos: 0x0090,
+                y_pos: 0x0088,
+            }),
+            (16, 8)
+        );
+    }
+}

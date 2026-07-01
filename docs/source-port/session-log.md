@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame HUD helper hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued the
+  `wildside-frame` proactive mutation pass on HUD helper logic.
+- Initial HUD shard `/tmp/mutants-frame-hud-1` reported `150 mutants tested in
+  60s: 141 missed, 9 unviable`.
+- This pass adds focused HUD helper coverage for loc_BE0C hitpoint slot/tail
+  pips, loc_45EE diamond page lead, loc_4546/loc_4586 life icon pages, loc_C070
+  visible timer seconds, and loc_BD0A timer coordinate/layout decisions.
+- Evidence: focused rerun `/tmp/mutants-frame-hud-3` reports `150 mutants
+  tested in 59s: 77 caught, 64 missed, 9 unviable`. Remaining misses are
+  command-emission/asset-backed HUD rendering paths.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-frame
+  hud::tests -- --nocapture`, and the focused mutation rerun passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification with HUD command emission or another focused
+  frame/core shard.
+
 ## 2026-07-01 handoff (proactive frame render primitive hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, switched lanes
