@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive ROM library mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, continued the
+  direct mutation rotation on `crates/wildside-rom/src/lib.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-rom -f crates/wildside-rom/src/lib.rs -j 1 --gitignore=true
+  --output /tmp/mutants-rom-lib-proactive-1 -- --lib` reports `26 mutants
+  tested in 29s: 24 caught, 2 unviable`, with zero missed mutants and zero
+  timeouts.
+- Native/ROM validation behaviour is unchanged. Existing ROM tests already
+  catch this shard's viable mutations.
+- NEXT: run `mise run project-status`; if no ready/open item appears,
+  continue `loop.md` proactive verification on another focused MD shard.
+
 ## 2026-07-01 handoff (proactive data level-layout mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, finished the
