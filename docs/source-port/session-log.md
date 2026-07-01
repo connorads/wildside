@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Hand enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/hand.rs`.
+- The slice covers the ASM-cited Hand jump seed/components/gravity, ground and
+  jump collision dispatch, Kid-contact gates, death/delete/respawn paths,
+  terrain scan, grab snap/timer/release, init, patrol/reversal, detection, and
+  live-step branches.
+- Evidence: `/tmp/mutants-hand-proactive-1` reports `167 mutants tested in
+  17m: 145 caught, 22 unviable`.
+- Verification: the Hand mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Tank enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the

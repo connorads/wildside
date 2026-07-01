@@ -28,13 +28,13 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive Tank enemy mutation slice. The
-  single-file wrapper on `crates/wildside-core/src/enemies/tank.rs` reports
-  `/tmp/mutants-tank-proactive-1`: `28 mutants tested in 3m: 21 caught,
-  7 unviable`. No source edit was warranted; the existing ASM-cited Tank
-  art-slot, visible-init, drive-refcount, mouth-cadence, child-collision,
-  shooting-route, bullet-lifecycle, and live-step audio tests killed every
-  viable mutant.
+- **Current verification:** proactive Hand enemy mutation slice. The
+  single-file wrapper on `crates/wildside-core/src/enemies/hand.rs` reports
+  `/tmp/mutants-hand-proactive-1`: `167 mutants tested in 17m: 145 caught,
+  22 unviable`. No source edit was warranted; the existing ASM-cited Hand
+  jump-setup, collision-dispatch, Kid-contact, death/delete, terrain-scan,
+  grab/release, init, patrol/reversal, detection, and live-step tests killed
+  every viable mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 
