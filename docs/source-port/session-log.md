@@ -7,6 +7,24 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame render primitive hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, switched lanes
+  from `wildside-md` to `wildside-frame` render primitives.
+- Initial render primitive shard `/tmp/mutants-frame-render-primitives-1`
+  reported `244 mutants tested in 82s: 188 missed, 50 caught, 6 unviable`.
+- This pass adds focused render primitive/provenance coverage for command
+  bounds, text glyph source mapping and cursor advancement, indexed tile
+  row/slice/source coordinates, priority clearing, palette resolution, and
+  scene-pixel acceptance. It also rewrites equivalent disjoint-bit and compact
+  palette guard forms so mutation has an observable target.
+- Evidence: focused rerun `/tmp/mutants-frame-render-primitives-5` reports
+  `237 mutants tested in 83s: 231 caught, 6 unviable`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-frame
+  render::tests -- --nocapture`, and the focused mutation rerun passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused render/frame/core shard.
+
 ## 2026-07-01 handoff (proactive MD VDP diagnostic render hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the

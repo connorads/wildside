@@ -61,6 +61,14 @@ and stop — never commit churn.
   samples, and flipped tile source coordinates. Final
   `/tmp/mutants-md-vdp-render-2` reports `433 mutants tested in 2m: 419 caught,
   14 unviable`.
+- **Current fix:** frame render primitive shard
+  `/tmp/mutants-frame-render-primitives-1` found `244 mutants tested in 82s:
+  188 missed, 50 caught, 6 unviable`. Added render primitive/provenance tests
+  for command bounds, text glyph source mapping, tile row/slice/source
+  coordinates, priority clearing, palette resolution, and scene-pixel
+  acceptance, plus removed equivalent disjoint-bit/guard forms. Final
+  `/tmp/mutants-frame-render-primitives-5` reports `237 mutants tested in 83s:
+  231 caught, 6 unviable`.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,
   use the proactive-verification fallback in `loop.md`.
 

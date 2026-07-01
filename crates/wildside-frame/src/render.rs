@@ -199,7 +199,7 @@ fn md_word_from_rgb(red: u8, green: u8, blue: u8) -> u16 {
     let red = md_channel_from_expanded_rgb(red);
     let green = md_channel_from_expanded_rgb(green);
     let blue = md_channel_from_expanded_rgb(blue);
-    (u16::from(blue) << 9) | (u16::from(green) << 5) | (u16::from(red) << 1)
+    (u16::from(blue) << 9) + (u16::from(green) << 5) + (u16::from(red) << 1)
 }
 
 fn md_channel_from_expanded_rgb(value: u8) -> u8 {
@@ -632,7 +632,7 @@ pub fn apply_pause_palette_darken_loc_6c70(rgb: &mut [u8]) {
 
 fn pause_darken_expanded_channel_loc_6c70(channel: u8) -> u8 {
     let md_channel = ((u16::from(channel) * 7 + 127) / 255).min(7);
-    let raw_word = (md_channel << 9) | (md_channel << 5) | (md_channel << 1);
+    let raw_word = md_channel << 1;
     let mut palette_buffer = [0u16; 0x40];
     palette_buffer[0] = raw_word;
     pause_darken_palette_loc_6C70(&mut palette_buffer);
@@ -944,12 +944,11 @@ pub fn resolve_palette_colour(
             // line 1 with normal 4bpp pixel nibbles 1..7. Native stores the
             // compact 8-word background palette alone, so those nibbles still
             // address the local palette directly.
-            1 | 2 if (1..=7).contains(&palette_index) => {
-                palette.colours.get(usize::from(palette_index))
-            }
-            1 | 2 if (8..=15).contains(&palette_index) => {
-                palette.colours.get(usize::from(palette_index - 8))
-            }
+            1 | 2 => match palette_index {
+                1..=7 => palette.colours.get(usize::from(palette_index)),
+                8..=15 => palette.colours.get(usize::from(palette_index - 8)),
+                _ => None,
+            },
             _ => None,
         }
     } else {
@@ -986,6 +985,8 @@ pub fn set_pixel(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use wildside_render::{Palette, Tile, TileRef, TileSheet};
 
     fn test_colour(slot: u16) -> MdColour {
         MdColour {
@@ -994,6 +995,39 @@ mod tests {
             blue: slot.saturating_mul(3) as u8,
             raw_word: slot,
         }
+    }
+
+    fn test_palette(count: u16) -> Arc<Palette> {
+        Arc::new(Palette {
+            colours: (0..count).map(test_colour).collect(),
+        })
+    }
+
+    fn test_tile_sheet() -> Arc<TileSheet> {
+        let mut pixels = [0; 64];
+        for y in 0..8 {
+            for x in 0..8 {
+                pixels[y * 8 + x] = ((x + y) % 15 + 1) as u8;
+            }
+        }
+        Arc::new(TileSheet {
+            tiles: vec![Tile { pixels }],
+        })
+    }
+
+    fn test_tile_ref(priority: bool) -> TileRef {
+        TileRef {
+            tile_index: 0,
+            palette_line: 0,
+            priority,
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+
+    fn pixel_rgb(rgb: &[u8], x: i32, y: i32) -> [u8; 3] {
+        let index = ((y as u32 * FRAME_WIDTH + x as u32) as usize) * 3;
+        [rgb[index], rgb[index + 1], rgb[index + 2]]
     }
 
     #[test]
@@ -1007,6 +1041,25 @@ mod tests {
         };
 
         assert_eq!(resolve_palette_colour(&palette, 1, 8), Some([8, 16, 24]));
+    }
+
+    #[test]
+    fn palette_resolution_covers_compact_and_full_palette_offsets() {
+        let compact = Palette {
+            colours: (0..8).map(test_colour).collect(),
+        };
+        assert_eq!(resolve_palette_colour(&compact, 0, 0), None);
+        assert_eq!(resolve_palette_colour(&compact, 0, 7), Some([7, 14, 21]));
+        assert_eq!(resolve_palette_colour(&compact, 1, 0), None);
+        assert_eq!(resolve_palette_colour(&compact, 2, 15), Some([7, 14, 21]));
+        assert_eq!(resolve_palette_colour(&compact, 3, 1), None);
+
+        let full = Palette {
+            colours: (0..30).map(test_colour).collect(),
+        };
+        assert_eq!(resolve_palette_colour(&full, 0, 1), Some([0, 0, 0]));
+        assert_eq!(resolve_palette_colour(&full, 1, 1), Some([15, 30, 45]));
+        assert_eq!(resolve_palette_colour(&full, 1, 15), Some([29, 58, 87]));
     }
 
     #[test]
@@ -1083,5 +1136,474 @@ mod tests {
             vec![source.red, source.green, source.blue],
             "ASM loc_741E stops the fade only after progress passes `$0100`, so `$0100` is the full-bright frame"
         );
+    }
+
+    #[test]
+    fn command_pixel_write_reports_global_bounds_text_dimensions_and_sprite_offsets() {
+        assert!(
+            command_pixel_write(
+                0,
+                &DrawCommand::Tint {
+                    colour: [1, 2, 3],
+                    alpha: 4,
+                },
+                0,
+                0,
+            )
+            .is_some()
+        );
+        assert!(
+            command_pixel_write(
+                0,
+                &DrawCommand::Tint {
+                    colour: [1, 2, 3],
+                    alpha: 4,
+                },
+                0,
+                FRAME_HEIGHT as i32,
+            )
+            .is_none()
+        );
+        assert!(
+            command_pixel_write(
+                1,
+                &DrawCommand::PaletteFadeSub73D0 {
+                    target_word: 0,
+                    fade_progress: 0,
+                },
+                FRAME_WIDTH as i32,
+                0,
+            )
+            .is_none()
+        );
+
+        let text = command_pixel_write(
+            2,
+            &DrawCommand::Text {
+                x: 10,
+                y: 20,
+                text: "AB".to_owned(),
+                colour: [9, 8, 7],
+                scale: 2,
+            },
+            11,
+            24,
+        )
+        .expect("text command should report visible pixel provenance");
+        assert_eq!(text.width, Some(32));
+        assert_eq!(text.height, Some(16));
+
+        let tile_sheet = test_tile_sheet();
+        let palette = test_palette(16);
+        let sprite = command_pixel_write(
+            3,
+            &DrawCommand::Sprite {
+                x: 10,
+                y: 20,
+                tile_sheet,
+                palette,
+                tiles: vec![SpriteTile {
+                    offset_x: 2,
+                    offset_y: 3,
+                    tile: test_tile_ref(false),
+                }],
+            },
+            12,
+            23,
+        )
+        .expect("sprite command should apply per-tile offsets");
+        assert_eq!(sprite.origin_x, Some(12));
+        assert_eq!(sprite.origin_y, Some(23));
+        assert_eq!(sprite.source_x, Some(0));
+        assert_eq!(sprite.source_y, Some(0));
+    }
+
+    #[test]
+    fn rect_contains_uses_inclusive_start_exclusive_end_edges() {
+        assert!(rect_contains(10, 20, 3, 4, 10, 20));
+        assert!(rect_contains(10, 20, 3, 4, 12, 23));
+        assert!(!rect_contains(10, 20, 3, 4, 9, 20));
+        assert!(!rect_contains(10, 20, 3, 4, 13, 20));
+        assert!(!rect_contains(10, 20, 3, 4, 10, 19));
+        assert!(!rect_contains(10, 20, 3, 4, 10, 24));
+    }
+
+    #[test]
+    fn set_pixel_fill_and_clear_priority_apply_bounds_and_priority() {
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
+
+        fill_rect(&mut rgb, &mut high_priority_pixels, -1, -1, 3, 3, [1, 2, 3]);
+        assert_eq!(pixel_rgb(&rgb, 0, 0), [1, 2, 3]);
+        assert_eq!(pixel_rgb(&rgb, 1, 1), [1, 2, 3]);
+        assert_eq!(pixel_rgb(&rgb, 2, 2), [0, 0, 0]);
+
+        set_pixel(
+            &mut rgb,
+            &mut high_priority_pixels,
+            4,
+            5,
+            [9, 0, 0],
+            Some(true),
+        );
+        set_pixel(
+            &mut rgb,
+            &mut high_priority_pixels,
+            4,
+            5,
+            [0, 9, 0],
+            Some(false),
+        );
+        assert_eq!(pixel_rgb(&rgb, 4, 5), [9, 0, 0]);
+
+        clear_priority_rect(&mut high_priority_pixels, 4, 5, 1, 1);
+        set_pixel(
+            &mut rgb,
+            &mut high_priority_pixels,
+            4,
+            5,
+            [0, 9, 0],
+            Some(false),
+        );
+        assert_eq!(pixel_rgb(&rgb, 4, 5), [0, 9, 0]);
+
+        set_pixel(&mut rgb, &mut high_priority_pixels, -1, 5, [7, 7, 7], None);
+        set_pixel(
+            &mut rgb,
+            &mut high_priority_pixels,
+            FRAME_WIDTH as i32,
+            5,
+            [7, 7, 7],
+            None,
+        );
+        assert_eq!(pixel_rgb(&rgb, 4, 5), [0, 9, 0]);
+    }
+
+    #[test]
+    fn indexed_tile_primitives_report_flips_rows_slices_and_draw_pixels() {
+        let tile_sheet = test_tile_sheet();
+        let palette = test_palette(16);
+        let flipped = TileRef {
+            flip_x: true,
+            flip_y: true,
+            ..test_tile_ref(false)
+        };
+
+        let pixel = indexed_tile_pixel_write(
+            3,
+            "indexed_tile",
+            10,
+            20,
+            &tile_sheet,
+            flipped,
+            &palette,
+            11,
+            22,
+        )
+        .expect("flipped indexed tile pixel should be visible");
+        assert_eq!(pixel.source_x, Some(6));
+        assert_eq!(pixel.source_y, Some(5));
+        assert_eq!(pixel.palette_index, Some(12));
+        assert_eq!(pixel.rgb, Some([12, 24, 36]));
+        assert!(
+            indexed_tile_pixel_write(
+                3,
+                "indexed_tile",
+                10,
+                20,
+                &tile_sheet,
+                flipped,
+                &palette,
+                18,
+                20
+            )
+            .is_none()
+        );
+
+        let row =
+            indexed_tile_row_pixel_write(4, 10, 30, &tile_sheet, flipped, &palette, 2, 12, 30)
+                .expect("row pixel should use row as source y");
+        assert_eq!(row.kind, "indexed_tile_row");
+        assert_eq!(row.source_x, Some(5));
+        assert_eq!(row.source_y, Some(5));
+        assert!(
+            indexed_tile_row_pixel_write(4, 10, 30, &tile_sheet, flipped, &palette, 2, 11, 31)
+                .is_none()
+        );
+        assert!(
+            indexed_tile_row_pixel_write(4, 10, 30, &tile_sheet, flipped, &palette, 2, 72, 30)
+                .is_none()
+        );
+
+        let slice = indexed_tile_slice_pixel_write(
+            5,
+            10,
+            40,
+            &tile_sheet,
+            flipped,
+            &palette,
+            2,
+            1,
+            3,
+            12,
+            42,
+        )
+        .expect("slice pixel should use clipped column window");
+        assert_eq!(slice.kind, "indexed_tile_slice");
+        assert_eq!(slice.source_x, Some(5));
+        assert_eq!(slice.source_y, Some(5));
+        assert!(
+            indexed_tile_slice_pixel_write(
+                5,
+                10,
+                40,
+                &tile_sheet,
+                flipped,
+                &palette,
+                2,
+                1,
+                3,
+                10,
+                42
+            )
+            .is_none()
+        );
+        assert!(
+            indexed_tile_slice_pixel_write(
+                5,
+                10,
+                40,
+                &tile_sheet,
+                flipped,
+                &palette,
+                2,
+                1,
+                3,
+                14,
+                42
+            )
+            .is_none()
+        );
+
+        let mut rgb = vec![0; (FRAME_WIDTH * FRAME_HEIGHT * 3) as usize];
+        let mut high_priority_pixels = vec![false; (FRAME_WIDTH * FRAME_HEIGHT) as usize];
+        draw_indexed_tile(
+            &mut rgb,
+            &mut high_priority_pixels,
+            20,
+            50,
+            &tile_sheet,
+            flipped,
+            &palette,
+        );
+        assert_eq!(pixel_rgb(&rgb, 21, 52), [12, 24, 36]);
+
+        clear_frame(&mut rgb, [0, 0, 0]);
+        assert_eq!(pixel_rgb(&rgb, 21, 52), [0, 0, 0]);
+        draw_indexed_tile_row(
+            &mut rgb,
+            &mut high_priority_pixels,
+            20,
+            60,
+            &tile_sheet,
+            flipped,
+            &palette,
+            2,
+        );
+        assert_eq!(pixel_rgb(&rgb, 21, 60), [12, 24, 36]);
+        assert_eq!(pixel_rgb(&rgb, 21, 62), [0, 0, 0]);
+
+        draw_indexed_tile_slice(
+            &mut rgb,
+            &mut high_priority_pixels,
+            20,
+            70,
+            &tile_sheet,
+            flipped,
+            &palette,
+            2,
+            1,
+            3,
+        );
+        assert_eq!(pixel_rgb(&rgb, 22, 72), [11, 22, 33]);
+        assert_eq!(pixel_rgb(&rgb, 24, 72), [0, 0, 0]);
+    }
+
+    #[test]
+    fn text_pixel_visible_reports_scaled_source_and_newline_rows() {
+        let bitmap = BASIC_FONTS.get('A').expect("font has A");
+        let (source_y, row_bits) = bitmap
+            .iter()
+            .enumerate()
+            .find(|(_, bits)| **bits != 0)
+            .expect("A has visible pixels");
+        let source_x = (0..8)
+            .find(|column| row_bits & (1 << column) != 0)
+            .expect("A row has visible pixel");
+
+        assert_eq!(
+            text_pixel_visible(
+                10,
+                20,
+                "A\nB",
+                2,
+                10 + source_x * 2,
+                20 + source_y as i32 * 2
+            ),
+            Some((source_x as u8, source_y as u8))
+        );
+
+        let wide_pixel = ['M', 'W', 'H', 'X', '8']
+            .into_iter()
+            .find_map(|ch| {
+                let bitmap = BASIC_FONTS.get(ch)?;
+                for (source_y, bits) in bitmap.iter().enumerate().skip(6) {
+                    for source_x in 6..8 {
+                        if bits & (1 << source_x) != 0 {
+                            return Some((ch, source_x, source_y));
+                        }
+                    }
+                }
+                None
+            })
+            .expect("fixture font has a visible lower-right glyph pixel");
+        assert_eq!(
+            text_pixel_visible(
+                10,
+                20,
+                &wide_pixel.0.to_string(),
+                2,
+                10 + wide_pixel.1 * 2,
+                20 + wide_pixel.2 as i32 * 2
+            ),
+            Some((wide_pixel.1 as u8, wide_pixel.2 as u8)),
+            "scaled glyph bounds must cover the full 8x8 source, not only 8 + scale pixels"
+        );
+
+        let blank_a_row = bitmap
+            .iter()
+            .position(|bits| *bits == 0)
+            .expect("A has at least one blank source row");
+        assert_eq!(
+            text_pixel_visible(10, 20, "A", 2, 10, 20 + blank_a_row as i32 * 2),
+            None,
+            "transparent glyph pixels must not be reported as visible"
+        );
+        assert_eq!(
+            text_pixel_visible(
+                10,
+                20,
+                "AB",
+                2,
+                10 + 16 + source_x * 2,
+                20 + source_y as i32 * 2
+            ),
+            Some((source_x as u8, source_y as u8)),
+            "second glyph starts after 8 scaled source columns"
+        );
+        assert_eq!(
+            text_pixel_visible(10, 20, "A", 2, 10 + 16, 20),
+            None,
+            "the right edge after one scaled glyph is exclusive"
+        );
+
+        let bitmap_b = BASIC_FONTS.get('B').expect("font has B");
+        let (source_y_b, row_bits_b) = bitmap_b
+            .iter()
+            .enumerate()
+            .find(|(_, bits)| **bits != 0)
+            .expect("B has visible pixels");
+        let source_x_b = (0..8)
+            .find(|column| row_bits_b & (1 << column) != 0)
+            .expect("B row has visible pixel");
+        assert_eq!(
+            text_pixel_visible(
+                10,
+                20,
+                "A\nB",
+                2,
+                10 + source_x_b * 2,
+                20 + 10 * 2 + source_y_b as i32 * 2
+            ),
+            Some((source_x_b as u8, source_y_b as u8))
+        );
+        assert_eq!(text_pixel_visible(10, 20, "A", 0, 10, 20), None);
+    }
+
+    #[test]
+    fn scene_pixel_provenance_tracks_priority_acceptance_and_clear() {
+        let tile_sheet = test_tile_sheet();
+        let palette = test_palette(16);
+        let mut pixels = BTreeSet::new();
+        pixels.insert((5, 5));
+        pixels.insert((0, 0));
+        let scene = Scene {
+            background: [1, 1, 1],
+            commands: vec![
+                DrawCommand::Sprite {
+                    x: 5,
+                    y: 5,
+                    tile_sheet: Arc::clone(&tile_sheet),
+                    palette: Arc::clone(&palette),
+                    tiles: vec![SpriteTile {
+                        offset_x: 0,
+                        offset_y: 0,
+                        tile: test_tile_ref(true),
+                    }],
+                },
+                DrawCommand::Sprite {
+                    x: 5,
+                    y: 5,
+                    tile_sheet: Arc::clone(&tile_sheet),
+                    palette: Arc::clone(&palette),
+                    tiles: vec![SpriteTile {
+                        offset_x: 0,
+                        offset_y: 0,
+                        tile: test_tile_ref(false),
+                    }],
+                },
+                DrawCommand::ClearPriorityRect {
+                    x: 5,
+                    y: 5,
+                    width: 1,
+                    height: 1,
+                },
+                DrawCommand::Sprite {
+                    x: 5,
+                    y: 5,
+                    tile_sheet,
+                    palette,
+                    tiles: vec![SpriteTile {
+                        offset_x: 0,
+                        offset_y: 0,
+                        tile: test_tile_ref(false),
+                    }],
+                },
+            ],
+            pause_palette_darken: false,
+        };
+
+        let diagnostics = sample_scene_pixel_provenance(&scene, &pixels);
+        let target = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.x == 5 && diagnostic.y == 5)
+            .expect("target diagnostic exists");
+        assert_eq!(target.final_rgb, [1, 2, 3]);
+        assert!(!target.final_high_priority);
+        assert_eq!(target.writes.len(), 4);
+        assert!(target.writes[0].accepted);
+        assert!(target.writes[0].priority == Some(true));
+        assert!(!target.writes[1].accepted);
+        assert!(target.writes[1].prior_high_priority);
+        assert!(target.writes[2].accepted);
+        assert_eq!(target.writes[2].rgb, None);
+        assert!(target.writes[3].accepted);
+
+        let background = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.x == 0 && diagnostic.y == 0)
+            .expect("background diagnostic exists");
+        assert_eq!(background.final_rgb, [1, 1, 1]);
+        assert!(background.writes.is_empty());
     }
 }
