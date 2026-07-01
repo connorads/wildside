@@ -28,12 +28,13 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current fix:** frame sprite push/palette shard. Added command-stream
-  coverage for `push_player_sprite_with_priority_override`, death windup art,
-  flagpole priority override, boss-eye marker placement, player/enemy damage
-  flash palettes, and Heady Metal sub_379E8 palette slot writes. Focused
-  `/tmp/mutants-frame-sprites-push-2` reports `25 mutants tested in 32s:
-  20 caught, 5 unviable`.
+- **Current fix:** frame sprite tiling/player-frame shard. Added exact coverage
+  for 96x96 multi-band/multi-chunk sprite mapping plus ASM-cited player-frame
+  guard paths for loc_ABF0 pull-up saturation, Cyclone flight gating,
+  sub_B270 airborne slash fallback, Iron Knight climb clamping, loc_A13A slope
+  fallback tables, and the airborne zero-velocity fall pose. Focused
+  `/tmp/mutants-frame-sprites-tiling-player-frame-1` reports `124 mutants
+  tested in 47s: 122 caught, 2 unviable`.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 

@@ -2797,6 +2797,58 @@ mod tests {
                 .iter()
                 .all(|tile| tile.tile.priority && tile.tile.palette_line == 0)
         );
+
+        let full_bands_frame = wildside_render::SpriteFrame {
+            origin_x: 0,
+            origin_y: 0,
+            width_px: 96,
+            height_px: 96,
+            tile_base_index: 0x80,
+            tile_sheet: wildside_render::TileSheet { tiles: Vec::new() },
+        };
+        let full_bands = build_sprite_tiles_with_flip(&full_bands_frame, false, 1);
+        assert_eq!(
+            full_bands.len(),
+            144,
+            "96x96 sprites need three 32px mapping bands and three 32px chunks per band"
+        );
+        assert_eq!(
+            full_bands.first().map(|tile| tile.tile.tile_index),
+            Some(0x80)
+        );
+        assert_eq!(
+            full_bands.get(47).map(|tile| {
+                (
+                    tile.offset_x,
+                    tile.offset_y,
+                    tile.tile.tile_index,
+                    tile.tile.palette_line,
+                )
+            }),
+            Some((88, 24, 0xAF, 1))
+        );
+        assert_eq!(
+            full_bands.get(48).map(|tile| {
+                (
+                    tile.offset_x,
+                    tile.offset_y,
+                    tile.tile.tile_index,
+                    tile.tile.palette_line,
+                )
+            }),
+            Some((0, 32, 0xB0, 1))
+        );
+        assert_eq!(
+            full_bands.last().map(|tile| {
+                (
+                    tile.offset_x,
+                    tile.offset_y,
+                    tile.tile.tile_index,
+                    tile.tile.palette_line,
+                )
+            }),
+            Some((88, 88, 0x10F, 1))
+        );
     }
 
     #[test]
@@ -3633,6 +3685,17 @@ mod tests {
         assert_eq!(
             selected_tile_base(
                 &NativeTraceFrame {
+                    ledge_snap_cooldown: 12,
+                    kid_x_velocity: Some(0x1000),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0900
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
                     ledge_snap_cooldown: 6,
                     kid_x_velocity: Some(0x1000),
                     ..NativeTraceFrame::default()
@@ -3644,6 +3707,17 @@ mod tests {
 
         // ASM sub_B270 loc_B2A0: Cyclone flight uses phase >> 8, clamped to
         // the loaded spin frames.
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    cyclone_flying: true,
+                    walk_visual_accumulator: 0x0200,
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0100
+        );
         assert_eq!(
             selected_tile_base(
                 &NativeTraceFrame {
@@ -3710,6 +3784,18 @@ mod tests {
         assert_eq!(
             selected_tile_base(
                 &NativeTraceFrame {
+                    kid_on_ground: Some(false),
+                    red_stealth_airborne_slash_counter: 0x40,
+                    red_stealth_sword_timer: 9,
+                    ..NativeTraceFrame::default()
+                },
+                &short_slash_visuals
+            ),
+            0x0B02
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
                     kid_on_ground: Some(true),
                     red_stealth_sword_timer: 1,
                     ..NativeTraceFrame::default()
@@ -3773,6 +3859,21 @@ mod tests {
             ),
             0x0502
         );
+        let mut short_climb_visuals = labelled_player_visuals();
+        short_climb_visuals.climb.truncate(2);
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    current_helmet_id: PlayerForm::IronKnight.helmet_id(),
+                    iron_knight_climbing: true,
+                    iron_knight_climb_pose_accum: 0x80,
+                    kid_y_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &short_climb_visuals
+            ),
+            0x0501
+        );
     }
 
     #[test]
@@ -3823,6 +3924,35 @@ mod tests {
             ),
             0x0601
         );
+        let mut fallback_slope_visuals = labelled_player_visuals();
+        fallback_slope_visuals.slope_walk_left.clear();
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_slope: 1,
+                    kid_facing: Some(Direction::Right),
+                    walk_visual_accumulator: 0x0100,
+                    kid_x_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &fallback_slope_visuals
+            ),
+            0x0201
+        );
+        fallback_slope_visuals.slope_walk.clear();
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_slope: 1,
+                    kid_facing: Some(Direction::Left),
+                    walk_visual_accumulator: 0x0200,
+                    kid_x_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &fallback_slope_visuals
+            ),
+            0x0202
+        );
 
         // ASM loc_9580/loc_9600: Berzerker latched walk pose wins even when
         // sampled velocity is zero; ordinary walk still uses the same phase.
@@ -3860,6 +3990,17 @@ mod tests {
                 &visuals
             ),
             0x0800
+        );
+        assert_eq!(
+            selected_tile_base(
+                &NativeTraceFrame {
+                    kid_on_ground: Some(false),
+                    kid_y_velocity: Some(0),
+                    ..NativeTraceFrame::default()
+                },
+                &visuals
+            ),
+            0x0801
         );
         assert_eq!(
             selected_tile_base(

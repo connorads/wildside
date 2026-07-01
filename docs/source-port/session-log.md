@@ -7,6 +7,22 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive frame sprite tiling/player-frame hardening)
+
+- **Fallback verification hardened.** With no ready/open rows, continued the
+  `wildside-frame` sprite mutation pass into generic sprite tiling and
+  `select_player_frame` guard edges.
+- This pass adds exact coverage for 96x96 multi-band/multi-chunk sprite mapping
+  and ASM-cited player-frame guard paths: loc_ABF0 pull-up saturation, Cyclone
+  flight gating, sub_B270 airborne slash fallback, Iron Knight climb clamping,
+  loc_A13A slope fallback tables, and the airborne zero-velocity fall pose.
+- Evidence: focused rerun `/tmp/mutants-frame-sprites-tiling-player-frame-1`
+  reports `124 mutants tested in 47s: 122 caught, 2 unviable`.
+- Verification: `cargo fmt --check`, `cargo test -q -p wildside-frame
+  sprites::tests -- --nocapture`, and the focused mutation rerun completed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused frame/core shard.
+
 ## 2026-07-01 handoff (proactive frame sprite push hardening)
 
 - **Fallback verification hardened.** With no ready/open rows, continued the
