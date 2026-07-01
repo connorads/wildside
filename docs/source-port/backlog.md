@@ -28,13 +28,13 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive Orca enemy mutation slice. The
-  single-file wrapper on `crates/wildside-core/src/enemies/orca.rs` reports
-  `/tmp/mutants-orca-proactive-1`: `91 mutants tested in 9m: 74 caught,
-  17 unviable`. No source edit was warranted; the existing ASM-cited Orca init,
-  collision/damage/death routing, lunge decision/windup/launch, landing resume,
-  Berzerker side-contact/airborne, and live-step tests killed every viable
-  mutant.
+- **Current verification:** proactive Robot enemy mutation slice. The
+  single-file wrapper on `crates/wildside-core/src/enemies/robot.rs` reports
+  `/tmp/mutants-robot-proactive-1`: `105 mutants tested in 11m: 93 caught,
+  12 unviable`. No source edit was warranted; the existing ASM-cited Robot walk
+  speed, collision/charge routing, shooting windup/hold/recovery, projectile
+  spawn/flight/impact, Berzerker side-contact, and live-step tests killed every
+  viable mutant.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
 

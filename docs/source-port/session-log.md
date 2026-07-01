@@ -7,6 +7,21 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive Robot enemy mutation check)
+
+- **Fallback verification checked.** With no ready/open rows, ran the
+  single-file mutation wrapper against `enemies/robot.rs`.
+- The slice covers the ASM-cited Robot walk speed, jump sound edge, collision
+  dispatch, charge entry/direction, shooting windup/hold/recovery, shooting
+  collision and Berzerker side-contact routing, projectile spawn/flight/impact,
+  child/head state, and live-step branches.
+- Evidence: `/tmp/mutants-robot-proactive-1` reports `105 mutants tested in
+  11m: 93 caught, 12 unviable`.
+- Verification: the Robot mutation run completed with no survivors; no source
+  regression was warranted.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused core or frame shard.
+
 ## 2026-07-01 handoff (proactive Orca enemy mutation check)
 
 - **Fallback verification checked.** With no ready/open rows, ran the
