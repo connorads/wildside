@@ -7,6 +7,20 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive data level-layout mutation shard)
+
+- **Fallback verification completed.** With no ready/open rows, ran a focused
+  mutation shard on `crates/wildside-data/src/level_layout.rs`.
+- Evidence: `TMPDIR=/tmp KID_REPO_ROOT="$(pwd)" cargo mutants -p
+  wildside-data -f crates/wildside-data/src/level_layout.rs -j 1
+  --gitignore=true --output /tmp/mutants-data-level-layout-proactive -- --lib`
+  reports `30 mutants tested in 53s: 30 caught`, with zero missed mutants and
+  zero timeouts.
+- Native data level-layout behaviour is unchanged. Existing ASM-cited layout
+  helper tests catch this shard's viable mutations.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused shard.
+
 ## 2026-07-01 handoff (proactive render level mutation shard)
 
 - **Fallback verification completed.** With no ready/open rows, ran a focused
