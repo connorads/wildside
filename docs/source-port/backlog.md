@@ -33,17 +33,15 @@ and stop — never commit churn.
   `OUTPUT=.cache/mutants/vdp-current FILE=crates/wildside-core/src/vdp.rs
   mise run mutants-file`, which reported `800 mutants tested in 48m: 98
   missed, 286 caught, 408 unviable, 8 timeouts`.
-- **VDP follow-up evidence:** added direct regressions for intro cold-boot and
-  handoff boundary frames (`loc_12EDE`, `sub_1B8F4`, `loc_1B9D0`,
-  `sub_1C204`), IntroSequence5 `loc_1BA90` fade-hold worker/palette state,
-  and the IntroSequence2 `loc_1BA02` sky-reveal terminal clamp. Targeted rerun
-  `/tmp/mutants-vdp-intro-boundaries-2` reports `65 mutants tested in 4m: 7
-  missed, 54 caught, 4 unviable`; follow-up
-  `/tmp/mutants-vdp-coldboot-3` reports `13 mutants tested in 88s: 2 missed,
-  10 caught, 1 unviable`. Remaining focused misses are equivalent/unreachable:
-  a post-return `segment == 1` branch, saturated Sega handoff `+`→`-`, full
-  palette fade `<=` clamps, and sky-reveal loop-bound mutants that produce the
-  same upload slice in the tested terminal window. `cargo fmt --check` and
+- **VDP follow-up evidence:** added direct regressions for IntroSequence5
+  `loc_1BE3C/loc_1BE74` particle movement and DBF deletion boundaries. Focused
+  mutation rerun `/tmp/mutants-vdp-intro5-particles-1` reports `19 mutants
+  tested in 2m: 19 caught`. Earlier intro-boundary evidence remains in
+  `session-log.md`: `/tmp/mutants-vdp-intro-boundaries-2` reported `65 mutants
+  tested in 4m: 7 missed, 54 caught, 4 unviable`, and
+  `/tmp/mutants-vdp-coldboot-3` reported `13 mutants tested in 88s: 2 missed,
+  10 caught, 1 unviable`, with remaining misses equivalent/unreachable.
+  `cargo fmt --check` and
   `cargo test -q -p wildside-core vdp::tests -- --nocapture` are green;
   `mise run verify-slice-fast` passes.
 - **Next selector output:** run `mise run project-status` after commit; if no ready/open risks remain,

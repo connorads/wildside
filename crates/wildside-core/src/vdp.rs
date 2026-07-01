@@ -4450,6 +4450,37 @@ mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    fn intro_sequence_5_loc_1BE3C_particles_move_on_first_visible_frame() {
+        let mut entries = Vec::new();
+        append_intro_sequence_5_particles_loc_1BE3C(&mut entries, 1);
+
+        assert_eq!(
+            entries[0],
+            HardwareSpriteEntry {
+                y_pos: 0x00BF,
+                size_byte: 0x0F,
+                pattern: 0x42D2,
+                x_pos: 0x008E,
+            },
+            "ASM loc_1BE3C/loc_1BE74 applies the signed x/y velocities before the first post-spawn particle frame is displayed",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn intro_sequence_5_loc_1BE3C_keeps_short_particles_through_dbf_zero() {
+        let mut entries = Vec::new();
+        append_intro_sequence_5_particles_loc_1BE3C(&mut entries, 0x28);
+
+        assert_eq!(
+            entries.len(),
+            10,
+            "ASM loc_1BE74 uses DBF semantics: particles with loop count `$28` still display when the counter reaches zero",
+        );
+    }
+
+    #[test]
+    #[allow(non_snake_case)]
     fn intro_sequence_5_loc_1BE88_centre_particle_uses_post_hibernate_gravity_order() {
         let mut entries = Vec::new();
         append_intro_sequence_5_center_particle_loc_1BE88(&mut entries, 0, 0x40);

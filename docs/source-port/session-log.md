@@ -7,6 +7,25 @@ Newest entries first. This is narrative history; per-issue evidence keyed by
 
 ---
 
+## 2026-07-01 handoff (proactive VDP intro-5 particle mutation hardening)
+
+- **Fallback verification hardened.** With no ready/open rows,
+  continued mutation hardening in `crates/wildside-core/src/vdp.rs`, targeting
+  the IntroSequence5 particle worker survivor family left by the wider VDP
+  shard.
+- This pass adds ASM-cited regressions for `loc_1BE3C/loc_1BE74`: the first
+  post-spawn particle frame must apply the signed x/y velocities before display,
+  and the short `$28` particles must remain visible when the DBF counter reaches
+  zero.
+- Evidence: focused rerun `/tmp/mutants-vdp-intro5-particles-1` reports
+  `19 mutants tested in 2m: 19 caught`.
+- Verification: `cargo fmt --check`,
+  `cargo test -q -p wildside-core vdp::tests -- --nocapture`, and
+  `mise run verify-slice-fast` passed.
+- NEXT: run `mise run project-status`; if no ready/open item appears, continue
+  `loop.md` proactive verification on another focused VDP survivor family or a
+  new file shard.
+
 ## 2026-07-01 handoff (proactive VDP intro-boundary mutation hardening)
 
 - **Fallback verification hardened.** With no ready/open rows,
