@@ -28,11 +28,10 @@ and stop — never commit churn.
 - **Select work with `mise run project-status`** (priority-ordered; take its top ready/open item, do not eyeball file order).
 - **2026-07-01 loop handoff:** no ready/open agent rows remain; only `[?]`/`[b]`
   human validation/repro blockers are listed by `mise run project-status`.
-- **Current verification:** proactive render palette mutation shard. After
-  `crates/wildside-render/src/player.rs` produced no non-test mutants, ran a
-  direct `cargo mutants` shard against `crates/wildside-render/src/palette.rs`.
-  `/tmp/mutants-render-palette-proactive-1` reports `35 mutants tested in 65s:
-  33 caught, 2 unviable`, with zero missed mutants and zero timeouts. No source
+- **Current verification:** proactive render tiles mutation shard. Ran a direct
+  `cargo mutants` shard against `crates/wildside-render/src/tiles.rs`.
+  `/tmp/mutants-render-tiles-proactive-1` reports `38 mutants tested in 68s:
+  34 caught, 4 unviable`, with zero missed mutants and zero timeouts. No source
   regression was warranted.
 - **Next output:** run `mise run project-status` after commit; if no ready/open
   risks remain, use the proactive-verification fallback in `loop.md`.
